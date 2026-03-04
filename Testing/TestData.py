@@ -44,4 +44,7 @@ def generate_schedule(assignments):
 
 # print(sort_by_due_date(assignments))
 # print(sort_by_priority(assignments))
-print(generate_schedule(assignments))
+#print(generate_schedule(assignments))
+for assignment in generate_schedule(assignments):
+    print(f"{assignment['title']} - {assignment['course']} - Due: {assignment['due_date']} - Priority: {assignment['priority']}")
+# Generate Schedule prioritizes by priority first, then by due date. So Homework 4 (High) comes before Homework 2 (Medium) and Homework 1 and 3 (Low). Among the Low priority assignments, Homework 1 comes before Homework 3 because it has an earlier due date.
