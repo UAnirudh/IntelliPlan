@@ -19,37 +19,37 @@ app = flask.Flask(__name__)
 def home():
     return render_template('index.html')
 
-@app.route('/schedule')
-def data():
-    return flask.jsonify(TestData.generate_schedule(TestData.assignments))
+# @app.route('/schedule')
+# def data():
+#     return flask.jsonify(TestData.generate_schedule(TestData.assignments))
 
-@app.route('/courses')
-def get_courses():
-    headers = {"Authorization": f"Bearer {CANVAS_TOKEN}"}
-    response = requests.get(f"{CANVAS_BASE}/courses", headers=headers)
-    return flask.jsonify(response.json())
+# @app.route('/courses')
+# def get_courses():
+#     headers = {"Authorization": f"Bearer {CANVAS_TOKEN}"}
+#     response = requests.get(f"{CANVAS_BASE}/courses", headers=headers)
+#     return flask.jsonify(response.json())
 
-@app.route('/assignments')
-def get_assignments():
-    headers = {"Authorization": f"Bearer {CANVAS_TOKEN}"}
-    response = requests.get(f"{CANVAS_BASE}/courses/14365743/assignments", headers=headers)
-    return flask.jsonify(response.json())
+# @app.route('/assignments')
+# def get_assignments():
+#     headers = {"Authorization": f"Bearer {CANVAS_TOKEN}"}
+#     response = requests.get(f"{CANVAS_BASE}/courses/14365743/assignments", headers=headers)
+#     return flask.jsonify(response.json())
 
-@app.route('/clean')
-def get_clean_assignments():
-    headers = {"Authorization": f"Bearer {CANVAS_TOKEN}"}
-    response = requests.get(f"{CANVAS_BASE}/courses/14365743/assignments", headers=headers)
-    assignments = response.json()  
-    clean = []
-    for a in assignments:
-        clean.append({
-            "name": a["name"],
-            "due_at": a["due_at"],
-            "points_possible": a["points_possible"],
-            "course_id": a["course_id"]
-        })
-    sorted_clean = sorted(clean, key=lambda x: x['due_at'])
-    return flask.jsonify(sorted_clean)
+# @app.route('/clean')
+# def get_clean_assignments():
+#     headers = {"Authorization": f"Bearer {CANVAS_TOKEN}"}
+#     response = requests.get(f"{CANVAS_BASE}/courses/14365743/assignments", headers=headers)
+#     assignments = response.json()  
+#     clean = []
+#     for a in assignments:
+#         clean.append({
+#             "name": a["name"],
+#             "due_at": a["due_at"],
+#             "points_possible": a["points_possible"],
+#             "course_id": a["course_id"]
+#         })
+#     sorted_clean = sorted(clean, key=lambda x: x['due_at'])
+#     return flask.jsonify(sorted_clean)
 @app.route('/live')
 def get_live_schedule():
     headers = {"Authorization": f"Bearer {CANVAS_TOKEN}"}
