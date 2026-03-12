@@ -40,7 +40,9 @@ def generate_schedule(assignments):
     schedule = []
     priority_order = {"High": 1, "Medium": 2, "Low": 3}
     return sorted(assignments, key=lambda x: (priority_order[x['priority']], x['due_date']))
-    
+
+
+
 
 # print(sort_by_due_date(assignments))
 # print(sort_by_priority(assignments))
