@@ -630,17 +630,22 @@
   }
 
   // ── FILTERS ──
+function attachFilterListeners() {
   document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       const filter = btn.dataset.filter;
+      const filterType = btn.dataset.filterType;
       const filtered = filter === 'all'
         ? allAssignments
-        : allAssignments.filter(a => a.priority.toLowerCase() === filter);
+        : filterType === 'course'
+          ? allAssignments.filter(a => a.course === filter)
+          : allAssignments.filter(a => a.priority.toLowerCase() === filter);
       renderCards(filtered);
     });
   });
+}
 
   // ── FETCH FROM FLASK ──
   fetch('/live')
@@ -649,6 +654,17 @@
       allAssignments = data;
       updateStats(data);
       renderCards(data);
+      const courseNames = [...new Set(data.map(a => a.course))];
+      const filterBar = document.querySelector('.filter-bar');
+      courseNames.forEach(course => {
+        const btn = document.createElement('button');
+        btn.className = 'filter-btn';
+        btn.dataset.filter = course;
+        btn.dataset.filterType = 'course';
+        btn.textContent = '📚 ' + course;
+        filterBar.appendChild(btn);
+});
+attachFilterListeners();
     })
     .catch(() => {
       document.getElementById('assignmentsList').innerHTML =
