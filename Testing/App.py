@@ -12,7 +12,15 @@ app = flask.Flask(__name__)
 
 @app.route('/')
 def home():
-    return render_template('index.html')
+    return render_template('index.html', active_page='home')
+
+@app.route('/priority')
+def priority():
+    return render_template('priority.html', active_page='priority')
+
+@app.route('/classes')
+def classes():
+    return render_template('classes.html', active_page='classes')
 
 @app.route('/live')
 def get_live_schedule():
@@ -41,6 +49,10 @@ def get_live_schedule():
         elif days <= 7: priority = "Medium"
         else: priority = "Low"
         # estimated_time logic here
+        if a["due_at"] is None:
+            continue
+        if a["points_possible"] is None:
+            a["points_possible"] = 60
         raw_minutes = a["points_possible"] * 1.5
         rounded_minutes = round(raw_minutes / 30) * 30
         rounded_minutes = max(30, rounded_minutes)

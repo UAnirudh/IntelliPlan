@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Classes View</h1>
+  <p class="page-subtitle">Assignments grouped by course</p>
+</div>
+
+<div class="stats-bar" id="statsBar">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#dbeafe;">📚</div>
+    <div class="stat-info">
+      <div class="stat-value" id="statCourses">—</div>
+      <div class="stat-label">Total Courses</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fef2f2;">📝</div>
+    <div class="stat-info">
+      <div class="stat-value" id="statTotal">—</div>
+      <div class="stat-label">Total Assignments</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#f0fdf4;">⏱</div>
+    <div class="stat-info">
+      <div class="stat-value" id="statTime">—</div>
+      <div class="stat-label">Total Study Time</div>
+    </div>
+  </div>
+</div>
+
+<div class="dropdown-wrap">
+  <button class="dropdown-btn" id="classDropBtn">
+    📚 Select a Course <span class="chevron">▾</span>
+  </button>
+  <div class="dropdown-menu" id="classMenu">
+    <div class="dropdown-item" data-filter="all">📋 All Courses</div>
+  </div>
+</div>
+
+<div id="assignmentsList" class="assignments-list" style="margin-top: 1.5rem;">
+  <div class="loading">
+    <div class="spinner"></div>
+    <p>Loading assignments...</p>
+  </div>
+</div>
+
+<div class="empty-state" id="emptyState">
+  <div class="empty-icon">📚</div>
+  <div class="empty-title">No assignments found</div>
+  <p>Try selecting a different course</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+let allAssignments = [];
+let currentCourse = 'all';
+
+function formatDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatTime(mins) {
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
+
+function daysUntil(dateStr) {
+  const due = new Date(dateStr + 'T00:00:00');
+  const now = new Date(); now.setHours(0,0,0,0);
+  const diff = Math.round((due - now) / 86400000);
+  if (diff < 0)  return '⚠️ Overdue';
+  if (diff === 0) return '📌 Due today';
+  if (diff === 1) return '⏰ Due tomorrow';
+  return `📅 ${diff} days left`;
+}
+
+function renderCards(assignments) {
+  const list = document.getElementById('assignmentsList');
+  const empty = document.getElementById('emptyState');
+  list.innerHTML = '';
+
+  if (!assignments.length) {
+    empty.classList.add('visible');
+    return;
+  }
+  empty.classList.remove('visible');
+
+  assignments.forEach((a, i) => {
+    const priority = a.priority.toLowerCase();
+    const card = document.createElement('div');
+    card.className = `assignment-card ${priority}`;
+    card.style.animationDelay = `${i * 0.07}s`;
+    card.innerHTML = `
+      <div class="rank-bubble">#${i + 1}</div>
+      <div class="card-main">
+        <div class="card-title">${a.title}</div>
+        <div class="card-meta">
+          <span class="meta-item">📚 ${a.course}</span>
+          <span class="meta-item">📅 ${formatDate(a.due_date)}</span>
+          <span class="meta-item">${daysUntil(a.due_date)}</span>
+        </div>
+      </div>
+      <span class="time-pill">⏱ ${formatTime(a.estimated_time)}</span>
+      <span class="priority-badge ${priority}">${a.priority}</span>
+    `;
+    list.appendChild(card);
+  });
+}
+
+function updateStats(assignments) {
+  const courses = [...new Set(assignments.map(a => a.course))];
+  const totalTime = assignments.reduce((sum, a) => sum + a.estimated_time, 0);
+  document.getElementById('statCourses').textContent = courses.length;
+  document.getElementById('statTotal').textContent = assignments.length;
+  document.getElementById('statTime').textContent = formatTime(totalTime);
+}
+
+function populateDropdown(assignments) {
+  const menu = document.getElementById('classMenu');
+  const courses = [...new Set(assignments.map(a => a.course))];
+  courses.forEach(course => {
+    const item = document.createElement('div');
+    item.className = 'dropdown-item';
+    item.dataset.filter = course;
+    item.textContent = '📚 ' + course;
+    menu.appendChild(item);
+  });
+  attachDropdownListeners();
+}
+
+function attachDropdownListeners() {
+  document.querySelectorAll('.dropdown-item').forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+      currentCourse = item.dataset.filter;
+      dropBtn.innerHTML = `📚 ${currentCourse === 'all' ? 'All Courses' : currentCourse} <span class="chevron">▾</span>`;
+      dropMenu.classList.remove('open');
+      const filtered = currentCourse === 'all'
+        ? allAssignments
+        : allAssignments.filter(a => a.course === currentCourse);
+      renderCards(filtered);
+    });
+  });
+}
+
+const dropBtn = document.getElementById('classDropBtn');
+const dropMenu = document.getElementById('classMenu');
+
+dropBtn.addEventListener('click', () => {
+  dropMenu.classList.toggle('open');
+});
+
+document.addEventListener('click', (e) => {
+  if (!dropBtn.contains(e.target) && !dropMenu.contains(e.target)) {
+    dropMenu.classList.remove('open');
+  }
+});
+
+fetch('/live')
+  .then(r => r.json())
+  .then(data => {
+    allAssignments = data;
+    updateStats(data);
+    populateDropdown(data);
+    renderCards(data);
+  })
+  .catch(() => {
+    document.getElementById('assignmentsList').innerHTML =
+      '<div class="loading"><p>⚠️ Could not connect to backend.</p></div>';
+  });
+{% endblock %}
