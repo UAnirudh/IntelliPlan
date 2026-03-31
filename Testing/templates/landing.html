@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<!-- Hero Section -->
+<div class="hero">
+  <div class="hero-badge">✨ AI-Powered Study Planning</div>
+  <h1 class="hero-title">Study Smarter,<br>Not Harder.</h1>
+  <p class="hero-subtitle">IntelliPlan connects to your Canvas courses and builds a personalized study schedule — automatically prioritized by due date, difficulty, and your available time.</p>
+  <div class="hero-actions">
+    <a href="/schedule" class="btn-primary">Get Started Free</a>
+    <a href="#features" class="btn-secondary">See How It Works</a>
+  </div>
+</div>
+
+<!-- Features Section -->
+<div class="features" id="features">
+  <div class="features-header">
+    <h2 class="features-title">Everything you need to stay on top</h2>
+    <p class="features-subtitle">Built for students who want to stop guessing and start succeeding</p>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">📅</div>
+      <h3 class="feature-title">Smart Scheduling</h3>
+      <p class="feature-desc">Automatically pulls assignments from Canvas and prioritizes them by urgency, points, and due date.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🎯</div>
+      <h3 class="feature-title">Priority Scoring</h3>
+      <p class="feature-desc">High, Medium, and Low priority labels so you always know what needs your attention first.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⏱</div>
+      <h3 class="feature-title">Time Estimation</h3>
+      <p class="feature-desc">Estimates how long each assignment will take so you can plan your week without surprises.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📚</div>
+      <h3 class="feature-title">Course View</h3>
+      <p class="feature-desc">Filter assignments by course so you can focus on one class at a time when you need to.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🌙</div>
+      <h3 class="feature-title">Dark Mode</h3>
+      <p class="feature-desc">Easy on the eyes during late night study sessions. Automatically remembers your preference.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🤖</div>
+      <h3 class="feature-title">AI Scheduler</h3>
+      <p class="feature-desc">Coming soon — AI-generated study plans that adapt to your performance and schedule in real time.</p>
+    </div>
+  </div>
+</div>
+
+<!-- CTA Section -->
+<div class="cta-section">
+  <h2 class="cta-title">Ready to take control of your studies?</h2>
+  <p class="cta-subtitle">Join students already using IntelliPlan to stay ahead.</p>
+  <a href="/schedule" class="btn-primary">Get Started Free</a>
+</div>
+
+{% endblock %}

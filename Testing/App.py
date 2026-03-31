@@ -11,6 +11,10 @@ CANVAS_BASE = "https://canvas.instructure.com/api/v1"
 app = flask.Flask(__name__)
 
 @app.route('/')
+def landing():
+    return render_template('landing.html', active_page='landing')
+
+@app.route('/schedule')
 def home():
     return render_template('index.html', active_page='home')
 
@@ -21,6 +25,10 @@ def priority():
 @app.route('/classes')
 def classes():
     return render_template('classes.html', active_page='classes')
+
+@app.route('/login')
+def login():
+    return render_template('login.html', active_page='login')
 
 @app.route('/live')
 def get_live_schedule():
