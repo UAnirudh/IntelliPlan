@@ -806,6 +806,22 @@
     .login-link:hover {
       text-decoration: underline;
     }
+    .login-error {
+      background: var(--high-bg);
+      color: var(--high);
+      border: 1px solid var(--high);
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-bottom: 1.25rem;
+    }
+
+    .form-hint {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
   </style>
 </head>
 <body>
@@ -822,6 +838,7 @@
       <a href="/priority" class="nav-tab {% if active_page == 'priority' %}active{% endif %}">Priority</a>
       <a href="/classes" class="nav-tab {% if active_page == 'classes' %}active{% endif %}">Classes</a>
       <a href="/login" class="nav-tab {% if active_page == 'login' %}active{% endif %}">Login</a>
+      <a href="/logout" class="nav-tab">Logout</a>
     </nav>
     <span class="date-badge" id="dateBadge"></span>
     <label class="toggle" title="Toggle dark mode">
