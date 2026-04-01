@@ -9,7 +9,10 @@ from datetime import timedelta
 
 load_dotenv()
 
-app = flask.Flask(__name__)
+app = flask.Flask(
+    __name__,
+    template_folder="Main_Project/templates",
+)
 app.secret_key = os.getenv("SECRET_KEY", "intelliplan-dev-key")
 app.permanent_session_lifetime = timedelta(days=7)
 
