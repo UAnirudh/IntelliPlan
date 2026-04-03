@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime, timezone
 from datetime import timedelta
+from studentvue_helper import test_login, get_assignments as get_sv_assignments
 
 
 load_dotenv()
@@ -24,9 +25,31 @@ def landing():
 
 @app.route('/schedule')
 def home():
-    if 'canvas_token' not in session:
+    if 'canvas_token' not in session and session.get('login_type') != 'studentvue':
         return redirect(url_for('login'))
     return render_template('index.html', active_page='home')
+
+
+@app.route('/login/studentvue', methods=['GET', 'POST'])
+def login_studentvue():
+    error = None
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+        district_url = request.form.get('district_url', '').strip().rstrip('/')
+        if not username or not password or not district_url:
+            error = "Please fill in all fields."
+        else:
+            if test_login(district_url, username, password):
+                session.permanent = True
+                session['sv_username'] = username
+                session['sv_password'] = password
+                session['sv_district_url'] = district_url
+                session['login_type'] = 'studentvue'
+                return redirect(url_for('home'))
+            else:
+                error = "Invalid credentials. Please check and try again."
+    return render_template('login_studentvue.html', active_page='login', error=error)   
 
 @app.route('/priority')
 def priority():
@@ -70,6 +93,16 @@ def logout():
 
 @app.route('/live')
 def get_live_schedule():
+    login_type = session.get('login_type', 'canvas')
+    
+    if login_type == 'studentvue':
+        username = session.get('sv_username')
+        password = session.get('sv_password')
+        district_url = session.get('sv_district_url')
+        sorted_schedule = get_sv_assignments(district_url, username, password)
+        return flask.jsonify(sorted_schedule)
+    
+    # Canvas login
     token = session.get('canvas_token') or os.getenv("CANVAS_TOKEN")
     canvas_url = session.get('canvas_url') or "https://canvas.instructure.com"
     base = f"{canvas_url}/api/v1"
