@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Grades</h1>
+  <p class="page-subtitle">Your current grades across all courses</p>
+</div>
+
+<div class="grades-grid" id="gradesGrid">
+  <div class="loading">
+    <div class="spinner"></div>
+    <p>Loading grades...</p>
+  </div>
+</div>
+
+<div class="empty-state" id="emptyState">
+  <div class="empty-icon">📊</div>
+  <div class="empty-title">No grades available</div>
+  <p>Grades will appear here once they are posted</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+function getLetterColor(letter) {
+  if (letter.startsWith('A')) return { bg: 'var(--low-bg)', color: 'var(--low)' };
+  if (letter.startsWith('B')) return { bg: 'var(--accent-soft)', color: 'var(--accent)' };
+  if (letter.startsWith('C')) return { bg: 'var(--medium-bg)', color: 'var(--medium)' };
+  return { bg: 'var(--high-bg)', color: 'var(--high)' };
+}
+
+function getBarWidth(percentage) {
+  if (!percentage) return 0;
+  return Math.min(percentage, 100);
+}
+
+fetch('/grades/data')
+  .then(r => r.json())
+  .then(data => {
+    const grid = document.getElementById('gradesGrid');
+    const empty = document.getElementById('emptyState');
+    grid.innerHTML = '';
+
+    if (!data.length) {
+      empty.classList.add('visible');
+      return;
+    }
+
+    data.forEach((g, i) => {
+      const colors = getLetterColor(g.letter);
+      const bar = getBarWidth(g.percentage);
+      const card = document.createElement('div');
+      card.className = 'grade-card';
+      card.style.animationDelay = `${i * 0.07}s`;
+      card.innerHTML = `
+        <div class="grade-card-header">
+          <div class="grade-card-info">
+            <div class="grade-course-name">${g.course}</div>
+            <div class="grade-teacher">👤 ${g.teacher}</div>
+          </div>
+          <div class="grade-badge" style="background:${colors.bg}; color:${colors.color};">
+            ${g.letter}
+          </div>
+        </div>
+        <div class="grade-bar-wrap">
+          <div class="grade-bar" style="width:${bar}%; background:${colors.color};"></div>
+        </div>
+        <div class="grade-percentage">${g.percentage !== null ? g.percentage + '%' : 'N/A'}</div>
+      `;
+      grid.appendChild(card);
+    });
+  })
+  .catch(() => {
+    document.getElementById('gradesGrid').innerHTML =
+      '<div class="loading"><p>⚠️ Could not load grades.</p></div>';
+  });
+{% endblock %}

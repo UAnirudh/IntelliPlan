@@ -3,10 +3,8 @@ from flask import render_template, request, redirect, session, url_for
 import requests
 import os
 from dotenv import load_dotenv
-from datetime import datetime, timezone
-from datetime import timedelta
+from datetime import datetime, timezone, timedelta
 from studentvue_helper import test_login, get_assignments as get_sv_assignments
-
 
 load_dotenv()
 
@@ -19,16 +17,53 @@ app.permanent_session_lifetime = timedelta(days=7)
 
 CANVAS_BASE = "https://canvas.instructure.com/api/v1"
 
+def is_logged_in():
+    return 'canvas_token' in session or session.get('login_type') == 'studentvue'
+
 @app.route('/')
 def landing():
     return render_template('landing.html', active_page='landing')
 
 @app.route('/schedule')
 def home():
-    if 'canvas_token' not in session and session.get('login_type') != 'studentvue':
+    if not is_logged_in():
         return redirect(url_for('login'))
     return render_template('index.html', active_page='home')
 
+@app.route('/priority')
+def priority():
+    if not is_logged_in():
+        return redirect(url_for('login'))
+    return render_template('priority.html', active_page='priority')
+
+@app.route('/classes')
+def classes():
+    if not is_logged_in():
+        return redirect(url_for('login'))
+    return render_template('classes.html', active_page='classes')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+    if request.method == 'POST':
+        token = request.form.get('canvas_token', '').strip()
+        canvas_url = request.form.get('canvas_url', '').strip().rstrip('/')
+        if not token or not canvas_url:
+            error = "Please fill in both fields."
+        else:
+            test = requests.get(
+                f"{canvas_url}/api/v1/courses",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            if test.status_code == 200:
+                session.permanent = True
+                session['canvas_token'] = token
+                session['canvas_url'] = canvas_url
+                session['login_type'] = 'canvas'
+                return redirect(url_for('home'))
+            else:
+                error = "Invalid token or Canvas URL. Please check and try again."
+    return render_template('login.html', active_page='login', error=error)
 
 @app.route('/login/studentvue', methods=['GET', 'POST'])
 def login_studentvue():
@@ -49,59 +84,36 @@ def login_studentvue():
                 return redirect(url_for('home'))
             else:
                 error = "Invalid credentials. Please check and try again."
-    return render_template('login_studentvue.html', active_page='login', error=error)   
-
-@app.route('/priority')
-def priority():
-    if 'canvas_token' not in session:
-        return redirect(url_for('login'))
-    return render_template('priority.html', active_page='priority')
-
-@app.route('/classes')
-def classes():
-    if 'canvas_token' not in session:
-        return redirect(url_for('login'))
-    return render_template('classes.html', active_page='classes')
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    error = None
-    
-    if request.method == 'POST':
-        token = request.form.get('canvas_token', '').strip()
-        canvas_url = request.form.get('canvas_url', '').strip().rstrip('/')
-        if not token or not canvas_url:
-            error = "Please fill in both fields."
-        else:
-            test = requests.get(
-                f"{canvas_url}/api/v1/courses",
-                headers={"Authorization": f"Bearer {token}"}
-            )
-            if test.status_code == 200:
-                session.permanent = True
-                session['canvas_token'] = token
-                session['canvas_url'] = canvas_url
-                return redirect(url_for('home'))
-            else:
-                error = "Invalid token or Canvas URL. Please check and try again."
-    return render_template('login.html', active_page='login', error=error)
+    return render_template('login_studentvue.html', active_page='login', error=error)
 
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('landing'))
 
+@app.route('/dismiss', methods=['POST'])
+def dismiss():
+    assignment_title = request.json.get('title')
+    if assignment_title:
+        dismissed = session.get('dismissed', [])
+        dismissed.append(assignment_title)
+        session['dismissed'] = dismissed
+        session.modified = True
+    return flask.jsonify({"status": "ok"})
+
 @app.route('/live')
 def get_live_schedule():
     login_type = session.get('login_type', 'canvas')
-    
+    dismissed = session.get('dismissed', [])
+
     if login_type == 'studentvue':
         username = session.get('sv_username')
         password = session.get('sv_password')
         district_url = session.get('sv_district_url')
         sorted_schedule = get_sv_assignments(district_url, username, password)
+        sorted_schedule = [a for a in sorted_schedule if a['title'] not in dismissed]
         return flask.jsonify(sorted_schedule)
-    
+
     # Canvas login
     token = session.get('canvas_token') or os.getenv("CANVAS_TOKEN")
     canvas_url = session.get('canvas_url') or "https://canvas.instructure.com"
@@ -137,9 +149,16 @@ def get_live_schedule():
         due_date = datetime.fromisoformat(due_str.replace("Z", "+00:00"))
         days = (due_date - today).days
 
-        if days <= 3: priority = "High"
-        elif days <= 7: priority = "Medium"
-        else: priority = "Low"
+        if days < -14:
+            continue
+        elif days < 0:
+            priority = "High"
+        elif days <= 3:
+            priority = "High"
+        elif days <= 7:
+            priority = "Medium"
+        else:
+            priority = "Low"
 
         raw_minutes = a["points_possible"] * 1.5
         rounded_minutes = round(raw_minutes / 30) * 30
@@ -155,7 +174,50 @@ def get_live_schedule():
         })
 
     sorted_schedule = sorted(schedule, key=lambda x: x['due_date'])
+    sorted_schedule = [a for a in sorted_schedule if a['title'] not in dismissed]
     return flask.jsonify(sorted_schedule)
+
+@app.route('/courses')
+def get_courses():
+    login_type = session.get('login_type', 'canvas')
+    
+    if login_type == 'studentvue':
+        username = session.get('sv_username')
+        password = session.get('sv_password')
+        district_url = session.get('sv_district_url')
+        from studentvue_helper import get_courses as get_sv_courses
+        courses = get_sv_courses(district_url, username, password)
+        return flask.jsonify(courses)
+    
+    # Canvas
+    token = session.get('canvas_token') or os.getenv("CANVAS_TOKEN")
+    canvas_url = session.get('canvas_url') or "https://canvas.instructure.com"
+    base = f"{canvas_url}/api/v1"
+    headers = {"Authorization": f"Bearer {token}"}
+    course_response = requests.get(f"{base}/courses", headers=headers)
+    courses = course_response.json()
+    result = []
+    for c in courses:
+        if isinstance(c, dict) and 'id' in c:
+            result.append({"name": c.get("name", "Unknown")})
+    return flask.jsonify(result)
+
+@app.route('/grades')
+def grades():
+    if not is_logged_in():
+        return redirect(url_for('login'))
+    return render_template('grades.html', active_page='grades')
+
+@app.route('/grades/data')
+def grades_data():
+    login_type = session.get('login_type', 'canvas')
+    if login_type == 'studentvue':
+        from studentvue_helper import get_grades as get_sv_grades
+        username = session.get('sv_username')
+        password = session.get('sv_password')
+        district_url = session.get('sv_district_url')
+        return flask.jsonify(get_sv_grades(district_url, username, password))
+    return flask.jsonify([])
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 3000))

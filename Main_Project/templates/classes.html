@@ -35,7 +35,7 @@
     📚 Select a Course <span class="chevron">▾</span>
   </button>
   <div class="dropdown-menu" id="classMenu">
-    <div class="dropdown-item" data-filter="all">📋 All Courses</div>
+    <div class="dropdown-item active" data-filter="all">📋 All Courses</div>
   </div>
 </div>
 
@@ -107,6 +107,7 @@ function renderCards(assignments) {
       </div>
       <span class="time-pill">⏱ ${formatTime(a.estimated_time)}</span>
       <span class="priority-badge ${priority}">${a.priority}</span>
+      <button class="dismiss-btn" onclick="dismissAssignment('${a.title.replace(/'/g, "\\'")}', this)">✓ Done</button>
     `;
     list.appendChild(card);
   });
@@ -120,14 +121,14 @@ function updateStats(assignments) {
   document.getElementById('statTime').textContent = formatTime(totalTime);
 }
 
-function populateDropdown(assignments) {
+function populateDropdown(courses) {
   const menu = document.getElementById('classMenu');
-  const courses = [...new Set(assignments.map(a => a.course))];
+  menu.innerHTML = '<div class="dropdown-item active" data-filter="all">📋 All Courses</div>';
   courses.forEach(course => {
     const item = document.createElement('div');
     item.className = 'dropdown-item';
-    item.dataset.filter = course;
-    item.textContent = '📚 ' + course;
+    item.dataset.filter = course.name;
+    item.textContent = '📚 ' + course.name;
     menu.appendChild(item);
   });
   attachDropdownListeners();
@@ -149,6 +150,19 @@ function attachDropdownListeners() {
   });
 }
 
+function dismissAssignment(title, btn) {
+  fetch('/dismiss', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: title })
+  }).then(() => {
+    btn.closest('.assignment-card').style.opacity = '0';
+    setTimeout(() => {
+      btn.closest('.assignment-card').remove();
+    }, 300);
+  });
+}
+
 const dropBtn = document.getElementById('classDropBtn');
 const dropMenu = document.getElementById('classMenu');
 
@@ -167,11 +181,16 @@ fetch('/live')
   .then(data => {
     allAssignments = data;
     updateStats(data);
-    populateDropdown(data);
     renderCards(data);
   })
   .catch(() => {
     document.getElementById('assignmentsList').innerHTML =
       '<div class="loading"><p>⚠️ Could not connect to backend.</p></div>';
+  });
+
+fetch('/courses')
+  .then(r => r.json())
+  .then(courses => {
+    populateDropdown(courses);
   });
 {% endblock %}

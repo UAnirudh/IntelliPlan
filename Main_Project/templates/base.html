@@ -822,6 +822,104 @@
       color: var(--text-muted);
       font-weight: 400;
     }
+    .dismiss-btn {
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--low);
+      background: var(--low-bg);
+      color: var(--low);
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .dismiss-btn:hover {
+      background: var(--low);
+      color: white;
+    }
+    .grades-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.25rem;
+      animation: fadeUp 0.5s ease both;
+    }
+
+    .grade-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+      transition: transform 0.2s, box-shadow 0.2s;
+      animation: fadeUp 0.4s ease both;
+    }
+
+    .grade-card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    .grade-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+
+    .grade-card-info { flex: 1; min-width: 0; }
+
+    .grade-course-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .grade-teacher {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .grade-badge {
+      padding: 8px 16px;
+      border-radius: 12px;
+      font-size: 1.25rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-left: 1rem;
+    }
+
+    .grade-bar-wrap {
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+
+    .grade-bar {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.8s ease;
+    }
+
+    .grade-percentage {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      text-align: right;
+      font-weight: 500;
+    }
+
+    @media (max-width: 600px) {
+      .grades-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -839,6 +937,7 @@
       <a href="/classes" class="nav-tab {% if active_page == 'classes' %}active{% endif %}">Classes</a>
       <a href="/login" class="nav-tab {% if active_page == 'login' %}active{% endif %}">Login</a>
       <a href="/logout" class="nav-tab">Logout</a>
+      <a href="/grades" class="nav-tab {% if active_page == 'grades' %}active{% endif %}">Grades</a>
     </nav>
     <span class="date-badge" id="dateBadge"></span>
     <label class="toggle" title="Toggle dark mode">

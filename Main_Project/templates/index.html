@@ -106,11 +106,25 @@
         </div>
         <span class="time-pill">⏱ ${formatTime(a.estimated_time)}</span>
         <span class="priority-badge ${priority}">${a.priority}</span>
+        <button class="dismiss-btn" onclick="dismissAssignment('${a.title.replace(/'/g, "\\'")}', this)">✓ Done</button>
       `;
       list.appendChild(card);
     });
   }
 
+
+  function dismissAssignment(title, btn) {
+  fetch('/dismiss', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: title })
+  }).then(() => {
+    btn.closest('.assignment-card').style.opacity = '0';
+    setTimeout(() => {
+      btn.closest('.assignment-card').remove();
+    }, 300);
+  });
+  }
   function updateStats(assignments) {
     document.getElementById('statHigh').textContent =
       assignments.filter(a => a.priority.toLowerCase() === 'high').length;
