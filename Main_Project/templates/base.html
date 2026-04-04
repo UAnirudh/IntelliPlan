@@ -920,6 +920,240 @@
     @media (max-width: 600px) {
       .grades-grid { grid-template-columns: 1fr; }
     }
+    .scheduler-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      box-shadow: var(--shadow);
+      margin-bottom: 2rem;
+      transition: opacity 0.3s;
+    }
+
+    .scheduler-inputs {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .custom-tasks-wrap {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .custom-tasks-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .custom-task-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 500;
+    }
+
+    .custom-task-item button {
+      background: none;
+      border: none;
+      color: var(--accent);
+      cursor: pointer;
+      font-size: 0.75rem;
+      padding: 0;
+    }
+
+    .scheduler-loading {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text-muted);
+    }
+
+    .overview-card {
+      background: var(--accent-soft);
+      border: 1px solid var(--accent-mid);
+      border-radius: 14px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .overview-text {
+      font-size: 0.95rem;
+      color: var(--text-primary);
+      line-height: 1.6;
+      margin-bottom: 0.75rem;
+    }
+
+    .overview-stat {
+      font-size: 0.85rem;
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .schedule-days {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .day-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+      animation: fadeUp 0.4s ease both;
+    }
+
+    .day-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .day-name {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.1rem;
+      color: var(--text-primary);
+    }
+
+    .day-hours {
+      font-size: 0.85rem;
+      color: var(--accent);
+      font-weight: 600;
+      background: var(--accent-soft);
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+
+    .day-blocks {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .time-block {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      padding: 0.75rem;
+      background: var(--bg);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .time-slot {
+      font-size: 0.78rem;
+      color: var(--accent);
+      font-weight: 600;
+      white-space: nowrap;
+      min-width: 130px;
+    }
+
+    .block-content { flex: 1; }
+
+    .block-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+
+    .block-course {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    .block-notes {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+
+    .block-duration {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      white-space: nowrap;
+      background: var(--bg-secondary);
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    .daily-tip {
+      margin-top: 1rem;
+      padding: 0.75rem;
+      background: var(--medium-bg);
+      color: var(--medium);
+      border-radius: 10px;
+      font-size: 0.82rem;
+      font-weight: 500;
+    }
+    .schedule-controls {
+      margin-bottom: 1.5rem;
+    }
+
+    .today-card {
+      border: 2px solid var(--accent) !important;
+      box-shadow: 0 0 0 4px rgba(59,130,246,0.1) !important;
+    }
+
+    .break-block {
+      opacity: 0.6;
+      background: var(--bg-secondary) !important;
+    }
+
+    .block-done {
+      opacity: 0.5;
+    }
+
+    .strikethrough {
+      text-decoration: line-through;
+      color: var(--text-muted) !important;
+    }
+
+    .check-btn {
+      background: none;
+      border: 2px solid var(--border);
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s;
+      color: var(--text-muted);
+    }
+
+    .check-btn.checked {
+      border-color: var(--low);
+      background: var(--low-bg);
+    }
+
+    .check-btn:hover {
+      border-color: var(--accent);
+    }
   </style>
 </head>
 <body>
@@ -932,12 +1166,13 @@
   <div class="header-right">
     <nav class="nav-tabs">
       <a href="/" class="nav-tab {% if active_page == 'landing' %}active{% endif %}">Home</a>
+      <a href="/scheduler" class="nav-tab {% if active_page == 'scheduler' %}active{% endif %}">🤖 AI Scheduler</a>
       <a href="/schedule" class="nav-tab {% if active_page == 'home' %}active{% endif %}">Schedule</a>
       <a href="/priority" class="nav-tab {% if active_page == 'priority' %}active{% endif %}">Priority</a>
       <a href="/classes" class="nav-tab {% if active_page == 'classes' %}active{% endif %}">Classes</a>
+      <a href="/grades" class="nav-tab {% if active_page == 'grades' %}active{% endif %}">Grades</a>
       <a href="/login" class="nav-tab {% if active_page == 'login' %}active{% endif %}">Login</a>
       <a href="/logout" class="nav-tab">Logout</a>
-      <a href="/grades" class="nav-tab {% if active_page == 'grades' %}active{% endif %}">Grades</a>
     </nav>
     <span class="date-badge" id="dateBadge"></span>
     <label class="toggle" title="Toggle dark mode">

@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">AI Study Scheduler</h1>
+  <p class="page-subtitle">Let AI build your personalized study plan</p>
+</div>
+
+<div class="scheduler-panel" id="inputPanel">
+  <div class="scheduler-inputs">
+    <div class="input-group">
+      <label class="form-label">Hours available per day</label>
+      <input type="number" id="hoursPerDay" class="form-input" value="2" min="0.5" max="12" step="0.5" style="max-width:120px;" />
+    </div>
+    <div class="input-group">
+      <label class="form-label">Preferred study time</label>
+      <select id="preferredTime" class="form-input" style="max-width:180px;">
+        <option value="morning">Morning</option>
+        <option value="afternoon">Afternoon</option>
+        <option value="evening" selected>Evening</option>
+        <option value="night">Night</option>
+      </select>
+    </div>
+    <div class="input-group" style="flex:1;">
+      <label class="form-label">Add custom tasks (optional)</label>
+      <div class="custom-tasks-wrap">
+        <input type="text" id="customTaskInput" class="form-input" placeholder="e.g. Study for math test" />
+        <button class="btn-secondary" onclick="addCustomTask()" style="padding: 10px 16px; white-space:nowrap;">+ Add</button>
+      </div>
+      <div id="customTasksList" class="custom-tasks-list"></div>
+    </div>
+  </div>
+  <button class="btn-primary" id="generateBtn" onclick="generateSchedule()" style="margin-top:1.5rem; padding: 14px 32px; border:none; cursor:pointer;">
+    🤖 Generate My Study Plan
+  </button>
+</div>
+
+<div class="scheduler-loading" id="schedulerLoading" style="display:none;">
+  <div class="spinner"></div>
+  <p>AI is building your personalized study plan...</p>
+</div>
+
+<div id="scheduleResults" style="display:none;">
+  <div class="schedule-overview" id="scheduleOverview"></div>
+  <div class="schedule-days" id="scheduleDays"></div>
+</div>
+
+<div class="empty-state" id="emptyState" style="display:none;">
+  <div class="empty-icon">📅</div>
+  <div class="empty-title">No assignments to schedule</div>
+  <p>Add some assignments first from your Canvas or StudentVue account</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+let customTasks = [];
+let allAssignments = [];
+
+fetch('/live')
+  .then(r => r.json())
+  .then(data => { allAssignments = data; });
+
+function addCustomTask() {
+  const input = document.getElementById('customTaskInput');
+  const task = input.value.trim();
+  if (!task) return;
+  customTasks.push(task);
+  input.value = '';
+  renderCustomTasks();
+}
+
+document.getElementById('customTaskInput').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') addCustomTask();
+});
+
+function renderCustomTasks() {
+  const list = document.getElementById('customTasksList');
+  list.innerHTML = customTasks.map((t, i) => `
+    <div class="custom-task-item">
+      <span>${t}</span>
+      <button onclick="removeTask(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+function removeTask(index) {
+  customTasks.splice(index, 1);
+  renderCustomTasks();
+}
+
+function generateSchedule() {
+  if (!allAssignments.length && !customTasks.length) {
+    document.getElementById('emptyState').style.display = 'block';
+    return;
+  }
+
+  document.getElementById('inputPanel').style.opacity = '0.5';
+  document.getElementById('inputPanel').style.pointerEvents = 'none';
+  document.getElementById('schedulerLoading').style.display = 'block';
+  document.getElementById('scheduleResults').style.display = 'none';
+
+  const hours = parseFloat(document.getElementById('hoursPerDay').value);
+  const time = document.getElementById('preferredTime').value;
+
+  fetch('/generate_schedule', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      assignments: allAssignments,
+      hours_per_day: hours,
+      preferred_time: time,
+      custom_tasks: customTasks
+    })
+  })
+  .then(r => r.json())
+  .then(response => {
+    document.getElementById('schedulerLoading').style.display = 'none';
+    document.getElementById('inputPanel').style.opacity = '1';
+    document.getElementById('inputPanel').style.pointerEvents = 'auto';
+
+    if (response.status === 'error') {
+      alert('Error generating schedule: ' + response.message);
+      return;
+    }
+
+    renderSchedule(response.data);
+    document.getElementById('scheduleResults').style.display = 'block';
+  })
+  .catch(() => {
+    document.getElementById('schedulerLoading').style.display = 'none';
+    document.getElementById('inputPanel').style.opacity = '1';
+    document.getElementById('inputPanel').style.pointerEvents = 'auto';
+    alert('Something went wrong. Please try again.');
+  });
+}
+
+function renderSchedule(data) {
+  const overview = document.getElementById('scheduleOverview');
+  overview.innerHTML = `
+    <div class="overview-card">
+      <div class="overview-text">${data.overview}</div>
+      <div class="overview-stat">⏱ Total study time: <strong>${data.total_study_time}</strong></div>
+    </div>
+  `;
+
+  const days = document.getElementById('scheduleDays');
+  days.innerHTML = data.schedule.map(day => `
+    <div class="day-card">
+      <div class="day-header">
+        <div class="day-name">${day.day_name}, ${day.date}</div>
+        <div class="day-hours">⏱ ${day.total_hours}h</div>
+      </div>
+      <div class="day-blocks">
+        ${day.blocks.map(block => `
+          <div class="time-block ${block.is_break ? 'break-block' : ''}">
+            <div class="time-slot">${block.time_slot}</div>
+            <div class="block-content">
+              <div class="block-title">${block.is_break ? '☕ Break' : block.assignment}</div>
+              ${!block.is_break ? `<div class="block-course">📚 ${block.course}</div>` : ''}
+              ${block.notes ? `<div class="block-notes">💡 ${block.notes}</div>` : ''}
+            </div>
+            <div class="block-duration">${block.duration_minutes}m</div>
+          </div>
+        `).join('')}
+      </div>
+      ${day.daily_tip ? `<div class="daily-tip">✨ ${day.daily_tip}</div>` : ''}
+    </div>
+  `).join('');
+}
+{% endblock %}

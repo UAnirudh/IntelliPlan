@@ -5,6 +5,9 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
 from studentvue_helper import test_login, get_assignments as get_sv_assignments
+from groq import Groq
+import re
+
 
 load_dotenv()
 
@@ -218,6 +221,104 @@ def grades_data():
         district_url = session.get('sv_district_url')
         return flask.jsonify(get_sv_grades(district_url, username, password))
     return flask.jsonify([])
+
+@app.route('/scheduler', methods=['GET', 'POST'])
+def scheduler():
+    if not is_logged_in():
+        return redirect(url_for('login'))
+    return render_template('scheduler.html', active_page='scheduler')
+
+@app.route('/generate_schedule', methods=['POST'])
+def generate_schedule():
+    data = request.json
+    assignments = data.get('assignments', [])
+    hours_per_day = data.get('hours_per_day', 2)
+    preferred_time = data.get('preferred_time', 'evening')
+    custom_tasks = data.get('custom_tasks', [])
+
+    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+    assignment_text = "\n".join([
+        f"- {a['title']} ({a['course']}) — Due: {a['due_date']}, Priority: {a['priority']}, Estimated time: {a['estimated_time']} minutes"
+        for a in assignments
+    ])
+
+    custom_text = ""
+    if custom_tasks:
+        custom_text = "\nAdditional tasks the student added:\n" + "\n".join([f"- {t}" for t in custom_tasks])
+
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    prompt = f"""You are an expert academic study scheduler. Today is {today}.
+
+A student has the following assignments due:
+{assignment_text}
+{custom_text}
+
+The student can study {hours_per_day} hours per day and prefers to study in the {preferred_time}.
+
+IMPORTANT RULES:
+- Distribute DIFFERENT assignments across different days — do not repeat the same assignment every day
+- Each assignment should only appear as many times as needed based on its estimated time
+- Include 10-15 minute breaks between study blocks
+- Prioritize high priority assignments first
+- Do not schedule work after the due date
+- If an assignment takes 30 minutes total, only schedule it once
+- Vary the assignments each day to avoid repetition
+
+Create a day-by-day study schedule starting from today. For each day list specific time blocks.
+
+Format your response as JSON with this exact structure:
+{{
+  "schedule": [
+    {{
+      "date": "YYYY-MM-DD",
+      "day_name": "Monday",
+      "total_hours": 2,
+      "blocks": [
+        {{
+          "assignment": "Assignment title",
+          "course": "Course name",
+          "duration_minutes": 60,
+          "time_slot": "7:00 PM - 8:00 PM",
+          "notes": "What to focus on",
+          "is_break": false
+        }},
+        {{
+          "assignment": "Break",
+          "course": "",
+          "duration_minutes": 10,
+          "time_slot": "8:00 PM - 8:10 PM",
+          "notes": "Rest and recharge",
+          "is_break": true
+        }}
+      ],
+      "daily_tip": "Short motivational tip"
+    }}
+  ],
+  "overview": "Brief overview of the study strategy",
+  "total_study_time": "X hours Y minutes"
+}}
+
+Return ONLY valid JSON, no extra text."""
+
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=2000
+        )
+        result = response.choices[0].message.content.strip()
+        # Clean up any markdown code blocks
+        result = re.sub(r'```json\n?', '', result)
+        result = re.sub(r'```\n?', '', result)
+        import json
+        schedule_data = json.loads(result)
+        return flask.jsonify({"status": "ok", "data": schedule_data})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)})
+
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 3000))
