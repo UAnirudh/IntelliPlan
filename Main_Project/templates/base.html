@@ -1171,8 +1171,12 @@
       <a href="/priority" class="nav-tab {% if active_page == 'priority' %}active{% endif %}">Priority</a>
       <a href="/classes" class="nav-tab {% if active_page == 'classes' %}active{% endif %}">Classes</a>
       <a href="/grades" class="nav-tab {% if active_page == 'grades' %}active{% endif %}">Grades</a>
-      <a href="/login" class="nav-tab {% if active_page == 'login' %}active{% endif %}">Login</a>
-      <a href="/logout" class="nav-tab">Logout</a>
+      <a href="/dismissed" class="nav-tab {% if active_page == 'dismissed' %}active{% endif %}">✓ Dismissed</a>
+      {% if not logged_in %}
+        <a href="/login" class="nav-tab {% if active_page == 'login' %}active{% endif %}">Login</a>
+      {% else %}
+        <a href="/logout" class="nav-tab">Logout</a>
+      {% endif %}
     </nav>
     <span class="date-badge" id="dateBadge"></span>
     <label class="toggle" title="Toggle dark mode">
@@ -1213,6 +1217,139 @@
 
   {% block scripts %}{% endblock %}
 </script>
+<!-- Assignment Description Modal -->
+<div id="assignmentModal" style="
+  display:none; position:fixed; inset:0; z-index:1000;
+  background:rgba(0,0,0,0.4); backdrop-filter:blur(4px);
+  align-items:center; justify-content:center;
+">
+  <div style="
+    background:var(--bg-card); border:1px solid var(--border);
+    border-radius:20px; padding:2rem; max-width:520px; width:90%;
+    box-shadow:var(--shadow-hover); animation:fadeUp 0.25s ease both;
+    max-height:80vh; overflow-y:auto;
+  ">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1.25rem;">
+      <div>
+        <div id="modalTitle" style="font-family:'DM Serif Display',serif; font-size:1.2rem; color:var(--text-primary); margin-bottom:4px;"></div>
+        <div id="modalMeta" style="font-size:0.8rem; color:var(--text-muted);"></div>
+      </div>
+      <button onclick="closeModal()" style="
+        background:none; border:none; cursor:pointer; font-size:1.2rem;
+        color:var(--text-muted); padding:4px 8px; border-radius:8px;
+        transition:background 0.2s;
+      " onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='none'">✕</button>
+    </div>
 
+    <div style="display:flex; gap:8px; margin-bottom:1.25rem; flex-wrap:wrap;">
+      <span id="modalPriority" class="priority-badge"></span>
+      <span id="modalDifficulty" style="
+        padding:4px 12px; border-radius:20px; font-size:0.75rem;
+        font-weight:600; background:var(--accent-soft); color:var(--accent);
+      "></span>
+      <span id="modalTime" style="
+        padding:4px 12px; border-radius:20px; font-size:0.75rem;
+        font-weight:600; background:var(--low-bg); color:var(--low);
+      "></span>
+    </div>
+
+    <div id="modalDescriptionWrap">
+      <div style="font-size:0.78rem; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">Description</div>
+      <div id="modalDescription" style="font-size:0.9rem; color:var(--text-secondary); line-height:1.65; background:var(--bg); padding:1rem; border-radius:10px; border:1px solid var(--border);"></div>
+    </div>
+
+    <div id="modalCustomWrap" style="margin-top:1rem; display:none;">
+      <div style="font-size:0.78rem; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">Add your own description</div>
+      <textarea id="modalCustomInput" style="
+        width:100%; padding:10px 14px; border-radius:10px;
+        border:1px solid var(--border); background:var(--bg);
+        color:var(--text-primary); font-family:'DM Sans',sans-serif;
+        font-size:0.88rem; resize:vertical; min-height:90px; outline:none;
+        transition:border-color 0.2s;
+      " placeholder="Describe what this assignment involves..."></textarea>
+      <button id="modalSaveBtn" style="
+        margin-top:8px; padding:10px 20px; background:var(--accent);
+        color:white; border:none; border-radius:10px; cursor:pointer;
+        font-family:'DM Sans',sans-serif; font-size:0.88rem; font-weight:600;
+        transition:opacity 0.2s;
+      " onclick="saveCustomDescription()">Save Description</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let _modalAssignment = null;
+
+  function openAssignmentModal(a) {
+    _modalAssignment = a;
+    document.getElementById('modalTitle').textContent = a.title;
+    document.getElementById('modalMeta').textContent = `📚 ${a.course}  ·  📅 Due ${a.due_date}`;
+    const pb = document.getElementById('modalPriority');
+    pb.textContent = a.priority;
+    pb.className = `priority-badge ${a.priority.toLowerCase()}`;
+    document.getElementById('modalDifficulty').textContent = `⚡ ${a.difficulty || 'Unknown'}`;
+    document.getElementById('modalTime').textContent = `⏱ ${formatModalTime(a.estimated_time)}`;
+    document.getElementById('modalDescription').textContent = 'Loading...';
+    document.getElementById('modalCustomWrap').style.display = 'none';
+    document.getElementById('modalCustomInput').value = '';
+
+    const modal = document.getElementById('assignmentModal');
+    modal.style.display = 'flex';
+
+    const params = new URLSearchParams({ title: a.title });
+    if (a.id) params.append('id', a.id);
+    if (a.course_id) params.append('course_id', a.course_id);
+
+    fetch(`/assignment/description?${params}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.description) {
+          const label = data.source === 'custom' ? '✏️ Your description' : '📋 From Canvas';
+          document.getElementById('modalDescription').textContent = data.description;
+          document.getElementById('modalDescriptionWrap').querySelector('div').textContent = label;
+          document.getElementById('modalCustomWrap').style.display = 'none';
+        } else {
+          document.getElementById('modalDescription').textContent = 'No description available.';
+          document.getElementById('modalCustomWrap').style.display = 'block';
+        }
+      });
+  }
+
+  function closeModal() {
+    document.getElementById('assignmentModal').style.display = 'none';
+    _modalAssignment = null;
+  }
+
+  document.getElementById('assignmentModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  function saveCustomDescription() {
+    if (!_modalAssignment) return;
+    const desc = document.getElementById('modalCustomInput').value.trim();
+    if (!desc) return;
+    fetch('/assignment/description', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ title: _modalAssignment.title, description: desc })
+    }).then(() => {
+      document.getElementById('modalDescription').textContent = desc;
+      document.getElementById('modalDescriptionWrap').querySelector('div').textContent = '✏️ Your description';
+      document.getElementById('modalCustomWrap').style.display = 'none';
+    });
+  }
+
+  function formatModalTime(mins) {
+    if (!mins) return '—';
+    if (mins < 60) return `${mins}m`;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m ? `${h}h ${m}m` : `${h}h`;
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+  });
+</script>
 </body>
 </html>

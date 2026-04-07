@@ -8,6 +8,7 @@ from studentvue_helper import test_login, get_assignments as get_sv_assignments
 from groq import Groq
 import re
 import json
+from pathlib import Path
 
 
 load_dotenv()
@@ -38,7 +39,18 @@ WORKLOAD_COLORS = {
     "moderate": "#fef3c7",
     "heavy": "#fee2e2",
 }
+DESCRIPTIONS_FILE = Path("descriptions.json")
+DISMISSED_FILE = Path("dismissed.json")
 
+def load_json_file(path):
+    if path.exists():
+        with open(path) as f:
+            return json.load(f)
+    return {}
+
+def save_json_file(path, data):
+    with open(path, "w") as f:
+        json.dump(data, f)
 
 def is_logged_in():
     return "canvas_token" in session or session.get("login_type") == "studentvue"
@@ -334,22 +346,10 @@ def logout():
     session.clear()
     return redirect(url_for("landing"))
 
-
-@app.route("/dismiss", methods=["POST"])
-def dismiss():
-    assignment_title = request.json.get("title")
-    if assignment_title:
-        dismissed = session.get("dismissed", [])
-        dismissed.append(assignment_title)
-        session["dismissed"] = dismissed
-        session.modified = True
-    return flask.jsonify({"status": "ok"})
-
-
 @app.route("/live")
 def get_live_schedule():
     login_type = session.get("login_type", "canvas")
-    dismissed = session.get("dismissed", [])
+    dismissed = list(load_json_file(DISMISSED_FILE).keys())
 
     if login_type == "studentvue":
         username = session.get("sv_username")
@@ -411,6 +411,8 @@ def get_live_schedule():
 
         schedule.append(
             {
+                "id": str(a["id"]),
+                "course_id": str(a["course_id"]),
                 "title": a["name"],
                 "course": course_map.get(a["course_id"], "Unknown Course"),
                 "due_date": due_str[:10],
@@ -479,6 +481,84 @@ def scheduler():
         return redirect(url_for("login"))
     return render_template("scheduler.html", active_page="scheduler")
 
+
+@app.route("/dismiss", methods=["POST"])
+def dismiss():
+    assignment = request.json
+    title = assignment.get("title")
+    if title:
+        dismissed = load_json_file(DISMISSED_FILE)
+        dismissed[title] = assignment  # store full object so we can restore it
+        save_json_file(DISMISSED_FILE, dismissed)
+        # keep session in sync
+        session["dismissed"] = list(dismissed.keys())
+        session.modified = True
+    return flask.jsonify({"status": "ok"})
+
+@app.route("/dismissed")
+def dismissed_page():
+    if not is_logged_in():
+        return redirect(url_for("login"))
+    return render_template("dismissed.html", active_page="dismissed")
+
+@app.route("/dismissed/data")
+def dismissed_data():
+    dismissed = load_json_file(DISMISSED_FILE)
+    return flask.jsonify(list(dismissed.values()))
+
+@app.route("/restore", methods=["POST"])
+def restore():
+    title = request.json.get("title")
+    if title:
+        dismissed = load_json_file(DISMISSED_FILE)
+        dismissed.pop(title, None)
+        save_json_file(DISMISSED_FILE, dismissed)
+        session["dismissed"] = list(dismissed.keys())
+        session.modified = True
+    return flask.jsonify({"status": "ok"})
+
+@app.route("/assignment/description", methods=["GET"])
+def get_description():
+    assignment_id = request.args.get("id")
+    course_id = request.args.get("course_id")
+    title = request.args.get("title", "")
+
+    # Check custom descriptions first
+    descriptions = load_json_file(DESCRIPTIONS_FILE)
+    if title in descriptions:
+        return flask.jsonify({"description": descriptions[title], "source": "custom"})
+
+    login_type = session.get("login_type", "canvas")
+
+    if login_type == "canvas" and assignment_id and course_id:
+        token = session.get("canvas_token") or os.getenv("CANVAS_TOKEN")
+        canvas_url = session.get("canvas_url") or "https://canvas.instructure.com"
+        resp = requests.get(
+            f"{canvas_url}/api/v1/courses/{course_id}/assignments/{assignment_id}",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            raw = data.get("description") or ""
+            # Strip HTML tags simply
+            import re
+            clean = re.sub(r"<[^>]+>", " ", raw).strip()
+            clean = re.sub(r"\s+", " ", clean)
+            if clean:
+                return flask.jsonify({"description": clean, "source": "canvas"})
+
+    return flask.jsonify({"description": "", "source": "none"})
+
+@app.route("/assignment/description", methods=["POST"])
+def save_description():
+    data = request.json
+    title = data.get("title")
+    description = data.get("description", "").strip()
+    if title and description:
+        descriptions = load_json_file(DESCRIPTIONS_FILE)
+        descriptions[title] = description
+        save_json_file(DESCRIPTIONS_FILE, descriptions)
+    return flask.jsonify({"status": "ok"})
 
 @app.route("/generate_schedule", methods=["POST"])
 def generate_schedule():
@@ -686,6 +766,12 @@ Return ONLY valid JSON with no additional text.
         return flask.jsonify({"status": "ok", "data": schedule_data})
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
+
+
+
+@app.context_processor
+def inject_auth():
+    return dict(logged_in=is_logged_in())
 
 
 if __name__ == "__main__":

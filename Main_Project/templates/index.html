@@ -92,6 +92,7 @@
       const card = document.createElement('div');
       card.className = `assignment-card ${priority}`;
       card.style.animationDelay = `${i * 0.07}s`;
+      card.onclick = (e) => { if (!e.target.classList.contains('dismiss-btn')) openAssignmentModal(a); };
       card.dataset.priority = priority;
 
       card.innerHTML = `

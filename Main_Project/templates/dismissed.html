@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Dismissed Assignments</h1>
+  <p class="page-subtitle">Assignments you marked as done — restore any if needed</p>
+</div>
+
+<div id="dismissedList" class="assignments-list">
+  <div class="loading">
+    <div class="spinner"></div>
+    <p>Loading dismissed assignments...</p>
+  </div>
+</div>
+
+<div class="empty-state" id="emptyState">
+  <div class="empty-icon">✅</div>
+  <div class="empty-title">Nothing dismissed yet</div>
+  <p>Assignments you mark as done will appear here</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+function formatDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+fetch('/dismissed/data')
+  .then(r => r.json())
+  .then(data => {
+    const list = document.getElementById('dismissedList');
+    const empty = document.getElementById('emptyState');
+    list.innerHTML = '';
+    if (!data.length) {
+      empty.classList.add('visible');
+      return;
+    }
+    data.forEach((a, i) => {
+      const priority = (a.priority || 'low').toLowerCase();
+      const card = document.createElement('div');
+      card.className = `assignment-card ${priority}`;
+      card.style.animationDelay = `${i * 0.07}s`;
+      card.style.opacity = '0.7';
+      card.innerHTML = `
+        <div class="rank-bubble">✓</div>
+        <div class="card-main">
+          <div class="card-title" style="text-decoration:line-through;">${a.title}</div>
+          <div class="card-meta">
+            <span class="meta-item">📚 ${a.course || '—'}</span>
+            <span class="meta-item">📅 ${a.due_date ? formatDate(a.due_date) : '—'}</span>
+          </div>
+        </div>
+        <span class="priority-badge ${priority}">${a.priority || '—'}</span>
+        <button class="dismiss-btn" style="border-color:var(--accent);background:var(--accent-soft);color:var(--accent);"
+          onclick="restore('${a.title.replace(/'/g, "\\'")}', this)">↩ Restore</button>
+      `;
+      list.appendChild(card);
+    });
+  });
+
+function restore(title, btn) {
+  fetch('/restore', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ title })
+  }).then(() => {
+    btn.closest('.assignment-card').style.opacity = '0';
+    setTimeout(() => btn.closest('.assignment-card').remove(), 300);
+  });
+}
+{% endblock %}
