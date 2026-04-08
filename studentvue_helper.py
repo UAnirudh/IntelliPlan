@@ -250,24 +250,32 @@ def get_gradebook_detail(district_url, username, password):
         r'<Mark\s[^>]*MarkName="([^"]*)"[^>]*CalculatedScoreString="([^"]*)"[^>]*CalculatedScoreRaw="([^"]*)"',
         re.DOTALL
     )
+    calc_pattern = re.compile(
+        r'<AssignmentGradeCalc\s[^>]*Type="([^"]*)"[^>]*Weight="([^"]*)"[^>]*Points="([^"]*)"[^>]*PointsPossible="([^"]*)"[^>]*WeightedPct="([^"]*)"[^>]*CalculatedMark="([^"]*)"',
+        re.DOTALL
+    )
     assignment_pattern = re.compile(r'<Assignment\s([^>]*?)(?:/>|>)', re.DOTALL)
 
     def get_attr(attrs_str, attr_name):
         match = re.search(rf'{attr_name}="([^"]*)"', attrs_str)
         return match.group(1) if match else ""
 
+    def parse_float(s):
+        try:
+            return float(re.sub(r'[^0-9.]', '', s))
+        except:
+            return None
+
     for block in course_blocks:
         course_match = course_pattern.search(block)
         if not course_match:
             continue
-
         course_name = course_match.group(1)
         teacher = course_match.group(2)
 
         mark_match = mark_pattern.search(block)
         if not mark_match:
             continue
-
         letter = mark_match.group(2)
         raw_score = mark_match.group(3)
         try:
@@ -278,39 +286,45 @@ def get_gradebook_detail(district_url, username, password):
         if not letter or letter == "N/A":
             continue
 
+        # Parse categories with weights
+        categories = {}
+        for calc in calc_pattern.finditer(block):
+            cat_type = calc.group(1)
+            if cat_type == "TOTAL":
+                continue
+            categories[cat_type] = {
+                "type": cat_type,
+                "weight": parse_float(calc.group(2)),
+                "points": parse_float(calc.group(3)),
+                "points_possible": parse_float(calc.group(4)),
+                "weighted_pct": parse_float(calc.group(5)),
+                "mark": calc.group(6),
+            }
+
+        # Parse assignments
         assignments = []
         for a_match in assignment_pattern.finditer(block):
             attrs = a_match.group(1)
             title = get_attr(attrs, "Measure")
             due_date_str = get_attr(attrs, "DueDate")
-            points_str = get_attr(attrs, "Points")
+            point_earned = get_attr(attrs, "Point")
+            point_possible = get_attr(attrs, "PointPossible")
             display_score = get_attr(attrs, "DisplayScore")
-            score_str = get_attr(attrs, "Score")
-            notes = get_attr(attrs, "Notes")
+            score = get_attr(attrs, "Score")
+            cat_type = get_attr(attrs, "Type")
+            description = get_attr(attrs, "MeasureDescription")
 
             if not title:
                 continue
 
-            # Parse points earned / possible from "45 / 50" format
-            earned = None
-            possible = None
-            if "/" in points_str:
-                parts = points_str.split("/")
-                try:
-                    earned = float(parts[0].strip().split()[0])
-                    possible = float(parts[1].strip().split()[0])
-                except:
-                    pass
-            elif points_str:
-                try:
-                    possible = float(points_str.strip().split()[0])
-                except:
-                    pass
+            earned = parse_float(point_earned)
+            possible = parse_float(point_possible)
 
             graded = (
-                earned is not None
-                and display_score not in ("Not Graded", "Not Due", "")
-                and score_str not in ("", "Not Graded")
+                earned is not None and
+                possible is not None and
+                display_score not in ("Not Graded", "Not Due", "") and
+                score not in ("", "Not Graded")
             )
 
             try:
@@ -325,7 +339,8 @@ def get_gradebook_detail(district_url, username, password):
                 "points_possible": possible,
                 "display_score": display_score,
                 "graded": graded,
-                "notes": notes,
+                "category": cat_type,
+                "description": description,
             })
 
         courses.append({
@@ -333,6 +348,7 @@ def get_gradebook_detail(district_url, username, password):
             "teacher": teacher,
             "letter": letter,
             "percentage": percentage,
+            "categories": list(categories.values()),
             "assignments": assignments,
         })
 

@@ -782,11 +782,17 @@ def gradebook_detail():
     return flask.jsonify([])
 
 
-@app.route("/grademodel")
-def grademodel():
+# @app.route("/grademodel")
+# def grademodel():
+#     if not is_logged_in():
+#         return redirect(url_for("login"))
+#     return render_template("grademodel.html", active_page="grademodel")
+
+@app.route("/gradebook")
+def gradebook():
     if not is_logged_in():
         return redirect(url_for("login"))
-    return render_template("grademodel.html", active_page="grademodel")
+    return render_template("gradebook.html", active_page="gradebook")
 
 
 @app.route('/static/sw.js')

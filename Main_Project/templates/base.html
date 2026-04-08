@@ -27,6 +27,7 @@
       --low-bg: #f0fdf4;
       --toggle-bg: #dbeafe;
       --toggle-knob: #3b82f6;
+      --nav-divider: rgba(71, 85, 105, 0.38);
     }
 
     :root[data-theme="dark"] {
@@ -50,6 +51,7 @@
       --low-bg: #0f2a1a;
       --toggle-bg: #1a2d4a;
       --toggle-knob: #4d9ef7;
+      --nav-divider: rgba(148, 163, 184, 0.36);
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -80,6 +82,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      text-decoration: none;
     }
 
     .logo-icon {
@@ -91,6 +94,16 @@
       align-items: center;
       justify-content: center;
       font-size: 18px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .logo-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      border-radius: 10px;
     }
 
     .logo-text {
@@ -413,7 +426,6 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* ── NAV TABS ── */
     .nav-tabs {
       display: flex;
       gap: 4px;
@@ -452,94 +464,94 @@
       main { padding: 1.5rem 1rem; }
     }
     
-    /* ── DROPDOWN ── */
     .dropdown-wrap {
-        position: relative;
-        display: inline-block;
-        animation: fadeUp 0.5s ease both;
-}
+      position: relative;
+      display: inline-block;
+      animation: fadeUp 0.5s ease both;
+    }
 
     .dropdown-btn {
-        padding: 10px 20px;
-        border-radius: 12px;
-        border: 1px solid var(--border);
-        background: var(--bg-card);
-        color: var(--text-primary);
-        font-size: 0.9rem;
-        font-weight: 500;
-        cursor: pointer;
-        font-family: 'DM Sans', sans-serif;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        box-shadow: var(--shadow);
-        transition: all 0.2s;
+      padding: 10px 20px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: var(--shadow);
+      transition: all 0.2s;
     }
 
     .dropdown-btn:hover {
-        box-shadow: var(--shadow-hover);
-        border-color: var(--accent);
+      box-shadow: var(--shadow-hover);
+      border-color: var(--accent);
     }
 
     .chevron {
-        font-size: 0.75rem;
-        color: var(--text-muted);
-        transition: transform 0.2s;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      transition: transform 0.2s;
     }
 
     .dropdown-menu {
-        position: absolute;
-        top: calc(100% + 8px);
-        left: 0;
-        background: var(--bg-card);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        box-shadow: var(--shadow-hover);
-        min-width: 180px;
-        overflow: hidden;
-        display: none;
-        z-index: 200;
-        animation: fadeUp 0.2s ease both;
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow-hover);
+      min-width: 180px;
+      overflow: hidden;
+      display: none;
+      z-index: 200;
+      animation: fadeUp 0.2s ease both;
     }
 
     .dropdown-menu.open { display: block; }
 
     .dropdown-item {
-        padding: 10px 16px;
-        font-size: 0.85rem;
-        font-weight: 500;
-        color: var(--text-secondary);
-        cursor: pointer;
-        transition: all 0.15s;
+      padding: 10px 16px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s;
     }
 
     .dropdown-item:hover {
-        background: var(--accent-soft);
-        color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent);
     }
 
     .dropdown-item.active {
-        background: var(--accent-soft);
-        color: var(--accent);
-        font-weight: 600;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 600;
     }
+
     .dropdown-wrap {
-        position: relative;
-        display: inline-block;
-        animation: fadeUp 0.5s ease both;
-        z-index: 300;
-        }
+      position: relative;
+      display: inline-block;
+      animation: fadeUp 0.5s ease both;
+      z-index: 300;
+    }
 
     .assignments-list {
-        position: relative;
-        z-index: 1;
-        }
+      position: relative;
+      z-index: 1;
+    }
 
     .assignment-card {
-        position: relative;
-        z-index: 1;
-        }
-    /* ── HERO ── */
+      position: relative;
+      z-index: 1;
+    }
+
     .hero {
       text-align: center;
       padding: 5rem 1rem 4rem;
@@ -619,7 +631,6 @@
       box-shadow: var(--shadow-hover);
     }
 
-    /* ── FEATURES ── */
     .features {
       padding: 4rem 0;
       animation: fadeUp 0.6s 0.2s ease both;
@@ -683,7 +694,6 @@
       font-weight: 400;
     }
 
-    /* ── CTA SECTION ── */
     .cta-section {
       text-align: center;
       padding: 4rem 1rem;
@@ -712,7 +722,7 @@
       .hero-title { font-size: 2.5rem; }
       .features-grid { grid-template-columns: 1fr; }
     }
-    /* ── LOGIN ── */
+
     .login-wrap {
       display: flex;
       justify-content: center;
@@ -806,6 +816,7 @@
     .login-link:hover {
       text-decoration: underline;
     }
+
     .login-error {
       background: var(--high-bg);
       color: var(--high);
@@ -822,6 +833,7 @@
       color: var(--text-muted);
       font-weight: 400;
     }
+
     .dismiss-btn {
       padding: 6px 14px;
       border-radius: 20px;
@@ -841,6 +853,7 @@
       background: var(--low);
       color: white;
     }
+
     .grades-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -920,6 +933,7 @@
     @media (max-width: 600px) {
       .grades-grid { grid-template-columns: 1fr; }
     }
+
     .scheduler-panel {
       background: var(--bg-card);
       border: 1px solid var(--border);
@@ -1107,6 +1121,7 @@
       font-size: 0.82rem;
       font-weight: 500;
     }
+
     .schedule-controls {
       margin-bottom: 1.5rem;
     }
@@ -1154,33 +1169,229 @@
     .check-btn:hover {
       border-color: var(--accent);
     }
+
     .discord-btn {
-    display: inline-block;
-    padding: 12px 20px;
-    background: #5865F2;
-    color: white;
-    text-decoration: none;
-    border-radius: 8px;
-    font-weight: 600;
-    transition: 0.2s ease;
-  }
+      display: inline-block;
+      padding: 12px 20px;
+      background: #5865F2;
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: 0.2s ease;
+    }
 
     .discord-btn:hover {
       background: #4752c4;
     }
-    .nav-group {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
 
-  .nav-divider {
-    width: 1px;
-    height: 24px;
-    background: var(--border);
-    margin: 0 6px;
-    opacity: 0.8;
-  }
+    .nav-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .nav-divider {
+      width: 1px;
+      height: 24px;
+      background: var(--nav-divider);
+      margin: 0 8px;
+      opacity: 1;
+      border-radius: 999px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.03);
+    }
+
+    .nav-dropdown {
+      position: relative;
+    }
+
+    .dropdown-toggle {
+      background: none;
+      border: none;
+      font: inherit;
+      cursor: pointer;
+      color: var(--text-secondary);
+      padding: 8px 18px;
+      border-radius: 20px;
+      transition: all 0.2s;
+    }
+
+    .dropdown-toggle:hover {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .dropdown-panel {
+      position: absolute;
+      top: 110%;
+      left: 0;
+      min-width: 200px;
+
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(12px);
+
+      border: 1px solid var(--border);
+      border-radius: 14px;
+
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+
+      padding: 8px;
+      opacity: 0;
+      transform: translateY(10px) scale(0.98);
+      pointer-events: none;
+      transition: all 0.18s ease;
+    }
+
+    .nav-dropdown:hover .dropdown-panel {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    .dropdown-item {
+      display: block;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      color: var(--text-primary);
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+
+    .dropdown-item:hover {
+      background: var(--accent-soft);
+      color: var(--accent);
+      transform: translateX(4px);
+    }
+
+    .dropdown-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dropdown-toggle .chevron {
+      transition: transform 0.2s ease;
+    }
+
+    .nav-dropdown:hover .chevron {
+      transform: rotate(180deg);
+    }
+
+    #installBanner {
+      position: fixed;
+      left: 18px;
+      bottom: 18px;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 16px;
+      background: rgba(59, 130, 246, 0.95);
+      box-shadow: 0 12px 30px rgba(59,130,246,0.35);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transform: translateY(0);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+    }
+
+    #installBanner:hover {
+      box-shadow: 0 16px 38px rgba(59,130,246,0.48);
+      transform: translateY(-2px);
+    }
+
+    .install-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: white;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .install-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: rgba(255,255,255,0.16);
+      border: 1px solid rgba(255,255,255,0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .install-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .install-copy {
+      display: none;
+      flex-direction: column;
+      line-height: 1.1;
+      padding-right: 2px;
+    }
+
+    .install-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 0.96rem;
+      color: white;
+      letter-spacing: -0.01em;
+    }
+
+    .install-subtitle {
+      font-size: 0.74rem;
+      color: rgba(255,255,255,0.88);
+      margin-top: 2px;
+    }
+
+    #installBtn {
+      border: none;
+      border-radius: 12px;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.16);
+      color: white;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+      transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 122px;
+      justify-content: center;
+    }
+
+    #installBtn:hover {
+      transform: translateY(-1px);
+      background: rgba(255,255,255,0.24);
+    }
+
+    #installBanner:hover .install-copy {
+      display: flex;
+      animation: fadeUp 0.18s ease both;
+    }
+
+    @media (max-width: 640px) {
+      #installBanner {
+        left: 12px;
+        bottom: 12px;
+        right: 12px;
+        justify-content: space-between;
+      }
+
+      #installBtn {
+        min-width: 110px;
+      }
+    }
   </style>
   <link rel="manifest" href="/static/manifest.json">
   <meta name="theme-color" content="#3b82f6">
@@ -1192,10 +1403,12 @@
 <body>
 
 <header>
-  <div class="logo">
-    <div class="logo-icon">📅</div>
+  <a href="/" class="logo" aria-label="Go to home page">
+    <div class="logo-icon">
+      <img src="/static/icons/icon-192.png" alt="IntelliPlan logo">
+    </div>
     <span class="logo-text">Intelli<span>Plan</span></span>
-  </div>
+  </a>
   <div class="header-right">
     <nav class="nav-tabs">
 
@@ -1210,8 +1423,17 @@
   <div class="nav-group">
     <a href="/priority" class="nav-tab {% if active_page == 'priority' %}active{% endif %}">Priority</a>
     <a href="/classes" class="nav-tab {% if active_page == 'classes' %}active{% endif %}">Classes</a>
-    <a href="/grades" class="nav-tab {% if active_page == 'grades' %}active{% endif %}">Grades</a>
-    <a href="/grademodel" class="nav-tab {% if active_page == 'grademodel' %}active{% endif %}">📈 Model</a>
+    <div class="nav-dropdown">
+      <button class="nav-link dropdown-toggle">
+        Grades <span class="chevron">▾</span>
+      </button>
+
+      <div class="dropdown-panel">
+        <a href="/grades" class="dropdown-item">Overview</a>
+        <a href="/gradebook" class="dropdown-item">Gradebook Modeler</a>
+        <!-- <a href="/grademodel" class="dropdown-item">Modeler Simplified</a> -->
+      </div>
+    </div>
     <a href="/dismissed" class="nav-tab {% if active_page == 'dismissed' %}active{% endif %}">✓ Done</a>
   </div>
 
@@ -1269,13 +1491,14 @@
 
   {% block scripts %}{% endblock %}
   if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/static/sw.js')
-      .then(reg => console.log('SW registered:', reg.scope))
-      .catch(err => console.log('SW failed:', err));
-  });
-}
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/static/sw.js')
+        .then(reg => console.log('SW registered:', reg.scope))
+        .catch(err => console.log('SW failed:', err));
+    });
+  }
 </script>
+
 <!-- Assignment Description Modal -->
 <div id="assignmentModal" style="
   display:none; position:fixed; inset:0; z-index:1000;
@@ -1409,6 +1632,63 @@
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeModal();
   });
+</script>
+
+<!-- PWA Install Button -->
+<div id="installBanner" aria-label="Install IntelliPlan app">
+  <a class="install-pill" href="#" onclick="return false;">
+    <div class="install-icon">
+      <img src="/static/icons/icon-192.png" alt="App icon">
+    </div>
+    <div class="install-copy">
+      <div class="install-title">Install App</div>
+      <div class="install-subtitle">Download IntelliPlan</div>
+    </div>
+  </a>
+  <button id="installBtn" aria-label="Download IntelliPlan app">
+    ⬇️ Download
+  </button>
+</div>
+
+<script>
+  let _deferredInstallPrompt = null;
+
+  function showInstallBanner() {
+    const banner = document.getElementById('installBanner');
+    if (banner) banner.style.display = 'flex';
+  }
+
+  function hideInstallBanner() {
+    const banner = document.getElementById('installBanner');
+    if (banner) banner.style.display = 'none';
+  }
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    _deferredInstallPrompt = e;
+    showInstallBanner();
+  });
+
+  document.getElementById('installBtn').addEventListener('click', async () => {
+    if (_deferredInstallPrompt) {
+      _deferredInstallPrompt.prompt();
+      const { outcome } = await _deferredInstallPrompt.userChoice;
+      if (outcome === 'accepted') {
+        hideInstallBanner();
+      }
+      _deferredInstallPrompt = null;
+      return;
+    }
+
+    alert('Install is not available in this browser right now. Try opening IntelliPlan in Chrome or Edge on a device that supports app installation.');
+  });
+
+  window.addEventListener('appinstalled', () => {
+    hideInstallBanner();
+    _deferredInstallPrompt = null;
+  });
+
+  showInstallBanner();
 </script>
 </body>
 </html>

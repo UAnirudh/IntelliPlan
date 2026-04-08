@@ -1,0 +1,941 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Grade Modeler</h1>
+  <p class="page-subtitle">Model your grade, adjust scores, and see what it takes to hit your target</p>
+</div>
+
+<div id="loadingState" style="text-align:center; padding:3rem; color:var(--text-muted);">
+  <div class="spinner"></div>
+  <p>Loading gradebook...</p>
+</div>
+
+<div id="modelerWrap" style="display:none;">
+
+  <!-- Course Selector -->
+  <div style="margin-bottom:1.5rem;">
+    <div class="dropdown-wrap">
+      <button class="dropdown-btn" id="courseDropBtn">📚 Select a Course <span class="chevron">▾</span></button>
+      <div class="dropdown-menu" id="courseMenu"></div>
+    </div>
+  </div>
+
+  <div id="courseOverview" style="display:none;">
+
+    <!-- Grade Summary Row -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-bottom:1.5rem;">
+
+      <!-- Current vs Modeled Grade -->
+      <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:1.5rem; box-shadow:var(--shadow);">
+        <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1rem;">Grade Overview</div>
+        <div style="display:flex; gap:2rem; align-items:center;">
+          <div>
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:4px;">Current</div>
+            <div style="display:flex; align-items:baseline; gap:8px;">
+              <span id="currentPct" style="font-family:'DM Serif Display',serif; font-size:2.2rem; color:var(--text-primary);"></span>
+              <span id="currentLetter" class="priority-badge"></span>
+            </div>
+          </div>
+          <div style="font-size:1.5rem; color:var(--text-muted);">→</div>
+          <div>
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:4px;">Modeled</div>
+            <div style="display:flex; align-items:baseline; gap:8px;">
+              <span id="modeledPct" style="font-family:'DM Serif Display',serif; font-size:2.2rem; color:var(--accent);">—</span>
+              <span id="modeledLetter" class="priority-badge" style="background:var(--accent-soft); color:var(--accent);">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Target Input -->
+      <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:1.5rem; box-shadow:var(--shadow);">
+        <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1rem;">Target Grade</div>
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:1rem;">
+          <input type="number" id="targetInput" class="form-input" min="0" max="100" step="0.1" placeholder="e.g. 97" style="max-width:110px;" />
+          <button class="btn-primary" onclick="runModel()" style="padding:10px 20px; border:none; cursor:pointer; font-size:0.88rem;">Model It</button>
+          <button onclick="resetAll()" style="padding:10px 16px; background:var(--bg); border:1px solid var(--border); border-radius:10px; cursor:pointer; font-size:0.82rem; color:var(--text-muted); font-family:'DM Sans',sans-serif;">↺ Reset</button>
+        </div>
+        <div id="modelResult" style="display:none; font-size:0.88rem; color:var(--text-primary); line-height:1.6;"></div>
+      </div>
+    </div>
+
+    <!-- Category Weights -->
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:1.5rem; box-shadow:var(--shadow); margin-bottom:1.5rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">Category Weights</div>
+        <span style="font-size:0.75rem; color:var(--text-muted);">Edit weights to model different scenarios</span>
+      </div>
+      <div id="categoryWeights" style="display:flex; flex-direction:column; gap:10px;"></div>
+    </div>
+
+    <!-- Grade Trend Chart -->
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:1.5rem; box-shadow:var(--shadow); margin-bottom:1.5rem;">
+      <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1rem;">Grade Trend</div>
+      <canvas id="trendChart" height="120"></canvas>
+    </div>
+
+    <!-- Assignment Breakdown -->
+    <div style="font-family:'DM Serif Display',serif; font-size:1.1rem; color:var(--text-primary); margin-bottom:1rem;">
+      Assignment Breakdown
+      <span style="font-family:'DM Sans',sans-serif; font-size:0.78rem; font-weight:500; color:var(--text-muted); margin-left:8px;">Click any graded assignment to adjust its score or points worth</span>
+    </div>
+
+    <!-- Category filter tabs -->
+    <div class="filter-bar" id="categoryTabs" style="margin-bottom:1rem;"></div>
+
+    <div id="assignmentBreakdown" class="assignments-list"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block scripts %}
+let gradebookData = [];
+let selectedCourse = null;
+let modifiedScores = {};   // { assignmentId: { earned, possible } }
+let modifiedWeights = {};   // { category: weight }
+let trendChart = null;
+let activeCategoryFilter = 'all';
+
+function safeNum(v) {
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function normKey(v) {
+  return String(v ?? '').trim().toLowerCase();
+}
+
+function getAssignmentKey(a) {
+  return a?.id ?? a?.title ?? '';
+}
+
+function getBaseAssignmentValues(a) {
+  return {
+    earned: safeNum(a?.points_earned),
+    possible: safeNum(a?.points_possible)
+  };
+}
+
+function getAssignmentScore(a) {
+  const key = getAssignmentKey(a);
+  const mod = modifiedScores[key];
+  const base = getBaseAssignmentValues(a);
+
+  if (!mod) return base;
+
+  return {
+    earned: mod.earned !== undefined ? mod.earned : base.earned,
+    possible: mod.possible !== undefined ? mod.possible : base.possible
+  };
+}
+
+function hasActualModification(a) {
+  const key = getAssignmentKey(a);
+  const mod = modifiedScores[key];
+  if (!mod) return false;
+
+  const base = getBaseAssignmentValues(a);
+  const eff = getAssignmentScore(a);
+
+  return eff.earned !== base.earned || eff.possible !== base.possible;
+}
+
+fetch('/gradebook/detail')
+  .then(r => r.json())
+  .then(data => {
+    gradebookData = data;
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('modelerWrap').style.display = 'block';
+    populateCourseMenu(data);
+  })
+  .catch(() => {
+    document.getElementById('loadingState').innerHTML =
+      '<p>⚠️ Could not load gradebook. Make sure you are logged in with StudentVue.</p>';
+  });
+
+function populateCourseMenu(courses) {
+  const menu = document.getElementById('courseMenu');
+  menu.innerHTML = '';
+
+  courses.forEach(c => {
+    const item = document.createElement('div');
+    item.className = 'dropdown-item';
+    item.textContent = `📚 ${c.course}`;
+    item.addEventListener('click', () => selectCourse(c));
+    menu.appendChild(item);
+  });
+}
+
+const dropBtn = document.getElementById('courseDropBtn');
+const dropMenu = document.getElementById('courseMenu');
+dropBtn.addEventListener('click', () => dropMenu.classList.toggle('open'));
+document.addEventListener('click', e => {
+  if (!dropBtn.contains(e.target) && !dropMenu.contains(e.target)) {
+    dropMenu.classList.remove('open');
+  }
+});
+
+function letterToClass(letter) {
+  if (!letter) return 'high';
+  if (letter.startsWith('A')) return 'low';
+  if (letter.startsWith('B')) return 'medium';
+  return 'high';
+}
+
+function pctToLetter(pct) {
+  if (pct >= 98) return 'A+';
+  if (pct >= 93) return 'A';
+  if (pct >= 90) return 'A-';
+  if (pct >= 87) return 'B+';
+  if (pct >= 83) return 'B';
+  if (pct >= 80) return 'B-';
+  if (pct >= 77) return 'C+';
+  if (pct >= 73) return 'C';
+  if (pct >= 70) return 'C-';
+  if (pct >= 67) return 'D+';
+  if (pct >= 60) return 'D';
+  return 'F';
+}
+
+function selectCourse(course) {
+  selectedCourse = course;
+  modifiedScores = {};
+  modifiedWeights = {};
+  activeCategoryFilter = 'all';
+
+  dropBtn.innerHTML = `📚 ${course.course} <span class="chevron">▾</span>`;
+  dropMenu.classList.remove('open');
+  document.getElementById('courseOverview').style.display = 'block';
+  document.getElementById('modelResult').style.display = 'none';
+  document.getElementById('targetInput').value = '';
+
+  document.getElementById('currentPct').textContent = `${course.percentage}%`;
+  const lb = document.getElementById('currentLetter');
+  lb.textContent = course.letter;
+  lb.className = 'priority-badge ' + letterToClass(course.letter);
+
+  document.getElementById('modeledPct').textContent = `${course.percentage}%`;
+  const modeledLetter = document.getElementById('modeledLetter');
+  modeledLetter.textContent = course.letter;
+  modeledLetter.className = 'priority-badge ' + letterToClass(course.letter);
+
+  renderCategoryWeights(course.categories);
+  renderCategoryTabs(course);
+  renderBreakdown(course.assignments);
+  renderTrendChart(course.assignments);
+  recalculateModeled();
+}
+
+function renderCategoryWeights(categories) {
+  const wrap = document.getElementById('categoryWeights');
+  wrap.innerHTML = '';
+
+  categories.forEach(cat => {
+    const currentWeight = modifiedWeights[cat.type] ?? cat.weight;
+    const pct = cat.points_possible > 0
+      ? Math.round((cat.points / cat.points_possible) * 100)
+      : 0;
+
+    const row = document.createElement('div');
+    const key = cat.type.replace(/\s/g, '_');
+    row.style.cssText = 'display:flex; align-items:center; gap:12px; flex-wrap:wrap;';
+    row.innerHTML = `
+      <div style="min-width:160px; font-size:0.88rem; font-weight:600; color:var(--text-primary);">${cat.type}</div>
+      <div style="display:flex; align-items:center; gap:6px; flex:1;">
+        <input type="range" min="0" max="100" step="1" value="${currentWeight}"
+          style="flex:1; accent-color:var(--accent);"
+          oninput="updateCategoryWeight('${cat.type}', this.value, this)"
+          id="wSlider_${key}" />
+        <input type="number" min="0" max="100" step="1" value="${currentWeight}"
+          style="width:60px; padding:4px 8px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text-primary); font-family:'DM Sans',sans-serif; font-size:0.85rem; text-align:center;"
+          oninput="updateCategoryWeight('${cat.type}', this.value, this)"
+          id="wInput_${key}" />
+        <span style="font-size:0.78rem; color:var(--text-muted); min-width:20px;">%</span>
+      </div>
+      <div style="font-size:0.78rem; color:var(--text-muted); min-width:140px; text-align:right;">
+        ${cat.points} / ${cat.points_possible} pts &nbsp;·&nbsp; ${pct}% &nbsp;·&nbsp; <strong>${cat.mark}</strong>
+      </div>
+    `;
+    wrap.appendChild(row);
+  });
+}
+
+function updateCategoryWeight(type, value, source) {
+  const key = type.replace(/\s/g, '_');
+  modifiedWeights[type] = parseFloat(value) || 0;
+
+  const slider = document.getElementById(`wSlider_${key}`);
+  const input = document.getElementById(`wInput_${key}`);
+
+  if (slider && slider !== source) slider.value = value;
+  if (input && input !== source) input.value = value;
+
+  recalculateModeled();
+}
+
+function renderCategoryTabs(course) {
+  const tabs = document.getElementById('categoryTabs');
+  tabs.innerHTML = '';
+
+  const categories = ['all', ...new Set(course.assignments.map(a => a.category).filter(Boolean))];
+
+  categories.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn' + (cat === activeCategoryFilter ? ' active' : '');
+    btn.textContent = cat === 'all' ? 'All' : cat;
+    btn.addEventListener('click', () => {
+      activeCategoryFilter = cat;
+      document.querySelectorAll('#categoryTabs .filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const filtered = cat === 'all'
+        ? selectedCourse.assignments
+        : selectedCourse.assignments.filter(a => a.category === cat);
+      renderBreakdown(filtered);
+    });
+    tabs.appendChild(btn);
+  });
+}
+
+function renderBreakdown(assignments) {
+  const wrap = document.getElementById('assignmentBreakdown');
+  wrap.innerHTML = '';
+
+  assignments.forEach((a, i) => {
+    const key = getAssignmentKey(a);
+    const score = getAssignmentScore(a);
+    const earned = score.earned;
+    const possible = score.possible;
+    const isModified = hasActualModification(a);
+
+    const card = document.createElement('div');
+    card.className = 'assignment-card ' + (a.graded ? 'low' : 'medium');
+    card.style.animationDelay = `${i * 0.04}s`;
+    card.dataset.assignmentId = key;
+    if (isModified) card.style.borderColor = 'var(--accent)';
+
+    const pct = (earned !== null && possible !== null && possible > 0)
+      ? Math.round((earned / possible) * 100)
+      : null;
+
+    const scoreBar = pct !== null ? `
+      <div style="margin-top:6px; height:4px; background:var(--border); border-radius:2px; overflow:hidden;">
+        <div class="score-bar-fill" style="height:100%; width:${Math.min(pct,100)}%; background:${pct>=90?'var(--low)':pct>=70?'var(--accent)':'var(--high)'}; border-radius:2px; transition:width 0.3s;"></div>
+      </div>` : '';
+
+    const maxPossibleForInput = possible !== null && possible > 0
+      ? Math.max(200, possible * 3)
+      : 200;
+
+    card.innerHTML = `
+      <div class="rank-bubble" style="font-size:0.7rem;">${a.graded || isModified ? '✓' : '⏳'}</div>
+      <div class="card-main">
+        <div class="card-title">${a.title} ${isModified ? '<span style="font-size:0.7rem;color:var(--accent);font-weight:500;">· modified</span>' : ''}</div>
+        <div class="card-meta">
+          ${a.due_date ? `<span class="meta-item">📅 ${a.due_date}</span>` : ''}
+          <span class="meta-item" style="background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:0.72rem;">${a.category || '—'}</span>
+        </div>
+        ${scoreBar}
+      </div>
+      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; min-width:250px;">
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          <input type="number" min="0" max="${maxPossibleForInput}" step="0.5"
+            value="${earned !== null ? earned : ''}"
+            placeholder="Earned"
+            style="width:72px; padding:4px 8px; border-radius:8px; border:1px solid var(--border);
+              background:var(--bg); color:var(--text-primary); font-family:'DM Sans',sans-serif;
+              font-size:0.85rem; text-align:center;"
+            oninput="updateScore('${key}', this.value);" />
+
+          <span style="font-size:0.82rem; color:var(--text-muted);">/</span>
+
+          <input type="number" min="0" max="9999" step="0.5"
+            value="${possible !== null ? possible : ''}"
+            placeholder="Possible"
+            style="width:82px; padding:4px 8px; border-radius:8px; border:1px solid var(--border);
+              background:var(--bg); color:var(--text-primary); font-family:'DM Sans',sans-serif;
+              font-size:0.85rem; text-align:center;"
+            oninput="updatePossible('${key}', this.value);" />
+
+          ${pct !== null ? `<span class="score-pct" style="font-size:0.82rem; font-weight:600; color:var(--text-primary);">${pct}%</span>` : `<span class="score-pct" style="font-size:0.82rem; font-weight:600; color:var(--text-muted);">—</span>`}
+        </div>
+
+        ${possible !== null ? `
+        <input type="range" min="0" max="${maxPossibleForInput}" step="0.5"
+          value="${earned !== null ? earned : 0}"
+          style="width:100%; accent-color:var(--accent);"
+          oninput="updateScore('${key}', this.value);"
+          data-range-for="${key}" />` : `
+        <input type="range" min="0" max="200" step="0.5"
+          value="${earned !== null ? earned : 0}"
+          style="width:100%; accent-color:var(--accent);"
+          oninput="updateScore('${key}', this.value);"
+          data-range-for="${key}" />`}
+      </div>
+    `;
+
+    const numEarnedInput = card.querySelector('input[placeholder="Earned"]');
+    const numPossibleInput = card.querySelector('input[placeholder="Possible"]');
+    const rangeInput = card.querySelector('input[type="range"]');
+
+    if (numEarnedInput && rangeInput) {
+      numEarnedInput.addEventListener('input', () => {
+        rangeInput.value = numEarnedInput.value || 0;
+        updateScore(key, numEarnedInput.value);
+      });
+    }
+
+    if (numPossibleInput) {
+      numPossibleInput.addEventListener('input', () => {
+        updatePossible(key, numPossibleInput.value);
+      });
+    }
+
+    if (rangeInput && numEarnedInput) {
+      rangeInput.addEventListener('input', () => {
+        numEarnedInput.value = rangeInput.value;
+        updateScore(key, rangeInput.value);
+      });
+    }
+
+    wrap.appendChild(card);
+  });
+}
+
+function syncAssignmentCard(id) {
+  const card = document.querySelector(`.assignment-card[data-assignment-id="${CSS.escape(id)}"]`);
+  if (!card || !selectedCourse) return;
+
+  const a = getAssignmentById(id);
+  if (!a) return;
+
+  const score = getAssignmentScore(a);
+  const earned = score.earned;
+  const possible = score.possible;
+  const isModified = hasActualModification(a);
+
+  const numEarnedInput = card.querySelector('input[placeholder="Earned"]');
+  const numPossibleInput = card.querySelector('input[placeholder="Possible"]');
+  const rangeInput = card.querySelector('input[type="range"]');
+  const pctDisplay = card.querySelector('.score-pct');
+  const scoreBar = card.querySelector('.score-bar-fill');
+  const title = card.querySelector('.card-title');
+
+  if (numEarnedInput) {
+    numEarnedInput.value = earned !== null ? earned : '';
+    numEarnedInput.max = possible !== null && possible > 0 ? Math.max(200, possible * 3) : 200;
+  }
+
+  if (numPossibleInput) {
+    numPossibleInput.value = possible !== null ? possible : '';
+  }
+
+  if (rangeInput) {
+    rangeInput.value = earned !== null ? earned : 0;
+    rangeInput.max = possible !== null && possible > 0 ? Math.max(200, possible * 3) : 200;
+  }
+
+  const pct = (earned !== null && possible !== null && possible > 0)
+    ? Math.round((earned / possible) * 100)
+    : null;
+
+  if (pctDisplay) {
+    pctDisplay.textContent = pct !== null ? `${pct}%` : '—';
+    pctDisplay.style.color = pct !== null ? 'var(--text-primary)' : 'var(--text-muted)';
+  }
+
+  if (scoreBar) {
+    if (pct !== null) {
+      scoreBar.style.width = `${Math.min(pct, 100)}%`;
+      scoreBar.style.background = pct >= 90
+        ? 'var(--low)'
+        : pct >= 70
+          ? 'var(--accent)'
+          : 'var(--high)';
+    }
+  }
+
+  if (title) {
+    const cleanText = a.title;
+    title.innerHTML = isModified
+      ? `${cleanText} <span style="font-size:0.7rem;color:var(--accent);font-weight:500;">· modified</span>`
+      : cleanText;
+  }
+
+  card.style.borderColor = isModified ? 'var(--accent)' : '';
+  const bubble = card.querySelector('.rank-bubble');
+  if (bubble) bubble.textContent = a.graded || isModified ? '✓' : '⏳';
+}
+
+function syncVisibleAssignments() {
+  if (!selectedCourse) return;
+  document.querySelectorAll('.assignment-card[data-assignment-id]').forEach(card => {
+    syncAssignmentCard(card.dataset.assignmentId);
+  });
+}
+
+function animateGradeChange(element, newValue) {
+  if (!element) return;
+  element.style.transform = 'scale(1.08)';
+  element.style.transition = 'transform 0.15s ease';
+  setTimeout(() => {
+    element.style.transform = 'scale(1)';
+  }, 150);
+  element.textContent = newValue;
+}
+
+function getAssignmentById(id) {
+  if (!selectedCourse) return null;
+  return selectedCourse.assignments.find(a => getAssignmentKey(a) === id) || null;
+}
+
+function updateScore(id, value) {
+  if (!selectedCourse) return;
+
+  const a = getAssignmentById(id);
+  if (!a) return;
+
+  const base = getBaseAssignmentValues(a);
+  const current = getAssignmentScore(a);
+  const parsed = safeNum(value);
+
+  const next = {
+    earned: parsed !== null ? parsed : base.earned,
+    possible: current.possible
+  };
+
+  const unchanged = next.earned === base.earned && next.possible === base.possible;
+  if (unchanged) {
+    delete modifiedScores[id];
+  } else {
+    modifiedScores[id] = next;
+  }
+
+  syncAssignmentCard(id);
+  recalculateModeled();
+}
+
+function updatePossible(id, value) {
+  if (!selectedCourse) return;
+
+  const a = getAssignmentById(id);
+  if (!a) return;
+
+  const base = getBaseAssignmentValues(a);
+  const current = getAssignmentScore(a);
+  const parsed = safeNum(value);
+
+  const next = {
+    earned: current.earned,
+    possible: parsed !== null ? parsed : base.possible
+  };
+
+  const unchanged = next.earned === base.earned && next.possible === base.possible;
+  if (unchanged) {
+    delete modifiedScores[id];
+  } else {
+    modifiedScores[id] = next;
+  }
+
+  syncAssignmentCard(id);
+  recalculateModeled();
+}
+
+function recalculateModeled() {
+  if (!selectedCourse) return;
+
+  const categories = selectedCourse.categories || [];
+  const assignments = selectedCourse.assignments || [];
+
+  const catTotals = {};
+  categories.forEach(cat => {
+    catTotals[normKey(cat.type)] = { earned: 0, possible: 0 };
+  });
+
+  assignments.forEach(a => {
+    const catKey = normKey(a.category);
+    if (!catTotals[catKey]) return;
+
+    const score = getAssignmentScore(a);
+    const earned = score.earned;
+    const possible = score.possible;
+
+    if (earned !== null && possible !== null && possible > 0) {
+      catTotals[catKey].earned += earned;
+      catTotals[catKey].possible += possible;
+    }
+  });
+
+  let totalWeightUsed = 0;
+  let weightedSum = 0;
+
+  categories.forEach(cat => {
+    const weight = (modifiedWeights[cat.type] ?? cat.weight) / 100;
+    const totals = catTotals[normKey(cat.type)];
+
+    if (totals && totals.possible > 0) {
+      const pct = totals.earned / totals.possible;
+      weightedSum += pct * weight;
+      totalWeightUsed += weight;
+    }
+  });
+
+  const modeled = totalWeightUsed > 0
+    ? Math.round((weightedSum / totalWeightUsed) * 10000) / 100
+    : selectedCourse.percentage;
+
+  animateGradeChange(document.getElementById('modeledPct'), `${modeled}%`);
+  const modeledLetter = document.getElementById('modeledLetter');
+  const modeledGradeLetter = pctToLetter(modeled);
+  modeledLetter.textContent = modeledGradeLetter;
+  modeledLetter.className = 'priority-badge ' + letterToClass(modeledGradeLetter);
+
+  return modeled;
+}
+
+function runModel() {
+  if (!selectedCourse) return;
+
+  const target = parseFloat(document.getElementById('targetInput').value);
+  if (isNaN(target) || target < 0 || target > 100) {
+    alert('Please enter a valid target between 0 and 100.');
+    return;
+  }
+
+  const assignments = selectedCourse.assignments || [];
+  const categories = selectedCourse.categories || [];
+
+  const catData = {};
+  categories.forEach(cat => {
+    catData[normKey(cat.type)] = {
+      earned: 0,
+      gradedPossible: 0,
+      pendingPossible: 0,
+      pendingAssignments: [],
+      displayType: cat.type,
+      weight: cat.weight
+    };
+  });
+
+  assignments.forEach(a => {
+    const catKey = normKey(a.category);
+    if (!catData[catKey]) return;
+
+    const score = getAssignmentScore(a);
+    const earned = score.earned;
+    const possible = score.possible;
+
+    if (earned !== null && possible !== null && possible > 0) {
+      catData[catKey].earned += earned;
+      catData[catKey].gradedPossible += possible;
+    } else if (possible !== null && possible > 0) {
+      catData[catKey].pendingPossible += possible;
+      catData[catKey].pendingAssignments.push(a.title);
+    }
+  });
+
+  const targetDecimal = target / 100;
+  let lines = [];
+  let achievable = true;
+
+  categories.forEach(cat => {
+    const catKey = normKey(cat.type);
+    const d = catData[catKey];
+    const totalPossible = d.gradedPossible + d.pendingPossible;
+
+    if (totalPossible === 0) return;
+
+    const currentWeightedPct = d.gradedPossible > 0
+      ? d.earned / d.gradedPossible
+      : null;
+
+    const neededFromCat = d.pendingPossible > 0
+      ? ((targetDecimal * totalPossible) - d.earned) / d.pendingPossible * 100
+      : null;
+
+    if (neededFromCat !== null) {
+      if (neededFromCat > 100) achievable = false;
+      lines.push(`<strong>${cat.type}</strong> (${cat.weight}% of grade): need <strong>${Math.max(0, neededFromCat).toFixed(1)}%</strong> avg on ${d.pendingAssignments.length} remaining assignment${d.pendingAssignments.length !== 1 ? 's' : ''}${neededFromCat > 100 ? ' <span style="color:var(--high)">⚠️ not possible</span>' : ''}`);
+    } else {
+      const actual = currentWeightedPct !== null ? (currentWeightedPct * 100).toFixed(1) : '—';
+      lines.push(`<strong>${cat.type}</strong>: all graded — currently at ${actual}%`);
+    }
+  });
+
+  const result = document.getElementById('modelResult');
+  result.style.display = 'block';
+  result.innerHTML = `
+    <div style="margin-bottom:8px; font-weight:600; color:${achievable ? 'var(--low)' : 'var(--high)'};">
+      ${achievable ? `✅ Target of ${target}% is achievable` : `⚠️ Target of ${target}% may not be reachable`}
+    </div>
+    ${lines.map(l => `<div style="padding:4px 0; border-bottom:1px solid var(--border); font-size:0.88rem;">${l}</div>`).join('')}
+  `;
+}
+
+function renderTrendChart(assignments) {
+  const graded = assignments
+    .map(a => {
+      const score = getAssignmentScore(a);
+      return {
+        ...a,
+        _earned: score.earned,
+        _possible: score.possible
+      };
+    })
+    .filter(a => a._earned !== null && a._possible !== null && a._possible > 0 && a.due_date)
+    .sort((a, b) => a.due_date.localeCompare(b.due_date));
+
+  if (graded.length < 2) {
+    document.getElementById('trendChart').parentElement.style.display = 'none';
+    return;
+  }
+
+  document.getElementById('trendChart').parentElement.style.display = 'block';
+
+  const labels = graded.map(a => a.due_date);
+  const scores = graded.map(a => Math.round((a._earned / a._possible) * 100));
+
+  const running = scores.map((_, i) => {
+    const slice = scores.slice(0, i + 1);
+    return Math.round(slice.reduce((s, v) => s + v, 0) / slice.length);
+  });
+
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  const textColor = isDark ? '#8b949e' : '#94a3b8';
+
+  if (trendChart) trendChart.destroy();
+
+  trendChart = new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Score %',
+          data: scores,
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59,130,246,0.08)',
+          pointBackgroundColor: '#3b82f6',
+          tension: 0.3,
+          fill: true,
+          pointRadius: 4,
+        },
+        {
+          label: 'Running Avg',
+          data: running,
+          borderColor: '#22c55e',
+          borderDash: [5, 4],
+          pointRadius: 0,
+          tension: 0.3,
+          fill: false,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: textColor, font: { family: 'DM Sans' } } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}%` } }
+      },
+      scales: {
+        x: { ticks: { color: textColor, maxTicksLimit: 8 }, grid: { color: gridColor } },
+        y: { min: 0, max: 100, ticks: { color: textColor, callback: v => v + '%' }, grid: { color: gridColor } }
+      }
+    }
+  });
+}
+
+function resetAll() {
+  if (!selectedCourse) return;
+
+  modifiedScores = {};
+  modifiedWeights = {};
+
+  document.getElementById('targetInput').value = '';
+  document.getElementById('modelResult').style.display = 'none';
+
+  document.getElementById('currentPct').textContent = `${selectedCourse.percentage}%`;
+  document.getElementById('currentLetter').textContent = selectedCourse.letter;
+  document.getElementById('currentLetter').className = 'priority-badge ' + letterToClass(selectedCourse.letter);
+
+  document.getElementById('modeledPct').textContent = `${selectedCourse.percentage}%`;
+  document.getElementById('modeledLetter').textContent = selectedCourse.letter;
+  document.getElementById('modeledLetter').className = 'priority-badge ' + letterToClass(selectedCourse.letter);
+
+  renderCategoryWeights(selectedCourse.categories);
+  renderCategoryTabs(selectedCourse);
+  renderBreakdown(selectedCourse.assignments);
+  renderTrendChart(selectedCourse.assignments);
+  recalculateModeled();
+}
+
+const themeToggle = document.getElementById('themeToggle');
+if (themeToggle) {
+  themeToggle.addEventListener('change', () => {
+    if (selectedCourse) setTimeout(() => renderTrendChart(selectedCourse.assignments), 100);
+  });
+}
+
+function refreshVisibleState() {
+  if (!selectedCourse) return;
+  syncVisibleAssignments();
+  recalculateModeled();
+}
+
+function forceRerenderCurrentCourse() {
+  if (!selectedCourse) return;
+  renderCategoryWeights(selectedCourse.categories);
+  renderCategoryTabs(selectedCourse);
+  renderBreakdown(selectedCourse.assignments);
+  renderTrendChart(selectedCourse.assignments);
+  recalculateModeled();
+}
+
+window.addEventListener('resize', () => {
+  if (trendChart) {
+    trendChart.resize();
+  }
+});
+
+function hasValidCourseData(course) {
+  return !!course && Array.isArray(course.categories) && Array.isArray(course.assignments);
+}
+
+function safeSelectCourse(course) {
+  if (!hasValidCourseData(course)) return;
+  selectCourse(course);
+}
+
+function debugCurrentState() {
+  return {
+    selectedCourse: selectedCourse ? selectedCourse.course : null,
+    modifiedScores,
+    modifiedWeights,
+    activeCategoryFilter
+  };
+}
+
+function getCategoryByType(type) {
+  if (!selectedCourse) return null;
+  return selectedCourse.categories.find(c => c.type === type) || null;
+}
+
+function hasModifiedScore(id) {
+  return Object.prototype.hasOwnProperty.call(modifiedScores, id);
+}
+
+function hasModifiedWeight(type) {
+  return Object.prototype.hasOwnProperty.call(modifiedWeights, type);
+}
+
+function clearModifiedScore(id) {
+  if (hasModifiedScore(id)) {
+    delete modifiedScores[id];
+    syncAssignmentCard(id);
+    recalculateModeled();
+  }
+}
+
+function clearModifiedWeight(type) {
+  if (hasModifiedWeight(type)) {
+    delete modifiedWeights[type];
+    if (selectedCourse) {
+      renderCategoryWeights(selectedCourse.categories);
+      recalculateModeled();
+    }
+  }
+}
+
+function clearAllModifiedScores() {
+  modifiedScores = {};
+  if (selectedCourse) {
+    renderBreakdown(
+      activeCategoryFilter === 'all'
+        ? selectedCourse.assignments
+        : selectedCourse.assignments.filter(a => a.category === activeCategoryFilter)
+    );
+    recalculateModeled();
+  }
+}
+
+function clearAllModifiedWeights() {
+  modifiedWeights = {};
+  if (selectedCourse) {
+    renderCategoryWeights(selectedCourse.categories);
+    recalculateModeled();
+  }
+}
+
+function updateCurrentDisplaysFromSelectedCourse() {
+  if (!selectedCourse) return;
+
+  document.getElementById('currentPct').textContent = `${selectedCourse.percentage}%`;
+  document.getElementById('currentLetter').textContent = selectedCourse.letter;
+  document.getElementById('currentLetter').className = 'priority-badge ' + letterToClass(selectedCourse.letter);
+}
+
+function updateModeledDisplays(percent) {
+  const modeledPctEl = document.getElementById('modeledPct');
+  const modeledLetterEl = document.getElementById('modeledLetter');
+
+  if (!modeledPctEl || !modeledLetterEl) return;
+
+  modeledPctEl.textContent = `${percent}%`;
+  const gradeLetter = pctToLetter(percent);
+  modeledLetterEl.textContent = gradeLetter;
+  modeledLetterEl.className = 'priority-badge ' + letterToClass(gradeLetter);
+}
+
+function rebuildBreakdownIfNeeded() {
+  if (!selectedCourse) return;
+  renderBreakdown(
+    activeCategoryFilter === 'all'
+      ? selectedCourse.assignments
+      : selectedCourse.assignments.filter(a => a.category === activeCategoryFilter)
+  );
+}
+
+function rebuildWeightsIfNeeded() {
+  if (!selectedCourse) return;
+  renderCategoryWeights(selectedCourse.categories);
+}
+
+function rebuildTabsIfNeeded() {
+  if (!selectedCourse) return;
+  renderCategoryTabs(selectedCourse);
+}
+
+function rebuildChartIfNeeded() {
+  if (!selectedCourse) return;
+  renderTrendChart(selectedCourse.assignments);
+}
+
+function modelBasedOnCurrentChanges() {
+  return recalculateModeled();
+}
+
+function applyTargetAndModel(targetValue) {
+  const input = document.getElementById('targetInput');
+  if (input) input.value = targetValue;
+  runModel();
+}
+
+function setActiveFilter(filterName) {
+  activeCategoryFilter = filterName || 'all';
+  if (selectedCourse) {
+    renderCategoryTabs(selectedCourse);
+    renderBreakdown(
+      activeCategoryFilter === 'all'
+        ? selectedCourse.assignments
+        : selectedCourse.assignments.filter(a => a.category === activeCategoryFilter)
+    );
+  }
+}
+
+function getModeledPercent() {
+  return recalculateModeled();
+}
+{% endblock %}
