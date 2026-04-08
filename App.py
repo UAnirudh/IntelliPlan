@@ -295,29 +295,11 @@ def classes():
     return render_template("classes.html", active_page="classes")
 
 
-@app.route("/login", methods=["GET", "POST"])
+@app.route("/login", methods=["GET"])
 def login():
-    error = None
-    if request.method == "POST":
-        token = request.form.get("canvas_token", "").strip()
-        canvas_url = request.form.get("canvas_url", "").strip().rstrip("/")
-        if not token or not canvas_url:
-            error = "Please fill in both fields."
-        else:
-            test = requests.get(
-                f"{canvas_url}/api/v1/courses",
-                headers={"Authorization": f"Bearer {token}"},
-            )
-            if test.status_code == 200:
-                session.permanent = True
-                session["canvas_token"] = token
-                session["canvas_url"] = canvas_url
-                session["login_type"] = "canvas"
-                return redirect(url_for("home"))
-            else:
-                error = "Invalid token or Canvas URL. Please check and try again."
-    return render_template("login.html", active_page="login", error=error)
-
+    if is_logged_in():
+        return redirect(url_for("home"))
+    return render_template("login.html", active_page="login")
 
 @app.route("/login/studentvue", methods=["GET", "POST"])
 def login_studentvue():
@@ -326,6 +308,7 @@ def login_studentvue():
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "").strip()
         district_url = request.form.get("district_url", "").strip().rstrip("/")
+        profile_name = request.form.get("profile_name", "").strip() or "StudentVue Account"
         if not username or not password or not district_url:
             error = "Please fill in all fields."
         else:
@@ -335,11 +318,25 @@ def login_studentvue():
                 session["sv_password"] = password
                 session["sv_district_url"] = district_url
                 session["login_type"] = "studentvue"
+                import uuid
+                profile_id = str(uuid.uuid4())[:8]
+                profiles = session.get("profiles", {})
+                profiles[profile_id] = {
+                    "id": profile_id,
+                    "name": profile_name,
+                    "login_type": "studentvue",
+                    "credentials": {
+                        "sv_username": username,
+                        "sv_password": password,
+                        "sv_district_url": district_url,
+                    }
+                }
+                session["profiles"] = profiles
+                session["active_profile"] = profile_id
                 return redirect(url_for("home"))
             else:
-                error = "Invalid credentials. Please check and try again."
+                error = "Invalid credentials."
     return render_template("login_studentvue.html", active_page="login", error=error)
-
 
 @app.route("/logout")
 def logout():
@@ -358,7 +355,13 @@ def get_live_schedule():
         sorted_schedule = get_sv_assignments(district_url, username, password)
         sorted_schedule = [a for a in sorted_schedule if a["title"] not in dismissed]
         return flask.jsonify(sorted_schedule)
-
+    
+    if login_type == "schoology":
+        key = session.get("schoology_key")
+        secret = session.get("schoology_secret")
+        result = get_schoology_assignments(key, secret)
+        return flask.jsonify([a for a in result if a["title"] not in dismissed])
+    
     token = session.get("canvas_token") or os.getenv("CANVAS_TOKEN")
     canvas_url = session.get("canvas_url") or "https://canvas.instructure.com"
     base = f"{canvas_url}/api/v1"
@@ -441,6 +444,11 @@ def get_courses():
 
         courses = get_sv_courses(district_url, username, password)
         return flask.jsonify(courses)
+    
+    if login_type == "schoology":
+        key = session.get("schoology_key")
+        secret = session.get("schoology_secret")
+        return flask.jsonify(get_schoology_courses(key, secret))
 
     token = session.get("canvas_token") or os.getenv("CANVAS_TOKEN")
     canvas_url = session.get("canvas_url") or "https://canvas.instructure.com"
@@ -472,6 +480,12 @@ def grades_data():
         password = session.get("sv_password")
         district_url = session.get("sv_district_url")
         return flask.jsonify(get_sv_grades(district_url, username, password))
+    
+    if login_type == "schoology":
+        key = session.get("schoology_key")
+        secret = session.get("schoology_secret")
+        return flask.jsonify(get_schoology_grades(key, secret))
+    
     return flask.jsonify([])
 
 
@@ -803,6 +817,143 @@ def service_worker():
     response.headers['Content-Type'] = 'application/javascript'
     response.headers['Service-Worker-Allowed'] = '/'
     return response
+
+
+@app.route("/profiles")
+def profiles():
+    if not is_logged_in():
+        return redirect(url_for("login"))
+    return render_template("profiles.html", active_page="profiles")
+
+@app.route("/profiles/list")
+def profiles_list():
+    all_profiles = session.get("profiles", {})
+    active = session.get("active_profile")
+    return flask.jsonify({"profiles": all_profiles, "active": active})
+
+@app.route("/profiles/switch", methods=["POST"])
+def profiles_switch():
+    profile_id = request.json.get("id")
+    all_profiles = session.get("profiles", {})
+    if profile_id not in all_profiles:
+        return flask.jsonify({"status": "error", "message": "Profile not found"})
+    p = all_profiles[profile_id]
+    # Clear current auth
+    session.pop("canvas_token", None)
+    session.pop("canvas_url", None)
+    session.pop("sv_username", None)
+    session.pop("sv_password", None)
+    session.pop("sv_district_url", None)
+    session.pop("schoology_key", None)
+    session.pop("schoology_secret", None)
+    # Load profile credentials
+    session.update(p["credentials"])
+    session["login_type"] = p["login_type"]
+    session["active_profile"] = profile_id
+    session.modified = True
+    return flask.jsonify({"status": "ok"})
+
+@app.route("/profiles/delete", methods=["POST"])
+def profiles_delete():
+    profile_id = request.json.get("id")
+    all_profiles = session.get("profiles", {})
+    all_profiles.pop(profile_id, None)
+    session["profiles"] = all_profiles
+    if session.get("active_profile") == profile_id:
+        session.pop("active_profile", None)
+    session.modified = True
+    return flask.jsonify({"status": "ok"})
+
+@app.route("/profiles/rename", methods=["POST"])
+def profiles_rename():
+    profile_id = request.json.get("id")
+    name = request.json.get("name", "").strip()
+    all_profiles = session.get("profiles", {})
+    if profile_id in all_profiles and name:
+        all_profiles[profile_id]["name"] = name
+        session["profiles"] = all_profiles
+        session.modified = True
+    return flask.jsonify({"status": "ok"})
+
+from schoology_helper import (
+    test_schoology_login,
+    get_schoology_assignments,
+    get_schoology_grades,
+    get_schoology_courses,
+)
+
+@app.route("/login/schoology", methods=["GET", "POST"])
+def login_schoology():
+    error = None
+    if request.method == "POST":
+        key = request.form.get("api_key", "").strip()
+        secret = request.form.get("api_secret", "").strip()
+        profile_name = request.form.get("profile_name", "").strip() or "Schoology Account"
+        if not key or not secret:
+            error = "Please fill in both fields."
+        else:
+            if test_schoology_login(key, secret):
+                session.permanent = True
+                session["schoology_key"] = key
+                session["schoology_secret"] = secret
+                session["login_type"] = "schoology"
+                import uuid
+                profile_id = str(uuid.uuid4())[:8]
+                profiles = session.get("profiles", {})
+                profiles[profile_id] = {
+                    "id": profile_id,
+                    "name": profile_name,
+                    "login_type": "schoology",
+                    "credentials": {
+                        "schoology_key": key,
+                        "schoology_secret": secret,
+                    }
+                }
+                session["profiles"] = profiles
+                session["active_profile"] = profile_id
+                return redirect(url_for("home"))
+            else:
+                error = "Invalid Schoology API credentials."
+    return render_template("login_schoology.html", active_page="login", error=error)
+
+
+@app.route("/login/canvas", methods=["GET", "POST"])
+def login_canvas():
+    error = None
+    if request.method == "POST":
+        token = request.form.get("canvas_token", "").strip()
+        canvas_url = request.form.get("canvas_url", "").strip().rstrip("/")
+        profile_name = request.form.get("profile_name", "").strip() or "Canvas Account"
+        if not token or not canvas_url:
+            error = "Please fill in both fields."
+        else:
+            test = requests.get(
+                f"{canvas_url}/api/v1/courses",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            if test.status_code == 200:
+                session.permanent = True
+                session["canvas_token"] = token
+                session["canvas_url"] = canvas_url
+                session["login_type"] = "canvas"
+                import uuid
+                profile_id = str(uuid.uuid4())[:8]
+                profiles = session.get("profiles", {})
+                profiles[profile_id] = {
+                    "id": profile_id,
+                    "name": profile_name,
+                    "login_type": "canvas",
+                    "credentials": {
+                        "canvas_token": token,
+                        "canvas_url": canvas_url,
+                    }
+                }
+                session["profiles"] = profiles
+                session["active_profile"] = profile_id
+                return redirect(url_for("home"))
+            else:
+                error = "Invalid token or Canvas URL."
+    return render_template("login_canvas.html", active_page="login", error=error)
 
 @app.context_processor
 def inject_auth():

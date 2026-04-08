@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="login-header">
+      <div style="width:48px;height:48px;border-radius:12px;background:#e66000;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 1rem;">🟥</div>
+      <h1 class="login-title">Connect Canvas</h1>
+      <p class="login-subtitle">Enter your Canvas URL and access token</p>
+    </div>
+
+    {% if error %}
+    <div class="login-error">⚠️ {{ error }}</div>
+    {% endif %}
+
+    <form class="login-form" method="POST" action="/login/canvas">
+      <div class="form-group">
+        <label class="form-label">Profile Name</label>
+        <input type="text" name="profile_name" class="form-input" placeholder="e.g. School Canvas" />
+        <span class="form-hint">Optional — helps identify this account</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Canvas URL</label>
+        <input type="text" name="canvas_url" class="form-input" placeholder="https://canvas.instructure.com" required />
+        <span class="form-hint">Your school's Canvas instance URL</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Access Token</label>
+        <input type="password" name="canvas_token" class="form-input" placeholder="••••••••••••••••" required />
+        <span class="form-hint">Canvas → Account → Settings → New Access Token</span>
+      </div>
+      <button type="submit" class="btn-primary" style="width:100%;padding:14px;border:none;cursor:pointer;font-size:0.95rem;">
+        Connect Canvas →
+      </button>
+    </form>
+
+    <div class="login-footer">
+      <a href="/login" class="login-link">← Back to login options</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

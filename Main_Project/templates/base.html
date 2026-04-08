@@ -1443,6 +1443,7 @@
     {% if not logged_in %}
       <a href="/login" class="nav-tab {% if active_page == 'login' %}active{% endif %}">Login</a>
     {% else %}
+      <a href="/profiles" class="nav-tab {% if active_page == 'profiles' %}active{% endif %}">👤 Profiles</a>
       <a href="/logout" class="nav-tab">Logout</a>
     {% endif %}
 

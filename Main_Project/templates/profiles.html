@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Profiles</h1>
+  <p class="page-subtitle">Switch between accounts or add a new one</p>
+</div>
+
+<div id="profilesWrap" style="display:flex; flex-direction:column; gap:1rem; margin-bottom:2rem;"></div>
+
+<div style="display:flex; gap:12px; flex-wrap:wrap;">
+  <a href="/login" class="btn-secondary" style="text-decoration:none; padding:12px 24px; font-size:0.9rem;">+ Add Canvas Account</a>
+  <a href="/login/studentvue" class="btn-secondary" style="text-decoration:none; padding:12px 24px; font-size:0.9rem;">+ Add StudentVue Account</a>
+  <a href="/login/schoology" class="btn-secondary" style="text-decoration:none; padding:12px 24px; font-size:0.9rem;">+ Add Schoology Account</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+let activeProfile = null;
+
+fetch('/profiles/list')
+  .then(r => r.json())
+  .then(data => {
+    activeProfile = data.active;
+    const wrap = document.getElementById('profilesWrap');
+    const profiles = Object.values(data.profiles);
+
+    if (!profiles.length) {
+      wrap.innerHTML = `<div style="color:var(--text-muted); font-size:0.9rem; padding:2rem 0;">No profiles yet. Add an account below.</div>`;
+      return;
+    }
+
+    profiles.forEach(p => {
+      const isActive = p.id === data.active;
+      const icon = p.login_type === 'canvas' ? '🟦' : p.login_type === 'schoology' ? '🟧' : '🟩';
+      const card = document.createElement('div');
+      card.style.cssText = `
+        background:var(--bg-card); border:${isActive ? '2px solid var(--accent)' : '1px solid var(--border)'};
+        border-radius:16px; padding:1.25rem 1.5rem; display:flex; align-items:center;
+        gap:1rem; box-shadow:var(--shadow); transition:box-shadow 0.2s;
+      `;
+      card.innerHTML = `
+        <div style="font-size:1.8rem;">${icon}</div>
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+            <span id="name_${p.id}" style="font-size:1rem; font-weight:600; color:var(--text-primary);">${p.name}</span>
+            ${isActive ? '<span style="font-size:0.72rem; background:var(--accent); color:white; padding:2px 8px; border-radius:10px; font-weight:600;">Active</span>' : ''}
+          </div>
+          <div style="font-size:0.78rem; color:var(--text-muted); text-transform:capitalize;">${p.login_type}</div>
+        </div>
+        <div style="display:flex; gap:8px; flex-shrink:0;">
+          ${!isActive ? `<button onclick="switchProfile('${p.id}')" class="btn-primary" style="padding:8px 16px; border:none; cursor:pointer; font-size:0.82rem;">Switch</button>` : ''}
+          <button onclick="renameProfile('${p.id}')" style="padding:8px 14px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text-secondary); cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.82rem;">Rename</button>
+          ${!isActive ? `<button onclick="deleteProfile('${p.id}')" style="padding:8px 14px; border-radius:10px; border:1px solid var(--high); background:var(--high-bg); color:var(--high); cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.82rem;">Remove</button>` : ''}
+        </div>
+      `;
+      wrap.appendChild(card);
+    });
+  });
+
+function switchProfile(id) {
+  fetch('/profiles/switch', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ id })
+  }).then(() => window.location.reload());
+}
+
+function deleteProfile(id) {
+  if (!confirm('Remove this profile?')) return;
+  fetch('/profiles/delete', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ id })
+  }).then(() => window.location.reload());
+}
+
+function renameProfile(id) {
+  const current = document.getElementById(`name_${id}`).textContent;
+  const name = prompt('New profile name:', current);
+  if (!name || !name.trim()) return;
+  fetch('/profiles/rename', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ id, name: name.trim() })
+  }).then(() => window.location.reload());
+}
+{% endblock %}
