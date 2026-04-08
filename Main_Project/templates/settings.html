@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Settings</h1>
+  <p class="page-subtitle">Manage your account and connected schools</p>
+</div>
+
+<div id="settingsWrap">
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;box-shadow:var(--shadow);margin-bottom:1.5rem;" id="accountCard">
+    <div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:1rem;">Account</div>
+    <div id="accountInfo" style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:1rem;"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <a href="/connect" class="btn-secondary" style="text-decoration:none;padding:10px 20px;font-size:0.88rem;">+ Connect LMS Account</a>
+      <button onclick="deleteAccount()" style="padding:10px 20px;border-radius:10px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:600;">Delete Account</button>
+    </div>
+  </div>
+
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;box-shadow:var(--shadow);">
+    <div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:1rem;">Connected Schools</div>
+    <div id="linkedAccounts"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+fetch('/profiles/list')
+  .then(r => r.json())
+  .then(data => {
+    if (data.is_guest) {
+      document.getElementById('accountInfo').innerHTML =
+        'You are using IntelliPlan as a <strong>guest</strong>. <a href="/register" class="login-link">Create a free account</a> to save your data.';
+      document.querySelector('button[onclick="deleteAccount()"]').style.display = 'none';
+      return;
+    }
+    document.getElementById('accountInfo').innerHTML =
+      `Signed in as <strong>${data.email}</strong>`;
+
+    const wrap = document.getElementById('linkedAccounts');
+    if (!data.profiles.length) {
+      wrap.innerHTML = '<div style="color:var(--text-muted);font-size:0.88rem;">No schools connected yet.</div>';
+      return;
+    }
+    data.profiles.forEach(p => {
+      const icon = p.login_type === 'canvas' ? '🟥' : p.login_type === 'schoology' ? '🟦' : '🟩';
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);';
+      div.innerHTML = `
+        <span style="font-size:1.4rem;">${icon}</span>
+        <div style="flex:1;">
+          <div style="font-size:0.9rem;font-weight:600;color:var(--text-primary);">${p.name}</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);text-transform:capitalize;">${p.login_type}</div>
+        </div>
+        ${p.is_active ? '<span style="font-size:0.72rem;background:var(--accent);color:white;padding:2px 8px;border-radius:10px;font-weight:600;">Active</span>' : `<button onclick="switchProfile('${p.id}')" class="btn-primary" style="padding:6px 14px;border:none;cursor:pointer;font-size:0.8rem;">Switch</button>`}
+        <button onclick="deleteProfile('${p.id}')" style="padding:6px 12px;border-radius:8px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:0.8rem;">Remove</button>
+      `;
+      wrap.appendChild(div);
+    });
+  });
+
+function switchProfile(id) {
+  fetch('/profiles/switch', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({id})
+  }).then(() => window.location.reload());
+}
+
+function deleteProfile(id) {
+  if (!confirm('Remove this school account?')) return;
+  fetch('/profiles/delete', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({id})
+  }).then(() => window.location.reload());
+}
+
+function deleteAccount() {
+  if (!confirm('Permanently delete your IntelliPlan account and all data? This cannot be undone.')) return;
+  fetch('/account/delete', {
+    method: 'POST', headers: {'Content-Type':'application/json'}
+  }).then(() => window.location.href = '/');
+}
+{% endblock %}

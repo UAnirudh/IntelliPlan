@@ -1,77 +1,63 @@
 {% extends "base.html" %}
-
 {% block content %}
 <div class="login-wrap">
   <div class="login-card" style="max-width:480px;">
     <div class="login-header">
-      <div class="logo-icon" style="width:52px;height:52px;font-size:26px;margin:0 auto 1rem; background:linear-gradient(135deg,#3b82f6,#1d4ed8); border-radius:14px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-        <img src="/static/icons/icon-192.png" style="width:100%;height:100%;object-fit:cover;" alt="IntelliPlan">
+      <div class="logo-icon" style="width:52px;height:52px;margin:0 auto 1rem;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:14px;">
+        <img src="/static/icons/icon-192.png" style="width:100%;height:100%;object-fit:cover;">
       </div>
       <h1 class="login-title">Sign in to IntelliPlan</h1>
-      <p class="login-subtitle">Choose how you want to connect your school account</p>
+      <p class="login-subtitle">Choose how you want to get started</p>
+    </div>
+
+    <!-- Account options -->
+    <div style="display:flex; gap:10px; margin-bottom:1.5rem;">
+      <a href="/register" class="btn-primary" style="flex:1;text-align:center;text-decoration:none;padding:12px;">Create Account</a>
+      <a href="/login/account" class="btn-secondary" style="flex:1;text-align:center;text-decoration:none;padding:12px;">Sign In</a>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;">
+      <div style="flex:1;height:1px;background:var(--border);"></div>
+      <span style="font-size:0.78rem;color:var(--text-muted);font-weight:500;">or continue as guest</span>
+      <div style="flex:1;height:1px;background:var(--border);"></div>
     </div>
 
     <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:2rem;">
-
-      <!-- Canvas -->
-      <a href="/login/canvas" style="
-        display:flex; align-items:center; gap:14px;
-        padding:16px 20px; border-radius:14px;
-        border:1px solid var(--border); background:var(--bg-card);
-        text-decoration:none; color:var(--text-primary);
-        box-shadow:var(--shadow); transition:all 0.2s;
-        font-family:'DM Sans',sans-serif;
-      " onmouseover="this.style.borderColor='#e66000';this.style.boxShadow='0 8px 24px rgba(230,96,0,0.15)'"
-         onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow='var(--shadow)'">
+      <a href="/login/canvas" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;border:1px solid var(--border);background:var(--bg-card);text-decoration:none;color:var(--text-primary);box-shadow:var(--shadow);transition:all 0.2s;"
+        onmouseover="this.style.borderColor='#e66000';this.style.boxShadow='0 8px 24px rgba(230,96,0,0.15)'"
+        onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow='var(--shadow)'">
         <div style="width:42px;height:42px;border-radius:10px;background:#e66000;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🟥</div>
         <div>
           <div style="font-size:0.95rem;font-weight:600;margin-bottom:2px;">Canvas LMS</div>
-          <div style="font-size:0.78rem;color:var(--text-muted);">Connect with your Canvas access token</div>
+          <div style="font-size:0.78rem;color:var(--text-muted);">Guest — connect with access token</div>
         </div>
         <div style="margin-left:auto;color:var(--text-muted);font-size:0.9rem;">→</div>
       </a>
-
-      <!-- StudentVue -->
-      <a href="/login/studentvue" style="
-        display:flex; align-items:center; gap:14px;
-        padding:16px 20px; border-radius:14px;
-        border:1px solid var(--border); background:var(--bg-card);
-        text-decoration:none; color:var(--text-primary);
-        box-shadow:var(--shadow); transition:all 0.2s;
-        font-family:'DM Sans',sans-serif;
-      " onmouseover="this.style.borderColor='#22c55e';this.style.boxShadow='0 8px 24px rgba(34,197,94,0.15)'"
-         onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow='var(--shadow)'">
+      <a href="/login/studentvue" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;border:1px solid var(--border);background:var(--bg-card);text-decoration:none;color:var(--text-primary);box-shadow:var(--shadow);transition:all 0.2s;"
+        onmouseover="this.style.borderColor='#22c55e';this.style.boxShadow='0 8px 24px rgba(34,197,94,0.15)'"
+        onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow='var(--shadow)'">
         <div style="width:42px;height:42px;border-radius:10px;background:#16a34a;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🟩</div>
         <div>
           <div style="font-size:0.95rem;font-weight:600;margin-bottom:2px;">StudentVue</div>
-          <div style="font-size:0.78rem;color:var(--text-muted);">Connect with your district credentials</div>
+          <div style="font-size:0.78rem;color:var(--text-muted);">Guest — connect with district credentials</div>
         </div>
         <div style="margin-left:auto;color:var(--text-muted);font-size:0.9rem;">→</div>
       </a>
-
-      <!-- Schoology -->
-      <a href="/login/schoology" style="
-        display:flex; align-items:center; gap:14px;
-        padding:16px 20px; border-radius:14px;
-        border:1px solid var(--border); background:var(--bg-card);
-        text-decoration:none; color:var(--text-primary);
-        box-shadow:var(--shadow); transition:all 0.2s;
-        font-family:'DM Sans',sans-serif;
-      " onmouseover="this.style.borderColor='#5865F2';this.style.boxShadow='0 8px 24px rgba(88,101,242,0.15)'"
-         onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow='var(--shadow)'">
+      <a href="/login/schoology" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;border:1px solid var(--border);background:var(--bg-card);text-decoration:none;color:var(--text-primary);box-shadow:var(--shadow);transition:all 0.2s;"
+        onmouseover="this.style.borderColor='#5865F2';this.style.boxShadow='0 8px 24px rgba(88,101,242,0.15)'"
+        onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow='var(--shadow)'">
         <div style="width:42px;height:42px;border-radius:10px;background:#5865F2;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🟦</div>
         <div>
           <div style="font-size:0.95rem;font-weight:600;margin-bottom:2px;">Schoology</div>
-          <div style="font-size:0.78rem;color:var(--text-muted);">API key required — <span style="color:var(--high);font-weight:600;">not recommended</span>, most districts disable this</div>
+          <div style="font-size:0.78rem;color:var(--text-muted);">API key required · <span style="color:var(--high);font-weight:600;">not recommended</span></div>
         </div>
         <div style="margin-left:auto;color:var(--text-muted);font-size:0.9rem;">→</div>
       </a>
-
     </div>
 
     <div style="text-align:center; font-size:0.78rem; color:var(--text-muted); line-height:1.6;">
-      Your credentials are used only to fetch your assignments.<br>
-      They are never sold or shared.
+      Creating an account saves your data across devices.<br>
+      Guest mode resets when your session expires.
     </div>
   </div>
 </div>
