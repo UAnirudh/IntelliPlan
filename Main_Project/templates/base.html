@@ -1155,6 +1155,12 @@
       border-color: var(--accent);
     }
   </style>
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#3b82f6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="IntelliPlan">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
 </head>
 <body>
 
@@ -1171,6 +1177,7 @@
       <a href="/priority" class="nav-tab {% if active_page == 'priority' %}active{% endif %}">Priority</a>
       <a href="/classes" class="nav-tab {% if active_page == 'classes' %}active{% endif %}">Classes</a>
       <a href="/grades" class="nav-tab {% if active_page == 'grades' %}active{% endif %}">Grades</a>
+      <a href="/grademodel" class="nav-tab {% if active_page == 'grademodel' %}active{% endif %}">📈 Grade Modeler</a>
       <a href="/dismissed" class="nav-tab {% if active_page == 'dismissed' %}active{% endif %}">✓ Dismissed</a>
       {% if not logged_in %}
         <a href="/login" class="nav-tab {% if active_page == 'login' %}active{% endif %}">Login</a>
@@ -1216,6 +1223,13 @@
   });
 
   {% block scripts %}{% endblock %}
+  if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/static/sw.js')
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.log('SW failed:', err));
+  });
+}
 </script>
 <!-- Assignment Description Modal -->
 <div id="assignmentModal" style="

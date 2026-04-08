@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Grade Modeler</h1>
+  <p class="page-subtitle">See what you need to hit your target grade</p>
+</div>
+
+<div id="loadingState" style="text-align:center; padding:3rem; color:var(--text-muted);">
+  <div class="spinner"></div>
+  <p>Loading gradebook...</p>
+</div>
+
+<div id="modelerWrap" style="display:none;">
+
+  <!-- Course selector -->
+  <div style="margin-bottom:1.5rem;">
+    <div class="dropdown-wrap">
+      <button class="dropdown-btn" id="courseDropBtn">
+        📚 Select a Course <span class="chevron">▾</span>
+      </button>
+      <div class="dropdown-menu" id="courseMenu"></div>
+    </div>
+  </div>
+
+  <!-- Current grade + target input -->
+  <div id="courseOverview" style="display:none;">
+    <div style="
+      background:var(--bg-card); border:1px solid var(--border);
+      border-radius:16px; padding:1.5rem; margin-bottom:1.5rem;
+      box-shadow:var(--shadow); display:flex; gap:2rem; flex-wrap:wrap; align-items:center;
+    ">
+      <div>
+        <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;">Current Grade</div>
+        <div style="display:flex; align-items:baseline; gap:8px;">
+          <span id="currentPct" style="font-family:'DM Serif Display',serif; font-size:2.5rem; color:var(--text-primary);"></span>
+          <span id="currentLetter" class="priority-badge" style="font-size:0.9rem;"></span>
+        </div>
+      </div>
+      <div style="flex:1; min-width:220px;">
+        <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">Target Grade (%)</div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="number" id="targetInput" class="form-input" min="0" max="100" step="0.1"
+            placeholder="e.g. 97" style="max-width:120px;" />
+          <button class="btn-primary" onclick="runModel()" style="padding:10px 20px; border:none; cursor:pointer; font-size:0.88rem;">
+            Model It
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Model result -->
+    <div id="modelResult" style="display:none; margin-bottom:1.5rem;">
+      <div style="
+        background:var(--accent-soft); border:1px solid var(--accent-mid);
+        border-radius:14px; padding:1.25rem 1.5rem;
+      ">
+        <div id="modelSummary" style="font-size:0.95rem; color:var(--text-primary); line-height:1.7;"></div>
+      </div>
+    </div>
+
+    <!-- Assignment breakdown -->
+    <div style="font-family:'DM Serif Display',serif; font-size:1.1rem; color:var(--text-primary); margin-bottom:1rem;">
+      Assignment Breakdown
+    </div>
+    <div id="assignmentBreakdown" class="assignments-list"></div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+let gradebookData = [];
+let selectedCourse = null;
+
+fetch('/gradebook/detail')
+  .then(r => r.json())
+  .then(data => {
+    gradebookData = data;
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('modelerWrap').style.display = 'block';
+    populateCourseMenu(data);
+  })
+  .catch(() => {
+    document.getElementById('loadingState').innerHTML =
+      '<p>⚠️ Could not load gradebook. Make sure you are logged in with StudentVue.</p>';
+  });
+
+function populateCourseMenu(courses) {
+  const menu = document.getElementById('courseMenu');
+  menu.innerHTML = '';
+  courses.forEach(c => {
+    const item = document.createElement('div');
+    item.className = 'dropdown-item';
+    item.textContent = `📚 ${c.course}`;
+    item.addEventListener('click', () => selectCourse(c));
+    menu.appendChild(item);
+  });
+}
+
+const dropBtn = document.getElementById('courseDropBtn');
+const dropMenu = document.getElementById('courseMenu');
+dropBtn.addEventListener('click', () => dropMenu.classList.toggle('open'));
+document.addEventListener('click', e => {
+  if (!dropBtn.contains(e.target) && !dropMenu.contains(e.target))
+    dropMenu.classList.remove('open');
+});
+
+function selectCourse(course) {
+  selectedCourse = course;
+  dropBtn.innerHTML = `📚 ${course.course} <span class="chevron">▾</span>`;
+  dropMenu.classList.remove('open');
+  document.getElementById('courseOverview').style.display = 'block';
+  document.getElementById('modelResult').style.display = 'none';
+  document.getElementById('targetInput').value = '';
+
+  document.getElementById('currentPct').textContent = `${course.percentage}%`;
+  const lb = document.getElementById('currentLetter');
+  lb.textContent = course.letter;
+  lb.className = 'priority-badge ' + letterToClass(course.letter);
+
+  renderBreakdown(course.assignments);
+}
+
+function letterToClass(letter) {
+  if (letter.startsWith('A')) return 'low';
+  if (letter.startsWith('B')) return 'medium';
+  return 'high';
+}
+
+function renderBreakdown(assignments) {
+  const wrap = document.getElementById('assignmentBreakdown');
+  wrap.innerHTML = '';
+  assignments.forEach((a, i) => {
+    const card = document.createElement('div');
+    card.className = 'assignment-card ' + (a.graded ? 'low' : 'medium');
+    card.style.animationDelay = `${i * 0.05}s`;
+
+    const scoreDisplay = a.graded
+      ? `${a.points_earned} / ${a.points_possible} pts`
+      : a.points_possible
+        ? `— / ${a.points_possible} pts`
+        : 'Ungraded';
+
+    const pct = (a.graded && a.points_possible)
+      ? Math.round((a.points_earned / a.points_possible) * 100) + '%'
+      : '';
+
+    card.innerHTML = `
+      <div class="rank-bubble" style="font-size:0.7rem;">${a.graded ? '✓' : '⏳'}</div>
+      <div class="card-main">
+        <div class="card-title">${a.title}</div>
+        <div class="card-meta">
+          ${a.due_date ? `<span class="meta-item">📅 ${a.due_date}</span>` : ''}
+          <span class="meta-item">${a.graded ? '✅ Graded' : '⏳ Pending'}</span>
+        </div>
+      </div>
+      <div style="text-align:right; flex-shrink:0;">
+        <div style="font-size:0.88rem; font-weight:600; color:var(--text-primary);">${scoreDisplay}</div>
+        ${pct ? `<div style="font-size:0.75rem; color:var(--text-muted);">${pct}</div>` : ''}
+      </div>
+    `;
+    wrap.appendChild(card);
+  });
+}
+
+function runModel() {
+  if (!selectedCourse) return;
+  const target = parseFloat(document.getElementById('targetInput').value);
+  if (isNaN(target) || target < 0 || target > 100) {
+    alert('Please enter a valid target between 0 and 100.');
+    return;
+  }
+
+  const assignments = selectedCourse.assignments;
+  const graded = assignments.filter(a => a.graded && a.points_possible);
+  const pending = assignments.filter(a => !a.graded && a.points_possible);
+
+  const earnedTotal = graded.reduce((s, a) => s + a.points_earned, 0);
+  const gradedPossible = graded.reduce((s, a) => s + a.points_possible, 0);
+  const pendingPossible = pending.reduce((s, a) => s + a.points_possible, 0);
+  const totalPossible = gradedPossible + pendingPossible;
+
+  if (totalPossible === 0) {
+    document.getElementById('modelSummary').innerHTML =
+      'Not enough data to model this course yet.';
+    document.getElementById('modelResult').style.display = 'block';
+    return;
+  }
+
+  // Points needed across all assignments to hit target
+  const pointsNeeded = (target / 100) * totalPossible;
+  const pointsStillNeeded = pointsNeeded - earnedTotal;
+
+  const result = document.getElementById('modelResult');
+  const summary = document.getElementById('modelSummary');
+  result.style.display = 'block';
+
+  if (pendingPossible === 0) {
+    const actual = (earnedTotal / gradedPossible * 100).toFixed(1);
+    summary.innerHTML = `All assignments are graded. Your final grade is <strong>${actual}%</strong>. 
+      ${parseFloat(actual) >= target
+        ? `✅ You have already reached your target of <strong>${target}%</strong>.`
+        : `⚠️ You did not reach your target of <strong>${target}%</strong>.`}`;
+    return;
+  }
+
+  if (pointsStillNeeded <= 0) {
+    summary.innerHTML = `✅ You've already earned enough points to reach <strong>${target}%</strong> — 
+      even scoring 0 on all remaining assignments would get you there.`;
+    return;
+  }
+
+  const neededPct = (pointsStillNeeded / pendingPossible * 100).toFixed(1);
+
+  if (parseFloat(neededPct) > 100) {
+    const maxPossible = ((earnedTotal + pendingPossible) / totalPossible * 100).toFixed(1);
+    summary.innerHTML = `⚠️ It is <strong>no longer mathematically possible</strong> to reach <strong>${target}%</strong>. 
+      Even scoring 100% on all ${pending.length} remaining assignment${pending.length !== 1 ? 's' : ''}, 
+      the highest you can reach is <strong>${maxPossible}%</strong>.`;
+    return;
+  }
+
+  const pendingList = pending.map(a =>
+    `<span style="background:var(--accent-soft);color:var(--accent);padding:2px 10px;border-radius:12px;font-size:0.8rem;font-weight:500;">${a.title}</span>`
+  ).join(' ');
+
+  summary.innerHTML = `
+    To reach <strong>${target}%</strong> in <strong>${selectedCourse.course}</strong>, 
+    you need to average <strong>${neededPct}%</strong> across your 
+    ${pending.length} remaining assignment${pending.length !== 1 ? 's' : ''}
+    (${pendingPossible} points possible).<br><br>
+    <strong>Remaining assignments:</strong><br>
+    <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;">${pendingList}</div>
+  `;
+}
+{% endblock %}

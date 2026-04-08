@@ -228,8 +228,135 @@ def get_grades(district_url, username, password):
 
     return grades
 
+
+def get_gradebook_detail(district_url, username, password):
+    result = make_request(
+        district_url, username, password, "Gradebook",
+        "&lt;Parms&gt;&lt;ChildIntID&gt;0&lt;/ChildIntID&gt;&lt;/Parms&gt;"
+    )
+    inner_match = re.search(
+        r'<ProcessWebServiceRequestResult>(.*?)</ProcessWebServiceRequestResult>',
+        result, re.DOTALL
+    )
+    if not inner_match:
+        return []
+
+    gradebook_raw = html_module.unescape(inner_match.group(1))
+    course_blocks = re.split(r'(?=<Course\s)', gradebook_raw)
+
+    courses = []
+    course_pattern = re.compile(r'<Course\s[^>]*Title="([^"]*)"[^>]*Staff="([^"]*)"', re.DOTALL)
+    mark_pattern = re.compile(
+        r'<Mark\s[^>]*MarkName="([^"]*)"[^>]*CalculatedScoreString="([^"]*)"[^>]*CalculatedScoreRaw="([^"]*)"',
+        re.DOTALL
+    )
+    assignment_pattern = re.compile(r'<Assignment\s([^>]*?)(?:/>|>)', re.DOTALL)
+
+    def get_attr(attrs_str, attr_name):
+        match = re.search(rf'{attr_name}="([^"]*)"', attrs_str)
+        return match.group(1) if match else ""
+
+    for block in course_blocks:
+        course_match = course_pattern.search(block)
+        if not course_match:
+            continue
+
+        course_name = course_match.group(1)
+        teacher = course_match.group(2)
+
+        mark_match = mark_pattern.search(block)
+        if not mark_match:
+            continue
+
+        letter = mark_match.group(2)
+        raw_score = mark_match.group(3)
+        try:
+            percentage = round(float(raw_score), 2)
+        except:
+            percentage = None
+
+        if not letter or letter == "N/A":
+            continue
+
+        assignments = []
+        for a_match in assignment_pattern.finditer(block):
+            attrs = a_match.group(1)
+            title = get_attr(attrs, "Measure")
+            due_date_str = get_attr(attrs, "DueDate")
+            points_str = get_attr(attrs, "Points")
+            display_score = get_attr(attrs, "DisplayScore")
+            score_str = get_attr(attrs, "Score")
+            notes = get_attr(attrs, "Notes")
+
+            if not title:
+                continue
+
+            # Parse points earned / possible from "45 / 50" format
+            earned = None
+            possible = None
+            if "/" in points_str:
+                parts = points_str.split("/")
+                try:
+                    earned = float(parts[0].strip().split()[0])
+                    possible = float(parts[1].strip().split()[0])
+                except:
+                    pass
+            elif points_str:
+                try:
+                    possible = float(points_str.strip().split()[0])
+                except:
+                    pass
+
+            graded = (
+                earned is not None
+                and display_score not in ("Not Graded", "Not Due", "")
+                and score_str not in ("", "Not Graded")
+            )
+
+            try:
+                due_date = datetime.strptime(due_date_str, "%m/%d/%Y").strftime("%Y-%m-%d")
+            except:
+                due_date = None
+
+            assignments.append({
+                "title": title,
+                "due_date": due_date,
+                "points_earned": earned,
+                "points_possible": possible,
+                "display_score": display_score,
+                "graded": graded,
+                "notes": notes,
+            })
+
+        courses.append({
+            "course": course_name,
+            "teacher": teacher,
+            "letter": letter,
+            "percentage": percentage,
+            "assignments": assignments,
+        })
+
+    return courses
+
+def debug_gradebook(district_url, username, password):
+    result = make_request(
+        district_url, username, password, "Gradebook",
+        "&lt;Parms&gt;&lt;ChildIntID&gt;0&lt;/ChildIntID&gt;&lt;/Parms&gt;"
+    )
+    inner_match = re.search(
+        r'<ProcessWebServiceRequestResult>(.*?)</ProcessWebServiceRequestResult>',
+        result, re.DOTALL
+    )
+    if not inner_match:
+        print("No result found")
+        return
+    raw = html_module.unescape(inner_match.group(1))
+    # Print first 3000 chars to see structure
+    print(raw[:3000])
+
+
 if __name__ == "__main__":
-    get_grades_raw(
+    debug_gradebook(
         "https://wa-nor-psv.edupoint.com",
         "2009716",
         "bluesnakesing5"

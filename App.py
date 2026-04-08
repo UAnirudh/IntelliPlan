@@ -768,6 +768,35 @@ Return ONLY valid JSON with no additional text.
         return flask.jsonify({"status": "error", "message": str(e)})
 
 
+@app.route("/gradebook/detail")
+def gradebook_detail():
+    if not is_logged_in():
+        return flask.jsonify([])
+    login_type = session.get("login_type", "canvas")
+    if login_type == "studentvue":
+        from studentvue_helper import get_gradebook_detail
+        username = session.get("sv_username")
+        password = session.get("sv_password")
+        district_url = session.get("sv_district_url")
+        return flask.jsonify(get_gradebook_detail(district_url, username, password))
+    return flask.jsonify([])
+
+
+@app.route("/grademodel")
+def grademodel():
+    if not is_logged_in():
+        return redirect(url_for("login"))
+    return render_template("grademodel.html", active_page="grademodel")
+
+
+@app.route('/static/sw.js')
+def service_worker():
+    response = flask.make_response(
+        flask.send_from_directory('static', 'sw.js')
+    )
+    response.headers['Content-Type'] = 'application/javascript'
+    response.headers['Service-Worker-Allowed'] = '/'
+    return response
 
 @app.context_processor
 def inject_auth():
