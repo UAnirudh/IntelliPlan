@@ -1154,6 +1154,33 @@
     .check-btn:hover {
       border-color: var(--accent);
     }
+    .discord-btn {
+    display: inline-block;
+    padding: 12px 20px;
+    background: #5865F2;
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: 0.2s ease;
+  }
+
+    .discord-btn:hover {
+      background: #4752c4;
+    }
+    .nav-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .nav-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--border);
+    margin: 0 6px;
+    opacity: 0.8;
+  }
   </style>
   <link rel="manifest" href="/static/manifest.json">
   <meta name="theme-color" content="#3b82f6">
@@ -1171,20 +1198,38 @@
   </div>
   <div class="header-right">
     <nav class="nav-tabs">
-      <a href="/" class="nav-tab {% if active_page == 'landing' %}active{% endif %}">Home</a>
-      <a href="/scheduler" class="nav-tab {% if active_page == 'scheduler' %}active{% endif %}">🤖 AI Scheduler</a>
-      <a href="/schedule" class="nav-tab {% if active_page == 'home' %}active{% endif %}">Schedule</a>
-      <a href="/priority" class="nav-tab {% if active_page == 'priority' %}active{% endif %}">Priority</a>
-      <a href="/classes" class="nav-tab {% if active_page == 'classes' %}active{% endif %}">Classes</a>
-      <a href="/grades" class="nav-tab {% if active_page == 'grades' %}active{% endif %}">Grades</a>
-      <a href="/grademodel" class="nav-tab {% if active_page == 'grademodel' %}active{% endif %}">📈 Grade Modeler</a>
-      <a href="/dismissed" class="nav-tab {% if active_page == 'dismissed' %}active{% endif %}">✓ Dismissed</a>
-      {% if not logged_in %}
-        <a href="/login" class="nav-tab {% if active_page == 'login' %}active{% endif %}">Login</a>
-      {% else %}
-        <a href="/logout" class="nav-tab">Logout</a>
-      {% endif %}
-    </nav>
+
+  <div class="nav-group">
+    <a href="/" class="nav-tab {% if active_page == 'landing' %}active{% endif %}">Home</a>
+    <a href="/schedule" class="nav-tab {% if active_page == 'home' %}active{% endif %}">Schedule</a>
+    <a href="/scheduler" class="nav-tab {% if active_page == 'scheduler' %}active{% endif %}">🤖 AI</a>
+  </div>
+
+  <div class="nav-divider"></div>
+
+  <div class="nav-group">
+    <a href="/priority" class="nav-tab {% if active_page == 'priority' %}active{% endif %}">Priority</a>
+    <a href="/classes" class="nav-tab {% if active_page == 'classes' %}active{% endif %}">Classes</a>
+    <a href="/grades" class="nav-tab {% if active_page == 'grades' %}active{% endif %}">Grades</a>
+    <a href="/grademodel" class="nav-tab {% if active_page == 'grademodel' %}active{% endif %}">📈 Model</a>
+    <a href="/dismissed" class="nav-tab {% if active_page == 'dismissed' %}active{% endif %}">✓ Done</a>
+  </div>
+
+  <div class="nav-divider"></div>
+
+  <div class="nav-group">
+    {% if not logged_in %}
+      <a href="/login" class="nav-tab {% if active_page == 'login' %}active{% endif %}">Login</a>
+    {% else %}
+      <a href="/logout" class="nav-tab">Logout</a>
+    {% endif %}
+
+    <a class="discord-btn" href="https://discord.gg/NrhYrdhU" target="_blank" rel="noopener noreferrer">
+      Discord
+    </a>
+  </div>
+
+</nav>
     <span class="date-badge" id="dateBadge"></span>
     <label class="toggle" title="Toggle dark mode">
       <input type="checkbox" id="themeToggle" />
