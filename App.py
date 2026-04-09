@@ -28,26 +28,26 @@ app.secret_key = os.getenv("SECRET_KEY", "intelliplan-dev-key")
 app.permanent_session_lifetime = timedelta(days=7)
 
 # ── DATABASE ──────────────────────────────────────────────────
-# app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
-#     "DATABASE_URL", "sqlite:///intelliplan.db"
-# )
-# app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
+    "DATABASE_URL", "sqlite:///intelliplan.db"
+)
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 
-uri = os.getenv("DATABASE_URL")
+# uri = os.getenv("DATABASE_URL")
 
-if uri:
-    if uri.startswith("postgres://"):
-        uri = uri.replace("postgres://", "postgresql://", 1)
-else:
-    uri = "sqlite:///intelliplan.db"
+# if uri:
+#     if uri.startswith("postgres://"):
+#         uri = uri.replace("postgres://", "postgresql://", 1)
+# else:
+#     uri = "sqlite:///intelliplan.db"
 
-app.config["SQLALCHEMY_DATABASE_URI"] = uri
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+# app.config["SQLALCHEMY_DATABASE_URI"] = uri
+# app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # ── MODELS ────────────────────────────────────────────────────
 class User(UserMixin, db.Model):
