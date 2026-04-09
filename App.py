@@ -38,16 +38,7 @@ bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 
-# uri = os.getenv("DATABASE_URL")
 
-# if uri:
-#     if uri.startswith("postgres://"):
-#         uri = uri.replace("postgres://", "postgresql://", 1)
-# else:
-#     uri = "sqlite:///intelliplan.db"
-
-# app.config["SQLALCHEMY_DATABASE_URI"] = uri
-# app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # ── MODELS ────────────────────────────────────────────────────
 class User(UserMixin, db.Model):
@@ -653,12 +644,10 @@ def login_schoology():
                 error = "Invalid Schoology credentials."
     return render_template("login_schoology.html", active_page="login", error=error)
 
-@app.route("/logout")
+@app.route("/logout", methods=["POST"])
 def logout():
-    if current_user.is_authenticated:
-        logout_user()
-    session.clear()
-    return redirect(url_for("landing"))
+    logout_user()
+    return redirect(url_for("login"))
 
 # ── PROFILE / ACCOUNT MANAGEMENT ─────────────────────────────
 @app.route("/profiles/list")

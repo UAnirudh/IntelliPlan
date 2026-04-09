@@ -1442,7 +1442,9 @@
     {% if logged_in %}
       <a href="/profiles" class="nav-tab {% if active_page == 'profiles' %}active{% endif %}">👤 Profiles</a>
       <a href="/settings" class="nav-tab {% if active_page == 'settings' %}active{% endif %}">⚙️ Settings</a>
-      <a href="/logout" class="nav-tab">Logout</a>
+      <form action="/logout" method="POST">
+        <button type="submit" class="nav-tab">Logout</button>
+      </form>
     {% else %}
       <a href="/login" class="nav-tab {% if active_page == 'login' %}active{% endif %}">Login</a>
     {% endif %}
