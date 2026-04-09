@@ -14,25 +14,44 @@
     </div>
     <div class="input-group">
       <label class="form-label">Preferred study time</label>
-      <select id="preferredTime" class="form-input" style="max-width:180px;">
-        <option value="morning">Morning</option>
-        <option value="afternoon">Afternoon</option>
-        <option value="evening" selected>Evening</option>
-        <option value="night">Night</option>
-      </select>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <select id="preferredTime" class="form-input" style="max-width:150px;">
+          <option value="morning">Morning</option>
+          <option value="afternoon">Afternoon</option>
+          <option value="evening" selected>Evening</option>
+        </select>
+        <button id="autoTimeBtn" onclick="autoDetectTime()" style="
+          padding:10px 16px; border-radius:10px; border:1px solid var(--accent);
+          background:var(--accent-soft); color:var(--accent); cursor:pointer;
+          font-family:'DM Sans',sans-serif; font-size:0.85rem; font-weight:600;">
+          ✨ Auto
+        </button>
+      </div>
+      <span class="form-hint" id="autoTimeHint"></span>
     </div>
     <div class="input-group" style="flex:1;">
       <label class="form-label">Add custom tasks (optional)</label>
       <div class="custom-tasks-wrap">
         <input type="text" id="customTaskInput" class="form-input" placeholder="e.g. Study for math test" />
-        <button class="btn-secondary" onclick="addCustomTask()" style="padding: 10px 16px; white-space:nowrap;">+ Add</button>
+        <button class="btn-secondary" onclick="addCustomTask()" style="padding:10px 16px; white-space:nowrap;">+ Add</button>
       </div>
       <div id="customTasksList" class="custom-tasks-list"></div>
     </div>
   </div>
-  <button class="btn-primary" id="generateBtn" onclick="generateSchedule()" style="margin-top:1.5rem; padding: 14px 32px; border:none; cursor:pointer;">
-    🤖 Generate My Study Plan
-  </button>
+  <div style="display:flex; gap:10px; align-items:center; margin-top:1.5rem; flex-wrap:wrap;">
+    <button class="btn-primary" id="generateBtn" onclick="generateSchedule()" style="padding:14px 32px; border:none; cursor:pointer;">
+      🤖 Generate My Study Plan
+    </button>
+    <div id="savePanel" style="display:none; display:flex; gap:8px; align-items:center;">
+      <input type="text" id="scheduleName" class="form-input" placeholder="Schedule name..." style="max-width:200px;" />
+      <button onclick="saveSchedule()" style="
+        padding:12px 20px; border-radius:10px; border:1px solid var(--low);
+        background:var(--low-bg); color:var(--low); cursor:pointer;
+        font-family:'DM Sans',sans-serif; font-size:0.88rem; font-weight:600;">
+        💾 Save to Dashboard
+      </button>
+    </div>
+  </div>
 </div>
 
 <div class="scheduler-loading" id="schedulerLoading" style="display:none;">
@@ -41,6 +60,7 @@
 </div>
 
 <div id="scheduleResults" style="display:none;">
+  <div id="calExportWrap"></div>
   <div class="schedule-overview" id="scheduleOverview"></div>
   <div class="schedule-days" id="scheduleDays"></div>
 </div>
@@ -55,10 +75,13 @@
 {% block scripts %}
 let customTasks = [];
 let allAssignments = [];
+let _lastScheduleData = null;
+let _gcalConnected = false;
 
-fetch('/live')
-  .then(r => r.json())
-  .then(data => { allAssignments = data; });
+fetch('/live').then(r => r.json()).then(data => { allAssignments = data; });
+fetch('/calendar/events').then(r => r.json()).then(res => {
+  _gcalConnected = res.connected;
+}).catch(() => {});
 
 function addCustomTask() {
   const input = document.getElementById('customTaskInput');
@@ -88,16 +111,39 @@ function removeTask(index) {
   renderCustomTasks();
 }
 
+async function autoDetectTime() {
+  const btn = document.getElementById('autoTimeBtn');
+  btn.textContent = '⏳...';
+  btn.disabled = true;
+  const today = new Date().toISOString().split('T')[0];
+  const res = await fetch(`/calendar/free-slot?date=${today}`).then(r => r.json()).catch(() => ({ connected: false }));
+  btn.textContent = '✨ Auto';
+  btn.disabled = false;
+  if (res.connected) {
+    const slot = res.slot;
+    const hour = parseInt(slot.split(':')[0]);
+    const isPM = slot.includes('PM');
+    const hour24 = isPM && hour !== 12 ? hour + 12 : hour;
+    let preference = 'evening';
+    if (hour24 < 12) preference = 'morning';
+    else if (hour24 < 17) preference = 'afternoon';
+    document.getElementById('preferredTime').value = preference;
+    document.getElementById('autoTimeHint').textContent = `📅 First free slot: ${slot} → ${preference}`;
+  } else {
+    document.getElementById('autoTimeHint').textContent = 'Connect Google Calendar to use Auto';
+  }
+}
+
 function generateSchedule() {
   if (!allAssignments.length && !customTasks.length) {
     document.getElementById('emptyState').style.display = 'block';
     return;
   }
-
   document.getElementById('inputPanel').style.opacity = '0.5';
   document.getElementById('inputPanel').style.pointerEvents = 'none';
   document.getElementById('schedulerLoading').style.display = 'block';
   document.getElementById('scheduleResults').style.display = 'none';
+  document.getElementById('savePanel').style.display = 'none';
 
   const hours = parseFloat(document.getElementById('hoursPerDay').value);
   const time = document.getElementById('preferredTime').value;
@@ -119,12 +165,35 @@ function generateSchedule() {
     document.getElementById('inputPanel').style.pointerEvents = 'auto';
 
     if (response.status === 'error') {
-      alert('Error generating schedule: ' + response.message);
+      alert('Error: ' + response.message);
       return;
     }
 
+    _lastScheduleData = response.data;
     renderSchedule(response.data);
     document.getElementById('scheduleResults').style.display = 'block';
+
+    // Show save panel
+    const sp = document.getElementById('savePanel');
+    sp.style.display = 'flex';
+    const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    document.getElementById('scheduleName').value = `Study Plan ${today}`;
+
+    // Show calendar export if connected
+    if (_gcalConnected) {
+      document.getElementById('calExportWrap').innerHTML = `
+        <button id="calExportBtn" onclick="exportToCalendar()" style="
+          display:inline-flex; align-items:center; gap:8px;
+          padding:12px 24px; margin-bottom:1rem;
+          background:#ea4335; color:white; border:none; border-radius:12px;
+          cursor:pointer; font-family:'DM Sans',sans-serif;
+          font-size:0.9rem; font-weight:600;
+          box-shadow:0 4px 16px rgba(234,67,53,0.3);
+          transition:all 0.2s;">
+          📅 Export to Google Calendar
+        </button>
+      `;
+    }
   })
   .catch(() => {
     document.getElementById('schedulerLoading').style.display = 'none';
@@ -132,6 +201,56 @@ function generateSchedule() {
     document.getElementById('inputPanel').style.pointerEvents = 'auto';
     alert('Something went wrong. Please try again.');
   });
+}
+
+async function saveSchedule() {
+  if (!_lastScheduleData) return;
+  const name = document.getElementById('scheduleName').value.trim() || 'My Schedule';
+  const res = await fetch('/schedule/save', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ schedule_data: _lastScheduleData, name })
+  }).then(r => r.json());
+
+  if (res.status === 'ok') {
+    const btn = document.querySelector('[onclick="saveSchedule()"]');
+    btn.textContent = '✅ Saved!';
+    btn.style.background = 'var(--low)';
+    btn.style.color = 'white';
+    btn.style.borderColor = 'var(--low)';
+    setTimeout(() => {
+      btn.textContent = '💾 Save to Dashboard';
+      btn.style.background = '';
+      btn.style.color = '';
+      btn.style.borderColor = '';
+    }, 2000);
+  }
+}
+
+async function exportToCalendar() {
+  if (!_lastScheduleData) return;
+  const btn = document.getElementById('calExportBtn');
+  btn.textContent = '⏳ Exporting...';
+  btn.disabled = true;
+
+  const res = await fetch('/calendar/export', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ schedule_data: _lastScheduleData })
+  }).then(r => r.json());
+
+  btn.disabled = false;
+  if (res.status === 'ok') {
+    btn.textContent = `✅ Added ${res.created} events to Calendar`;
+    btn.style.background = 'var(--low)';
+    setTimeout(() => {
+      btn.textContent = '📅 Export to Google Calendar';
+      btn.style.background = '#ea4335';
+    }, 3000);
+  } else {
+    btn.textContent = '📅 Export to Google Calendar';
+    alert('Export failed: ' + (res.message || 'Unknown error'));
+  }
 }
 
 function renderSchedule(data) {
@@ -144,22 +263,31 @@ function renderSchedule(data) {
   `;
 
   const days = document.getElementById('scheduleDays');
-  days.innerHTML = data.schedule.map(day => `
-    <div class="day-card">
+  days.innerHTML = data.schedule.map((day, di) => `
+    <div class="day-card" style="animation-delay:${di * 0.07}s">
       <div class="day-header">
-        <div class="day-name">${day.day_name}, ${day.date}</div>
-        <div class="day-hours">⏱ ${day.total_hours}h</div>
+        <div>
+          <div class="day-name">${day.day_name}, ${day.date}</div>
+          ${day.workload_level ? `<div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;">${day.workload_level} workload</div>` : ''}
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div class="day-hours">⏱ ${day.total_hours}h</div>
+        </div>
       </div>
       <div class="day-blocks">
         ${day.blocks.map(block => `
-          <div class="time-block ${block.is_break ? 'break-block' : ''}">
+          <div class="time-block ${block.is_break ? 'break-block' : ''}" style="${block.color ? `border-left:3px solid ${block.color};` : ''}">
             <div class="time-slot">${block.time_slot}</div>
             <div class="block-content">
               <div class="block-title">${block.is_break ? '☕ Break' : block.assignment}</div>
               ${!block.is_break ? `<div class="block-course">📚 ${block.course}</div>` : ''}
               ${block.notes ? `<div class="block-notes">💡 ${block.notes}</div>` : ''}
+              ${block.energy_level && !block.is_break ? `<div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;">⚡ ${block.energy_level}</div>` : ''}
             </div>
-            <div class="block-duration">${block.duration_minutes}m</div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
+              <div class="block-duration">${block.duration_minutes}m</div>
+              ${block.difficulty && !block.is_break ? `<div style="font-size:0.68rem;padding:2px 6px;border-radius:6px;background:var(--accent-soft);color:var(--accent);font-weight:600;">${block.difficulty}</div>` : ''}
+            </div>
           </div>
         `).join('')}
       </div>

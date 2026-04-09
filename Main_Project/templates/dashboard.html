@@ -1,0 +1,636 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
+  <div>
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-subtitle" id="dashSubtitle">Loading...</p>
+  </div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <button onclick="openNewTaskModal()" class="btn-primary" style="padding:10px 20px; border:none; cursor:pointer; font-size:0.88rem;">+ New Task</button>
+    <button onclick="openIntegrationsModal()" class="btn-secondary" style="padding:10px 20px; font-size:0.88rem;">⚙ Integrations</button>
+  </div>
+</div>
+
+<!-- Integration / status chips -->
+<div id="integrationBar" style="display:flex; gap:8px; margin-bottom:1.5rem; flex-wrap:wrap;"></div>
+
+<!-- Saved Schedule Banner -->
+<div id="savedScheduleBanner" style="display:none; background:var(--accent-soft); border:1px solid var(--accent-mid); border-radius:16px; padding:1.25rem 1.5rem; margin-bottom:1.5rem; display:none; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
+  <div>
+    <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent); margin-bottom:4px;">📅 Active Study Plan</div>
+    <div id="savedScheduleName" style="font-family:'DM Serif Display',serif; font-size:1.1rem; color:var(--text-primary);"></div>
+    <div id="savedScheduleDate" style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;"></div>
+  </div>
+  <div style="display:flex; gap:8px;">
+    <button onclick="viewSavedSchedule()" class="btn-primary" style="padding:8px 18px; border:none; cursor:pointer; font-size:0.85rem;">View Plan</button>
+    <button onclick="clearSavedSchedule()" style="padding:8px 14px; border-radius:10px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-muted); cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.82rem;">Clear</button>
+  </div>
+</div>
+
+<!-- Today's schedule preview -->
+<div id="todayScheduleWrap" style="display:none; margin-bottom:1.5rem;">
+  <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin-bottom:0.75rem;">Today's Blocks</div>
+  <div id="todayBlocks" style="display:flex; flex-direction:column; gap:8px;"></div>
+</div>
+
+<!-- Notion-style task columns -->
+<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.25rem;" id="dashColumns">
+  <div>
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:2px solid var(--high);">
+      <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--high);">⚠ Overdue</span>
+      <span id="overdueCount" style="font-size:0.7rem; background:var(--high-bg); color:var(--high); padding:2px 8px; border-radius:10px; font-weight:600;">0</span>
+    </div>
+    <div id="overdueList" class="notion-col"></div>
+  </div>
+  <div>
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:2px solid var(--accent);">
+      <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--accent);">📅 Today</span>
+      <span id="todayCount" style="font-size:0.7rem; background:var(--accent-soft); color:var(--accent); padding:2px 8px; border-radius:10px; font-weight:600;">0</span>
+    </div>
+    <div id="todayList" class="notion-col"></div>
+  </div>
+  <div>
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:2px solid var(--low);">
+      <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--low);">🗓 Upcoming</span>
+      <span id="upcomingCount" style="font-size:0.7rem; background:var(--low-bg); color:var(--low); padding:2px 8px; border-radius:10px; font-weight:600;">0</span>
+    </div>
+    <div id="upcomingList" class="notion-col"></div>
+  </div>
+</div>
+
+<!-- New Task Modal -->
+<div id="newTaskModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:500px; width:90%; box-shadow:var(--shadow-hover); animation:fadeUp 0.25s ease both; max-height:90vh; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+      <h2 style="font-family:'DM Serif Display',serif; font-size:1.2rem; color:var(--text-primary);">New Task</h2>
+      <button onclick="closeNewTaskModal()" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--text-muted);">✕</button>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:1rem;">
+      <div class="form-group">
+        <label class="form-label">Title *</label>
+        <input type="text" id="newTaskTitle" class="form-input" placeholder="What needs to get done?" />
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+        <div class="form-group">
+          <label class="form-label">Due Date</label>
+          <input type="date" id="newTaskDue" class="form-input" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select id="newTaskPriority" class="form-input">
+            <option value="High">🔴 High</option>
+            <option value="Medium" selected>🟡 Medium</option>
+            <option value="Low">🟢 Low</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+        <div class="form-group">
+          <label class="form-label">Course / Category</label>
+          <input type="text" id="newTaskCourse" class="form-input" placeholder="e.g. Math, Personal" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Est. Time (min)</label>
+          <input type="number" id="newTaskTime" class="form-input" value="60" min="15" step="15" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea id="newTaskNotes" class="form-input" style="resize:vertical; min-height:70px;" placeholder="Optional notes..."></textarea>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; padding:10px; background:var(--bg); border-radius:10px; border:1px solid var(--border);">
+        <input type="checkbox" id="syncNotion" style="width:16px;height:16px;accent-color:var(--accent);" />
+        <label for="syncNotion" style="font-size:0.85rem; color:var(--text-secondary); cursor:pointer;">📝 Also add to Notion</label>
+      </div>
+      <button onclick="createManualTask()" class="btn-primary" style="padding:14px; border:none; cursor:pointer; font-size:0.9rem;">Create Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Task Modal -->
+<div id="editTaskModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:500px; width:90%; box-shadow:var(--shadow-hover); animation:fadeUp 0.25s ease both;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+      <h2 style="font-family:'DM Serif Display',serif; font-size:1.2rem; color:var(--text-primary);">Edit Task</h2>
+      <button onclick="closeEditModal()" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--text-muted);">✕</button>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:1rem;">
+      <input type="hidden" id="editTaskId" />
+      <input type="hidden" id="editTaskSource" />
+      <input type="hidden" id="editTaskNotionId" />
+      <div class="form-group">
+        <label class="form-label">Title</label>
+        <input type="text" id="editTaskTitle" class="form-input" />
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+        <div class="form-group">
+          <label class="form-label">Due Date</label>
+          <input type="date" id="editTaskDue" class="form-input" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select id="editTaskPriority" class="form-input">
+            <option value="High">🔴 High</option>
+            <option value="Medium">🟡 Medium</option>
+            <option value="Low">🟢 Low</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+        <div class="form-group">
+          <label class="form-label">Est. Time (min)</label>
+          <input type="number" id="editTaskTime" class="form-input" min="15" step="15" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Course</label>
+          <input type="text" id="editTaskCourse" class="form-input" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea id="editTaskNotes" class="form-input" style="resize:vertical; min-height:70px;"></textarea>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button onclick="saveEditTask()" class="btn-primary" style="flex:1; padding:12px; border:none; cursor:pointer;">Save Changes</button>
+        <button onclick="deleteManualTask()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--high); background:var(--high-bg); color:var(--high); cursor:pointer; font-family:'DM Sans',sans-serif; font-weight:600;">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Integrations Modal -->
+<div id="integrationsModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:520px; width:90%; box-shadow:var(--shadow-hover); animation:fadeUp 0.25s ease both; max-height:85vh; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+      <h2 style="font-family:'DM Serif Display',serif; font-size:1.2rem; color:var(--text-primary);">Integrations</h2>
+      <button onclick="closeIntegrationsModal()" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--text-muted);">✕</button>
+    </div>
+
+    <!-- Google Calendar -->
+    <div style="background:var(--bg); border:1px solid var(--border); border-radius:14px; padding:1.25rem; margin-bottom:1rem;">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <div style="width:42px;height:42px;border-radius:10px;background:#ea4335;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">📅</div>
+        <div style="flex:1;">
+          <div style="font-size:0.95rem;font-weight:600;color:var(--text-primary);">Google Calendar</div>
+          <div id="gcalStatus" style="font-size:0.78rem;color:var(--text-muted);">Checking...</div>
+        </div>
+        <div id="gcalActions"></div>
+      </div>
+    </div>
+
+    <!-- Notion -->
+    <div style="background:var(--bg); border:1px solid var(--border); border-radius:14px; padding:1.25rem;">
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:1rem;">
+        <div style="width:42px;height:42px;border-radius:10px;background:#191919;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">📝</div>
+        <div style="flex:1;">
+          <div style="font-size:0.95rem;font-weight:600;color:var(--text-primary);">Notion</div>
+          <div id="notionStatus" style="font-size:0.78rem;color:var(--text-muted);">Not connected</div>
+        </div>
+        <div id="notionActions"></div>
+      </div>
+      <div id="notionSetup">
+        <div class="form-group" style="margin-bottom:0.75rem;">
+          <label class="form-label">Integration Token</label>
+          <input type="password" id="notionTokenInput" class="form-input" placeholder="secret_..." />
+          <span class="form-hint">Notion → Settings → Connections → Develop or manage integrations</span>
+        </div>
+        <button onclick="connectNotion()" class="btn-primary" style="padding:10px 20px; border:none; cursor:pointer; font-size:0.88rem; width:100%;">Connect Notion</button>
+      </div>
+      <div id="notionDbSelect" style="display:none; margin-top:0.75rem;">
+        <label class="form-label">Select your task database</label>
+        <select id="notionDbDropdown" class="form-input" style="margin-top:6px;" onchange="setNotionDatabase(this.value)">
+          <option value="">Choose a database...</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.notion-col { display:flex; flex-direction:column; gap:8px; min-height:80px; }
+
+.notion-card {
+  background:var(--bg-card); border:1px solid var(--border);
+  border-radius:12px; padding:1rem; cursor:default;
+  transition:all 0.18s ease; position:relative;
+  animation:fadeUp 0.3s ease both;
+  border-left:3px solid var(--border);
+}
+.notion-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-hover); }
+.notion-card-title { font-size:0.88rem; font-weight:600; color:var(--text-primary); margin-bottom:6px; line-height:1.3; }
+.notion-card-meta { display:flex; flex-wrap:wrap; gap:5px; align-items:center; }
+.notion-pill { font-size:0.68rem; font-weight:600; padding:2px 7px; border-radius:7px; }
+.notion-card-actions { display:flex; gap:5px; margin-top:8px; flex-wrap:wrap; }
+.notion-action-btn {
+  font-size:0.7rem; font-weight:600; padding:3px 9px; border-radius:7px;
+  cursor:pointer; border:1px solid var(--border); background:var(--bg);
+  color:var(--text-secondary); font-family:'DM Sans',sans-serif; transition:all 0.15s;
+}
+.notion-action-btn:hover { background:var(--accent-soft); color:var(--accent); border-color:var(--accent); }
+.notion-action-btn.done-btn { background:var(--low-bg); color:var(--low); border-color:var(--low); }
+.source-badge { font-size:0.62rem; padding:2px 6px; border-radius:5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; }
+.today-block-item {
+  display:flex; align-items:center; gap:12px; padding:10px 14px;
+  background:var(--bg-card); border:1px solid var(--border); border-radius:10px;
+  font-size:0.85rem; border-left:3px solid var(--accent);
+}
+@media (max-width: 768px) { #dashColumns { grid-template-columns:1fr !important; } }
+</style>
+{% endblock %}
+
+{% block scripts %}
+let _unifiedTasks = { today: [], upcoming: [], overdue: [] };
+let _gcalConnected = false;
+let _savedSchedule = null;
+let _editingTask = null;
+
+async function loadDashboard() {
+  const [tasksRes, schedRes, calRes] = await Promise.all([
+    fetch('/tasks/unified').then(r => r.json()).catch(() => ({ today: [], upcoming: [], overdue: [] })),
+    fetch('/schedule/saved').then(r => r.json()).catch(() => ({ status: 'none' })),
+    fetch('/calendar/events').then(r => r.json()).catch(() => ({ connected: false, events: [] }))
+  ]);
+
+  _unifiedTasks = tasksRes;
+  _gcalConnected = calRes.connected;
+
+  updateSubtitle(tasksRes);
+  renderColumn('overdueList', 'overdueCount', tasksRes.overdue);
+  renderColumn('todayList', 'todayCount', tasksRes.today);
+  renderColumn('upcomingList', 'upcomingCount', tasksRes.upcoming);
+  renderIntegrationBar(calRes);
+  renderSavedSchedule(schedRes);
+}
+
+function updateSubtitle(tasks) {
+  const sub = document.getElementById('dashSubtitle');
+  const total = tasks.overdue.length + tasks.today.length;
+  if (tasks.overdue.length > 0) {
+    sub.innerHTML = `<span style="color:var(--high);">⚠ ${tasks.overdue.length} overdue</span> · ${tasks.today.length} today · ${tasks.upcoming.length} upcoming`;
+  } else if (tasks.today.length > 0) {
+    sub.innerHTML = `<span style="color:var(--accent);">📅 ${tasks.today.length} due today</span> · ${tasks.upcoming.length} upcoming`;
+  } else {
+    sub.innerHTML = `<span style="color:var(--text-muted);">${tasks.upcoming.length} upcoming tasks</span>`;
+  }
+}
+
+function renderIntegrationBar(calRes) {
+  const bar = document.getElementById('integrationBar');
+  const chips = [];
+  if (calRes.connected) {
+    chips.push(`<div style="display:flex;align-items:center;gap:6px;padding:5px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:20px;font-size:0.75rem;font-weight:600;color:var(--low);">📅 Google Calendar ✓</div>`);
+  } else {
+    chips.push(`<a href="/oauth/google" style="display:flex;align-items:center;gap:6px;padding:5px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:20px;font-size:0.75rem;font-weight:600;color:var(--accent);text-decoration:none;">+ Connect Google Calendar</a>`);
+  }
+  bar.innerHTML = chips.join('');
+}
+
+function renderSavedSchedule(schedRes) {
+  const banner = document.getElementById('savedScheduleBanner');
+  const todayWrap = document.getElementById('todayScheduleWrap');
+  if (schedRes.status !== 'ok') {
+    banner.style.display = 'none';
+    todayWrap.style.display = 'none';
+    return;
+  }
+  _savedSchedule = schedRes.data;
+  banner.style.display = 'flex';
+  document.getElementById('savedScheduleName').textContent = schedRes.name;
+  document.getElementById('savedScheduleDate').textContent = `Saved ${schedRes.created_at}`;
+
+  // Find today's blocks
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayDay = schedRes.data.schedule?.find(d => d.date === todayStr);
+  if (todayDay && todayDay.blocks) {
+    const studyBlocks = todayDay.blocks.filter(b => !b.is_break);
+    if (studyBlocks.length > 0) {
+      todayWrap.style.display = 'block';
+      document.getElementById('todayBlocks').innerHTML = studyBlocks.map(b => `
+        <div class="today-block-item">
+          <div style="font-size:0.78rem;color:var(--accent);font-weight:600;min-width:120px;">${b.time_slot?.split(' - ')[0] || ''}</div>
+          <div style="flex:1;">
+            <div style="font-weight:600;color:var(--text-primary);">${b.assignment}</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);">${b.course} · ${b.duration_minutes}m</div>
+          </div>
+          <div style="font-size:0.72rem;background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:8px;font-weight:600;">${b.energy_level || ''}</div>
+        </div>
+      `).join('');
+    }
+  } else {
+    todayWrap.style.display = 'none';
+  }
+}
+
+function viewSavedSchedule() {
+  window.location.href = '/scheduler';
+}
+
+async function clearSavedSchedule() {
+  await fetch('/schedule/delete', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({}) });
+  document.getElementById('savedScheduleBanner').style.display = 'none';
+  document.getElementById('todayScheduleWrap').style.display = 'none';
+  _savedSchedule = null;
+}
+
+// ── TASK COLUMNS ──────────────────────────────────────────────
+function renderColumn(listId, countId, tasks) {
+  const list = document.getElementById(listId);
+  const count = document.getElementById(countId);
+  count.textContent = tasks.length;
+  list.innerHTML = '';
+
+  if (!tasks.length) {
+    list.innerHTML = `<div style="text-align:center;padding:2rem 0.5rem;color:var(--text-muted);font-size:0.82rem;border:1px dashed var(--border);border-radius:10px;">All clear ✓</div>`;
+    return;
+  }
+
+  tasks.forEach((t, i) => {
+    const card = document.createElement('div');
+    card.className = 'notion-card';
+    card.style.animationDelay = `${i * 0.04}s`;
+    card.style.borderLeftColor = t.color || '#60a5fa';
+
+    const sourceMap = {
+      canvas: ['#e66000', 'Canvas'],
+      studentvue: ['#16a34a', 'SV'],
+      notion: ['#191919', 'Notion'],
+      manual: ['#7c3aed', 'Manual'],
+      studentvue_missing: ['#ef4444', 'Missing'],
+    };
+    const [srcColor, srcLabel] = sourceMap[t.source] || ['#64748b', t.source || 'Task'];
+    const isMissing = t.is_missing || t.source === 'studentvue_missing';
+
+    card.innerHTML = `
+      <div class="notion-card-title">
+        ${t.title}
+        ${isMissing ? `<span style="color:var(--high);font-size:0.72rem;font-weight:700;"> · ${t.score_label || 'Missing'}</span>` : ''}
+      </div>
+      <div class="notion-card-meta">
+        ${t.due_date ? `<span class="notion-pill" style="background:var(--accent-soft);color:var(--accent);">📅 ${t.due_date}</span>` : ''}
+        <span class="notion-pill" style="background:${t.color}22;color:${t.color};">${t.priority}</span>
+        <span class="source-badge" style="background:${srcColor}22;color:${srcColor};">${srcLabel}</span>
+        ${t.course && t.course !== 'Unknown' && t.course !== 'Personal' ? `<span class="notion-pill" style="background:var(--bg);color:var(--text-muted);border:1px solid var(--border);">${t.course}</span>` : ''}
+      </div>
+      <div class="notion-card-actions">
+        ${t.source === 'manual' ? `<button class="notion-action-btn" onclick='openEditTask(event, ${JSON.stringify(t)})'>✏ Edit</button>` : ''}
+        ${t.notion_page_id ? `<button class="notion-action-btn" onclick="completeNotionTask(event,'${t.notion_page_id}')">✓ Notion</button>` : ''}
+        ${_gcalConnected && t.due_date ? `<button class="notion-action-btn" onclick='addToCalendar(event, ${JSON.stringify(t)})'>📅 Cal</button>` : ''}
+        <button class="notion-action-btn done-btn" onclick="dismissTask(event,'${t.title.replace(/'/g, "\\'")}',this)">✓ Done</button>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+// ── ACTIONS ───────────────────────────────────────────────────
+function dismissTask(e, title, btn) {
+  e.stopPropagation();
+  fetch('/dismiss', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ title })
+  }).then(() => {
+    const card = btn.closest('.notion-card');
+    card.style.opacity = '0';
+    card.style.transform = 'scale(0.95)';
+    card.style.transition = 'all 0.2s';
+    setTimeout(() => card.remove(), 200);
+  });
+}
+
+function completeNotionTask(e, pageId) {
+  e.stopPropagation();
+  fetch('/notion/tasks/complete', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ page_id: pageId })
+  }).then(() => loadDashboard());
+}
+
+async function addToCalendar(e, task) {
+  e.stopPropagation();
+  const btn = e.target;
+  btn.textContent = '⏳';
+  btn.disabled = true;
+  const res = await fetch(`/calendar/free-slot?date=${task.due_date}`).then(r => r.json());
+  const start = res.slot || '7:00 PM';
+  await fetch('/calendar/export', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      schedule_data: {
+        schedule: [{
+          date: task.due_date,
+          blocks: [{ assignment: task.title, course: task.course || '', duration_minutes: task.estimated_time || 60, time_slot: `${start} - end`, notes:'', is_break: false }]
+        }]
+      }
+    })
+  });
+  btn.textContent = '✅';
+  setTimeout(() => { btn.textContent = '📅 Cal'; btn.disabled = false; }, 2000);
+}
+
+// ── NEW TASK ──────────────────────────────────────────────────
+function openNewTaskModal() {
+  document.getElementById('newTaskModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('newTaskTitle').focus(), 100);
+}
+function closeNewTaskModal() {
+  document.getElementById('newTaskModal').style.display = 'none';
+}
+
+async function createManualTask() {
+  const title = document.getElementById('newTaskTitle').value.trim();
+  if (!title) { alert('Please enter a title.'); return; }
+  const data = {
+    title,
+    due_date: document.getElementById('newTaskDue').value,
+    priority: document.getElementById('newTaskPriority').value,
+    course: document.getElementById('newTaskCourse').value || 'Personal',
+    estimated_time: parseInt(document.getElementById('newTaskTime').value) || 60,
+    notes: document.getElementById('newTaskNotes').value,
+    sync_notion: document.getElementById('syncNotion').checked
+  };
+  const res = await fetch('/tasks/manual/create', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(data)
+  }).then(r => r.json());
+
+  if (res.status === 'ok') {
+    closeNewTaskModal();
+    ['newTaskTitle','newTaskDue','newTaskNotes','newTaskCourse'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('newTaskTime').value = '60';
+    document.getElementById('syncNotion').checked = false;
+    loadDashboard();
+  }
+}
+
+// ── EDIT TASK ─────────────────────────────────────────────────
+function openEditTask(e, task) {
+  e.stopPropagation();
+  _editingTask = task;
+  document.getElementById('editTaskId').value = task.id || '';
+  document.getElementById('editTaskSource').value = task.source || '';
+  document.getElementById('editTaskNotionId').value = task.notion_page_id || '';
+  document.getElementById('editTaskTitle').value = task.title;
+  document.getElementById('editTaskDue').value = task.due_date || '';
+  document.getElementById('editTaskPriority').value = task.priority || 'Medium';
+  document.getElementById('editTaskTime').value = task.estimated_time || 60;
+  document.getElementById('editTaskNotes').value = task.notes || '';
+  document.getElementById('editTaskCourse').value = task.course || '';
+  document.getElementById('editTaskModal').style.display = 'flex';
+}
+function closeEditModal() {
+  document.getElementById('editTaskModal').style.display = 'none';
+  _editingTask = null;
+}
+
+async function saveEditTask() {
+  const id = document.getElementById('editTaskId').value;
+  const source = document.getElementById('editTaskSource').value;
+  const notionId = document.getElementById('editTaskNotionId').value;
+  const updates = {
+    title: document.getElementById('editTaskTitle').value.trim(),
+    due_date: document.getElementById('editTaskDue').value,
+    priority: document.getElementById('editTaskPriority').value,
+    estimated_time: parseInt(document.getElementById('editTaskTime').value),
+    notes: document.getElementById('editTaskNotes').value,
+    course: document.getElementById('editTaskCourse').value,
+  };
+
+  if (source === 'manual' && id) {
+    await fetch('/tasks/manual/update', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ id, ...updates })
+    });
+  } else if (source === 'notion' && notionId) {
+    await fetch('/notion/tasks/update', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ page_id: notionId, updates })
+    });
+  }
+  closeEditModal();
+  loadDashboard();
+}
+
+async function deleteManualTask() {
+  const id = document.getElementById('editTaskId').value;
+  if (!id || !confirm('Delete this task?')) return;
+  await fetch('/tasks/manual/delete', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ id })
+  });
+  closeEditModal();
+  loadDashboard();
+}
+
+// ── INTEGRATIONS ──────────────────────────────────────────────
+function openIntegrationsModal() {
+  document.getElementById('integrationsModal').style.display = 'flex';
+  checkGCalStatus();
+  checkNotionStatus();
+}
+function closeIntegrationsModal() {
+  document.getElementById('integrationsModal').style.display = 'none';
+}
+
+async function checkGCalStatus() {
+  const res = await fetch('/calendar/events').then(r => r.json()).catch(() => ({ connected: false }));
+  const status = document.getElementById('gcalStatus');
+  const actions = document.getElementById('gcalActions');
+  if (res.connected) {
+    status.innerHTML = '<span style="color:var(--low);">Connected ✓</span>';
+    actions.innerHTML = `<button onclick="disconnectGCal()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text-muted);cursor:pointer;font-size:0.75rem;font-family:'DM Sans',sans-serif;">Disconnect</button>`;
+  } else {
+    status.textContent = 'Not connected';
+    actions.innerHTML = `<a href="/oauth/google" class="btn-primary" style="text-decoration:none;padding:8px 16px;font-size:0.82rem;">Connect</a>`;
+  }
+}
+
+async function disconnectGCal() {
+  await fetch('/oauth/google/disconnect', { method:'POST' });
+  checkGCalStatus();
+  loadDashboard();
+}
+
+async function checkNotionStatus() {
+  const res = await fetch('/notion/tasks').then(r => r.json()).catch(() => ({ connected: false }));
+  const status = document.getElementById('notionStatus');
+  const actions = document.getElementById('notionActions');
+  const setup = document.getElementById('notionSetup');
+  const dbSelect = document.getElementById('notionDbSelect');
+
+  if (res.connected) {
+    status.innerHTML = `<span style="color:var(--low);">Connected · ${res.tasks.length} tasks ✓</span>`;
+    setup.style.display = 'none';
+    dbSelect.style.display = 'none';
+    actions.innerHTML = `<button onclick="disconnectNotion()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text-muted);cursor:pointer;font-size:0.75rem;font-family:'DM Sans',sans-serif;">Disconnect</button>`;
+  } else {
+    status.textContent = 'Not connected';
+    setup.style.display = 'block';
+    dbSelect.style.display = 'none';
+    actions.innerHTML = '';
+  }
+}
+
+async function connectNotion() {
+  const token = document.getElementById('notionTokenInput').value.trim();
+  if (!token) { alert('Please enter your Notion token.'); return; }
+  const res = await fetch('/notion/connect', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ token })
+  }).then(r => r.json());
+
+  if (res.status === 'ok') {
+    document.getElementById('notionSetup').style.display = 'none';
+    const dropdown = document.getElementById('notionDbDropdown');
+    dropdown.innerHTML = '<option value="">Choose a database...</option>';
+    res.databases.forEach(db => {
+      const opt = document.createElement('option');
+      opt.value = db.id;
+      opt.textContent = db.name;
+      dropdown.appendChild(opt);
+    });
+    document.getElementById('notionDbSelect').style.display = 'block';
+  } else {
+    alert('Failed: ' + res.message);
+  }
+}
+
+async function setNotionDatabase(dbId) {
+  if (!dbId) return;
+  await fetch('/notion/set-database', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ database_id: dbId })
+  });
+  checkNotionStatus();
+  loadDashboard();
+}
+
+async function disconnectNotion() {
+  await fetch('/notion/disconnect', { method:'POST' });
+  checkNotionStatus();
+  loadDashboard();
+}
+
+// ── KEYBOARD SHORTCUTS ────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeNewTaskModal();
+    closeEditModal();
+    closeIntegrationsModal();
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    openNewTaskModal();
+  }
+});
+
+['newTaskModal','editTaskModal','integrationsModal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', function(e) {
+    if (e.target === this) this.style.display = 'none';
+  });
+});
+
+// Init
+loadDashboard();
+setInterval(loadDashboard, 60000);
+{% endblock %}

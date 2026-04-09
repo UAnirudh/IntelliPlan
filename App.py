@@ -10,6 +10,10 @@ import re
 import json
 from pathlib import Path
 import uuid
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import Flow
+from googleapiclient.discovery import build
+
 
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import (
@@ -83,6 +87,48 @@ class CustomDescription(db.Model):
     guest_session_id = db.Column(db.String(64), nullable=True)
     assignment_title = db.Column(db.String(512), nullable=False)
     description = db.Column(db.Text, nullable=False)
+
+
+class GoogleIntegration(db.Model):
+    __tablename__ = "google_integrations"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    token_data = db.Column(db.Text, nullable=False)
+
+class NotionIntegration(db.Model):
+    __tablename__ = "notion_integrations"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    token = db.Column(db.String(512), nullable=False)
+    database_id = db.Column(db.String(256), nullable=True)
+
+class ManualTask(db.Model):
+    __tablename__ = "manual_tasks"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    guest_session_id = db.Column(db.String(64), nullable=True)
+    title = db.Column(db.String(512), nullable=False)
+    due_date = db.Column(db.String(32), default="")
+    priority = db.Column(db.String(16), default="Medium")
+    course = db.Column(db.String(256), default="Personal")
+    estimated_time = db.Column(db.Integer, default=60)
+    notes = db.Column(db.Text, default="")
+    done = db.Column(db.Boolean, default=False)
+    notion_page_id = db.Column(db.String(256), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class SavedSchedule(db.Model):
+    __tablename__ = "saved_schedules"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    guest_session_id = db.Column(db.String(64), nullable=True)
+    name = db.Column(db.String(256), default="My Schedule")
+    schedule_data = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_active = db.Column(db.Boolean, default=True)
+
+with app.app_context():
+    db.create_all()
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -1028,6 +1074,495 @@ def service_worker():
     response.headers["Content-Type"] = "application/javascript"
     response.headers["Service-Worker-Allowed"] = "/"
     return response
+
+
+# ── GOOGLE CALENDAR OAUTH ─────────────────────────────────────
+from google_calendar_helper import (
+    get_flow, get_calendar_service, get_upcoming_events,
+    add_schedule_to_calendar, add_event_to_calendar, find_free_slots
+)
+from notion_helper import (
+    test_notion_token, get_notion_databases,
+    get_notion_tasks, create_notion_task,
+    update_notion_task, complete_notion_task
+)
+
+@app.route("/oauth/google")
+def google_oauth_start():
+    if not is_logged_in():
+        return redirect(url_for("login"))
+    flow = get_flow()
+    auth_url, state = flow.authorization_url(
+        access_type="offline",
+        include_granted_scopes="true",
+        prompt="consent"
+    )
+    session["oauth_state"] = state
+    return redirect(auth_url)
+
+@app.route("/oauth/google/callback")
+def google_oauth_callback():
+    flow = get_flow()
+    flow.fetch_token(authorization_response=request.url)
+    creds = flow.credentials
+    token_dict = {
+        "token": creds.token,
+        "refresh_token": creds.refresh_token,
+        "token_uri": creds.token_uri,
+        "client_id": creds.client_id,
+        "client_secret": creds.client_secret,
+        "scopes": list(creds.scopes or [])
+    }
+    
+    if current_user.is_authenticated:
+        # Save to DB as a linked integration
+        existing = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
+        if existing:
+            existing.token_data = json.dumps(token_dict)
+        else:
+            db.session.add(GoogleIntegration(
+                user_id=current_user.id,
+                token_data=json.dumps(token_dict)
+            ))
+        db.session.commit()
+    else:
+        session["google_token"] = token_dict
+    
+    return redirect(url_for("dashboard"))
+
+@app.route("/oauth/google/disconnect", methods=["POST"])
+def google_disconnect():
+    if current_user.is_authenticated:
+        GoogleIntegration.query.filter_by(user_id=current_user.id).delete()
+        db.session.commit()
+    else:
+        session.pop("google_token", None)
+    return flask.jsonify({"status": "ok"})
+
+def get_google_token():
+    if current_user.is_authenticated:
+        gi = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
+        if gi:
+            return json.loads(gi.token_data)
+    return session.get("google_token")
+
+@app.route("/calendar/events")
+def calendar_events():
+    token = get_google_token()
+    if not token:
+        return flask.jsonify({"connected": False, "events": []})
+    try:
+        events = get_upcoming_events(token)
+        return flask.jsonify({"connected": True, "events": events})
+    except Exception as e:
+        return flask.jsonify({"connected": False, "error": str(e), "events": []})
+
+@app.route("/calendar/free-slot")
+def calendar_free_slot():
+    token = get_google_token()
+    date_str = request.args.get("date", datetime.now().strftime("%Y-%m-%d"))
+    if not token:
+        return flask.jsonify({"slot": "7:00 PM", "connected": False})
+    try:
+        slot = find_free_slots(token, date_str)
+        return flask.jsonify({"slot": slot, "connected": True})
+    except Exception as e:
+        return flask.jsonify({"slot": "7:00 PM", "connected": False, "error": str(e)})
+
+@app.route("/calendar/export", methods=["POST"])
+def calendar_export():
+    token = get_google_token()
+    if not token:
+        return flask.jsonify({"status": "error", "message": "Google Calendar not connected"})
+    data = request.json
+    schedule_data = data.get("schedule_data")
+    try:
+        ids, new_token = add_schedule_to_calendar(token, schedule_data)
+        # Update stored token if refreshed
+        if current_user.is_authenticated:
+            gi = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
+            if gi:
+                td = json.loads(gi.token_data)
+                td["token"] = new_token
+                gi.token_data = json.dumps(td)
+                db.session.commit()
+        return flask.jsonify({"status": "ok", "created": len(ids)})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)})
+
+# ── NOTION INTEGRATION ────────────────────────────────────────
+@app.route("/notion/connect", methods=["POST"])
+def notion_connect():
+    token = request.json.get("token", "").strip()
+    if not token:
+        return flask.jsonify({"status": "error", "message": "No token provided"})
+    if not test_notion_token(token):
+        return flask.jsonify({"status": "error", "message": "Invalid Notion token"})
+    
+    if current_user.is_authenticated:
+        existing = NotionIntegration.query.filter_by(user_id=current_user.id).first()
+        if existing:
+            existing.token = token
+        else:
+            db.session.add(NotionIntegration(user_id=current_user.id, token=token))
+        db.session.commit()
+    else:
+        session["notion_token"] = token
+    
+    # Fetch databases
+    dbs = get_notion_databases(token)
+    return flask.jsonify({"status": "ok", "databases": dbs})
+
+@app.route("/notion/disconnect", methods=["POST"])
+def notion_disconnect():
+    if current_user.is_authenticated:
+        NotionIntegration.query.filter_by(user_id=current_user.id).delete()
+        db.session.commit()
+    else:
+        session.pop("notion_token", None)
+        session.pop("notion_database_id", None)
+    return flask.jsonify({"status": "ok"})
+
+@app.route("/notion/set-database", methods=["POST"])
+def notion_set_database():
+    db_id = request.json.get("database_id")
+    if current_user.is_authenticated:
+        ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
+        if ni:
+            ni.database_id = db_id
+            db.session.commit()
+    else:
+        session["notion_database_id"] = db_id
+    return flask.jsonify({"status": "ok"})
+
+def get_notion_token_and_db():
+    if current_user.is_authenticated:
+        ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
+        if ni:
+            return ni.token, ni.database_id
+    return session.get("notion_token"), session.get("notion_database_id")
+
+@app.route("/notion/tasks")
+def notion_tasks_route():
+    token, db_id = get_notion_token_and_db()
+    if not token or not db_id:
+        return flask.jsonify({"connected": False, "tasks": []})
+    try:
+        tasks = get_notion_tasks(token, db_id)
+        return flask.jsonify({"connected": True, "tasks": tasks})
+    except Exception as e:
+        return flask.jsonify({"connected": False, "error": str(e), "tasks": []})
+
+@app.route("/notion/tasks/create", methods=["POST"])
+def notion_create_task():
+    token, db_id = get_notion_token_and_db()
+    if not token or not db_id:
+        return flask.jsonify({"status": "error", "message": "Notion not connected"})
+    data = request.json
+    try:
+        page_id = create_notion_task(
+            token, db_id,
+            data.get("title", ""),
+            data.get("due_date"),
+            data.get("priority", "Medium")
+        )
+        return flask.jsonify({"status": "ok", "page_id": page_id})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)})
+
+@app.route("/notion/tasks/update", methods=["POST"])
+def notion_update_task():
+    token, _ = get_notion_token_and_db()
+    if not token:
+        return flask.jsonify({"status": "error"})
+    data = request.json
+    try:
+        update_notion_task(token, data["page_id"], data.get("updates", {}))
+        return flask.jsonify({"status": "ok"})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)})
+
+@app.route("/notion/tasks/complete", methods=["POST"])
+def notion_complete_task():
+    token, _ = get_notion_token_and_db()
+    if not token:
+        return flask.jsonify({"status": "error"})
+    page_id = request.json.get("page_id")
+    try:
+        complete_notion_task(token, page_id)
+        return flask.jsonify({"status": "ok"})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)})
+
+# ── UNIFIED TASK FEED ─────────────────────────────────────────
+@app.route("/tasks/unified")
+def unified_tasks():
+    """Merge LMS assignments + Notion tasks into one unified feed."""
+    from datetime import date
+    tasks = []
+    dismissed = get_dismissed_titles()
+    today = date.today()
+
+    # Pull LMS assignments
+    acct = get_active_account()
+    if acct:
+        login_type = acct["login_type"]
+        if login_type == "studentvue":
+            raw = get_sv_assignments(
+                acct["sv_district_url"],
+                acct["sv_username"],
+                acct["sv_password"]
+            )
+            # Include missing assignments
+            missing_raw = get_missing_assignments(
+                acct["sv_district_url"],
+                acct["sv_username"],
+                acct["sv_password"]
+            )
+            for a in raw + missing_raw:
+                if a["title"] not in dismissed:
+                    a["source"] = "studentvue"
+                    tasks.append(a)
+        elif login_type == "canvas":
+            token = acct["canvas_token"]
+            canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
+            base = f"{canvas_url}/api/v1"
+            headers = {"Authorization": f"Bearer {token}"}
+            course_response = requests.get(f"{base}/courses", headers=headers)
+            courses = course_response.json()
+            course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
+            for course_id in course_map:
+                resp = requests.get(f"{base}/courses/{course_id}/assignments", headers=headers)
+                data = resp.json()
+                if isinstance(data, list):
+                    for a in data:
+                        if not isinstance(a, dict) or not a.get("due_at"):
+                            continue
+                        due_str = a["due_at"][:10]
+                        due = datetime.strptime(due_str, "%Y-%m-%d").date()
+                        days = (due - today).days
+                        if days < -14:
+                            continue
+                        priority = "High" if days <= 3 else "Medium" if days <= 7 else "Low"
+                        title = a["name"]
+                        if title in dismissed:
+                            continue
+                        tasks.append({
+                            "id": str(a["id"]),
+                            "course_id": str(a["course_id"]),
+                            "title": title,
+                            "course": course_map.get(a["course_id"], "Unknown"),
+                            "due_date": due_str,
+                            "priority": priority,
+                            "source": "canvas",
+                            "estimated_time": max(30, round(float(a.get("points_possible", 60) or 60) * 1.5 / 30) * 30),
+                            "difficulty": "Medium",
+                            "color": PRIORITY_COLORS.get(priority, "#f59e0b")
+                        })
+
+    # Pull Notion tasks
+    notion_token, notion_db_id = get_notion_token_and_db()
+    if notion_token and notion_db_id:
+        try:
+            notion_raw = get_notion_tasks(notion_token, notion_db_id)
+            for t in notion_raw:
+                if t["title"] not in dismissed:
+                    tasks.append(t)
+        except:
+            pass
+
+    # Categorize
+    result = {"today": [], "upcoming": [], "overdue": []}
+    for t in tasks:
+        due = t.get("due_date", "")
+        if not due:
+            result["upcoming"].append(t)
+            continue
+        try:
+            due_date = datetime.strptime(due, "%Y-%m-%d").date()
+            if due_date < today:
+                result["overdue"].append(t)
+            elif due_date == today:
+                result["today"].append(t)
+            else:
+                result["upcoming"].append(t)
+        except:
+            result["upcoming"].append(t)
+
+    # Sort each bucket
+    for key in result:
+        result[key].sort(key=lambda x: (x.get("due_date", "9999"), x.get("priority", "Low")))
+
+    return flask.jsonify(result)
+
+# ── MISSING ASSIGNMENTS (StudentVue) ─────────────────────────
+@app.route("/missing/data")
+def missing_data():
+    acct = get_active_account()
+    if not acct or acct["login_type"] != "studentvue":
+        return flask.jsonify([])
+    missing = get_missing_assignments(
+        acct["sv_district_url"],
+        acct["sv_username"],
+        acct["sv_password"]
+    )
+    return flask.jsonify(missing)
+
+# ── MANUAL TASK MANAGEMENT ────────────────────────────────────
+@app.route("/tasks/manual/create", methods=["POST"])
+def manual_create_task():
+    data = request.json
+    title = data.get("title", "").strip()
+    if not title:
+        return flask.jsonify({"status": "error", "message": "Title required"})
+    
+    task = ManualTask(
+        user_id=current_user.id if current_user.is_authenticated else None,
+        guest_session_id=None if current_user.is_authenticated else get_guest_session_id(),
+        title=title,
+        due_date=data.get("due_date", ""),
+        priority=data.get("priority", "Medium"),
+        course=data.get("course", "Personal"),
+        estimated_time=int(data.get("estimated_time", 60)),
+        notes=data.get("notes", "")
+    )
+    db.session.add(task)
+    db.session.commit()
+    
+    # Sync to Notion if connected
+    notion_token, notion_db_id = get_notion_token_and_db()
+    if notion_token and notion_db_id and data.get("sync_notion"):
+        try:
+            page_id = create_notion_task(notion_token, notion_db_id, title, data.get("due_date"), data.get("priority", "Medium"))
+            task.notion_page_id = page_id
+            db.session.commit()
+        except:
+            pass
+    
+    return flask.jsonify({"status": "ok", "id": task.id})
+
+@app.route("/tasks/manual/update", methods=["POST"])
+def manual_update_task():
+    data = request.json
+    task_id = data.get("id")
+    task = ManualTask.query.get(task_id)
+    if not task:
+        return flask.jsonify({"status": "error", "message": "Not found"})
+    
+    if "title" in data: task.title = data["title"]
+    if "due_date" in data: task.due_date = data["due_date"]
+    if "priority" in data: task.priority = data["priority"]
+    if "course" in data: task.course = data["course"]
+    if "estimated_time" in data: task.estimated_time = int(data["estimated_time"])
+    if "notes" in data: task.notes = data["notes"]
+    if "done" in data: task.done = data["done"]
+    
+    db.session.commit()
+    
+    # Sync to Notion
+    if task.notion_page_id:
+        notion_token, _ = get_notion_token_and_db()
+        if notion_token:
+            try:
+                update_notion_task(notion_token, task.notion_page_id, data)
+            except:
+                pass
+    
+    return flask.jsonify({"status": "ok"})
+
+@app.route("/tasks/manual/delete", methods=["POST"])
+def manual_delete_task():
+    task_id = request.json.get("id")
+    task = ManualTask.query.get(task_id)
+    if task:
+        db.session.delete(task)
+        db.session.commit()
+    return flask.jsonify({"status": "ok"})
+
+@app.route("/tasks/manual/list")
+def manual_list_tasks():
+    if current_user.is_authenticated:
+        tasks = ManualTask.query.filter_by(user_id=current_user.id, done=False).all()
+    else:
+        gid = get_guest_session_id()
+        tasks = ManualTask.query.filter_by(guest_session_id=gid, done=False).all()
+    return flask.jsonify([{
+        "id": t.id,
+        "title": t.title,
+        "due_date": t.due_date,
+        "priority": t.priority,
+        "course": t.course,
+        "estimated_time": t.estimated_time,
+        "notes": t.notes,
+        "source": "manual",
+        "color": PRIORITY_COLORS.get(t.priority, "#f59e0b")
+    } for t in tasks])
+
+# ── DASHBOARD ROUTE ───────────────────────────────────────────
+@app.route("/dashboard")
+def dashboard():
+    if not is_logged_in():
+        return redirect(url_for("login"))
+    return render_template("dashboard.html", active_page="dashboard")
+
+@app.route("/schedule/save", methods=["POST"])
+def save_schedule():
+    data = request.json
+    schedule_data = data.get("schedule_data")
+    name = data.get("name", f"Schedule {datetime.now().strftime('%b %d')}")
+    if not schedule_data:
+        return flask.jsonify({"status": "error", "message": "No schedule data"})
+    
+    uid = current_user.id if current_user.is_authenticated else None
+    gid = None if current_user.is_authenticated else get_guest_session_id()
+    
+    # Deactivate old schedules
+    if uid:
+        SavedSchedule.query.filter_by(user_id=uid).update({"is_active": False})
+    else:
+        SavedSchedule.query.filter_by(guest_session_id=gid).update({"is_active": False})
+    
+    s = SavedSchedule(
+        user_id=uid,
+        guest_session_id=gid,
+        name=name,
+        schedule_data=json.dumps(schedule_data),
+        is_active=True
+    )
+    db.session.add(s)
+    db.session.commit()
+    return flask.jsonify({"status": "ok", "id": s.id})
+
+@app.route("/schedule/saved")
+def get_saved_schedule():
+    if current_user.is_authenticated:
+        s = SavedSchedule.query.filter_by(
+            user_id=current_user.id, is_active=True
+        ).order_by(SavedSchedule.created_at.desc()).first()
+    else:
+        gid = get_guest_session_id()
+        s = SavedSchedule.query.filter_by(
+            guest_session_id=gid, is_active=True
+        ).order_by(SavedSchedule.created_at.desc()).first()
+    
+    if not s:
+        return flask.jsonify({"status": "none"})
+    return flask.jsonify({
+        "status": "ok",
+        "name": s.name,
+        "created_at": s.created_at.strftime("%b %d, %Y"),
+        "data": json.loads(s.schedule_data)
+    })
+
+@app.route("/schedule/delete", methods=["POST"])
+def delete_saved_schedule():
+    sid = request.json.get("id")
+    if current_user.is_authenticated:
+        SavedSchedule.query.filter_by(user_id=current_user.id).delete()
+    else:
+        SavedSchedule.query.filter_by(guest_session_id=get_guest_session_id()).delete()
+    db.session.commit()
+    return flask.jsonify({"status": "ok"})
 
 if __name__ == "__main__":
     with app.app_context():
