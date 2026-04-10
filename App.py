@@ -13,7 +13,7 @@ import uuid
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
-
+from studentvue_helper import test_login, get_assignments as get_sv_assignments, get_missing_assignments
 
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import (
@@ -1086,16 +1086,12 @@ from notion_helper import (
     get_notion_tasks, create_notion_task,
     update_notion_task, complete_notion_task
 )
-def get_flow():
-    return Flow.from_client_config(
-        CLIENT_CONFIG,
-        scopes=SCOPES,
-        redirect_uri=os.getenv("GOOGLE_REDIRECT_URI")
-    )
+
 @app.route("/oauth/google")
 def google_oauth_start():
     if not is_logged_in():
         return redirect(url_for("login"))
+    from google_calendar_helper import get_flow
     flow = get_flow()
     auth_url, state = flow.authorization_url(
         access_type="offline",
@@ -1108,6 +1104,7 @@ def google_oauth_start():
 @app.route("/oauth/google/callback")
 def google_oauth_callback():
     try:
+        from google_calendar_helper import get_flow
         flow = get_flow()
         flow.fetch_token(authorization_response=request.url)
         creds = flow.credentials
@@ -1134,8 +1131,9 @@ def google_oauth_callback():
         return redirect(url_for("dashboard"))
     except Exception as e:
         print(f"OAuth callback error: {e}")
-        return f"OAuth error: {str(e)}", 500
+        return redirect(url_for("dashboard"))
     
+        
 @app.route("/oauth/google/disconnect", methods=["POST"])
 def google_disconnect():
     if current_user.is_authenticated:
