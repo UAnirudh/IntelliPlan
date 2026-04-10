@@ -1362,6 +1362,14 @@ def delete_saved_schedule():
     db.session.commit()
     return flask.jsonify({"status": "ok"})
 
+@app.route("/privacy")
+def privacy():
+    return render_template("privacy.html")
+
+@app.route("/terms")
+def terms():
+    return render_template("terms.html")
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
