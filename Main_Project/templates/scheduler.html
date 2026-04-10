@@ -20,12 +20,7 @@
           <option value="afternoon">Afternoon</option>
           <option value="evening" selected>Evening</option>
         </select>
-        <button id="autoTimeBtn" onclick="autoDetectTime()" style="
-          padding:10px 16px; border-radius:10px; border:1px solid var(--accent);
-          background:var(--accent-soft); color:var(--accent); cursor:pointer;
-          font-family:'DM Sans',sans-serif; font-size:0.85rem; font-weight:600;">
-          ✨ Auto
-        </button>
+        <button id="autoTimeBtn" onclick="autoDetectTime()" style="padding:10px 16px; border-radius:10px; border:1px solid var(--accent); background:var(--accent-soft); color:var(--accent); cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.85rem; font-weight:600;">✨ Auto</button>
       </div>
       <span class="form-hint" id="autoTimeHint"></span>
     </div>
@@ -39,17 +34,10 @@
     </div>
   </div>
   <div style="display:flex; gap:10px; align-items:center; margin-top:1.5rem; flex-wrap:wrap;">
-    <button class="btn-primary" id="generateBtn" onclick="generateSchedule()" style="padding:14px 32px; border:none; cursor:pointer;">
-      🤖 Generate My Study Plan
-    </button>
-    <div id="savePanel" style="display:none; display:flex; gap:8px; align-items:center;">
+    <button class="btn-primary" id="generateBtn" onclick="generateSchedule()" style="padding:14px 32px; border:none; cursor:pointer;">🤖 Generate My Study Plan</button>
+    <div id="savePanel" style="display:none; gap:8px; align-items:center;">
       <input type="text" id="scheduleName" class="form-input" placeholder="Schedule name..." style="max-width:200px;" />
-      <button onclick="saveSchedule()" style="
-        padding:12px 20px; border-radius:10px; border:1px solid var(--low);
-        background:var(--low-bg); color:var(--low); cursor:pointer;
-        font-family:'DM Sans',sans-serif; font-size:0.88rem; font-weight:600;">
-        💾 Save to Dashboard
-      </button>
+      <button onclick="saveSchedule()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--low); background:var(--low-bg); color:var(--low); cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.88rem; font-weight:600;">💾 Save to Dashboard</button>
     </div>
   </div>
 </div>
@@ -60,7 +48,7 @@
 </div>
 
 <div id="scheduleResults" style="display:none;">
-  <div id="calExportWrap"></div>
+  <div id="calExportWrap" style="margin-bottom:1rem;"></div>
   <div class="schedule-overview" id="scheduleOverview"></div>
   <div class="schedule-days" id="scheduleDays"></div>
 </div>
@@ -78,10 +66,8 @@ let allAssignments = [];
 let _lastScheduleData = null;
 let _gcalConnected = false;
 
-fetch('/live').then(r => r.json()).then(data => { allAssignments = data; });
-fetch('/calendar/events').then(r => r.json()).then(res => {
-  _gcalConnected = res.connected;
-}).catch(() => {});
+fetch('/live').then(r => r.json()).then(data => { allAssignments = data; }).catch(() => {});
+fetch('/calendar/events').then(r => r.json()).then(res => { _gcalConnected = res.connected; }).catch(() => {});
 
 function addCustomTask() {
   const input = document.getElementById('customTaskInput');
@@ -144,6 +130,7 @@ function generateSchedule() {
   document.getElementById('schedulerLoading').style.display = 'block';
   document.getElementById('scheduleResults').style.display = 'none';
   document.getElementById('savePanel').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'none';
 
   const hours = parseFloat(document.getElementById('hoursPerDay').value);
   const time = document.getElementById('preferredTime').value;
@@ -151,49 +138,25 @@ function generateSchedule() {
   fetch('/generate_schedule', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      assignments: allAssignments,
-      hours_per_day: hours,
-      preferred_time: time,
-      custom_tasks: customTasks
-    })
+    body: JSON.stringify({ assignments: allAssignments, hours_per_day: hours, preferred_time: time, custom_tasks: customTasks })
   })
   .then(r => r.json())
   .then(response => {
     document.getElementById('schedulerLoading').style.display = 'none';
     document.getElementById('inputPanel').style.opacity = '1';
     document.getElementById('inputPanel').style.pointerEvents = 'auto';
-
     if (response.status === 'error') {
       alert('Error: ' + response.message);
       return;
     }
-
     _lastScheduleData = response.data;
     renderSchedule(response.data);
     document.getElementById('scheduleResults').style.display = 'block';
-
-    // Show save panel
     const sp = document.getElementById('savePanel');
     sp.style.display = 'flex';
     const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     document.getElementById('scheduleName').value = `Study Plan ${today}`;
-
-    // Show calendar export if connected
-    if (_gcalConnected) {
-      document.getElementById('calExportWrap').innerHTML = `
-        <button id="calExportBtn" onclick="exportToCalendar()" style="
-          display:inline-flex; align-items:center; gap:8px;
-          padding:12px 24px; margin-bottom:1rem;
-          background:#ea4335; color:white; border:none; border-radius:12px;
-          cursor:pointer; font-family:'DM Sans',sans-serif;
-          font-size:0.9rem; font-weight:600;
-          box-shadow:0 4px 16px rgba(234,67,53,0.3);
-          transition:all 0.2s;">
-          📅 Export to Google Calendar
-        </button>
-      `;
-    }
+    updateCalExportButton();
   })
   .catch(() => {
     document.getElementById('schedulerLoading').style.display = 'none';
@@ -201,6 +164,32 @@ function generateSchedule() {
     document.getElementById('inputPanel').style.pointerEvents = 'auto';
     alert('Something went wrong. Please try again.');
   });
+}
+
+function updateCalExportButton() {
+  fetch('/calendar/events').then(r => r.json()).then(calRes => {
+    _gcalConnected = calRes.connected;
+    const wrap = document.getElementById('calExportWrap');
+    if (calRes.connected) {
+      wrap.innerHTML = `
+        <button id="calExportBtn" onclick="exportToCalendar()" style="
+          display:inline-flex; align-items:center; gap:8px; padding:12px 24px;
+          background:#ea4335; color:white; border:none; border-radius:12px;
+          cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.9rem;
+          font-weight:600; box-shadow:0 4px 16px rgba(234,67,53,0.3); transition:all 0.2s;">
+          📅 Export to Google Calendar
+        </button>`;
+    } else {
+      wrap.innerHTML = `
+        <a href="/oauth/google" style="
+          display:inline-flex; align-items:center; gap:8px; padding:12px 24px;
+          background:var(--bg-card); color:var(--text-secondary); border:1px solid var(--border);
+          border-radius:12px; text-decoration:none; font-family:'DM Sans',sans-serif;
+          font-size:0.88rem; font-weight:600;">
+          🔗 Connect Google Calendar to export
+        </a>`;
+    }
+  }).catch(() => {});
 }
 
 async function saveSchedule() {
@@ -211,19 +200,19 @@ async function saveSchedule() {
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ schedule_data: _lastScheduleData, name })
   }).then(r => r.json());
-
   if (res.status === 'ok') {
     const btn = document.querySelector('[onclick="saveSchedule()"]');
-    btn.textContent = '✅ Saved!';
+    const orig = btn.textContent;
+    btn.textContent = '✅ Saved to Dashboard!';
     btn.style.background = 'var(--low)';
     btn.style.color = 'white';
     btn.style.borderColor = 'var(--low)';
     setTimeout(() => {
-      btn.textContent = '💾 Save to Dashboard';
+      btn.textContent = orig;
       btn.style.background = '';
       btn.style.color = '';
       btn.style.borderColor = '';
-    }, 2000);
+    }, 2500);
   }
 }
 
@@ -232,13 +221,11 @@ async function exportToCalendar() {
   const btn = document.getElementById('calExportBtn');
   btn.textContent = '⏳ Exporting...';
   btn.disabled = true;
-
   const res = await fetch('/calendar/export', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ schedule_data: _lastScheduleData })
   }).then(r => r.json());
-
   btn.disabled = false;
   if (res.status === 'ok') {
     btn.textContent = `✅ Added ${res.created} events to Calendar`;
@@ -259,9 +246,7 @@ function renderSchedule(data) {
     <div class="overview-card">
       <div class="overview-text">${data.overview}</div>
       <div class="overview-stat">⏱ Total study time: <strong>${data.total_study_time}</strong></div>
-    </div>
-  `;
-
+    </div>`;
   const days = document.getElementById('scheduleDays');
   days.innerHTML = data.schedule.map((day, di) => `
     <div class="day-card" style="animation-delay:${di * 0.07}s">
@@ -270,9 +255,7 @@ function renderSchedule(data) {
           <div class="day-name">${day.day_name}, ${day.date}</div>
           ${day.workload_level ? `<div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;">${day.workload_level} workload</div>` : ''}
         </div>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <div class="day-hours">⏱ ${day.total_hours}h</div>
-        </div>
+        <div class="day-hours">⏱ ${day.total_hours}h</div>
       </div>
       <div class="day-blocks">
         ${day.blocks.map(block => `
@@ -288,11 +271,24 @@ function renderSchedule(data) {
               <div class="block-duration">${block.duration_minutes}m</div>
               ${block.difficulty && !block.is_break ? `<div style="font-size:0.68rem;padding:2px 6px;border-radius:6px;background:var(--accent-soft);color:var(--accent);font-weight:600;">${block.difficulty}</div>` : ''}
             </div>
-          </div>
-        `).join('')}
+          </div>`).join('')}
       </div>
       ${day.daily_tip ? `<div class="daily-tip">✨ ${day.daily_tip}</div>` : ''}
-    </div>
-  `).join('');
+    </div>`).join('');
 }
+
+// Load saved schedule if coming from dashboard
+{% if load_saved %}
+fetch('/schedule/saved').then(r => r.json()).then(res => {
+  if (res.status === 'ok') {
+    _lastScheduleData = res.data;
+    renderSchedule(res.data);
+    document.getElementById('scheduleResults').style.display = 'block';
+    const sp = document.getElementById('savePanel');
+    sp.style.display = 'flex';
+    document.getElementById('scheduleName').value = res.name;
+    updateCalExportButton();
+  }
+});
+{% endif %}
 {% endblock %}

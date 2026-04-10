@@ -1,26 +1,42 @@
 import flask
-from flask import render_template, request, redirect, session, url_for, flash
+from flask import render_template, request, redirect, session, url_for
 import requests
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
-from studentvue_helper import test_login, get_assignments as get_sv_assignments
+from studentvue_helper import test_login, get_assignments as get_sv_assignments, get_missing_assignments
 from groq import Groq
 import re
 import json
-from pathlib import Path
 import uuid
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import Flow
-from googleapiclient.discovery import build
-from studentvue_helper import test_login, get_assignments as get_sv_assignments, get_missing_assignments
 
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import (
     LoginManager, UserMixin, login_user, logout_user,
-    login_required, current_user
+    current_user
 )
 from flask_bcrypt import Bcrypt
+
+try:
+    from google_calendar_helper import (
+        get_flow, get_upcoming_events,
+        add_schedule_to_calendar, find_free_slots
+    )
+    GCAL_AVAILABLE = True
+except Exception as e:
+    print(f"Google Calendar not available: {e}")
+    GCAL_AVAILABLE = False
+
+try:
+    from notion_helper import (
+        test_notion_token, get_notion_databases,
+        get_notion_tasks, create_notion_task,
+        update_notion_task, complete_notion_task
+    )
+    NOTION_AVAILABLE = True
+except Exception as e:
+    print(f"Notion not available: {e}")
+    NOTION_AVAILABLE = False
 
 load_dotenv()
 
@@ -31,18 +47,13 @@ app = flask.Flask(
 app.secret_key = os.getenv("SECRET_KEY", "intelliplan-dev-key")
 app.permanent_session_lifetime = timedelta(days=7)
 
-# ── DATABASE ──────────────────────────────────────────────────
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
-    "DATABASE_URL", "sqlite:///intelliplan.db"
-)
+app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///intelliplan.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
-
-
 
 # ── MODELS ────────────────────────────────────────────────────
 class User(UserMixin, db.Model):
@@ -62,7 +73,7 @@ class LinkedAccount(db.Model):
     profile_id = db.Column(db.String(16), unique=True, default=lambda: str(uuid.uuid4())[:8])
     name = db.Column(db.String(255), default="My Account")
     login_type = db.Column(db.String(32), nullable=False)
-    credentials = db.Column(db.Text, nullable=False)  # JSON string
+    credentials = db.Column(db.Text, nullable=False)
     is_active = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -87,7 +98,6 @@ class CustomDescription(db.Model):
     guest_session_id = db.Column(db.String(64), nullable=True)
     assignment_title = db.Column(db.String(512), nullable=False)
     description = db.Column(db.Text, nullable=False)
-
 
 class GoogleIntegration(db.Model):
     __tablename__ = "google_integrations"
@@ -132,11 +142,9 @@ with app.app_context():
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 # ── CONSTANTS ─────────────────────────────────────────────────
-CANVAS_BASE = "https://canvas.instructure.com/api/v1"
-
 PRIORITY_COLORS = {
     "High": "#ef4444",
     "Medium": "#f59e0b",
@@ -167,17 +175,13 @@ def is_logged_in():
     return "login_type" in session
 
 def get_active_account():
-    """Returns credentials dict + login_type for the current user."""
     if current_user.is_authenticated:
-        acct = LinkedAccount.query.filter_by(
-            user_id=current_user.id, is_active=True
-        ).first()
+        acct = LinkedAccount.query.filter_by(user_id=current_user.id, is_active=True).first()
         if acct:
             creds = acct.get_credentials()
             creds["login_type"] = acct.login_type
             return creds
         return None
-    # Guest fallback
     login_type = session.get("login_type")
     if not login_type:
         return None
@@ -212,89 +216,67 @@ def get_dismissed_rows():
 
 def save_dismissed(title, data_dict):
     if current_user.is_authenticated:
-        existing = DismissedAssignment.query.filter_by(
-            user_id=current_user.id, title=title
-        ).first()
+        existing = DismissedAssignment.query.filter_by(user_id=current_user.id, title=title).first()
         if not existing:
-            db.session.add(DismissedAssignment(
-                user_id=current_user.id,
-                title=title,
-                data=json.dumps(data_dict)
-            ))
+            db.session.add(DismissedAssignment(user_id=current_user.id, title=title, data=json.dumps(data_dict)))
     else:
         gid = get_guest_session_id()
-        existing = DismissedAssignment.query.filter_by(
-            guest_session_id=gid, title=title
-        ).first()
+        existing = DismissedAssignment.query.filter_by(guest_session_id=gid, title=title).first()
         if not existing:
-            db.session.add(DismissedAssignment(
-                guest_session_id=gid,
-                title=title,
-                data=json.dumps(data_dict)
-            ))
+            db.session.add(DismissedAssignment(guest_session_id=gid, title=title, data=json.dumps(data_dict)))
     db.session.commit()
 
 def delete_dismissed(title):
     if current_user.is_authenticated:
-        DismissedAssignment.query.filter_by(
-            user_id=current_user.id, title=title
-        ).delete()
+        DismissedAssignment.query.filter_by(user_id=current_user.id, title=title).delete()
     else:
         gid = get_guest_session_id()
-        DismissedAssignment.query.filter_by(
-            guest_session_id=gid, title=title
-        ).delete()
+        DismissedAssignment.query.filter_by(guest_session_id=gid, title=title).delete()
     db.session.commit()
 
 def get_custom_description(assignment_title):
     if current_user.is_authenticated:
-        row = CustomDescription.query.filter_by(
-            user_id=current_user.id,
-            assignment_title=assignment_title
-        ).first()
+        row = CustomDescription.query.filter_by(user_id=current_user.id, assignment_title=assignment_title).first()
     else:
         gid = get_guest_session_id()
-        row = CustomDescription.query.filter_by(
-            guest_session_id=gid,
-            assignment_title=assignment_title
-        ).first()
+        row = CustomDescription.query.filter_by(guest_session_id=gid, assignment_title=assignment_title).first()
     return row.description if row else None
 
 def save_custom_description(assignment_title, description):
     if current_user.is_authenticated:
-        row = CustomDescription.query.filter_by(
-            user_id=current_user.id,
-            assignment_title=assignment_title
-        ).first()
+        row = CustomDescription.query.filter_by(user_id=current_user.id, assignment_title=assignment_title).first()
         if row:
             row.description = description
         else:
-            db.session.add(CustomDescription(
-                user_id=current_user.id,
-                assignment_title=assignment_title,
-                description=description
-            ))
+            db.session.add(CustomDescription(user_id=current_user.id, assignment_title=assignment_title, description=description))
     else:
         gid = get_guest_session_id()
-        row = CustomDescription.query.filter_by(
-            guest_session_id=gid,
-            assignment_title=assignment_title
-        ).first()
+        row = CustomDescription.query.filter_by(guest_session_id=gid, assignment_title=assignment_title).first()
         if row:
             row.description = description
         else:
-            db.session.add(CustomDescription(
-                guest_session_id=gid,
-                assignment_title=assignment_title,
-                description=description
-            ))
+            db.session.add(CustomDescription(guest_session_id=gid, assignment_title=assignment_title, description=description))
     db.session.commit()
+
+def get_google_token():
+    if current_user.is_authenticated:
+        gi = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
+        if gi:
+            return json.loads(gi.token_data)
+    return session.get("google_token")
+
+def get_notion_token_and_db():
+    if current_user.is_authenticated:
+        ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
+        if ni:
+            return ni.token, ni.database_id
+    return session.get("notion_token"), session.get("notion_database_id")
 
 @app.context_processor
 def inject_auth():
     return dict(logged_in=is_logged_in())
 
-# ── GRADE / SCHEDULE LOGIC (unchanged) ───────────────────────
+# ── SCHEDULE LOGIC ────────────────────────────────────────────
 def infer_task_difficulty(points_possible, priority, due_date_str):
     score = float(points_possible or 0)
     try:
@@ -319,27 +301,9 @@ def infer_task_difficulty(points_possible, priority, due_date_str):
 def get_energy_profile(preferred_time):
     preference = (preferred_time or "evening").lower()
     profiles = {
-        "morning": {
-            "label": "morning",
-            "summary": "Front-load harder work first, then taper into lighter review.",
-            "recommended_start_hour": 7,
-            "hard_task_window": "7:00 AM - 11:00 AM",
-            "light_task_window": "11:00 AM - 1:00 PM",
-        },
-        "afternoon": {
-            "label": "afternoon",
-            "summary": "Place demanding work first, then switch into medium and lighter tasks.",
-            "recommended_start_hour": 1,
-            "hard_task_window": "1:00 PM - 4:00 PM",
-            "light_task_window": "4:00 PM - 6:00 PM",
-        },
-        "evening": {
-            "label": "evening",
-            "summary": "Begin with the highest-focus work in the early evening, then move to lighter tasks.",
-            "recommended_start_hour": 6,
-            "hard_task_window": "6:00 PM - 8:30 PM",
-            "light_task_window": "8:30 PM - 10:30 PM",
-        },
+        "morning": {"label": "morning", "summary": "Front-load harder work first.", "recommended_start_hour": 7, "hard_task_window": "7:00 AM - 11:00 AM", "light_task_window": "11:00 AM - 1:00 PM"},
+        "afternoon": {"label": "afternoon", "summary": "Place demanding work first.", "recommended_start_hour": 1, "hard_task_window": "1:00 PM - 4:00 PM", "light_task_window": "4:00 PM - 6:00 PM"},
+        "evening": {"label": "evening", "summary": "Begin with highest-focus work in early evening.", "recommended_start_hour": 6, "hard_task_window": "6:00 PM - 8:30 PM", "light_task_window": "8:30 PM - 10:30 PM"},
     }
     return profiles.get(preference, profiles["evening"])
 
@@ -376,32 +340,20 @@ def infer_block_energy_level(time_slot, preferred_time, difficulty):
 def build_daily_tip(workload_level, preferred_time, high_priority_count, hard_task_count):
     preference = (preferred_time or "evening").lower()
     if workload_level == "heavy":
-        return f"Today is a heavier {preference} workload, so protect your focus for the first block."
+        return f"Today is a heavier {preference} workload — protect your focus for the first block."
     if hard_task_count >= 2:
-        return "You have multiple demanding tasks today — clean starts and no distractions before each block."
+        return "Multiple demanding tasks today — clean starts and no distractions before each block."
     if high_priority_count >= 1:
         return "Knock out the urgent task first while your attention is strongest."
     return "Balanced day — finish each block fully and keep your momentum steady."
 
 def enrich_schedule_data(schedule_data, assignments, preferred_time, hours_per_day):
-    assignment_lookup = {
-        item["title"]: item
-        for item in assignments
-        if isinstance(item, dict) and item.get("title")
-    }
+    assignment_lookup = {item["title"]: item for item in assignments if isinstance(item, dict) and item.get("title")}
     schedule = schedule_data.get("schedule", [])
     total_study_minutes = 0
     for day in schedule:
-        study_minutes = sum(
-            block.get("duration_minutes", 0)
-            for block in day.get("blocks", [])
-            if not block.get("is_break")
-        )
-        break_minutes = sum(
-            block.get("duration_minutes", 0)
-            for block in day.get("blocks", [])
-            if block.get("is_break")
-        )
+        study_minutes = sum(block.get("duration_minutes", 0) for block in day.get("blocks", []) if not block.get("is_break"))
+        break_minutes = sum(block.get("duration_minutes", 0) for block in day.get("blocks", []) if block.get("is_break"))
         total_minutes = study_minutes + break_minutes
         total_study_minutes += study_minutes
         if study_minutes >= max(int(hours_per_day * 60 * 0.85), 150):
@@ -415,20 +367,13 @@ def enrich_schedule_data(schedule_data, assignments, preferred_time, hours_per_d
         for block in day.get("blocks", []):
             if block.get("is_break"):
                 block["color"] = "#cbd5e1"
-                block["border_color"] = "#94a3b8"
                 block["energy_level"] = "reset"
                 block["difficulty"] = "Break"
                 continue
             assignment_meta = assignment_lookup.get(block.get("assignment", ""), {})
             priority = assignment_meta.get("priority", "Medium")
-            difficulty = assignment_meta.get("difficulty") or infer_task_difficulty(
-                assignment_meta.get("points_possible"),
-                priority,
-                assignment_meta.get("due_date"),
-            )
-            energy_level = infer_block_energy_level(
-                block.get("time_slot"), preferred_time, difficulty,
-            )
+            difficulty = assignment_meta.get("difficulty") or infer_task_difficulty(assignment_meta.get("points_possible"), priority, assignment_meta.get("due_date"))
+            energy_level = infer_block_energy_level(block.get("time_slot"), preferred_time, difficulty)
             if priority == "High": high_priority_count += 1
             if difficulty == "Hard": hard_task_count += 1
             block["priority"] = priority
@@ -441,15 +386,11 @@ def enrich_schedule_data(schedule_data, assignments, preferred_time, hours_per_d
         day["break_minutes"] = break_minutes
         day["total_minutes"] = total_minutes
         day["color_theme"] = WORKLOAD_COLORS[workload_level]
-        day["daily_tip"] = build_daily_tip(
-            workload_level, preferred_time, high_priority_count, hard_task_count,
-        )
+        day["daily_tip"] = build_daily_tip(workload_level, preferred_time, high_priority_count, hard_task_count)
         if not day.get("total_hours"):
             day["total_hours"] = round(total_minutes / 60, 1)
     schedule_data["energy_profile"] = get_energy_profile(preferred_time)
-    schedule_data["total_study_time"] = (
-        f"{total_study_minutes // 60} hours {total_study_minutes % 60} minutes"
-    )
+    schedule_data["total_study_time"] = f"{total_study_minutes // 60} hours {total_study_minutes % 60} minutes"
     return schedule_data
 
 # ── PAGE ROUTES ───────────────────────────────────────────────
@@ -461,7 +402,7 @@ def landing():
 def home():
     if not is_logged_in():
         return redirect(url_for("login"))
-    return render_template("index.html", active_page="home")
+    return redirect(url_for("dashboard"))
 
 @app.route("/priority")
 def priority():
@@ -485,13 +426,25 @@ def grades():
 def scheduler():
     if not is_logged_in():
         return redirect(url_for("login"))
-    return render_template("scheduler.html", active_page="scheduler")
+    return render_template("scheduler.html", active_page="scheduler", load_saved=False)
+
+@app.route("/scheduler/saved")
+def scheduler_saved():
+    if not is_logged_in():
+        return redirect(url_for("login"))
+    return render_template("scheduler.html", active_page="scheduler", load_saved=True)
 
 @app.route("/grademodel")
 def grademodel():
     if not is_logged_in():
         return redirect(url_for("login"))
     return render_template("grademodel.html", active_page="grademodel")
+
+@app.route("/gradebook")
+def gradebook():
+    if not is_logged_in():
+        return redirect(url_for("login"))
+    return render_template("gradebook.html", active_page="grademodel")
 
 @app.route("/dismissed")
 def dismissed_page():
@@ -511,17 +464,23 @@ def settings():
         return redirect(url_for("login"))
     return render_template("settings.html", active_page="settings")
 
+@app.route("/dashboard")
+def dashboard():
+    if not is_logged_in():
+        return redirect(url_for("login"))
+    return render_template("dashboard.html", active_page="dashboard")
+
 # ── AUTH ROUTES ───────────────────────────────────────────────
 @app.route("/login", methods=["GET"])
 def login():
     if is_logged_in():
-        return redirect(url_for("home"))
+        return redirect(url_for("dashboard"))
     return render_template("login.html", active_page="login")
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if current_user.is_authenticated:
-        return redirect(url_for("home"))
+        return redirect(url_for("dashboard"))
     error = None
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
@@ -547,7 +506,7 @@ def register():
 @app.route("/login/account", methods=["GET", "POST"])
 def login_account():
     if current_user.is_authenticated:
-        return redirect(url_for("home"))
+        return redirect(url_for("dashboard"))
     error = None
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
@@ -555,14 +514,10 @@ def login_account():
         user = User.query.filter_by(email=email).first()
         if user and bcrypt.check_password_hash(user.password_hash, password):
             login_user(user, remember=True)
-            # Set active account in session context
-            acct = LinkedAccount.query.filter_by(
-                user_id=user.id, is_active=True
-            ).first()
+            acct = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
             if not acct:
-                # No linked account yet, send to connect
                 return redirect(url_for("connect_account"))
-            return redirect(url_for("home"))
+            return redirect(url_for("dashboard"))
         else:
             error = "Invalid email or password."
     return render_template("login_account.html", active_page="login", error=error)
@@ -583,33 +538,21 @@ def login_canvas():
         if not token or not canvas_url:
             error = "Please fill in both fields."
         else:
-            test = requests.get(
-                f"{canvas_url}/api/v1/courses",
-                headers={"Authorization": f"Bearer {token}"},
-            )
+            test = requests.get(f"{canvas_url}/api/v1/courses", headers={"Authorization": f"Bearer {token}"})
             if test.status_code == 200:
                 creds = {"canvas_token": token, "canvas_url": canvas_url}
                 if current_user.is_authenticated:
-                    # Deactivate all current accounts
-                    LinkedAccount.query.filter_by(
-                        user_id=current_user.id
-                    ).update({"is_active": False})
-                    acct = LinkedAccount(
-                        user_id=current_user.id,
-                        name=profile_name,
-                        login_type="canvas",
-                        is_active=True,
-                    )
+                    LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
+                    acct = LinkedAccount(user_id=current_user.id, name=profile_name, login_type="canvas", is_active=True)
                     acct.set_credentials(creds)
                     db.session.add(acct)
                     db.session.commit()
                 else:
-                    # Guest mode
                     session.permanent = True
                     session["canvas_token"] = token
                     session["canvas_url"] = canvas_url
                     session["login_type"] = "canvas"
-                return redirect(url_for("home"))
+                return redirect(url_for("dashboard"))
             else:
                 error = "Invalid token or Canvas URL."
     return render_template("login_canvas.html", active_page="login", error=error)
@@ -626,21 +569,10 @@ def login_studentvue():
             error = "Please fill in all fields."
         else:
             if test_login(district_url, username, password):
-                creds = {
-                    "sv_username": username,
-                    "sv_password": password,
-                    "sv_district_url": district_url,
-                }
+                creds = {"sv_username": username, "sv_password": password, "sv_district_url": district_url}
                 if current_user.is_authenticated:
-                    LinkedAccount.query.filter_by(
-                        user_id=current_user.id
-                    ).update({"is_active": False})
-                    acct = LinkedAccount(
-                        user_id=current_user.id,
-                        name=profile_name,
-                        login_type="studentvue",
-                        is_active=True,
-                    )
+                    LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
+                    acct = LinkedAccount(user_id=current_user.id, name=profile_name, login_type="studentvue", is_active=True)
                     acct.set_credentials(creds)
                     db.session.add(acct)
                     db.session.commit()
@@ -650,7 +582,7 @@ def login_studentvue():
                     session["sv_password"] = password
                     session["sv_district_url"] = district_url
                     session["login_type"] = "studentvue"
-                return redirect(url_for("home"))
+                return redirect(url_for("dashboard"))
             else:
                 error = "Invalid credentials."
     return render_template("login_studentvue.html", active_page="login", error=error)
@@ -665,76 +597,58 @@ def login_schoology():
         if not key or not secret:
             error = "Please fill in both fields."
         else:
-            from schoology_helper import test_schoology_login
-            if test_schoology_login(key, secret):
-                creds = {"schoology_key": key, "schoology_secret": secret}
-                if current_user.is_authenticated:
-                    LinkedAccount.query.filter_by(
-                        user_id=current_user.id
-                    ).update({"is_active": False})
-                    acct = LinkedAccount(
-                        user_id=current_user.id,
-                        name=profile_name,
-                        login_type="schoology",
-                        is_active=True,
-                    )
-                    acct.set_credentials(creds)
-                    db.session.add(acct)
-                    db.session.commit()
+            try:
+                from schoology_helper import test_schoology_login
+                if test_schoology_login(key, secret):
+                    creds = {"schoology_key": key, "schoology_secret": secret}
+                    if current_user.is_authenticated:
+                        LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
+                        acct = LinkedAccount(user_id=current_user.id, name=profile_name, login_type="schoology", is_active=True)
+                        acct.set_credentials(creds)
+                        db.session.add(acct)
+                        db.session.commit()
+                    else:
+                        session["schoology_key"] = key
+                        session["schoology_secret"] = secret
+                        session["login_type"] = "schoology"
+                    return redirect(url_for("dashboard"))
                 else:
-                    session["schoology_key"] = key
-                    session["schoology_secret"] = secret
-                    session["login_type"] = "schoology"
-                return redirect(url_for("home"))
-            else:
-                error = "Invalid Schoology credentials."
+                    error = "Invalid Schoology credentials."
+            except Exception as e:
+                error = f"Schoology error: {str(e)}"
     return render_template("login_schoology.html", active_page="login", error=error)
 
-@app.route("/logout", methods=["POST"])
+@app.route("/logout", methods=["POST", "GET"])
 def logout():
     logout_user()
+    session.clear()
     return redirect(url_for("login"))
 
-# ── PROFILE / ACCOUNT MANAGEMENT ─────────────────────────────
+# ── PROFILE MANAGEMENT ────────────────────────────────────────
 @app.route("/profiles/list")
 def profiles_list():
     if not current_user.is_authenticated:
-        # Guest — return session info
         login_type = session.get("login_type")
         if login_type:
-            return flask.jsonify({
-                "is_guest": True,
-                "profiles": [{"id": "guest", "name": "Guest Session", "login_type": login_type, "is_active": True}],
-                "active": "guest"
-            })
+            return flask.jsonify({"is_guest": True, "profiles": [{"id": "guest", "name": "Guest Session", "login_type": login_type, "is_active": True}], "active": "guest"})
         return flask.jsonify({"is_guest": True, "profiles": [], "active": None})
-
     accounts = LinkedAccount.query.filter_by(user_id=current_user.id).all()
     active = next((a for a in accounts if a.is_active), None)
     return flask.jsonify({
         "is_guest": False,
         "email": current_user.email,
-        "profiles": [
-            {
-                "id": a.profile_id,
-                "name": a.name,
-                "login_type": a.login_type,
-                "is_active": a.is_active
-            } for a in accounts
-        ],
+        "profiles": [{"id": a.profile_id, "name": a.name, "login_type": a.login_type, "is_active": a.is_active} for a in accounts],
         "active": active.profile_id if active else None
     })
 
 @app.route("/profiles/switch", methods=["POST"])
 def profiles_switch():
     if not current_user.is_authenticated:
-        return flask.jsonify({"status": "error", "message": "Not logged in"})
+        return flask.jsonify({"status": "error"})
     profile_id = request.json.get("id")
-    acct = LinkedAccount.query.filter_by(
-        user_id=current_user.id, profile_id=profile_id
-    ).first()
+    acct = LinkedAccount.query.filter_by(user_id=current_user.id, profile_id=profile_id).first()
     if not acct:
-        return flask.jsonify({"status": "error", "message": "Not found"})
+        return flask.jsonify({"status": "error"})
     LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
     acct.is_active = True
     db.session.commit()
@@ -745,9 +659,7 @@ def profiles_delete():
     if not current_user.is_authenticated:
         return flask.jsonify({"status": "error"})
     profile_id = request.json.get("id")
-    acct = LinkedAccount.query.filter_by(
-        user_id=current_user.id, profile_id=profile_id
-    ).first()
+    acct = LinkedAccount.query.filter_by(user_id=current_user.id, profile_id=profile_id).first()
     if acct:
         db.session.delete(acct)
         db.session.commit()
@@ -759,9 +671,7 @@ def profiles_rename():
         return flask.jsonify({"status": "error"})
     profile_id = request.json.get("id")
     name = request.json.get("name", "").strip()
-    acct = LinkedAccount.query.filter_by(
-        user_id=current_user.id, profile_id=profile_id
-    ).first()
+    acct = LinkedAccount.query.filter_by(user_id=current_user.id, profile_id=profile_id).first()
     if acct and name:
         acct.name = name
         db.session.commit()
@@ -784,78 +694,75 @@ def get_live_schedule():
     acct = get_active_account()
     if not acct:
         return flask.jsonify([])
-
     dismissed = get_dismissed_titles()
     login_type = acct["login_type"]
 
     if login_type == "studentvue":
-        result = get_sv_assignments(
-            acct["sv_district_url"],
-            acct["sv_username"],
-            acct["sv_password"],
-        )
+        try:
+            result = get_sv_assignments(acct["sv_district_url"], acct["sv_username"], acct["sv_password"])
+        except:
+            result = []
         return flask.jsonify([a for a in result if a["title"] not in dismissed])
 
     if login_type == "schoology":
-        from schoology_helper import get_schoology_assignments
-        result = get_schoology_assignments(acct["schoology_key"], acct["schoology_secret"])
-        return flask.jsonify([a for a in result if a["title"] not in dismissed])
+        try:
+            from schoology_helper import get_schoology_assignments
+            result = get_schoology_assignments(acct["schoology_key"], acct["schoology_secret"])
+            return flask.jsonify([a for a in result if a["title"] not in dismissed])
+        except:
+            return flask.jsonify([])
 
     # Canvas
-    token = acct["canvas_token"]
-    canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
-    base = f"{canvas_url}/api/v1"
-    headers = {"Authorization": f"Bearer {token}"}
-
-    course_response = requests.get(f"{base}/courses", headers=headers)
-    courses = course_response.json()
-    course_map = {}
-    for c in courses:
-        if isinstance(c, dict) and "id" in c:
-            course_map[c["id"]] = c.get("name", "Unknown")
-
-    assignments = []
-    for course_id in course_map:
-        response = requests.get(f"{base}/courses/{course_id}/assignments", headers=headers)
-        data = response.json()
-        if isinstance(data, list):
-            assignments += data
-
-    schedule = []
-    today = datetime.now(timezone.utc)
-
-    for a in assignments:
-        if not isinstance(a, dict): continue
-        if a.get("due_at") is None: continue
-        if a.get("points_possible") is None:
-            a["points_possible"] = 60
-
-        due_str = a["due_at"]
-        due_date = datetime.fromisoformat(due_str.replace("Z", "+00:00"))
-        days = (due_date - today).days
-
-        if days < -14: continue
-        priority = "High" if days < 0 or days <= 3 else "Medium" if days <= 7 else "Low"
-
-        raw_minutes = a["points_possible"] * 1.5
-        rounded_minutes = max(30, round(raw_minutes / 30) * 30)
-        difficulty = infer_task_difficulty(a["points_possible"], priority, due_str[:10])
-
-        schedule.append({
-            "id": str(a["id"]),
-            "course_id": str(a["course_id"]),
-            "title": a["name"],
-            "course": course_map.get(a["course_id"], "Unknown Course"),
-            "due_date": due_str[:10],
-            "points_possible": a["points_possible"],
-            "priority": priority,
-            "difficulty": difficulty,
-            "estimated_time": rounded_minutes,
-            "color": PRIORITY_COLORS.get(priority, "#60a5fa"),
-        })
-
-    sorted_schedule = sorted(schedule, key=lambda x: x["due_date"])
-    return flask.jsonify([a for a in sorted_schedule if a["title"] not in dismissed])
+    try:
+        token = acct["canvas_token"]
+        canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
+        base = f"{canvas_url}/api/v1"
+        headers = {"Authorization": f"Bearer {token}"}
+        course_response = requests.get(f"{base}/courses", headers=headers)
+        courses = course_response.json()
+        course_map = {}
+        for c in courses:
+            if isinstance(c, dict) and "id" in c:
+                course_map[c["id"]] = c.get("name", "Unknown")
+        assignments = []
+        for course_id in course_map:
+            response = requests.get(f"{base}/courses/{course_id}/assignments", headers=headers)
+            data = response.json()
+            if isinstance(data, list):
+                assignments += data
+        schedule = []
+        today = datetime.now(timezone.utc)
+        for a in assignments:
+            if not isinstance(a, dict): continue
+            if a.get("due_at") is None: continue
+            if a.get("points_possible") is None:
+                a["points_possible"] = 60
+            due_str = a["due_at"]
+            due_date = datetime.fromisoformat(due_str.replace("Z", "+00:00"))
+            days = (due_date - today).days
+            if days < -14: continue
+            priority = "High" if days < 0 or days <= 3 else "Medium" if days <= 7 else "Low"
+            raw_minutes = a["points_possible"] * 1.5
+            rounded_minutes = max(30, round(raw_minutes / 30) * 30)
+            difficulty = infer_task_difficulty(a["points_possible"], priority, due_str[:10])
+            title = a["name"]
+            if title in dismissed: continue
+            schedule.append({
+                "id": str(a["id"]),
+                "course_id": str(a["course_id"]),
+                "title": title,
+                "course": course_map.get(a["course_id"], "Unknown Course"),
+                "due_date": due_str[:10],
+                "points_possible": a["points_possible"],
+                "priority": priority,
+                "difficulty": difficulty,
+                "estimated_time": rounded_minutes,
+                "color": PRIORITY_COLORS.get(priority, "#60a5fa"),
+            })
+        return flask.jsonify(sorted(schedule, key=lambda x: x["due_date"]))
+    except Exception as e:
+        print(f"Canvas live error: {e}")
+        return flask.jsonify([])
 
 @app.route("/courses")
 def get_courses():
@@ -863,26 +770,21 @@ def get_courses():
     if not acct:
         return flask.jsonify([])
     login_type = acct["login_type"]
-
     if login_type == "studentvue":
         from studentvue_helper import get_courses as get_sv_courses
-        return flask.jsonify(get_sv_courses(
-            acct["sv_district_url"], acct["sv_username"], acct["sv_password"]
-        ))
+        return flask.jsonify(get_sv_courses(acct["sv_district_url"], acct["sv_username"], acct["sv_password"]))
     if login_type == "schoology":
-        from schoology_helper import get_schoology_courses
-        return flask.jsonify(get_schoology_courses(acct["schoology_key"], acct["schoology_secret"]))
-
-    # Canvas
+        try:
+            from schoology_helper import get_schoology_courses
+            return flask.jsonify(get_schoology_courses(acct["schoology_key"], acct["schoology_secret"]))
+        except:
+            return flask.jsonify([])
     token = acct["canvas_token"]
     canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
     headers = {"Authorization": f"Bearer {token}"}
     course_response = requests.get(f"{canvas_url}/api/v1/courses", headers=headers)
     courses = course_response.json()
-    return flask.jsonify([
-        {"name": c.get("name", "Unknown")}
-        for c in courses if isinstance(c, dict) and "id" in c
-    ])
+    return flask.jsonify([{"name": c.get("name", "Unknown")} for c in courses if isinstance(c, dict) and "id" in c])
 
 @app.route("/grades/data")
 def grades_data():
@@ -892,12 +794,13 @@ def grades_data():
     login_type = acct["login_type"]
     if login_type == "studentvue":
         from studentvue_helper import get_grades as get_sv_grades
-        return flask.jsonify(get_sv_grades(
-            acct["sv_district_url"], acct["sv_username"], acct["sv_password"]
-        ))
+        return flask.jsonify(get_sv_grades(acct["sv_district_url"], acct["sv_username"], acct["sv_password"]))
     if login_type == "schoology":
-        from schoology_helper import get_schoology_grades
-        return flask.jsonify(get_schoology_grades(acct["schoology_key"], acct["schoology_secret"]))
+        try:
+            from schoology_helper import get_schoology_grades
+            return flask.jsonify(get_schoology_grades(acct["schoology_key"], acct["schoology_secret"]))
+        except:
+            return flask.jsonify([])
     return flask.jsonify([])
 
 @app.route("/gradebook/detail")
@@ -907,14 +810,8 @@ def gradebook_detail():
         return flask.jsonify([])
     if acct["login_type"] == "studentvue":
         from studentvue_helper import get_gradebook_detail
-        return flask.jsonify(get_gradebook_detail(
-            acct["sv_district_url"], acct["sv_username"], acct["sv_password"]
-        ))
+        return flask.jsonify(get_gradebook_detail(acct["sv_district_url"], acct["sv_username"], acct["sv_password"]))
     return flask.jsonify([])
-
-@app.route('/gradebook')
-def gradebook():
-    return render_template('gradebook.html')
 
 @app.route("/dismiss", methods=["POST"])
 def dismiss():
@@ -947,26 +844,20 @@ def get_description():
     assignment_id = request.args.get("id")
     course_id = request.args.get("course_id")
     title = request.args.get("title", "")
-
     custom = get_custom_description(title)
     if custom:
         return flask.jsonify({"description": custom, "source": "custom"})
-
     acct = get_active_account()
     if acct and acct["login_type"] == "canvas" and assignment_id and course_id:
         token = acct["canvas_token"]
         canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
-        resp = requests.get(
-            f"{canvas_url}/api/v1/courses/{course_id}/assignments/{assignment_id}",
-            headers={"Authorization": f"Bearer {token}"}
-        )
+        resp = requests.get(f"{canvas_url}/api/v1/courses/{course_id}/assignments/{assignment_id}", headers={"Authorization": f"Bearer {token}"})
         if resp.status_code == 200:
             raw = resp.json().get("description") or ""
             clean = re.sub(r"<[^>]+>", " ", raw).strip()
             clean = re.sub(r"\s+", " ", clean)
             if clean:
                 return flask.jsonify({"description": clean, "source": "canvas"})
-
     return flask.jsonify({"description": "", "source": "none"})
 
 @app.route("/assignment/description", methods=["POST"])
@@ -985,146 +876,66 @@ def generate_schedule():
     hours_per_day = data.get("hours_per_day", 2)
     preferred_time = data.get("preferred_time", "evening")
     custom_tasks = data.get("custom_tasks", [])
-
     normalized_assignments = []
     for assignment in assignments:
-        difficulty = assignment.get("difficulty") or infer_task_difficulty(
-            assignment.get("points_possible"),
-            assignment.get("priority", "Medium"),
-            assignment.get("due_date"),
-        )
-        normalized_assignments.append({
-            **assignment,
-            "difficulty": difficulty,
-            "color": assignment.get("color") or PRIORITY_COLORS.get(assignment.get("priority", "Medium"), "#60a5fa"),
-        })
-
+        difficulty = assignment.get("difficulty") or infer_task_difficulty(assignment.get("points_possible"), assignment.get("priority", "Medium"), assignment.get("due_date"))
+        normalized_assignments.append({**assignment, "difficulty": difficulty, "color": assignment.get("color") or PRIORITY_COLORS.get(assignment.get("priority", "Medium"), "#60a5fa")})
     client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-    energy_profile = get_energy_profile(preferred_time)
-
-    assignment_text = "\n".join([
-        f"- {a['title']} ({a['course']}) — Due: {a['due_date']}, Priority: {a['priority']}, "
-        f"Difficulty: {a['difficulty']}, Estimated time: {a['estimated_time']} minutes"
-        for a in normalized_assignments
-    ])
-
-    custom_text = ""
-    if custom_tasks:
-        custom_text = "\nAdditional tasks:\n" + "\n".join([f"- {t}" for t in custom_tasks])
-
+    assignment_text = "\n".join([f"- {a['title']} ({a['course']}) — Due: {a['due_date']}, Priority: {a['priority']}, Difficulty: {a['difficulty']}, Estimated time: {a['estimated_time']} minutes" for a in normalized_assignments])
+    custom_text = "\nAdditional tasks:\n" + "\n".join([f"- {t}" for t in custom_tasks]) if custom_tasks else ""
     today = datetime.now().strftime("%Y-%m-%d")
-
-    prompt = f"""
-You are IntelliPlan — an adaptive academic study-planning system. Today is {today}.
-
+    prompt = f"""You are IntelliPlan — an adaptive academic study-planning system. Today is {today}.
 Assignments:
 {assignment_text}
 {custom_text}
-
 The student can study {hours_per_day} hours per day and prefers {preferred_time}.
-
 Create a realistic study plan. Return ONLY valid JSON:
-{{
-  "schedule": [
-    {{
-      "date": "YYYY-MM-DD",
-      "day_name": "Monday",
-      "total_hours": 2,
-      "blocks": [
-        {{
-          "assignment": "Title",
-          "course": "Course",
-          "duration_minutes": 45,
-          "time_slot": "7:00 PM - 7:45 PM",
-          "notes": "Focus area",
-          "is_break": false
-        }}
-      ],
-      "daily_tip": "Tip"
-    }}
-  ],
-  "overview": "Strategy overview",
-  "total_study_time": "X hours Y minutes"
-}}
-"""
-
+{{"schedule": [{{"date": "YYYY-MM-DD","day_name": "Monday","total_hours": 2,"blocks": [{{"assignment": "Title","course": "Course","duration_minutes": 45,"time_slot": "7:00 PM - 7:45 PM","notes": "Focus area","is_break": false}}],"daily_tip": "Tip"}}],"overview": "Strategy overview","total_study_time": "X hours Y minutes"}}"""
     try:
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=2000,
-        )
+        response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}], temperature=0.7, max_tokens=2000)
         result = response.choices[0].message.content.strip()
         result = re.sub(r"```json\n?", "", result)
         result = re.sub(r"```\n?", "", result)
         schedule_data = json.loads(result)
-        schedule_data = enrich_schedule_data(
-            schedule_data, normalized_assignments, preferred_time, hours_per_day,
-        )
+        schedule_data = enrich_schedule_data(schedule_data, normalized_assignments, preferred_time, hours_per_day)
         return flask.jsonify({"status": "ok", "data": schedule_data})
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
 
 @app.route("/static/sw.js")
 def service_worker():
-    response = flask.make_response(
-        flask.send_from_directory("static", "sw.js")
-    )
+    response = flask.make_response(flask.send_from_directory("static", "sw.js"))
     response.headers["Content-Type"] = "application/javascript"
     response.headers["Service-Worker-Allowed"] = "/"
     return response
 
-
-# ── GOOGLE CALENDAR OAUTH ─────────────────────────────────────
-from google_calendar_helper import (
-    get_flow, get_calendar_service, get_upcoming_events,
-    add_schedule_to_calendar, add_event_to_calendar, find_free_slots
-)
-from notion_helper import (
-    test_notion_token, get_notion_databases,
-    get_notion_tasks, create_notion_task,
-    update_notion_task, complete_notion_task
-)
-
+# ── GOOGLE CALENDAR ───────────────────────────────────────────
 @app.route("/oauth/google")
 def google_oauth_start():
     if not is_logged_in():
         return redirect(url_for("login"))
-    from google_calendar_helper import get_flow
+    if not GCAL_AVAILABLE:
+        return "Google Calendar not configured", 500
     flow = get_flow()
-    auth_url, state = flow.authorization_url(
-        access_type="offline",
-        include_granted_scopes="true",
-        prompt="consent"
-    )
+    auth_url, state = flow.authorization_url(access_type="offline", include_granted_scopes="true", prompt="consent")
     session["oauth_state"] = state
     return redirect(auth_url)
 
 @app.route("/oauth/google/callback")
 def google_oauth_callback():
+    if not GCAL_AVAILABLE:
+        return redirect(url_for("dashboard"))
     try:
-        from google_calendar_helper import get_flow
         flow = get_flow()
         flow.fetch_token(authorization_response=request.url)
         creds = flow.credentials
-        token_dict = {
-            "token": creds.token,
-            "refresh_token": creds.refresh_token,
-            "token_uri": creds.token_uri,
-            "client_id": creds.client_id,
-            "client_secret": creds.client_secret,
-            "scopes": list(creds.scopes or [])
-        }
+        token_dict = {"token": creds.token, "refresh_token": creds.refresh_token, "token_uri": creds.token_uri, "client_id": creds.client_id, "client_secret": creds.client_secret, "scopes": list(creds.scopes or [])}
         if current_user.is_authenticated:
             existing = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
             if existing:
                 existing.token_data = json.dumps(token_dict)
             else:
-                db.session.add(GoogleIntegration(
-                    user_id=current_user.id,
-                    token_data=json.dumps(token_dict)
-                ))
+                db.session.add(GoogleIntegration(user_id=current_user.id, token_data=json.dumps(token_dict)))
             db.session.commit()
         else:
             session["google_token"] = token_dict
@@ -1132,8 +943,7 @@ def google_oauth_callback():
     except Exception as e:
         print(f"OAuth callback error: {e}")
         return redirect(url_for("dashboard"))
-    
-        
+
 @app.route("/oauth/google/disconnect", methods=["POST"])
 def google_disconnect():
     if current_user.is_authenticated:
@@ -1143,15 +953,10 @@ def google_disconnect():
         session.pop("google_token", None)
     return flask.jsonify({"status": "ok"})
 
-def get_google_token():
-    if current_user.is_authenticated:
-        gi = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
-        if gi:
-            return json.loads(gi.token_data)
-    return session.get("google_token")
-
 @app.route("/calendar/events")
 def calendar_events():
+    if not GCAL_AVAILABLE:
+        return flask.jsonify({"connected": False, "events": []})
     token = get_google_token()
     if not token:
         return flask.jsonify({"connected": False, "events": []})
@@ -1163,6 +968,8 @@ def calendar_events():
 
 @app.route("/calendar/free-slot")
 def calendar_free_slot():
+    if not GCAL_AVAILABLE:
+        return flask.jsonify({"slot": "7:00 PM", "connected": False})
     token = get_google_token()
     date_str = request.args.get("date", datetime.now().strftime("%Y-%m-%d"))
     if not token:
@@ -1175,6 +982,8 @@ def calendar_free_slot():
 
 @app.route("/calendar/export", methods=["POST"])
 def calendar_export():
+    if not GCAL_AVAILABLE:
+        return flask.jsonify({"status": "error", "message": "Google Calendar not configured"})
     token = get_google_token()
     if not token:
         return flask.jsonify({"status": "error", "message": "Google Calendar not connected"})
@@ -1182,7 +991,6 @@ def calendar_export():
     schedule_data = data.get("schedule_data")
     try:
         ids, new_token = add_schedule_to_calendar(token, schedule_data)
-        # Update stored token if refreshed
         if current_user.is_authenticated:
             gi = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
             if gi:
@@ -1194,15 +1002,16 @@ def calendar_export():
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
 
-# ── NOTION INTEGRATION ────────────────────────────────────────
+# ── NOTION ────────────────────────────────────────────────────
 @app.route("/notion/connect", methods=["POST"])
 def notion_connect():
+    if not NOTION_AVAILABLE:
+        return flask.jsonify({"status": "error", "message": "Notion not configured"})
     token = request.json.get("token", "").strip()
     if not token:
         return flask.jsonify({"status": "error", "message": "No token provided"})
     if not test_notion_token(token):
         return flask.jsonify({"status": "error", "message": "Invalid Notion token"})
-    
     if current_user.is_authenticated:
         existing = NotionIntegration.query.filter_by(user_id=current_user.id).first()
         if existing:
@@ -1212,8 +1021,6 @@ def notion_connect():
         db.session.commit()
     else:
         session["notion_token"] = token
-    
-    # Fetch databases
     dbs = get_notion_databases(token)
     return flask.jsonify({"status": "ok", "databases": dbs})
 
@@ -1239,15 +1046,10 @@ def notion_set_database():
         session["notion_database_id"] = db_id
     return flask.jsonify({"status": "ok"})
 
-def get_notion_token_and_db():
-    if current_user.is_authenticated:
-        ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
-        if ni:
-            return ni.token, ni.database_id
-    return session.get("notion_token"), session.get("notion_database_id")
-
 @app.route("/notion/tasks")
 def notion_tasks_route():
+    if not NOTION_AVAILABLE:
+        return flask.jsonify({"connected": False, "tasks": []})
     token, db_id = get_notion_token_and_db()
     if not token or not db_id:
         return flask.jsonify({"connected": False, "tasks": []})
@@ -1259,23 +1061,22 @@ def notion_tasks_route():
 
 @app.route("/notion/tasks/create", methods=["POST"])
 def notion_create_task():
+    if not NOTION_AVAILABLE:
+        return flask.jsonify({"status": "error"})
     token, db_id = get_notion_token_and_db()
     if not token or not db_id:
         return flask.jsonify({"status": "error", "message": "Notion not connected"})
     data = request.json
     try:
-        page_id = create_notion_task(
-            token, db_id,
-            data.get("title", ""),
-            data.get("due_date"),
-            data.get("priority", "Medium")
-        )
+        page_id = create_notion_task(token, db_id, data.get("title", ""), data.get("due_date"), data.get("priority", "Medium"))
         return flask.jsonify({"status": "ok", "page_id": page_id})
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
 
 @app.route("/notion/tasks/update", methods=["POST"])
 def notion_update_task():
+    if not NOTION_AVAILABLE:
+        return flask.jsonify({"status": "error"})
     token, _ = get_notion_token_and_db()
     if not token:
         return flask.jsonify({"status": "error"})
@@ -1288,6 +1089,8 @@ def notion_update_task():
 
 @app.route("/notion/tasks/complete", methods=["POST"])
 def notion_complete_task():
+    if not NOTION_AVAILABLE:
+        return flask.jsonify({"status": "error"})
     token, _ = get_notion_token_and_db()
     if not token:
         return flask.jsonify({"status": "error"})
@@ -1298,52 +1101,60 @@ def notion_complete_task():
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
 
-# ── UNIFIED TASK FEED ─────────────────────────────────────────
+# ── UNIFIED TASKS ─────────────────────────────────────────────
 @app.route("/tasks/unified")
 def unified_tasks():
-    """Merge LMS assignments + Notion tasks into one unified feed."""
-    from datetime import date
+    from datetime import date as date_type
     tasks = []
     dismissed = get_dismissed_titles()
-    today = date.today()
+    today = date_type.today()
+    priority_order = {"High": 0, "Medium": 1, "Low": 2}
 
-    # Pull LMS assignments
     acct = get_active_account()
     if acct:
         login_type = acct["login_type"]
         if login_type == "studentvue":
-            raw = get_sv_assignments(
-                acct["sv_district_url"],
-                acct["sv_username"],
-                acct["sv_password"]
-            )
-            # Include missing assignments
-            missing_raw = get_missing_assignments(
-                acct["sv_district_url"],
-                acct["sv_username"],
-                acct["sv_password"]
-            )
-            for a in raw + missing_raw:
+            try:
+                raw = get_sv_assignments(acct["sv_district_url"], acct["sv_username"], acct["sv_password"])
+            except Exception as e:
+                print(f"SV assignments error: {e}")
+                raw = []
+            try:
+                missing_raw = get_missing_assignments(acct["sv_district_url"], acct["sv_username"], acct["sv_password"])
+            except Exception as e:
+                print(f"Missing assignments error: {e}")
+                missing_raw = []
+            for a in raw:
                 if a["title"] not in dismissed:
                     a["source"] = "studentvue"
+                    a.setdefault("color", PRIORITY_COLORS.get(a.get("priority", "Medium"), "#f59e0b"))
                     tasks.append(a)
+            for a in missing_raw:
+                if a["title"] not in dismissed:
+                    tasks.append(a)
+
         elif login_type == "canvas":
-            token = acct["canvas_token"]
-            canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
-            base = f"{canvas_url}/api/v1"
-            headers = {"Authorization": f"Bearer {token}"}
-            course_response = requests.get(f"{base}/courses", headers=headers)
-            courses = course_response.json()
-            course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
-            for course_id in course_map:
-                resp = requests.get(f"{base}/courses/{course_id}/assignments", headers=headers)
-                data = resp.json()
-                if isinstance(data, list):
+            try:
+                token = acct["canvas_token"]
+                canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
+                base = f"{canvas_url}/api/v1"
+                headers = {"Authorization": f"Bearer {token}"}
+                course_response = requests.get(f"{base}/courses", headers=headers)
+                courses = course_response.json()
+                course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
+                for course_id in course_map:
+                    resp = requests.get(f"{base}/courses/{course_id}/assignments", headers=headers)
+                    data = resp.json()
+                    if not isinstance(data, list):
+                        continue
                     for a in data:
                         if not isinstance(a, dict) or not a.get("due_at"):
                             continue
                         due_str = a["due_at"][:10]
-                        due = datetime.strptime(due_str, "%Y-%m-%d").date()
+                        try:
+                            due = datetime.strptime(due_str, "%Y-%m-%d").date()
+                        except:
+                            continue
                         days = (due - today).days
                         if days < -14:
                             continue
@@ -1363,19 +1174,45 @@ def unified_tasks():
                             "difficulty": "Medium",
                             "color": PRIORITY_COLORS.get(priority, "#f59e0b")
                         })
+            except Exception as e:
+                print(f"Canvas unified error: {e}")
 
-    # Pull Notion tasks
-    notion_token, notion_db_id = get_notion_token_and_db()
-    if notion_token and notion_db_id:
+    # Notion tasks
+    if NOTION_AVAILABLE:
         try:
-            notion_raw = get_notion_tasks(notion_token, notion_db_id)
-            for t in notion_raw:
-                if t["title"] not in dismissed:
-                    tasks.append(t)
-        except:
-            pass
+            notion_token, notion_db_id = get_notion_token_and_db()
+            if notion_token and notion_db_id:
+                notion_raw = get_notion_tasks(notion_token, notion_db_id)
+                for t in notion_raw:
+                    if t["title"] not in dismissed:
+                        tasks.append(t)
+        except Exception as e:
+            print(f"Notion tasks error: {e}")
 
-    # Categorize
+    # Manual tasks
+    try:
+        if current_user.is_authenticated:
+            manual = ManualTask.query.filter_by(user_id=current_user.id, done=False).all()
+        else:
+            gid = get_guest_session_id()
+            manual = ManualTask.query.filter_by(guest_session_id=gid, done=False).all()
+        for t in manual:
+            if t.title not in dismissed:
+                tasks.append({
+                    "id": t.id,
+                    "title": t.title,
+                    "due_date": t.due_date or "",
+                    "priority": t.priority,
+                    "course": t.course,
+                    "estimated_time": t.estimated_time,
+                    "notes": t.notes,
+                    "source": "manual",
+                    "notion_page_id": t.notion_page_id,
+                    "color": PRIORITY_COLORS.get(t.priority, "#f59e0b")
+                })
+    except Exception as e:
+        print(f"Manual tasks error: {e}")
+
     result = {"today": [], "upcoming": [], "overdue": []}
     for t in tasks:
         due = t.get("due_date", "")
@@ -1393,33 +1230,29 @@ def unified_tasks():
         except:
             result["upcoming"].append(t)
 
-    # Sort each bucket
     for key in result:
-        result[key].sort(key=lambda x: (x.get("due_date", "9999"), x.get("priority", "Low")))
+        result[key].sort(key=lambda x: (x.get("due_date", "9999-12-31"), priority_order.get(x.get("priority", "Low"), 2)))
 
     return flask.jsonify(result)
 
-# ── MISSING ASSIGNMENTS (StudentVue) ─────────────────────────
 @app.route("/missing/data")
 def missing_data():
     acct = get_active_account()
     if not acct or acct["login_type"] != "studentvue":
         return flask.jsonify([])
-    missing = get_missing_assignments(
-        acct["sv_district_url"],
-        acct["sv_username"],
-        acct["sv_password"]
-    )
-    return flask.jsonify(missing)
+    try:
+        missing = get_missing_assignments(acct["sv_district_url"], acct["sv_username"], acct["sv_password"])
+        return flask.jsonify(missing)
+    except Exception as e:
+        return flask.jsonify([])
 
-# ── MANUAL TASK MANAGEMENT ────────────────────────────────────
+# ── MANUAL TASKS ──────────────────────────────────────────────
 @app.route("/tasks/manual/create", methods=["POST"])
 def manual_create_task():
     data = request.json
     title = data.get("title", "").strip()
     if not title:
         return flask.jsonify({"status": "error", "message": "Title required"})
-    
     task = ManualTask(
         user_id=current_user.id if current_user.is_authenticated else None,
         guest_session_id=None if current_user.is_authenticated else get_guest_session_id(),
@@ -1432,27 +1265,24 @@ def manual_create_task():
     )
     db.session.add(task)
     db.session.commit()
-    
-    # Sync to Notion if connected
-    notion_token, notion_db_id = get_notion_token_and_db()
-    if notion_token and notion_db_id and data.get("sync_notion"):
-        try:
-            page_id = create_notion_task(notion_token, notion_db_id, title, data.get("due_date"), data.get("priority", "Medium"))
-            task.notion_page_id = page_id
-            db.session.commit()
-        except:
-            pass
-    
+    if NOTION_AVAILABLE and data.get("sync_notion"):
+        notion_token, notion_db_id = get_notion_token_and_db()
+        if notion_token and notion_db_id:
+            try:
+                page_id = create_notion_task(notion_token, notion_db_id, title, data.get("due_date"), data.get("priority", "Medium"))
+                task.notion_page_id = page_id
+                db.session.commit()
+            except:
+                pass
     return flask.jsonify({"status": "ok", "id": task.id})
 
 @app.route("/tasks/manual/update", methods=["POST"])
 def manual_update_task():
     data = request.json
     task_id = data.get("id")
-    task = ManualTask.query.get(task_id)
+    task = db.session.get(ManualTask, task_id)
     if not task:
         return flask.jsonify({"status": "error", "message": "Not found"})
-    
     if "title" in data: task.title = data["title"]
     if "due_date" in data: task.due_date = data["due_date"]
     if "priority" in data: task.priority = data["priority"]
@@ -1460,24 +1290,20 @@ def manual_update_task():
     if "estimated_time" in data: task.estimated_time = int(data["estimated_time"])
     if "notes" in data: task.notes = data["notes"]
     if "done" in data: task.done = data["done"]
-    
     db.session.commit()
-    
-    # Sync to Notion
-    if task.notion_page_id:
+    if NOTION_AVAILABLE and task.notion_page_id:
         notion_token, _ = get_notion_token_and_db()
         if notion_token:
             try:
                 update_notion_task(notion_token, task.notion_page_id, data)
             except:
                 pass
-    
     return flask.jsonify({"status": "ok"})
 
 @app.route("/tasks/manual/delete", methods=["POST"])
 def manual_delete_task():
     task_id = request.json.get("id")
-    task = ManualTask.query.get(task_id)
+    task = db.session.get(ManualTask, task_id)
     if task:
         db.session.delete(task)
         db.session.commit()
@@ -1491,24 +1317,13 @@ def manual_list_tasks():
         gid = get_guest_session_id()
         tasks = ManualTask.query.filter_by(guest_session_id=gid, done=False).all()
     return flask.jsonify([{
-        "id": t.id,
-        "title": t.title,
-        "due_date": t.due_date,
-        "priority": t.priority,
-        "course": t.course,
-        "estimated_time": t.estimated_time,
-        "notes": t.notes,
-        "source": "manual",
-        "color": PRIORITY_COLORS.get(t.priority, "#f59e0b")
+        "id": t.id, "title": t.title, "due_date": t.due_date,
+        "priority": t.priority, "course": t.course,
+        "estimated_time": t.estimated_time, "notes": t.notes,
+        "source": "manual", "color": PRIORITY_COLORS.get(t.priority, "#f59e0b")
     } for t in tasks])
 
-# ── DASHBOARD ROUTE ───────────────────────────────────────────
-@app.route("/dashboard")
-def dashboard():
-    if not is_logged_in():
-        return redirect(url_for("login"))
-    return render_template("dashboard.html", active_page="dashboard")
-
+# ── SAVED SCHEDULE ────────────────────────────────────────────
 @app.route("/schedule/save", methods=["POST"])
 def save_schedule():
     data = request.json
@@ -1516,23 +1331,13 @@ def save_schedule():
     name = data.get("name", f"Schedule {datetime.now().strftime('%b %d')}")
     if not schedule_data:
         return flask.jsonify({"status": "error", "message": "No schedule data"})
-    
     uid = current_user.id if current_user.is_authenticated else None
     gid = None if current_user.is_authenticated else get_guest_session_id()
-    
-    # Deactivate old schedules
     if uid:
         SavedSchedule.query.filter_by(user_id=uid).update({"is_active": False})
     else:
         SavedSchedule.query.filter_by(guest_session_id=gid).update({"is_active": False})
-    
-    s = SavedSchedule(
-        user_id=uid,
-        guest_session_id=gid,
-        name=name,
-        schedule_data=json.dumps(schedule_data),
-        is_active=True
-    )
+    s = SavedSchedule(user_id=uid, guest_session_id=gid, name=name, schedule_data=json.dumps(schedule_data), is_active=True)
     db.session.add(s)
     db.session.commit()
     return flask.jsonify({"status": "ok", "id": s.id})
@@ -1540,27 +1345,16 @@ def save_schedule():
 @app.route("/schedule/saved")
 def get_saved_schedule():
     if current_user.is_authenticated:
-        s = SavedSchedule.query.filter_by(
-            user_id=current_user.id, is_active=True
-        ).order_by(SavedSchedule.created_at.desc()).first()
+        s = SavedSchedule.query.filter_by(user_id=current_user.id, is_active=True).order_by(SavedSchedule.created_at.desc()).first()
     else:
         gid = get_guest_session_id()
-        s = SavedSchedule.query.filter_by(
-            guest_session_id=gid, is_active=True
-        ).order_by(SavedSchedule.created_at.desc()).first()
-    
+        s = SavedSchedule.query.filter_by(guest_session_id=gid, is_active=True).order_by(SavedSchedule.created_at.desc()).first()
     if not s:
         return flask.jsonify({"status": "none"})
-    return flask.jsonify({
-        "status": "ok",
-        "name": s.name,
-        "created_at": s.created_at.strftime("%b %d, %Y"),
-        "data": json.loads(s.schedule_data)
-    })
+    return flask.jsonify({"status": "ok", "name": s.name, "created_at": s.created_at.strftime("%b %d, %Y"), "data": json.loads(s.schedule_data)})
 
 @app.route("/schedule/delete", methods=["POST"])
 def delete_saved_schedule():
-    sid = request.json.get("id")
     if current_user.is_authenticated:
         SavedSchedule.query.filter_by(user_id=current_user.id).delete()
     else:
