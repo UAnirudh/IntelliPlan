@@ -12,7 +12,7 @@ CLIENT_CONFIG = {
         "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
         "token_uri": "https://oauth2.googleapis.com/token",
-        "redirect_uris": [os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:3000/oauth/google/callback")]
+        "redirect_uris": [os.getenv("GOOGLE_REDIRECT_URI")]
     }
 }
 

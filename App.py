@@ -1086,7 +1086,12 @@ from notion_helper import (
     get_notion_tasks, create_notion_task,
     update_notion_task, complete_notion_task
 )
-
+def get_flow():
+    return Flow.from_client_config(
+        CLIENT_CONFIG,
+        scopes=SCOPES,
+        redirect_uri=os.getenv("GOOGLE_REDIRECT_URI")
+    )
 @app.route("/oauth/google")
 def google_oauth_start():
     if not is_logged_in():
@@ -1102,34 +1107,35 @@ def google_oauth_start():
 
 @app.route("/oauth/google/callback")
 def google_oauth_callback():
-    flow = get_flow()
-    flow.fetch_token(authorization_response=request.url)
-    creds = flow.credentials
-    token_dict = {
-        "token": creds.token,
-        "refresh_token": creds.refresh_token,
-        "token_uri": creds.token_uri,
-        "client_id": creds.client_id,
-        "client_secret": creds.client_secret,
-        "scopes": list(creds.scopes or [])
-    }
-    
-    if current_user.is_authenticated:
-        # Save to DB as a linked integration
-        existing = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
-        if existing:
-            existing.token_data = json.dumps(token_dict)
+    try:
+        flow = get_flow()
+        flow.fetch_token(authorization_response=request.url)
+        creds = flow.credentials
+        token_dict = {
+            "token": creds.token,
+            "refresh_token": creds.refresh_token,
+            "token_uri": creds.token_uri,
+            "client_id": creds.client_id,
+            "client_secret": creds.client_secret,
+            "scopes": list(creds.scopes or [])
+        }
+        if current_user.is_authenticated:
+            existing = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
+            if existing:
+                existing.token_data = json.dumps(token_dict)
+            else:
+                db.session.add(GoogleIntegration(
+                    user_id=current_user.id,
+                    token_data=json.dumps(token_dict)
+                ))
+            db.session.commit()
         else:
-            db.session.add(GoogleIntegration(
-                user_id=current_user.id,
-                token_data=json.dumps(token_dict)
-            ))
-        db.session.commit()
-    else:
-        session["google_token"] = token_dict
+            session["google_token"] = token_dict
+        return redirect(url_for("dashboard"))
+    except Exception as e:
+        print(f"OAuth callback error: {e}")
+        return f"OAuth error: {str(e)}", 500
     
-    return redirect(url_for("dashboard"))
-
 @app.route("/oauth/google/disconnect", methods=["POST"])
 def google_disconnect():
     if current_user.is_authenticated:
