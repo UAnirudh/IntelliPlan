@@ -279,9 +279,13 @@ function renderIntegrationBar(calRes) {
   const bar = document.getElementById('integrationBar');
   const chips = [];
   if (calRes.connected) {
-    chips.push(`<div style="display:flex;align-items:center;gap:6px;padding:5px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:20px;font-size:0.75rem;font-weight:600;color:var(--low);">📅 Google Calendar ✓</div>`);
+    chips.push(`
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 14px;background:var(--low-bg);border:1px solid var(--low);border-radius:20px;font-size:0.78rem;font-weight:600;color:var(--low);">
+        📅 Google Calendar connected ✓
+        <button onclick="disconnectGCal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:0.75rem;padding:0;font-family:'DM Sans',sans-serif;">✕</button>
+      </div>`);
   } else {
-    chips.push(`<a href="/oauth/google" style="display:flex;align-items:center;gap:6px;padding:5px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:20px;font-size:0.75rem;font-weight:600;color:var(--accent);text-decoration:none;">+ Connect Google Calendar</a>`);
+    chips.push(`<a href="/oauth/google" style="display:flex;align-items:center;gap:6px;padding:6px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:20px;font-size:0.78rem;font-weight:600;color:var(--accent);text-decoration:none;">+ Connect Google Calendar</a>`);
   }
   bar.innerHTML = chips.join('');
 }

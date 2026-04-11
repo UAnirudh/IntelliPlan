@@ -278,6 +278,15 @@ function renderSchedule(data) {
 }
 
 // Load saved schedule if coming from dashboard
+// Check calendar connection on page load and show export hint
+fetch('/calendar/events').then(r => r.json()).then(res => {
+  _gcalConnected = res.connected;
+  if (res.connected) {
+    // Show a pre-generate hint that calendar is ready
+    document.getElementById('autoTimeHint').textContent = '📅 Google Calendar connected — export button appears after generating';
+  }
+}).catch(() => {});
+
 {% if load_saved %}
 fetch('/schedule/saved').then(r => r.json()).then(res => {
   if (res.status === 'ok') {
