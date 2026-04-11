@@ -22,8 +22,8 @@ def get_flow():
         scopes=SCOPES,
         redirect_uri=os.getenv("GOOGLE_REDIRECT_URI")
     )
-    # Disable PKCE — required for server-side web apps
     flow.code_challenge_method = None
+    flow.oauth2session._client.code_challenge_method = None
     return flow
 
 def get_calendar_service(token_dict):

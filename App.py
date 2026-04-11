@@ -922,9 +922,7 @@ def google_oauth_start():
     flow = get_flow()
     auth_url, state = flow.authorization_url(
         access_type="offline",
-        include_granted_scopes="true",
-        prompt="consent",
-        code_challenge_method=None  # Explicitly disable PKCE
+        prompt="consent"
     )
     session["oauth_state"] = state
     session.modified = True
