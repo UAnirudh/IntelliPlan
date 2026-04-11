@@ -1018,32 +1018,6 @@ def calendar_free_slot():
     except Exception as e:
         return flask.jsonify({"slot": "7:00 PM", "connected": False, "error": str(e)})
 
-@app.route("/calendar/export", methods=["POST"])
-def calendar_export():
-    if not GCAL_AVAILABLE:
-        return flask.jsonify({"status": "error", "message": "Google Calendar not configured"})
-    token = get_google_token()
-    if not token:
-        return flask.jsonify({"status": "error", "message": "Google Calendar not connected"})
-    data = request.json
-    schedule_data = data.get("schedule_data")
-    try:
-        ids, new_token = add_schedule_to_calendar(token, schedule_data)
-        if new_token:
-            session["google_token"] = {**token, "token": new_token}
-            session.modified = True
-            if current_user.is_authenticated:
-                gi = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
-                if gi:
-                    td = json.loads(gi.token_data)
-                    td["token"] = new_token
-                    gi.token_data = json.dumps(td)
-                    db.session.commit()
-        return flask.jsonify({"status": "ok", "created": len(ids)})
-    except Exception as e:
-        print(f"Calendar export error: {e}")
-        return flask.jsonify({"status": "error", "message": str(e)})
-
 # ── NOTION ────────────────────────────────────────────────────
 @app.route("/notion/connect", methods=["POST"])
 def notion_connect():
