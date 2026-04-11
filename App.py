@@ -259,17 +259,20 @@ def save_custom_description(assignment_title, description):
     db.session.commit()
 
 def get_google_token():
+    # Check DB first for authenticated users
     if current_user.is_authenticated:
         gi = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
         if gi:
             return json.loads(gi.token_data)
+    # Fall back to session (works for both guests and authenticated users)
     return session.get("google_token")
 
 def get_notion_token_and_db():
     if current_user.is_authenticated:
         ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
-        if ni:
+        if ni and ni.token:
             return ni.token, ni.database_id
+    # Fall back to session
     return session.get("notion_token"), session.get("notion_database_id")
 
 @app.context_processor
@@ -927,22 +930,40 @@ def google_oauth_callback():
         return redirect(url_for("dashboard"))
     try:
         flow = get_flow()
-        flow.fetch_token(authorization_response=request.url)
+        # Force http for local dev
+        auth_response = request.url
+        if auth_response.startswith("http://") is False and "localhost" in auth_response:
+            auth_response = auth_response.replace("https://", "http://")
+        flow.fetch_token(authorization_response=auth_response)
         creds = flow.credentials
-        token_dict = {"token": creds.token, "refresh_token": creds.refresh_token, "token_uri": creds.token_uri, "client_id": creds.client_id, "client_secret": creds.client_secret, "scopes": list(creds.scopes or [])}
+        token_dict = {
+            "token": creds.token,
+            "refresh_token": creds.refresh_token,
+            "token_uri": creds.token_uri,
+            "client_id": creds.client_id,
+            "client_secret": creds.client_secret,
+            "scopes": list(creds.scopes or [])
+        }
+        # Always save to session regardless
+        session["google_token"] = token_dict
+        session.modified = True
+
+        # Also save to DB if authenticated
         if current_user.is_authenticated:
             existing = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
             if existing:
                 existing.token_data = json.dumps(token_dict)
             else:
-                db.session.add(GoogleIntegration(user_id=current_user.id, token_data=json.dumps(token_dict)))
+                db.session.add(GoogleIntegration(
+                    user_id=current_user.id,
+                    token_data=json.dumps(token_dict)
+                ))
             db.session.commit()
-        else:
-            session["google_token"] = token_dict
         return redirect(url_for("dashboard"))
     except Exception as e:
         print(f"OAuth callback error: {e}")
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("dashboard") + "?gcal_error=1")
+    
 
 @app.route("/oauth/google/disconnect", methods=["POST"])
 def google_disconnect():
@@ -962,8 +983,17 @@ def calendar_events():
         return flask.jsonify({"connected": False, "events": []})
     try:
         events = get_upcoming_events(token)
+        # If we got here token is valid — make sure it's saved in session
+        session["google_token"] = token
+        session.modified = True
         return flask.jsonify({"connected": True, "events": events})
     except Exception as e:
+        print(f"Calendar events error: {e}")
+        # Token is bad — clear it
+        session.pop("google_token", None)
+        if current_user.is_authenticated:
+            GoogleIntegration.query.filter_by(user_id=current_user.id).delete()
+            db.session.commit()
         return flask.jsonify({"connected": False, "error": str(e), "events": []})
 
 @app.route("/calendar/free-slot")
@@ -991,15 +1021,19 @@ def calendar_export():
     schedule_data = data.get("schedule_data")
     try:
         ids, new_token = add_schedule_to_calendar(token, schedule_data)
-        if current_user.is_authenticated:
-            gi = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
-            if gi:
-                td = json.loads(gi.token_data)
-                td["token"] = new_token
-                gi.token_data = json.dumps(td)
-                db.session.commit()
+        if new_token:
+            session["google_token"] = {**token, "token": new_token}
+            session.modified = True
+            if current_user.is_authenticated:
+                gi = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
+                if gi:
+                    td = json.loads(gi.token_data)
+                    td["token"] = new_token
+                    gi.token_data = json.dumps(td)
+                    db.session.commit()
         return flask.jsonify({"status": "ok", "created": len(ids)})
     except Exception as e:
+        print(f"Calendar export error: {e}")
         return flask.jsonify({"status": "error", "message": str(e)})
 
 # ── NOTION ────────────────────────────────────────────────────
@@ -1012,17 +1046,22 @@ def notion_connect():
         return flask.jsonify({"status": "error", "message": "No token provided"})
     if not test_notion_token(token):
         return flask.jsonify({"status": "error", "message": "Invalid Notion token"})
+    
+    # Always save to session
+    session["notion_token"] = token
+    session.modified = True
+    
     if current_user.is_authenticated:
         existing = NotionIntegration.query.filter_by(user_id=current_user.id).first()
         if existing:
             existing.token = token
+            existing.database_id = None  # Reset db selection on reconnect
         else:
             db.session.add(NotionIntegration(user_id=current_user.id, token=token))
         db.session.commit()
-    else:
-        session["notion_token"] = token
+    
     dbs = get_notion_databases(token)
-    return flask.jsonify({"status": "ok", "databases": dbs})
+    return flask.jsonify({"status": "ok", "databases": dbs})    
 
 @app.route("/notion/disconnect", methods=["POST"])
 def notion_disconnect():
@@ -1037,13 +1076,28 @@ def notion_disconnect():
 @app.route("/notion/set-database", methods=["POST"])
 def notion_set_database():
     db_id = request.json.get("database_id")
+    if not db_id:
+        return flask.jsonify({"status": "error"})
+    
     if current_user.is_authenticated:
         ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
         if ni:
             ni.database_id = db_id
             db.session.commit()
-    else:
-        session["notion_database_id"] = db_id
+        else:
+            # No integration row yet — shouldn't happen but handle it
+            token = session.get("notion_token")
+            if token:
+                db.session.add(NotionIntegration(
+                    user_id=current_user.id,
+                    token=token,
+                    database_id=db_id
+                ))
+                db.session.commit()
+    
+    # Always save to session too as backup
+    session["notion_database_id"] = db_id
+    session.modified = True
     return flask.jsonify({"status": "ok"})
 
 @app.route("/notion/tasks")

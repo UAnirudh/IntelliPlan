@@ -179,4 +179,4 @@ def add_schedule_to_calendar(token_dict, schedule_data):
             created = service.events().insert(calendarId="primary", body=event).execute()
             created_ids.append(created.get("id"))
     
-    return created_ids, creds.token
+    return created_ids, creds.token or token_dict.get("token", "")
