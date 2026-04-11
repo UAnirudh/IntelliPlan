@@ -1,30 +1,71 @@
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta
 import os
+import requests as http_requests
 import json
+import secrets
+import hashlib
+import base64
 
 SCOPES = ['https://www.googleapis.com/auth/calendar']
-CLIENT_CONFIG = {
-    "web": {
+
+def get_auth_url(state):
+    """Generate Google OAuth URL without PKCE."""
+    params = {
+        "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+        "redirect_uri": os.getenv("GOOGLE_REDIRECT_URI"),
+        "response_type": "code",
+        "scope": "https://www.googleapis.com/auth/calendar",
+        "access_type": "offline",
+        "prompt": "consent",
+        "state": state,
+        "include_granted_scopes": "true"
+    }
+    base_url = "https://accounts.google.com/o/oauth2/v2/auth"
+    query = "&".join(f"{k}={v}" for k, v in params.items())
+    return f"{base_url}?{query}"
+
+def exchange_code_for_token(code):
+    """Exchange authorization code for tokens — no PKCE."""
+    resp = http_requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "code": code,
+            "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+            "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
+            "redirect_uri": os.getenv("GOOGLE_REDIRECT_URI"),
+            "grant_type": "authorization_code"
+        }
+    )
+    data = resp.json()
+    if "error" in data:
+        raise Exception(f"Token exchange failed: {data}")
+    return {
+        "token": data.get("access_token"),
+        "refresh_token": data.get("refresh_token"),
+        "token_uri": "https://oauth2.googleapis.com/token",
         "client_id": os.getenv("GOOGLE_CLIENT_ID"),
         "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
-        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-        "token_uri": "https://oauth2.googleapis.com/token",
-        "redirect_uris": [os.getenv("GOOGLE_REDIRECT_URI")]
+        "scopes": SCOPES
     }
-}
 
-def get_flow():
-    flow = Flow.from_client_config(
-        CLIENT_CONFIG,
-        scopes=SCOPES,
-        redirect_uri=os.getenv("GOOGLE_REDIRECT_URI")
+def refresh_access_token(token_dict):
+    """Refresh an expired access token."""
+    resp = http_requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "refresh_token": token_dict["refresh_token"],
+            "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+            "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
+            "grant_type": "refresh_token"
+        }
     )
-    flow.code_challenge_method = None
-    flow.oauth2session._client.code_challenge_method = None
-    return flow
+    data = resp.json()
+    if "error" in data:
+        raise Exception(f"Token refresh failed: {data}")
+    token_dict["token"] = data["access_token"]
+    return token_dict
 
 def get_calendar_service(token_dict):
     creds = Credentials(
@@ -38,69 +79,44 @@ def get_calendar_service(token_dict):
     return build("calendar", "v3", credentials=creds), creds
 
 def get_free_busy(token_dict, date_str):
-    """Get busy times for a given date to find free slots."""
     service, _ = get_calendar_service(token_dict)
     day = datetime.strptime(date_str, "%Y-%m-%d")
     time_min = day.replace(hour=6, minute=0).isoformat() + "Z"
     time_max = day.replace(hour=23, minute=59).isoformat() + "Z"
-    
-    body = {
-        "timeMin": time_min,
-        "timeMax": time_max,
-        "items": [{"id": "primary"}]
-    }
+    body = {"timeMin": time_min, "timeMax": time_max, "items": [{"id": "primary"}]}
     result = service.freebusy().query(body=body).execute()
-    busy = result.get("calendars", {}).get("primary", {}).get("busy", [])
-    return busy
+    return result.get("calendars", {}).get("primary", {}).get("busy", [])
 
-def find_free_slots(token_dict, date_str, duration_minutes=120):
-    """Find free time slots on a given date."""
+def find_free_slots(token_dict, date_str):
     busy = get_free_busy(token_dict, date_str)
     day = datetime.strptime(date_str, "%Y-%m-%d")
-    
-    # Build timeline from 7am to 11pm
-    slots = []
     current = day.replace(hour=7, minute=0)
     end_of_day = day.replace(hour=23, minute=0)
-    
     busy_ranges = []
     for b in busy:
         start = datetime.fromisoformat(b["start"].replace("Z", ""))
         end = datetime.fromisoformat(b["end"].replace("Z", ""))
         busy_ranges.append((start, end))
-    
+    slots = []
     while current + timedelta(minutes=30) <= end_of_day:
         slot_end = current + timedelta(minutes=30)
-        is_free = all(
-            not (current < bend and slot_end > bstart)
-            for bstart, bend in busy_ranges
-        )
+        is_free = all(not (current < bend and slot_end > bstart) for bstart, bend in busy_ranges)
         if is_free:
-            slots.append(current.strftime("%I:%M %p"))
+            slots.append(current.strftime("%I:%M %p").lstrip("0"))
         current += timedelta(minutes=30)
-    
-    # Find best contiguous block
     if slots:
-        # Prefer evening slots (6pm+)
-        evening = [s for s in slots if int(s.split(":")[0]) >= 6 and "PM" in s]
+        evening = [s for s in slots if "PM" in s and int(s.split(":")[0]) >= 6]
         return evening[0] if evening else slots[0]
     return "7:00 PM"
 
-def get_upcoming_events(token_dict, days=7):
-    """Get events from Google Calendar for the next N days."""
+def get_upcoming_events(token_dict):
     service, _ = get_calendar_service(token_dict)
     now = datetime.utcnow().isoformat() + "Z"
-    end = (datetime.utcnow() + timedelta(days=days)).isoformat() + "Z"
-    
+    end = (datetime.utcnow() + timedelta(days=7)).isoformat() + "Z"
     events_result = service.events().list(
-        calendarId="primary",
-        timeMin=now,
-        timeMax=end,
-        maxResults=50,
-        singleEvents=True,
-        orderBy="startTime"
+        calendarId="primary", timeMin=now, timeMax=end,
+        maxResults=50, singleEvents=True, orderBy="startTime"
     ).execute()
-    
     events = events_result.get("items", [])
     result = []
     for e in events:
@@ -114,40 +130,9 @@ def get_upcoming_events(token_dict, days=7):
         })
     return result
 
-def add_event_to_calendar(token_dict, title, date_str, start_time_str, duration_minutes, description=""):
-    """Add a study block to Google Calendar."""
-    service, creds = get_calendar_service(token_dict)
-    
-    try:
-        start_dt = datetime.strptime(f"{date_str} {start_time_str}", "%Y-%m-%d %I:%M %p")
-    except:
-        start_dt = datetime.strptime(f"{date_str} {start_time_str}", "%Y-%m-%d %H:%M")
-    
-    end_dt = start_dt + timedelta(minutes=duration_minutes)
-    
-    event = {
-        "summary": f"📚 {title}",
-        "description": description or f"Study block created by IntelliPlan",
-        "start": {
-            "dateTime": start_dt.isoformat(),
-            "timeZone": "America/Los_Angeles"
-        },
-        "end": {
-            "dateTime": end_dt.isoformat(),
-            "timeZone": "America/Los_Angeles"
-        },
-        "colorId": "1"
-    }
-    
-    created = service.events().insert(calendarId="primary", body=event).execute()
-    # Save updated token
-    return created.get("id"), creds.token
-
 def add_schedule_to_calendar(token_dict, schedule_data):
-    """Add an entire generated schedule to Google Calendar."""
     service, creds = get_calendar_service(token_dict)
     created_ids = []
-    
     for day in schedule_data.get("schedule", []):
         date_str = day["date"]
         for block in day.get("blocks", []):
@@ -157,29 +142,25 @@ def add_schedule_to_calendar(token_dict, schedule_data):
             if " - " not in time_slot:
                 continue
             start_str = time_slot.split(" - ")[0].strip()
-            
             try:
                 start_dt = datetime.strptime(f"{date_str} {start_str}", "%Y-%m-%d %I:%M %p")
             except:
-                continue
-            
+                try:
+                    start_dt = datetime.strptime(f"{date_str} {start_str}", "%Y-%m-%d %H:%M")
+                except:
+                    continue
             end_dt = start_dt + timedelta(minutes=block.get("duration_minutes", 30))
-            
             event = {
                 "summary": f"📚 {block.get('assignment', 'Study')}",
                 "description": f"Course: {block.get('course', '')}\n{block.get('notes', '')}\n\nCreated by IntelliPlan",
-                "start": {
-                    "dateTime": start_dt.isoformat(),
-                    "timeZone": "America/Los_Angeles"
-                },
-                "end": {
-                    "dateTime": end_dt.isoformat(),
-                    "timeZone": "America/Los_Angeles"
-                },
+                "start": {"dateTime": start_dt.isoformat(), "timeZone": "America/Los_Angeles"},
+                "end": {"dateTime": end_dt.isoformat(), "timeZone": "America/Los_Angeles"},
                 "colorId": "1"
             }
-            
-            created = service.events().insert(calendarId="primary", body=event).execute()
-            created_ids.append(created.get("id"))
-    
-    return created_ids, creds.token or token_dict.get("token", "")
+            try:
+                created = service.events().insert(calendarId="primary", body=event).execute()
+                created_ids.append(created.get("id"))
+            except Exception as e:
+                print(f"Failed to create event: {e}")
+    new_token = creds.token or token_dict.get("token", "")
+    return created_ids, new_token

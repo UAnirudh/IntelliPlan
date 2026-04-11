@@ -19,8 +19,8 @@ from flask_bcrypt import Bcrypt
 
 try:
     from google_calendar_helper import (
-        get_flow, get_upcoming_events,
-        add_schedule_to_calendar, find_free_slots
+        get_auth_url, exchange_code_for_token,
+        get_upcoming_events, add_schedule_to_calendar, find_free_slots
     )
     GCAL_AVAILABLE = True
 except Exception as e:
@@ -919,82 +919,59 @@ def google_oauth_start():
         return redirect(url_for("login"))
     if not GCAL_AVAILABLE:
         return "Google Calendar not configured", 500
-    flow = get_flow()
-    auth_url, state = flow.authorization_url(
-        access_type="offline",
-        prompt="consent"
-    )
+    import secrets
+    state = secrets.token_urlsafe(32)
     session["oauth_state"] = state
+    session.permanent = True
     session.modified = True
+    from google_calendar_helper import get_auth_url
+    auth_url = get_auth_url(state)
     return redirect(auth_url)
 
 @app.route("/oauth/google/callback")
 def google_oauth_callback():
     if not GCAL_AVAILABLE:
         return redirect(url_for("dashboard"))
-    
+
     error_msg = request.args.get("error")
     if error_msg:
         print(f"OAuth error from Google: {error_msg}")
         return redirect(url_for("dashboard"))
 
+    code = request.args.get("code")
+    if not code:
+        print("No code in callback")
+        return redirect(url_for("dashboard"))
+
     try:
-        flow = get_flow()
-        
-        # Railway is behind a proxy — force https in the callback URL
-        callback_url = request.url
-        if callback_url.startswith("http://") and "railway" in callback_url:
-            callback_url = callback_url.replace("http://", "https://", 1)
-        
-        print(f"Fetching token with callback URL: {callback_url}")
-        
-        os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
-        flow.fetch_token(authorization_response=callback_url)
-        creds = flow.credentials
-        
-        print(f"Got credentials. Token: {creds.token[:20] if creds.token else None}, Refresh: {creds.refresh_token[:20] if creds.refresh_token else None}")
-        
-        token_dict = {
-            "token": creds.token,
-            "refresh_token": creds.refresh_token,
-            "token_uri": creds.token_uri,
-            "client_id": creds.client_id,
-            "client_secret": creds.client_secret,
-            "scopes": list(creds.scopes or [])
-        }
-        
-        # Save to session
+        from google_calendar_helper import exchange_code_for_token
+        print(f"Exchanging code for token...")
+        token_dict = exchange_code_for_token(code)
+        print(f"Token exchange successful. Token: {token_dict.get('token', '')[:20]}")
+
         session["google_token"] = token_dict
         session.permanent = True
         session.modified = True
-        print(f"Saved to session. Session keys: {list(session.keys())}")
-        
-        # Save to DB
+
         if current_user.is_authenticated:
             existing = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
             if existing:
                 existing.token_data = json.dumps(token_dict)
-                print(f"Updated existing DB row for user {current_user.id}")
             else:
-                new_row = GoogleIntegration(
+                db.session.add(GoogleIntegration(
                     user_id=current_user.id,
                     token_data=json.dumps(token_dict)
-                )
-                db.session.add(new_row)
-                print(f"Created new DB row for user {current_user.id}")
+                ))
             db.session.commit()
-            print(f"DB committed successfully")
-            
-            # Verify it saved
-            verify = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
-            print(f"Verification — DB row exists: {verify is not None}")
-        
+            print(f"Saved to DB for user {current_user.id}")
+
         return redirect(url_for("dashboard"))
-        
+
     except Exception as e:
         import traceback
-        print(f"OAuth callback FULL ERROR: {traceback.format_exc()}")
-        return redirect(url_for("dashboard") + "?error=gcal_failed")    
+        print(f"Token exchange error: {traceback.format_exc()}")
+        return redirect(url_for("dashboard"))
+    
 
 @app.route("/oauth/google/disconnect", methods=["POST"])
 def google_disconnect():
