@@ -1424,6 +1424,19 @@ def privacy():
 def terms():
     return render_template("terms.html")
 
+@app.route("/debug/auth")
+def debug_auth():
+    return flask.jsonify({
+        "is_authenticated": current_user.is_authenticated,
+        "user_id": current_user.id if current_user.is_authenticated else None,
+        "session_keys": list(session.keys()),
+        "has_google_session": "google_token" in session,
+        "has_notion_session": "notion_token" in session,
+        "google_db_row": GoogleIntegration.query.filter_by(user_id=current_user.id).first() is not None if current_user.is_authenticated else False,
+        "notion_db_row": NotionIntegration.query.filter_by(user_id=current_user.id).first() is not None if current_user.is_authenticated else False,
+    })
+
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
