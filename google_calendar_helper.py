@@ -17,11 +17,14 @@ CLIENT_CONFIG = {
 }
 
 def get_flow():
-    return Flow.from_client_config(
+    flow = Flow.from_client_config(
         CLIENT_CONFIG,
         scopes=SCOPES,
-        redirect_uri=os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:3000/oauth/google/callback")
+        redirect_uri=os.getenv("GOOGLE_REDIRECT_URI")
     )
+    # Disable PKCE — required for server-side web apps
+    flow.code_challenge_method = None
+    return flow
 
 def get_calendar_service(token_dict):
     creds = Credentials(

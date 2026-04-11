@@ -920,8 +920,14 @@ def google_oauth_start():
     if not GCAL_AVAILABLE:
         return "Google Calendar not configured", 500
     flow = get_flow()
-    auth_url, state = flow.authorization_url(access_type="offline", include_granted_scopes="true", prompt="consent")
+    auth_url, state = flow.authorization_url(
+        access_type="offline",
+        include_granted_scopes="true",
+        prompt="consent",
+        code_challenge_method=None  # Explicitly disable PKCE
+    )
     session["oauth_state"] = state
+    session.modified = True
     return redirect(auth_url)
 
 @app.route("/oauth/google/callback")
