@@ -1419,7 +1419,22 @@
       .stats-bar { grid-template-columns: 1fr 1fr; gap: 0.75rem; }
       .stat-value { font-size: 1.2rem; }
     }
+    :root {
+      --footer-bg: #f3f4f6;       /* slightly darker than light background */
+      --footer-text: #6b7280;
+      --footer-border: #e5e7eb;
+      --footer-link: #2563eb;
+  }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --footer-bg: #111827;   /* slightly lighter than dark background */
+            --footer-text: #9ca3af;
+            --footer-border: #1f2937;
+            --footer-link: #60a5fa;
+        }
     }
+  }
   </style>
   <link rel="manifest" href="/static/manifest.json">
   <meta name="theme-color" content="#3b82f6">
@@ -1428,7 +1443,7 @@
   <meta name="apple-mobile-web-app-title" content="IntelliPlan">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
 </head>
-<body>
+<body style="min-height: 100vh; display: flex; flex-direction: column;">
 
 <header>
   <a href="/" class="logo" aria-label="Go to home page">
@@ -1493,7 +1508,7 @@
   </div>
 </header>
 
-<main>
+<main style="flex: 1;">
   {% block content %}{% endblock %}
 </main>
 
