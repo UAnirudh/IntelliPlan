@@ -928,14 +928,28 @@ def google_oauth_start():
 def google_oauth_callback():
     if not GCAL_AVAILABLE:
         return redirect(url_for("dashboard"))
+    
+    error_msg = request.args.get("error")
+    if error_msg:
+        print(f"OAuth error from Google: {error_msg}")
+        return redirect(url_for("dashboard"))
+
     try:
         flow = get_flow()
-        # Force http for local dev
-        auth_response = request.url
-        if auth_response.startswith("http://") is False and "localhost" in auth_response:
-            auth_response = auth_response.replace("https://", "http://")
-        flow.fetch_token(authorization_response=auth_response)
+        
+        # Railway is behind a proxy — force https in the callback URL
+        callback_url = request.url
+        if callback_url.startswith("http://") and "railway" in callback_url:
+            callback_url = callback_url.replace("http://", "https://", 1)
+        
+        print(f"Fetching token with callback URL: {callback_url}")
+        
+        os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+        flow.fetch_token(authorization_response=callback_url)
         creds = flow.credentials
+        
+        print(f"Got credentials. Token: {creds.token[:20] if creds.token else None}, Refresh: {creds.refresh_token[:20] if creds.refresh_token else None}")
+        
         token_dict = {
             "token": creds.token,
             "refresh_token": creds.refresh_token,
@@ -944,26 +958,39 @@ def google_oauth_callback():
             "client_secret": creds.client_secret,
             "scopes": list(creds.scopes or [])
         }
-        # Always save to session regardless
+        
+        # Save to session
         session["google_token"] = token_dict
+        session.permanent = True
         session.modified = True
-
-        # Also save to DB if authenticated
+        print(f"Saved to session. Session keys: {list(session.keys())}")
+        
+        # Save to DB
         if current_user.is_authenticated:
             existing = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
             if existing:
                 existing.token_data = json.dumps(token_dict)
+                print(f"Updated existing DB row for user {current_user.id}")
             else:
-                db.session.add(GoogleIntegration(
+                new_row = GoogleIntegration(
                     user_id=current_user.id,
                     token_data=json.dumps(token_dict)
-                ))
+                )
+                db.session.add(new_row)
+                print(f"Created new DB row for user {current_user.id}")
             db.session.commit()
+            print(f"DB committed successfully")
+            
+            # Verify it saved
+            verify = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
+            print(f"Verification — DB row exists: {verify is not None}")
+        
         return redirect(url_for("dashboard"))
+        
     except Exception as e:
-        print(f"OAuth callback error: {e}")
-        return redirect(url_for("dashboard") + "?gcal_error=1")
-    
+        import traceback
+        print(f"OAuth callback FULL ERROR: {traceback.format_exc()}")
+        return redirect(url_for("dashboard") + "?error=gcal_failed")    
 
 @app.route("/oauth/google/disconnect", methods=["POST"])
 def google_disconnect():
