@@ -1444,6 +1444,46 @@ def debug_auth():
         "notion_db_row": NotionIntegration.query.filter_by(user_id=current_user.id).first() is not None if current_user.is_authenticated else False,
     })
 
+@app.route("/calendar/export", methods=["POST"])
+def calendar_export():
+    if not GCAL_AVAILABLE:
+        return flask.jsonify({"status": "error", "message": "Google Calendar not configured"})
+    token = get_google_token()
+    if not token:
+        return flask.jsonify({"status": "error", "message": "Google Calendar not connected"})
+    data = request.json
+    schedule_data = data.get("schedule_data")
+    skip_overlaps = data.get("skip_overlaps", False)
+
+    try:
+        # Get existing events for overlap checking
+        existing_events = []
+        if skip_overlaps:
+            try:
+                existing_events = get_upcoming_events(token)
+            except:
+                existing_events = []
+
+        ids, new_token, skipped = add_schedule_to_calendar(
+            token, schedule_data, existing_events if skip_overlaps else []
+        )
+
+        if new_token:
+            session["google_token"] = {**token, "token": new_token}
+            session.modified = True
+            if current_user.is_authenticated:
+                gi = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
+                if gi:
+                    td = json.loads(gi.token_data)
+                    td["token"] = new_token
+                    gi.token_data = json.dumps(td)
+                    db.session.commit()
+
+        return flask.jsonify({"status": "ok", "created": len(ids), "skipped": skipped})
+    except Exception as e:
+        print(f"Calendar export error: {e}")
+        return flask.jsonify({"status": "error", "message": str(e)})
+
 
 if __name__ == "__main__":
     with app.app_context():

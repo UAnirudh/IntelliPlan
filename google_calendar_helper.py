@@ -130,9 +130,23 @@ def get_upcoming_events(token_dict):
         })
     return result
 
-def add_schedule_to_calendar(token_dict, schedule_data):
+def add_schedule_to_calendar(token_dict, schedule_data, existing_events=None):
     service, creds = get_calendar_service(token_dict)
     created_ids = []
+    skipped = 0
+    existing_events = existing_events or []
+
+    # Build existing event time ranges
+    busy_ranges = []
+    for e in existing_events:
+        start_str = e.get("start", "")
+        if "T" in start_str:
+            try:
+                start_dt = datetime.fromisoformat(start_str.replace("Z", ""))
+                busy_ranges.append(start_dt)
+            except:
+                pass
+
     for day in schedule_data.get("schedule", []):
         date_str = day["date"]
         for block in day.get("blocks", []):
@@ -149,7 +163,19 @@ def add_schedule_to_calendar(token_dict, schedule_data):
                     start_dt = datetime.strptime(f"{date_str} {start_str}", "%Y-%m-%d %H:%M")
                 except:
                     continue
+
             end_dt = start_dt + timedelta(minutes=block.get("duration_minutes", 30))
+
+            # Check overlap
+            if busy_ranges:
+                overlap = any(
+                    abs((start_dt - b).total_seconds()) < 1800
+                    for b in busy_ranges
+                )
+                if overlap:
+                    skipped += 1
+                    continue
+
             event = {
                 "summary": f"📚 {block.get('assignment', 'Study')}",
                 "description": f"Course: {block.get('course', '')}\n{block.get('notes', '')}\n\nCreated by IntelliPlan",
@@ -162,5 +188,6 @@ def add_schedule_to_calendar(token_dict, schedule_data):
                 created_ids.append(created.get("id"))
             except Exception as e:
                 print(f"Failed to create event: {e}")
+
     new_token = creds.token or token_dict.get("token", "")
-    return created_ids, new_token
+    return created_ids, new_token, skipped

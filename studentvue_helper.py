@@ -457,6 +457,101 @@ def get_missing_assignments(district_url, username, password):
 
     return missing
 
+def get_missing_assignments(district_url, username, password):
+    result = make_request(
+        district_url, username, password, "Gradebook",
+        "&lt;Parms&gt;&lt;ChildIntID&gt;0&lt;/ChildIntID&gt;&lt;/Parms&gt;"
+    )
+    inner_match = re.search(
+        r'<ProcessWebServiceRequestResult>(.*?)</ProcessWebServiceRequestResult>',
+        result, re.DOTALL
+    )
+    if not inner_match:
+        return []
+
+    gradebook_raw = html_module.unescape(inner_match.group(1))
+    course_blocks = re.split(r'(?=<Course\s)', gradebook_raw)
+    assignment_pattern = re.compile(r'<Assignment\s([^>]*?)(?:/>|>)', re.DOTALL)
+
+    def get_attr(attrs_str, attr_name):
+        match = re.search(rf'{attr_name}="([^"]*)"', attrs_str)
+        return match.group(1) if match else ""
+
+    missing = []
+    PRIORITY_COLORS = {"High": "#ef4444", "Medium": "#f59e0b", "Low": "#22c55e"}
+
+    for block in course_blocks:
+        course_match = re.search(r'<Course\s[^>]*Title="([^"]*)"', block)
+        if not course_match:
+            continue
+        course_name = course_match.group(1)
+
+        for a_match in assignment_pattern.finditer(block):
+            attrs = a_match.group(1)
+            title = get_attr(attrs, "Measure")
+            points_str = get_attr(attrs, "Points")
+            display_score = get_attr(attrs, "DisplayScore")
+            score_str = get_attr(attrs, "Score")
+            due_date_str = get_attr(attrs, "DueDate")
+            score_type = get_attr(attrs, "ScoreType")
+
+            if not title:
+                continue
+
+            # Skip ungraded/pending
+            if display_score in ("Not Graded", "Not Due", ""):
+                continue
+            if score_str in ("", "Not Graded"):
+                continue
+
+            # Parse points
+            earned = None
+            possible = None
+            if "/" in points_str:
+                parts = points_str.split("/")
+                try:
+                    earned = float(parts[0].strip().split()[0])
+                    possible = float(parts[1].strip().split()[0])
+                except:
+                    pass
+
+            if earned is None or possible is None or possible <= 0:
+                continue
+
+            pct = earned / possible
+
+            # Flag: zero score OR below 60% (missing or very low)
+            is_missing = earned == 0 or pct < 0.6
+
+            if not is_missing:
+                continue
+
+            try:
+                due_date = datetime.strptime(due_date_str, "%m/%d/%Y").strftime("%Y-%m-%d")
+            except:
+                due_date = ""
+
+            label = "Missing" if earned == 0 else f"{int(earned)}/{int(possible)}"
+
+            missing.append({
+                "title": title,
+                "course": course_name,
+                "due_date": due_date,
+                "points_earned": earned,
+                "points_possible": possible,
+                "display_score": display_score,
+                "priority": "High",
+                "estimated_time": 60,
+                "source": "studentvue_missing",
+                "is_missing": True,
+                "score_label": label,
+                "color": PRIORITY_COLORS["High"],
+                "difficulty": "Medium",
+                "estimated_time": 60,
+            })
+
+    return missing
+
 if __name__ == "__main__":
     debug_gradebook(
         "https://wa-nor-psv.edupoint.com",

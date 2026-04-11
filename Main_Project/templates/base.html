@@ -1391,6 +1391,34 @@
       #installBtn {
         min-width: 110px;
       }
+    @media (max-width: 900px) {
+      .nav-divider { display: none; }
+      .nav-group { gap: 2px; }
+      .nav-tab { padding: 6px 10px; font-size: 0.78rem; }
+      .discord-btn { padding: 8px 12px; font-size: 0.78rem; }
+      .date-badge { display: none; }
+    }
+
+    @media (max-width: 720px) {
+      #mainNav { display: none; flex-direction: column; position: fixed; top: 64px; left: 0; right: 0; background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 1rem; gap: 8px; z-index: 99; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+      #mainNav.mobile-open { display: flex; }
+      #mobileMenuBtn { display: flex !important; }
+      .nav-group { flex-direction: column; width: 100%; }
+      .nav-tab { width: 100%; text-align: left; border-radius: 10px; padding: 10px 16px; font-size: 0.9rem; }
+      .nav-dropdown { width: 100%; }
+      .dropdown-toggle { width: 100%; text-align: left; padding: 10px 16px; border-radius: 10px; }
+      .dropdown-panel { position: static; opacity: 1; transform: none; pointer-events: auto; background: var(--bg); margin-top: 4px; }
+      .discord-btn { width: 100%; text-align: center; border-radius: 10px; padding: 10px 16px; }
+      header { padding: 0 1rem; }
+      .header-right { gap: 0.75rem; }
+    }
+
+    @media (max-width: 480px) {
+      main { padding: 1rem 0.75rem; }
+      .page-title { font-size: 1.5rem; }
+      .stats-bar { grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+      .stat-value { font-size: 1.2rem; }
+    }
     }
   </style>
   <link rel="manifest" href="/static/manifest.json">
@@ -1410,51 +1438,51 @@
     <span class="logo-text">Intelli<span>Plan</span></span>
   </a>
   <div class="header-right">
-    <nav class="nav-tabs">
+    <nav class="nav-tabs" id="mainNav">
 
-  <div class="nav-group">
-    <a href="/dashboard" class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}">🏠 Dashboard</a>
-    <a href="/scheduler" class="nav-tab {% if active_page == 'scheduler' %}active{% endif %}">🤖 AI Scheduler</a>
-  </div>
-
-  <div class="nav-divider"></div>
-
-  <div class="nav-group">
-    <a href="/priority" class="nav-tab {% if active_page == 'priority' %}active{% endif %}">Priority</a>
-    <a href="/classes" class="nav-tab {% if active_page == 'classes' %}active{% endif %}">Classes</a>
-    <div class="nav-dropdown">
-      <button class="nav-link dropdown-toggle">
-        Grades <span class="chevron">▾</span>
-      </button>
-
-      <div class="dropdown-panel">
-        <a href="/grades" class="dropdown-item">Overview</a>
-        <a href="/gradebook" class="dropdown-item">Gradebook Modeler</a>
-        <!-- <a href="/grademodel" class="dropdown-item">Modeler Simplified</a> -->
+      <div class="nav-group">
+        <a href="/dashboard" class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}">🏠 Dashboard</a>
+        <a href="/scheduler" class="nav-tab {% if active_page == 'scheduler' %}active{% endif %}">🤖 AI</a>
       </div>
-    </div>
-    <a href="/dismissed" class="nav-tab {% if active_page == 'dismissed' %}active{% endif %}">✓ Done</a>
-  </div>
 
-  <div class="nav-divider"></div>
+      <div class="nav-divider"></div>
 
-  <div class="nav-group">
-    {% if logged_in %}
-      <a href="/profiles" class="nav-tab {% if active_page == 'profiles' %}active{% endif %}">👤 Profiles</a>
-      <a href="/settings" class="nav-tab {% if active_page == 'settings' %}active{% endif %}">⚙️ Settings</a>
-      <form action="/logout" method="POST">
-        <button type="submit" class="nav-tab">Logout</button>
-      </form>
-    {% else %}
-      <a href="/login" class="nav-tab {% if active_page == 'login' %}active{% endif %}">Login</a>
-    {% endif %}
+      <div class="nav-group">
+        <a href="/priority" class="nav-tab {% if active_page == 'priority' %}active{% endif %}">Priority</a>
+        <a href="/classes" class="nav-tab {% if active_page == 'classes' %}active{% endif %}">Classes</a>
+        <div class="nav-dropdown">
+          <button class="nav-link dropdown-toggle">Grades <span class="chevron">▾</span></button>
+          <div class="dropdown-panel">
+            <a href="/grades" class="dropdown-item">Overview</a>
+            <a href="/gradebook" class="dropdown-item">Grade Modeler</a>
+          </div>
+        </div>
+        <a href="/dismissed" class="nav-tab {% if active_page == 'dismissed' %}active{% endif %}">✓ Done</a>
+      </div>
 
-    <a class="discord-btn" href="https://discord.gg/NrhYrdhU" target="_blank" rel="noopener noreferrer">
-      Discord
-    </a>
-  </div>
+      <div class="nav-divider"></div>
 
-</nav>
+      <div class="nav-group">
+        {% if logged_in %}
+          <a href="/settings" class="nav-tab {% if active_page == 'settings' %}active{% endif %}">⚙</a>
+          <form action="/logout" method="POST" style="margin:0;">
+            <button type="submit" class="nav-tab">Logout</button>
+          </form>
+        {% else %}
+          <a href="/login" class="nav-tab {% if active_page == 'login' %}active{% endif %}">Login</a>
+        {% endif %}
+        <a class="discord-btn" href="https://discord.gg/NrhYrdhU" target="_blank" rel="noopener noreferrer">Discord</a>
+      </div>
+
+    </nav>
+
+    <!-- Mobile hamburger -->
+    <button id="mobileMenuBtn" style="
+      display:none; background:none; border:none; cursor:pointer;
+      padding:8px; border-radius:10px; color:var(--text-primary);
+      font-size:1.3rem; transition:background 0.2s;
+    " onclick="toggleMobileMenu()">☰</button>
+
     <span class="date-badge" id="dateBadge"></span>
     <label class="toggle" title="Toggle dark mode">
       <input type="checkbox" id="themeToggle" />
@@ -1563,6 +1591,30 @@
 </div>
 
 <script>
+  function toggleMobileMenu() {
+    const nav = document.getElementById('mainNav');
+    const btn = document.getElementById('mobileMenuBtn');
+    nav.classList.toggle('mobile-open');
+    btn.textContent = nav.classList.contains('mobile-open') ? '✕' : '☰';
+  }
+
+  // Close mobile menu when clicking outside
+  document.addEventListener('click', (e) => {
+    const nav = document.getElementById('mainNav');
+    const btn = document.getElementById('mobileMenuBtn');
+    if (nav && btn && !nav.contains(e.target) && !btn.contains(e.target)) {
+      nav.classList.remove('mobile-open');
+      btn.textContent = '☰';
+    }
+  });
+
+  // Close mobile menu on nav link click
+  document.querySelectorAll('#mainNav .nav-tab, #mainNav .dropdown-item').forEach(el => {
+    el.addEventListener('click', () => {
+      document.getElementById('mainNav').classList.remove('mobile-open');
+      document.getElementById('mobileMenuBtn').textContent = '☰';
+    });
+  });
   let _modalAssignment = null;
 
   function openAssignmentModal(a) {

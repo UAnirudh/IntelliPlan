@@ -14,7 +14,26 @@
 
 <!-- Integration / status chips -->
 <div id="integrationBar" style="display:flex; gap:8px; margin-bottom:1.5rem; flex-wrap:wrap;"></div>
-
+<!-- Schedule Export Bar -->
+<div id="exportBar" style="display:none; background:var(--bg-card); border:1px solid var(--border); border-radius:14px; padding:1rem 1.5rem; margin-bottom:1.5rem; display:none; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
+  <div style="font-size:0.85rem; color:var(--text-secondary);">
+    <strong style="color:var(--text-primary);">📅 Export to Google Calendar</strong>
+    <span id="exportStatus" style="margin-left:8px; font-size:0.78rem; color:var(--text-muted);"></span>
+  </div>
+  <div style="display:flex; gap:8px; align-items:center;">
+    <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;color:var(--text-secondary);cursor:pointer;">
+      <input type="checkbox" id="skipOverlaps" checked style="accent-color:var(--accent);width:14px;height:14px;" />
+      Skip overlapping events
+    </label>
+    <button onclick="exportScheduleToCal()" id="exportCalBtn" style="
+      padding:8px 18px; background:#ea4335; color:white; border:none;
+      border-radius:10px; cursor:pointer; font-family:'DM Sans',sans-serif;
+      font-size:0.85rem; font-weight:600; transition:all 0.2s;
+      box-shadow:0 2px 8px rgba(234,67,53,0.3);">
+      Export Schedule
+    </button>
+  </div>
+</div>
 <!-- Saved Schedule Banner -->
 <div id="savedScheduleBanner" style="display:none; background:var(--accent-soft); border:1px solid var(--accent-mid); border-radius:16px; padding:1.25rem 1.5rem; margin-bottom:1.5rem; display:none; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
   <div>
@@ -260,6 +279,13 @@ async function loadDashboard() {
   renderColumn('todayList', 'todayCount', tasksRes.today);
   renderColumn('upcomingList', 'upcomingCount', tasksRes.upcoming);
   renderIntegrationBar(calRes);
+  // Show export bar if calendar connected and schedule exists
+  if (calRes.connected && schedRes.status === 'ok') {
+    document.getElementById('exportBar').style.display = 'flex';
+    document.getElementById('exportStatus').textContent = `· ${schedRes.name}`;
+  } else {
+    document.getElementById('exportBar').style.display = 'none';
+  }
   renderSavedSchedule(schedRes);
 }
 
@@ -335,6 +361,68 @@ async function clearSavedSchedule() {
   document.getElementById('savedScheduleBanner').style.display = 'none';
   document.getElementById('todayScheduleWrap').style.display = 'none';
   _savedSchedule = null;
+}
+
+async function exportScheduleToCal() {
+  const btn = document.getElementById('exportCalBtn');
+  const status = document.getElementById('exportStatus');
+  const skipOverlaps = document.getElementById('skipOverlaps').checked;
+
+  btn.textContent = '⏳ Exporting...';
+  btn.disabled = true;
+
+  // Get saved schedule
+  const schedRes = await fetch('/schedule/saved').then(r => r.json());
+  if (schedRes.status !== 'ok') {
+    alert('No saved schedule found. Generate and save a schedule first.');
+    btn.textContent = 'Export Schedule';
+    btn.disabled = false;
+    return;
+  }
+
+  // Get existing calendar events if overlap checking enabled
+  let busyTimes = [];
+  if (skipOverlaps) {
+    const calRes = await fetch('/calendar/events').then(r => r.json());
+    busyTimes = calRes.events || [];
+  }
+
+  // Filter schedule blocks to remove overlaps
+  const scheduleData = schedRes.data;
+  if (skipOverlaps && busyTimes.length > 0) {
+    scheduleData.schedule = scheduleData.schedule.map(day => ({
+      ...day,
+      blocks: day.blocks.filter(block => {
+        if (block.is_break) return false;
+        if (!block.time_slot || !block.time_slot.includes(' - ')) return true;
+        // Check overlap with existing events on same date
+        const dayEvents = busyTimes.filter(e => e.start && e.start.startsWith(day.date));
+        if (dayEvents.length === 0) return true;
+        // Simple check — include block (server handles detailed overlap)
+        return true;
+      })
+    }));
+  }
+
+  const res = await fetch('/calendar/export', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ schedule_data: scheduleData, skip_overlaps: skipOverlaps })
+  }).then(r => r.json());
+
+  btn.disabled = false;
+  if (res.status === 'ok') {
+    btn.textContent = `✅ Added ${res.created} events`;
+    btn.style.background = 'var(--low)';
+    status.textContent = `· ${res.skipped || 0} overlaps skipped`;
+    setTimeout(() => {
+      btn.textContent = 'Export Schedule';
+      btn.style.background = '#ea4335';
+    }, 4000);
+  } else {
+    btn.textContent = 'Export Schedule';
+    alert('Export failed: ' + (res.message || 'Unknown error'));
+  }
 }
 
 // ── TASK COLUMNS ──────────────────────────────────────────────
