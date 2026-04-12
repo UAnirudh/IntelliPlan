@@ -931,13 +931,66 @@ def generate_schedule():
     assignment_text = "\n".join([f"- {a['title']} ({a['course']}) — Due: {a['due_date']}, Priority: {a['priority']}, Difficulty: {a['difficulty']}, Estimated time: {a['estimated_time']} minutes" for a in normalized_assignments])
     custom_text = "\nAdditional tasks:\n" + "\n".join([f"- {t}" for t in custom_tasks]) if custom_tasks else ""
     today = datetime.now().strftime("%Y-%m-%d")
-    prompt = f"""You are IntelliPlan — an adaptive academic study-planning system. Today is {today}.
-Assignments:
+    prompt = f"""
+You are IntelliPlan — an adaptive academic study-planning system. Today is {today}.
+
+The student has {len(normalized_assignments)} assignments to complete:
 {assignment_text}
 {custom_text}
+
 The student can study {hours_per_day} hours per day and prefers {preferred_time}.
-Create a realistic study plan. Return ONLY valid JSON:
-{{"schedule": [{{"date": "YYYY-MM-DD","day_name": "Monday","total_hours": 2,"blocks": [{{"assignment": "Title","course": "Course","duration_minutes": 45,"time_slot": "7:00 PM - 7:45 PM","notes": "Focus area","is_break": false}}],"daily_tip": "Tip"}}],"overview": "Strategy overview","total_study_time": "X hours Y minutes"}}"""
+
+CRITICAL RULES — YOU MUST FOLLOW THESE:
+1. Every single assignment listed above MUST appear in the schedule at least once
+2. Overdue assignments (past due date) must be scheduled TODAY as the highest priority
+3. Custom tasks added by the student must use the EXACT text the student typed as the assignment name — do not change it, do not label it "Additional Task"
+4. Distribute work across multiple days — do not cluster everything on one day
+5. If an assignment needs more than one session, split it across multiple days
+6. Never schedule the same assignment twice on the same day
+7. High priority assignments must appear before medium and low priority ones
+8. Each day should have a mix of different assignments — not just one
+9. The schedule must span enough days to complete ALL assignments before their due dates
+10. Break sessions must follow every 45-60 minute work block
+
+SCHEDULE STRUCTURE:
+- Day 1 must include ALL overdue assignments as the first blocks
+- Remaining days distribute remaining assignments evenly
+- Each day should have 2-4 different assignments unless workload requires more
+- Sessions should be 25-50 minutes each
+- Breaks should be 5-15 minutes
+
+Return ONLY valid JSON with this exact structure:
+{{
+  "schedule": [
+    {{
+      "date": "YYYY-MM-DD",
+      "day_name": "Monday",
+      "total_hours": 2,
+      "blocks": [
+        {{
+          "assignment": "EXACT assignment title here",
+          "course": "Course name",
+          "duration_minutes": 45,
+          "time_slot": "7:00 PM - 7:45 PM",
+          "notes": "Specific focus area for this session",
+          "is_break": false
+        }},
+        {{
+          "assignment": "Break",
+          "course": "",
+          "duration_minutes": 10,
+          "time_slot": "7:45 PM - 7:55 PM",
+          "notes": "Rest and recharge",
+          "is_break": true
+        }}
+      ],
+      "daily_tip": "Specific actionable tip for today"
+    }}
+  ],
+  "overview": "Brief overview mentioning all {len(normalized_assignments)} assignments",
+  "total_study_time": "X hours Y minutes"
+}}
+"""
     try:
         response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}], temperature=0.7, max_tokens=2000)
         result = response.choices[0].message.content.strip()
