@@ -11,9 +11,8 @@ import json
 import uuid
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import (
@@ -59,9 +58,11 @@ app = flask.Flask(
     __name__,
     template_folder="Main_Project/templates",
 )
-app.state = limiter
-app.register_error_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-limiter.init_app(app)
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"]
+)
 app.secret_key = os.getenv("SECRET_KEY", "intelliplan-dev-key")
 app.permanent_session_lifetime = timedelta(days=7)
 
