@@ -156,6 +156,14 @@ class SavedSchedule(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
 
+class Task:
+    def __init__(self, name, deadline, duration, priority_weight=1, difficulty=1):
+        self.name = name
+        self.deadline = deadline  # datetime
+        self.duration = duration  # minutes
+        self.priority_weight = priority_weight
+        self.difficulty = difficulty
+
 class TaskFeedback(db.Model):
     __tablename__ = "task_feedback"
     id = db.Column(db.Integer, primary_key=True)
@@ -915,6 +923,75 @@ def save_description():
         save_custom_description(title, description)
     return flask.jsonify({"status": "ok"})
 
+def compute_priority_score(a):
+    now = datetime.now()
+
+    due_date_str = a.get("due_date", "9999-12-31")
+    try:
+        due = datetime.strptime(due_date_str, "%Y-%m-%d")
+    except ValueError:
+        due = datetime.strptime("9999-12-31", "%Y-%m-%d")
+
+    hours_left = max((due - now).total_seconds() / 3600, 1)
+
+    urgency = 1 / hours_left
+    difficulty = a.get("difficulty", 1)
+
+    priority_map = {"High": 3, "Medium": 2, "Low": 1}
+    priority_weight = priority_map.get(a.get("priority", "Medium"), 2)
+
+    estimated = a.get("estimated_time", 30)
+
+    return (
+        urgency * 5 +
+        priority_weight * 3 +
+        difficulty * 2 +
+        (estimated / 60)
+    )
+
+
+def validate_schedule(schedule_data, hours_per_day):
+    max_minutes = hours_per_day * 60
+
+    for day in schedule_data.get("schedule", []):
+        total = sum(
+            b.get("duration_minutes", 0)
+            for b in day.get("blocks", [])
+            if not b.get("is_break")
+        )
+
+        if total > max_minutes:
+            trimmed = []
+            running = 0
+
+            for b in day.get("blocks", []):
+                if b.get("is_break"):
+                    trimmed.append(b)
+                    continue
+
+                dur = b.get("duration_minutes", 0)
+                if running + dur <= max_minutes:
+                    trimmed.append(b)
+                    running += dur
+                else:
+                    break
+
+            day["blocks"] = trimmed
+
+    return schedule_data
+
+
+def get_next_task(schedule_data):
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    for day in schedule_data.get("schedule", []):
+        if day.get("date") == today:
+            for block in day.get("blocks", []):
+                if not block.get("is_break"):
+                    return block
+    return None
+
+
 @app.route("/generate_schedule", methods=["POST"])
 @limiter.limit("10 per hour")
 def generate_schedule():
@@ -944,9 +1021,20 @@ def generate_schedule():
     today_str = datetime.now().strftime("%Y-%m-%d")
     overdue = [a for a in normalized_assignments if a.get("due_date", "9999") < today_str]
     upcoming = [a for a in normalized_assignments if a.get("due_date", "9999") >= today_str]
-    
-    # Sort upcoming by due date
-    upcoming.sort(key=lambda x: x.get("due_date", "9999"))
+
+    # Sort upcoming by priority score
+    upcoming.sort(key=lambda x: compute_priority_score(x), reverse=True)
+
+    # Time feasibility filter
+    total_available_minutes = hours_per_day * 60 * 5
+    filtered_upcoming = []
+    used_time = 0
+
+    for a in upcoming:
+        est = a.get("estimated_time", 30)
+        if used_time + est <= total_available_minutes:
+            filtered_upcoming.append(a)
+            used_time += est
 
     client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
@@ -958,10 +1046,10 @@ def generate_schedule():
         ])
 
     upcoming_text = ""
-    if upcoming:
-        upcoming_text = f"\nUPCOMING ({len(upcoming)} assignments):\n" + "\n".join([
+    if filtered_upcoming:
+        upcoming_text = f"\nUPCOMING ({len(filtered_upcoming)} assignments):\n" + "\n".join([
             f"  - {a['title']} ({a['course']}) — Due: {a['due_date']}, Priority: {a['priority']}, Difficulty: {a['difficulty']}, Est: {a['estimated_time']}min"
-            for a in upcoming
+            for a in filtered_upcoming
         ])
 
     custom_text = ""
@@ -975,7 +1063,7 @@ def generate_schedule():
 
     prompt = f"""You are IntelliPlan — an adaptive academic study-planning system. Today is {today}.
 
-You must schedule ALL {total} items below. Every single one must appear in the schedule.
+You should prioritize and schedule the MOST IMPORTANT tasks given time constraints. Lower priority tasks may be deferred.
 {overdue_text}
 {upcoming_text}
 {custom_text}
@@ -983,14 +1071,14 @@ You must schedule ALL {total} items below. Every single one must appear in the s
 Student availability: {hours_per_day} hours/day, prefers {preferred_time}.
 
 RULES:
-1. ALL {total} items must appear in the schedule — no exceptions
-2. Overdue items go on Day 1 as first priority blocks
-3. Custom task names must be copied EXACTLY as written — do not rename them
-4. Spread assignments across multiple days — max 3 assignments per day unless unavoidable
-5. Split long assignments (>90min) across multiple days
-6. Add a 10min break after every 45min work block
-7. Never put the same assignment twice in one day
-8. Schedule must end before the latest due date
+1. Prioritize high-impact and urgent assignments first
+2. If total workload exceeds available time, defer lowest priority tasks
+3. Overdue items must be scheduled immediately
+4. Split long tasks (>90min) across multiple days
+5. Insert 10min breaks after ~45min work
+6. Balance workload across days to avoid overload
+7. Avoid scheduling cognitively heavy tasks back-to-back
+8. Schedule must feel realistic for a student (not maximum density)
 
 Return ONLY valid JSON:
 {{
@@ -1026,14 +1114,25 @@ Return ONLY valid JSON:
         result = response.choices[0].message.content.strip()
         result = re.sub(r"```json\n?", "", result)
         result = re.sub(r"```\n?", "", result)
+
         schedule_data = json.loads(result)
         schedule_data = enrich_schedule_data(
-            schedule_data, normalized_assignments, preferred_time, hours_per_day,
+            schedule_data,
+            normalized_assignments,
+            preferred_time,
+            hours_per_day,
         )
+        schedule_data = validate_schedule(schedule_data, hours_per_day)
+
+        next_task = get_next_task(schedule_data)
+        if next_task is not None:
+            schedule_data["next_task"] = next_task
+
         return flask.jsonify({"status": "ok", "data": schedule_data})
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
-
+    
+    
 @app.route("/static/sw.js")
 def service_worker():
     response = flask.make_response(flask.send_from_directory("static", "sw.js"))
@@ -1527,13 +1626,13 @@ def delete_saved_schedule():
     db.session.commit()
     return flask.jsonify({"status": "ok"})
 
-@app.route("/privacy")
-def privacy():
-    return render_template("privacy.html")
+# @app.route("/privacy")
+# def privacy():
+#     return render_template("privacy.html")
 
-@app.route("/terms")
-def terms():
-    return render_template("terms.html")
+# @app.route("/terms")
+# def terms():
+#     return render_template("terms.html")
 
 @app.route("/debug/auth")
 def debug_auth():
