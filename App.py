@@ -923,81 +923,113 @@ def generate_schedule():
     hours_per_day = data.get("hours_per_day", 2)
     preferred_time = data.get("preferred_time", "evening")
     custom_tasks = data.get("custom_tasks", [])
+
+    # Normalize assignments
     normalized_assignments = []
     for assignment in assignments:
-        difficulty = assignment.get("difficulty") or infer_task_difficulty(assignment.get("points_possible"), assignment.get("priority", "Medium"), assignment.get("due_date"))
-        normalized_assignments.append({**assignment, "difficulty": difficulty, "color": assignment.get("color") or PRIORITY_COLORS.get(assignment.get("priority", "Medium"), "#60a5fa")})
-    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-    assignment_text = "\n".join([f"- {a['title']} ({a['course']}) — Due: {a['due_date']}, Priority: {a['priority']}, Difficulty: {a['difficulty']}, Estimated time: {a['estimated_time']} minutes" for a in normalized_assignments])
-    custom_text = "\nAdditional tasks:\n" + "\n".join([f"- {t}" for t in custom_tasks]) if custom_tasks else ""
-    today = datetime.now().strftime("%Y-%m-%d")
-    prompt = f"""
-You are IntelliPlan — an adaptive academic study-planning system. Today is {today}.
+        difficulty = assignment.get("difficulty") or infer_task_difficulty(
+            assignment.get("points_possible"),
+            assignment.get("priority", "Medium"),
+            assignment.get("due_date"),
+        )
+        normalized_assignments.append({
+            **assignment,
+            "difficulty": difficulty,
+            "color": assignment.get("color") or PRIORITY_COLORS.get(
+                assignment.get("priority", "Medium"), "#60a5fa"
+            ),
+        })
 
-The student has {len(normalized_assignments)} assignments to complete:
-{assignment_text}
+    # Separate overdue from upcoming
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    overdue = [a for a in normalized_assignments if a.get("due_date", "9999") < today_str]
+    upcoming = [a for a in normalized_assignments if a.get("due_date", "9999") >= today_str]
+    
+    # Sort upcoming by due date
+    upcoming.sort(key=lambda x: x.get("due_date", "9999"))
+
+    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+    overdue_text = ""
+    if overdue:
+        overdue_text = f"\nOVERDUE — MUST BE SCHEDULED TODAY ({len(overdue)} assignments):\n" + "\n".join([
+            f"  ⚠ {a['title']} ({a['course']}) — was due {a['due_date']}, Priority: HIGH, Est: {a['estimated_time']}min"
+            for a in overdue
+        ])
+
+    upcoming_text = ""
+    if upcoming:
+        upcoming_text = f"\nUPCOMING ({len(upcoming)} assignments):\n" + "\n".join([
+            f"  - {a['title']} ({a['course']}) — Due: {a['due_date']}, Priority: {a['priority']}, Difficulty: {a['difficulty']}, Est: {a['estimated_time']}min"
+            for a in upcoming
+        ])
+
+    custom_text = ""
+    if custom_tasks:
+        custom_text = f"\nCUSTOM TASKS ADDED BY STUDENT — use EXACT names as written ({len(custom_tasks)}):\n" + "\n".join([
+            f"  - {t}" for t in custom_tasks
+        ])
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    total = len(normalized_assignments) + len(custom_tasks)
+
+    prompt = f"""You are IntelliPlan — an adaptive academic study-planning system. Today is {today}.
+
+You must schedule ALL {total} items below. Every single one must appear in the schedule.
+{overdue_text}
+{upcoming_text}
 {custom_text}
 
-The student can study {hours_per_day} hours per day and prefers {preferred_time}.
+Student availability: {hours_per_day} hours/day, prefers {preferred_time}.
 
-CRITICAL RULES — YOU MUST FOLLOW THESE:
-1. Every single assignment listed above MUST appear in the schedule at least once
-2. Overdue assignments (past due date) must be scheduled TODAY as the highest priority
-3. Custom tasks added by the student must use the EXACT text the student typed as the assignment name — do not change it, do not label it "Additional Task"
-4. Distribute work across multiple days — do not cluster everything on one day
-5. If an assignment needs more than one session, split it across multiple days
-6. Never schedule the same assignment twice on the same day
-7. High priority assignments must appear before medium and low priority ones
-8. Each day should have a mix of different assignments — not just one
-9. The schedule must span enough days to complete ALL assignments before their due dates
-10. Break sessions must follow every 45-60 minute work block
+RULES:
+1. ALL {total} items must appear in the schedule — no exceptions
+2. Overdue items go on Day 1 as first priority blocks
+3. Custom task names must be copied EXACTLY as written — do not rename them
+4. Spread assignments across multiple days — max 3 assignments per day unless unavoidable
+5. Split long assignments (>90min) across multiple days
+6. Add a 10min break after every 45min work block
+7. Never put the same assignment twice in one day
+8. Schedule must end before the latest due date
 
-SCHEDULE STRUCTURE:
-- Day 1 must include ALL overdue assignments as the first blocks
-- Remaining days distribute remaining assignments evenly
-- Each day should have 2-4 different assignments unless workload requires more
-- Sessions should be 25-50 minutes each
-- Breaks should be 5-15 minutes
-
-Return ONLY valid JSON with this exact structure:
+Return ONLY valid JSON:
 {{
   "schedule": [
     {{
       "date": "YYYY-MM-DD",
       "day_name": "Monday",
-      "total_hours": 2,
+      "total_hours": {hours_per_day},
       "blocks": [
         {{
-          "assignment": "EXACT assignment title here",
+          "assignment": "Exact title here",
           "course": "Course name",
           "duration_minutes": 45,
           "time_slot": "7:00 PM - 7:45 PM",
-          "notes": "Specific focus area for this session",
+          "notes": "What to focus on",
           "is_break": false
-        }},
-        {{
-          "assignment": "Break",
-          "course": "",
-          "duration_minutes": 10,
-          "time_slot": "7:45 PM - 7:55 PM",
-          "notes": "Rest and recharge",
-          "is_break": true
         }}
       ],
-      "daily_tip": "Specific actionable tip for today"
+      "daily_tip": "Actionable tip"
     }}
   ],
-  "overview": "Brief overview mentioning all {len(normalized_assignments)} assignments",
+  "overview": "Plan covering all {total} items",
   "total_study_time": "X hours Y minutes"
-}}
-"""
+}}"""
+
     try:
-        response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}], temperature=0.7, max_tokens=2000)
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.4,
+            max_tokens=4000,
+        )
         result = response.choices[0].message.content.strip()
         result = re.sub(r"```json\n?", "", result)
         result = re.sub(r"```\n?", "", result)
         schedule_data = json.loads(result)
-        schedule_data = enrich_schedule_data(schedule_data, normalized_assignments, preferred_time, hours_per_day)
+        schedule_data = enrich_schedule_data(
+            schedule_data, normalized_assignments, preferred_time, hours_per_day,
+        )
         return flask.jsonify({"status": "ok", "data": schedule_data})
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
