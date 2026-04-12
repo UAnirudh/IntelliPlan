@@ -9,6 +9,11 @@ from groq import Groq
 import re
 import json
 import uuid
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import (
@@ -38,12 +43,25 @@ except Exception as e:
     print(f"Notion not available: {e}")
     NOTION_AVAILABLE = False
 
+if os.getenv("SENTRY_DSN"):
+    sentry_sdk.init(
+        dsn=os.getenv("SENTRY_DSN"),
+        integrations=[FlaskIntegration()],
+        traces_sample_rate=0.1
+    )
+
+# Rate limiting
+limiter = Limiter(key_func=get_remote_address)
+
 load_dotenv()
 
 app = flask.Flask(
     __name__,
     template_folder="Main_Project/templates",
 )
+app.state = limiter
+app.register_error_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+limiter.init_app(app)
 app.secret_key = os.getenv("SECRET_KEY", "intelliplan-dev-key")
 app.permanent_session_lifetime = timedelta(days=7)
 
@@ -136,6 +154,29 @@ class SavedSchedule(db.Model):
     schedule_data = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
+
+class TaskFeedback(db.Model):
+    __tablename__ = "task_feedback"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    guest_session_id = db.Column(db.String(64), nullable=True)
+    title = db.Column(db.String(512), nullable=False)
+    course = db.Column(db.String(256), default="")
+    estimated_time = db.Column(db.Integer, default=60)
+    actual_time = db.Column(db.Integer, nullable=True)
+    difficulty = db.Column(db.String(16), default="Medium")
+    priority = db.Column(db.String(16), default="Medium")
+    completed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    day_of_week = db.Column(db.String(16), default="")
+    time_of_day = db.Column(db.String(16), default="")
+
+class PushSubscription(db.Model):
+    __tablename__ = "push_subscriptions"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    guest_session_id = db.Column(db.String(64), nullable=True)
+    subscription_json = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 with app.app_context():
     db.create_all()
@@ -693,6 +734,7 @@ def account_delete():
 
 # ── DATA ROUTES ───────────────────────────────────────────────
 @app.route("/live")
+@limiter.limit("30 per minute")
 def get_live_schedule():
     acct = get_active_account()
     if not acct:
@@ -873,6 +915,7 @@ def save_description():
     return flask.jsonify({"status": "ok"})
 
 @app.route("/generate_schedule", methods=["POST"])
+@limiter.limit("10 per hour")
 def generate_schedule():
     data = request.json
     assignments = data.get("assignments", [])
@@ -1458,6 +1501,104 @@ def calendar_export():
         print(f"Calendar export error: {e}")
         return flask.jsonify({"status": "error", "message": str(e)})
 
+@app.route("/feedback/complete", methods=["POST"])
+def feedback_complete():
+    data = request.json
+    title = data.get("title", "").strip()
+    actual_time = data.get("actual_time")
+    if not title:
+        return flask.jsonify({"status": "error"})
+    
+    now = datetime.now()
+    hour = now.hour
+    time_of_day = "morning" if hour < 12 else "afternoon" if hour < 17 else "evening"
+    
+    feedback = TaskFeedback(
+        user_id=current_user.id if current_user.is_authenticated else None,
+        guest_session_id=None if current_user.is_authenticated else get_guest_session_id(),
+        title=title,
+        course=data.get("course", ""),
+        estimated_time=data.get("estimated_time", 60),
+        actual_time=int(actual_time) if actual_time else None,
+        difficulty=data.get("difficulty", "Medium"),
+        priority=data.get("priority", "Medium"),
+        day_of_week=now.strftime("%a"),
+        time_of_day=time_of_day
+    )
+    db.session.add(feedback)
+    
+    # Also dismiss the assignment
+    if data.get("dismiss"):
+        save_dismissed(title, data)
+    
+    db.session.commit()
+    return flask.jsonify({"status": "ok"})
+
+@app.route("/feedback/export")
+def feedback_export():
+    """Export training data as CSV — for model training later."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error"})
+    rows = TaskFeedback.query.filter_by(user_id=current_user.id).all()
+    import csv, io
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Subject", "Estimate", "Actual", "Difficulty", "Priority", "DayOfWeek", "TimeOfDay"])
+    for r in rows:
+        writer.writerow([r.course, r.estimated_time, r.actual_time or "", r.difficulty, r.priority, r.day_of_week, r.time_of_day])
+    output.seek(0)
+    return flask.Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment;filename=intelliplan_data.csv"}
+    )
+
+@app.route("/push/subscribe", methods=["POST"])
+def push_subscribe():
+    data = request.json
+    sub_json = json.dumps(data.get("subscription"))
+    uid = current_user.id if current_user.is_authenticated else None
+    gid = None if current_user.is_authenticated else get_guest_session_id()
+    existing = PushSubscription.query.filter_by(
+        user_id=uid, guest_session_id=gid
+    ).first()
+    if existing:
+        existing.subscription_json = sub_json
+    else:
+        db.session.add(PushSubscription(
+            user_id=uid,
+            guest_session_id=gid,
+            subscription_json=sub_json
+        ))
+    db.session.commit()
+    return flask.jsonify({"status": "ok"})
+
+@app.route("/push/test", methods=["POST"])
+def push_test():
+    uid = current_user.id if current_user.is_authenticated else None
+    gid = None if current_user.is_authenticated else get_guest_session_id()
+    sub = PushSubscription.query.filter_by(user_id=uid, guest_session_id=gid).first()
+    if not sub:
+        return flask.jsonify({"status": "error", "message": "No subscription"})
+    try:
+        from pywebpush import webpush, WebPushException
+        webpush(
+            subscription_info=json.loads(sub.subscription_json),
+            data=json.dumps({"title": "IntelliPlan", "body": "Notifications are working! 🎉"}),
+            vapid_private_key=os.getenv("VAPID_PRIVATE_KEY"),
+            vapid_claims={"sub": f"mailto:{os.getenv('VAPID_EMAIL', 'hello@intelliplan.app')}"}
+        )
+        return flask.jsonify({"status": "ok"})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)})
+
+@app.route("/push/vapid-public")
+def vapid_public():
+    return flask.jsonify({"key": os.getenv("VAPID_PUBLIC_KEY", "")})
+
+@app.route("/legal")
+def legal():
+    return render_template("legal.html", active_page="legal")
 
 if __name__ == "__main__":
     with app.app_context():
