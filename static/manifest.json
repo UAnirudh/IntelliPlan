@@ -1,12 +1,21 @@
 {
+  "id": "/",
   "name": "IntelliPlan",
   "short_name": "IntelliPlan",
-  "description": "AI-powered study planning for students",
-  "start_url": "/",
+  "description": "AI-powered study planning for students — schedule smarter, not harder.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "lang": "en",
+  "dir": "ltr",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui", "browser"],
   "background_color": "#f0f6ff",
   "theme_color": "#3b82f6",
   "orientation": "portrait-primary",
+  "categories": ["education", "productivity", "utilities"],
+  "iarc_rating_id": "",
+  "prefer_related_applications": false,
+  "related_applications": [],
   "icons": [
     {
       "src": "/static/icons/icon-192.png",
@@ -19,6 +28,95 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View your task dashboard",
+      "url": "/dashboard",
+      "icons": [{ "src": "/static/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "AI Scheduler",
+      "short_name": "Scheduler",
+      "description": "Generate a study plan",
+      "url": "/scheduler",
+      "icons": [{ "src": "/static/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Grade Modeler",
+      "short_name": "Grades",
+      "description": "Model your target grades",
+      "url": "/gradebook",
+      "icons": [{ "src": "/static/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "share_target": {
+    "action": "/dashboard",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "launch_handler": {
+    "client_mode": ["navigate-existing", "auto"]
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+intelliplan",
+      "url": "/dashboard?from=%s"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "/dashboard",
+      "accept": {
+        "text/csv": [".csv"],
+        "application/json": [".json"]
+      }
+    }
+  ],
+  "scope_extensions": [],
+  "note_taking": {
+    "new_note_url": "/dashboard"
+  },
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "widgets": [
+    {
+      "name": "IntelliPlan Today",
+      "short_name": "Today",
+      "description": "See your tasks due today",
+      "tag": "today-tasks",
+      "template": "calendar-small",
+      "ms_ac_template": "/static/widgets/today.json",
+      "url": "/dashboard",
+      "icons": [{ "src": "/static/icons/icon-192.png", "sizes": "192x192" }],
+      "backgrounds": [{ "src": "/static/icons/icon-192.png", "sizes": "192x192" }],
+      "screenshots": [],
+      "auth": true,
+      "update": 900
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "IntelliPlan Dashboard"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "IntelliPlan on desktop"
     }
   ]
 }
