@@ -1,3 +1,4 @@
+<!-- extension/popup.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -306,28 +307,27 @@
   </style>
 </head>
 <body>
-
-<div class="header">
-  <div class="logo">
-    <div class="logo-icon">📅</div>
-    Intelli<span>Plan</span>
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">📅</div>
+      Intelli<span>Plan</span>
+    </div>
+    <button class="open-btn" id="openAppBtn">Open App ↗</button>
   </div>
-  <button class="open-btn" onclick="openApp()">Open App ↗</button>
-</div>
 
-<div class="tabs">
-  <button class="tab active" onclick="switchTab('tasks')">📋 Tasks</button>
-  <button class="tab" onclick="switchTab('schedule')">📅 Today</button>
-  <button class="tab" onclick="switchTab('grades')">📊 Grades</button>
-</div>
-
-<div class="content" id="content">
-  <div class="loading">
-    <div class="spinner"></div>
-    Loading...
+  <div class="tabs">
+    <button class="tab active" data-tab="tasks">📋 Tasks</button>
+    <button class="tab" data-tab="schedule">📅 Today</button>
+    <button class="tab" data-tab="grades">📊 Grades</button>
   </div>
-</div>
 
-<script src="popup.js"></script>
+  <div class="content" id="content">
+    <div class="loading">
+      <div class="spinner"></div>
+      Loading...
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
 </body>
 </html>

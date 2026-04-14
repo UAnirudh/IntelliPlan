@@ -1,16 +1,9 @@
+// extension/popup.js
 const BASE_URL = "https://intelliplan.up.railway.app";
 let currentTab = "tasks";
 
 function openApp() {
   chrome.tabs.create({ url: BASE_URL + "/dashboard" });
-}
-
-function switchTab(tab) {
-  currentTab = tab;
-  document.querySelectorAll(".tab").forEach((t, i) => {
-    t.classList.toggle("active", ["tasks", "schedule", "grades"][i] === tab);
-  });
-  loadTab(tab);
 }
 
 async function fetchFromApp(endpoint) {
@@ -26,26 +19,52 @@ async function fetchFromApp(endpoint) {
   }
 }
 
-async function loadTab(tab) {
-  const content = document.getElementById("content");
-  content.innerHTML = `<div class="loading"><div class="spinner"></div>Loading...</div>`;
+function gradeColor(letter) {
+  if (!letter) return { bg: "#f1f5f9", color: "#64748b" };
+  if (letter.startsWith("A")) return { bg: "#f0fdf4", color: "#22c55e" };
+  if (letter.startsWith("B")) return { bg: "#dbeafe", color: "#3b82f6" };
+  if (letter.startsWith("C")) return { bg: "#fffbeb", color: "#f59e0b" };
+  return { bg: "#fef2f2", color: "#ef4444" };
+}
 
-  if (tab === "tasks") await loadTasks(content);
-  else if (tab === "schedule") await loadSchedule(content);
-  else if (tab === "grades") await loadGrades(content);
+function notConnected() {
+  return `
+    <div class="not-connected">
+      <div style="font-size:2rem;margin-bottom:12px;">🔗</div>
+      <p>You need to be logged in to IntelliPlan to see your data.</p>
+      <button class="connect-btn" id="connectBtn">
+        Sign in to IntelliPlan
+      </button>
+    </div>`;
+}
+
+function taskCard(t, priority) {
+  const isMissing = t.is_missing || t.source === "studentvue_missing";
+  return `
+    <div class="task-card ${isMissing ? "missing" : priority}">
+      <div class="task-title">${t.title}${isMissing ? ` <span style="color:#ef4444;font-size:0.68rem;">(${t.score_label || "Missing"})</span>` : ""}</div>
+      <div class="task-meta">
+        ${t.due_date ? `<span class="pill due">📅 ${t.due_date}</span>` : ""}
+        <span class="pill ${priority}">${t.priority || "Medium"}</span>
+        ${t.course && t.course !== "Unknown" ? `<span class="pill course">${t.course}</span>` : ""}
+        ${isMissing ? `<span class="pill missing">Missing</span>` : ""}
+      </div>
+    </div>`;
 }
 
 async function loadTasks(content) {
   const data = await fetchFromApp("/tasks/unified");
   if (!data) {
     content.innerHTML = notConnected();
+    const connectBtn = document.getElementById("connectBtn");
+    if (connectBtn) connectBtn.addEventListener("click", openApp);
     return;
   }
 
   const all = [
-    ...data.overdue.map(t => ({ ...t, _bucket: "overdue" })),
-    ...data.today.map(t => ({ ...t, _bucket: "today" })),
-    ...data.upcoming.map(t => ({ ...t, _bucket: "upcoming" }))
+    ...(data.overdue || []).map(t => ({ ...t, _bucket: "overdue" })),
+    ...(data.today || []).map(t => ({ ...t, _bucket: "today" })),
+    ...(data.upcoming || []).map(t => ({ ...t, _bucket: "upcoming" }))
   ];
 
   if (!all.length) {
@@ -53,9 +72,9 @@ async function loadTasks(content) {
     return;
   }
 
-  const overdue = data.overdue.length;
-  const today = data.today.length;
-  const upcoming = data.upcoming.length;
+  const overdue = (data.overdue || []).length;
+  const today = (data.today || []).length;
+  const upcoming = (data.upcoming || []).length;
 
   let html = `
     <div class="stats-row">
@@ -74,25 +93,30 @@ async function loadTasks(content) {
     </div>
   `;
 
-  if (data.overdue.length) {
+  if ((data.overdue || []).length) {
     html += `<div class="section-label">⚠ Overdue</div>`;
     html += data.overdue.map(t => taskCard(t, "high")).join("");
   }
 
-  if (data.today.length) {
+  if ((data.today || []).length) {
     html += `<div class="section-label">📅 Due Today</div>`;
-    html += data.today.map(t => taskCard(t, t.priority?.toLowerCase() || "medium")).join("");
+    html += data.today.map(t => taskCard(t, (t.priority || "medium").toLowerCase())).join("");
   }
 
-  if (data.upcoming.length) {
+  if ((data.upcoming || []).length) {
     html += `<div class="section-label">🗓 Upcoming</div>`;
-    html += data.upcoming.slice(0, 5).map(t => taskCard(t, t.priority?.toLowerCase() || "low")).join("");
+    html += data.upcoming.slice(0, 5).map(t => taskCard(t, (t.priority || "low").toLowerCase())).join("");
     if (data.upcoming.length > 5) {
-      html += `<div style="text-align:center;font-size:0.75rem;color:#94a3b8;padding:8px;">+${data.upcoming.length - 5} more — <a href="#" onclick="openApp()" style="color:#3b82f6;">open app</a></div>`;
+      html += `<div style="text-align:center;font-size:0.75rem;color:#94a3b8;padding:8px;">+${data.upcoming.length - 5} more — <a href="#" id="openAppLink" style="color:#3b82f6;">open app</a></div>`;
     }
   }
 
   content.innerHTML = html;
+  const openAppLink = document.getElementById("openAppLink");
+  if (openAppLink) openAppLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    openApp();
+  });
 }
 
 async function loadSchedule(content) {
@@ -102,15 +126,22 @@ async function loadSchedule(content) {
       <div class="empty">
         <div style="font-size:1.5rem;margin-bottom:8px;">📅</div>
         No saved schedule.<br>
-        <a href="#" onclick="chrome.tabs.create({url:'${BASE_URL}/scheduler'})" style="color:#3b82f6;font-size:0.82rem;">Generate one in IntelliPlan ↗</a>
+        <a href="#" id="openSchedulerLink" style="color:#3b82f6;font-size:0.82rem;">Generate one in IntelliPlan ↗</a>
       </div>`;
+    const link = document.getElementById("openSchedulerLink");
+    if (link) {
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        chrome.tabs.create({ url: BASE_URL + "/scheduler" });
+      });
+    }
     return;
   }
 
   const todayStr = new Date().toISOString().split("T")[0];
   const todayDay = data.data?.schedule?.find(d => d.date === todayStr);
 
-  let html = `<div class="section-label">📅 ${data.name}</div>`;
+  let html = `<div class="section-label">📅 ${data.name || "Today"}</div>`;
 
   if (!todayDay || !todayDay.blocks?.length) {
     html += `<div class="empty">No blocks scheduled for today.</div>`;
@@ -118,13 +149,10 @@ async function loadSchedule(content) {
     return;
   }
 
-  const studyBlocks = todayDay.blocks.filter(b => !b.is_break);
-  const breakBlocks = todayDay.blocks.filter(b => b.is_break);
-
   html += `
     <div class="stats-row">
       <div class="stat-box">
-        <div class="stat-num">${studyBlocks.length}</div>
+        <div class="stat-num">${todayDay.blocks.filter(b => !b.is_break).length}</div>
         <div class="stat-lbl">Blocks</div>
       </div>
       <div class="stat-box">
@@ -172,6 +200,8 @@ async function loadGrades(content) {
   const data = await fetchFromApp("/grades/data");
   if (!data) {
     content.innerHTML = notConnected();
+    const connectBtn = document.getElementById("connectBtn");
+    if (connectBtn) connectBtn.addEventListener("click", openApp);
     return;
   }
   if (!data.length) {
@@ -199,38 +229,27 @@ async function loadGrades(content) {
   content.innerHTML = html;
 }
 
-function taskCard(t, priority) {
-  const isMissing = t.is_missing || t.source === "studentvue_missing";
-  return `
-    <div class="task-card ${isMissing ? "missing" : priority}">
-      <div class="task-title">${t.title}${isMissing ? ` <span style="color:#ef4444;font-size:0.68rem;">(${t.score_label || "Missing"})</span>` : ""}</div>
-      <div class="task-meta">
-        ${t.due_date ? `<span class="pill due">📅 ${t.due_date}</span>` : ""}
-        <span class="pill ${priority}">${t.priority || "Medium"}</span>
-        ${t.course && t.course !== "Unknown" ? `<span class="pill course">${t.course}</span>` : ""}
-        ${isMissing ? `<span class="pill missing">Missing</span>` : ""}
-      </div>
-    </div>`;
+async function loadTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll(".tab").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.tab === tab);
+  });
+
+  const content = document.getElementById("content");
+  content.innerHTML = `<div class="loading"><div class="spinner"></div>Loading...</div>`;
+
+  if (tab === "tasks") await loadTasks(content);
+  else if (tab === "schedule") await loadSchedule(content);
+  else if (tab === "grades") await loadGrades(content);
 }
 
-function gradeColor(letter) {
-  if (!letter) return { bg: "#f1f5f9", color: "#64748b" };
-  if (letter.startsWith("A")) return { bg: "#f0fdf4", color: "#22c55e" };
-  if (letter.startsWith("B")) return { bg: "#dbeafe", color: "#3b82f6" };
-  if (letter.startsWith("C")) return { bg: "#fffbeb", color: "#f59e0b" };
-  return { bg: "#fef2f2", color: "#ef4444" };
-}
+document.addEventListener("DOMContentLoaded", () => {
+  const openAppBtn = document.getElementById("openAppBtn");
+  if (openAppBtn) openAppBtn.addEventListener("click", openApp);
 
-function notConnected() {
-  return `
-    <div class="not-connected">
-      <div style="font-size:2rem;margin-bottom:12px;">🔗</div>
-      <p>You need to be logged in to IntelliPlan to see your data.</p>
-      <button class="connect-btn" onclick="chrome.tabs.create({url:'${BASE_URL}/login'})">
-        Sign in to IntelliPlan
-      </button>
-    </div>`;
-}
+  document.querySelectorAll(".tab").forEach(btn => {
+    btn.addEventListener("click", () => loadTab(btn.dataset.tab));
+  });
 
-// Init
-loadTab("tasks");
+  loadTab("tasks");
+});
