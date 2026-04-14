@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>IntelliPlan Settings</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; padding: 2rem; max-width: 500px; color: #0f172a; }
+    h1 { font-size: 1.3rem; margin-bottom: 1rem; }
+    .setting { margin-bottom: 1.5rem; }
+    label { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; cursor: pointer; }
+    input[type="checkbox"] { width: 16px; height: 16px; accent-color: #3b82f6; }
+    .desc { font-size: 0.78rem; color: #64748b; margin-top: 4px; margin-left: 26px; }
+    button { padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 0.9rem; font-weight: 600; }
+    .saved { color: #22c55e; font-size: 0.85rem; margin-left: 12px; display: none; }
+  </style>
+</head>
+<body>
+  <h1>📅 IntelliPlan Settings</h1>
+
+  <div class="setting">
+    <label>
+      <input type="checkbox" id="notifOverdue" checked />
+      Notify me about overdue assignments
+    </label>
+    <div class="desc">Get a browser notification when you have overdue work</div>
+  </div>
+
+  <div class="setting">
+    <label>
+      <input type="checkbox" id="notifToday" checked />
+      Notify me about assignments due today
+    </label>
+    <div class="desc">Daily reminder when you have assignments due today</div>
+  </div>
+
+  <div class="setting">
+    <label>
+      <input type="checkbox" id="showButton" checked />
+      Show IntelliPlan button on Canvas and StudentVue
+    </label>
+    <div class="desc">Adds a quick-access button to your school portals</div>
+  </div>
+
+  <button onclick="saveSettings()">Save Settings</button>
+  <span class="saved" id="saved">✓ Saved</span>
+
+  <script>
+    chrome.storage.sync.get(
+      { notifOverdue: true, notifToday: true, showButton: true },
+      (settings) => {
+        document.getElementById("notifOverdue").checked = settings.notifOverdue;
+        document.getElementById("notifToday").checked = settings.notifToday;
+        document.getElementById("showButton").checked = settings.showButton;
+      }
+    );
+
+    function saveSettings() {
+      chrome.storage.sync.set({
+        notifOverdue: document.getElementById("notifOverdue").checked,
+        notifToday: document.getElementById("notifToday").checked,
+        showButton: document.getElementById("showButton").checked,
+      }, () => {
+        const saved = document.getElementById("saved");
+        saved.style.display = "inline";
+        setTimeout(() => { saved.style.display = "none"; }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>
