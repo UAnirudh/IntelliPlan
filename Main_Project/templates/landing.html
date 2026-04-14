@@ -6,11 +6,11 @@
 <div class="hero">
   <div class="hero-badge">✨ AI-Powered Study Planning</div>
   <h1 class="hero-title">Study Smarter,<br>Not Harder.</h1>
-  <p class="hero-subtitle">IntelliPlan connects to your Canvas courses and builds a personalized study schedule — automatically prioritized by due date, difficulty, and your available time.</p>
+  <p class="hero-subtitle">IntelliPlan connects to your school courses and builds a personalized study schedule — automatically prioritized by due date, difficulty, and your available time.</p>
   <div class="hero-actions">
     <a href="/schedule" class="btn-primary">Get Started Free</a>
     <a href="#features" class="btn-secondary">See How It Works</a>
-    <a href="/static/IntelliPlan.apk" class="btn-secondary" download style="display:flex;align-items:center;gap:8px;">📱 Download Android App</a>
+    <a href="/static/IntelliPlan.apk" class="btn-secondary" download onclick="setTimeout(() => window.location.href='/install', 500)">📱 Download Android App</a>  
   </div>
 </div>
 
@@ -24,7 +24,7 @@
     <div class="feature-card">
       <div class="feature-icon">📅</div>
       <h3 class="feature-title">Smart Scheduling</h3>
-      <p class="feature-desc">Automatically pulls assignments from Canvas and prioritizes them by urgency, points, and due date.</p>
+      <p class="feature-desc">Automatically pulls assignments from 3rd party services and prioritizes them by urgency, points, and due date.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon">🎯</div>
@@ -61,4 +61,39 @@
   <a href="/schedule" class="btn-primary">Get Started Free</a>
 </div>
 
+<!-- Integrations Section -->
+<div class="features" id="integrations">
+  <div class="features-header">
+    <h2 class="features-title">Current Integrations</h2>
+    <p class="features-subtitle">Services IntelliPlan currently connects with</p>
+  </div>
+
+  <div class="features-grid">
+
+    <div class="feature-card">
+      <div class="feature-icon">🏫</div>
+      <h3 class="feature-title">School Platforms</h3>
+      <p class="feature-desc">Connects to student portals like Schoology for assignment syncing and course tracking.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">📅</div>
+      <h3 class="feature-title">Google Calendar</h3>
+      <p class="feature-desc">Exports AI-generated schedules directly into Google Calendar for seamless planning.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">🔔</div>
+      <h3 class="feature-title">Notifications</h3>
+      <p class="feature-desc">Browser and system notifications for upcoming deadlines and priority tasks.</p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">📱</div>
+      <h3 class="feature-title">Android App</h3>
+      <p class="feature-desc">APK-based mobile app for offline access and quick schedule viewing on the go.</p>
+    </div>
+
+  </div>
+</div>
 {% endblock %}
