@@ -1,4 +1,13 @@
+// extension/popup.js
 const BASE_URL = "https://intelliplan.up.railway.app";
+
+const AUTH_ENDPOINTS = {
+  login: ["/api/auth/login", "/auth/login", "/login", "/api/login"],
+  register: ["/api/auth/register", "/auth/register", "/signup", "/register", "/api/signup"],
+  me: ["/api/auth/me", "/auth/me", "/me", "/api/user", "/api/profile"],
+  logout: ["/api/auth/logout", "/auth/logout", "/logout", "/api/logout"]
+};
+
 const STORAGE_KEYS = {
   token: "intelliplan_token",
   user: "intelliplan_user"
@@ -11,8 +20,8 @@ function openApp() {
   chrome.tabs.create({ url: BASE_URL + "/dashboard" });
 }
 
-function setText(id, text, cls = "") {
-  const el = document.getElementById(id);
+function setStatus(text, cls = "") {
+  const el = document.getElementById("authStatus");
   if (!el) return;
   el.className = `status ${cls}`.trim();
   el.textContent = text || "";
@@ -27,20 +36,18 @@ function showAuthMode(mode) {
   const submitBtn = document.getElementById("authSubmitBtn");
   const passwordInput = document.getElementById("passwordInput");
 
-  loginBtn.classList.toggle("active", mode === "login");
-  signupBtn.classList.toggle("active", mode === "signup");
+  if (loginBtn) loginBtn.classList.toggle("active", mode === "login");
+  if (signupBtn) signupBtn.classList.toggle("active", mode === "signup");
 
-  if (mode === "signup") {
-    nameField.classList.remove("hidden");
-    submitBtn.textContent = "Create account";
-    passwordInput.autocomplete = "new-password";
-  } else {
-    nameField.classList.add("hidden");
-    submitBtn.textContent = "Login";
-    passwordInput.autocomplete = "current-password";
+  if (nameField) {
+    if (mode === "signup") nameField.classList.remove("hidden");
+    else nameField.classList.add("hidden");
   }
 
-  setText("authStatus", "");
+  if (submitBtn) submitBtn.textContent = mode === "login" ? "Login" : "Create account";
+  if (passwordInput) passwordInput.autocomplete = mode === "login" ? "current-password" : "new-password";
+
+  setStatus("");
 }
 
 function getStorage(keys) {
@@ -85,35 +92,104 @@ async function apiFetch(path, options = {}) {
     headers.Authorization = `Bearer ${session.token}`;
   }
 
-  const res = await fetch(BASE_URL + path, {
+  return fetch(BASE_URL + path, {
     credentials: "include",
     ...options,
     headers
   });
-
-  return res;
 }
 
-async function authRequest(path, payload) {
-  const res = await fetch(BASE_URL + path, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
+async function tryEndpoints(paths, payload, options = {}) {
+  let lastError = null;
 
-  let data = null;
-  try {
-    data = await res.json();
-  } catch (_) {
-    data = null;
+  for (const path of paths) {
+    try {
+      const res = await fetch(BASE_URL + path, {
+        method: options.method || "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(options.headers || {})
+        },
+        body: payload !== undefined ? JSON.stringify(payload) : undefined
+      });
+
+      let data = null;
+      try {
+        data = await res.json();
+      } catch (_) {
+        data = null;
+      }
+
+      if (res.ok) {
+        return { ok: true, path, status: res.status, data };
+      }
+
+      lastError = {
+        path,
+        status: res.status,
+        message: data?.message || data?.error || `HTTP ${res.status}`
+      };
+    } catch (err) {
+      lastError = {
+        path,
+        status: 0,
+        message: err.message || "Network error"
+      };
+    }
   }
 
-  if (!res.ok) {
-    throw new Error(data?.message || `HTTP ${res.status}`);
+  return { ok: false, error: lastError };
+}
+
+function extractToken(data) {
+  if (!data || typeof data !== "object") return null;
+  return (
+    data.token ||
+    data.access_token ||
+    data.accessToken ||
+    data.jwt ||
+    data.session_token ||
+    data.sessionToken ||
+    null
+  );
+}
+
+function extractUser(data, fallbackEmail = "", fallbackName = "") {
+  if (data?.user && typeof data.user === "object") return data.user;
+  if (data?.account && typeof data.account === "object") return data.account;
+  if (data?.profile && typeof data.profile === "object") return data.profile;
+
+  return {
+    name: data?.name || fallbackName || "",
+    email: data?.email || fallbackEmail || ""
+  };
+}
+
+async function authRequest(mode, payload) {
+  const endpoints = AUTH_ENDPOINTS[mode];
+  const result = await tryEndpoints(endpoints, payload);
+
+  if (!result.ok) {
+    const err = result.error || {};
+    const tried = endpoints.join(", ");
+    throw new Error(
+      `Auth failed. Tried: ${tried}. Last response: ${err.message || "unknown error"}`
+    );
   }
 
-  return data;
+  const token = extractToken(result.data);
+  const user = extractUser(
+    result.data,
+    payload.email || "",
+    payload.name || ""
+  );
+
+  if (!token) {
+    throw new Error(`Auth succeeded on ${result.path}, but no token was returned.`);
+  }
+
+  return { token, user, path: result.path, data: result.data };
 }
 
 function gradeColor(letter) {
@@ -122,6 +198,14 @@ function gradeColor(letter) {
   if (String(letter).startsWith("B")) return { bg: "#dbeafe", color: "#3b82f6" };
   if (String(letter).startsWith("C")) return { bg: "#fffbeb", color: "#f59e0b" };
   return { bg: "#fef2f2", color: "#ef4444" };
+}
+
+function notConnected() {
+  return `
+    <div class="empty">
+      <div style="font-size:2rem;margin-bottom:12px;">🔗</div>
+      You are not signed in.
+    </div>`;
 }
 
 function taskCard(t, priority) {
@@ -135,14 +219,6 @@ function taskCard(t, priority) {
         ${t.course && t.course !== "Unknown" ? `<span class="pill course">${t.course}</span>` : ""}
         ${isMissing ? `<span class="pill missing">Missing</span>` : ""}
       </div>
-    </div>`;
-}
-
-function notConnected() {
-  return `
-    <div class="empty">
-      <div style="font-size:2rem;margin-bottom:12px;">🔗</div>
-      You are not signed in.
     </div>`;
 }
 
@@ -219,6 +295,7 @@ async function loadSchedule(content) {
         No saved schedule.<br>
         <a href="#" id="openSchedulerLink" style="color:#3b82f6;font-size:0.82rem;">Generate one in IntelliPlan ↗</a>
       </div>`;
+
     const link = document.getElementById("openSchedulerLink");
     if (link) {
       link.addEventListener("click", (e) => {
@@ -337,53 +414,47 @@ async function loadTab(tab) {
 
 async function handleAuthSubmit(event) {
   event.preventDefault();
-  setText("authStatus", "");
+  setStatus("");
 
   const name = document.getElementById("nameInput").value.trim();
   const email = document.getElementById("emailInput").value.trim();
   const password = document.getElementById("passwordInput").value;
 
   if (!email || !password || (authMode === "signup" && !name)) {
-    setText("authStatus", "Fill out every required field.", "error");
+    setStatus("Fill out every required field.", "error");
     return;
   }
 
   const submitBtn = document.getElementById("authSubmitBtn");
-  submitBtn.disabled = true;
-  submitBtn.textContent = authMode === "login" ? "Signing in..." : "Creating account...";
+  const originalText = submitBtn ? submitBtn.textContent : "";
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = authMode === "login" ? "Signing in..." : "Creating account...";
+  }
 
   try {
-    const endpoint = authMode === "login" ? "/api/auth/login" : "/api/auth/register";
     const payload = authMode === "login"
       ? { email, password }
       : { name, email, password };
 
-    const data = await authRequest(endpoint, payload);
+    const result = await authRequest(authMode === "login" ? "login" : "register", payload);
 
-    const token = data.token || data.access_token || data.jwt || null;
-    const user = data.user || data.account || data.profile || {
-      name: data.name || name || "",
-      email
-    };
-
-    if (!token) {
-      throw new Error("No token returned from server.");
-    }
-
-    await setSession(token, user);
-    setText("authStatus", "Signed in.", "ok");
+    await setSession(result.token, result.user);
+    setStatus("Signed in.", "ok");
     await showApp();
   } catch (err) {
-    setText("authStatus", err.message || "Authentication failed.", "error");
+    setStatus(err.message || "Authentication failed.", "error");
   } finally {
-    submitBtn.disabled = false;
-    submitBtn.textContent = authMode === "login" ? "Login" : "Create account";
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText || (authMode === "login" ? "Login" : "Create account");
+    }
   }
 }
 
 async function logout() {
   try {
-    await apiFetch("/api/auth/logout", { method: "POST" });
+    await tryEndpoints(AUTH_ENDPOINTS.logout, null, { method: "POST" });
   } catch (_) {
     // ignore
   } finally {
@@ -419,27 +490,38 @@ async function validateSession() {
     return;
   }
 
-  try {
-    const res = await apiFetch("/api/auth/me", { method: "GET" });
-    if (!res.ok) throw new Error("Session invalid");
-    const data = await res.json();
-    if (data?.user) {
-      await setStorage({ [STORAGE_KEYS.user]: data.user });
+  const res = await apiFetch(AUTH_ENDPOINTS.me[0], { method: "GET" }).catch(() => null);
+
+  if (res && res.ok) {
+    try {
+      const data = await res.json();
+      if (data?.user) {
+        await setStorage({ [STORAGE_KEYS.user]: data.user });
+      }
+      await showApp();
+      return;
+    } catch (_) {
+      // fall through
     }
-    await showApp();
-  } catch (_) {
-    await clearSession();
-    await showAuth();
   }
+
+  await clearSession();
+  await showAuth();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("openAppBtn").addEventListener("click", openApp);
-  document.getElementById("logoutBtn").addEventListener("click", logout);
+  const openAppBtn = document.getElementById("openAppBtn");
+  const logoutBtn = document.getElementById("logoutBtn");
+  const loginModeBtn = document.getElementById("loginModeBtn");
+  const signupModeBtn = document.getElementById("signupModeBtn");
+  const authForm = document.getElementById("authForm");
 
-  document.getElementById("loginModeBtn").addEventListener("click", () => showAuthMode("login"));
-  document.getElementById("signupModeBtn").addEventListener("click", () => showAuthMode("signup"));
-  document.getElementById("authForm").addEventListener("submit", handleAuthSubmit);
+  if (openAppBtn) openAppBtn.addEventListener("click", openApp);
+  if (logoutBtn) logoutBtn.addEventListener("click", logout);
+
+  if (loginModeBtn) loginModeBtn.addEventListener("click", () => showAuthMode("login"));
+  if (signupModeBtn) signupModeBtn.addEventListener("click", () => showAuthMode("signup"));
+  if (authForm) authForm.addEventListener("submit", handleAuthSubmit);
 
   document.querySelectorAll(".tab").forEach(btn => {
     btn.addEventListener("click", () => loadTab(btn.dataset.tab));
