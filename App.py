@@ -1740,6 +1740,10 @@ def vapid_public():
 def legal():
     return render_template("legal.html", active_page="legal")
 
+@app.route("/install")
+def install():
+    return render_template("install.html")
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()

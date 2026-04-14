@@ -1434,6 +1434,16 @@
             --footer-link: #60a5fa;
         }
     }
+    .nav-tab.logout-btn {
+      background: transparent;
+      border: none;
+      font: inherit;
+      cursor: pointer;
+    }
+    .nav-tab.logout-btn:hover {
+      background: var(--high-bg);
+      color: var(--high);
+    }
   }
   </style>
   <link rel="manifest" href="/static/manifest.json">
@@ -1480,9 +1490,9 @@
       <div class="nav-group">
         {% if logged_in %}
           <a href="/settings" class="nav-tab {% if active_page == 'settings' %}active{% endif %}">⚙</a>
-          <form action="/logout" method="POST" style="margin:0;">
-            <button type="submit" class="nav-tab">Logout</button>
-          </form>
+          <button type="submit" class="nav-tab logout-btn" formaction="/logout" formmethod="POST">
+            Logout
+          </button>
         {% else %}
           <a href="/login" class="nav-tab {% if active_page == 'login' %}active{% endif %}">Login</a>
         {% endif %}
