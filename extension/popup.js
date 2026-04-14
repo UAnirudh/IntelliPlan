@@ -1,41 +1,127 @@
-// extension/popup.js
 const BASE_URL = "https://intelliplan.up.railway.app";
+const STORAGE_KEYS = {
+  token: "intelliplan_token",
+  user: "intelliplan_user"
+};
+
 let currentTab = "tasks";
+let authMode = "login";
 
 function openApp() {
   chrome.tabs.create({ url: BASE_URL + "/dashboard" });
 }
 
-async function fetchFromApp(endpoint) {
-  try {
-    const res = await fetch(BASE_URL + endpoint, {
-      credentials: "include",
-      headers: { "Content-Type": "application/json" }
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch (e) {
-    return null;
+function setText(id, text, cls = "") {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = `status ${cls}`.trim();
+  el.textContent = text || "";
+}
+
+function showAuthMode(mode) {
+  authMode = mode;
+
+  const loginBtn = document.getElementById("loginModeBtn");
+  const signupBtn = document.getElementById("signupModeBtn");
+  const nameField = document.getElementById("nameField");
+  const submitBtn = document.getElementById("authSubmitBtn");
+  const passwordInput = document.getElementById("passwordInput");
+
+  loginBtn.classList.toggle("active", mode === "login");
+  signupBtn.classList.toggle("active", mode === "signup");
+
+  if (mode === "signup") {
+    nameField.classList.remove("hidden");
+    submitBtn.textContent = "Create account";
+    passwordInput.autocomplete = "new-password";
+  } else {
+    nameField.classList.add("hidden");
+    submitBtn.textContent = "Login";
+    passwordInput.autocomplete = "current-password";
   }
+
+  setText("authStatus", "");
+}
+
+function getStorage(keys) {
+  return new Promise((resolve) => chrome.storage.local.get(keys, resolve));
+}
+
+function setStorage(items) {
+  return new Promise((resolve) => chrome.storage.local.set(items, resolve));
+}
+
+function removeStorage(keys) {
+  return new Promise((resolve) => chrome.storage.local.remove(keys, resolve));
+}
+
+async function getSession() {
+  const result = await getStorage([STORAGE_KEYS.token, STORAGE_KEYS.user]);
+  return {
+    token: result[STORAGE_KEYS.token] || null,
+    user: result[STORAGE_KEYS.user] || null
+  };
+}
+
+async function setSession(token, user) {
+  await setStorage({
+    [STORAGE_KEYS.token]: token,
+    [STORAGE_KEYS.user]: user
+  });
+}
+
+async function clearSession() {
+  await removeStorage([STORAGE_KEYS.token, STORAGE_KEYS.user]);
+}
+
+async function apiFetch(path, options = {}) {
+  const session = await getSession();
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options.headers || {})
+  };
+
+  if (session.token) {
+    headers.Authorization = `Bearer ${session.token}`;
+  }
+
+  const res = await fetch(BASE_URL + path, {
+    credentials: "include",
+    ...options,
+    headers
+  });
+
+  return res;
+}
+
+async function authRequest(path, payload) {
+  const res = await fetch(BASE_URL + path, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch (_) {
+    data = null;
+  }
+
+  if (!res.ok) {
+    throw new Error(data?.message || `HTTP ${res.status}`);
+  }
+
+  return data;
 }
 
 function gradeColor(letter) {
   if (!letter) return { bg: "#f1f5f9", color: "#64748b" };
-  if (letter.startsWith("A")) return { bg: "#f0fdf4", color: "#22c55e" };
-  if (letter.startsWith("B")) return { bg: "#dbeafe", color: "#3b82f6" };
-  if (letter.startsWith("C")) return { bg: "#fffbeb", color: "#f59e0b" };
+  if (String(letter).startsWith("A")) return { bg: "#f0fdf4", color: "#22c55e" };
+  if (String(letter).startsWith("B")) return { bg: "#dbeafe", color: "#3b82f6" };
+  if (String(letter).startsWith("C")) return { bg: "#fffbeb", color: "#f59e0b" };
   return { bg: "#fef2f2", color: "#ef4444" };
-}
-
-function notConnected() {
-  return `
-    <div class="not-connected">
-      <div style="font-size:2rem;margin-bottom:12px;">🔗</div>
-      <p>You need to be logged in to IntelliPlan to see your data.</p>
-      <button class="connect-btn" id="connectBtn">
-        Sign in to IntelliPlan
-      </button>
-    </div>`;
 }
 
 function taskCard(t, priority) {
@@ -52,76 +138,81 @@ function taskCard(t, priority) {
     </div>`;
 }
 
+function notConnected() {
+  return `
+    <div class="empty">
+      <div style="font-size:2rem;margin-bottom:12px;">🔗</div>
+      You are not signed in.
+    </div>`;
+}
+
 async function loadTasks(content) {
-  const data = await fetchFromApp("/tasks/unified");
-  if (!data) {
+  const res = await apiFetch("/tasks/unified", { method: "GET" });
+  if (!res.ok) {
     content.innerHTML = notConnected();
-    const connectBtn = document.getElementById("connectBtn");
-    if (connectBtn) connectBtn.addEventListener("click", openApp);
     return;
   }
 
-  const all = [
-    ...(data.overdue || []).map(t => ({ ...t, _bucket: "overdue" })),
-    ...(data.today || []).map(t => ({ ...t, _bucket: "today" })),
-    ...(data.upcoming || []).map(t => ({ ...t, _bucket: "upcoming" }))
-  ];
+  const data = await res.json();
+
+  const overdue = data.overdue || [];
+  const today = data.today || [];
+  const upcoming = data.upcoming || [];
+  const all = [...overdue, ...today, ...upcoming];
 
   if (!all.length) {
     content.innerHTML = `<div class="empty">✅ All clear — no tasks!</div>`;
     return;
   }
 
-  const overdue = (data.overdue || []).length;
-  const today = (data.today || []).length;
-  const upcoming = (data.upcoming || []).length;
-
   let html = `
     <div class="stats-row">
       <div class="stat-box">
-        <div class="stat-num" style="color:#ef4444;">${overdue}</div>
+        <div class="stat-num" style="color:#ef4444;">${overdue.length}</div>
         <div class="stat-lbl">Overdue</div>
       </div>
       <div class="stat-box">
-        <div class="stat-num" style="color:#3b82f6;">${today}</div>
+        <div class="stat-num" style="color:#3b82f6;">${today.length}</div>
         <div class="stat-lbl">Today</div>
       </div>
       <div class="stat-box">
-        <div class="stat-num" style="color:#22c55e;">${upcoming}</div>
+        <div class="stat-num" style="color:#22c55e;">${upcoming.length}</div>
         <div class="stat-lbl">Upcoming</div>
       </div>
     </div>
   `;
 
-  if ((data.overdue || []).length) {
+  if (overdue.length) {
     html += `<div class="section-label">⚠ Overdue</div>`;
-    html += data.overdue.map(t => taskCard(t, "high")).join("");
+    html += overdue.map(t => taskCard(t, "high")).join("");
   }
 
-  if ((data.today || []).length) {
+  if (today.length) {
     html += `<div class="section-label">📅 Due Today</div>`;
-    html += data.today.map(t => taskCard(t, (t.priority || "medium").toLowerCase())).join("");
+    html += today.map(t => taskCard(t, (t.priority || "medium").toLowerCase())).join("");
   }
 
-  if ((data.upcoming || []).length) {
+  if (upcoming.length) {
     html += `<div class="section-label">🗓 Upcoming</div>`;
-    html += data.upcoming.slice(0, 5).map(t => taskCard(t, (t.priority || "low").toLowerCase())).join("");
-    if (data.upcoming.length > 5) {
-      html += `<div style="text-align:center;font-size:0.75rem;color:#94a3b8;padding:8px;">+${data.upcoming.length - 5} more — <a href="#" id="openAppLink" style="color:#3b82f6;">open app</a></div>`;
+    html += upcoming.slice(0, 5).map(t => taskCard(t, (t.priority || "low").toLowerCase())).join("");
+    if (upcoming.length > 5) {
+      html += `<div style="text-align:center;font-size:0.75rem;color:#94a3b8;padding:8px;">+${upcoming.length - 5} more — <a href="#" id="openAppLink" style="color:#3b82f6;">open app</a></div>`;
     }
   }
 
   content.innerHTML = html;
   const openAppLink = document.getElementById("openAppLink");
-  if (openAppLink) openAppLink.addEventListener("click", (e) => {
-    e.preventDefault();
-    openApp();
-  });
+  if (openAppLink) {
+    openAppLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      openApp();
+    });
+  }
 }
 
 async function loadSchedule(content) {
-  const data = await fetchFromApp("/schedule/saved");
-  if (!data || data.status !== "ok") {
+  const res = await apiFetch("/schedule/saved", { method: "GET" });
+  if (!res.ok) {
     content.innerHTML = `
       <div class="empty">
         <div style="font-size:1.5rem;margin-bottom:8px;">📅</div>
@@ -138,6 +229,7 @@ async function loadSchedule(content) {
     return;
   }
 
+  const data = await res.json();
   const todayStr = new Date().toISOString().split("T")[0];
   const todayDay = data.data?.schedule?.find(d => d.date === todayStr);
 
@@ -197,14 +289,14 @@ async function loadSchedule(content) {
 }
 
 async function loadGrades(content) {
-  const data = await fetchFromApp("/grades/data");
-  if (!data) {
+  const res = await apiFetch("/grades/data", { method: "GET" });
+  if (!res.ok) {
     content.innerHTML = notConnected();
-    const connectBtn = document.getElementById("connectBtn");
-    if (connectBtn) connectBtn.addEventListener("click", openApp);
     return;
   }
-  if (!data.length) {
+
+  const data = await res.json();
+  if (!Array.isArray(data) || !data.length) {
     content.innerHTML = `<div class="empty">No grades available yet.</div>`;
     return;
   }
@@ -214,15 +306,15 @@ async function loadGrades(content) {
     const colors = gradeColor(g.letter);
     const bar = Math.min(g.percentage || 0, 100);
     html += `
-      <div class="grade-row">
+      <div class="grade-row" style="background:white;border:1px solid #e2eaf5;border-radius:10px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px;">
         <div style="flex:1;min-width:0;">
-          <div class="grade-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${g.course}</div>
-          <div class="grade-bar-wrap">
-            <div class="grade-bar" style="width:${bar}%;background:${colors.color};"></div>
+          <div class="grade-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:0.8rem;font-weight:600;color:#0f172a;">${g.course}</div>
+          <div class="grade-bar-wrap" style="height:4px;background:#e2eaf5;border-radius:2px;margin-top:4px;overflow:hidden;">
+            <div class="grade-bar" style="width:${bar}%;background:${colors.color};height:100%;border-radius:2px;"></div>
           </div>
-          <div style="font-size:0.65rem;color:#94a3b8;margin-top:2px;">${g.percentage !== null ? g.percentage + "%" : "N/A"}</div>
+          <div style="font-size:0.65rem;color:#94a3b8;margin-top:2px;">${g.percentage !== null && g.percentage !== undefined ? g.percentage + "%" : "N/A"}</div>
         </div>
-        <div class="grade-badge" style="background:${colors.bg};color:${colors.color};">${g.letter}</div>
+        <div class="grade-badge" style="background:${colors.bg};color:${colors.color};font-size:0.88rem;font-weight:700;padding:3px 10px;border-radius:8px;">${g.letter}</div>
       </div>`;
   });
 
@@ -243,13 +335,115 @@ async function loadTab(tab) {
   else if (tab === "grades") await loadGrades(content);
 }
 
+async function handleAuthSubmit(event) {
+  event.preventDefault();
+  setText("authStatus", "");
+
+  const name = document.getElementById("nameInput").value.trim();
+  const email = document.getElementById("emailInput").value.trim();
+  const password = document.getElementById("passwordInput").value;
+
+  if (!email || !password || (authMode === "signup" && !name)) {
+    setText("authStatus", "Fill out every required field.", "error");
+    return;
+  }
+
+  const submitBtn = document.getElementById("authSubmitBtn");
+  submitBtn.disabled = true;
+  submitBtn.textContent = authMode === "login" ? "Signing in..." : "Creating account...";
+
+  try {
+    const endpoint = authMode === "login" ? "/api/auth/login" : "/api/auth/register";
+    const payload = authMode === "login"
+      ? { email, password }
+      : { name, email, password };
+
+    const data = await authRequest(endpoint, payload);
+
+    const token = data.token || data.access_token || data.jwt || null;
+    const user = data.user || data.account || data.profile || {
+      name: data.name || name || "",
+      email
+    };
+
+    if (!token) {
+      throw new Error("No token returned from server.");
+    }
+
+    await setSession(token, user);
+    setText("authStatus", "Signed in.", "ok");
+    await showApp();
+  } catch (err) {
+    setText("authStatus", err.message || "Authentication failed.", "error");
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = authMode === "login" ? "Login" : "Create account";
+  }
+}
+
+async function logout() {
+  try {
+    await apiFetch("/api/auth/logout", { method: "POST" });
+  } catch (_) {
+    // ignore
+  } finally {
+    await clearSession();
+    await showAuth();
+  }
+}
+
+async function showAuth() {
+  document.getElementById("authView").classList.remove("hidden");
+  document.getElementById("appView").classList.add("hidden");
+  document.getElementById("logoutBtn").classList.add("hidden");
+  showAuthMode(authMode);
+}
+
+async function showApp() {
+  const session = await getSession();
+  if (!session.token) {
+    await showAuth();
+    return;
+  }
+
+  document.getElementById("authView").classList.add("hidden");
+  document.getElementById("appView").classList.remove("hidden");
+  document.getElementById("logoutBtn").classList.remove("hidden");
+  await loadTab(currentTab);
+}
+
+async function validateSession() {
+  const session = await getSession();
+  if (!session.token) {
+    await showAuth();
+    return;
+  }
+
+  try {
+    const res = await apiFetch("/api/auth/me", { method: "GET" });
+    if (!res.ok) throw new Error("Session invalid");
+    const data = await res.json();
+    if (data?.user) {
+      await setStorage({ [STORAGE_KEYS.user]: data.user });
+    }
+    await showApp();
+  } catch (_) {
+    await clearSession();
+    await showAuth();
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
-  const openAppBtn = document.getElementById("openAppBtn");
-  if (openAppBtn) openAppBtn.addEventListener("click", openApp);
+  document.getElementById("openAppBtn").addEventListener("click", openApp);
+  document.getElementById("logoutBtn").addEventListener("click", logout);
+
+  document.getElementById("loginModeBtn").addEventListener("click", () => showAuthMode("login"));
+  document.getElementById("signupModeBtn").addEventListener("click", () => showAuthMode("signup"));
+  document.getElementById("authForm").addEventListener("submit", handleAuthSubmit);
 
   document.querySelectorAll(".tab").forEach(btn => {
     btn.addEventListener("click", () => loadTab(btn.dataset.tab));
   });
 
-  loadTab("tasks");
+  validateSession();
 });
