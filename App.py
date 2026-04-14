@@ -1280,6 +1280,26 @@ def notion_complete_task():
 @app.route("/tasks/unified")
 def unified_tasks():
     from datetime import date as date_type
+
+    def dedupe_tasks(task_list):
+        seen = set()
+        unique = []
+
+        for t in task_list:
+            title = (t.get("title") or "").strip().lower()
+            course = (t.get("course") or "").strip().lower()
+            due_date = (t.get("due_date") or "").strip()
+
+            key = (title, course, due_date)
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+            unique.append(t)
+
+        return unique
+
     tasks = []
     dismissed = get_dismissed_titles()
     today = date_type.today()
@@ -1290,22 +1310,35 @@ def unified_tasks():
         login_type = acct["login_type"]
         if login_type == "studentvue":
             try:
-                raw = get_sv_assignments(acct["sv_district_url"], acct["sv_username"], acct["sv_password"])
+                raw = get_sv_assignments(
+                    acct["sv_district_url"],
+                    acct["sv_username"],
+                    acct["sv_password"]
+                )
             except Exception as e:
                 print(f"SV assignments error: {e}")
                 raw = []
+
             try:
-                missing_raw = get_missing_assignments(acct["sv_district_url"], acct["sv_username"], acct["sv_password"])
+                missing_raw = get_missing_assignments(
+                    acct["sv_district_url"],
+                    acct["sv_username"],
+                    acct["sv_password"]
+                )
             except Exception as e:
                 print(f"Missing assignments error: {e}")
                 missing_raw = []
+
             for a in raw:
                 if a["title"] not in dismissed:
                     a["source"] = "studentvue"
                     a.setdefault("color", PRIORITY_COLORS.get(a.get("priority", "Medium"), "#f59e0b"))
                     tasks.append(a)
+
             for a in missing_raw:
                 if a["title"] not in dismissed:
+                    if "source" not in a:
+                        a["source"] = "studentvue_missing"
                     tasks.append(a)
 
         elif login_type == "canvas":
@@ -1317,26 +1350,32 @@ def unified_tasks():
                 course_response = requests.get(f"{base}/courses", headers=headers)
                 courses = course_response.json()
                 course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
+
                 for course_id in course_map:
                     resp = requests.get(f"{base}/courses/{course_id}/assignments", headers=headers)
                     data = resp.json()
                     if not isinstance(data, list):
                         continue
+
                     for a in data:
                         if not isinstance(a, dict) or not a.get("due_at"):
                             continue
+
                         due_str = a["due_at"][:10]
                         try:
                             due = datetime.strptime(due_str, "%Y-%m-%d").date()
                         except:
                             continue
+
                         days = (due - today).days
                         if days < -14:
                             continue
+
                         priority = "High" if days <= 3 else "Medium" if days <= 7 else "Low"
                         title = a["name"]
                         if title in dismissed:
                             continue
+
                         tasks.append({
                             "id": str(a["id"]),
                             "course_id": str(a["course_id"]),
@@ -1371,6 +1410,7 @@ def unified_tasks():
         else:
             gid = get_guest_session_id()
             manual = ManualTask.query.filter_by(guest_session_id=gid, done=False).all()
+
         for t in manual:
             if t.title not in dismissed:
                 tasks.append({
@@ -1388,12 +1428,16 @@ def unified_tasks():
     except Exception as e:
         print(f"Manual tasks error: {e}")
 
+    # Remove duplicates, especially from StudentVue sync overlaps
+    tasks = dedupe_tasks(tasks)
+
     result = {"today": [], "upcoming": [], "overdue": []}
     for t in tasks:
         due = t.get("due_date", "")
         if not due:
             result["upcoming"].append(t)
             continue
+
         try:
             due_date = datetime.strptime(due, "%Y-%m-%d").date()
             if due_date < today:
