@@ -1,101 +1,8 @@
-{% extends "base.html" %}
-
-{% block content %}
-<div class="page-header">
-  <h1 class="page-title">Grade Modeler</h1>
-  <p class="page-subtitle">Model your grade, adjust scores, and see what it takes to hit your target</p>
-</div>
-
-<div id="loadingState" style="text-align:center; padding:3rem; color:var(--text-muted);">
-  <div class="spinner"></div>
-  <p>Loading gradebook...</p>
-</div>
-
-<div id="modelerWrap" style="display:none;">
-
-  <!-- Course Selector -->
-  <div style="margin-bottom:1.5rem;">
-    <div class="dropdown-wrap">
-      <button class="dropdown-btn" id="courseDropBtn">📚 Select a Course <span class="chevron">▾</span></button>
-      <div class="dropdown-menu" id="courseMenu"></div>
-    </div>
-  </div>
-
-  <div id="courseOverview" style="display:none;">
-
-    <!-- Grade Summary Row -->
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-bottom:1.5rem;">
-
-      <!-- Current vs Modeled Grade -->
-      <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:1.5rem; box-shadow:var(--shadow);">
-        <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1rem;">Grade Overview</div>
-        <div style="display:flex; gap:2rem; align-items:center;">
-          <div>
-            <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:4px;">Current</div>
-            <div style="display:flex; align-items:baseline; gap:8px;">
-              <span id="currentPct" style="font-family:'DM Serif Display',serif; font-size:2.2rem; color:var(--text-primary);"></span>
-              <span id="currentLetter" class="priority-badge"></span>
-            </div>
-          </div>
-          <div style="font-size:1.5rem; color:var(--text-muted);">→</div>
-          <div>
-            <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:4px;">Modeled</div>
-            <div style="display:flex; align-items:baseline; gap:8px;">
-              <span id="modeledPct" style="font-family:'DM Serif Display',serif; font-size:2.2rem; color:var(--accent);">—</span>
-              <span id="modeledLetter" class="priority-badge" style="background:var(--accent-soft); color:var(--accent);">—</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Target Input -->
-      <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:1.5rem; box-shadow:var(--shadow);">
-        <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1rem;">Target Grade</div>
-        <div style="display:flex; gap:8px; align-items:center; margin-bottom:1rem;">
-          <input type="number" id="targetInput" class="form-input" min="0" max="100" step="0.1" placeholder="e.g. 97" style="max-width:110px;" />
-          <button class="btn-primary" onclick="runModel()" style="padding:10px 20px; border:none; cursor:pointer; font-size:0.88rem;">Model It</button>
-          <button onclick="resetAll()" style="padding:10px 16px; background:var(--bg); border:1px solid var(--border); border-radius:10px; cursor:pointer; font-size:0.82rem; color:var(--text-muted); font-family:'DM Sans',sans-serif;">↺ Reset</button>
-        </div>
-        <div id="modelResult" style="display:none; font-size:0.88rem; color:var(--text-primary); line-height:1.6;"></div>
-      </div>
-    </div>
-
-    <!-- Category Weights -->
-    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:1.5rem; box-shadow:var(--shadow); margin-bottom:1.5rem;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-        <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">Category Weights</div>
-        <span style="font-size:0.75rem; color:var(--text-muted);">Edit weights to model different scenarios</span>
-      </div>
-      <div id="categoryWeights" style="display:flex; flex-direction:column; gap:10px;"></div>
-    </div>
-
-    <!-- Grade Trend Chart -->
-    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:1.5rem; box-shadow:var(--shadow); margin-bottom:1.5rem;">
-      <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1rem;">Grade Trend</div>
-      <canvas id="trendChart" height="120"></canvas>
-    </div>
-
-    <!-- Assignment Breakdown -->
-    <div style="font-family:'DM Serif Display',serif; font-size:1.1rem; color:var(--text-primary); margin-bottom:1rem;">
-      Assignment Breakdown
-      <span style="font-family:'DM Sans',sans-serif; font-size:0.78rem; font-weight:500; color:var(--text-muted); margin-left:8px;">Click any graded assignment to adjust its score or points worth</span>
-    </div>
-
-    <!-- Category filter tabs -->
-    <div class="filter-bar" id="categoryTabs" style="margin-bottom:1rem;"></div>
-
-    <div id="assignmentBreakdown" class="assignments-list"></div>
-  </div>
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-{% endblock %}
-
 {% block scripts %}
 let gradebookData = [];
 let selectedCourse = null;
 let modifiedScores = {};   // { assignmentId: { earned, possible } }
-let modifiedWeights = {};   // { category: weight }
+let modifiedWeights = {};  // { category: weight }
 let trendChart = null;
 let activeCategoryFilter = 'all';
 
@@ -117,6 +24,73 @@ function getBaseAssignmentValues(a) {
     earned: safeNum(a?.points_earned),
     possible: safeNum(a?.points_possible)
   };
+}
+
+function isMissingAssignment(a) {
+  const scoreLabel = normKey(a?.score_label || a?.score || a?.status || a?.grade || '');
+
+  if (a?.is_missing || a?.missing || a?.source === 'studentvue_missing') return true;
+  if (scoreLabel.includes('missing')) return true;
+
+  // StudentVue sometimes surfaces missing-ish rows with this exact display.
+  // Keep it as a fallback since that is what you asked for.
+  if (scoreLabel === '4/10' || scoreLabel === '4 / 10') return true;
+
+  // If it is explicitly ungraded and has no real score, treat it as missing.
+  if (a?.graded === false && safeNum(a?.points_earned) === null) return true;
+
+  return false;
+}
+
+function assignmentDedupKey(a) {
+  const idKey = normKey(a?.id);
+  if (idKey) return `id:${idKey}`;
+
+  return [
+    normKey(a?.title),
+    normKey(a?.category),
+    normKey(a?.due_date),
+    normKey(a?.points_possible),
+    normKey(a?.course)
+  ].join('|');
+}
+
+function assignmentQualityScore(a) {
+  const score = getAssignmentScore(a);
+  const earned = score.earned;
+  const possible = score.possible;
+  const missing = isMissingAssignment(a);
+
+  return [
+    a?.graded ? 1 : 0,
+    earned !== null ? 1 : 0,
+    possible !== null ? 1 : 0,
+    missing ? 0 : 1
+  ].join('');
+}
+
+function dedupeAssignments(assignments) {
+  const map = new Map();
+
+  (assignments || []).forEach(a => {
+    const key = assignmentDedupKey(a);
+    const existing = map.get(key);
+
+    if (!existing) {
+      map.set(key, a);
+      return;
+    }
+
+    const existingScore = assignmentQualityScore(existing);
+    const nextScore = assignmentQualityScore(a);
+
+    // Prefer the version that looks more complete and less "missing".
+    if (nextScore > existingScore) {
+      map.set(key, a);
+    }
+  });
+
+  return Array.from(map.values());
 }
 
 function getAssignmentScore(a) {
@@ -201,7 +175,11 @@ function pctToLetter(pct) {
 }
 
 function selectCourse(course) {
-  selectedCourse = course;
+  selectedCourse = {
+    ...course,
+    assignments: dedupeAssignments(course.assignments || [])
+  };
+
   modifiedScores = {};
   modifiedWeights = {};
   activeCategoryFilter = 'all';
@@ -222,10 +200,10 @@ function selectCourse(course) {
   modeledLetter.textContent = course.letter;
   modeledLetter.className = 'priority-badge ' + letterToClass(course.letter);
 
-  renderCategoryWeights(course.categories);
-  renderCategoryTabs(course);
-  renderBreakdown(course.assignments);
-  renderTrendChart(course.assignments);
+  renderCategoryWeights(selectedCourse.categories || []);
+  renderCategoryTabs(selectedCourse);
+  renderBreakdown(selectedCourse.assignments);
+  renderTrendChart(selectedCourse.assignments);
   recalculateModeled();
 }
 
@@ -280,7 +258,7 @@ function renderCategoryTabs(course) {
   const tabs = document.getElementById('categoryTabs');
   tabs.innerHTML = '';
 
-  const categories = ['all', ...new Set(course.assignments.map(a => a.category).filter(Boolean))];
+  const categories = ['all', ...new Set((course.assignments || []).map(a => a.category).filter(Boolean))];
 
   categories.forEach(cat => {
     const btn = document.createElement('button');
@@ -290,9 +268,11 @@ function renderCategoryTabs(course) {
       activeCategoryFilter = cat;
       document.querySelectorAll('#categoryTabs .filter-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+
       const filtered = cat === 'all'
         ? selectedCourse.assignments
         : selectedCourse.assignments.filter(a => a.category === cat);
+
       renderBreakdown(filtered);
     });
     tabs.appendChild(btn);
@@ -303,18 +283,22 @@ function renderBreakdown(assignments) {
   const wrap = document.getElementById('assignmentBreakdown');
   wrap.innerHTML = '';
 
-  assignments.forEach((a, i) => {
+  const uniqueAssignments = dedupeAssignments(assignments || []);
+
+  uniqueAssignments.forEach((a, i) => {
     const key = getAssignmentKey(a);
     const score = getAssignmentScore(a);
     const earned = score.earned;
     const possible = score.possible;
+    const missing = isMissingAssignment(a);
     const isModified = hasActualModification(a);
 
     const card = document.createElement('div');
-    card.className = 'assignment-card ' + (a.graded ? 'low' : 'medium');
+    card.className = 'assignment-card ' + (missing ? 'high' : (a.graded ? 'low' : 'medium'));
     card.style.animationDelay = `${i * 0.04}s`;
     card.dataset.assignmentId = key;
     if (isModified) card.style.borderColor = 'var(--accent)';
+    if (missing) card.style.borderColor = 'var(--high)';
 
     const pct = (earned !== null && possible !== null && possible > 0)
       ? Math.round((earned / possible) * 100)
@@ -330,12 +314,13 @@ function renderBreakdown(assignments) {
       : 200;
 
     card.innerHTML = `
-      <div class="rank-bubble" style="font-size:0.7rem;">${a.graded || isModified ? '✓' : '⏳'}</div>
+      <div class="rank-bubble" style="font-size:0.7rem;">${missing ? '✖' : (a.graded || isModified ? '✓' : '⏳')}</div>
       <div class="card-main">
-        <div class="card-title">${a.title} ${isModified ? '<span style="font-size:0.7rem;color:var(--accent);font-weight:500;">· modified</span>' : ''}</div>
+        <div class="card-title">${a.title} ${missing ? '<span style="font-size:0.7rem;color:var(--high);font-weight:500;">· missing</span>' : (isModified ? '<span style="font-size:0.7rem;color:var(--accent);font-weight:500;">· modified</span>' : '')}</div>
         <div class="card-meta">
           ${a.due_date ? `<span class="meta-item">📅 ${a.due_date}</span>` : ''}
           <span class="meta-item" style="background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:0.72rem;">${a.category || '—'}</span>
+          ${missing ? `<span class="meta-item" style="background:var(--high-soft, #fee2e2);color:var(--high);padding:2px 8px;border-radius:10px;font-size:0.72rem;">Missing</span>` : ''}
         </div>
         ${scoreBar}
       </div>
@@ -414,6 +399,7 @@ function syncAssignmentCard(id) {
   const score = getAssignmentScore(a);
   const earned = score.earned;
   const possible = score.possible;
+  const missing = isMissingAssignment(a);
   const isModified = hasActualModification(a);
 
   const numEarnedInput = card.querySelector('input[placeholder="Earned"]');
@@ -459,14 +445,16 @@ function syncAssignmentCard(id) {
 
   if (title) {
     const cleanText = a.title;
-    title.innerHTML = isModified
-      ? `${cleanText} <span style="font-size:0.7rem;color:var(--accent);font-weight:500;">· modified</span>`
-      : cleanText;
+    title.innerHTML = missing
+      ? `${cleanText} <span style="font-size:0.7rem;color:var(--high);font-weight:500;">· missing</span>`
+      : (isModified
+        ? `${cleanText} <span style="font-size:0.7rem;color:var(--accent);font-weight:500;">· modified</span>`
+        : cleanText);
   }
 
-  card.style.borderColor = isModified ? 'var(--accent)' : '';
+  card.style.borderColor = missing ? 'var(--high)' : (isModified ? 'var(--accent)' : '');
   const bubble = card.querySelector('.rank-bubble');
-  if (bubble) bubble.textContent = a.graded || isModified ? '✓' : '⏳';
+  if (bubble) bubble.textContent = missing ? '✖' : (a.graded || isModified ? '✓' : '⏳');
 }
 
 function syncVisibleAssignments() {
@@ -488,7 +476,7 @@ function animateGradeChange(element, newValue) {
 
 function getAssignmentById(id) {
   if (!selectedCourse) return null;
-  return selectedCourse.assignments.find(a => getAssignmentKey(a) === id) || null;
+  return (selectedCourse.assignments || []).find(a => getAssignmentKey(a) === id) || null;
 }
 
 function updateScore(id, value) {
@@ -675,7 +663,7 @@ function runModel() {
 }
 
 function renderTrendChart(assignments) {
-  const graded = assignments
+  const graded = (assignments || [])
     .map(a => {
       const score = getAssignmentScore(a);
       return {
@@ -765,7 +753,7 @@ function resetAll() {
   document.getElementById('modeledLetter').textContent = selectedCourse.letter;
   document.getElementById('modeledLetter').className = 'priority-badge ' + letterToClass(selectedCourse.letter);
 
-  renderCategoryWeights(selectedCourse.categories);
+  renderCategoryWeights(selectedCourse.categories || []);
   renderCategoryTabs(selectedCourse);
   renderBreakdown(selectedCourse.assignments);
   renderTrendChart(selectedCourse.assignments);
@@ -787,7 +775,7 @@ function refreshVisibleState() {
 
 function forceRerenderCurrentCourse() {
   if (!selectedCourse) return;
-  renderCategoryWeights(selectedCourse.categories);
+  renderCategoryWeights(selectedCourse.categories || []);
   renderCategoryTabs(selectedCourse);
   renderBreakdown(selectedCourse.assignments);
   renderTrendChart(selectedCourse.assignments);
@@ -843,7 +831,7 @@ function clearModifiedWeight(type) {
   if (hasModifiedWeight(type)) {
     delete modifiedWeights[type];
     if (selectedCourse) {
-      renderCategoryWeights(selectedCourse.categories);
+      renderCategoryWeights(selectedCourse.categories || []);
       recalculateModeled();
     }
   }
@@ -864,7 +852,7 @@ function clearAllModifiedScores() {
 function clearAllModifiedWeights() {
   modifiedWeights = {};
   if (selectedCourse) {
-    renderCategoryWeights(selectedCourse.categories);
+    renderCategoryWeights(selectedCourse.categories || []);
     recalculateModeled();
   }
 }
@@ -900,7 +888,7 @@ function rebuildBreakdownIfNeeded() {
 
 function rebuildWeightsIfNeeded() {
   if (!selectedCourse) return;
-  renderCategoryWeights(selectedCourse.categories);
+  renderCategoryWeights(selectedCourse.categories || []);
 }
 
 function rebuildTabsIfNeeded() {
