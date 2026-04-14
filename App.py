@@ -13,6 +13,7 @@ import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from auth_api import auth_bp
 
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import (
@@ -65,6 +66,7 @@ limiter = Limiter(
 )
 app.secret_key = os.getenv("SECRET_KEY", "intelliplan-dev-key")
 app.permanent_session_lifetime = timedelta(days=7)
+app.register_blueprint(auth_bp)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///intelliplan.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False

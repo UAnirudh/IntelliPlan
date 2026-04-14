@@ -1,11 +1,10 @@
-// extension/popup.js
 const BASE_URL = "https://intelliplan.up.railway.app";
 
 const AUTH_ENDPOINTS = {
-  login: ["/api/auth/login", "/auth/login", "/login", "/api/login"],
-  register: ["/api/auth/register", "/auth/register", "/signup", "/register", "/api/signup"],
-  me: ["/api/auth/me", "/auth/me", "/me", "/api/user", "/api/profile"],
-  logout: ["/api/auth/logout", "/auth/logout", "/logout", "/api/logout"]
+  login: "/api/auth/login",
+  register: "/api/auth/register",
+  me: "/api/auth/me",
+  logout: "/api/auth/logout"
 };
 
 const STORAGE_KEYS = {
@@ -99,97 +98,51 @@ async function apiFetch(path, options = {}) {
   });
 }
 
-async function tryEndpoints(paths, payload, options = {}) {
-  let lastError = null;
-
-  for (const path of paths) {
-    try {
-      const res = await fetch(BASE_URL + path, {
-        method: options.method || "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          ...(options.headers || {})
-        },
-        body: payload !== undefined ? JSON.stringify(payload) : undefined
-      });
-
-      let data = null;
-      try {
-        data = await res.json();
-      } catch (_) {
-        data = null;
-      }
-
-      if (res.ok) {
-        return { ok: true, path, status: res.status, data };
-      }
-
-      lastError = {
-        path,
-        status: res.status,
-        message: data?.message || data?.error || `HTTP ${res.status}`
-      };
-    } catch (err) {
-      lastError = {
-        path,
-        status: 0,
-        message: err.message || "Network error"
-      };
-    }
-  }
-
-  return { ok: false, error: lastError };
-}
-
-function extractToken(data) {
-  if (!data || typeof data !== "object") return null;
-  return (
-    data.token ||
-    data.access_token ||
-    data.accessToken ||
-    data.jwt ||
-    data.session_token ||
-    data.sessionToken ||
-    null
-  );
-}
-
-function extractUser(data, fallbackEmail = "", fallbackName = "") {
-  if (data?.user && typeof data.user === "object") return data.user;
-  if (data?.account && typeof data.account === "object") return data.account;
-  if (data?.profile && typeof data.profile === "object") return data.profile;
-
-  return {
-    name: data?.name || fallbackName || "",
-    email: data?.email || fallbackEmail || ""
-  };
-}
-
 async function authRequest(mode, payload) {
-  const endpoints = AUTH_ENDPOINTS[mode];
-  const result = await tryEndpoints(endpoints, payload);
+  const path = AUTH_ENDPOINTS[mode];
+  const res = await fetch(BASE_URL + path, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
 
-  if (!result.ok) {
-    const err = result.error || {};
-    const tried = endpoints.join(", ");
-    throw new Error(
-      `Auth failed. Tried: ${tried}. Last response: ${err.message || "unknown error"}`
-    );
+  let data = null;
+  try {
+    data = await res.json();
+  } catch (_) {
+    data = null;
   }
 
-  const token = extractToken(result.data);
-  const user = extractUser(
-    result.data,
-    payload.email || "",
-    payload.name || ""
-  );
+  if (!res.ok) {
+    throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
+  }
+
+  const token =
+    data?.token ||
+    data?.access_token ||
+    data?.accessToken ||
+    data?.jwt ||
+    data?.session_token ||
+    data?.sessionToken ||
+    null;
+
+  const user =
+    data?.user ||
+    data?.account ||
+    data?.profile ||
+    {
+      name: data?.name || payload.name || "",
+      email: data?.email || payload.email || ""
+    };
 
   if (!token) {
-    throw new Error(`Auth succeeded on ${result.path}, but no token was returned.`);
+    throw new Error("Auth succeeded, but no token was returned.");
   }
 
-  return { token, user, path: result.path, data: result.data };
+  return { token, user, data };
 }
 
 function gradeColor(letter) {
@@ -454,7 +407,7 @@ async function handleAuthSubmit(event) {
 
 async function logout() {
   try {
-    await tryEndpoints(AUTH_ENDPOINTS.logout, null, { method: "POST" });
+    await apiFetch(AUTH_ENDPOINTS.logout, { method: "POST" });
   } catch (_) {
     // ignore
   } finally {
@@ -490,7 +443,7 @@ async function validateSession() {
     return;
   }
 
-  const res = await apiFetch(AUTH_ENDPOINTS.me[0], { method: "GET" }).catch(() => null);
+  const res = await apiFetch(AUTH_ENDPOINTS.me, { method: "GET" }).catch(() => null);
 
   if (res && res.ok) {
     try {
