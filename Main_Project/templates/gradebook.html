@@ -27,16 +27,23 @@ function getBaseAssignmentValues(a) {
 }
 
 function isMissingAssignment(a) {
-  const scoreLabel = normKey(a?.score_label || a?.score || a?.status || a?.grade || '');
+  const rawLabel = String(
+    a?.score_label ??
+    a?.score ??
+    a?.status ??
+    a?.grade ??
+    a?.points ??
+    ''
+  ).trim().toLowerCase();
 
   if (a?.is_missing || a?.missing || a?.source === 'studentvue_missing') return true;
-  if (scoreLabel.includes('missing')) return true;
+  if (rawLabel.includes('missing')) return true;
 
-  // StudentVue sometimes surfaces missing-ish rows with this exact display.
-  // Keep it as a fallback since that is what you asked for.
-  if (scoreLabel === '4/10' || scoreLabel === '4 / 10') return true;
+  // StudentVue sometimes uses weird display values for missing work.
+  // Keep these as explicit missing markers.
+  if (rawLabel === '4/10' || rawLabel === '4 / 10') return true;
 
-  // If it is explicitly ungraded and has no real score, treat it as missing.
+  // If it is explicitly ungraded and no usable score exists, treat as missing.
   if (a?.graded === false && safeNum(a?.points_earned) === null) return true;
 
   return false;
@@ -55,18 +62,20 @@ function assignmentDedupKey(a) {
   ].join('|');
 }
 
-function assignmentQualityScore(a) {
+function assignmentQualityRank(a) {
   const score = getAssignmentScore(a);
   const earned = score.earned;
   const possible = score.possible;
   const missing = isMissingAssignment(a);
 
-  return [
-    a?.graded ? 1 : 0,
-    earned !== null ? 1 : 0,
-    possible !== null ? 1 : 0,
-    missing ? 0 : 1
-  ].join('');
+  let rank = 0;
+
+  if (a?.graded) rank += 4;
+  if (earned !== null) rank += 3;
+  if (possible !== null) rank += 2;
+  if (!missing) rank += 1;
+
+  return rank;
 }
 
 function dedupeAssignments(assignments) {
@@ -81,12 +90,22 @@ function dedupeAssignments(assignments) {
       return;
     }
 
-    const existingScore = assignmentQualityScore(existing);
-    const nextScore = assignmentQualityScore(a);
+    const existingRank = assignmentQualityRank(existing);
+    const nextRank = assignmentQualityRank(a);
 
-    // Prefer the version that looks more complete and less "missing".
-    if (nextScore > existingScore) {
+    if (nextRank > existingRank) {
       map.set(key, a);
+      return;
+    }
+
+    if (nextRank === existingRank) {
+      const existingMissing = isMissingAssignment(existing);
+      const nextMissing = isMissingAssignment(a);
+
+      // Prefer non-missing over missing when tied.
+      if (existingMissing && !nextMissing) {
+        map.set(key, a);
+      }
     }
   });
 
@@ -297,6 +316,7 @@ function renderBreakdown(assignments) {
     card.className = 'assignment-card ' + (missing ? 'high' : (a.graded ? 'low' : 'medium'));
     card.style.animationDelay = `${i * 0.04}s`;
     card.dataset.assignmentId = key;
+
     if (isModified) card.style.borderColor = 'var(--accent)';
     if (missing) card.style.borderColor = 'var(--high)';
 
@@ -316,7 +336,13 @@ function renderBreakdown(assignments) {
     card.innerHTML = `
       <div class="rank-bubble" style="font-size:0.7rem;">${missing ? '✖' : (a.graded || isModified ? '✓' : '⏳')}</div>
       <div class="card-main">
-        <div class="card-title">${a.title} ${missing ? '<span style="font-size:0.7rem;color:var(--high);font-weight:500;">· missing</span>' : (isModified ? '<span style="font-size:0.7rem;color:var(--accent);font-weight:500;">· modified</span>' : '')}</div>
+        <div class="card-title">${a.title} ${
+          missing
+            ? '<span style="font-size:0.7rem;color:var(--high);font-weight:500;">· missing</span>'
+            : (isModified
+              ? '<span style="font-size:0.7rem;color:var(--accent);font-weight:500;">· modified</span>'
+              : '')
+        }</div>
         <div class="card-meta">
           ${a.due_date ? `<span class="meta-item">📅 ${a.due_date}</span>` : ''}
           <span class="meta-item" style="background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:0.72rem;">${a.category || '—'}</span>
@@ -344,7 +370,9 @@ function renderBreakdown(assignments) {
               font-size:0.85rem; text-align:center;"
             oninput="updatePossible('${key}', this.value);" />
 
-          ${pct !== null ? `<span class="score-pct" style="font-size:0.82rem; font-weight:600; color:var(--text-primary);">${pct}%</span>` : `<span class="score-pct" style="font-size:0.82rem; font-weight:600; color:var(--text-muted);">—</span>`}
+          ${pct !== null
+            ? `<span class="score-pct" style="font-size:0.82rem; font-weight:600; color:var(--text-primary);">${pct}%</span>`
+            : `<span class="score-pct" style="font-size:0.82rem; font-weight:600; color:var(--text-muted);">—</span>`}
         </div>
 
         ${possible !== null ? `
@@ -432,15 +460,13 @@ function syncAssignmentCard(id) {
     pctDisplay.style.color = pct !== null ? 'var(--text-primary)' : 'var(--text-muted)';
   }
 
-  if (scoreBar) {
-    if (pct !== null) {
-      scoreBar.style.width = `${Math.min(pct, 100)}%`;
-      scoreBar.style.background = pct >= 90
-        ? 'var(--low)'
-        : pct >= 70
-          ? 'var(--accent)'
-          : 'var(--high)';
-    }
+  if (scoreBar && pct !== null) {
+    scoreBar.style.width = `${Math.min(pct, 100)}%`;
+    scoreBar.style.background = pct >= 90
+      ? 'var(--low)'
+      : pct >= 70
+        ? 'var(--accent)'
+        : 'var(--high)';
   }
 
   if (title) {
@@ -645,7 +671,9 @@ function runModel() {
 
     if (neededFromCat !== null) {
       if (neededFromCat > 100) achievable = false;
-      lines.push(`<strong>${cat.type}</strong> (${cat.weight}% of grade): need <strong>${Math.max(0, neededFromCat).toFixed(1)}%</strong> avg on ${d.pendingAssignments.length} remaining assignment${d.pendingAssignments.length !== 1 ? 's' : ''}${neededFromCat > 100 ? ' <span style="color:var(--high)">⚠️ not possible</span>' : ''}`);
+      lines.push(
+        `<strong>${cat.type}</strong> (${cat.weight}% of grade): need <strong>${Math.max(0, neededFromCat).toFixed(1)}%</strong> avg on ${d.pendingAssignments.length} remaining assignment${d.pendingAssignments.length !== 1 ? 's' : ''}${neededFromCat > 100 ? ' <span style="color:var(--high)">⚠️ not possible</span>' : ''}`
+      );
     } else {
       const actual = currentWeightedPct !== null ? (currentWeightedPct * 100).toFixed(1) : '—';
       lines.push(`<strong>${cat.type}</strong>: all graded — currently at ${actual}%`);
@@ -709,7 +737,7 @@ function renderTrendChart(assignments) {
           pointBackgroundColor: '#3b82f6',
           tension: 0.3,
           fill: true,
-          pointRadius: 4,
+          pointRadius: 4
         },
         {
           label: 'Running Avg',
@@ -718,7 +746,7 @@ function renderTrendChart(assignments) {
           borderDash: [5, 4],
           pointRadius: 0,
           tension: 0.3,
-          fill: false,
+          fill: false
         }
       ]
     },
