@@ -938,4 +938,8 @@ function setActiveFilter(filterName) {
 function getModeledPercent() {
   return recalculateModeled();
 }
+
+function isMissingAssignment(a) {
+  return a?.is_missing === true || a?.source === 'studentvue_missing';
+}
 {% endblock %}
