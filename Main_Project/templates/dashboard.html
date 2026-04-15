@@ -286,6 +286,30 @@ let _savedSchedule = null;
 let _editingTask = null;
 let _feedbackCard = null;
 let _feedbackTask = null;
+function taskKey(task) {
+  return [
+    task?.title || '',
+    task?.course || '',
+    task?.due_date || '',
+    task?.priority || '',
+    task?.source || ''
+  ].join('||').toLowerCase();
+}
+
+function removeTaskFromLocalState(task) {
+  const key = taskKey(task);
+
+  ['today', 'upcoming', 'overdue'].forEach(group => {
+    _unifiedTasks[group] = (_unifiedTasks[group] || []).filter(t => taskKey(t) !== key);
+  });
+}
+
+function rerenderTaskColumns() {
+  renderColumn('overdueList', 'overdueCount', _unifiedTasks.overdue);
+  renderColumn('todayList', 'todayCount', _unifiedTasks.today);
+  renderColumn('upcomingList', 'upcomingCount', _unifiedTasks.upcoming);
+  updateSubtitle(_unifiedTasks);
+}
 
 function openFeedbackModal(task, card) {
   _feedbackTask = task;
@@ -306,42 +330,68 @@ function closeFeedbackModal() {
 async function submitFeedback(save) {
   const task = _feedbackTask;
   const card = _feedbackCard;
-  
-  if (save && task) {
-    const actualTime = document.getElementById('feedbackActualTime').value;
-    await fetch('/feedback/complete', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        title: task.title,
-        course: task.course || '',
-        estimated_time: task.estimated_time || 60,
-        actual_time: actualTime ? parseInt(actualTime) : null,
-        difficulty: task.difficulty || 'Medium',
-        priority: task.priority || 'Medium',
-        dismiss: true,
-        ...task
-      })
-    });
-  } else {
-    // Just dismiss
-    await fetch('/dismiss', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ title: task.title, ...task })
-    });
-  }
-  
-  closeFeedbackModal();
-  if (card) {
-    card.style.opacity = '0';
-    card.style.transform = 'scale(0.95)';
-    card.style.transition = 'all 0.2s';
-    setTimeout(() => { card.remove(); }, 200);
-  }
-  loadDashboard();
-}
 
+  if (!task) {
+    closeFeedbackModal();
+    return;
+  }
+
+  try {
+    if (save) {
+      const actualTime = document.getElementById('feedbackActualTime').value;
+
+      const res = await fetch('/feedback/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: task.title,
+          course: task.course || '',
+          estimated_time: task.estimated_time || 60,
+          actual_time: actualTime ? parseInt(actualTime) : null,
+          difficulty: task.difficulty || 'Medium',
+          priority: task.priority || 'Medium',
+          dismiss: true,
+          ...task
+        })
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok || (data && data.status === 'error')) {
+        alert(data?.message || 'Could not save completion.');
+        return;
+      }
+    } else {
+      const res = await fetch('/dismiss', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: task.title, ...task })
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok || (data && data.status === 'error')) {
+        alert(data?.message || 'Could not dismiss task.');
+        return;
+      }
+    }
+
+    removeTaskFromLocalState(task);
+
+    if (card) {
+      card.style.opacity = '0';
+      card.style.transform = 'scale(0.95)';
+      card.style.transition = 'all 0.2s';
+      setTimeout(() => {
+        if (card.parentElement) card.remove();
+      }, 200);
+    }
+
+    closeFeedbackModal();
+    rerenderTaskColumns();
+  } catch (err) {
+    console.error(err);
+    alert('Something went wrong while updating the task.');
+  }
+}
 document.getElementById('feedbackModal').addEventListener('click', function(e) {
   if (e.target === this) closeFeedbackModal();
 });

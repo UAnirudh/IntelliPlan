@@ -1379,7 +1379,6 @@
       display: flex;
       animation: fadeUp 0.18s ease both;
     }
-
     @media (max-width: 640px) {
       #installBanner {
         left: 12px;
@@ -1391,6 +1390,7 @@
       #installBtn {
         min-width: 110px;
       }
+    }
     @media (max-width: 900px) {
       .nav-divider { display: none; }
       .nav-group { gap: 2px; }
@@ -1400,17 +1400,31 @@
     }
 
     @media (max-width: 720px) {
-      #mainNav { display: none; flex-direction: column; position: fixed; top: 64px; left: 0; right: 0; background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 1rem; gap: 8px; z-index: 99; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
-      #mainNav.mobile-open { display: flex; }
-      #mobileMenuBtn { display: flex !important; }
-      .nav-group { flex-direction: column; width: 100%; }
-      .nav-tab { width: 100%; text-align: left; border-radius: 10px; padding: 10px 16px; font-size: 0.9rem; }
-      .nav-dropdown { width: 100%; }
-      .dropdown-toggle { width: 100%; text-align: left; padding: 10px 16px; border-radius: 10px; }
-      .dropdown-panel { position: static; opacity: 1; transform: none; pointer-events: auto; background: var(--bg); margin-top: 4px; }
-      .discord-btn { width: 100%; text-align: center; border-radius: 10px; padding: 10px 16px; }
-      header { padding: 0 1rem; }
-      .header-right { gap: 0.75rem; }
+      #mainNav {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        top: 64px;
+        left: 0;
+        right: 0;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border);
+        padding: 1rem;
+        gap: 8px;
+        z-index: 99;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+
+        transform: translateY(-10px);
+        opacity: 0;
+        pointer-events: none;
+        transition: all 0.2s ease;
+      }
+
+      #mainNav.mobile-open {
+        transform: translateY(0);
+        opacity: 1;
+        pointer-events: auto;
+      }
     }
 
     @media (max-width: 480px) {
@@ -1444,7 +1458,6 @@
       background: var(--high-bg);
       color: var(--high);
     }
-  }
   </style>
   <link rel="manifest" href="/static/manifest.json">
   <meta name="theme-color" content="#3b82f6">
@@ -1770,7 +1783,13 @@
     _deferredInstallPrompt = null;
   });
 
-  showInstallBanner();
+  window.addEventListener('load', () => {
+  if (_deferredInstallPrompt) {
+    showInstallBanner();
+  } else {
+    hideInstallBanner();
+  }
+});
 </script>
 <script>
 // ── PUSH NOTIFICATIONS SETUP ──────────────────────────────────
