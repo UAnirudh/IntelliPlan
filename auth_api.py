@@ -1,3 +1,12 @@
+"""
+auth_api.py — Token-based auth API for the Chrome extension.
+
+This blueprint is ONLY for the extension API (Bearer token auth).
+Web login/logout/register for the browser are handled entirely in App.py
+via Flask-Login + session cookies. Do NOT add /login, /register, or /logout
+routes here — they conflict with App.py's endpoint names and break Flask.
+"""
+
 import os
 import sqlite3
 from datetime import datetime
@@ -7,7 +16,8 @@ from flask import Blueprint, jsonify, request, current_app
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
 
-auth_bp = Blueprint("auth_bp", __name__)
+# Renamed blueprint: 'auth_api_bp' to avoid endpoint name collisions with App.py
+auth_bp = Blueprint("auth_api_bp", __name__)
 
 DB_PATH = os.getenv(
     "INTELLIPLAN_AUTH_DB",
@@ -59,9 +69,7 @@ def verify_token(token):
     try:
         payload = serializer().loads(token, max_age=TOKEN_MAX_AGE_SECONDS)
         return payload
-    except SignatureExpired:
-        return None
-    except BadSignature:
+    except (SignatureExpired, BadSignature):
         return None
 
 
@@ -105,15 +113,13 @@ def get_current_user():
     token = get_bearer_token()
     if not token:
         return None
-
     payload = verify_token(token)
     if not payload:
         return None
-
     return get_user_by_id(payload.get("user_id"))
 
 
-def corsify(response):
+def _corsify(response):
     origin = request.headers.get("Origin", "")
     allowed = (
         origin.startswith("chrome-extension://")
@@ -121,7 +127,6 @@ def corsify(response):
         or origin.startswith("http://127.0.0.1")
         or origin.startswith("https://intelliplan.up.railway.app")
     )
-
     if allowed and origin:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Vary"] = "Origin"
@@ -131,40 +136,45 @@ def corsify(response):
     return response
 
 
-@auth_bp.after_app_request
+# IMPORTANT: Use after_request (blueprint-scoped), NOT after_app_request.
+# after_app_request would intercept Flask-Login redirects globally and break
+# browser login/logout flows.
+@auth_bp.after_request
 def add_cors_headers(response):
-    return corsify(response)
+    return _corsify(response)
 
 
 def json_error(message, status=400):
-    return corsify(jsonify({"status": "error", "message": message})), status
+    return jsonify({"status": "error", "message": message}), status
 
 
 def json_ok(data=None, status=200):
     payload = {"status": "ok"}
     if data:
         payload.update(data)
-    return corsify(jsonify(payload)), status
+    return jsonify(payload), status
 
 
 def require_json_fields(*fields):
     data = request.get_json(silent=True) or {}
-    missing = [field for field in fields if not data.get(field)]
+    missing = [f for f in fields if not data.get(f)]
     if missing:
         return None, json_error(f"Missing required field(s): {', '.join(missing)}", 400)
     return data, None
 
 
 def handle_options():
-    return corsify(("", 204))
+    resp = current_app.make_response(("", 204))
+    return _corsify(resp)
 
+
+# ── EXTENSION-ONLY API ROUTES ─────────────────────────────────
+# These are prefixed with /api/auth/ and /api/ext/ to avoid any
+# collision with the browser-facing routes in App.py.
 
 @auth_bp.route("/api/auth/register", methods=["POST", "OPTIONS"])
-@auth_bp.route("/auth/register", methods=["POST", "OPTIONS"])
-@auth_bp.route("/signup", methods=["POST", "OPTIONS"])
-@auth_bp.route("/register", methods=["POST", "OPTIONS"])
-@auth_bp.route("/api/signup", methods=["POST", "OPTIONS"])
-def register():
+@auth_bp.route("/api/ext/register", methods=["POST", "OPTIONS"])
+def api_register():
     if request.method == "OPTIONS":
         return handle_options()
 
@@ -180,25 +190,15 @@ def register():
     if len(password) < 6:
         return json_error("Password must be at least 6 characters long.", 400)
 
-    existing = get_user_by_email(email)
-    if existing:
+    if get_user_by_email(email):
         return json_error("An account with that email already exists.", 409)
 
     conn = get_db()
     conn.execute(
-        """
-        INSERT INTO users (name, email, password_hash, created_at)
-        VALUES (?, ?, ?, ?)
-        """,
-        (
-            name,
-            email,
-            generate_password_hash(password),
-            datetime.utcnow().isoformat() + "Z"
-        )
+        "INSERT INTO users (name, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
+        (name, email, generate_password_hash(password), datetime.utcnow().isoformat() + "Z")
     )
     conn.commit()
-
     user = conn.execute(
         "SELECT id, name, email, password_hash, created_at FROM users WHERE email = ?",
         (email,)
@@ -206,20 +206,12 @@ def register():
     conn.close()
 
     token = make_token(user)
-    return json_ok(
-        {
-            "token": token,
-            "user": user_to_dict(user)
-        },
-        201
-    )
+    return json_ok({"token": token, "user": user_to_dict(user)}, 201)
 
 
 @auth_bp.route("/api/auth/login", methods=["POST", "OPTIONS"])
-@auth_bp.route("/auth/login", methods=["POST", "OPTIONS"])
-@auth_bp.route("/login", methods=["POST", "OPTIONS"])
-@auth_bp.route("/api/login", methods=["POST", "OPTIONS"])
-def login():
+@auth_bp.route("/api/ext/login", methods=["POST", "OPTIONS"])
+def api_login():
     if request.method == "OPTIONS":
         return handle_options()
 
@@ -232,27 +224,16 @@ def login():
     password = data["password"]
 
     user = get_user_by_email(email)
-    if not user:
-        return json_error("Invalid email or password.", 401)
-
-    if not check_password_hash(user["password_hash"], password):
+    if not user or not check_password_hash(user["password_hash"], password):
         return json_error("Invalid email or password.", 401)
 
     token = make_token(user)
-    return json_ok(
-        {
-            "token": token,
-            "user": user_to_dict(user)
-        }
-    )
+    return json_ok({"token": token, "user": user_to_dict(user)})
 
 
 @auth_bp.route("/api/auth/me", methods=["GET", "OPTIONS"])
-@auth_bp.route("/auth/me", methods=["GET", "OPTIONS"])
-@auth_bp.route("/me", methods=["GET", "OPTIONS"])
-@auth_bp.route("/api/user", methods=["GET", "OPTIONS"])
-@auth_bp.route("/api/profile", methods=["GET", "OPTIONS"])
-def me():
+@auth_bp.route("/api/ext/me", methods=["GET", "OPTIONS"])
+def api_me():
     if request.method == "OPTIONS":
         return handle_options()
 
@@ -264,21 +245,18 @@ def me():
 
 
 @auth_bp.route("/api/auth/logout", methods=["POST", "OPTIONS"])
-@auth_bp.route("/auth/logout", methods=["POST", "OPTIONS"])
-@auth_bp.route("/logout", methods=["POST", "OPTIONS"])
-@auth_bp.route("/api/logout", methods=["POST", "OPTIONS"])
-def logout():
+@auth_bp.route("/api/ext/logout", methods=["POST", "OPTIONS"])
+def api_logout():
     if request.method == "OPTIONS":
         return handle_options()
-
-    # Stateless token auth: the extension clears the token locally.
+    # Stateless — the extension clears its token locally.
     return json_ok({"message": "Logged out."})
 
 
 @auth_bp.route("/api/auth/debug", methods=["GET"])
-def debug():
+def api_debug():
     init_db()
     conn = get_db()
     count = conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()["c"]
     conn.close()
-    return json_ok({"users": count})
+    return json_ok({"extension_users": count})

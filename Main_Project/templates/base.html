@@ -1490,9 +1490,11 @@
       <div class="nav-group">
         {% if logged_in %}
           <a href="/settings" class="nav-tab {% if active_page == 'settings' %}active{% endif %}">⚙</a>
-          <button type="submit" class="nav-tab logout-btn" formaction="/logout" formmethod="POST">
-            Logout
-          </button>
+          <form action="/logout" method="POST" style="display:inline;">
+            <button type="submit" class="nav-tab logout-btn">
+              Logout
+            </button>
+          </form>
         {% else %}
           <a href="/login" class="nav-tab {% if active_page == 'login' %}active{% endif %}">Login</a>
         {% endif %}

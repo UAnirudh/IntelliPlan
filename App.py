@@ -526,8 +526,11 @@ def dashboard():
     return render_template("dashboard.html", active_page="dashboard")
 
 # ── AUTH ROUTES ───────────────────────────────────────────────
-@app.route("/login", methods=["GET"])
+@app.route("/login", methods=["GET", "POST"])
 def login():
+    # If a form POSTs directly to /login, forward to /login/account (preserving POST body)
+    if request.method == "POST":
+        return redirect(url_for("login_account"), 307)
     if is_logged_in():
         return redirect(url_for("dashboard"))
     return render_template("login.html", active_page="login")
@@ -674,10 +677,14 @@ def login_schoology():
     return render_template("login_schoology.html", active_page="login", error=error)
 
 @app.route("/logout", methods=["POST", "GET"])
+@app.route("/logout", methods=["POST", "GET"])
 def logout():
     logout_user()
     session.clear()
-    return redirect(url_for("login"))
+    response = redirect(url_for("login"))
+    response.delete_cookie(app.config.get("SESSION_COOKIE_NAME", "session"))
+    response.delete_cookie("remember_token")
+    return response
 
 # ── PROFILE MANAGEMENT ────────────────────────────────────────
 @app.route("/profiles/list")

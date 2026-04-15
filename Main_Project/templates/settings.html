@@ -6,15 +6,52 @@
 </div>
 
 <div id="settingsWrap">
+
+  <!-- Account -->
   <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;box-shadow:var(--shadow);margin-bottom:1.5rem;" id="accountCard">
     <div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:1rem;">Account</div>
     <div id="accountInfo" style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:1rem;"></div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-      <a href="/connect" class="btn-secondary" style="text-decoration:none;padding:10px 20px;font-size:0.88rem;">+ Connect LMS Account</a>
-      <button onclick="deleteAccount()" style="padding:10px 20px;border-radius:10px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:600;">Delete Account</button>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <a href="/login/canvas" class="btn-secondary" style="text-decoration:none;padding:10px 20px;font-size:0.88rem;">+ Connect Canvas</a>
+      <a href="/login/studentvue" class="btn-secondary" style="text-decoration:none;padding:10px 20px;font-size:0.88rem;">+ Connect StudentVue</a>
+      <a href="/login/schoology" class="btn-secondary" style="text-decoration:none;padding:10px 20px;font-size:0.88rem;">+ Connect Schoology</a>
+      <button id="deleteAccountBtn" onclick="deleteAccount()" style="padding:10px 20px;border-radius:10px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:600;">Delete Account</button>
     </div>
   </div>
 
+  <!-- Integrations -->
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;box-shadow:var(--shadow);margin-bottom:1.5rem;">
+    <div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:1rem;">
+      Integrations
+    </div>
+
+    <div id="integrationsWrap" style="display:flex;flex-direction:column;gap:12px;">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:10px;">
+        <div>
+          <div style="font-weight:600;">📅 Google Calendar</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);">Sync your schedule automatically</div>
+        </div>
+        <button onclick="connectGoogle()" class="btn-primary" style="padding:6px 14px;font-size:0.8rem;">
+          Connect
+        </button>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-weight:600;">🧠 Notion</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);">Sync tasks to your Notion workspace</div>
+        </div>
+        <button onclick="connectNotion()" class="btn-primary" style="padding:6px 14px;font-size:0.8rem;">
+          Connect
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Connected Schools -->
   <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;box-shadow:var(--shadow);">
     <div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:1rem;">Connected Schools</div>
     <div id="linkedAccounts"></div>
@@ -26,20 +63,25 @@
 fetch('/profiles/list')
   .then(r => r.json())
   .then(data => {
-    if (data.is_guest) {
-      document.getElementById('accountInfo').innerHTML =
-        'You are using IntelliPlan as a <strong>guest</strong>. <a href="/register" class="login-link">Create a free account</a> to save your data.';
-      document.querySelector('button[onclick="deleteAccount()"]').style.display = 'none';
-      return;
-    }
-    document.getElementById('accountInfo').innerHTML =
-      `Signed in as <strong>${data.email}</strong>`;
-
+    const deleteBtn = document.getElementById('deleteAccountBtn');
+    const accountInfo = document.getElementById('accountInfo');
     const wrap = document.getElementById('linkedAccounts');
-    if (!data.profiles.length) {
+
+    if (data.is_guest) {
+      accountInfo.innerHTML =
+        'You are using IntelliPlan as a <strong>guest</strong>. <a href="/register" class="login-link">Create a free account</a> to save your data.';
+      if (deleteBtn) deleteBtn.style.display = 'none';
+    } else {
+      accountInfo.innerHTML = `Signed in as <strong>${data.email}</strong>`;
+      if (deleteBtn) deleteBtn.style.display = 'inline-block';
+    }
+
+    if (!data.profiles || !data.profiles.length) {
       wrap.innerHTML = '<div style="color:var(--text-muted);font-size:0.88rem;">No schools connected yet.</div>';
       return;
     }
+
+    wrap.innerHTML = '';
     data.profiles.forEach(p => {
       const icon = p.login_type === 'canvas' ? '🟥' : p.login_type === 'schoology' ? '🟦' : '🟩';
       const div = document.createElement('div');
@@ -50,7 +92,10 @@ fetch('/profiles/list')
           <div style="font-size:0.9rem;font-weight:600;color:var(--text-primary);">${p.name}</div>
           <div style="font-size:0.75rem;color:var(--text-muted);text-transform:capitalize;">${p.login_type}</div>
         </div>
-        ${p.is_active ? '<span style="font-size:0.72rem;background:var(--accent);color:white;padding:2px 8px;border-radius:10px;font-weight:600;">Active</span>' : `<button onclick="switchProfile('${p.id}')" class="btn-primary" style="padding:6px 14px;border:none;cursor:pointer;font-size:0.8rem;">Switch</button>`}
+        ${p.is_active
+          ? '<span style="font-size:0.72rem;background:var(--accent);color:white;padding:2px 8px;border-radius:10px;font-weight:600;">Active</span>'
+          : `<button onclick="switchProfile('${p.id}')" class="btn-primary" style="padding:6px 14px;border:none;cursor:pointer;font-size:0.8rem;">Switch</button>`
+        }
         <button onclick="deleteProfile('${p.id}')" style="padding:6px 12px;border-radius:8px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:0.8rem;">Remove</button>
       `;
       wrap.appendChild(div);
@@ -59,7 +104,8 @@ fetch('/profiles/list')
 
 function switchProfile(id) {
   fetch('/profiles/switch', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
     body: JSON.stringify({id})
   }).then(() => window.location.reload());
 }
@@ -67,7 +113,8 @@ function switchProfile(id) {
 function deleteProfile(id) {
   if (!confirm('Remove this school account?')) return;
   fetch('/profiles/delete', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
     body: JSON.stringify({id})
   }).then(() => window.location.reload());
 }
@@ -75,7 +122,32 @@ function deleteProfile(id) {
 function deleteAccount() {
   if (!confirm('Permanently delete your IntelliPlan account and all data? This cannot be undone.')) return;
   fetch('/account/delete', {
-    method: 'POST', headers: {'Content-Type':'application/json'}
+    method: 'POST',
+    headers: {'Content-Type':'application/json'}
   }).then(() => window.location.href = '/');
+}
+
+function connectGoogle() {
+  window.location.href = "/oauth/google";
+}
+
+function connectNotion() {
+  const token = prompt("Enter your Notion integration token:");
+  if (!token) return;
+
+  fetch("/notion/connect", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ token })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.status === "ok") {
+      alert("Notion connected. Now select a database.");
+      console.log(data.databases);
+    } else {
+      alert("Failed: " + data.message);
+    }
+  });
 }
 {% endblock %}

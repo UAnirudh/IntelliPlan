@@ -14,19 +14,31 @@
     {% endif %}
 
     <form class="login-form" method="POST" action="/login/studentvue">
+      
       <div class="form-group">
         <label class="form-label">District URL</label>
-        <input type="text" name="district_url" class="form-input" placeholder="https://wa-nor-psv.edupoint.com" />
-        <span class="form-hint">Your school district's StudentVue URL</span>
+        <input
+          type="url"
+          name="district_url"
+          class="form-input"
+          value="https://wa-nor-psv.edupoint.com"
+          onfocus="this.select()"
+          spellcheck="false"
+          autocomplete="off"
+        />
+        <span class="form-hint">Edit the prefilled URL if your district uses a different StudentVue address.</span>
       </div>
+
       <div class="form-group">
         <label class="form-label">Student ID</label>
         <input type="text" name="username" class="form-input" placeholder="Your student ID number" />
       </div>
+
       <div class="form-group">
         <label class="form-label">Password</label>
         <input type="password" name="password" class="form-input" placeholder="••••••••••••••••" />
       </div>
+
       <button type="submit" class="btn-primary" style="width:100%;padding:14px;border:none;cursor:pointer;font-size:0.95rem;">
         Connect StudentVue
       </button>
@@ -35,6 +47,7 @@
     <div class="login-footer">
       <p>Your credentials are never stored permanently.</p>
       <p style="margin-top:8px;"><a href="/login" class="login-link">← Back to login options</a></p>
+    </div>
   </div>
 </div>
 {% endblock %}
