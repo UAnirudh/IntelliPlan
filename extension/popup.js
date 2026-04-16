@@ -92,7 +92,7 @@ async function apiFetch(path, options = {}) {
   }
 
   return fetch(BASE_URL + path, {
-    credentials: "include",
+    credentials: "omit",
     ...options,
     headers
   });
@@ -102,7 +102,7 @@ async function authRequest(mode, payload) {
   const path = AUTH_ENDPOINTS[mode];
   const res = await fetch(BASE_URL + path, {
     method: "POST",
-    credentials: "include",
+    credentials: "omit",
     headers: {
       "Content-Type": "application/json"
     },

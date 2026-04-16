@@ -1,4 +1,4 @@
-const CACHE_NAME = 'intelliplan-v2';
+const CACHE_NAME = 'intelliplan-v3';
 const STATIC_ASSETS = [
   '/',
   '/dashboard',

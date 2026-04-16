@@ -13,8 +13,9 @@ import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from auth_api import auth_bp
+from auth_api import auth_bp, verify_token
 from werkzeug.utils import secure_filename
+import secrets as secrets_module
 
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import (
@@ -215,12 +216,42 @@ class CourseNote(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class ExtensionToken(db.Model):
+    __tablename__ = "extension_tokens"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    token = db.Column(db.String(64), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 with app.app_context():
     db.create_all()
 
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))
+
+@login_manager.request_loader
+def load_user_from_request(req):
+    auth_header = req.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None
+
+    token = auth_header.split(" ", 1)[1].strip()
+    if not token:
+        return None
+
+    payload = verify_token(token)
+    if not payload:
+        return None
+
+    user_id = payload.get("user_id")
+    if not user_id:
+        return None
+
+    try:
+        return db.session.get(User, int(user_id))
+    except Exception:
+        return None
 
 # ── CONSTANTS ─────────────────────────────────────────────────
 PRIORITY_COLORS = {
@@ -2184,6 +2215,203 @@ def notes_file(note_id):
         "filename": getattr(note, "original_filename", None),
         "text_content": getattr(note, "text_content", "")
     })
+
+@app.route("/extension/login", methods=["POST"])
+def extension_login():
+    data = request.json
+    email = data.get("email", "").strip().lower()
+    password = data.get("password", "").strip()
+    if not email or not password:
+        return flask.jsonify({"status": "error", "message": "Email and password required"})
+    user = User.query.filter_by(email=email).first()
+    if not user or not bcrypt.check_password_hash(user.password_hash, password):
+        return flask.jsonify({"status": "error", "message": "Invalid email or password"})
+    token = secrets_module.token_hex(32)
+    db.session.add(ExtensionToken(user_id=user.id, token=token))
+    db.session.commit()
+    return flask.jsonify({"status": "ok", "token": token, "email": user.email})
+
+@app.route("/extension/register", methods=["POST"])
+def extension_register():
+    data = request.json
+    email = data.get("email", "").strip().lower()
+    password = data.get("password", "").strip()
+    if not email or not password:
+        return flask.jsonify({"status": "error", "message": "Email and password required"})
+    if len(password) < 8:
+        return flask.jsonify({"status": "error", "message": "Password must be at least 8 characters"})
+    if User.query.filter_by(email=email).first():
+        return flask.jsonify({"status": "error", "message": "Account already exists"})
+    pw_hash = bcrypt.generate_password_hash(password).decode("utf-8")
+    user = User(email=email, password_hash=pw_hash)
+    db.session.add(user)
+    db.session.commit()
+    token = secrets_module.token_hex(32)
+    db.session.add(ExtensionToken(user_id=user.id, token=token))
+    db.session.commit()
+    return flask.jsonify({"status": "ok", "token": token, "email": user.email})
+
+@app.route("/extension/logout", methods=["POST"])
+def extension_logout():
+    token = request.headers.get("X-Extension-Token")
+    if token:
+        ExtensionToken.query.filter_by(token=token).delete()
+        db.session.commit()
+    return flask.jsonify({"status": "ok"})
+
+def get_extension_user(token):
+    if not token:
+        return None
+    row = ExtensionToken.query.filter_by(token=token).first()
+    if not row:
+        return None
+    return User.query.get(row.user_id)
+
+@app.route("/extension/tasks")
+def extension_tasks():
+    token = request.headers.get("X-Extension-Token")
+    user = get_extension_user(token)
+    if not user:
+        return flask.jsonify({"status": "error", "message": "Not authenticated"}), 401
+    
+    from datetime import date as date_type
+    today = date_type.today()
+    priority_order = {"High": 0, "Medium": 1, "Low": 2}
+    tasks = []
+    dismissed_rows = DismissedAssignment.query.filter_by(user_id=user.id).all()
+    dismissed = {r.title for r in dismissed_rows}
+
+    acct = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
+    if acct:
+        creds = acct.get_credentials()
+        login_type = acct.login_type
+        if login_type == "studentvue":
+            try:
+                raw = get_sv_assignments(creds["sv_district_url"], creds["sv_username"], creds["sv_password"])
+                missing = get_missing_assignments(creds["sv_district_url"], creds["sv_username"], creds["sv_password"])
+                for a in raw + missing:
+                    if a["title"] not in dismissed:
+                        a.setdefault("source", "studentvue")
+                        tasks.append(a)
+            except Exception as e:
+                print(f"Extension SV error: {e}")
+        elif login_type == "canvas":
+            try:
+                token_c = creds["canvas_token"]
+                canvas_url = creds.get("canvas_url", "https://canvas.instructure.com")
+                headers = {"Authorization": f"Bearer {token_c}"}
+                courses = requests.get(f"{canvas_url}/api/v1/courses", headers=headers).json()
+                course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
+                for course_id in course_map:
+                    resp = requests.get(f"{canvas_url}/api/v1/courses/{course_id}/assignments", headers=headers).json()
+                    if not isinstance(resp, list):
+                        continue
+                    for a in resp:
+                        if not isinstance(a, dict) or not a.get("due_at"):
+                            continue
+                        due_str = a["due_at"][:10]
+                        try:
+                            due = datetime.strptime(due_str, "%Y-%m-%d").date()
+                        except:
+                            continue
+                        days = (due - today).days
+                        if days < -14:
+                            continue
+                        priority = "High" if days <= 3 else "Medium" if days <= 7 else "Low"
+                        title = a["name"]
+                        if title in dismissed:
+                            continue
+                        tasks.append({
+                            "title": title,
+                            "course": course_map.get(a["course_id"], "Unknown"),
+                            "due_date": due_str,
+                            "priority": priority,
+                            "source": "canvas",
+                            "estimated_time": max(30, round(float(a.get("points_possible", 60) or 60) * 1.5 / 30) * 30),
+                            "color": PRIORITY_COLORS.get(priority, "#f59e0b")
+                        })
+            except Exception as e:
+                print(f"Extension Canvas error: {e}")
+
+    manual = ManualTask.query.filter_by(user_id=user.id, done=False).all()
+    for t in manual:
+        if t.title not in dismissed:
+            tasks.append({
+                "id": t.id,
+                "title": t.title,
+                "due_date": t.due_date or "",
+                "priority": t.priority,
+                "course": t.course,
+                "estimated_time": t.estimated_time,
+                "source": "manual",
+                "color": PRIORITY_COLORS.get(t.priority, "#f59e0b")
+            })
+
+    result = {"today": [], "upcoming": [], "overdue": []}
+    for t in tasks:
+        due = t.get("due_date", "")
+        if not due:
+            result["upcoming"].append(t)
+            continue
+        try:
+            due_date = datetime.strptime(due, "%Y-%m-%d").date()
+            if due_date < today:
+                result["overdue"].append(t)
+            elif due_date == today:
+                result["today"].append(t)
+            else:
+                result["upcoming"].append(t)
+        except:
+            result["upcoming"].append(t)
+
+    for key in result:
+        result[key].sort(key=lambda x: (x.get("due_date", "9999"), priority_order.get(x.get("priority", "Low"), 2)))
+
+    return flask.jsonify(result)
+
+@app.route("/extension/schedule")
+def extension_schedule():
+    token = request.headers.get("X-Extension-Token")
+    user = get_extension_user(token)
+    if not user:
+        return flask.jsonify({"status": "error"}), 401
+    s = SavedSchedule.query.filter_by(user_id=user.id, is_active=True).order_by(SavedSchedule.created_at.desc()).first()
+    if not s:
+        return flask.jsonify({"status": "none"})
+    return flask.jsonify({"status": "ok", "name": s.name, "created_at": s.created_at.strftime("%b %d, %Y"), "data": json.loads(s.schedule_data)})
+
+@app.route("/extension/grades")
+def extension_grades():
+    token = request.headers.get("X-Extension-Token")
+    user = get_extension_user(token)
+    if not user:
+        return flask.jsonify([]), 401
+    acct = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
+    if not acct:
+        return flask.jsonify([])
+    creds = acct.get_credentials()
+    if acct.login_type == "studentvue":
+        from studentvue_helper import get_grades as get_sv_grades
+        try:
+            return flask.jsonify(get_sv_grades(creds["sv_district_url"], creds["sv_username"], creds["sv_password"]))
+        except:
+            return flask.jsonify([])
+    return flask.jsonify([])
+
+@app.route("/extension/dismiss", methods=["POST"])
+def extension_dismiss():
+    token = request.headers.get("X-Extension-Token")
+    user = get_extension_user(token)
+    if not user:
+        return flask.jsonify({"status": "error"}), 401
+    data = request.json
+    title = data.get("title", "")
+    if title:
+        existing = DismissedAssignment.query.filter_by(user_id=user.id, title=title).first()
+        if not existing:
+            db.session.add(DismissedAssignment(user_id=user.id, title=title, data=json.dumps(data)))
+            db.session.commit()
+    return flask.jsonify({"status": "ok"})
 
 if __name__ == "__main__":
     with app.app_context():
