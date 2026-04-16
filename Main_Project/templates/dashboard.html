@@ -1,872 +1,967 @@
 {% extends "base.html" %}
 
 {% block content %}
-<!-- Feedback Modal -->
-<div id="feedbackModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
-  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:420px; width:90%; box-shadow:var(--shadow-hover); animation:fadeUp 0.25s ease both;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
-      <h2 style="font-family:'DM Serif Display',serif; font-size:1.1rem; color:var(--text-primary);">Task Complete! 🎉</h2>
-      <button onclick="closeFeedbackModal()" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--text-muted);">✕</button>
-    </div>
-    <input type="hidden" id="feedbackTaskTitle" />
-    <p id="feedbackTaskName" style="font-size:0.9rem; font-weight:600; color:var(--text-primary); margin-bottom:1rem;"></p>
-    <div class="form-group" style="margin-bottom:1rem;">
-      <label class="form-label">How long did this actually take? (minutes)</label>
-      <input type="number" id="feedbackActualTime" class="form-input" placeholder="e.g. 45" min="1" max="480" />
-      <span class="form-hint">Helps IntelliPlan estimate better next time</span>
-    </div>
-    <div style="display:flex; gap:8px;">
-      <button onclick="submitFeedback(true)" class="btn-primary" style="flex:1; padding:12px; border:none; cursor:pointer;">Save & Done</button>
-      <button onclick="submitFeedback(false)" style="padding:12px 16px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text-muted); cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.88rem;">Skip</button>
-    </div>
-  </div>
-</div>
-
 <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
   <div>
-    <h1 class="page-title">Dashboard</h1>
-    <p class="page-subtitle" id="dashSubtitle">Loading...</p>
+    <h1 class="page-title">Classes View</h1>
+    <p class="page-subtitle">Assignments grouped by course</p>
   </div>
-  <div style="display:flex; gap:8px; flex-wrap:wrap;">
-    <button onclick="openNewTaskModal()" class="btn-primary" style="padding:10px 20px; border:none; cursor:pointer; font-size:0.88rem;">+ New Task</button>
-    <button onclick="openIntegrationsModal()" class="btn-secondary" style="padding:10px 20px; font-size:0.88rem;">⚙ Integrations</button>
-  </div>
-</div>
 
-<!-- Integration / status chips -->
-<div id="integrationBar" style="display:flex; gap:8px; margin-bottom:1.5rem; flex-wrap:wrap;"></div>
-<!-- Schedule Export Bar -->
-<div id="exportBar" style="display:none; background:var(--bg-card); border:1px solid var(--border); border-radius:14px; padding:1rem 1.5rem; margin-bottom:1.5rem; display:none; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
-  <div style="font-size:0.85rem; color:var(--text-secondary);">
-    <strong style="color:var(--text-primary);">📅 Export to Google Calendar</strong>
-    <span id="exportStatus" style="margin-left:8px; font-size:0.78rem; color:var(--text-muted);"></span>
-  </div>
-  <div style="display:flex; gap:8px; align-items:center;">
-    <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;color:var(--text-secondary);cursor:pointer;">
-      <input type="checkbox" id="skipOverlaps" checked style="accent-color:var(--accent);width:14px;height:14px;" />
-      Skip overlapping events
-    </label>
-    <button onclick="exportScheduleToCal()" id="exportCalBtn" style="
-      padding:8px 18px; background:#ea4335; color:white; border:none;
-      border-radius:10px; cursor:pointer; font-family:'DM Sans',sans-serif;
-      font-size:0.85rem; font-weight:600; transition:all 0.2s;
-      box-shadow:0 2px 8px rgba(234,67,53,0.3);">
-      Export Schedule
+  <div class="class-toolbar">
+    <button id="notesActionBtn" class="notes-action-btn" type="button" onclick="openSelectedCourseNotes()" disabled>
+      Retrieve Notes
     </button>
   </div>
 </div>
-<!-- Saved Schedule Banner -->
-<div id="savedScheduleBanner" style="display:none; background:var(--accent-soft); border:1px solid var(--accent-mid); border-radius:16px; padding:1.25rem 1.5rem; margin-bottom:1.5rem; display:none; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
-  <div>
-    <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent); margin-bottom:4px;">📅 Active Study Plan</div>
-    <div id="savedScheduleName" style="font-family:'DM Serif Display',serif; font-size:1.1rem; color:var(--text-primary);"></div>
-    <div id="savedScheduleDate" style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;"></div>
-  </div>
-  <div style="display:flex; gap:8px;">
-    <button onclick="viewSavedSchedule()" class="btn-primary" style="padding:8px 18px; border:none; cursor:pointer; font-size:0.85rem;">View Plan</button>
-    <button onclick="clearSavedSchedule()" style="padding:8px 14px; border-radius:10px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-muted); cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.82rem;">Clear</button>
-  </div>
-</div>
 
-<!-- Today's schedule preview -->
-<div id="todayScheduleWrap" style="display:none; margin-bottom:1.5rem;">
-  <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin-bottom:0.75rem;">Today's Blocks</div>
-  <div id="todayBlocks" style="display:flex; flex-direction:column; gap:8px;"></div>
-</div>
-
-<!-- Notion-style task columns -->
-<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.25rem;" id="dashColumns">
-  <div>
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:2px solid var(--high);">
-      <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--high);">⚠ Overdue</span>
-      <span id="overdueCount" style="font-size:0.7rem; background:var(--high-bg); color:var(--high); padding:2px 8px; border-radius:10px; font-weight:600;">0</span>
+<div class="stats-bar" id="statsBar">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#dbeafe;">📚</div>
+    <div class="stat-info">
+      <div class="stat-value" id="statCourses">—</div>
+      <div class="stat-label">Total Courses</div>
     </div>
-    <div id="overdueList" class="notion-col"></div>
   </div>
-  <div>
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:2px solid var(--accent);">
-      <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--accent);">📅 Today</span>
-      <span id="todayCount" style="font-size:0.7rem; background:var(--accent-soft); color:var(--accent); padding:2px 8px; border-radius:10px; font-weight:600;">0</span>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fef2f2;">📝</div>
+    <div class="stat-info">
+      <div class="stat-value" id="statTotal">—</div>
+      <div class="stat-label">Total Assignments</div>
     </div>
-    <div id="todayList" class="notion-col"></div>
   </div>
-  <div>
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:2px solid var(--low);">
-      <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--low);">🗓 Upcoming</span>
-      <span id="upcomingCount" style="font-size:0.7rem; background:var(--low-bg); color:var(--low); padding:2px 8px; border-radius:10px; font-weight:600;">0</span>
-    </div>
-    <div id="upcomingList" class="notion-col"></div>
-  </div>
-</div>
-
-<!-- New Task Modal -->
-<div id="newTaskModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
-  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:500px; width:90%; box-shadow:var(--shadow-hover); animation:fadeUp 0.25s ease both; max-height:90vh; overflow-y:auto;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-      <h2 style="font-family:'DM Serif Display',serif; font-size:1.2rem; color:var(--text-primary);">New Task</h2>
-      <button onclick="closeNewTaskModal()" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--text-muted);">✕</button>
-    </div>
-    <div style="display:flex; flex-direction:column; gap:1rem;">
-      <div class="form-group">
-        <label class="form-label">Title *</label>
-        <input type="text" id="newTaskTitle" class="form-input" placeholder="What needs to get done?" />
-      </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
-        <div class="form-group">
-          <label class="form-label">Due Date</label>
-          <input type="date" id="newTaskDue" class="form-input" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Priority</label>
-          <select id="newTaskPriority" class="form-input">
-            <option value="High">🔴 High</option>
-            <option value="Medium" selected>🟡 Medium</option>
-            <option value="Low">🟢 Low</option>
-          </select>
-        </div>
-      </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
-        <div class="form-group">
-          <label class="form-label">Course / Category</label>
-          <input type="text" id="newTaskCourse" class="form-input" placeholder="e.g. Math, Personal" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Est. Time (min)</label>
-          <input type="number" id="newTaskTime" class="form-input" value="60" min="15" step="15" />
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Notes</label>
-        <textarea id="newTaskNotes" class="form-input" style="resize:vertical; min-height:70px;" placeholder="Optional notes..."></textarea>
-      </div>
-      <div style="display:flex; align-items:center; gap:8px; padding:10px; background:var(--bg); border-radius:10px; border:1px solid var(--border);">
-        <input type="checkbox" id="syncNotion" style="width:16px;height:16px;accent-color:var(--accent);" />
-        <label for="syncNotion" style="font-size:0.85rem; color:var(--text-secondary); cursor:pointer;">📝 Also add to Notion</label>
-      </div>
-      <button onclick="createManualTask()" class="btn-primary" style="padding:14px; border:none; cursor:pointer; font-size:0.9rem;">Create Task</button>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#f0fdf4;">⏱</div>
+    <div class="stat-info">
+      <div class="stat-value" id="statTime">—</div>
+      <div class="stat-label">Total Study Time</div>
     </div>
   </div>
 </div>
 
-<!-- Edit Task Modal -->
-<div id="editTaskModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
-  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:500px; width:90%; box-shadow:var(--shadow-hover); animation:fadeUp 0.25s ease both;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-      <h2 style="font-family:'DM Serif Display',serif; font-size:1.2rem; color:var(--text-primary);">Edit Task</h2>
-      <button onclick="closeEditModal()" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--text-muted);">✕</button>
-    </div>
-    <div style="display:flex; flex-direction:column; gap:1rem;">
-      <input type="hidden" id="editTaskId" />
-      <input type="hidden" id="editTaskSource" />
-      <input type="hidden" id="editTaskNotionId" />
-      <div class="form-group">
-        <label class="form-label">Title</label>
-        <input type="text" id="editTaskTitle" class="form-input" />
-      </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
-        <div class="form-group">
-          <label class="form-label">Due Date</label>
-          <input type="date" id="editTaskDue" class="form-input" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Priority</label>
-          <select id="editTaskPriority" class="form-input">
-            <option value="High">🔴 High</option>
-            <option value="Medium">🟡 Medium</option>
-            <option value="Low">🟢 Low</option>
-          </select>
-        </div>
-      </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
-        <div class="form-group">
-          <label class="form-label">Est. Time (min)</label>
-          <input type="number" id="editTaskTime" class="form-input" min="15" step="15" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Course</label>
-          <input type="text" id="editTaskCourse" class="form-input" />
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Notes</label>
-        <textarea id="editTaskNotes" class="form-input" style="resize:vertical; min-height:70px;"></textarea>
-      </div>
-      <div style="display:flex; gap:8px;">
-        <button onclick="saveEditTask()" class="btn-primary" style="flex:1; padding:12px; border:none; cursor:pointer;">Save Changes</button>
-        <button onclick="deleteManualTask()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--high); background:var(--high-bg); color:var(--high); cursor:pointer; font-family:'DM Sans',sans-serif; font-weight:600;">Delete</button>
-      </div>
-    </div>
+<div class="dropdown-wrap">
+  <button class="dropdown-btn" id="classDropBtn">
+    📚 Select a Course <span class="chevron">▾</span>
+  </button>
+  <div class="dropdown-menu" id="classMenu">
+    <div class="dropdown-item active" data-filter="all">📋 All Courses</div>
   </div>
 </div>
 
-<!-- Integrations Modal -->
-<div id="integrationsModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
-  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:520px; width:90%; box-shadow:var(--shadow-hover); animation:fadeUp 0.25s ease both; max-height:85vh; overflow-y:auto;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-      <h2 style="font-family:'DM Serif Display',serif; font-size:1.2rem; color:var(--text-primary);">Integrations</h2>
-      <button onclick="closeIntegrationsModal()" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--text-muted);">✕</button>
+<div id="assignmentsList" class="assignments-list" style="margin-top: 1.5rem;">
+  <div class="loading">
+    <div class="spinner"></div>
+    <p>Loading assignments...</p>
+  </div>
+</div>
+
+<div class="empty-state" id="emptyState">
+  <div class="empty-icon">📚</div>
+  <div class="empty-title">No assignments found</div>
+  <p>Try selecting a different course</p>
+</div>
+
+<!-- Notes Overlay -->
+<div id="notesOverlay" class="notes-overlay">
+  <div id="notesShell" class="notes-shell">
+    <div class="notes-head">
+      <div>
+        <div class="notes-eyebrow">Course Notes</div>
+        <div id="notesCourseTitle" class="notes-title">Select a course</div>
+      </div>
+      <button class="notes-close" onclick="closeNotesModal()">✕</button>
     </div>
 
-    <!-- Google Calendar -->
-    <div style="background:var(--bg); border:1px solid var(--border); border-radius:14px; padding:1.25rem; margin-bottom:1rem;">
-      <div style="display:flex; align-items:center; gap:12px;">
-        <div style="width:42px;height:42px;border-radius:10px;background:#ea4335;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">📅</div>
-        <div style="flex:1;">
-          <div style="font-size:0.95rem;font-weight:600;color:var(--text-primary);">Google Calendar</div>
-          <div id="gcalStatus" style="font-size:0.78rem;color:var(--text-muted);">Checking...</div>
-        </div>
-        <div id="gcalActions"></div>
-      </div>
-    </div>
+    <div class="notes-grid">
+      <div class="notes-panel">
+        <div class="notes-label">Upload Notes</div>
 
-    <!-- Notion -->
-    <div style="background:var(--bg); border:1px solid var(--border); border-radius:14px; padding:1.25rem;">
-      <div style="display:flex; align-items:center; gap:12px; margin-bottom:1rem;">
-        <div style="width:42px;height:42px;border-radius:10px;background:#191919;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">📝</div>
-        <div style="flex:1;">
-          <div style="font-size:0.95rem;font-weight:600;color:var(--text-primary);">Notion</div>
-          <div id="notionStatus" style="font-size:0.78rem;color:var(--text-muted);">Not connected</div>
+        <div class="notes-upload-grid">
+          <input type="date" id="notesDate" class="form-input" />
+          <input type="text" id="notesTitle" class="form-input" placeholder="Optional title" />
+          <input type="file" id="notesFile" class="form-input" accept=".txt,.md,.csv,.pdf,.docx" />
+          <textarea id="notesText" class="form-input" style="min-height:110px; resize:vertical;" placeholder="Or paste notes here..."></textarea>
+          <button class="btn-primary" type="button" onclick="uploadCourseNote()" style="padding:12px 16px; border:none; cursor:pointer;">
+            Save Notes
+          </button>
         </div>
-        <div id="notionActions"></div>
-      </div>
-      <div id="notionSetup">
-        <div class="form-group" style="margin-bottom:0.75rem;">
-          <label class="form-label">Integration Token</label>
-          <input type="password" id="notionTokenInput" class="form-input" placeholder="secret_..." />
-          <span class="form-hint">Notion → Settings → Connections → Develop or manage integrations</span>
+
+        <div style="margin-top:1rem; font-size:0.8rem; color:var(--text-muted); line-height:1.5;">
+          Save notes by day, then reopen them later, summarize them, or turn them into a study guide.
         </div>
-        <button onclick="connectNotion()" class="btn-primary" style="padding:10px 20px; border:none; cursor:pointer; font-size:0.88rem; width:100%;">Connect Notion</button>
+
+        <div style="margin-top:1rem;">
+          <div class="notes-label">Retrieve Notes</div>
+          <div id="notesListWrap" class="notes-stack">
+            <div class="notes-preview-empty">Pick a course to load saved notes.</div>
+          </div>
+        </div>
       </div>
-      <div id="notionDbSelect" style="display:none; margin-top:0.75rem;">
-        <label class="form-label">Select your task database</label>
-        <select id="notionDbDropdown" class="form-input" style="margin-top:6px;" onchange="setNotionDatabase(this.value)">
-          <option value="">Choose a database...</option>
-        </select>
+
+      <div class="notes-panel" style="padding:0; position:relative;">
+        <button id="notesToggleBtn" class="notes-expand-btn" type="button" onclick="toggleNotesDrawer()" title="Open or close preview">
+          ➜
+        </button>
+
+        <div class="notes-preview-inner">
+          <div class="notes-preview-head">
+            <div>
+              <div class="notes-label" style="margin-bottom:0.4rem;">Preview</div>
+              <div id="notesPreviewTitle" style="font-weight:700; color:var(--text-primary);">Preview</div>
+              <div id="notesPreviewMeta" style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;"></div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="notes-chip-btn" type="button" onclick="closeNotesPreview()">Close</button>
+              <a id="notesDownloadLink" class="notes-chip-btn primary" href="#" style="text-decoration:none; display:none;">Download</a>
+            </div>
+          </div>
+
+          <div id="notesPreviewBody" class="notes-preview-body">
+            <div class="notes-preview-empty">Pick a note and choose Open, Summarize, or Study.</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
 <style>
-.notion-col { display:flex; flex-direction:column; gap:8px; min-height:80px; }
+  .class-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 0.15rem;
+  }
 
-.notion-card {
-  background:var(--bg-card); border:1px solid var(--border);
-  border-radius:12px; padding:1rem; cursor:default;
-  transition:all 0.18s ease; position:relative;
-  animation:fadeUp 0.3s ease both;
-  border-left:3px solid var(--border);
-}
-.notion-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-hover); }
-.notion-card-title { font-size:0.88rem; font-weight:600; color:var(--text-primary); margin-bottom:6px; line-height:1.3; }
-.notion-card-meta { display:flex; flex-wrap:wrap; gap:5px; align-items:center; }
-.notion-pill { font-size:0.68rem; font-weight:600; padding:2px 7px; border-radius:7px; }
-.notion-card-actions { display:flex; gap:5px; margin-top:8px; flex-wrap:wrap; }
-.notion-action-btn {
-  font-size:0.7rem; font-weight:600; padding:3px 9px; border-radius:7px;
-  cursor:pointer; border:1px solid var(--border); background:var(--bg);
-  color:var(--text-secondary); font-family:'DM Sans',sans-serif; transition:all 0.15s;
-}
-.notion-action-btn:hover { background:var(--accent-soft); color:var(--accent); border-color:var(--accent); }
-.notion-action-btn.done-btn { background:var(--low-bg); color:var(--low); border-color:var(--low); }
-.source-badge { font-size:0.62rem; padding:2px 6px; border-radius:5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; }
-.today-block-item {
-  display:flex; align-items:center; gap:12px; padding:10px 14px;
-  background:var(--bg-card); border:1px solid var(--border); border-radius:10px;
-  font-size:0.85rem; border-left:3px solid var(--accent);
-}
-@media (max-width: 768px) { #dashColumns { grid-template-columns:1fr !important; } }
+  .notes-action-btn {
+    padding: 10px 18px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+  }
+
+  .notes-action-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-1px);
+  }
+
+  .notes-action-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .notes-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2500;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+
+  .notes-shell {
+    width: min(1180px, 100%);
+    max-height: 92vh;
+    overflow: hidden;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    box-shadow: var(--shadow-hover);
+    animation: fadeUp 0.25s ease both;
+    display: grid;
+    grid-template-columns: 1.05fr 0fr;
+    transition: grid-template-columns 0.22s ease;
+  }
+
+  .notes-shell.drawer-open {
+    grid-template-columns: 1.05fr 0.95fr;
+  }
+
+  .notes-head {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .notes-eyebrow {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 0.35rem;
+  }
+
+  .notes-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.45rem;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+  }
+
+  .notes-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2rem;
+    color: var(--text-muted);
+    padding: 4px 8px;
+    border-radius: 8px;
+  }
+
+  .notes-close:hover {
+    background: var(--border);
+  }
+
+  .notes-grid {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 340px minmax(0, 1fr);
+    gap: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .notes-panel {
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    padding: 1rem;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .notes-panel:last-child {
+    border-right: none;
+    position: relative;
+  }
+
+  .notes-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 0.85rem;
+  }
+
+  .notes-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    max-height: 58vh;
+    overflow: auto;
+    padding-right: 0.25rem;
+  }
+
+  .notes-day {
+    margin-bottom: 0.75rem;
+  }
+
+  .notes-day-head {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 0.2rem 0 0.6rem;
+  }
+
+  .notes-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 14px;
+    padding: 0.9rem;
+    box-shadow: var(--shadow);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+  }
+
+  .notes-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
+  }
+
+  .notes-card-title {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.35rem;
+  }
+
+  .notes-card-meta {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+  }
+
+  .notes-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .notes-chip-btn {
+    padding: 6px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .notes-chip-btn:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .notes-chip-btn.primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  .notes-preview {
+    height: 100%;
+    min-width: 0;
+    overflow: hidden;
+    position: relative;
+    background: var(--bg-card);
+  }
+
+  .notes-preview-collapsed {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 64px;
+    background: var(--bg-card);
+    border-left: 1px solid var(--border);
+  }
+
+  .notes-expand-btn {
+    position: absolute;
+    top: 1rem;
+    left: -18px;
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3;
+  }
+
+  .notes-expand-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .notes-preview-inner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .notes-preview-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+    align-items: flex-start;
+  }
+
+  .notes-preview-body {
+    padding: 1.2rem;
+    overflow: auto;
+    white-space: pre-wrap;
+    color: var(--text-primary);
+    font-size: 0.92rem;
+    line-height: 1.7;
+    min-height: 0;
+    flex: 1;
+  }
+
+  .notes-preview-empty {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+
+  .notes-study-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+
+  .notes-study-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+
+  @media (max-width: 768px) {
+    .notes-shell {
+      border-radius: 20px 20px 0 0;
+      max-height: 94vh;
+      grid-template-columns: 1fr;
+    }
+
+    .notes-shell.drawer-open {
+      grid-template-columns: 1fr;
+    }
+
+    .notes-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .notes-panel {
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .notes-panel:last-child {
+      border-bottom: none;
+      min-height: 36vh;
+    }
+
+    .notes-stack {
+      max-height: 32vh;
+    }
+  }
 </style>
 {% endblock %}
 
 {% block scripts %}
-let _unifiedTasks = { today: [], upcoming: [], overdue: [] };
-let _gcalConnected = false;
-let _savedSchedule = null;
-let _editingTask = null;
-let _feedbackCard = null;
-let _feedbackTask = null;
-function taskKey(task) {
-  return [
-    task?.title || '',
-    task?.course || '',
-    task?.due_date || '',
-    task?.priority || '',
-    task?.source || ''
-  ].join('||').toLowerCase();
+let allAssignments = [];
+let allCourses = [];
+let currentCourse = 'all';
+let currentCourseObj = null;
+let currentPreviewNoteId = null;
+let notesDrawerOpen = true;
+
+function formatDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function removeTaskFromLocalState(task) {
-  const key = taskKey(task);
-
-  ['today', 'upcoming', 'overdue'].forEach(group => {
-    _unifiedTasks[group] = (_unifiedTasks[group] || []).filter(t => taskKey(t) !== key);
-  });
+function formatTime(mins) {
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m ? `${h}h ${m}m` : `${h}h`;
 }
 
-function rerenderTaskColumns() {
-  renderColumn('overdueList', 'overdueCount', _unifiedTasks.overdue);
-  renderColumn('todayList', 'todayCount', _unifiedTasks.today);
-  renderColumn('upcomingList', 'upcomingCount', _unifiedTasks.upcoming);
-  updateSubtitle(_unifiedTasks);
+function daysUntil(dateStr) {
+  const due = new Date(dateStr + 'T00:00:00');
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const diff = Math.round((due - now) / 86400000);
+  if (diff < 0) return '⚠️ Overdue';
+  if (diff === 0) return '📌 Due today';
+  if (diff === 1) return '⏰ Due tomorrow';
+  return `📅 ${diff} days left`;
 }
 
-function openFeedbackModal(task, card) {
-  _feedbackTask = task;
-  _feedbackCard = card;
-  document.getElementById('feedbackTaskTitle').value = task.title;
-  document.getElementById('feedbackTaskName').textContent = task.title;
-  document.getElementById('feedbackActualTime').value = task.estimated_time || '';
-  document.getElementById('feedbackModal').style.display = 'flex';
-  setTimeout(() => document.getElementById('feedbackActualTime').focus(), 100);
+function courseLabel(course) {
+  return (course && (course.name || course.course || course.title)) ? (course.name || course.course || course.title) : '';
 }
 
-function closeFeedbackModal() {
-  document.getElementById('feedbackModal').style.display = 'none';
-  _feedbackTask = null;
-  _feedbackCard = null;
-}
+function updateNotesButtonState() {
+  const btn = document.getElementById('notesActionBtn');
+  if (!btn) return;
 
-async function submitFeedback(save) {
-  const task = _feedbackTask;
-  const card = _feedbackCard;
-
-  if (!task) {
-    closeFeedbackModal();
-    return;
-  }
-
-  try {
-    if (save) {
-      const actualTime = document.getElementById('feedbackActualTime').value;
-
-      const res = await fetch('/feedback/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: task.title,
-          course: task.course || '',
-          estimated_time: task.estimated_time || 60,
-          actual_time: actualTime ? parseInt(actualTime) : null,
-          difficulty: task.difficulty || 'Medium',
-          priority: task.priority || 'Medium',
-          dismiss: true,
-          ...task
-        })
-      });
-
-      const data = await res.json().catch(() => null);
-      if (!res.ok || (data && data.status === 'error')) {
-        alert(data?.message || 'Could not save completion.');
-        return;
-      }
-    } else {
-      const res = await fetch('/dismiss', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: task.title, ...task })
-      });
-
-      const data = await res.json().catch(() => null);
-      if (!res.ok || (data && data.status === 'error')) {
-        alert(data?.message || 'Could not dismiss task.');
-        return;
-      }
-    }
-
-    removeTaskFromLocalState(task);
-
-    if (card) {
-      card.style.opacity = '0';
-      card.style.transform = 'scale(0.95)';
-      card.style.transition = 'all 0.2s';
-      setTimeout(() => {
-        if (card.parentElement) card.remove();
-      }, 200);
-    }
-
-    closeFeedbackModal();
-    rerenderTaskColumns();
-  } catch (err) {
-    console.error(err);
-    alert('Something went wrong while updating the task.');
-  }
-}
-document.getElementById('feedbackModal').addEventListener('click', function(e) {
-  if (e.target === this) closeFeedbackModal();
-});
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && document.getElementById('feedbackModal').style.display === 'flex') {
-    submitFeedback(true);
-  }
-});
-async function loadDashboard() {
-  const [tasksRes, schedRes, calRes] = await Promise.all([
-    fetch('/tasks/unified').then(r => r.json()).catch(() => ({ today: [], upcoming: [], overdue: [] })),
-    fetch('/schedule/saved').then(r => r.json()).catch(() => ({ status: 'none' })),
-    fetch('/calendar/events').then(r => r.json()).catch(() => ({ connected: false, events: [] }))
-  ]);
-
-  _unifiedTasks = tasksRes;
-  _gcalConnected = calRes.connected;
-
-  updateSubtitle(tasksRes);
-  renderColumn('overdueList', 'overdueCount', tasksRes.overdue);
-  renderColumn('todayList', 'todayCount', tasksRes.today);
-  renderColumn('upcomingList', 'upcomingCount', tasksRes.upcoming);
-  renderIntegrationBar(calRes);
-  // Show export bar if calendar connected and schedule exists
-  if (calRes.connected && schedRes.status === 'ok') {
-    document.getElementById('exportBar').style.display = 'flex';
-    document.getElementById('exportStatus').textContent = `· ${schedRes.name}`;
+  if (currentCourse === 'all' || !currentCourseObj) {
+    btn.disabled = true;
+    btn.textContent = 'Retrieve Notes';
   } else {
-    document.getElementById('exportBar').style.display = 'none';
-  }
-  renderSavedSchedule(schedRes);
-}
-
-function updateSubtitle(tasks) {
-  const sub = document.getElementById('dashSubtitle');
-  const total = tasks.overdue.length + tasks.today.length;
-  if (tasks.overdue.length > 0) {
-    sub.innerHTML = `<span style="color:var(--high);">⚠ ${tasks.overdue.length} overdue</span> · ${tasks.today.length} today · ${tasks.upcoming.length} upcoming`;
-  } else if (tasks.today.length > 0) {
-    sub.innerHTML = `<span style="color:var(--accent);">📅 ${tasks.today.length} due today</span> · ${tasks.upcoming.length} upcoming`;
-  } else {
-    sub.innerHTML = `<span style="color:var(--text-muted);">${tasks.upcoming.length} upcoming tasks</span>`;
-  }
-}
-
-function renderIntegrationBar(calRes) {
-  const bar = document.getElementById('integrationBar');
-  const chips = [];
-  if (calRes.connected) {
-    chips.push(`
-      <div style="display:flex;align-items:center;gap:8px;padding:6px 14px;background:var(--low-bg);border:1px solid var(--low);border-radius:20px;font-size:0.78rem;font-weight:600;color:var(--low);">
-        📅 Google Calendar connected ✓
-        <button onclick="disconnectGCal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:0.75rem;padding:0;font-family:'DM Sans',sans-serif;">✕</button>
-      </div>`);
-  } else {
-    chips.push(`<a href="/oauth/google" style="display:flex;align-items:center;gap:6px;padding:6px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:20px;font-size:0.78rem;font-weight:600;color:var(--accent);text-decoration:none;">+ Connect Google Calendar</a>`);
-  }
-  bar.innerHTML = chips.join('');
-}
-
-function renderSavedSchedule(schedRes) {
-  const banner = document.getElementById('savedScheduleBanner');
-  const todayWrap = document.getElementById('todayScheduleWrap');
-  if (schedRes.status !== 'ok') {
-    banner.style.display = 'none';
-    todayWrap.style.display = 'none';
-    return;
-  }
-  _savedSchedule = schedRes.data;
-  banner.style.display = 'flex';
-  document.getElementById('savedScheduleName').textContent = schedRes.name;
-  document.getElementById('savedScheduleDate').textContent = `Saved ${schedRes.created_at}`;
-
-  // Find today's blocks
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todayDay = schedRes.data.schedule?.find(d => d.date === todayStr);
-  if (todayDay && todayDay.blocks) {
-    const studyBlocks = todayDay.blocks.filter(b => !b.is_break);
-    if (studyBlocks.length > 0) {
-      todayWrap.style.display = 'block';
-      document.getElementById('todayBlocks').innerHTML = studyBlocks.map(b => `
-        <div class="today-block-item">
-          <div style="font-size:0.78rem;color:var(--accent);font-weight:600;min-width:120px;">${b.time_slot?.split(' - ')[0] || ''}</div>
-          <div style="flex:1;">
-            <div style="font-weight:600;color:var(--text-primary);">${b.assignment}</div>
-            <div style="font-size:0.75rem;color:var(--text-muted);">${b.course} · ${b.duration_minutes}m</div>
-          </div>
-          <div style="font-size:0.72rem;background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:8px;font-weight:600;">${b.energy_level || ''}</div>
-        </div>
-      `).join('');
-    }
-  } else {
-    todayWrap.style.display = 'none';
-  }
-}
-
-function viewSavedSchedule() {
-  window.location.href = '/scheduler/saved';
-}
-
-async function clearSavedSchedule() {
-  await fetch('/schedule/delete', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({}) });
-  document.getElementById('savedScheduleBanner').style.display = 'none';
-  document.getElementById('todayScheduleWrap').style.display = 'none';
-  _savedSchedule = null;
-}
-
-async function exportScheduleToCal() {
-  const btn = document.getElementById('exportCalBtn');
-  const status = document.getElementById('exportStatus');
-  const skipOverlaps = document.getElementById('skipOverlaps').checked;
-
-  btn.textContent = '⏳ Exporting...';
-  btn.disabled = true;
-
-  // Get saved schedule
-  const schedRes = await fetch('/schedule/saved').then(r => r.json());
-  if (schedRes.status !== 'ok') {
-    alert('No saved schedule found. Generate and save a schedule first.');
-    btn.textContent = 'Export Schedule';
     btn.disabled = false;
-    return;
-  }
-
-  // Get existing calendar events if overlap checking enabled
-  let busyTimes = [];
-  if (skipOverlaps) {
-    const calRes = await fetch('/calendar/events').then(r => r.json());
-    busyTimes = calRes.events || [];
-  }
-
-  // Filter schedule blocks to remove overlaps
-  const scheduleData = schedRes.data;
-  if (skipOverlaps && busyTimes.length > 0) {
-    scheduleData.schedule = scheduleData.schedule.map(day => ({
-      ...day,
-      blocks: day.blocks.filter(block => {
-        if (block.is_break) return false;
-        if (!block.time_slot || !block.time_slot.includes(' - ')) return true;
-        // Check overlap with existing events on same date
-        const dayEvents = busyTimes.filter(e => e.start && e.start.startsWith(day.date));
-        if (dayEvents.length === 0) return true;
-        // Simple check — include block (server handles detailed overlap)
-        return true;
-      })
-    }));
-  }
-
-  const res = await fetch('/calendar/export', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ schedule_data: scheduleData, skip_overlaps: skipOverlaps })
-  }).then(r => r.json());
-
-  btn.disabled = false;
-  if (res.status === 'ok') {
-    btn.textContent = `✅ Added ${res.created} events`;
-    btn.style.background = 'var(--low)';
-    status.textContent = `· ${res.skipped || 0} overlaps skipped`;
-    setTimeout(() => {
-      btn.textContent = 'Export Schedule';
-      btn.style.background = '#ea4335';
-    }, 4000);
-  } else {
-    btn.textContent = 'Export Schedule';
-    alert('Export failed: ' + (res.message || 'Unknown error'));
+    btn.textContent = `Retrieve Notes · ${courseLabel(currentCourseObj)}`;
   }
 }
 
-// ── TASK COLUMNS ──────────────────────────────────────────────
-function renderColumn(listId, countId, tasks) {
-  const list = document.getElementById(listId);
-  const count = document.getElementById(countId);
-  count.textContent = tasks.length;
+function renderCards(assignments) {
+  const list = document.getElementById('assignmentsList');
+  const empty = document.getElementById('emptyState');
   list.innerHTML = '';
 
-  if (!tasks.length) {
-    list.innerHTML = `<div style="text-align:center;padding:2rem 0.5rem;color:var(--text-muted);font-size:0.82rem;border:1px dashed var(--border);border-radius:10px;">All clear ✓</div>`;
+  if (!assignments.length) {
+    empty.classList.add('visible');
     return;
   }
+  empty.classList.remove('visible');
 
-  tasks.forEach((t, i) => {
+  assignments.forEach((a, i) => {
+    const priority = (a.priority || 'Medium').toLowerCase();
     const card = document.createElement('div');
-    card.className = 'notion-card';
-    card.style.animationDelay = `${i * 0.04}s`;
-    card.style.borderLeftColor = t.color || '#60a5fa';
-
-    const sourceMap = {
-      canvas: ['#e66000', 'Canvas'],
-      studentvue: ['#16a34a', 'SV'],
-      notion: ['#191919', 'Notion'],
-      manual: ['#7c3aed', 'Manual'],
-      studentvue_missing: ['#ef4444', 'Missing'],
+    card.className = `assignment-card ${priority}`;
+    card.style.animationDelay = `${i * 0.07}s`;
+    card.onclick = (e) => {
+      if (!e.target.classList.contains('dismiss-btn')) openAssignmentModal(a);
     };
-    const [srcColor, srcLabel] = sourceMap[t.source] || ['#64748b', t.source || 'Task'];
-    const isMissing = t.is_missing || t.source === 'studentvue_missing';
-
     card.innerHTML = `
-      <div class="notion-card-title">
-        ${t.title}
-        ${isMissing ? `<span style="color:var(--high);font-size:0.72rem;font-weight:700;"> · ${t.score_label || 'Missing'}</span>` : ''}
+      <div class="rank-bubble">#${i + 1}</div>
+      <div class="card-main">
+        <div class="card-title">${a.title}</div>
+        <div class="card-meta">
+          <span class="meta-item">📚 ${a.course}</span>
+          <span class="meta-item">📅 ${formatDate(a.due_date)}</span>
+          <span class="meta-item">${daysUntil(a.due_date)}</span>
+        </div>
       </div>
-      <div class="notion-card-meta">
-        ${t.due_date ? `<span class="notion-pill" style="background:var(--accent-soft);color:var(--accent);">📅 ${t.due_date}</span>` : ''}
-        <span class="notion-pill" style="background:${t.color}22;color:${t.color};">${t.priority}</span>
-        <span class="source-badge" style="background:${srcColor}22;color:${srcColor};">${srcLabel}</span>
-        ${t.course && t.course !== 'Unknown' && t.course !== 'Personal' ? `<span class="notion-pill" style="background:var(--bg);color:var(--text-muted);border:1px solid var(--border);">${t.course}</span>` : ''}
-      </div>
-      <div class="notion-card-actions">
-        ${t.source === 'manual' ? `<button class="notion-action-btn" onclick='openEditTask(event, ${JSON.stringify(t)})'>✏ Edit</button>` : ''}
-        ${t.notion_page_id ? `<button class="notion-action-btn" onclick="completeNotionTask(event,'${t.notion_page_id}')">✓ Notion</button>` : ''}
-        ${_gcalConnected && t.due_date ? `<button class="notion-action-btn" onclick='addToCalendar(event, ${JSON.stringify(t)})'>📅 Cal</button>` : ''}
-        <button class="notion-action-btn done-btn" onclick="dismissTask(event,'${t.title.replace(/'/g, "\\'")}',this)">✓ Done</button>
-      </div>
+      <span class="time-pill">⏱ ${formatTime(a.estimated_time)}</span>
+      <span class="priority-badge ${priority}">${a.priority}</span>
+      <button class="dismiss-btn" onclick="dismissAssignment('${a.title.replace(/'/g, "\\'")}', this)">✓ Done</button>
     `;
     list.appendChild(card);
   });
 }
 
-// ── ACTIONS ───────────────────────────────────────────────────
-function dismissTask(e, title, btn) {
-  e.stopPropagation();
-  // Find the task data
-  const taskData = _unifiedTasks.today.concat(_unifiedTasks.upcoming, _unifiedTasks.overdue)
-    .find(t => t.title === title);
-  
-  if (taskData) {
-    openFeedbackModal(taskData, btn.closest('.notion-card'));
-  } else {
-    // Just dismiss without feedback
-    fetch('/dismiss', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ title })
-    }).then(() => {
-      const card = btn.closest('.notion-card');
-      card.style.opacity = '0';
-      setTimeout(() => card.remove(), 200);
-    });
-  }
+function updateStats(assignments) {
+  const courses = [...new Set(assignments.map(a => a.course))];
+  const totalTime = assignments.reduce((sum, a) => sum + a.estimated_time, 0);
+  document.getElementById('statCourses').textContent = courses.length;
+  document.getElementById('statTotal').textContent = assignments.length;
+  document.getElementById('statTime').textContent = formatTime(totalTime);
 }
 
-function completeNotionTask(e, pageId) {
-  e.stopPropagation();
-  fetch('/notion/tasks/complete', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ page_id: pageId })
-  }).then(() => loadDashboard());
+function populateDropdown(courses) {
+  allCourses = Array.isArray(courses) ? courses : [];
+
+  const menu = document.getElementById('classMenu');
+  menu.innerHTML = '<div class="dropdown-item active" data-filter="all">📋 All Courses</div>';
+
+  allCourses.forEach((course, idx) => {
+    const name = courseLabel(course);
+    if (!name) return;
+
+    const item = document.createElement('div');
+    item.className = 'dropdown-item';
+    item.dataset.filter = name;
+    item.dataset.index = String(idx);
+    item.textContent = '📚 ' + name;
+    menu.appendChild(item);
+  });
+
+  attachDropdownListeners();
+  updateNotesButtonState();
 }
 
-async function addToCalendar(e, task) {
-  e.stopPropagation();
-  const btn = e.target;
-  btn.textContent = '⏳';
-  btn.disabled = true;
-  const res = await fetch(`/calendar/free-slot?date=${task.due_date}`).then(r => r.json());
-  const start = res.slot || '7:00 PM';
-  await fetch('/calendar/export', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({
-      schedule_data: {
-        schedule: [{
-          date: task.due_date,
-          blocks: [{ assignment: task.title, course: task.course || '', duration_minutes: task.estimated_time || 60, time_slot: `${start} - end`, notes:'', is_break: false }]
-        }]
+function attachDropdownListeners() {
+  document.querySelectorAll('.dropdown-item').forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+
+      currentCourse = item.dataset.filter;
+
+      if (currentCourse === 'all') {
+        currentCourseObj = null;
+        dropBtn.innerHTML = `📚 All Courses <span class="chevron">▾</span>`;
+      } else {
+        const idx = item.dataset.index ? parseInt(item.dataset.index, 10) : -1;
+        currentCourseObj = idx >= 0 ? allCourses[idx] : allCourses.find(c => courseLabel(c) === currentCourse);
+        dropBtn.innerHTML = `📚 ${currentCourse} <span class="chevron">▾</span>`;
       }
-    })
-  });
-  btn.textContent = '✅';
-  setTimeout(() => { btn.textContent = '📅 Cal'; btn.disabled = false; }, 2000);
-}
 
-// ── NEW TASK ──────────────────────────────────────────────────
-function openNewTaskModal() {
-  document.getElementById('newTaskModal').style.display = 'flex';
-  setTimeout(() => document.getElementById('newTaskTitle').focus(), 100);
-}
-function closeNewTaskModal() {
-  document.getElementById('newTaskModal').style.display = 'none';
-}
+      dropMenu.classList.remove('open');
+      updateNotesButtonState();
 
-async function createManualTask() {
-  const title = document.getElementById('newTaskTitle').value.trim();
-  if (!title) { alert('Please enter a title.'); return; }
-  const data = {
-    title,
-    due_date: document.getElementById('newTaskDue').value,
-    priority: document.getElementById('newTaskPriority').value,
-    course: document.getElementById('newTaskCourse').value || 'Personal',
-    estimated_time: parseInt(document.getElementById('newTaskTime').value) || 60,
-    notes: document.getElementById('newTaskNotes').value,
-    sync_notion: document.getElementById('syncNotion').checked
-  };
-  const res = await fetch('/tasks/manual/create', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify(data)
-  }).then(r => r.json());
+      const filtered = currentCourse === 'all'
+        ? allAssignments
+        : allAssignments.filter(a => a.course === currentCourse);
 
-  if (res.status === 'ok') {
-    closeNewTaskModal();
-    ['newTaskTitle','newTaskDue','newTaskNotes','newTaskCourse'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('newTaskTime').value = '60';
-    document.getElementById('syncNotion').checked = false;
-    loadDashboard();
-  }
-}
-
-// ── EDIT TASK ─────────────────────────────────────────────────
-function openEditTask(e, task) {
-  e.stopPropagation();
-  _editingTask = task;
-  document.getElementById('editTaskId').value = task.id || '';
-  document.getElementById('editTaskSource').value = task.source || '';
-  document.getElementById('editTaskNotionId').value = task.notion_page_id || '';
-  document.getElementById('editTaskTitle').value = task.title;
-  document.getElementById('editTaskDue').value = task.due_date || '';
-  document.getElementById('editTaskPriority').value = task.priority || 'Medium';
-  document.getElementById('editTaskTime').value = task.estimated_time || 60;
-  document.getElementById('editTaskNotes').value = task.notes || '';
-  document.getElementById('editTaskCourse').value = task.course || '';
-  document.getElementById('editTaskModal').style.display = 'flex';
-}
-function closeEditModal() {
-  document.getElementById('editTaskModal').style.display = 'none';
-  _editingTask = null;
-}
-
-async function saveEditTask() {
-  const id = document.getElementById('editTaskId').value;
-  const source = document.getElementById('editTaskSource').value;
-  const notionId = document.getElementById('editTaskNotionId').value;
-  const updates = {
-    title: document.getElementById('editTaskTitle').value.trim(),
-    due_date: document.getElementById('editTaskDue').value,
-    priority: document.getElementById('editTaskPriority').value,
-    estimated_time: parseInt(document.getElementById('editTaskTime').value),
-    notes: document.getElementById('editTaskNotes').value,
-    course: document.getElementById('editTaskCourse').value,
-  };
-
-  if (source === 'manual' && id) {
-    await fetch('/tasks/manual/update', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ id, ...updates })
+      renderCards(filtered);
     });
-  } else if (source === 'notion' && notionId) {
-    await fetch('/notion/tasks/update', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ page_id: notionId, updates })
-    });
-  }
-  closeEditModal();
-  loadDashboard();
-}
-
-async function deleteManualTask() {
-  const id = document.getElementById('editTaskId').value;
-  if (!id || !confirm('Delete this task?')) return;
-  await fetch('/tasks/manual/delete', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ id })
   });
-  closeEditModal();
-  loadDashboard();
 }
 
-// ── INTEGRATIONS ──────────────────────────────────────────────
-function openIntegrationsModal() {
-  document.getElementById('integrationsModal').style.display = 'flex';
-  checkGCalStatus();
-  checkNotionStatus();
-}
-function closeIntegrationsModal() {
-  document.getElementById('integrationsModal').style.display = 'none';
-}
-
-async function checkGCalStatus() {
-  const res = await fetch('/calendar/events').then(r => r.json()).catch(() => ({ connected: false }));
-  const status = document.getElementById('gcalStatus');
-  const actions = document.getElementById('gcalActions');
-  if (res.connected) {
-    status.innerHTML = '<span style="color:var(--low);">Connected ✓</span>';
-    actions.innerHTML = `<button onclick="disconnectGCal()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text-muted);cursor:pointer;font-size:0.75rem;font-family:'DM Sans',sans-serif;">Disconnect</button>`;
-  } else {
-    status.textContent = 'Not connected';
-    actions.innerHTML = `<a href="/oauth/google" class="btn-primary" style="text-decoration:none;padding:8px 16px;font-size:0.82rem;">Connect</a>`;
-  }
-}
-
-async function disconnectGCal() {
-  await fetch('/oauth/google/disconnect', { method:'POST' });
-  checkGCalStatus();
-  loadDashboard();
-}
-
-async function checkNotionStatus() {
-  const res = await fetch('/notion/tasks').then(r => r.json()).catch(() => ({ connected: false }));
-  const status = document.getElementById('notionStatus');
-  const actions = document.getElementById('notionActions');
-  const setup = document.getElementById('notionSetup');
-  const dbSelect = document.getElementById('notionDbSelect');
-
-  if (res.connected) {
-    status.innerHTML = `<span style="color:var(--low);">Connected · ${res.tasks.length} tasks ✓</span>`;
-    setup.style.display = 'none';
-    dbSelect.style.display = 'none';
-    actions.innerHTML = `<button onclick="disconnectNotion()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text-muted);cursor:pointer;font-size:0.75rem;font-family:'DM Sans',sans-serif;">Disconnect</button>`;
-  } else {
-    status.textContent = 'Not connected';
-    setup.style.display = 'block';
-    dbSelect.style.display = 'none';
-    actions.innerHTML = '';
-  }
-}
-
-async function connectNotion() {
-  const token = document.getElementById('notionTokenInput').value.trim();
-  if (!token) { alert('Please enter your Notion token.'); return; }
-  const res = await fetch('/notion/connect', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ token })
-  }).then(r => r.json());
-
-  if (res.status === 'ok') {
-    document.getElementById('notionSetup').style.display = 'none';
-    const dropdown = document.getElementById('notionDbDropdown');
-    dropdown.innerHTML = '<option value="">Choose a database...</option>';
-    res.databases.forEach(db => {
-      const opt = document.createElement('option');
-      opt.value = db.id;
-      opt.textContent = db.name;
-      dropdown.appendChild(opt);
-    });
-    document.getElementById('notionDbSelect').style.display = 'block';
-  } else {
-    alert('Failed: ' + res.message);
-  }
-}
-
-async function setNotionDatabase(dbId) {
-  if (!dbId) return;
-  await fetch('/notion/set-database', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ database_id: dbId })
+function dismissAssignment(title, btn) {
+  fetch('/dismiss', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: title })
+  }).then(() => {
+    btn.closest('.assignment-card').style.opacity = '0';
+    setTimeout(() => {
+      btn.closest('.assignment-card').remove();
+    }, 300);
   });
-  checkNotionStatus();
-  loadDashboard();
 }
 
-async function disconnectNotion() {
-  await fetch('/notion/disconnect', { method:'POST' });
-  checkNotionStatus();
-  loadDashboard();
-}
+const dropBtn = document.getElementById('classDropBtn');
+const dropMenu = document.getElementById('classMenu');
 
-// ── KEYBOARD SHORTCUTS ────────────────────────────────────────
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    closeNewTaskModal();
-    closeEditModal();
-    closeIntegrationsModal();
-  }
-  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-    e.preventDefault();
-    openNewTaskModal();
+dropBtn.addEventListener('click', () => {
+  dropMenu.classList.toggle('open');
+});
+
+document.addEventListener('click', (e) => {
+  if (!dropBtn.contains(e.target) && !dropMenu.contains(e.target)) {
+    dropMenu.classList.remove('open');
   }
 });
 
-['newTaskModal','editTaskModal','integrationsModal'].forEach(id => {
-  document.getElementById(id).addEventListener('click', function(e) {
-    if (e.target === this) this.style.display = 'none';
+function openSelectedCourseNotes() {
+  if (!currentCourseObj || currentCourse === 'all') {
+    alert('Select a specific course first.');
+    return;
+  }
+  openNotesModal(currentCourseObj);
+}
+
+function openNotesModal(course) {
+  const payload = typeof course === "object"
+    ? course
+    : { name: String(course || ""), id: "", source: "" };
+
+  currentCourseObj = payload;
+  currentCourse = courseLabel(payload) || currentCourse;
+  updateNotesButtonState();
+
+  const overlay = document.getElementById("notesOverlay");
+  const shell = document.getElementById("notesShell");
+
+  document.getElementById("notesCourseTitle").textContent = courseLabel(payload) || "Course Notes";
+  document.getElementById("notesDate").value = new Date().toISOString().split("T")[0];
+  document.getElementById("notesTitle").value = "";
+  document.getElementById("notesText").value = "";
+  document.getElementById("notesFile").value = "";
+  document.getElementById("notesPreviewTitle").textContent = "Preview";
+  document.getElementById("notesPreviewMeta").textContent = "";
+  document.getElementById("notesPreviewBody").innerHTML = `<div class="notes-preview-empty">Pick a note and choose Open, Summarize, or Study.</div>`;
+  document.getElementById("notesDownloadLink").style.display = "none";
+
+  overlay.style.display = "flex";
+  document.body.style.overflow = "hidden";
+
+  notesDrawerOpen = true;
+  shell.classList.add("drawer-open");
+  document.getElementById("notesToggleBtn").textContent = "➜";
+
+  loadCourseNotes();
+}
+
+function closeNotesModal() {
+  document.getElementById("notesOverlay").style.display = "none";
+  document.body.style.overflow = "";
+  currentPreviewNoteId = null;
+}
+
+function closeNotesPreview() {
+  document.getElementById("notesPreviewTitle").textContent = "Preview";
+  document.getElementById("notesPreviewMeta").textContent = "";
+  document.getElementById("notesPreviewBody").innerHTML = `<div class="notes-preview-empty">Pick a note and choose Open, Summarize, or Study.</div>`;
+  document.getElementById("notesDownloadLink").style.display = "none";
+  currentPreviewNoteId = null;
+}
+
+function toggleNotesDrawer() {
+  const shell = document.getElementById("notesShell");
+  const btn = document.getElementById("notesToggleBtn");
+  notesDrawerOpen = !notesDrawerOpen;
+
+  shell.classList.toggle("drawer-open", notesDrawerOpen);
+  btn.textContent = notesDrawerOpen ? "➜" : "⬅";
+}
+
+async function loadCourseNotes() {
+  const listWrap = document.getElementById('notesListWrap');
+  listWrap.innerHTML = `<div class="notes-preview-empty">Loading notes...</div>`;
+
+  const params = new URLSearchParams();
+  if (currentCourseObj && courseLabel(currentCourseObj)) params.set("course_name", courseLabel(currentCourseObj));
+  if (currentCourseObj && currentCourseObj.id) params.set("course_id", currentCourseObj.id);
+  if (currentCourseObj && currentCourseObj.source) params.set("course_source", currentCourseObj.source);
+
+  try {
+    const res = await fetch(`/notes/list?${params.toString()}`);
+    const data = await res.json();
+
+    if (!res.ok || data.status !== "ok") {
+      listWrap.innerHTML = `<div class="notes-preview-empty">Could not load notes.</div>`;
+      return;
+    }
+
+    renderNotesList(data.notes || []);
+  } catch (e) {
+    listWrap.innerHTML = `<div class="notes-preview-empty">Could not load notes.</div>`;
+  }
+}
+
+function renderNotesList(notes) {
+  const listWrap = document.getElementById("notesListWrap");
+
+  if (!notes.length) {
+    listWrap.innerHTML = `
+      <div class="notes-preview-empty">
+        No notes saved for this course yet.
+      </div>`;
+    return;
+  }
+
+  const groups = {};
+  notes.forEach(n => {
+    const key = n.note_date || "Unknown date";
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(n);
   });
+
+  const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+
+  listWrap.innerHTML = sortedDates.map(date => {
+    const cards = groups[date].map(note => `
+      <div class="notes-card">
+        <div class="notes-card-title">${escapeHtml(note.title || "Untitled Notes")}</div>
+        <div class="notes-card-meta">
+          Saved on ${escapeHtml(note.note_date || date)} · ${escapeHtml(note.created_at || "")}
+          ${note.original_filename ? `<br>${escapeHtml(note.original_filename)}` : ""}
+        </div>
+        <div class="notes-card-actions">
+          <button class="notes-chip-btn primary" type="button" onclick="openNote(${note.id})">Open</button>
+          <button class="notes-chip-btn" type="button" onclick="summarizeNote(${note.id})">Summarize</button>
+          <button class="notes-chip-btn" type="button" onclick="studyNote(${note.id})">Study</button>
+          <button class="notes-chip-btn" type="button" onclick="deleteNote(${note.id})">Delete</button>
+          ${note.download_url ? `<a class="notes-chip-btn" href="${note.download_url}" target="_blank" style="text-decoration:none;">Download</a>` : ""}
+        </div>
+      </div>
+    `).join("");
+
+    return `
+      <div class="notes-day">
+        <div class="notes-day-head">${escapeHtml(date)}</div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          ${cards}
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderPreviewContent(title, meta, body, downloadUrl = null) {
+  const shell = document.getElementById("notesShell");
+  const previewTitle = document.getElementById("notesPreviewTitle");
+  const previewMeta = document.getElementById("notesPreviewMeta");
+  const previewBody = document.getElementById("notesPreviewBody");
+  const dl = document.getElementById("notesDownloadLink");
+
+  notesDrawerOpen = true;
+  shell.classList.add("drawer-open");
+  document.getElementById("notesToggleBtn").textContent = "➜";
+
+  previewTitle.textContent = title || "Preview";
+  previewMeta.textContent = meta || "";
+  previewBody.innerHTML = body || `<div class="notes-preview-empty">Nothing to show.</div>`;
+
+  if (downloadUrl) {
+    dl.href = downloadUrl;
+    dl.style.display = "inline-flex";
+  } else {
+    dl.style.display = "none";
+  }
+}
+
+async function uploadCourseNote() {
+  if (!currentCourseObj || currentCourse === 'all') {
+    alert("Pick a specific course first.");
+    return;
+  }
+
+  const fileInput = document.getElementById("notesFile");
+  const file = fileInput.files[0];
+  const textValue = document.getElementById("notesText").value.trim();
+
+  if (!file && !textValue) {
+    alert("Choose a file or paste notes text.");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("course_name", courseLabel(currentCourseObj));
+  formData.append("course_id", currentCourseObj.id || "");
+  formData.append("course_source", currentCourseObj.source || "");
+  formData.append("note_date", document.getElementById("notesDate").value || "");
+  formData.append("title", document.getElementById("notesTitle").value || "");
+  if (file) formData.append("file", file);
+  if (textValue) formData.append("text_content", textValue);
+
+  try {
+    const res = await fetch("/notes/upload", {
+      method: "POST",
+      body: formData
+    });
+
+    const data = await res.json();
+    if (!res.ok || data.status !== "ok") {
+      alert(data.message || "Could not save notes.");
+      return;
+    }
+
+    document.getElementById("notesTitle").value = "";
+    document.getElementById("notesText").value = "";
+    document.getElementById("notesFile").value = "";
+    loadCourseNotes();
+  } catch (e) {
+    alert("Could not save notes.");
+  }
+}
+
+async function openNote(noteId) {
+  try {
+    const res = await fetch(`/notes/${noteId}`);
+    const data = await res.json();
+
+    if (!res.ok || data.status !== "ok") {
+      alert(data.message || "Could not open note.");
+      return;
+    }
+
+    const note = data.note;
+    currentPreviewNoteId = noteId;
+    renderPreviewContent(
+      note.title || "Untitled Notes",
+      `${note.course_name || ""} · ${note.note_date || ""}`,
+      note.text_content || "No extracted text is available for this note.",
+      note.download_url || null
+    );
+  } catch (e) {
+    alert("Could not open note.");
+  }
+}
+
+async function summarizeNote(noteId) {
+  try {
+    const res = await fetch(`/notes/${noteId}/summarize`, { method: "POST" });
+    const data = await res.json();
+
+    if (!res.ok || data.status !== "ok") {
+      alert(data.message || "Could not summarize note.");
+      return;
+    }
+
+    renderPreviewContent(
+      "Summary",
+      currentCourseObj ? courseLabel(currentCourseObj) : "",
+      data.summary || "",
+      null
+    );
+  } catch (e) {
+    alert("Could not summarize note.");
+  }
+}
+
+async function studyNote(noteId) {
+  try {
+    const res = await fetch(`/notes/${noteId}/study`, { method: "POST" });
+    const data = await res.json();
+
+    if (!res.ok || data.status !== "ok") {
+      alert(data.message || "Could not generate study guide.");
+      return;
+    }
+
+    const study = data.study || {};
+    const cards = (study.cards || []).map(card => `
+      <div class="notes-study-card">
+        <div class="notes-study-label" style="color:var(--accent);">Question</div>
+        <div style="color:var(--text-primary); margin-bottom:10px;">${escapeHtml(card.question || "")}</div>
+        <div class="notes-study-label" style="color:var(--low);">Answer</div>
+        <div style="color:var(--text-secondary);">${escapeHtml(card.answer || "")}</div>
+      </div>
+    `).join("");
+
+    renderPreviewContent(
+      study.title || "Study Guide",
+      study.summary || "Study mode",
+      cards || `<div class="notes-preview-empty">No flashcards returned.</div>`,
+      null
+    );
+  } catch (e) {
+    alert("Could not generate study guide.");
+  }
+}
+
+async function deleteNote(noteId) {
+  if (!confirm("Delete this note?")) return;
+
+  try {
+    const res = await fetch(`/notes/${noteId}`, { method: "DELETE" });
+    const data = await res.json();
+
+    if (!res.ok || data.status !== "ok") {
+      alert(data.message || "Could not delete note.");
+      return;
+    }
+
+    closeNotesPreview();
+    loadCourseNotes();
+  } catch (e) {
+    alert("Could not delete note.");
+  }
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+document.addEventListener("click", (e) => {
+  const overlay = document.getElementById("notesOverlay");
+  if (e.target === overlay) closeNotesModal();
 });
 
-// Init
-loadDashboard();
-setInterval(loadDashboard, 60000);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    closeNotesPreview();
+    closeNotesModal();
+  }
+});
+
+fetch('/live')
+  .then(r => r.json())
+  .then(data => {
+    allAssignments = data;
+    updateStats(data);
+    renderCards(data);
+  })
+  .catch(() => {
+    document.getElementById('assignmentsList').innerHTML =
+      '<div class="loading"><p>⚠️ Could not connect to backend.</p></div>';
+  });
+
+fetch('/courses')
+  .then(r => r.json())
+  .then(courses => {
+    populateDropdown(courses);
+  });
 {% endblock %}

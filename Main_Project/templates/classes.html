@@ -1,9 +1,17 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header">
-  <h1 class="page-title">Classes View</h1>
-  <p class="page-subtitle">Assignments grouped by course</p>
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
+  <div>
+    <h1 class="page-title">Classes View</h1>
+    <p class="page-subtitle">Assignments grouped by course</p>
+  </div>
+
+  <div class="class-toolbar">
+    <button id="notesActionBtn" class="notes-action-btn" type="button" onclick="openSelectedCourseNotes()" disabled>
+      Retrieve Notes
+    </button>
+  </div>
 </div>
 
 <div class="stats-bar" id="statsBar">
@@ -51,11 +59,490 @@
   <div class="empty-title">No assignments found</div>
   <p>Try selecting a different course</p>
 </div>
+
+<div id="notesOverlay" class="notes-overlay">
+  <div id="notesShell" class="notes-shell drawer-open">
+    <div class="notes-head">
+      <div>
+        <div class="notes-eyebrow">Course Notes</div>
+        <div id="notesCourseTitle" class="notes-title">Select a course</div>
+      </div>
+      <button class="notes-close" onclick="closeNotesModal()">✕</button>
+    </div>
+
+    <div class="notes-grid">
+      <div class="notes-panel notes-left">
+        <div class="notes-label">Upload Notes</div>
+
+        <div class="notes-upload-grid">
+          <input type="date" id="notesDate" class="form-input" />
+          <input type="text" id="notesTitle" class="form-input" placeholder="Optional title" />
+          <input type="file" id="notesFile" class="form-input" accept=".txt,.md,.csv,.pdf,.docx,.png,.jpg,.jpeg" />
+          <textarea id="notesText" class="form-input" style="min-height:110px; resize:vertical;" placeholder="Or paste notes here..."></textarea>
+          <button class="btn-primary" type="button" onclick="uploadCourseNote()" style="padding:12px 16px; border:none; cursor:pointer;">
+            Save Notes
+          </button>
+        </div>
+
+        <div style="margin-top:1rem; font-size:0.8rem; color:var(--text-muted); line-height:1.5;">
+          Save notes by day, then reopen them later, summarize them, or turn them into an interactive study session.
+        </div>
+
+        <div style="margin-top:1rem;">
+          <div class="notes-label">Retrieve Notes</div>
+          <div id="notesListWrap" class="notes-stack">
+            <div class="notes-preview-empty">Pick a course to load saved notes.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="notes-panel notes-right">
+        <button id="notesToggleBtn" class="notes-expand-btn" type="button" onclick="toggleNotesDrawer()" title="Collapse or expand preview">
+          ➜
+        </button>
+
+        <div class="notes-preview-inner">
+          <div class="notes-preview-head">
+            <div>
+              <div class="notes-label" style="margin-bottom:0.4rem;">Preview</div>
+              <div id="notesPreviewTitle" style="font-weight:700; color:var(--text-primary);">Preview</div>
+              <div id="notesPreviewMeta" style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;"></div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="notes-chip-btn" type="button" onclick="showPreviewMode()">Preview</button>
+              <button class="notes-chip-btn" type="button" onclick="closeNotesPreview()">Close</button>
+              <a id="notesDownloadLink" class="notes-chip-btn primary" href="#" style="text-decoration:none; display:none;" target="_blank">Download</a>
+            </div>
+          </div>
+
+          <div id="notesPreviewBody" class="notes-preview-body">
+            <div class="notes-preview-empty">Pick a note and choose View, Summarize, or Study.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .class-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 0.15rem;
+  }
+
+  .notes-action-btn {
+    padding: 10px 18px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+  }
+
+  .notes-action-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-1px);
+  }
+
+  .notes-action-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .notes-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2500;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+
+  .notes-shell {
+    width: min(1180px, 100%);
+    max-height: 92vh;
+    overflow: hidden;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    box-shadow: var(--shadow-hover);
+    animation: fadeUp 0.25s ease both;
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    transition: grid-template-columns 0.22s ease;
+  }
+
+  .notes-shell.drawer-closed {
+    grid-template-columns: 1fr 64px;
+  }
+
+  .notes-head {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .notes-eyebrow {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 0.35rem;
+  }
+
+  .notes-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.45rem;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+  }
+
+  .notes-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2rem;
+    color: var(--text-muted);
+    padding: 4px 8px;
+    border-radius: 8px;
+  }
+
+  .notes-close:hover {
+    background: var(--border);
+  }
+
+  .notes-grid {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 360px minmax(0, 1fr);
+    gap: 0;
+    min-height: 0;
+    overflow: hidden;
+    height: calc(92vh - 76px);
+  }
+
+  .notes-panel {
+    background: var(--bg);
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .notes-left {
+    border-right: 1px solid var(--border);
+    padding: 1rem;
+  }
+
+  .notes-right {
+    background: var(--bg-card);
+  }
+
+  .notes-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 0.85rem;
+  }
+
+  .notes-upload-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .notes-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    max-height: 52vh;
+    overflow: auto;
+    padding-right: 0.25rem;
+  }
+
+  .notes-day {
+    margin-bottom: 0.75rem;
+  }
+
+  .notes-day-head {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 0.2rem 0 0.6rem;
+  }
+
+  .notes-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 14px;
+    padding: 0.9rem;
+    box-shadow: var(--shadow);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+  }
+
+  .notes-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
+  }
+
+  .notes-card-title {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.35rem;
+  }
+
+  .notes-card-meta {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+  }
+
+  .notes-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .notes-chip-btn {
+    padding: 6px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .notes-chip-btn:hover {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .notes-chip-btn.primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  .notes-preview-inner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .notes-preview-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.2rem;
+    border-bottom: 1px solid var(--border);
+    align-items: flex-start;
+  }
+
+  .notes-preview-body {
+    padding: 1.2rem;
+    overflow: auto;
+    color: var(--text-primary);
+    font-size: 0.92rem;
+    line-height: 1.7;
+    min-height: 0;
+    flex: 1;
+  }
+
+  .notes-preview-empty {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+
+  .notes-study-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+
+  .notes-study-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+
+  .notes-expand-btn {
+    position: absolute;
+    top: 1rem;
+    left: -18px;
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3;
+  }
+
+  .notes-expand-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .quiz-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .quiz-question {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--text-primary);
+    line-height: 1.5;
+  }
+
+  .quiz-answer-input {
+    width: 100%;
+    min-height: 120px;
+    resize: vertical;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.92rem;
+    outline: none;
+  }
+
+  .quiz-answer-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+  }
+
+  .quiz-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .quiz-small {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  .quiz-answer-box {
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-top: 10px;
+  }
+
+  .quiz-answer-label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+
+  @media (max-width: 768px) {
+    .notes-shell {
+      border-radius: 20px 20px 0 0;
+      max-height: 94vh;
+      width: 100%;
+      grid-template-columns: 1fr;
+    }
+
+    .notes-shell.drawer-closed {
+      grid-template-columns: 1fr;
+    }
+
+    .notes-grid {
+      grid-template-columns: 1fr;
+      height: calc(94vh - 76px);
+    }
+
+    .notes-left {
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .notes-right {
+      min-height: 36vh;
+      border-top: none;
+    }
+
+    .notes-stack {
+      max-height: 32vh;
+    }
+  }
+</style>
 {% endblock %}
 
 {% block scripts %}
 let allAssignments = [];
+let allCourses = [];
 let currentCourse = 'all';
+let currentCourseObj = null;
+let currentPreviewNoteId = null;
+let notesDrawerOpen = true;
+let currentPreviewMode = 'preview';
+let currentQuiz = null;
+
+/* ADDED: DEDUPE ASSIGNMENTS */
+function dedupeAssignments(assignments) {
+  const seen = new Map();
+
+  (assignments || []).forEach(a => {
+    const key = [
+      String(a.id ?? '').trim(),
+      String(a.title ?? '').trim().toLowerCase(),
+      String(a.course ?? '').trim().toLowerCase(),
+      String(a.due_date ?? '').trim(),
+      String(a.estimated_time ?? '').trim()
+    ].join('|');
+
+    if (!seen.has(key)) {
+      seen.set(key, a);
+    }
+  });
+
+  return [...seen.values()];
+}
 
 function formatDate(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
@@ -71,15 +558,36 @@ function formatTime(mins) {
 
 function daysUntil(dateStr) {
   const due = new Date(dateStr + 'T00:00:00');
-  const now = new Date(); now.setHours(0,0,0,0);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
   const diff = Math.round((due - now) / 86400000);
-  if (diff < 0)  return '⚠️ Overdue';
+  if (diff < 0) return '⚠️ Overdue';
   if (diff === 0) return '📌 Due today';
   if (diff === 1) return '⏰ Due tomorrow';
   return `📅 ${diff} days left`;
 }
 
+function courseLabel(course) {
+  return (course && (course.name || course.course || course.title)) ? (course.name || course.course || course.title) : '';
+}
+
+function updateNotesButtonState() {
+  const btn = document.getElementById('notesActionBtn');
+  if (!btn) return;
+
+  if (currentCourse === 'all' || !currentCourseObj) {
+    btn.disabled = true;
+    btn.textContent = 'Retrieve Notes';
+  } else {
+    btn.disabled = false;
+    btn.textContent = `Retrieve Notes · ${courseLabel(currentCourseObj)}`;
+  }
+}
+
 function renderCards(assignments) {
+  /* ADDED: dedupe before render */
+  assignments = dedupeAssignments(assignments);
+
   const list = document.getElementById('assignmentsList');
   const empty = document.getElementById('emptyState');
   list.innerHTML = '';
@@ -91,11 +599,13 @@ function renderCards(assignments) {
   empty.classList.remove('visible');
 
   assignments.forEach((a, i) => {
-    const priority = a.priority.toLowerCase();
+    const priority = (a.priority || 'Medium').toLowerCase();
     const card = document.createElement('div');
     card.className = `assignment-card ${priority}`;
     card.style.animationDelay = `${i * 0.07}s`;
-    card.onclick = (e) => { if (!e.target.classList.contains('dismiss-btn')) openAssignmentModal(a); };
+    card.onclick = (e) => {
+      if (!e.target.classList.contains('dismiss-btn')) openAssignmentModal(a);
+    };
     card.innerHTML = `
       <div class="rank-bubble">#${i + 1}</div>
       <div class="card-main">
@@ -115,24 +625,34 @@ function renderCards(assignments) {
 }
 
 function updateStats(assignments) {
-  const courses = [...new Set(assignments.map(a => a.course))];
-  const totalTime = assignments.reduce((sum, a) => sum + a.estimated_time, 0);
+  const clean = dedupeAssignments(assignments);
+  const courses = [...new Set(clean.map(a => a.course))];
+  const totalTime = clean.reduce((sum, a) => sum + a.estimated_time, 0);
   document.getElementById('statCourses').textContent = courses.length;
-  document.getElementById('statTotal').textContent = assignments.length;
+  document.getElementById('statTotal').textContent = clean.length;
   document.getElementById('statTime').textContent = formatTime(totalTime);
 }
 
 function populateDropdown(courses) {
+  allCourses = Array.isArray(courses) ? courses : [];
+
   const menu = document.getElementById('classMenu');
   menu.innerHTML = '<div class="dropdown-item active" data-filter="all">📋 All Courses</div>';
-  courses.forEach(course => {
+
+  allCourses.forEach((course, idx) => {
+    const name = courseLabel(course);
+    if (!name) return;
+
     const item = document.createElement('div');
     item.className = 'dropdown-item';
-    item.dataset.filter = course.name;
-    item.textContent = '📚 ' + course.name;
+    item.dataset.filter = name;
+    item.dataset.index = String(idx);
+    item.textContent = '📚 ' + name;
     menu.appendChild(item);
   });
+
   attachDropdownListeners();
+  updateNotesButtonState();
 }
 
 function attachDropdownListeners() {
@@ -140,12 +660,25 @@ function attachDropdownListeners() {
     item.addEventListener('click', () => {
       document.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('active'));
       item.classList.add('active');
+
       currentCourse = item.dataset.filter;
-      dropBtn.innerHTML = `📚 ${currentCourse === 'all' ? 'All Courses' : currentCourse} <span class="chevron">▾</span>`;
+
+      if (currentCourse === 'all') {
+        currentCourseObj = null;
+        dropBtn.innerHTML = `📚 All Courses <span class="chevron">▾</span>`;
+      } else {
+        const idx = item.dataset.index ? parseInt(item.dataset.index, 10) : -1;
+        currentCourseObj = idx >= 0 ? allCourses[idx] : allCourses.find(c => courseLabel(c) === currentCourse);
+        dropBtn.innerHTML = `📚 ${currentCourse} <span class="chevron">▾</span>`;
+      }
+
       dropMenu.classList.remove('open');
+      updateNotesButtonState();
+
       const filtered = currentCourse === 'all'
-        ? allAssignments
-        : allAssignments.filter(a => a.course === currentCourse);
+        ? dedupeAssignments(allAssignments)
+        : dedupeAssignments(allAssignments.filter(a => a.course === currentCourse));
+
       renderCards(filtered);
     });
   });
@@ -177,12 +710,511 @@ document.addEventListener('click', (e) => {
   }
 });
 
+function openSelectedCourseNotes() {
+  if (!currentCourseObj || currentCourse === 'all') {
+    alert('Select a specific course first.');
+    return;
+  }
+  openNotesModal(currentCourseObj);
+}
+
+function openNotesModal(course) {
+  const payload = typeof course === "object"
+    ? course
+    : { name: String(course || ""), id: "", source: "" };
+
+  currentCourseObj = payload;
+  currentCourse = courseLabel(payload) || currentCourse;
+  updateNotesButtonState();
+
+  const overlay = document.getElementById("notesOverlay");
+  const shell = document.getElementById("notesShell");
+
+  document.getElementById("notesCourseTitle").textContent = courseLabel(payload) || "Course Notes";
+  document.getElementById("notesDate").value = new Date().toISOString().split("T")[0];
+  document.getElementById("notesTitle").value = "";
+  document.getElementById("notesText").value = "";
+  document.getElementById("notesFile").value = "";
+  document.getElementById("notesPreviewTitle").textContent = "Preview";
+  document.getElementById("notesPreviewMeta").textContent = "";
+  document.getElementById("notesPreviewBody").innerHTML = `<div class="notes-preview-empty">Pick a note and choose View, Summarize, or Study.</div>`;
+  document.getElementById("notesDownloadLink").style.display = "none";
+
+  overlay.style.display = "flex";
+  document.body.style.overflow = "hidden";
+
+  notesDrawerOpen = true;
+  shell.classList.remove("drawer-closed");
+  shell.classList.add("drawer-open");
+  document.getElementById("notesToggleBtn").textContent = "➜";
+
+  loadCourseNotes();
+}
+
+function closeNotesModal() {
+  document.getElementById("notesOverlay").style.display = "none";
+  document.body.style.overflow = "";
+  currentPreviewNoteId = null;
+  currentPreviewMode = 'preview';
+  currentQuiz = null;
+}
+
+function closeNotesPreview() {
+  currentPreviewMode = 'preview';
+  currentPreviewNoteId = null;
+  currentQuiz = null;
+  document.getElementById("notesPreviewTitle").textContent = "Preview";
+  document.getElementById("notesPreviewMeta").textContent = "";
+  document.getElementById("notesPreviewBody").innerHTML = `<div class="notes-preview-empty">Pick a note and choose View, Summarize, or Study.</div>`;
+  document.getElementById("notesDownloadLink").style.display = "none";
+}
+
+function toggleNotesDrawer() {
+  const shell = document.getElementById('notesShell');
+  const btn = document.getElementById('notesToggleBtn');
+  notesDrawerOpen = !notesDrawerOpen;
+
+  if (notesDrawerOpen) {
+    shell.classList.remove('drawer-closed');
+    shell.classList.add('drawer-open');
+    btn.textContent = '➜';
+  } else {
+    shell.classList.remove('drawer-open');
+    shell.classList.add('drawer-closed');
+    btn.textContent = '⬅';
+  }
+}
+
+async function loadCourseNotes() {
+  const listWrap = document.getElementById('notesListWrap');
+  listWrap.innerHTML = `<div class="notes-preview-empty">Loading notes...</div>`;
+
+  const params = new URLSearchParams();
+  if (currentCourseObj && courseLabel(currentCourseObj)) params.set("course_name", courseLabel(currentCourseObj));
+  if (currentCourseObj && currentCourseObj.id) params.set("course_id", currentCourseObj.id);
+  if (currentCourseObj && currentCourseObj.source) params.set("course_source", currentCourseObj.source);
+
+  try {
+    const res = await fetch(`/notes/list?${params.toString()}`);
+    const data = await res.json();
+
+    if (!res.ok || data.status !== "ok") {
+      listWrap.innerHTML = `<div class="notes-preview-empty">Could not load notes.</div>`;
+      return;
+    }
+
+    renderNotesList(data.notes || []);
+  } catch (e) {
+    listWrap.innerHTML = `<div class="notes-preview-empty">Could not load notes.</div>`;
+  }
+}
+
+function renderNotesList(notes) {
+  const listWrap = document.getElementById("notesListWrap");
+
+  if (!notes.length) {
+    listWrap.innerHTML = `
+      <div class="notes-preview-empty">
+        No notes saved for this course yet.
+      </div>`;
+    return;
+  }
+
+  const groups = {};
+  notes.forEach(n => {
+    const key = n.note_date || "Unknown date";
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(n);
+  });
+
+  const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+
+  listWrap.innerHTML = sortedDates.map(date => {
+    const cards = groups[date].map(note => `
+      <div class="notes-card">
+        <div class="notes-card-title">${escapeHtml(note.title || "Untitled Notes")}</div>
+        <div class="notes-card-meta">
+          Saved on ${escapeHtml(note.note_date || date)} · ${escapeHtml(note.created_at || "")}
+          ${note.original_filename ? `<br>${escapeHtml(note.original_filename)}` : ""}
+        </div>
+        <div class="notes-card-actions">
+          <button class="notes-chip-btn primary" type="button" onclick="openNote(${note.id})">View</button>
+          <button class="notes-chip-btn" type="button" onclick="summarizeNote(${note.id})">Summarize</button>
+          <button class="notes-chip-btn" type="button" onclick="studyNote(${note.id})">Study</button>
+          <button class="notes-chip-btn" type="button" onclick="deleteNote(${note.id})">Delete</button>
+          ${note.download_url ? `<a class="notes-chip-btn" href="${note.download_url}" target="_blank" style="text-decoration:none;">Download</a>` : ""}
+        </div>
+      </div>
+    `).join("");
+
+    return `
+      <div class="notes-day">
+        <div class="notes-day-head">${escapeHtml(date)}</div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          ${cards}
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderPreviewContent(title, meta, body, downloadUrl = null) {
+  currentPreviewMode = 'preview';
+  const previewTitle = document.getElementById("notesPreviewTitle");
+  const previewMeta = document.getElementById("notesPreviewMeta");
+  const previewBody = document.getElementById("notesPreviewBody");
+  const dl = document.getElementById("notesDownloadLink");
+
+  previewTitle.textContent = title || "Preview";
+  previewMeta.textContent = meta || "";
+  previewBody.innerHTML = body || `<div class="notes-preview-empty">Nothing to show.</div>`;
+
+  if (downloadUrl) {
+    dl.href = downloadUrl;
+    dl.style.display = "inline-flex";
+  } else {
+    dl.style.display = "none";
+  }
+}
+
+function renderFilePreview(note) {
+  const title = note.title || "Untitled Notes";
+  const meta = `${note.course_name || ""} · ${note.note_date || ""}`.trim();
+  const fileUrl = note.view_url || note.download_url || "";
+  const ext = (note.original_filename || fileUrl || "").split('.').pop().toLowerCase();
+
+  if (fileUrl && ['pdf'].includes(ext)) {
+    renderPreviewContent(
+      title,
+      meta,
+      `<iframe src="${fileUrl}" style="width:100%; height:100%; min-height:58vh; border:1px solid var(--border); border-radius:14px; background:white;"></iframe>`,
+      fileUrl
+    );
+    return;
+  }
+
+  if (fileUrl && ['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) {
+    renderPreviewContent(
+      title,
+      meta,
+      `<img src="${fileUrl}" alt="Notes file" style="max-width:100%; border-radius:14px; border:1px solid var(--border); box-shadow:var(--shadow);">`,
+      fileUrl
+    );
+    return;
+  }
+
+  renderPreviewContent(
+    title,
+    meta,
+    `<pre style="white-space:pre-wrap; font-family:'DM Sans',sans-serif; margin:0;">${escapeHtml(note.text_content || "No extracted text is available for this note.")}</pre>`,
+    fileUrl || null
+  );
+}
+
+async function uploadCourseNote() {
+  if (!currentCourseObj || currentCourse === 'all') {
+    alert("Pick a specific course first.");
+    return;
+  }
+
+  const fileInput = document.getElementById("notesFile");
+  const file = fileInput.files[0];
+  const textValue = document.getElementById("notesText").value.trim();
+
+  if (!file && !textValue) {
+    alert("Choose a file or paste notes text.");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("course_name", courseLabel(currentCourseObj));
+  formData.append("course_id", currentCourseObj.id || "");
+  formData.append("course_source", currentCourseObj.source || "");
+  formData.append("note_date", document.getElementById("notesDate").value || "");
+  formData.append("title", document.getElementById("notesTitle").value || "");
+  if (file) formData.append("file", file);
+  if (textValue) formData.append("text_content", textValue);
+
+  try {
+    const res = await fetch("/notes/upload", {
+      method: "POST",
+      body: formData
+    });
+
+    const data = await res.json();
+    if (!res.ok || data.status !== "ok") {
+      alert(data.message || "Could not save notes.");
+      return;
+    }
+
+    document.getElementById("notesTitle").value = "";
+    document.getElementById("notesText").value = "";
+    document.getElementById("notesFile").value = "";
+    loadCourseNotes();
+  } catch (e) {
+    alert("Could not save notes.");
+  }
+}
+
+async function openNote(noteId) {
+  try {
+    const res = await fetch(`/notes/${noteId}`);
+    const data = await res.json();
+
+    if (!res.ok || data.status !== "ok") {
+      alert(data.message || "Could not open note.");
+      return;
+    }
+
+    const note = data.note;
+    currentPreviewNoteId = noteId;
+    renderFilePreview(note);
+  } catch (e) {
+    alert("Could not open note.");
+  }
+}
+
+async function summarizeNote(noteId) {
+  try {
+    const res = await fetch(`/notes/${noteId}/summarize`, { method: "POST" });
+    const data = await res.json();
+
+    if (!res.ok || data.status !== "ok") {
+      alert(data.message || "Could not summarize note.");
+      return;
+    }
+
+    currentPreviewMode = 'summary';
+    renderPreviewContent(
+      "Summary",
+      currentCourseObj ? courseLabel(currentCourseObj) : "",
+      `<div style="white-space:pre-wrap;">${escapeHtml(data.summary || "")}</div>`,
+      null
+    );
+  } catch (e) {
+    alert("Could not summarize note.");
+  }
+}
+
+async function startQuiz(noteId) {
+  currentPreviewMode = 'quiz';
+  currentQuiz = {
+    noteId: noteId,
+    history: [],
+    currentQuestion: null,
+    currentAnswer: '',
+    revealed: false,
+    loading: true
+  };
+
+  renderQuizLoading();
+
+  try {
+    const res = await fetch(`/notes/${noteId}/quiz`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ history: [] })
+    });
+    const data = await res.json();
+
+    if (!res.ok || data.status !== "ok") {
+      alert(data.message || "Could not generate question.");
+      return;
+    }
+
+    currentQuiz.currentQuestion = data.quiz || null;
+    currentQuiz.loading = false;
+    currentQuiz.revealed = false;
+    currentQuiz.currentAnswer = '';
+    renderQuizQuestion();
+  } catch (e) {
+    alert("Could not generate question.");
+  }
+}
+
+async function studyNote(noteId) {
+  currentPreviewNoteId = noteId;
+  await startQuiz(noteId);
+}
+
+function renderQuizLoading() {
+  renderPreviewContent(
+    "Study Mode",
+    currentCourseObj ? courseLabel(currentCourseObj) : "",
+    `<div class="notes-preview-empty">Generating a question...</div>`,
+    null
+  );
+}
+
+function renderQuizQuestion() {
+  if (!currentQuiz || !currentQuiz.currentQuestion) {
+    renderPreviewContent(
+      "Study Mode",
+      currentCourseObj ? courseLabel(currentCourseObj) : "",
+      `<div class="notes-preview-empty">No more questions available.</div>`,
+      null
+    );
+    return;
+  }
+
+  const q = currentQuiz.currentQuestion;
+  const questionText = q.question || "No question generated.";
+  const answerText = q.answer || "";
+  const hints = Array.isArray(q.key_points) ? q.key_points : [];
+
+  renderPreviewContent(
+    "Study Mode",
+    currentCourseObj ? courseLabel(currentCourseObj) : "",
+    `
+      <div class="quiz-wrap">
+        <div class="quiz-question">Question: ${escapeHtml(questionText)}</div>
+
+        <textarea id="quizAnswerInput" class="quiz-answer-input" placeholder="Type your answer here...">${escapeHtml(currentQuiz.currentAnswer || "")}</textarea>
+
+        <div class="quiz-actions">
+          <button class="notes-chip-btn primary" type="button" onclick="submitQuizAnswer()">Give Answer</button>
+          <button class="notes-chip-btn" type="button" onclick="showQuizAnswer()">Show Answer</button>
+          <button class="notes-chip-btn" type="button" onclick="nextQuizQuestion()">Next Question</button>
+          <button class="notes-chip-btn" type="button" onclick="repeatQuizQuestion()">Repeat</button>
+        </div>
+
+        <div class="quiz-small">Ask, answer, check, repeat. The ancient ritual of learning survives another day.</div>
+
+        <div id="quizAnswerBox" style="display:${currentQuiz.revealed ? 'block' : 'none'};" class="quiz-answer-box">
+          <div class="quiz-answer-label">Answer</div>
+          <div style="white-space:pre-wrap;">${escapeHtml(answerText)}</div>
+          ${hints.length ? `<div style="margin-top:10px;"><div class="quiz-answer-label">Key Points</div><ul style="margin:0; padding-left:18px; color:var(--text-secondary);">${hints.map(h => `<li>${escapeHtml(h)}</li>`).join('')}</ul></div>` : ""}
+        </div>
+      </div>
+    `,
+    null
+  );
+}
+
+function submitQuizAnswer() {
+  if (!currentQuiz) return;
+  const input = document.getElementById('quizAnswerInput');
+  currentQuiz.currentAnswer = input ? input.value.trim() : '';
+  if (!currentQuiz.currentAnswer) {
+    alert('Type an answer first.');
+    return;
+  }
+  currentQuiz.revealed = false;
+  renderQuizQuestion();
+}
+
+function showQuizAnswer() {
+  if (!currentQuiz) return;
+  currentQuiz.revealed = true;
+  renderQuizQuestion();
+}
+
+async function nextQuizQuestion() {
+  if (!currentQuiz || !currentQuiz.noteId) return;
+
+  const input = document.getElementById('quizAnswerInput');
+  if (input) currentQuiz.currentAnswer = input.value.trim();
+
+  if (currentQuiz.currentQuestion) {
+    currentQuiz.history.push({
+      question: currentQuiz.currentQuestion.question || '',
+      answer: currentQuiz.currentAnswer || ''
+    });
+  }
+
+  renderQuizLoading();
+
+  try {
+    const res = await fetch(`/notes/${currentQuiz.noteId}/quiz`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ history: currentQuiz.history })
+    });
+    const data = await res.json();
+
+    if (!res.ok || data.status !== "ok") {
+      renderPreviewContent(
+        "Study Mode",
+        currentCourseObj ? courseLabel(currentCourseObj) : "",
+        `<div class="notes-preview-empty">${escapeHtml(data.message || "No more questions available.")}</div>`,
+        null
+      );
+      return;
+    }
+
+    currentQuiz.currentQuestion = data.quiz || null;
+    currentQuiz.revealed = false;
+    currentQuiz.currentAnswer = '';
+    renderQuizQuestion();
+  } catch (e) {
+    renderPreviewContent(
+      "Study Mode",
+      currentCourseObj ? courseLabel(currentCourseObj) : "",
+      `<div class="notes-preview-empty">Could not load the next question.</div>`,
+      null
+    );
+  }
+}
+
+function repeatQuizQuestion() {
+  if (!currentQuiz || !currentQuiz.currentQuestion) return;
+  currentQuiz.revealed = false;
+  renderQuizQuestion();
+}
+
+async function deleteNote(noteId) {
+  if (!confirm("Delete this note?")) return;
+
+  try {
+    const res = await fetch(`/notes/${noteId}`, { method: "DELETE" });
+    const data = await res.json();
+
+    if (!res.ok || data.status !== "ok") {
+      alert(data.message || "Could not delete note.");
+      return;
+    }
+
+    closeNotesPreview();
+    loadCourseNotes();
+  } catch (e) {
+    alert("Could not delete note.");
+  }
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function showPreviewMode() {
+  if (currentPreviewMode === 'preview') return;
+  if (currentPreviewNoteId) openNote(currentPreviewNoteId);
+}
+
+document.addEventListener("click", (e) => {
+  const overlay = document.getElementById("notesOverlay");
+  if (e.target === overlay) closeNotesModal();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    closeNotesPreview();
+    closeNotesModal();
+  }
+});
+
+/* FIXED FETCH PIPELINE */
 fetch('/live')
   .then(r => r.json())
   .then(data => {
-    allAssignments = data;
-    updateStats(data);
-    renderCards(data);
+    const clean = dedupeAssignments(Array.isArray(data) ? data : []);
+    allAssignments = clean;
+    updateStats(clean);
+    renderCards(clean);
   })
   .catch(() => {
     document.getElementById('assignmentsList').innerHTML =

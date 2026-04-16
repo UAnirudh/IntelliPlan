@@ -14,6 +14,7 @@ from sentry_sdk.integrations.flask import FlaskIntegration
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from auth_api import auth_bp
+from werkzeug.utils import secure_filename
 
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import (
@@ -70,6 +71,9 @@ app.register_blueprint(auth_bp)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///intelliplan.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024  # 25 MB
+app.config["NOTES_UPLOAD_FOLDER"] = os.path.join(app.root_path, "uploads", "course_notes")
+os.makedirs(app.config["NOTES_UPLOAD_FOLDER"], exist_ok=True)
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
@@ -187,6 +191,28 @@ class PushSubscription(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     guest_session_id = db.Column(db.String(64), nullable=True)
     subscription_json = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class CourseNote(db.Model):
+    __tablename__ = "course_notes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    guest_session_id = db.Column(db.String(64), nullable=True)
+
+    course_name = db.Column(db.String(255), nullable=False)
+    course_id = db.Column(db.String(128), nullable=True)
+    course_source = db.Column(db.String(32), nullable=True)
+
+    note_date = db.Column(db.String(32), nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+
+    original_filename = db.Column(db.String(255), nullable=True)
+    stored_filename = db.Column(db.String(255), nullable=True)
+
+    text_content = db.Column(db.Text, default="")
+    summary_cache = db.Column(db.Text, default="")
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 with app.app_context():
@@ -894,6 +920,259 @@ def dismissed_data():
         except:
             result.append({"title": r.title})
     return flask.jsonify(result)
+
+@app.route("/notes/list")
+def notes_list():
+    course_name = request.args.get("course_name", "").strip()
+    course_id = request.args.get("course_id", "").strip()
+    course_source = request.args.get("course_source", "").strip()
+
+    q = get_notes_owner_query()
+
+    if course_name:
+        q = q.filter(db.func.lower(CourseNote.course_name) == course_name.lower())
+    if course_id:
+        q = q.filter(CourseNote.course_id == course_id)
+    if course_source:
+        q = q.filter(CourseNote.course_source == course_source)
+
+    notes = q.order_by(CourseNote.note_date.desc(), CourseNote.created_at.desc()).all()
+    return flask.jsonify({
+        "status": "ok",
+        "notes": [course_note_payload(n) for n in notes]
+    })
+
+@app.route("/notes/upload", methods=["POST"])
+def upload_note():
+    course_name = request.form.get("course_name", "").strip()
+    course_id = request.form.get("course_id", "").strip()
+    course_source = request.form.get("course_source", "").strip()
+    note_date = request.form.get("note_date", "").strip() or datetime.now().strftime("%Y-%m-%d")
+    title = request.form.get("title", "").strip() or f"{course_name} Notes"
+
+    if not course_name:
+        return flask.jsonify({"status": "error", "message": "Course name is required"}), 400
+
+    file = request.files.get("file")
+    text_content = request.form.get("text_content", "").strip()
+    original_filename = None
+    stored_filename = None
+
+    if file and file.filename:
+        original_filename = file.filename
+        ext = os.path.splitext(original_filename)[1].lower()
+
+        if ext not in NOTE_ALLOWED_EXTENSIONS:
+            return flask.jsonify({
+                "status": "error",
+                "message": "Only TXT, MD, CSV, PDF, and DOCX files are supported."
+            }), 400
+
+        owner_folder = get_notes_owner_folder()
+        owner_dir = os.path.join(app.config["NOTES_UPLOAD_FOLDER"], owner_folder)
+        os.makedirs(owner_dir, exist_ok=True)
+
+        stored_filename = f"{uuid.uuid4().hex}{ext}"
+        file_path = os.path.join(owner_dir, stored_filename)
+        file.save(file_path)
+
+        extracted = extract_text_from_note_file(file_path)
+        if extracted:
+            text_content = extracted
+
+    if not text_content and not stored_filename:
+        return flask.jsonify({
+            "status": "error",
+            "message": "Upload a note file or paste note text."
+        }), 400
+
+    note = CourseNote(
+        user_id=current_user.id if current_user.is_authenticated else None,
+        guest_session_id=None if current_user.is_authenticated else get_guest_session_id(),
+        course_name=course_name,
+        course_id=course_id or None,
+        course_source=course_source or None,
+        note_date=note_date,
+        title=title,
+        original_filename=original_filename,
+        stored_filename=stored_filename,
+        text_content=text_content or "",
+    )
+    db.session.add(note)
+    db.session.commit()
+
+    return flask.jsonify({
+        "status": "ok",
+        "note": course_note_payload(note)
+    })
+
+@app.route("/notes/<int:note_id>")
+def get_note(note_id):
+    note = db.session.get(CourseNote, note_id)
+    if not note or not note_belongs_to_current_user(note):
+        return flask.jsonify({"status": "error", "message": "Note not found"}), 404
+
+    return flask.jsonify({
+        "status": "ok",
+        "note": course_note_payload(note, include_text=True)
+    })
+
+@app.route("/notes/<int:note_id>/download")
+def download_note(note_id):
+    note = db.session.get(CourseNote, note_id)
+    if not note or not note.stored_filename or not note_belongs_to_current_user(note):
+        return flask.jsonify({"status": "error", "message": "File not found"}), 404
+
+    owner_dir = os.path.join(
+        app.config["NOTES_UPLOAD_FOLDER"],
+        f"user_{note.user_id}" if note.user_id else f"guest_{note.guest_session_id}"
+    )
+
+    return flask.send_from_directory(
+        owner_dir,
+        note.stored_filename,
+        as_attachment=True,
+        download_name=note.original_filename or note.stored_filename
+    )
+
+@app.route("/notes/<int:note_id>/summarize", methods=["POST"])
+def summarize_note(note_id):
+    note = db.session.get(CourseNote, note_id)
+    if not note or not note_belongs_to_current_user(note):
+        return flask.jsonify({"status": "error", "message": "Note not found"}), 404
+
+    if not (note.text_content or "").strip():
+        return flask.jsonify({
+            "status": "error",
+            "message": "No extracted text is available for this note."
+        }), 400
+
+    if not os.getenv("GROQ_API_KEY"):
+        return flask.jsonify({
+            "status": "error",
+            "message": "GROQ_API_KEY is not set."
+        }), 500
+
+    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+    text = (note.text_content or "")[:12000]
+
+    prompt = f"""
+Summarize these class notes for a student.
+
+Return:
+- 5 to 8 bullet points
+- a short "Key takeaways" section
+- keep it clear, practical, and concise
+
+Notes:
+{text}
+"""
+
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=900,
+        )
+        summary = response.choices[0].message.content.strip()
+        note.summary_cache = summary
+        db.session.commit()
+
+        return flask.jsonify({"status": "ok", "summary": summary})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/notes/<int:note_id>/study", methods=["POST"])
+def study_note(note_id):
+    note = db.session.get(CourseNote, note_id)
+    if not note or not note_belongs_to_current_user(note):
+        return flask.jsonify({"status": "error", "message": "Note not found"}), 404
+
+    if not (note.text_content or "").strip():
+        return flask.jsonify({
+            "status": "error",
+            "message": "No extracted text is available for this note."
+        }), 400
+
+    if not os.getenv("GROQ_API_KEY"):
+        return flask.jsonify({
+            "status": "error",
+            "message": "GROQ_API_KEY is not set."
+        }), 500
+
+    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+    text = (note.text_content or "")[:12000]
+
+    prompt = f"""
+Turn these notes into study material for a student.
+
+Return ONLY valid JSON in this shape:
+{{
+  "title": "Study Guide",
+  "summary": "short study summary",
+  "cards": [
+    {{"question": "Q1", "answer": "A1"}},
+    {{"question": "Q2", "answer": "A2"}}
+  ],
+  "quiz": [
+    {{"question": "Q1", "answer": "A1"}},
+    {{"question": "Q2", "answer": "A2"}}
+  ]
+}}
+
+Make the questions useful for studying and keep answers short.
+
+Notes:
+{text}
+"""
+
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=1200,
+        )
+        raw = response.choices[0].message.content.strip()
+        raw = re.sub(r"```json\s*", "", raw)
+        raw = re.sub(r"```", "", raw).strip()
+
+        try:
+            study = json.loads(raw)
+        except Exception:
+            study = {
+                "title": "Study Guide",
+                "summary": raw,
+                "cards": [],
+                "quiz": []
+            }
+
+        return flask.jsonify({"status": "ok", "study": study})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/notes/<int:note_id>", methods=["DELETE"])
+def delete_note(note_id):
+    note = db.session.get(CourseNote, note_id)
+    if not note or not note_belongs_to_current_user(note):
+        return flask.jsonify({"status": "error", "message": "Note not found"}), 404
+
+    if note.stored_filename:
+        owner_dir = os.path.join(
+            app.config["NOTES_UPLOAD_FOLDER"],
+            f"user_{note.user_id}" if note.user_id else f"guest_{note.guest_session_id}"
+        )
+        file_path = os.path.join(owner_dir, note.stored_filename)
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            print(f"Could not remove note file: {e}")
+
+    db.session.delete(note)
+    db.session.commit()
+    return flask.jsonify({"status": "ok"})
 
 @app.route("/restore", methods=["POST"])
 def restore():
@@ -1750,6 +2029,161 @@ def legal():
 @app.route("/install")
 def install():
     return render_template("install.html")
+
+# ── Notes ─────────────────────────────────────────────────────
+NOTE_ALLOWED_EXTENSIONS = {".txt", ".md", ".csv", ".pdf", ".docx"}
+
+def get_notes_owner_folder():
+    if current_user.is_authenticated:
+        return f"user_{current_user.id}"
+    return f"guest_{get_guest_session_id()}"
+
+def get_notes_owner_query():
+    if current_user.is_authenticated:
+        return CourseNote.query.filter_by(user_id=current_user.id)
+    return CourseNote.query.filter_by(guest_session_id=get_guest_session_id())
+
+def note_belongs_to_current_user(note):
+    if current_user.is_authenticated:
+        return note.user_id == current_user.id
+    return note.guest_session_id == get_guest_session_id()
+
+def extract_text_from_note_file(file_path):
+    ext = os.path.splitext(file_path)[1].lower()
+
+    try:
+        if ext in {".txt", ".md", ".csv"}:
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                return f.read().strip()
+
+        if ext == ".pdf":
+            try:
+                from pypdf import PdfReader
+            except Exception:
+                from PyPDF2 import PdfReader
+
+            reader = PdfReader(file_path)
+            pages = []
+            for page in reader.pages:
+                pages.append(page.extract_text() or "")
+            return "\n".join(pages).strip()
+
+        if ext == ".docx":
+            from docx import Document
+            doc = Document(file_path)
+            return "\n".join(p.text for p in doc.paragraphs).strip()
+
+    except Exception as e:
+        print(f"Note extraction error: {e}")
+
+    return ""
+
+def course_note_payload(note, include_text=False):
+    payload = {
+        "id": note.id,
+        "course_name": note.course_name,
+        "course_id": note.course_id,
+        "course_source": note.course_source,
+        "note_date": note.note_date,
+        "title": note.title,
+        "original_filename": note.original_filename,
+        "has_file": bool(note.stored_filename),
+        "download_url": f"/notes/{note.id}/download" if note.stored_filename else None,
+        "summary_available": bool((note.summary_cache or "").strip()),
+        "created_at": note.created_at.strftime("%b %d, %Y %I:%M %p"),
+        "preview": (note.text_content or "")[:240],
+    }
+    if include_text:
+        payload["text_content"] = note.text_content or ""
+        payload["summary_cache"] = note.summary_cache or ""
+    return payload
+
+@app.route("/notes/<int:note_id>/quiz", methods=["POST"])
+def notes_quiz(note_id):
+    if not NOTION_AVAILABLE and False:
+        pass
+
+    # Replace CourseNote with your actual model name if needed.
+    note = None
+    if current_user.is_authenticated:
+        note = CourseNote.query.filter_by(id=note_id, user_id=current_user.id).first()
+    else:
+        note = CourseNote.query.filter_by(id=note_id, guest_session_id=get_guest_session_id()).first()
+
+    if not note:
+        return flask.jsonify({"status": "error", "message": "Note not found"}), 404
+
+    note_text = (note.text_content or "").strip()
+    if not note_text:
+        return flask.jsonify({"status": "error", "message": "No note text available"}), 400
+
+    history = request.json.get("history", []) if request.is_json else []
+    history_text = json.dumps(history[-8:], ensure_ascii=False)
+
+    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+    prompt = f"""
+You are generating one study question from the note below.
+
+Rules:
+- Return ONLY valid JSON.
+- Return a single question that tests understanding.
+- Do not repeat prior questions in history.
+- Keep the question clear and specific.
+- The answer should be concise but correct.
+- Include 2 to 5 key points if helpful.
+
+Prior questions and answers:
+{history_text}
+
+Note:
+{note_text[:12000]}
+
+Return JSON in this exact shape:
+{{
+  "question": "one question",
+  "answer": "one correct answer",
+  "key_points": ["point 1", "point 2"]
+}}
+"""
+
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5,
+            max_tokens=900,
+        )
+
+        raw = response.choices[0].message.content.strip()
+        raw = re.sub(r"```json\s*", "", raw)
+        raw = re.sub(r"```", "", raw)
+
+        quiz = json.loads(raw)
+        return flask.jsonify({"status": "ok", "quiz": quiz})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/notes/<int:note_id>/file", methods=["GET"])
+def notes_file(note_id):
+    # Replace CourseNote with your actual model name if needed.
+    note = None
+    if current_user.is_authenticated:
+        note = CourseNote.query.filter_by(id=note_id, user_id=current_user.id).first()
+    else:
+        note = CourseNote.query.filter_by(id=note_id, guest_session_id=get_guest_session_id()).first()
+
+    if not note:
+        return flask.jsonify({"status": "error", "message": "Note not found"}), 404
+
+    # If your upload flow already stores a file URL/path, return it here.
+    return flask.jsonify({
+        "status": "ok",
+        "view_url": getattr(note, "download_url", None),
+        "filename": getattr(note, "original_filename", None),
+        "text_content": getattr(note, "text_content", "")
+    })
 
 if __name__ == "__main__":
     with app.app_context():
