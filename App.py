@@ -2440,6 +2440,10 @@ def notification_status():
         'silenced_until': session.get('notifications_silenced_until')
     })
 
+@app.route('/install/ios')
+def install_ios():
+    return render_template('install_ios.html')
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()

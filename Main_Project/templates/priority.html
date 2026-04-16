@@ -138,6 +138,33 @@ function updateStats(assignments) {
     assignments.filter(a => a.priority.toLowerCase() === 'low').length;
 }
 
+function dedupeTasks(tasks) {
+  const map = new Map();
+
+  const priority = {
+    manual: 4,
+    notion: 3,
+    canvas: 2,
+    studentvue: 1,
+    studentvue_missing: 0
+  };
+
+  tasks.forEach(t => {
+    const key = `${t.title}|${t.course}|${t.due_date}`;
+
+    if (!map.has(key)) {
+      map.set(key, t);
+    } else {
+      const existing = map.get(key);
+      if ((priority[t.source] || 0) > (priority[existing.source] || 0)) {
+        map.set(key, t);
+      }
+    }
+  });
+
+  return Array.from(map.values());
+}
+
 const dropBtn = document.getElementById('priorityDropBtn');
 const dropMenu = document.getElementById('priorityMenu');
 
@@ -166,10 +193,16 @@ document.querySelectorAll('.dropdown-item').forEach(item => {
 fetch('/live')
   .then(r => r.json())
   .then(data => {
-    allAssignments = data;
-    updateStats(data);
-    renderCards(allAssignments.filter(a => a.priority.toLowerCase() === 'high'));
+    allAssignments = dedupeTasks(data); // ← USE IT (finally)
+
+    updateStats(allAssignments);
+
+    renderCards(
+      allAssignments.filter(a => a.priority.toLowerCase() === 'high')
+    );
   })
+
+
   .catch(() => {
     document.getElementById('assignmentsList').innerHTML =
       '<div class="loading"><p>⚠️ Could not connect to backend.</p></div>';
