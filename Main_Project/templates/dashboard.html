@@ -30,6 +30,7 @@
   <div style="display:flex; gap:8px; flex-wrap:wrap;">
     <button onclick="openNewTaskModal()" class="btn-primary" style="padding:10px 20px; border:none; cursor:pointer; font-size:0.88rem;">+ New Task</button>
     <button onclick="openIntegrationsModal()" class="btn-secondary" style="padding:10px 20px; font-size:0.88rem;">⚙ Integrations</button>
+    <button onclick="openSilenceModal()" class="btn-secondary" style="padding:10px 20px; font-size:0.88rem;">🔕 Silence</button>
   </div>
 </div>
 
@@ -247,6 +248,31 @@
   </div>
 </div>
 
+<div id="silenceModal" style="display:none; position:fixed; inset:0; z-index:1000;
+  background:rgba(0,0,0,0.4); backdrop-filter:blur(4px);
+  align-items:center; justify-content:center;">
+
+  <div style="background:var(--bg-card); border:1px solid var(--border);
+    border-radius:20px; padding:2rem; max-width:420px; width:90%;
+    box-shadow:var(--shadow-hover); animation:fadeUp 0.25s ease both;">
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+      <h2 style="font-family:'DM Serif Display',serif;">Silence Notifications</h2>
+      <button onclick="closeSilenceModal()" style="background:none;border:none;cursor:pointer;">✕</button>
+    </div>
+
+    <label class="form-label">Duration (minutes)</label>
+    <input type="number" id="silenceMinutes" class="form-input" value="30" min="1" max="1440"/>
+
+    <button onclick="enableSilence()" class="btn-primary"
+      style="width:100%; margin-top:1rem; padding:12px;">
+      Enable Silence
+    </button>
+
+    <p id="silenceStatus" style="margin-top:10px; font-size:0.8rem; color:var(--text-muted);"></p>
+  </div>
+</div>
+
 <style>
 .notion-col { display:flex; flex-direction:column; gap:8px; min-height:80px; }
 
@@ -286,6 +312,42 @@ let _savedSchedule = null;
 let _editingTask = null;
 let _feedbackCard = null;
 let _feedbackTask = null;
+let _silencedUntil = null;
+
+function openSilenceModal() {
+  document.getElementById('silenceModal').style.display = 'flex';
+}
+
+function closeSilenceModal() {
+  document.getElementById('silenceModal').style.display = 'none';
+}
+
+async function enableSilence() {
+  const minutes = parseInt(document.getElementById('silenceMinutes').value);
+
+  if (!minutes || minutes <= 0) return;
+
+  const res = await fetch('/notifications/silence', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ minutes })
+  }).then(r => r.json());
+
+  if (res.status === 'ok') {
+    _silencedUntil = res.silenced_until;
+
+    document.getElementById('silenceStatus').textContent =
+      `Silenced until ${new Date(_silencedUntil).toLocaleTimeString()}`;
+
+    setTimeout(closeSilenceModal, 800);
+  }
+}
+
+// global check helper
+function notificationsSilenced() {
+  if (!_silencedUntil) return false;
+  return new Date() < new Date(_silencedUntil);
+}
 
 function openFeedbackModal(task, card) {
   _feedbackTask = task;
@@ -331,7 +393,10 @@ async function submitFeedback(save) {
       body: JSON.stringify({ title: task.title, ...task })
     });
   }
-  
+  if (notificationsSilenced()) {
+    console.log("Notifications suppressed");
+    return;
+  }
   closeFeedbackModal();
   if (card) {
     card.style.opacity = '0';
@@ -815,6 +880,14 @@ document.addEventListener('keydown', e => {
     if (e.target === this) this.style.display = 'none';
   });
 });
+
+async function loadSilenceState() {
+  const res = await fetch('/notifications/status').then(r => r.json());
+
+  if (res.silenced_until) {
+    _silencedUntil = res.silenced_until;
+  }
+}
 
 // Init
 loadDashboard();

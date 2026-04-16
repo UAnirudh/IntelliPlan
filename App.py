@@ -2413,6 +2413,33 @@ def extension_dismiss():
             db.session.commit()
     return flask.jsonify({"status": "ok"})
 
+from flask import request, jsonify, session
+from datetime import datetime, timedelta
+
+@app.route('/notifications/silence', methods=['POST'])
+def silence_notifications():
+    data = request.json
+    minutes = int(data.get('minutes', 0))
+
+    if minutes <= 0:
+        return jsonify({'status': 'error', 'message': 'Invalid duration'})
+
+    silenced_until = datetime.utcnow() + timedelta(minutes=minutes)
+
+    # store per user session (replace with DB if you have accounts)
+    session['notifications_silenced_until'] = silenced_until.isoformat()
+
+    return jsonify({
+        'status': 'ok',
+        'silenced_until': silenced_until.isoformat()
+    })
+
+@app.route('/notifications/status')
+def notification_status():
+    return jsonify({
+        'silenced_until': session.get('notifications_silenced_until')
+    })
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
