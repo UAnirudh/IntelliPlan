@@ -1,0 +1,2490 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+/* ── STUDY PAGE BASE ──────────────────────────────────────── */
+:root {
+  --study-accent: #6366f1;
+  --study-accent2: #8b5cf6;
+  --study-green: #10b981;
+  --study-red: #ef4444;
+  --study-gold: #f59e0b;
+  --study-surface: var(--bg-card, #fff);
+  --study-border: var(--border, #e2eaf5);
+}
+
+#studyApp * { box-sizing: border-box; }
+
+#studyApp {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 0 4rem;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* ── HEADER ──────────────────────────────────────────────── */
+.study-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.study-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 2rem;
+  color: var(--text-primary, #0f172a);
+  margin: 0;
+}
+
+.study-title span {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── POINTS BAR ──────────────────────────────────────────── */
+.points-bar {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.points-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--study-surface);
+  border: 1px solid var(--study-border);
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+  transition: all 0.2s;
+}
+
+.points-chip.glow {
+  animation: chipGlow 0.5s ease;
+}
+
+@keyframes chipGlow {
+  0% { transform: scale(1); box-shadow: none; }
+  50% { transform: scale(1.08); box-shadow: 0 0 16px rgba(99,102,241,0.4); }
+  100% { transform: scale(1); box-shadow: none; }
+}
+
+.streak-flame { font-size: 1rem; }
+
+/* ── PANELS ──────────────────────────────────────────────── */
+.study-panel {
+  background: var(--study-surface);
+  border: 1px solid var(--study-border);
+  border-radius: 20px;
+  padding: 2rem;
+  box-shadow: 0 4px 24px rgba(15,23,42,0.06);
+  margin-bottom: 1.5rem;
+  animation: fadeUp 0.3s ease both;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.panel-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #94a3b8;
+  margin-bottom: 1rem;
+}
+
+/* ── INPUT AREA ──────────────────────────────────────────── */
+.input-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 1rem;
+  background: #f1f5f9;
+  border-radius: 12px;
+  padding: 4px;
+}
+
+.input-tab {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 9px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #64748b;
+  transition: all 0.15s;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.input-tab.active {
+  background: white;
+  color: var(--study-accent);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.input-panel { display: none; }
+.input-panel.active { display: block; }
+
+.study-textarea {
+  width: 100%;
+  min-height: 160px;
+  padding: 14px;
+  border: 1.5px solid var(--study-border);
+  border-radius: 12px;
+  font-size: 0.88rem;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text-primary, #0f172a);
+  background: var(--bg, #f8faff);
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s;
+  line-height: 1.6;
+}
+
+.study-textarea:focus {
+  border-color: var(--study-accent);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+}
+
+.upload-zone {
+  border: 2px dashed var(--study-border);
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: var(--study-accent);
+  background: rgba(99,102,241,0.04);
+}
+
+.upload-zone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.upload-icon { font-size: 2rem; margin-bottom: 8px; }
+.upload-text { font-size: 0.88rem; color: #64748b; }
+.upload-sub { font-size: 0.75rem; color: #94a3b8; margin-top: 4px; }
+.upload-success { font-size: 0.85rem; color: var(--study-green); font-weight: 600; margin-top: 8px; }
+
+/* ── MODE SELECTOR ──────────────────────────────────────── */
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.mode-card {
+  border: 2px solid var(--study-border);
+  border-radius: 16px;
+  padding: 1.25rem 1rem;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s;
+  background: var(--bg, #f8faff);
+  position: relative;
+  overflow: hidden;
+}
+
+.mode-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.mode-card.casual::before { background: linear-gradient(135deg, rgba(16,185,129,0.08), transparent); }
+.mode-card.serious::before { background: linear-gradient(135deg, rgba(99,102,241,0.08), transparent); }
+.mode-card.extreme::before { background: linear-gradient(135deg, rgba(239,68,68,0.08), transparent); }
+
+.mode-card:hover, .mode-card.selected {
+  border-color: var(--mode-color);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+
+.mode-card:hover::before, .mode-card.selected::before { opacity: 1; }
+
+.mode-card.selected { background: var(--study-surface); }
+
+.mode-icon { font-size: 1.8rem; margin-bottom: 8px; }
+.mode-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+  margin-bottom: 4px;
+}
+.mode-desc { font-size: 0.72rem; color: #64748b; line-height: 1.4; }
+
+.mode-badge {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  margin-top: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── START BUTTON ───────────────────────────────────────── */
+.study-start-btn {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s;
+  box-shadow: 0 4px 20px rgba(99,102,241,0.3);
+  letter-spacing: 0.02em;
+}
+
+.study-start-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(99,102,241,0.4);
+}
+
+.study-start-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.study-start-btn .btn-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── SESSION INTERFACE ──────────────────────────────────── */
+#sessionView { display: none; }
+
+.session-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.session-meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.session-pill {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 10px;
+  background: rgba(99,102,241,0.1);
+  color: var(--study-accent);
+}
+
+.session-mode-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── TIMER ──────────────────────────────────────────────── */
+.timer-ring {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+}
+
+.timer-ring svg {
+  position: absolute;
+  top: 0; left: 0;
+  transform: rotate(-90deg);
+}
+
+.timer-ring-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+  font-family: 'DM Mono', monospace;
+}
+
+/* ── PROGRESS BAR ───────────────────────────────────────── */
+.progress-track {
+  height: 6px;
+  background: #e2eaf5;
+  border-radius: 3px;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.progress-label {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-bottom: 6px;
+  text-align: right;
+}
+
+/* ── QUESTION CARD ──────────────────────────────────────── */
+.question-card {
+  background: linear-gradient(135deg, rgba(99,102,241,0.04), rgba(139,92,246,0.04));
+  border: 1.5px solid rgba(99,102,241,0.2);
+  border-radius: 20px;
+  padding: 2rem;
+  margin-bottom: 1.25rem;
+  animation: fadeUp 0.3s ease both;
+}
+
+.q-type-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 1rem;
+}
+
+.q-type-recall { background: #dbeafe; color: #3b82f6; }
+.q-type-conceptual { background: #ede9fe; color: #7c3aed; }
+.q-type-short-answer { background: #d1fae5; color: #059669; }
+
+.question-text {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary, #0f172a);
+  line-height: 1.5;
+  margin-bottom: 0;
+}
+
+.hint-text {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin-top: 10px;
+  font-style: italic;
+}
+
+/* ── ANSWER INPUT AREA (Active Recall) ───────────────────── */
+.answer-input-section {
+  margin-top: 1.5rem;
+}
+
+.answer-input-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #64748b;
+  margin-bottom: 0.75rem;
+  display: block;
+}
+
+.answer-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 14px;
+  border: 1.5px solid var(--study-border);
+  border-radius: 12px;
+  font-size: 0.92rem;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text-primary, #0f172a);
+  background: white;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  line-height: 1.6;
+}
+
+.answer-textarea:focus {
+  border-color: var(--study-accent);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+}
+
+/* ── CONFIDENCE SELECTOR ──────────────────────────────────── */
+.confidence-section {
+  margin-top: 1.25rem;
+}
+
+.confidence-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.confidence-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.conf-btn {
+  flex: 1;
+  padding: 10px 12px;
+  border: 2px solid #e2e8f0;
+  background: white;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s;
+  color: #64748b;
+}
+
+.conf-btn:hover {
+  border-color: var(--study-accent);
+  color: var(--study-accent);
+}
+
+.conf-btn.active {
+  background: var(--study-accent);
+  border-color: var(--study-accent);
+  color: white;
+}
+
+.conf-btn.low.active { background: #94a3b8; border-color: #94a3b8; }
+.conf-btn.medium.active { background: var(--study-accent); border-color: var(--study-accent); }
+.conf-btn.high.active { background: var(--study-gold); border-color: var(--study-gold); }
+
+/* ── SUBMIT ANSWER BUTTON ────────────────────────────────── */
+.submit-answer-btn {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  margin-top: 1rem;
+  transition: all 0.2s;
+  box-shadow: 0 4px 16px rgba(99,102,241,0.3);
+}
+
+.submit-answer-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(99,102,241,0.4);
+}
+
+.submit-answer-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── FEEDBACK PANEL ──────────────────────────────────────── */
+.feedback-panel {
+  background: white;
+  border: 1px solid var(--study-border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-top: 1.25rem;
+  animation: fadeUp 0.3s ease both;
+}
+
+.feedback-header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.result-badge {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.result-badge.correct {
+  background: #dcfce7;
+  color: #059669;
+}
+
+.result-badge.partial {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.result-badge.incorrect {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.score-badge {
+  padding: 6px 12px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.points-badge {
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.improvement-badge {
+  padding: 4px 10px;
+  background: #fef3c7;
+  color: #d97706;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* ── FEEDBACK SECTIONS ───────────────────────────────────── */
+.feedback-section {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.feedback-section h4 {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 0.5rem 0;
+}
+
+.feedback-section p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.feedback-section.correct-sec {
+  background: #f0fdf4;
+  border-left: 3px solid var(--study-green);
+}
+
+.feedback-section.missing-sec {
+  background: #fef2f2;
+  border-left: 3px solid var(--study-red);
+}
+
+.feedback-section.critique-sec {
+  background: #eff6ff;
+  border-left: 3px solid var(--study-accent);
+}
+
+.feedback-section.memory-sec {
+  background: linear-gradient(135deg, #faf5ff, #f3e8ff);
+  border-left: 3px solid var(--study-accent2);
+}
+
+.feedback-section.example-sec {
+  background: #f0fdf4;
+  border-left: 3px solid var(--study-green);
+}
+
+/* ── CORRECT ANSWER DISPLAY ──────────────────────────────── */
+.correct-answer-box {
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+}
+
+.correct-answer-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #059669;
+  margin-bottom: 0.5rem;
+}
+
+.correct-answer-text {
+  font-size: 0.95rem;
+  color: #064e3b;
+  line-height: 1.6;
+}
+
+/* ── MASTERY INDICATOR ────────────────────────────────────── */
+.mastery-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: #f1f5f9;
+  border-radius: 10px;
+  margin-top: 1rem;
+  font-size: 0.82rem;
+}
+
+.mastery-level {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.mastery-icon { font-size: 1.1rem; }
+.mastery-text { color: #475569; }
+
+.next-review-text {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+/* ── CONTINUE BUTTON ─────────────────────────────────────── */
+.continue-btn {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  margin-top: 1rem;
+  transition: all 0.2s;
+  box-shadow: 0 4px 16px rgba(99,102,241,0.3);
+}
+
+.continue-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(99,102,241,0.4);
+}
+
+/* ── SELF-CHECK BUTTONS (Legacy Flashcard Mode) ──────────── */
+.self-check {
+  display: flex;
+  gap: 10px;
+  margin-top: 1rem;
+}
+
+.check-btn {
+  flex: 1;
+  padding: 11px;
+  border: 1.5px solid;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s;
+  background: transparent;
+}
+
+.check-correct {
+  border-color: var(--study-green);
+  color: var(--study-green);
+}
+
+.check-correct:hover, .check-correct.selected {
+  background: var(--study-green);
+  color: white;
+}
+
+.check-wrong {
+  border-color: var(--study-red);
+  color: var(--study-red);
+}
+
+.check-wrong:hover, .check-wrong.selected {
+  background: var(--study-red);
+  color: white;
+}
+
+/* ── POINTS TOAST ───────────────────────────────────────── */
+.points-toast {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 14px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  z-index: 9999;
+  animation: toastIn 0.3s ease, toastOut 0.3s ease 1.7s both;
+  box-shadow: 0 8px 24px rgba(99,102,241,0.4);
+  pointer-events: none;
+}
+
+@keyframes toastIn { from { transform: translateX(100px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes toastOut { to { transform: translateX(100px); opacity: 0; } }
+
+/* ── SESSION COMPLETE ───────────────────────────────────── */
+.complete-card {
+  text-align: center;
+  padding: 3rem 2rem;
+  animation: fadeUp 0.4s ease both;
+}
+
+.complete-emoji { font-size: 4rem; margin-bottom: 1rem; display: block; }
+
+.complete-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 2rem;
+  color: var(--text-primary, #0f172a);
+  margin-bottom: 0.5rem;
+}
+
+.complete-sub { font-size: 0.92rem; color: #64748b; margin-bottom: 2rem; }
+
+.complete-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.cstat {
+  background: #f8faff;
+  border: 1px solid #e0e7ff;
+  border-radius: 14px;
+  padding: 1rem;
+}
+
+.cstat-num {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--study-accent);
+  font-family: 'DM Serif Display', serif;
+}
+
+.cstat-label { font-size: 0.72rem; color: #94a3b8; margin-top: 2px; font-weight: 600; }
+
+.complete-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+.btn-restart {
+  padding: 12px 28px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s;
+}
+
+.btn-restart:hover { transform: translateY(-2px); }
+
+.btn-concepts {
+  padding: 12px 28px;
+  background: transparent;
+  color: var(--study-accent);
+  border: 1.5px solid var(--study-accent);
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s;
+}
+
+.btn-concepts:hover { background: rgba(99,102,241,0.05); }
+
+/* ── KEY CONCEPTS ───────────────────────────────────────── */
+.concepts-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.concept-item {
+  background: #f8faff;
+  border: 1px solid #e0e7ff;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+
+.concept-term {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--study-accent);
+  margin-bottom: 4px;
+}
+
+.concept-def {
+  font-size: 0.82rem;
+  color: #475569;
+  line-height: 1.5;
+}
+
+/* ── STREAK CALENDAR ────────────────────────────────────── */
+.streak-section { margin-top: 1.5rem; }
+
+.streak-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.streak-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+}
+
+.freeze-count {
+  font-size: 0.78rem;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.cal-day {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  background: #f1f5f9;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.cal-day.active {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  box-shadow: 0 2px 6px rgba(99,102,241,0.3);
+}
+
+.cal-day.today {
+  border: 2px solid var(--study-accent);
+}
+
+.cal-day.missed { background: #fee2e2; }
+
+/* ── MASTERY OVERVIEW ───────────────────────────────────── */
+.mastery-overview {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 1rem;
+}
+
+.mastery-stat {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.mastery-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.mastery-stat-label {
+  font-size: 0.72rem;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.mastery-stat.not-learned .mastery-stat-value { color: #ef4444; }
+.mastery-stat.learning .mastery-stat-value { color: #f59e0b; }
+.mastery-stat.mastered .mastery-stat-value { color: #10b981; }
+
+/* ── EXTREME MODE OVERLAY ───────────────────────────────── */
+#extremeOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  background: #0a0a0f;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+#extremeOverlay.active { display: flex; }
+
+.extreme-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 1.5rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.extreme-logo {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.1rem;
+  color: #6366f1;
+}
+
+.extreme-timer {
+  font-family: 'DM Mono', monospace;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+}
+
+.extreme-content {
+  width: 100%;
+  max-width: 700px;
+  margin-top: 80px;
+}
+
+.extreme-progress {
+  width: 100%;
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  margin-bottom: 2rem;
+  overflow: hidden;
+}
+
+.extreme-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+.extreme-question-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 2.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.extreme-q-text {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: white;
+  line-height: 1.6;
+}
+
+.extreme-answer-textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 12px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  color: white;
+  font-size: 0.95rem;
+  font-family: 'DM Sans', sans-serif;
+  resize: vertical;
+  outline: none;
+  margin-top: 1rem;
+}
+
+.extreme-answer-textarea:focus {
+  border-color: #6366f1;
+}
+
+.extreme-confidence {
+  display: flex;
+  gap: 8px;
+  margin-top: 1rem;
+}
+
+.extreme-conf-btn {
+  flex: 1;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #94a3b8;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.extreme-conf-btn.active {
+  background: #6366f1;
+  border-color: #6366f1;
+  color: white;
+}
+
+.extreme-submit-btn {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+.extreme-feedback-panel {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-top: 1rem;
+}
+
+.extreme-feedback-header {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 1rem;
+}
+
+.extreme-result-badge {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.extreme-result-badge.correct { background: #059669; color: white; }
+.extreme-result-badge.partial { background: #d97706; color: white; }
+.extreme-result-badge.incorrect { background: #dc2626; color: white; }
+
+.extreme-feedback-section {
+  margin-bottom: 0.75rem;
+}
+
+.extreme-feedback-section h4 {
+  font-size: 0.78rem;
+  color: #a5b4fc;
+  margin: 0 0 0.25rem 0;
+}
+
+.extreme-feedback-section p {
+  font-size: 0.88rem;
+  color: #e2e8f0;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.extreme-next-btn {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 1rem;
+  display: none;
+}
+
+/* ── HOLD TO EXIT ───────────────────────────────────────── */
+.hold-exit-wrap {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.hold-exit-btn {
+  padding: 10px 24px;
+  background: rgba(239,68,68,0.1);
+  border: 1.5px solid rgba(239,68,68,0.4);
+  color: #fca5a5;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+}
+
+.hold-exit-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 0%;
+  background: rgba(239,68,68,0.3);
+  transition: width 0.1s linear;
+  pointer-events: none;
+}
+
+.exit-warning {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 200000;
+}
+
+.exit-warning-box {
+  background: #1a1a2e;
+  border: 1px solid rgba(239,68,68,0.4);
+  border-radius: 16px;
+  padding: 2rem;
+  max-width: 360px;
+  text-align: center;
+}
+
+.exit-warning-box h3 { color: white; margin-bottom: 8px; font-size: 1.1rem; }
+.exit-warning-box p { color: #94a3b8; font-size: 0.88rem; margin-bottom: 1.5rem; }
+
+.exit-cancel-btn {
+  padding: 10px 20px;
+  background: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.88rem;
+}
+
+/* ── RESPONSIVE ─────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .mode-grid { grid-template-columns: 1fr; }
+  .complete-stats { grid-template-columns: repeat(3, 1fr); }
+  .study-title { font-size: 1.5rem; }
+  .study-panel { padding: 1.25rem; }
+  .question-card { padding: 1.25rem; }
+  .extreme-question-card { padding: 1.5rem; }
+  .mastery-overview { grid-template-columns: 1fr; }
+}
+
+/* ── SERIOUS MODE OVERLAY ───────────────────────────────── */
+body.serious-mode header,
+body.serious-mode footer,
+body.serious-mode .nav-tabs,
+body.serious-mode #integrationBar {
+  display: none !important;
+}
+
+/* ── ANIMATION UTILITIES ───────────────────────────────── */
+.fade-in { animation: fadeUp 0.3s ease both; }
+.hidden { display: none !important; }
+</style>
+
+<!-- Exit Warning Modal -->
+<div class="exit-warning" id="exitWarning">
+  <div class="exit-warning-box">
+    <h3>🔥 Stay focused!</h3>
+    <p>You're in Extreme Mode. Hold the exit button for 10 seconds to leave your study session.</p>
+    <button class="exit-cancel-btn" onclick="document.getElementById('exitWarning').style.display='none'">Back to studying</button>
+  </div>
+</div>
+
+<!-- Extreme Mode Overlay -->
+<div id="extremeOverlay">
+  <div class="extreme-header">
+    <div class="extreme-logo">📅 IntelliPlan — Extreme Mode</div>
+    <div id="extremeTimerDisplay" class="extreme-timer">25:00</div>
+    <div id="extremePointsDisplay" style="font-size:0.85rem;color:#a5b4fc;font-weight:700;">⚡ 0 pts</div>
+  </div>
+
+  <div class="extreme-content">
+    <div class="extreme-progress">
+      <div class="extreme-progress-fill" id="extremeProgressFill" style="width:0%"></div>
+    </div>
+
+    <div id="extremeQuestionCard" class="extreme-question-card">
+      <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#6366f1;margin-bottom:12px;" id="extremeQType">Recall</div>
+      <div class="extreme-q-text" id="extremeQText">Loading...</div>
+      
+      <!-- Answer Input for Extreme Mode -->
+      <textarea class="extreme-answer-textarea" id="extremeAnswerInput" placeholder="Type your answer here..."></textarea>
+      
+      <div class="extreme-confidence" id="extremeConfidence">
+        <button class="extreme-conf-btn" data-conf="low">😕 Low</button>
+        <button class="extreme-conf-btn active" data-conf="medium">😐 Medium</button>
+        <button class="extreme-conf-btn" data-conf="high">😊 High</button>
+      </div>
+      
+      <button class="extreme-submit-btn" id="extremeSubmitBtn" onclick="extremeSubmitAnswer()">Submit Answer</button>
+    </div>
+
+    <div class="extreme-feedback-panel" id="extremeFeedbackPanel" style="display:none;">
+      <div class="extreme-feedback-header">
+        <span class="extreme-result-badge" id="extremeResultBadge"></span>
+        <span style="color:#a5b4fc;font-weight:600;" id="extremeScoreBadge"></span>
+        <span style="color:#22c55e;font-weight:700;" id="extremePointsBadge"></span>
+      </div>
+      
+      <div class="extreme-feedback-section">
+        <h4>✓ What you got right:</h4>
+        <p id="extremeWhatRight"></p>
+      </div>
+      
+      <div class="extreme-feedback-section">
+        <h4>✗ What was missing:</h4>
+        <p id="extremeWhatMissing"></p>
+      </div>
+      
+      <div class="extreme-feedback-section">
+        <h4>💡 Critique:</h4>
+        <p id="extremeCritique"></p>
+      </div>
+      
+      <div class="extreme-feedback-section">
+        <h4>🧠 Memory Tip:</h4>
+        <p id="extremeMemoryAnchor"></p>
+      </div>
+      
+      <div class="extreme-feedback-section">
+        <h4>✨ Better Answer:</h4>
+        <p id="extremeBetterExample"></p>
+      </div>
+      
+      <div style="display:flex;justify-content:space-between;padding:0.75rem;background:rgba(255,255,255,0.05);border-radius:8px;margin-top:0.75rem;">
+        <span style="color:#94a3b8;">Mastery: <strong id="extremeMasteryLevel" style="color:white;"></strong></span>
+        <span style="color:#64748b;">Next review: <span id="extremeNextReview"></span></span>
+      </div>
+    </div>
+
+    <button class="extreme-next-btn" id="extremeNextBtn" onclick="extremeNext()">Next Question →</button>
+  </div>
+
+  <div class="hold-exit-wrap">
+    <button class="hold-exit-btn" id="holdExitBtn"
+      onmousedown="startHoldExit()" onmouseup="stopHoldExit()" onmouseleave="stopHoldExit()"
+      ontouchstart="startHoldExit(event)" ontouchend="stopHoldExit()">
+      <div class="hold-exit-fill" id="holdExitFill"></div>
+      Hold 10s to Exit
+    </button>
+  </div>
+</div>
+
+<!-- Main Study App -->
+<div id="studyApp">
+
+  <!-- Header -->
+  <div class="study-header">
+    <h1 class="study-title">Study <span>&amp; Learn</span></h1>
+    <div class="points-bar">
+      <div class="points-chip" id="pointsChip">⚡ <span id="totalPointsDisplay">0</span> pts</div>
+      <div class="points-chip" id="streakChip">🔥 <span id="streakDisplay">0</span> day streak</div>
+      <div class="points-chip" id="freezeChip">🛡 <span id="freezeDisplay">0</span> freezes</div>
+    </div>
+  </div>
+
+  <!-- Setup View -->
+  <div id="setupView">
+
+    <!-- Content Input -->
+    <div class="study-panel">
+      <div class="panel-label">Step 1 — Add Study Material</div>
+
+      <div class="input-tabs">
+        <button class="input-tab active" onclick="switchInputTab('paste')">✏️ Paste Text</button>
+        <button class="input-tab" onclick="switchInputTab('upload')">📄 Upload File</button>
+      </div>
+
+      <div class="input-panel active" id="pastePanel">
+        <textarea class="study-textarea" id="pasteContent"
+          placeholder="Paste your notes, textbook excerpt, article, or any study material here..."></textarea>
+      </div>
+
+      <div class="input-panel" id="uploadPanel">
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="fileUpload" accept=".txt,.pdf" onchange="handleFileUpload(this)" />
+          <div class="upload-icon">📎</div>
+          <div class="upload-text">Drop a file or click to browse</div>
+          <div class="upload-sub">Supports .txt and .pdf files</div>
+          <div class="upload-success hidden" id="uploadSuccess"></div>
+        </div>
+        <textarea class="study-textarea" id="uploadContent" style="margin-top:1rem;display:none;"
+          placeholder="Extracted content will appear here — you can edit it before starting..."></textarea>
+      </div>
+    </div>
+
+    <!-- Mode Selector -->
+    <div class="study-panel">
+      <div class="panel-label">Step 2 — Choose Mode</div>
+      <div class="mode-grid">
+        <div class="mode-card casual selected" onclick="selectMode('casual')" style="--mode-color: #10b981;" data-mode="casual">
+          <div class="mode-icon">😌</div>
+          <div class="mode-name">Casual</div>
+          <div class="mode-desc">Active recall with typed answers. Get AI feedback on your responses.</div>
+          <span class="mode-badge" style="background:#d1fae5;color:#059669;">Learn</span>
+        </div>
+        <div class="mode-card serious" onclick="selectMode('serious')" style="--mode-color: #6366f1;" data-mode="serious">
+          <div class="mode-icon">⏱</div>
+          <div class="mode-name">Serious</div>
+          <div class="mode-desc">25-min Pomodoro timer. Hides distractions. Counts active study minutes.</div>
+          <span class="mode-badge" style="background:#e0e7ff;color:#4f46e5;">Focus</span>
+        </div>
+        <div class="mode-card extreme" onclick="selectMode('extreme')" style="--mode-color: #ef4444;" data-mode="extreme">
+          <div class="mode-icon">🔥</div>
+          <div class="mode-name">Extreme</div>
+          <div class="mode-desc">Fullscreen lockdown. No escape without 10-second hold. Maximum focus.</div>
+          <span class="mode-badge" style="background:#fee2e2;color:#dc2626;">Locked</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Start -->
+    <button class="study-start-btn" id="startBtn" onclick="startSession()">
+      🚀 Generate Study Session
+    </button>
+
+  </div>
+
+  <!-- Session View -->
+  <div id="sessionView">
+
+    <!-- Session Header -->
+    <div class="session-header">
+      <div class="session-meta">
+        <span class="session-pill" id="sessionTopicPill">Topic</span>
+        <span class="session-mode-badge" id="sessionModeBadge">Casual</span>
+      </div>
+      <div id="casualTimerWrap" style="display:none;align-items:center;gap:12px;">
+        <div class="timer-ring" id="timerRing">
+          <svg width="80" height="80" viewBox="0 0 80 80">
+            <circle cx="40" cy="40" r="34" fill="none" stroke="#e0e7ff" stroke-width="6"/>
+            <circle cx="40" cy="40" r="34" fill="none" stroke="#6366f1" stroke-width="6"
+              stroke-linecap="round" stroke-dasharray="213.6" id="timerCircle"
+              stroke-dashoffset="0" style="transition:stroke-dashoffset 1s linear;"/>
+          </svg>
+          <div class="timer-ring-text" id="timerText">25:00</div>
+        </div>
+      </div>
+      <button onclick="exitSession()" style="background:none;border:none;cursor:pointer;font-size:0.8rem;color:#94a3b8;font-family:'DM Sans',sans-serif;">✕ Exit</button>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-label"><span id="progressText">0 / 0</span></div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill" style="width:0%"></div>
+    </div>
+
+    <!-- Live points display -->
+    <div style="display:flex;gap:10px;margin-bottom:1.25rem;">
+      <div class="points-chip">⚡ Session: <strong id="sessionPts">0</strong></div>
+      <div class="points-chip">✓ Correct: <strong id="sessionCorrect">0</strong></div>
+    </div>
+
+    <!-- Mastery Overview -->
+    <div class="mastery-overview" id="masteryOverview">
+      <div class="mastery-stat not-learned">
+        <div class="mastery-stat-value" id="masteryNotLearned">0</div>
+        <div class="mastery-stat-label">🆕 Not Learned</div>
+      </div>
+      <div class="mastery-stat learning">
+        <div class="mastery-stat-value" id="masteryLearning">0</div>
+        <div class="mastery-stat-label">📖 Learning</div>
+      </div>
+      <div class="mastery-stat mastered">
+        <div class="mastery-stat-value" id="masteryMastered">0</div>
+        <div class="mastery-stat-label">🏆 Mastered</div>
+      </div>
+    </div>
+
+    <!-- Question Card -->
+    <div id="questionArea"></div>
+
+    <!-- Complete Card -->
+    <div id="completeCard" class="study-panel" style="display:none;">
+      <div class="complete-card">
+        <span class="complete-emoji" id="completeEmoji">🎉</span>
+        <div class="complete-title" id="completeTitle">Session Complete!</div>
+        <div class="complete-sub" id="completeSub">Great work. Here's how you did:</div>
+        <div class="complete-stats">
+          <div class="cstat">
+            <div class="cstat-num" id="finalCorrect">0</div>
+            <div class="cstat-label">Correct</div>
+          </div>
+          <div class="cstat">
+            <div class="cstat-num" id="finalPoints">0</div>
+            <div class="cstat-label">Points Earned</div>
+          </div>
+          <div class="cstat">
+            <div class="cstat-num" id="finalTime">0m</div>
+            <div class="cstat-label">Time Spent</div>
+          </div>
+        </div>
+        <div class="complete-actions">
+          <button class="btn-restart" onclick="restartSetup()">📚 Study Again</button>
+          <button class="btn-concepts" onclick="toggleConcepts()">💡 Key Concepts</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Key Concepts (hidden by default) -->
+    <div id="conceptsPanel" class="study-panel" style="display:none;margin-top:1rem;">
+      <div class="panel-label">Key Concepts</div>
+      <div class="concepts-grid" id="conceptsGrid"></div>
+    </div>
+  </div>
+
+  <!-- Streak Calendar -->
+  <div class="study-panel streak-section" id="streakPanel">
+    <div class="streak-header">
+      <div class="streak-title">🔥 Study Streak</div>
+      <div class="freeze-count">🛡 <span id="freezeCount2">0</span> streak freezes</div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div style="font-size:0.75rem;color:#94a3b8;margin-top:10px;text-align:center;" id="streakTip"></div>
+  </div>
+
+</div>
+
+<script>
+// ── STATE ────────────────────────────────────────────────────
+const S = {
+  mode: 'casual',
+  questions: [],
+  keyConcepts: [],
+  title: '',
+  currentQ: 0,
+  sessionPoints: 0,
+  sessionCorrect: 0,
+  sessionAnswered: 0,
+  totalPoints: 0,
+  streakCount: 0,
+  freezeCount: 0,
+  streakHistory: [],
+  lastActiveDate: '',
+  sessionHistory: [],
+  timer: null,
+  timerSeconds: 25 * 60,
+  timerRemaining: 25 * 60,
+  activeSeconds: 0,
+  activeTimer: null,
+  sessionStartTime: null,
+  inputTab: 'paste',
+  generating: false,
+  // Answer evaluation
+  confidence: 'medium',
+  answerStartTime: null,
+  // Cards for spaced repetition
+  cards: [],
+  // Extreme mode
+  extremeQ: 0,
+  extremeRevealed: false,
+  extremeMarked: false,
+  extremeSubmitted: false,
+};
+
+// ── INIT ─────────────────────────────────────────────────────
+async function init() {
+  await loadProfile();
+  await loadCardStats();
+  renderCalendar();
+}
+
+async function loadProfile() {
+  try {
+    const r = await fetch('/study/points');
+    const d = await r.json();
+    if (d.status === 'ok') {
+      S.totalPoints = d.total_points || 0;
+      S.streakCount = d.streak_count || 0;
+      S.freezeCount = d.streak_freeze_count || 0;
+      S.lastActiveDate = d.last_active_date || '';
+      S.streakHistory = d.streak_history || [];
+      S.sessionHistory = d.session_history || [];
+    }
+  } catch(e) {
+    const saved = JSON.parse(localStorage.getItem('intelliplan_study') || '{}');
+    S.totalPoints = saved.totalPoints || 0;
+    S.streakCount = saved.streakCount || 0;
+    S.freezeCount = saved.freezeCount || 0;
+    S.lastActiveDate = saved.lastActiveDate || '';
+    S.streakHistory = saved.streakHistory || [];
+  }
+  updatePointsDisplay();
+}
+
+async function loadCardStats() {
+  try {
+    const r = await fetch('/api/study/status');
+    const d = await r.json();
+    if (d.status === 'ok') {
+      document.getElementById('masteryNotLearned').textContent = d.cards.not_learned || 0;
+      document.getElementById('masteryLearning').textContent = d.cards.learning || 0;
+      document.getElementById('masteryMastered').textContent = d.cards.mastered || 0;
+    }
+  } catch(e) {}
+}
+
+function saveLocal() {
+  localStorage.setItem('intelliplan_study', JSON.stringify({
+    totalPoints: S.totalPoints,
+    streakCount: S.streakCount,
+    freezeCount: S.freezeCount,
+    lastActiveDate: S.lastActiveDate,
+    streakHistory: S.streakHistory
+  }));
+}
+
+// ── UI HELPERS ───────────────────────────────────────────────
+function updatePointsDisplay() {
+  document.getElementById('totalPointsDisplay').textContent = S.totalPoints;
+  document.getElementById('streakDisplay').textContent = S.streakCount;
+  document.getElementById('freezeDisplay').textContent = S.freezeCount;
+  document.getElementById('freezeCount2').textContent = S.freezeCount;
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'points-toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2100);
+}
+
+function switchInputTab(tab) {
+  S.inputTab = tab;
+  document.querySelectorAll('.input-tab').forEach((b, i) => {
+    b.classList.toggle('active', ['paste', 'upload'][i] === tab);
+  });
+  document.querySelectorAll('.input-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(tab === 'paste' ? 'pastePanel' : 'uploadPanel').classList.add('active');
+}
+
+function selectMode(mode) {
+  S.mode = mode;
+  document.querySelectorAll('.mode-card').forEach(c => {
+    c.classList.toggle('selected', c.dataset.mode === mode);
+  });
+}
+
+// ── FILE UPLOAD ──────────────────────────────────────────────
+async function handleFileUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const success = document.getElementById('uploadSuccess');
+  success.classList.remove('hidden');
+  success.textContent = '⏳ Extracting text...';
+
+  if (file.name.endsWith('.txt')) {
+    const text = await file.text();
+    document.getElementById('uploadContent').value = text;
+    document.getElementById('uploadContent').style.display = 'block';
+    success.textContent = `✅ ${file.name} loaded (${text.length} chars)`;
+  } else if (file.name.endsWith('.pdf')) {
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const r = await fetch('/study/extract-pdf', { method: 'POST', body: fd });
+      const d = await r.json();
+      if (d.status === 'ok') {
+        document.getElementById('uploadContent').value = d.text;
+        document.getElementById('uploadContent').style.display = 'block';
+        success.textContent = `✅ ${file.name} — ${d.text.length} chars extracted`;
+      } else {
+        success.textContent = '❌ Could not extract PDF text';
+        success.style.color = '#ef4444';
+      }
+    } catch(e) {
+      success.textContent = '❌ Upload failed';
+    }
+  }
+}
+
+// ── DRAG & DROP ──────────────────────────────────────────────
+const uploadZone = document.getElementById('uploadZone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    document.getElementById('fileUpload').files = dt.files;
+    handleFileUpload(document.getElementById('fileUpload'));
+  }
+});
+
+// ── SESSION START ────────────────────────────────────────────
+async function startSession() {
+  if (S.generating) return;
+
+  const content = S.inputTab === 'paste'
+    ? document.getElementById('pasteContent').value.trim()
+    : document.getElementById('uploadContent').value.trim();
+
+  if (!content || content.length < 50) {
+    alert('Please add at least 50 characters of study material before starting.');
+    return;
+  }
+
+  const btn = document.getElementById('startBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="btn-spinner"></span>Generating questions...';
+  S.generating = true;
+
+  try {
+    const r = await fetch('/study/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, mode: S.mode, num_questions: 8 })
+    });
+    const d = await r.json();
+
+    if (d.status !== 'ok') throw new Error(d.message || 'Generation failed');
+
+    S.questions = d.data.questions || [];
+    S.keyConcepts = d.data.key_concepts || [];
+    S.title = d.data.title || 'Study Session';
+    S.currentQ = 0;
+    S.sessionPoints = 0;
+    S.sessionCorrect = 0;
+    S.sessionAnswered = 0;
+    S.sessionStartTime = Date.now();
+    S.activeSeconds = 0;
+    S.confidence = 'medium';
+
+    // Create cards for each question
+    await createStudyCards();
+
+    if (S.mode === 'extreme') {
+      launchExtremeMode();
+    } else {
+      launchNormalSession();
+    }
+  } catch(e) {
+    alert('Could not generate questions: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🚀 Generate Study Session';
+    S.generating = false;
+  }
+}
+
+async function createStudyCards() {
+  // Create cards for spaced repetition tracking
+  for (const q of S.questions) {
+    try {
+      await fetch('/api/study/cards/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: q.question,
+          answer: q.answer,
+          topic: S.title
+        })
+      });
+    } catch(e) {}
+  }
+}
+
+// ── NORMAL SESSION ───────────────────────────────────────────
+function launchNormalSession() {
+  document.getElementById('setupView').style.display = 'none';
+  document.getElementById('sessionView').style.display = 'block';
+
+  const modeColors = { casual: '#059669', serious: '#4f46e5', extreme: '#dc2626' };
+  const modeBg = { casual: '#d1fae5', serious: '#e0e7ff', extreme: '#fee2e2' };
+  const mb = document.getElementById('sessionModeBadge');
+  mb.textContent = S.mode.charAt(0).toUpperCase() + S.mode.slice(1);
+  mb.style.background = modeBg[S.mode];
+  mb.style.color = modeColors[S.mode];
+
+  document.getElementById('sessionTopicPill').textContent = S.title;
+
+  if (S.mode === 'serious') {
+    document.getElementById('casualTimerWrap').style.display = 'flex';
+    document.body.classList.add('serious-mode');
+    startTimer();
+    startActiveTimer();
+  }
+
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const q = S.questions[S.currentQ];
+  const total = S.questions.length;
+
+  // Update progress
+  const pct = (S.currentQ / total) * 100;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressText').textContent = `${S.currentQ + 1} / ${total}`;
+  document.getElementById('sessionPts').textContent = S.sessionPoints;
+  document.getElementById('sessionCorrect').textContent = S.sessionCorrect;
+
+  S.answerStartTime = Date.now();
+  S.confidence = 'medium';
+
+  const typeClass = {
+    'recall': 'q-type-recall',
+    'conceptual': 'q-type-conceptual',
+    'short-answer': 'q-type-short-answer'
+  }[q.type] || 'q-type-recall';
+
+  const typeLabel = {
+    'recall': '📌 Recall',
+    'conceptual': '🧠 Conceptual',
+    'short-answer': '✍️ Short Answer'
+  }[q.type] || '📌 Recall';
+
+  document.getElementById('questionArea').innerHTML = `
+    <div class="question-card" id="qCard">
+      <span class="q-type-badge ${typeClass}">${typeLabel}</span>
+      <div class="question-text">${q.question}</div>
+      ${q.hint ? `<div class="hint-text">💡 Hint: ${q.hint}</div>` : ''}
+    </div>
+    
+    <!-- Answer Input Section -->
+    <div class="answer-input-section">
+      <label class="answer-input-label">Your Answer</label>
+      <textarea 
+        class="answer-textarea" 
+        id="answerInput" 
+        placeholder="Type your answer here. Be as complete as possible..."
+        rows="4"
+      ></textarea>
+      
+      <div class="confidence-section">
+        <span class="confidence-label">How confident are you in your answer?</span>
+        <div class="confidence-buttons">
+          <button class="conf-btn low" data-conf="low">😕 Low</button>
+          <button class="conf-btn medium active" data-conf="medium">😐 Medium</button>
+          <button class="conf-btn high" data-conf="high">😊 High</button>
+        </div>
+      </div>
+      
+      <button class="submit-answer-btn" id="submitAnswerBtn" onclick="submitAnswer()">
+        ✓ Submit Answer
+      </button>
+    </div>
+    
+    <!-- Feedback Panel (hidden until answer submitted) -->
+    <div class="feedback-panel" id="feedbackPanel" style="display:none;">
+      <div class="feedback-header">
+        <span class="result-badge" id="resultBadge"></span>
+        <span class="score-badge" id="scoreBadge"></span>
+        <span class="points-badge" id="pointsBadge"></span>
+        <span class="improvement-badge hidden" id="improvementBadge">📈 Improved!</span>
+      </div>
+      
+      <div class="correct-answer-box">
+        <div class="correct-answer-label">Correct Answer</div>
+        <div class="correct-answer-text" id="correctAnswerText"></div>
+      </div>
+      
+      <div class="feedback-section correct-sec">
+        <h4>✓ What you got right:</h4>
+        <p id="whatRight"></p>
+      </div>
+      
+      <div class="feedback-section missing-sec">
+        <h4>✗ What was missing or incorrect:</h4>
+        <p id="whatMissing"></p>
+      </div>
+      
+      <div class="feedback-section critique-sec">
+        <h4>💡 Critique:</h4>
+        <p id="critiqueText"></p>
+      </div>
+      
+      <div class="feedback-section memory-sec">
+        <h4>🧠 Memory Tip:</h4>
+        <p id="memoryAnchor"></p>
+      </div>
+      
+      <div class="feedback-section example-sec">
+        <h4>✨ Better Answer Example:</h4>
+        <p id="betterExample"></p>
+      </div>
+      
+      <div class="mastery-indicator">
+        <div class="mastery-level">
+          <span class="mastery-icon" id="masteryIcon">📖</span>
+          <span class="mastery-text" id="masteryText">Learning</span>
+        </div>
+        <span class="next-review-text">Next review: <span id="nextReviewDate"></span></span>
+      </div>
+    </div>
+    
+    <button class="continue-btn" id="continueBtn" style="display:none;" onclick="nextQuestion()">
+      ${S.currentQ + 1 < total ? 'Next Question →' : '🎉 Finish Session'}
+    </button>
+  `;
+  
+  // Setup confidence button listeners
+  document.querySelectorAll('.conf-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.conf-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      S.confidence = btn.dataset.conf;
+    });
+  });
+}
+
+async function submitAnswer() {
+  const q = S.questions[S.currentQ];
+  const userAnswer = document.getElementById('answerInput').value.trim();
+  
+  if (!userAnswer) {
+    alert('Please type an answer before submitting.');
+    return;
+  }
+  
+  const submitBtn = document.getElementById('submitAnswerBtn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = '⏳ Evaluating...';
+  
+  const timeTaken = Math.round((Date.now() - S.answerStartTime) / 1000);
+  
+  try {
+    // Find the card ID for this question
+    let cardId = null;
+    try {
+      const cardsRes = await fetch('/api/study/cards');
+      const cardsData = await cardsRes.json();
+      if (cardsData.status === 'ok') {
+        const matchingCard = cardsData.cards.find(c => 
+          c.question.toLowerCase().trim() === q.question.toLowerCase().trim()
+        );
+        if (matchingCard) cardId = matchingCard.id;
+      }
+    } catch(e) {}
+    
+    const response = await fetch('/api/study/evaluate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        card_id: cardId,
+        question: q.question,
+        answer: userAnswer,
+        topic: S.title,
+        confidence: S.confidence,
+        mode: S.mode,
+        time_taken_seconds: timeTaken
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.status === 'ok') {
+      showFeedback(data, q, userAnswer);
+    } else {
+      throw new Error(data.message || 'Evaluation failed');
+    }
+  } catch(e) {
+    alert('Could not evaluate answer: ' + e.message);
+    submitBtn.disabled = false;
+    submitBtn.textContent = '✓ Submit Answer';
+  }
+}
+
+function showFeedback(data, question, userAnswer) {
+  const { evaluation, points_earned, card_updated } = data;
+  
+  S.sessionPoints += points_earned;
+  S.totalPoints += points_earned;
+  
+  if (evaluation.result === 'correct') {
+    S.sessionCorrect++;
+  }
+  
+  // Update displays
+  document.getElementById('sessionPts').textContent = S.sessionPoints;
+  document.getElementById('sessionCorrect').textContent = S.sessionCorrect;
+  document.getElementById('totalPointsDisplay').textContent = S.totalPoints;
+  
+  // Show feedback panel
+  document.getElementById('feedbackPanel').style.display = 'block';
+  
+  // Result badge
+  const resultBadge = document.getElementById('resultBadge');
+  resultBadge.textContent = evaluation.result === 'correct' ? '✓ Correct!' :
+                           evaluation.result === 'partial' ? '~ Partial' : '✗ Incorrect';
+  resultBadge.className = 'result-badge ' + evaluation.result;
+  
+  document.getElementById('scoreBadge').textContent = evaluation.score_pct + '%';
+  document.getElementById('pointsBadge').textContent = '+' + points_earned + ' pts';
+  
+  // Show improvement badge if they improved
+  if (data.improved) {
+    document.getElementById('improvementBadge').classList.remove('hidden');
+  }
+  
+  // Fill feedback sections
+  document.getElementById('correctAnswerText').textContent = question.answer;
+  document.getElementById('whatRight').textContent = evaluation.what_was_right || 'N/A';
+  document.getElementById('whatMissing').textContent = evaluation.what_was_missing || 'N/A';
+  document.getElementById('critiqueText').textContent = evaluation.critique;
+  document.getElementById('memoryAnchor').textContent = evaluation.memory_anchor;
+  document.getElementById('betterExample').textContent = evaluation.better_example;
+  
+  // Mastery indicator
+  const masteryIcon = document.getElementById('masteryIcon');
+  const masteryText = document.getElementById('masteryText');
+  const masteryLevel = card_updated.mastery_level;
+  
+  masteryText.textContent = masteryLevel.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+  
+  if (masteryLevel === 'mastered') {
+    masteryIcon.textContent = '🏆';
+  } else if (masteryLevel === 'learning') {
+    masteryIcon.textContent = '📖';
+  } else {
+    masteryIcon.textContent = '🆕';
+  }
+  
+  document.getElementById('nextReviewDate').textContent = card_updated.next_review;
+  
+  // Animate points
+  const chip = document.getElementById('pointsChip');
+  chip.classList.remove('glow');
+  void chip.offsetWidth;
+  chip.classList.add('glow');
+  
+  showToast(`+${points_earned} pts`);
+  
+  // Show continue button
+  document.getElementById('continueBtn').style.display = 'block';
+  document.getElementById('submitAnswerBtn').style.display = 'none';
+  
+  // Update mastery stats
+  loadCardStats();
+  
+  S.sessionAnswered++;
+}
+
+function nextQuestion() {
+  S.currentQ++;
+  
+  if (S.currentQ >= S.questions.length) {
+    completeSession();
+  } else {
+    renderQuestion();
+  }
+}
+
+async function addPoints(delta, msg) {
+  S.sessionPoints += delta;
+  S.totalPoints += delta;
+  document.getElementById('sessionPts').textContent = S.sessionPoints;
+  document.getElementById('totalPointsDisplay').textContent = S.totalPoints;
+
+  const chip = document.getElementById('pointsChip');
+  chip.classList.remove('glow');
+  void chip.offsetWidth;
+  chip.classList.add('glow');
+
+  showToast(msg);
+  saveLocal();
+
+  try {
+    await fetch('/study/points/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ delta, reason: msg })
+    });
+  } catch(e) {}
+}
+
+async function completeSession() {
+  const duration = Math.round((Date.now() - S.sessionStartTime) / 1000);
+
+  // Session completion bonus
+  await addPoints(20, '+20 pts — session complete!');
+
+  // Time bonus for serious mode
+  if (S.mode === 'serious' || S.mode === 'extreme') {
+    const minBonus = Math.floor(S.activeSeconds / 60);
+    if (minBonus > 0) await addPoints(minBonus, `+${minBonus} pts — active study time`);
+  }
+
+  stopTimer();
+  if (S.mode === 'serious') {
+    document.body.classList.remove('serious-mode');
+    document.getElementById('casualTimerWrap').style.display = 'none';
+  }
+
+  // Update streak
+  await updateStreak();
+
+  // Show complete card
+  document.getElementById('questionArea').style.display = 'none';
+  document.getElementById('progressFill').style.width = '100%';
+  document.getElementById('progressText').textContent = `${S.questions.length} / ${S.questions.length}`;
+
+  const accuracy = S.questions.length > 0 ? Math.round((S.sessionCorrect / S.questions.length) * 100) : 0;
+  const emoji = accuracy >= 80 ? '🏆' : accuracy >= 60 ? '🎉' : '💪';
+  const subtitle = accuracy >= 80 ? 'Excellent work! You\'re crushing it.' :
+                   accuracy >= 60 ? 'Solid session! Keep it up.' : 'Every session counts. Keep going!';
+
+  document.getElementById('completeEmoji').textContent = emoji;
+  document.getElementById('completeTitle').textContent = 'Session Complete!';
+  document.getElementById('completeSub').textContent = subtitle;
+  document.getElementById('finalCorrect').textContent = `${S.sessionCorrect}/${S.questions.length}`;
+  document.getElementById('finalPoints').textContent = S.sessionPoints;
+  document.getElementById('finalTime').textContent = Math.round(duration / 60) + 'm';
+  document.getElementById('completeCard').style.display = 'block';
+
+  // Populate key concepts
+  const cg = document.getElementById('conceptsGrid');
+  cg.innerHTML = S.keyConcepts.map(c => `
+    <div class="concept-item">
+      <div class="concept-term">${c.term}</div>
+      <div class="concept-def">${c.definition}</div>
+    </div>`).join('');
+
+  // Save session to backend
+  try {
+    await fetch('/study/session/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode: S.mode,
+        questions_total: S.questions.length,
+        questions_correct: S.sessionCorrect,
+        points_earned: S.sessionPoints,
+        duration_seconds: duration
+      })
+    });
+  } catch(e) {}
+
+  renderCalendar();
+}
+
+function toggleConcepts() {
+  const p = document.getElementById('conceptsPanel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+
+function restartSetup() {
+  document.getElementById('sessionView').style.display = 'none';
+  document.getElementById('setupView').style.display = 'block';
+  document.getElementById('completeCard').style.display = 'none';
+  document.getElementById('conceptsPanel').style.display = 'none';
+  document.getElementById('questionArea').style.display = 'block';
+  S.sessionPoints = 0;
+  S.sessionCorrect = 0;
+}
+
+function exitSession() {
+  if (confirm('Exit session? Progress will be lost.')) {
+    stopTimer();
+    document.body.classList.remove('serious-mode');
+    document.getElementById('sessionView').style.display = 'none';
+    document.getElementById('setupView').style.display = 'block';
+  }
+}
+
+// ── TIMER ────────────────────────────────────────────────────
+function startTimer() {
+  S.timerRemaining = S.timerSeconds;
+  updateTimerDisplay();
+  S.timer = setInterval(() => {
+    S.timerRemaining--;
+    updateTimerDisplay();
+    if (S.timerRemaining <= 0) {
+      clearInterval(S.timer);
+      showToast('⏱ Timer complete! Great focus session.');
+    }
+  }, 1000);
+}
+
+function startActiveTimer() {
+  S.activeTimer = setInterval(() => {
+    S.activeSeconds++;
+  }, 1000);
+}
+
+function stopTimer() {
+  if (S.timer) clearInterval(S.timer);
+  if (S.activeTimer) clearInterval(S.activeTimer);
+}
+
+function updateTimerDisplay() {
+  const m = Math.floor(S.timerRemaining / 60);
+  const s = S.timerRemaining % 60;
+  const txt = `${m}:${String(s).padStart(2, '0')}`;
+  const el = document.getElementById('timerText');
+  if (el) el.textContent = txt;
+
+  const total = S.timerSeconds;
+  const pct = S.timerRemaining / total;
+  const circumference = 213.6;
+  const offset = circumference * (1 - pct);
+  const ring = document.getElementById('timerCircle');
+  if (ring) ring.style.strokeDashoffset = offset;
+
+  const extEl = document.getElementById('extremeTimerDisplay');
+  if (extEl) extEl.textContent = txt;
+}
+
+// ── STREAK ───────────────────────────────────────────────────
+async function updateStreak() {
+  try {
+    const r = await fetch('/study/streak/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      S.streakCount = d.streak_count;
+      S.freezeCount = d.streak_freeze_count;
+      S.totalPoints = d.total_points;
+      if (d.streak_history) S.streakHistory = d.streak_history;
+      if (d.bonus_points > 0) showToast(`🔥 ${d.streak_count}-day streak! +${d.bonus_points} pts`);
+    }
+  } catch(e) {
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    if (S.lastActiveDate !== today) {
+      if (S.lastActiveDate === yesterday) S.streakCount++;
+      else if (S.freezeCount > 0) { S.freezeCount--; S.streakCount++; }
+      else S.streakCount = 1;
+      S.lastActiveDate = today;
+      if (!S.streakHistory.includes(today)) S.streakHistory.push(today);
+    }
+  }
+  updatePointsDisplay();
+  saveLocal();
+}
+
+function renderCalendar() {
+  const grid = document.getElementById('calGrid');
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  const days = [];
+
+  for (let i = 27; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+
+  grid.innerHTML = days.map(d => {
+    const isActive = S.streakHistory.includes(d);
+    const isToday = d === todayStr;
+    return `<div class="cal-day ${isActive ? 'active' : ''} ${isToday ? 'today' : ''}" title="${d}"></div>`;
+  }).join('');
+
+  const tip = document.getElementById('streakTip');
+  if (S.streakCount === 0) tip.textContent = 'Complete a session today to start your streak!';
+  else if (S.streakCount < 3) tip.textContent = `${3 - S.streakCount} more day${3 - S.streakCount !== 1 ? 's' : ''} to earn a streak bonus!`;
+  else if (S.streakCount < 7) tip.textContent = `${7 - S.streakCount} days to 7-day streak bonus (+25 pts + 1 freeze)!`;
+  else tip.textContent = `🏆 ${S.streakCount}-day streak! Keep the fire going.`;
+}
+
+// ── EXTREME MODE ─────────────────────────────────────────────
+function launchExtremeMode() {
+  const overlay = document.getElementById('extremeOverlay');
+  overlay.classList.add('active');
+
+  if (document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+
+  S.extremeQ = 0;
+  S.sessionStartTime = Date.now();
+  S.activeSeconds = 0;
+  S.confidence = 'medium';
+
+  startTimer();
+  S.activeTimer = setInterval(() => { S.activeSeconds++; }, 1000);
+
+  renderExtremeQuestion();
+
+  document.addEventListener('fullscreenchange', onFullscreenChange);
+}
+
+function onFullscreenChange() {
+  if (!document.fullscreenElement) {
+    const overlay = document.getElementById('extremeOverlay');
+    if (overlay.classList.contains('active')) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      document.getElementById('exitWarning').style.display = 'flex';
+    }
+  }
+}
+
+function renderExtremeQuestion() {
+  const q = S.questions[S.extremeQ];
+  const total = S.questions.length;
+  const pct = (S.extremeQ / total) * 100;
+
+  document.getElementById('extremeProgressFill').style.width = pct + '%';
+
+  const typeLabel = {
+    'recall': '📌 Recall',
+    'conceptual': '🧠 Conceptual',
+    'short-answer': '✍️ Short Answer'
+  }[q.type] || '📌 Recall';
+
+  document.getElementById('extremeQType').textContent = typeLabel;
+  document.getElementById('extremeQText').textContent = q.question;
+  document.getElementById('extremeAnswerInput').value = '';
+  document.getElementById('extremeFeedbackPanel').style.display = 'none';
+  document.getElementById('extremeNextBtn').style.display = 'none';
+  document.getElementById('extremeSubmitBtn').style.display = 'block';
+  document.getElementById('extremeSubmitBtn').disabled = false;
+  document.getElementById('extremeSubmitBtn').textContent = '✓ Submit Answer';
+  document.getElementById('extremePointsDisplay').textContent = `⚡ ${S.sessionPoints} pts`;
+
+  S.extremeSubmitted = false;
+  S.confidence = 'medium';
+
+  // Reset confidence buttons
+  document.querySelectorAll('.extreme-conf-btn').forEach(btn => {
+    btn.classList.remove('active');
+    if (btn.dataset.conf === 'medium') btn.classList.add('active');
+  });
+}
+
+// Extreme mode confidence selection
+document.querySelectorAll('.extreme-conf-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.extreme-conf-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    S.confidence = btn.dataset.conf;
+  });
+});
+
+async function extremeSubmitAnswer() {
+  if (S.extremeSubmitted) return;
+  
+  const q = S.questions[S.extremeQ];
+  const userAnswer = document.getElementById('extremeAnswerInput').value.trim();
+  
+  if (!userAnswer) {
+    alert('Please type an answer before submitting.');
+    return;
+  }
+  
+  S.extremeSubmitted = true;
+  S.answerStartTime = Date.now();
+  
+  const submitBtn = document.getElementById('extremeSubmitBtn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = '⏳ Evaluating...';
+  
+  const timeTaken = Math.round((Date.now() - S.answerStartTime) / 1000);
+  
+  try {
+    let cardId = null;
+    try {
+      const cardsRes = await fetch('/api/study/cards');
+      const cardsData = await cardsRes.json();
+      if (cardsData.status === 'ok') {
+        const matchingCard = cardsData.cards.find(c => 
+          c.question.toLowerCase().trim() === q.question.toLowerCase().trim()
+        );
+        if (matchingCard) cardId = matchingCard.id;
+      }
+    } catch(e) {}
+    
+    const response = await fetch('/api/study/evaluate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        card_id: cardId,
+        question: q.question,
+        answer: userAnswer,
+        topic: S.title,
+        confidence: S.confidence,
+        mode: 'extreme',
+        time_taken_seconds: timeTaken
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.status === 'ok') {
+      showExtremeFeedback(data, q, userAnswer);
+    } else {
+      throw new Error(data.message || 'Evaluation failed');
+    }
+  } catch(e) {
+    alert('Could not evaluate answer: ' + e.message);
+    submitBtn.disabled = false;
+    submitBtn.textContent = '✓ Submit Answer';
+    S.extremeSubmitted = false;
+  }
+}
+
+function showExtremeFeedback(data, question, userAnswer) {
+  const { evaluation, points_earned, card_updated } = data;
+  
+  S.sessionPoints += points_earned;
+  S.totalPoints += points_earned;
+  
+  if (evaluation.result === 'correct') {
+    S.sessionCorrect++;
+  }
+  
+  // Update displays
+  document.getElementById('extremePointsDisplay').textContent = `⚡ ${S.sessionPoints} pts`;
+  document.getElementById('extremeFeedbackPanel').style.display = 'block';
+  
+  // Result badge
+  const resultBadge = document.getElementById('extremeResultBadge');
+  resultBadge.textContent = evaluation.result === 'correct' ? '✓ Correct!' :
+                           evaluation.result === 'partial' ? '~ Partial' : '✗ Incorrect';
+  resultBadge.className = 'extreme-result-badge ' + evaluation.result;
+  
+  document.getElementById('extremeScoreBadge').textContent = evaluation.score_pct + '%';
+  document.getElementById('extremePointsBadge').textContent = '+' + points_earned + ' pts';
+  
+  // Fill feedback sections
+  document.getElementById('extremeWhatRight').textContent = evaluation.what_was_right || 'N/A';
+  document.getElementById('extremeWhatMissing').textContent = evaluation.what_was_missing || 'N/A';
+  document.getElementById('extremeCritique').textContent = evaluation.critique;
+  document.getElementById('extremeMemoryAnchor').textContent = evaluation.memory_anchor;
+  document.getElementById('extremeBetterExample').textContent = evaluation.better_example;
+  
+  // Mastery indicator
+  document.getElementById('extremeMasteryLevel').textContent = 
+    card_updated.mastery_level.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+  document.getElementById('extremeNextReview').textContent = card_updated.next_review;
+  
+  // Show next button
+  document.getElementById('extremeNextBtn').style.display = 'block';
+  document.getElementById('extremeSubmitBtn').style.display = 'none';
+  
+  // Toast
+  showToast(`+${points_earned} pts`);
+  
+  S.sessionAnswered++;
+}
+
+function extremeNext() {
+  S.extremeQ++;
+  S.currentQ = S.extremeQ;
+
+  if (S.extremeQ >= S.questions.length) {
+    exitExtremeMode(true);
+  } else {
+    renderExtremeQuestion();
+  }
+}
+
+async function exitExtremeMode(completed = false) {
+  const overlay = document.getElementById('extremeOverlay');
+  overlay.classList.remove('active');
+
+  document.removeEventListener('fullscreenchange', onFullscreenChange);
+  if (document.fullscreenElement && document.exitFullscreen) {
+    await document.exitFullscreen().catch(() => {});
+  }
+
+  stopTimer();
+
+  if (completed) {
+    document.getElementById('setupView').style.display = 'none';
+    document.getElementById('sessionView').style.display = 'block';
+    document.getElementById('questionArea').style.display = 'none';
+    await completeSession();
+  } else {
+    document.getElementById('setupView').style.display = 'block';
+  }
+}
+
+// ── HOLD TO EXIT ─────────────────────────────────────────────
+let holdInterval = null;
+let holdProgress = 0;
+
+function startHoldExit() {
+  holdProgress = 0;
+  const fill = document.getElementById('holdExitFill');
+  holdInterval = setInterval(() => {
+    holdProgress += 1;
+    fill.style.width = (holdProgress * 10) + '%';
+    if (holdProgress >= 10) {
+      stopHoldExit();
+      exitExtremeMode(false);
+    }
+  }, 1000);
+}
+
+function stopHoldExit() {
+  if (holdInterval) clearInterval(holdInterval);
+  holdInterval = null;
+  holdProgress = 0;
+  const fill = document.getElementById('holdExitFill');
+  if (fill) fill.style.width = '0%';
+}
+
+// ── BEFOREUNLOAD INTERCEPT (Extreme) ─────────────────────────
+window.addEventListener('beforeunload', (e) => {
+  if (document.getElementById('extremeOverlay').classList.contains('active')) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+// ── START ────────────────────────────────────────────────────
+init();
+</script>
+{% endblock %}
