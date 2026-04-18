@@ -2615,6 +2615,18 @@ def study_extract_pdf():
         return flask.jsonify({"status": "error", "message": str(e)})
 
 
+def normalize_study_profile(p):
+    if not p:
+        return p
+    p.total_points = p.total_points or 0
+    p.streak_count = p.streak_count or 0
+    p.streak_freeze_count = p.streak_freeze_count or 0
+    p.last_active_date = p.last_active_date or ""
+    p.streak_history = p.streak_history or "[]"
+    p.session_history = p.session_history or "[]"
+    return p
+
+
 def get_study_profile(user_id=None, guest_id=None):
     if user_id:
         p = StudyPoints.query.filter_by(user_id=user_id).first()
@@ -2628,7 +2640,7 @@ def get_study_profile(user_id=None, guest_id=None):
             p = StudyPoints(guest_session_id=guest_id)
             db.session.add(p)
             db.session.commit()
-    return p
+    return normalize_study_profile(p)
 
 
 @app.route("/study/points", methods=["GET"])
@@ -2636,7 +2648,7 @@ def study_get_points():
     uid = current_user.id if current_user.is_authenticated else None
     gid = None if uid else session.get("guest_id", "guest")
     try:
-        p = get_study_profile(uid, gid)
+        p = normalize_study_profile(get_study_profile(uid, gid))
         history = json.loads(p.streak_history or "[]")
         sessions = json.loads(p.session_history or "[]")
         return flask.jsonify({
@@ -2660,8 +2672,8 @@ def study_update_points():
     delta = int(data.get("delta", 0))
     reason = data.get("reason", "")
     try:
-        p = get_study_profile(uid, gid)
-        p.total_points = max(0, p.total_points + delta)
+        p = normalize_study_profile(get_study_profile(uid, gid))
+        p.total_points = (p.total_points or 0) + delta
         p.updated_at = datetime.utcnow()
         db.session.commit()
         return flask.jsonify({"status": "ok", "total_points": p.total_points})
@@ -2676,9 +2688,9 @@ def study_update_streak():
     data = request.json or {}
     today_str = datetime.now().strftime("%Y-%m-%d")
     try:
-        p = get_study_profile(uid, gid)
+        p = normalize_study_profile(get_study_profile(uid, gid))
         history = json.loads(p.streak_history or "[]")
-        last = p.last_active_date
+        last = p.last_active_date or ""
 
         bonus_points = 0
 
@@ -2692,13 +2704,13 @@ def study_update_streak():
 
         yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
         if last == yesterday:
-            p.streak_count += 1
+            p.streak_count = (p.streak_count or 0) + 1
         elif last == "":
             p.streak_count = 1
         else:
             if p.streak_freeze_count > 0:
                 p.streak_freeze_count -= 1
-                p.streak_count += 1
+                p.streak_count = (p.streak_count or 0) + 1
             else:
                 p.streak_count = 1
 
@@ -2720,7 +2732,7 @@ def study_update_streak():
             if p.streak_freeze_count < 2:
                 p.streak_freeze_count += 1
 
-        p.total_points += bonus_points
+        p.total_points = (p.total_points or 0) + bonus_points
         db.session.commit()
 
         return flask.jsonify({
@@ -2741,7 +2753,7 @@ def study_session_complete():
     gid = None if uid else session.get("guest_id", "guest")
     data = request.json or {}
     try:
-        p = get_study_profile(uid, gid)
+        p = normalize_study_profile(get_study_profile(uid, gid))
         sessions = json.loads(p.session_history or "[]")
         session_record = {
             "date": datetime.now().strftime("%Y-%m-%d"),
@@ -2753,11 +2765,12 @@ def study_session_complete():
         }
         sessions.append(session_record)
         p.session_history = json.dumps(sessions[-50:])
-        p.total_points += data.get("points_earned", 0)
+        p.total_points = (p.total_points or 0) + int(data.get("points_earned", 0) or 0)
         db.session.commit()
         return flask.jsonify({"status": "ok", "total_points": p.total_points})
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
+
 
 AI_CONFIG = {
     "primary": "groq",
@@ -2773,8 +2786,7 @@ def get_ai_status():
         "local": False,
         "active_engine": "groq" if os.getenv("GROQ_API_KEY") else "none"
     }
-    
-    # Check local model availability
+
     try:
         import requests
         resp = requests.get(f"{AI_CONFIG['local_model_url'].rsplit('/', 1)[0]}/health", timeout=2)
@@ -2784,14 +2796,14 @@ def get_ai_status():
                 status["active_engine"] = "local"
     except:
         pass
-    
+
     return status
 
 def call_primary_llm(prompt, max_tokens=600, temperature=0.3):
     """Call Groq API as primary LLM."""
     if not os.getenv("GROQ_API_KEY"):
         raise Exception("GROQ_API_KEY not configured")
-    
+
     client = Groq(api_key=os.getenv("GROQ_API_KEY"))
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
@@ -2805,7 +2817,7 @@ def call_local_fallback(prompt):
     """Call local model server as fallback."""
     if not AI_CONFIG["fallback_enabled"]:
         raise Exception("Local fallback disabled")
-    
+
     try:
         import requests
         response = requests.post(
@@ -2823,8 +2835,7 @@ def rule_based_fallback(question, correct_answer, user_answer):
     """Rule-based fallback when all AI fails."""
     ua = user_answer.lower().strip()
     ca = correct_answer.lower().strip()
-    
-    # Check for exact match
+
     if ua == ca:
         return {
             "result": "correct",
@@ -2835,13 +2846,12 @@ def rule_based_fallback(question, correct_answer, user_answer):
             "memory_anchor": "Keep reinforcing this knowledge.",
             "better_example": correct_answer
         }
-    
-    # Check for key terms
+
     ca_words = set(ca.split())
     ua_words = set(ua.split())
     overlap = len(ca_words & ua_words)
     total = len(ca_words)
-    
+
     if total > 0:
         overlap_pct = (overlap / total) * 100
         if overlap_pct >= 70:
@@ -2856,7 +2866,7 @@ def rule_based_fallback(question, correct_answer, user_answer):
     else:
         result = "incorrect"
         score = 0
-    
+
     return {
         "result": result,
         "score_pct": score,
@@ -2895,11 +2905,10 @@ Respond ONLY with valid JSON in this exact format:
 
 Scoring guide:
 - correct (80-100): captures all key ideas, even if worded differently
-- partial (30-79): captures some but misses important elements  
+- partial (30-79): captures some but misses important elements
 - incorrect (0-29): fundamentally wrong, off-topic, or blank
 Make the critique constructive and encouraging. The memory anchor should help the student intuitively grasp the concept."""
 
-    # Try primary (Groq)
     try:
         raw = call_primary_llm(prompt)
         raw = re.sub(r"```json\s*", "", raw)
@@ -2909,8 +2918,7 @@ Make the critique constructive and encouraging. The memory anchor should help th
         return result
     except Exception as e:
         print(f"Primary AI failed: {e}")
-    
-    # Try local fallback
+
     try:
         raw = call_local_fallback(prompt)
         raw = re.sub(r"```json\s*", "", raw)
@@ -2920,8 +2928,7 @@ Make the critique constructive and encouraging. The memory anchor should help th
         return result
     except Exception as e:
         print(f"Local fallback failed: {e}")
-    
-    # Final rule-based fallback
+
     result = rule_based_fallback(question, correct_answer, user_answer)
     result["source"] = "rule_based"
     return result
@@ -2961,7 +2968,7 @@ def sm2_update(card, quality):
     SM-2 spaced repetition update.
     quality: 0=incorrect, 3=partial, 5=correct+confident
     """
-    ef = card.ease_factor
+    ef = card.ease_factor or 2.5
     ef = max(1.3, ef + 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
     card.ease_factor = round(ef, 2)
 
@@ -2972,31 +2979,28 @@ def sm2_update(card, quality):
     elif card.review_count == 1:
         card.interval_days = 6
     else:
-        card.interval_days = max(1, round(card.interval_days * ef))
+        card.interval_days = max(1, round((card.interval_days or 1) * ef))
 
     today = datetime.now().strftime("%Y-%m-%d")
     card.last_seen = today
     next_dt = datetime.now() + timedelta(days=card.interval_days)
     card.next_review = next_dt.strftime("%Y-%m-%d")
-    card.review_count += 1
+    card.review_count = (card.review_count or 0) + 1
     card.updated_at = datetime.utcnow()
 
-    # Update counts
     if quality >= 5:
-        card.correct_count += 1
+        card.correct_count = (card.correct_count or 0) + 1
     elif quality >= 3:
-        card.partial_count += 1
+        card.partial_count = (card.partial_count or 0) + 1
     else:
-        card.incorrect_count += 1
+        card.incorrect_count = (card.incorrect_count or 0) + 1
 
-    # Familiarity (0-1 rolling average)
     q_norm = quality / 5.0
-    card.familiarity = round(card.familiarity * 0.7 + q_norm * 0.3, 3)
+    card.familiarity = round((card.familiarity or 0) * 0.7 + q_norm * 0.3, 3)
 
-    # Mastery level
-    if card.correct_count >= 3 and card.familiarity >= 0.8:
+    if (card.correct_count or 0) >= 3 and (card.familiarity or 0) >= 0.8:
         card.mastery_level = "mastered"
-    elif card.review_count >= 1 and card.familiarity >= 0.3:
+    elif (card.review_count or 0) >= 1 and (card.familiarity or 0) >= 0.3:
         card.mastery_level = "learning"
     else:
         card.mastery_level = "not_learned"
@@ -3004,71 +3008,54 @@ def sm2_update(card, quality):
 def calculate_points(result, score_pct, confidence, previous_result=None):
     """
     Calculate points based on answer quality, confidence, and improvement.
-    
-    Base points:
-    - correct: 10 points
-    - partial: 5 points
-    - incorrect: 2 points (effort reward)
-    
-    Confidence bonuses:
-    - high confidence + correct: +5 bonus
-    - low confidence + correct: +2 bonus (rewarding accuracy despite doubt)
-    - high confidence + incorrect: -3 penalty
-    - medium confidence + incorrect: -1 penalty
-    
-    Improvement bonus:
-    - Was incorrect/partial before, now correct: +10 bonus
     """
     base_points = {
         "correct": 10,
         "partial": 5,
         "incorrect": 2
     }
-    
+
     confidence_multipliers = {
-        "correct": {"high": 1.5, "medium": 1.0, "low": 1.2},  # low + correct = courage bonus
+        "correct": {"high": 1.5, "medium": 1.0, "low": 1.2},
         "partial": {"high": 0.8, "medium": 1.0, "low": 1.0},
-        "incorrect": {"high": 0.5, "medium": 0.8, "low": 1.0}  # high + wrong = penalty
+        "incorrect": {"high": 0.5, "medium": 0.8, "low": 1.0}
     }
-    
+
     points = base_points.get(result, 2)
     multiplier = confidence_multipliers.get(result, {}).get(confidence, 1.0)
     points = int(points * multiplier)
-    
-    # Improvement bonus
+
     if previous_result in ["incorrect", "partial"] and result == "correct":
         points += 10
-    
-    # Score percentage bonus for near-perfect answers
+
     if score_pct >= 95 and result == "correct":
         points += 3
-    
+
     return max(1, points)
 
 def update_topic_mastery(uid, gid, topic_name, was_correct):
     """Update mastery level for a topic."""
     if not topic_name:
         return
-    
+
     topic = StudyTopic.query.filter_by(
         user_id=uid, guest_session_id=gid, topic_name=topic_name
     ).first()
-    
+
     if not topic:
         topic = StudyTopic(
             user_id=uid, guest_session_id=gid,
             topic_name=topic_name
         )
         db.session.add(topic)
-    
-    topic.total_questions += 1
+
+    topic.total_questions = (topic.total_questions or 0) + 1
     if was_correct:
-        topic.correct_answers += 1
-    
+        topic.correct_answers = (topic.correct_answers or 0) + 1
+
     topic.last_practiced = datetime.now().strftime("%Y-%m-%d")
     topic.updated_at = datetime.utcnow()
-    
-    # Update mastery level based on accuracy
+
     if topic.total_questions > 0:
         accuracy = topic.correct_answers / topic.total_questions
         if accuracy >= 0.85 and topic.total_questions >= 5:
@@ -3084,32 +3071,29 @@ def study_status():
     """Get AI system status and user's study statistics."""
     uid, gid = get_study_owner()
     ai_status = get_ai_status()
-    
+
     try:
-        p = get_study_profile(uid, gid)
-        
-        # Get card statistics
+        p = normalize_study_profile(get_study_profile(uid, gid))
+
         total_cards = StudyCard.query.filter_by(user_id=uid, guest_session_id=gid).count()
         mastered = StudyCard.query.filter_by(user_id=uid, guest_session_id=gid, mastery_level="mastered").count()
         learning = StudyCard.query.filter_by(user_id=uid, guest_session_id=gid, mastery_level="learning").count()
         not_learned = StudyCard.query.filter_by(user_id=uid, guest_session_id=gid, mastery_level="not_learned").count()
-        
-        # Get today's due cards
+
         today = datetime.now().strftime("%Y-%m-%d")
         due_today = StudyCard.query.filter_by(user_id=uid, guest_session_id=gid).filter(
             (StudyCard.next_review <= today) | (StudyCard.next_review == "")
         ).count()
-        
-        # Get recent accuracy
+
         recent = StudyAnswer.query.filter_by(user_id=uid, guest_session_id=gid).order_by(
             StudyAnswer.created_at.desc()
         ).limit(20).all()
-        
+
         accuracy = 0
         if recent:
             correct = sum(1 for a in recent if a.result == "correct")
             accuracy = round(correct / len(recent) * 100)
-        
+
         return flask.jsonify({
             "status": "ok",
             "ai": ai_status,
@@ -3135,7 +3119,7 @@ def study_status():
 def get_study_cards():
     """Get all study cards for the current user."""
     uid, gid = get_study_owner()
-    
+
     try:
         cards = StudyCard.query.filter_by(user_id=uid, guest_session_id=gid).all()
         return flask.jsonify({
@@ -3163,31 +3147,25 @@ def get_due_cards():
     """Get cards due for review today."""
     uid, gid = get_study_owner()
     today = datetime.now().strftime("%Y-%m-%d")
-    mode = request.args.get("mode", "all")  # all, learn, review_mistakes
-    
+    mode = request.args.get("mode", "all")
+
     try:
         query = StudyCard.query.filter_by(user_id=uid, guest_session_id=gid)
-        
+
         if mode == "review_mistakes":
-            # Only cards that were recently incorrect
             query = query.filter(
-                (StudyCard.incorrect_count > 0) | 
+                (StudyCard.incorrect_count > 0) |
                 (StudyCard.familiarity < 0.5)
             )
         elif mode == "learn":
-            # Prioritize not_learned and learning cards
             query = query.filter(
                 StudyCard.mastery_level.in_(["not_learned", "learning"])
             )
-        
+
         cards = query.all()
-        
-        # Filter by due date
         due_cards = [c for c in cards if c.next_review <= today or not c.next_review]
-        
-        # Sort by priority (least familiar first)
-        due_cards.sort(key=lambda c: (c.familiarity, c.mastery_level != "not_learned"))
-        
+        due_cards.sort(key=lambda c: (c.familiarity or 0, c.mastery_level != "not_learned"))
+
         return flask.jsonify({
             "status": "ok",
             "due_count": len(due_cards),
@@ -3197,7 +3175,7 @@ def get_due_cards():
                 "topic": c.topic,
                 "mastery_level": c.mastery_level,
                 "familiarity": c.familiarity
-            } for c in due_cards[:50]]  # Limit to 50
+            } for c in due_cards[:50]]
         })
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)}), 500
@@ -3206,11 +3184,11 @@ def get_due_cards():
 def get_study_card(card_id):
     """Get a specific study card."""
     uid, gid = get_study_owner()
-    
+
     card = StudyCard.query.filter_by(id=card_id, user_id=uid, guest_session_id=gid).first()
     if not card:
         return flask.jsonify({"status": "error", "message": "Card not found"}), 404
-    
+
     return flask.jsonify({
         "status": "ok",
         "card": {
@@ -3234,20 +3212,20 @@ def create_study_card():
     """Create a new study card."""
     uid, gid = get_study_owner()
     data = request.json or {}
-    
+
     question = data.get("question", "").strip()
     answer = data.get("answer", "").strip()
     topic = data.get("topic", "")
-    
+
     if not question or not answer:
         return flask.jsonify({"status": "error", "message": "Question and answer required"}), 400
-    
+
     try:
         q_hash_val = q_hash(question)
         card = get_or_create_card(uid, gid, q_hash_val, question, answer, topic)
         card.next_review = datetime.now().strftime("%Y-%m-%d")
         db.session.commit()
-        
+
         return flask.jsonify({
             "status": "ok",
             "card_id": card.id,
@@ -3266,7 +3244,7 @@ def evaluate_study_answer():
     """
     uid, gid = get_study_owner()
     data = request.json or {}
-    
+
     question_text = data.get("question", "").strip()
     user_answer = data.get("answer", "").strip()
     card_id = data.get("card_id")
@@ -3274,38 +3252,34 @@ def evaluate_study_answer():
     confidence = data.get("confidence", "medium")
     mode = data.get("mode", "casual")
     time_taken = data.get("time_taken_seconds", 0)
-    
+
     if not question_text or not user_answer:
         return flask.jsonify({"status": "error", "message": "Question and answer required"}), 400
-    
+
     try:
         q_hash_val = q_hash(question_text)
-        
-        # Get or create card
+
         if card_id:
             card = StudyCard.query.filter_by(id=card_id, user_id=uid, guest_session_id=gid).first()
         else:
             card = StudyCard.query.filter_by(user_id=uid, guest_session_id=gid, question_hash=q_hash_val).first()
-        
+
         if not card:
             return flask.jsonify({"status": "error", "message": "Card not found"}), 404
-        
-        # Get previous result for improvement bonus
+
         previous_result = None
-        if card.review_count > 0:
+        if (card.review_count or 0) > 0:
             last_answer = StudyAnswer.query.filter_by(
                 user_id=uid, guest_session_id=gid, question_hash=q_hash_val
             ).order_by(StudyAnswer.created_at.desc()).first()
             if last_answer:
                 previous_result = last_answer.result
-        
-        # Evaluate with AI
+
         evaluation = evaluate_answer_with_ai(question_text, card.answer_text, user_answer, topic)
-        
+
         result = evaluation.get("result", "incorrect")
         score_pct = evaluation.get("score_pct", 0)
-        
-        # Determine quality for SM-2
+
         if score_pct >= 80:
             quality = 5
         elif score_pct >= 60:
@@ -3316,14 +3290,11 @@ def evaluate_study_answer():
             quality = 1
         else:
             quality = 0
-        
-        # Update card with SM-2
+
         sm2_update(card, quality)
-        
-        # Calculate points
+
         points_earned = calculate_points(result, score_pct, confidence, previous_result)
-        
-        # Save answer record
+
         answer_record = StudyAnswer(
             user_id=uid,
             guest_session_id=gid,
@@ -3343,16 +3314,14 @@ def evaluate_study_answer():
             time_taken_seconds=time_taken
         )
         db.session.add(answer_record)
-        
-        # Update topic mastery
+
         update_topic_mastery(uid, gid, topic, result == "correct")
-        
-        # Update points
-        p = get_study_profile(uid, gid)
-        p.total_points += points_earned
-        
+
+        p = normalize_study_profile(get_study_profile(uid, gid))
+        p.total_points = (p.total_points or 0) + points_earned
+
         db.session.commit()
-        
+
         return flask.jsonify({
             "status": "ok",
             "evaluation": {
@@ -3376,7 +3345,7 @@ def evaluate_study_answer():
             },
             "improved": previous_result in ["incorrect", "partial"] and result == "correct"
         })
-        
+
     except Exception as e:
         db.session.rollback()
         return flask.jsonify({"status": "error", "message": str(e)}), 500
@@ -3385,7 +3354,7 @@ def evaluate_study_answer():
 def get_study_topics():
     """Get all topics with mastery levels."""
     uid, gid = get_study_owner()
-    
+
     try:
         topics = StudyTopic.query.filter_by(user_id=uid, guest_session_id=gid).all()
         return flask.jsonify({
@@ -3409,14 +3378,14 @@ def get_study_history():
     uid, gid = get_study_owner()
     limit = request.args.get("limit", 50, type=int)
     topic = request.args.get("topic", "")
-    
+
     try:
         query = StudyAnswer.query.filter_by(user_id=uid, guest_session_id=gid)
         if topic:
             query = query.filter_by(topic=topic)
-        
+
         answers = query.order_by(StudyAnswer.created_at.desc()).limit(limit).all()
-        
+
         return flask.jsonify({
             "status": "ok",
             "answers": [{
@@ -3442,16 +3411,13 @@ def get_study_stats():
     """Get detailed study statistics."""
     uid, gid = get_study_owner()
     days = request.args.get("days", 30, type=int)
-    
+
     try:
         since = datetime.now() - timedelta(days=days)
-        since_str = since.strftime("%Y-%m-%d")
-        
-        # Get answers in time range
         answers = StudyAnswer.query.filter_by(user_id=uid, guest_session_id=gid).filter(
             StudyAnswer.created_at >= since
         ).all()
-        
+
         if not answers:
             return flask.jsonify({
                 "status": "ok",
@@ -3465,28 +3431,24 @@ def get_study_stats():
                 "daily_breakdown": [],
                 "improvement_trend": "no_data"
             })
-        
-        # Calculate statistics
+
         correct = sum(1 for a in answers if a.result == "correct")
         partial = sum(1 for a in answers if a.result == "partial")
         incorrect = sum(1 for a in answers if a.result == "incorrect")
-        
+
         total_time = sum(a.time_taken_seconds for a in answers)
         avg_time = total_time / len(answers) if answers else 0
-        
+
         total_points = sum(a.points_earned for a in answers)
-        
-        # By confidence
+
         high_conf = sum(1 for a in answers if a.confidence == "high")
         med_conf = sum(1 for a in answers if a.confidence == "medium")
         low_conf = sum(1 for a in answers if a.confidence == "low")
-        
-        # By mode
+
         by_mode = {}
         for a in answers:
             by_mode[a.mode] = by_mode.get(a.mode, 0) + 1
-        
-        # Daily breakdown
+
         daily = {}
         for a in answers:
             date = a.created_at.strftime("%Y-%m-%d")
@@ -3495,27 +3457,26 @@ def get_study_stats():
             daily[date]["total"] += 1
             if a.result == "correct":
                 daily[date]["correct"] += 1
-        
+
         daily_breakdown = [
             {"date": k, "total": v["total"], "correct": v["correct"], "accuracy": round(v["correct"] / v["total"] * 100) if v["total"] > 0 else 0}
             for k, v in sorted(daily.items())
         ]
-        
-        # Improvement trend (compare first half to second half)
+
         mid = len(answers) // 2
         first_half = answers[:mid] if mid > 0 else []
         second_half = answers[mid:] if mid > 0 else answers
-        
+
         first_acc = sum(1 for a in first_half if a.result == "correct") / len(first_half) * 100 if first_half else 0
         second_acc = sum(1 for a in second_half if a.result == "correct") / len(second_half) * 100 if second_half else 0
-        
+
         if second_acc > first_acc + 5:
             trend = "improving"
         elif second_acc < first_acc - 5:
             trend = "declining"
         else:
             trend = "stable"
-        
+
         return flask.jsonify({
             "status": "ok",
             "total_answers": len(answers),
@@ -3525,7 +3486,7 @@ def get_study_stats():
             "by_result": {"correct": correct, "partial": partial, "incorrect": incorrect},
             "by_confidence": {"high": high_conf, "medium": med_conf, "low": low_conf},
             "by_mode": by_mode,
-            "daily_breakdown": daily_breakdown[-14:],  # Last 14 days
+            "daily_breakdown": daily_breakdown[-14:],
             "improvement_trend": trend,
             "first_half_accuracy": round(first_acc),
             "second_half_accuracy": round(second_acc)
@@ -3538,23 +3499,21 @@ def get_study_mistakes():
     """Get questions the user got wrong for review."""
     uid, gid = get_study_owner()
     limit = request.args.get("limit", 20, type=int)
-    
+
     try:
-        # Get incorrect or partial answers
         mistakes = StudyAnswer.query.filter_by(
             user_id=uid, guest_session_id=gid
         ).filter(
             StudyAnswer.result.in_(["incorrect", "partial"])
         ).order_by(StudyAnswer.created_at.desc()).limit(limit).all()
-        
-        # Get associated cards
+
         cards = []
         seen_hashes = set()
         for m in mistakes:
             if m.question_hash in seen_hashes:
                 continue
             seen_hashes.add(m.question_hash)
-            
+
             card = StudyCard.query.filter_by(
                 user_id=uid, guest_session_id=gid, question_hash=m.question_hash
             ).first()
@@ -3568,7 +3527,7 @@ def get_study_mistakes():
                     "last_result": m.result,
                     "last_score": m.score_pct
                 })
-        
+
         return flask.jsonify({
             "status": "ok",
             "mistakes": cards
@@ -3581,40 +3540,34 @@ def create_test_session():
     """Create a test session with mixed questions."""
     uid, gid = get_study_owner()
     data = request.json or {}
-    
+
     num_questions = data.get("num_questions", 10)
-    topics = data.get("topics", [])  # Optional topic filter
-    mode = data.get("mode", "mixed")  # mixed, weak, due
-    
+    topics = data.get("topics", [])
+    mode = data.get("mode", "mixed")
+
     try:
         query = StudyCard.query.filter_by(user_id=uid, guest_session_id=gid)
-        
+
         if topics:
             query = query.filter(StudyCard.topic.in_(topics))
-        
+
         cards = query.all()
-        
+
         if not cards:
             return flask.jsonify({"status": "error", "message": "No cards available"}), 400
-        
-        # Sort based on mode
+
         if mode == "weak":
-            # Focus on weak areas
-            cards.sort(key=lambda c: (c.familiarity, c.mastery_level != "not_learned"))
+            cards.sort(key=lambda c: ((c.familiarity or 0), c.mastery_level != "not_learned"))
         elif mode == "due":
             today = datetime.now().strftime("%Y-%m-%d")
             cards = [c for c in cards if c.next_review <= today or not c.next_review]
         else:
-            # Mixed - some due, some random
             import random
             random.shuffle(cards)
-        
-        # Select cards
+
         selected = cards[:num_questions]
-        
-        # Generate test session ID
         test_id = str(uuid.uuid4())[:8]
-        
+
         return flask.jsonify({
             "status": "ok",
             "test_id": test_id,
@@ -3633,11 +3586,11 @@ def create_test_session():
 def get_flashcard(card_id):
     """Get a flashcard for front/back view."""
     uid, gid = get_study_owner()
-    
+
     card = StudyCard.query.filter_by(id=card_id, user_id=uid, guest_session_id=gid).first()
     if not card:
         return flask.jsonify({"status": "error", "message": "Card not found"}), 404
-    
+
     return flask.jsonify({
         "status": "ok",
         "flashcard": {
@@ -3656,29 +3609,27 @@ def mark_flashcard():
     """Mark a flashcard as correct/incorrect for quick review."""
     uid, gid = get_study_owner()
     data = request.json or {}
-    
+
     card_id = data.get("card_id")
-    result = data.get("result")  # correct, incorrect
-    
+    result = data.get("result")
+
     if not card_id or result not in ["correct", "incorrect"]:
         return flask.jsonify({"status": "error", "message": "Invalid request"}), 400
-    
+
     try:
         card = StudyCard.query.filter_by(id=card_id, user_id=uid, guest_session_id=gid).first()
         if not card:
             return flask.jsonify({"status": "error", "message": "Card not found"}), 404
-        
-        # Quick update (simplified SM-2 for flashcard mode)
+
         quality = 5 if result == "correct" else 0
         sm2_update(card, quality)
-        
-        # Award points
+
         points = 5 if result == "correct" else 1
-        p = get_study_profile(uid, gid)
-        p.total_points += points
-        
+        p = normalize_study_profile(get_study_profile(uid, gid))
+        p.total_points = (p.total_points or 0) + points
+
         db.session.commit()
-        
+
         return flask.jsonify({
             "status": "ok",
             "points_earned": points,
