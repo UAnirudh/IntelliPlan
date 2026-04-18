@@ -262,6 +262,8 @@
   transition: all 0.2s;
   box-shadow: 0 4px 20px rgba(99,102,241,0.3);
   letter-spacing: 0.02em;
+  position: relative;
+  overflow: hidden;
 }
 
 .study-start-btn:hover {
@@ -415,307 +417,55 @@
   font-style: italic;
 }
 
-/* ── ANSWER INPUT AREA (Active Recall) ───────────────────── */
-.answer-input-section {
-  margin-top: 1.5rem;
-}
-
-.answer-input-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #64748b;
-  margin-bottom: 0.75rem;
-  display: block;
-}
-
-/* FIND THIS: */
-.answer-textarea {
-  width: 100%;
-  min-height: 120px;
-  padding: 14px;
-  border: 1.5px solid var(--study-border);
-  border-radius: 12px;
-  font-size: 0.92rem;
-  font-family: 'DM Sans', sans-serif;
-  color: var(--text-primary, #0f172a);  /* ← CHANGE THIS LINE */
-  background: white;  /* ← ADD THIS */
-  resize: vertical;
-  outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  line-height: 1.6;
-}
-
-.answer-textarea:focus {
-  border-color: var(--study-accent);
-  box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
-}
-
-
-/* ── CONFIDENCE SELECTOR ──────────────────────────────────── */
-.confidence-section {
-  margin-top: 1.25rem;
-}
-
-.confidence-label {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #475569;
-  margin-bottom: 0.5rem;
-  display: block;
-}
-
-.confidence-buttons {
-  display: flex;
-  gap: 8px;
-}
-
-.conf-btn {
-  flex: 1;
-  padding: 10px 12px;
-  border: 2px solid #e2e8f0;
-  background: white;
-  border-radius: 10px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
-  transition: all 0.2s;
-  color: #64748b;
-}
-
-.conf-btn:hover {
-  border-color: var(--study-accent);
-  color: var(--study-accent);
-}
-
-.conf-btn.active {
-  background: var(--study-accent);
-  border-color: var(--study-accent);
-  color: white;
-}
-
-.conf-btn.low.active { background: #94a3b8; border-color: #94a3b8; }
-.conf-btn.medium.active { background: var(--study-accent); border-color: var(--study-accent); }
-.conf-btn.high.active { background: var(--study-gold); border-color: var(--study-gold); }
-
-/* ── SUBMIT ANSWER BUTTON ────────────────────────────────── */
-.submit-answer-btn {
-  width: 100%;
-  padding: 14px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
+/* ── ANSWER AREA ────────────────────────────────────────── */
+.answer-section {
   margin-top: 1rem;
-  transition: all 0.2s;
-  box-shadow: 0 4px 16px rgba(99,102,241,0.3);
 }
 
-.submit-answer-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(99,102,241,0.4);
-}
-
-.submit-answer-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-}
-
-/* ── FEEDBACK PANEL ──────────────────────────────────────── */
-.feedback-panel {
+.reveal-btn {
+  width: 100%;
+  padding: 13px;
   background: white;
-  border: 1px solid var(--study-border);
-  border-radius: 16px;
-  padding: 1.5rem;
-  margin-top: 1.25rem;
-  animation: fadeUp 0.3s ease both;
-}
-
-.feedback-header {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-bottom: 1.25rem;
-  flex-wrap: wrap;
-}
-
-.result-badge {
-  padding: 6px 14px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 700;
-}
-
-.result-badge.correct {
-  background: #dcfce7;
-  color: #059669;
-}
-
-.result-badge.partial {
-  background: #fef3c7;
-  color: #d97706;
-}
-
-.result-badge.incorrect {
-  background: #fee2e2;
-  color: #dc2626;
-}
-
-.score-badge {
-  padding: 6px 12px;
-  background: #f1f5f9;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #475569;
-}
-
-.points-badge {
-  padding: 6px 12px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  color: white;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 700;
-}
-
-.improvement-badge {
-  padding: 4px 10px;
-  background: #fef3c7;
-  color: #d97706;
-  border-radius: 8px;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-/* ── FEEDBACK SECTIONS ───────────────────────────────────── */
-.feedback-section {
-  margin-bottom: 1rem;
-  padding: 1rem;
-  border-radius: 10px;
-  background: #f8fafc;
-}
-
-.feedback-section h4 {
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0 0 0.5rem 0;
-}
-
-.feedback-section p {
-  margin: 0;
-  font-size: 0.88rem;
-  color: #475569;
-  line-height: 1.6;
-}
-
-.feedback-section.correct-sec {
-  background: #f0fdf4;
-  border-left: 3px solid var(--study-green);
-}
-
-.feedback-section.missing-sec {
-  background: #fef2f2;
-  border-left: 3px solid var(--study-red);
-}
-
-.feedback-section.critique-sec {
-  background: #eff6ff;
-  border-left: 3px solid var(--study-accent);
-}
-
-.feedback-section.memory-sec {
-  background: linear-gradient(135deg, #faf5ff, #f3e8ff);
-  border-left: 3px solid var(--study-accent2);
-}
-
-.feedback-section.example-sec {
-  background: #f0fdf4;
-  border-left: 3px solid var(--study-green);
-}
-
-/* ── CORRECT ANSWER DISPLAY ──────────────────────────────── */
-.correct-answer-box {
-  background: #f0fdf4;
-  border: 1.5px solid #86efac;
+  border: 1.5px solid var(--study-accent);
+  color: var(--study-accent);
   border-radius: 12px;
-  padding: 1rem 1.25rem;
-  margin: 1rem 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s;
 }
 
-.correct-answer-label {
+.reveal-btn:hover {
+  background: var(--study-accent);
+  color: white;
+}
+
+.answer-reveal {
+  display: none;
+  animation: fadeUp 0.25s ease both;
+}
+
+.answer-box {
+  background: #f8faff;
+  border: 1.5px solid #e0e7ff;
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
+  margin: 1rem 0;
+  font-size: 0.92rem;
+  line-height: 1.7;
+  color: var(--text-primary, #0f172a);
+}
+
+.answer-label {
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #059669;
-  margin-bottom: 0.5rem;
+  color: #94a3b8;
+  margin-bottom: 8px;
 }
 
-.correct-answer-text {
-  font-size: 0.95rem;
-  color: #064e3b;
-  line-height: 1.6;
-}
-
-/* ── MASTERY INDICATOR ────────────────────────────────────── */
-.mastery-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 1rem;
-  background: #f1f5f9;
-  border-radius: 10px;
-  margin-top: 1rem;
-  font-size: 0.82rem;
-}
-
-.mastery-level {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-}
-
-.mastery-icon { font-size: 1.1rem; }
-.mastery-text { color: #475569; }
-
-.next-review-text {
-  color: #64748b;
-  font-size: 0.78rem;
-}
-
-/* ── CONTINUE BUTTON ─────────────────────────────────────── */
-.continue-btn {
-  width: 100%;
-  padding: 14px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
-  margin-top: 1rem;
-  transition: all 0.2s;
-  box-shadow: 0 4px 16px rgba(99,102,241,0.3);
-}
-
-.continue-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(99,102,241,0.4);
-}
-
-/* ── SELF-CHECK BUTTONS (Legacy Flashcard Mode) ──────────── */
 .self-check {
   display: flex;
   gap: 10px;
@@ -732,12 +482,12 @@
   cursor: pointer;
   font-family: 'DM Sans', sans-serif;
   transition: all 0.2s;
-  background: transparent;
 }
 
 .check-correct {
   border-color: var(--study-green);
   color: var(--study-green);
+  background: transparent;
 }
 
 .check-correct:hover, .check-correct.selected {
@@ -748,12 +498,33 @@
 .check-wrong {
   border-color: var(--study-red);
   color: var(--study-red);
+  background: transparent;
 }
 
 .check-wrong:hover, .check-wrong.selected {
   background: var(--study-red);
   color: white;
 }
+
+/* ── NEXT BUTTON ────────────────────────────────────────── */
+.next-btn {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s;
+  margin-top: 1rem;
+  display: none;
+  box-shadow: 0 4px 16px rgba(99,102,241,0.3);
+}
+
+.next-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,0.4); }
 
 /* ── POINTS TOAST ───────────────────────────────────────── */
 .points-toast {
@@ -816,7 +587,7 @@
 
 .cstat-label { font-size: 0.72rem; color: #94a3b8; margin-top: 2px; font-weight: 600; }
 
-.complete-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.complete-actions { display: flex; gap: 10px; justify-content: center; }
 
 .btn-restart {
   padding: 12px 28px;
@@ -828,10 +599,7 @@
   font-weight: 700;
   cursor: pointer;
   font-family: 'DM Sans', sans-serif;
-  transition: all 0.2s;
 }
-
-.btn-restart:hover { transform: translateY(-2px); }
 
 .btn-concepts {
   padding: 12px 28px;
@@ -843,10 +611,7 @@
   font-weight: 700;
   cursor: pointer;
   font-family: 'DM Sans', sans-serif;
-  transition: all 0.2s;
 }
-
-.btn-concepts:hover { background: rgba(99,102,241,0.05); }
 
 /* ── KEY CONCEPTS ───────────────────────────────────────── */
 .concepts-grid {
@@ -924,37 +689,6 @@
 
 .cal-day.missed { background: #fee2e2; }
 
-/* ── MASTERY OVERVIEW ───────────────────────────────────── */
-.mastery-overview {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-top: 1rem;
-}
-
-.mastery-stat {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 1rem;
-  text-align: center;
-}
-
-.mastery-stat-value {
-  font-size: 1.5rem;
-  font-weight: 700;
-}
-
-.mastery-stat-label {
-  font-size: 0.72rem;
-  color: #64748b;
-  margin-top: 4px;
-}
-
-.mastery-stat.not-learned .mastery-stat-value { color: #ef4444; }
-.mastery-stat.learning .mastery-stat-value { color: #f59e0b; }
-.mastery-stat.mastered .mastery-stat-value { color: #10b981; }
-
 /* ── EXTREME MODE OVERLAY ───────────────────────────────── */
 #extremeOverlay {
   display: none;
@@ -998,7 +732,6 @@
 .extreme-content {
   width: 100%;
   max-width: 700px;
-  margin-top: 80px;
 }
 
 .extreme-progress {
@@ -1032,103 +765,53 @@
   line-height: 1.6;
 }
 
-.extreme-answer-textarea {
+.extreme-reveal-btn {
   width: 100%;
-  min-height: 100px;
-  padding: 12px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 10px;
-  color: white;
-  font-size: 0.95rem;
-  font-family: 'DM Sans', sans-serif;
-  resize: vertical;
-  outline: none;
-  margin-top: 1rem;
-}
-
-.extreme-answer-textarea:focus {
-  border-color: #6366f1;
-}
-
-.extreme-confidence {
-  display: flex;
-  gap: 8px;
-  margin-top: 1rem;
-}
-
-.extreme-conf-btn {
-  flex: 1;
-  padding: 8px 12px;
-  background: transparent;
-  border: 1px solid rgba(255,255,255,0.2);
-  color: #94a3b8;
-  border-radius: 8px;
-  font-size: 0.8rem;
+  padding: 14px;
+  background: rgba(99,102,241,0.2);
+  border: 1.5px solid #6366f1;
+  color: #a5b4fc;
+  border-radius: 12px;
+  font-size: 0.92rem;
+  font-weight: 700;
   cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
   transition: all 0.2s;
 }
 
-.extreme-conf-btn.active {
-  background: #6366f1;
-  border-color: #6366f1;
-  color: white;
+.extreme-reveal-btn:hover { background: #6366f1; color: white; }
+
+.extreme-answer-box {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(99,102,241,0.3);
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
+  margin: 1rem 0;
+  font-size: 0.92rem;
+  line-height: 1.7;
+  color: #e2e8f0;
+  display: none;
 }
 
-.extreme-submit-btn {
-  width: 100%;
-  padding: 14px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  color: white;
-  border: none;
+.extreme-self-check { display: flex; gap: 10px; display: none; }
+
+.extreme-check-btn {
+  flex: 1;
+  padding: 11px;
+  border: 1.5px solid;
   border-radius: 12px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-  margin-top: 1rem;
-}
-
-.extreme-feedback-panel {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 16px;
-  padding: 1.5rem;
-  margin-top: 1rem;
-}
-
-.extreme-feedback-header {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 1rem;
-}
-
-.extreme-result-badge {
-  padding: 6px 12px;
-  border-radius: 8px;
   font-size: 0.85rem;
   font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  background: transparent;
+  transition: all 0.2s;
 }
 
-.extreme-result-badge.correct { background: #059669; color: white; }
-.extreme-result-badge.partial { background: #d97706; color: white; }
-.extreme-result-badge.incorrect { background: #dc2626; color: white; }
-
-.extreme-feedback-section {
-  margin-bottom: 0.75rem;
-}
-
-.extreme-feedback-section h4 {
-  font-size: 0.78rem;
-  color: #a5b4fc;
-  margin: 0 0 0.25rem 0;
-}
-
-.extreme-feedback-section p {
-  font-size: 0.88rem;
-  color: #e2e8f0;
-  margin: 0;
-  line-height: 1.5;
-}
+.extreme-correct { border-color: #10b981; color: #10b981; }
+.extreme-correct:hover, .extreme-correct.sel { background: #10b981; color: white; }
+.extreme-wrong { border-color: #ef4444; color: #ef4444; }
+.extreme-wrong:hover, .extreme-wrong.sel { background: #ef4444; color: white; }
 
 .extreme-next-btn {
   width: 100%;
@@ -1140,8 +823,10 @@
   font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
   margin-top: 1rem;
   display: none;
+  box-shadow: 0 4px 16px rgba(99,102,241,0.4);
 }
 
 /* ── HOLD TO EXIT ───────────────────────────────────────── */
@@ -1182,10 +867,11 @@
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.6);
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: center;
   z-index: 200000;
+  display: none;
 }
 
 .exit-warning-box {
@@ -1220,7 +906,6 @@
   .study-panel { padding: 1.25rem; }
   .question-card { padding: 1.25rem; }
   .extreme-question-card { padding: 1.5rem; }
-  .mastery-overview { grid-template-columns: 1fr; }
 }
 
 /* ── SERIOUS MODE OVERLAY ───────────────────────────────── */
@@ -1230,10 +915,6 @@ body.serious-mode .nav-tabs,
 body.serious-mode #integrationBar {
   display: none !important;
 }
-
-/* ── ANIMATION UTILITIES ───────────────────────────────── */
-.fade-in { animation: fadeUp 0.3s ease both; }
-.hidden { display: none !important; }
 </style>
 
 <!-- Exit Warning Modal -->
@@ -1253,7 +934,7 @@ body.serious-mode #integrationBar {
     <div id="extremePointsDisplay" style="font-size:0.85rem;color:#a5b4fc;font-weight:700;">⚡ 0 pts</div>
   </div>
 
-  <div class="extreme-content">
+  <div class="extreme-content" style="margin-top:80px;">
     <div class="extreme-progress">
       <div class="extreme-progress-fill" id="extremeProgressFill" style="width:0%"></div>
     </div>
@@ -1261,55 +942,15 @@ body.serious-mode #integrationBar {
     <div id="extremeQuestionCard" class="extreme-question-card">
       <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#6366f1;margin-bottom:12px;" id="extremeQType">Recall</div>
       <div class="extreme-q-text" id="extremeQText">Loading...</div>
-      
-      <!-- Answer Input for Extreme Mode -->
-      <textarea class="extreme-answer-textarea" id="extremeAnswerInput" placeholder="Type your answer here..."></textarea>
-      
-      <div class="extreme-confidence" id="extremeConfidence">
-        <button class="extreme-conf-btn" data-conf="low">😕 Low</button>
-        <button class="extreme-conf-btn active" data-conf="medium">😐 Medium</button>
-        <button class="extreme-conf-btn" data-conf="high">😊 High</button>
-      </div>
-      
-      <button class="extreme-submit-btn" id="extremeSubmitBtn" onclick="extremeSubmitAnswer()">Submit Answer</button>
     </div>
 
-    <div class="extreme-feedback-panel" id="extremeFeedbackPanel" style="display:none;">
-      <div class="extreme-feedback-header">
-        <span class="extreme-result-badge" id="extremeResultBadge"></span>
-        <span style="color:#a5b4fc;font-weight:600;" id="extremeScoreBadge"></span>
-        <span style="color:#22c55e;font-weight:700;" id="extremePointsBadge"></span>
-      </div>
-      
-      <div class="extreme-feedback-section">
-        <h4>✓ What you got right:</h4>
-        <p id="extremeWhatRight"></p>
-      </div>
-      
-      <div class="extreme-feedback-section">
-        <h4>✗ What was missing:</h4>
-        <p id="extremeWhatMissing"></p>
-      </div>
-      
-      <div class="extreme-feedback-section">
-        <h4>💡 Critique:</h4>
-        <p id="extremeCritique"></p>
-      </div>
-      
-      <div class="extreme-feedback-section">
-        <h4>🧠 Memory Tip:</h4>
-        <p id="extremeMemoryAnchor"></p>
-      </div>
-      
-      <div class="extreme-feedback-section">
-        <h4>✨ Better Answer:</h4>
-        <p id="extremeBetterExample"></p>
-      </div>
-      
-      <div style="display:flex;justify-content:space-between;padding:0.75rem;background:rgba(255,255,255,0.05);border-radius:8px;margin-top:0.75rem;">
-        <span style="color:#94a3b8;">Mastery: <strong id="extremeMasteryLevel" style="color:white;"></strong></span>
-        <span style="color:#64748b;">Next review: <span id="extremeNextReview"></span></span>
-      </div>
+    <button class="extreme-reveal-btn" id="extremeRevealBtn" onclick="extremeReveal()">👁 Reveal Answer</button>
+
+    <div class="extreme-answer-box" id="extremeAnswerBox"></div>
+
+    <div class="extreme-self-check" id="extremeSelfCheck">
+      <button class="extreme-check-btn extreme-correct" onclick="extremeMark(true)">✓ Got it</button>
+      <button class="extreme-check-btn extreme-wrong" onclick="extremeMark(false)">✗ Missed it</button>
     </div>
 
     <button class="extreme-next-btn" id="extremeNextBtn" onclick="extremeNext()">Next Question →</button>
@@ -1375,8 +1016,8 @@ body.serious-mode #integrationBar {
         <div class="mode-card casual selected" onclick="selectMode('casual')" style="--mode-color: #10b981;" data-mode="casual">
           <div class="mode-icon">😌</div>
           <div class="mode-name">Casual</div>
-          <div class="mode-desc">Active recall with typed answers. Get AI feedback on your responses.</div>
-          <span class="mode-badge" style="background:#d1fae5;color:#059669;">Learn</span>
+          <div class="mode-desc">Relaxed quiz loop. No restrictions, no timer. Just you and the questions.</div>
+          <span class="mode-badge" style="background:#d1fae5;color:#059669;">Chill</span>
         </div>
         <div class="mode-card serious" onclick="selectMode('serious')" style="--mode-color: #6366f1;" data-mode="serious">
           <div class="mode-icon">⏱</div>
@@ -1387,7 +1028,7 @@ body.serious-mode #integrationBar {
         <div class="mode-card extreme" onclick="selectMode('extreme')" style="--mode-color: #ef4444;" data-mode="extreme">
           <div class="mode-icon">🔥</div>
           <div class="mode-name">Extreme</div>
-          <div class="mode-desc">Fullscreen lockdown. No escape without 10-second hold. Maximum focus.</div>
+          <div class="mode-desc">Fullscreen lockdown. No escape without a 10-second hold. Zero distractions.</div>
           <span class="mode-badge" style="background:#fee2e2;color:#dc2626;">Locked</span>
         </div>
       </div>
@@ -1433,22 +1074,6 @@ body.serious-mode #integrationBar {
     <div style="display:flex;gap:10px;margin-bottom:1.25rem;">
       <div class="points-chip">⚡ Session: <strong id="sessionPts">0</strong></div>
       <div class="points-chip">✓ Correct: <strong id="sessionCorrect">0</strong></div>
-    </div>
-
-    <!-- Mastery Overview -->
-    <div class="mastery-overview" id="masteryOverview">
-      <div class="mastery-stat not-learned">
-        <div class="mastery-stat-value" id="masteryNotLearned">0</div>
-        <div class="mastery-stat-label">🆕 Not Learned</div>
-      </div>
-      <div class="mastery-stat learning">
-        <div class="mastery-stat-value" id="masteryLearning">0</div>
-        <div class="mastery-stat-label">📖 Learning</div>
-      </div>
-      <div class="mastery-stat mastered">
-        <div class="mastery-stat-value" id="masteryMastered">0</div>
-        <div class="mastery-stat-label">🏆 Mastered</div>
-      </div>
     </div>
 
     <!-- Question Card -->
@@ -1523,24 +1148,19 @@ const S = {
   activeSeconds: 0,
   activeTimer: null,
   sessionStartTime: null,
+  revealed: false,
+  marked: false,
   inputTab: 'paste',
   generating: false,
-  // Answer evaluation
-  confidence: 'medium',
-  answerStartTime: null,
-  // Cards for spaced repetition
-  cards: [],
   // Extreme mode
   extremeQ: 0,
   extremeRevealed: false,
   extremeMarked: false,
-  extremeSubmitted: false,
 };
 
 // ── INIT ─────────────────────────────────────────────────────
 async function init() {
   await loadProfile();
-  await loadCardStats();
   renderCalendar();
 }
 
@@ -1557,6 +1177,7 @@ async function loadProfile() {
       S.sessionHistory = d.session_history || [];
     }
   } catch(e) {
+    // Fallback to localStorage
     const saved = JSON.parse(localStorage.getItem('intelliplan_study') || '{}');
     S.totalPoints = saved.totalPoints || 0;
     S.streakCount = saved.streakCount || 0;
@@ -1565,18 +1186,6 @@ async function loadProfile() {
     S.streakHistory = saved.streakHistory || [];
   }
   updatePointsDisplay();
-}
-
-async function loadCardStats() {
-  try {
-    const r = await fetch('/api/study/status');
-    const d = await r.json();
-    if (d.status === 'ok') {
-      document.getElementById('masteryNotLearned').textContent = d.cards.not_learned || 0;
-      document.getElementById('masteryLearning').textContent = d.cards.learning || 0;
-      document.getElementById('masteryMastered').textContent = d.cards.mastered || 0;
-    }
-  } catch(e) {}
 }
 
 function saveLocal() {
@@ -1707,10 +1316,6 @@ async function startSession() {
     S.sessionAnswered = 0;
     S.sessionStartTime = Date.now();
     S.activeSeconds = 0;
-    S.confidence = 'medium';
-
-    // Create cards for each question
-    await createStudyCards();
 
     if (S.mode === 'extreme') {
       launchExtremeMode();
@@ -1726,28 +1331,12 @@ async function startSession() {
   }
 }
 
-async function createStudyCards() {
-  // Create cards for spaced repetition tracking
-  for (const q of S.questions) {
-    try {
-      await fetch('/api/study/cards/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: q.question,
-          answer: q.answer,
-          topic: S.title
-        })
-      });
-    } catch(e) {}
-  }
-}
-
 // ── NORMAL SESSION ───────────────────────────────────────────
 function launchNormalSession() {
   document.getElementById('setupView').style.display = 'none';
   document.getElementById('sessionView').style.display = 'block';
 
+  // Mode badge
   const modeColors = { casual: '#059669', serious: '#4f46e5', extreme: '#dc2626' };
   const modeBg = { casual: '#d1fae5', serious: '#e0e7ff', extreme: '#fee2e2' };
   const mb = document.getElementById('sessionModeBadge');
@@ -1778,8 +1367,8 @@ function renderQuestion() {
   document.getElementById('sessionPts').textContent = S.sessionPoints;
   document.getElementById('sessionCorrect').textContent = S.sessionCorrect;
 
-  S.answerStartTime = Date.now();
-  S.confidence = 'medium';
+  S.revealed = false;
+  S.marked = false;
 
   const typeClass = {
     'recall': 'q-type-recall',
@@ -1799,229 +1388,57 @@ function renderQuestion() {
       <div class="question-text">${q.question}</div>
       ${q.hint ? `<div class="hint-text">💡 Hint: ${q.hint}</div>` : ''}
     </div>
-    
-    <!-- Answer Input Section -->
-    <div class="answer-input-section">
-      <label class="answer-input-label">Your Answer</label>
-      <textarea 
-        class="answer-textarea" 
-        id="answerInput" 
-        placeholder="Type your answer here. Be as complete as possible..."
-        rows="4"
-      ></textarea>
-      
-      <div class="confidence-section">
-        <span class="confidence-label">How confident are you in your answer?</span>
-        <div class="confidence-buttons">
-          <button class="conf-btn low" data-conf="low">😕 Low</button>
-          <button class="conf-btn medium active" data-conf="medium">😐 Medium</button>
-          <button class="conf-btn high" data-conf="high">😊 High</button>
+    <div class="answer-section">
+      <button class="reveal-btn" id="revealBtn" onclick="revealAnswer()">👁 Reveal Answer</button>
+      <div class="answer-reveal" id="answerReveal">
+        <div class="answer-label">Answer</div>
+        <div class="answer-box">${q.answer}</div>
+        <div class="self-check" id="selfCheck">
+          <button class="check-btn check-correct" id="correctBtn" onclick="markAnswer(true)">✓ Got it</button>
+          <button class="check-btn check-wrong" id="wrongBtn" onclick="markAnswer(false)">✗ Missed it</button>
         </div>
       </div>
-      
-      <button class="submit-answer-btn" id="submitAnswerBtn" onclick="submitAnswer()">
-        ✓ Submit Answer
-      </button>
     </div>
-    
-    <!-- Feedback Panel (hidden until answer submitted) -->
-    <div class="feedback-panel" id="feedbackPanel" style="display:none;">
-      <div class="feedback-header">
-        <span class="result-badge" id="resultBadge"></span>
-        <span class="score-badge" id="scoreBadge"></span>
-        <span class="points-badge" id="pointsBadge"></span>
-        <span class="improvement-badge hidden" id="improvementBadge">📈 Improved!</span>
-      </div>
-      
-      <div class="correct-answer-box">
-        <div class="correct-answer-label">Correct Answer</div>
-        <div class="correct-answer-text" id="correctAnswerText"></div>
-      </div>
-      
-      <div class="feedback-section correct-sec">
-        <h4>✓ What you got right:</h4>
-        <p id="whatRight"></p>
-      </div>
-      
-      <div class="feedback-section missing-sec">
-        <h4>✗ What was missing or incorrect:</h4>
-        <p id="whatMissing"></p>
-      </div>
-      
-      <div class="feedback-section critique-sec">
-        <h4>💡 Critique:</h4>
-        <p id="critiqueText"></p>
-      </div>
-      
-      <div class="feedback-section memory-sec">
-        <h4>🧠 Memory Tip:</h4>
-        <p id="memoryAnchor"></p>
-      </div>
-      
-      <div class="feedback-section example-sec">
-        <h4>✨ Better Answer Example:</h4>
-        <p id="betterExample"></p>
-      </div>
-      
-      <div class="mastery-indicator">
-        <div class="mastery-level">
-          <span class="mastery-icon" id="masteryIcon">📖</span>
-          <span class="mastery-text" id="masteryText">Learning</span>
-        </div>
-        <span class="next-review-text">Next review: <span id="nextReviewDate"></span></span>
-      </div>
-    </div>
-    
-    <button class="continue-btn" id="continueBtn" style="display:none;" onclick="nextQuestion()">
+    <button class="next-btn" id="nextBtn" onclick="nextQuestion()">
       ${S.currentQ + 1 < total ? 'Next Question →' : '🎉 Finish Session'}
     </button>
   `;
-  
-  // Setup confidence button listeners
-  document.querySelectorAll('.conf-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.conf-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      S.confidence = btn.dataset.conf;
-    });
-  });
 }
 
-async function submitAnswer() {
-  const q = S.questions[S.currentQ];
-  const userAnswer = document.getElementById('answerInput').value.trim();
-  
-  if (!userAnswer) {
-    alert('Please type an answer before submitting.');
-    return;
-  }
-  
-  const submitBtn = document.getElementById('submitAnswerBtn');
-  submitBtn.disabled = true;
-  submitBtn.textContent = '⏳ Evaluating...';
-  
-  const timeTaken = Math.round((Date.now() - S.answerStartTime) / 1000);
-  
-  try {
-    // Find the card ID for this question
-    let cardId = null;
-    try {
-      const cardsRes = await fetch('/api/study/cards');
-      const cardsData = await cardsRes.json();
-      if (cardsData.status === 'ok') {
-        const matchingCard = cardsData.cards.find(c => 
-          c.question.toLowerCase().trim() === q.question.toLowerCase().trim()
-        );
-        if (matchingCard) cardId = matchingCard.id;
-      }
-    } catch(e) {}
-    
-    const response = await fetch('/api/study/evaluate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        card_id: cardId,
-        question: q.question,
-        answer: userAnswer,
-        topic: S.title,
-        confidence: S.confidence,
-        mode: S.mode,
-        time_taken_seconds: timeTaken
-      })
-    });
-    
-    const data = await response.json();
-    
-    if (data.status === 'ok') {
-      showFeedback(data, q, userAnswer);
-    } else {
-      throw new Error(data.message || 'Evaluation failed');
-    }
-  } catch(e) {
-    alert('Could not evaluate answer: ' + e.message);
-    submitBtn.disabled = false;
-    submitBtn.textContent = '✓ Submit Answer';
-  }
+function revealAnswer() {
+  if (S.revealed) return;
+  S.revealed = true;
+  document.getElementById('answerReveal').style.display = 'block';
+  document.getElementById('revealBtn').style.display = 'none';
+
+  // +2 points for completing a question
+  addPoints(2, '+2 pts — question answered');
 }
 
-function showFeedback(data, question, userAnswer) {
-  const { evaluation, points_earned, card_updated } = data;
-  
-  S.sessionPoints += points_earned;
-  S.totalPoints += points_earned;
-  
-  if (evaluation.result === 'correct') {
+function markAnswer(correct) {
+  if (S.marked) return;
+  S.marked = true;
+
+  const cb = document.getElementById('correctBtn');
+  const wb = document.getElementById('wrongBtn');
+  cb.disabled = true;
+  wb.disabled = true;
+
+  if (correct) {
+    cb.classList.add('selected');
     S.sessionCorrect++;
-  }
-  
-  // Update displays
-  document.getElementById('sessionPts').textContent = S.sessionPoints;
-  document.getElementById('sessionCorrect').textContent = S.sessionCorrect;
-  document.getElementById('totalPointsDisplay').textContent = S.totalPoints;
-  
-  // Show feedback panel
-  document.getElementById('feedbackPanel').style.display = 'block';
-  
-  // Result badge
-  const resultBadge = document.getElementById('resultBadge');
-  resultBadge.textContent = evaluation.result === 'correct' ? '✓ Correct!' :
-                           evaluation.result === 'partial' ? '~ Partial' : '✗ Incorrect';
-  resultBadge.className = 'result-badge ' + evaluation.result;
-  
-  document.getElementById('scoreBadge').textContent = evaluation.score_pct + '%';
-  document.getElementById('pointsBadge').textContent = '+' + points_earned + ' pts';
-  
-  // Show improvement badge if they improved
-  if (data.improved) {
-    document.getElementById('improvementBadge').classList.remove('hidden');
-  }
-  
-  // Fill feedback sections
-  document.getElementById('correctAnswerText').textContent = question.answer;
-  document.getElementById('whatRight').textContent = evaluation.what_was_right || 'N/A';
-  document.getElementById('whatMissing').textContent = evaluation.what_was_missing || 'N/A';
-  document.getElementById('critiqueText').textContent = evaluation.critique || 'No critique available';
-  document.getElementById('memoryAnchor').textContent = evaluation.memory_anchor || 'No memory tip available';
-  document.getElementById('betterExample').textContent = evaluation.better_example || question.answer;
-  
-  // Mastery indicator - FIXED: handle null values
-  const masteryIcon = document.getElementById('masteryIcon');
-  const masteryText = document.getElementById('masteryText');
-  const masteryLevel = (card_updated && card_updated.mastery_level) || 'not_learned';
-  
-  masteryText.textContent = masteryLevel.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
-  
-  if (masteryLevel === 'mastered') {
-    masteryIcon.textContent = '🏆';
-  } else if (masteryLevel === 'learning') {
-    masteryIcon.textContent = '📖';
+    addPoints(5, '+5 pts — correct!');
   } else {
-    masteryIcon.textContent = '🆕';
+    wb.classList.add('selected');
   }
-  
-  document.getElementById('nextReviewDate').textContent = (card_updated && card_updated.next_review) || 'Tomorrow';
-  
-  // Animate points
-  const chip = document.getElementById('pointsChip');
-  chip.classList.remove('glow');
-  void chip.offsetWidth;
-  chip.classList.add('glow');
-  
-  showToast(`+${points_earned} pts`);
-  
-  // Show continue button
-  document.getElementById('continueBtn').style.display = 'block';
-  document.getElementById('submitAnswerBtn').style.display = 'none';
-  
-  // Update mastery stats
-  loadCardStats();
-  
-  S.sessionAnswered++;
+
+  document.getElementById('nextBtn').style.display = 'block';
 }
 
 function nextQuestion() {
+  S.sessionAnswered++;
   S.currentQ++;
-  
+
   if (S.currentQ >= S.questions.length) {
     completeSession();
   } else {
@@ -2035,6 +1452,7 @@ async function addPoints(delta, msg) {
   document.getElementById('sessionPts').textContent = S.sessionPoints;
   document.getElementById('totalPointsDisplay').textContent = S.totalPoints;
 
+  // Pulse animation
   const chip = document.getElementById('pointsChip');
   chip.classList.remove('glow');
   void chip.offsetWidth;
@@ -2173,6 +1591,7 @@ function updateTimerDisplay() {
   const el = document.getElementById('timerText');
   if (el) el.textContent = txt;
 
+  // Ring
   const total = S.timerSeconds;
   const pct = S.timerRemaining / total;
   const circumference = 213.6;
@@ -2180,6 +1599,7 @@ function updateTimerDisplay() {
   const ring = document.getElementById('timerCircle');
   if (ring) ring.style.strokeDashoffset = offset;
 
+  // Extreme
   const extEl = document.getElementById('extremeTimerDisplay');
   if (extEl) extEl.textContent = txt;
 }
@@ -2201,6 +1621,7 @@ async function updateStreak() {
       if (d.bonus_points > 0) showToast(`🔥 ${d.streak_count}-day streak! +${d.bonus_points} pts`);
     }
   } catch(e) {
+    // Fallback: local streak
     const today = new Date().toISOString().split('T')[0];
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
     if (S.lastActiveDate !== today) {
@@ -2221,6 +1642,7 @@ function renderCalendar() {
   const todayStr = today.toISOString().split('T')[0];
   const days = [];
 
+  // Last 28 days
   for (let i = 27; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
@@ -2233,6 +1655,7 @@ function renderCalendar() {
     return `<div class="cal-day ${isActive ? 'active' : ''} ${isToday ? 'today' : ''}" title="${d}"></div>`;
   }).join('');
 
+  // Tip
   const tip = document.getElementById('streakTip');
   if (S.streakCount === 0) tip.textContent = 'Complete a session today to start your streak!';
   else if (S.streakCount < 3) tip.textContent = `${3 - S.streakCount} more day${3 - S.streakCount !== 1 ? 's' : ''} to earn a streak bonus!`;
@@ -2245,6 +1668,7 @@ function launchExtremeMode() {
   const overlay = document.getElementById('extremeOverlay');
   overlay.classList.add('active');
 
+  // Fullscreen
   if (document.documentElement.requestFullscreen) {
     document.documentElement.requestFullscreen().catch(() => {});
   }
@@ -2252,13 +1676,13 @@ function launchExtremeMode() {
   S.extremeQ = 0;
   S.sessionStartTime = Date.now();
   S.activeSeconds = 0;
-  S.confidence = 'medium';
 
   startTimer();
   S.activeTimer = setInterval(() => { S.activeSeconds++; }, 1000);
 
   renderExtremeQuestion();
 
+  // Intercept fullscreen exit
   document.addEventListener('fullscreenchange', onFullscreenChange);
 }
 
@@ -2266,6 +1690,7 @@ function onFullscreenChange() {
   if (!document.fullscreenElement) {
     const overlay = document.getElementById('extremeOverlay');
     if (overlay.classList.contains('active')) {
+      // Re-request fullscreen
       document.documentElement.requestFullscreen().catch(() => {});
       document.getElementById('exitWarning').style.display = 'flex';
     }
@@ -2287,141 +1712,52 @@ function renderExtremeQuestion() {
 
   document.getElementById('extremeQType').textContent = typeLabel;
   document.getElementById('extremeQText').textContent = q.question;
-  document.getElementById('extremeAnswerInput').value = '';
-  document.getElementById('extremeFeedbackPanel').style.display = 'none';
+  document.getElementById('extremeAnswerBox').style.display = 'none';
+  document.getElementById('extremeAnswerBox').textContent = q.answer;
+  document.getElementById('extremeSelfCheck').style.display = 'none';
   document.getElementById('extremeNextBtn').style.display = 'none';
-  document.getElementById('extremeSubmitBtn').style.display = 'block';
-  document.getElementById('extremeSubmitBtn').disabled = false;
-  document.getElementById('extremeSubmitBtn').textContent = '✓ Submit Answer';
+  document.getElementById('extremeRevealBtn').style.display = 'block';
   document.getElementById('extremePointsDisplay').textContent = `⚡ ${S.sessionPoints} pts`;
 
-  S.extremeSubmitted = false;
-  S.confidence = 'medium';
+  S.extremeRevealed = false;
+  S.extremeMarked = false;
 
-  // Reset confidence buttons
-  document.querySelectorAll('.extreme-conf-btn').forEach(btn => {
-    btn.classList.remove('active');
-    if (btn.dataset.conf === 'medium') btn.classList.add('active');
+  document.querySelectorAll('.extreme-check-btn').forEach(b => {
+    b.classList.remove('sel');
+    b.disabled = false;
   });
 }
 
-// Extreme mode confidence selection
-document.querySelectorAll('.extreme-conf-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.extreme-conf-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    S.confidence = btn.dataset.conf;
-  });
-});
+function extremeReveal() {
+  if (S.extremeRevealed) return;
+  S.extremeRevealed = true;
 
-async function extremeSubmitAnswer() {
-  if (S.extremeSubmitted) return;
-  
-  const q = S.questions[S.extremeQ];
-  const userAnswer = document.getElementById('extremeAnswerInput').value.trim();
-  
-  if (!userAnswer) {
-    alert('Please type an answer before submitting.');
-    return;
-  }
-  
-  S.extremeSubmitted = true;
-  S.answerStartTime = Date.now();
-  
-  const submitBtn = document.getElementById('extremeSubmitBtn');
-  submitBtn.disabled = true;
-  submitBtn.textContent = '⏳ Evaluating...';
-  
-  const timeTaken = Math.round((Date.now() - S.answerStartTime) / 1000);
-  
-  try {
-    let cardId = null;
-    try {
-      const cardsRes = await fetch('/api/study/cards');
-      const cardsData = await cardsRes.json();
-      if (cardsData.status === 'ok') {
-        const matchingCard = cardsData.cards.find(c => 
-          c.question.toLowerCase().trim() === q.question.toLowerCase().trim()
-        );
-        if (matchingCard) cardId = matchingCard.id;
-      }
-    } catch(e) {}
-    
-    const response = await fetch('/api/study/evaluate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        card_id: cardId,
-        question: q.question,
-        answer: userAnswer,
-        topic: S.title,
-        confidence: S.confidence,
-        mode: 'extreme',
-        time_taken_seconds: timeTaken
-      })
-    });
-    
-    const data = await response.json();
-    
-    if (data.status === 'ok') {
-      showExtremeFeedback(data, q, userAnswer);
-    } else {
-      throw new Error(data.message || 'Evaluation failed');
-    }
-  } catch(e) {
-    alert('Could not evaluate answer: ' + e.message);
-    submitBtn.disabled = false;
-    submitBtn.textContent = '✓ Submit Answer';
-    S.extremeSubmitted = false;
-  }
+  document.getElementById('extremeAnswerBox').style.display = 'block';
+  document.getElementById('extremeSelfCheck').style.display = 'flex';
+  document.getElementById('extremeRevealBtn').style.display = 'none';
+
+  addPoints(2, '+2 pts');
 }
 
-function showExtremeFeedback(data, question, userAnswer) {
-  const { evaluation, points_earned, card_updated } = data;
-  
-  S.sessionPoints += points_earned;
-  S.totalPoints += points_earned;
-  
-  if (evaluation.result === 'correct') {
+function extremeMark(correct) {
+  if (S.extremeMarked) return;
+  S.extremeMarked = true;
+
+  document.querySelectorAll('.extreme-check-btn').forEach(b => { b.disabled = true; });
+
+  if (correct) {
+    document.querySelector('.extreme-correct').classList.add('sel');
     S.sessionCorrect++;
+    addPoints(5, '+5 pts — correct!');
+  } else {
+    document.querySelector('.extreme-wrong').classList.add('sel');
   }
-  
-  // Update displays
-  document.getElementById('extremePointsDisplay').textContent = `⚡ ${S.sessionPoints} pts`;
-  document.getElementById('extremeFeedbackPanel').style.display = 'block';
-  
-  // Result badge
-  const resultBadge = document.getElementById('extremeResultBadge');
-  resultBadge.textContent = evaluation.result === 'correct' ? '✓ Correct!' :
-                           evaluation.result === 'partial' ? '~ Partial' : '✗ Incorrect';
-  resultBadge.className = 'extreme-result-badge ' + evaluation.result;
-  
-  document.getElementById('extremeScoreBadge').textContent = evaluation.score_pct + '%';
-  document.getElementById('extremePointsBadge').textContent = '+' + points_earned + ' pts';
-  
-  // Fill feedback sections
-  document.getElementById('extremeWhatRight').textContent = evaluation.what_was_right || 'N/A';
-  document.getElementById('extremeWhatMissing').textContent = evaluation.what_was_missing || 'N/A';
-  document.getElementById('extremeCritique').textContent = evaluation.critique;
-  document.getElementById('extremeMemoryAnchor').textContent = evaluation.memory_anchor;
-  document.getElementById('extremeBetterExample').textContent = evaluation.better_example;
-  
-  // Mastery indicator
-  document.getElementById('extremeMasteryLevel').textContent = 
-    card_updated.mastery_level.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
-  document.getElementById('extremeNextReview').textContent = card_updated.next_review;
-  
-  // Show next button
+
   document.getElementById('extremeNextBtn').style.display = 'block';
-  document.getElementById('extremeSubmitBtn').style.display = 'none';
-  
-  // Toast
-  showToast(`+${points_earned} pts`);
-  
-  S.sessionAnswered++;
 }
 
 function extremeNext() {
+  S.sessionAnswered++;
   S.extremeQ++;
   S.currentQ = S.extremeQ;
 
@@ -2449,6 +1785,7 @@ async function exitExtremeMode(completed = false) {
     document.getElementById('questionArea').style.display = 'none';
     await completeSession();
   } else {
+    // Partial exit
     document.getElementById('setupView').style.display = 'block';
   }
 }
