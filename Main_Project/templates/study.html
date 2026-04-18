@@ -430,6 +430,7 @@
   display: block;
 }
 
+/* FIND THIS: */
 .answer-textarea {
   width: 100%;
   min-height: 120px;
@@ -438,8 +439,8 @@
   border-radius: 12px;
   font-size: 0.92rem;
   font-family: 'DM Sans', sans-serif;
-  color: var(--text-primary, #0f172a);
-  background: white;
+  color: var(--text-primary, #0f172a);  /* ← CHANGE THIS LINE */
+  background: white;  /* ← ADD THIS */
   resize: vertical;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -450,6 +451,7 @@
   border-color: var(--study-accent);
   box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
 }
+
 
 /* ── CONFIDENCE SELECTOR ──────────────────────────────────── */
 .confidence-section {
@@ -1978,14 +1980,14 @@ function showFeedback(data, question, userAnswer) {
   document.getElementById('correctAnswerText').textContent = question.answer;
   document.getElementById('whatRight').textContent = evaluation.what_was_right || 'N/A';
   document.getElementById('whatMissing').textContent = evaluation.what_was_missing || 'N/A';
-  document.getElementById('critiqueText').textContent = evaluation.critique;
-  document.getElementById('memoryAnchor').textContent = evaluation.memory_anchor;
-  document.getElementById('betterExample').textContent = evaluation.better_example;
+  document.getElementById('critiqueText').textContent = evaluation.critique || 'No critique available';
+  document.getElementById('memoryAnchor').textContent = evaluation.memory_anchor || 'No memory tip available';
+  document.getElementById('betterExample').textContent = evaluation.better_example || question.answer;
   
-  // Mastery indicator
+  // Mastery indicator - FIXED: handle null values
   const masteryIcon = document.getElementById('masteryIcon');
   const masteryText = document.getElementById('masteryText');
-  const masteryLevel = card_updated.mastery_level;
+  const masteryLevel = (card_updated && card_updated.mastery_level) || 'not_learned';
   
   masteryText.textContent = masteryLevel.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
   
@@ -1997,7 +1999,7 @@ function showFeedback(data, question, userAnswer) {
     masteryIcon.textContent = '🆕';
   }
   
-  document.getElementById('nextReviewDate').textContent = card_updated.next_review;
+  document.getElementById('nextReviewDate').textContent = (card_updated && card_updated.next_review) || 'Tomorrow';
   
   // Animate points
   const chip = document.getElementById('pointsChip');
