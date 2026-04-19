@@ -9,6 +9,9 @@ from groq import Groq
 import re
 import json
 import uuid
+import base64
+import io
+import functools
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 from flask_limiter import Limiter
@@ -18,7 +21,6 @@ from werkzeug.utils import secure_filename
 import secrets as secrets_module
 from flask import jsonify
 from datetime import datetime, timedelta
-import io
 
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import (
@@ -55,7 +57,6 @@ if os.getenv("SENTRY_DSN"):
         traces_sample_rate=0.1
     )
 
-# Rate limiting
 limiter = Limiter(key_func=get_remote_address)
 
 load_dotenv()
@@ -64,12 +65,14 @@ app = flask.Flask(
     __name__,
     template_folder="Main_Project/templates",
 )
+
 @app.after_request
 def add_cors_headers(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Extension-Token"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     return response
+
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
@@ -81,7 +84,7 @@ app.register_blueprint(auth_bp)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///intelliplan.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024  # 25 MB
+app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
 app.config["NOTES_UPLOAD_FOLDER"] = os.path.join(app.root_path, "uploads", "course_notes")
 os.makedirs(app.config["NOTES_UPLOAD_FOLDER"], exist_ok=True)
 
@@ -175,8 +178,8 @@ class SavedSchedule(db.Model):
 class Task:
     def __init__(self, name, deadline, duration, priority_weight=1, difficulty=1):
         self.name = name
-        self.deadline = deadline  # datetime
-        self.duration = duration  # minutes
+        self.deadline = deadline
+        self.duration = duration
         self.priority_weight = priority_weight
         self.difficulty = difficulty
 
@@ -205,24 +208,18 @@ class PushSubscription(db.Model):
 
 class CourseNote(db.Model):
     __tablename__ = "course_notes"
-
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     guest_session_id = db.Column(db.String(64), nullable=True)
-
     course_name = db.Column(db.String(255), nullable=False)
     course_id = db.Column(db.String(128), nullable=True)
     course_source = db.Column(db.String(32), nullable=True)
-
     note_date = db.Column(db.String(32), nullable=False)
     title = db.Column(db.String(255), nullable=False)
-
     original_filename = db.Column(db.String(255), nullable=True)
     stored_filename = db.Column(db.String(255), nullable=True)
-
     text_content = db.Column(db.Text, default="")
     summary_cache = db.Column(db.Text, default="")
-
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class ExtensionToken(db.Model):
@@ -232,7 +229,6 @@ class ExtensionToken(db.Model):
     token = db.Column(db.String(64), unique=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
- 
 class StudySession(db.Model):
     __tablename__ = "study_sessions"
     id = db.Column(db.Integer, primary_key=True)
@@ -260,8 +256,7 @@ class StudyPoints(db.Model):
     longest_streak = db.Column(db.Integer, default=0)
     total_sessions = db.Column(db.Integer, default=0)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
- 
- 
+
 class StudyMastery(db.Model):
     __tablename__ = "study_mastery"
     id = db.Column(db.Integer, primary_key=True)
@@ -293,19 +288,15 @@ def load_user_from_request(req):
     auth_header = req.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         return None
-
     token = auth_header.split(" ", 1)[1].strip()
     if not token:
         return None
-
     payload = verify_token(token)
     if not payload:
         return None
-
     user_id = payload.get("user_id")
     if not user_id:
         return None
-
     try:
         return db.session.get(User, int(user_id))
     except Exception:
@@ -329,6 +320,19 @@ WORKLOAD_COLORS = {
     "moderate": "#fef3c7",
     "heavy": "#fee2e2",
 }
+
+API_ERROR_MESSAGES = {
+    "groq": "AI scheduling is temporarily unavailable. Please try again in a moment.",
+    "canvas": "Canvas connection failed. Check your API token in Settings.",
+    "studentvue": "StudentVue connection failed. Check your credentials in Settings.",
+    "google_calendar": "Google Calendar sync is temporarily unavailable.",
+    "notion": "Notion connection failed. Try reconnecting in Integrations.",
+    "generic": "Service temporarily unavailable. Please try again later."
+}
+
+# ── ERROR HELPERS ─────────────────────────────────────────────
+def make_error_id():
+    return "IPE-" + str(uuid.uuid4())[:8].upper()
 
 # ── HELPERS ───────────────────────────────────────────────────
 def get_guest_session_id():
@@ -426,12 +430,10 @@ def save_custom_description(assignment_title, description):
     db.session.commit()
 
 def get_google_token():
-    # Check DB first for authenticated users
     if current_user.is_authenticated:
         gi = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
         if gi:
             return json.loads(gi.token_data)
-    # Fall back to session (works for both guests and authenticated users)
     return session.get("google_token")
 
 def get_notion_token_and_db():
@@ -439,8 +441,22 @@ def get_notion_token_and_db():
         ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
         if ni and ni.token:
             return ni.token, ni.database_id
-    # Fall back to session
     return session.get("notion_token"), session.get("notion_database_id")
+
+def get_study_profile(user_id=None, guest_id=None):
+    if user_id:
+        p = StudyPoints.query.filter_by(user_id=user_id).first()
+        if not p:
+            p = StudyPoints(user_id=user_id)
+            db.session.add(p)
+            db.session.commit()
+    else:
+        p = StudyPoints.query.filter_by(guest_session_id=guest_id).first()
+        if not p:
+            p = StudyPoints(guest_session_id=guest_id)
+            db.session.add(p)
+            db.session.commit()
+    return p
 
 @app.context_processor
 def inject_auth():
@@ -640,10 +656,27 @@ def dashboard():
         return redirect(url_for("login"))
     return render_template("dashboard.html", active_page="dashboard")
 
+@app.route("/study")
+def study():
+    if not is_logged_in():
+        return redirect(url_for("login"))
+    return render_template("study.html", active_page="study")
+
+@app.route("/legal")
+def legal():
+    return render_template("legal.html", active_page="legal")
+
+@app.route("/install")
+def install():
+    return render_template("install.html")
+
+@app.route("/install/ios")
+def install_ios():
+    return render_template("install_ios.html")
+
 # ── AUTH ROUTES ───────────────────────────────────────────────
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    # If a form POSTs directly to /login, forward to /login/account (preserving POST body)
     if request.method == "POST":
         return redirect(url_for("login_account"), 307)
     if is_logged_in():
@@ -792,7 +825,6 @@ def login_schoology():
     return render_template("login_schoology.html", active_page="login", error=error)
 
 @app.route("/logout", methods=["POST", "GET"])
-@app.route("/logout", methods=["POST", "GET"])
 def logout():
     logout_user()
     session.clear()
@@ -890,7 +922,6 @@ def get_live_schedule():
         except:
             return flask.jsonify([])
 
-    # Canvas
     try:
         token = acct["canvas_token"]
         canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
@@ -1015,21 +1046,15 @@ def notes_list():
     course_name = request.args.get("course_name", "").strip()
     course_id = request.args.get("course_id", "").strip()
     course_source = request.args.get("course_source", "").strip()
-
     q = get_notes_owner_query()
-
     if course_name:
         q = q.filter(db.func.lower(CourseNote.course_name) == course_name.lower())
     if course_id:
         q = q.filter(CourseNote.course_id == course_id)
     if course_source:
         q = q.filter(CourseNote.course_source == course_source)
-
     notes = q.order_by(CourseNote.note_date.desc(), CourseNote.created_at.desc()).all()
-    return flask.jsonify({
-        "status": "ok",
-        "notes": [course_note_payload(n) for n in notes]
-    })
+    return flask.jsonify({"status": "ok", "notes": [course_note_payload(n) for n in notes]})
 
 @app.route("/notes/upload", methods=["POST"])
 def upload_note():
@@ -1038,43 +1063,28 @@ def upload_note():
     course_source = request.form.get("course_source", "").strip()
     note_date = request.form.get("note_date", "").strip() or datetime.now().strftime("%Y-%m-%d")
     title = request.form.get("title", "").strip() or f"{course_name} Notes"
-
     if not course_name:
         return flask.jsonify({"status": "error", "message": "Course name is required"}), 400
-
     file = request.files.get("file")
     text_content = request.form.get("text_content", "").strip()
     original_filename = None
     stored_filename = None
-
     if file and file.filename:
         original_filename = file.filename
         ext = os.path.splitext(original_filename)[1].lower()
-
         if ext not in NOTE_ALLOWED_EXTENSIONS:
-            return flask.jsonify({
-                "status": "error",
-                "message": "Only TXT, MD, CSV, PDF, and DOCX files are supported."
-            }), 400
-
+            return flask.jsonify({"status": "error", "message": "Only TXT, MD, CSV, PDF, and DOCX files are supported."}), 400
         owner_folder = get_notes_owner_folder()
         owner_dir = os.path.join(app.config["NOTES_UPLOAD_FOLDER"], owner_folder)
         os.makedirs(owner_dir, exist_ok=True)
-
         stored_filename = f"{uuid.uuid4().hex}{ext}"
         file_path = os.path.join(owner_dir, stored_filename)
         file.save(file_path)
-
         extracted = extract_text_from_note_file(file_path)
         if extracted:
             text_content = extracted
-
     if not text_content and not stored_filename:
-        return flask.jsonify({
-            "status": "error",
-            "message": "Upload a note file or paste note text."
-        }), 400
-
+        return flask.jsonify({"status": "error", "message": "Upload a note file or paste note text."}), 400
     note = CourseNote(
         user_id=current_user.id if current_user.is_authenticated else None,
         guest_session_id=None if current_user.is_authenticated else get_guest_session_id(),
@@ -1089,179 +1099,120 @@ def upload_note():
     )
     db.session.add(note)
     db.session.commit()
-
-    return flask.jsonify({
-        "status": "ok",
-        "note": course_note_payload(note)
-    })
+    return flask.jsonify({"status": "ok", "note": course_note_payload(note)})
 
 @app.route("/notes/<int:note_id>")
 def get_note(note_id):
     note = db.session.get(CourseNote, note_id)
     if not note or not note_belongs_to_current_user(note):
         return flask.jsonify({"status": "error", "message": "Note not found"}), 404
-
-    return flask.jsonify({
-        "status": "ok",
-        "note": course_note_payload(note, include_text=True)
-    })
+    return flask.jsonify({"status": "ok", "note": course_note_payload(note, include_text=True)})
 
 @app.route("/notes/<int:note_id>/download")
 def download_note(note_id):
     note = db.session.get(CourseNote, note_id)
     if not note or not note.stored_filename or not note_belongs_to_current_user(note):
         return flask.jsonify({"status": "error", "message": "File not found"}), 404
-
-    owner_dir = os.path.join(
-        app.config["NOTES_UPLOAD_FOLDER"],
-        f"user_{note.user_id}" if note.user_id else f"guest_{note.guest_session_id}"
-    )
-
-    return flask.send_from_directory(
-        owner_dir,
-        note.stored_filename,
-        as_attachment=True,
-        download_name=note.original_filename or note.stored_filename
-    )
+    owner_dir = os.path.join(app.config["NOTES_UPLOAD_FOLDER"], f"user_{note.user_id}" if note.user_id else f"guest_{note.guest_session_id}")
+    return flask.send_from_directory(owner_dir, note.stored_filename, as_attachment=True, download_name=note.original_filename or note.stored_filename)
 
 @app.route("/notes/<int:note_id>/summarize", methods=["POST"])
 def summarize_note(note_id):
     note = db.session.get(CourseNote, note_id)
     if not note or not note_belongs_to_current_user(note):
         return flask.jsonify({"status": "error", "message": "Note not found"}), 404
-
     if not (note.text_content or "").strip():
-        return flask.jsonify({
-            "status": "error",
-            "message": "No extracted text is available for this note."
-        }), 400
-
+        return flask.jsonify({"status": "error", "message": "No extracted text is available for this note."}), 400
     if not os.getenv("GROQ_API_KEY"):
-        return flask.jsonify({
-            "status": "error",
-            "message": "GROQ_API_KEY is not set."
-        }), 500
-
+        return flask.jsonify({"status": "error", "message": "GROQ_API_KEY is not set."}), 500
     client = Groq(api_key=os.getenv("GROQ_API_KEY"))
     text = (note.text_content or "")[:12000]
-
-    prompt = f"""
-Summarize these class notes for a student.
-
-Return:
-- 5 to 8 bullet points
-- a short "Key takeaways" section
-- keep it clear, practical, and concise
-
-Notes:
-{text}
-"""
-
+    prompt = f"""Summarize these class notes for a student.\n\nReturn:\n- 5 to 8 bullet points\n- a short "Key takeaways" section\n- keep it clear, practical, and concise\n\nNotes:\n{text}"""
     try:
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.2,
-            max_tokens=900,
-        )
+        response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}], temperature=0.2, max_tokens=900)
         summary = response.choices[0].message.content.strip()
         note.summary_cache = summary
         db.session.commit()
-
         return flask.jsonify({"status": "ok", "summary": summary})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": "AI summarization is temporarily unavailable. Please try again."}), 500
 
 @app.route("/notes/<int:note_id>/study", methods=["POST"])
-def study_note(note_id):
+def study_note_route(note_id):
     note = db.session.get(CourseNote, note_id)
     if not note or not note_belongs_to_current_user(note):
         return flask.jsonify({"status": "error", "message": "Note not found"}), 404
-
     if not (note.text_content or "").strip():
-        return flask.jsonify({
-            "status": "error",
-            "message": "No extracted text is available for this note."
-        }), 400
-
-    if not os.getenv("GROQ_API_KEY"):
-        return flask.jsonify({
-            "status": "error",
-            "message": "GROQ_API_KEY is not set."
-        }), 500
-
+        return flask.jsonify({"status": "error", "message": "No extracted text is available for this note."}), 400
     client = Groq(api_key=os.getenv("GROQ_API_KEY"))
     text = (note.text_content or "")[:12000]
-
-    prompt = f"""
-Turn these notes into study material for a student.
-
-Return ONLY valid JSON in this shape:
-{{
-  "title": "Study Guide",
-  "summary": "short study summary",
-  "cards": [
-    {{"question": "Q1", "answer": "A1"}},
-    {{"question": "Q2", "answer": "A2"}}
-  ],
-  "quiz": [
-    {{"question": "Q1", "answer": "A1"}},
-    {{"question": "Q2", "answer": "A2"}}
-  ]
-}}
-
-Make the questions useful for studying and keep answers short.
-
-Notes:
-{text}
-"""
-
+    prompt = f"""Turn these notes into study material.\n\nReturn ONLY valid JSON:\n{{\n  "title": "Study Guide",\n  "summary": "short summary",\n  "cards": [{{"question": "Q1", "answer": "A1"}}],\n  "quiz": [{{"question": "Q1", "answer": "A1"}}]\n}}\n\nNotes:\n{text}"""
     try:
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.2,
-            max_tokens=1200,
-        )
+        response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}], temperature=0.2, max_tokens=1200)
         raw = response.choices[0].message.content.strip()
         raw = re.sub(r"```json\s*", "", raw)
         raw = re.sub(r"```", "", raw).strip()
-
         try:
-            study = json.loads(raw)
+            study_data = json.loads(raw)
         except Exception:
-            study = {
-                "title": "Study Guide",
-                "summary": raw,
-                "cards": [],
-                "quiz": []
-            }
-
-        return flask.jsonify({"status": "ok", "study": study})
+            study_data = {"title": "Study Guide", "summary": raw, "cards": [], "quiz": []}
+        return flask.jsonify({"status": "ok", "study": study_data})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": "Study generation is temporarily unavailable."}), 500
 
 @app.route("/notes/<int:note_id>", methods=["DELETE"])
 def delete_note(note_id):
     note = db.session.get(CourseNote, note_id)
     if not note or not note_belongs_to_current_user(note):
         return flask.jsonify({"status": "error", "message": "Note not found"}), 404
-
     if note.stored_filename:
-        owner_dir = os.path.join(
-            app.config["NOTES_UPLOAD_FOLDER"],
-            f"user_{note.user_id}" if note.user_id else f"guest_{note.guest_session_id}"
-        )
+        owner_dir = os.path.join(app.config["NOTES_UPLOAD_FOLDER"], f"user_{note.user_id}" if note.user_id else f"guest_{note.guest_session_id}")
         file_path = os.path.join(owner_dir, note.stored_filename)
         try:
             if os.path.exists(file_path):
                 os.remove(file_path)
         except Exception as e:
             print(f"Could not remove note file: {e}")
-
     db.session.delete(note)
     db.session.commit()
     return flask.jsonify({"status": "ok"})
+
+@app.route("/notes/<int:note_id>/quiz", methods=["POST"])
+def notes_quiz(note_id):
+    note = None
+    if current_user.is_authenticated:
+        note = CourseNote.query.filter_by(id=note_id, user_id=current_user.id).first()
+    else:
+        note = CourseNote.query.filter_by(id=note_id, guest_session_id=get_guest_session_id()).first()
+    if not note:
+        return flask.jsonify({"status": "error", "message": "Note not found"}), 404
+    note_text = (note.text_content or "").strip()
+    if not note_text:
+        return flask.jsonify({"status": "error", "message": "No note text available"}), 400
+    history = request.json.get("history", []) if request.is_json else []
+    history_text = json.dumps(history[-8:], ensure_ascii=False)
+    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+    prompt = f"""Generate one study question from the note below.\n\nPrior questions:\n{history_text}\n\nNote:\n{note_text[:12000]}\n\nReturn JSON:\n{{\n  "question": "one question",\n  "answer": "one correct answer",\n  "key_points": ["point 1", "point 2"]\n}}"""
+    try:
+        response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}], temperature=0.5, max_tokens=900)
+        raw = response.choices[0].message.content.strip()
+        raw = re.sub(r"```json\s*", "", raw)
+        raw = re.sub(r"```", "", raw)
+        quiz = json.loads(raw)
+        return flask.jsonify({"status": "ok", "quiz": quiz})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/notes/<int:note_id>/file", methods=["GET"])
+def notes_file(note_id):
+    note = None
+    if current_user.is_authenticated:
+        note = CourseNote.query.filter_by(id=note_id, user_id=current_user.id).first()
+    else:
+        note = CourseNote.query.filter_by(id=note_id, guest_session_id=get_guest_session_id()).first()
+    if not note:
+        return flask.jsonify({"status": "error", "message": "Note not found"}), 404
+    return flask.jsonify({"status": "ok", "view_url": getattr(note, "download_url", None), "filename": getattr(note, "original_filename", None), "text_content": getattr(note, "text_content", "")})
 
 @app.route("/restore", methods=["POST"])
 def restore():
@@ -1309,7 +1260,9 @@ def generate_schedule():
     preferred_time = data.get("preferred_time", "evening")
     custom_tasks = data.get("custom_tasks", [])
 
-    # Normalize assignments
+    if not assignments and not custom_tasks:
+        return flask.jsonify({"status": "error", "message": "No assignments to schedule."})
+
     normalized_assignments = []
     for assignment in assignments:
         difficulty = assignment.get("difficulty") or infer_task_difficulty(
@@ -1320,20 +1273,18 @@ def generate_schedule():
         normalized_assignments.append({
             **assignment,
             "difficulty": difficulty,
-            "color": assignment.get("color") or PRIORITY_COLORS.get(
-                assignment.get("priority", "Medium"), "#60a5fa"
-            ),
+            "color": assignment.get("color") or PRIORITY_COLORS.get(assignment.get("priority", "Medium"), "#60a5fa"),
         })
 
-    # Separate overdue from upcoming
     today_str = datetime.now().strftime("%Y-%m-%d")
     overdue = [a for a in normalized_assignments if a.get("due_date", "9999") < today_str]
     upcoming = [a for a in normalized_assignments if a.get("due_date", "9999") >= today_str]
-    
-    # Sort upcoming by due date
     upcoming.sort(key=lambda x: x.get("due_date", "9999"))
 
-    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+    try:
+        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+    except Exception:
+        return flask.jsonify({"status": "error", "message": API_ERROR_MESSAGES["groq"], "retryable": True}), 503
 
     overdue_text = ""
     if overdue:
@@ -1351,9 +1302,7 @@ def generate_schedule():
 
     custom_text = ""
     if custom_tasks:
-        custom_text = f"\nCUSTOM TASKS ADDED BY STUDENT — use EXACT names as written ({len(custom_tasks)}):\n" + "\n".join([
-            f"  - {t}" for t in custom_tasks
-        ])
+        custom_text = f"\nCUSTOM TASKS ADDED BY STUDENT — use EXACT names as written ({len(custom_tasks)}):\n" + "\n".join([f"  - {t}" for t in custom_tasks])
 
     today = datetime.now().strftime("%Y-%m-%d")
     total = len(normalized_assignments) + len(custom_tasks)
@@ -1412,12 +1361,18 @@ Return ONLY valid JSON:
         result = re.sub(r"```json\n?", "", result)
         result = re.sub(r"```\n?", "", result)
         schedule_data = json.loads(result)
-        schedule_data = enrich_schedule_data(
-            schedule_data, normalized_assignments, preferred_time, hours_per_day,
-        )
+        schedule_data = enrich_schedule_data(schedule_data, normalized_assignments, preferred_time, hours_per_day)
         return flask.jsonify({"status": "ok", "data": schedule_data})
+    except json.JSONDecodeError:
+        return flask.jsonify({"status": "error", "message": "The AI returned an invalid schedule. Please try again.", "retryable": True})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)})
+        err_str = str(e).lower()
+        if "rate" in err_str or "429" in err_str:
+            return flask.jsonify({"status": "error", "message": "AI usage limit reached. Please wait a minute and try again.", "retryable": True}), 429
+        if "timeout" in err_str:
+            return flask.jsonify({"status": "error", "message": "The AI took too long to respond. Please try again.", "retryable": True}), 504
+        print(f"Schedule generation error: {e}")
+        return flask.jsonify({"status": "error", "message": API_ERROR_MESSAGES["groq"], "retryable": True}), 503
 
 @app.route("/static/sw.js")
 def service_worker():
@@ -1446,46 +1401,32 @@ def google_oauth_start():
 def google_oauth_callback():
     if not GCAL_AVAILABLE:
         return redirect(url_for("dashboard"))
-
     error_msg = request.args.get("error")
     if error_msg:
         print(f"OAuth error from Google: {error_msg}")
         return redirect(url_for("dashboard"))
-
     code = request.args.get("code")
     if not code:
         print("No code in callback")
         return redirect(url_for("dashboard"))
-
     try:
         from google_calendar_helper import exchange_code_for_token
-        print(f"Exchanging code for token...")
         token_dict = exchange_code_for_token(code)
-        print(f"Token exchange successful. Token: {token_dict.get('token', '')[:20]}")
-
         session["google_token"] = token_dict
         session.permanent = True
         session.modified = True
-
         if current_user.is_authenticated:
             existing = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
             if existing:
                 existing.token_data = json.dumps(token_dict)
             else:
-                db.session.add(GoogleIntegration(
-                    user_id=current_user.id,
-                    token_data=json.dumps(token_dict)
-                ))
+                db.session.add(GoogleIntegration(user_id=current_user.id, token_data=json.dumps(token_dict)))
             db.session.commit()
-            print(f"Saved to DB for user {current_user.id}")
-
         return redirect(url_for("dashboard"))
-
     except Exception as e:
         import traceback
         print(f"Token exchange error: {traceback.format_exc()}")
         return redirect(url_for("dashboard"))
-    
 
 @app.route("/oauth/google/disconnect", methods=["POST"])
 def google_disconnect():
@@ -1505,13 +1446,11 @@ def calendar_events():
         return flask.jsonify({"connected": False, "events": []})
     try:
         events = get_upcoming_events(token)
-        # If we got here token is valid — make sure it's saved in session
         session["google_token"] = token
         session.modified = True
         return flask.jsonify({"connected": True, "events": events})
     except Exception as e:
         print(f"Calendar events error: {e}")
-        # Token is bad — clear it
         session.pop("google_token", None)
         if current_user.is_authenticated:
             GoogleIntegration.query.filter_by(user_id=current_user.id).delete()
@@ -1532,6 +1471,39 @@ def calendar_free_slot():
     except Exception as e:
         return flask.jsonify({"slot": "7:00 PM", "connected": False, "error": str(e)})
 
+@app.route("/calendar/export", methods=["POST"])
+def calendar_export():
+    if not GCAL_AVAILABLE:
+        return flask.jsonify({"status": "error", "message": "Google Calendar not configured"})
+    token = get_google_token()
+    if not token:
+        return flask.jsonify({"status": "error", "message": "Google Calendar not connected"})
+    data = request.json
+    schedule_data = data.get("schedule_data")
+    skip_overlaps = data.get("skip_overlaps", False)
+    try:
+        existing_events = []
+        if skip_overlaps:
+            try:
+                existing_events = get_upcoming_events(token)
+            except:
+                existing_events = []
+        ids, new_token, skipped = add_schedule_to_calendar(token, schedule_data, existing_events if skip_overlaps else [])
+        if new_token:
+            session["google_token"] = {**token, "token": new_token}
+            session.modified = True
+            if current_user.is_authenticated:
+                gi = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
+                if gi:
+                    td = json.loads(gi.token_data)
+                    td["token"] = new_token
+                    gi.token_data = json.dumps(td)
+                    db.session.commit()
+        return flask.jsonify({"status": "ok", "created": len(ids), "skipped": skipped})
+    except Exception as e:
+        print(f"Calendar export error: {e}")
+        return flask.jsonify({"status": "error", "message": "Google Calendar export failed. Please try again."})
+
 # ── NOTION ────────────────────────────────────────────────────
 @app.route("/notion/connect", methods=["POST"])
 def notion_connect():
@@ -1542,22 +1514,18 @@ def notion_connect():
         return flask.jsonify({"status": "error", "message": "No token provided"})
     if not test_notion_token(token):
         return flask.jsonify({"status": "error", "message": "Invalid Notion token"})
-    
-    # Always save to session
     session["notion_token"] = token
     session.modified = True
-    
     if current_user.is_authenticated:
         existing = NotionIntegration.query.filter_by(user_id=current_user.id).first()
         if existing:
             existing.token = token
-            existing.database_id = None  # Reset db selection on reconnect
+            existing.database_id = None
         else:
             db.session.add(NotionIntegration(user_id=current_user.id, token=token))
         db.session.commit()
-    
     dbs = get_notion_databases(token)
-    return flask.jsonify({"status": "ok", "databases": dbs})    
+    return flask.jsonify({"status": "ok", "databases": dbs})
 
 @app.route("/notion/disconnect", methods=["POST"])
 def notion_disconnect():
@@ -1574,24 +1542,16 @@ def notion_set_database():
     db_id = request.json.get("database_id")
     if not db_id:
         return flask.jsonify({"status": "error"})
-    
     if current_user.is_authenticated:
         ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
         if ni:
             ni.database_id = db_id
             db.session.commit()
         else:
-            # No integration row yet — shouldn't happen but handle it
             token = session.get("notion_token")
             if token:
-                db.session.add(NotionIntegration(
-                    user_id=current_user.id,
-                    token=token,
-                    database_id=db_id
-                ))
+                db.session.add(NotionIntegration(user_id=current_user.id, token=token, database_id=db_id))
                 db.session.commit()
-    
-    # Always save to session too as backup
     session["notion_database_id"] = db_id
     session.modified = True
     return flask.jsonify({"status": "ok"})
@@ -1659,20 +1619,15 @@ def unified_tasks():
     def dedupe_tasks(task_list):
         seen = set()
         unique = []
-
         for t in task_list:
             title = (t.get("title") or "").strip().lower()
             course = (t.get("course") or "").strip().lower()
             due_date = (t.get("due_date") or "").strip()
-
             key = (title, course, due_date)
-
             if key in seen:
                 continue
-
             seen.add(key)
             unique.append(t)
-
         return unique
 
     tasks = []
@@ -1685,37 +1640,25 @@ def unified_tasks():
         login_type = acct["login_type"]
         if login_type == "studentvue":
             try:
-                raw = get_sv_assignments(
-                    acct["sv_district_url"],
-                    acct["sv_username"],
-                    acct["sv_password"]
-                )
+                raw = get_sv_assignments(acct["sv_district_url"], acct["sv_username"], acct["sv_password"])
             except Exception as e:
                 print(f"SV assignments error: {e}")
                 raw = []
-
             try:
-                missing_raw = get_missing_assignments(
-                    acct["sv_district_url"],
-                    acct["sv_username"],
-                    acct["sv_password"]
-                )
+                missing_raw = get_missing_assignments(acct["sv_district_url"], acct["sv_username"], acct["sv_password"])
             except Exception as e:
                 print(f"Missing assignments error: {e}")
                 missing_raw = []
-
             for a in raw:
                 if a["title"] not in dismissed:
                     a["source"] = "studentvue"
                     a.setdefault("color", PRIORITY_COLORS.get(a.get("priority", "Medium"), "#f59e0b"))
                     tasks.append(a)
-
             for a in missing_raw:
                 if a["title"] not in dismissed:
                     if "source" not in a:
                         a["source"] = "studentvue_missing"
                     tasks.append(a)
-
         elif login_type == "canvas":
             try:
                 token = acct["canvas_token"]
@@ -1725,32 +1668,26 @@ def unified_tasks():
                 course_response = requests.get(f"{base}/courses", headers=headers)
                 courses = course_response.json()
                 course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
-
                 for course_id in course_map:
                     resp = requests.get(f"{base}/courses/{course_id}/assignments", headers=headers)
                     data = resp.json()
                     if not isinstance(data, list):
                         continue
-
                     for a in data:
                         if not isinstance(a, dict) or not a.get("due_at"):
                             continue
-
                         due_str = a["due_at"][:10]
                         try:
                             due = datetime.strptime(due_str, "%Y-%m-%d").date()
                         except:
                             continue
-
                         days = (due - today).days
                         if days < -14:
                             continue
-
                         priority = "High" if days <= 3 else "Medium" if days <= 7 else "Low"
                         title = a["name"]
                         if title in dismissed:
                             continue
-
                         tasks.append({
                             "id": str(a["id"]),
                             "course_id": str(a["course_id"]),
@@ -1766,7 +1703,6 @@ def unified_tasks():
             except Exception as e:
                 print(f"Canvas unified error: {e}")
 
-    # Notion tasks
     if NOTION_AVAILABLE:
         try:
             notion_token, notion_db_id = get_notion_token_and_db()
@@ -1778,14 +1714,12 @@ def unified_tasks():
         except Exception as e:
             print(f"Notion tasks error: {e}")
 
-    # Manual tasks
     try:
         if current_user.is_authenticated:
             manual = ManualTask.query.filter_by(user_id=current_user.id, done=False).all()
         else:
             gid = get_guest_session_id()
             manual = ManualTask.query.filter_by(guest_session_id=gid, done=False).all()
-
         for t in manual:
             if t.title not in dismissed:
                 tasks.append({
@@ -1803,16 +1737,13 @@ def unified_tasks():
     except Exception as e:
         print(f"Manual tasks error: {e}")
 
-    # Remove duplicates, especially from StudentVue sync overlaps
     tasks = dedupe_tasks(tasks)
-
     result = {"today": [], "upcoming": [], "overdue": []}
     for t in tasks:
         due = t.get("due_date", "")
         if not due:
             result["upcoming"].append(t)
             continue
-
         try:
             due_date = datetime.strptime(due, "%Y-%m-%d").date()
             if due_date < today:
@@ -1956,66 +1887,7 @@ def delete_saved_schedule():
     db.session.commit()
     return flask.jsonify({"status": "ok"})
 
-# @app.route("/privacy")
-# def privacy():
-#     return render_template("privacy.html")
-
-# @app.route("/terms")
-# def terms():
-#     return render_template("terms.html")
-
-@app.route("/debug/auth")
-def debug_auth():
-    return flask.jsonify({
-        "is_authenticated": current_user.is_authenticated,
-        "user_id": current_user.id if current_user.is_authenticated else None,
-        "session_keys": list(session.keys()),
-        "has_google_session": "google_token" in session,
-        "has_notion_session": "notion_token" in session,
-        "google_db_row": GoogleIntegration.query.filter_by(user_id=current_user.id).first() is not None if current_user.is_authenticated else False,
-        "notion_db_row": NotionIntegration.query.filter_by(user_id=current_user.id).first() is not None if current_user.is_authenticated else False,
-    })
-
-@app.route("/calendar/export", methods=["POST"])
-def calendar_export():
-    if not GCAL_AVAILABLE:
-        return flask.jsonify({"status": "error", "message": "Google Calendar not configured"})
-    token = get_google_token()
-    if not token:
-        return flask.jsonify({"status": "error", "message": "Google Calendar not connected"})
-    data = request.json
-    schedule_data = data.get("schedule_data")
-    skip_overlaps = data.get("skip_overlaps", False)
-
-    try:
-        # Get existing events for overlap checking
-        existing_events = []
-        if skip_overlaps:
-            try:
-                existing_events = get_upcoming_events(token)
-            except:
-                existing_events = []
-
-        ids, new_token, skipped = add_schedule_to_calendar(
-            token, schedule_data, existing_events if skip_overlaps else []
-        )
-
-        if new_token:
-            session["google_token"] = {**token, "token": new_token}
-            session.modified = True
-            if current_user.is_authenticated:
-                gi = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
-                if gi:
-                    td = json.loads(gi.token_data)
-                    td["token"] = new_token
-                    gi.token_data = json.dumps(td)
-                    db.session.commit()
-
-        return flask.jsonify({"status": "ok", "created": len(ids), "skipped": skipped})
-    except Exception as e:
-        print(f"Calendar export error: {e}")
-        return flask.jsonify({"status": "error", "message": str(e)})
-
+# ── FEEDBACK ──────────────────────────────────────────────────
 @app.route("/feedback/complete", methods=["POST"])
 def feedback_complete():
     data = request.json
@@ -2023,11 +1895,9 @@ def feedback_complete():
     actual_time = data.get("actual_time")
     if not title:
         return flask.jsonify({"status": "error"})
-    
     now = datetime.now()
     hour = now.hour
     time_of_day = "morning" if hour < 12 else "afternoon" if hour < 17 else "evening"
-    
     feedback = TaskFeedback(
         user_id=current_user.id if current_user.is_authenticated else None,
         guest_session_id=None if current_user.is_authenticated else get_guest_session_id(),
@@ -2041,50 +1911,37 @@ def feedback_complete():
         time_of_day=time_of_day
     )
     db.session.add(feedback)
-    
-    # Also dismiss the assignment
     if data.get("dismiss"):
         save_dismissed(title, data)
-    
     db.session.commit()
     return flask.jsonify({"status": "ok"})
 
 @app.route("/feedback/export")
 def feedback_export():
-    """Export training data as CSV — for model training later."""
     if not current_user.is_authenticated:
         return flask.jsonify({"status": "error"})
     rows = TaskFeedback.query.filter_by(user_id=current_user.id).all()
-    import csv, io
+    import csv
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["Subject", "Estimate", "Actual", "Difficulty", "Priority", "DayOfWeek", "TimeOfDay"])
     for r in rows:
         writer.writerow([r.course, r.estimated_time, r.actual_time or "", r.difficulty, r.priority, r.day_of_week, r.time_of_day])
     output.seek(0)
-    return flask.Response(
-        output.getvalue(),
-        mimetype="text/csv",
-        headers={"Content-Disposition": "attachment;filename=intelliplan_data.csv"}
-    )
+    return flask.Response(output.getvalue(), mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=intelliplan_data.csv"})
 
+# ── PUSH NOTIFICATIONS ────────────────────────────────────────
 @app.route("/push/subscribe", methods=["POST"])
 def push_subscribe():
     data = request.json
     sub_json = json.dumps(data.get("subscription"))
     uid = current_user.id if current_user.is_authenticated else None
     gid = None if current_user.is_authenticated else get_guest_session_id()
-    existing = PushSubscription.query.filter_by(
-        user_id=uid, guest_session_id=gid
-    ).first()
+    existing = PushSubscription.query.filter_by(user_id=uid, guest_session_id=gid).first()
     if existing:
         existing.subscription_json = sub_json
     else:
-        db.session.add(PushSubscription(
-            user_id=uid,
-            guest_session_id=gid,
-            subscription_json=sub_json
-        ))
+        db.session.add(PushSubscription(user_id=uid, guest_session_id=gid, subscription_json=sub_json))
     db.session.commit()
     return flask.jsonify({"status": "ok"})
 
@@ -2096,10 +1953,10 @@ def push_test():
     if not sub:
         return flask.jsonify({"status": "error", "message": "No subscription"})
     try:
-        from pywebpush import webpush, WebPushException
+        from pywebpush import webpush
         webpush(
             subscription_info=json.loads(sub.subscription_json),
-            data=json.dumps({"title": "IntelliPlan", "body": "Notifications are working! 🎉"}),
+            data=json.dumps({"title": "IntelliPlan", "body": "Notifications are working!"}),
             vapid_private_key=os.getenv("VAPID_PRIVATE_KEY"),
             vapid_claims={"sub": f"mailto:{os.getenv('VAPID_EMAIL', 'hello@intelliplan.app')}"}
         )
@@ -2111,15 +1968,34 @@ def push_test():
 def vapid_public():
     return flask.jsonify({"key": os.getenv("VAPID_PUBLIC_KEY", "")})
 
-@app.route("/legal")
-def legal():
-    return render_template("legal.html", active_page="legal")
+@app.route("/notifications/silence", methods=["POST"])
+def silence_notifications():
+    data = request.json
+    minutes = int(data.get("minutes", 0))
+    if minutes <= 0:
+        return jsonify({"status": "error", "message": "Invalid duration"})
+    silenced_until = datetime.utcnow() + timedelta(minutes=minutes)
+    session["notifications_silenced_until"] = silenced_until.isoformat()
+    return jsonify({"status": "ok", "silenced_until": silenced_until.isoformat()})
 
-@app.route("/install")
-def install():
-    return render_template("install.html")
+@app.route("/notifications/status")
+def notification_status():
+    return jsonify({"silenced_until": session.get("notifications_silenced_until")})
 
-# ── Notes ─────────────────────────────────────────────────────
+# ── DEBUG ─────────────────────────────────────────────────────
+@app.route("/debug/auth")
+def debug_auth():
+    return flask.jsonify({
+        "is_authenticated": current_user.is_authenticated,
+        "user_id": current_user.id if current_user.is_authenticated else None,
+        "session_keys": list(session.keys()),
+        "has_google_session": "google_token" in session,
+        "has_notion_session": "notion_token" in session,
+        "google_db_row": GoogleIntegration.query.filter_by(user_id=current_user.id).first() is not None if current_user.is_authenticated else False,
+        "notion_db_row": NotionIntegration.query.filter_by(user_id=current_user.id).first() is not None if current_user.is_authenticated else False,
+    })
+
+# ── NOTES HELPERS ─────────────────────────────────────────────
 NOTE_ALLOWED_EXTENSIONS = {".txt", ".md", ".csv", ".pdf", ".docx"}
 
 def get_notes_owner_folder():
@@ -2139,32 +2015,26 @@ def note_belongs_to_current_user(note):
 
 def extract_text_from_note_file(file_path):
     ext = os.path.splitext(file_path)[1].lower()
-
     try:
         if ext in {".txt", ".md", ".csv"}:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 return f.read().strip()
-
         if ext == ".pdf":
             try:
                 from pypdf import PdfReader
             except Exception:
                 from PyPDF2 import PdfReader
-
             reader = PdfReader(file_path)
             pages = []
             for page in reader.pages:
                 pages.append(page.extract_text() or "")
             return "\n".join(pages).strip()
-
         if ext == ".docx":
             from docx import Document
             doc = Document(file_path)
             return "\n".join(p.text for p in doc.paragraphs).strip()
-
     except Exception as e:
         print(f"Note extraction error: {e}")
-
     return ""
 
 def course_note_payload(note, include_text=False):
@@ -2187,95 +2057,7 @@ def course_note_payload(note, include_text=False):
         payload["summary_cache"] = note.summary_cache or ""
     return payload
 
-@app.route("/notes/<int:note_id>/quiz", methods=["POST"])
-def notes_quiz(note_id):
-    if not NOTION_AVAILABLE and False:
-        pass
-
-    # Replace CourseNote with your actual model name if needed.
-    note = None
-    if current_user.is_authenticated:
-        note = CourseNote.query.filter_by(id=note_id, user_id=current_user.id).first()
-    else:
-        note = CourseNote.query.filter_by(id=note_id, guest_session_id=get_guest_session_id()).first()
-
-    if not note:
-        return flask.jsonify({"status": "error", "message": "Note not found"}), 404
-
-    note_text = (note.text_content or "").strip()
-    if not note_text:
-        return flask.jsonify({"status": "error", "message": "No note text available"}), 400
-
-    history = request.json.get("history", []) if request.is_json else []
-    history_text = json.dumps(history[-8:], ensure_ascii=False)
-
-    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-
-    prompt = f"""
-You are generating one study question from the note below.
-
-Rules:
-- Return ONLY valid JSON.
-- Return a single question that tests understanding.
-- Do not repeat prior questions in history.
-- Keep the question clear and specific.
-- The answer should be concise but correct.
-- Include 2 to 5 key points if helpful.
-
-Prior questions and answers:
-{history_text}
-
-Note:
-{note_text[:12000]}
-
-Return JSON in this exact shape:
-{{
-  "question": "one question",
-  "answer": "one correct answer",
-  "key_points": ["point 1", "point 2"]
-}}
-"""
-
-    try:
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.5,
-            max_tokens=900,
-        )
-
-        raw = response.choices[0].message.content.strip()
-        raw = re.sub(r"```json\s*", "", raw)
-        raw = re.sub(r"```", "", raw)
-
-        quiz = json.loads(raw)
-        return flask.jsonify({"status": "ok", "quiz": quiz})
-    except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
-
-
-@app.route("/notes/<int:note_id>/file", methods=["GET"])
-def notes_file(note_id):
-    # Replace CourseNote with your actual model name if needed.
-    note = None
-    if current_user.is_authenticated:
-        note = CourseNote.query.filter_by(id=note_id, user_id=current_user.id).first()
-    else:
-        note = CourseNote.query.filter_by(id=note_id, guest_session_id=get_guest_session_id()).first()
-
-    if not note:
-        return flask.jsonify({"status": "error", "message": "Note not found"}), 404
-
-    # If your upload flow already stores a file URL/path, return it here.
-    return flask.jsonify({
-        "status": "ok",
-        "view_url": getattr(note, "download_url", None),
-        "filename": getattr(note, "original_filename", None),
-        "text_content": getattr(note, "text_content", "")
-    })
-
-import secrets as secrets_module
-
+# ── EXTENSION ROUTES ──────────────────────────────────────────
 @app.route("/extension/login", methods=["POST", "OPTIONS"])
 def extension_login():
     if request.method == "OPTIONS":
@@ -2435,16 +2217,7 @@ def extension_tasks():
         manual = ManualTask.query.filter_by(user_id=user.id, done=False).all()
         for t in manual:
             if t.title not in dismissed:
-                tasks.append({
-                    "id": t.id,
-                    "title": t.title,
-                    "due_date": t.due_date or "",
-                    "priority": t.priority,
-                    "course": t.course,
-                    "estimated_time": t.estimated_time,
-                    "source": "manual",
-                    "color": PRIORITY_COLORS.get(t.priority, "#f59e0b")
-                })
+                tasks.append({"id": t.id, "title": t.title, "due_date": t.due_date or "", "priority": t.priority, "course": t.course, "estimated_time": t.estimated_time, "source": "manual", "color": PRIORITY_COLORS.get(t.priority, "#f59e0b")})
         result = {"today": [], "upcoming": [], "overdue": []}
         for t in tasks:
             due = t.get("due_date", "")
@@ -2526,108 +2299,43 @@ def extension_dismiss():
     except Exception as e:
         return ext_response({"status": "error"}, 500)
 
-@app.route('/notifications/silence', methods=['POST'])
-def silence_notifications():
-    data = request.json
-    minutes = int(data.get('minutes', 0))
-
-    if minutes <= 0:
-        return jsonify({'status': 'error', 'message': 'Invalid duration'})
-
-    silenced_until = datetime.utcnow() + timedelta(minutes=minutes)
-
-    # store per user session (replace with DB if you have accounts)
-    session['notifications_silenced_until'] = silenced_until.isoformat()
-
-    return jsonify({
-        'status': 'ok',
-        'silenced_until': silenced_until.isoformat()
-    })
-
-@app.route('/notifications/status')
-def notification_status():
-    return jsonify({
-        'silenced_until': session.get('notifications_silenced_until')
-    })
-
-@app.route('/install/ios')
-def install_ios():
-    return render_template('install_ios.html') 
- 
-def get_study_profile(user_id=None, guest_id=None):
-    if user_id:
-        p = StudyPoints.query.filter_by(user_id=user_id).first()
-        if not p:
-            p = StudyPoints(user_id=user_id)
-            db.session.add(p)
-            db.session.commit()
-    else:
-        p = StudyPoints.query.filter_by(guest_session_id=guest_id).first()
-        if not p:
-            p = StudyPoints(guest_session_id=guest_id)
-            db.session.add(p)
-            db.session.commit()
-    return p 
-  
-@app.route("/study")
-def study():
-    return render_template("study.html", active_page="study")
- 
- 
+# ── STUDY ROUTES ──────────────────────────────────────────────
 @app.route("/study/generate", methods=["POST"])
 def study_generate():
     data = request.json or {}
     content = data.get("content", "").strip()
-    mode = data.get("mode", "casual")
     num_questions = data.get("num_questions", 8)
- 
     if not content:
         return flask.jsonify({"status": "error", "message": "No content provided"})
     if len(content) > 20000:
         content = content[:20000]
- 
-    prompt = f'''You are an expert study assistant. Analyze the following study material and generate exactly {num_questions} study questions.
- 
+    prompt = f'''You are an expert study assistant. Generate exactly {num_questions} study questions from this material.
+
 STUDY MATERIAL:
 {content}
- 
-Generate a mix of:
-- 3 recall/definition questions
-- 2-3 conceptual questions (understanding why/how)  
-- 2-3 short-answer questions (application)
- 
-Also extract 5-8 key concepts from the material.
- 
+
+Generate a mix of recall, conceptual, and short-answer questions. Extract 5-8 key concepts.
+
 Return ONLY valid JSON:
 {{
   "title": "Brief topic title (5 words max)",
-  "key_concepts": [
-    {{"term": "Term name", "definition": "Clear 1-2 sentence definition"}}
-  ],
-  "questions": [
-    {{
-      "id": 1,
-      "type": "recall",
-      "question": "Question text?",
-      "answer": "Complete 2-4 sentence answer.",
-      "hint": "one-word hint",
-      "memory_anchor": "Simple intuitive way to remember this concept in 1-2 sentences.",
-      "better_answer_example": "An ideal student response demonstrating full understanding."
-    }}
-  ]
+  "key_concepts": [{{"term": "Term", "definition": "1-2 sentence definition"}}],
+  "questions": [{{
+    "id": 1,
+    "type": "recall",
+    "question": "Question text?",
+    "answer": "Complete 2-4 sentence answer.",
+    "hint": "one-word hint",
+    "memory_anchor": "Simple way to remember this in 1-2 sentences.",
+    "better_answer_example": "An ideal student response."
+  }}]
 }}
- 
-Question types: "recall", "conceptual", "short-answer"
-Make answers thorough. Include a memory_anchor and better_answer_example for every question.'''
- 
+
+Question types: "recall", "conceptual", "short-answer"'''
+
     try:
         client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.4,
-            max_tokens=4000
-        )
+        response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}], temperature=0.4, max_tokens=4000)
         raw = response.choices[0].message.content.strip()
         raw = re.sub(r"```json\n?", "", raw)
         raw = re.sub(r"```\n?", "", raw)
@@ -2635,9 +2343,8 @@ Make answers thorough. Include a memory_anchor and better_answer_example for eve
         return flask.jsonify({"status": "ok", "data": result})
     except Exception as e:
         print(f"Study generate error: {e}")
-        return flask.jsonify({"status": "error", "message": str(e)})
- 
- 
+        return flask.jsonify({"status": "error", "message": "AI study generation is temporarily unavailable. Please try again."})
+
 @app.route("/study/evaluate", methods=["POST"])
 def study_evaluate():
     data = request.json or {}
@@ -2645,63 +2352,44 @@ def study_evaluate():
     correct_answer = data.get("correct_answer", "").strip()
     user_answer = data.get("user_answer", "").strip()
     confidence = data.get("confidence", "medium")
- 
     if not user_answer:
         return flask.jsonify({"status": "error", "message": "No answer provided"})
- 
-    prompt = f'''You are an expert study evaluator. Evaluate a student's answer against the correct answer.
- 
+    prompt = f'''Evaluate this student answer against the correct answer semantically.
+
 QUESTION: {question}
- 
 CORRECT ANSWER: {correct_answer}
- 
 STUDENT'S ANSWER: {user_answer}
- 
-Evaluate semantically — look for conceptual understanding, not just keyword matching.
- 
+
 Return ONLY valid JSON:
 {{
   "verdict": "correct" | "partial" | "incorrect",
   "score": 0-100,
-  "what_was_right": "Specific things the student got correct (be encouraging)",
-  "what_was_missing": "Specific gaps or misconceptions (be precise, not harsh)",
-  "critique": "2-3 sentence constructive critique explaining what to improve",
-  "memory_anchor": "One vivid, simple way to remember this concept",
-  "better_answer": "An ideal concise response showing full understanding"
+  "what_was_right": "Encouraging feedback on what was correct",
+  "what_was_missing": "Precise gaps or misconceptions",
+  "critique": "2-3 sentence constructive critique",
+  "memory_anchor": "One vivid way to remember this concept",
+  "better_answer": "Ideal concise response"
 }}
- 
-Scoring guidance:
-- correct: 80-100 (main concept captured, even if wording differs)
-- partial: 40-79 (some understanding shown, key elements missing)
-- incorrect: 0-39 (fundamental misunderstanding or blank/off-topic)'''
- 
+
+Scoring: correct=80-100, partial=40-79, incorrect=0-39'''
+
     try:
         client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            max_tokens=800
-        )
+        response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}], temperature=0.3, max_tokens=800)
         raw = response.choices[0].message.content.strip()
         raw = re.sub(r"```json\n?", "", raw)
         raw = re.sub(r"```\n?", "", raw)
         result = json.loads(raw)
- 
-        # Calculate points based on verdict + confidence
         base = {"correct": 10, "partial": 4, "incorrect": 1}.get(result["verdict"], 1)
         conf_mult = {"high": 1.5, "medium": 1.0, "low": 0.7}.get(confidence, 1.0)
         if result["verdict"] == "incorrect" and confidence == "high":
-            conf_mult = 0.5  # penalty for overconfident wrong
-        points = max(1, round(base * conf_mult))
-        result["points_earned"] = points
- 
+            conf_mult = 0.5
+        result["points_earned"] = max(1, round(base * conf_mult))
         return flask.jsonify({"status": "ok", "evaluation": result})
     except Exception as e:
         print(f"Study evaluate error: {e}")
-        return flask.jsonify({"status": "error", "message": str(e)})
- 
- 
+        return flask.jsonify({"status": "error", "message": "Evaluation temporarily unavailable. Please try again."})
+
 @app.route("/study/extract-pdf", methods=["POST"])
 def study_extract_pdf():
     if "file" not in request.files:
@@ -2714,24 +2402,66 @@ def study_extract_pdf():
         return flask.jsonify({"status": "ok", "text": text[:15000]})
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
- 
- 
-def get_study_profile(user_id=None, guest_id=None):
-    if user_id:
-        p = StudyPoints.query.filter_by(user_id=user_id).first()
-        if not p:
-            p = StudyPoints(user_id=user_id)
-            db.session.add(p)
-            db.session.commit()
-    else:
-        p = StudyPoints.query.filter_by(guest_session_id=guest_id).first()
-        if not p:
-            p = StudyPoints(guest_session_id=guest_id)
-            db.session.add(p)
-            db.session.commit()
-    return p
- 
- 
+
+@app.route("/study/analyze-image", methods=["POST"])
+def study_analyze_image():
+    if "image" not in request.files:
+        return flask.jsonify({"status": "error", "message": "No image provided"})
+    img_file = request.files["image"]
+    allowed_types = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+    if img_file.content_type not in allowed_types:
+        return flask.jsonify({"status": "error", "message": "Only JPEG, PNG, WebP, or GIF images are supported"})
+    try:
+        raw = img_file.read()
+        if len(raw) > 10 * 1024 * 1024:
+            return flask.jsonify({"status": "error", "message": "Image too large. Max 10MB."})
+        b64 = base64.b64encode(raw).decode("utf-8")
+        media_type = img_file.content_type
+        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        response = client.chat.completions.create(
+            model="llama-3.2-11b-vision-preview",
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{b64}"}},
+                    {"type": "text", "text": "Extract ALL text, formulas, diagrams, tables, and key information from this educational image. Format as clean, readable study material. Preserve all text exactly, describe visual elements, preserve mathematical formulas, and note labels and captions. Output the extracted content directly without any preamble."}
+                ]
+            }],
+            max_tokens=2000,
+            temperature=0.1
+        )
+        extracted = response.choices[0].message.content.strip()
+        if not extracted:
+            return flask.jsonify({"status": "error", "message": "No content could be extracted from this image"})
+        return flask.jsonify({"status": "ok", "text": extracted, "char_count": len(extracted)})
+    except Exception as e:
+        print(f"Image analysis error: {e}")
+        return flask.jsonify({"status": "error", "message": "Image analysis is temporarily unavailable. Try pasting the text manually."})
+
+@app.route("/analyze-image", methods=["POST"])
+def analyze_image_general():
+    if "image" not in request.files:
+        return flask.jsonify({"status": "error", "message": "No image provided"})
+    img_file = request.files["image"]
+    question = request.form.get("question", "Describe what you see in this image in detail.")
+    try:
+        raw = img_file.read()
+        if len(raw) > 10 * 1024 * 1024:
+            return flask.jsonify({"status": "error", "message": "Image too large. Max 10MB."})
+        b64 = base64.b64encode(raw).decode("utf-8")
+        media_type = img_file.content_type or "image/jpeg"
+        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        response = client.chat.completions.create(
+            model="llama-3.2-11b-vision-preview",
+            messages=[{"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{b64}"}}, {"type": "text", "text": question}]}],
+            max_tokens=1500,
+            temperature=0.3
+        )
+        return flask.jsonify({"status": "ok", "response": response.choices[0].message.content.strip()})
+    except Exception as e:
+        print(f"General image analysis error: {e}")
+        return flask.jsonify({"status": "error", "message": "Service temporarily unavailable. Please try again later."})
+
 @app.route("/study/points", methods=["GET"])
 def study_get_points():
     uid = current_user.id if current_user.is_authenticated else None
@@ -2748,13 +2478,12 @@ def study_get_points():
             "last_active_date": p.last_active_date,
             "streak_history": history,
             "session_history": sessions[-20:],
-            "longest_streak": getattr(p, 'longest_streak', p.streak_count),
-            "total_sessions": getattr(p, 'total_sessions', 0)
+            "longest_streak": p.longest_streak or p.streak_count,
+            "total_sessions": p.total_sessions or 0
         })
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
- 
- 
+
 @app.route("/study/points/update", methods=["POST"])
 def study_update_points():
     uid = current_user.id if current_user.is_authenticated else None
@@ -2769,8 +2498,7 @@ def study_update_points():
         return flask.jsonify({"status": "ok", "total_points": p.total_points})
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
- 
- 
+
 @app.route("/study/streak/update", methods=["POST"])
 def study_update_streak():
     uid = current_user.id if current_user.is_authenticated else None
@@ -2781,17 +2509,8 @@ def study_update_streak():
         history = json.loads(p.streak_history or "[]")
         last = p.last_active_date
         bonus_points = 0
- 
         if last == today_str:
-            return flask.jsonify({
-                "status": "ok",
-                "streak_count": p.streak_count,
-                "bonus_points": 0,
-                "total_points": p.total_points,
-                "streak_history": history,
-                "longest_streak": getattr(p, 'longest_streak', p.streak_count)
-            })
- 
+            return flask.jsonify({"status": "ok", "streak_count": p.streak_count, "bonus_points": 0, "total_points": p.total_points, "streak_history": history, "longest_streak": p.longest_streak or p.streak_count})
         yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
         if last == yesterday:
             p.streak_count += 1
@@ -2803,18 +2522,13 @@ def study_update_streak():
                 p.streak_count += 1
             else:
                 p.streak_count = 1
- 
         p.last_active_date = today_str
         if today_str not in history:
             history.append(today_str)
         history = sorted(history)[-90:]
         p.streak_history = json.dumps(history)
- 
-        # Update longest streak
-        if not hasattr(p, 'longest_streak') or p.streak_count > (p.longest_streak or 0):
+        if p.streak_count > (p.longest_streak or 0):
             p.longest_streak = p.streak_count
- 
-        # Bonuses
         if p.streak_count == 3:
             bonus_points = 10
         elif p.streak_count == 7:
@@ -2825,24 +2539,13 @@ def study_update_streak():
             bonus_points = 25
             if p.streak_freeze_count < 2:
                 p.streak_freeze_count += 1
- 
         p.total_points += bonus_points
-        p.total_sessions = (getattr(p, 'total_sessions', 0) or 0) + 1
+        p.total_sessions = (p.total_sessions or 0) + 1
         db.session.commit()
- 
-        return flask.jsonify({
-            "status": "ok",
-            "streak_count": p.streak_count,
-            "streak_freeze_count": p.streak_freeze_count,
-            "bonus_points": bonus_points,
-            "total_points": p.total_points,
-            "streak_history": history,
-            "longest_streak": p.longest_streak or p.streak_count
-        })
+        return flask.jsonify({"status": "ok", "streak_count": p.streak_count, "streak_freeze_count": p.streak_freeze_count, "bonus_points": bonus_points, "total_points": p.total_points, "streak_history": history, "longest_streak": p.longest_streak or p.streak_count})
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
- 
- 
+
 @app.route("/study/mastery/update", methods=["POST"])
 def study_mastery_update():
     uid = current_user.id if current_user.is_authenticated else None
@@ -2851,32 +2554,16 @@ def study_mastery_update():
     question_key = data.get("question_key", "")[:512]
     verdict = data.get("verdict", "incorrect")
     score = int(data.get("score", 0))
- 
     if not question_key:
         return flask.jsonify({"status": "error"})
- 
     today = datetime.now().strftime("%Y-%m-%d")
- 
     try:
-        q = StudyMastery.query.filter_by(
-            user_id=uid, guest_session_id=gid, question_key=question_key
-        ).first()
- 
+        q = StudyMastery.query.filter_by(user_id=uid, guest_session_id=gid, question_key=question_key).first()
         if not q:
-            q = StudyMastery(
-                user_id=uid,
-                guest_session_id=gid,
-                question_key=question_key,
-                question_text=data.get("question_text", "")[:1000],
-                answer_text=data.get("answer_text", "")[:1000],
-                topic=data.get("topic", "")[:256],
-            )
+            q = StudyMastery(user_id=uid, guest_session_id=gid, question_key=question_key, question_text=data.get("question_text", "")[:1000], answer_text=data.get("answer_text", "")[:1000], topic=data.get("topic", "")[:256])
             db.session.add(q)
- 
         q.times_seen += 1
         q.last_seen = today
- 
-        # SM-2 spaced repetition
         if verdict == "correct":
             q.times_correct += 1
             q.easiness_factor = max(1.3, q.easiness_factor + 0.1 - (5 - min(5, score // 20)) * (0.08 + (5 - min(5, score // 20)) * 0.02))
@@ -2895,24 +2582,14 @@ def study_mastery_update():
             q.interval_days = 1
             q.easiness_factor = max(1.3, q.easiness_factor - 0.2)
             q.mastery_level = max(0, q.mastery_level - 1)
- 
-        next_rev = datetime.now() + timedelta(days=q.interval_days)
-        q.next_review = next_rev.strftime("%Y-%m-%d")
- 
+        q.next_review = (datetime.now() + timedelta(days=q.interval_days)).strftime("%Y-%m-%d")
         db.session.commit()
         mastery_labels = ["Not Learned", "Learning", "Familiar", "Mastered"]
-        return flask.jsonify({
-            "status": "ok",
-            "mastery_level": q.mastery_level,
-            "mastery_label": mastery_labels[q.mastery_level],
-            "next_review": q.next_review,
-            "interval_days": q.interval_days
-        })
+        return flask.jsonify({"status": "ok", "mastery_level": q.mastery_level, "mastery_label": mastery_labels[q.mastery_level], "next_review": q.next_review, "interval_days": q.interval_days})
     except Exception as e:
         print(f"Mastery update error: {e}")
         return flask.jsonify({"status": "error", "message": str(e)})
- 
- 
+
 @app.route("/study/mastery/due", methods=["GET"])
 def study_mastery_due():
     uid = current_user.id if current_user.is_authenticated else None
@@ -2920,34 +2597,14 @@ def study_mastery_due():
     today = datetime.now().strftime("%Y-%m-%d")
     try:
         if uid:
-            items = StudyMastery.query.filter(
-                StudyMastery.user_id == uid,
-                StudyMastery.next_review <= today,
-                StudyMastery.mastery_level < 3
-            ).order_by(StudyMastery.next_review.asc()).limit(20).all()
+            items = StudyMastery.query.filter(StudyMastery.user_id == uid, StudyMastery.next_review <= today, StudyMastery.mastery_level < 3).order_by(StudyMastery.next_review.asc()).limit(20).all()
         else:
-            items = StudyMastery.query.filter(
-                StudyMastery.guest_session_id == gid,
-                StudyMastery.next_review <= today,
-                StudyMastery.mastery_level < 3
-            ).order_by(StudyMastery.next_review.asc()).limit(20).all()
- 
+            items = StudyMastery.query.filter(StudyMastery.guest_session_id == gid, StudyMastery.next_review <= today, StudyMastery.mastery_level < 3).order_by(StudyMastery.next_review.asc()).limit(20).all()
         mastery_labels = ["Not Learned", "Learning", "Familiar", "Mastered"]
-        return flask.jsonify([{
-            "question_key": m.question_key,
-            "question_text": m.question_text,
-            "answer_text": m.answer_text,
-            "topic": m.topic,
-            "mastery_level": m.mastery_level,
-            "mastery_label": mastery_labels[m.mastery_level],
-            "times_seen": m.times_seen,
-            "times_correct": m.times_correct,
-            "next_review": m.next_review,
-        } for m in items])
+        return flask.jsonify([{"question_key": m.question_key, "question_text": m.question_text, "answer_text": m.answer_text, "topic": m.topic, "mastery_level": m.mastery_level, "mastery_label": mastery_labels[m.mastery_level], "times_seen": m.times_seen, "times_correct": m.times_correct, "next_review": m.next_review} for m in items])
     except Exception as e:
         return flask.jsonify([])
- 
- 
+
 @app.route("/study/mastery/all", methods=["GET"])
 def study_mastery_all():
     uid = current_user.id if current_user.is_authenticated else None
@@ -2958,21 +2615,10 @@ def study_mastery_all():
         else:
             items = StudyMastery.query.filter_by(guest_session_id=gid).order_by(StudyMastery.mastery_level.asc()).limit(100).all()
         mastery_labels = ["Not Learned", "Learning", "Familiar", "Mastered"]
-        return flask.jsonify([{
-            "question_key": m.question_key,
-            "question_text": m.question_text,
-            "topic": m.topic,
-            "mastery_level": m.mastery_level,
-            "mastery_label": mastery_labels[m.mastery_level],
-            "times_seen": m.times_seen,
-            "times_correct": m.times_correct,
-            "accuracy": round(m.times_correct / m.times_seen * 100) if m.times_seen else 0,
-            "next_review": m.next_review,
-        } for m in items])
+        return flask.jsonify([{"question_key": m.question_key, "question_text": m.question_text, "topic": m.topic, "mastery_level": m.mastery_level, "mastery_label": mastery_labels[m.mastery_level], "times_seen": m.times_seen, "times_correct": m.times_correct, "accuracy": round(m.times_correct / m.times_seen * 100) if m.times_seen else 0, "next_review": m.next_review} for m in items])
     except Exception as e:
         return flask.jsonify([])
- 
- 
+
 @app.route("/study/session/complete", methods=["POST"])
 def study_session_complete():
     uid = current_user.id if current_user.is_authenticated else None
@@ -2981,22 +2627,83 @@ def study_session_complete():
     try:
         p = get_study_profile(uid, gid)
         sessions = json.loads(p.session_history or "[]")
-        session_record = {
-            "date": datetime.now().strftime("%Y-%m-%d"),
-            "mode": data.get("mode", "casual"),
-            "questions": data.get("questions_total", 0),
-            "correct": data.get("questions_correct", 0),
-            "partial": data.get("questions_partial", 0),
-            "points": data.get("points_earned", 0),
-            "duration": data.get("duration_seconds", 0)
-        }
-        sessions.append(session_record)
+        sessions.append({"date": datetime.now().strftime("%Y-%m-%d"), "mode": data.get("mode", "casual"), "questions": data.get("questions_total", 0), "correct": data.get("questions_correct", 0), "partial": data.get("questions_partial", 0), "points": data.get("points_earned", 0), "duration": data.get("duration_seconds", 0)})
         p.session_history = json.dumps(sessions[-50:])
         p.total_points += data.get("points_earned", 0)
         db.session.commit()
         return flask.jsonify({"status": "ok", "total_points": p.total_points})
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
+
+# ── ERROR HANDLERS ────────────────────────────────────────────
+@app.errorhandler(404)
+def error_404(e):
+    if request.path.startswith("/extension/") or request.path.startswith("/api/"):
+        return flask.jsonify({"status": "error", "message": "Not found"}), 404
+    try:
+        return render_template("error.html", active_page="error", error_code=404, error_id=make_error_id()), 404
+    except:
+        return flask.Response("<h1>404 Not Found</h1><a href='/'>Home</a>", status=404, mimetype="text/html")
+
+@app.errorhandler(403)
+def error_403(e):
+    if request.path.startswith("/extension/") or request.path.startswith("/api/"):
+        return flask.jsonify({"status": "error", "message": "Forbidden"}), 403
+    try:
+        return render_template("error.html", active_page="error", error_code=403, error_id=make_error_id()), 403
+    except:
+        return flask.Response("<h1>403 Forbidden</h1><a href='/'>Home</a>", status=403, mimetype="text/html")
+
+@app.errorhandler(429)
+def error_429(e):
+    if request.path.startswith("/extension/") or request.path.startswith("/api/") or request.is_json:
+        return flask.jsonify({"status": "error", "message": "Rate limit exceeded. Please wait a moment before trying again."}), 429
+    try:
+        return render_template("error.html", active_page="error", error_code=429, error_id=make_error_id()), 429
+    except:
+        return flask.Response("<h1>429 Too Many Requests</h1><a href='/'>Home</a>", status=429, mimetype="text/html")
+
+@app.errorhandler(500)
+def error_500(e):
+    err_id = make_error_id()
+    print(f"[{err_id}] Internal Server Error: {e}")
+    if os.getenv("SENTRY_DSN"):
+        try:
+            sentry_sdk.capture_exception(e)
+        except Exception:
+            pass
+    if request.path.startswith("/extension/") or request.path.startswith("/api/") or request.is_json:
+        return flask.jsonify({"status": "error", "message": "Internal server error. Please try again.", "error_id": err_id}), 500
+    try:
+        return render_template("error.html", active_page="error", error_code=500, error_id=err_id), 500
+    except:
+        return flask.Response(f"<h1>500 Server Error</h1><p>Error ID: {err_id}</p><a href='/'>Home</a>", status=500, mimetype="text/html")
+
+@app.errorhandler(503)
+def error_503(e):
+    if request.path.startswith("/extension/") or request.path.startswith("/api/") or request.is_json:
+        return flask.jsonify({"status": "error", "message": "Service temporarily unavailable. Please try again later."}), 503
+    try:
+        return render_template("error.html", active_page="error", error_code=503, error_id=make_error_id()), 503
+    except:
+        return flask.Response("<h1>503 Service Unavailable</h1><a href='/'>Home</a>", status=503, mimetype="text/html")
+
+@app.errorhandler(Exception)
+def handle_unhandled_exception(e):
+    import traceback
+    err_id = make_error_id()
+    print(f"[{err_id}] Unhandled exception:\n{traceback.format_exc()}")
+    if os.getenv("SENTRY_DSN"):
+        try:
+            sentry_sdk.capture_exception(e)
+        except Exception:
+            pass
+    if request.path.startswith("/extension/") or request.path.startswith("/api/") or request.is_json:
+        return flask.jsonify({"status": "error", "message": "An unexpected error occurred. Please try again.", "error_id": err_id}), 500
+    try:
+        return render_template("error.html", active_page="error", error_code=500, error_id=err_id), 500
+    except Exception:
+        return flask.Response(f"<h1>Server Error</h1><p>Error ID: {err_id}</p><a href='/'>Home</a>", status=500, mimetype="text/html")
 
 if __name__ == "__main__":
     with app.app_context():
