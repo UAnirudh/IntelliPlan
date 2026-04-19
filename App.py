@@ -2352,13 +2352,22 @@ def study_evaluate():
     correct_answer = data.get("correct_answer", "").strip()
     user_answer = data.get("user_answer", "").strip()
     confidence = data.get("confidence", "medium")
+
     if not user_answer:
         return flask.jsonify({"status": "error", "message": "No answer provided"})
-    prompt = f'''Evaluate this student answer against the correct answer semantically.
+
+    prompt = f'''Evaluate this student answer against the correct answer SEMANTICALLY and LENIENTLY.
 
 QUESTION: {question}
 CORRECT ANSWER: {correct_answer}
 STUDENT'S ANSWER: {user_answer}
+
+Guidelines:
+- Focus on meaning, not exact wording.
+- If the student captures the main idea, mark at least "partial".
+- Minor wording differences or missing detail should NOT be marked incorrect.
+- Only mark "incorrect" if the core concept is wrong or missing.
+- Reward approximate understanding.
 
 Return ONLY valid JSON:
 {{
@@ -2371,25 +2380,67 @@ Return ONLY valid JSON:
   "better_answer": "Ideal concise response"
 }}
 
-Scoring: correct=80-100, partial=40-79, incorrect=0-39'''
+Scoring guide:
+- correct: 70-100 (main idea + mostly accurate)
+- partial: 40-69 (some understanding present)
+- incorrect: 0-39 (core idea missing or wrong)
+'''
 
     try:
         client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-        response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}], temperature=0.3, max_tokens=800)
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.4,
+            max_tokens=800
+        )
+
         raw = response.choices[0].message.content.strip()
         raw = re.sub(r"```json\n?", "", raw)
         raw = re.sub(r"```\n?", "", raw)
         result = json.loads(raw)
-        base = {"correct": 10, "partial": 4, "incorrect": 1}.get(result["verdict"], 1)
+
+        # --- Leniency Overrides ---
+        ua = user_answer.lower()
+        ca = correct_answer.lower()
+
+        # Keyword overlap check
+        keywords = [w for w in re.findall(r'\w+', ca) if len(w) > 4]
+        keyword_hits = sum(1 for w in keywords if w in ua)
+
+        # Similarity check
+        from difflib import SequenceMatcher
+        similarity = SequenceMatcher(None, ua, ca).ratio()
+
+        # Override overly harsh grading
+        if result["verdict"] == "incorrect":
+            if keyword_hits >= 2 or similarity > 0.5:
+                result["verdict"] = "partial"
+                result["score"] = max(result.get("score", 0), 45)
+
+        if result["verdict"] == "partial" and similarity > 0.75:
+            result["verdict"] = "correct"
+            result["score"] = max(result.get("score", 0), 75)
+
+        # --- Points System (less punishing) ---
+        base = {"correct": 10, "partial": 7, "incorrect": 3}.get(result["verdict"], 3)
         conf_mult = {"high": 1.5, "medium": 1.0, "low": 0.7}.get(confidence, 1.0)
+
         if result["verdict"] == "incorrect" and confidence == "high":
-            conf_mult = 0.5
+            conf_mult = 0.6  # softer penalty
+
         result["points_earned"] = max(1, round(base * conf_mult))
+
         return flask.jsonify({"status": "ok", "evaluation": result})
+
     except Exception as e:
         print(f"Study evaluate error: {e}")
-        return flask.jsonify({"status": "error", "message": "Evaluation temporarily unavailable. Please try again."})
+        return flask.jsonify({
+            "status": "error",
+            "message": "Evaluation temporarily unavailable. Please try again."
+        })
 
+        
 @app.route("/study/extract-pdf", methods=["POST"])
 def study_extract_pdf():
     if "file" not in request.files:
