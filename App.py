@@ -1022,14 +1022,6 @@ def gradebook_detail():
         return flask.jsonify(get_gradebook_detail(acct["sv_district_url"], acct["sv_username"], acct["sv_password"]))
     return flask.jsonify([])
 
-@app.route("/dismiss", methods=["POST"])
-def dismiss():
-    assignment = request.json
-    title = assignment.get("title")
-    if title:
-        save_dismissed(title, assignment)
-    return flask.jsonify({"status": "ok"})
-
 @app.route("/dismissed/data")
 def dismissed_data():
     rows = get_dismissed_rows()
@@ -1214,12 +1206,33 @@ def notes_file(note_id):
         return flask.jsonify({"status": "error", "message": "Note not found"}), 404
     return flask.jsonify({"status": "ok", "view_url": getattr(note, "download_url", None), "filename": getattr(note, "original_filename", None), "text_content": getattr(note, "text_content", "")})
 
+@app.route("/dismiss", methods=["POST"])
+def dismiss():
+    data = request.get_json(silent=True) or {}
+    title = (data.get("title") or "").strip()
+
+    if not title:
+        return flask.jsonify({"status": "error", "message": "Missing title"}), 400
+
+    try:
+        save_dismissed(title, data)
+        return flask.jsonify({"status": "ok"})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route("/restore", methods=["POST"])
 def restore():
-    title = request.json.get("title")
-    if title:
+    data = request.get_json(silent=True) or {}
+    title = (data.get("title") or "").strip()
+
+    if not title:
+        return flask.jsonify({"status": "error", "message": "Missing title"}), 400
+
+    try:
         delete_dismissed(title)
-    return flask.jsonify({"status": "ok"})
+        return flask.jsonify({"status": "ok"})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route("/assignment/description", methods=["GET"])
 def get_description():
