@@ -1,13 +1,124 @@
 {% extends "base.html" %}
 
 {% block content %}
+<style>
+  .grades-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  @media (max-width: 640px) {
+    .grades-grid {
+      grid-template-columns: 1fr;
+      gap: 0.85rem;
+    }
+    .grade-card {
+      padding: 1rem !important;
+    }
+    .grade-course-name {
+      font-size: 0.88rem !important;
+    }
+    .grade-badge {
+      font-size: 1rem !important;
+      padding: 6px 12px !important;
+    }
+  }
+
+  .grade-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    transition: transform 0.2s, box-shadow 0.2s;
+    animation: fadeUp 0.4s ease both;
+  }
+
+  .grade-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+  }
+
+  .grade-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    gap: 0.75rem;
+  }
+
+  .grade-card-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .grade-course-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    word-break: break-word;
+    line-height: 1.3;
+  }
+
+  .grade-teacher {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+
+  .grade-badge {
+    padding: 8px 16px;
+    border-radius: 12px;
+    font-size: 1.25rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .grade-bar-wrap {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+
+  .grade-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.8s ease;
+  }
+
+  .grade-percentage {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-align: right;
+    font-weight: 500;
+  }
+
+  .grades-error {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-muted);
+  }
+
+  .grades-loading {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-muted);
+  }
+</style>
+
 <div class="page-header">
   <h1 class="page-title">Grades</h1>
   <p class="page-subtitle">Your current grades across all courses</p>
 </div>
 
 <div class="grades-grid" id="gradesGrid">
-  <div class="loading">
+  <div class="grades-loading">
     <div class="spinner"></div>
     <p>Loading grades...</p>
   </div>
@@ -22,6 +133,7 @@
 
 {% block scripts %}
 function getLetterColor(letter) {
+  if (!letter) return { bg: 'var(--accent-soft)', color: 'var(--accent)' };
   if (letter.startsWith('A')) return { bg: 'var(--low-bg)', color: 'var(--low)' };
   if (letter.startsWith('B')) return { bg: 'var(--accent-soft)', color: 'var(--accent)' };
   if (letter.startsWith('C')) return { bg: 'var(--medium-bg)', color: 'var(--medium)' };
@@ -29,48 +141,72 @@ function getLetterColor(letter) {
 }
 
 function getBarWidth(percentage) {
-  if (!percentage) return 0;
-  return Math.min(percentage, 100);
+  if (percentage === null || percentage === undefined || isNaN(percentage)) return 0;
+  return Math.min(Math.max(parseFloat(percentage), 0), 100);
 }
 
 fetch('/grades/data')
-  .then(r => r.json())
+  .then(r => {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  })
   .then(data => {
     const grid = document.getElementById('gradesGrid');
     const empty = document.getElementById('emptyState');
     grid.innerHTML = '';
 
-    if (!data.length) {
+    if (!Array.isArray(data) || !data.length) {
       empty.classList.add('visible');
       return;
     }
 
     data.forEach((g, i) => {
-      const colors = getLetterColor(g.letter);
+      const letter = g.letter || '—';
+      const colors = getLetterColor(letter);
       const bar = getBarWidth(g.percentage);
+      const pctDisplay = (g.percentage !== null && g.percentage !== undefined)
+        ? parseFloat(g.percentage).toFixed(1) + '%'
+        : 'N/A';
+
       const card = document.createElement('div');
       card.className = 'grade-card';
       card.style.animationDelay = `${i * 0.07}s`;
       card.innerHTML = `
         <div class="grade-card-header">
           <div class="grade-card-info">
-            <div class="grade-course-name">${g.course}</div>
-            <div class="grade-teacher">👤 ${g.teacher}</div>
+            <div class="grade-course-name">${g.course || 'Unknown Course'}</div>
+            <div class="grade-teacher">👤 ${g.teacher || 'No teacher listed'}</div>
           </div>
           <div class="grade-badge" style="background:${colors.bg}; color:${colors.color};">
-            ${g.letter}
+            ${letter}
           </div>
         </div>
         <div class="grade-bar-wrap">
-          <div class="grade-bar" style="width:${bar}%; background:${colors.color};"></div>
+          <div class="grade-bar" style="width:0%; background:${colors.color};"></div>
         </div>
-        <div class="grade-percentage">${g.percentage !== null ? g.percentage + '%' : 'N/A'}</div>
+        <div class="grade-percentage">${pctDisplay}</div>
       `;
       grid.appendChild(card);
+
+      // Animate bar after paint
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          const barEl = card.querySelector('.grade-bar');
+          if (barEl) barEl.style.width = bar + '%';
+        }, 50 + i * 70);
+      });
     });
   })
-  .catch(() => {
-    document.getElementById('gradesGrid').innerHTML =
-      '<div class="loading"><p>⚠️ Could not load grades.</p></div>';
+  .catch(err => {
+    console.error('Grades load error:', err);
+    const grid = document.getElementById('gradesGrid');
+    grid.innerHTML = `
+      <div class="grades-error">
+        <div style="font-size:2rem;margin-bottom:0.75rem;">⚠️</div>
+        <div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">Could not load grades</div>
+        <div style="font-size:0.82rem;">Check your StudentVue connection in Settings</div>
+        <button onclick="location.reload()" style="margin-top:1rem;padding:8px 18px;border-radius:10px;border:1px solid var(--border);background:var(--bg-card);color:var(--accent);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:0.82rem;font-weight:600;">Try Again</button>
+      </div>
+    `;
   });
 {% endblock %}
