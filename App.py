@@ -2300,51 +2300,6 @@ def extension_dismiss():
         return ext_response({"status": "error"}, 500)
 
 # ── STUDY ROUTES ──────────────────────────────────────────────
-@app.route("/study/generate", methods=["POST"])
-def study_generate():
-    data = request.json or {}
-    content = data.get("content", "").strip()
-    num_questions = data.get("num_questions", 8)
-    if not content:
-        return flask.jsonify({"status": "error", "message": "No content provided"})
-    if len(content) > 20000:
-        content = content[:20000]
-    prompt = f'''You are an expert study assistant. Generate exactly {num_questions} study questions from this material.
-
-STUDY MATERIAL:
-{content}
-
-Generate a mix of recall, conceptual, and short-answer questions. Extract 5-8 key concepts.
-
-Return ONLY valid JSON:
-{{
-  "title": "Brief topic title (5 words max)",
-  "key_concepts": [{{"term": "Term", "definition": "1-2 sentence definition"}}],
-  "questions": [{{
-    "id": 1,
-    "type": "recall",
-    "question": "Question text?",
-    "answer": "Complete 2-4 sentence answer.",
-    "hint": "one-word hint",
-    "memory_anchor": "Simple way to remember this in 1-2 sentences.",
-    "better_answer_example": "An ideal student response."
-  }}]
-}}
-
-Question types: "recall", "conceptual", "short-answer"'''
-
-    try:
-        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-        response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}], temperature=0.4, max_tokens=4000)
-        raw = response.choices[0].message.content.strip()
-        raw = re.sub(r"```json\n?", "", raw)
-        raw = re.sub(r"```\n?", "", raw)
-        result = json.loads(raw)
-        return flask.jsonify({"status": "ok", "data": result})
-    except Exception as e:
-        print(f"Study generate error: {e}")
-        return flask.jsonify({"status": "error", "message": "AI study generation is temporarily unavailable. Please try again."})
-
 @app.route("/study/evaluate", methods=["POST"])
 def study_evaluate():
     data = request.json or {}
@@ -2439,20 +2394,6 @@ Scoring guide:
             "status": "error",
             "message": "Evaluation temporarily unavailable. Please try again."
         })
-
-        
-@app.route("/study/extract-pdf", methods=["POST"])
-def study_extract_pdf():
-    if "file" not in request.files:
-        return flask.jsonify({"status": "error", "message": "No file"})
-    f = request.files["file"]
-    try:
-        import PyPDF2
-        reader = PyPDF2.PdfReader(io.BytesIO(f.read()))
-        text = " ".join(page.extract_text() or "" for page in reader.pages)
-        return flask.jsonify({"status": "ok", "text": text[:15000]})
-    except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)})
 
 @app.route("/study/analyze-image", methods=["POST"])
 def study_analyze_image():
@@ -2755,6 +2696,195 @@ def handle_unhandled_exception(e):
         return render_template("error.html", active_page="error", error_code=500, error_id=err_id), 500
     except Exception:
         return flask.Response(f"<h1>Server Error</h1><p>Error ID: {err_id}</p><a href='/'>Home</a>", status=500, mimetype="text/html")
+
+
+# ── STUDY ACCESS LIMITS ───────────────────────────────────────
+
+GUEST_STUDY_LIMITS = {
+    "uploads": 1,        # one pasted text or one file
+    "generations": 1,    # one generated study session
+    "max_chars": 6000,   # shorter content for guests
+    "max_questions": 5   # fewer questions for guests
+}
+
+def _get_guest_usage():
+    """
+    Tracks guest study usage in session.
+    This is enough to enforce one-use access without creating a full DB row.
+    """
+    if "guest_study_usage" not in session:
+        session["guest_study_usage"] = {
+            "uploads": 0,
+            "generations": 0
+        }
+    return session["guest_study_usage"]
+
+def _save_guest_usage(usage):
+    session["guest_study_usage"] = usage
+    session.modified = True
+
+def _guest_limit_response():
+    return flask.jsonify({
+        "status": "error",
+        "code": "login_required",
+        "message": "Create an account to continue using Study & Learn.",
+        "upgrade_required": True
+    }), 403
+
+def _is_guest():
+    return not current_user.is_authenticated
+
+
+@app.route("/study/access", methods=["GET"])
+def study_access():
+    """
+    Optional helper for the frontend.
+    Lets the UI know whether the user is logged in and what guest limits apply.
+    """
+    if current_user.is_authenticated:
+        return flask.jsonify({
+            "status": "ok",
+            "logged_in": True,
+            "limits": None
+        })
+
+    usage = _get_guest_usage()
+    remaining_uploads = max(0, GUEST_STUDY_LIMITS["uploads"] - usage["uploads"])
+    remaining_generations = max(0, GUEST_STUDY_LIMITS["generations"] - usage["generations"])
+
+    return flask.jsonify({
+        "status": "ok",
+        "logged_in": False,
+        "limits": {
+            "remaining_uploads": remaining_uploads,
+            "remaining_generations": remaining_generations,
+            "max_questions": GUEST_STUDY_LIMITS["max_questions"]
+        }
+    })
+
+
+@app.route("/study/extract-pdf", methods=["POST"])
+def study_extract_pdf():
+    if "file" not in request.files:
+        return flask.jsonify({"status": "error", "message": "No file"}), 400
+
+    f = request.files["file"]
+
+    if not f.filename.lower().endswith(".pdf"):
+        return flask.jsonify({"status": "error", "message": "Only PDF files"}), 400
+
+    # Guest restriction: only one upload total
+    if _is_guest():
+        usage = _get_guest_usage()
+        if usage["uploads"] >= GUEST_STUDY_LIMITS["uploads"]:
+            return _guest_limit_response()
+
+    try:
+        import PyPDF2
+        reader = PyPDF2.PdfReader(io.BytesIO(f.read()))
+        text = " ".join(page.extract_text() or "" for page in reader.pages)
+
+        # Mark guest upload used only after a successful extraction
+        if _is_guest():
+            usage = _get_guest_usage()
+            usage["uploads"] += 1
+            _save_guest_usage(usage)
+
+        return flask.jsonify({
+            "status": "ok",
+            "text": text[:15000]
+        })
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/study/generate", methods=["POST"])
+def study_generate():
+    data = request.json or {}
+    content = data.get("content", "").strip()
+    mode = data.get("mode", "casual")
+    num_questions = int(data.get("num_questions", 8))
+
+    if not content:
+        return flask.jsonify({"status": "error", "message": "No content provided"}), 400
+
+    # Guest restriction: one generation total
+    if _is_guest():
+        usage = _get_guest_usage()
+        if usage["generations"] >= GUEST_STUDY_LIMITS["generations"]:
+            return _guest_limit_response()
+
+        # Make the guest version lighter and more limited
+        mode = "casual"
+        num_questions = min(num_questions, GUEST_STUDY_LIMITS["max_questions"])
+        content = content[:GUEST_STUDY_LIMITS["max_chars"]]
+
+    else:
+        if len(content) > 20000:
+            content = content[:20000]
+
+    prompt = f'''You are an expert study assistant. Analyze the following study material and generate exactly {num_questions} study questions.
+
+STUDY MATERIAL:
+{content}
+
+Generate a mix of:
+- 3-4 recall/definition questions (straightforward facts)
+- 2-3 conceptual questions (understanding why/how)
+- 2-3 short-answer questions (application or explanation)
+
+Also extract 5-8 key concepts from the material.
+
+Respond ONLY with valid JSON in this exact format:
+{{
+  "title": "Brief topic title (5 words max)",
+  "key_concepts": [
+    {{"term": "Term name", "definition": "Clear definition in 1-2 sentences"}}
+  ],
+  "questions": [
+    {{
+      "id": 1,
+      "type": "recall",
+      "question": "Question text here?",
+      "answer": "Complete, detailed answer here. Be thorough.",
+      "hint": "Optional one-word hint"
+    }}
+  ]
+}}
+
+Question types: "recall", "conceptual", "short-answer"
+Make answers comprehensive (2-4 sentences). Make questions specific to the content.
+Be accurate, but keep the tone supportive and student-friendly.'''
+
+    try:
+        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5,
+            max_tokens=1200 if _is_guest() else 3000
+        )
+
+        raw = response.choices[0].message.content.strip()
+        raw = re.sub(r"```json\s*", "", raw)
+        raw = re.sub(r"```", "", raw).strip()
+        result = json.loads(raw)
+
+        # Mark guest generation used only after successful output
+        if _is_guest():
+            usage = _get_guest_usage()
+            usage["generations"] += 1
+            _save_guest_usage(usage)
+
+        return flask.jsonify({"status": "ok", "data": result})
+
+    except Exception as e:
+        print(f"Study generate error: {e}")
+        return flask.jsonify({
+            "status": "error",
+            "message": "Study generation temporarily unavailable. Please try again later."
+        }), 500
+
 
 if __name__ == "__main__":
     with app.app_context():
