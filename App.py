@@ -19,6 +19,7 @@ import secrets as secrets_module
 from flask import jsonify
 from datetime import datetime, timedelta
 import io
+
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import (
     LoginManager, UserMixin, login_user, logout_user,
@@ -231,18 +232,6 @@ class ExtensionToken(db.Model):
     token = db.Column(db.String(64), unique=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-class StudyPoints(db.Model):
-    __tablename__ = "study_points"
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    guest_session_id = db.Column(db.String(64), nullable=True)
-    total_points = db.Column(db.Integer, default=0)
-    streak_count = db.Column(db.Integer, default=0)
-    streak_freeze_count = db.Column(db.Integer, default=0)
-    last_active_date = db.Column(db.String(16), default="")
-    streak_history = db.Column(db.Text, default="[]")
-    session_history = db.Column(db.Text, default="[]")
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow)
  
 class StudySession(db.Model):
     __tablename__ = "study_sessions"
@@ -255,6 +244,41 @@ class StudySession(db.Model):
     points_earned = db.Column(db.Integer, default=0)
     duration_seconds = db.Column(db.Integer, default=0)
     completed = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class StudyPoints(db.Model):
+    __tablename__ = "study_points"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    guest_session_id = db.Column(db.String(64), nullable=True)
+    total_points = db.Column(db.Integer, default=0)
+    streak_count = db.Column(db.Integer, default=0)
+    streak_freeze_count = db.Column(db.Integer, default=0)
+    last_active_date = db.Column(db.String(16), default="")
+    streak_history = db.Column(db.Text, default="[]")
+    session_history = db.Column(db.Text, default="[]")
+    longest_streak = db.Column(db.Integer, default=0)
+    total_sessions = db.Column(db.Integer, default=0)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+ 
+ 
+class StudyMastery(db.Model):
+    __tablename__ = "study_mastery"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    guest_session_id = db.Column(db.String(64), nullable=True)
+    question_key = db.Column(db.String(512), nullable=False)
+    question_text = db.Column(db.Text, default="")
+    answer_text = db.Column(db.Text, default="")
+    topic = db.Column(db.String(256), default="")
+    mastery_level = db.Column(db.Integer, default=0)
+    times_seen = db.Column(db.Integer, default=0)
+    times_correct = db.Column(db.Integer, default=0)
+    times_partial = db.Column(db.Integer, default=0)
+    last_seen = db.Column(db.String(16), default="")
+    next_review = db.Column(db.String(16), default="")
+    easiness_factor = db.Column(db.Float, default=2.5)
+    interval_days = db.Column(db.Integer, default=1)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 with app.app_context():
@@ -2528,8 +2552,23 @@ def notification_status():
 
 @app.route('/install/ios')
 def install_ios():
-    return render_template('install_ios.html')
-
+    return render_template('install_ios.html') 
+ 
+def get_study_profile(user_id=None, guest_id=None):
+    if user_id:
+        p = StudyPoints.query.filter_by(user_id=user_id).first()
+        if not p:
+            p = StudyPoints(user_id=user_id)
+            db.session.add(p)
+            db.session.commit()
+    else:
+        p = StudyPoints.query.filter_by(guest_session_id=guest_id).first()
+        if not p:
+            p = StudyPoints(guest_session_id=guest_id)
+            db.session.add(p)
+            db.session.commit()
+    return p 
+  
 @app.route("/study")
 def study():
     return render_template("study.html", active_page="study")
@@ -2553,31 +2592,33 @@ STUDY MATERIAL:
 {content}
  
 Generate a mix of:
-- 3-4 recall/definition questions (straightforward facts)
-- 2-3 conceptual questions (understanding why/how)
-- 2-3 short-answer questions (application or explanation)
+- 3 recall/definition questions
+- 2-3 conceptual questions (understanding why/how)  
+- 2-3 short-answer questions (application)
  
 Also extract 5-8 key concepts from the material.
  
-Respond ONLY with valid JSON in this exact format:
+Return ONLY valid JSON:
 {{
   "title": "Brief topic title (5 words max)",
   "key_concepts": [
-    {{"term": "Term name", "definition": "Clear definition in 1-2 sentences"}}
+    {{"term": "Term name", "definition": "Clear 1-2 sentence definition"}}
   ],
   "questions": [
     {{
       "id": 1,
       "type": "recall",
-      "question": "Question text here?",
-      "answer": "Complete, detailed answer here. Be thorough.",
-      "hint": "Optional one-word hint"
+      "question": "Question text?",
+      "answer": "Complete 2-4 sentence answer.",
+      "hint": "one-word hint",
+      "memory_anchor": "Simple intuitive way to remember this concept in 1-2 sentences.",
+      "better_answer_example": "An ideal student response demonstrating full understanding."
     }}
   ]
 }}
  
 Question types: "recall", "conceptual", "short-answer"
-Make answers comprehensive (2-4 sentences). Make questions specific to the content.'''
+Make answers thorough. Include a memory_anchor and better_answer_example for every question.'''
  
     try:
         client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -2585,7 +2626,7 @@ Make answers comprehensive (2-4 sentences). Make questions specific to the conte
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.4,
-            max_tokens=3000
+            max_tokens=4000
         )
         raw = response.choices[0].message.content.strip()
         raw = re.sub(r"```json\n?", "", raw)
@@ -2597,13 +2638,75 @@ Make answers comprehensive (2-4 sentences). Make questions specific to the conte
         return flask.jsonify({"status": "error", "message": str(e)})
  
  
+@app.route("/study/evaluate", methods=["POST"])
+def study_evaluate():
+    data = request.json or {}
+    question = data.get("question", "").strip()
+    correct_answer = data.get("correct_answer", "").strip()
+    user_answer = data.get("user_answer", "").strip()
+    confidence = data.get("confidence", "medium")
+ 
+    if not user_answer:
+        return flask.jsonify({"status": "error", "message": "No answer provided"})
+ 
+    prompt = f'''You are an expert study evaluator. Evaluate a student's answer against the correct answer.
+ 
+QUESTION: {question}
+ 
+CORRECT ANSWER: {correct_answer}
+ 
+STUDENT'S ANSWER: {user_answer}
+ 
+Evaluate semantically — look for conceptual understanding, not just keyword matching.
+ 
+Return ONLY valid JSON:
+{{
+  "verdict": "correct" | "partial" | "incorrect",
+  "score": 0-100,
+  "what_was_right": "Specific things the student got correct (be encouraging)",
+  "what_was_missing": "Specific gaps or misconceptions (be precise, not harsh)",
+  "critique": "2-3 sentence constructive critique explaining what to improve",
+  "memory_anchor": "One vivid, simple way to remember this concept",
+  "better_answer": "An ideal concise response showing full understanding"
+}}
+ 
+Scoring guidance:
+- correct: 80-100 (main concept captured, even if wording differs)
+- partial: 40-79 (some understanding shown, key elements missing)
+- incorrect: 0-39 (fundamental misunderstanding or blank/off-topic)'''
+ 
+    try:
+        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=800
+        )
+        raw = response.choices[0].message.content.strip()
+        raw = re.sub(r"```json\n?", "", raw)
+        raw = re.sub(r"```\n?", "", raw)
+        result = json.loads(raw)
+ 
+        # Calculate points based on verdict + confidence
+        base = {"correct": 10, "partial": 4, "incorrect": 1}.get(result["verdict"], 1)
+        conf_mult = {"high": 1.5, "medium": 1.0, "low": 0.7}.get(confidence, 1.0)
+        if result["verdict"] == "incorrect" and confidence == "high":
+            conf_mult = 0.5  # penalty for overconfident wrong
+        points = max(1, round(base * conf_mult))
+        result["points_earned"] = points
+ 
+        return flask.jsonify({"status": "ok", "evaluation": result})
+    except Exception as e:
+        print(f"Study evaluate error: {e}")
+        return flask.jsonify({"status": "error", "message": str(e)})
+ 
+ 
 @app.route("/study/extract-pdf", methods=["POST"])
 def study_extract_pdf():
     if "file" not in request.files:
         return flask.jsonify({"status": "error", "message": "No file"})
     f = request.files["file"]
-    if not f.filename.endswith(".pdf"):
-        return flask.jsonify({"status": "error", "message": "Only PDF files"})
     try:
         import PyPDF2
         reader = PyPDF2.PdfReader(io.BytesIO(f.read()))
@@ -2644,7 +2747,9 @@ def study_get_points():
             "streak_freeze_count": p.streak_freeze_count,
             "last_active_date": p.last_active_date,
             "streak_history": history,
-            "session_history": sessions[-20:]
+            "session_history": sessions[-20:],
+            "longest_streak": getattr(p, 'longest_streak', p.streak_count),
+            "total_sessions": getattr(p, 'total_sessions', 0)
         })
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
@@ -2656,7 +2761,6 @@ def study_update_points():
     gid = None if uid else session.get("guest_id", "guest")
     data = request.json or {}
     delta = int(data.get("delta", 0))
-    reason = data.get("reason", "")
     try:
         p = get_study_profile(uid, gid)
         p.total_points = max(0, p.total_points + delta)
@@ -2671,55 +2775,50 @@ def study_update_points():
 def study_update_streak():
     uid = current_user.id if current_user.is_authenticated else None
     gid = None if uid else session.get("guest_id", "guest")
-    data = request.json or {}
     today_str = datetime.now().strftime("%Y-%m-%d")
     try:
         p = get_study_profile(uid, gid)
         history = json.loads(p.streak_history or "[]")
         last = p.last_active_date
- 
         bonus_points = 0
  
         if last == today_str:
-            # Already counted today
             return flask.jsonify({
                 "status": "ok",
                 "streak_count": p.streak_count,
                 "bonus_points": 0,
-                "total_points": p.total_points
+                "total_points": p.total_points,
+                "streak_history": history,
+                "longest_streak": getattr(p, 'longest_streak', p.streak_count)
             })
  
-        # Check if yesterday was active
         yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
         if last == yesterday:
-            # Continuing streak
             p.streak_count += 1
         elif last == "":
-            # First ever session
             p.streak_count = 1
         else:
-            # Missed a day — check freeze
             if p.streak_freeze_count > 0:
                 p.streak_freeze_count -= 1
-                p.streak_count += 1  # freeze saved it
+                p.streak_count += 1
             else:
-                p.streak_count = 1  # reset
+                p.streak_count = 1
  
         p.last_active_date = today_str
- 
-        # Add today to history
         if today_str not in history:
             history.append(today_str)
-        # Keep last 90 days
         history = sorted(history)[-90:]
         p.streak_history = json.dumps(history)
  
-        # Streak bonuses
+        # Update longest streak
+        if not hasattr(p, 'longest_streak') or p.streak_count > (p.longest_streak or 0):
+            p.longest_streak = p.streak_count
+ 
+        # Bonuses
         if p.streak_count == 3:
             bonus_points = 10
         elif p.streak_count == 7:
             bonus_points = 25
-            # Award a freeze at 7-day streak
             if p.streak_freeze_count < 2:
                 p.streak_freeze_count += 1
         elif p.streak_count > 7 and p.streak_count % 7 == 0:
@@ -2728,6 +2827,7 @@ def study_update_streak():
                 p.streak_freeze_count += 1
  
         p.total_points += bonus_points
+        p.total_sessions = (getattr(p, 'total_sessions', 0) or 0) + 1
         db.session.commit()
  
         return flask.jsonify({
@@ -2736,10 +2836,141 @@ def study_update_streak():
             "streak_freeze_count": p.streak_freeze_count,
             "bonus_points": bonus_points,
             "total_points": p.total_points,
-            "streak_history": history
+            "streak_history": history,
+            "longest_streak": p.longest_streak or p.streak_count
         })
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
+ 
+ 
+@app.route("/study/mastery/update", methods=["POST"])
+def study_mastery_update():
+    uid = current_user.id if current_user.is_authenticated else None
+    gid = None if uid else session.get("guest_id", "guest")
+    data = request.json or {}
+    question_key = data.get("question_key", "")[:512]
+    verdict = data.get("verdict", "incorrect")
+    score = int(data.get("score", 0))
+ 
+    if not question_key:
+        return flask.jsonify({"status": "error"})
+ 
+    today = datetime.now().strftime("%Y-%m-%d")
+ 
+    try:
+        q = StudyMastery.query.filter_by(
+            user_id=uid, guest_session_id=gid, question_key=question_key
+        ).first()
+ 
+        if not q:
+            q = StudyMastery(
+                user_id=uid,
+                guest_session_id=gid,
+                question_key=question_key,
+                question_text=data.get("question_text", "")[:1000],
+                answer_text=data.get("answer_text", "")[:1000],
+                topic=data.get("topic", "")[:256],
+            )
+            db.session.add(q)
+ 
+        q.times_seen += 1
+        q.last_seen = today
+ 
+        # SM-2 spaced repetition
+        if verdict == "correct":
+            q.times_correct += 1
+            q.easiness_factor = max(1.3, q.easiness_factor + 0.1 - (5 - min(5, score // 20)) * (0.08 + (5 - min(5, score // 20)) * 0.02))
+            if q.times_correct == 1:
+                q.interval_days = 1
+            elif q.times_correct == 2:
+                q.interval_days = 6
+            else:
+                q.interval_days = round(q.interval_days * q.easiness_factor)
+            q.mastery_level = min(3, q.mastery_level + 1)
+        elif verdict == "partial":
+            q.times_partial += 1
+            q.interval_days = max(1, q.interval_days // 2)
+            q.easiness_factor = max(1.3, q.easiness_factor - 0.15)
+        else:
+            q.interval_days = 1
+            q.easiness_factor = max(1.3, q.easiness_factor - 0.2)
+            q.mastery_level = max(0, q.mastery_level - 1)
+ 
+        next_rev = datetime.now() + timedelta(days=q.interval_days)
+        q.next_review = next_rev.strftime("%Y-%m-%d")
+ 
+        db.session.commit()
+        mastery_labels = ["Not Learned", "Learning", "Familiar", "Mastered"]
+        return flask.jsonify({
+            "status": "ok",
+            "mastery_level": q.mastery_level,
+            "mastery_label": mastery_labels[q.mastery_level],
+            "next_review": q.next_review,
+            "interval_days": q.interval_days
+        })
+    except Exception as e:
+        print(f"Mastery update error: {e}")
+        return flask.jsonify({"status": "error", "message": str(e)})
+ 
+ 
+@app.route("/study/mastery/due", methods=["GET"])
+def study_mastery_due():
+    uid = current_user.id if current_user.is_authenticated else None
+    gid = None if uid else session.get("guest_id", "guest")
+    today = datetime.now().strftime("%Y-%m-%d")
+    try:
+        if uid:
+            items = StudyMastery.query.filter(
+                StudyMastery.user_id == uid,
+                StudyMastery.next_review <= today,
+                StudyMastery.mastery_level < 3
+            ).order_by(StudyMastery.next_review.asc()).limit(20).all()
+        else:
+            items = StudyMastery.query.filter(
+                StudyMastery.guest_session_id == gid,
+                StudyMastery.next_review <= today,
+                StudyMastery.mastery_level < 3
+            ).order_by(StudyMastery.next_review.asc()).limit(20).all()
+ 
+        mastery_labels = ["Not Learned", "Learning", "Familiar", "Mastered"]
+        return flask.jsonify([{
+            "question_key": m.question_key,
+            "question_text": m.question_text,
+            "answer_text": m.answer_text,
+            "topic": m.topic,
+            "mastery_level": m.mastery_level,
+            "mastery_label": mastery_labels[m.mastery_level],
+            "times_seen": m.times_seen,
+            "times_correct": m.times_correct,
+            "next_review": m.next_review,
+        } for m in items])
+    except Exception as e:
+        return flask.jsonify([])
+ 
+ 
+@app.route("/study/mastery/all", methods=["GET"])
+def study_mastery_all():
+    uid = current_user.id if current_user.is_authenticated else None
+    gid = None if uid else session.get("guest_id", "guest")
+    try:
+        if uid:
+            items = StudyMastery.query.filter_by(user_id=uid).order_by(StudyMastery.mastery_level.asc()).limit(100).all()
+        else:
+            items = StudyMastery.query.filter_by(guest_session_id=gid).order_by(StudyMastery.mastery_level.asc()).limit(100).all()
+        mastery_labels = ["Not Learned", "Learning", "Familiar", "Mastered"]
+        return flask.jsonify([{
+            "question_key": m.question_key,
+            "question_text": m.question_text,
+            "topic": m.topic,
+            "mastery_level": m.mastery_level,
+            "mastery_label": mastery_labels[m.mastery_level],
+            "times_seen": m.times_seen,
+            "times_correct": m.times_correct,
+            "accuracy": round(m.times_correct / m.times_seen * 100) if m.times_seen else 0,
+            "next_review": m.next_review,
+        } for m in items])
+    except Exception as e:
+        return flask.jsonify([])
  
  
 @app.route("/study/session/complete", methods=["POST"])
@@ -2755,6 +2986,7 @@ def study_session_complete():
             "mode": data.get("mode", "casual"),
             "questions": data.get("questions_total", 0),
             "correct": data.get("questions_correct", 0),
+            "partial": data.get("questions_partial", 0),
             "points": data.get("points_earned", 0),
             "duration": data.get("duration_seconds", 0)
         }

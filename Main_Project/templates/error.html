@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(-2deg); }
+  50% { transform: translateY(-18px) rotate(2deg); }
+}
+@keyframes drift {
+  0%, 100% { transform: translateX(0px); }
+  50% { transform: translateX(12px); }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse-ring {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(99,102,241,0.4); }
+  70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(99,102,241,0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(99,102,241,0); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.error-wrap {
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.error-card {
+  max-width: 560px;
+  width: 100%;
+  text-align: center;
+  animation: fadeUp 0.6s ease both;
+}
+
+.error-visual {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  margin: 0 auto 2rem;
+}
+
+.error-circle {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08));
+  border: 1.5px solid rgba(99,102,241,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pulse-ring 2.5s ease-in-out infinite;
+  position: relative;
+}
+
+.error-emoji {
+  font-size: 3.5rem;
+  animation: float 3.5s ease-in-out infinite;
+  display: block;
+}
+
+.error-code-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.05em;
+  font-family: 'DM Sans', sans-serif;
+  box-shadow: 0 2px 10px rgba(99,102,241,0.4);
+}
+
+.orbit-dot {
+  position: absolute;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--accent, #3b82f6);
+  animation: drift 2s ease-in-out infinite;
+}
+.od1 { top: 10px; left: 15px; animation-delay: 0s; background: #6366f1; opacity: 0.6; }
+.od2 { bottom: 18px; right: 10px; animation-delay: 0.8s; background: #8b5cf6; opacity: 0.5; }
+.od3 { top: 50%; right: -4px; animation-delay: 1.4s; background: #a78bfa; opacity: 0.4; }
+
+.error-code {
+  font-family: 'DM Serif Display', serif;
+  font-size: 4.5rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6, #a78bfa);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 3s linear infinite, fadeUp 0.6s 0.1s ease both;
+}
+
+.error-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.5rem;
+  color: var(--text-primary, #0f172a);
+  margin-bottom: 0.75rem;
+  animation: fadeUp 0.6s 0.15s ease both;
+  opacity: 0;
+  animation-fill-mode: both;
+}
+
+.error-desc {
+  font-size: 0.92rem;
+  color: var(--text-muted, #94a3b8);
+  line-height: 1.7;
+  margin-bottom: 2rem;
+  max-width: 380px;
+  margin-left: auto;
+  margin-right: auto;
+  animation: fadeUp 0.6s 0.2s ease both;
+  opacity: 0;
+  animation-fill-mode: both;
+}
+
+.error-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  animation: fadeUp 0.6s 0.3s ease both;
+  opacity: 0;
+  animation-fill-mode: both;
+}
+
+.err-btn-primary {
+  padding: 12px 28px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s;
+  box-shadow: 0 4px 16px rgba(99,102,241,0.3);
+}
+.err-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(99,102,241,0.4); }
+
+.err-btn-secondary {
+  padding: 12px 24px;
+  background: var(--bg-card, #fff);
+  color: var(--text-secondary, #475569);
+  border: 1px solid var(--border, #e2eaf5);
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s;
+}
+.err-btn-secondary:hover { border-color: var(--accent, #3b82f6); color: var(--accent, #3b82f6); transform: translateY(-1px); }
+
+.error-detail {
+  margin-top: 2.5rem;
+  padding: 1rem 1.25rem;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border, #e2eaf5);
+  border-radius: 14px;
+  font-size: 0.78rem;
+  color: var(--text-muted, #94a3b8);
+  font-family: 'DM Mono', monospace;
+  text-align: left;
+  animation: fadeUp 0.6s 0.4s ease both;
+  opacity: 0;
+  animation-fill-mode: both;
+}
+
+.error-detail-label {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted, #94a3b8);
+  margin-bottom: 4px;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* Quick links */
+.quick-links {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+  animation: fadeUp 0.6s 0.45s ease both;
+  opacity: 0;
+  animation-fill-mode: both;
+}
+
+.ql-item {
+  padding: 6px 14px;
+  background: rgba(99,102,241,0.06);
+  border: 1px solid rgba(99,102,241,0.12);
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #6366f1;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+.ql-item:hover { background: rgba(99,102,241,0.12); }
+</style>
+
+<div class="error-wrap">
+  <div class="error-card">
+
+    <div class="error-visual">
+      <div class="orbit-dot od1"></div>
+      <div class="orbit-dot od2"></div>
+      <div class="orbit-dot od3"></div>
+      <div class="error-circle">
+        <span class="error-emoji">
+          {% if error_code == 404 %}🔍
+          {% elif error_code == 403 %}🔒
+          {% elif error_code == 429 %}⏳
+          {% elif error_code == 503 %}🔧
+          {% else %}⚡{% endif %}
+        </span>
+      </div>
+      <div class="error-code-badge">{{ error_code or '500' }}</div>
+    </div>
+
+    <div class="error-code">{{ error_code or '500' }}</div>
+
+    <div class="error-title">
+      {% if error_code == 404 %}Page not found
+      {% elif error_code == 403 %}Access restricted
+      {% elif error_code == 429 %}Slow down a moment
+      {% elif error_code == 503 %}Service unavailable
+      {% else %}Something went wrong{% endif %}
+    </div>
+
+    <p class="error-desc">
+      {% if error_code == 404 %}
+        That page doesn't exist or was moved. Try heading back to your dashboard — your assignments are still there.
+      {% elif error_code == 403 %}
+        You don't have permission to access this. Make sure you're signed in with the right account.
+      {% elif error_code == 429 %}
+        You've made a lot of requests in a short time. IntelliPlan is rate-limited to keep things fair. Give it a minute and try again.
+      {% elif error_code == 503 %}
+        A service IntelliPlan depends on is temporarily down (likely Groq or Google Calendar). This usually resolves within a few minutes.
+      {% elif message %}
+        {{ message }}
+      {% else %}
+        An unexpected error occurred on IntelliPlan's server. If this keeps happening, let us know in Discord and we'll fix it fast.
+      {% endif %}
+    </p>
+
+    <div class="error-actions">
+      <a href="/dashboard" class="err-btn-primary">→ Back to Dashboard</a>
+      <a href="/" class="err-btn-secondary">Home</a>
+      <a href="https://discord.gg/NrhYrdhU" target="_blank" class="err-btn-secondary">Report in Discord</a>
+    </div>
+
+    {% if error_id %}
+    <div class="error-detail">
+      <div class="error-detail-label">Error Reference</div>
+      <div>{{ error_id }}</div>
+      {% if error_message %}<div style="margin-top:4px;opacity:0.7;">{{ error_message }}</div>{% endif %}
+    </div>
+    {% endif %}
+
+    <div class="quick-links">
+      <span style="font-size:0.72rem;color:var(--text-muted);font-weight:600;align-self:center;">Quick links:</span>
+      <a href="/scheduler" class="ql-item">🤖 AI Scheduler</a>
+      <a href="/grades" class="ql-item">📊 Grades</a>
+      <a href="/study" class="ql-item">📚 Study</a>
+      <a href="/settings" class="ql-item">⚙ Settings</a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
