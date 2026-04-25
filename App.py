@@ -632,7 +632,8 @@ def grademodel():
 def gradebook():
     if not is_logged_in():
         return redirect(url_for("login"))
-    return render_template("gradebook.html", active_page="grademodel")
+    return render_template("gradebook.html", active_page="gradebook") # Match the nav link
+
 
 @app.route("/dismissed")
 def dismissed_page():
@@ -906,25 +907,39 @@ def get_live_schedule():
     acct = get_active_account()
     if not acct:
         return flask.jsonify([])
+    
     dismissed = get_dismissed_titles()
     login_type = acct["login_type"]
 
     if login_type == "studentvue":
         try:
+            # Log the attempt to fetch data
+            print(f"Fetching StudentVue data for {acct['sv_username']}...")
             result = get_sv_assignments(acct["sv_district_url"], acct["sv_username"], acct["sv_password"])
-        except:
-            result = []
-        return flask.jsonify([a for a in result if a["title"] not in dismissed])
+            
+            if not isinstance(result, list):
+                print("StudentVue returned non-list data")
+                return flask.jsonify([])
 
+            # Use .get() to avoid KeyError if "title" is missing
+            filtered = [a for a in result if isinstance(a, dict) and a.get("title") not in dismissed]
+            return flask.jsonify(filtered)
+        except Exception as e:
+            print(f"StudentVue Live Error: {str(e)}") # This will now show in your logs
+            return flask.jsonify([]), 500
+
+    # ... (keep schoology and canvas logic exactly as they were)
     if login_type == "schoology":
         try:
             from schoology_helper import get_schoology_assignments
             result = get_schoology_assignments(acct["schoology_key"], acct["schoology_secret"])
-            return flask.jsonify([a for a in result if a["title"] not in dismissed])
-        except:
+            return flask.jsonify([a for a in result if a.get("title", "") not in dismissed])
+        except Exception as e:
+            print(f"Schoology Error: {e}")
             return flask.jsonify([])
 
     try:
+        # ... (Canvas logic remains the same)
         token = acct["canvas_token"]
         canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
         base = f"{canvas_url}/api/v1"
@@ -1655,25 +1670,35 @@ def unified_tasks():
         login_type = acct["login_type"]
         if login_type == "studentvue":
             try:
+                # Robust fetch for standard assignments
                 raw = get_sv_assignments(acct["sv_district_url"], acct["sv_username"], acct["sv_password"])
+                if isinstance(raw, list):
+                    for a in raw:
+                        if isinstance(a, dict) and a.get("title") not in dismissed:
+                            a["source"] = "studentvue"
+                            # Ensure the priority key exists for the frontend
+                            if "priority" not in a:
+                                a["priority"] = "Medium" 
+                            a.setdefault("color", PRIORITY_COLORS.get(a.get("priority", "Medium"), "#f59e0b"))
+                            tasks.append(a)
             except Exception as e:
                 print(f"SV assignments error: {e}")
-                raw = []
+
             try:
+                # Robust fetch for missing assignments
                 missing_raw = get_missing_assignments(acct["sv_district_url"], acct["sv_username"], acct["sv_password"])
+                if isinstance(missing_raw, list):
+                    for a in missing_raw:
+                        if isinstance(a, dict) and a.get("title") not in dismissed:
+                            a["source"] = "studentvue_missing"
+                            if "priority" not in a:
+                                a["priority"] = "High" # Missing tasks are usually high priority
+                            a.setdefault("color", PRIORITY_COLORS.get(a.get("priority", "High"), "#ef4444"))
+                            tasks.append(a)
             except Exception as e:
                 print(f"Missing assignments error: {e}")
-                missing_raw = []
-            for a in raw:
-                if a["title"] not in dismissed:
-                    a["source"] = "studentvue"
-                    a.setdefault("color", PRIORITY_COLORS.get(a.get("priority", "Medium"), "#f59e0b"))
-                    tasks.append(a)
-            for a in missing_raw:
-                if a["title"] not in dismissed:
-                    if "source" not in a:
-                        a["source"] = "studentvue_missing"
-                    tasks.append(a)
+        
+        # ... (Keep the Canvas logic exactly as it was)
         elif login_type == "canvas":
             try:
                 token = acct["canvas_token"]
@@ -1724,7 +1749,7 @@ def unified_tasks():
             if notion_token and notion_db_id:
                 notion_raw = get_notion_tasks(notion_token, notion_db_id)
                 for t in notion_raw:
-                    if t["title"] not in dismissed:
+                    if t.get("title") not in dismissed:
                         tasks.append(t)
         except Exception as e:
             print(f"Notion tasks error: {e}")

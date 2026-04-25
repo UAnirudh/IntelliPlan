@@ -556,5 +556,5 @@ if __name__ == "__main__":
     debug_gradebook(
         "https://wa-nor-psv.edupoint.com",
         "2009716",
-        "bluesnakesing5"
+        "Intelliplanisamazing09!"
     )
