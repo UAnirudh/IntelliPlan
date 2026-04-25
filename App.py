@@ -17,6 +17,7 @@ from sentry_sdk.integrations.flask import FlaskIntegration
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from auth_api import auth_bp, verify_token
+from chatbot_api import chatbot_bp
 from werkzeug.utils import secure_filename
 import secrets as secrets_module
 from flask import jsonify
@@ -81,6 +82,7 @@ limiter = Limiter(
 app.secret_key = os.getenv("SECRET_KEY", "intelliplan-dev-key")
 app.permanent_session_lifetime = timedelta(days=7)
 app.register_blueprint(auth_bp)
+app.register_blueprint(chatbot_bp)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///intelliplan.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
