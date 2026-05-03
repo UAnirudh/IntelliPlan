@@ -1,4 +1,4 @@
-const BASE_URL = "https://intelliplan.up.railway.app";
+const BASE_URL = "https://intelli-plan.up.railway.app";
 
 const STORAGE_KEYS = {
   token: "intelliplan_token"

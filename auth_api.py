@@ -227,7 +227,7 @@
 #         origin.startswith("chrome-extension://")
 #         or origin.startswith("http://localhost")
 #         or origin.startswith("http://127.0.0.1")
-#         or origin.startswith("https://intelliplan.up.railway.app")
+#         or origin.startswith("https://intelli-plan.up.railway.app")
 #     )
 #     if allowed and origin:
 #         response.headers["Access-Control-Allow-Origin"] = origin
@@ -456,7 +456,7 @@ def _corsify(response):
     origin = request.headers.get("Origin", "")
     if any(origin.startswith(p) for p in (
         "chrome-extension://", "http://localhost", "http://127.0.0.1",
-        "https://intelliplan.up.railway.app"
+        "https://intelli-plan.up.railway.app"
     )):
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Vary"] = "Origin"

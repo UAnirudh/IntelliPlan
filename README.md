@@ -12,7 +12,7 @@ and uses AI to build an adaptive daily study schedule based on
 your workload, priorities, and available time.
 
 ## Status
-Shipped Version 1 to the link: intelliplan.up.railway.app
+Shipped Version 1 to the link: intelli-plan.up.railway.app
 
 ## Tech Stack
 - Python
