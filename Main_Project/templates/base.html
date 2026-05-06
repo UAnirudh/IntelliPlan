@@ -161,13 +161,17 @@
     .chevron { font-size:0.62rem; color:var(--text-muted); transition:transform 0.2s ease; }
     .nav-dropdown:hover .chevron { transform:rotate(180deg); }
     .dropdown-panel {
-      position:absolute; top:calc(100% + 10px); left:0; min-width:180px;
+      position:absolute; top:100%; left:0; min-width:180px;
       background:var(--bg-card); border:1px solid var(--border-strong);
       border-radius:var(--r-md); box-shadow:var(--shadow-lg); padding:6px;
-      opacity:0; transform:translateY(8px) scale(0.97); pointer-events:none;
-      transition:all 0.14s var(--ease-out); z-index:200;
+      opacity:0; pointer-events:none;
+      transition:opacity 0.2s ease;
+      z-index:200;
+      margin-top:10px;
     }
-    .nav-dropdown:hover .dropdown-panel { opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
+    .nav-dropdown:hover .dropdown-panel { opacity:1; pointer-events:auto; }
+    .nav-dropdown { position:relative; }
+    .nav-dropdown::before { content:''; position:absolute; top:100%; left:0; right:0; height:14px; }
     .dropdown-item {
       display:block; padding:9px 12px; border-radius:var(--r-sm);
       font-size:0.86rem; font-weight:500; color:var(--text-secondary);
