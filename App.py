@@ -67,10 +67,6 @@ app = flask.Flask(
     template_folder="Main_Project/templates",
 )
 
-app.config["SESSION_TYPE"] = "filesystem"
-app.config["SESSION_FILE_DIR"] = "/tmp/flask_session"
-app.config["SESSION_PERMANENT"] = True
-Session(app)
 
 @app.after_request
 def add_cors_headers(response):
