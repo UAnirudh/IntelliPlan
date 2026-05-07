@@ -1491,21 +1491,22 @@ def google_oauth_callback():
             db.session.commit()
             login_user(user, remember=True)
 
-            # Also store calendar token
             session["google_token"] = token_dict
             session.permanent = True
             session.modified = True
-            existing = GoogleIntegration.query.filter_by(user_id=user.id).first()
-            if existing:
-                existing.token_data = json.dumps(token_dict)
+
+            existing_gcal = GoogleIntegration.query.filter_by(user_id=user.id).first()
+            if existing_gcal:
+                existing_gcal.token_data = json.dumps(token_dict)
             else:
                 db.session.add(GoogleIntegration(user_id=user.id, token_data=json.dumps(token_dict)))
             db.session.commit()
 
             acct = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
-            if not acct:
+            if acct:
+                return redirect(url_for("dashboard"))
+            else:
                 return redirect(url_for("connect_account"))
-            return redirect(url_for("dashboard"))
 
         else:
             # Original calendar-only flow
