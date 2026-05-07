@@ -22,7 +22,7 @@ from werkzeug.utils import secure_filename
 import secrets as secrets_module
 from flask import jsonify
 from datetime import datetime, timedelta
-
+from flask_session import Session
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import (
     LoginManager, UserMixin, login_user, logout_user,
@@ -67,6 +67,11 @@ app = flask.Flask(
     template_folder="Main_Project/templates",
 )
 
+app.config["SESSION_TYPE"] = "filesystem"
+app.config["SESSION_FILE_DIR"] = "/tmp/flask_session"
+app.config["SESSION_PERMANENT"] = True
+Session(app)
+
 @app.after_request
 def add_cors_headers(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
@@ -82,7 +87,7 @@ limiter = Limiter(
 app.secret_key = os.getenv("SECRET_KEY", "intelliplan-dev-key")
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SECURE"] = False   # CHANGE TO True IF USING HTTPS
+app.config["SESSION_COOKIE_SECURE"] = True   # CHANGE TO True IF USING HTTPS
 app.permanent_session_lifetime = timedelta(days=7)
 app.register_blueprint(auth_bp)
 app.register_blueprint(chatbot_bp)
@@ -1575,7 +1580,8 @@ def google_oauth_callback():
             else:
                 db.session.add(GoogleIntegration(user_id=current_user.id, token_data=json.dumps(token_dict)))
             db.session.commit()
-        return redirect(url_for("dashboard"))    
+        return redirect(url_for("dashboard"))
+    
 
 @app.route("/oauth/google/disconnect", methods=["POST"])
 def google_disconnect():
