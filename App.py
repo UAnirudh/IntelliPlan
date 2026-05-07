@@ -80,6 +80,9 @@ limiter = Limiter(
     default_limits=["200 per day", "50 per hour"]
 )
 app.secret_key = os.getenv("SECRET_KEY", "intelliplan-dev-key")
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SECURE"] = False   # CHANGE TO True IF USING HTTPS
 app.permanent_session_lifetime = timedelta(days=7)
 app.register_blueprint(auth_bp)
 app.register_blueprint(chatbot_bp)
@@ -726,6 +729,7 @@ def login_google():
     session.modified = True
     from google_calendar_helper import get_auth_url
     auth_url = get_auth_url(state)
+    print(f"[GOOGLE LOGIN] state={state[:8]}..., session_keys={list(session.keys())}")
     return redirect(auth_url)
 
 @app.route("/login/account", methods=["GET", "POST"])
@@ -1447,86 +1451,131 @@ def google_oauth_start():
 def google_oauth_callback():
     if not GCAL_AVAILABLE:
         return redirect(url_for("dashboard"))
+
+    # --- DEBUG: log everything we got back ---
+    print(f"[GOOGLE CALLBACK] args={dict(request.args)}")
+    print(f"[GOOGLE CALLBACK] session_keys={list(session.keys())}")
+
     error_msg = request.args.get("error")
     if error_msg:
+        print(f"[GOOGLE CALLBACK] Google returned error: {error_msg}")
         return redirect(url_for("login"))
+
+    # --- STATE CHECK (critical for detecting session loss) ---
+    returned_state = request.args.get("state")
+    stored_state = session.pop("oauth_state", None)
+
+    if not stored_state:
+        print("[GOOGLE CALLBACK] FATAL: no oauth_state in session — session was lost during redirect")
+        return redirect(url_for("login"))
+
+    if returned_state != stored_state:
+        print(f"[GOOGLE CALLBACK] FATAL: state mismatch — returned={returned_state}, stored={stored_state}")
+        return redirect(url_for("login"))
+
     code = request.args.get("code")
     if not code:
+        print("[GOOGLE CALLBACK] FATAL: no code in callback")
         return redirect(url_for("login"))
+
     try:
         from google_calendar_helper import exchange_code_for_token
         token_dict = exchange_code_for_token(code)
-
-        purpose = session.pop("oauth_purpose", "calendar")
-
-        if purpose == "login":
-            # Get user info from Google
-            userinfo_resp = requests.get(
-                "https://www.googleapis.com/oauth2/v3/userinfo",
-                headers={"Authorization": f"Bearer {token_dict['token']}"}
-            )
-            userinfo = userinfo_resp.json()
-            google_id = userinfo.get("sub")
-            email = userinfo.get("email", "").lower()
-            name = userinfo.get("name", "")
-
-            if not google_id or not email:
-                return redirect(url_for("login"))
-
-            # Find or create user
-            user = User.query.filter_by(google_id=google_id).first()
-            if not user:
-                user = User.query.filter_by(email=email).first()
-                if user:
-                    user.google_id = google_id
-                    user.name = name
-                else:
-                    user = User(
-                        email=email,
-                        google_id=google_id,
-                        name=name,
-                        password_hash=None
-                    )
-                    db.session.add(user)
-            db.session.commit()
-            login_user(user, remember=True)
-
-            session["google_token"] = token_dict
-            session.permanent = True
-            session.modified = True
-
-            existing_gcal = GoogleIntegration.query.filter_by(user_id=user.id).first()
-            if existing_gcal:
-                existing_gcal.token_data = json.dumps(token_dict)
-            else:
-                db.session.add(GoogleIntegration(user_id=user.id, token_data=json.dumps(token_dict)))
-            db.session.commit()
-
-            acct = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
-            if acct:
-                return redirect(url_for("dashboard"))
-            else:
-                return redirect(url_for("connect_account"))
-
-        else:
-            # Original calendar-only flow
-            session["google_token"] = token_dict
-            session.permanent = True
-            session.modified = True
-            if current_user.is_authenticated:
-                existing = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
-                if existing:
-                    existing.token_data = json.dumps(token_dict)
-                else:
-                    db.session.add(GoogleIntegration(user_id=current_user.id, token_data=json.dumps(token_dict)))
-                db.session.commit()
-            return redirect(url_for("dashboard"))
-
+        print(f"[GOOGLE CALLBACK] token exchanged, keys={list(token_dict.keys())}")
     except Exception as e:
         import traceback
-        print(f"Token exchange error: {traceback.format_exc()}")
+        print(f"[GOOGLE CALLBACK] Token exchange failed:\n{traceback.format_exc()}")
         return redirect(url_for("login"))
-    
+
+    # --- FIX: get access_token from either key name ---
+    access_token = token_dict.get("access_token") or token_dict.get("token")
+    if not access_token:
+        print(f"[GOOGLE CALLBACK] FATAL: no access_token found in token_dict, keys={list(token_dict.keys())}")
+        return redirect(url_for("login"))
+
+    purpose = session.pop("oauth_purpose", "calendar")
+    print(f"[GOOGLE CALLBACK] purpose={purpose}")
+
+    if purpose == "login":
+        # Get user info from Google
+        userinfo_resp = requests.get(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"}
+        )
+        print(f"[GOOGLE CALLBACK] userinfo status={userinfo_resp.status_code}")
+
+        if userinfo_resp.status_code != 200:
+            print(f"[GOOGLE CALLBACK] userinfo failed: {userinfo_resp.text}")
+            return redirect(url_for("login"))
+
+        userinfo = userinfo_resp.json()
+        google_id = userinfo.get("sub")
+        email = userinfo.get("email", "").lower()
+        name = userinfo.get("name", "")
+
+        print(f"[GOOGLE CALLBACK] google_id={google_id}, email={email}, name={name}")
+
+        if not google_id or not email:
+            print(f"[GOOGLE CALLBACK] FATAL: missing google_id or email in userinfo")
+            return redirect(url_for("login"))
+
+        # Find or create user
+        user = User.query.filter_by(google_id=google_id).first()
+        if not user:
+            user = User.query.filter_by(email=email).first()
+            if user:
+                print(f"[GOOGLE CALLBACK] linked google_id to existing user {user.id}")
+                user.google_id = google_id
+                user.name = name
+            else:
+                print(f"[GOOGLE CALLBACK] creating new user with email={email}")
+                user = User(
+                    email=email,
+                    google_id=google_id,
+                    name=name,
+                    password_hash=None
+                )
+                db.session.add(user)
+        else:
+            print(f"[GOOGLE CALLBACK] found existing google user {user.id}")
+
+        db.session.commit()
+        login_user(user, remember=True)
+        print(f"[GOOGLE CALLBACK] logged in user {user.id}")
+
+        session["google_token"] = token_dict
+        session.permanent = True
+        session.modified = True
+
+        existing_gcal = GoogleIntegration.query.filter_by(user_id=user.id).first()
+        if existing_gcal:
+            existing_gcal.token_data = json.dumps(token_dict)
+        else:
+            db.session.add(GoogleIntegration(user_id=user.id, token_data=json.dumps(token_dict)))
+        db.session.commit()
+
+        acct = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
+        if acct:
+            print(f"[GOOGLE CALLBACK] active linked account found, redirecting to dashboard")
+            return redirect(url_for("dashboard"))
+        else:
+            print(f"[GOOGLE CALLBACK] no linked account, redirecting to connect_account")
+            return redirect(url_for("connect_account"))
+
+    else:
+        # Original calendar-only flow
+        print(f"[GOOGLE CALLBACK] calendar-only flow, current_user.is_authenticated={current_user.is_authenticated}")
+        session["google_token"] = token_dict
+        session.permanent = True
+        session.modified = True
+        if current_user.is_authenticated:
+            existing = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
+            if existing:
+                existing.token_data = json.dumps(token_dict)
+            else:
+                db.session.add(GoogleIntegration(user_id=current_user.id, token_data=json.dumps(token_dict)))
+            db.session.commit()
+        return redirect(url_for("dashboard"))    
 
 @app.route("/oauth/google/disconnect", methods=["POST"])
 def google_disconnect():
