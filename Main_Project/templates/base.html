@@ -196,13 +196,13 @@
     }
     .toggle input:checked ~ .toggle-knob { transform:translateX(22px); }
 
-    .discord-btn {
+    /* .discord-btn {
       display:inline-flex; align-items:center; gap:6px;
       padding:7px 13px; background:#5865F2; color:white; text-decoration:none;
       border-radius:var(--r-full); font-family:var(--font-ui); font-size:0.8rem; font-weight:600;
       transition:all 0.16s ease;
     }
-    .discord-btn:hover { background:#4752c4; transform:translateY(-1px); }
+    .discord-btn:hover { background:#4752c4; transform:translateY(-1px); } */
 
     #mobileMenuBtn {
       display:none; background:none; border:1px solid var(--border);
@@ -557,7 +557,7 @@
       .nav-divider { display:none; }
       .nav-group   { gap:1px; }
       .nav-tab     { padding:6px 10px; font-size:0.78rem; }
-      .discord-btn { padding:6px 10px; font-size:0.78rem; }
+      /* .discord-btn { padding:6px 10px; font-size:0.78rem; } */
       .date-badge  { display:none; }
     }
     @media (max-width:720px) {
@@ -643,10 +643,10 @@
         {% else %}
           <a href="/login" class="nav-tab {% if active_page == 'login' %}active{% endif %}">Login</a>
         {% endif %}
-        <a class="discord-btn" href="https://discord.gg/34FYWhJQMU" target="_blank" rel="noopener noreferrer">
+        <!-- <a class="discord-btn" href="https://discord.gg/34FYWhJQMU" target="_blank" rel="noopener noreferrer">
           <svg width="14" height="11" viewBox="0 0 14 11" fill="none" aria-hidden="true"><path d="M11.86 1.07A11.55 11.55 0 0 0 8.98.05a.04.04 0 0 0-.04.02c-.13.24-.28.55-.38.79a10.7 10.7 0 0 0-3.12 0 8.16 8.16 0 0 0-.39-.79.04.04 0 0 0-.04-.02A11.51 11.51 0 0 0 2.13 1.07a.04.04 0 0 0-.02.02C.31 3.72-.19 6.3.06 8.84a.04.04 0 0 0 .02.03 11.6 11.6 0 0 0 3.47 1.73.04.04 0 0 0 .05-.02c.27-.36.5-.74.71-1.14a.04.04 0 0 0-.02-.06 7.6 7.6 0 0 1-1.08-.51.04.04 0 0 1 0-.07l.22-.17a.04.04 0 0 1 .04 0c2.26 1.02 4.71 1.02 6.95 0a.04.04 0 0 1 .04 0l.22.17a.04.04 0 0 1 0 .07c-.35.2-.7.37-1.08.51a.04.04 0 0 0-.02.06c.21.4.45.78.71 1.14a.04.04 0 0 0 .05.02 11.57 11.57 0 0 0 3.47-1.73.04.04 0 0 0 .02-.03c.29-2.96-.49-5.52-2.06-7.75a.04.04 0 0 0-.02-.02ZM4.68 7.26c-.67 0-1.22-.61-1.22-1.36s.54-1.36 1.22-1.36c.69 0 1.23.61 1.22 1.36 0 .75-.54 1.36-1.22 1.36Zm4.52 0c-.68 0-1.22-.61-1.22-1.36s.54-1.36 1.22-1.36c.69 0 1.23.61 1.22 1.36 0 .75-.53 1.36-1.22 1.36Z" fill="currentColor"/></svg>
           Discord
-        </a>
+        </a> -->
       </div>
     </nav>
 
@@ -975,8 +975,9 @@ const BUBBLES = [
   "Tip: Connect Canvas for auto-sync ✓",
   "Check your Dashboard for today's tasks 📅",
   "Ask me how any feature works! 🤖",
-  "Join our Discord for updates 💬",
+  "Struggling with a study question? IntelliPlan can help! 📚",
 ];
+// "Join our Discord for updates 💬",
 
 /* ─── OPEN / CLOSE ───────────────────── */
 function togglePlani() { planiOpen ? closePlani() : openPlani(); }

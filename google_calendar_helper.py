@@ -8,7 +8,12 @@ import secrets
 import hashlib
 import base64
 
-SCOPES = ['https://www.googleapis.com/auth/calendar']
+SCOPES = [
+    "https://www.googleapis.com/auth/calendar",
+    "openid",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile"
+]
 
 def get_auth_url(state):
     """Generate Google OAuth URL without PKCE."""

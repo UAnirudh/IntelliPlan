@@ -100,7 +100,9 @@ class User(UserMixin, db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(255), unique=True, nullable=False)
-    password_hash = db.Column(db.String(255), nullable=False)
+    password_hash = db.Column(db.String(255), nullable=True)
+    google_id = db.Column(db.String(255), unique=True, nullable=True)
+    name = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     linked_accounts = db.relationship("LinkedAccount", backref="user", lazy=True, cascade="all, delete-orphan")
     dismissed = db.relationship("DismissedAssignment", backref="user", lazy=True, cascade="all, delete-orphan")
@@ -711,6 +713,20 @@ def register():
             login_user(user, remember=True)
             return redirect(url_for("connect_account"))
     return render_template("register.html", active_page="login", error=error)
+
+@app.route("/login/google")
+def login_google():
+    if not GCAL_AVAILABLE:
+        return redirect(url_for("login"))
+    import secrets as sec
+    state = sec.token_urlsafe(32)
+    session["oauth_state"] = state
+    session["oauth_purpose"] = "login"
+    session.permanent = True
+    session.modified = True
+    from google_calendar_helper import get_auth_url
+    auth_url = get_auth_url(state)
+    return redirect(auth_url)
 
 @app.route("/login/account", methods=["GET", "POST"])
 def login_account():
@@ -1433,30 +1449,83 @@ def google_oauth_callback():
         return redirect(url_for("dashboard"))
     error_msg = request.args.get("error")
     if error_msg:
-        print(f"OAuth error from Google: {error_msg}")
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("login"))
     code = request.args.get("code")
     if not code:
-        print("No code in callback")
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("login"))
     try:
         from google_calendar_helper import exchange_code_for_token
         token_dict = exchange_code_for_token(code)
-        session["google_token"] = token_dict
-        session.permanent = True
-        session.modified = True
-        if current_user.is_authenticated:
-            existing = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
+
+        purpose = session.pop("oauth_purpose", "calendar")
+
+        if purpose == "login":
+            # Get user info from Google
+            userinfo_resp = requests.get(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                headers={"Authorization": f"Bearer {token_dict['token']}"}
+            )
+            userinfo = userinfo_resp.json()
+            google_id = userinfo.get("sub")
+            email = userinfo.get("email", "").lower()
+            name = userinfo.get("name", "")
+
+            if not google_id or not email:
+                return redirect(url_for("login"))
+
+            # Find or create user
+            user = User.query.filter_by(google_id=google_id).first()
+            if not user:
+                user = User.query.filter_by(email=email).first()
+                if user:
+                    user.google_id = google_id
+                    user.name = name
+                else:
+                    user = User(
+                        email=email,
+                        google_id=google_id,
+                        name=name,
+                        password_hash=None
+                    )
+                    db.session.add(user)
+            db.session.commit()
+            login_user(user, remember=True)
+
+            # Also store calendar token
+            session["google_token"] = token_dict
+            session.permanent = True
+            session.modified = True
+            existing = GoogleIntegration.query.filter_by(user_id=user.id).first()
             if existing:
                 existing.token_data = json.dumps(token_dict)
             else:
-                db.session.add(GoogleIntegration(user_id=current_user.id, token_data=json.dumps(token_dict)))
+                db.session.add(GoogleIntegration(user_id=user.id, token_data=json.dumps(token_dict)))
             db.session.commit()
-        return redirect(url_for("dashboard"))
+
+            acct = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
+            if not acct:
+                return redirect(url_for("connect_account"))
+            return redirect(url_for("dashboard"))
+
+        else:
+            # Original calendar-only flow
+            session["google_token"] = token_dict
+            session.permanent = True
+            session.modified = True
+            if current_user.is_authenticated:
+                existing = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
+                if existing:
+                    existing.token_data = json.dumps(token_dict)
+                else:
+                    db.session.add(GoogleIntegration(user_id=current_user.id, token_data=json.dumps(token_dict)))
+                db.session.commit()
+            return redirect(url_for("dashboard"))
+
     except Exception as e:
         import traceback
         print(f"Token exchange error: {traceback.format_exc()}")
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("login"))
+    
 
 @app.route("/oauth/google/disconnect", methods=["POST"])
 def google_disconnect():
