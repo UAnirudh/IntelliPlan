@@ -22,13 +22,17 @@ from werkzeug.utils import secure_filename
 import secrets as secrets_module
 from flask import jsonify
 from datetime import datetime, timedelta
-from flask_session import Session
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import (
     LoginManager, UserMixin, login_user, logout_user,
     current_user
 )
 from flask_bcrypt import Bcrypt
+
+# ── FIX: Use database-backed sessions so Railway container restarts
+#         don't wipe the OAuth state between redirect hops.
+#         flask-session with "sqlalchemy" keeps state in the DB itself.
+from flask_session import Session
 
 try:
     from google_calendar_helper import (
@@ -67,30 +71,22 @@ app = flask.Flask(
     template_folder="Main_Project/templates",
 )
 
-app.config["SESSION_TYPE"] = "filesystem"
-app.config["SESSION_FILE_DIR"] = "/tmp/flask_session"
-app.config["SESSION_PERMANENT"] = True
-Session(app)
-
-@app.after_request
-def add_cors_headers(response):
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Extension-Token"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    return response
-
-limiter = Limiter(
-    app=app,
-    key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"]
-)
 app.secret_key = os.getenv("SECRET_KEY", "intelliplan-dev-key")
+
+# ── FIX: Switch SESSION_TYPE from "filesystem" to "sqlalchemy".
+#   Filesystem sessions are stored in /tmp on Railway — ephemeral containers
+#   can spin up a NEW instance to serve the OAuth callback, which has an empty
+#   /tmp and therefore loses oauth_state, causing the IPE-XXXXXXXX 500 error.
+#   Storing sessions in the same Postgres/SQLite DB as the app makes them
+#   survive across instances and restarts.
+#   We configure this BEFORE db = SQLAlchemy(app) because flask-session
+#   needs the app config ready, and we wire it up after db is created below.
+app.config["SESSION_TYPE"] = "sqlalchemy"
+app.config["SESSION_PERMANENT"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SECURE"] = True   # CHANGE TO True IF USING HTTPS
+app.config["SESSION_COOKIE_SECURE"] = True
 app.permanent_session_lifetime = timedelta(days=7)
-app.register_blueprint(auth_bp)
-app.register_blueprint(chatbot_bp)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///intelliplan.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -102,6 +98,39 @@ db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
+
+# ── FIX: Point flask-session at the SQLAlchemy db so sessions are durable.
+app.config["SESSION_SQLALCHEMY"] = db
+Session(app)
+
+app.register_blueprint(auth_bp)
+app.register_blueprint(chatbot_bp)
+
+@app.after_request
+def add_cors_headers(response):
+    # ── FIX: Allow requests from the new domain intelliplan.tech
+    #   (previously only intelli-plan.up.railway.app was listed in auth_api.py)
+    origin = request.headers.get("Origin", "")
+    allowed_origins = [
+        "https://intelliplan.tech",
+        "https://www.intelliplan.tech",
+        "https://intelli-plan.up.railway.app",
+    ]
+    if origin in allowed_origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
+    else:
+        # For non-browser requests (extension, curl) keep the wildcard
+        response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Extension-Token"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return response
+
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"]
+)
 
 # ── MODELS ────────────────────────────────────────────────────
 class User(UserMixin, db.Model):
@@ -642,8 +671,7 @@ def grademodel():
 def gradebook():
     if not is_logged_in():
         return redirect(url_for("login"))
-    return render_template("gradebook.html", active_page="gradebook") # Match the nav link
-
+    return render_template("gradebook.html", active_page="gradebook")
 
 @app.route("/dismissed")
 def dismissed_page():
@@ -726,13 +754,11 @@ def register():
 def login_google():
     if not GCAL_AVAILABLE:
         return redirect(url_for("login"))
-    import secrets as sec
-    state = sec.token_urlsafe(32)
+    state = secrets_module.token_urlsafe(32)
     session["oauth_state"] = state
     session["oauth_purpose"] = "login"
     session.permanent = True
     session.modified = True
-    from google_calendar_helper import get_auth_url
     auth_url = get_auth_url(state)
     print(f"[GOOGLE LOGIN] state={state[:8]}..., session_keys={list(session.keys())}")
     return redirect(auth_url)
@@ -746,7 +772,7 @@ def login_account():
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "").strip()
         user = User.query.filter_by(email=email).first()
-        if user and bcrypt.check_password_hash(user.password_hash, password):
+        if user and user.password_hash and bcrypt.check_password_hash(user.password_hash, password):
             login_user(user, remember=True)
             acct = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
             if not acct:
@@ -861,6 +887,256 @@ def logout():
     response.delete_cookie("remember_token")
     return response
 
+# ── GOOGLE OAUTH ──────────────────────────────────────────────
+# ── FIX: Single consolidated OAuth callback that handles both
+#         "login" (create/find account + log in) and "calendar"
+#         (link calendar to existing logged-in user).
+#
+#   Both /oauth/google/callback and /oauth2callback point here so
+#   either redirect URI registered in Google Cloud Console works.
+# ─────────────────────────────────────────────────────────────
+
+def _handle_google_callback():
+    """
+    Core OAuth callback logic shared by both route aliases below.
+
+    What was broken before:
+    1. SESSION LOST: SESSION_TYPE="filesystem" stores sessions in /tmp.
+       Railway can route the callback to a different container instance
+       that has an empty /tmp — oauth_state is gone, state check fails,
+       500 error with IPE-XXXXXXXX.  Fixed by switching to sqlalchemy sessions.
+
+    2. NO ACCOUNT CREATED: The old /oauth2callback fetched userinfo using
+       token_data['token'], but only after a state check that was already
+       failing (see #1).  Even if state passed, if google_calendar_helper
+       only requested the "calendar" scope there would be no email/sub in
+       the userinfo response.  Fixed by requesting openid+email+profile
+       scopes in google_calendar_helper.get_auth_url() and robustly
+       finding/creating the User row here.
+
+    3. WRONG REDIRECT URI: GOOGLE_REDIRECT_URI env var still pointed at
+       the Railway subdomain.  Fixed via Railway env var + Google Console.
+    """
+    import traceback
+
+    print(f"[GOOGLE CALLBACK] args={dict(request.args)}")
+    print(f"[GOOGLE CALLBACK] session_keys={list(session.keys())}")
+
+    # Google returned an error (user denied, etc.)
+    error_msg = request.args.get("error")
+    if error_msg:
+        print(f"[GOOGLE CALLBACK] Google error param: {error_msg}")
+        return redirect(url_for("login"))
+
+    returned_state = request.args.get("state")
+    stored_state = session.pop("oauth_state", None)
+    purpose = session.pop("oauth_purpose", "calendar")
+
+    # ── State check — primary guard against CSRF and session loss ──
+    if not stored_state:
+        # This is the exact cause of IPE-XXXXXXXX errors:
+        # session was empty because a different container handled the callback.
+        # Switching to sqlalchemy sessions (above) prevents this permanently.
+        print("[GOOGLE CALLBACK] FATAL: oauth_state missing from session (session was lost)")
+        return redirect(url_for("login"))
+
+    if returned_state != stored_state:
+        print(f"[GOOGLE CALLBACK] FATAL: state mismatch returned={returned_state!r} stored={stored_state!r}")
+        return redirect(url_for("login"))
+
+    code = request.args.get("code")
+    if not code:
+        print("[GOOGLE CALLBACK] FATAL: no code param")
+        return redirect(url_for("login"))
+
+    # ── Exchange code for tokens ──
+    try:
+        token_dict = exchange_code_for_token(code)
+        print(f"[GOOGLE CALLBACK] token_dict keys={list(token_dict.keys())}")
+    except Exception:
+        print(f"[GOOGLE CALLBACK] token exchange failed:\n{traceback.format_exc()}")
+        return redirect(url_for("login"))
+
+    # exchange_code_for_token returns {"token": ..., "refresh_token": ...}
+    # guard against either key name
+    access_token = token_dict.get("access_token") or token_dict.get("token")
+    if not access_token:
+        print(f"[GOOGLE CALLBACK] FATAL: no access_token in token_dict keys={list(token_dict.keys())}")
+        return redirect(url_for("login"))
+
+    # ── Fetch Google user profile ──
+    try:
+        ui_resp = requests.get(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10,
+        )
+        ui_resp.raise_for_status()
+        userinfo = ui_resp.json()
+    except Exception:
+        print(f"[GOOGLE CALLBACK] userinfo fetch failed:\n{traceback.format_exc()}")
+        return redirect(url_for("login"))
+
+    google_id = userinfo.get("sub")
+    email = (userinfo.get("email") or "").lower().strip()
+    name = userinfo.get("name") or email.split("@")[0]
+    print(f"[GOOGLE CALLBACK] google_id={google_id} email={email} purpose={purpose}")
+
+    if not google_id or not email:
+        print("[GOOGLE CALLBACK] FATAL: missing sub or email in userinfo")
+        return redirect(url_for("login"))
+
+    # ── Find or create User ──
+    user = User.query.filter_by(google_id=google_id).first()
+    if not user:
+        user = User.query.filter_by(email=email).first()
+        if user:
+            # Existing email-based account — link the Google ID
+            user.google_id = google_id
+            if not user.name:
+                user.name = name
+            print(f"[GOOGLE CALLBACK] linked google_id to existing user id={user.id}")
+        else:
+            # Brand-new user — create the account
+            user = User(
+                email=email,
+                google_id=google_id,
+                name=name,
+                password_hash=None,
+            )
+            db.session.add(user)
+            print(f"[GOOGLE CALLBACK] created new user email={email}")
+    else:
+        print(f"[GOOGLE CALLBACK] found existing google user id={user.id}")
+
+    db.session.commit()
+
+    # ── Persist the Google token for calendar use ──
+    gi = GoogleIntegration.query.filter_by(user_id=user.id).first()
+    if gi:
+        gi.token_data = json.dumps(token_dict)
+    else:
+        db.session.add(GoogleIntegration(user_id=user.id, token_data=json.dumps(token_dict)))
+    db.session.commit()
+
+    # Also stash in session for immediate use this request
+    session["google_token"] = token_dict
+    session.permanent = True
+    session.modified = True
+
+    # ── Log the user in ──
+    login_user(user, remember=True)
+    print(f"[GOOGLE CALLBACK] logged in user id={user.id}")
+
+    # ── Redirect ──
+    if purpose == "login":
+        has_linked = LinkedAccount.query.filter_by(user_id=user.id).first()
+        if not has_linked:
+            return redirect(url_for("connect_account"))
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/oauth/google")
+def google_oauth_start():
+    """Start the OAuth flow from the calendar-linking UI."""
+    if not is_logged_in():
+        return redirect(url_for("login"))
+    if not GCAL_AVAILABLE:
+        return "Google Calendar not configured", 500
+    state = secrets_module.token_urlsafe(32)
+    session["oauth_state"] = state
+    session["oauth_purpose"] = "calendar"
+    session.permanent = True
+    session.modified = True
+    return redirect(get_auth_url(state))
+
+
+# ── FIX: Both route paths registered so either redirect URI works.
+#   Set GOOGLE_REDIRECT_URI=https://intelliplan.tech/oauth2callback
+#   in Railway and add that URI in Google Cloud Console.
+#   Keep /oauth/google/callback as a fallback alias.
+@app.route("/oauth2callback")
+@app.route("/oauth/google/callback")
+def google_oauth_callback():
+    return _handle_google_callback()
+
+
+@app.route("/oauth/google/disconnect", methods=["POST"])
+def google_disconnect():
+    if current_user.is_authenticated:
+        GoogleIntegration.query.filter_by(user_id=current_user.id).delete()
+        db.session.commit()
+    else:
+        session.pop("google_token", None)
+    return flask.jsonify({"status": "ok"})
+
+@app.route("/calendar/events")
+def calendar_events():
+    if not GCAL_AVAILABLE:
+        return flask.jsonify({"connected": False, "events": []})
+    token = get_google_token()
+    if not token:
+        return flask.jsonify({"connected": False, "events": []})
+    try:
+        events = get_upcoming_events(token)
+        session["google_token"] = token
+        session.modified = True
+        return flask.jsonify({"connected": True, "events": events})
+    except Exception as e:
+        print(f"Calendar events error: {e}")
+        session.pop("google_token", None)
+        if current_user.is_authenticated:
+            GoogleIntegration.query.filter_by(user_id=current_user.id).delete()
+            db.session.commit()
+        return flask.jsonify({"connected": False, "error": str(e), "events": []})
+
+@app.route("/calendar/free-slot")
+def calendar_free_slot():
+    if not GCAL_AVAILABLE:
+        return flask.jsonify({"slot": "7:00 PM", "connected": False})
+    token = get_google_token()
+    date_str = request.args.get("date", datetime.now().strftime("%Y-%m-%d"))
+    if not token:
+        return flask.jsonify({"slot": "7:00 PM", "connected": False})
+    try:
+        slot = find_free_slots(token, date_str)
+        return flask.jsonify({"slot": slot, "connected": True})
+    except Exception as e:
+        return flask.jsonify({"slot": "7:00 PM", "connected": False, "error": str(e)})
+
+@app.route("/calendar/export", methods=["POST"])
+def calendar_export():
+    if not GCAL_AVAILABLE:
+        return flask.jsonify({"status": "error", "message": "Google Calendar not configured"})
+    token = get_google_token()
+    if not token:
+        return flask.jsonify({"status": "error", "message": "Google Calendar not connected"})
+    data = request.json
+    schedule_data = data.get("schedule_data")
+    skip_overlaps = data.get("skip_overlaps", False)
+    try:
+        existing_events = []
+        if skip_overlaps:
+            try:
+                existing_events = get_upcoming_events(token)
+            except:
+                existing_events = []
+        ids, new_token, skipped = add_schedule_to_calendar(token, schedule_data, existing_events if skip_overlaps else [])
+        if new_token:
+            session["google_token"] = {**token, "token": new_token}
+            session.modified = True
+            if current_user.is_authenticated:
+                gi = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
+                if gi:
+                    td = json.loads(gi.token_data)
+                    td["token"] = new_token
+                    gi.token_data = json.dumps(td)
+                    db.session.commit()
+        return flask.jsonify({"status": "ok", "created": len(ids), "skipped": skipped})
+    except Exception as e:
+        print(f"Calendar export error: {e}")
+        return flask.jsonify({"status": "error", "message": "Google Calendar export failed. Please try again."})
+
 # ── PROFILE MANAGEMENT ────────────────────────────────────────
 @app.route("/profiles/list")
 def profiles_list():
@@ -932,28 +1208,20 @@ def get_live_schedule():
     acct = get_active_account()
     if not acct:
         return flask.jsonify([])
-    
     dismissed = get_dismissed_titles()
     login_type = acct["login_type"]
-
     if login_type == "studentvue":
         try:
-            # Log the attempt to fetch data
             print(f"Fetching StudentVue data for {acct['sv_username']}...")
             result = get_sv_assignments(acct["sv_district_url"], acct["sv_username"], acct["sv_password"])
-            
             if not isinstance(result, list):
                 print("StudentVue returned non-list data")
                 return flask.jsonify([])
-
-            # Use .get() to avoid KeyError if "title" is missing
             filtered = [a for a in result if isinstance(a, dict) and a.get("title") not in dismissed]
             return flask.jsonify(filtered)
         except Exception as e:
-            print(f"StudentVue Live Error: {str(e)}") # This will now show in your logs
+            print(f"StudentVue Live Error: {str(e)}")
             return flask.jsonify([]), 500
-
-    # ... (keep schoology and canvas logic exactly as they were)
     if login_type == "schoology":
         try:
             from schoology_helper import get_schoology_assignments
@@ -962,9 +1230,7 @@ def get_live_schedule():
         except Exception as e:
             print(f"Schoology Error: {e}")
             return flask.jsonify([])
-
     try:
-        # ... (Canvas logic remains the same)
         token = acct["canvas_token"]
         canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
         base = f"{canvas_url}/api/v1"
@@ -1252,10 +1518,8 @@ def notes_file(note_id):
 def dismiss():
     data = request.get_json(silent=True) or {}
     title = (data.get("title") or "").strip()
-
     if not title:
         return flask.jsonify({"status": "error", "message": "Missing title"}), 400
-
     try:
         save_dismissed(title, data)
         return flask.jsonify({"status": "ok"})
@@ -1266,10 +1530,8 @@ def dismiss():
 def restore():
     data = request.get_json(silent=True) or {}
     title = (data.get("title") or "").strip()
-
     if not title:
         return flask.jsonify({"status": "error", "message": "Missing title"}), 400
-
     try:
         delete_dismissed(title)
         return flask.jsonify({"status": "ok"})
@@ -1314,10 +1576,8 @@ def generate_schedule():
     hours_per_day = data.get("hours_per_day", 2)
     preferred_time = data.get("preferred_time", "evening")
     custom_tasks = data.get("custom_tasks", [])
-
     if not assignments and not custom_tasks:
         return flask.jsonify({"status": "error", "message": "No assignments to schedule."})
-
     normalized_assignments = []
     for assignment in assignments:
         difficulty = assignment.get("difficulty") or infer_task_difficulty(
@@ -1330,38 +1590,31 @@ def generate_schedule():
             "difficulty": difficulty,
             "color": assignment.get("color") or PRIORITY_COLORS.get(assignment.get("priority", "Medium"), "#60a5fa"),
         })
-
     today_str = datetime.now().strftime("%Y-%m-%d")
     overdue = [a for a in normalized_assignments if a.get("due_date", "9999") < today_str]
     upcoming = [a for a in normalized_assignments if a.get("due_date", "9999") >= today_str]
     upcoming.sort(key=lambda x: x.get("due_date", "9999"))
-
     try:
         client = Groq(api_key=os.getenv("GROQ_API_KEY"))
     except Exception:
         return flask.jsonify({"status": "error", "message": API_ERROR_MESSAGES["groq"], "retryable": True}), 503
-
     overdue_text = ""
     if overdue:
         overdue_text = f"\nOVERDUE — MUST BE SCHEDULED TODAY ({len(overdue)} assignments):\n" + "\n".join([
             f"  ⚠ {a['title']} ({a['course']}) — was due {a['due_date']}, Priority: HIGH, Est: {a['estimated_time']}min"
             for a in overdue
         ])
-
     upcoming_text = ""
     if upcoming:
         upcoming_text = f"\nUPCOMING ({len(upcoming)} assignments):\n" + "\n".join([
             f"  - {a['title']} ({a['course']}) — Due: {a['due_date']}, Priority: {a['priority']}, Difficulty: {a['difficulty']}, Est: {a['estimated_time']}min"
             for a in upcoming
         ])
-
     custom_text = ""
     if custom_tasks:
         custom_text = f"\nCUSTOM TASKS ADDED BY STUDENT — use EXACT names as written ({len(custom_tasks)}):\n" + "\n".join([f"  - {t}" for t in custom_tasks])
-
     today = datetime.now().strftime("%Y-%m-%d")
     total = len(normalized_assignments) + len(custom_tasks)
-
     prompt = f"""You are IntelliPlan — an adaptive academic study-planning system. Today is {today}.
 
 You must schedule ALL {total} items below. Every single one must appear in the schedule.
@@ -1404,7 +1657,6 @@ Return ONLY valid JSON:
   "overview": "Plan covering all {total} items",
   "total_study_time": "X hours Y minutes"
 }}"""
-
     try:
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
@@ -1435,318 +1687,6 @@ def service_worker():
     response.headers["Content-Type"] = "application/javascript"
     response.headers["Service-Worker-Allowed"] = "/"
     return response
-
-# ── GOOGLE CALENDAR ───────────────────────────────────────────
-@app.route("/oauth/google")
-def google_oauth_start():
-    if not is_logged_in():
-        return redirect(url_for("login"))
-    if not GCAL_AVAILABLE:
-        return "Google Calendar not configured", 500
-    import secrets
-    state = secrets.token_urlsafe(32)
-    session["oauth_state"] = state
-    session.permanent = True
-    session.modified = True
-    from google_calendar_helper import get_auth_url
-    auth_url = get_auth_url(state)
-    return redirect(auth_url)
-
-@app.route("/oauth/google/callback")
-def google_oauth_callback():
-    if not GCAL_AVAILABLE:
-        return redirect(url_for("dashboard"))
-
-    # --- DEBUG: log everything we got back ---
-    print(f"[GOOGLE CALLBACK] args={dict(request.args)}")
-    print(f"[GOOGLE CALLBACK] session_keys={list(session.keys())}")
-
-    error_msg = request.args.get("error")
-    if error_msg:
-        print(f"[GOOGLE CALLBACK] Google returned error: {error_msg}")
-        return redirect(url_for("login"))
-
-    # --- STATE CHECK (critical for detecting session loss) ---
-    returned_state = request.args.get("state")
-    stored_state = session.pop("oauth_state", None)
-
-    if not stored_state:
-        print("[GOOGLE CALLBACK] FATAL: no oauth_state in session — session was lost during redirect")
-        return redirect(url_for("login"))
-
-    if returned_state != stored_state:
-        print(f"[GOOGLE CALLBACK] FATAL: state mismatch — returned={returned_state}, stored={stored_state}")
-        return redirect(url_for("login"))
-
-    code = request.args.get("code")
-    if not code:
-        print("[GOOGLE CALLBACK] FATAL: no code in callback")
-        return redirect(url_for("login"))
-
-    try:
-        from google_calendar_helper import exchange_code_for_token
-        token_dict = exchange_code_for_token(code)
-        print(f"[GOOGLE CALLBACK] token exchanged, keys={list(token_dict.keys())}")
-    except Exception as e:
-        import traceback
-        print(f"[GOOGLE CALLBACK] Token exchange failed:\n{traceback.format_exc()}")
-        return redirect(url_for("login"))
-
-    # --- FIX: get access_token from either key name ---
-    access_token = token_dict.get("access_token") or token_dict.get("token")
-    if not access_token:
-        print(f"[GOOGLE CALLBACK] FATAL: no access_token found in token_dict, keys={list(token_dict.keys())}")
-        return redirect(url_for("login"))
-
-    purpose = session.pop("oauth_purpose", "calendar")
-    print(f"[GOOGLE CALLBACK] purpose={purpose}")
-
-    if purpose == "login":
-        # Get user info from Google
-        userinfo_resp = requests.get(
-            "https://www.googleapis.com/oauth2/v3/userinfo",
-            headers={"Authorization": f"Bearer {access_token}"}
-        )
-        print(f"[GOOGLE CALLBACK] userinfo status={userinfo_resp.status_code}")
-
-        if userinfo_resp.status_code != 200:
-            print(f"[GOOGLE CALLBACK] userinfo failed: {userinfo_resp.text}")
-            return redirect(url_for("login"))
-
-        userinfo = userinfo_resp.json()
-        google_id = userinfo.get("sub")
-        email = userinfo.get("email", "").lower()
-        name = userinfo.get("name", "")
-
-        print(f"[GOOGLE CALLBACK] google_id={google_id}, email={email}, name={name}")
-
-        if not google_id or not email:
-            print(f"[GOOGLE CALLBACK] FATAL: missing google_id or email in userinfo")
-            return redirect(url_for("login"))
-
-        # Find or create user
-        user = User.query.filter_by(google_id=google_id).first()
-        if not user:
-            user = User.query.filter_by(email=email).first()
-            if user:
-                print(f"[GOOGLE CALLBACK] linked google_id to existing user {user.id}")
-                user.google_id = google_id
-                user.name = name
-            else:
-                print(f"[GOOGLE CALLBACK] creating new user with email={email}")
-                user = User(
-                    email=email,
-                    google_id=google_id,
-                    name=name,
-                    password_hash=None
-                )
-                db.session.add(user)
-        else:
-            print(f"[GOOGLE CALLBACK] found existing google user {user.id}")
-
-        db.session.commit()
-        login_user(user, remember=True)
-        print(f"[GOOGLE CALLBACK] logged in user {user.id}")
-
-        session["google_token"] = token_dict
-        session.permanent = True
-        session.modified = True
-
-        existing_gcal = GoogleIntegration.query.filter_by(user_id=user.id).first()
-        if existing_gcal:
-            existing_gcal.token_data = json.dumps(token_dict)
-        else:
-            db.session.add(GoogleIntegration(user_id=user.id, token_data=json.dumps(token_dict)))
-        db.session.commit()
-
-        acct = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
-        if acct:
-            print(f"[GOOGLE CALLBACK] active linked account found, redirecting to dashboard")
-            return redirect(url_for("dashboard"))
-        else:
-            print(f"[GOOGLE CALLBACK] no linked account, redirecting to connect_account")
-            return redirect(url_for("connect_account"))
-
-    else:
-        # Original calendar-only flow
-        print(f"[GOOGLE CALLBACK] calendar-only flow, current_user.is_authenticated={current_user.is_authenticated}")
-        session["google_token"] = token_dict
-        session.permanent = True
-        session.modified = True
-        if current_user.is_authenticated:
-            existing = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
-            if existing:
-                existing.token_data = json.dumps(token_dict)
-            else:
-                db.session.add(GoogleIntegration(user_id=current_user.id, token_data=json.dumps(token_dict)))
-            db.session.commit()
-        return redirect(url_for("dashboard"))
-    
-@app.route("/oauth2callback")
-def oauth2callback():
-    """Handles Google OAuth redirect for both login and calendar linking."""
-    error = request.args.get("error")
-    if error:
-        print(f"[OAUTH] Google returned error: {error}")
-        return redirect(url_for("login"))
-
-    code = request.args.get("code")
-    state = request.args.get("state")
-
-    # Validate state to prevent CSRF
-    saved_state = session.pop("oauth_state", None)
-    purpose = session.pop("oauth_purpose", "login")
-
-    if not saved_state or saved_state != state:
-        print(f"[OAUTH] State mismatch — saved={saved_state!r}, got={state!r}")
-        return redirect(url_for("login"))
-
-    if not code:
-        return redirect(url_for("login"))
-
-    try:
-        token_data = exchange_code_for_token(code)
-    except Exception as e:
-        print(f"[OAUTH] Token exchange failed: {e}")
-        return redirect(url_for("login"))
-
-    # --- Fetch the user's Google profile ---
-    try:
-        resp = requests.get(
-            "https://www.googleapis.com/oauth2/v3/userinfo",
-            headers={"Authorization": f"Bearer {token_data['token']}"},
-            timeout=10,
-        )
-        profile = resp.json()
-        google_id = profile.get("sub")
-        google_email = (profile.get("email") or "").lower().strip()
-        google_name = profile.get("name") or google_email.split("@")[0]
-    except Exception as e:
-        print(f"[OAUTH] Profile fetch failed: {e}")
-        return redirect(url_for("login"))
-
-    if not google_email:
-        print("[OAUTH] No email returned from Google")
-        return redirect(url_for("login"))
-
-    # --- Find or create the User in the database ---
-    user = User.query.filter_by(google_id=google_id).first()
-    if not user:
-        user = User.query.filter_by(email=google_email).first()
-    if not user:
-        # Brand new user — create account
-        user = User(
-            email=google_email,
-            name=google_name,
-            google_id=google_id,
-            password_hash=None,  # Google login, no password
-        )
-        db.session.add(user)
-        db.session.commit()
-        print(f"[OAUTH] Created new user: {google_email}")
-    else:
-        # Existing user — link google_id if not already set
-        if not user.google_id:
-            user.google_id = google_id
-        if not user.name:
-            user.name = google_name
-        db.session.commit()
-        print(f"[OAUTH] Logged in existing user: {google_email}")
-
-    # --- Always save the Google token for calendar use ---
-    gi = GoogleIntegration.query.filter_by(user_id=user.id).first()
-    if gi:
-        gi.token_data = json.dumps(token_data)
-    else:
-        gi = GoogleIntegration(user_id=user.id, token_data=json.dumps(token_data))
-        db.session.add(gi)
-    db.session.commit()
-
-    # --- Log the user in ---
-    login_user(user, remember=True)
-
-    # If they have no linked school account yet, send them to connect
-    has_account = LinkedAccount.query.filter_by(user_id=user.id).first()
-    if purpose == "login" and not has_account:
-        return redirect(url_for("connect_account"))
-
-    return redirect(url_for("dashboard"))
-
-@app.route("/oauth/google/disconnect", methods=["POST"])
-def google_disconnect():
-    if current_user.is_authenticated:
-        GoogleIntegration.query.filter_by(user_id=current_user.id).delete()
-        db.session.commit()
-    else:
-        session.pop("google_token", None)
-    return flask.jsonify({"status": "ok"})
-
-@app.route("/calendar/events")
-def calendar_events():
-    if not GCAL_AVAILABLE:
-        return flask.jsonify({"connected": False, "events": []})
-    token = get_google_token()
-    if not token:
-        return flask.jsonify({"connected": False, "events": []})
-    try:
-        events = get_upcoming_events(token)
-        session["google_token"] = token
-        session.modified = True
-        return flask.jsonify({"connected": True, "events": events})
-    except Exception as e:
-        print(f"Calendar events error: {e}")
-        session.pop("google_token", None)
-        if current_user.is_authenticated:
-            GoogleIntegration.query.filter_by(user_id=current_user.id).delete()
-            db.session.commit()
-        return flask.jsonify({"connected": False, "error": str(e), "events": []})
-
-@app.route("/calendar/free-slot")
-def calendar_free_slot():
-    if not GCAL_AVAILABLE:
-        return flask.jsonify({"slot": "7:00 PM", "connected": False})
-    token = get_google_token()
-    date_str = request.args.get("date", datetime.now().strftime("%Y-%m-%d"))
-    if not token:
-        return flask.jsonify({"slot": "7:00 PM", "connected": False})
-    try:
-        slot = find_free_slots(token, date_str)
-        return flask.jsonify({"slot": slot, "connected": True})
-    except Exception as e:
-        return flask.jsonify({"slot": "7:00 PM", "connected": False, "error": str(e)})
-
-@app.route("/calendar/export", methods=["POST"])
-def calendar_export():
-    if not GCAL_AVAILABLE:
-        return flask.jsonify({"status": "error", "message": "Google Calendar not configured"})
-    token = get_google_token()
-    if not token:
-        return flask.jsonify({"status": "error", "message": "Google Calendar not connected"})
-    data = request.json
-    schedule_data = data.get("schedule_data")
-    skip_overlaps = data.get("skip_overlaps", False)
-    try:
-        existing_events = []
-        if skip_overlaps:
-            try:
-                existing_events = get_upcoming_events(token)
-            except:
-                existing_events = []
-        ids, new_token, skipped = add_schedule_to_calendar(token, schedule_data, existing_events if skip_overlaps else [])
-        if new_token:
-            session["google_token"] = {**token, "token": new_token}
-            session.modified = True
-            if current_user.is_authenticated:
-                gi = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
-                if gi:
-                    td = json.loads(gi.token_data)
-                    td["token"] = new_token
-                    gi.token_data = json.dumps(td)
-                    db.session.commit()
-        return flask.jsonify({"status": "ok", "created": len(ids), "skipped": skipped})
-    except Exception as e:
-        print(f"Calendar export error: {e}")
-        return flask.jsonify({"status": "error", "message": "Google Calendar export failed. Please try again."})
 
 # ── NOTION ────────────────────────────────────────────────────
 @app.route("/notion/connect", methods=["POST"])
@@ -1878,41 +1818,34 @@ def unified_tasks():
     dismissed = get_dismissed_titles()
     today = date_type.today()
     priority_order = {"High": 0, "Medium": 1, "Low": 2}
-
     acct = get_active_account()
     if acct:
         login_type = acct["login_type"]
         if login_type == "studentvue":
             try:
-                # Robust fetch for standard assignments
                 raw = get_sv_assignments(acct["sv_district_url"], acct["sv_username"], acct["sv_password"])
                 if isinstance(raw, list):
                     for a in raw:
                         if isinstance(a, dict) and a.get("title") not in dismissed:
                             a["source"] = "studentvue"
-                            # Ensure the priority key exists for the frontend
                             if "priority" not in a:
-                                a["priority"] = "Medium" 
+                                a["priority"] = "Medium"
                             a.setdefault("color", PRIORITY_COLORS.get(a.get("priority", "Medium"), "#f59e0b"))
                             tasks.append(a)
             except Exception as e:
                 print(f"SV assignments error: {e}")
-
             try:
-                # Robust fetch for missing assignments
                 missing_raw = get_missing_assignments(acct["sv_district_url"], acct["sv_username"], acct["sv_password"])
                 if isinstance(missing_raw, list):
                     for a in missing_raw:
                         if isinstance(a, dict) and a.get("title") not in dismissed:
                             a["source"] = "studentvue_missing"
                             if "priority" not in a:
-                                a["priority"] = "High" # Missing tasks are usually high priority
+                                a["priority"] = "High"
                             a.setdefault("color", PRIORITY_COLORS.get(a.get("priority", "High"), "#ef4444"))
                             tasks.append(a)
             except Exception as e:
                 print(f"Missing assignments error: {e}")
-        
-        # ... (Keep the Canvas logic exactly as it was)
         elif login_type == "canvas":
             try:
                 token = acct["canvas_token"]
@@ -1956,7 +1889,6 @@ def unified_tasks():
                         })
             except Exception as e:
                 print(f"Canvas unified error: {e}")
-
     if NOTION_AVAILABLE:
         try:
             notion_token, notion_db_id = get_notion_token_and_db()
@@ -1967,7 +1899,6 @@ def unified_tasks():
                         tasks.append(t)
         except Exception as e:
             print(f"Notion tasks error: {e}")
-
     try:
         if current_user.is_authenticated:
             manual = ManualTask.query.filter_by(user_id=current_user.id, done=False).all()
@@ -1990,7 +1921,6 @@ def unified_tasks():
                 })
     except Exception as e:
         print(f"Manual tasks error: {e}")
-
     tasks = dedupe_tasks(tasks)
     result = {"today": [], "upcoming": [], "overdue": []}
     for t in tasks:
@@ -2008,10 +1938,8 @@ def unified_tasks():
                 result["upcoming"].append(t)
         except:
             result["upcoming"].append(t)
-
     for key in result:
         result[key].sort(key=lambda x: (x.get("due_date", "9999-12-31"), priority_order.get(x.get("priority", "Low"), 2)))
-
     return flask.jsonify(result)
 
 @app.route("/missing/data")
@@ -2327,7 +2255,7 @@ def extension_login():
         if not email or not password:
             return flask.jsonify({"status": "error", "message": "Email and password required"})
         user = User.query.filter_by(email=email).first()
-        if not user or not bcrypt.check_password_hash(user.password_hash, password):
+        if not user or not user.password_hash or not bcrypt.check_password_hash(user.password_hash, password):
             return flask.jsonify({"status": "error", "message": "Invalid email or password"})
         token = secrets_module.token_hex(32)
         db.session.add(ExtensionToken(user_id=user.id, token=token))
@@ -2561,10 +2489,8 @@ def study_evaluate():
     correct_answer = data.get("correct_answer", "").strip()
     user_answer = data.get("user_answer", "").strip()
     confidence = data.get("confidence", "medium")
-
     if not user_answer:
         return flask.jsonify({"status": "error", "message": "No answer provided"})
-
     prompt = f'''Evaluate this student answer against the correct answer SEMANTICALLY and LENIENTLY.
 
 QUESTION: {question}
@@ -2594,7 +2520,6 @@ Scoring guide:
 - partial: 40-69 (some understanding present)
 - incorrect: 0-39 (core idea missing or wrong)
 '''
-
     try:
         client = Groq(api_key=os.getenv("GROQ_API_KEY"))
         response = client.chat.completions.create(
@@ -2603,45 +2528,29 @@ Scoring guide:
             temperature=0.4,
             max_tokens=800
         )
-
         raw = response.choices[0].message.content.strip()
         raw = re.sub(r"```json\n?", "", raw)
         raw = re.sub(r"```\n?", "", raw)
         result = json.loads(raw)
-
-        # --- Leniency Overrides ---
         ua = user_answer.lower()
         ca = correct_answer.lower()
-
-        # Keyword overlap check
         keywords = [w for w in re.findall(r'\w+', ca) if len(w) > 4]
         keyword_hits = sum(1 for w in keywords if w in ua)
-
-        # Similarity check
         from difflib import SequenceMatcher
         similarity = SequenceMatcher(None, ua, ca).ratio()
-
-        # Override overly harsh grading
         if result["verdict"] == "incorrect":
             if keyword_hits >= 2 or similarity > 0.5:
                 result["verdict"] = "partial"
                 result["score"] = max(result.get("score", 0), 45)
-
         if result["verdict"] == "partial" and similarity > 0.75:
             result["verdict"] = "correct"
             result["score"] = max(result.get("score", 0), 75)
-
-        # --- Points System (less punishing) ---
         base = {"correct": 10, "partial": 7, "incorrect": 3}.get(result["verdict"], 3)
         conf_mult = {"high": 1.5, "medium": 1.0, "low": 0.7}.get(confidence, 1.0)
-
         if result["verdict"] == "incorrect" and confidence == "high":
-            conf_mult = 0.6  # softer penalty
-
+            conf_mult = 0.6
         result["points_earned"] = max(1, round(base * conf_mult))
-
         return flask.jsonify({"status": "ok", "evaluation": result})
-
     except Exception as e:
         print(f"Study evaluate error: {e}")
         return flask.jsonify({
@@ -2881,6 +2790,148 @@ def study_session_complete():
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
 
+# ── STUDY ACCESS LIMITS ───────────────────────────────────────
+GUEST_STUDY_LIMITS = {
+    "uploads": 1,
+    "generations": 1,
+    "max_chars": 6000,
+    "max_questions": 5
+}
+
+def _get_guest_usage():
+    if "guest_study_usage" not in session:
+        session["guest_study_usage"] = {"uploads": 0, "generations": 0}
+    return session["guest_study_usage"]
+
+def _save_guest_usage(usage):
+    session["guest_study_usage"] = usage
+    session.modified = True
+
+def _guest_limit_response():
+    return flask.jsonify({
+        "status": "error",
+        "code": "login_required",
+        "message": "Create an account to continue using Study & Learn.",
+        "upgrade_required": True
+    }), 403
+
+def _is_guest():
+    return not current_user.is_authenticated
+
+@app.route("/study/access", methods=["GET"])
+def study_access():
+    if current_user.is_authenticated:
+        return flask.jsonify({"status": "ok", "logged_in": True, "limits": None})
+    usage = _get_guest_usage()
+    remaining_uploads = max(0, GUEST_STUDY_LIMITS["uploads"] - usage["uploads"])
+    remaining_generations = max(0, GUEST_STUDY_LIMITS["generations"] - usage["generations"])
+    return flask.jsonify({
+        "status": "ok",
+        "logged_in": False,
+        "limits": {
+            "remaining_uploads": remaining_uploads,
+            "remaining_generations": remaining_generations,
+            "max_questions": GUEST_STUDY_LIMITS["max_questions"]
+        }
+    })
+
+@app.route("/study/extract-pdf", methods=["POST"])
+def study_extract_pdf():
+    if "file" not in request.files:
+        return flask.jsonify({"status": "error", "message": "No file"}), 400
+    f = request.files["file"]
+    if not f.filename.lower().endswith(".pdf"):
+        return flask.jsonify({"status": "error", "message": "Only PDF files"}), 400
+    if _is_guest():
+        usage = _get_guest_usage()
+        if usage["uploads"] >= GUEST_STUDY_LIMITS["uploads"]:
+            return _guest_limit_response()
+    try:
+        import PyPDF2
+        reader = PyPDF2.PdfReader(io.BytesIO(f.read()))
+        text = " ".join(page.extract_text() or "" for page in reader.pages)
+        if _is_guest():
+            usage = _get_guest_usage()
+            usage["uploads"] += 1
+            _save_guest_usage(usage)
+        return flask.jsonify({"status": "ok", "text": text[:15000]})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/study/generate", methods=["POST"])
+def study_generate():
+    data = request.json or {}
+    content = data.get("content", "").strip()
+    mode = data.get("mode", "casual")
+    num_questions = int(data.get("num_questions", 8))
+    if not content:
+        return flask.jsonify({"status": "error", "message": "No content provided"}), 400
+    if _is_guest():
+        usage = _get_guest_usage()
+        if usage["generations"] >= GUEST_STUDY_LIMITS["generations"]:
+            return _guest_limit_response()
+        mode = "casual"
+        num_questions = min(num_questions, GUEST_STUDY_LIMITS["max_questions"])
+        content = content[:GUEST_STUDY_LIMITS["max_chars"]]
+    else:
+        if len(content) > 20000:
+            content = content[:20000]
+    prompt = f'''You are an expert study assistant. Analyze the following study material and generate exactly {num_questions} study questions.
+
+STUDY MATERIAL:
+{content}
+
+Generate a mix of:
+- 3-4 recall/definition questions (straightforward facts)
+- 2-3 conceptual questions (understanding why/how)
+- 2-3 short-answer questions (application or explanation)
+
+Also extract 5-8 key concepts from the material.
+
+Respond ONLY with valid JSON in this exact format:
+{{
+  "title": "Brief topic title (5 words max)",
+  "key_concepts": [
+    {{"term": "Term name", "definition": "Clear definition in 1-2 sentences"}}
+  ],
+  "questions": [
+    {{
+      "id": 1,
+      "type": "recall",
+      "question": "Question text here?",
+      "answer": "Complete, detailed answer here. Be thorough.",
+      "hint": "Optional one-word hint"
+    }}
+  ]
+}}
+
+Question types: "recall", "conceptual", "short-answer"
+Make answers comprehensive (2-4 sentences). Make questions specific to the content.
+Be accurate, but keep the tone supportive and student-friendly.'''
+    try:
+        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5,
+            max_tokens=1200 if _is_guest() else 3000
+        )
+        raw = response.choices[0].message.content.strip()
+        raw = re.sub(r"```json\s*", "", raw)
+        raw = re.sub(r"```", "", raw).strip()
+        result = json.loads(raw)
+        if _is_guest():
+            usage = _get_guest_usage()
+            usage["generations"] += 1
+            _save_guest_usage(usage)
+        return flask.jsonify({"status": "ok", "data": result})
+    except Exception as e:
+        print(f"Study generate error: {e}")
+        return flask.jsonify({
+            "status": "error",
+            "message": "Study generation temporarily unavailable. Please try again later."
+        }), 500
+
 # ── ERROR HANDLERS ────────────────────────────────────────────
 @app.errorhandler(404)
 def error_404(e):
@@ -2950,194 +3001,6 @@ def handle_unhandled_exception(e):
         return render_template("error.html", active_page="error", error_code=500, error_id=err_id), 500
     except Exception:
         return flask.Response(f"<h1>Server Error</h1><p>Error ID: {err_id}</p><a href='/'>Home</a>", status=500, mimetype="text/html")
-
-
-# ── STUDY ACCESS LIMITS ───────────────────────────────────────
-
-GUEST_STUDY_LIMITS = {
-    "uploads": 1,        # one pasted text or one file
-    "generations": 1,    # one generated study session
-    "max_chars": 6000,   # shorter content for guests
-    "max_questions": 5   # fewer questions for guests
-}
-
-def _get_guest_usage():
-    """
-    Tracks guest study usage in session.
-    This is enough to enforce one-use access without creating a full DB row.
-    """
-    if "guest_study_usage" not in session:
-        session["guest_study_usage"] = {
-            "uploads": 0,
-            "generations": 0
-        }
-    return session["guest_study_usage"]
-
-def _save_guest_usage(usage):
-    session["guest_study_usage"] = usage
-    session.modified = True
-
-def _guest_limit_response():
-    return flask.jsonify({
-        "status": "error",
-        "code": "login_required",
-        "message": "Create an account to continue using Study & Learn.",
-        "upgrade_required": True
-    }), 403
-
-def _is_guest():
-    return not current_user.is_authenticated
-
-
-@app.route("/study/access", methods=["GET"])
-def study_access():
-    """
-    Optional helper for the frontend.
-    Lets the UI know whether the user is logged in and what guest limits apply.
-    """
-    if current_user.is_authenticated:
-        return flask.jsonify({
-            "status": "ok",
-            "logged_in": True,
-            "limits": None
-        })
-
-    usage = _get_guest_usage()
-    remaining_uploads = max(0, GUEST_STUDY_LIMITS["uploads"] - usage["uploads"])
-    remaining_generations = max(0, GUEST_STUDY_LIMITS["generations"] - usage["generations"])
-
-    return flask.jsonify({
-        "status": "ok",
-        "logged_in": False,
-        "limits": {
-            "remaining_uploads": remaining_uploads,
-            "remaining_generations": remaining_generations,
-            "max_questions": GUEST_STUDY_LIMITS["max_questions"]
-        }
-    })
-
-
-@app.route("/study/extract-pdf", methods=["POST"])
-def study_extract_pdf():
-    if "file" not in request.files:
-        return flask.jsonify({"status": "error", "message": "No file"}), 400
-
-    f = request.files["file"]
-
-    if not f.filename.lower().endswith(".pdf"):
-        return flask.jsonify({"status": "error", "message": "Only PDF files"}), 400
-
-    # Guest restriction: only one upload total
-    if _is_guest():
-        usage = _get_guest_usage()
-        if usage["uploads"] >= GUEST_STUDY_LIMITS["uploads"]:
-            return _guest_limit_response()
-
-    try:
-        import PyPDF2
-        reader = PyPDF2.PdfReader(io.BytesIO(f.read()))
-        text = " ".join(page.extract_text() or "" for page in reader.pages)
-
-        # Mark guest upload used only after a successful extraction
-        if _is_guest():
-            usage = _get_guest_usage()
-            usage["uploads"] += 1
-            _save_guest_usage(usage)
-
-        return flask.jsonify({
-            "status": "ok",
-            "text": text[:15000]
-        })
-    except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
-
-
-@app.route("/study/generate", methods=["POST"])
-def study_generate():
-    data = request.json or {}
-    content = data.get("content", "").strip()
-    mode = data.get("mode", "casual")
-    num_questions = int(data.get("num_questions", 8))
-
-    if not content:
-        return flask.jsonify({"status": "error", "message": "No content provided"}), 400
-
-    # Guest restriction: one generation total
-    if _is_guest():
-        usage = _get_guest_usage()
-        if usage["generations"] >= GUEST_STUDY_LIMITS["generations"]:
-            return _guest_limit_response()
-
-        # Make the guest version lighter and more limited
-        mode = "casual"
-        num_questions = min(num_questions, GUEST_STUDY_LIMITS["max_questions"])
-        content = content[:GUEST_STUDY_LIMITS["max_chars"]]
-
-    else:
-        if len(content) > 20000:
-            content = content[:20000]
-
-    prompt = f'''You are an expert study assistant. Analyze the following study material and generate exactly {num_questions} study questions.
-
-STUDY MATERIAL:
-{content}
-
-Generate a mix of:
-- 3-4 recall/definition questions (straightforward facts)
-- 2-3 conceptual questions (understanding why/how)
-- 2-3 short-answer questions (application or explanation)
-
-Also extract 5-8 key concepts from the material.
-
-Respond ONLY with valid JSON in this exact format:
-{{
-  "title": "Brief topic title (5 words max)",
-  "key_concepts": [
-    {{"term": "Term name", "definition": "Clear definition in 1-2 sentences"}}
-  ],
-  "questions": [
-    {{
-      "id": 1,
-      "type": "recall",
-      "question": "Question text here?",
-      "answer": "Complete, detailed answer here. Be thorough.",
-      "hint": "Optional one-word hint"
-    }}
-  ]
-}}
-
-Question types: "recall", "conceptual", "short-answer"
-Make answers comprehensive (2-4 sentences). Make questions specific to the content.
-Be accurate, but keep the tone supportive and student-friendly.'''
-
-    try:
-        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.5,
-            max_tokens=1200 if _is_guest() else 3000
-        )
-
-        raw = response.choices[0].message.content.strip()
-        raw = re.sub(r"```json\s*", "", raw)
-        raw = re.sub(r"```", "", raw).strip()
-        result = json.loads(raw)
-
-        # Mark guest generation used only after successful output
-        if _is_guest():
-            usage = _get_guest_usage()
-            usage["generations"] += 1
-            _save_guest_usage(usage)
-
-        return flask.jsonify({"status": "ok", "data": result})
-
-    except Exception as e:
-        print(f"Study generate error: {e}")
-        return flask.jsonify({
-            "status": "error",
-            "message": "Study generation temporarily unavailable. Please try again later."
-        }), 500
 
 
 if __name__ == "__main__":
