@@ -16,20 +16,25 @@ SCOPES = [
 ]
 
 def get_auth_url(state):
-    """Generate Google OAuth URL without PKCE."""
+    """Generate Google OAuth URL requesting calendar + user profile."""
     params = {
         "client_id": os.getenv("GOOGLE_CLIENT_ID"),
         "redirect_uri": os.getenv("GOOGLE_REDIRECT_URI"),
         "response_type": "code",
-        "scope": "https://www.googleapis.com/auth/calendar",
+        "scope": " ".join([
+            "https://www.googleapis.com/auth/calendar",
+            "openid",
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile",
+        ]),
         "access_type": "offline",
         "prompt": "consent",
         "state": state,
-        "include_granted_scopes": "true"
+        "include_granted_scopes": "true",
     }
+    import urllib.parse
     base_url = "https://accounts.google.com/o/oauth2/v2/auth"
-    query = "&".join(f"{k}={v}" for k, v in params.items())
-    return f"{base_url}?{query}"
+    return f"{base_url}?{urllib.parse.urlencode(params)}"
 
 def exchange_code_for_token(code):
     """Exchange authorization code for tokens — no PKCE."""

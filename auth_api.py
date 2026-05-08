@@ -455,8 +455,12 @@ def user_to_dict(user):
 def _corsify(response):
     origin = request.headers.get("Origin", "")
     if any(origin.startswith(p) for p in (
-        "chrome-extension://", "http://localhost", "http://127.0.0.1",
-        "https://intelli-plan.up.railway.app"
+        "chrome-extension://",
+        "http://localhost",
+        "http://127.0.0.1",
+        "https://intelli-plan.up.railway.app",
+        "https://intelliplan.site",           # ← ADD THIS
+        "https://www.intelliplan.site",        # ← ADD THIS
     )):
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Vary"] = "Origin"

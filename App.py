@@ -1582,6 +1582,95 @@ def google_oauth_callback():
             db.session.commit()
         return redirect(url_for("dashboard"))
     
+@app.route("/oauth2callback")
+def oauth2callback():
+    """Handles Google OAuth redirect for both login and calendar linking."""
+    error = request.args.get("error")
+    if error:
+        print(f"[OAUTH] Google returned error: {error}")
+        return redirect(url_for("login"))
+
+    code = request.args.get("code")
+    state = request.args.get("state")
+
+    # Validate state to prevent CSRF
+    saved_state = session.pop("oauth_state", None)
+    purpose = session.pop("oauth_purpose", "login")
+
+    if not saved_state or saved_state != state:
+        print(f"[OAUTH] State mismatch — saved={saved_state!r}, got={state!r}")
+        return redirect(url_for("login"))
+
+    if not code:
+        return redirect(url_for("login"))
+
+    try:
+        token_data = exchange_code_for_token(code)
+    except Exception as e:
+        print(f"[OAUTH] Token exchange failed: {e}")
+        return redirect(url_for("login"))
+
+    # --- Fetch the user's Google profile ---
+    try:
+        resp = requests.get(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            headers={"Authorization": f"Bearer {token_data['token']}"},
+            timeout=10,
+        )
+        profile = resp.json()
+        google_id = profile.get("sub")
+        google_email = (profile.get("email") or "").lower().strip()
+        google_name = profile.get("name") or google_email.split("@")[0]
+    except Exception as e:
+        print(f"[OAUTH] Profile fetch failed: {e}")
+        return redirect(url_for("login"))
+
+    if not google_email:
+        print("[OAUTH] No email returned from Google")
+        return redirect(url_for("login"))
+
+    # --- Find or create the User in the database ---
+    user = User.query.filter_by(google_id=google_id).first()
+    if not user:
+        user = User.query.filter_by(email=google_email).first()
+    if not user:
+        # Brand new user — create account
+        user = User(
+            email=google_email,
+            name=google_name,
+            google_id=google_id,
+            password_hash=None,  # Google login, no password
+        )
+        db.session.add(user)
+        db.session.commit()
+        print(f"[OAUTH] Created new user: {google_email}")
+    else:
+        # Existing user — link google_id if not already set
+        if not user.google_id:
+            user.google_id = google_id
+        if not user.name:
+            user.name = google_name
+        db.session.commit()
+        print(f"[OAUTH] Logged in existing user: {google_email}")
+
+    # --- Always save the Google token for calendar use ---
+    gi = GoogleIntegration.query.filter_by(user_id=user.id).first()
+    if gi:
+        gi.token_data = json.dumps(token_data)
+    else:
+        gi = GoogleIntegration(user_id=user.id, token_data=json.dumps(token_data))
+        db.session.add(gi)
+    db.session.commit()
+
+    # --- Log the user in ---
+    login_user(user, remember=True)
+
+    # If they have no linked school account yet, send them to connect
+    has_account = LinkedAccount.query.filter_by(user_id=user.id).first()
+    if purpose == "login" and not has_account:
+        return redirect(url_for("connect_account"))
+
+    return redirect(url_for("dashboard"))
 
 @app.route("/oauth/google/disconnect", methods=["POST"])
 def google_disconnect():

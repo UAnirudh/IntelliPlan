@@ -1,0 +1,144 @@
+/* ============================================
+   IntelliPlan — Mobile UI Fixes
+   Add <link rel="stylesheet" href="/static/css/mobile.css">
+   in your base template <head>
+   ============================================ */
+
+/* Ensure proper viewport on all mobile browsers */
+html {
+  -text-size-adjust: 100%;
+  box-sizing: border-box;
+}
+*, *::before, *::after {
+  box-sizing: inherit;
+}
+
+/* ── Sidebar / Nav ── */
+@media (max-width: 768px) {
+  /* Collapse sidebar to bottom nav or hidden by default */
+  .sidebar, .side-nav, nav.sidebar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto !important;
+    width: 100% !important;
+    height: 60px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-around;
+    z-index: 1000;
+    padding: 0 8px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    overflow: hidden;
+  }
+
+  /* Hide sidebar text labels, show only icons on mobile */
+  .sidebar .nav-label, .side-nav .nav-label {
+    display: none;
+  }
+
+  /* Push main content up from bottom nav */
+  .main-content, main, .page-content {
+    margin-left: 0 !important;
+    padding-bottom: 70px !important;
+  }
+
+  /* Fix full-width cards */
+  .card, .schedule-card, .assignment-card, .block-card {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  /* Fix horizontal overflow */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Fix schedule day blocks stacking */
+  .schedule-day, .day-block {
+    flex-direction: column !important;
+    width: 100% !important;
+  }
+
+  /* Fix table overflow */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+
+  /* Fix modals */
+  .modal-dialog, .modal-content {
+    margin: 10px !important;
+    width: calc(100% - 20px) !important;
+    max-width: none !important;
+  }
+
+  /* Fix buttons that overflow */
+  .btn-group, .action-buttons {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .btn-group .btn, .action-buttons button {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  /* Fix input fields */
+  input, select, textarea {
+    font-size: 16px !important; /* Prevents iOS zoom on focus */
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Fix the dashboard grid */
+  .dashboard-grid, .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Fix header */
+  .header, .top-bar {
+    padding: 8px 12px !important;
+  }
+  .header h1, .top-bar h1 {
+    font-size: 1.2rem !important;
+  }
+
+  /* Fix padding on sections */
+  .section, .container, .content-wrapper {
+    padding: 12px !important;
+  }
+
+  /* Chatbot: fix floating button position above bottom nav */
+  #chatbot-toggle, .chat-fab, .floating-chat-btn {
+    bottom: 70px !important;
+    right: 16px !important;
+  }
+
+  /* Chatbot window: full-screen on mobile */
+  #chatbot-window, .chat-window {
+    position: fixed !important;
+    bottom: 60px !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 70vh !important;
+    border-radius: 12px 12px 0 0 !important;
+  }
+}
+
+/* ── Small phones (< 400px) ── */
+@media (max-width: 400px) {
+  .card, .assignment-card {
+    padding: 10px !important;
+  }
+  .priority-badge, .difficulty-badge {
+    font-size: 0.65rem !important;
+  }
+}
