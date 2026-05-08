@@ -459,8 +459,8 @@ def _corsify(response):
         "http://localhost",
         "http://127.0.0.1",
         "https://intelli-plan.up.railway.app",
-        "https://intelliplan.site",           # ← ADD THIS
-        "https://www.intelliplan.site",        # ← ADD THIS
+        "https://intelliplan.tech",           # ← ADD THIS
+        "https://www.intelliplan.tech",        # ← ADD THIS
     )):
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Vary"] = "Origin"
