@@ -1,2 +1,6 @@
 .env
 .early.coverage
+__pycache__/
+*.py[cod]
+instance/
+uploads/

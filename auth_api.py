@@ -227,7 +227,7 @@
 #         origin.startswith("chrome-extension://")
 #         or origin.startswith("http://localhost")
 #         or origin.startswith("http://127.0.0.1")
-#         or origin.startswith("https://intelli-plan.up.railway.app")
+#         or origin.startswith(os.getenv("APP_BASE_URL", "https://intelliplan.tech"))
 #     )
 #     if allowed and origin:
 #         response.headers["Access-Control-Allow-Origin"] = origin
@@ -401,6 +401,13 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 auth_bp = Blueprint("auth_api_bp", __name__)
 
 TOKEN_MAX_AGE_SECONDS = int(os.getenv("INTELLIPLAN_TOKEN_AGE", str(60 * 60 * 24 * 30)))
+APP_BASE_URL = os.getenv("APP_BASE_URL", "https://intelliplan.tech").rstrip("/")
+APP_DOMAIN = APP_BASE_URL.replace("https://", "").replace("http://", "").split("/", 1)[0]
+LEGACY_ALLOWED_ORIGINS = [
+    origin.strip().rstrip("/")
+    for origin in os.getenv("LEGACY_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
 
 
 # ── Lazy imports (avoids circular import with App.py) ─────────
@@ -454,14 +461,16 @@ def user_to_dict(user):
 # ── CORS ──────────────────────────────────────────────────────
 def _corsify(response):
     origin = request.headers.get("Origin", "")
+    allowed_web = {
+        APP_BASE_URL,
+        f"https://www.{APP_DOMAIN}" if not APP_DOMAIN.startswith("www.") else APP_BASE_URL,
+        *LEGACY_ALLOWED_ORIGINS,
+    }
     if any(origin.startswith(p) for p in (
         "chrome-extension://",
         "http://localhost",
         "http://127.0.0.1",
-        "https://intelli-plan.up.railway.app",
-        "https://intelliplan.tech",           # ← ADD THIS
-        "https://www.intelliplan.tech",        # ← ADD THIS
-    )):
+    )) or origin.rstrip("/") in allowed_web:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Vary"] = "Origin"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"

@@ -1,4 +1,4 @@
-const BASE_URL = "https://intelli-plan.up.railway.app";
+const BASE_URL = "https://intelliplan.tech";
 let currentTab = "tasks";
 let authToken = null;
 let userEmail = null;

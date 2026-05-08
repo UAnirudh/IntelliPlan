@@ -15,6 +15,217 @@ html {
 
 /* ── Sidebar / Nav ── */
 @media (max-width: 768px) {
+  html, body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  header {
+    height: auto !important;
+    min-height: 62px;
+    padding: 10px 14px !important;
+    gap: 10px;
+  }
+
+  .header-right {
+    gap: 8px !important;
+  }
+
+  #mainNav {
+    max-height: calc(100dvh - 62px);
+    overflow-y: auto;
+  }
+
+  #mainNav .nav-group,
+  #mainNav .nav-tabs {
+    width: 100%;
+  }
+
+  #mainNav .nav-group {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #mainNav .nav-tab,
+  #mainNav .dropdown-toggle,
+  #mainNav .dropdown-item {
+    width: 100%;
+    justify-content: flex-start;
+    min-height: 44px;
+    border-radius: 10px;
+  }
+
+  #mainNav .dropdown-panel {
+    position: static !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    min-width: 0 !important;
+    width: 100%;
+    margin: 4px 0 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  #mainNav .nav-dropdown::before {
+    display: none;
+  }
+
+  main {
+    max-width: 100% !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  .page-header {
+    gap: 12px !important;
+  }
+
+  .page-header > div,
+  .page-header button,
+  .page-header a {
+    max-width: 100%;
+  }
+
+  .page-header .btn-primary,
+  .page-header .btn-secondary {
+    flex: 1 1 150px;
+  }
+
+  #dashColumns {
+    grid-template-columns: 1fr !important;
+    gap: 18px !important;
+  }
+
+  #exportBar,
+  #savedScheduleBanner {
+    align-items: stretch !important;
+  }
+
+  #exportBar > div,
+  #savedScheduleBanner > div {
+    width: 100%;
+  }
+
+  #exportBar > div:last-child,
+  #savedScheduleBanner > div:last-child {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  #exportBar button,
+  #savedScheduleBanner button {
+    width: 100%;
+  }
+
+  .scheduler-panel {
+    padding: 16px !important;
+  }
+
+  .scheduler-inputs,
+  .custom-tasks-wrap,
+  #savePanel {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100%;
+  }
+
+  .input-group,
+  .custom-tasks-wrap input,
+  #savePanel input,
+  #savePanel button,
+  #generateBtn {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .time-block {
+    display: grid !important;
+    grid-template-columns: 1fr auto;
+    gap: 8px !important;
+  }
+
+  .time-slot {
+    grid-column: 1 / -1;
+    min-width: 0 !important;
+    white-space: normal !important;
+  }
+
+  .block-content {
+    min-width: 0;
+  }
+
+  .block-title,
+  .card-title,
+  .overview-text {
+    overflow-wrap: anywhere;
+  }
+
+  .day-header {
+    gap: 8px;
+    align-items: flex-start !important;
+  }
+
+  .day-hours {
+    white-space: nowrap;
+  }
+
+  .login-card {
+    padding: 1.4rem !important;
+    border-radius: 16px !important;
+  }
+
+  #assignmentModal,
+  #newTaskModal,
+  #editTaskModal,
+  #integrationsModal,
+  #feedbackModal,
+  #silenceModal {
+    padding: 10px !important;
+    align-items: flex-start !important;
+    overflow-y: auto !important;
+  }
+
+  #assignmentModal > div,
+  #newTaskModal > div,
+  #editTaskModal > div,
+  #integrationsModal > div,
+  #feedbackModal > div,
+  #silenceModal > div {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: calc(100dvh - 20px) !important;
+    margin: 0 !important;
+    padding: 1.1rem !important;
+    overflow-y: auto !important;
+  }
+
+  #planiWrap {
+    right: 12px !important;
+    bottom: 12px !important;
+    left: 12px !important;
+    align-items: flex-end !important;
+  }
+
+  #planiChat {
+    width: 100% !important;
+    max-height: min(70dvh, 560px) !important;
+  }
+
+  #planiBubble {
+    max-width: calc(100vw - 92px) !important;
+  }
+
+  .hero-actions,
+  .hero-actions a {
+    width: 100%;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+  }
+
   /* Collapse sidebar to bottom nav or hidden by default */
   .sidebar, .side-nav, nav.sidebar {
     position: fixed;

@@ -38,7 +38,8 @@
     "notifications"
   ],
   "host_permissions": [
-    "https://intelli-plan.up.railway.app/*"
+    "https://intelliplan.tech/*",
+    "https://www.intelliplan.tech/*"
   ],
   "options_page": "options.html"
 }

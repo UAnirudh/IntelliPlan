@@ -28,6 +28,7 @@ from flask_login import (
     current_user
 )
 from flask_bcrypt import Bcrypt
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # ── FIX: Use database-backed sessions so Railway container restarts
 #         don't wipe the OAuth state between redirect hops.
@@ -37,7 +38,8 @@ from flask_session import Session
 try:
     from google_calendar_helper import (
         get_auth_url, exchange_code_for_token,
-        get_upcoming_events, add_schedule_to_calendar, find_free_slots
+        get_upcoming_events, add_schedule_to_calendar, find_free_slots,
+        merge_token_data, has_calendar_scope
     )
     GCAL_AVAILABLE = True
 except Exception as e:
@@ -72,6 +74,20 @@ app = flask.Flask(
 )
 
 app.secret_key = os.getenv("SECRET_KEY", "intelliplan-dev-key")
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+
+APP_BASE_URL = os.getenv("APP_BASE_URL", "https://intelliplan.tech").rstrip("/")
+APP_DOMAIN = APP_BASE_URL.replace("https://", "").replace("http://", "").split("/", 1)[0]
+LEGACY_ALLOWED_ORIGINS = [
+    origin.strip().rstrip("/")
+    for origin in os.getenv("LEGACY_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+ALLOWED_WEB_ORIGINS = [
+    APP_BASE_URL,
+    f"https://www.{APP_DOMAIN}" if not APP_DOMAIN.startswith("www.") else APP_BASE_URL,
+    *LEGACY_ALLOWED_ORIGINS,
+]
 
 # ── FIX: Switch SESSION_TYPE from "filesystem" to "sqlalchemy".
 #   Filesystem sessions are stored in /tmp on Railway — ephemeral containers
@@ -85,7 +101,11 @@ app.config["SESSION_TYPE"] = "sqlalchemy"
 app.config["SESSION_PERMANENT"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_SECURE"] = APP_BASE_URL.startswith("https://")
+app.config["REMEMBER_COOKIE_SECURE"] = APP_BASE_URL.startswith("https://")
+app.config["REMEMBER_COOKIE_HTTPONLY"] = True
+app.config["REMEMBER_COOKIE_SAMESITE"] = "Lax"
+app.config["PREFERRED_URL_SCHEME"] = "https" if APP_BASE_URL.startswith("https://") else "http"
 app.permanent_session_lifetime = timedelta(days=7)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///intelliplan.db")
@@ -109,20 +129,15 @@ app.register_blueprint(chatbot_bp)
 @app.after_request
 def add_cors_headers(response):
     # ── FIX: Allow requests from the new domain intelliplan.tech
-    #   (previously only intelli-plan.up.railway.app was listed in auth_api.py)
     origin = request.headers.get("Origin", "")
-    allowed_origins = [
-        "https://intelliplan.tech",
-        "https://www.intelliplan.tech",
-        "https://intelli-plan.up.railway.app",
-    ]
-    if origin in allowed_origins:
+    is_extension = origin.startswith("chrome-extension://")
+    is_local = origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1")
+    if origin and (origin.rstrip("/") in ALLOWED_WEB_ORIGINS or is_extension or is_local):
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Vary"] = "Origin"
-    else:
-        # For non-browser requests (extension, curl) keep the wildcard
+    elif not origin:
         response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Extension-Token"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Extension-Token"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     return response
 
@@ -137,7 +152,7 @@ class User(UserMixin, db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(255), unique=True, nullable=False)
-    password_hash = db.Column(db.String(255), nullable=True)
+    password_hash = db.Column(db.String(255), nullable=False, default="")
     google_id = db.Column(db.String(255), unique=True, nullable=True)
     name = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -474,7 +489,12 @@ def get_google_token():
     if current_user.is_authenticated:
         gi = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
         if gi:
-            return json.loads(gi.token_data)
+            try:
+                return json.loads(gi.token_data)
+            except (TypeError, json.JSONDecodeError):
+                db.session.delete(gi)
+                db.session.commit()
+                return None
     return session.get("google_token")
 
 def get_notion_token_and_db():
@@ -759,7 +779,7 @@ def login_google():
     session["oauth_purpose"] = "login"
     session.permanent = True
     session.modified = True
-    auth_url = get_auth_url(state)
+    auth_url = get_auth_url(state, purpose="login")
     print(f"[GOOGLE LOGIN] state={state[:8]}..., session_keys={list(session.keys())}")
     return redirect(auth_url)
 
@@ -986,6 +1006,30 @@ def _handle_google_callback():
         print("[GOOGLE CALLBACK] FATAL: missing sub or email in userinfo")
         return redirect(url_for("login"))
 
+    if purpose == "calendar":
+        if not current_user.is_authenticated:
+            print("[GOOGLE CALLBACK] calendar link attempted without an authenticated app user")
+            return redirect(url_for("login"))
+        user = current_user
+        if user.email.lower() == email and not user.google_id:
+            user.google_id = google_id
+        if not user.name:
+            user.name = name
+        db.session.commit()
+        if has_calendar_scope(token_dict):
+            gi = GoogleIntegration.query.filter_by(user_id=user.id).first()
+            existing_token = json.loads(gi.token_data) if gi else {}
+            token_dict = merge_token_data(existing_token, token_dict)
+            if gi:
+                gi.token_data = json.dumps(token_dict)
+            else:
+                db.session.add(GoogleIntegration(user_id=user.id, token_data=json.dumps(token_dict)))
+            db.session.commit()
+            session["google_token"] = token_dict
+            session.permanent = True
+            session.modified = True
+        return redirect(url_for("dashboard"))
+
     # ── Find or create User ──
     user = User.query.filter_by(google_id=google_id).first()
     if not user:
@@ -1002,7 +1046,7 @@ def _handle_google_callback():
                 email=email,
                 google_id=google_id,
                 name=name,
-                password_hash=None,
+                password_hash="",
             )
             db.session.add(user)
             print(f"[GOOGLE CALLBACK] created new user email={email}")
@@ -1012,17 +1056,18 @@ def _handle_google_callback():
     db.session.commit()
 
     # ── Persist the Google token for calendar use ──
-    gi = GoogleIntegration.query.filter_by(user_id=user.id).first()
-    if gi:
-        gi.token_data = json.dumps(token_dict)
-    else:
-        db.session.add(GoogleIntegration(user_id=user.id, token_data=json.dumps(token_dict)))
-    db.session.commit()
-
-    # Also stash in session for immediate use this request
-    session["google_token"] = token_dict
-    session.permanent = True
-    session.modified = True
+    if has_calendar_scope(token_dict):
+        gi = GoogleIntegration.query.filter_by(user_id=user.id).first()
+        existing_token = json.loads(gi.token_data) if gi else {}
+        token_dict = merge_token_data(existing_token, token_dict)
+        if gi:
+            gi.token_data = json.dumps(token_dict)
+        else:
+            db.session.add(GoogleIntegration(user_id=user.id, token_data=json.dumps(token_dict)))
+        db.session.commit()
+        session["google_token"] = token_dict
+        session.permanent = True
+        session.modified = True
 
     # ── Log the user in ──
     login_user(user, remember=True)
@@ -1030,9 +1075,7 @@ def _handle_google_callback():
 
     # ── Redirect ──
     if purpose == "login":
-        has_linked = LinkedAccount.query.filter_by(user_id=user.id).first()
-        if not has_linked:
-            return redirect(url_for("connect_account"))
+        return redirect(url_for("dashboard"))
     return redirect(url_for("dashboard"))
 
 
@@ -1048,7 +1091,7 @@ def google_oauth_start():
     session["oauth_purpose"] = "calendar"
     session.permanent = True
     session.modified = True
-    return redirect(get_auth_url(state))
+    return redirect(get_auth_url(state, purpose="calendar"))
 
 
 # ── FIX: Both route paths registered so either redirect URI works.
@@ -1111,8 +1154,10 @@ def calendar_export():
     token = get_google_token()
     if not token:
         return flask.jsonify({"status": "error", "message": "Google Calendar not connected"})
-    data = request.json
+    data = request.get_json(silent=True) or {}
     schedule_data = data.get("schedule_data")
+    if not schedule_data:
+        return flask.jsonify({"status": "error", "message": "No schedule data supplied"}), 400
     skip_overlaps = data.get("skip_overlaps", False)
     try:
         existing_events = []

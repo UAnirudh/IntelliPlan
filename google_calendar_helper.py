@@ -8,27 +8,30 @@ import secrets
 import hashlib
 import base64
 
-SCOPES = [
-    "https://www.googleapis.com/auth/calendar",
+LOGIN_SCOPES = [
     "openid",
     "https://www.googleapis.com/auth/userinfo.email",
-    "https://www.googleapis.com/auth/userinfo.profile"
+    "https://www.googleapis.com/auth/userinfo.profile",
 ]
 
-def get_auth_url(state):
+CALENDAR_SCOPES = [
+    "https://www.googleapis.com/auth/calendar",
+]
+
+SCOPES = CALENDAR_SCOPES + LOGIN_SCOPES
+
+def _redirect_uri(redirect_uri=None):
+    return redirect_uri or os.getenv("GOOGLE_REDIRECT_URI") or "https://intelliplan.tech/oauth2callback"
+
+def get_auth_url(state, purpose="calendar", redirect_uri=None):
     """Generate Google OAuth URL requesting calendar + user profile."""
     params = {
         "client_id": os.getenv("GOOGLE_CLIENT_ID"),
-        "redirect_uri": os.getenv("GOOGLE_REDIRECT_URI"),
+        "redirect_uri": _redirect_uri(redirect_uri),
         "response_type": "code",
-        "scope": " ".join([
-            "https://www.googleapis.com/auth/calendar",
-            "openid",
-            "https://www.googleapis.com/auth/userinfo.email",
-            "https://www.googleapis.com/auth/userinfo.profile",
-        ]),
+        "scope": " ".join(LOGIN_SCOPES if purpose == "login" else SCOPES),
         "access_type": "offline",
-        "prompt": "consent",
+        "prompt": "select_account" if purpose == "login" else "consent",
         "state": state,
         "include_granted_scopes": "true",
     }
@@ -36,7 +39,7 @@ def get_auth_url(state):
     base_url = "https://accounts.google.com/o/oauth2/v2/auth"
     return f"{base_url}?{urllib.parse.urlencode(params)}"
 
-def exchange_code_for_token(code):
+def exchange_code_for_token(code, redirect_uri=None):
     """Exchange authorization code for tokens — no PKCE."""
     resp = http_requests.post(
         "https://oauth2.googleapis.com/token",
@@ -44,21 +47,36 @@ def exchange_code_for_token(code):
             "code": code,
             "client_id": os.getenv("GOOGLE_CLIENT_ID"),
             "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
-            "redirect_uri": os.getenv("GOOGLE_REDIRECT_URI"),
+            "redirect_uri": _redirect_uri(redirect_uri),
             "grant_type": "authorization_code"
         }
     )
     data = resp.json()
     if "error" in data:
         raise Exception(f"Token exchange failed: {data}")
+    granted_scopes = data.get("scope", "")
     return {
         "token": data.get("access_token"),
         "refresh_token": data.get("refresh_token"),
         "token_uri": "https://oauth2.googleapis.com/token",
         "client_id": os.getenv("GOOGLE_CLIENT_ID"),
         "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
-        "scopes": SCOPES
+        "scopes": granted_scopes.split() if granted_scopes else SCOPES
     }
+
+def merge_token_data(existing_token, new_token):
+    """Preserve refresh_token/client metadata when Google omits it on later grants."""
+    merged = {**(existing_token or {}), **(new_token or {})}
+    if existing_token and not new_token.get("refresh_token"):
+        merged["refresh_token"] = existing_token.get("refresh_token")
+    merged.setdefault("token_uri", "https://oauth2.googleapis.com/token")
+    merged.setdefault("client_id", os.getenv("GOOGLE_CLIENT_ID"))
+    merged.setdefault("client_secret", os.getenv("GOOGLE_CLIENT_SECRET"))
+    return merged
+
+def has_calendar_scope(token_dict):
+    scopes = set(token_dict.get("scopes") or [])
+    return bool(scopes.intersection(CALENDAR_SCOPES))
 
 def refresh_access_token(token_dict):
     """Refresh an expired access token."""
