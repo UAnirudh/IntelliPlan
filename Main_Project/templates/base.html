@@ -1219,7 +1219,75 @@ window.addEventListener('load',()=>{
 });
 {% endif %}
 </script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
 
+    const mobileBtn = document.getElementById("mobileMenuBtn");
+    const mainNav = document.getElementById("mainNav");
+
+    // MOBILE MENU
+    if (mobileBtn && mainNav) {
+        mobileBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
+
+            mainNav.classList.toggle("mobile-open");
+            document.body.classList.toggle("menu-open");
+        });
+
+        document.addEventListener("click", function (e) {
+            if (!mainNav.contains(e.target) && !mobileBtn.contains(e.target)) {
+                mainNav.classList.remove("mobile-open");
+                document.body.classList.remove("menu-open");
+            }
+        });
+    }
+
+    // MOBILE DROPDOWNS
+    document.querySelectorAll(".nav-dropdown").forEach(dropdown => {
+
+        const toggle = dropdown.querySelector(".dropdown-toggle");
+
+        if (!toggle) return;
+
+        toggle.addEventListener("click", function (e) {
+
+            if (window.innerWidth <= 768) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                document.querySelectorAll(".nav-dropdown").forEach(other => {
+                    if (other !== dropdown) {
+                        other.classList.remove("is-open");
+                    }
+                });
+
+                dropdown.classList.toggle("is-open");
+            }
+        });
+    });
+
+    // FIX BUTTON TAP DELAYS
+    document.querySelectorAll("button, a, input[type='submit']").forEach(el => {
+
+        el.addEventListener("touchstart", function () {
+            this.classList.add("touched");
+        }, { passive: true });
+
+        el.addEventListener("touchend", function () {
+            this.classList.remove("touched");
+        }, { passive: true });
+    });
+
+    // FIX MODAL TOUCH BLOCKING
+    document.querySelectorAll(".modal").forEach(modal => {
+
+        modal.addEventListener("touchmove", function (e) {
+            e.stopPropagation();
+        }, { passive: true });
+    });
+
+});
+</script>
 {% include "footer.html" %}
 </body>
 </html>
