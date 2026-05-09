@@ -15,7 +15,7 @@ LOGIN_SCOPES = [
 ]
 
 CALENDAR_SCOPES = [
-    "https://www.googleapis.com/auth/calendar",
+    "https://www.googleapis.com/auth/calendar.events",
 ]
 
 SCOPES = CALENDAR_SCOPES + LOGIN_SCOPES
