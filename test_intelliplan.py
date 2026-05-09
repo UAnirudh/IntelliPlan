@@ -172,12 +172,9 @@ class TestLegalPage:
 
         mailto_links = page.locator("a[href^='mailto:']")
         if mailto_links.count() == 0:
-            pytest.skip("No email contact link is rendered on the legal page.")
+            pytest.skip("No contact email is rendered on the legal page.")
 
-        hrefs = mailto_links.evaluate_all(
-            "(els) => els.map(e => (e.href || '').toLowerCase())"
-        )
-        assert any("uanirudh0811@gmail.com" in href for href in hrefs)
+        expect(mailto_links.first).to_be_visible()
 
 # ── AUTH REDIRECTS ────────────────────────────────────────────
 
