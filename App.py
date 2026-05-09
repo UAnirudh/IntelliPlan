@@ -779,7 +779,9 @@ def login_google():
     session["oauth_purpose"] = "login"
     session.permanent = True
     session.modified = True
-    auth_url = get_auth_url(state, purpose="login")
+    auth_url, code_verifier = get_auth_url(state, purpose="login")
+    session["oauth_code_verifier"] = code_verifier
+    session.modified = True
     print(f"[GOOGLE LOGIN] state={state[:8]}..., session_keys={list(session.keys())}")
     return redirect(auth_url)
 
@@ -917,26 +919,6 @@ def logout():
 # ─────────────────────────────────────────────────────────────
 
 def _handle_google_callback():
-    """
-    Core OAuth callback logic shared by both route aliases below.
-
-    What was broken before:
-    1. SESSION LOST: SESSION_TYPE="filesystem" stores sessions in /tmp.
-       Railway can route the callback to a different container instance
-       that has an empty /tmp — oauth_state is gone, state check fails,
-       500 error with IPE-XXXXXXXX.  Fixed by switching to sqlalchemy sessions.
-
-    2. NO ACCOUNT CREATED: The old /oauth2callback fetched userinfo using
-       token_data['token'], but only after a state check that was already
-       failing (see #1).  Even if state passed, if google_calendar_helper
-       only requested the "calendar" scope there would be no email/sub in
-       the userinfo response.  Fixed by requesting openid+email+profile
-       scopes in google_calendar_helper.get_auth_url() and robustly
-       finding/creating the User row here.
-
-    3. WRONG REDIRECT URI: GOOGLE_REDIRECT_URI env var still pointed at
-       the Railway subdomain.  Fixed via Railway env var + Google Console.
-    """
     import traceback
 
     print(f"[GOOGLE CALLBACK] args={dict(request.args)}")
@@ -971,7 +953,8 @@ def _handle_google_callback():
 
     # ── Exchange code for tokens ──
     try:
-        token_dict = exchange_code_for_token(code)
+        code_verifier = session.pop("oauth_code_verifier", None)
+        token_dict = exchange_code_for_token(code, code_verifier=code_verifier)
         print(f"[GOOGLE CALLBACK] token_dict keys={list(token_dict.keys())}")
     except Exception:
         print(f"[GOOGLE CALLBACK] token exchange failed:\n{traceback.format_exc()}")
@@ -1091,7 +1074,10 @@ def google_oauth_start():
     session["oauth_purpose"] = "calendar"
     session.permanent = True
     session.modified = True
-    return redirect(get_auth_url(state, purpose="calendar"))
+    auth_url, code_verifier = get_auth_url(state, purpose="calendar")
+    session["oauth_code_verifier"] = code_verifier
+    session.modified = True
+    return redirect(auth_url)
 
 
 # ── FIX: Both route paths registered so either redirect URI works.

@@ -15,7 +15,7 @@ LOGIN_SCOPES = [
 ]
 
 CALENDAR_SCOPES = [
-    "https://www.googleapis.com/auth/calendar.events",
+    "https://www.googleapis.com/auth/calendar",
 ]
 
 SCOPES = CALENDAR_SCOPES + LOGIN_SCOPES
@@ -24,7 +24,12 @@ def _redirect_uri(redirect_uri=None):
     return redirect_uri or os.getenv("GOOGLE_REDIRECT_URI") or "https://intelliplan.tech/oauth2callback"
 
 def get_auth_url(state, purpose="calendar", redirect_uri=None):
-    """Generate Google OAuth URL requesting calendar + user profile."""
+    """Generate Google OAuth URL with PKCE for secure flow."""
+    code_verifier = secrets.token_urlsafe(64)
+    code_challenge = base64.urlsafe_b64encode(
+        hashlib.sha256(code_verifier.encode()).digest()
+    ).rstrip(b'=').decode()
+    
     params = {
         "client_id": os.getenv("GOOGLE_CLIENT_ID"),
         "redirect_uri": _redirect_uri(redirect_uri),
@@ -34,23 +39,25 @@ def get_auth_url(state, purpose="calendar", redirect_uri=None):
         "prompt": "select_account" if purpose == "login" else "consent",
         "state": state,
         "include_granted_scopes": "true",
+        "code_challenge": code_challenge,
+        "code_challenge_method": "S256",
     }
     import urllib.parse
     base_url = "https://accounts.google.com/o/oauth2/v2/auth"
-    return f"{base_url}?{urllib.parse.urlencode(params)}"
+    return f"{base_url}?{urllib.parse.urlencode(params)}", code_verifier
 
-def exchange_code_for_token(code, redirect_uri=None):
-    """Exchange authorization code for tokens — no PKCE."""
-    resp = http_requests.post(
-        "https://oauth2.googleapis.com/token",
-        data={
-            "code": code,
-            "client_id": os.getenv("GOOGLE_CLIENT_ID"),
-            "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
-            "redirect_uri": _redirect_uri(redirect_uri),
-            "grant_type": "authorization_code"
-        }
-    )
+def exchange_code_for_token(code, code_verifier=None, redirect_uri=None):
+    """Exchange authorization code for tokens — with PKCE."""
+    data = {
+        "code": code,
+        "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+        "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
+        "redirect_uri": _redirect_uri(redirect_uri),
+        "grant_type": "authorization_code"
+    }
+    if code_verifier:
+        data["code_verifier"] = code_verifier
+    resp = http_requests.post("https://oauth2.googleapis.com/token", data=data)
     data = resp.json()
     if "error" in data:
         raise Exception(f"Token exchange failed: {data}")
