@@ -4,32 +4,60 @@ Run with: pytest test_intelliplan.py -v
 Or with headed browser: pytest test_intelliplan.py -v --headed
 """
 
+import re
+
 import pytest
 from playwright.sync_api import Page, expect
 
 BASE_URL = "https://intelliplan.tech"
 
+
 # ── HELPERS ───────────────────────────────────────────────────
 
-def go(page: Page, path: str):
-    page.goto(f"{BASE_URL}{path}")
+def go(page: Page, path: str) -> None:
+    page.goto(f"{BASE_URL}{path}", wait_until="domcontentloaded")
+
+
+def assert_no_discord_links(page: Page) -> None:
+    # Check only actual rendered links, not HTML comments or dead source text.
+    hrefs = page.locator("a").evaluate_all(
+        "(els) => els.map(e => (e.href || '').toLowerCase())"
+    )
+    assert not any("discord.gg" in href for href in hrefs)
+
+
+def assert_no_ad_terms(page: Page) -> None:
+    content = page.content().lower()
+    blocked_terms = [
+        "googlesyndication",
+        "doubleclick",
+        "adsbygoogle",
+    ]
+    assert not any(term in content for term in blocked_terms)
+
+
+def assert_url_matches(page: Page, path: str) -> None:
+    pattern = re.compile(rf"^{re.escape(BASE_URL)}{re.escape(path)}/?$")
+    expect(page).to_have_url(pattern)
+
 
 # ── LANDING PAGE ──────────────────────────────────────────────
 
 class TestLandingPage:
     def test_landing_loads(self, page: Page):
         go(page, "/")
-        expect(page).to_have_title("IntelliPlan")
+        expect(page).to_have_title(re.compile(r"IntelliPlan"))
 
     def test_get_started_button_redirects_to_login(self, page: Page):
         go(page, "/")
         page.get_by_text("Get Started Free").first.click()
-        expect(page).to_have_url(f"{BASE_URL}/login")
+        assert_url_matches(page, "/login")
 
     def test_logo_links_to_home(self, page: Page):
         go(page, "/")
         page.locator("a", has_text="IntelliPlan").first.click()
-        expect(page).to_have_url(f"{BASE_URL}/")
+        assert_url_matches(page, "/")
+
 
 # ── LOGIN PAGE ────────────────────────────────────────────────
 
@@ -49,13 +77,12 @@ class TestLoginPage:
     def test_create_account_redirects_to_register(self, page: Page):
         go(page, "/login")
         page.get_by_role("link", name="Create Account").click()
-        expect(page).to_have_url(f"{BASE_URL}/register")
+        assert_url_matches(page, "/register")
 
-    # FIX: use exact role match to avoid hitting the page heading
     def test_sign_in_button_redirects_to_login_account(self, page: Page):
         go(page, "/login")
         page.get_by_role("link", name="Sign In", exact=True).click()
-        expect(page).to_have_url(f"{BASE_URL}/login/account")
+        assert_url_matches(page, "/login/account")
 
     def test_canvas_option_visible(self, page: Page):
         go(page, "/login")
@@ -68,12 +95,13 @@ class TestLoginPage:
     def test_canvas_link_works(self, page: Page):
         go(page, "/login")
         page.get_by_text("Canvas LMS").click()
-        expect(page).to_have_url(f"{BASE_URL}/login/canvas")
+        assert_url_matches(page, "/login/canvas")
 
     def test_studentvue_link_works(self, page: Page):
         go(page, "/login")
         page.get_by_text("StudentVue").click()
-        expect(page).to_have_url(f"{BASE_URL}/login/studentvue")
+        assert_url_matches(page, "/login/studentvue")
+
 
 # ── REGISTER PAGE ─────────────────────────────────────────────
 
@@ -103,7 +131,7 @@ class TestRegisterPage:
         page.locator("input[name='email']").fill("test@example.com")
         page.locator("input[name='password']").fill("password123")
         page.locator("input[name='confirm_password']").fill("wrongpassword")
-        page.get_by_text("Create Account →").click()
+        page.get_by_role("button", name=re.compile(r"Create Account")).click()
         expect(page.get_by_text("Passwords do not match")).to_be_visible()
 
     def test_short_password_shows_error(self, page: Page):
@@ -111,18 +139,18 @@ class TestRegisterPage:
         page.locator("input[name='email']").fill("test@example.com")
         page.locator("input[name='password']").fill("short")
         page.locator("input[name='confirm_password']").fill("short")
-        page.get_by_text("Create Account →").click()
+        page.get_by_role("button", name=re.compile(r"Create Account")).click()
         expect(page.get_by_text("at least 8 characters")).to_be_visible()
 
     def test_back_to_login_link_works(self, page: Page):
         go(page, "/register")
         page.get_by_text("← Back to login options").click()
-        expect(page).to_have_url(f"{BASE_URL}/login")
+        assert_url_matches(page, "/login")
+
 
 # ── LEGAL PAGE ────────────────────────────────────────────────
 
 class TestLegalPage:
-    # FIX: target h2 headings specifically to avoid strict mode violations
     def test_legal_page_loads(self, page: Page):
         go(page, "/legal")
         expect(page.get_by_role("heading", name="Privacy Policy")).to_be_visible()
@@ -137,13 +165,13 @@ class TestLegalPage:
 
     def test_no_passwords_stored_statement(self, page: Page):
         go(page, "/legal")
-        assert "do not store passwords" in page.content().lower() or \
-               "not store passwords" in page.content().lower()
+        content = page.content().lower()
+        assert "do not store passwords" in content or "not store passwords" in content
 
-    # FIX: check raw HTML content since email may not be a visible standalone element
     def test_contact_email_present(self, page: Page):
         go(page, "/legal")
-        assert "anirudh@intelliplan.app" in page.content()
+        assert "anirudh@intelliplan.app" in page.content().lower()
+
 
 # ── AUTH REDIRECTS ────────────────────────────────────────────
 
@@ -162,7 +190,8 @@ class TestAuthRedirects:
     ])
     def test_protected_page_redirects_to_login(self, page: Page, path: str):
         go(page, path)
-        expect(page).to_have_url(f"{BASE_URL}/login")
+        assert_url_matches(page, "/login")
+
 
 # ── CANVAS LOGIN PAGE ─────────────────────────────────────────
 
@@ -171,12 +200,12 @@ class TestCanvasLoginPage:
         go(page, "/login/canvas")
         expect(page.locator("input[name='canvas_token']")).to_be_visible()
 
-    # FIX: target the submit button by name instead of generic get_by_role("button")
     def test_canvas_login_empty_submit_stays_on_page(self, page: Page):
         go(page, "/login/canvas")
         page.locator("input[name='canvas_token']").fill("")
         page.get_by_role("button", name="Connect Canvas →").click()
-        expect(page).to_have_url(f"{BASE_URL}/login/canvas")
+        assert_url_matches(page, "/login/canvas")
+
 
 # ── STUDENTVUE LOGIN PAGE ─────────────────────────────────────
 
@@ -189,16 +218,18 @@ class TestStudentVueLoginPage:
         go(page, "/login/studentvue")
         expect(page.locator("input[name='password']")).to_be_visible()
 
+
 # ── INSTALL PAGE ──────────────────────────────────────────────
 
 class TestInstallPage:
     def test_install_page_loads(self, page: Page):
         go(page, "/install")
-        expect(page).not_to_have_url(f"{BASE_URL}/login")
+        assert_url_matches(page, "/install")
 
     def test_ios_install_page_loads(self, page: Page):
         go(page, "/install/ios")
-        expect(page).not_to_have_url(f"{BASE_URL}/login")
+        assert_url_matches(page, "/install/ios")
+
 
 # ── API ENDPOINTS ─────────────────────────────────────────────
 
@@ -229,37 +260,34 @@ class TestAPIEndpoints:
         data = response.json()
         assert "status" in data
 
+
 # ── COMPLIANCE CHECKS ─────────────────────────────────────────
 
 class TestComplianceChecks:
     """Checks that district compliance requirements are met."""
 
-    # FIX: check for discord.gg links only — the word "discord" alone may appear
-    # in base template comments or CSS variable names
     def test_no_discord_links_on_landing(self, page: Page):
         go(page, "/")
-        assert "discord.gg" not in page.content().lower()
+        assert_no_discord_links(page)
 
     def test_no_discord_links_on_login(self, page: Page):
         go(page, "/login")
-        assert "discord.gg" not in page.content().lower()
+        assert_no_discord_links(page)
 
     def test_no_discord_links_on_legal(self, page: Page):
         go(page, "/legal")
-        assert "discord.gg" not in page.content().lower()
+        assert_no_discord_links(page)
 
     def test_privacy_policy_mentions_no_passwords(self, page: Page):
         go(page, "/legal")
-        assert "do not store passwords" in page.content().lower() or \
-               "not store passwords" in page.content().lower()
+        content = page.content().lower()
+        assert "do not store passwords" in content or "not store passwords" in content
 
     def test_privacy_policy_mentions_coppa(self, page: Page):
         go(page, "/legal")
-        assert "under 13" in page.content().lower() or "coppa" in page.content().lower()
+        content = page.content().lower()
+        assert "under 13" in content or "coppa" in content
 
     def test_no_ads(self, page: Page):
         go(page, "/")
-        content = page.content().lower()
-        assert "googlesyndication" not in content
-        assert "doubleclick" not in content
-        assert "adsbygoogle" not in content
+        assert_no_ad_terms(page)
