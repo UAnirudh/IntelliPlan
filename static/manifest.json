@@ -2,7 +2,7 @@
   "id": "/",
   "name": "IntelliPlan",
   "short_name": "IntelliPlan",
-  "description": "AI-powered study planning for students — schedule smarter, not harder.",
+  "description": "AI-powered study planning for students - schedule smarter, not harder.",
   "start_url": "/dashboard",
   "scope": "/",
   "lang": "en",
@@ -55,7 +55,8 @@
   ],
   "share_target": {
     "action": "/dashboard",
-    "method": "GET",
+    "method": "POST",
+    "enctype": "application/x-www-form-urlencoded",
     "params": {
       "title": "title",
       "text": "text",

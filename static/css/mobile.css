@@ -13,6 +13,18 @@ html {
   box-sizing: inherit;
 }
 
+/* Improve tap responsiveness on mobile */
+button,
+a,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+label[for],
+summary {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* ── Sidebar / Nav ── */
 @media (max-width: 768px) {
   html, body {

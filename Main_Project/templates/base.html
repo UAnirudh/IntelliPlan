@@ -159,7 +159,8 @@
     }
     .dropdown-toggle:hover { background:var(--accent-soft); color:var(--accent); }
     .chevron { font-size:0.62rem; color:var(--text-muted); transition:transform 0.2s ease; }
-    .nav-dropdown:hover .chevron { transform:rotate(180deg); }
+    .nav-dropdown:hover .chevron,
+    .nav-dropdown.is-open .chevron { transform:rotate(180deg); }
     .dropdown-panel {
       position:absolute; top:100%; left:0; min-width:180px;
       background:var(--bg-card); border:1px solid var(--border-strong);
@@ -169,7 +170,8 @@
       z-index:200;
       margin-top:10px;
     }
-    .nav-dropdown:hover .dropdown-panel { opacity:1; pointer-events:auto; }
+    .nav-dropdown:hover .dropdown-panel,
+    .nav-dropdown.is-open .dropdown-panel { opacity:1; pointer-events:auto; }
     .nav-dropdown { position:relative; }
     .nav-dropdown::before { content:''; position:absolute; top:100%; left:0; right:0; height:14px; }
     .dropdown-item {
@@ -594,6 +596,7 @@
 
   <link rel="manifest" href="/static/manifest.json">
   <meta name="theme-color" content="#2563eb">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="IntelliPlan">
@@ -652,7 +655,7 @@
       </div>
     </nav>
 
-    <button id="mobileMenuBtn" onclick="toggleMobileMenu()" aria-label="Toggle navigation" aria-expanded="false">☰</button>
+    <button id="mobileMenuBtn" type="button" aria-label="Toggle navigation" aria-expanded="false">☰</button>
     <span class="date-badge" id="dateBadge"></span>
     <label class="toggle" title="Toggle dark mode" aria-label="Toggle dark mode">
       <input type="checkbox" id="themeToggle" />
@@ -871,27 +874,65 @@ document.getElementById('dateBadge').textContent =
   new Date().toLocaleDateString('en-US', {weekday:'short',month:'short',day:'numeric'});
 
 /* ── MOBILE MENU ────────────────────── */
-function toggleMobileMenu() {
+function setMobileMenuState(isOpen) {
   const nav = document.getElementById('mainNav');
   const btn = document.getElementById('mobileMenuBtn');
-  const isOpen = nav.classList.toggle('mobile-open');
+  if (!nav || !btn) return;
+  nav.classList.toggle('mobile-open', isOpen);
   btn.textContent = isOpen ? '✕' : '☰';
   btn.setAttribute('aria-expanded', String(isOpen));
 }
-document.addEventListener('click', e => {
+
+function toggleMobileMenu() {
   const nav = document.getElementById('mainNav');
-  const btn = document.getElementById('mobileMenuBtn');
-  if (nav && btn && !nav.contains(e.target) && !btn.contains(e.target)) {
-    nav.classList.remove('mobile-open');
-    btn.textContent = '☰';
-    btn.setAttribute('aria-expanded','false');
+  if (!nav) return;
+  setMobileMenuState(!nav.classList.contains('mobile-open'));
+}
+
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+if (mobileMenuBtn) {
+  mobileMenuBtn.addEventListener('click', toggleMobileMenu);
+}
+
+document.querySelectorAll('#mainNav .dropdown-toggle').forEach(toggleBtn => {
+  toggleBtn.addEventListener('click', e => {
+    e.preventDefault();
+    const wrapper = toggleBtn.closest('.nav-dropdown');
+    if (!wrapper) return;
+    const willOpen = !wrapper.classList.contains('is-open');
+    document.querySelectorAll('#mainNav .nav-dropdown.is-open').forEach(el => el.classList.remove('is-open'));
+    wrapper.classList.toggle('is-open', willOpen);
+  });
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#mainNav .nav-dropdown')) {
+    document.querySelectorAll('#mainNav .nav-dropdown.is-open').forEach(drop => drop.classList.remove('is-open'));
   }
 });
+
+document.addEventListener('pointerdown', e => {
+  const nav = document.getElementById('mainNav');
+  const btn = document.getElementById('mobileMenuBtn');
+  if (!nav || !btn) return;
+  if (!window.matchMedia('(max-width: 720px)').matches) return;
+  if (!nav.classList.contains('mobile-open')) return;
+  if (!nav.contains(e.target) && !btn.contains(e.target)) {
+    setMobileMenuState(false);
+  }
+});
+
 document.querySelectorAll('#mainNav .nav-tab, #mainNav .dropdown-item').forEach(el => {
   el.addEventListener('click', () => {
-    document.getElementById('mainNav').classList.remove('mobile-open');
-    document.getElementById('mobileMenuBtn').textContent = '☰';
+    document.querySelectorAll('#mainNav .nav-dropdown.is-open').forEach(drop => drop.classList.remove('is-open'));
+    setMobileMenuState(false);
   });
+});
+
+window.addEventListener('resize', () => {
+  if (!window.matchMedia('(max-width: 720px)').matches) {
+    setMobileMenuState(false);
+  }
 });
 
 /* ── ASSIGNMENT MODAL ───────────────── */
@@ -1099,7 +1140,7 @@ document.addEventListener('keydown', e => { if (e.key==='Escape' && planiOpen) c
      PWA INSTALL BANNER
 ══════════════════════════════════════ -->
 <div id="installBanner" style="display:none;" aria-label="Install IntelliPlan app">
-  <a class="install-pill" href="#" onclick="return false;">
+  <a class="install-pill" id="installPill" href="/install">
     <div class="install-icon"><img src="/static/icons/icon-192.png" alt="App icon"></div>
     <div class="install-copy">
       <div class="install-title">Install App</div>
@@ -1110,21 +1151,41 @@ document.addEventListener('keydown', e => { if (e.key==='Escape' && planiOpen) c
 </div>
 
 <script>
-let _deferredPrompt = null;
 function showInstallBanner() { const b=document.getElementById('installBanner'); if(b) b.style.display='flex'; }
 function hideInstallBanner() { const b=document.getElementById('installBanner'); if(b) b.style.display='none'; }
-window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); _deferredPrompt=e; showInstallBanner(); });
-document.getElementById('installBtn').addEventListener('click', async () => {
-  if (_deferredPrompt) {
-    _deferredPrompt.prompt();
-    const {outcome} = await _deferredPrompt.userChoice;
-    if (outcome==='accepted') hideInstallBanner();
-    _deferredPrompt = null; return;
-  }
-  alert('Install not available in this browser. Try Chrome or Edge on Android/desktop.');
+function getInstallInstructionsUrl() {
+  const ua = navigator.userAgent || '';
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  return isIOS ? '/install/ios' : '/install';
+}
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  showInstallBanner();
 });
-window.addEventListener('appinstalled', () => { hideInstallBanner(); _deferredPrompt=null; });
-window.addEventListener('load', () => { if (!_deferredPrompt) hideInstallBanner(); });
+
+const installBtn = document.getElementById('installBtn');
+const installPill = document.getElementById('installPill');
+if (installBtn) {
+  installBtn.addEventListener('click', () => {
+    window.location.href = getInstallInstructionsUrl();
+  });
+}
+if (installPill) {
+  installPill.addEventListener('click', e => {
+    e.preventDefault();
+    window.location.href = getInstallInstructionsUrl();
+  });
+}
+
+window.addEventListener('appinstalled', hideInstallBanner);
+window.addEventListener('load', () => {
+  if (window.matchMedia('(max-width: 900px)').matches) {
+    showInstallBanner();
+  } else {
+    hideInstallBanner();
+  }
+});
 </script>
 
 <!-- ══════════════════════════════════════
