@@ -178,6 +178,7 @@ class TestLegalPage:
 
 # ── AUTH REDIRECTS ────────────────────────────────────────────
 
+
 class TestAuthRedirects:
     """Unauthenticated users should be redirected to login for protected pages."""
 
