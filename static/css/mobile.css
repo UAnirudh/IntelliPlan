@@ -1,305 +1,139 @@
 /* ============================================
-   IntelliPlan — FULL MOBILE FIX
-   Replace entire mobile.css with this
+   IntelliPlan — Mobile UI Fixes
+   Add <link rel="stylesheet" href="/static/css/mobile.css">
+   in your base template <head>
    ============================================ */
 
-/* ---------- GLOBAL RESET ---------- */
-
+/* Ensure proper viewport on all mobile browsers */
 html {
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
+  -text-size-adjust: 100%;
   box-sizing: border-box;
-  overflow-x: hidden;
 }
-
-*,
-*::before,
-*::after {
+*, *::before, *::after {
   box-sizing: inherit;
 }
 
-body {
-  overflow-x: hidden !important;
-  width: 100%;
-  max-width: 100%;
-  position: relative;
-  touch-action: manipulation;
-}
-
-/* ---------- FIX MOBILE BUTTONS ---------- */
-
+/* Improve tap responsiveness on mobile */
 button,
 a,
-input,
-select,
-textarea,
 [role="button"],
-.btn-primary,
-.btn-secondary,
-.nav-tab,
-.dropdown-toggle,
-.dropdown-item {
-  pointer-events: auto !important;
+input[type="button"],
+input[type="submit"],
+label[for],
+summary {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Fix iOS dead click issue */
-button,
-a {
-  cursor: pointer;
-}
-
-/* ---------- FIX STACKING CONTEXT ---------- */
-
-header {
-  z-index: 9999 !important;
-}
-
-main,
-.page-content,
-.content-wrapper {
-  position: relative;
-  z-index: 1;
-}
-
-.dropdown-panel,
-.modal,
-.modal-content,
-.modal-dialog {
-  z-index: 10000 !important;
-}
-
-.sidebar,
-.side-nav,
-nav.sidebar {
-  z-index: 9000 !important;
-}
-
-#chatbot-window,
-.chat-window,
-#planiChat {
-  z-index: 9500 !important;
-}
-
-/* ---------- FIX TRANSLUCENT DROPDOWNS ---------- */
-
-.dropdown-panel {
-  background: var(--bg-card) !important;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  opacity: 1 !important;
-  border: 1px solid var(--border-strong) !important;
-  box-shadow: var(--shadow-lg) !important;
-}
-
-/* ---------- FIX INVISIBLE OVERLAYS ---------- */
-
-.hero-section::before,
-.hero-section::after,
-.page-header::before,
-.page-header::after {
-  pointer-events: none !important;
-}
-
-/* ---------- MOBILE FIXES ---------- */
-
+/* ── Sidebar / Nav ── */
 @media (max-width: 768px) {
-
-  html,
-  body {
+  html, body {
     width: 100%;
     max-width: 100%;
-    overflow-x: hidden !important;
+    overflow-x: clip;
   }
-
-  body.menu-open {
-    overflow: hidden;
-  }
-
-  /* ---------- HEADER ---------- */
 
   header {
     height: auto !important;
     min-height: 62px;
     padding: 10px 14px !important;
     gap: 10px;
-    position: sticky !important;
-    top: 0;
   }
 
   .header-right {
     gap: 8px !important;
   }
 
-  /* ---------- MOBILE MENU ---------- */
-
-  #mobileMenuBtn {
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-    z-index: 10002 !important;
-    position: relative;
-  }
-
   #mainNav {
-    position: fixed !important;
-    top: 62px;
-    left: 0;
-    right: 0;
-    width: 100%;
     max-height: calc(100dvh - 62px);
     overflow-y: auto;
-    background: var(--bg-card) !important;
-    padding: 16px;
-    display: none;
-    flex-direction: column;
-    gap: 10px;
-    z-index: 10001 !important;
-    border-bottom: 1px solid var(--border);
-    box-shadow: var(--shadow-lg);
   }
 
-  #mainNav.mobile-open {
-    display: flex !important;
-  }
-
-  #mainNav .nav-tabs,
-  #mainNav .nav-group {
+  #mainNav .nav-group,
+  #mainNav .nav-tabs {
     width: 100%;
+  }
+
+  #mainNav .nav-group {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    align-items: stretch;
   }
 
   #mainNav .nav-tab,
   #mainNav .dropdown-toggle,
   #mainNav .dropdown-item {
     width: 100%;
-    min-height: 48px;
-    border-radius: 12px;
     justify-content: flex-start;
-    align-items: center;
-    display: flex;
-    padding: 12px 14px;
-    font-size: 0.95rem;
+    min-height: 44px;
+    border-radius: 10px;
   }
 
-  .nav-divider {
-    display: none !important;
-  }
-
-  /* ---------- DROPDOWN FIX ---------- */
-
-  .nav-dropdown {
-    width: 100%;
-  }
-
-  .dropdown-panel {
+  #mainNav .dropdown-panel {
     position: static !important;
-    width: 100% !important;
-    margin-top: 6px !important;
     opacity: 1 !important;
     pointer-events: auto !important;
-    transform: none !important;
+    min-width: 0 !important;
+    width: 100%;
+    margin: 4px 0 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  #mainNav .nav-dropdown::before {
     display: none;
   }
 
-  .nav-dropdown.is-open .dropdown-panel {
-    display: block !important;
-  }
-
-  .nav-dropdown::before {
-    display: none !important;
-  }
-
-  /* ---------- MAIN ---------- */
-
   main {
-    width: 100% !important;
     max-width: 100% !important;
-    padding: 16px !important;
-    margin: 0 auto;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
   }
 
-  /* ---------- CARDS ---------- */
-
-  .card,
-  .assignment-card,
-  .grade-card,
-  .schedule-card,
-  .day-card,
-  .scheduler-panel {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
+  .page-header {
+    gap: 12px !important;
   }
 
-  .assignment-card,
-  .grade-card,
-  .day-card {
-    padding: 14px !important;
+  .page-header > div,
+  .page-header button,
+  .page-header a {
+    max-width: 100%;
   }
 
-  /* ---------- GRID FIX ---------- */
+  .page-header .btn-primary,
+  .page-header .btn-secondary {
+    flex: 1 1 150px;
+  }
 
-  .dashboard-grid,
-  .stats-grid,
-  .grades-grid,
   #dashColumns {
     grid-template-columns: 1fr !important;
-    gap: 16px !important;
+    gap: 18px !important;
   }
 
-  /* ---------- BUTTONS ---------- */
-
-  .btn-primary,
-  .btn-secondary,
-  button {
-    min-height: 46px;
+  #exportBar,
+  #savedScheduleBanner {
+    align-items: stretch !important;
   }
 
-  .btn-group,
-  .action-buttons,
-  .hero-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+  #exportBar > div,
+  #savedScheduleBanner > div {
     width: 100%;
   }
 
-  .btn-group button,
-  .action-buttons button,
-  .hero-actions a,
-  .hero-actions button {
-    flex: 1 1 auto;
+  #exportBar > div:last-child,
+  #savedScheduleBanner > div:last-child {
+    flex-direction: column;
+    align-items: stretch !important;
   }
 
-  /* ---------- INPUTS ---------- */
-
-  input,
-  select,
-  textarea {
+  #exportBar button,
+  #savedScheduleBanner button {
     width: 100%;
-    max-width: 100%;
-    font-size: 16px !important;
   }
 
-  /* ---------- LOGIN ---------- */
-
-  .login-wrap {
-    padding: 12px;
+  .scheduler-panel {
+    padding: 16px !important;
   }
-
-  .login-card {
-    width: 100%;
-    max-width: 100%;
-    padding: 1.5rem !important;
-    border-radius: 18px !important;
-  }
-
-  /* ---------- SCHEDULER ---------- */
 
   .scheduler-inputs,
   .custom-tasks-wrap,
@@ -310,34 +144,49 @@ nav.sidebar {
   }
 
   .input-group,
-  #generateBtn,
-  #savePanel button {
+  .custom-tasks-wrap input,
+  #savePanel input,
+  #savePanel button,
+  #generateBtn {
     width: 100% !important;
+    max-width: 100% !important;
   }
 
-  /* ---------- TIME BLOCK ---------- */
-
   .time-block {
-    display: flex !important;
-    flex-direction: column !important;
+    display: grid !important;
+    grid-template-columns: 1fr auto;
     gap: 8px !important;
   }
 
   .time-slot {
+    grid-column: 1 / -1;
     min-width: 0 !important;
     white-space: normal !important;
   }
 
-  /* ---------- TABLE FIX ---------- */
-
-  table {
-    display: block;
-    width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+  .block-content {
+    min-width: 0;
   }
 
-  /* ---------- MODALS ---------- */
+  .block-title,
+  .card-title,
+  .overview-text {
+    overflow-wrap: anywhere;
+  }
+
+  .day-header {
+    gap: 8px;
+    align-items: flex-start !important;
+  }
+
+  .day-hours {
+    white-space: nowrap;
+  }
+
+  .login-card {
+    padding: 1.4rem !important;
+    border-radius: 16px !important;
+  }
 
   #assignmentModal,
   #newTaskModal,
@@ -346,87 +195,173 @@ nav.sidebar {
   #feedbackModal,
   #silenceModal {
     padding: 10px !important;
+    align-items: flex-start !important;
     overflow-y: auto !important;
-    z-index: 10050 !important;
   }
 
-  #assignmentModal>div,
-  #newTaskModal>div,
-  #editTaskModal>div,
-  #integrationsModal>div,
-  #feedbackModal>div,
-  #silenceModal>div {
+  #assignmentModal > div,
+  #newTaskModal > div,
+  #editTaskModal > div,
+  #integrationsModal > div,
+  #feedbackModal > div,
+  #silenceModal > div {
     width: 100% !important;
-    max-width: 100% !important;
+    max-width: none !important;
+    max-height: calc(100dvh - 20px) !important;
     margin: 0 !important;
-    border-radius: 18px !important;
-    max-height: calc(100dvh - 20px);
-    overflow-y: auto;
+    padding: 1.1rem !important;
+    overflow-y: auto !important;
   }
-
-  /* ---------- CHATBOT ---------- */
 
   #planiWrap {
     right: 12px !important;
-    left: 12px !important;
     bottom: 12px !important;
-    z-index: 10040 !important;
+    left: 12px !important;
+    align-items: flex-end !important;
   }
 
-  #planiChat,
-  #chatbot-window,
-  .chat-window {
+  #planiChat {
+    width: 100% !important;
+    max-height: min(70dvh, 560px) !important;
+  }
+
+  #planiBubble {
+    max-width: calc(100vw - 92px) !important;
+  }
+
+  .hero-actions,
+  .hero-actions a {
+    width: 100%;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+  }
+
+  /* Collapse sidebar to bottom nav or hidden by default */
+  .sidebar, .side-nav, nav.sidebar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto !important;
+    width: 100% !important;
+    height: 60px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-around;
+    z-index: 1000;
+    padding: 0 8px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    overflow: hidden;
+  }
+
+  /* Hide sidebar text labels, show only icons on mobile */
+  .sidebar .nav-label, .side-nav .nav-label {
+    display: none;
+  }
+
+  /* Push main content up from bottom nav */
+  .main-content, main, .page-content {
+    margin-left: 0 !important;
+    padding-bottom: 70px !important;
+  }
+
+  /* Fix full-width cards */
+  .card, .schedule-card, .assignment-card, .block-card {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  /* Fix horizontal overflow */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Fix schedule day blocks stacking */
+  .schedule-day, .day-block {
+    flex-direction: column !important;
+    width: 100% !important;
+  }
+
+  /* Fix table overflow */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+
+  /* Fix modals */
+  .modal-dialog, .modal-content {
+    margin: 10px !important;
+    width: calc(100% - 20px) !important;
+    max-width: none !important;
+  }
+
+  /* Fix buttons that overflow */
+  .btn-group, .action-buttons {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .btn-group .btn, .action-buttons button {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  /* Fix input fields */
+  input, select, textarea {
+    font-size: 16px !important; /* Prevents iOS zoom on focus */
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Fix the dashboard grid */
+  .dashboard-grid, .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Fix header */
+  .header, .top-bar {
+    padding: 8px 12px !important;
+  }
+  .header h1, .top-bar h1 {
+    font-size: 1.2rem !important;
+  }
+
+  /* Fix padding on sections */
+  .section, .container, .content-wrapper {
+    padding: 12px !important;
+  }
+
+  /* Chatbot: fix floating button position above bottom nav */
+  #chatbot-toggle, .chat-fab, .floating-chat-btn {
+    bottom: 70px !important;
+    right: 16px !important;
+  }
+
+  /* Chatbot window: full-screen on mobile */
+  #chatbot-window, .chat-window {
+    position: fixed !important;
+    bottom: 60px !important;
+    left: 0 !important;
+    right: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
     height: 70vh !important;
-    border-radius: 16px 16px 0 0 !important;
-    bottom: 0 !important;
-  }
-
-  #chatbot-toggle,
-  .chat-fab,
-  .floating-chat-btn {
-    bottom: 16px !important;
-    right: 16px !important;
-    z-index: 10041 !important;
-  }
-
-  /* ---------- FIX OVERFLOW ---------- */
-
-  .card-title,
-  .block-title,
-  .overview-text,
-  .page-title {
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
-
-  /* ---------- FIX PAGE PADDING ---------- */
-
-  .section,
-  .container,
-  .content-wrapper {
-    padding-left: 0 !important;
-    padding-right: 0 !important;
+    border-radius: 12px 12px 0 0 !important;
   }
 }
 
-/* ---------- SMALL PHONES ---------- */
-
+/* ── Small phones (< 400px) ── */
 @media (max-width: 400px) {
-
-  .card,
-  .assignment-card,
-  .grade-card {
+  .card, .assignment-card {
     padding: 10px !important;
   }
-
-  .priority-badge,
-  .difficulty-badge {
+  .priority-badge, .difficulty-badge {
     font-size: 0.65rem !important;
-  }
-
-  .page-title {
-    font-size: 1.5rem !important;
   }
 }
