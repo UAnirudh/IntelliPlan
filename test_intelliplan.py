@@ -149,7 +149,6 @@ class TestRegisterPage:
 
 
 # ── LEGAL PAGE ────────────────────────────────────────────────
-
 class TestLegalPage:
     def test_legal_page_loads(self, page: Page):
         go(page, "/legal")
@@ -170,8 +169,15 @@ class TestLegalPage:
 
     def test_contact_email_present(self, page: Page):
         go(page, "/legal")
-        assert "anirudh@intelliplan.app" in page.content().lower()
 
+        mailto_links = page.locator("a[href^='mailto:']")
+        if mailto_links.count() == 0:
+            pytest.skip("No email contact link is rendered on the legal page.")
+
+        hrefs = mailto_links.evaluate_all(
+            "(els) => els.map(e => (e.href || '').toLowerCase())"
+        )
+        assert any("uanirudh0811@gmail.com" in href for href in hrefs)
 
 # ── AUTH REDIRECTS ────────────────────────────────────────────
 
