@@ -970,9 +970,8 @@
 
   // ── Demo placeholder click ────────────────────────────────────
   function handleDemoClick() {
-      var outer = document.querySelector('.demo-video-outer');
-      outer.innerHTML = '<iframe class="demo-iframe" src="https://www.loom.com/embed/6ea3633efb3b4a5c94e3732e1ca978ba?autoplay=1" frameborder="0" allowfullscreen allow="autoplay; fullscreen"></iframe>';
-    window.location.href = '/login';
+    var outer = document.querySelector('.demo-video-outer');
+    outer.innerHTML = '<iframe class="demo-iframe" src="https://www.loom.com/embed/6ea3633efb3b4a5c94e3732e1ca978ba?autoplay=1&hide_owner=true&hide_share=true&hide_title=true&hideEmbedTopBar=true" frameborder="0" allowfullscreen allow="autoplay; fullscreen"></iframe>';
   }
 </script>
 
