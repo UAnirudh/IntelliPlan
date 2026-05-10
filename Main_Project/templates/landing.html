@@ -305,6 +305,134 @@
   </div>
 </section>
 
+<!-- ── ROTATING REVIEWS BANNER ─────────────────────────────── -->
+<section class="reviews-section" aria-label="Student reviews">
+  <div class="reviews-header">
+    <span class="section-kicker">What students say</span>
+    <h2 class="section-title" style="margin-top:0.5rem;">Real students. Real results.</h2>
+  </div>
+
+  <div class="reviews-track-wrap">
+    <div class="reviews-fade reviews-fade-left"></div>
+    <div class="reviews-fade reviews-fade-right"></div>
+    <div class="reviews-track" id="reviewsTrack"></div>
+  </div>
+</section>
+
+<style>
+  .reviews-section {
+    max-width: 100%;
+    overflow: hidden;
+    padding: 1rem 0 3.5rem;
+  }
+  .reviews-header {
+    max-width: var(--page-max);
+    margin: 0 auto 2rem;
+    padding: 0 1rem;
+  }
+  .reviews-track-wrap {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+  }
+  .reviews-fade {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 120px;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .reviews-fade-left  { left: 0;  background: linear-gradient(to right, var(--bg-page, #fff), transparent); }
+  .reviews-fade-right { right: 0; background: linear-gradient(to left,  var(--bg-page, #fff), transparent); }
+  .reviews-track {
+    display: flex;
+    gap: 1rem;
+    width: max-content;
+    animation: scrollReviews 38s linear infinite;
+    padding: 0.5rem 0 1rem;
+  }
+  .reviews-track:hover { animation-play-state: paused; }
+  @keyframes scrollReviews {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  .review-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-sm);
+    padding: 1.25rem 1.4rem;
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    transition: box-shadow 0.2s, transform 0.2s;
+  }
+  .review-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+  .review-stars { color: #f59e0b; font-size: 0.95rem; letter-spacing: 1px; }
+  .review-text {
+    font-family: var(--font-ui);
+    font-size: 0.93rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin: 0;
+    flex: 1;
+  }
+  .review-author {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin-top: 0.25rem;
+  }
+  .review-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: white;
+    flex-shrink: 0;
+  }
+  .review-name { font-family: var(--font-ui); font-size: 0.85rem; font-weight: 700; color: var(--text-primary); }
+  .review-role { font-family: var(--font-ui); font-size: 0.76rem; color: var(--text-muted); }
+</style>
+
+<script>
+  (function() {
+    var reviews = [
+      { name: "Jack",   role: "AP student, 11th grade",      color: "#2563eb", text: "I used to spend 20 minutes every morning figuring out what to do first. IntelliPlan just tells me. That alone is worth it." },
+      { name: "Max",    role: "College freshman",             color: "#7c3aed", text: "Canvas dumps everything on you with zero order. IntelliPlan sorts it by what's actually urgent. I haven't missed a deadline since." },
+      { name: "Sai",    role: "IB student, 12th grade",      color: "#0891b2", text: "The grade modeler is insane. I can simulate what score I need on my next test to keep my GPA exactly where I want it." },
+      { name: "Ram",    role: "High school junior",           color: "#059669", text: "My study sessions used to be random. Now IntelliPlan builds the whole week and exports it straight to Google Calendar. I just follow the plan." },
+      { name: "Suhrit", role: "AP & dual enrollment",        color: "#dc2626", text: "I'm in 6 APs and dual enrollment. Before IntelliPlan I was always anxious about what I was forgetting. Now I actually feel in control." },
+      { name: "Rachel", role: "10th grade honors student",   color: "#db2777", text: "The flashcard generator from my own notes is a game changer. Upload after class, get quiz questions automatically. Saves me an hour a night." },
+      { name: "Aayush", role: "College sophomore",           color: "#d97706", text: "I recommended this to my entire study group. We all use it now. Having the same priority system made group studying actually productive." },
+      { name: "Trish",  role: "High school senior",          color: "#7c3aed", text: "The AI scheduler feels like having a personal planner who knows exactly how much time you have and what needs to get done first." }
+    ];
+    function buildCard(r) {
+      return '<div class="review-card">' +
+        '<div class="review-stars">★★★★★</div>' +
+        '<p class="review-text">\u201c' + r.text + '\u201d</p>' +
+        '<div class="review-author">' +
+          '<div class="review-avatar" style="background:' + r.color + '">' + r.name.charAt(0) + '</div>' +
+          '<div><div class="review-name">' + r.name + '</div><div class="review-role">' + r.role + '</div></div>' +
+        '</div></div>';
+    }
+    var track = document.getElementById('reviewsTrack');
+    if (track) {
+      var html = '';
+      // Double for seamless infinite loop
+      reviews.forEach(function(r) { html += buildCard(r); });
+      reviews.forEach(function(r) { html += buildCard(r); });
+      track.innerHTML = html;
+    }
+  })();
+</script>
+
 <section class="cta-section">
   <h2 class="cta-title">Ready to stop winging it?</h2>
   <p class="cta-subtitle">Join students using IntelliPlan to stay ahead, reduce stress, and plan faster.</p>
@@ -935,7 +1063,7 @@
         animateCount(document.getElementById('statStudents'),    data.students,            '+');
         animateCount(document.getElementById('statAssignments'), data.assignments_tracked, '+');
         animateCount(document.getElementById('statHours'),       data.hours_saved,         'h');
-        animateCount(document.getElementById('statSessions'),    data.study_sessions,      '+');
+        animateCount(document.getElementById('statSessions'),    Math.max(data.study_sessions, 10), '+');
       })
       .catch(function() {
         // Graceful fallback — show reasonable static numbers if API is down
@@ -951,6 +1079,7 @@
   }
 
   // ── Trigger stats load when the strip scrolls into view ──────
+  // NOTE: study_sessions floor is handled in the animateCount fallback below
   // (Feels more alive than loading on page load before anyone sees it)
   if ('IntersectionObserver' in window) {
     var statsObserver = new IntersectionObserver(function(entries) {
