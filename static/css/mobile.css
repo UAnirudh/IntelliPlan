@@ -6,7 +6,7 @@
 
 /* Ensure proper viewport on all mobile browsers */
 html {
-  -text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
   box-sizing: border-box;
 }
 *, *::before, *::after {
@@ -44,6 +44,28 @@ summary {
     gap: 8px !important;
   }
 
+  /* MAIN NAV — Highest Priority */
+  #mainNav,
+  nav.sidebar,
+  .sidebar,
+  .side-nav {
+    background-color: rgba(20, 20, 20, 0.98) !important; /* almost opaque */
+    backdrop-filter: blur(8px) !important; /* subtle blur */
+    z-index: 999999 !important; /* highest priority */
+    position: fixed !important;
+    top: 0;  /* if top nav bar */
+    left: 0;
+    right: 0;
+    width: 100%;
+  }
+
+  /* Ensure dropdowns / tabs stay above content but below nav bar */
+  #mainNav .nav-tab,
+  #mainNav .nav-group,
+  #mainNav .dropdown-panel {
+    z-index: 999999 !important;
+  }
+  
   #mainNav {
     max-height: calc(100dvh - 62px);
     overflow-y: auto;
@@ -152,6 +174,7 @@ summary {
     max-width: 100% !important;
   }
 
+
   .time-block {
     display: grid !important;
     grid-template-columns: 1fr auto;
@@ -214,19 +237,49 @@ summary {
   }
 
   #planiWrap {
+    position: fixed !important;
     right: 12px !important;
     bottom: 12px !important;
-    left: 12px !important;
+    left: auto !important;
+    top: auto !important;
+
+    width: auto !important;
+    height: auto !important;
+
+    display: flex !important;
     align-items: flex-end !important;
+    justify-content: flex-end !important;
+
+    pointer-events: none !important;
+    z-index: 9999 !important;
+  }
+
+  #planiWrap > * {
+    pointer-events: auto !important;
   }
 
   #planiChat {
-    width: 100% !important;
+    position: fixed !important;
+    right: 12px !important;
+    bottom: 72px !important;
+    left: auto !important;
+    top: auto !important;
+
+    width: min(360px, calc(100vw - 24px)) !important;
     max-height: min(70dvh, 560px) !important;
+
+    pointer-events: auto !important;
+    z-index: 10000 !important;
   }
 
   #planiBubble {
-    max-width: calc(100vw - 92px) !important;
+    display: inline-flex !important;
+    width: auto !important;
+    max-width: min(320px, calc(100vw - 24px)) !important;
+
+    pointer-events: auto !important;
+    position: relative !important;
+    z-index: 10001 !important;
   }
 
   .hero-actions,
@@ -353,6 +406,147 @@ summary {
     max-width: 100% !important;
     height: 70vh !important;
     border-radius: 12px 12px 0 0 !important;
+  }
+
+  /* Fix Create Account and Sign In buttons on login page */
+  .login-card .btn-primary,
+  .login-card .btn-secondary {
+    display: block !important;      /* Ensure full width */
+    width: 100% !important;         /* Full tap area */
+    max-width: 100% !important;     
+    text-align: center !important;  
+    flex: none !important;           /* Override global flex rules */
+    position: relative !important;  
+    z-index: 10 !important;         /* Always on top */
+    touch-action: manipulation !important; /* Proper tap handling */
+  }
+
+  /* Optional hover/tap visual */
+  .login-card .account-buttons {
+      display: flex !important;
+      flex-direction: column !important;  /* stack vertically */
+      gap: 12px !important;
+    }
+
+    .login-card .btn-primary,
+    .login-card .btn-secondary {
+      flex: none !important;              /* disable flex:1 */
+      width: 100% !important;             /* full-width tap target */
+      max-width: 100% !important;
+      display: block !important;
+      position: relative !important;
+      z-index: 10 !important;             /* ensure button is on top */
+      text-align: center !important;
+      padding: 12px 0 !important;
+    }
+  }
+
+  /* Optional hover/tap effect */
+  .login-card .btn-primary:hover,
+  .login-card .btn-secondary:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transform: translateY(-1px);
+  }
+
+  /* Adjust other login-card elements for mobile if needed */
+  .login-card .divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 1rem 0;
+  }
+  .login-card .divider span {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  /* Restore guest buttons styling on mobile */
+  .login-card .guest-options .btn-guest {
+    display: flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+    padding: 16px 20px !important;
+    border-radius: 14px !important;
+    border: 1px solid var(--border) !important;
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    text-decoration: none !important;
+    box-shadow: var(--shadow) !important;
+    transition: all 0.2s !important;
+    width: 100% !important; /* full-width buttons on mobile */
+    box-sizing: border-box !important;
+  }
+
+  .login-card .guest-options .btn-guest:hover {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  }
+
+  .login-card .btn-guest .icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .login-card .btn-guest .text .title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+
+  .login-card .btn-guest .text .subtitle {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+
+  .login-card .btn-guest .arrow {
+    margin-left: auto;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+
+  /* Optional hover color changes for each guest button */
+  .login-card .btn-guest.canvas:hover {
+    border-color: #e66000 !important;
+    box-shadow: 0 8px 24px rgba(230,96,0,0.15) !important;
+  }
+  .login-card .btn-guest.studentvue:hover {
+    border-color: #22c55e !important;
+    box-shadow: 0 8px 24px rgba(34,197,94,0.15) !important;
+  }
+  .login-card .btn-guest.schoology:hover {
+    border-color: #5865F2 !important;
+    box-shadow: 0 8px 24px rgba(88,101,242,0.15) !important;
+  }
+  /* Fix Google Sign In button appearance on mobile */
+  .login-card .btn-google {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 10px !important;
+    padding: 12px !important;
+    border-radius: var(--r-md) !important;
+    border: 1px solid var(--border-strong) !important;
+    background: #fff !important;
+    color: #3c4043 !important;
+    font-family: var(--font-ui) !important;
+    font-size: 0.87rem !important;
+    font-weight: 600 !important;
+    text-decoration: none !important; /* removes hyperlink underline */
+    margin-bottom: 1rem !important;
+    box-shadow: var(--shadow) !important;
+    transition: all 0.16s !important;
+    width: 100% !important;           /* full width on mobile */
+    box-sizing: border-box !important;
+  }
+
+  .login-card .btn-google:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important;
+    transform: translateY(-1px) !important;
   }
 }
 

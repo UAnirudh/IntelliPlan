@@ -2,238 +2,993 @@
 
 {% block content %}
 
-<!-- ════════════════════════════════════
-     HERO
-════════════════════════════════════ -->
-<div class="hero" style="display:grid; grid-template-columns:1fr 1fr; gap:4rem; align-items:center; padding:4rem 0 3rem;">
-  <div>
-    <div class="hero-badge">✨ AI-Powered Study Planning</div>
-    <h1 class="hero-title">Study <em>smarter</em>,<br>not harder.</h1>
-    <p class="hero-subtitle">IntelliPlan connects to your school courses and builds a personalized study schedule — automatically prioritized by due date, difficulty, and your available time.</p>
-    <div class="hero-actions">
-      <a href="/login" class="btn-primary" style="padding:14px 28px; font-size:1rem;">Get Started Free →</a>
-      <a href="#how-it-works" class="btn-secondary" style="padding:14px 28px;">See How It Works</a>
-    </div>
-    <div style="display:flex; gap:10px; margin-top:1.25rem; flex-wrap:wrap;">
-      <a href="/install" class="btn-secondary" style="padding:10px 18px; font-size:0.85rem;">Install App</a>
-      <a href="/install/ios" class="btn-secondary" style="padding:10px 18px; font-size:0.85rem;">🍎 Install on iPhone</a>
-    </div>
-  </div>
+<section class="hero-wrap">
+  <div class="hero">
+    <div class="hero-copy">
+      <div class="hero-badge">✨ Built for students who are done guessing</div>
+      <h1 class="hero-title">Stop missing assignments and build your study plan automatically.</h1>
+      <p class="hero-subtitle">
+        IntelliPlan connects to your school tools and turns deadlines, difficulty, and available time into a clear plan for what to do next.
+      </p>
 
-  <!-- Hero card preview -->
-  <div style="position:relative;">
-    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-xl); padding:1.5rem; box-shadow:var(--shadow-lg);">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
-        <div style="font-family:var(--font-display); font-size:1.1rem; color:var(--text-primary);">This Week</div>
-        <div style="font-family:var(--font-ui); font-size:0.82rem; background:var(--accent-soft); color:var(--accent); padding:4px 12px; border-radius:var(--r-full); font-weight:700;">4h 30m</div>
+      <div class="hero-actions">
+        <a href="/login" class="btn-primary hero-btn">Build My Study Plan →</a>
+        <a href="#how-it-works" class="btn-secondary hero-btn">See How It Works</a>
       </div>
-      <div style="display:flex; flex-direction:column; gap:10px;">
-        <div style="display:flex; align-items:center; gap:12px; padding:10px; background:var(--high-bg); border-radius:var(--r-sm);">
-          <div style="width:8px;height:8px;background:var(--high);border-radius:50%;flex-shrink:0;"></div>
-          <div style="flex:1; font-size:0.87rem; font-weight:500; color:var(--text-primary);">Calc BC — Related Rates</div>
-          <div style="font-size:0.78rem; background:var(--high-bg); color:var(--high); padding:3px 8px; border-radius:var(--r-full); font-weight:600;">45m</div>
-        </div>
-        <div style="display:flex; align-items:center; gap:12px; padding:10px; background:var(--medium-bg); border-radius:var(--r-sm);">
-          <div style="width:8px;height:8px;background:var(--medium);border-radius:50%;flex-shrink:0;"></div>
-          <div style="flex:1; font-size:0.87rem; font-weight:500; color:var(--text-primary);">AP Bio — Ch. 7 quiz prep</div>
-          <div style="font-size:0.78rem; background:var(--medium-bg); color:var(--medium); padding:3px 8px; border-radius:var(--r-full); font-weight:600;">30m</div>
-        </div>
-        <div style="display:flex; align-items:center; gap:12px; padding:10px; background:var(--low-bg); border-radius:var(--r-sm);">
-          <div style="width:8px;height:8px;background:var(--low);border-radius:50%;flex-shrink:0;"></div>
-          <div style="flex:1; font-size:0.87rem; font-weight:500; color:var(--text-primary);">English — Essay outline</div>
-          <div style="font-size:0.78rem; background:var(--low-bg); color:var(--low); padding:3px 8px; border-radius:var(--r-full); font-weight:600;">25m</div>
-        </div>
-        <div style="display:flex; align-items:center; gap:12px; padding:10px; background:var(--accent-soft); border-radius:var(--r-sm);">
-          <div style="width:8px;height:8px;background:var(--accent);border-radius:50%;flex-shrink:0;"></div>
-          <div style="flex:1; font-size:0.87rem; font-weight:500; color:var(--text-primary);">Physics — Problem set #4</div>
-          <div style="font-size:0.78rem; background:var(--accent-soft); color:var(--accent); padding:3px 8px; border-radius:var(--r-full); font-weight:600;">60m</div>
-        </div>
+
+      <div class="hero-mini-actions">
+        <a href="/install" class="btn-secondary mini-btn">Install App</a>
+        <a href="/install/ios" class="btn-secondary mini-btn">🍎 iPhone Install</a>
+      </div>
+
+      <div class="hero-trust-row" aria-label="Supported platforms">
+        <span>Canvas</span>
+        <span>StudentVue</span>
+        <span>Schoology</span>
+        <span>Google Calendar</span>
+        <span>Notion</span>
       </div>
     </div>
-    <!-- Floating badge -->
-    <div style="position:absolute; bottom:-16px; right:-10px; background:var(--accent); color:white; font-family:var(--font-ui); font-size:0.78rem; font-weight:700; padding:8px 16px; border-radius:var(--r-full); box-shadow:0 4px 16px rgba(37,99,235,0.4);">
-      🤖 AI-Generated Schedule
+
+    <div class="hero-preview" aria-label="Sample weekly plan">
+      <div class="preview-card">
+        <div class="preview-header">
+          <div class="preview-title">This Week’s Priorities</div>
+          <div class="preview-pill">4h 30m planned</div>
+        </div>
+
+        <div class="preview-list">
+          <div class="task task-high">
+            <div class="task-dot"></div>
+            <div class="task-main">
+              <div class="task-name">Calc BC — Related Rates</div>
+              <div class="task-meta">High priority • due tomorrow</div>
+            </div>
+            <div class="task-time">45m</div>
+          </div>
+
+          <div class="task task-medium">
+            <div class="task-dot"></div>
+            <div class="task-main">
+              <div class="task-name">AP Bio — Ch. 7 quiz prep</div>
+              <div class="task-meta">Medium priority • this week</div>
+            </div>
+            <div class="task-time">30m</div>
+          </div>
+
+          <div class="task task-low">
+            <div class="task-dot"></div>
+            <div class="task-main">
+              <div class="task-name">English — Essay outline</div>
+              <div class="task-meta">Low priority • later this week</div>
+            </div>
+            <div class="task-time">25m</div>
+          </div>
+
+          <div class="task task-accent">
+            <div class="task-dot"></div>
+            <div class="task-main">
+              <div class="task-name">Physics — Problem set #4</div>
+              <div class="task-meta">Auto-scheduled into your calendar</div>
+            </div>
+            <div class="task-time">60m</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="floating-badge">🤖 AI-generated schedule</div>
     </div>
   </div>
-</div>
+</section>
 
-<!-- Embedded Gamma presentation -->
-<div id="how-it-works" style="margin: 2rem 0 3rem; scroll-margin-top: 80px;">
-  <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:1rem;">
-    <div style="font-family:var(--font-display); font-size:1.25rem; color:var(--text-primary);">
-      How It Works
+<section class="proof-strip" aria-label="Key benefits">
+  <div class="proof-item">
+    <div class="proof-value">Less chaos</div>
+    <div class="proof-label">Know what matters first</div>
+  </div>
+  <div class="proof-item">
+    <div class="proof-value">Less time deciding</div>
+    <div class="proof-label">Start working faster</div>
+  </div>
+  <div class="proof-item">
+    <div class="proof-value">More consistency</div>
+    <div class="proof-label">Keep up without the panic</div>
+  </div>
+</section>
+
+<section id="how-it-works" class="section-block">
+  <div class="section-heading">
+    <span class="section-kicker">What it does</span>
+    <h2 class="section-title">You connect your classes. IntelliPlan does the sorting.</h2>
+    <p class="section-subtitle">
+      The goal is simple: reduce the time you spend figuring out what to do and increase the time you spend actually doing it.
+    </p>
+  </div>
+
+  <div class="steps-grid">
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <h3>Import assignments</h3>
+      <p>Pull work from your school tools so everything is in one place.</p>
     </div>
-    <div style="display:flex; gap:10px; flex-wrap:wrap;">
-      <a href="https://gamma.app/embed/14k2pyrr2ks89fp" target="_blank" rel="noopener noreferrer" class="btn-secondary" style="padding:10px 16px; font-size:0.85rem;">
-        Open in New Tab
-      </a>
-      <button type="button" onclick="openPresentation()" class="btn-secondary" style="padding:10px 16px; font-size:0.85rem; cursor:pointer;">
-        Open Larger View
-      </button>
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <h3>Prioritize automatically</h3>
+      <p>Rank tasks by due date, difficulty, points, and the time you have available.</p>
+    </div>
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <h3>Follow the plan</h3>
+      <p>Get a schedule you can actually use, not a pile of random assignments pretending to be organized.</p>
     </div>
   </div>
 
-  <div style="display:flex; justify-content:center;">
-    <iframe
-      src="https://gamma.app/embed/14k2pyrr2ks89fp"
-      style="width: 100%; max-width: 1100px; height: 700px; border: none; border-radius: var(--r-xl); box-shadow: var(--shadow-lg);"
-      allow="fullscreen"
-      title="Study Smarter, Not Harder.">
-    </iframe>
-  </div>
-</div>
-
-<!-- Large view modal -->
-<div id="presentationModal" onclick="closePresentation(event)" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.72); z-index:9999; padding:2rem;">
-  <div style="max-width:1300px; width:100%; height:100%; margin:0 auto; display:flex; flex-direction:column; gap:12px;">
-    <div style="display:flex; justify-content:flex-end;">
-      <button type="button" onclick="closePresentation()" class="btn-secondary" style="padding:10px 16px; font-size:0.85rem; cursor:pointer;">
-        Close
-      </button>
+  <div class="demo-panel">
+    <div class="demo-panel-header">
+      <div>
+        <h3 class="demo-title">See IntelliPlan in Action</h3>
+        <p class="demo-subtitle">
+          Watch how IntelliPlan automatically prioritizes assignments, builds schedules, and helps students stay ahead without manually organizing everything themselves.
+        </p>
+      </div>
+      <div class="demo-actions">
+        <a href="https://gamma.app/embed/14k2pyrr2ks89fp" target="_blank" rel="noopener noreferrer" class="btn-secondary demo-btn">Open in New Tab</a>
+        <button type="button" onclick="openPresentation()" class="btn-secondary demo-btn">Open Larger View</button>
+      </div>
     </div>
-    <div style="flex:1; background:var(--bg-card); border-radius:var(--r-xl); overflow:hidden; box-shadow:var(--shadow-lg);">
+
+    <div class="iframe-wrap">
       <iframe
         src="https://gamma.app/embed/14k2pyrr2ks89fp"
-        style="width:100%; height:100%; border:none;"
+        class="gamma-frame"
         allow="fullscreen"
-        title="Study Smarter, Not Harder.">
+        title="IntelliPlan walkthrough">
       </iframe>
     </div>
   </div>
-</div>
+</section>
 
-<!-- ════════════════════════════════════
-     SECTION LABEL
-════════════════════════════════════ -->
-<div style="display:flex; align-items:center; gap:16px; padding:3rem 0 2rem;">
-  <div style="flex:1; height:1px; background:var(--border);"></div>
-  <span style="font-family:var(--font-ui); font-size:0.71rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em; white-space:nowrap;">• What It Does</span>
-  <div style="flex:1; height:1px; background:var(--border);"></div>
-</div>
-
-<!-- ════════════════════════════════════
-     FEATURES
-════════════════════════════════════ -->
-<div class="features" id="features">
-  <div class="features-header">
-    <h2 class="features-title">Everything you need to stay on top</h2>
-    <p class="features-subtitle">Built for students who want to stop guessing and start succeeding</p>
+<section class="section-block">
+  <div class="section-heading">
+    <span class="section-kicker">Why students keep it open</span>
+    <h2 class="section-title">Everything you need to stay ahead without micromanaging your own life.</h2>
+    <p class="section-subtitle">Built for students who want clarity, not another bloated dashboard full of decorative confusion.</p>
   </div>
 
   <div class="features-grid">
     <div class="feature-card">
       <div class="feature-icon">📅</div>
       <h3 class="feature-title">Smart Scheduling</h3>
-      <p class="feature-desc">Automatically pulls assignments from Canvas, StudentVue & Schoology and prioritizes them by urgency, points, and due date.</p>
+      <p class="feature-desc">Automatically pulls assignments from Canvas, StudentVue, and Schoology, then sorts them by urgency and effort.</p>
     </div>
+
     <div class="feature-card">
       <div class="feature-icon">🎯</div>
       <h3 class="feature-title">Priority Scoring</h3>
-      <p class="feature-desc">High, Medium, and Low priority labels so you always know what needs your attention first — no guesswork.</p>
+      <p class="feature-desc">High, Medium, and Low labels make the next step obvious, so users do not sit there staring at a screen for 20 minutes.</p>
     </div>
+
     <div class="feature-card">
       <div class="feature-icon">⏱</div>
       <h3 class="feature-title">Time Estimation</h3>
-      <p class="feature-desc">Estimates how long each assignment will take so you can plan your week without surprises.</p>
+      <p class="feature-desc">Estimate how long each assignment takes so users can plan a realistic week instead of pretending they have infinite energy.</p>
     </div>
+
     <div class="feature-card">
       <div class="feature-icon">📚</div>
-      <h3 class="feature-title">Study &amp; Learn</h3>
-      <p class="feature-desc">Upload course notes and AI generates flashcards, key concepts, and interactive quiz questions — with streak tracking.</p>
+      <h3 class="feature-title">Study & Learn</h3>
+      <p class="feature-desc">Upload notes and generate flashcards, key concepts, and quiz questions. Add streaks if you want recurring engagement.</p>
     </div>
+
     <div class="feature-card">
       <div class="feature-icon">📊</div>
       <h3 class="feature-title">Grade Modeler</h3>
-      <p class="feature-desc">Simulate "what if I get X on the next test?" — adjust assignment scores and see your GPA update instantly.</p>
+      <p class="feature-desc">Simulate “what if I get X on the next test?” and see how assignments affect grades instantly.</p>
     </div>
+
     <div class="feature-card">
       <div class="feature-icon">🤖</div>
       <h3 class="feature-title">AI Scheduler</h3>
-      <p class="feature-desc">AI-generated study plans that adapt to your assignments, due dates, and available time — exported directly to Google Calendar.</p>
+      <p class="feature-desc">Generate study plans that adapt to deadlines and available time, then export them directly to Google Calendar.</p>
     </div>
   </div>
-</div>
+</section>
 
-<!-- ════════════════════════════════════
-     CTA
-════════════════════════════════════ -->
-<div class="cta-section">
-  <h2 class="cta-title">Ready to take control of your studies?</h2>
-  <p class="cta-subtitle">Join students already using IntelliPlan to stay ahead. Free forever.</p>
-  <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-    <a href="/login" class="btn-primary" style="padding:14px 32px; font-size:1rem;">Get Started Free →</a>
-    <!-- <a href="https://discord.gg/34FYWhJQMU" target="_blank" rel="noopener noreferrer" class="btn-secondary" style="padding:14px 28px;">Join Discord</a> -->
-  </div>
-</div>
-
-<!-- ════════════════════════════════════
-     INTEGRATIONS
-════════════════════════════════════ -->
-<div style="display:flex; align-items:center; gap:16px; padding:1rem 0 2rem;">
-  <div style="flex:1; height:1px; background:var(--border);"></div>
-  <span style="font-family:var(--font-ui); font-size:0.71rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em; white-space:nowrap;">• Integrations</span>
-  <div style="flex:1; height:1px; background:var(--border);"></div>
-</div>
-
-<div class="features" id="integrations" style="padding-top:0;">
-  <div class="features-header">
-    <h2 class="features-title">Works with the tools you already use</h2>
-    <p class="features-subtitle">IntelliPlan connects where your school work already lives</p>
+<section class="section-block">
+  <div class="section-heading">
+    <span class="section-kicker">Why this beats manual planning</span>
+    <h2 class="section-title">Manual planning wastes time before the work even starts.</h2>
   </div>
 
-  <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:1rem;">
-    <div class="feature-card" style="text-align:center; padding:1.5rem 1rem;">
-      <div style="font-size:2rem; margin-bottom:0.75rem;">🏫</div>
-      <div style="font-family:var(--font-ui); font-size:0.82rem; font-weight:700; color:var(--text-primary);">Canvas LMS</div>
+  <div class="comparison-wrap">
+    <div class="comparison-card comparison-bad">
+      <div class="comparison-label">Manual planning</div>
+      <ul class="comparison-list">
+        <li>Decide priorities yourself</li>
+        <li>Forget assignments buried in different portals</li>
+        <li>Rebuild your schedule when everything changes</li>
+        <li>Guess how long each task will take</li>
+      </ul>
     </div>
-    <div class="feature-card" style="text-align:center; padding:1.5rem 1rem;">
-      <div style="font-size:2rem; margin-bottom:0.75rem;">📋</div>
-      <div style="font-family:var(--font-ui); font-size:0.82rem; font-weight:700; color:var(--text-primary);">StudentVue</div>
+
+    <div class="comparison-card comparison-good">
+      <div class="comparison-label">IntelliPlan</div>
+      <ul class="comparison-list">
+        <li>Automatically ranks tasks for you</li>
+        <li>Keeps assignments in one place</li>
+        <li>Adjusts your plan as deadlines shift</li>
+        <li>Helps you spend time on actual studying</li>
+      </ul>
     </div>
-    <div class="feature-card" style="text-align:center; padding:1.5rem 1rem;">
-      <div style="font-size:2rem; margin-bottom:0.75rem;">📅</div>
-      <div style="font-family:var(--font-ui); font-size:0.82rem; font-weight:700; color:var(--text-primary);">Google Calendar</div>
+  </div>
+</section>
+
+<section class="section-block">
+  <div class="section-heading">
+    <span class="section-kicker">Integrations</span>
+    <h2 class="section-title">Works with the tools students already use.</h2>
+    <p class="section-subtitle">Connect the systems where assignments already live and stop making students manually copy homework like it is 2009.</p>
+  </div>
+
+  <div class="integration-grid">
+    <div class="integration-card"><div class="integration-icon">🏫</div><div class="integration-name">Canvas LMS</div></div>
+    <div class="integration-card"><div class="integration-icon">📋</div><div class="integration-name">StudentVue</div></div>
+    <div class="integration-card"><div class="integration-icon">📅</div><div class="integration-name">Google Calendar</div></div>
+    <div class="integration-card"><div class="integration-icon">📝</div><div class="integration-name">Notion</div></div>
+    <div class="integration-card"><div class="integration-icon">🔔</div><div class="integration-name">Push Notifications</div></div>
+  </div>
+</section>
+
+<section class="section-block">
+  <div class="section-heading">
+    <span class="section-kicker">FAQ</span>
+    <h2 class="section-title">Answer the obvious objections before they bounce.</h2>
+  </div>
+
+  <div class="faq-grid">
+    <details class="faq-item">
+      <summary>Does IntelliPlan replace my school portal?</summary>
+      <p>No. It organizes and prioritizes the work already there so students can manage it more efficiently.</p>
+    </details>
+
+    <details class="faq-item">
+      <summary>Do I have to connect everything right away?</summary>
+      <p>No. Start with a demo, then connect what you need. Reduce friction first, because that is apparently a luxury now.</p>
+    </details>
+
+    <details class="faq-item">
+      <summary>What is the biggest benefit?</summary>
+      <p>Knowing exactly what to work on next without wasting time deciding. That sounds small until a student is already behind.</p>
+    </details>
+  </div>
+</section>
+
+<section class="cta-section">
+  <h2 class="cta-title">Ready to stop winging it?</h2>
+  <p class="cta-subtitle">Join students using IntelliPlan to stay ahead, reduce stress, and plan faster.</p>
+  <div class="cta-actions">
+    <a href="/login" class="btn-primary cta-btn">Get Started Free →</a>
+    <a href="#how-it-works" class="btn-secondary cta-btn">See How It Works</a>
+  </div>
+</section>
+
+<div class="mobile-cta-bar">
+  <a href="/login" class="mobile-cta-primary">Get Started Free</a>
+  <a href="#how-it-works" class="mobile-cta-secondary">Demo</a>
+</div>
+
+<div id="presentationModal" onclick="closePresentation(event)" class="presentation-modal" style="display:none;">
+  <div class="presentation-shell">
+    <div class="presentation-topbar">
+      <button type="button" onclick="closePresentation()" class="btn-secondary">Close</button>
     </div>
-    <div class="feature-card" style="text-align:center; padding:1.5rem 1rem;">
-      <div style="font-size:2rem; margin-bottom:0.75rem;">📝</div>
-      <div style="font-family:var(--font-ui); font-size:0.82rem; font-weight:700; color:var(--text-primary);">Notion</div>
-    </div>
-    <div class="feature-card" style="text-align:center; padding:1.5rem 1rem;">
-      <div style="font-size:2rem; margin-bottom:0.75rem;">🔔</div>
-      <div style="font-family:var(--font-ui); font-size:0.82rem; font-weight:700; color:var(--text-primary);">Push Notifs</div>
+    <div class="presentation-frame-wrap">
+      <iframe
+        src="https://gamma.app/embed/14k2pyrr2ks89fp"
+        class="presentation-frame"
+        allow="fullscreen"
+        title="IntelliPlan walkthrough large view">
+      </iframe>
     </div>
   </div>
 </div>
 
 <style>
+  :root {
+    --page-max: 1180px;
+  }
+
+  .hero-wrap,
+  .section-block,
+  .cta-section {
+    max-width: var(--page-max);
+    margin: 0 auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 3rem;
+    align-items: center;
+    padding: 4rem 0 2.5rem;
+  }
+
+  .hero-copy {
+    min-width: 0;
+  }
+
+  .hero-badge,
+  .section-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.8rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+  }
+
+  .hero-title {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 5vw, 4.9rem);
+    line-height: 0.98;
+    color: var(--text-primary);
+    letter-spacing: -0.04em;
+    margin: 0 0 1rem;
+  }
+
+  .hero-title em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .hero-subtitle {
+    font-family: var(--font-ui);
+    font-size: clamp(1rem, 1.6vw, 1.15rem);
+    line-height: 1.7;
+    color: var(--text-secondary);
+    max-width: 42rem;
+    margin: 0 0 1.4rem;
+  }
+
+  .hero-actions,
+  .hero-mini-actions,
+  .demo-actions,
+  .cta-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .cta-actions {
+    justify-content: center;
+    align-items: center;
+  }
+
+  .hero-btn,
+  .mini-btn,
+  .demo-btn,
+  .cta-btn {
+    text-decoration: none;
+  }
+
+  .hero-mini-actions {
+    margin-top: 1rem;
+  }
+
+  .hero-trust-row {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-top: 1.2rem;
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+
+  .hero-trust-row span {
+    padding: 0.45rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-card);
+  }
+
+  .hero-preview {
+    position: relative;
+    min-width: 0;
+  }
+
+  .preview-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.1rem;
+  }
+
+  .preview-title {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    color: var(--text-primary);
+  }
+
+  .preview-pill {
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    background: var(--accent-soft);
+    color: var(--accent);
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .preview-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+
+  .task {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.9rem;
+    border-radius: var(--r-sm);
+    border: 1px solid transparent;
+  }
+
+  .task-high { background: var(--high-bg); }
+  .task-medium { background: var(--medium-bg); }
+  .task-low { background: var(--low-bg); }
+  .task-accent { background: var(--accent-soft); }
+
+  .task-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    flex-shrink: 0;
+  }
+
+  .task-high .task-dot { background: var(--high); }
+  .task-medium .task-dot { background: var(--medium); }
+  .task-low .task-dot { background: var(--low); }
+  .task-accent .task-dot { background: var(--accent); }
+
+  .task-main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .task-name {
+    color: var(--text-primary);
+    font-size: 0.92rem;
+    font-weight: 600;
+    margin-bottom: 0.15rem;
+  }
+
+  .task-meta {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+  }
+
+  .task-time {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
+  }
+
+  .floating-badge {
+    position: absolute;
+    right: -12px;
+    bottom: -18px;
+    background: var(--accent);
+    color: white;
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.55rem 1rem;
+    border-radius: 999px;
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
+  }
+
+  .proof-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin: 0 auto 2.5rem;
+    max-width: var(--page-max);
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .proof-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: 1rem 1.1rem;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .proof-value {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    color: var(--text-primary);
+    margin-bottom: 0.2rem;
+  }
+
+  .proof-label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  .section-block {
+    padding: 1rem 0 3.5rem;
+  }
+
+  .section-heading {
+    text-align: left;
+    margin-bottom: 1.5rem;
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.8rem, 3vw, 2.7rem);
+    line-height: 1.1;
+    color: var(--text-primary);
+    margin: 0 0 0.75rem;
+    letter-spacing: -0.03em;
+  }
+
+  .section-subtitle {
+    font-family: var(--font-ui);
+    font-size: 1rem;
+    color: var(--text-secondary);
+    max-width: 52rem;
+    line-height: 1.7;
+    margin: 0;
+  }
+
+  .steps-grid,
+  .features-grid,
+  .integration-grid,
+  .faq-grid {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .steps-grid {
+    grid-template-columns: repeat(3, 1fr);
+    margin-bottom: 1.2rem;
+  }
+
+  .step-card,
+  .feature-card,
+  .integration-card,
+  .faq-item,
+  .comparison-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .step-card {
+    padding: 1.2rem;
+  }
+
+  .step-num {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 800;
+    margin-bottom: 0.9rem;
+  }
+
+  .step-card h3,
+  .feature-title {
+    margin: 0 0 0.45rem;
+    color: var(--text-primary);
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+  }
+
+  .step-card p,
+  .feature-desc,
+  .faq-item p,
+  .comparison-list li {
+    margin: 0;
+    color: var(--text-secondary);
+    line-height: 1.65;
+    font-size: 0.98rem;
+  }
+
+  .demo-panel {
+    margin-top: 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    background: var(--bg-card);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+  }
+
+  .demo-panel-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: start;
+    padding: 1.2rem 1.2rem 0.95rem;
+    flex-wrap: wrap;
+  }
+
+  .demo-title {
+    font-family: var(--font-display);
+    color: var(--text-primary);
+    margin: 0 0 0.25rem;
+    font-size: 1.25rem;
+  }
+
+  .demo-subtitle {
+    color: var(--text-secondary);
+    margin: 0;
+    max-width: 48rem;
+    line-height: 1.6;
+    font-size: 0.95rem;
+  }
+
+  .iframe-wrap {
+    padding: 0 1.2rem 1.2rem;
+  }
+
+  .gamma-frame {
+    width: 100%;
+    max-width: 1100px;
+    height: 700px;
+    border: none;
+    border-radius: var(--r-xl);
+    display: block;
+  }
+
+  .features-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .feature-card {
+    padding: 1.25rem;
+  }
+
+  .feature-icon {
+    font-size: 1.7rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .comparison-wrap {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .comparison-card {
+    padding: 1.3rem;
+  }
+
+  .comparison-label {
+    display: inline-block;
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    margin-bottom: 0.9rem;
+  }
+
+  .comparison-bad .comparison-label {
+    background: rgba(239, 68, 68, 0.12);
+    color: rgb(185, 28, 28);
+  }
+
+  .comparison-good .comparison-label {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .comparison-list {
+    padding-left: 1.1rem;
+    margin: 0;
+  }
+
+  .comparison-list li {
+    margin-bottom: 0.7rem;
+  }
+
+  .integration-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+
+  .integration-card {
+    padding: 1.15rem 1rem;
+    text-align: center;
+  }
+
+  .integration-icon {
+    font-size: 2rem;
+    margin-bottom: 0.7rem;
+  }
+
+  .integration-name {
+    font-family: var(--font-ui);
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .faq-grid {
+    grid-template-columns: 1fr;
+    max-width: 46rem;
+  }
+
+  .faq-item {
+    padding: 1rem 1.1rem;
+  }
+
+  .faq-item summary {
+    cursor: pointer;
+    font-family: var(--font-display);
+    color: var(--text-primary);
+    font-size: 1.02rem;
+    list-style: none;
+  }
+
+  .faq-item summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .faq-item p {
+    margin-top: 0.8rem;
+  }
+
+  .cta-section {
+    text-align: center;
+    padding: 2rem 1rem 4.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .cta-title {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    line-height: 1.05;
+    color: var(--text-primary);
+    margin: 0 0 0.8rem;
+    letter-spacing: -0.03em;
+  }
+
+  .cta-subtitle {
+    font-family: var(--font-ui);
+    color: var(--text-secondary);
+    font-size: 1rem;
+    line-height: 1.7;
+    margin: 0 auto 1.25rem;
+    max-width: 42rem;
+  }
+
+  .mobile-cta-bar {
+    display: none;
+  }
+
+  .presentation-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.72);
+    z-index: 9999;
+    padding: 1rem;
+  }
+
+  .presentation-shell {
+    max-width: 1300px;
+    width: 100%;
+    height: 100%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .presentation-topbar {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .presentation-frame-wrap {
+    flex: 1;
+    background: var(--bg-card);
+    border-radius: var(--r-xl);
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .presentation-frame {
+    width: 100%;
+    height: 100%;
+    border: none;
+  }
+
+  @media (max-width: 1024px) {
+    .hero {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+      padding-top: 2.5rem;
+    }
+
+    .features-grid,
+    .integration-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .steps-grid,
+    .comparison-wrap {
+      grid-template-columns: 1fr;
+    }
+
+    .proof-strip {
+      grid-template-columns: 1fr;
+    }
+  }
+
   @media (max-width: 720px) {
-    .hero { grid-template-columns: 1fr !important; gap: 2rem !important; padding: 2rem 0 !important; }
-    .hero > div:last-child { display: none; }
-    .hero-title { font-size: 2.6rem !important; }
-    .features-grid { grid-template-columns: 1fr !important; }
-    .cta-section { padding: 2.5rem 1rem !important; }
-    .features-grid + div { grid-template-columns: repeat(3,1fr) !important; }
-  }
+    .hero {
+      padding: 2rem 0 1.5rem;
+    }
 
-  @media (max-width: 480px) {
-    .hero-title { font-size: 2.1rem !important; }
-    .hero-actions { gap: 8px; }
-    .features-grid + div { grid-template-columns: 1fr 1fr !important; }
-  }
+    .hero-title {
+      font-size: 2.2rem;
+    }
 
-  @media (max-width: 900px) {
-    #how-it-works iframe {
-      height: 520px !important;
+    .hero-subtitle {
+      font-size: 0.98rem;
+    }
+
+    .hero-actions,
+    .hero-mini-actions,
+    .demo-actions,
+    .cta-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .hero-btn,
+    .mini-btn,
+    .demo-btn,
+    .cta-btn {
+      width: 100%;
+      text-align: center;
+    }
+
+    .hero-preview {
+      display: none;
+    }
+
+    .features-grid,
+    .integration-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .gamma-frame {
+      height: 520px;
+    }
+
+    .demo-panel-header {
+      padding-bottom: 1rem;
+    }
+
+    .cta-section {
+      padding-bottom: 5.5rem;
+    }
+
+    .mobile-cta-bar {
+      display: grid;
+      grid-template-columns: 1fr 0.75fr;
+      gap: 0.6rem;
+      position: fixed;
+      left: 0.8rem;
+      right: 0.8rem;
+      bottom: 0.8rem;
+      z-index: 9998;
+    }
+
+    .mobile-cta-primary,
+    .mobile-cta-secondary {
+      text-decoration: none;
+      text-align: center;
+      border-radius: 999px;
+      padding: 0.9rem 1rem;
+      font-family: var(--font-ui);
+      font-weight: 800;
+      font-size: 0.92rem;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .mobile-cta-primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .mobile-cta-secondary {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .floating-badge {
+      right: 0.5rem;
+      bottom: -14px;
+      font-size: 0.72rem;
+      padding: 0.5rem 0.85rem;
     }
   }
 
-  @media (max-width: 600px) {
-    #how-it-works iframe {
-      height: 420px !important;
+  @media (max-width: 520px) {
+    .hero-title {
+      font-size: 1.95rem;
     }
 
-    #how-it-works > div:first-child {
-      align-items: flex-start !important;
+    .section-title {
+      font-size: 1.7rem;
+    }
+
+    .gamma-frame {
+      height: 420px;
+    }
+
+    .preview-card {
+      padding: 1.1rem;
+    }
+
+    .task {
+      padding: 0.75rem;
+    }
+
+    .task-name {
+      font-size: 0.87rem;
+    }
+
+    .task-meta,
+    .task-time {
+      font-size: 0.75rem;
+    }
+
+    .preview-header {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      scroll-behavior: auto !important;
+      transition: none !important;
+      animation: none !important;
     }
   }
 </style>
