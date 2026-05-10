@@ -1,10 +1,12 @@
 /* ============================================
-   IntelliPlan — Mobile UI Fixes
+   IntelliPlan — Mobile UI
+   Merged from both versions
    Add <link rel="stylesheet" href="/static/css/mobile.css">
    in your base template <head>
+   Load AFTER all other stylesheets.
    ============================================ */
 
-/* Ensure proper viewport on all mobile browsers */
+/* ── Global: box model & tap targets ─────────────────────── */
 html {
   -webkit-text-size-adjust: 100%;
   box-sizing: border-box;
@@ -13,7 +15,6 @@ html {
   box-sizing: inherit;
 }
 
-/* Improve tap responsiveness on mobile */
 button,
 a,
 [role="button"],
@@ -25,50 +26,78 @@ summary {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ── Sidebar / Nav ── */
+/* Keep custom HTML dropdowns below nav at all times */
+select {
+  position: relative;
+  z-index: 1;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MOBILE  (≤ 768px)
+══════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
+
+  /* ── No horizontal scroll ─────────────────────────────── */
   html, body {
     width: 100%;
     max-width: 100%;
-    overflow-x: clip;
+    overflow-x: hidden;
   }
 
-  header {
-    height: auto !important;
+  body {
+    padding-top: 62px !important;
+    overflow-x: hidden;
+  }
+
+  /* ════════════════════════════════════════════════════════
+     HEADER / TOP BAR
+     Fully opaque so nothing bleeds through.
+  ════════════════════════════════════════════════════════ */
+  header,
+  #mainNav,
+  .top-bar {
+    background-color: var(--bg-surface, #111111) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
     min-height: 62px;
+    height: auto !important;
     padding: 10px 14px !important;
+    display: flex !important;
+    align-items: center !important;
     gap: 10px;
+    z-index: 99999 !important;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
+    isolation: isolate;
   }
 
   .header-right {
     gap: 8px !important;
   }
 
-  /* MAIN NAV — Highest Priority */
-  #mainNav,
-  nav.sidebar,
-  .sidebar,
-  .side-nav {
-    background-color: rgba(20, 20, 20, 0.98) !important; /* almost opaque */
-    backdrop-filter: blur(8px) !important; /* subtle blur */
-    z-index: 999999 !important; /* highest priority */
-    position: fixed !important;
-    top: 0;  /* if top nav bar */
-    left: 0;
-    right: 0;
-    width: 100%;
+  .header,
+  .top-bar {
+    padding: 8px 12px !important;
   }
 
-  /* Ensure dropdowns / tabs stay above content but below nav bar */
-  #mainNav .nav-tab,
-  #mainNav .nav-group,
-  #mainNav .dropdown-panel {
-    z-index: 999999 !important;
+  .header h1,
+  .top-bar h1 {
+    font-size: 1.2rem !important;
   }
-  
+
+  /* ════════════════════════════════════════════════════════
+     MAIN NAV FIX
+     Remove backdrop-filter and isolate stacking context.
+  ════════════════════════════════════════════════════════ */
   #mainNav {
     max-height: calc(100dvh - 62px);
     overflow-y: auto;
+    z-index: 99999 !important;
+    isolation: isolate;
   }
 
   #mainNav .nav-group,
@@ -89,6 +118,8 @@ summary {
     justify-content: flex-start;
     min-height: 44px;
     border-radius: 10px;
+    position: relative;
+    z-index: 99999 !important;
   }
 
   #mainNav .dropdown-panel {
@@ -106,10 +137,288 @@ summary {
     display: none;
   }
 
-  main {
+  /* Page content select/input safety */
+  main select,
+  main input,
+  main textarea,
+  .page-content select,
+  .page-content input,
+  .page-content textarea {
+    position: relative;
+    z-index: 1 !important;
+    isolation: auto;
+  }
+
+  /* HTML dropdowns in body stay below nav */
+  main .dropdown-panel,
+  .page-content .dropdown-panel,
+  main [role="listbox"],
+  .page-content [role="listbox"] {
+    z-index: 100 !important;
+  }
+
+  /* Sidebar -> bottom nav */
+  .sidebar,
+  .side-nav,
+  nav.sidebar {
+    background-color: var(--bg-surface, #111111) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    top: auto !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    height: 60px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-around !important;
+    z-index: 99999 !important;
+    padding: 0 8px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+    overflow: hidden !important;
+    isolation: isolate !important;
+    transform: translateZ(0) !important;
+  }
+
+  .sidebar .nav-label,
+  .side-nav .nav-label {
+    display: none !important;
+  }
+
+  /* ════════════════════════════════════════════════════════
+     PLANI
+  ════════════════════════════════════════════════════════ */
+  #planiWrap {
+    position: fixed !important;
+    right: 14px !important;
+    bottom: 14px !important;
+    left: auto !important;
+    top: auto !important;
+    width: auto !important;
+    height: auto !important;
+    max-width: calc(100vw - 28px) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+    pointer-events: none !important;
+    z-index: 9999 !important;
+    transform: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  #planiWrap > * {
+    pointer-events: auto !important;
+    transform: none !important;
+  }
+
+  #planiBubble {
+    pointer-events: auto !important;
+    position: relative !important;
+    display: inline-flex !important;
+    align-self: flex-end !important;
+    width: auto !important;
+    max-width: calc(100vw - 28px) !important;
+    z-index: 10001 !important;
+    transform: none !important;
+    margin: 0 !important;
+    scale: 0.88;
+    transform-origin: bottom right;
+  }
+
+  #planiChat {
+    position: fixed !important;
+    right: 14px !important;
+    bottom: 76px !important;
+    left: auto !important;
+    top: auto !important;
+    width: min(360px, calc(100vw - 28px)) !important;
+    max-height: min(70dvh, 560px) !important;
+    pointer-events: auto !important;
+    z-index: 10000 !important;
+    transform: none !important;
+    margin: 0 !important;
+    border-radius: 16px !important;
+  }
+
+  /* ════════════════════════════════════════════════════════
+     LANDING PAGE
+  ════════════════════════════════════════════════════════ */
+  .hero-wrap {
+    padding-top: 72px !important;
+  }
+
+  .hero {
+    padding-top: 1.5rem !important;
+    padding-bottom: 1.5rem !important;
+  }
+
+  .hero-preview {
+    display: none !important;
+  }
+
+  .hero-title {
+    font-size: 2rem !important;
+  }
+
+  .hero-subtitle {
+    font-size: 0.97rem !important;
+  }
+
+  .hero-actions,
+  .hero-mini-actions,
+  .cta-actions {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.6rem !important;
+    width: 100%;
+  }
+
+  .hero-actions a,
+  .hero-btn,
+  .mini-btn,
+  .cta-btn {
+    width: 100% !important;
+    text-align: center !important;
+    display: block !important;
+  }
+
+  .reviews-section {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .reviews-track-wrap {
+    width: 100vw !important;
+    margin-left: calc(-50vw + 50%) !important;
+  }
+
+  .reviews-fade {
+    width: 48px !important;
+  }
+
+  /* Stats: 2-col grid */
+  .stats-strip {
+    padding: 0 0.75rem !important;
+  }
+
+  .stats-strip-inner {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 1px !important;
+    padding: 0 !important;
+    background: var(--border) !important;
+    border-radius: var(--r-xl) !important;
+    overflow: hidden !important;
+  }
+
+  .stat-divider {
+    display: none !important;
+  }
+
+  .stat-item {
+    background: var(--bg-card) !important;
+    padding: 1rem 0.5rem !important;
+    align-items: center !important;
+  }
+
+  .stat-number {
+    font-size: 1.7rem !important;
+  }
+
+  .stat-label {
+    font-size: 0.74rem !important;
+  }
+
+  /* Reviews cards */
+  .review-card {
+    width: 220px !important;
+  }
+
+  .reviews-fade {
+    width: 36px !important;
+  }
+
+  /* Demo panel */
+  .demo-video-outer {
+    margin: 0 0.75rem 0.75rem !important;
+    width: calc(100% - 1.5rem) !important;
+    padding-bottom: calc((100% - 1.5rem) * 9 / 16) !important;
+  }
+
+  /* Sections */
+  .steps-grid,
+  .comparison-wrap {
+    grid-template-columns: 1fr !important;
+  }
+
+  .features-grid,
+  .integration-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Mobile sticky CTA */
+  .mobile-cta-bar {
+    display: grid !important;
+    grid-template-columns: 1fr 0.75fr !important;
+    gap: 0.5rem !important;
+    position: fixed !important;
+    left: 0.75rem !important;
+    right: 0.75rem !important;
+    bottom: 68px !important;
+    z-index: 9998 !important;
+  }
+
+  .mobile-cta-primary,
+  .mobile-cta-secondary {
+    text-decoration: none;
+    text-align: center;
+    border-radius: 999px;
+    padding: 0.85rem 1rem;
+    font-family: var(--font-ui);
+    font-weight: 800;
+    font-size: 0.9rem;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  }
+
+  .mobile-cta-primary {
+    background: var(--accent);
+    color: white;
+  }
+
+  .mobile-cta-secondary {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+  }
+
+  .cta-section {
+    padding-bottom: 5.5rem !important;
+  }
+
+  .floating-badge {
+    right: 0.5rem;
+    bottom: -14px;
+    font-size: 0.72rem;
+    padding: 0.5rem 0.85rem;
+  }
+
+  /* ════════════════════════════════════════════════════════
+     APP / DASHBOARD PAGES
+  ════════════════════════════════════════════════════════ */
+  main,
+  .main-content,
+  .page-content {
     max-width: 100% !important;
     padding-left: 14px !important;
     padding-right: 14px !important;
+    padding-bottom: 70px !important;
+    margin-left: 0 !important;
   }
 
   .page-header {
@@ -174,7 +483,6 @@ summary {
     max-width: 100% !important;
   }
 
-
   .time-block {
     display: grid !important;
     grid-template-columns: 1fr auto;
@@ -206,140 +514,26 @@ summary {
     white-space: nowrap;
   }
 
-  .login-card {
-    padding: 1.4rem !important;
-    border-radius: 16px !important;
-  }
-
-  #assignmentModal,
-  #newTaskModal,
-  #editTaskModal,
-  #integrationsModal,
-  #feedbackModal,
-  #silenceModal {
-    padding: 10px !important;
-    align-items: flex-start !important;
-    overflow-y: auto !important;
-  }
-
-  #assignmentModal > div,
-  #newTaskModal > div,
-  #editTaskModal > div,
-  #integrationsModal > div,
-  #feedbackModal > div,
-  #silenceModal > div {
+  .schedule-day,
+  .day-block {
+    flex-direction: column !important;
     width: 100% !important;
-    max-width: none !important;
-    max-height: calc(100dvh - 20px) !important;
-    margin: 0 !important;
-    padding: 1.1rem !important;
-    overflow-y: auto !important;
   }
 
-  #planiWrap {
-    position: fixed !important;
-    right: 12px !important;
-    bottom: 12px !important;
-    left: auto !important;
-    top: auto !important;
-
-    width: auto !important;
-    height: auto !important;
-
-    display: flex !important;
-    align-items: flex-end !important;
-    justify-content: flex-end !important;
-
-    pointer-events: none !important;
-    z-index: 9999 !important;
-  }
-
-  #planiWrap > * {
-    pointer-events: auto !important;
-  }
-
-  #planiChat {
-    position: fixed !important;
-    right: 12px !important;
-    bottom: 72px !important;
-    left: auto !important;
-    top: auto !important;
-
-    width: min(360px, calc(100vw - 24px)) !important;
-    max-height: min(70dvh, 560px) !important;
-
-    pointer-events: auto !important;
-    z-index: 10000 !important;
-  }
-
-  #planiBubble {
-    display: inline-flex !important;
-    width: auto !important;
-    max-width: min(320px, calc(100vw - 24px)) !important;
-
-    pointer-events: auto !important;
-    position: relative !important;
-    z-index: 10001 !important;
-  }
-
-  .hero-actions,
-  .hero-actions a {
-    width: 100%;
-  }
-
-  .hero-actions {
-    flex-direction: column;
-  }
-
-  /* Collapse sidebar to bottom nav or hidden by default */
-  .sidebar, .side-nav, nav.sidebar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    top: auto !important;
-    width: 100% !important;
-    height: 60px;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-around;
-    z-index: 1000;
-    padding: 0 8px;
-    border-top: 1px solid rgba(255,255,255,0.1);
-    overflow: hidden;
-  }
-
-  /* Hide sidebar text labels, show only icons on mobile */
-  .sidebar .nav-label, .side-nav .nav-label {
-    display: none;
-  }
-
-  /* Push main content up from bottom nav */
-  .main-content, main, .page-content {
-    margin-left: 0 !important;
-    padding-bottom: 70px !important;
-  }
-
-  /* Fix full-width cards */
-  .card, .schedule-card, .assignment-card, .block-card {
+  .card,
+  .schedule-card,
+  .assignment-card,
+  .block-card {
     width: 100% !important;
     margin-left: 0 !important;
     margin-right: 0 !important;
   }
 
-  /* Fix horizontal overflow */
-  body {
-    overflow-x: hidden;
+  .dashboard-grid,
+  .stats-grid {
+    grid-template-columns: 1fr !important;
   }
 
-  /* Fix schedule day blocks stacking */
-  .schedule-day, .day-block {
-    flex-direction: column !important;
-    width: 100% !important;
-  }
-
-  /* Fix table overflow */
   table {
     display: block;
     overflow-x: auto;
@@ -347,120 +541,101 @@ summary {
     width: 100%;
   }
 
-  /* Fix modals */
-  .modal-dialog, .modal-content {
-    margin: 10px !important;
-    width: calc(100% - 20px) !important;
-    max-width: none !important;
+  /* Inputs — prevent iOS zoom */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+    width: 100%;
+    max-width: 100%;
   }
 
-  /* Fix buttons that overflow */
-  .btn-group, .action-buttons {
+  .btn-group,
+  .action-buttons {
     flex-wrap: wrap;
     gap: 8px;
   }
-  .btn-group .btn, .action-buttons button {
+
+  .btn-group .btn,
+  .action-buttons button {
     flex: 1 1 auto;
     min-width: 0;
     white-space: nowrap;
   }
 
-  /* Fix input fields */
-  input, select, textarea {
-    font-size: 16px !important; /* Prevents iOS zoom on focus */
-    width: 100%;
-    max-width: 100%;
+  /* ════════════════════════════════════════════════════════
+     MODALS — above nav and plani
+  ════════════════════════════════════════════════════════ */
+  #assignmentModal,
+  #newTaskModal,
+  #editTaskModal,
+  #integrationsModal,
+  #feedbackModal,
+  #silenceModal,
+  .modal-overlay {
+    padding: 10px !important;
+    align-items: flex-start !important;
+    overflow-y: auto !important;
+    z-index: 100000 !important;
   }
 
-  /* Fix the dashboard grid */
-  .dashboard-grid, .stats-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  /* Fix header */
-  .header, .top-bar {
-    padding: 8px 12px !important;
-  }
-  .header h1, .top-bar h1 {
-    font-size: 1.2rem !important;
-  }
-
-  /* Fix padding on sections */
-  .section, .container, .content-wrapper {
-    padding: 12px !important;
-  }
-
-  /* Chatbot: fix floating button position above bottom nav */
-  #chatbot-toggle, .chat-fab, .floating-chat-btn {
-    bottom: 70px !important;
-    right: 16px !important;
-  }
-
-  /* Chatbot window: full-screen on mobile */
-  #chatbot-window, .chat-window {
-    position: fixed !important;
-    bottom: 60px !important;
-    left: 0 !important;
-    right: 0 !important;
+  #assignmentModal > div,
+  #newTaskModal > div,
+  #editTaskModal > div,
+  #integrationsModal > div,
+  #feedbackModal > div,
+  #silenceModal > div,
+  .modal-dialog,
+  .modal-content {
     width: 100% !important;
-    max-width: 100% !important;
-    height: 70vh !important;
-    border-radius: 12px 12px 0 0 !important;
+    max-width: none !important;
+    max-height: calc(100dvh - 20px) !important;
+    margin: 0 !important;
+    padding: 1.1rem !important;
+    overflow-y: auto !important;
+    border-radius: 16px !important;
   }
 
-  /* Fix Create Account and Sign In buttons on login page */
+  /* ════════════════════════════════════════════════════════
+     LOGIN PAGE
+  ════════════════════════════════════════════════════════ */
+  .login-card {
+    padding: 1.4rem !important;
+    border-radius: 16px !important;
+  }
+
+  .login-card .account-buttons {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+
   .login-card .btn-primary,
   .login-card .btn-secondary {
-    display: block !important;      /* Ensure full width */
-    width: 100% !important;         /* Full tap area */
-    max-width: 100% !important;     
-    text-align: center !important;  
-    flex: none !important;           /* Override global flex rules */
-    position: relative !important;  
-    z-index: 10 !important;         /* Always on top */
-    touch-action: manipulation !important; /* Proper tap handling */
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    text-align: center !important;
+    flex: none !important;
+    position: relative !important;
+    z-index: 10 !important;
+    touch-action: manipulation !important;
+    padding: 12px 0 !important;
   }
 
-  /* Optional hover/tap visual */
-  .login-card .account-buttons {
-      display: flex !important;
-      flex-direction: column !important;  /* stack vertically */
-      gap: 12px !important;
-    }
-
-    .login-card .btn-primary,
-    .login-card .btn-secondary {
-      flex: none !important;              /* disable flex:1 */
-      width: 100% !important;             /* full-width tap target */
-      max-width: 100% !important;
-      display: block !important;
-      position: relative !important;
-      z-index: 10 !important;             /* ensure button is on top */
-      text-align: center !important;
-      padding: 12px 0 !important;
-    }
-  }
-
-  /* Optional hover/tap effect */
-  .login-card .btn-primary:hover,
-  .login-card .btn-secondary:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    transform: translateY(-1px);
-  }
-
-  /* Adjust other login-card elements for mobile if needed */
   .login-card .divider {
     display: flex;
     align-items: center;
     gap: 12px;
     margin: 1rem 0;
   }
+
   .login-card .divider span {
     font-size: 0.78rem;
     color: var(--text-muted);
     font-weight: 500;
   }
-  /* Restore guest buttons styling on mobile */
+
   .login-card .guest-options .btn-guest {
     display: flex !important;
     align-items: center !important;
@@ -472,13 +647,13 @@ summary {
     color: var(--text-primary) !important;
     text-decoration: none !important;
     box-shadow: var(--shadow) !important;
-    transition: all 0.2s !important;
-    width: 100% !important; /* full-width buttons on mobile */
+    width: 100% !important;
     box-sizing: border-box !important;
+    transition: all 0.2s !important;
   }
 
   .login-card .guest-options .btn-guest:hover {
-    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   }
 
   .login-card .btn-guest .icon {
@@ -509,20 +684,21 @@ summary {
     font-size: 0.9rem;
   }
 
-  /* Optional hover color changes for each guest button */
   .login-card .btn-guest.canvas:hover {
     border-color: #e66000 !important;
-    box-shadow: 0 8px 24px rgba(230,96,0,0.15) !important;
+    box-shadow: 0 8px 24px rgba(230, 96, 0, 0.15) !important;
   }
+
   .login-card .btn-guest.studentvue:hover {
     border-color: #22c55e !important;
-    box-shadow: 0 8px 24px rgba(34,197,94,0.15) !important;
+    box-shadow: 0 8px 24px rgba(34, 197, 94, 0.15) !important;
   }
+
   .login-card .btn-guest.schoology:hover {
     border-color: #5865F2 !important;
-    box-shadow: 0 8px 24px rgba(88,101,242,0.15) !important;
+    box-shadow: 0 8px 24px rgba(88, 101, 242, 0.15) !important;
   }
-  /* Fix Google Sign In button appearance on mobile */
+
   .login-card .btn-google {
     display: flex !important;
     align-items: center !important;
@@ -536,26 +712,83 @@ summary {
     font-family: var(--font-ui) !important;
     font-size: 0.87rem !important;
     font-weight: 600 !important;
-    text-decoration: none !important; /* removes hyperlink underline */
+    text-decoration: none !important;
     margin-bottom: 1rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
     box-shadow: var(--shadow) !important;
     transition: all 0.16s !important;
-    width: 100% !important;           /* full width on mobile */
-    box-sizing: border-box !important;
   }
 
   .login-card .btn-google:hover {
-    box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
     transform: translateY(-1px) !important;
+  }
+
+  /* ════════════════════════════════════════════════════════
+     MISC
+  ════════════════════════════════════════════════════════ */
+  .section,
+  .container,
+  .content-wrapper {
+    padding: 12px !important;
+  }
+
+  #chatbot-toggle,
+  .chat-fab,
+  .floating-chat-btn {
+    bottom: 70px !important;
+    right: 16px !important;
+    z-index: 9150 !important;
+  }
+
+  #chatbot-window,
+  .chat-window {
+    position: fixed !important;
+    bottom: 60px !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 70vh !important;
+    border-radius: 12px 12px 0 0 !important;
+    z-index: 9150 !important;
+  }
+
+} /* end @media (max-width: 768px) */
+
+/* ── Very small phones (< 390px) ─────────────────────────── */
+@media (max-width: 390px) {
+  .card,
+  .assignment-card {
+    padding: 10px !important;
+  }
+
+  .priority-badge,
+  .difficulty-badge {
+    font-size: 0.65rem !important;
+  }
+
+  #planiBubble {
+    scale: 0.80 !important;
+  }
+
+  .stat-number {
+    font-size: 1.45rem !important;
+  }
+
+  .review-card {
+    width: 190px !important;
+  }
+
+  .hero-title {
+    font-size: 1.75rem !important;
   }
 }
 
-/* ── Small phones (< 400px) ── */
-@media (max-width: 400px) {
-  .card, .assignment-card {
-    padding: 10px !important;
-  }
-  .priority-badge, .difficulty-badge {
-    font-size: 0.65rem !important;
+/* ── Reduced motion ───────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .reviews-track {
+    animation: none !important;
   }
 }

@@ -342,16 +342,17 @@
     z-index: 2;
     pointer-events: none;
   }
-  .reviews-fade-left  { left: 0;  background: linear-gradient(to right, var(--bg-page, #fff), transparent); }
-  .reviews-fade-right { right: 0; background: linear-gradient(to left,  var(--bg-page, #fff), transparent); }
+  .reviews-fade-left  { left: 0;  background: linear-gradient(to right, var(--bg-base, var(--bg-surface, var(--bg-page, #ffffff))), transparent); }
+  .reviews-fade-right { right: 0; background: linear-gradient(to left,  var(--bg-base, var(--bg-surface, var(--bg-page, #ffffff))), transparent); }
   .reviews-track {
     display: flex;
     gap: 1rem;
     width: max-content;
     animation: scrollReviews 38s linear infinite;
+    animation-play-state: paused; /* JS sets to running after cards paint */
     padding: 0.5rem 0 1rem;
   }
-  .reviews-track:hover { animation-play-state: paused; }
+  .reviews-track:hover { animation-play-state: paused !important; }
   @keyframes scrollReviews {
     0%   { transform: translateX(0); }
     100% { transform: translateX(-50%); }
@@ -402,35 +403,53 @@
 </style>
 
 <script>
-  (function() {
+  /* ── Reviews banner — runs after DOM is fully parsed ── */
+  document.addEventListener('DOMContentLoaded', function () {
     var reviews = [
-      { name: "Jack",   role: "AP student, 11th grade",      color: "#2563eb", text: "I used to spend 20 minutes every morning figuring out what to do first. IntelliPlan just tells me. That alone is worth it." },
-      { name: "Max",    role: "College freshman",             color: "#7c3aed", text: "Canvas dumps everything on you with zero order. IntelliPlan sorts it by what's actually urgent. I haven't missed a deadline since." },
-      { name: "Sai",    role: "IB student, 12th grade",      color: "#0891b2", text: "The grade modeler is insane. I can simulate what score I need on my next test to keep my GPA exactly where I want it." },
-      { name: "Ram",    role: "High school junior",           color: "#059669", text: "My study sessions used to be random. Now IntelliPlan builds the whole week and exports it straight to Google Calendar. I just follow the plan." },
-      { name: "Suhrit", role: "AP & dual enrollment",        color: "#dc2626", text: "I'm in 6 APs and dual enrollment. Before IntelliPlan I was always anxious about what I was forgetting. Now I actually feel in control." },
-      { name: "Rachel", role: "10th grade honors student",   color: "#db2777", text: "The flashcard generator from my own notes is a game changer. Upload after class, get quiz questions automatically. Saves me an hour a night." },
-      { name: "Aayush", role: "College sophomore",           color: "#d97706", text: "I recommended this to my entire study group. We all use it now. Having the same priority system made group studying actually productive." },
-      { name: "Trish",  role: "High school senior",          color: "#7c3aed", text: "The AI scheduler feels like having a personal planner who knows exactly how much time you have and what needs to get done first." }
+      { name: "Jack",   role: "AP student, 11th grade",    color: "#2563eb", text: "I used to spend 20 minutes every morning figuring out what to do first. IntelliPlan just tells me. That alone is worth it." },
+      { name: "Max",    role: "College freshman",           color: "#7c3aed", text: "Canvas dumps everything on you with zero order. IntelliPlan sorts it by what's actually urgent. I haven't missed a deadline since." },
+      { name: "Sai",    role: "IB student, 12th grade",    color: "#0891b2", text: "The grade modeler is insane. I can simulate what score I need on my next test to keep my GPA exactly where I want it." },
+      { name: "Ram",    role: "High school junior",         color: "#059669", text: "My study sessions used to be random. Now IntelliPlan builds the whole week and exports it to Google Calendar. I just follow the plan." },
+      { name: "Suhrit", role: "AP & dual enrollment",      color: "#dc2626", text: "I'm in 6 APs and dual enrollment. Before IntelliPlan I was constantly anxious about what I was forgetting. Now I feel in control." },
+      { name: "Rachel", role: "10th grade honors student", color: "#db2777", text: "The flashcard generator from my own notes is a game changer. Upload after class, get quiz questions automatically. Saves an hour a night." },
+      { name: "Aayush", role: "College sophomore",         color: "#d97706", text: "I recommended this to my entire study group. We all use it now. Having the same priority system made group studying actually productive." },
+      { name: "Trish",  role: "High school senior",        color: "#7c3aed", text: "The AI scheduler feels like having a personal planner who knows exactly how much time you have and what needs to get done first." }
     ];
+
+    var track = document.getElementById('reviewsTrack');
+    if (!track) return; /* safety — exits cleanly if element missing */
+
     function buildCard(r) {
-      return '<div class="review-card">' +
-        '<div class="review-stars">★★★★★</div>' +
+      var card = document.createElement('div');
+      card.className = 'review-card';
+      card.innerHTML =
+        '<div class="review-stars">\u2605\u2605\u2605\u2605\u2605</div>' +
         '<p class="review-text">\u201c' + r.text + '\u201d</p>' +
         '<div class="review-author">' +
           '<div class="review-avatar" style="background:' + r.color + '">' + r.name.charAt(0) + '</div>' +
-          '<div><div class="review-name">' + r.name + '</div><div class="review-role">' + r.role + '</div></div>' +
-        '</div></div>';
+          '<div>' +
+            '<div class="review-name">' + r.name + '</div>' +
+            '<div class="review-role">' + r.role + '</div>' +
+          '</div>' +
+        '</div>';
+      return card;
     }
-    var track = document.getElementById('reviewsTrack');
-    if (track) {
-      var html = '';
-      // Double for seamless infinite loop
-      reviews.forEach(function(r) { html += buildCard(r); });
-      reviews.forEach(function(r) { html += buildCard(r); });
-      track.innerHTML = html;
-    }
-  })();
+
+    /* Build two full sets so the loop is perfectly seamless */
+    var fragment = document.createDocumentFragment();
+    reviews.forEach(function(r) { fragment.appendChild(buildCard(r)); });
+    reviews.forEach(function(r) { fragment.appendChild(buildCard(r)); });
+    track.appendChild(fragment);
+
+    /*
+      The animation translates by -50% which equals exactly one set width.
+      This only works correctly AFTER the cards are painted and the track
+      has its real scrollWidth. We kick it off on the next frame.
+    */
+    requestAnimationFrame(function() {
+      track.style.animationPlayState = 'running';
+    });
+  });
 </script>
 
 <section class="cta-section">
