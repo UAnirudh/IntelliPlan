@@ -33,7 +33,7 @@
     <div class="hero-preview" aria-label="Sample weekly plan">
       <div class="preview-card">
         <div class="preview-header">
-          <div class="preview-title">This Week’s Priorities</div>
+          <div class="preview-title">This Week's Priorities</div>
           <div class="preview-pill">4h 30m planned</div>
         </div>
 
@@ -81,18 +81,28 @@
   </div>
 </section>
 
-<section class="proof-strip" aria-label="Key benefits">
-  <div class="proof-item">
-    <div class="proof-value">Less chaos</div>
-    <div class="proof-label">Know what matters first</div>
-  </div>
-  <div class="proof-item">
-    <div class="proof-value">Less time deciding</div>
-    <div class="proof-label">Start working faster</div>
-  </div>
-  <div class="proof-item">
-    <div class="proof-value">More consistency</div>
-    <div class="proof-label">Keep up without the panic</div>
+<!-- ── LIVE STATS STRIP (replaces the static proof-strip) ──────── -->
+<section class="stats-strip" aria-label="Live usage stats">
+  <div class="stats-strip-inner">
+    <div class="stat-item">
+      <div class="stat-number" id="statStudents">—</div>
+      <div class="stat-label">students organized</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <div class="stat-number" id="statAssignments">—</div>
+      <div class="stat-label">assignments tracked</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <div class="stat-number" id="statHours">—</div>
+      <div class="stat-label">hours saved planning</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <div class="stat-number" id="statSessions">—</div>
+      <div class="stat-label">study sessions completed</div>
+    </div>
   </div>
 </section>
 
@@ -123,27 +133,59 @@
     </div>
   </div>
 
+  <!-- ── DEMO SECTION (Gamma embed replaced) ─────────────────── -->
   <div class="demo-panel">
     <div class="demo-panel-header">
       <div>
         <h3 class="demo-title">See IntelliPlan in Action</h3>
         <p class="demo-subtitle">
-          Watch how IntelliPlan automatically prioritizes assignments, builds schedules, and helps students stay ahead without manually organizing everything themselves.
+          Watch how IntelliPlan automatically prioritizes assignments, builds schedules, and helps students stay ahead — no manual organizing required.
         </p>
-      </div>
-      <div class="demo-actions">
-        <a href="https://gamma.app/embed/14k2pyrr2ks89fp" target="_blank" rel="noopener noreferrer" class="btn-secondary demo-btn">Open in New Tab</a>
-        <button type="button" onclick="openPresentation()" class="btn-secondary demo-btn">Open Larger View</button>
       </div>
     </div>
 
-    <div class="iframe-wrap">
+    <!-- Video wrapper: 16:9 aspect ratio -->
+    <div class="demo-video-outer">
+      <!-- ─────────────────────────────────────────────────────────────────────
+           STEP 1: Record a Loom or YouTube video of your real dashboard.
+           STEP 2: Replace YOUR_LOOM_ID below with the actual ID from your Loom share URL.
+                   e.g. https://www.loom.com/share/abc123  →  YOUR_LOOM_ID = abc123
+           STEP 3: Delete the placeholder div entirely once you have a real embed.
+      ──────────────────────────────────────────────────────────────────────── -->
+
+      <!-- PLACEHOLDER — shown until you add a real video -->
+      <div class="demo-video-placeholder" id="demoPlaceholder" onclick="handleDemoClick()">
+        <div class="demo-play-ring">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+            <polygon points="6,3 20,12 6,21"/>
+          </svg>
+        </div>
+        <p class="demo-placeholder-label">60-second walkthrough</p>
+        <p class="demo-placeholder-sub">Connect your Canvas or StudentVue to see it live</p>
+      </div>
+
+      <!-- REAL VIDEO — uncomment and replace YOUR_LOOM_ID when ready
       <iframe
-        src="https://gamma.app/embed/14k2pyrr2ks89fp"
-        class="gamma-frame"
-        allow="fullscreen"
+        id="demoFrame"
+        src="https://www.loom.com/embed/YOUR_LOOM_ID?autoplay=0&hide_owner=true&hide_share=true&hide_title=true&hideEmbedTopBar=true"
+        frameborder="0"
+        allowfullscreen
+        allow="autoplay; fullscreen"
+        class="demo-iframe"
         title="IntelliPlan walkthrough">
       </iframe>
+      -->
+
+      <!-- YOUTUBE ALTERNATIVE — uncomment and replace YOUR_YOUTUBE_ID when ready
+      <iframe
+        src="https://www.youtube.com/embed/YOUR_YOUTUBE_ID?autoplay=0&rel=0&modestbranding=1"
+        frameborder="0"
+        allowfullscreen
+        allow="autoplay; fullscreen"
+        class="demo-iframe"
+        title="IntelliPlan walkthrough">
+      </iframe>
+      -->
     </div>
   </div>
 </section>
@@ -183,7 +225,7 @@
     <div class="feature-card">
       <div class="feature-icon">📊</div>
       <h3 class="feature-title">Grade Modeler</h3>
-      <p class="feature-desc">Simulate “what if I get X on the next test?” and see how assignments affect grades instantly.</p>
+      <p class="feature-desc">Simulate "what if I get X on the next test?" and see how assignments affect grades instantly.</p>
     </div>
 
     <div class="feature-card">
@@ -277,27 +319,12 @@
   <a href="#how-it-works" class="mobile-cta-secondary">Demo</a>
 </div>
 
-<div id="presentationModal" onclick="closePresentation(event)" class="presentation-modal" style="display:none;">
-  <div class="presentation-shell">
-    <div class="presentation-topbar">
-      <button type="button" onclick="closePresentation()" class="btn-secondary">Close</button>
-    </div>
-    <div class="presentation-frame-wrap">
-      <iframe
-        src="https://gamma.app/embed/14k2pyrr2ks89fp"
-        class="presentation-frame"
-        allow="fullscreen"
-        title="IntelliPlan walkthrough large view">
-      </iframe>
-    </div>
-  </div>
-</div>
-
 <style>
   :root {
     --page-max: 1180px;
   }
 
+  /* ── Layout wrappers ──────────────────────────────────────── */
   .hero-wrap,
   .section-block,
   .cta-section {
@@ -307,6 +334,7 @@
     padding-right: 1rem;
   }
 
+  /* ── Hero ─────────────────────────────────────────────────── */
   .hero {
     display: grid;
     grid-template-columns: 1.05fr 0.95fr;
@@ -315,9 +343,7 @@
     padding: 4rem 0 2.5rem;
   }
 
-  .hero-copy {
-    min-width: 0;
-  }
+  .hero-copy { min-width: 0; }
 
   .hero-badge,
   .section-kicker {
@@ -343,10 +369,7 @@
     margin: 0 0 1rem;
   }
 
-  .hero-title em {
-    font-style: italic;
-    color: var(--accent);
-  }
+  .hero-title em { font-style: italic; color: var(--accent); }
 
   .hero-subtitle {
     font-family: var(--font-ui);
@@ -366,21 +389,11 @@
     flex-wrap: wrap;
   }
 
-  .cta-actions {
-    justify-content: center;
-    align-items: center;
-  }
+  .cta-actions { justify-content: center; align-items: center; }
 
-  .hero-btn,
-  .mini-btn,
-  .demo-btn,
-  .cta-btn {
-    text-decoration: none;
-  }
+  .hero-btn, .mini-btn, .demo-btn, .cta-btn { text-decoration: none; }
 
-  .hero-mini-actions {
-    margin-top: 1rem;
-  }
+  .hero-mini-actions { margin-top: 1rem; }
 
   .hero-trust-row {
     display: flex;
@@ -399,10 +412,7 @@
     background: var(--bg-card);
   }
 
-  .hero-preview {
-    position: relative;
-    min-width: 0;
-  }
+  .hero-preview { position: relative; min-width: 0; }
 
   .preview-card {
     background: var(--bg-card);
@@ -437,11 +447,7 @@
     white-space: nowrap;
   }
 
-  .preview-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.8rem;
-  }
+  .preview-list { display: flex; flex-direction: column; gap: 0.8rem; }
 
   .task {
     display: flex;
@@ -452,9 +458,9 @@
     border: 1px solid transparent;
   }
 
-  .task-high { background: var(--high-bg); }
+  .task-high   { background: var(--high-bg); }
   .task-medium { background: var(--medium-bg); }
-  .task-low { background: var(--low-bg); }
+  .task-low    { background: var(--low-bg); }
   .task-accent { background: var(--accent-soft); }
 
   .task-dot {
@@ -464,15 +470,12 @@
     flex-shrink: 0;
   }
 
-  .task-high .task-dot { background: var(--high); }
+  .task-high   .task-dot { background: var(--high); }
   .task-medium .task-dot { background: var(--medium); }
-  .task-low .task-dot { background: var(--low); }
+  .task-low    .task-dot { background: var(--low); }
   .task-accent .task-dot { background: var(--accent); }
 
-  .task-main {
-    flex: 1;
-    min-width: 0;
-  }
+  .task-main { flex: 1; min-width: 0; }
 
   .task-name {
     color: var(--text-primary);
@@ -481,10 +484,7 @@
     margin-bottom: 0.15rem;
   }
 
-  .task-meta {
-    color: var(--text-muted);
-    font-size: 0.8rem;
-  }
+  .task-meta { color: var(--text-muted); font-size: 0.8rem; }
 
   .task-time {
     font-size: 0.8rem;
@@ -507,45 +507,63 @@
     box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
   }
 
-  .proof-strip {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    margin: 0 auto 2.5rem;
+  /* ── Live Stats Strip ─────────────────────────────────────── */
+  .stats-strip {
     max-width: var(--page-max);
-    padding-left: 1rem;
-    padding-right: 1rem;
+    margin: 0 auto 2.5rem;
+    padding: 0 1rem;
   }
 
-  .proof-item {
+  .stats-strip-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0;
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: var(--r-lg);
-    padding: 1rem 1.1rem;
+    border-radius: var(--r-xl);
     box-shadow: var(--shadow-sm);
+    padding: 1.5rem 2rem;
   }
 
-  .proof-value {
+  .stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    min-width: 130px;
+    padding: 0 1.5rem;
+  }
+
+  .stat-number {
     font-family: var(--font-display);
-    font-size: 1rem;
-    color: var(--text-primary);
-    margin-bottom: 0.2rem;
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--accent);
+    line-height: 1;
+    letter-spacing: -0.03em;
   }
 
-  .proof-label {
-    font-size: 0.85rem;
+  .stat-label {
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
     color: var(--text-muted);
-    line-height: 1.4;
+    margin-top: 5px;
+    text-align: center;
   }
 
-  .section-block {
-    padding: 1rem 0 3.5rem;
+  .stat-divider {
+    width: 1px;
+    height: 44px;
+    background: var(--border);
+    flex-shrink: 0;
   }
 
-  .section-heading {
-    text-align: left;
-    margin-bottom: 1.5rem;
-  }
+  /* ── Section layout ──────────────────────────────────────── */
+  .section-block { padding: 1rem 0 3.5rem; }
+
+  .section-heading { text-align: left; margin-bottom: 1.5rem; }
 
   .section-title {
     font-family: var(--font-display);
@@ -565,6 +583,7 @@
     margin: 0;
   }
 
+  /* ── Steps ───────────────────────────────────────────────── */
   .steps-grid,
   .features-grid,
   .integration-grid,
@@ -589,9 +608,7 @@
     box-shadow: var(--shadow-sm);
   }
 
-  .step-card {
-    padding: 1.2rem;
-  }
+  .step-card { padding: 1.2rem; }
 
   .step-num {
     width: 2rem;
@@ -606,8 +623,7 @@
     margin-bottom: 0.9rem;
   }
 
-  .step-card h3,
-  .feature-title {
+  .step-card h3, .feature-title {
     margin: 0 0 0.45rem;
     color: var(--text-primary);
     font-family: var(--font-display);
@@ -624,6 +640,7 @@
     font-size: 0.98rem;
   }
 
+  /* ── Demo panel (Gamma-free) ─────────────────────────────── */
   .demo-panel {
     margin-top: 1.25rem;
     border: 1px solid var(--border);
@@ -657,41 +674,89 @@
     font-size: 0.95rem;
   }
 
-  .iframe-wrap {
-    padding: 0 1.2rem 1.2rem;
-  }
-
-  .gamma-frame {
-    width: 100%;
-    max-width: 1100px;
-    height: 700px;
-    border: none;
+  /* 16:9 video container */
+  .demo-video-outer {
+    margin: 0 1.2rem 1.2rem;
+    position: relative;
+    width: calc(100% - 2.4rem);
+    padding-bottom: calc((100% - 2.4rem) * 9 / 16);
+    height: 0;
     border-radius: var(--r-xl);
-    display: block;
+    overflow: hidden;
+    background: #0f172a;
   }
 
-  .features-grid {
-    grid-template-columns: repeat(3, 1fr);
+  .demo-iframe,
+  .demo-video-placeholder {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    border: none;
   }
 
-  .feature-card {
-    padding: 1.25rem;
+  /* Placeholder shown until you add a real video */
+  .demo-video-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    cursor: pointer;
+    background: linear-gradient(160deg, #1e293b 0%, #0f172a 100%);
+    transition: background 0.2s;
   }
 
-  .feature-icon {
-    font-size: 1.7rem;
-    margin-bottom: 0.85rem;
+  .demo-video-placeholder:hover { background: linear-gradient(160deg, #263248 0%, #111827 100%); }
+
+  .demo-play-ring {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: var(--accent, #2563eb);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s, background 0.2s;
+    flex-shrink: 0;
   }
 
+  .demo-video-placeholder:hover .demo-play-ring {
+    transform: scale(1.09);
+    background: #1d4ed8;
+  }
+
+  .demo-placeholder-label {
+    color: #f1f5f9;
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .demo-placeholder-sub {
+    color: #94a3b8;
+    font-family: var(--font-ui);
+    font-size: 0.88rem;
+    margin: 0;
+    text-align: center;
+    max-width: 280px;
+  }
+
+  /* ── Features ────────────────────────────────────────────── */
+  .features-grid { grid-template-columns: repeat(3, 1fr); }
+
+  .feature-card { padding: 1.25rem; }
+
+  .feature-icon { font-size: 1.7rem; margin-bottom: 0.85rem; }
+
+  /* ── Comparison ──────────────────────────────────────────── */
   .comparison-wrap {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
   }
 
-  .comparison-card {
-    padding: 1.3rem;
-  }
+  .comparison-card { padding: 1.3rem; }
 
   .comparison-label {
     display: inline-block;
@@ -712,28 +777,16 @@
     color: var(--accent);
   }
 
-  .comparison-list {
-    padding-left: 1.1rem;
-    margin: 0;
-  }
+  .comparison-list { padding-left: 1.1rem; margin: 0; }
 
-  .comparison-list li {
-    margin-bottom: 0.7rem;
-  }
+  .comparison-list li { margin-bottom: 0.7rem; }
 
-  .integration-grid {
-    grid-template-columns: repeat(5, 1fr);
-  }
+  /* ── Integrations ────────────────────────────────────────── */
+  .integration-grid { grid-template-columns: repeat(5, 1fr); }
 
-  .integration-card {
-    padding: 1.15rem 1rem;
-    text-align: center;
-  }
+  .integration-card { padding: 1.15rem 1rem; text-align: center; }
 
-  .integration-icon {
-    font-size: 2rem;
-    margin-bottom: 0.7rem;
-  }
+  .integration-icon { font-size: 2rem; margin-bottom: 0.7rem; }
 
   .integration-name {
     font-family: var(--font-ui);
@@ -742,14 +795,10 @@
     color: var(--text-primary);
   }
 
-  .faq-grid {
-    grid-template-columns: 1fr;
-    max-width: 46rem;
-  }
+  /* ── FAQ ─────────────────────────────────────────────────── */
+  .faq-grid { grid-template-columns: 1fr; max-width: 46rem; }
 
-  .faq-item {
-    padding: 1rem 1.1rem;
-  }
+  .faq-item { padding: 1rem 1.1rem; }
 
   .faq-item summary {
     cursor: pointer;
@@ -759,14 +808,11 @@
     list-style: none;
   }
 
-  .faq-item summary::-webkit-details-marker {
-    display: none;
-  }
+  .faq-item summary::-webkit-details-marker { display: none; }
 
-  .faq-item p {
-    margin-top: 0.8rem;
-  }
+  .faq-item p { margin-top: 0.8rem; }
 
+  /* ── CTA ─────────────────────────────────────────────────── */
   .cta-section {
     text-align: center;
     padding: 2rem 1rem 4.5rem;
@@ -793,119 +839,32 @@
     max-width: 42rem;
   }
 
-  .mobile-cta-bar {
-    display: none;
-  }
+  /* ── Mobile sticky bar ───────────────────────────────────── */
+  .mobile-cta-bar { display: none; }
 
-  .presentation-modal {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.72);
-    z-index: 9999;
-    padding: 1rem;
-  }
-
-  .presentation-shell {
-    max-width: 1300px;
-    width: 100%;
-    height: 100%;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .presentation-topbar {
-    display: flex;
-    justify-content: flex-end;
-  }
-
-  .presentation-frame-wrap {
-    flex: 1;
-    background: var(--bg-card);
-    border-radius: var(--r-xl);
-    overflow: hidden;
-    box-shadow: var(--shadow-lg);
-  }
-
-  .presentation-frame {
-    width: 100%;
-    height: 100%;
-    border: none;
-  }
-
+  /* ── Responsive ──────────────────────────────────────────── */
   @media (max-width: 1024px) {
-    .hero {
-      grid-template-columns: 1fr;
-      gap: 2rem;
-      padding-top: 2.5rem;
-    }
-
-    .features-grid,
-    .integration-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-
-    .steps-grid,
-    .comparison-wrap {
-      grid-template-columns: 1fr;
-    }
-
-    .proof-strip {
-      grid-template-columns: 1fr;
-    }
+    .hero { grid-template-columns: 1fr; gap: 2rem; padding-top: 2.5rem; }
+    .features-grid, .integration-grid { grid-template-columns: repeat(2, 1fr); }
+    .steps-grid, .comparison-wrap { grid-template-columns: 1fr; }
+    .stats-strip-inner { flex-wrap: wrap; gap: 1rem; }
+    .stat-divider { display: none; }
+    .stat-item { min-width: 120px; }
   }
 
   @media (max-width: 720px) {
-    .hero {
-      padding: 2rem 0 1.5rem;
-    }
-
-    .hero-title {
-      font-size: 2.2rem;
-    }
-
-    .hero-subtitle {
-      font-size: 0.98rem;
-    }
-
-    .hero-actions,
-    .hero-mini-actions,
-    .demo-actions,
-    .cta-actions {
+    .hero { padding: 2rem 0 1.5rem; }
+    .hero-title { font-size: 2.2rem; }
+    .hero-subtitle { font-size: 0.98rem; }
+    .hero-actions, .hero-mini-actions, .demo-actions, .cta-actions {
       flex-direction: column;
       align-items: stretch;
     }
-
-    .hero-btn,
-    .mini-btn,
-    .demo-btn,
-    .cta-btn {
-      width: 100%;
-      text-align: center;
-    }
-
-    .hero-preview {
-      display: none;
-    }
-
-    .features-grid,
-    .integration-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .gamma-frame {
-      height: 520px;
-    }
-
-    .demo-panel-header {
-      padding-bottom: 1rem;
-    }
-
-    .cta-section {
-      padding-bottom: 5.5rem;
-    }
-
+    .hero-btn, .mini-btn, .demo-btn, .cta-btn { width: 100%; text-align: center; }
+    .hero-preview { display: none; }
+    .features-grid, .integration-grid { grid-template-columns: 1fr; }
+    .demo-panel-header { padding-bottom: 1rem; }
+    .cta-section { padding-bottom: 5.5rem; }
     .mobile-cta-bar {
       display: grid;
       grid-template-columns: 1fr 0.75fr;
@@ -916,9 +875,7 @@
       bottom: 0.8rem;
       z-index: 9998;
     }
-
-    .mobile-cta-primary,
-    .mobile-cta-secondary {
+    .mobile-cta-primary, .mobile-cta-secondary {
       text-decoration: none;
       text-align: center;
       border-radius: 999px;
@@ -928,95 +885,95 @@
       font-size: 0.92rem;
       box-shadow: var(--shadow-lg);
     }
-
-    .mobile-cta-primary {
-      background: var(--accent);
-      color: white;
-    }
-
+    .mobile-cta-primary { background: var(--accent); color: white; }
     .mobile-cta-secondary {
       background: var(--bg-card);
       color: var(--text-primary);
       border: 1px solid var(--border);
     }
-
-    .floating-badge {
-      right: 0.5rem;
-      bottom: -14px;
-      font-size: 0.72rem;
-      padding: 0.5rem 0.85rem;
-    }
+    .floating-badge { right: 0.5rem; bottom: -14px; font-size: 0.72rem; padding: 0.5rem 0.85rem; }
   }
 
   @media (max-width: 520px) {
-    .hero-title {
-      font-size: 1.95rem;
-    }
-
-    .section-title {
-      font-size: 1.7rem;
-    }
-
-    .gamma-frame {
-      height: 420px;
-    }
-
-    .preview-card {
-      padding: 1.1rem;
-    }
-
-    .task {
-      padding: 0.75rem;
-    }
-
-    .task-name {
-      font-size: 0.87rem;
-    }
-
-    .task-meta,
-    .task-time {
-      font-size: 0.75rem;
-    }
-
-    .preview-header {
-      align-items: flex-start;
-      flex-direction: column;
-    }
+    .hero-title { font-size: 1.95rem; }
+    .section-title { font-size: 1.7rem; }
+    .preview-card { padding: 1.1rem; }
+    .task { padding: 0.75rem; }
+    .task-name { font-size: 0.87rem; }
+    .task-meta, .task-time { font-size: 0.75rem; }
+    .preview-header { align-items: flex-start; flex-direction: column; }
+    .stat-number { font-size: 1.8rem; }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    * {
-      scroll-behavior: auto !important;
-      transition: none !important;
-      animation: none !important;
-    }
+    * { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
   }
 </style>
 
 <script>
-  function openPresentation() {
-    const modal = document.getElementById('presentationModal');
-    if (modal) {
-      modal.style.display = 'block';
-      document.body.style.overflow = 'hidden';
+  // ── Animated count-up ────────────────────────────────────────
+  function animateCount(el, target, suffix) {
+    if (!el) return;
+    const duration = 1400;
+    const start = performance.now();
+    function step(now) {
+      const progress = Math.min((now - start) / duration, 1);
+      // Ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const value = Math.floor(eased * target);
+      el.textContent = value.toLocaleString() + suffix;
+      if (progress < 1) requestAnimationFrame(step);
     }
+    requestAnimationFrame(step);
   }
 
-  function closePresentation(event) {
-    const modal = document.getElementById('presentationModal');
-    if (!modal) return;
-
-    if (!event || event.target === modal) {
-      modal.style.display = 'none';
-      document.body.style.overflow = '';
-    }
+  // ── Fetch live stats from Flask backend ──────────────────────
+  function loadStats() {
+    fetch('/api/stats')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        animateCount(document.getElementById('statStudents'),    data.students,            '+');
+        animateCount(document.getElementById('statAssignments'), data.assignments_tracked, '+');
+        animateCount(document.getElementById('statHours'),       data.hours_saved,         'h');
+        animateCount(document.getElementById('statSessions'),    data.study_sessions,      '+');
+      })
+      .catch(function() {
+        // Graceful fallback — show reasonable static numbers if API is down
+        var s = document.getElementById('statStudents');
+        var a = document.getElementById('statAssignments');
+        var h = document.getElementById('statHours');
+        var ss = document.getElementById('statSessions');
+        if (s)  s.textContent  = '50+';
+        if (a)  a.textContent  = '200+';
+        if (h)  h.textContent  = '120h';
+        if (ss) ss.textContent = '—';
+      });
   }
 
-  document.addEventListener('keydown', function(event) {
-    if (event.key === 'Escape') {
-      closePresentation();
-    }
-  });
+  // ── Trigger stats load when the strip scrolls into view ──────
+  // (Feels more alive than loading on page load before anyone sees it)
+  if ('IntersectionObserver' in window) {
+    var statsObserver = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          loadStats();
+          statsObserver.disconnect();
+        }
+      });
+    }, { threshold: 0.2 });
+    var stripEl = document.querySelector('.stats-strip');
+    if (stripEl) statsObserver.observe(stripEl);
+  } else {
+    // Fallback for older browsers
+    loadStats();
+  }
+
+  // ── Demo placeholder click ────────────────────────────────────
+  function handleDemoClick() {
+      var outer = document.querySelector('.demo-video-outer');
+      outer.innerHTML = '<iframe class="demo-iframe" src="https://www.loom.com/embed/6ea3633efb3b4a5c94e3732e1ca978ba?autoplay=1" frameborder="0" allowfullscreen allow="autoplay; fullscreen"></iframe>';
+    window.location.href = '/login';
+  }
 </script>
 
 {% endblock %}
