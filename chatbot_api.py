@@ -1,8 +1,42 @@
 from flask import Blueprint, request, jsonify
 from groq import Groq
 import os
+import re
 
 chatbot_bp = Blueprint('chatbot', __name__)
+
+# ── Content filter ────────────────────────────────────────────
+_BLOCKED_PATTERNS = re.compile(
+    r'\b('
+    # Sexual content
+    r'sex|sexual|porn|pornography|nude|naked|nsfw|onlyfans|masturbat|orgasm|erotic'
+    r'|hooker|prostitut|escort|fetish|dildo|vibrator|condom|foreplay'
+    # Drugs / substances
+    r'|drugs?|cocaine|heroin|meth|methamphetamine|weed|marijuana|cannabis|molly|ecstasy'
+    r'|lsd|acid|shrooms|mushrooms|fentanyl|opioid|overdose|high school drug'
+    r'|get high|roll(?:ing)? on|trip(?:ping)?'
+    # Alcohol / underage
+    r'|alcohol|drunk|beer|vodka|whiskey|tequila|get wasted|blackout'
+    # Violence / self-harm
+    r'|suicide|kill (?:myself|yourself)|self.harm|cut myself|shoot (?:myself|yourself)'
+    r'|bomb|terrorism|terrorist'
+    # Profanity (common ones — extend as needed)
+    r'|fuck|shit|bitch|asshole|cunt|bastard|damn it|motherfuck|wtf|stfu'
+    r')\b',
+    re.IGNORECASE,
+)
+
+_BLOCKED_REPLY = (
+    "That's a bit outside my lane! 🤖 I'm Plani, your study buddy — "
+    "I'm not designed to help with that topic. "
+    "How about we get you ahead instead? "
+    "Try the **Scheduler** to build your week, the **Priority View** to tackle what's due first, "
+    "or **Study & Learn** to turn your notes into flashcards. You've got this! 📚"
+)
+
+
+def _contains_blocked_content(text: str) -> bool:
+    return bool(_BLOCKED_PATTERNS.search(text))
 
 PLANI_SYSTEM_PROMPT = """You are Plani, IntelliPlan's friendly AI assistant robot — a small, cheerful robot who lives in the bottom-right corner of the screen and helps students.
 
@@ -51,6 +85,14 @@ def chatbot():
         messages = data.get('messages', [])
         if not messages:
             return jsonify({'error': 'No messages provided'}), 400
+
+        # Content filter — check the latest user message before hitting Groq
+        last_user_msg = next(
+            (m.get('content', '') for m in reversed(messages) if m.get('role') == 'user'),
+            ''
+        )
+        if _contains_blocked_content(last_user_msg):
+            return jsonify({'reply': _BLOCKED_REPLY})
 
         # Keep last 10 messages for context (avoid token bloat)
         recent = messages[-10:]
