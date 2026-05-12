@@ -215,7 +215,10 @@ def _ensure_tutor_memory_table():
     if _TUTOR_MEMORY_READY:
         return
     db = _get_db()
-    _TUTOR_MEMORY_META.create_all(bind=db.engine, tables=[_TUTOR_MEMORY_TABLE])
+    _TUTOR_MEMORY_META.create_all(
+        bind=db.engine,
+        tables=[_TUTOR_MEMORY_TABLE, _TUTOR_CONVO_TABLE],
+    )
     _TUTOR_MEMORY_READY = True
 
 
@@ -776,7 +779,9 @@ def tutor():
         })
 
     except Exception as e:
+        import traceback
         print(f'Plani tutor error: {e}')
+        traceback.print_exc()
         return jsonify({'reply': "Sorry, I hit a snag. Try again in a moment."})
 
 
