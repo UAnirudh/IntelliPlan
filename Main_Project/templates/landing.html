@@ -374,6 +374,12 @@
       <p>Knowing exactly what to work on next without wasting time deciding. That sounds small until a student is already behind.</p>
     </details>
   </div>
+
+  <div style="margin-top:1.25rem;">
+    <a href="/faq" style="font-family:var(--font-ui);font-size:0.92rem;color:var(--accent);font-weight:700;text-decoration:none;">
+      See all 12 frequently asked questions →
+    </a>
+  </div>
 </section>
 
 <!-- ── ROTATING REVIEWS BANNER ─────────────────────────────── -->
@@ -540,6 +546,13 @@
   <div class="cta-actions">
     <a href="/login" class="btn-primary cta-btn">Get Started Free →</a>
     <a href="#how-it-works" class="btn-secondary cta-btn">See How It Works</a>
+  </div>
+  <div class="cta-links-row">
+    <a href="/pricing" class="cta-link">Pricing</a>
+    <span class="cta-link-divider">·</span>
+    <a href="/compare" class="cta-link">Compare to other planners</a>
+    <span class="cta-link-divider">·</span>
+    <a href="/faq" class="cta-link">FAQ</a>
   </div>
 </section>
 
@@ -1074,6 +1087,30 @@
     line-height: 1.7;
     margin: 0 auto 1.25rem;
     max-width: 42rem;
+  }
+
+  .cta-links-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-top: 1.25rem;
+  }
+
+  .cta-link {
+    font-family: var(--font-ui);
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+
+  .cta-link:hover { color: var(--accent); }
+
+  .cta-link-divider {
+    color: var(--border-strong);
+    font-size: 0.88rem;
   }
 
   /* ── Mobile sticky bar ───────────────────────────────────── */
