@@ -54,9 +54,8 @@ select {
      Fully opaque so nothing bleeds through.
   ════════════════════════════════════════════════════════ */
   header,
-  #mainNav,
   .top-bar {
-    background-color: var(--bg-surface, #111111) !important;
+    background-color: var(--bg-card) !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     position: fixed !important;
@@ -71,8 +70,13 @@ select {
     align-items: center !important;
     gap: 10px;
     z-index: 99999 !important;
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
+    box-shadow: 0 1px 0 var(--border);
     isolation: isolate;
+  }
+
+  #mainNav {
+    background-color: var(--bg-card) !important;
+    border-bottom: 1px solid var(--border) !important;
   }
 
   .header-right {
@@ -191,6 +195,7 @@ select {
   /* ════════════════════════════════════════════════════════
      PLANI
   ════════════════════════════════════════════════════════ */
+  #planiBot,
   #planiWrap {
     position: fixed !important;
     right: 14px !important;
@@ -205,13 +210,18 @@ select {
     align-items: flex-end !important;
     justify-content: flex-end !important;
     gap: 8px !important;
-    pointer-events: none !important;
     z-index: 9999 !important;
     transform: none !important;
     margin: 0 !important;
     padding: 0 !important;
   }
 
+  #planiRobot {
+    width: 56px !important;
+    height: 56px !important;
+  }
+
+  #planiBot > *,
   #planiWrap > * {
     pointer-events: auto !important;
     transform: none !important;

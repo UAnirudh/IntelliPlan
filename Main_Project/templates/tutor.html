@@ -5,7 +5,7 @@
 <meta name="description" content="Ask Plani anything and learn step by step. IntelliPlan's AI tutor covers math, science, history, coding, languages, and more — free for every student.">
 <style>
 /* ── Override base main for full-height layout ── */
-main { max-width:100% !important; padding:0 !important; margin:0 !important; display:flex; flex-direction:column; height:calc(100vh - 62px); min-height:0; overflow:hidden; }
+main { max-width:100% !important; padding:0 !important; margin:0 !important; display:flex; flex-direction:column; height:calc(100vh - 62px); height:calc(100dvh - 62px); min-height:0; overflow:hidden; }
 
 /* ── Shell ── */
 .tutor-shell {
@@ -307,10 +307,12 @@ main { max-width:100% !important; padding:0 !important; margin:0 !important; dis
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
-  .tutor-side { display: none; }
+  .tutor-side,
+  .tutor-history { display: none !important; }
   .tutor-msg-group { padding: 0.45rem 1rem; }
-  .tutor-input-wrap { padding: 0.75rem 0.875rem 0.75rem; }
+  .tutor-input-wrap { padding: 0.75rem 0.875rem calc(0.75rem + env(safe-area-inset-bottom)); }
   .tutor-empty-title { font-size: 1.45rem; }
+  .tutor-empty { padding-bottom: 1.5rem; }
   #tutorPlaniSvg { width: 82px; height: 95px; }
 }
 @media (max-width: 480px) {
