@@ -150,6 +150,9 @@
     .nav-tab.active { background:var(--accent); color:#fff; border-color:transparent; }
     .nav-tab.logout-btn { background:transparent; border:none; font:inherit; cursor:pointer; }
     .nav-tab.logout-btn:hover { background:var(--high-bg); color:var(--high); }
+    .nav-tab-tutor { background:var(--accent-soft); color:var(--accent) !important; font-weight:600; }
+    .nav-tab-tutor:hover { background:var(--accent) !important; color:#fff !important; }
+    .nav-tab-tutor.active { background:var(--accent) !important; color:#fff !important; }
 
     .nav-dropdown { position:relative; }
     .dropdown-toggle {
@@ -625,6 +628,7 @@
         <a href="/dashboard" class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}">Dashboard</a>
         <a href="/scheduler"  class="nav-tab {% if active_page == 'scheduler' %}active{% endif %}">Scheduler</a>
         <a href="/study"      class="nav-tab {% if active_page == 'study' %}active{% endif %}">Study &amp; Learn</a>
+        <a href="/tutor"      class="nav-tab nav-tab-tutor {% if active_page == 'tutor' %}active{% endif %}">✦ Tutor</a>
       </div>
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">

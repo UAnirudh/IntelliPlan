@@ -1,0 +1,707 @@
+{% extends "base.html" %}
+{% block page_title %}Plani Tutor — AI Study Tutor | IntelliPlan{% endblock %}
+
+{% block head_extra %}
+<meta name="description" content="Ask Plani anything and learn step by step. IntelliPlan's AI tutor covers math, science, history, coding, languages, and more — free for every student.">
+<style>
+/* ── Override base main for full-height layout ── */
+main { max-width:100% !important; padding:0 !important; margin:0 !important; display:flex; flex-direction:column; height:calc(100vh - 62px); overflow:hidden; }
+
+/* ── Shell ── */
+.tutor-shell {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Sidebar ── */
+.tutor-side {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 1.1rem 0 1.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.tutor-side-title {
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0 1rem;
+  margin-bottom: 0.4rem;
+}
+.tutor-subject-btn {
+  display: flex; align-items: center; gap: 9px;
+  width: 100%; padding: 8px 1rem;
+  background: none; border: none; text-align: left;
+  font-family: var(--font-body); font-size: 0.85rem; font-weight: 500;
+  color: var(--text-secondary); cursor: pointer;
+  transition: background 0.13s, color 0.13s;
+}
+.tutor-subject-btn:hover { background: var(--accent-soft); color: var(--accent); }
+.tutor-subject-btn.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.tutor-subject-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.tutor-side-divider { height: 1px; background: var(--border); margin: 0.9rem 0; }
+.tutor-side-tip {
+  padding: 0 1rem;
+  font-size: 0.77rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+.tutor-side-tip strong { color: var(--text-secondary); }
+
+/* ── Main column ── */
+.tutor-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  background: var(--bg);
+}
+
+/* ── Empty state ── */
+.tutor-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem 5rem;
+  text-align: center;
+  animation: fadeUp 0.5s var(--ease-out) both;
+  overflow-y: auto;
+}
+.tutor-empty.hidden { display: none; }
+
+/* Plani robot */
+#tutorPlaniWrap {
+  margin-bottom: 1.5rem;
+}
+#tutorPlaniSvg {
+  width: 110px; height: 127px;
+  animation: tpFloat 3.2s ease-in-out infinite;
+  filter: drop-shadow(0 8px 24px rgba(37,99,235,0.32));
+  transition: filter 0.3s ease;
+}
+#tutorPlaniWrap.is-thinking #tutorPlaniSvg {
+  animation: tpThink 0.85s ease-in-out infinite;
+  filter: drop-shadow(0 0 22px rgba(37,99,235,0.75));
+}
+#tutorPlaniWrap.is-responding #tutorPlaniSvg {
+  animation: tpRespond 0.55s var(--ease-spring) forwards;
+}
+@keyframes tpFloat    { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)} }
+@keyframes tpThink    { 0%,100%{transform:scale(1) translateY(0)} 50%{transform:scale(1.05) translateY(-5px)} }
+@keyframes tpRespond  { 0%{transform:scale(1)} 35%{transform:scale(1.14)} 65%{transform:scale(0.95)} 100%{transform:scale(1)} }
+
+.tutor-empty-title {
+  font-family: var(--font-display);
+  font-size: 1.9rem; letter-spacing: -0.03em; line-height: 1.15;
+  color: var(--text-primary); margin-bottom: 0.5rem;
+}
+.tutor-empty-sub {
+  font-size: 0.93rem; color: var(--text-muted); line-height: 1.65;
+  margin-bottom: 1.75rem; max-width: 460px;
+}
+
+/* Subject chips (empty state) */
+.tutor-chips {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  justify-content: center; margin-bottom: 2rem;
+}
+.tutor-chip {
+  padding: 7px 16px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-family: var(--font-body); font-size: 0.82rem; font-weight: 500;
+  cursor: pointer; transition: all 0.14s ease;
+}
+.tutor-chip:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--border-accent); }
+.tutor-chip.active { background: var(--accent); color: white; border-color: transparent; }
+
+/* Suggested questions */
+.tutor-suggestions { display: flex; flex-direction: column; gap: 7px; max-width: 520px; width: 100%; }
+.tutor-sug-label {
+  font-family: var(--font-ui); font-size: 0.68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-muted); margin-bottom: 2px; text-align: left;
+}
+.tutor-sug-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 10px 14px;
+  text-align: left; font-size: 0.875rem; color: var(--text-secondary);
+  cursor: pointer; transition: all 0.14s ease;
+  display: flex; align-items: center; gap: 10px; width: 100%;
+}
+.tutor-sug-card:hover {
+  border-color: var(--border-accent); color: var(--accent);
+  background: var(--accent-soft); transform: translateX(4px);
+}
+.tutor-sug-icon { font-size: 1.05rem; flex-shrink: 0; }
+
+/* ── Message thread ── */
+.tutor-messages {
+  flex: 1; overflow-y: auto; padding: 1.25rem 0 1rem;
+  display: none; flex-direction: column;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.tutor-messages.visible { display: flex; }
+.tutor-messages::-webkit-scrollbar { width: 4px; }
+.tutor-messages::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+
+.tutor-msg-group {
+  display: flex; gap: 12px;
+  padding: 0.5rem 2rem;
+  animation: fadeUp 0.22s var(--ease-out) both;
+  max-width: 860px; width: 100%; margin: 0 auto;
+}
+.tutor-msg-group.user { flex-direction: row-reverse; }
+
+.tutor-avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 18px; overflow: hidden;
+}
+.tutor-avatar.bot { background: linear-gradient(135deg,#1d4ed8,#3b82f6); }
+.tutor-avatar.user {
+  background: var(--accent-soft);
+  font-family: var(--font-ui); font-size: 0.6rem; font-weight: 700; color: var(--accent);
+}
+
+.tutor-bubble-wrap { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.tutor-msg-group.user .tutor-bubble-wrap { align-items: flex-end; }
+.tutor-sender {
+  font-family: var(--font-ui); font-size: 0.7rem; font-weight: 700;
+  color: var(--text-muted); letter-spacing: 0.03em; padding: 0 4px;
+}
+
+.tutor-bubble {
+  max-width: 660px;
+  padding: 11px 15px;
+  font-size: 0.9rem; line-height: 1.68;
+  color: var(--text-primary);
+}
+.tutor-msg-group.bot .tutor-bubble {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 4px 16px 16px 16px; box-shadow: var(--shadow);
+}
+.tutor-msg-group.user .tutor-bubble {
+  background: var(--accent); color: white;
+  border-radius: 16px 4px 16px 16px;
+}
+
+/* Markdown elements inside bubbles */
+.tutor-bubble p { margin: 0 0 6px; }
+.tutor-bubble p:last-child { margin-bottom: 0; }
+.tutor-bubble strong { font-weight: 700; }
+.tutor-bubble code {
+  background: rgba(37,99,235,0.09); color: var(--accent);
+  padding: 2px 6px; border-radius: 4px;
+  font-family: 'DM Mono', ui-monospace, monospace; font-size: 0.84em;
+}
+.tutor-msg-group.user .tutor-bubble code { background: rgba(255,255,255,0.2); color: white; }
+.tutor-bubble pre {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 0.85rem 1rem;
+  overflow-x: auto; margin: 8px 0;
+  font-family: 'DM Mono', ui-monospace, monospace;
+  font-size: 0.82rem; line-height: 1.6;
+}
+.tutor-bubble pre code { background: none; padding: 0; color: var(--text-primary); font-size: 0.82rem; }
+.tutor-bubble ol { padding-left: 1.4rem; margin: 6px 0; display: flex; flex-direction: column; gap: 3px; }
+.tutor-bubble ul { padding-left: 1.4rem; margin: 6px 0; display: flex; flex-direction: column; gap: 3px; }
+.tutor-bubble li { line-height: 1.65; }
+.tutor-bubble .md-h3 {
+  font-family: var(--font-display); font-size: 1rem; font-weight: 400;
+  color: var(--text-primary); margin: 12px 0 4px; letter-spacing: -0.01em;
+}
+.tutor-bubble .md-hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+.tutor-bubble .follow-up {
+  margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-accent);
+  color: var(--accent); font-weight: 500; font-size: 0.88rem; font-style: italic;
+}
+
+/* Thinking indicator */
+.tutor-thinking-row {
+  display: none; gap: 12px;
+  padding: 0.4rem 2rem;
+  max-width: 860px; width: 100%; margin: 0 auto;
+  align-items: center;
+}
+.tutor-thinking-row.visible { display: flex; }
+.tutor-thinking-dots {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 4px 16px 16px 16px;
+  padding: 11px 16px; display: flex; gap: 5px; align-items: center;
+}
+.tutor-dot {
+  width: 7px; height: 7px; background: var(--accent); border-radius: 50%;
+  animation: dotBounce 1.2s infinite; opacity: 0.55;
+}
+.tutor-dot:nth-child(2) { animation-delay: 0.18s; }
+.tutor-dot:nth-child(3) { animation-delay: 0.36s; }
+
+/* ── Input bar ── */
+.tutor-input-wrap {
+  background: var(--bg); border-top: 1px solid var(--border);
+  padding: 0.875rem 1.5rem 0.9rem; flex-shrink: 0;
+}
+.tutor-input-inner {
+  max-width: 820px; margin: 0 auto;
+  background: var(--bg-card); border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg); display: flex; align-items: flex-end;
+  box-shadow: var(--shadow); overflow: hidden;
+  transition: border-color 0.16s, box-shadow 0.16s;
+}
+.tutor-input-inner:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow);
+}
+.tutor-subject-pill {
+  display: flex; align-items: center; gap: 5px;
+  padding: 0 12px; height: 46px;
+  border-right: 1px solid var(--border); border: none;
+  border-right: 1px solid var(--border);
+  font-family: var(--font-ui); font-size: 0.74rem; font-weight: 700;
+  color: var(--accent); background: var(--accent-soft);
+  cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  transition: background 0.13s;
+}
+.tutor-subject-pill:hover { background: var(--accent-mid); }
+#tutorInput {
+  flex: 1; border: none; background: transparent;
+  padding: 13px 14px; font-family: var(--font-body); font-size: 0.9rem;
+  color: var(--text-primary); outline: none; resize: none;
+  min-height: 46px; max-height: 160px; line-height: 1.5;
+}
+#tutorInput::placeholder { color: var(--text-muted); }
+#tutorSendBtn {
+  width: 46px; height: 46px; border: none;
+  background: var(--accent); color: white; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: background 0.13s;
+}
+#tutorSendBtn:hover { background: var(--accent-hover); }
+#tutorSendBtn:disabled { opacity: 0.38; cursor: not-allowed; }
+.tutor-input-hint {
+  text-align: center; margin-top: 6px;
+  font-size: 0.69rem; color: var(--text-muted);
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .tutor-side { display: none; }
+  .tutor-msg-group { padding: 0.45rem 1rem; }
+  .tutor-input-wrap { padding: 0.75rem 0.875rem 0.75rem; }
+  .tutor-empty-title { font-size: 1.45rem; }
+  #tutorPlaniSvg { width: 82px; height: 95px; }
+}
+@media (max-width: 480px) {
+  .tutor-msg-group { padding: 0.4rem 0.75rem; }
+  .tutor-bubble { font-size: 0.86rem; padding: 9px 12px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tutor-shell">
+
+  <!-- ════ SIDEBAR ════ -->
+  <aside class="tutor-side" aria-label="Subject selection">
+    <div class="tutor-side-title">Subject</div>
+
+    <button class="tutor-subject-btn active" data-subject="General"          onclick="selectSubject(this)"><span class="tutor-subject-dot" style="background:#6366f1"></span>General</button>
+    <button class="tutor-subject-btn"        data-subject="Math"             onclick="selectSubject(this)"><span class="tutor-subject-dot" style="background:#2563eb"></span>Math</button>
+    <button class="tutor-subject-btn"        data-subject="Science"          onclick="selectSubject(this)"><span class="tutor-subject-dot" style="background:#059669"></span>Science</button>
+    <button class="tutor-subject-btn"        data-subject="History"          onclick="selectSubject(this)"><span class="tutor-subject-dot" style="background:#d97706"></span>History</button>
+    <button class="tutor-subject-btn"        data-subject="English"          onclick="selectSubject(this)"><span class="tutor-subject-dot" style="background:#9a3412"></span>English</button>
+    <button class="tutor-subject-btn"        data-subject="Computer Science" onclick="selectSubject(this)"><span class="tutor-subject-dot" style="background:#7c3aed"></span>Computer Science</button>
+    <button class="tutor-subject-btn"        data-subject="Languages"        onclick="selectSubject(this)"><span class="tutor-subject-dot" style="background:#0891b2"></span>Languages</button>
+    <button class="tutor-subject-btn"        data-subject="Economics"        onclick="selectSubject(this)"><span class="tutor-subject-dot" style="background:#be185d"></span>Economics</button>
+    <button class="tutor-subject-btn"        data-subject="Test Prep"        onclick="selectSubject(this)"><span class="tutor-subject-dot" style="background:#dc2626"></span>Test Prep</button>
+
+    <div class="tutor-side-divider"></div>
+    <div class="tutor-side-tip">
+      <strong>Tip:</strong> Be specific — "explain how to solve quadratic equations" gets a better answer than just "help with math".
+    </div>
+  </aside>
+
+  <!-- ════ MAIN ════ -->
+  <div class="tutor-main">
+
+    <!-- Empty state: Plani centered -->
+    <div class="tutor-empty" id="tutorEmpty">
+
+      <div id="tutorPlaniWrap">
+        <svg id="tutorPlaniSvg" viewBox="0 0 80 92" xmlns="http://www.w3.org/2000/svg" aria-label="Plani, your AI tutor">
+          <defs>
+            <linearGradient id="tpH" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1e40af"/><stop offset="100%" stop-color="#2563eb"/></linearGradient>
+            <linearGradient id="tpB" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1e3a8a"/><stop offset="100%" stop-color="#1d4ed8"/></linearGradient>
+            <radialGradient id="tpG" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#60a5fa" stop-opacity="0.8"/><stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/></radialGradient>
+          </defs>
+          <!-- Antenna -->
+          <ellipse cx="40" cy="3.5" rx="5" ry="5" fill="url(#tpG)" opacity="0.7"><animate attributeName="opacity" values="0.7;0.3;0.7" dur="1.8s" repeatCount="indefinite"/></ellipse>
+          <line x1="40" y1="14" x2="40" y2="5" stroke="#93c5fd" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="40" cy="3.5" r="3" fill="#60a5fa"><animate attributeName="r" values="3;4;3" dur="1.8s" repeatCount="indefinite"/></circle>
+          <!-- Head -->
+          <rect x="13" y="14" width="54" height="42" rx="15" fill="url(#tpH)"/>
+          <rect x="19" y="19" width="42" height="32" rx="10" fill="rgba(255,255,255,0.07)"/>
+          <!-- Eyes -->
+          <g transform="translate(26,27)"><rect x="0" y="0" width="12" height="9" rx="4" fill="#7dd3fc"><animateTransform attributeName="transform" type="scale" additive="sum" values="1,1;1,0.05;1,1" keyTimes="0;0.93;1" dur="4.5s" repeatCount="indefinite" calcMode="spline" keySplines="0.5 0 0.5 1;0.5 0 0.5 1"/></rect><circle cx="3" cy="2" r="2" fill="rgba(255,255,255,0.65)"/></g>
+          <g transform="translate(42,27)"><rect x="0" y="0" width="12" height="9" rx="4" fill="#7dd3fc"><animateTransform attributeName="transform" type="scale" additive="sum" values="1,1;1,0.05;1,1" keyTimes="0;0.93;1" dur="4.5s" begin="0.7s" repeatCount="indefinite" calcMode="spline" keySplines="0.5 0 0.5 1;0.5 0 0.5 1"/></rect><circle cx="3" cy="2" r="2" fill="rgba(255,255,255,0.65)"/></g>
+          <!-- Smile -->
+          <path d="M 26 42 Q 40 52 54 42" stroke="#93c5fd" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+          <!-- Blush -->
+          <ellipse cx="18" cy="40" rx="4.5" ry="2.5" fill="rgba(251,113,133,0.3)"/>
+          <ellipse cx="62" cy="40" rx="4.5" ry="2.5" fill="rgba(251,113,133,0.3)"/>
+          <!-- Body -->
+          <rect x="19" y="59" width="42" height="29" rx="11" fill="url(#tpB)"/>
+          <line x1="27" y1="68" x2="53" y2="68" stroke="rgba(255,255,255,0.14)" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="27" y1="75" x2="53" y2="75" stroke="rgba(255,255,255,0.10)" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="40" cy="63.5" r="3" fill="#3b82f6"><animate attributeName="opacity" values="1;0.2;1" dur="1.4s" repeatCount="indefinite"/></circle>
+          <!-- Arms -->
+          <rect x="4"  y="61" width="13" height="11" rx="5.5" fill="url(#tpB)"/><circle cx="4.5"  cy="66.5" r="4" fill="#1e40af"/>
+          <rect x="63" y="61" width="13" height="11" rx="5.5" fill="url(#tpB)"/><circle cx="75.5" cy="66.5" r="4" fill="#1e40af"/>
+          <!-- Feet -->
+          <rect x="23" y="85" width="14" height="7" rx="3.5" fill="#1e3a8a"/>
+          <rect x="43" y="85" width="14" height="7" rx="3.5" fill="#1e3a8a"/>
+        </svg>
+      </div>
+
+      <h1 class="tutor-empty-title">What do you want to learn today?</h1>
+      <p class="tutor-empty-sub">Ask Plani anything — math, science, history, coding, and more. I'll teach you step by step, not just hand you the answer.</p>
+
+      <div class="tutor-chips" id="tutorChips">
+        <button class="tutor-chip active" data-subject="General"          onclick="selectSubject(this)">✦ General</button>
+        <button class="tutor-chip"        data-subject="Math"             onclick="selectSubject(this)">∑ Math</button>
+        <button class="tutor-chip"        data-subject="Science"          onclick="selectSubject(this)">⚗ Science</button>
+        <button class="tutor-chip"        data-subject="History"          onclick="selectSubject(this)">🏛 History</button>
+        <button class="tutor-chip"        data-subject="English"          onclick="selectSubject(this)">✏ English</button>
+        <button class="tutor-chip"        data-subject="Computer Science" onclick="selectSubject(this)">⌨ CS</button>
+        <button class="tutor-chip"        data-subject="Languages"        onclick="selectSubject(this)">◈ Languages</button>
+        <button class="tutor-chip"        data-subject="Economics"        onclick="selectSubject(this)">$ Economics</button>
+        <button class="tutor-chip"        data-subject="Test Prep"        onclick="selectSubject(this)">◉ Test Prep</button>
+      </div>
+
+      <div class="tutor-suggestions" id="tutorSuggestions"></div>
+    </div><!-- /tutor-empty -->
+
+    <!-- Message thread -->
+    <div class="tutor-messages" id="tutorMessages" role="log" aria-live="polite" aria-label="Conversation with Plani"></div>
+
+    <!-- Thinking dots -->
+    <div class="tutor-thinking-row" id="tutorThinking" aria-label="Plani is thinking">
+      <div class="tutor-avatar bot" aria-hidden="true">
+        <svg width="16" height="18" viewBox="0 0 80 92"><defs><linearGradient id="ta" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1e40af"/><stop offset="100%" stop-color="#3b82f6"/></linearGradient></defs><rect x="13" y="14" width="54" height="42" rx="15" fill="url(#ta)"/><g transform="translate(26,27)"><rect width="12" height="9" rx="4" fill="#7dd3fc"/></g><g transform="translate(42,27)"><rect width="12" height="9" rx="4" fill="#7dd3fc"/></g><path d="M26 42 Q40 52 54 42" stroke="#93c5fd" stroke-width="2.2" fill="none" stroke-linecap="round"/><rect x="19" y="59" width="42" height="29" rx="11" fill="#1e3a8a"/></svg>
+      </div>
+      <div class="tutor-thinking-dots">
+        <div class="tutor-dot"></div><div class="tutor-dot"></div><div class="tutor-dot"></div>
+      </div>
+    </div>
+
+  </div><!-- /tutor-main -->
+</div><!-- /tutor-shell -->
+
+<!-- ════ INPUT BAR ════ -->
+<div class="tutor-input-wrap">
+  <div class="tutor-input-inner">
+    <button class="tutor-subject-pill" id="tutorSubjectPill" onclick="document.getElementById('tutorInput').focus()" title="Current subject">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="tutorSubjectLabel">General</span>
+    </button>
+    <textarea id="tutorInput"
+      placeholder="Ask Plani anything…"
+      rows="1"
+      aria-label="Your question"
+      onkeydown="handleTutorKey(event)"
+      oninput="autoResizeTutor(this)"></textarea>
+    <button id="tutorSendBtn" onclick="sendTutorMessage()" aria-label="Send message">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
+  </div>
+  <p class="tutor-input-hint">Plani can make mistakes — double-check important facts before using them in assignments.</p>
+</div>
+
+<script>
+/* ══════════════════════════════════════
+   SUGGESTED QUESTIONS PER SUBJECT
+══════════════════════════════════════ */
+const SUGGESTIONS = {
+  General: [
+    { icon: '💡', text: 'Explain a concept I\'m struggling to understand' },
+    { icon: '📖', text: 'Help me understand something from class today' },
+    { icon: '✍', text: 'Quiz me on a topic I\'m currently studying' },
+  ],
+  Math: [
+    { icon: '∫', text: 'Explain derivatives step by step' },
+    { icon: '²',  text: 'How do I solve quadratic equations?' },
+    { icon: '∑', text: 'Walk me through integration by parts' },
+  ],
+  Science: [
+    { icon: '🧬', text: 'How does DNA replication work?' },
+    { icon: '⚛',  text: 'Explain Newton\'s three laws of motion' },
+    { icon: '⚗',  text: 'What happens during a chemical reaction?' },
+  ],
+  History: [
+    { icon: '🌍', text: 'What caused World War I?' },
+    { icon: '🏛',  text: 'Why did the Roman Empire fall?' },
+    { icon: '📜', text: 'Explain the main causes of the American Civil War' },
+  ],
+  English: [
+    { icon: '✍',  text: 'Help me write a strong thesis statement' },
+    { icon: '📚', text: 'Explain the main themes in The Great Gatsby' },
+    { icon: '🔤', text: 'When do I use a semicolon vs. a comma?' },
+  ],
+  'Computer Science': [
+    { icon: '🔁', text: 'Explain recursion with a simple example' },
+    { icon: '⏱',  text: 'What is Big O notation and why does it matter?' },
+    { icon: '🗂',  text: 'How does a binary search tree work?' },
+  ],
+  Languages: [
+    { icon: '🇪🇸', text: 'Explain Spanish verb conjugation (present tense)' },
+    { icon: '🇫🇷', text: 'When do I use the French subjunctive?' },
+    { icon: '🔤', text: 'What are the most common irregular verbs in Spanish?' },
+  ],
+  Economics: [
+    { icon: '📈', text: 'Explain supply and demand with a real example' },
+    { icon: '💰', text: 'What causes inflation?' },
+    { icon: '🔄', text: 'What is opportunity cost? Give me an example.' },
+  ],
+  'Test Prep': [
+    { icon: '📝', text: 'What\'s the best strategy for SAT math?' },
+    { icon: '⏱',  text: 'How should I pace myself on the ACT?' },
+    { icon: '📊', text: 'Quiz me on AP US History key events' },
+  ],
+};
+
+/* ══════════════════════════════════════
+   STATE
+══════════════════════════════════════ */
+let tutorHistory  = [];
+let currentSubject = 'General';
+let isProcessing   = false;
+
+/* ══════════════════════════════════════
+   INIT
+══════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  renderSuggestions('General');
+  document.getElementById('tutorInput').focus();
+});
+
+/* ══════════════════════════════════════
+   SUBJECT SELECTION
+══════════════════════════════════════ */
+function selectSubject(el) {
+  const subject = el.dataset.subject;
+  currentSubject = subject;
+
+  document.querySelectorAll('.tutor-subject-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.subject === subject));
+  document.querySelectorAll('#tutorChips .tutor-chip').forEach(b =>
+    b.classList.toggle('active', b.dataset.subject === subject));
+
+  document.getElementById('tutorSubjectLabel').textContent = subject;
+  renderSuggestions(subject);
+  document.getElementById('tutorInput').focus();
+}
+
+function renderSuggestions(subject) {
+  const items = SUGGESTIONS[subject] || SUGGESTIONS.General;
+  document.getElementById('tutorSuggestions').innerHTML =
+    `<div class="tutor-sug-label">Suggested questions</div>` +
+    items.map(s =>
+      `<button class="tutor-sug-card" onclick="useSuggestion(this)">
+         <span class="tutor-sug-icon">${s.icon}</span>
+         <span>${escHtml(s.text)}</span>
+       </button>`
+    ).join('');
+}
+
+function useSuggestion(el) {
+  const text = el.querySelector('span:last-child').textContent;
+  const inp = document.getElementById('tutorInput');
+  inp.value = text;
+  autoResizeTutor(inp);
+  sendTutorMessage();
+}
+
+/* ══════════════════════════════════════
+   SEND
+══════════════════════════════════════ */
+function handleTutorKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTutorMessage(); }
+}
+
+function autoResizeTutor(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+}
+
+async function sendTutorMessage() {
+  const input = document.getElementById('tutorInput');
+  const text  = input.value.trim();
+  if (!text || isProcessing) return;
+
+  isProcessing = true;
+  input.value  = '';
+  input.style.height = 'auto';
+  document.getElementById('tutorSendBtn').disabled = true;
+
+  showChat();
+  addMsg('user', text);
+  tutorHistory.push({ role: 'user', content: `[Subject: ${currentSubject}]\n${text}` });
+
+  setPlaniState('thinking');
+  document.getElementById('tutorThinking').classList.add('visible');
+  scrollBottom();
+
+  try {
+    const res  = await fetch('/api/tutor', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: tutorHistory }),
+    });
+    const data = await res.json();
+    const reply = data.reply || 'Sorry, I hit a snag. Try again.';
+
+    document.getElementById('tutorThinking').classList.remove('visible');
+    setPlaniState('responding');
+    setTimeout(() => setPlaniState('idle'), 650);
+
+    addMsg('bot', reply);
+    tutorHistory.push({ role: 'assistant', content: reply });
+  } catch (err) {
+    document.getElementById('tutorThinking').classList.remove('visible');
+    setPlaniState('idle');
+    addMsg('bot', 'Connection issue — check your internet and try again.');
+  }
+
+  isProcessing = false;
+  document.getElementById('tutorSendBtn').disabled = false;
+  input.focus();
+  scrollBottom();
+}
+
+/* ══════════════════════════════════════
+   UI HELPERS
+══════════════════════════════════════ */
+function showChat() {
+  document.getElementById('tutorEmpty').classList.add('hidden');
+  document.getElementById('tutorMessages').classList.add('visible');
+}
+
+function scrollBottom() {
+  const el = document.getElementById('tutorMessages');
+  setTimeout(() => { el.scrollTop = el.scrollHeight; }, 60);
+}
+
+function addMsg(role, text) {
+  const container = document.getElementById('tutorMessages');
+  const group = document.createElement('div');
+  group.className = `tutor-msg-group ${role}`;
+
+  /* Avatar */
+  const av = document.createElement('div');
+  av.className  = `tutor-avatar ${role}`;
+  av.setAttribute('aria-hidden', 'true');
+  if (role === 'bot') {
+    av.innerHTML = `<svg width="17" height="19" viewBox="0 0 80 92" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="av${Date.now()%9999}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1e40af"/><stop offset="100%" stop-color="#3b82f6"/></linearGradient></defs><rect x="13" y="14" width="54" height="42" rx="15" fill="url(#av${Date.now()%9999})"/><g transform="translate(26,27)"><rect width="12" height="9" rx="4" fill="#7dd3fc"/></g><g transform="translate(42,27)"><rect width="12" height="9" rx="4" fill="#7dd3fc"/></g><path d="M26 42 Q40 52 54 42" stroke="#93c5fd" stroke-width="2.2" fill="none" stroke-linecap="round"/><rect x="19" y="59" width="42" height="29" rx="11" fill="#1e3a8a"/></svg>`;
+  } else {
+    av.textContent = 'You';
+  }
+
+  /* Bubble wrapper */
+  const wrap   = document.createElement('div');
+  wrap.className = 'tutor-bubble-wrap';
+
+  const sender = document.createElement('div');
+  sender.className   = 'tutor-sender';
+  sender.textContent = role === 'bot' ? 'Plani' : 'You';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'tutor-bubble';
+  bubble.innerHTML  = role === 'bot' ? renderMd(text) : `<p>${escHtml(text)}</p>`;
+
+  wrap.appendChild(sender);
+  wrap.appendChild(bubble);
+  group.appendChild(av);
+  group.appendChild(wrap);
+  container.appendChild(group);
+}
+
+/* ══════════════════════════════════════
+   PLANI REACTIONS
+══════════════════════════════════════ */
+function setPlaniState(state) {
+  const el = document.getElementById('tutorPlaniWrap');
+  if (!el) return;
+  el.classList.remove('is-thinking', 'is-responding');
+  if (state === 'thinking' || state === 'responding') el.classList.add(`is-${state}`);
+}
+
+/* ══════════════════════════════════════
+   MARKDOWN RENDERER
+══════════════════════════════════════ */
+function escHtml(t) {
+  return String(t)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+function renderMd(raw) {
+  /* Split on fenced code blocks first */
+  const segments = raw.split(/(```[\s\S]*?```)/g);
+
+  return segments.map(seg => {
+    if (seg.startsWith('```')) {
+      const body = seg.slice(3,-3).replace(/^[a-zA-Z]+\n/,'').trim();
+      return `<pre><code>${escHtml(body)}</code></pre>`;
+    }
+
+    let t = escHtml(seg);
+
+    /* Bold */
+    t = t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+    /* Italic */
+    t = t.replace(/\*([^*\n]+)\*/g,'<em>$1</em>');
+    /* Inline code */
+    t = t.replace(/`([^`\n]+)`/g,'<code>$1</code>');
+    /* ### heading */
+    t = t.replace(/^### (.+)$/gm,'<div class="md-h3">$1</div>');
+    /* hr */
+    t = t.replace(/^---$/gm,'<hr class="md-hr">');
+
+    /* Numbered list — collect consecutive items */
+    t = t.replace(/((?:^\d+\. .+\n?)+)/gm, match => {
+      const items = match.trim().split(/\n/).map(l => `<li>${l.replace(/^\d+\. /,'')}</li>`).join('');
+      return `<ol>${items}</ol>`;
+    });
+    /* Bullet list */
+    t = t.replace(/((?:^[-*] .+\n?)+)/gm, match => {
+      const items = match.trim().split(/\n/).map(l => `<li>${l.replace(/^[-*] /,'')}</li>`).join('');
+      return `<ul>${items}</ul>`;
+    });
+
+    /* Follow-up question (line ending in ? with enough content) */
+    t = t.replace(/^([A-Z’“][^?\n]{14,}\?)\s*$/gm,
+      '<p class="follow-up">$1</p>');
+
+    /* Paragraph breaks */
+    t = t.replace(/\n\n+/g,'</p><p>');
+    t = t.replace(/\n/g,'<br>');
+    return `<p>${t}</p>`;
+  }).join('');
+}
+</script>
+{% endblock %}

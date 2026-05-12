@@ -307,6 +307,151 @@
   </div>
 </section>
 
+<section class="section-block tutor-promo-section">
+  <div class="tutor-promo-grid">
+
+    <!-- Left: copy -->
+    <div class="tutor-promo-copy">
+      <span class="section-kicker">✦ Plani Tutor — free for every student</span>
+      <h2 class="tutor-promo-title">Stop Googling. Just ask Plani.</h2>
+      <p class="tutor-promo-desc">IntelliPlan's built-in AI tutor doesn't just hand you the answer — it teaches you the concept, walks through every step, and checks that you actually understood it. Math, science, history, coding, languages, test prep. All of it.</p>
+
+      <ul class="tutor-promo-list">
+        <li>
+          <span class="tutor-promo-bullet"></span>
+          <span><strong>Step-by-step explanations</strong> — no walls of text, no skipped steps</span>
+        </li>
+        <li>
+          <span class="tutor-promo-bullet"></span>
+          <span><strong>9 subjects covered</strong> — math, science, history, English, CS, and more</span>
+        </li>
+        <li>
+          <span class="tutor-promo-bullet"></span>
+          <span><strong>Plani checks your understanding</strong> — asks follow-up questions, not just recites facts</span>
+        </li>
+        <li>
+          <span class="tutor-promo-bullet"></span>
+          <span><strong>Always available</strong> — midnight before an exam, 7 AM before class, whenever</span>
+        </li>
+      </ul>
+
+      <a href="/tutor" class="btn-primary tutor-promo-cta">Try Plani Tutor →</a>
+    </div>
+
+    <!-- Right: mock chat preview -->
+    <div class="tutor-promo-preview" aria-hidden="true">
+      <div class="tp-preview-header">
+        <div class="tp-preview-avatar">🤖</div>
+        <div>
+          <div class="tp-preview-name">Plani</div>
+          <div class="tp-preview-status"><span class="tp-status-dot"></span>Online</div>
+        </div>
+      </div>
+      <div class="tp-preview-msgs">
+        <div class="tp-msg tp-msg-user">How do derivatives work?</div>
+        <div class="tp-msg tp-msg-bot">
+          <strong>Great question — let's build up to it.</strong><br><br>
+          A derivative measures <em>how fast something is changing</em> at any instant. Think of a speedometer: your position changes over time, and the derivative of position is speed.<br><br>
+          If <code>f(x) = x²</code>, the derivative <code>f'(x) = 2x</code>. At <code>x = 3</code> the function is changing at a rate of <code>6</code>.<br><br>
+          <span style="color:var(--accent);font-style:italic;font-size:0.85rem;">Can you tell me what you think the derivative of x³ might be?</span>
+        </div>
+      </div>
+      <div class="tp-preview-input">
+        <span>Ask Plani anything…</span>
+        <div class="tp-send-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <style>
+  .tutor-promo-section { overflow: visible; }
+  .tutor-promo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3.5rem;
+    align-items: center;
+  }
+  .tutor-promo-copy { display: flex; flex-direction: column; gap: 1.25rem; }
+  .tutor-promo-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 3vw, 2.5rem);
+    letter-spacing: -0.03em; line-height: 1.1;
+    color: var(--text-primary); margin: 0;
+  }
+  .tutor-promo-desc {
+    font-size: 0.97rem; color: var(--text-secondary); line-height: 1.7; margin: 0;
+  }
+  .tutor-promo-list {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 0.7rem;
+  }
+  .tutor-promo-list li {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 0.9rem; color: var(--text-secondary); line-height: 1.55;
+  }
+  .tutor-promo-list li strong { color: var(--text-primary); }
+  .tutor-promo-bullet {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent); flex-shrink: 0; margin-top: 6px;
+  }
+  .tutor-promo-cta { align-self: flex-start; margin-top: 0.25rem; }
+
+  /* Chat preview */
+  .tutor-promo-preview {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    animation: fadeUp 0.6s 0.15s var(--ease-out) both;
+  }
+  .tp-preview-header {
+    background: linear-gradient(135deg,#1e40af 0%,#2563eb 55%,#3b82f6 100%);
+    padding: 12px 16px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .tp-preview-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(255,255,255,0.18);
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+  }
+  .tp-preview-name { font-family: var(--font-ui); font-size: 0.88rem; font-weight: 700; color: white; line-height: 1; margin-bottom: 2px; }
+  .tp-preview-status { font-size: 0.68rem; color: rgba(255,255,255,0.75); display: flex; align-items: center; gap: 4px; }
+  .tp-status-dot { width: 6px; height: 6px; background: #4ade80; border-radius: 50%; animation: statusPulse 2.2s infinite; }
+  .tp-preview-msgs { padding: 16px; display: flex; flex-direction: column; gap: 10px; background: var(--bg); }
+  .tp-msg { font-size: 0.84rem; line-height: 1.6; padding: 9px 13px; border-radius: 13px; max-width: 90%; }
+  .tp-msg-user {
+    background: var(--accent); color: white;
+    border-radius: 13px 13px 3px 13px; align-self: flex-end;
+  }
+  .tp-msg-bot {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 3px 13px 13px 13px; color: var(--text-primary);
+  }
+  .tp-msg-bot code {
+    background: var(--accent-soft); color: var(--accent);
+    padding: 1px 5px; border-radius: 3px; font-size: 0.83em;
+    font-family: 'DM Mono', monospace;
+  }
+  .tp-preview-input {
+    padding: 10px 14px; border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 0.82rem; color: var(--text-muted); background: var(--bg-card);
+  }
+  .tp-send-btn {
+    width: 28px; height: 28px; background: var(--accent); border-radius: 7px;
+    display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0;
+  }
+  @media (max-width: 768px) {
+    .tutor-promo-grid { grid-template-columns: 1fr; gap: 2rem; }
+    .tutor-promo-preview { display: none; }
+  }
+  </style>
+</section>
+
 <section class="section-block">
   <div class="section-heading">
     <span class="section-kicker">Why this beats manual planning</span>

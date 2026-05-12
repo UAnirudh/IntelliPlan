@@ -690,6 +690,11 @@ def sitemap_xml():
 def llms_txt():
     return send_from_directory(app.static_folder, "llms.txt", mimetype="text/plain")
 
+@app.route("/tutor")
+def tutor():
+    logged_in = bool(session.get('logged_in') or (current_user.is_authenticated if hasattr(current_user, 'is_authenticated') else False))
+    return render_template("tutor.html", active_page="tutor", logged_in=logged_in)
+
 # ── Public info pages ─────────────────────────────────────────
 @app.route("/faq")
 def faq():
