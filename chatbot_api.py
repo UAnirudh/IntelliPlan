@@ -23,86 +23,187 @@ _TUTOR_MEMORY_TABLE = Table(
     Column('updated_at', DateTime, nullable=False, default=datetime.utcnow),
 )
 
+_TUTOR_CONVO_TABLE = Table(
+    'tutor_conversations',
+    _TUTOR_MEMORY_META,
+    Column('id', Integer, primary_key=True),
+    Column('user_id', Integer, nullable=True, index=True),
+    Column('guest_session_id', String(64), nullable=True, index=True),
+    Column('title', String(160), nullable=False, default='New chat'),
+    Column('messages_json', Text, nullable=False, default='[]'),
+    Column('created_at', DateTime, nullable=False, default=datetime.utcnow),
+    Column('updated_at', DateTime, nullable=False, default=datetime.utcnow),
+)
+
 _MAX_STORED_TUTOR_MESSAGES = 80
 
 # ── Content filter ────────────────────────────────────────────
-_BLOCKED_PATTERNS = re.compile(
-    r'\b('
-    # Sexual content
-    r'sex|sexual|porn|pornography|nude|naked|nsfw|onlyfans|masturbat|orgasm|erotic'
-    r'|hooker|prostitut|escort|fetish|dildo|vibrator|condom|foreplay'
-    # Drugs / substances
-    r'|drugs?|cocaine|heroin|meth|methamphetamine|weed|marijuana|cannabis|molly|ecstasy'
-    r'|lsd|acid|shrooms|mushrooms|fentanyl|opioid|overdose|high school drug'
-    r'|get high|roll(?:ing)? on|trip(?:ping)?'
-    # Alcohol / underage
-    r'|alcohol|drunk|beer|vodka|whiskey|tequila|get wasted|blackout'
-    # Violence / self-harm
-    r'|suicide|kill (?:myself|yourself)|self.harm|cut myself|shoot (?:myself|yourself)'
-    r'|bomb|terrorism|terrorist'
-    # Profanity (common ones — extend as needed)
-    r'|fuck|shit|bitch|asshole|cunt|bastard|damn it|motherfuck|wtf|stfu'
-    r')\b',
-    re.IGNORECASE,
+# Categories, each with a regex matching English + common Spanish / French / German / Portuguese / Italian / generic
+# leet-speak variants. Patterns are intentionally word-boundary based to limit false positives.
+_FILTER_CATEGORIES = {
+    'sexual': re.compile(
+        r'\b('
+        # English
+        r'sex|sexual|porn|pornography|nude|naked|nsfw|onlyfans|masturbat|orgasm|erotic'
+        r'|hooker|prostitut|escort|fetish|dildo|vibrator|foreplay|blow ?job|hand ?job'
+        # Romance
+        r'|sexo|sexuales|porno|pornograf[ií]a|desnud[oa]|prostituta|puta(?:s)?'
+        r'|pornographique|nu(?:e|s)?|salope|pute'
+        # German / Italian / Portuguese
+        r'|nackt|prostituierte|prostituta|pornografia|nuda'
+        r'|s[3e]x|p[o0]rn'
+        r')\b',
+        re.IGNORECASE,
+    ),
+    'drugs': re.compile(
+        r'\b('
+        r'drugs?|cocaine|heroin|meth|methamphetamine|weed|marijuana|cannabis|molly|ecstasy'
+        r'|lsd|shrooms|mushrooms|fentanyl|opioid|overdose|get high|trip(?:ping)?'
+        r'|coca[ií]na|hero[ií]na|metanfetamina|marihuana|drogas?|hierba'
+        r'|coca[ïi]ne|h[ée]ro[ïi]ne|drogue|cannabis|marijuana'
+        r'|drogen|kokain|heroin|haschisch'
+        r'|drogas|maconha'
+        r')\b',
+        re.IGNORECASE,
+    ),
+    'alcohol': re.compile(
+        r'\b('
+        r'(?:get|getting) (?:drunk|wasted|hammered|plastered|blackout|smashed)'
+        r'|underage drink|chug (?:vodka|beer|whiskey|tequila)'
+        r'|emborrach|borracho|tomar alcohol con|alcohol para menores'
+        r'|s[oa]ul|bourr[ée]|alcool pour mineur'
+        r'|betrunken|saufen|besoffen'
+        r')\b',
+        re.IGNORECASE,
+    ),
+    'violence': re.compile(
+        r'\b('
+        r'(?:how to )?(?:make|build|assemble) (?:a )?(?:bomb|explosive|pipe ?bomb|molotov)'
+        r'|terror(?:ism|ist)|school shoot|mass shoot|kill (?:someone|people|him|her|them)'
+        r'|c[oó]mo hacer (?:una )?bomba|matar (?:a alguien|gente)'
+        r'|fabriquer une bombe|tuer quelqu\'un'
+        r'|bombe bauen|jemanden t[oö]ten'
+        r'|construir uma bomba'
+        r')',
+        re.IGNORECASE,
+    ),
+    'self_harm': re.compile(
+        r'('
+        r'\bsuicide|\bkill (?:myself|yourself)|\bself.?harm|\bcut myself|\bshoot (?:myself|yourself)'
+        r'|hang myself|end (?:my|your) life|how to die'
+        r'|\bsuicid[ai]|matarme|hacerme da[ñn]o|c[oó]rtarme'
+        r'|me suicider|me faire du mal|me couper'
+        r'|selbstmord|mich umbringen|mich verletzen'
+        r'|suic[ií]dio|me matar|me cortar'
+        r')',
+        re.IGNORECASE,
+    ),
+    'profanity': re.compile(
+        r'\b('
+        # English
+        r'fuck|shit|bitch|asshole|cunt|bastard|motherfuck|wtf|stfu|dickhead|jackass'
+        # Spanish
+        r'|mierda|joder|cabr[oó]n|gilipollas|pendejo|co[ñn]o|chinga'
+        # French
+        r'|merde|putain|connard|salaud|encul[ée]'
+        # German
+        r'|scheisse|sch[eö]i[ßs]e|arschloch|verdammt'
+        # Italian / Portuguese
+        r'|cazzo|stronzo|porca|merda|caralho|porra'
+        # Leet
+        r'|f[u\*@]ck|sh[i\*1]t|b[i\*1]tch'
+        r')\b',
+        re.IGNORECASE,
+    ),
+}
+
+_CATEGORY_LABELS = {
+    'sexual':    'sexual content',
+    'drugs':     'illegal drugs',
+    'alcohol':   'underage drinking',
+    'violence':  'violence or weapons',
+    'self_harm': 'self-harm',
+    'profanity': 'profanity',
+    'jailbreak': 'instructions that try to bypass my safety rules',
+}
+
+_SELF_HARM_REPLY = (
+    "I'm really glad you reached out, but this isn't something I can help with safely. "
+    "If you're hurting right now, please talk to someone you trust or contact a crisis line — "
+    "**US:** call or text **988**. **UK:** **Samaritans 116 123**. **Other countries:** see https://findahelpline.com. "
+    "I'm Plani, your study assistant, and I'll be here when you're ready to focus on schoolwork."
 )
 
 # Jailbreak / manipulation attempts — detect regardless of blocked topic
 _JAILBREAK_PATTERNS = re.compile(
     r'('
-    r'ignore (?:your |previous |all |the )?(?:instructions?|rules?|guidelines?|prompt)'
+    r'ignore (?:(?:your|my|previous|all|the|any|prior)\s+)*(?:instructions?|rules?|guidelines?|prompts?|restrictions?|safety)'
     r'|pretend (?:you(?:\'re| are)|to be) (?:a )?(?:different|another|new|unrestricted|evil|free|jailbroken|DAN)'
     r'|(?:act|behave) (?:as|like) (?:a )?(?:different|unrestricted|evil|free|new) (?:ai|bot|assistant|model)'
     r'|(?:you are|you\'re) now (?:DAN|jailbroken|free|unrestricted|an? (?:evil|different|new) (?:ai|bot))'
     r'|DAN\b|jailbreak|developer mode|override (?:your )?(?:filter|rule|guideline|instruction|safety|restriction)'
     r'|forget (?:your |the )?(?:rules?|guidelines?|instructions?|restrictions?|training)'
-    r'|your (?:true |real )?(?:self|purpose|goal) is'
-    r'|for (?:a )?(?:story|fiction|novel|creative writing|roleplay|rp|game|hypothetical)'
-    r'|hypothetically|just (?:pretend|imagine)|let\'s (?:pretend|imagine|say|roleplay)'
-    r'|you can (?:say|tell me|answer) (?:anything|whatever)'
+    # Multilingual jailbreak signals
+    r'|ignora (?:tus |las )?(?:instrucciones|reglas)'
+    r'|olvida (?:tus |las )?(?:reglas|instrucciones)'
+    r'|ignore (?:tes |les )?(?:instructions|r[èe]gles)'
+    r'|ignoriere (?:deine |die )?(?:anweisungen|regeln)'
     r'|no (?:restrictions?|filters?|rules?|limits?)'
     r')',
     re.IGNORECASE,
 )
 
-_BLOCKED_REPLY = (
-    "That's outside what I can help with. I'm Plani, your study assistant — "
-    "I'm not designed for that topic and I won't be able to answer it regardless of how the question is framed. "
-    "Let's get you ahead instead: try the **Scheduler** to build your week, "
-    "**Priority View** to see what's due first, or **Study & Learn** to turn your notes into flashcards."
-)
 
-_JAILBREAK_REPLY = (
-    "I can't follow instructions that ask me to bypass my guidelines — that's a hard no, no matter the framing. "
-    "I'm Plani, IntelliPlan's study assistant, and that's the only role I have. "
-    "If you have a real study question, I'm here for it."
-)
-
-# How many recent user messages to scan for blocked content (catches persistent pushers)
-_SCAN_DEPTH = 4
-
-
-def _scan_messages(messages: list):
-    """
-    Scan the last _SCAN_DEPTH user messages for blocked or jailbreak content.
-    Returns 'blocked', 'jailbreak', or None.
-    """
-    user_msgs = [m.get('content', '') for m in messages if m.get('role') == 'user']
-    recent_user = user_msgs[-_SCAN_DEPTH:]
-    for text in recent_user:
-        if _jailbreak_check(text):
-            return 'jailbreak'
-    for text in recent_user:
-        if _blocked_check(text):
-            return 'blocked'
+def _classify_text(text: str):
+    """Return a category key string ('sexual', 'drugs', 'jailbreak', ...) or None."""
+    if not text:
+        return None
+    if _JAILBREAK_PATTERNS.search(text):
+        return 'jailbreak'
+    for cat, pat in _FILTER_CATEGORIES.items():
+        if pat.search(text):
+            return cat
     return None
 
 
-def _blocked_check(text: str) -> bool:
-    return bool(_BLOCKED_PATTERNS.search(text))
+def _classify_latest_user(messages):
+    """Inspect only the MOST RECENT user message so a single bad message doesn't poison the rest of the chat.
+
+    If the latest user turn is clean, the conversation continues normally — even if an earlier turn was flagged.
+    """
+    for msg in reversed(messages):
+        if msg.get('role') == 'user':
+            return _classify_text(str(msg.get('content', '')))
+    return None
 
 
-def _jailbreak_check(text: str) -> bool:
-    return bool(_JAILBREAK_PATTERNS.search(text))
+def _refusal_reply(category):
+    """Return (reply_text, refusal_dict_for_client)."""
+    label = _CATEGORY_LABELS.get(category, 'that topic')
+    if category == 'self_harm':
+        body = _SELF_HARM_REPLY
+    elif category == 'jailbreak':
+        body = (
+            f"I can't follow instructions that ask me to bypass my safety rules — that's a hard no, "
+            f"no matter how it's framed (story, hypothetical, roleplay, different language, anything). "
+            f"I'm Plani, IntelliPlan's study assistant. If you have a real study question, I'm here for it."
+        )
+    elif category == 'profanity':
+        body = (
+            f"Let's keep things classroom-friendly — I won't engage when the message includes {label}. "
+            f"Rephrase without it and I'll happily help with your studies."
+        )
+    else:
+        body = (
+            f"I can't help with that — it falls under **{label}**, which is outside what I'm designed for. "
+            f"I'm Plani, your study assistant, so I'll stick to academics. "
+            f"Ask me about a class, a concept you're stuck on, or a topic you want to review and I'm in."
+        )
+    return body, {
+        'category': category,
+        'label': label,
+        'message': body,
+    }
 
 
 def _get_db():
@@ -226,6 +327,125 @@ def _save_tutor_memory(memory_id, messages, profile):
         )
     )
     db.session.commit()
+
+
+def _save_tutor_profile(memory_id, profile):
+    db = _get_db()
+    db.session.execute(
+        _TUTOR_MEMORY_TABLE.update()
+        .where(_TUTOR_MEMORY_TABLE.c.id == memory_id)
+        .values(profile_json=json.dumps(profile), updated_at=datetime.utcnow())
+    )
+    db.session.commit()
+
+
+# ── Conversations (multi-chat history) ───────────────────────────
+def _convo_owner_where():
+    user_id, guest_id = _get_tutor_owner()
+    if user_id:
+        return _TUTOR_CONVO_TABLE.c.user_id == user_id, user_id, None
+    return _TUTOR_CONVO_TABLE.c.guest_session_id == guest_id, None, guest_id
+
+
+def _list_conversations():
+    _ensure_tutor_memory_table()
+    db = _get_db()
+    where, _, _ = _convo_owner_where()
+    rows = db.session.execute(
+        select(_TUTOR_CONVO_TABLE).where(where).order_by(_TUTOR_CONVO_TABLE.c.updated_at.desc())
+    ).mappings().all()
+    out = []
+    for r in rows:
+        out.append({
+            'id': r['id'],
+            'title': r['title'],
+            'updated_at': r['updated_at'].isoformat() if r['updated_at'] else None,
+        })
+    return out
+
+
+def _get_conversation(convo_id):
+    _ensure_tutor_memory_table()
+    db = _get_db()
+    where, _, _ = _convo_owner_where()
+    row = db.session.execute(
+        select(_TUTOR_CONVO_TABLE).where(_TUTOR_CONVO_TABLE.c.id == convo_id).where(where)
+    ).mappings().first()
+    return dict(row) if row else None
+
+
+def _create_conversation(title='New chat'):
+    _ensure_tutor_memory_table()
+    db = _get_db()
+    _, user_id, guest_id = _convo_owner_where()
+    now = datetime.utcnow()
+    result = db.session.execute(
+        _TUTOR_CONVO_TABLE.insert().values(
+            user_id=user_id, guest_session_id=guest_id,
+            title=title, messages_json='[]',
+            created_at=now, updated_at=now,
+        )
+    )
+    db.session.commit()
+    return int(result.inserted_primary_key[0])
+
+
+def _ensure_conversation(convo_row, messages):
+    if convo_row:
+        return convo_row
+    # Need to create one; derive a title from first user message
+    title = 'New chat'
+    for m in messages:
+        if m.get('role') == 'user':
+            title = _auto_title(m.get('content', ''))
+            break
+    convo_id = _create_conversation(title)
+    return _get_conversation(convo_id)
+
+
+def _save_conversation(convo_id, messages, new_title=None):
+    db = _get_db()
+    values = {
+        'messages_json': json.dumps(_normalize_tutor_messages(messages)),
+        'updated_at': datetime.utcnow(),
+    }
+    if new_title:
+        values['title'] = new_title[:160]
+    db.session.execute(
+        _TUTOR_CONVO_TABLE.update().where(_TUTOR_CONVO_TABLE.c.id == convo_id).values(**values)
+    )
+    db.session.commit()
+
+
+def _delete_conversation(convo_id):
+    db = _get_db()
+    where, _, _ = _convo_owner_where()
+    db.session.execute(
+        _TUTOR_CONVO_TABLE.delete().where(_TUTOR_CONVO_TABLE.c.id == convo_id).where(where)
+    )
+    db.session.commit()
+
+
+def _rename_conversation(convo_id, title):
+    db = _get_db()
+    where, _, _ = _convo_owner_where()
+    db.session.execute(
+        _TUTOR_CONVO_TABLE.update()
+        .where(_TUTOR_CONVO_TABLE.c.id == convo_id).where(where)
+        .values(title=title[:160], updated_at=datetime.utcnow())
+    )
+    db.session.commit()
+
+
+def _auto_title(text):
+    if not text:
+        return 'New chat'
+    # Strip subject prefix
+    text = re.sub(r'^\[Subject:[^\]]+\]\s*', '', str(text)).strip()
+    text = re.sub(r'\s+', ' ', text)
+    if len(text) <= 48:
+        return text or 'New chat'
+    return text[:45].rstrip() + '…'
 
 
 def _split_subject(text):
@@ -408,17 +628,84 @@ Never engage with sexual content, drugs, alcohol, violence, or anything inapprop
 
 @chatbot_bp.route('/api/tutor/memory', methods=['GET'])
 def tutor_memory():
+    """Legacy endpoint — returns the most-recently-active conversation."""
     try:
         row = _load_tutor_memory()
-        messages = _safe_json(row.get('messages_json'), [])
         profile = _safe_json(row.get('profile_json'), _default_tutor_profile())
+        convos = _list_conversations()
+        if convos:
+            top = _get_conversation(convos[0]['id'])
+            messages = _safe_json((top or {}).get('messages_json'), [])
+        else:
+            messages = _safe_json(row.get('messages_json'), [])
         return jsonify({
             'messages': _normalize_tutor_messages(messages),
             'profile': profile,
+            'conversation_id': convos[0]['id'] if convos else None,
         })
     except Exception as e:
         print(f'Plani tutor memory error: {e}')
         return jsonify({'messages': [], 'profile': _default_tutor_profile()})
+
+
+@chatbot_bp.route('/api/tutor/conversations', methods=['GET'])
+def list_tutor_conversations():
+    try:
+        return jsonify({'conversations': _list_conversations()})
+    except Exception as e:
+        print(f'Tutor list convos error: {e}')
+        return jsonify({'conversations': []})
+
+
+@chatbot_bp.route('/api/tutor/conversations', methods=['POST'])
+def create_tutor_conversation():
+    try:
+        data = request.get_json(silent=True) or {}
+        title = (data.get('title') or 'New chat')[:160]
+        convo_id = _create_conversation(title)
+        return jsonify({'id': convo_id, 'title': title, 'messages': []})
+    except Exception as e:
+        print(f'Tutor create convo error: {e}')
+        return jsonify({'error': 'create failed'}), 500
+
+
+@chatbot_bp.route('/api/tutor/conversations/<int:convo_id>', methods=['GET'])
+def get_tutor_conversation(convo_id):
+    try:
+        row = _get_conversation(convo_id)
+        if not row:
+            return jsonify({'error': 'not found'}), 404
+        return jsonify({
+            'id': row['id'],
+            'title': row['title'],
+            'messages': _safe_json(row.get('messages_json'), []),
+            'updated_at': row['updated_at'].isoformat() if row.get('updated_at') else None,
+        })
+    except Exception as e:
+        print(f'Tutor get convo error: {e}')
+        return jsonify({'error': 'load failed'}), 500
+
+
+@chatbot_bp.route('/api/tutor/conversations/<int:convo_id>', methods=['DELETE'])
+def delete_tutor_conversation(convo_id):
+    try:
+        _delete_conversation(convo_id)
+        return jsonify({'ok': True})
+    except Exception as e:
+        print(f'Tutor delete convo error: {e}')
+        return jsonify({'error': 'delete failed'}), 500
+
+
+@chatbot_bp.route('/api/tutor/conversations/<int:convo_id>/rename', methods=['POST'])
+def rename_tutor_conversation(convo_id):
+    try:
+        data = request.get_json(silent=True) or {}
+        title = (data.get('title') or '').strip()[:160] or 'New chat'
+        _rename_conversation(convo_id, title)
+        return jsonify({'ok': True, 'title': title})
+    except Exception as e:
+        print(f'Tutor rename convo error: {e}')
+        return jsonify({'error': 'rename failed'}), 500
 
 
 @chatbot_bp.route('/api/tutor', methods=['POST'])
@@ -433,17 +720,28 @@ def tutor():
             return jsonify({'error': 'No messages provided'}), 400
 
         memory_row = _load_tutor_memory()
-        stored_messages = _safe_json(memory_row.get('messages_json'), [])
         profile = _safe_json(memory_row.get('profile_json'), _default_tutor_profile())
+
+        convo_id = data.get('conversation_id')
+        convo_row = _get_conversation(int(convo_id)) if convo_id else None
+        stored_messages = _safe_json((convo_row or {}).get('messages_json'), []) if convo_row else []
         messages = _merge_tutor_messages(stored_messages, incoming_messages)
 
-        flag = _scan_messages(messages)
-        if flag == 'jailbreak':
-            return jsonify({'reply': _JAILBREAK_REPLY})
-        if flag == 'blocked':
-            return jsonify({'reply': _BLOCKED_REPLY})
+        # Only scan the LATEST user message so a single bad turn doesn't permanently block the chat.
+        category = _classify_latest_user(messages)
+        if category:
+            reply, refusal = _refusal_reply(category)
+            # Persist the refusal so the user sees it in their history.
+            messages.append({'role': 'assistant', 'content': reply})
+            convo_row = _ensure_conversation(convo_row, messages)
+            _save_conversation(convo_row['id'], messages)
+            return jsonify({
+                'reply': reply,
+                'refusal': refusal,
+                'conversation_id': convo_row['id'],
+            })
 
-        recent = messages[-16:]  # deeper context for tutoring sessions
+        recent = messages[-16:]
         memory_prompt = _build_tutor_memory_prompt(profile)
 
         client = Groq(api_key=os.getenv('GROQ_API_KEY'))
@@ -461,8 +759,21 @@ def tutor():
         messages.append({'role': 'assistant', 'content': reply})
         latest_user = next((m['content'] for m in reversed(messages) if m['role'] == 'user'), '')
         profile = _update_tutor_profile(profile, latest_user, reply)
-        _save_tutor_memory(memory_row['id'], messages, profile)
-        return jsonify({'reply': reply, 'profile': profile})
+        _save_tutor_profile(memory_row['id'], profile)
+
+        # Auto-title from the first user message if still "New chat"
+        convo_row = _ensure_conversation(convo_row, messages)
+        new_title = None
+        if convo_row['title'] in ('New chat', '', None):
+            new_title = _auto_title(latest_user)
+        _save_conversation(convo_row['id'], messages, new_title)
+
+        return jsonify({
+            'reply': reply,
+            'profile': profile,
+            'conversation_id': convo_row['id'],
+            'title': new_title or convo_row['title'],
+        })
 
     except Exception as e:
         print(f'Plani tutor error: {e}')
@@ -480,16 +791,12 @@ def chatbot():
         if not messages:
             return jsonify({'error': 'No messages provided'}), 400
 
-        # Content + jailbreak filter — scan last several user messages
-        flag = _scan_messages(messages)
-        if flag == 'jailbreak':
-            return jsonify({'reply': _JAILBREAK_REPLY})
-        if flag == 'blocked':
-            return jsonify({'reply': _BLOCKED_REPLY})
+        category = _classify_latest_user(messages)
+        if category:
+            reply, refusal = _refusal_reply(category)
+            return jsonify({'reply': reply, 'refusal': refusal})
 
-        # Keep last 10 messages for context (avoid token bloat)
         recent = messages[-10:]
-
         client = Groq(api_key=os.getenv('GROQ_API_KEY'))
         response = client.chat.completions.create(
             model='llama-3.3-70b-versatile',
