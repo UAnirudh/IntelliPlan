@@ -20,7 +20,7 @@ from auth_api import auth_bp, verify_token
 from chatbot_api import chatbot_bp
 from werkzeug.utils import secure_filename
 import secrets as secrets_module
-from flask import jsonify
+from flask import jsonify, send_from_directory
 from datetime import datetime, timedelta
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import (
@@ -676,6 +676,45 @@ def public_stats():
 @app.route("/")
 def landing():
     return render_template("landing.html", active_page="landing")
+
+# ── SEO / AI-crawler static files ─────────────────────────────
+@app.route("/robots.txt")
+def robots_txt():
+    return send_from_directory(app.static_folder, "robots.txt")
+
+@app.route("/sitemap.xml")
+def sitemap_xml():
+    return send_from_directory(app.static_folder, "sitemap.xml", mimetype="application/xml")
+
+@app.route("/llms.txt")
+def llms_txt():
+    return send_from_directory(app.static_folder, "llms.txt", mimetype="text/plain")
+
+# ── Public info pages ─────────────────────────────────────────
+@app.route("/faq")
+def faq():
+    return render_template("faq.html", active_page="faq")
+
+@app.route("/compare")
+def compare():
+    return render_template("compare.html", active_page="compare")
+
+@app.route("/pricing")
+def pricing():
+    return render_template("pricing.html", active_page="pricing")
+
+# ── Blog / guides ──────────────────────────────────────────────
+@app.route("/blog/how-to-use-canvas-with-a-study-planner")
+def blog_canvas():
+    return render_template("blog_canvas.html", active_page="blog")
+
+@app.route("/blog/studentvue-study-planner")
+def blog_studentvue():
+    return render_template("blog_studentvue.html", active_page="blog")
+
+@app.route("/blog/how-to-prioritize-assignments")
+def blog_prioritize():
+    return render_template("blog_prioritize.html", active_page="blog")
 
 @app.route("/schedule")
 def home():

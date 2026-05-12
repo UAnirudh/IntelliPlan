@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>IntelliPlan</title>
+  <title>{% block page_title %}IntelliPlan{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=Syne:wght@500;600;700&display=swap" rel="stylesheet">
@@ -603,6 +603,7 @@
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+  {% block head_extra %}{% endblock %}
 </head>
 
 <body>

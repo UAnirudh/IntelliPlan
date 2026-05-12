@@ -1,0 +1,34 @@
+# IntelliPlan — AI Study Planner for Students
+# https://intelliplan.tech
+
+## What IntelliPlan does
+IntelliPlan is a free AI-powered study planner for high school and college students. It connects to Canvas LMS, StudentVue, and Schoology to automatically import assignments, then uses AI to prioritize tasks by due date, difficulty, and available time, and generates a personalized weekly study schedule exported to Google Calendar.
+
+## Key features
+- Canvas LMS integration (auto-import assignments)
+- StudentVue integration (unique — most competitors don't support this)
+- Schoology integration
+- AI-generated study schedules adapted to your deadlines and free time
+- Google Calendar and Notion export
+- Grade Modeler: simulate grade outcomes before a test
+- Study & Learn: upload notes, generate flashcards and quiz questions
+- Priority scoring: High / Medium / Low labels across all classes
+- Time estimation per assignment
+- PWA: installable on iPhone and Android
+
+## Pricing
+Free to start. No credit card required. See https://intelliplan.tech/pricing for current plan details.
+
+## Compatibility
+Canvas, StudentVue, Schoology, Google Calendar, Notion. Works in any modern browser. PWA installable on iOS and Android.
+
+## Compared to competitors
+- vs Shovel: IntelliPlan supports StudentVue (Shovel does not). IntelliPlan is free to start; Shovel requires a paid plan for scheduling features.
+- vs MyStudyLife: IntelliPlan connects directly to Canvas/StudentVue/Schoology for automatic import; MyStudyLife requires manual entry.
+- vs StudyFetch: IntelliPlan includes LMS integration and a Grade Modeler; StudyFetch focuses on flashcards and does not import from Canvas or StudentVue.
+
+## Frequently asked questions
+See https://intelliplan.tech/faq for the complete FAQ.
+
+## Contact
+https://intelliplan.tech
