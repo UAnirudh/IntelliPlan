@@ -145,7 +145,10 @@
       background:transparent; color:var(--text-secondary);
       font-family:var(--font-body); font-size:0.84rem; font-weight:500;
       cursor:pointer; text-decoration:none; transition:all 0.16s ease; white-space:nowrap;
+      display:inline-flex; align-items:center; gap:6px;
     }
+    .nav-tab-icon { width:14px; height:14px; display:inline-flex; align-items:center; justify-content:center; color:currentColor; }
+    .nav-tab-icon svg { width:100%; height:100%; }
     .nav-tab:hover  { background:var(--accent-soft); color:var(--accent); }
     .nav-tab.active { background:var(--accent); color:#fff; border-color:transparent; }
     .nav-tab.logout-btn { background:transparent; border:none; font:inherit; cursor:pointer; }
@@ -217,9 +220,80 @@
     #mobileMenuBtn:hover { background:var(--accent-soft); border-color:var(--border-accent); color:var(--accent); }
 
     /* ══════════════════════════════════════
+       APP SIDEBAR (desktop) ──────────────
+    ══════════════════════════════════════ */
+    :root { --side-w: 232px; }
+    .app-side {
+      position: fixed; top: 0; left: 0; bottom: 0; width: var(--side-w);
+      background: var(--bg-card); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 4px;
+      padding: 14px 12px 12px; z-index: 95;
+      overflow-y: auto; scrollbar-width: thin;
+    }
+    .app-side::-webkit-scrollbar { width: 4px; }
+    .app-side::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+    .side-logo {
+      display: flex; align-items: center; gap: 10px;
+      padding: 4px 8px 12px; text-decoration: none; border-bottom: 1px solid var(--border);
+      margin-bottom: 8px;
+    }
+    .side-logo .logo-icon { width: 30px; height: 30px; border-radius: 8px; }
+    .side-logo .logo-text { font-family: var(--font-ui); font-size: 1rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; }
+    .side-logo .logo-text span { color: var(--accent); }
+    .side-section-label {
+      font-family: var(--font-ui); font-size: 0.65rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-muted);
+      padding: 10px 12px 4px;
+    }
+    .side-link {
+      display: flex; align-items: center; gap: 11px;
+      padding: 9px 12px; border-radius: var(--r-sm);
+      color: var(--text-secondary); text-decoration: none;
+      font-family: var(--font-body); font-size: 0.88rem; font-weight: 500;
+      transition: background 0.13s, color 0.13s, transform 0.13s;
+      position: relative; border: 1px solid transparent;
+    }
+    .side-link:hover { background: var(--accent-soft); color: var(--accent); }
+    .side-link.active { background: var(--accent); color: white; box-shadow: 0 2px 8px rgba(37,99,235,0.22); }
+    .side-link.active .side-icon { color: white; }
+    .side-link.tutor { color: var(--accent); font-weight: 600; }
+    .side-link.tutor:hover { background: var(--accent); color: white; }
+    .side-icon {
+      width: 18px; height: 18px; flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: currentColor;
+    }
+    .side-icon svg { width: 100%; height: 100%; }
+    .side-spacer { flex: 1; }
+    .side-foot {
+      border-top: 1px solid var(--border); padding-top: 10px; margin-top: 6px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .side-foot-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; border-radius: var(--r-sm);
+      color: var(--text-muted); font-size: 0.78rem; font-family: var(--font-ui); font-weight: 600;
+    }
+    .side-foot-row .toggle { width: 38px; height: 20px; }
+    .side-foot-row .toggle-knob { width: 14px; height: 14px; top: 3px; left: 3px; }
+    .side-foot-row .toggle input:checked ~ .toggle-knob { transform: translateX(18px); }
+    .side-foot-row .date-badge { padding: 3px 9px; font-size: 0.68rem; }
+    .side-logout {
+      background: none; border: none; cursor: pointer;
+      width: 100%; text-align: left;
+      font: inherit;
+    }
+    .app-side { display: none; }
+
+    /* ══════════════════════════════════════
        MAIN
     ══════════════════════════════════════ */
     main { flex:1; max-width:960px; margin:0 auto; padding:2.5rem 1.5rem; width:100%; }
+    @media (min-width: 721px) {
+      body.has-side .app-side { display: flex; }
+      body.has-side { padding-left: var(--side-w); }
+      body.has-side > header { display: none; }
+    }
 
     /* ══════════════════════════════════════
        PAGE HEADER
@@ -458,6 +532,14 @@
     #installBanner:hover .install-copy { display:flex; animation:fadeUp 0.15s var(--ease-out) both; }
 
     /* ══════════════════════════════════════
+       FOOTER LAYOUT WHEN SIDEBAR ACTIVE
+    ══════════════════════════════════════ */
+    @media (min-width: 721px) {
+      body.has-side footer,
+      body.has-side .footer { width: 100%; }
+    }
+
+    /* ══════════════════════════════════════
        ██████████ PLANI ROBOT ██████████
     ══════════════════════════════════════ */
     #planiBot {
@@ -609,7 +691,75 @@
   {% block head_extra %}{% endblock %}
 </head>
 
-<body>
+{% set _app_pages = ['dashboard','scheduler','study','tutor','priority','classes','grades','grademodel','gradebook','dismissed','profiles','settings'] %}
+<body class="{% if active_page in _app_pages %}has-side{% endif %}">
+
+<!-- ══════════════════════════════════════
+     SVG ICON SPRITES (used by sidebar + tabs)
+══════════════════════════════════════ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-dashboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></symbol>
+    <symbol id="i-scheduler" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></symbol>
+    <symbol id="i-study" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14"/><path d="M6 17h14"/><path d="M9 7h7M9 11h7"/></symbol>
+    <symbol id="i-tutor" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l1.6 4.4L18 8l-4.4 1.6L12 14l-1.6-4.4L6 8l4.4-1.6Z"/><path d="M18 14l.9 2.1 2.1.9-2.1.9L18 20l-.9-2.1-2.1-.9 2.1-.9Z"/></symbol>
+    <symbol id="i-priority" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12M4 9h10M4 14h7M4 19h4"/><path d="M18 13l3 3-3 3"/></symbol>
+    <symbol id="i-classes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8l10-5 10 5-10 5Z"/><path d="M6 10v6a6 6 0 0 0 12 0v-6"/><path d="M22 10v6"/></symbol>
+    <symbol id="i-grades" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></symbol>
+    <symbol id="i-modeler" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></symbol>
+    <symbol id="i-done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></symbol>
+    <symbol id="i-login" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></symbol>
+  </defs>
+</svg>
+
+<!-- ══════════════════════════════════════
+     APP SIDEBAR (desktop) — only for in-app pages
+══════════════════════════════════════ -->
+{% if active_page in _app_pages %}
+<aside class="app-side" aria-label="Primary navigation">
+  <a href="/" class="side-logo" aria-label="IntelliPlan home">
+    <div class="logo-icon"><img src="/static/icons/icon-192.png" alt=""></div>
+    <span class="logo-text">Intelli<span>Plan</span></span>
+  </a>
+
+  <a href="/dashboard" class="side-link {% if active_page == 'dashboard' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard</a>
+  <a href="/scheduler" class="side-link {% if active_page == 'scheduler' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-scheduler"/></svg></span>Scheduler</a>
+  <a href="/study"     class="side-link {% if active_page == 'study' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Study &amp; Learn</a>
+  <a href="/tutor"     class="side-link tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-tutor"/></svg></span>Tutor</a>
+
+  <div class="side-section-label">Tasks</div>
+  <a href="/priority"  class="side-link {% if active_page == 'priority' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-priority"/></svg></span>Priority</a>
+  <a href="/classes"   class="side-link {% if active_page == 'classes' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-classes"/></svg></span>Classes</a>
+  <a href="/grades"    class="side-link {% if active_page == 'grades' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-grades"/></svg></span>Grades</a>
+  <a href="/gradebook" class="side-link {% if active_page == 'gradebook' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Grade Modeler</a>
+  <a href="/dismissed" class="side-link {% if active_page == 'dismissed' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-done"/></svg></span>Done</a>
+
+  <div class="side-spacer"></div>
+
+  <div class="side-foot">
+    {% if logged_in %}
+      <a href="/settings" class="side-link {% if active_page == 'settings' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-settings"/></svg></span>Settings</a>
+      <form action="/logout" method="POST" style="margin:0;">
+        <button type="submit" class="side-link side-logout"><span class="side-icon"><svg><use href="#i-logout"/></svg></span>Logout</button>
+      </form>
+    {% else %}
+      <a href="/login" class="side-link {% if active_page == 'login' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-login"/></svg></span>Login</a>
+    {% endif %}
+    <div class="side-foot-row">
+      <span class="date-badge" id="dateBadgeSide"></span>
+      <span style="flex:1"></span>
+      <label class="toggle" title="Toggle dark mode" aria-label="Toggle dark mode">
+        <input type="checkbox" id="themeToggleSide" />
+        <div class="toggle-track"></div>
+        <div class="toggle-knob"></div>
+      </label>
+    </div>
+  </div>
+</aside>
+
+{% endif %}
 
 <!-- ══════════════════════════════════════
      HEADER / NAV
@@ -625,33 +775,33 @@
   <div class="header-right">
     <nav class="nav-tabs" id="mainNav" aria-label="Main navigation">
       <div class="nav-group">
-        <a href="/dashboard" class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}">Dashboard</a>
-        <a href="/scheduler"  class="nav-tab {% if active_page == 'scheduler' %}active{% endif %}">Scheduler</a>
-        <a href="/study"      class="nav-tab {% if active_page == 'study' %}active{% endif %}">Study &amp; Learn</a>
-        <a href="/tutor"      class="nav-tab nav-tab-tutor {% if active_page == 'tutor' %}active{% endif %}">✦ Tutor</a>
+        <a href="/dashboard" class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard</a>
+        <a href="/scheduler"  class="nav-tab {% if active_page == 'scheduler' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-scheduler"/></svg></span>Scheduler</a>
+        <a href="/study"      class="nav-tab {% if active_page == 'study' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-study"/></svg></span>Study &amp; Learn</a>
+        <a href="/tutor"      class="nav-tab nav-tab-tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-tutor"/></svg></span>Tutor</a>
       </div>
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
-        <a href="/priority" class="nav-tab {% if active_page == 'priority' %}active{% endif %}">Priority</a>
-        <a href="/classes"  class="nav-tab {% if active_page == 'classes' %}active{% endif %}">Classes</a>
+        <a href="/priority" class="nav-tab {% if active_page == 'priority' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-priority"/></svg></span>Priority</a>
+        <a href="/classes"  class="nav-tab {% if active_page == 'classes' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-classes"/></svg></span>Classes</a>
         <div class="nav-dropdown">
-          <button class="dropdown-toggle" aria-haspopup="true">Grades <span class="chevron" aria-hidden="true">▾</span></button>
+          <button class="dropdown-toggle" aria-haspopup="true"><span class="nav-tab-icon"><svg><use href="#i-grades"/></svg></span>Grades <span class="chevron" aria-hidden="true">▾</span></button>
           <div class="dropdown-panel" role="menu">
             <a href="/grades"    class="dropdown-item" role="menuitem">Overview</a>
             <a href="/gradebook" class="dropdown-item" role="menuitem">Grade Modeler</a>
           </div>
         </div>
-        <a href="/dismissed" class="nav-tab {% if active_page == 'dismissed' %}active{% endif %}">✓ Done</a>
+        <a href="/dismissed" class="nav-tab {% if active_page == 'dismissed' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-done"/></svg></span>Done</a>
       </div>
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
         {% if logged_in %}
-          <a href="/settings" class="nav-tab {% if active_page == 'settings' %}active{% endif %}" aria-label="Settings">⚙</a>
+          <a href="/settings" class="nav-tab {% if active_page == 'settings' %}active{% endif %}" aria-label="Settings"><span class="nav-tab-icon"><svg><use href="#i-settings"/></svg></span>Settings</a>
           <form action="/logout" method="POST" style="display:inline;">
-            <button type="submit" class="nav-tab logout-btn">Logout</button>
+            <button type="submit" class="nav-tab logout-btn"><span class="nav-tab-icon"><svg><use href="#i-logout"/></svg></span>Logout</button>
           </form>
         {% else %}
-          <a href="/login" class="nav-tab {% if active_page == 'login' %}active{% endif %}">Login</a>
+          <a href="/login" class="nav-tab {% if active_page == 'login' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-login"/></svg></span>Login</a>
         {% endif %}
         <!-- <a class="discord-btn" href="https://discord.gg/34FYWhJQMU" target="_blank" rel="noopener noreferrer">
           <svg width="14" height="11" viewBox="0 0 14 11" fill="none" aria-hidden="true"><path d="M11.86 1.07A11.55 11.55 0 0 0 8.98.05a.04.04 0 0 0-.04.02c-.13.24-.28.55-.38.79a10.7 10.7 0 0 0-3.12 0 8.16 8.16 0 0 0-.39-.79.04.04 0 0 0-.04-.02A11.51 11.51 0 0 0 2.13 1.07a.04.04 0 0 0-.02.02C.31 3.72-.19 6.3.06 8.84a.04.04 0 0 0 .02.03 11.6 11.6 0 0 0 3.47 1.73.04.04 0 0 0 .05-.02c.27-.36.5-.74.71-1.14a.04.04 0 0 0-.02-.06 7.6 7.6 0 0 1-1.08-.51.04.04 0 0 1 0-.07l.22-.17a.04.04 0 0 1 .04 0c2.26 1.02 4.71 1.02 6.95 0a.04.04 0 0 1 .04 0l.22.17a.04.04 0 0 1 0 .07c-.35.2-.7.37-1.08.51a.04.04 0 0 0-.02.06c.21.4.45.78.71 1.14a.04.04 0 0 0 .05.02 11.57 11.57 0 0 0 3.47-1.73.04.04 0 0 0 .02-.03c.29-2.96-.49-5.52-2.06-7.75a.04.04 0 0 0-.02-.02ZM4.68 7.26c-.67 0-1.22-.61-1.22-1.36s.54-1.36 1.22-1.36c.69 0 1.23.61 1.22 1.36 0 .75-.54 1.36-1.22 1.36Zm4.52 0c-.68 0-1.22-.61-1.22-1.36s.54-1.36 1.22-1.36c.69 0 1.23.61 1.22 1.36 0 .75-.53 1.36-1.22 1.36Z" fill="currentColor"/></svg>
@@ -860,23 +1010,29 @@
 ══════════════════════════════════════ -->
 <script>
 /* ── THEME ─────────────────────────── */
-const toggle = document.getElementById('themeToggle');
-const label  = document.getElementById('themeLabel');
 const html   = document.documentElement;
 const saved  = localStorage.getItem('theme') || 'light';
 html.setAttribute('data-theme', saved);
-toggle.checked       = saved === 'dark';
-label.textContent    = saved === 'dark' ? 'Dark' : 'Light';
-toggle.addEventListener('change', () => {
-  const t = toggle.checked ? 'dark' : 'light';
-  html.setAttribute('data-theme', t);
-  localStorage.setItem('theme', t);
-  label.textContent = t === 'dark' ? 'Dark' : 'Light';
+const themeToggles = [document.getElementById('themeToggle'), document.getElementById('themeToggleSide')].filter(Boolean);
+const themeLabel = document.getElementById('themeLabel');
+themeToggles.forEach(t => { t.checked = saved === 'dark'; });
+if (themeLabel) themeLabel.textContent = saved === 'dark' ? 'Dark' : 'Light';
+themeToggles.forEach(toggle => {
+  toggle.addEventListener('change', () => {
+    const t = toggle.checked ? 'dark' : 'light';
+    html.setAttribute('data-theme', t);
+    localStorage.setItem('theme', t);
+    themeToggles.forEach(o => { if (o !== toggle) o.checked = toggle.checked; });
+    if (themeLabel) themeLabel.textContent = t === 'dark' ? 'Dark' : 'Light';
+  });
 });
 
 /* ── DATE BADGE ─────────────────────── */
-document.getElementById('dateBadge').textContent =
-  new Date().toLocaleDateString('en-US', {weekday:'short',month:'short',day:'numeric'});
+const _dateStr = new Date().toLocaleDateString('en-US', {weekday:'short',month:'short',day:'numeric'});
+['dateBadge','dateBadgeSide'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.textContent = _dateStr;
+});
 
 /* ── MOBILE MENU ────────────────────── */
 function setMobileMenuState(isOpen) {
