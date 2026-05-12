@@ -349,10 +349,15 @@
     gap: 1rem;
     width: max-content;
     animation: scrollReviews 38s linear infinite;
-    animation-play-state: paused; /* JS sets to running after cards paint */
+    animation-play-state: running;
     padding: 0.5rem 0 1rem;
+    will-change: transform;
   }
-  .reviews-track:hover { animation-play-state: paused !important; }
+  /* Only pause on hover for actual pointer devices — touch devices keep :hover
+     state stuck after a tap, which would freeze the banner permanently. */
+  @media (hover: hover) and (pointer: fine) {
+    .reviews-track:hover { animation-play-state: paused; }
+  }
   @keyframes scrollReviews {
     0%   { transform: translateX(0); }
     100% { transform: translateX(-50%); }
@@ -404,7 +409,7 @@
 
 <script>
   /* ── Reviews banner — runs after DOM is fully parsed ── */
-  document.addEventListener('DOMContentLoaded', function () {
+  function initReviewsBanner() {
     var reviews = [
       { name: "Jack",   role: "AP student, 11th grade",    color: "#2563eb", text: "I used to spend 20 minutes every morning figuring out what to do first. IntelliPlan just tells me. That alone is worth it." },
       { name: "Max",    role: "College freshman",           color: "#7c3aed", text: "Canvas dumps everything on you with zero order. IntelliPlan sorts it by what's actually urgent. I haven't missed a deadline since." },
@@ -449,7 +454,13 @@
     requestAnimationFrame(function() {
       track.style.animationPlayState = 'running';
     });
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initReviewsBanner);
+  } else {
+    initReviewsBanner();
+  }
 </script>
 
 <section class="cta-section">

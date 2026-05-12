@@ -1381,6 +1381,16 @@ def grades_data():
             return flask.jsonify(get_schoology_grades(acct["schoology_key"], acct["schoology_secret"]))
         except:
             return flask.jsonify([])
+    if login_type == "canvas":
+        try:
+            from canvas_helper import get_grades as get_canvas_grades
+            return flask.jsonify(get_canvas_grades(
+                acct.get("canvas_url", "https://canvas.instructure.com"),
+                acct["canvas_token"]
+            ))
+        except Exception as e:
+            print(f"Canvas grades error: {e}")
+            return flask.jsonify([])
     return flask.jsonify([])
 
 @app.route("/gradebook/detail")
@@ -1391,6 +1401,16 @@ def gradebook_detail():
     if acct["login_type"] == "studentvue":
         from studentvue_helper import get_gradebook_detail
         return flask.jsonify(get_gradebook_detail(acct["sv_district_url"], acct["sv_username"], acct["sv_password"]))
+    if acct["login_type"] == "canvas":
+        try:
+            from canvas_helper import get_gradebook_detail as get_canvas_gradebook
+            return flask.jsonify(get_canvas_gradebook(
+                acct.get("canvas_url", "https://canvas.instructure.com"),
+                acct["canvas_token"]
+            ))
+        except Exception as e:
+            print(f"Canvas gradebook error: {e}")
+            return flask.jsonify([])
     return flask.jsonify([])
 
 @app.route("/dismissed/data")
@@ -2008,13 +2028,24 @@ def unified_tasks():
 @app.route("/missing/data")
 def missing_data():
     acct = get_active_account()
-    if not acct or acct["login_type"] != "studentvue":
+    if not acct:
         return flask.jsonify([])
+    login_type = acct["login_type"]
     try:
-        missing = get_missing_assignments(acct["sv_district_url"], acct["sv_username"], acct["sv_password"])
-        return flask.jsonify(missing)
+        if login_type == "studentvue":
+            return flask.jsonify(get_missing_assignments(
+                acct["sv_district_url"], acct["sv_username"], acct["sv_password"]
+            ))
+        if login_type == "canvas":
+            from canvas_helper import get_missing_assignments as get_canvas_missing
+            return flask.jsonify(get_canvas_missing(
+                acct.get("canvas_url", "https://canvas.instructure.com"),
+                acct["canvas_token"]
+            ))
     except Exception as e:
+        print(f"Missing data error ({login_type}): {e}")
         return flask.jsonify([])
+    return flask.jsonify([])
 
 # ── MANUAL TASKS ──────────────────────────────────────────────
 @app.route("/tasks/manual/create", methods=["POST"])
