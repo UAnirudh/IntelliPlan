@@ -335,6 +335,8 @@ class StudyMastery(db.Model):
 with app.app_context():
     db.create_all()
 
+print([str(r) for r in app.url_map.iter_rules() if 'tutor' in str(r)])
+
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))

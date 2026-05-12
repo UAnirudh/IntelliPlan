@@ -5,12 +5,13 @@
 <meta name="description" content="Ask Plani anything and learn step by step. IntelliPlan's AI tutor covers math, science, history, coding, languages, and more — free for every student.">
 <style>
 /* ── Override base main for full-height layout ── */
-main { max-width:100% !important; padding:0 !important; margin:0 !important; display:flex; flex-direction:column; height:calc(100vh - 62px); overflow:hidden; }
+main { max-width:100% !important; padding:0 !important; margin:0 !important; display:flex; flex-direction:column; height:calc(100vh - 62px); min-height:0; overflow:hidden; }
 
 /* ── Shell ── */
 .tutor-shell {
   display: flex;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -60,6 +61,8 @@ main { max-width:100% !important; padding:0 !important; margin:0 !important; dis
 /* ── Main column ── */
 .tutor-main {
   flex: 1;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -151,11 +154,11 @@ main { max-width:100% !important; padding:0 !important; margin:0 !important; dis
 
 /* ── Message thread ── */
 .tutor-messages {
-  flex: 1; overflow-y: auto; padding: 1.25rem 0 1rem;
+  flex: 1; min-height: 0; overflow-y: auto; padding: 1.25rem 0 1rem;
   display: none; flex-direction: column;
   scrollbar-width: thin; scrollbar-color: var(--border) transparent;
 }
-.tutor-messages.visible { display: flex; }
+
 .tutor-messages::-webkit-scrollbar { width: 4px; }
 .tutor-messages::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
 
@@ -233,6 +236,7 @@ main { max-width:100% !important; padding:0 !important; margin:0 !important; dis
 
 /* Thinking indicator */
 .tutor-thinking-row {
+  flex-shrink: 0;
   display: none; gap: 12px;
   padding: 0.4rem 2rem;
   max-width: 860px; width: 100%; margin: 0 auto;
@@ -296,6 +300,9 @@ main { max-width:100% !important; padding:0 !important; margin:0 !important; dis
 .tutor-input-hint {
   text-align: center; margin-top: 6px;
   font-size: 0.69rem; color: var(--text-muted);
+}
+.tutor-messages.visible {
+  display: flex;
 }
 
 /* ── Responsive ── */
@@ -433,18 +440,15 @@ main { max-width:100% !important; padding:0 !important; margin:0 !important; dis
 </div>
 
 <script>
-/* ══════════════════════════════════════
-   SUGGESTED QUESTIONS PER SUBJECT
-══════════════════════════════════════ */
 const SUGGESTIONS = {
   General: [
     { icon: '💡', text: 'Explain a concept I\'m struggling to understand' },
     { icon: '📖', text: 'Help me understand something from class today' },
-    { icon: '✍', text: 'Quiz me on a topic I\'m currently studying' },
+    { icon: '✍',  text: 'Quiz me on a topic I\'m currently studying' },
   ],
   Math: [
     { icon: '∫', text: 'Explain derivatives step by step' },
-    { icon: '²',  text: 'How do I solve quadratic equations?' },
+    { icon: '²', text: 'How do I solve quadratic equations?' },
     { icon: '∑', text: 'Walk me through integration by parts' },
   ],
   Science: [
@@ -484,33 +488,24 @@ const SUGGESTIONS = {
   ],
 };
 
-/* ══════════════════════════════════════
-   STATE
-══════════════════════════════════════ */
-let tutorHistory  = [];
+let tutorHistory   = [];
 let currentSubject = 'General';
 let isProcessing   = false;
+let chatStarted    = false;
 
-/* ══════════════════════════════════════
-   INIT
-══════════════════════════════════════ */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   renderSuggestions('General');
+  await loadTutorMemory();
   document.getElementById('tutorInput').focus();
 });
 
-/* ══════════════════════════════════════
-   SUBJECT SELECTION
-══════════════════════════════════════ */
 function selectSubject(el) {
   const subject = el.dataset.subject;
   currentSubject = subject;
-
   document.querySelectorAll('.tutor-subject-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.subject === subject));
   document.querySelectorAll('#tutorChips .tutor-chip').forEach(b =>
     b.classList.toggle('active', b.dataset.subject === subject));
-
   document.getElementById('tutorSubjectLabel').textContent = subject;
   renderSuggestions(subject);
   document.getElementById('tutorInput').focus();
@@ -530,15 +525,12 @@ function renderSuggestions(subject) {
 
 function useSuggestion(el) {
   const text = el.querySelector('span:last-child').textContent;
-  const inp = document.getElementById('tutorInput');
-  inp.value = text;
+  const inp  = document.getElementById('tutorInput');
+  inp.value  = text;
   autoResizeTutor(inp);
   sendTutorMessage();
 }
 
-/* ══════════════════════════════════════
-   SEND
-══════════════════════════════════════ */
 function handleTutorKey(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTutorMessage(); }
 }
@@ -546,6 +538,30 @@ function handleTutorKey(e) {
 function autoResizeTutor(el) {
   el.style.height = 'auto';
   el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+}
+
+async function loadTutorMemory() {
+  try {
+    const res = await fetch('/api/tutor/memory');
+    if (!res.ok) return;
+    const data = await res.json();
+    const saved = Array.isArray(data.messages) ? data.messages : [];
+    if (!saved.length) return;
+
+    showChat();
+    tutorHistory = saved
+      .filter(m => (m.role === 'user' || m.role === 'assistant') && m.content)
+      .map(m => ({ role: m.role, content: String(m.content) }));
+
+    const container = document.getElementById('tutorMessages');
+    container.innerHTML = '';
+    tutorHistory.forEach(m => {
+      addTutorMsg(m.role === 'assistant' ? 'bot' : 'user', visibleTutorText(m.content));
+    });
+    scrollBottom();
+  } catch (err) {
+    console.warn('Tutor memory unavailable:', err);
+  }
 }
 
 async function sendTutorMessage() {
@@ -559,33 +575,37 @@ async function sendTutorMessage() {
   document.getElementById('tutorSendBtn').disabled = true;
 
   showChat();
-  addMsg('user', text);
+
+  // Small yield so browser paints the flex layout before we add children
+  await new Promise(r => setTimeout(r, 0));
+
+  addTutorMsg('user', text);
   tutorHistory.push({ role: 'user', content: `[Subject: ${currentSubject}]\n${text}` });
+  scrollBottom();
 
   setPlaniState('thinking');
   document.getElementById('tutorThinking').classList.add('visible');
-  scrollBottom();
 
+  let reply = '';
   try {
     const res  = await fetch('/api/tutor', {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: tutorHistory }),
+      body:    JSON.stringify({ messages: tutorHistory }),
     });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    const reply = data.reply || 'Sorry, I hit a snag. Try again.';
-
-    document.getElementById('tutorThinking').classList.remove('visible');
-    setPlaniState('responding');
-    setTimeout(() => setPlaniState('idle'), 650);
-
-    addMsg('bot', reply);
-    tutorHistory.push({ role: 'assistant', content: reply });
+    reply = (data.reply || '').trim() || 'Sorry, I hit a snag. Try again.';
   } catch (err) {
-    document.getElementById('tutorThinking').classList.remove('visible');
-    setPlaniState('idle');
-    addMsg('bot', 'Connection issue — check your internet and try again.');
+    console.error('Tutor error:', err);
+    reply = 'Connection issue — check your internet and try again.';
   }
+
+  document.getElementById('tutorThinking').classList.remove('visible');
+  setPlaniState('responding');
+  addTutorMsg('bot', reply);
+  tutorHistory.push({ role: 'assistant', content: reply });
+  setTimeout(() => setPlaniState('idle'), 650);
 
   isProcessing = false;
   document.getElementById('tutorSendBtn').disabled = false;
@@ -593,12 +613,21 @@ async function sendTutorMessage() {
   scrollBottom();
 }
 
-/* ══════════════════════════════════════
-   UI HELPERS
-══════════════════════════════════════ */
 function showChat() {
-  document.getElementById('tutorEmpty').classList.add('hidden');
-  document.getElementById('tutorMessages').classList.add('visible');
+  if (chatStarted) return;
+  chatStarted = true;
+
+  const empty = document.getElementById('tutorEmpty');
+  const msgs  = document.getElementById('tutorMessages');
+
+  empty.style.display  = 'none';
+  empty.classList.add('hidden');
+
+  msgs.style.display   = 'flex';
+  msgs.style.flex      = '1';
+  msgs.style.minHeight = '0';
+  msgs.style.overflowY = 'auto';
+  msgs.classList.add('visible');
 }
 
 function scrollBottom() {
@@ -606,23 +635,40 @@ function scrollBottom() {
   setTimeout(() => { el.scrollTop = el.scrollHeight; }, 60);
 }
 
-function addMsg(role, text) {
+function visibleTutorText(text) {
+  return String(text).replace(/^\[Subject:\s*[^\]]+\]\s*\n?/, '').trim();
+}
+
+function addTutorMsg(role, text) {
   const container = document.getElementById('tutorMessages');
+
   const group = document.createElement('div');
   group.className = `tutor-msg-group ${role}`;
 
-  /* Avatar */
   const av = document.createElement('div');
-  av.className  = `tutor-avatar ${role}`;
+  av.className = `tutor-avatar ${role}`;
   av.setAttribute('aria-hidden', 'true');
+
   if (role === 'bot') {
-    av.innerHTML = `<svg width="17" height="19" viewBox="0 0 80 92" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="av${Date.now()%9999}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1e40af"/><stop offset="100%" stop-color="#3b82f6"/></linearGradient></defs><rect x="13" y="14" width="54" height="42" rx="15" fill="url(#av${Date.now()%9999})"/><g transform="translate(26,27)"><rect width="12" height="9" rx="4" fill="#7dd3fc"/></g><g transform="translate(42,27)"><rect width="12" height="9" rx="4" fill="#7dd3fc"/></g><path d="M26 42 Q40 52 54 42" stroke="#93c5fd" stroke-width="2.2" fill="none" stroke-linecap="round"/><rect x="19" y="59" width="42" height="29" rx="11" fill="#1e3a8a"/></svg>`;
+    const gid = 'av' + Math.random().toString(36).slice(2, 8);
+    av.innerHTML = `<svg width="17" height="19" viewBox="0 0 80 92" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#1e40af"/>
+          <stop offset="100%" stop-color="#3b82f6"/>
+        </linearGradient>
+      </defs>
+      <rect x="13" y="14" width="54" height="42" rx="15" fill="url(#${gid})"/>
+      <g transform="translate(26,27)"><rect width="12" height="9" rx="4" fill="#7dd3fc"/></g>
+      <g transform="translate(42,27)"><rect width="12" height="9" rx="4" fill="#7dd3fc"/></g>
+      <path d="M26 42 Q40 52 54 42" stroke="#93c5fd" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      <rect x="19" y="59" width="42" height="29" rx="11" fill="#1e3a8a"/>
+    </svg>`;
   } else {
     av.textContent = 'You';
   }
 
-  /* Bubble wrapper */
-  const wrap   = document.createElement('div');
+  const wrap = document.createElement('div');
   wrap.className = 'tutor-bubble-wrap';
 
   const sender = document.createElement('div');
@@ -631,7 +677,12 @@ function addMsg(role, text) {
 
   const bubble = document.createElement('div');
   bubble.className = 'tutor-bubble';
-  bubble.innerHTML  = role === 'bot' ? renderMd(text) : `<p>${escHtml(text)}</p>`;
+  try {
+    bubble.innerHTML = role === 'bot' ? renderMd(text) : `<p>${escHtml(text)}</p>`;
+  } catch(e) {
+    console.error('renderMd error:', e);
+    bubble.innerHTML = `<p>${escHtml(text)}</p>`;
+  }
 
   wrap.appendChild(sender);
   wrap.appendChild(bubble);
@@ -640,9 +691,6 @@ function addMsg(role, text) {
   container.appendChild(group);
 }
 
-/* ══════════════════════════════════════
-   PLANI REACTIONS
-══════════════════════════════════════ */
 function setPlaniState(state) {
   const el = document.getElementById('tutorPlaniWrap');
   if (!el) return;
@@ -650,56 +698,36 @@ function setPlaniState(state) {
   if (state === 'thinking' || state === 'responding') el.classList.add(`is-${state}`);
 }
 
-/* ══════════════════════════════════════
-   MARKDOWN RENDERER
-══════════════════════════════════════ */
 function escHtml(t) {
   return String(t)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;');
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function renderMd(raw) {
-  /* Split on fenced code blocks first */
   const segments = raw.split(/(```[\s\S]*?```)/g);
-
   return segments.map(seg => {
     if (seg.startsWith('```')) {
-      const body = seg.slice(3,-3).replace(/^[a-zA-Z]+\n/,'').trim();
+      const body = seg.slice(3, -3).replace(/^[a-zA-Z]+\n/, '').trim();
       return `<pre><code>${escHtml(body)}</code></pre>`;
     }
-
     let t = escHtml(seg);
-
-    /* Bold */
-    t = t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
-    /* Italic */
-    t = t.replace(/\*([^*\n]+)\*/g,'<em>$1</em>');
-    /* Inline code */
-    t = t.replace(/`([^`\n]+)`/g,'<code>$1</code>');
-    /* ### heading */
-    t = t.replace(/^### (.+)$/gm,'<div class="md-h3">$1</div>');
-    /* hr */
-    t = t.replace(/^---$/gm,'<hr class="md-hr">');
-
-    /* Numbered list — collect consecutive items */
+    t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    t = t.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+    t = t.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+    t = t.replace(/^### (.+)$/gm, '<div class="md-h3">$1</div>');
+    t = t.replace(/^---$/gm, '<hr class="md-hr">');
     t = t.replace(/((?:^\d+\. .+\n?)+)/gm, match => {
-      const items = match.trim().split(/\n/).map(l => `<li>${l.replace(/^\d+\. /,'')}</li>`).join('');
+      const items = match.trim().split(/\n/).map(l => `<li>${l.replace(/^\d+\. /, '')}</li>`).join('');
       return `<ol>${items}</ol>`;
     });
-    /* Bullet list */
     t = t.replace(/((?:^[-*] .+\n?)+)/gm, match => {
-      const items = match.trim().split(/\n/).map(l => `<li>${l.replace(/^[-*] /,'')}</li>`).join('');
+      const items = match.trim().split(/\n/).map(l => `<li>${l.replace(/^[-*] /, '')}</li>`).join('');
       return `<ul>${items}</ul>`;
     });
-
-    /* Follow-up question (line ending in ? with enough content) */
-    t = t.replace(/^([A-Z’“][^?\n]{14,}\?)\s*$/gm,
-      '<p class="follow-up">$1</p>');
-
-    /* Paragraph breaks */
-    t = t.replace(/\n\n+/g,'</p><p>');
-    t = t.replace(/\n/g,'<br>');
+    t = t.replace(/^([A-Z'"][^?\n]{14,}\?)\s*$/gm, '<p class="follow-up">$1</p>');
+    t = t.replace(/\n\n+/g, '</p><p>');
+    t = t.replace(/\n/g, '<br>');
     return `<p>${t}</p>`;
   }).join('');
 }

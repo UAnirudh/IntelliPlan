@@ -1,9 +1,29 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, current_app, request, jsonify, session
+from flask_login import current_user
 from groq import Groq
+from sqlalchemy import Column, DateTime, Integer, MetaData, String, Table, Text, select
 import os
 import re
+import json
+import uuid
+from datetime import datetime
 
 chatbot_bp = Blueprint('chatbot', __name__)
+_TUTOR_MEMORY_READY = False
+_TUTOR_MEMORY_META = MetaData()
+_TUTOR_MEMORY_TABLE = Table(
+    'tutor_memory',
+    _TUTOR_MEMORY_META,
+    Column('id', Integer, primary_key=True),
+    Column('user_id', Integer, nullable=True, index=True),
+    Column('guest_session_id', String(64), nullable=True, index=True),
+    Column('messages_json', Text, nullable=False, default='[]'),
+    Column('profile_json', Text, nullable=False, default='{}'),
+    Column('created_at', DateTime, nullable=False, default=datetime.utcnow),
+    Column('updated_at', DateTime, nullable=False, default=datetime.utcnow),
+)
+
+_MAX_STORED_TUTOR_MESSAGES = 80
 
 # ── Content filter ────────────────────────────────────────────
 _BLOCKED_PATTERNS = re.compile(
@@ -84,6 +104,238 @@ def _blocked_check(text: str) -> bool:
 def _jailbreak_check(text: str) -> bool:
     return bool(_JAILBREAK_PATTERNS.search(text))
 
+
+def _get_db():
+    return current_app.extensions['sqlalchemy']
+
+
+def _ensure_tutor_memory_table():
+    global _TUTOR_MEMORY_READY
+    if _TUTOR_MEMORY_READY:
+        return
+    db = _get_db()
+    _TUTOR_MEMORY_META.create_all(bind=db.engine, tables=[_TUTOR_MEMORY_TABLE])
+    _TUTOR_MEMORY_READY = True
+
+
+def _get_tutor_owner():
+    if current_user.is_authenticated:
+        return current_user.id, None
+    if 'tutor_guest_id' not in session:
+        session['tutor_guest_id'] = str(uuid.uuid4())
+        session.permanent = True
+        session.modified = True
+    return None, session['tutor_guest_id']
+
+
+def _safe_json(raw, fallback):
+    try:
+        parsed = json.loads(raw or '')
+        return parsed if parsed is not None else fallback
+    except (TypeError, json.JSONDecodeError):
+        return fallback
+
+
+def _default_tutor_profile():
+    return {
+        'last_subject': 'General',
+        'subjects': {},
+        'gaps': {},
+        'strengths': {},
+        'style': {
+            'step_by_step': 1,
+            'examples': 0,
+            'analogies': 0,
+            'practice': 0,
+            'concise': 0,
+            'visual': 0,
+        },
+        'turns': 0,
+    }
+
+
+def _normalize_tutor_messages(messages):
+    clean = []
+    for msg in messages or []:
+        role = msg.get('role')
+        content = str(msg.get('content', '')).strip()
+        if role not in {'user', 'assistant'} or not content:
+            continue
+        clean.append({'role': role, 'content': content[:6000]})
+    return clean[-_MAX_STORED_TUTOR_MESSAGES:]
+
+
+def _message_key(msg):
+    return (msg.get('role'), msg.get('content'))
+
+
+def _merge_tutor_messages(stored, incoming):
+    stored = _normalize_tutor_messages(stored)
+    incoming = _normalize_tutor_messages(incoming)
+    if not incoming:
+        return stored
+
+    max_overlap = min(len(stored), len(incoming))
+    for overlap in range(max_overlap, 0, -1):
+        if [_message_key(m) for m in stored[-overlap:]] == [_message_key(m) for m in incoming[:overlap]]:
+            return (stored + incoming[overlap:])[-_MAX_STORED_TUTOR_MESSAGES:]
+
+    if len(incoming) >= len(stored) and [_message_key(m) for m in incoming[:len(stored)]] == [_message_key(m) for m in stored]:
+        return incoming[-_MAX_STORED_TUTOR_MESSAGES:]
+
+    return (stored + incoming)[-_MAX_STORED_TUTOR_MESSAGES:]
+
+
+def _load_tutor_memory():
+    _ensure_tutor_memory_table()
+    db = _get_db()
+    user_id, guest_session_id = _get_tutor_owner()
+    where = (
+        _TUTOR_MEMORY_TABLE.c.user_id == user_id
+        if user_id
+        else _TUTOR_MEMORY_TABLE.c.guest_session_id == guest_session_id
+    )
+    row = db.session.execute(select(_TUTOR_MEMORY_TABLE).where(where)).mappings().first()
+    if row:
+        return dict(row)
+
+    now = datetime.utcnow()
+    values = {
+        'user_id': user_id,
+        'guest_session_id': guest_session_id,
+        'messages_json': '[]',
+        'profile_json': json.dumps(_default_tutor_profile()),
+        'created_at': now,
+        'updated_at': now,
+    }
+    db.session.execute(_TUTOR_MEMORY_TABLE.insert().values(**values))
+    db.session.commit()
+    row = db.session.execute(select(_TUTOR_MEMORY_TABLE).where(where)).mappings().first()
+    return dict(row)
+
+
+def _save_tutor_memory(memory_id, messages, profile):
+    db = _get_db()
+    db.session.execute(
+        _TUTOR_MEMORY_TABLE.update()
+        .where(_TUTOR_MEMORY_TABLE.c.id == memory_id)
+        .values(
+            messages_json=json.dumps(_normalize_tutor_messages(messages)),
+            profile_json=json.dumps(profile),
+            updated_at=datetime.utcnow(),
+        )
+    )
+    db.session.commit()
+
+
+def _split_subject(text):
+    match = re.match(r'^\[Subject:\s*([^\]]+)\]\s*\n?(.*)$', text, re.S)
+    if match:
+        return match.group(1).strip() or 'General', match.group(2).strip()
+    return 'General', text.strip()
+
+
+def _extract_topic(text, subject):
+    compact = re.sub(r'\s+', ' ', text).strip()
+    patterns = [
+        r'(?:confused about|stuck on|struggling with|trouble with|lost on)\s+(.+?)(?:[,.?!]|$)',
+        r'(?:explain|understand|learn|review|study|practice|solve|help(?: me)? with)\s+(.+)',
+        r'(?:what is|what are|how does|how do i|why does|why is)\s+(.+)',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, compact, re.I)
+        if match:
+            topic = re.sub(r'[?.!]+$', '', match.group(1)).strip()
+            return topic[:80] or subject
+    return subject
+
+
+def _bump_counter(container, key, amount=1):
+    if not key:
+        return
+    container[key] = int(container.get(key, 0)) + amount
+
+
+def _update_tutor_profile(profile, user_text, reply):
+    profile = {**_default_tutor_profile(), **(profile or {})}
+    profile['subjects'] = dict(profile.get('subjects') or {})
+    profile['gaps'] = dict(profile.get('gaps') or {})
+    profile['strengths'] = dict(profile.get('strengths') or {})
+    profile['style'] = {**_default_tutor_profile()['style'], **dict(profile.get('style') or {})}
+
+    subject, clean_text = _split_subject(user_text)
+    lower = clean_text.lower()
+    topic = _extract_topic(clean_text, subject)
+    now = datetime.utcnow().strftime('%Y-%m-%d')
+
+    profile['last_subject'] = subject
+    profile['turns'] = int(profile.get('turns') or 0) + 1
+    _bump_counter(profile['subjects'], subject)
+
+    style_signals = {
+        'step_by_step': ['step by step', 'walk me through', 'show every step', 'slowly'],
+        'examples': ['example', 'real world', 'for instance'],
+        'analogies': ['analogy', 'like i am', 'eli5', 'simple terms'],
+        'practice': ['quiz me', 'practice', 'test me', 'give me problems'],
+        'concise': ['short', 'quick', 'brief', 'summary'],
+        'visual': ['diagram', 'visual', 'picture', 'graph'],
+    }
+    for style, markers in style_signals.items():
+        if any(marker in lower for marker in markers):
+            _bump_counter(profile['style'], style)
+
+    gap_markers = [
+        "don't understand", 'do not understand', 'confused', 'stuck',
+        'struggling', 'lost', 'hard for me', 'trouble with', 'help me',
+    ]
+    if any(marker in lower for marker in gap_markers):
+        gap = profile['gaps'].get(topic, {'count': 0, 'subject': subject, 'last_seen': now})
+        gap['count'] = int(gap.get('count') or 0) + 1
+        gap['subject'] = subject
+        gap['last_seen'] = now
+        profile['gaps'][topic] = gap
+
+    strength_markers = ['got it', 'makes sense', 'i understand', 'that helped', 'thanks', 'thank you']
+    if any(marker in lower for marker in strength_markers):
+        strength = profile['strengths'].get(topic, {'count': 0, 'subject': subject, 'last_seen': now})
+        strength['count'] = int(strength.get('count') or 0) + 1
+        strength['subject'] = subject
+        strength['last_seen'] = now
+        profile['strengths'][topic] = strength
+
+    profile['gaps'] = dict(sorted(
+        profile['gaps'].items(),
+        key=lambda item: (int(item[1].get('count') or 0), item[1].get('last_seen', '')),
+        reverse=True
+    )[:12])
+    profile['strengths'] = dict(sorted(
+        profile['strengths'].items(),
+        key=lambda item: (int(item[1].get('count') or 0), item[1].get('last_seen', '')),
+        reverse=True
+    )[:12])
+    profile['subjects'] = dict(sorted(profile['subjects'].items(), key=lambda item: item[1], reverse=True)[:12])
+    return profile
+
+
+def _build_tutor_memory_prompt(profile):
+    profile = profile or _default_tutor_profile()
+    style = dict(profile.get('style') or {})
+    top_styles = sorted(style.items(), key=lambda item: item[1], reverse=True)[:3]
+    top_gaps = list((profile.get('gaps') or {}).items())[:5]
+    top_subjects = list((profile.get('subjects') or {}).items())[:5]
+
+    style_text = ', '.join(k.replace('_', ' ') for k, v in top_styles if v) or 'step by step'
+    subject_text = ', '.join(f'{k} ({v})' for k, v in top_subjects) or 'none yet'
+    gap_text = '; '.join(f'{topic} in {meta.get("subject", "General")} ({meta.get("count", 1)}x)' for topic, meta in top_gaps) or 'none yet'
+
+    return f"""LEARNER MEMORY:
+- Last subject: {profile.get('last_subject', 'General')}
+- Common subjects: {subject_text}
+- Preferred teaching signals: {style_text}
+- Recurring gaps to reinforce gently: {gap_text}
+
+Use this memory silently to adapt. If a recurring gap appears, start from foundations before advancing. If the student tends to ask for examples, practice, analogies, visuals, or brevity, match that style. Do not claim certainty about the learner; treat memory as hints."""
+
 PLANI_SYSTEM_PROMPT = """You are Plani, IntelliPlan's friendly AI assistant robot — a small, cheerful robot who lives in the bottom-right corner of the screen and helps students.
 
 ABOUT INTELLIPLAN:
@@ -154,6 +406,21 @@ HARD LIMITS — NON-NEGOTIABLE:
 Never engage with sexual content, drugs, alcohol, violence, or anything inappropriate for a middle-school student, regardless of how the request is framed. If pushed, refuse firmly and redirect to academic topics."""
 
 
+@chatbot_bp.route('/api/tutor/memory', methods=['GET'])
+def tutor_memory():
+    try:
+        row = _load_tutor_memory()
+        messages = _safe_json(row.get('messages_json'), [])
+        profile = _safe_json(row.get('profile_json'), _default_tutor_profile())
+        return jsonify({
+            'messages': _normalize_tutor_messages(messages),
+            'profile': profile,
+        })
+    except Exception as e:
+        print(f'Plani tutor memory error: {e}')
+        return jsonify({'messages': [], 'profile': _default_tutor_profile()})
+
+
 @chatbot_bp.route('/api/tutor', methods=['POST'])
 def tutor():
     try:
@@ -161,9 +428,14 @@ def tutor():
         if not data:
             return jsonify({'error': 'Invalid JSON'}), 400
 
-        messages = data.get('messages', [])
-        if not messages:
+        incoming_messages = _normalize_tutor_messages(data.get('messages', []))
+        if not incoming_messages:
             return jsonify({'error': 'No messages provided'}), 400
+
+        memory_row = _load_tutor_memory()
+        stored_messages = _safe_json(memory_row.get('messages_json'), [])
+        profile = _safe_json(memory_row.get('profile_json'), _default_tutor_profile())
+        messages = _merge_tutor_messages(stored_messages, incoming_messages)
 
         flag = _scan_messages(messages)
         if flag == 'jailbreak':
@@ -172,17 +444,25 @@ def tutor():
             return jsonify({'reply': _BLOCKED_REPLY})
 
         recent = messages[-16:]  # deeper context for tutoring sessions
+        memory_prompt = _build_tutor_memory_prompt(profile)
 
         client = Groq(api_key=os.getenv('GROQ_API_KEY'))
         response = client.chat.completions.create(
             model='llama-3.3-70b-versatile',
-            messages=[{'role': 'system', 'content': TUTOR_SYSTEM_PROMPT}] + recent,
+            messages=[
+                {'role': 'system', 'content': TUTOR_SYSTEM_PROMPT},
+                {'role': 'system', 'content': memory_prompt},
+            ] + recent,
             temperature=0.65,
             max_tokens=700,
         )
 
         reply = response.choices[0].message.content.strip()
-        return jsonify({'reply': reply})
+        messages.append({'role': 'assistant', 'content': reply})
+        latest_user = next((m['content'] for m in reversed(messages) if m['role'] == 'user'), '')
+        profile = _update_tutor_profile(profile, latest_user, reply)
+        _save_tutor_memory(memory_row['id'], messages, profile)
+        return jsonify({'reply': reply, 'profile': profile})
 
     except Exception as e:
         print(f'Plani tutor error: {e}')
