@@ -1,5 +1,76 @@
 {% extends "base.html" %}
 
+{% block page_title %}IntelliPlan — AI Study Planner for Students | Canvas & StudentVue Integration{% endblock %}
+
+{% block head_extra %}
+<meta name="description" content="IntelliPlan automatically imports assignments from Canvas, StudentVue, and Schoology, then builds a personalized AI study schedule around your deadlines and free time. Free for students.">
+<meta name="keywords" content="student study planner, Canvas assignment planner, StudentVue planner, AI study schedule generator, assignment prioritizer, study plan app, college planner, high school planner, Schoology integration, Google Calendar study plan">
+<link rel="canonical" href="https://intelliplan.tech/">
+<!-- Open Graph -->
+<meta property="og:title" content="IntelliPlan — AI Study Planner | Canvas, StudentVue & Schoology">
+<meta property="og:description" content="Connect your school tools. IntelliPlan prioritizes your assignments and builds your weekly study schedule automatically. Free to start.">
+<meta property="og:image" content="https://intelliplan.tech/static/og-image.png">
+<meta property="og:url" content="https://intelliplan.tech">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="IntelliPlan">
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="IntelliPlan — AI Study Planner for Students">
+<meta name="twitter:description" content="Automatically prioritize assignments from Canvas, StudentVue & Schoology. Build your study schedule with AI. Free for students.">
+<meta name="twitter:image" content="https://intelliplan.tech/static/og-image.png">
+<!-- SoftwareApplication structured data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "IntelliPlan",
+  "url": "https://intelliplan.tech",
+  "applicationCategory": "EducationApplication",
+  "operatingSystem": "Web, iOS, Android",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD",
+    "description": "Free to get started"
+  },
+  "description": "AI-powered student study planner that connects to Canvas, StudentVue, and Schoology to automatically import and prioritize assignments, build weekly study schedules, and export them to Google Calendar.",
+  "featureList": [
+    "Canvas LMS integration",
+    "StudentVue integration",
+    "Schoology integration",
+    "AI-generated study schedules",
+    "Google Calendar export",
+    "Grade Modeler",
+    "Flashcard generator",
+    "Priority scoring",
+    "Time estimation",
+    "PWA for iOS and Android"
+  ],
+  "screenshot": "https://intelliplan.tech/static/og-image.png",
+  "author": {
+    "@type": "Organization",
+    "name": "IntelliPlan",
+    "url": "https://intelliplan.tech"
+  }
+}
+</script>
+<!-- WebSite structured data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "IntelliPlan",
+  "url": "https://intelliplan.tech",
+  "description": "Free AI study planner for students. Connects to Canvas, StudentVue, and Schoology. Auto-prioritizes assignments and builds your weekly schedule.",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://intelliplan.tech/?q={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+}
+</script>
+{% endblock %}
+
 {% block content %}
 
 <section class="hero-wrap">
@@ -8,7 +79,7 @@
       <div class="hero-badge">✨ Built for students who are done guessing</div>
       <h1 class="hero-title">Stop missing assignments and build your study plan automatically.</h1>
       <p class="hero-subtitle">
-        IntelliPlan connects to your school tools and turns deadlines, difficulty, and available time into a clear plan for what to do next.
+        The free study planner that connects to Canvas, StudentVue, and Schoology — automatically prioritizes your assignments and builds your weekly schedule with AI.
       </p>
 
       <div class="hero-actions">
@@ -273,11 +344,11 @@
   </div>
 
   <div class="integration-grid">
-    <div class="integration-card"><div class="integration-icon">🏫</div><div class="integration-name">Canvas LMS</div></div>
-    <div class="integration-card"><div class="integration-icon">📋</div><div class="integration-name">StudentVue</div></div>
-    <div class="integration-card"><div class="integration-icon">📅</div><div class="integration-name">Google Calendar</div></div>
-    <div class="integration-card"><div class="integration-icon">📝</div><div class="integration-name">Notion</div></div>
-    <div class="integration-card"><div class="integration-icon">🔔</div><div class="integration-name">Push Notifications</div></div>
+    <div class="integration-card"><div class="integration-icon">🏫</div><div class="integration-name">Canvas LMS</div><div class="integration-desc">Auto-import assignments &amp; due dates</div></div>
+    <div class="integration-card"><div class="integration-icon">📋</div><div class="integration-name">StudentVue</div><div class="integration-desc">Syncs grades and assignments from your district portal</div></div>
+    <div class="integration-card"><div class="integration-icon">🎒</div><div class="integration-name">Schoology</div><div class="integration-desc">Pull all coursework into one priority list</div></div>
+    <div class="integration-card"><div class="integration-icon">📅</div><div class="integration-name">Google Calendar</div><div class="integration-desc">Export your AI schedule with one click</div></div>
+    <div class="integration-card"><div class="integration-icon">📝</div><div class="integration-name">Notion</div><div class="integration-desc">Send your task list to your Notion workspace</div></div>
   </div>
 </section>
 
@@ -951,6 +1022,14 @@
     font-size: 0.84rem;
     font-weight: 700;
     color: var(--text-primary);
+  }
+
+  .integration-desc {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.3rem;
+    line-height: 1.4;
   }
 
   /* ── FAQ ─────────────────────────────────────────────────── */
