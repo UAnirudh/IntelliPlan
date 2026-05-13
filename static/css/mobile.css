@@ -45,8 +45,13 @@ select {
   }
 
   body {
-    padding-top: 62px !important;
+    padding-top: calc(62px + 56px) !important; /* header + tabs strip */
     overflow-x: hidden;
+  }
+
+  /* Pages without the in-app tabs strip (landing, legal, etc.) only need header room */
+  body:not(.has-side) {
+    padding-top: 62px !important;
   }
 
   /* ════════════════════════════════════════════════════════
@@ -94,51 +99,124 @@ select {
   }
 
   /* ════════════════════════════════════════════════════════
-     MAIN NAV FIX
-     Remove backdrop-filter and isolate stacking context.
+     MAIN NAV — horizontal scrolling tab bar pinned under header.
+     Always visible on in-app pages. Hide the hamburger.
   ════════════════════════════════════════════════════════ */
-  #mainNav {
+  #mobileMenuBtn { display: none !important; }
+
+  body.has-side #mainNav {
+    position: fixed !important;
+    top: 62px !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    height: 56px !important;
+    max-height: 56px !important;
+    padding: 8px 10px !important;
+    margin: 0 !important;
+    gap: 6px !important;
+    background: var(--bg-card) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-bottom: 1px solid var(--border) !important;
+    box-shadow: 0 1px 0 var(--border) !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    transform: none !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: 99998 !important;
+    isolation: isolate;
+  }
+  body.has-side #mainNav::-webkit-scrollbar { display: none; }
+
+  /* Non-app pages keep the original hidden-by-default behavior intact;
+     show the menu inline as a column when toggled open. */
+  body:not(.has-side) #mainNav {
     max-height: calc(100dvh - 62px);
     overflow-y: auto;
     z-index: 99999 !important;
     isolation: isolate;
   }
-
-  #mainNav .nav-group,
-  #mainNav .nav-tabs {
-    width: 100%;
-  }
-
-  #mainNav .nav-group {
+  body:not(.has-side) #mainNav .nav-group {
     display: flex;
     flex-direction: column;
     align-items: stretch;
+    width: 100%;
   }
-
-  #mainNav .nav-tab,
-  #mainNav .dropdown-toggle,
-  #mainNav .dropdown-item {
+  body:not(.has-side) #mainNav .nav-tab,
+  body:not(.has-side) #mainNav .dropdown-toggle,
+  body:not(.has-side) #mainNav .dropdown-item {
     width: 100%;
     justify-content: flex-start;
     min-height: 44px;
     border-radius: 10px;
-    position: relative;
-    z-index: 99999 !important;
   }
+  body:not(.has-side) #mobileMenuBtn { display: flex !important; }
 
-  #mainNav .dropdown-panel {
-    position: static !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-    min-width: 0 !important;
-    width: 100%;
-    margin: 4px 0 0 !important;
-    box-shadow: none !important;
-    background: transparent !important;
+  /* Horizontal tab styling for in-app pages */
+  body.has-side #mainNav .nav-group {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
   }
-
-  #mainNav .nav-dropdown::before {
-    display: none;
+  body.has-side #mainNav .nav-divider {
+    display: inline-block !important;
+    width: 1px;
+    height: 22px;
+    flex: 0 0 1px;
+    background: var(--border);
+    margin: 0 4px;
+  }
+  body.has-side #mainNav .nav-tab,
+  body.has-side #mainNav .dropdown-toggle {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-height: 40px !important;
+    padding: 8px 12px !important;
+    font-size: 0.8rem !important;
+    border-radius: 10px !important;
+    white-space: nowrap !important;
+    scroll-snap-align: start;
+  }
+  body.has-side #mainNav .nav-tab-icon {
+    width: 16px !important;
+    height: 16px !important;
+    margin-right: 6px;
+  }
+  body.has-side #mainNav .nav-dropdown {
+    position: relative !important;
+  }
+  body.has-side #mainNav .nav-dropdown .dropdown-panel {
+    position: absolute !important;
+    top: calc(100% + 6px) !important;
+    left: 0 !important;
+    right: auto !important;
+    min-width: 180px !important;
+    width: max-content !important;
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.18) !important;
+    padding: 6px !important;
+    z-index: 100000 !important;
+  }
+  body.has-side #mainNav .nav-dropdown .dropdown-item {
+    width: 100% !important;
+    justify-content: flex-start !important;
+    min-height: 40px !important;
+    border-radius: 8px !important;
+    padding: 8px 12px !important;
   }
 
   /* Page content select/input safety */
@@ -433,6 +511,7 @@ select {
 
   .page-header {
     gap: 12px !important;
+    flex-wrap: wrap !important;
   }
 
   .page-header > div,
@@ -443,7 +522,30 @@ select {
 
   .page-header .btn-primary,
   .page-header .btn-secondary {
-    flex: 1 1 150px;
+    flex: 1 1 100% !important;
+    min-height: 46px;
+    padding: 12px 18px !important;
+    font-size: 0.92rem !important;
+  }
+
+  /* Global polish on primary/secondary buttons used inside main content */
+  main .btn-primary,
+  main .btn-secondary,
+  .page-content .btn-primary,
+  .page-content .btn-secondary,
+  .modal-content .btn-primary,
+  .modal-content .btn-secondary {
+    min-height: 44px;
+    padding: 12px 18px !important;
+    font-size: 0.9rem !important;
+  }
+
+  main .btn-primary:active,
+  main .btn-secondary:active,
+  .page-content .btn-primary:active,
+  .page-content .btn-secondary:active {
+    transform: translateY(0) scale(0.985);
+    transition: transform 0.08s ease;
   }
 
   #dashColumns {

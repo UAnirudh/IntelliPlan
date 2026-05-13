@@ -7,7 +7,8 @@
 /* ── Override base main for full-height layout ── */
 main { max-width:100% !important; padding:0 !important; margin:0 !important; display:flex; flex-direction:column; height:100vh; height:100dvh; min-height:0; overflow:hidden; }
 @media (max-width: 720px) {
-  main { height:calc(100vh - 62px) !important; height:calc(100dvh - 62px) !important; }
+  /* Header (62px) + mobile tabs strip (56px) = 118px chrome */
+  main { height:calc(100vh - 118px) !important; height:calc(100dvh - 118px) !important; }
 }
 
 /* ── Shell ── */
@@ -363,19 +364,78 @@ main { max-width:100% !important; padding:0 !important; margin:0 !important; dis
   display: flex;
 }
 
+/* Tutor page owns the chat experience — hide global Plani widget here. */
+#planiBot, #planiWrap { display: none !important; }
+
+/* ── Mobile action bar (top of tutor-main) ── */
+.tutor-mobile-bar { display: none; }
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
-  .tutor-side,
-  .tutor-history { display: none !important; }
+  /* History sidebar becomes an off-canvas drawer */
+  .tutor-side {
+    position: fixed !important;
+    top: 0; left: 0; bottom: 0;
+    width: min(82vw, 320px);
+    z-index: 100001;
+    transform: translateX(-100%);
+    transition: transform 0.22s var(--ease-out);
+    box-shadow: 8px 0 24px rgba(0,0,0,0.18);
+    padding-top: env(safe-area-inset-top);
+  }
+  .tutor-side.is-open { transform: translateX(0); }
+  .tutor-history { display: flex !important; }
+  .tutor-side-backdrop {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45); z-index: 100000;
+    -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+  }
+  .tutor-side-backdrop.is-open { display: block; }
+
+  /* Top mobile action bar */
+  .tutor-mobile-bar {
+    display: flex !important;
+    align-items: center; justify-content: space-between;
+    gap: 8px; padding: 8px 12px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .tutor-mobile-bar button {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-secondary);
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.13s;
+  }
+  .tutor-mobile-bar button:active {
+    background: var(--accent-soft); color: var(--accent);
+    border-color: var(--border-accent); transform: scale(0.96);
+  }
+  .tutor-mobile-bar .tutor-mobile-title {
+    flex: 1; text-align: center;
+    font-family: var(--font-ui); font-size: 0.85rem; font-weight: 700;
+    color: var(--text-primary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    padding: 0 4px;
+  }
+
   .tutor-msg-group { padding: 0.45rem 1rem; }
   .tutor-input-wrap { padding: 0.75rem 0.875rem calc(0.75rem + env(safe-area-inset-bottom)); }
   .tutor-empty-title { font-size: 1.45rem; }
-  .tutor-empty { padding-bottom: 1.5rem; }
+  .tutor-empty { padding: 1.5rem 1rem 1.5rem; }
   #tutorPlaniSvg { width: 82px; height: 95px; }
+  .tutor-subject-pill { padding: 0 10px; font-size: 0.7rem; }
+  #tutorInput { font-size: 16px; } /* prevent iOS zoom */
 }
 @media (max-width: 480px) {
   .tutor-msg-group { padding: 0.4rem 0.75rem; }
-  .tutor-bubble { font-size: 0.86rem; padding: 9px 12px; }
+  .tutor-bubble { font-size: 0.92rem; padding: 10px 13px; }
+  .tutor-empty-title { font-size: 1.35rem; }
+  .tutor-empty-sub { font-size: 0.88rem; }
+  .tutor-chip { padding: 6px 12px; font-size: 0.78rem; }
 }
 </style>
 {% endblock %}
@@ -383,8 +443,11 @@ main { max-width:100% !important; padding:0 !important; margin:0 !important; dis
 {% block content %}
 <div class="tutor-shell">
 
+  <!-- Backdrop for mobile drawer -->
+  <div class="tutor-side-backdrop" id="tutorSideBackdrop" onclick="closeTutorDrawer()" aria-hidden="true"></div>
+
   <!-- ════ HISTORY SIDEBAR ════ -->
-  <aside class="tutor-side" aria-label="Past conversations">
+  <aside class="tutor-side" id="tutorSide" aria-label="Past conversations">
     <div class="tutor-side-head">
       <button class="tutor-new-chat" onclick="startNewChat()" aria-label="Start a new chat">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -406,6 +469,17 @@ main { max-width:100% !important; padding:0 !important; margin:0 !important; dis
 
   <!-- ════ MAIN ════ -->
   <div class="tutor-main">
+
+    <!-- Mobile-only action bar -->
+    <div class="tutor-mobile-bar" role="toolbar" aria-label="Tutor actions">
+      <button type="button" onclick="openTutorDrawer()" aria-label="Open chat history">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="tutor-mobile-title">Plani Tutor</div>
+      <button type="button" onclick="startNewChat()" aria-label="Start a new chat">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+    </div>
 
     <!-- Empty state: Plani centered -->
     <div class="tutor-empty" id="tutorEmpty">
@@ -624,6 +698,7 @@ async function loadConversation(id) {
       resetToEmpty();
     }
     renderHistory();
+    closeTutorDrawer();
     scrollBottom();
   } catch (err) {
     console.warn('Load conversation failed:', err);
@@ -654,8 +729,24 @@ async function startNewChat() {
   document.getElementById('tutorMessages').innerHTML = '';
   resetToEmpty();
   renderHistory();
+  closeTutorDrawer();
   document.getElementById('tutorInput').focus();
 }
+
+function openTutorDrawer() {
+  const side = document.getElementById('tutorSide');
+  const back = document.getElementById('tutorSideBackdrop');
+  if (side) side.classList.add('is-open');
+  if (back) back.classList.add('is-open');
+}
+function closeTutorDrawer() {
+  const side = document.getElementById('tutorSide');
+  const back = document.getElementById('tutorSideBackdrop');
+  if (side) side.classList.remove('is-open');
+  if (back) back.classList.remove('is-open');
+}
+window.openTutorDrawer  = openTutorDrawer;
+window.closeTutorDrawer = closeTutorDrawer;
 
 function resetToEmpty() {
   chatStarted = false;
