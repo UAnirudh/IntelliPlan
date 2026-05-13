@@ -1394,6 +1394,73 @@ function autoResizePlani(el) {
 }
 
 document.addEventListener('keydown', e => { if (e.key==='Escape' && planiOpen) closePlani(); });
+
+/* ─── DYNAMIC REPOSITIONING ──────────── */
+(function() {
+  const bot = document.getElementById('planiBot');
+  if (!bot) return;
+
+  // Selectors ordered by priority — first match in viewport wins
+  const ANCHORS = [
+    { sel: 'form',                   side: 'right', hint: "Need help with this form?" },
+    { sel: '.btn-primary',           side: 'right', hint: "Ready to get started?" },
+    { sel: '.cta-section',          side: 'right', hint: "Questions? I can help!" },
+    { sel: '.features-grid',        side: 'right', hint: "Want to learn about these features?" },
+    { sel: '.integration-grid',     side: 'right', hint: "Questions about integrations?" },
+    { sel: '.scheduler-panel',      side: 'right', hint: "Need help with the scheduler?" },
+    { sel: '.grade-card',           side: 'right', hint: "Questions about your grades?" },
+    { sel: '.assignment-card',      side: 'right', hint: "Need help with a task?" },
+    { sel: '.tutor-empty',          side: 'right', hint: "Ask me anything!" },
+  ];
+
+  let lastAnchorSel = null;
+
+  function isInViewport(el) {
+    const r = el.getBoundingClientRect();
+    return r.top < window.innerHeight * 0.85 && r.bottom > window.innerHeight * 0.15;
+  }
+
+  function reposition() {
+    if (planiOpen) return;
+
+    let matched = null;
+    for (const anchor of ANCHORS) {
+      const els = document.querySelectorAll(anchor.sel);
+      for (const el of els) {
+        if (isInViewport(el)) { matched = anchor; break; }
+      }
+      if (matched) break;
+    }
+
+    const newSel = matched ? matched.sel : null;
+    if (newSel === lastAnchorSel) return;
+    lastAnchorSel = newSel;
+
+    // Smooth transition to new position
+    bot.style.transition = 'bottom 0.4s cubic-bezier(0.16,1,0.3,1), right 0.4s cubic-bezier(0.16,1,0.3,1)';
+
+    if (matched) {
+      bot.style.bottom = '24px';
+      bot.style.right  = '24px';
+      // Show a contextual bubble tip (only once per anchor)
+      setTimeout(() => { if (!planiOpen) showBubble(matched.hint); }, 600);
+    } else {
+      bot.style.bottom = '24px';
+      bot.style.right  = '24px';
+    }
+  }
+
+  // Debounced scroll + resize listener
+  let _rpTimer = null;
+  function scheduleReposition() {
+    clearTimeout(_rpTimer);
+    _rpTimer = setTimeout(reposition, 180);
+  }
+
+  window.addEventListener('scroll', scheduleReposition, { passive: true });
+  window.addEventListener('resize', scheduleReposition, { passive: true });
+  document.addEventListener('DOMContentLoaded', () => setTimeout(reposition, 800));
+})();
 </script>
 
 <!-- ══════════════════════════════════════
