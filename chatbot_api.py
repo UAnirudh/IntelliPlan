@@ -6,7 +6,99 @@ import os
 import re
 import json
 import uuid
+import urllib.request
+import urllib.error
 from datetime import datetime
+
+
+# ── LLM client routing ─────────────────────────────────────────────
+# IntelliPlan defaults to Groq's hosted Llama. When OLLAMA_BASE_URL is set
+# (e.g. http://localhost:11434), all chat completions are routed to the local
+# Ollama daemon's OpenAI-compatible /v1 endpoint instead. This lets a developer
+# run the tutor, the moderation pipeline, and Plani entirely off-cloud while
+# the rest of the codebase stays untouched.
+#
+# Env vars:
+#   OLLAMA_BASE_URL     — e.g. http://localhost:11434 (presence flips the switch)
+#   OLLAMA_MODEL        — default model name (e.g. llama3.3, llama3.1:8b)
+#   OLLAMA_MODEL_MAP    — optional JSON {"llama-3.3-70b-versatile": "llama3.3", ...}
+#                         to translate Groq model names into Ollama tags.
+
+_DEFAULT_OLLAMA_MODEL_MAP = {
+    'llama-3.3-70b-versatile': 'llama3.3',
+    'llama-3.1-8b-instant':    'llama3.1:8b',
+    'llama-3.1-70b-versatile': 'llama3.1:70b',
+}
+
+
+def _ollama_model_map():
+    raw = os.getenv('OLLAMA_MODEL_MAP')
+    if not raw:
+        return _DEFAULT_OLLAMA_MODEL_MAP
+    try:
+        loaded = json.loads(raw)
+        if isinstance(loaded, dict):
+            return {**_DEFAULT_OLLAMA_MODEL_MAP, **loaded}
+    except json.JSONDecodeError:
+        pass
+    return _DEFAULT_OLLAMA_MODEL_MAP
+
+
+def _use_ollama():
+    return bool(os.getenv('OLLAMA_BASE_URL'))
+
+
+def _ollama_chat(model, messages, temperature, max_tokens, response_format=None):
+    """Call Ollama's OpenAI-compatible /v1/chat/completions endpoint."""
+    base = os.getenv('OLLAMA_BASE_URL', '').rstrip('/')
+    mapped = _ollama_model_map().get(model, os.getenv('OLLAMA_MODEL') or model)
+    payload = {
+        'model': mapped,
+        'messages': messages,
+        'temperature': temperature,
+        # Ollama accepts max_tokens; older versions use num_predict — send both.
+        'max_tokens': max_tokens,
+        'options': {'num_predict': max_tokens},
+        'stream': False,
+    }
+    # Ollama supports JSON output via `format: json`. Translate from OpenAI's
+    # response_format={'type': 'json_object'} if the caller asked for it.
+    if response_format and isinstance(response_format, dict):
+        if response_format.get('type') == 'json_object':
+            payload['format'] = 'json'
+
+    req = urllib.request.Request(
+        f'{base}/v1/chat/completions',
+        data=json.dumps(payload).encode('utf-8'),
+        headers={'Content-Type': 'application/json'},
+        method='POST',
+    )
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        body = resp.read().decode('utf-8')
+    data = json.loads(body)
+    content = data['choices'][0]['message']['content']
+    return content
+
+
+def _llm_chat(model, messages, temperature=0.7, max_tokens=512, response_format=None):
+    """Route a chat completion to Ollama (if configured) or Groq.
+
+    Returns the plain string reply. Raises if the backing call fails so callers
+    can decide how to recover (the moderation path catches and falls back; the
+    main tutor path surfaces the error to the user).
+    """
+    if _use_ollama():
+        return _ollama_chat(model, messages, temperature, max_tokens, response_format)
+
+    api_key = os.getenv('GROQ_API_KEY')
+    if not api_key:
+        raise RuntimeError('No LLM backend available: set GROQ_API_KEY or OLLAMA_BASE_URL.')
+    client = Groq(api_key=api_key)
+    kwargs = dict(model=model, messages=messages, temperature=temperature, max_tokens=max_tokens)
+    if response_format:
+        kwargs['response_format'] = response_format
+    resp = client.chat.completions.create(**kwargs)
+    return resp.choices[0].message.content
 
 chatbot_bp = Blueprint('chatbot', __name__)
 _TUTOR_MEMORY_READY = False
@@ -226,17 +318,15 @@ def _llm_moderate(text: str, mode: str = 'input'):
     text = (text or '').strip()
     if not text:
         return {'safe': True, 'category': 'safe', 'language': 'und', 'reason': 'empty'}
-    api_key = os.getenv('GROQ_API_KEY')
-    if not api_key:
-        return None  # No moderation available — fall back to keyword filter only.
+    if not (_use_ollama() or os.getenv('GROQ_API_KEY')):
+        return None  # No backend available — fall back to keyword filter only.
 
     system_prompt = _OUTPUT_MODERATION_PROMPT if mode == 'output' else _INPUT_MODERATION_PROMPT
     label = 'ASSISTANT REPLY' if mode == 'output' else 'STUDENT MESSAGE'
     snippet = text[:2000]  # Cap to keep cost & latency in check.
 
     try:
-        client = Groq(api_key=api_key)
-        response = client.chat.completions.create(
+        raw = _llm_chat(
             model=_MODERATION_MODEL,
             messages=[
                 {'role': 'system', 'content': system_prompt},
@@ -246,8 +336,7 @@ def _llm_moderate(text: str, mode: str = 'input'):
             max_tokens=180,
             response_format={'type': 'json_object'},
         )
-        raw = response.choices[0].message.content.strip()
-        parsed = json.loads(raw)
+        parsed = json.loads((raw or '').strip())
     except Exception as e:
         print(f'[moderation/{mode}] LLM call failed: {e}')
         return None
@@ -937,15 +1026,12 @@ def tutor():
         if identity_prompt:
             system_messages.append({'role': 'system', 'content': identity_prompt})
 
-        client = Groq(api_key=os.getenv('GROQ_API_KEY'))
-        response = client.chat.completions.create(
+        reply = _llm_chat(
             model='llama-3.3-70b-versatile',
             messages=system_messages + recent,
             temperature=0.65,
             max_tokens=700,
-        )
-
-        reply = response.choices[0].message.content.strip()
+        ).strip()
 
         # Output-side safety: audit Llama's own reply to catch jailbreak-compliant or unsafe output.
         out_category = _safety_check_assistant_reply(reply)
@@ -1009,15 +1095,12 @@ def chatbot():
         if identity_prompt:
             system_messages.append({'role': 'system', 'content': identity_prompt})
 
-        client = Groq(api_key=os.getenv('GROQ_API_KEY'))
-        response = client.chat.completions.create(
+        reply = _llm_chat(
             model='llama-3.3-70b-versatile',
             messages=system_messages + recent,
             temperature=0.75,
-            max_tokens=200
-        )
-
-        reply = response.choices[0].message.content.strip()
+            max_tokens=200,
+        ).strip()
         out_category = _safety_check_assistant_reply(reply)
         if out_category:
             reply, refusal = _refusal_reply(out_category)
