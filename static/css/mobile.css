@@ -49,14 +49,17 @@ select {
     overflow-x: hidden;
   }
 
+  body.mobile-nav-open {
+    overflow: hidden;
+  }
+
   /* ════════════════════════════════════════════════════════
      HEADER / TOP BAR
      Fully opaque so nothing bleeds through.
   ════════════════════════════════════════════════════════ */
   header,
-  #mainNav,
   .top-bar {
-    background-color: var(--bg-surface, #111111) !important;
+    background-color: var(--bg-card) !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     position: fixed !important;
@@ -71,8 +74,13 @@ select {
     align-items: center !important;
     gap: 10px;
     z-index: 99999 !important;
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
+    box-shadow: 0 1px 0 var(--border);
     isolation: isolate;
+  }
+
+  #mainNav {
+    background-color: var(--bg-card) !important;
+    border-bottom: 1px solid var(--border) !important;
   }
 
   .header-right {
@@ -90,52 +98,152 @@ select {
   }
 
   /* ════════════════════════════════════════════════════════
-     MAIN NAV FIX
-     Remove backdrop-filter and isolate stacking context.
+     MAIN NAV — hamburger + slide-in side drawer.
+     Hamburger visible on every page; drawer slides from the left.
   ════════════════════════════════════════════════════════ */
+  #mobileMenuBtn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-size: 1.05rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.14s, color 0.14s, border-color 0.14s;
+  }
+  #mobileMenuBtn:hover,
+  #mobileMenuBtn[aria-expanded="true"] {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-color: var(--border-accent);
+  }
+
   #mainNav {
-    max-height: calc(100dvh - 62px);
-    overflow-y: auto;
-    z-index: 99999 !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    right: auto !important;
+    width: min(82vw, 320px) !important;
+    height: 100dvh !important;
+    max-height: none !important;
+    padding: 78px 14px calc(18px + env(safe-area-inset-bottom)) !important;
+    margin: 0 !important;
+    gap: 4px !important;
+    background: var(--bg-card) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-right: 1px solid var(--border) !important;
+    border-bottom: none !important;
+    box-shadow: 12px 0 36px rgba(0,0,0,0.18) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    transform: translateX(-100%) !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    z-index: 100001 !important;
     isolation: isolate;
   }
-
-  #mainNav .nav-group,
-  #mainNav .nav-tabs {
-    width: 100%;
+  #mainNav.mobile-open {
+    transform: translateX(0) !important;
+    pointer-events: auto !important;
   }
 
+  /* Drawer backdrop */
+  #mobileNavBackdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+    z-index: 100000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+  }
+  #mobileNavBackdrop.mobile-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Drawer items stack vertically with comfortable tap targets */
   #mainNav .nav-group {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 2px !important;
+    width: 100% !important;
   }
-
+  #mainNav .nav-divider {
+    display: block !important;
+    width: 100% !important;
+    height: 1px !important;
+    background: var(--border) !important;
+    margin: 10px 0 !important;
+  }
   #mainNav .nav-tab,
-  #mainNav .dropdown-toggle,
-  #mainNav .dropdown-item {
-    width: 100%;
-    justify-content: flex-start;
-    min-height: 44px;
-    border-radius: 10px;
-    position: relative;
-    z-index: 99999 !important;
+  #mainNav .dropdown-toggle {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    width: 100% !important;
+    min-height: 46px !important;
+    padding: 11px 14px !important;
+    font-size: 0.95rem !important;
+    font-weight: 500 !important;
+    border-radius: 12px !important;
+    white-space: nowrap !important;
+    text-align: left !important;
+    gap: 12px !important;
   }
-
-  #mainNav .dropdown-panel {
+  #mainNav .nav-tab-icon {
+    width: 20px !important;
+    height: 20px !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+  }
+  #mainNav .nav-dropdown {
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  #mainNav .nav-dropdown .dropdown-panel {
     position: static !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 4px 0 0 30px !important;
+    padding: 4px 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
     opacity: 1 !important;
     pointer-events: auto !important;
-    min-width: 0 !important;
-    width: 100%;
-    margin: 4px 0 0 !important;
-    box-shadow: none !important;
-    background: transparent !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
   }
-
-  #mainNav .nav-dropdown::before {
-    display: none;
+  #mainNav .nav-dropdown .dropdown-item {
+    width: 100% !important;
+    justify-content: flex-start !important;
+    min-height: 40px !important;
+    padding: 8px 14px !important;
+    border-radius: 10px !important;
+    font-size: 0.88rem !important;
+    color: var(--text-secondary) !important;
   }
+  #mainNav .nav-dropdown::before { display: none !important; }
+  #mainNav .chevron { margin-left: auto; }
 
   /* Page content select/input safety */
   main select,
@@ -191,6 +299,7 @@ select {
   /* ════════════════════════════════════════════════════════
      PLANI
   ════════════════════════════════════════════════════════ */
+  #planiBot,
   #planiWrap {
     position: fixed !important;
     right: 14px !important;
@@ -205,13 +314,18 @@ select {
     align-items: flex-end !important;
     justify-content: flex-end !important;
     gap: 8px !important;
-    pointer-events: none !important;
     z-index: 9999 !important;
     transform: none !important;
     margin: 0 !important;
     padding: 0 !important;
   }
 
+  #planiRobot {
+    width: 56px !important;
+    height: 56px !important;
+  }
+
+  #planiBot > *,
   #planiWrap > * {
     pointer-events: auto !important;
     transform: none !important;
@@ -423,6 +537,7 @@ select {
 
   .page-header {
     gap: 12px !important;
+    flex-wrap: wrap !important;
   }
 
   .page-header > div,
@@ -433,7 +548,30 @@ select {
 
   .page-header .btn-primary,
   .page-header .btn-secondary {
-    flex: 1 1 150px;
+    flex: 1 1 100% !important;
+    min-height: 46px;
+    padding: 12px 18px !important;
+    font-size: 0.92rem !important;
+  }
+
+  /* Global polish on primary/secondary buttons used inside main content */
+  main .btn-primary,
+  main .btn-secondary,
+  .page-content .btn-primary,
+  .page-content .btn-secondary,
+  .modal-content .btn-primary,
+  .modal-content .btn-secondary {
+    min-height: 44px;
+    padding: 12px 18px !important;
+    font-size: 0.9rem !important;
+  }
+
+  main .btn-primary:active,
+  main .btn-secondary:active,
+  .page-content .btn-primary:active,
+  .page-content .btn-secondary:active {
+    transform: translateY(0) scale(0.985);
+    transition: transform 0.08s ease;
   }
 
   #dashColumns {
