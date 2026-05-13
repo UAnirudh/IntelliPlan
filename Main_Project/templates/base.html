@@ -604,6 +604,13 @@
     #installBtn { border:none; border-radius:var(--r-sm); padding:9px 14px; background:rgba(255,255,255,0.18); color:white; font-family:var(--font-ui); font-size:0.8rem; font-weight:700; cursor:pointer; transition:all 0.16s; white-space:nowrap; display:flex; align-items:center; gap:7px; min-width:116px; justify-content:center; }
     #installBtn:hover { background:rgba(255,255,255,0.26); transform:translateY(-1px); }
     #installBanner:hover .install-copy { display:flex; animation:fadeUp 0.15s var(--ease-out) both; }
+    #installDismissBtn {
+      background:rgba(255,255,255,0.15); border:none; border-radius:6px;
+      width:26px; height:26px; color:rgba(255,255,255,0.8); cursor:pointer;
+      display:flex; align-items:center; justify-content:center;
+      flex-shrink:0; transition:all 0.14s; padding:0; margin-left:2px;
+    }
+    #installDismissBtn:hover { background:rgba(255,255,255,0.28); color:white; }
 
     /* ══════════════════════════════════════
        FOOTER LAYOUT WHEN SIDEBAR ACTIVE
@@ -1400,12 +1407,26 @@ document.addEventListener('keydown', e => { if (e.key==='Escape' && planiOpen) c
       <div class="install-subtitle">Download IntelliPlan</div>
     </div>
   </a>
-  <button id="installBtn" aria-label="Download IntelliPlan app">⬇️ Download</button>
+  <button id="installBtn" aria-label="Download IntelliPlan app">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v13M5 14l7 7 7-7"/></svg>
+    Download
+  </button>
+  <button id="installDismissBtn" aria-label="Dismiss install banner" onclick="dismissInstallBanner()">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
 </div>
 
 <script>
-function showInstallBanner() { const b=document.getElementById('installBanner'); if(b) b.style.display='flex'; }
+function showInstallBanner() {
+  if (localStorage.getItem('installBannerDismissed') === 'true') return;
+  const b = document.getElementById('installBanner');
+  if (b) b.style.display = 'flex';
+}
 function hideInstallBanner() { const b=document.getElementById('installBanner'); if(b) b.style.display='none'; }
+function dismissInstallBanner() {
+  localStorage.setItem('installBannerDismissed', 'true');
+  hideInstallBanner();
+}
 function getInstallInstructionsUrl() {
   const ua = navigator.userAgent || '';
   const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
