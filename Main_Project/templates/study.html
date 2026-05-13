@@ -39,6 +39,7 @@
 .s-chip.fire { border-color:rgba(239,68,68,0.3); background:rgba(239,68,68,0.06); color:#ef4444; }
 .s-chip.pts { border-color:rgba(99,102,241,0.3); background:rgba(99,102,241,0.06); color:#6366f1; }
 .s-chip.freeze { border-color:rgba(59,130,246,0.3); background:rgba(59,130,246,0.06); color:#3b82f6; }
+.s-chip.level { border-color:rgba(16,185,129,0.28); background:rgba(16,185,129,0.06); color:#059669; }
 .chip-pulse { animation:cPulse 0.5s ease; }
 @keyframes cPulse { 0%{transform:scale(1)} 50%{transform:scale(1.12)} 100%{transform:scale(1)} }
 
@@ -281,17 +282,61 @@
 
 /* ── DUOLINGO STREAK ── */
 .streak-hero {
-  background:linear-gradient(135deg,rgba(239,68,68,0.08),rgba(245,158,11,0.08));
-  border:1.5px solid rgba(239,68,68,0.2); border-radius:20px; padding:1.75rem;
-  margin-bottom:1.25rem; text-align:center;
+  --tier:#ef4444;
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--tier) 24%, transparent), transparent 48%),
+    linear-gradient(135deg,rgba(255,247,237,0.92),rgba(255,255,255,0.98));
+  border:1.5px solid color-mix(in srgb, var(--tier) 32%, transparent);
+  border-radius:20px; padding:1.75rem;
+  margin-bottom:1.25rem; text-align:center; position:relative; overflow:hidden;
 }
-.streak-fire { font-size:4rem; display:block; margin-bottom:0.5rem; animation:fireWobble 2s ease-in-out infinite; }
-@keyframes fireWobble { 0%,100%{transform:scale(1) rotate(-2deg)} 50%{transform:scale(1.05) rotate(2deg)} }
-.streak-num { font-family:'DM Serif Display',serif; font-size:3.5rem; font-weight:700; color:#ef4444; line-height:1; }
-.streak-word { font-size:1rem; font-weight:700; color:#f97316; margin-bottom:0.5rem; }
+.streak-hero::before,
+.streak-hero::after {
+  content:""; position:absolute; inset:auto 10% -38px; height:78px;
+  background:radial-gradient(circle, color-mix(in srgb, var(--tier) 18%, transparent), transparent 64%);
+  filter:blur(8px); animation:emberDrift 4s ease-in-out infinite; pointer-events:none;
+}
+.streak-hero::after { animation-delay:-1.6s; transform:translateX(22%); }
+.fire-stage { height:90px; display:flex; align-items:flex-end; justify-content:center; margin-bottom:0.45rem; position:relative; }
+.streak-fire {
+  width:62px; height:76px; display:block; position:relative;
+  filter:drop-shadow(0 12px 18px color-mix(in srgb, var(--tier) 40%, transparent));
+  animation:fireBounce 1.28s cubic-bezier(.2,.8,.2,1) infinite;
+}
+.streak-fire::before,
+.streak-fire::after {
+  content:""; position:absolute; left:50%; bottom:0; transform:translateX(-50%) rotate(45deg);
+  border-radius:62% 38% 62% 38%; transform-origin:center bottom;
+}
+.streak-fire::before {
+  width:58px; height:58px;
+  background:linear-gradient(135deg,#ef4444 4%,#f97316 48%,#facc15 100%);
+  animation:flameFlicker 0.84s ease-in-out infinite alternate;
+}
+.streak-fire::after {
+  width:34px; height:34px; bottom:6px;
+  background:linear-gradient(135deg,#fff7ad 0%,#facc15 46%,#fb923c 100%);
+  animation:innerFlicker 0.72s ease-in-out infinite alternate;
+}
+.spark-particle { position:absolute; width:6px; height:6px; border-radius:999px; background:#facc15; opacity:0; animation:sparkRise 1.8s ease-out infinite; }
+.spark-particle.p1 { left:45%; bottom:16px; animation-delay:0s; }
+.spark-particle.p2 { left:54%; bottom:18px; animation-delay:.45s; background:#fb923c; }
+.spark-particle.p3 { left:49%; bottom:22px; animation-delay:.9s; width:4px; height:4px; }
+@keyframes fireBounce { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-5px) scale(1.05)} }
+@keyframes flameFlicker { from{transform:translateX(-50%) rotate(42deg) scaleX(.94)} to{transform:translateX(-50%) rotate(48deg) scaleX(1.06)} }
+@keyframes innerFlicker { from{transform:translateX(-50%) rotate(48deg) scale(.92)} to{transform:translateX(-50%) rotate(38deg) scale(1.08)} }
+@keyframes sparkRise { 0%{transform:translateY(0) scale(.6);opacity:0} 20%{opacity:.9} 100%{transform:translateY(-58px) translateX(18px) scale(.2);opacity:0} }
+@keyframes emberDrift { 0%,100%{opacity:.55; transform:translateY(0)} 50%{opacity:1; transform:translateY(-8px)} }
+.streak-num { font-family:'DM Serif Display',serif; font-size:3.5rem; font-weight:700; color:var(--tier); line-height:1; }
+.streak-word { font-size:1rem; font-weight:800; color:var(--tier); margin-bottom:0.5rem; }
 .streak-sub { font-size:0.82rem; color:var(--txm); }
 .streak-stats-row { display:flex; gap:10px; justify-content:center; margin-top:1rem; flex-wrap:wrap; }
-.ss-item { padding:6px 14px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.15); border-radius:20px; font-size:0.78rem; font-weight:700; color:#ef4444; }
+.ss-item { padding:6px 14px; background:color-mix(in srgb, var(--tier) 10%, transparent); border:1px solid color-mix(in srgb, var(--tier) 20%, transparent); border-radius:20px; font-size:0.78rem; font-weight:700; color:var(--tier); }
+.risk-banner { display:none; margin-bottom:1rem; padding:12px 14px; border-radius:14px; font-size:0.84rem; font-weight:700; border:1px solid; }
+.risk-banner.on { display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+.risk-warn { color:#dc2626; background:rgba(239,68,68,0.07); border-color:rgba(239,68,68,0.22); }
+.risk-repair { color:#7c2d12; background:rgba(251,146,60,0.13); border-color:rgba(251,146,60,0.32); }
+.tiny-action { padding:7px 12px; border:none; border-radius:10px; background:#0f172a; color:white; font-size:0.74rem; font-weight:800; cursor:pointer; font-family:'DM Sans',sans-serif; }
 
 .cal-month { margin-bottom:1rem; }
 .cal-month-label { font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:var(--txm); margin-bottom:8px; }
@@ -317,6 +362,35 @@
 .m-reached { background:rgba(16,185,129,0.08); border-color:rgba(16,185,129,0.3); color:#059669; }
 .m-next { background:rgba(99,102,241,0.06); border-color:rgba(99,102,241,0.2); color:var(--si); }
 .m-locked { background:#f1f5f9; border-color:#e2eaf5; color:var(--txm); }
+
+.quest-list,.shop-grid,.badge-grid { display:grid; gap:10px; }
+.quest-card,.shop-item,.badge-item {
+  background:#f8faff; border:1px solid #e0e7ff; border-radius:14px; padding:1rem;
+}
+.quest-head,.shop-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+.quest-title,.shop-title,.badge-name { font-size:0.9rem; font-weight:800; color:var(--tx); }
+.quest-reward,.shop-price { font-size:0.78rem; font-weight:900; color:#6366f1; white-space:nowrap; }
+.quest-track { height:8px; background:#e2e8f0; border-radius:999px; overflow:hidden; margin-top:10px; }
+.quest-fill { height:100%; background:linear-gradient(90deg,#10b981,#6366f1); border-radius:999px; }
+.quest-meta,.shop-desc,.badge-kind { font-size:0.75rem; color:var(--txm); margin-top:6px; line-height:1.4; }
+.shop-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.shop-item.deal { border-color:rgba(245,158,11,0.35); background:rgba(245,158,11,0.06); }
+.shop-buy { margin-top:10px; width:100%; padding:9px 10px; border:none; border-radius:10px; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:white; font-size:0.78rem; font-weight:800; cursor:pointer; font-family:'DM Sans',sans-serif; }
+.shop-buy:disabled { opacity:.48; cursor:not-allowed; }
+.badge-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.badge-item { display:flex; align-items:center; gap:10px; }
+.badge-mark { width:34px; height:34px; display:grid; place-items:center; border-radius:10px; background:linear-gradient(135deg,#f97316,#facc15); color:white; font-weight:900; flex-shrink:0; }
+.celebration {
+  position:fixed; inset:0; z-index:100001; display:none; align-items:center; justify-content:center;
+  background:rgba(15,23,42,0.46); padding:1rem; backdrop-filter:blur(5px);
+}
+.celebration.on { display:flex; }
+.celebration-card { width:min(420px,100%); background:white; border-radius:20px; padding:2rem; text-align:center; box-shadow:0 24px 80px rgba(15,23,42,.28); position:relative; overflow:hidden; }
+.celebration-card::before { content:""; position:absolute; inset:-40% -20% auto; height:180px; background:radial-gradient(circle,#facc15,transparent 62%); opacity:.35; }
+.celebration-title { position:relative; font-family:'DM Serif Display',serif; font-size:2rem; color:#0f172a; margin-bottom:6px; }
+.celebration-sub { position:relative; color:#64748b; font-size:.9rem; line-height:1.5; margin-bottom:1.2rem; }
+.celebration-rewards { position:relative; display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin-bottom:1.3rem; }
+.reward-pill { padding:7px 12px; border-radius:999px; background:#f8fafc; border:1px solid #e2e8f0; font-weight:800; font-size:.78rem; color:#475569; }
 
 /* ── TIMER ── */
 .timer-ring { position:relative; width:72px; height:72px; flex-shrink:0; }
@@ -388,6 +462,7 @@ body.serious-mode .nav-tabs { display:none !important; }
   .mode-grid { grid-template-columns:1fr; }
   .comp-stats { grid-template-columns:repeat(2,1fr); }
   .perf-grid { grid-template-columns:repeat(2,1fr); }
+  .shop-grid,.badge-grid { grid-template-columns:1fr; }
   .st { font-size:1.5rem; }
   .sp { padding:1.25rem; }
   .streak-num { font-size:2.5rem; }
@@ -399,7 +474,7 @@ body.serious-mode .nav-tabs { display:none !important; }
   <div class="xh">
     <div class="xl">IntelliPlan — Extreme Focus</div>
     <div id="xTimerDisplay" class="xtimer">25:00</div>
-    <div id="xPtsDisplay" style="font-size:0.82rem;color:#a5b4fc;font-weight:700;display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> 0 pts</div>
+    <div id="xPtsDisplay" style="font-size:0.82rem;color:#a5b4fc;font-weight:700;">⚡ 0 Sparks</div>
   </div>
   <div class="xcontent">
     <div class="xprog"><div class="xprog-fill" id="xProgFill" style="width:0%"></div></div>
@@ -430,25 +505,37 @@ body.serious-mode .nav-tabs { display:none !important; }
   </div>
 </div>
 
+<div class="celebration" id="celebrationOverlay">
+  <div class="celebration-card">
+    <div class="celebration-title" id="celebrationTitle">Milestone!</div>
+    <div class="celebration-sub" id="celebrationSub">Your work paid off.</div>
+    <div class="celebration-rewards" id="celebrationRewards"></div>
+    <button class="btn-solid" onclick="closeCelebration()">Keep going</button>
+  </div>
+</div>
+
 <!-- Main App -->
 <div id="studyApp">
   <div class="sh">
     <h1 class="st">Study <em>&amp; Learn</em></h1>
     <div class="streak-bar">
-      <div class="s-chip fire" id="sChipStreak" onclick="switchTab('streak')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-fire"/></svg> <span id="sStreakNum">0</span></div>
-      <div class="s-chip pts" id="sChipPts"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> <span id="sPtsNum">0</span></div>
-      <div class="s-chip freeze" id="sChipFreeze"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pin"/></svg> <span id="sFreezeNum">0</span></div>
+      <div class="s-chip fire" id="sChipStreak" onclick="switchTab('streak')">🔥 <span id="sStreakNum">0</span></div>
+      <div class="s-chip pts" id="sChipPts" onclick="switchTab('shop')">⚡ <span id="sPtsNum">0</span></div>
+      <div class="s-chip freeze" id="sChipFreeze">🛡 <span id="sFreezeNum">0</span></div>
+      <div class="s-chip level" id="sChipLevel" onclick="switchTab('progress')">Lv <span id="sLevelNum">1</span></div>
     </div>
   </div>
 
   <!-- Navigation -->
   <div class="study-nav">
-    <button class="snav-btn active" onclick="switchTab('learn')" id="tab-learn">Learn</button>
-    <button class="snav-btn" onclick="switchTab('flashcards')" id="tab-flashcards">Flashcards</button>
-    <button class="snav-btn" onclick="switchTab('review')" id="tab-review">Review</button>
-    <button class="snav-btn" onclick="switchTab('mastery')" id="tab-mastery">Mastery</button>
-    <button class="snav-btn" onclick="switchTab('progress')" id="tab-progress">Progress</button>
-    <button class="snav-btn" onclick="switchTab('streak')" id="tab-streak">Streak</button>
+    <button class="snav-btn active" onclick="switchTab('learn')" id="tab-learn">📖 Learn</button>
+    <button class="snav-btn" onclick="switchTab('flashcards')" id="tab-flashcards">🃏 Flashcards</button>
+    <button class="snav-btn" onclick="switchTab('review')" id="tab-review">🔁 Review</button>
+    <button class="snav-btn" onclick="switchTab('mastery')" id="tab-mastery">📊 Mastery</button>
+    <button class="snav-btn" onclick="switchTab('progress')" id="tab-progress">📈 Progress</button>
+    <button class="snav-btn" onclick="switchTab('quests')" id="tab-quests">Quests</button>
+    <button class="snav-btn" onclick="switchTab('shop')" id="tab-shop">Shop</button>
+    <button class="snav-btn" onclick="switchTab('streak')" id="tab-streak">🔥 Streak</button>
   </div>
 
   <!-- ══ LEARN TAB ══ -->
@@ -527,7 +614,7 @@ body.serious-mode .nav-tabs { display:none !important; }
       <div class="prog-info">
         <span id="progTxt" style="font-weight:600;color:var(--si);">Q 1 of 8</span>
         <div style="display:flex;gap:10px;">
-          <span id="sesPtsDisp" style="font-weight:700;color:var(--si);display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> 0 pts</span>
+          <span id="sesPtsDisp" style="font-weight:700;color:var(--si);">⚡ 0 Sparks</span>
           <span id="sesAccDisp" style="color:var(--txm);">0/0 correct</span>
         </div>
       </div>
@@ -602,7 +689,7 @@ body.serious-mode .nav-tabs { display:none !important; }
     <div class="sp">
       <div class="sp-label">Your Stats</div>
       <div class="perf-grid">
-        <div class="perf-card"><div class="perf-num" id="pTotalPts">0</div><div class="perf-lbl">Total Points</div></div>
+        <div class="perf-card"><div class="perf-num" id="pTotalPts">0</div><div class="perf-lbl">Lifetime Sparks</div></div>
         <div class="perf-card"><div class="perf-num" id="pTotalSes">0</div><div class="perf-lbl">Sessions</div></div>
         <div class="perf-card"><div class="perf-num" id="pAccuracy">—%</div><div class="perf-lbl">Accuracy</div></div>
       </div>
@@ -613,17 +700,45 @@ body.serious-mode .nav-tabs { display:none !important; }
     </div>
   </div>
 
+  <!-- ══ QUESTS TAB ══ -->
+  <div id="tabQuests" style="display:none;">
+    <div class="sp">
+      <div class="sp-label">Weekly Quests</div>
+      <div id="questCompletionMsg" style="font-size:0.86rem;color:var(--txs);margin-bottom:1rem;">Three quests refresh every Monday.</div>
+      <div class="quest-list" id="questList"></div>
+    </div>
+  </div>
+
+  <!-- ══ SHOP TAB ══ -->
+  <div id="tabShop" style="display:none;">
+    <div class="sp">
+      <div class="sp-label">Spark Shop</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:1rem;">
+        <div style="font-size:0.9rem;font-weight:800;color:var(--tx);">Balance: <span id="shopBalance">0</span> Sparks</div>
+        <div style="font-size:0.76rem;color:var(--txm);" id="weeklyDealMsg">Weekly deal refreshes Monday.</div>
+      </div>
+      <div class="shop-grid" id="shopGrid"></div>
+    </div>
+  </div>
+
   <!-- ══ STREAK TAB ══ -->
   <div id="tabStreak" style="display:none;">
+    <div class="risk-banner risk-warn" id="riskBanner"></div>
+    <div class="risk-banner risk-repair" id="repairBanner"></div>
     <div class="streak-hero">
-      <span class="streak-fire"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-fire"/></svg></span>
+      <div class="fire-stage">
+        <span class="streak-fire"></span>
+        <span class="spark-particle p1"></span>
+        <span class="spark-particle p2"></span>
+        <span class="spark-particle p3"></span>
+      </div>
       <div class="streak-num" id="streakBigNum">0</div>
       <div class="streak-word" id="streakWordLabel">Day Streak</div>
       <div class="streak-sub" id="streakSubMsg">Study today to start your streak!</div>
       <div class="streak-stats-row">
-        <div class="ss-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg> Best: <span id="longestStreakDisp">0</span> days</div>
-        <div class="ss-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> Total sessions: <span id="totalSesDisp">0</span></div>
-        <div class="ss-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> <span id="totalPtsDisp2">0</span> points</div>
+        <div class="ss-item">🏆 Best: <span id="longestStreakDisp">0</span> days</div>
+        <div class="ss-item">📅 Total sessions: <span id="totalSesDisp">0</span></div>
+        <div class="ss-item">⚡ <span id="totalPtsDisp2">0</span> Sparks</div>
       </div>
     </div>
 
@@ -650,6 +765,11 @@ body.serious-mode .nav-tabs { display:none !important; }
       <div class="sp-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg> Milestones</div>
       <div class="milestone-row" id="milestoneRow"></div>
     </div>
+
+    <div class="sp">
+      <div class="sp-label">Badges</div>
+      <div class="badge-grid" id="badgeGrid"></div>
+    </div>
   </div>
 </div>
 
@@ -660,7 +780,11 @@ const G = {
   questions: [], keyConcepts: [], title: '',
   curQ: 0, sesPts: 0, sesCorrect: 0, sesPartial: 0, sesAnswered: 0,
   mistakes: [], // [{q, verdict, userAns, correctAns}]
-  totalPts: 0, streak: 0, freezes: 0, lastActive: '',
+  totalPts: 0, sparkBalance: 0, sparksEarnedTotal: 0, level: 1, levelTitle: 'Learner',
+  streak: 0, freezes: 0, freezeCapacity: 2, lastActive: '',
+  streakTier: {name:'Spark', bonus:5, color:'#ef4444'}, atRisk: false,
+  repairAvailable: false, repairCost: 0, repairEligibleUntil: null,
+  badges: [], activeBooster: null, activeCosmetics: {}, weeklyQuests: null, shop: null,
   streakHistory: [], sessionHistory: [], longestStreak: 0, totalSessions: 0,
   timer: null, timerSecs: 1500, timerRem: 1500,
   activeSecs: 0, activeTimer: null, sesStart: null,
@@ -678,6 +802,8 @@ async function init() {
   renderStreakTab();
   renderMasteryTab();
   renderProgressTab();
+  renderQuestsTab();
+  renderShopTab();
   loadDueReviews();
 }
 
@@ -687,18 +813,34 @@ async function loadProfile() {
     const d = await r.json();
     if (d.status === 'ok') {
       G.totalPts = d.total_points || 0;
+      G.sparkBalance = d.spark_balance ?? G.totalPts;
+      G.sparksEarnedTotal = d.sparks_earned_total || G.totalPts;
+      G.level = d.level || 1;
+      G.levelTitle = d.level_title || 'Learner';
       G.streak = d.streak_count || 0;
       G.freezes = d.streak_freeze_count || 0;
+      G.freezeCapacity = d.freeze_capacity || 2;
       G.lastActive = d.last_active_date || '';
+      G.streakTier = d.streak_tier || G.streakTier;
+      G.atRisk = !!d.at_risk;
+      G.repairAvailable = !!d.repair_available;
+      G.repairCost = d.repair_cost || 0;
+      G.repairEligibleUntil = d.repair_eligible_until || null;
       G.streakHistory = d.streak_history || [];
       G.sessionHistory = d.session_history || [];
       G.longestStreak = d.longest_streak || G.streak;
       G.totalSessions = d.total_sessions || 0;
+      G.badges = d.badges || [];
+      G.activeBooster = d.active_booster || null;
+      G.activeCosmetics = d.active_cosmetics || {};
+      G.weeklyQuests = d.weekly_quests || null;
+      G.shop = d.shop || null;
     }
   } catch(e) {
     const ls = JSON.parse(localStorage.getItem('ip_study') || '{}');
-    G.totalPts = ls.pts || 0; G.streak = ls.streak || 0;
-    G.freezes = ls.freezes || 0; G.lastActive = ls.lastActive || '';
+    G.totalPts = ls.pts || 0; G.sparkBalance = ls.sparkBalance ?? G.totalPts;
+    G.sparksEarnedTotal = ls.sparksEarnedTotal || G.totalPts; G.level = ls.level || 1;
+    G.streak = ls.streak || 0; G.freezes = ls.freezes || 0; G.lastActive = ls.lastActive || '';
     G.streakHistory = ls.history || []; G.longestStreak = ls.longest || 0;
     G.totalSessions = ls.sessions || 0;
     G.sessionHistory = ls.sessionHistory || [];
@@ -708,7 +850,8 @@ async function loadProfile() {
 
 function saveLocal() {
   localStorage.setItem('ip_study', JSON.stringify({
-    pts: G.totalPts, streak: G.streak, freezes: G.freezes,
+    pts: G.totalPts, sparkBalance: G.sparkBalance, sparksEarnedTotal: G.sparksEarnedTotal,
+    level: G.level, streak: G.streak, freezes: G.freezes,
     lastActive: G.lastActive, history: G.streakHistory,
     longest: G.longestStreak, sessions: G.totalSessions,
     sessionHistory: G.sessionHistory
@@ -718,8 +861,9 @@ function saveLocal() {
 // ══ CHIPS ══════════════════════════════════════════════════
 function updateChips() {
   document.getElementById('sStreakNum').textContent = G.streak + ' day' + (G.streak !== 1 ? 's' : '');
-  document.getElementById('sPtsNum').textContent = G.totalPts;
-  document.getElementById('sFreezeNum').textContent = G.freezes + ' freeze' + (G.freezes !== 1 ? 's' : '');
+  document.getElementById('sPtsNum').textContent = G.sparkBalance;
+  document.getElementById('sFreezeNum').textContent = G.freezes + '/' + G.freezeCapacity;
+  document.getElementById('sLevelNum').textContent = G.level;
 }
 
 function pulseChip(id) {
@@ -730,7 +874,7 @@ function pulseChip(id) {
 // ══ TABS ══════════════════════════════════════════════════
 function switchTab(tab) {
   G.tabActive = tab;
-  ['learn','flashcards','review','mastery','progress','streak'].forEach(t => {
+  ['learn','flashcards','review','mastery','progress','quests','shop','streak'].forEach(t => {
     document.getElementById('tab-' + t).classList.toggle('active', t === tab);
     document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = t === tab ? 'block' : 'none';
   });
@@ -738,6 +882,8 @@ function switchTab(tab) {
   if (tab === 'mastery') renderMasteryTab();
   if (tab === 'progress') renderProgressTab();
   if (tab === 'review') renderReviewTab();
+  if (tab === 'quests') renderQuestsTab();
+  if (tab === 'shop') renderShopTab();
 }
 
 function switchInputTab(tab) {
@@ -852,7 +998,7 @@ function renderQ() {
   const pct = (G.curQ / total) * 100;
   document.getElementById('progFill').style.width = pct + '%';
   document.getElementById('progTxt').textContent = `Q ${G.curQ + 1} of ${total}`;
-  document.getElementById('sesPtsDisp').innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> ${G.sesPts}`;
+  document.getElementById('sesPtsDisp').textContent = `⚡ ${G.sesPts} Sparks`;
   document.getElementById('sesAccDisp').textContent = `${G.sesCorrect}/${G.sesAnswered} correct`;
 
   const typeLabel = {recall:'Recall', conceptual:'Conceptual', 'short-answer':'Short Answer'}[q.type] || 'Recall';
@@ -922,8 +1068,8 @@ async function submitAnswer() {
     displayFeedback(ev, q, ans);
 
     // Points
-    const pts = ev.points_earned || 1;
-    await addPoints(pts, `+${pts} pts`);
+    const pts = ev.verdict === 'correct' ? 2 : ev.verdict === 'partial' ? 1 : 0;
+    if (pts > 0) await addPoints(pts, `+${pts} Sparks`);
 
     // Track
     G.sesAnswered++;
@@ -941,7 +1087,7 @@ async function submitAnswer() {
     // Fallback: show correct answer without AI eval
     displayFallbackFeedback(q, ans);
     G.sesAnswered++;
-    await addPoints(2, '+2 pts');
+    await addPoints(1, '+1 Sparks');
     document.getElementById('nextBtn').style.display = 'block';
   }
 
@@ -1064,11 +1210,18 @@ async function completeSession() {
   stopTimers();
   if (G.mode === 'serious') { document.body.classList.remove('serious-mode'); document.getElementById('sesTimerWrap').style.display = 'none'; }
 
-  await addPoints(20, '+20 pts — session complete!');
+  const today = new Date().toISOString().split('T')[0];
+  if (!G.streakHistory.includes(today)) await addPoints(10, '+10 Sparks - first session today');
+  await addPoints(20, '+20 Sparks - session complete');
   if (G.mode === 'serious') {
+    await addPoints(10, '+10 Sparks - Serious mode');
     const minBonus = Math.floor(G.activeSecs / 60);
-    if (minBonus > 0) await addPoints(minBonus, `+${minBonus} pts — active time`);
+    if (minBonus > 0) await addPoints(minBonus, `+${minBonus} Sparks - active time`);
   }
+  if (G.mode === 'extreme') {
+    await addPoints(25, '+25 Sparks - Extreme mode');
+  }
+  if (G.questions.length > 0 && G.sesCorrect >= G.questions.length) await addPoints(30, '+30 Sparks - perfect session');
 
   const streakRes = await updateStreak();
   document.getElementById('progFill').style.width = '100%';
@@ -1089,10 +1242,10 @@ async function completeSession() {
         <div class="comp-stats">
           <div class="cstat"><div class="cstat-num">${G.sesCorrect}/${G.questions.length}</div><div class="cstat-lbl">Correct</div></div>
           <div class="cstat"><div class="cstat-num">${G.sesPartial}</div><div class="cstat-lbl">Partial</div></div>
-          <div class="cstat"><div class="cstat-num">${G.sesPts}</div><div class="cstat-lbl">Pts Earned</div></div>
+          <div class="cstat"><div class="cstat-num">${G.sesPts}</div><div class="cstat-lbl">Sparks</div></div>
           <div class="cstat"><div class="cstat-num">${Math.round(duration/60)}m</div><div class="cstat-lbl">Time</div></div>
         </div>
-        ${streakRes && streakRes.bonus_points > 0 ? `<div style="padding:12px;background:rgba(239,68,68,0.08);border-radius:12px;font-size:0.88rem;font-weight:700;color:#ef4444;margin-bottom:1rem;display:flex;align-items:center;gap:6px;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-fire"/></svg> ${streakRes.streak_count}-day streak! +${streakRes.bonus_points} bonus pts</div>` : ''}
+        ${streakRes && streakRes.bonus_points > 0 ? `<div style="padding:12px;background:rgba(239,68,68,0.08);border-radius:12px;font-size:0.88rem;font-weight:700;color:#ef4444;margin-bottom:1rem;">🔥 ${streakRes.streak_count}-day ${escHtml(streakRes.streak_tier?.name || 'streak')}! +${streakRes.bonus_points} Sparks</div>` : ''}
         <div class="comp-btns">
           <button class="btn-solid" onclick="restartSetup()">Study Again</button>
           <button class="btn-outline" onclick="switchTab('flashcards')">Flashcards</button>
@@ -1104,16 +1257,26 @@ async function completeSession() {
   `;
 
   // Save session history
-  const rec = { date: new Date().toISOString().split('T')[0], mode: G.mode, questions: G.questions.length, correct: G.sesCorrect, partial: G.sesPartial, points: G.sesPts, duration };
+  const rec = { date: today, mode: G.mode, questions: G.questions.length, correct: G.sesCorrect, partial: G.sesPartial, points: G.sesPts, duration };
   G.sessionHistory.push(rec);
   G.totalSessions++;
   saveLocal();
 
   try {
-    await fetch('/study/session/complete', {
+    const r = await fetch('/study/session/complete', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ mode: G.mode, questions_total: G.questions.length, questions_correct: G.sesCorrect, questions_partial: G.sesPartial, points_earned: G.sesPts, duration_seconds: duration })
+      body: JSON.stringify({ mode: G.mode, questions_total: G.questions.length, questions_correct: G.sesCorrect, questions_partial: G.sesPartial, points_earned: G.sesPts, duration_seconds: duration, already_awarded: true, local_date: today, local_hour: new Date().getHours() })
     });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      G.totalPts = d.total_points ?? G.totalPts;
+      G.sparkBalance = d.spark_balance ?? G.sparkBalance;
+      G.totalSessions = d.total_sessions ?? G.totalSessions;
+      G.weeklyQuests = d.weekly_quests || G.weeklyQuests;
+      if (d.quest_rewards?.length) showCelebration('Quest Complete!', 'You finished a weekly goal.', d.quest_rewards.map(q => `+${q.sparks || 0} Sparks${q.freezes ? ' + Freeze' : ''}`));
+      if (d.badges_unlocked?.length) showCelebration('Badge Unlocked!', 'A new achievement is on your profile.', d.badges_unlocked.map(b => b.replaceAll('_',' ')));
+      updateChips();
+    }
   } catch(e) {}
 }
 
@@ -1151,16 +1314,31 @@ function updateTimerUI() {
 
 // ══ POINTS ════════════════════════════════════════════════
 async function addPoints(delta, msg) {
-  G.sesPts += delta; G.totalPts += delta;
-  updateChips(); pulseChip('sChipPts');
-  showToast(msg);
-  saveLocal();
   try {
-    await fetch('/study/points/update', {
+    const r = await fetch('/study/sparks/update', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({delta, reason: msg})
     });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      const awarded = d.awarded ?? delta;
+      G.sesPts += awarded;
+      G.totalPts = d.total_points ?? (G.totalPts + awarded);
+      G.sparkBalance = d.spark_balance ?? (G.sparkBalance + awarded);
+      G.sparksEarnedTotal = d.sparks_earned_total ?? G.totalPts;
+      G.level = d.level || G.level;
+      G.levelTitle = d.level_title || G.levelTitle;
+      G.activeBooster = d.active_booster || null;
+      updateChips(); pulseChip('sChipPts');
+      showToast((d.multiplier && d.multiplier > 1) ? `${msg} ×${d.multiplier} = +${awarded} Sparks` : msg.replace(/pts/g, 'Sparks'));
+      if (d.level_up) showCelebration(`Level ${d.level_up.to}!`, `You reached a new level and earned ${d.level_up.bonus} bonus Sparks.`, [`+${d.level_up.bonus} Sparks`, G.levelTitle]);
+      saveLocal();
+      return awarded;
+    }
   } catch(e) {}
+  G.sesPts += delta; G.totalPts += delta; G.sparkBalance += delta; G.sparksEarnedTotal += delta;
+  updateChips(); pulseChip('sChipPts'); showToast(msg.replace(/pts/g, 'Sparks')); saveLocal();
+  return delta;
 }
 
 function showToast(msg) {
@@ -1175,15 +1353,20 @@ async function updateStreak() {
   try {
     const r = await fetch('/study/streak/update', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({})
+      body: JSON.stringify({questions_answered: G.sesAnswered, questions_total: G.questions.length, local_date: new Date().toISOString().split('T')[0]})
     });
     const d = await r.json();
     if (d.status === 'ok') {
       G.streak = d.streak_count;
       G.freezes = d.streak_freeze_count;
+      G.freezeCapacity = d.freeze_capacity || G.freezeCapacity;
       G.totalPts = d.total_points;
+      G.sparkBalance = d.spark_balance ?? G.sparkBalance;
+      G.streakTier = d.streak_tier || G.streakTier;
       if (d.streak_history) G.streakHistory = d.streak_history;
       if (d.longest_streak) G.longestStreak = d.longest_streak;
+      if (d.milestone) showCelebration(`Day ${d.milestone.day}!`, 'That streak just leveled up.', [`+${d.milestone.sparks} Sparks`, d.milestone.freezes ? `+${d.milestone.freezes} Freeze` : 'Badge unlocked'].filter(Boolean));
+      if (d.streak_event) showToast(d.streak_event.message);
       updateChips();
       renderStreakTab();
       saveLocal();
@@ -1208,17 +1391,25 @@ async function updateStreak() {
 
 // ══ STREAK TAB ════════════════════════════════════════════
 function renderStreakTab() {
+  const tier = G.streakTier || {name:'Spark', bonus:5, color:'#ef4444'};
+  const hero = document.querySelector('.streak-hero');
+  if (hero) hero.style.setProperty('--tier', tier.color || '#ef4444');
+  document.getElementById('riskBanner').classList.toggle('on', G.atRisk && !G.repairAvailable);
+  document.getElementById('riskBanner').innerHTML = G.atRisk ? `<span>Your streak ends in a few hours - study now to keep it.</span><button class="tiny-action" onclick="switchTab('learn')">Study now</button>` : '';
+  document.getElementById('repairBanner').classList.toggle('on', G.repairAvailable);
+  document.getElementById('repairBanner').innerHTML = G.repairAvailable ? `<span>Your streak broke - save it for ${G.repairCost} Sparks before the repair window closes.</span><button class="tiny-action" onclick="repairStreak()">Repair streak</button>` : '';
   document.getElementById('streakBigNum').textContent = G.streak;
-  document.getElementById('streakWordLabel').textContent = `Day Streak`;
+  document.getElementById('streakWordLabel').textContent = `${tier.name} Streak`;
   document.getElementById('longestStreakDisp').textContent = G.longestStreak;
   document.getElementById('totalSesDisp').textContent = G.totalSessions;
-  document.getElementById('totalPtsDisp2').textContent = G.totalPts;
+  document.getElementById('totalPtsDisp2').textContent = G.sparkBalance;
 
   const today = new Date().toISOString().split('T')[0];
   const sub = document.getElementById('streakSubMsg');
   if (G.streak === 0) sub.textContent = 'Complete a session today to start your streak!';
-  else if (G.streakHistory.includes(today)) sub.textContent = `Already studied today. Come back tomorrow to continue!`;
-  else sub.textContent = `You studied ${G.streak} day${G.streak!==1?'s':''} in a row! Study today to keep it going.`;
+  else if (G.streakHistory.includes(today)) sub.textContent = `Day ${G.streak} - you're on fire. Keep it going.`;
+  else if (G.atRisk) sub.textContent = 'Your streak is at risk. One 5-question session protects it.';
+  else sub.textContent = `Daily ${tier.name} bonus: +${tier.bonus} Sparks when you finish a session.`;
 
   // Calendar — last 60 days
   const headers = ['S','M','T','W','T','F','S'];
@@ -1247,20 +1438,33 @@ function renderStreakTab() {
 
   // Freezes
   const fi = document.getElementById('freezeIcons');
-  fi.innerHTML = [0,1].map(i => `<div class="freeze-icon ${i >= G.freezes ? 'used' : ''}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pin"/></svg></div>`).join('');
+  fi.innerHTML = Array.from({length:G.freezeCapacity}, (_, i) => `<div class="freeze-icon ${i >= G.freezes ? 'used' : ''}">🛡</div>`).join('');
   document.getElementById('freezeSubMsg').textContent = G.freezes > 0
-    ? `You have ${G.freezes} freeze${G.freezes!==1?'s':''} — miss a day without losing your streak!`
-    : 'No freezes. Earn one by reaching a 7-day streak.';
+    ? `You have ${G.freezes}/${G.freezeCapacity} freezes. Long streaks earn passive weekly protection.`
+    : 'No freezes. Earn one at milestones or buy protection in the Spark Shop.';
 
   // Milestones
-  const milestones = [3, 7, 14, 30, 60, 100];
+  const milestones = [3, 7, 14, 21, 30, 60, 100, 365];
   document.getElementById('milestoneRow').innerHTML = milestones.map(m => {
     const reached = G.longestStreak >= m;
     const isNext = !reached && milestones.filter(x => G.longestStreak >= x).length === milestones.indexOf(m);
     const cls = reached ? 'm-reached' : isNext ? 'm-next' : 'm-locked';
-    const icon = reached ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg>' : isNext ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg>' : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg>';
-    return `<div class="milestone ${cls}">${icon} ${m} days${m===7?' (+freeze)':m===14?' (+20pts)':m===30?' (+freeze)':''}</div>`;
+    const icon = reached ? '✅' : isNext ? '🎯' : '🔒';
+    const reward = {3:25,7:75,14:100,21:150,30:250,60:500,100:1000,365:2000}[m];
+    return `<div class="milestone ${cls}">${icon} ${m} days (+${reward} Sparks)</div>`;
   }).join('');
+
+  const bg = document.getElementById('badgeGrid');
+  if (!G.badges.length) {
+    bg.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:1rem;color:var(--txm);">No badges yet. Day 3 unlocks First Flame.</div>';
+  } else {
+    bg.innerHTML = G.badges.map(b => `
+      <div class="badge-item">
+        <div class="badge-mark">★</div>
+        <div><div class="badge-name">${escHtml(b.name || b.id)}</div><div class="badge-kind">${escHtml(b.kind || 'earned')}</div></div>
+      </div>
+    `).join('');
+  }
 }
 
 // ══ FLASHCARDS ════════════════════════════════════════════
@@ -1345,7 +1549,7 @@ async function renderMasteryTab() {
 
 // ══ PROGRESS TAB ══════════════════════════════════════════
 function renderProgressTab() {
-  document.getElementById('pTotalPts').textContent = G.totalPts;
+  document.getElementById('pTotalPts').textContent = G.sparksEarnedTotal || G.totalPts;
   document.getElementById('pTotalSes').textContent = G.totalSessions;
 
   const allSessions = G.sessionHistory;
@@ -1364,7 +1568,7 @@ function renderProgressTab() {
       <div class="shi-date">${s.date}</div>
       <span class="shi-mode ${modeMap[s.mode] || 'shi-m-casual'}">${s.mode}</span>
       <div class="shi-stats">${s.correct}/${s.questions} correct · ${Math.round((s.duration||0)/60)}m</div>
-      <div class="shi-pts">+${s.points} pts</div>
+      <div class="shi-pts">+${s.points} Sparks</div>
     </div>
   `).join('');
 }
@@ -1404,7 +1608,7 @@ function xRenderQ() {
   document.getElementById('xSubmitBtn').style.display = 'block';
   document.getElementById('xSubmitBtn').disabled = false;
   document.getElementById('xSubmitBtn').textContent = 'Submit Answer';
-  document.getElementById('xPtsDisplay').innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> ${G.sesPts} pts`;
+  document.getElementById('xPtsDisplay').textContent = `⚡ ${G.sesPts} Sparks`;
   G.xConf = 'medium'; G.xRevealed = false;
   document.querySelectorAll('.xconf-btn').forEach(b => b.className = 'xconf-btn');
 }
@@ -1438,8 +1642,8 @@ async function xSubmit() {
         ${ev.critique ? `<div style="font-size:0.82rem;color:rgba(255,255,255,0.7);">${escHtml(ev.critique)}</div>` : ''}
         ${ev.memory_anchor ? `<div style="margin-top:8px;padding:8px;background:rgba(245,158,11,0.15);border-radius:8px;font-size:0.82rem;">${escHtml(ev.memory_anchor)}</div>` : ''}`;
 
-      const pts = ev.points_earned || 1;
-      await addPoints(pts, `+${pts} pts`);
+      const pts = ev.verdict === 'correct' ? 2 : ev.verdict === 'partial' ? 1 : 0;
+      if (pts > 0) await addPoints(pts, `+${pts} Sparks`);
       G.sesAnswered++;
       if (ev.verdict === 'correct') G.sesCorrect++;
       else if (ev.verdict === 'partial') G.sesPartial++;
@@ -1447,8 +1651,8 @@ async function xSubmit() {
     }
   } catch(e) {
     document.getElementById('xFbBox').style.display = 'block';
-    document.getElementById('xFbBox').innerHTML = `<div style="margin-bottom:8px;font-weight:700;">Correct Answer:</div><div>${escHtml(q.answer)}</div>`;
-    await addPoints(2, '+2 pts');
+    document.getElementById('xFbBox').innerHTML = `<div style="margin-bottom:8px;font-weight:700;">📖 Correct Answer:</div><div>${escHtml(q.answer)}</div>`;
+    await addPoints(1, '+1 Sparks');
     G.sesAnswered++;
   }
 
@@ -1501,6 +1705,113 @@ function hStop() {
 window.addEventListener('beforeunload', e => {
   if (document.getElementById('xOverlay').classList.contains('on')) { e.preventDefault(); e.returnValue = ''; }
 });
+
+// ══ REWARDS UI ═════════════════════════════════════════════
+function renderQuestsTab() {
+  const qd = G.weeklyQuests;
+  const list = document.getElementById('questList');
+  if (!qd || !qd.quests?.length) {
+    list.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--txm);">Quests are loading. Finish a session to refresh them.</div>';
+    return;
+  }
+  const completed = new Set(qd.completed || []);
+  const progress = qd.progress || {};
+  document.getElementById('questCompletionMsg').textContent = completed.size >= 3
+    ? 'Weekly set complete. Nice work.'
+    : `${3 - completed.size} quest${3-completed.size === 1 ? '' : 's'} left for the weekly completion bonus.`;
+  list.innerHTML = qd.quests.map(q => {
+    const cur = Math.min(progress[q.id] || 0, q.target);
+    const pct = Math.min(100, Math.round(cur / q.target * 100));
+    const done = completed.has(q.id);
+    return `
+      <div class="quest-card">
+        <div class="quest-head">
+          <div class="quest-title">${done ? '✅ ' : ''}${escHtml(q.title)}</div>
+          <div class="quest-reward">+${q.reward} Sparks</div>
+        </div>
+        <div class="quest-track"><div class="quest-fill" style="width:${pct}%"></div></div>
+        <div class="quest-meta">${cur}/${q.target} complete</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderShopTab() {
+  const grid = document.getElementById('shopGrid');
+  document.getElementById('shopBalance').textContent = G.sparkBalance;
+  if (!G.shop?.items) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--txm);">Shop is loading.</div>';
+    return;
+  }
+  const deal = G.shop.weekly_deal || {};
+  const dealName = G.shop.items[deal.item_id]?.name || 'one item';
+  document.getElementById('weeklyDealMsg').textContent = `Weekly deal: ${dealName} is 30% off.`;
+  const order = ['streak_freeze','freeze_pack','booster_2x','booster_3x','daily_booster','skip_pack','hint_pack','color_gold','color_neon','title_scholar','title_grinder','calendar_dark','frame_ember','frame_aurora'];
+  grid.innerHTML = order.filter(id => G.shop.items[id]).map(id => {
+    const item = G.shop.items[id];
+    const price = id === deal.item_id ? deal.price : item.price;
+    const canBuy = G.sparkBalance >= price;
+    return `
+      <div class="shop-item ${id === deal.item_id ? 'deal' : ''}">
+        <div class="shop-head">
+          <div class="shop-title">${escHtml(item.name)}</div>
+          <div class="shop-price">${price} Sparks</div>
+        </div>
+        <div class="shop-desc">${escHtml(item.description || '')}</div>
+        <button class="shop-buy" ${canBuy ? '' : 'disabled'} onclick="buyShopItem('${id}')">${canBuy ? 'Buy' : 'Need more Sparks'}</button>
+      </div>
+    `;
+  }).join('');
+}
+
+async function buyShopItem(itemId) {
+  try {
+    const r = await fetch('/study/shop/buy', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({item_id:itemId})
+    });
+    const d = await r.json();
+    if (d.status !== 'ok') throw new Error(d.message || 'Could not buy item.');
+    G.sparkBalance = d.spark_balance ?? G.sparkBalance;
+    G.freezes = d.streak_freeze_count ?? G.freezes;
+    G.freezeCapacity = d.freeze_capacity ?? G.freezeCapacity;
+    G.activeBooster = d.active_booster || null;
+    G.activeCosmetics = d.active_cosmetics || G.activeCosmetics;
+    updateChips();
+    renderShopTab();
+    renderStreakTab();
+    showToast(`Bought ${d.item?.name || 'item'}`);
+  } catch(e) {
+    alert(e.message);
+  }
+}
+
+async function repairStreak() {
+  try {
+    const r = await fetch('/study/repair', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+    const d = await r.json();
+    if (d.status !== 'ok') throw new Error(d.message || 'Repair failed.');
+    G.streak = d.streak_count || G.streak;
+    G.sparkBalance = d.spark_balance ?? G.sparkBalance;
+    G.repairAvailable = false;
+    if (d.badges_unlocked?.length) showCelebration('Comeback Kid', 'Your streak is alive again.', [`-${G.repairCost} Sparks`, 'Badge unlocked']);
+    updateChips();
+    renderStreakTab();
+  } catch(e) {
+    alert(e.message);
+  }
+}
+
+function showCelebration(title, sub, rewards = []) {
+  document.getElementById('celebrationTitle').textContent = title;
+  document.getElementById('celebrationSub').textContent = sub;
+  document.getElementById('celebrationRewards').innerHTML = rewards.map(r => `<span class="reward-pill">${escHtml(r)}</span>`).join('');
+  document.getElementById('celebrationOverlay').classList.add('on');
+}
+
+function closeCelebration() {
+  document.getElementById('celebrationOverlay').classList.remove('on');
+}
 
 // ══ UTILS ════════════════════════════════════════════════
 function escHtml(s) {

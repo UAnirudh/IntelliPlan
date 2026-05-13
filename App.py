@@ -12,6 +12,7 @@ import uuid
 import base64
 import io
 import functools
+import random
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 from flask_limiter import Limiter
@@ -23,6 +24,7 @@ import secrets as secrets_module
 from flask import jsonify, send_from_directory
 from datetime import datetime, timedelta
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import inspect, text
 from flask_login import (
     LoginManager, UserMixin, login_user, logout_user,
     current_user
@@ -337,11 +339,22 @@ class StudyPoints(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     guest_session_id = db.Column(db.String(64), nullable=True)
     total_points = db.Column(db.Integer, default=0)
+    spark_balance = db.Column(db.Integer, default=0)
+    sparks_earned_total = db.Column(db.Integer, default=0)
+    level = db.Column(db.Integer, default=1)
     streak_count = db.Column(db.Integer, default=0)
     streak_freeze_count = db.Column(db.Integer, default=0)
+    freeze_capacity = db.Column(db.Integer, default=2)
     last_active_date = db.Column(db.String(16), default="")
+    repair_last_used = db.Column(db.String(16), default="")
+    repair_eligible_until = db.Column(db.DateTime, nullable=True)
     streak_history = db.Column(db.Text, default="[]")
     session_history = db.Column(db.Text, default="[]")
+    badges = db.Column(db.Text, default="[]")
+    active_booster = db.Column(db.Text, default="null")
+    active_cosmetics = db.Column(db.Text, default="{}")
+    weekly_quests = db.Column(db.Text, default="{}")
+    shop_purchases = db.Column(db.Text, default="[]")
     longest_streak = db.Column(db.Integer, default=0)
     total_sessions = db.Column(db.Integer, default=0)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -365,8 +378,318 @@ class StudyMastery(db.Model):
     interval_days = db.Column(db.Integer, default=1)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+STREAK_TIERS = [
+    {"id": "spark", "name": "Spark", "min": 1, "max": 6, "bonus": 5, "freeze_cap": 2, "color": "#ef4444"},
+    {"id": "flame", "name": "Flame", "min": 7, "max": 13, "bonus": 10, "freeze_cap": 3, "color": "#f97316"},
+    {"id": "blaze", "name": "Blaze", "min": 14, "max": 20, "bonus": 15, "freeze_cap": 3, "color": "#f59e0b"},
+    {"id": "inferno", "name": "Inferno", "min": 21, "max": 29, "bonus": 20, "freeze_cap": 5, "color": "#dc2626"},
+    {"id": "wildfire", "name": "Wildfire", "min": 30, "max": 59, "bonus": 30, "freeze_cap": 5, "color": "#f97316"},
+    {"id": "firestorm", "name": "Firestorm", "min": 60, "max": 99, "bonus": 50, "freeze_cap": 5, "color": "#06b6d4"},
+    {"id": "legendary", "name": "Legendary", "min": 100, "max": 364, "bonus": 75, "freeze_cap": 5, "color": "#8b5cf6"},
+    {"id": "eternal", "name": "Eternal", "min": 365, "max": 99999, "bonus": 150, "freeze_cap": 5, "color": "#22c55e"},
+]
+
+LEVELS = [
+    (1, "Learner", 0),
+    (5, "Student", 500),
+    (10, "Scholar", 1500),
+    (15, "Researcher", 3500),
+    (20, "Expert", 7000),
+    (25, "Veteran", 13000),
+    (30, "Mentor", 22000),
+    (40, "Master", 45000),
+    (50, "Legend", 100000),
+]
+
+STREAK_MILESTONES = {
+    3: {"sparks": 25, "freezes": 0, "badge": "first_flame", "title": None},
+    7: {"sparks": 75, "freezes": 1, "badge": "week_warrior", "title": None},
+    14: {"sparks": 100, "freezes": 1, "badge": "fortnight_fighter", "title": None},
+    21: {"sparks": 150, "freezes": 0, "badge": "inferno_initiate", "title": "Grinder"},
+    30: {"sparks": 250, "freezes": 2, "badge": "monthly_master", "title": "Monthly Master"},
+    60: {"sparks": 500, "freezes": 2, "badge": "sixty_strong", "title": None},
+    100: {"sparks": 1000, "freezes": 3, "badge": "century_club", "title": "Legendary"},
+    365: {"sparks": 2000, "freezes": 3, "badge": "year_of_fire", "title": "Eternal"},
+}
+
+BADGE_CATALOG = {
+    "first_flame": {"name": "First Flame", "kind": "streak"},
+    "week_warrior": {"name": "Week Warrior", "kind": "streak"},
+    "fortnight_fighter": {"name": "Fortnight Fighter", "kind": "streak"},
+    "inferno_initiate": {"name": "Inferno Initiate", "kind": "streak"},
+    "monthly_master": {"name": "Monthly Master", "kind": "streak"},
+    "sixty_strong": {"name": "Sixty Strong", "kind": "streak"},
+    "century_club": {"name": "Century Club", "kind": "streak"},
+    "year_of_fire": {"name": "Year of Fire", "kind": "streak"},
+    "first_session": {"name": "First Session", "kind": "session"},
+    "getting_serious": {"name": "Getting Serious", "kind": "session"},
+    "dedicated": {"name": "Dedicated", "kind": "session"},
+    "committed": {"name": "Committed", "kind": "session"},
+    "unstoppable": {"name": "Unstoppable", "kind": "session"},
+    "sharp": {"name": "Sharp", "kind": "accuracy"},
+    "precise": {"name": "Precise", "kind": "accuracy"},
+    "flawless": {"name": "Flawless", "kind": "accuracy"},
+    "perfect_week": {"name": "Perfect Week", "kind": "special"},
+    "speed_demon": {"name": "Speed Demon", "kind": "special"},
+    "night_owl": {"name": "Night Owl", "kind": "special"},
+    "early_bird": {"name": "Early Bird", "kind": "special"},
+    "comeback_kid": {"name": "Comeback Kid", "kind": "special"},
+}
+
+SHOP_ITEMS = {
+    "streak_freeze": {"name": "Streak Freeze", "price": 200, "kind": "protection", "value": 1, "description": "Blocks one missed day."},
+    "freeze_pack": {"name": "Freeze Pack", "price": 500, "kind": "protection", "value": 3, "description": "Three freezes at a discount."},
+    "booster_2x": {"name": "2x Sparks", "price": 100, "kind": "booster", "multiplier": 2, "uses": 1, "description": "Doubles Sparks in the next session."},
+    "booster_3x": {"name": "3x Sparks", "price": 250, "kind": "booster", "multiplier": 3, "uses": 1, "description": "Triples Sparks in the next session."},
+    "daily_booster": {"name": "Daily Booster", "price": 350, "kind": "booster", "multiplier": 1.5, "hours": 24, "description": "+50% Sparks for 24 hours."},
+    "skip_pack": {"name": "Question Skip Pack", "price": 75, "kind": "inventory", "field": "skips", "value": 5, "description": "Skip five questions without losing momentum."},
+    "hint_pack": {"name": "Hint Token Pack", "price": 120, "kind": "inventory", "field": "hints", "value": 10, "description": "Use AI hints on hard questions."},
+    "color_gold": {"name": "Streak Color: Gold", "price": 400, "kind": "cosmetic", "slot": "streak_color", "value": "gold", "description": "Gold streak glow."},
+    "color_neon": {"name": "Streak Color: Neon", "price": 400, "kind": "cosmetic", "slot": "streak_color", "value": "neon", "description": "Neon streak glow."},
+    "title_scholar": {"name": "Profile Title: Scholar", "price": 300, "kind": "cosmetic", "slot": "title", "value": "Scholar", "description": "Display Scholar by your name."},
+    "title_grinder": {"name": "Profile Title: Grinder", "price": 300, "kind": "cosmetic", "slot": "title", "value": "Grinder", "description": "Display Grinder by your name."},
+    "calendar_dark": {"name": "Calendar Theme: Dark", "price": 500, "kind": "cosmetic", "slot": "calendar_theme", "value": "dark", "description": "Dark calendar grid."},
+    "frame_ember": {"name": "Streak Frame: Ember", "price": 600, "kind": "cosmetic", "slot": "streak_frame", "value": "ember", "description": "Animated ember frame."},
+    "frame_aurora": {"name": "Streak Frame: Aurora", "price": 800, "kind": "cosmetic", "slot": "streak_frame", "value": "aurora", "description": "Rare aurora frame."},
+}
+
+QUEST_POOL = [
+    {"id": "study_5_days", "title": "Study 5 days this week", "metric": "study_days", "target": 5, "reward": 80},
+    {"id": "answer_75_correct", "title": "Answer 75 questions correctly", "metric": "correct_answers", "target": 75, "reward": 60},
+    {"id": "serious_3_sessions", "title": "Complete 3 Serious or Extreme sessions", "metric": "focus_sessions", "target": 3, "reward": 70},
+    {"id": "maintain_7_days", "title": "Maintain your streak all 7 days", "metric": "study_days", "target": 7, "reward": 120},
+    {"id": "master_3_concepts", "title": "Master 3 new concepts", "metric": "mastered_concepts", "target": 3, "reward": 60},
+    {"id": "earn_200_session", "title": "Earn 200 Sparks in a single session", "metric": "single_session_sparks", "target": 200, "reward": 50},
+    {"id": "perfect_session", "title": "Complete a perfect session", "metric": "perfect_sessions", "target": 1, "reward": 90},
+    {"id": "study_30_minutes", "title": "Spend 30+ minutes studying this week", "metric": "study_minutes", "target": 30, "reward": 70},
+]
+
+def safe_json_load(raw, fallback):
+    try:
+        if raw in (None, ""):
+            return fallback
+        return json.loads(raw)
+    except Exception:
+        return fallback
+
+def current_study_tier(streak_count):
+    streak_count = int(streak_count or 0)
+    for tier in STREAK_TIERS:
+        if tier["min"] <= streak_count <= tier["max"]:
+            return tier
+    return STREAK_TIERS[0]
+
+def repair_cost_for(streak_count):
+    streak_count = int(streak_count or 0)
+    if streak_count <= 6:
+        return 150
+    if streak_count <= 13:
+        return 300
+    if streak_count <= 29:
+        return 500
+    if streak_count <= 59:
+        return 800
+    return 1200
+
+def level_for_sparks(sparks_total):
+    sparks_total = int(sparks_total or 0)
+    current = LEVELS[0]
+    for level in LEVELS:
+        if sparks_total >= level[2]:
+            current = level
+    return {"level": current[0], "title": current[1], "next": next(({"level": l, "title": t, "required": req} for l, t, req in LEVELS if req > sparks_total), None)}
+
+def add_badges(p, badge_ids):
+    badges = safe_json_load(p.badges, [])
+    changed = []
+    for badge_id in badge_ids:
+        if badge_id and badge_id not in badges:
+            badges.append(badge_id)
+            changed.append(badge_id)
+    if changed:
+        p.badges = json.dumps(badges)
+    return changed
+
+def grant_sparks(p, amount, reason="", apply_booster=True):
+    amount = max(0, int(round(float(amount or 0))))
+    if amount <= 0:
+        return {"awarded": 0, "base": 0, "multiplier": 1, "level_up": None}
+    multiplier = 1
+    booster = safe_json_load(p.active_booster, None)
+    now = datetime.utcnow()
+    if apply_booster and isinstance(booster, dict):
+        expires_at = booster.get("expires_at")
+        if expires_at:
+            try:
+                if datetime.fromisoformat(expires_at) < now:
+                    booster = None
+            except Exception:
+                booster = None
+        if booster:
+            multiplier = float(booster.get("multiplier", 1) or 1)
+            if booster.get("uses") is not None:
+                booster["uses"] = max(0, int(booster.get("uses", 0)) - 1)
+                p.active_booster = json.dumps(booster) if booster["uses"] > 0 else "null"
+    awarded = int(round(amount * multiplier))
+    old_level = int(p.level or 1)
+    p.spark_balance = int(p.spark_balance or 0) + awarded
+    p.sparks_earned_total = int(p.sparks_earned_total or p.total_points or 0) + awarded
+    p.total_points = int(p.sparks_earned_total or 0)
+    new_level = level_for_sparks(p.sparks_earned_total)["level"]
+    level_up = None
+    if new_level > old_level:
+        p.level = new_level
+        p.spark_balance += 50
+        p.sparks_earned_total += 50
+        p.total_points = p.sparks_earned_total
+        level_up = {"from": old_level, "to": new_level, "bonus": 50}
+    p.updated_at = datetime.utcnow()
+    return {"awarded": awarded, "base": amount, "multiplier": multiplier, "level_up": level_up}
+
+def active_week_id(dt=None):
+    dt = dt or datetime.now()
+    iso = dt.isocalendar()
+    return f"{iso.year}-W{iso.week:02d}"
+
+def ensure_weekly_quests(p):
+    week_id = active_week_id()
+    data = safe_json_load(p.weekly_quests, {})
+    if data.get("week_id") == week_id and data.get("quests"):
+        return data
+    seed = f"{week_id}:{p.user_id or p.guest_session_id or p.id or 'study'}"
+    rng = random.Random(seed)
+    quests = [dict(q) for q in rng.sample(QUEST_POOL, 3)]
+    data = {
+        "week_id": week_id,
+        "quests": quests,
+        "progress": {q["id"]: 0 for q in quests},
+        "completed": [],
+        "completion_bonus_claimed": False,
+        "study_dates": [],
+    }
+    p.weekly_quests = json.dumps(data)
+    return data
+
+def update_quest_progress(p, session_data):
+    quests = ensure_weekly_quests(p)
+    progress = quests.setdefault("progress", {})
+    completed = set(quests.get("completed", []))
+    study_date = session_data.get("date") or datetime.now().strftime("%Y-%m-%d")
+    study_dates = set(quests.get("study_dates", []))
+    study_dates.add(study_date)
+    quests["study_dates"] = sorted(study_dates)
+    metrics = {
+        "study_days": len(study_dates),
+        "correct_answers": int(session_data.get("correct", 0) or 0),
+        "focus_sessions": 1 if session_data.get("mode") in ("serious", "extreme") else 0,
+        "mastered_concepts": int(session_data.get("mastered_concepts", 0) or 0),
+        "single_session_sparks": int(session_data.get("sparks", 0) or 0),
+        "perfect_sessions": 1 if int(session_data.get("questions", 0) or 0) > 0 and int(session_data.get("correct", 0) or 0) >= int(session_data.get("questions", 0) or 0) else 0,
+        "study_minutes": int(round((int(session_data.get("duration", 0) or 0)) / 60)),
+    }
+    rewards = []
+    for q in quests.get("quests", []):
+        qid = q["id"]
+        metric = q["metric"]
+        if metric == "study_days":
+            progress[qid] = len(study_dates)
+        elif metric == "single_session_sparks":
+            progress[qid] = max(int(progress.get(qid, 0) or 0), metrics[metric])
+        else:
+            progress[qid] = int(progress.get(qid, 0) or 0) + metrics.get(metric, 0)
+        if progress[qid] >= q["target"] and qid not in completed:
+            completed.add(qid)
+            rewards.append({"quest_id": qid, "title": q["title"], "sparks": q["reward"]})
+            grant_sparks(p, q["reward"], f"quest:{qid}", apply_booster=False)
+    quests["completed"] = sorted(completed)
+    if len(completed) >= 3 and not quests.get("completion_bonus_claimed"):
+        quests["completion_bonus_claimed"] = True
+        rewards.append({"quest_id": "weekly_completion", "title": "Weekly Completion Bonus", "sparks": 150, "freezes": 1})
+        grant_sparks(p, 150, "weekly_completion", apply_booster=False)
+        p.streak_freeze_count = min(int(p.freeze_capacity or 2), int(p.streak_freeze_count or 0) + 1)
+    p.weekly_quests = json.dumps(quests)
+    return rewards
+
+def passive_freezes_due(p, today=None):
+    today = today or datetime.now()
+    if int(p.streak_count or 0) < 30:
+        return 0
+    history = safe_json_load(p.shop_purchases, [])
+    week_id = active_week_id(today)
+    passive_key = f"passive_freeze:{week_id}"
+    if any(item.get("id") == passive_key for item in history if isinstance(item, dict)):
+        return 0
+    amount = 2 if int(p.streak_count or 0) >= 100 else 1
+    history.append({"id": passive_key, "item_id": "passive_freeze", "qty": amount, "created_at": datetime.utcnow().isoformat()})
+    p.shop_purchases = json.dumps(history[-200:])
+    return amount
+
+def reconcile_missed_streak(p):
+    if not p.last_active_date or int(p.streak_count or 0) <= 0:
+        return None
+    today = datetime.now().date()
+    try:
+        last = datetime.strptime(p.last_active_date[:10], "%Y-%m-%d").date()
+    except Exception:
+        return None
+    if last >= today - timedelta(days=1):
+        return None
+    history = safe_json_load(p.streak_history, [])
+    cosmetics = safe_json_load(p.active_cosmetics, {})
+    missed_day = (last + timedelta(days=1)).strftime("%Y-%m-%d")
+    tier = current_study_tier(p.streak_count)
+    p.freeze_capacity = tier["freeze_cap"]
+    if int(p.streak_freeze_count or 0) > 0:
+        p.streak_freeze_count = max(0, int(p.streak_freeze_count or 0) - 1)
+        p.last_active_date = missed_day
+        if missed_day not in history:
+            history.append(missed_day)
+            p.streak_history = json.dumps(sorted(history)[-90:])
+        return {"type": "freeze_consumed", "message": "Streak Freeze used - your streak is safe. Back tomorrow."}
+    if not p.repair_eligible_until or p.repair_eligible_until < datetime.utcnow():
+        p.repair_eligible_until = datetime.utcnow() + timedelta(hours=48)
+        cosmetics["broken_streak_count"] = int(p.streak_count or 0)
+        cosmetics["broken_last_active_date"] = p.last_active_date
+        p.active_cosmetics = json.dumps(cosmetics)
+        p.streak_count = 0
+        return {"type": "repair_window", "message": "Your streak broke, but you can still save it."}
+    return {"type": "repair_window", "message": "Your streak broke, but you can still save it."}
+
+def apply_study_schema_migrations():
+    inspector = inspect(db.engine)
+    if "study_points" not in inspector.get_table_names():
+        return
+    existing = {col["name"] for col in inspector.get_columns("study_points")}
+    dialect = db.engine.dialect.name
+    text_type = "TEXT"
+    dt_type = "TIMESTAMP" if dialect != "sqlite" else "DATETIME"
+    columns = {
+        "spark_balance": "INTEGER DEFAULT 0",
+        "sparks_earned_total": "INTEGER DEFAULT 0",
+        "level": "INTEGER DEFAULT 1",
+        "freeze_capacity": "INTEGER DEFAULT 2",
+        "repair_last_used": f"{text_type} DEFAULT ''",
+        "repair_eligible_until": dt_type,
+        "badges": f"{text_type} DEFAULT '[]'",
+        "active_booster": f"{text_type} DEFAULT 'null'",
+        "active_cosmetics": f"{text_type} DEFAULT '{{}}'",
+        "weekly_quests": f"{text_type} DEFAULT '{{}}'",
+        "shop_purchases": f"{text_type} DEFAULT '[]'",
+        "longest_streak": "INTEGER DEFAULT 0",
+        "total_sessions": "INTEGER DEFAULT 0",
+    }
+    for name, ddl in columns.items():
+        if name not in existing:
+            db.session.execute(text(f"ALTER TABLE study_points ADD COLUMN {name} {ddl}"))
+    db.session.execute(text("UPDATE study_points SET spark_balance = COALESCE(spark_balance, total_points, 0)"))
+    db.session.execute(text("UPDATE study_points SET sparks_earned_total = COALESCE(sparks_earned_total, total_points, 0)"))
+    db.session.execute(text("UPDATE study_points SET level = COALESCE(level, 1), freeze_capacity = COALESCE(freeze_capacity, 2), longest_streak = COALESCE(longest_streak, streak_count, 0), total_sessions = COALESCE(total_sessions, 0)"))
+    db.session.execute(text("UPDATE study_points SET badges = COALESCE(badges, '[]'), active_booster = COALESCE(active_booster, 'null'), active_cosmetics = COALESCE(active_cosmetics, '{}'), weekly_quests = COALESCE(weekly_quests, '{}'), shop_purchases = COALESCE(shop_purchases, '[]')"))
+    db.session.commit()
+
 with app.app_context():
     db.create_all()
+    apply_study_schema_migrations()
 
 print([str(r) for r in app.url_map.iter_rules() if 'tutor' in str(r)])
 
@@ -552,6 +875,24 @@ def get_study_profile(user_id=None, guest_id=None):
             p = StudyPoints(guest_session_id=guest_id)
             db.session.add(p)
             db.session.commit()
+    if p.spark_balance is None:
+        p.spark_balance = int(p.total_points or 0)
+    if p.sparks_earned_total is None or int(p.sparks_earned_total or 0) < int(p.total_points or 0):
+        p.sparks_earned_total = int(p.total_points or 0)
+    if not p.level:
+        p.level = level_for_sparks(p.sparks_earned_total)["level"]
+    if not p.freeze_capacity:
+        p.freeze_capacity = current_study_tier(p.streak_count)["freeze_cap"]
+    if p.badges in (None, ""):
+        p.badges = "[]"
+    if p.active_booster in (None, ""):
+        p.active_booster = "null"
+    if p.active_cosmetics in (None, ""):
+        p.active_cosmetics = "{}"
+    if p.weekly_quests in (None, ""):
+        p.weekly_quests = "{}"
+    if p.shop_purchases in (None, ""):
+        p.shop_purchases = "[]"
     return p
 
 @app.context_processor
@@ -2878,53 +3219,114 @@ def analyze_image_general():
 @app.route("/study/points", methods=["GET"])
 def study_get_points():
     uid = current_user.id if current_user.is_authenticated else None
-    gid = None if uid else session.get("guest_id", "guest")
+    gid = None if uid else get_guest_session_id()
     try:
         p = get_study_profile(uid, gid)
-        history = json.loads(p.streak_history or "[]")
-        sessions = json.loads(p.session_history or "[]")
+        streak_event = reconcile_missed_streak(p)
+        tier = current_study_tier(p.streak_count)
+        p.freeze_capacity = tier["freeze_cap"]
+        weekly_quests = ensure_weekly_quests(p)
+        history = safe_json_load(p.streak_history, [])
+        sessions = safe_json_load(p.session_history, [])
+        badges = safe_json_load(p.badges, [])
+        cosmetics = safe_json_load(p.active_cosmetics, {})
+        booster = safe_json_load(p.active_booster, None)
+        level_info = level_for_sparks(p.sparks_earned_total)
+        now = datetime.now()
+        today_str = now.strftime("%Y-%m-%d")
+        at_risk = bool(p.last_active_date != today_str and now.hour >= 18 and int(p.streak_count or 0) > 0)
+        repair_until = p.repair_eligible_until.isoformat() if p.repair_eligible_until else None
+        repair_available = bool(p.repair_eligible_until and p.repair_eligible_until > datetime.utcnow())
+        weekly_item_ids = sorted(SHOP_ITEMS.keys())
+        weekly_deal_id = random.Random(active_week_id()).choice(weekly_item_ids)
+        db.session.commit()
         return flask.jsonify({
             "status": "ok",
             "total_points": p.total_points,
+            "spark_balance": p.spark_balance or 0,
+            "sparks_earned_total": p.sparks_earned_total or p.total_points or 0,
+            "level": p.level or level_info["level"],
+            "level_title": level_info["title"],
+            "next_level": level_info["next"],
             "streak_count": p.streak_count,
             "streak_freeze_count": p.streak_freeze_count,
+            "freeze_capacity": p.freeze_capacity or tier["freeze_cap"],
             "last_active_date": p.last_active_date,
+            "streak_tier": tier,
+            "at_risk": at_risk,
+            "repair_eligible_until": repair_until,
+            "repair_available": repair_available,
+            "repair_cost": repair_cost_for(p.longest_streak or p.streak_count),
+            "streak_event": streak_event,
             "streak_history": history,
             "session_history": sessions[-20:],
             "longest_streak": p.longest_streak or p.streak_count,
-            "total_sessions": p.total_sessions or 0
+            "total_sessions": p.total_sessions or 0,
+            "badges": [{"id": bid, **BADGE_CATALOG.get(bid, {"name": bid.replace("_", " ").title(), "kind": "earned"})} for bid in badges],
+            "active_booster": booster,
+            "active_cosmetics": cosmetics,
+            "weekly_quests": weekly_quests,
+            "shop": {
+                "items": SHOP_ITEMS,
+                "weekly_deal": {
+                    "item_id": weekly_deal_id,
+                    "discount_percent": 30,
+                    "price": int(round(SHOP_ITEMS[weekly_deal_id]["price"] * 0.7))
+                }
+            }
         })
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
 
+@app.route("/study/sparks/update", methods=["POST"])
 @app.route("/study/points/update", methods=["POST"])
 def study_update_points():
     uid = current_user.id if current_user.is_authenticated else None
-    gid = None if uid else session.get("guest_id", "guest")
+    gid = None if uid else get_guest_session_id()
     data = request.json or {}
-    delta = int(data.get("delta", 0))
+    delta = int(data.get("delta", data.get("sparks", 0)) or 0)
     try:
         p = get_study_profile(uid, gid)
-        p.total_points = max(0, p.total_points + delta)
+        result = grant_sparks(p, delta, data.get("reason", "study"), apply_booster=bool(data.get("apply_booster", True)))
         p.updated_at = datetime.utcnow()
         db.session.commit()
-        return flask.jsonify({"status": "ok", "total_points": p.total_points})
+        return flask.jsonify({
+            "status": "ok",
+            "awarded": result["awarded"],
+            "base": result["base"],
+            "multiplier": result["multiplier"],
+            "total_points": p.total_points,
+            "spark_balance": p.spark_balance,
+            "sparks_earned_total": p.sparks_earned_total,
+            "level": p.level,
+            "level_title": level_for_sparks(p.sparks_earned_total)["title"],
+            "level_up": result["level_up"],
+            "active_booster": safe_json_load(p.active_booster, None)
+        })
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
 
 @app.route("/study/streak/update", methods=["POST"])
 def study_update_streak():
     uid = current_user.id if current_user.is_authenticated else None
-    gid = None if uid else session.get("guest_id", "guest")
-    today_str = datetime.now().strftime("%Y-%m-%d")
+    gid = None if uid else get_guest_session_id()
+    data = request.json or {}
+    today_str = (data.get("local_date") or datetime.now().strftime("%Y-%m-%d"))[:10]
+    questions_answered = int(data.get("questions_answered", data.get("questions_total", 0)) or 0)
+    if questions_answered < 5:
+        return flask.jsonify({"status": "error", "message": "Complete at least 5 questions to count toward your streak."})
     try:
         p = get_study_profile(uid, gid)
-        history = json.loads(p.streak_history or "[]")
+        streak_event = reconcile_missed_streak(p)
+        history = safe_json_load(p.streak_history, [])
         last = p.last_active_date
         bonus_points = 0
+        milestone = None
+        new_badges = []
+        freeze_awarded = 0
         if last == today_str:
-            return flask.jsonify({"status": "ok", "streak_count": p.streak_count, "bonus_points": 0, "total_points": p.total_points, "streak_history": history, "longest_streak": p.longest_streak or p.streak_count})
-        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+            return flask.jsonify({"status": "ok", "streak_count": p.streak_count, "bonus_points": 0, "total_points": p.total_points, "spark_balance": p.spark_balance, "streak_history": history, "longest_streak": p.longest_streak or p.streak_count, "streak_event": streak_event})
+        yesterday = (datetime.strptime(today_str, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
         if last == yesterday:
             p.streak_count += 1
         elif last == "":
@@ -2933,6 +3335,7 @@ def study_update_streak():
             if p.streak_freeze_count > 0:
                 p.streak_freeze_count -= 1
                 p.streak_count += 1
+                streak_event = {"type": "freeze_consumed", "message": "Streak Freeze used - your streak is safe. Back tomorrow."}
             else:
                 p.streak_count = 1
         p.last_active_date = today_str
@@ -2942,27 +3345,48 @@ def study_update_streak():
         p.streak_history = json.dumps(history)
         if p.streak_count > (p.longest_streak or 0):
             p.longest_streak = p.streak_count
-        if p.streak_count == 3:
-            bonus_points = 10
-        elif p.streak_count == 7:
-            bonus_points = 25
-            if p.streak_freeze_count < 2:
-                p.streak_freeze_count += 1
-        elif p.streak_count > 7 and p.streak_count % 7 == 0:
-            bonus_points = 25
-            if p.streak_freeze_count < 2:
-                p.streak_freeze_count += 1
-        p.total_points += bonus_points
-        p.total_sessions = (p.total_sessions or 0) + 1
+        tier = current_study_tier(p.streak_count)
+        p.freeze_capacity = tier["freeze_cap"]
+        daily = grant_sparks(p, tier["bonus"], "daily_streak", apply_booster=False)
+        bonus_points += daily["awarded"]
+        if p.streak_count in STREAK_MILESTONES:
+            reward = STREAK_MILESTONES[p.streak_count]
+            milestone_grant = grant_sparks(p, reward["sparks"], f"milestone:{p.streak_count}", apply_booster=False)
+            freeze_awarded += reward["freezes"]
+            p.streak_freeze_count = min(int(p.freeze_capacity or tier["freeze_cap"]), int(p.streak_freeze_count or 0) + freeze_awarded)
+            new_badges.extend(add_badges(p, [reward.get("badge")]))
+            bonus_points += milestone_grant["awarded"]
+            milestone = {"day": p.streak_count, "sparks": reward["sparks"], "freezes": reward["freezes"], "badge": reward.get("badge"), "title": reward.get("title")}
+        passive = passive_freezes_due(p)
+        if passive:
+            p.streak_freeze_count = min(int(p.freeze_capacity or tier["freeze_cap"]), int(p.streak_freeze_count or 0) + passive)
+            freeze_awarded += passive
+        p.repair_eligible_until = None
         db.session.commit()
-        return flask.jsonify({"status": "ok", "streak_count": p.streak_count, "streak_freeze_count": p.streak_freeze_count, "bonus_points": bonus_points, "total_points": p.total_points, "streak_history": history, "longest_streak": p.longest_streak or p.streak_count})
+        return flask.jsonify({
+            "status": "ok",
+            "streak_count": p.streak_count,
+            "streak_freeze_count": p.streak_freeze_count,
+            "freeze_capacity": p.freeze_capacity,
+            "bonus_points": bonus_points,
+            "daily_bonus": tier["bonus"],
+            "total_points": p.total_points,
+            "spark_balance": p.spark_balance,
+            "streak_history": history,
+            "longest_streak": p.longest_streak or p.streak_count,
+            "streak_tier": tier,
+            "milestone": milestone,
+            "badges_unlocked": new_badges,
+            "freezes_awarded": freeze_awarded,
+            "streak_event": streak_event
+        })
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
 
 @app.route("/study/mastery/update", methods=["POST"])
 def study_mastery_update():
     uid = current_user.id if current_user.is_authenticated else None
-    gid = None if uid else session.get("guest_id", "guest")
+    gid = None if uid else get_guest_session_id()
     data = request.json or {}
     question_key = data.get("question_key", "")[:512]
     verdict = data.get("verdict", "incorrect")
@@ -3006,7 +3430,7 @@ def study_mastery_update():
 @app.route("/study/mastery/due", methods=["GET"])
 def study_mastery_due():
     uid = current_user.id if current_user.is_authenticated else None
-    gid = None if uid else session.get("guest_id", "guest")
+    gid = None if uid else get_guest_session_id()
     today = datetime.now().strftime("%Y-%m-%d")
     try:
         if uid:
@@ -3021,7 +3445,7 @@ def study_mastery_due():
 @app.route("/study/mastery/all", methods=["GET"])
 def study_mastery_all():
     uid = current_user.id if current_user.is_authenticated else None
-    gid = None if uid else session.get("guest_id", "guest")
+    gid = None if uid else get_guest_session_id()
     try:
         if uid:
             items = StudyMastery.query.filter_by(user_id=uid).order_by(StudyMastery.mastery_level.asc()).limit(100).all()
@@ -3035,16 +3459,195 @@ def study_mastery_all():
 @app.route("/study/session/complete", methods=["POST"])
 def study_session_complete():
     uid = current_user.id if current_user.is_authenticated else None
-    gid = None if uid else session.get("guest_id", "guest")
+    gid = None if uid else get_guest_session_id()
     data = request.json or {}
     try:
         p = get_study_profile(uid, gid)
-        sessions = json.loads(p.session_history or "[]")
-        sessions.append({"date": datetime.now().strftime("%Y-%m-%d"), "mode": data.get("mode", "casual"), "questions": data.get("questions_total", 0), "correct": data.get("questions_correct", 0), "partial": data.get("questions_partial", 0), "points": data.get("points_earned", 0), "duration": data.get("duration_seconds", 0)})
+        sessions = safe_json_load(p.session_history, [])
+        questions_total = int(data.get("questions_total", 0) or 0)
+        questions_correct = int(data.get("questions_correct", 0) or 0)
+        questions_partial = int(data.get("questions_partial", 0) or 0)
+        points_earned = int(data.get("points_earned", data.get("sparks_earned", 0)) or 0)
+        duration_seconds = int(data.get("duration_seconds", 0) or 0)
+        rec = {
+            "date": (data.get("local_date") or datetime.now().strftime("%Y-%m-%d"))[:10],
+            "mode": data.get("mode", "casual"),
+            "questions": questions_total,
+            "correct": questions_correct,
+            "partial": questions_partial,
+            "points": points_earned,
+            "duration": duration_seconds
+        }
+        sessions.append(rec)
         p.session_history = json.dumps(sessions[-50:])
-        p.total_points += data.get("points_earned", 0)
+        if not data.get("already_awarded"):
+            grant_sparks(p, points_earned, "session_complete_import", apply_booster=False)
+        p.total_sessions = (p.total_sessions or 0) + 1
+        badges_to_add = []
+        if p.total_sessions >= 1:
+            badges_to_add.append("first_session")
+        if p.total_sessions >= 10:
+            badges_to_add.append("getting_serious")
+        if p.total_sessions >= 25:
+            badges_to_add.append("dedicated")
+        if p.total_sessions >= 50:
+            badges_to_add.append("committed")
+        if p.total_sessions >= 100:
+            badges_to_add.append("unstoppable")
+        total_questions = sum(int(s.get("questions", 0) or 0) for s in sessions)
+        total_correct = sum(int(s.get("correct", 0) or 0) for s in sessions)
+        accuracy = round(total_correct / total_questions * 100) if total_questions else 0
+        if accuracy >= 75 and total_questions >= 20:
+            badges_to_add.append("sharp")
+        if accuracy >= 85 and total_questions >= 20:
+            badges_to_add.append("precise")
+        if accuracy >= 95 and len(sessions) >= 20:
+            badges_to_add.append("flawless")
+        if questions_total > 0 and questions_correct >= questions_total:
+            badges_to_add.append("perfect_week")
+        if duration_seconds and duration_seconds < 300:
+            badges_to_add.append("speed_demon")
+        local_hour = int(data.get("local_hour", datetime.now().hour) or 0)
+        if local_hour < 7:
+            badges_to_add.append("early_bird")
+        if local_hour == 0:
+            badges_to_add.append("night_owl")
+        new_badges = add_badges(p, badges_to_add)
+        quest_rewards = update_quest_progress(p, {
+            "date": rec["date"],
+            "mode": rec["mode"],
+            "questions": questions_total,
+            "correct": questions_correct,
+            "sparks": points_earned,
+            "duration": duration_seconds,
+            "mastered_concepts": int(data.get("mastered_concepts", 0) or 0)
+        })
         db.session.commit()
-        return flask.jsonify({"status": "ok", "total_points": p.total_points})
+        return flask.jsonify({
+            "status": "ok",
+            "total_points": p.total_points,
+            "spark_balance": p.spark_balance,
+            "total_sessions": p.total_sessions,
+            "badges_unlocked": new_badges,
+            "quest_rewards": quest_rewards,
+            "weekly_quests": safe_json_load(p.weekly_quests, {})
+        })
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)})
+
+@app.route("/study/quests", methods=["GET"])
+def study_quests():
+    uid = current_user.id if current_user.is_authenticated else None
+    gid = None if uid else get_guest_session_id()
+    try:
+        p = get_study_profile(uid, gid)
+        quests = ensure_weekly_quests(p)
+        db.session.commit()
+        return flask.jsonify({"status": "ok", "weekly_quests": quests})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)})
+
+@app.route("/study/quests/update", methods=["POST"])
+def study_quests_update():
+    uid = current_user.id if current_user.is_authenticated else None
+    gid = None if uid else get_guest_session_id()
+    data = request.json or {}
+    try:
+        p = get_study_profile(uid, gid)
+        rewards = update_quest_progress(p, data)
+        db.session.commit()
+        return flask.jsonify({"status": "ok", "quest_rewards": rewards, "weekly_quests": safe_json_load(p.weekly_quests, {}), "spark_balance": p.spark_balance})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)})
+
+@app.route("/study/shop/buy", methods=["POST"])
+def study_shop_buy():
+    uid = current_user.id if current_user.is_authenticated else None
+    gid = None if uid else get_guest_session_id()
+    data = request.json or {}
+    item_id = data.get("item_id")
+    if item_id not in SHOP_ITEMS:
+        return flask.jsonify({"status": "error", "message": "Unknown shop item."}), 400
+    try:
+        p = get_study_profile(uid, gid)
+        item = SHOP_ITEMS[item_id]
+        weekly_deal_id = random.Random(active_week_id()).choice(sorted(SHOP_ITEMS.keys()))
+        price = int(round(item["price"] * 0.7)) if item_id == weekly_deal_id else int(item["price"])
+        if int(p.spark_balance or 0) < price:
+            return flask.jsonify({"status": "error", "message": "Not enough Sparks.", "spark_balance": p.spark_balance}), 400
+        p.spark_balance = int(p.spark_balance or 0) - price
+        cosmetics = safe_json_load(p.active_cosmetics, {})
+        if item["kind"] == "protection":
+            tier = current_study_tier(p.streak_count)
+            p.freeze_capacity = tier["freeze_cap"]
+            p.streak_freeze_count = min(int(p.freeze_capacity or 2), int(p.streak_freeze_count or 0) + int(item["value"]))
+        elif item["kind"] == "booster":
+            booster = {"type": item_id, "multiplier": item["multiplier"], "created_at": datetime.utcnow().isoformat()}
+            if item.get("uses"):
+                booster["uses"] = item["uses"]
+            if item.get("hours"):
+                booster["expires_at"] = (datetime.utcnow() + timedelta(hours=item["hours"])).isoformat()
+            p.active_booster = json.dumps(booster)
+        elif item["kind"] == "inventory":
+            field = item["field"]
+            cosmetics[field] = int(cosmetics.get(field, 0) or 0) + int(item["value"])
+            p.active_cosmetics = json.dumps(cosmetics)
+        elif item["kind"] == "cosmetic":
+            owned = set(cosmetics.get("owned", []))
+            owned.add(item_id)
+            cosmetics["owned"] = sorted(owned)
+            cosmetics[item["slot"]] = item["value"]
+            p.active_cosmetics = json.dumps(cosmetics)
+        purchases = safe_json_load(p.shop_purchases, [])
+        purchases.append({"id": str(uuid.uuid4()), "item_id": item_id, "price": price, "created_at": datetime.utcnow().isoformat()})
+        p.shop_purchases = json.dumps(purchases[-200:])
+        db.session.commit()
+        return flask.jsonify({
+            "status": "ok",
+            "item": item,
+            "item_id": item_id,
+            "price": price,
+            "spark_balance": p.spark_balance,
+            "streak_freeze_count": p.streak_freeze_count,
+            "freeze_capacity": p.freeze_capacity,
+            "active_booster": safe_json_load(p.active_booster, None),
+            "active_cosmetics": safe_json_load(p.active_cosmetics, {})
+        })
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)})
+
+@app.route("/study/repair", methods=["POST"])
+def study_repair():
+    uid = current_user.id if current_user.is_authenticated else None
+    gid = None if uid else get_guest_session_id()
+    try:
+        p = get_study_profile(uid, gid)
+        cosmetics = safe_json_load(p.active_cosmetics, {})
+        broken_streak = int(cosmetics.get("broken_streak_count", p.longest_streak or 0) or 0)
+        if not p.repair_eligible_until or p.repair_eligible_until < datetime.utcnow():
+            return flask.jsonify({"status": "error", "message": "Repair window expired."}), 400
+        if p.repair_last_used:
+            try:
+                last_repair = datetime.strptime(p.repair_last_used[:10], "%Y-%m-%d")
+                if last_repair > datetime.now() - timedelta(days=30):
+                    return flask.jsonify({"status": "error", "message": "Streak Repair can only be used once every 30 days."}), 400
+            except Exception:
+                pass
+        cost = repair_cost_for(broken_streak)
+        if int(p.spark_balance or 0) < cost:
+            return flask.jsonify({"status": "error", "message": "Not enough Sparks to repair this streak.", "cost": cost, "spark_balance": p.spark_balance}), 400
+        p.spark_balance = int(p.spark_balance or 0) - cost
+        p.streak_count = max(int(p.streak_count or 0), broken_streak)
+        p.longest_streak = max(int(p.longest_streak or 0), p.streak_count)
+        p.last_active_date = cosmetics.get("broken_last_active_date") or p.last_active_date
+        p.repair_last_used = datetime.now().strftime("%Y-%m-%d")
+        p.repair_eligible_until = None
+        cosmetics.pop("broken_streak_count", None)
+        cosmetics.pop("broken_last_active_date", None)
+        p.active_cosmetics = json.dumps(cosmetics)
+        new_badges = add_badges(p, ["comeback_kid"])
+        db.session.commit()
+        return flask.jsonify({"status": "ok", "streak_count": p.streak_count, "spark_balance": p.spark_balance, "badges_unlocked": new_badges, "message": "Streak repaired."})
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
 
