@@ -701,9 +701,14 @@
   </div>
 </section>
 
-<div class="mobile-cta-bar">
-  <a href="/login" class="mobile-cta-primary">Get Started Free</a>
-  <a href="#how-it-works" class="mobile-cta-secondary">Demo</a>
+<div class="mobile-cta-bar" id="mobileCTABar">
+  <button class="mobile-cta-minimize" id="mobileCTAMinimize" aria-label="Minimize bar" onclick="toggleMobileCTA()">
+    <svg id="mobileCTAChevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>
+  </button>
+  <div class="mobile-cta-buttons" id="mobileCTAButtons">
+    <a href="/login" class="mobile-cta-primary">Get Started Free</a>
+    <a href="#how-it-works" class="mobile-cta-secondary">Demo</a>
+  </div>
 </div>
 
 <style>
@@ -1260,6 +1265,7 @@
 
   /* ── Mobile sticky bar ───────────────────────────────────── */
   .mobile-cta-bar { display: none; }
+  .mobile-cta-minimize { display: none; }
 
   /* ── Responsive ──────────────────────────────────────────── */
   @media (max-width: 1024px) {
@@ -1284,15 +1290,40 @@
     .features-grid, .integration-grid { grid-template-columns: 1fr; }
     .demo-panel-header { padding-bottom: 1rem; }
     .cta-section { padding-bottom: 5.5rem; }
+    .mobile-cta-minimize { display: flex; }
     .mobile-cta-bar {
-      display: grid;
-      grid-template-columns: 1fr 0.75fr;
-      gap: 0.6rem;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.5rem;
       position: fixed;
       left: 0.8rem;
       right: 0.8rem;
       bottom: 0.8rem;
       z-index: 9998;
+      transition: transform 0.28s cubic-bezier(0.16,1,0.3,1);
+    }
+    .mobile-cta-bar.minimized .mobile-cta-buttons { display: none; }
+    .mobile-cta-bar.minimized .mobile-cta-minimize { border-radius: 999px; }
+    .mobile-cta-minimize {
+      display: flex; align-items: center; justify-content: center;
+      gap: 6px; align-self: flex-end;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 12px 12px 0 0; padding: 6px 14px;
+      color: var(--text-muted); cursor: pointer;
+      font-family: var(--font-ui); font-size: 0.72rem; font-weight: 600;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.08);
+      transition: background 0.14s, color 0.14s;
+    }
+    .mobile-cta-minimize:hover { background: var(--accent-soft); color: var(--accent); }
+    .mobile-cta-bar.minimized .mobile-cta-minimize {
+      border-radius: 999px; padding: 7px 18px;
+      background: var(--bg-card); box-shadow: var(--shadow);
+    }
+    .mobile-cta-buttons {
+      display: grid;
+      grid-template-columns: 1fr 0.75fr;
+      gap: 0.6rem;
     }
     .mobile-cta-primary, .mobile-cta-secondary {
       text-decoration: none;
@@ -1393,6 +1424,32 @@
     var outer = document.querySelector('.demo-video-outer');
     outer.innerHTML = '<iframe class="demo-iframe" src="https://www.loom.com/embed/6ea3633efb3b4a5c94e3732e1ca978ba?autoplay=1&hide_owner=true&hide_share=true&hide_title=true&hideEmbedTopBar=true" frameborder="0" allowfullscreen allow="autoplay; fullscreen"></iframe>';
   }
+</script>
+
+<script>
+/* ── Mobile CTA bar minimize ────────────────────────── */
+(function() {
+  const BAR_KEY = 'mobileCTAMinimized';
+  const bar = document.getElementById('mobileCTABar');
+  const chevron = document.getElementById('mobileCTAChevron');
+  if (!bar) return;
+
+  function setMinimized(minimized) {
+    bar.classList.toggle('minimized', minimized);
+    if (chevron) {
+      chevron.setAttribute('points', minimized ? '6 9 12 15 18 9' : '18 15 12 9 6 15');
+    }
+    localStorage.setItem(BAR_KEY, minimized ? '1' : '0');
+  }
+
+  window.toggleMobileCTA = function() {
+    setMinimized(!bar.classList.contains('minimized'));
+  };
+
+  if (localStorage.getItem(BAR_KEY) === '1') {
+    setMinimized(true);
+  }
+})();
 </script>
 
 {% endblock %}
