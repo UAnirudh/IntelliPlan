@@ -17,7 +17,7 @@
   <div style="margin-bottom:1.5rem;">
     <div class="dropdown-wrap">
       <button class="dropdown-btn" id="courseDropBtn">
-        📚 Select a Course <span class="chevron">▾</span>
+        Select a Course <span class="chevron">▾</span>
       </button>
       <div class="dropdown-menu" id="courseMenu"></div>
     </div>
@@ -83,7 +83,7 @@ fetch('/gradebook/detail')
   })
   .catch(() => {
     document.getElementById('loadingState').innerHTML =
-      '<p>⚠️ Could not load gradebook. Make sure you are logged in with StudentVue.</p>';
+      '<p>Could not load gradebook. Make sure you are logged in with StudentVue.</p>';
   });
 
 function populateCourseMenu(courses) {
@@ -92,7 +92,7 @@ function populateCourseMenu(courses) {
   courses.forEach(c => {
     const item = document.createElement('div');
     item.className = 'dropdown-item';
-    item.textContent = `📚 ${c.course}`;
+    item.textContent = c.course;
     item.addEventListener('click', () => selectCourse(c));
     menu.appendChild(item);
   });
@@ -108,7 +108,7 @@ document.addEventListener('click', e => {
 
 function selectCourse(course) {
   selectedCourse = course;
-  dropBtn.innerHTML = `📚 ${course.course} <span class="chevron">▾</span>`;
+  dropBtn.innerHTML = `${course.course} <span class="chevron">▾</span>`;
   dropMenu.classList.remove('open');
   document.getElementById('courseOverview').style.display = 'block';
   document.getElementById('modelResult').style.display = 'none';
@@ -147,12 +147,12 @@ function renderBreakdown(assignments) {
       : '';
 
     card.innerHTML = `
-      <div class="rank-bubble" style="font-size:0.7rem;">${a.graded ? '✓' : '⏳'}</div>
+      <div class="rank-bubble" style="font-size:0.7rem;">${a.graded ? '✓' : '–'}</div>
       <div class="card-main">
         <div class="card-title">${a.title}</div>
         <div class="card-meta">
-          ${a.due_date ? `<span class="meta-item">📅 ${a.due_date}</span>` : ''}
-          <span class="meta-item">${a.graded ? '✅ Graded' : '⏳ Pending'}</span>
+          ${a.due_date ? `<span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> ${a.due_date}</span>` : ''}
+          <span class="meta-item">${a.graded ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--low)"><use href="#i-check-circle"/></svg> Graded' : 'Pending'}</span>
         </div>
       </div>
       <div style="text-align:right; flex-shrink:0;">
@@ -200,13 +200,13 @@ function runModel() {
     const actual = (earnedTotal / gradedPossible * 100).toFixed(1);
     summary.innerHTML = `All assignments are graded. Your final grade is <strong>${actual}%</strong>. 
       ${parseFloat(actual) >= target
-        ? `✅ You have already reached your target of <strong>${target}%</strong>.`
-        : `⚠️ You did not reach your target of <strong>${target}%</strong>.`}`;
+        ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--low)"><use href="#i-check-circle"/></svg> You have already reached your target of <strong>${target}%</strong>.`
+        : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--high)"><use href="#i-warning"/></svg> You did not reach your target of <strong>${target}%</strong>.`}`;
     return;
   }
 
   if (pointsStillNeeded <= 0) {
-    summary.innerHTML = `✅ You've already earned enough points to reach <strong>${target}%</strong> — 
+    summary.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--low)"><use href="#i-check-circle"/></svg> You've already earned enough points to reach <strong>${target}%</strong> —
       even scoring 0 on all remaining assignments would get you there.`;
     return;
   }
@@ -215,7 +215,7 @@ function runModel() {
 
   if (parseFloat(neededPct) > 100) {
     const maxPossible = ((earnedTotal + pendingPossible) / totalPossible * 100).toFixed(1);
-    summary.innerHTML = `⚠️ It is <strong>no longer mathematically possible</strong> to reach <strong>${target}%</strong>. 
+    summary.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--high)"><use href="#i-warning"/></svg> It is <strong>no longer mathematically possible</strong> to reach <strong>${target}%</strong>.
       Even scoring 100% on all ${pending.length} remaining assignment${pending.length !== 1 ? 's' : ''}, 
       the highest you can reach is <strong>${maxPossible}%</strong>.`;
     return;

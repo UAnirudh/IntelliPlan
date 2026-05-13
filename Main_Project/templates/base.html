@@ -577,7 +577,7 @@
     .features-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; }
     .feature-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); padding:1.5rem 1.4rem; box-shadow:var(--shadow); transition:transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; }
     .feature-card:hover { transform:translateY(-3px); box-shadow:var(--shadow-hover); border-color:var(--border-accent); }
-    .feature-icon  { font-size:1.75rem; margin-bottom:0.9rem; }
+    .feature-icon  { font-size:1.75rem; margin-bottom:0.9rem; width:44px; height:44px; display:flex; align-items:center; justify-content:center; background:var(--accent-soft); border-radius:var(--r-md); color:var(--accent); }
     .feature-title { font-family:var(--font-ui); font-size:0.92rem; font-weight:700; color:var(--text-primary); margin-bottom:0.4rem; }
     .feature-desc  { font-size:0.845rem; color:var(--text-secondary); line-height:1.65; }
     .cta-section { text-align:center; padding:3.5rem 1.5rem; background:var(--accent-soft); border:1px solid var(--border-accent); border-radius:var(--r-xl); margin:2rem 0 4rem; animation:fadeUp 0.6s 0.3s var(--ease-out) both; }
@@ -714,6 +714,7 @@
     ══════════════════════════════════════ */
     @keyframes fadeUp  { from{opacity:0;transform:translateY(13px)} to{opacity:1;transform:translateY(0)} }
     @keyframes spin    { to{transform:rotate(360deg)} }
+    .spin { animation: spin 0.75s linear infinite; display:inline-block; }
     @keyframes planiFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
     @keyframes dotBounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
     @keyframes statusPulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
@@ -792,6 +793,30 @@
     <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></symbol>
     <symbol id="i-login" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></symbol>
     <symbol id="i-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></symbol>
+    <!-- Extended icon set for emoji replacement -->
+    <symbol id="i-robot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M12 2v4M9 11V8h6v3"/><circle cx="8.5" cy="16" r="1.5" fill="currentColor" stroke="none"/><circle cx="15.5" cy="16" r="1.5" fill="currentColor" stroke="none"/><path d="M9 20h6"/><path d="M12 2a2 2 0 0 1 2 2"/><path d="M12 2a2 2 0 0 0-2 2"/></symbol>
+    <symbol id="i-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+    <symbol id="i-lightning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></symbol>
+    <symbol id="i-rocket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></symbol>
+    <symbol id="i-lightbulb" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="18" x2="15" y2="18"/><line x1="10" y1="22" x2="14" y2="22"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+    <symbol id="i-bell-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M18.63 13A17.89 17.89 0 0 1 18 8"/><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/><path d="M18 8a6 6 0 0 0-9.33-5"/><line x1="1" y1="1" x2="23" y2="23"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z"/></symbol>
+    <symbol id="i-check-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></symbol>
+    <symbol id="i-x-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></symbol>
+    <symbol id="i-notion" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></symbol>
+    <symbol id="i-fire" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
+    <symbol id="i-chart-bar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></symbol>
+    <symbol id="i-coffee" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></symbol>
+    <symbol id="i-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></symbol>
+    <symbol id="i-apple" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c-1.5 0-3 1-3 3 0 0 1.5.5 3 0s3 0 3 0c0-2-1.5-3-3-3z"/><path d="M17.5 8C15.6 6.5 13 6.5 12 6.5S8.4 6.5 6.5 8C4.5 9.5 4 12 4 14c0 4 2.5 7 5 7 1 0 2-1 3-1s2 1 3 1c2.5 0 5-3 5-7 0-2-.5-4.5-2.5-6z"/></symbol>
+    <symbol id="i-backpack" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v10H4V10z"/><path d="M9 6V4a3 3 0 0 1 6 0v2"/><line x1="4" y1="15" x2="20" y2="15"/><path d="M10 19h4"/></symbol>
   </defs>
 </svg>
 
@@ -931,7 +956,7 @@
         <div id="modalTitle" style="font-family:var(--font-display);font-size:1.2rem;color:var(--text-primary);margin-bottom:4px;"></div>
         <div id="modalMeta"  style="font-size:0.78rem;color:var(--text-muted);"></div>
       </div>
-      <button onclick="closeModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--text-muted);padding:4px 8px;border-radius:var(--r-sm);transition:background 0.16s;" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='none'">✕</button>
+      <button onclick="closeModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:6px;border-radius:var(--r-sm);transition:background 0.16s;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='none'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:1.25rem;flex-wrap:wrap;">
       <span id="modalPriority"   class="priority-badge"></span>
@@ -958,7 +983,7 @@
   <!-- Chat window -->
   <div id="planiChat" role="dialog" aria-label="Chat with Plani">
     <div id="planiChatHeader">
-      <div class="plani-hdr-avatar">🤖</div>
+      <div class="plani-hdr-avatar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-robot"/></svg></div>
       <div class="plani-hdr-info">
         <div class="plani-hdr-name">Plani</div>
         <div class="plani-hdr-status">
@@ -966,13 +991,13 @@
           IntelliPlan Assistant
         </div>
       </div>
-      <button id="planiCloseBtn" onclick="closePlani()" aria-label="Close chat">✕</button>
+      <button id="planiCloseBtn" onclick="closePlani()" aria-label="Close chat"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
 
     <div id="planiMessages" role="log" aria-live="polite"></div>
 
     <div id="planiTyping" aria-label="Plani is typing">
-      <div class="plani-msg-avatar" style="background:linear-gradient(135deg,#1d4ed8,#3b82f6);">🤖</div>
+      <div class="plani-msg-avatar" style="background:linear-gradient(135deg,#1d4ed8,#3b82f6);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-robot"/></svg></div>
       <div class="plani-dots">
         <div class="plani-dot"></div><div class="plani-dot"></div><div class="plani-dot"></div>
       </div>
@@ -1200,11 +1225,11 @@ let _modalAssignment = null;
 function openAssignmentModal(a) {
   _modalAssignment = a;
   document.getElementById('modalTitle').textContent = a.title;
-  document.getElementById('modalMeta').textContent  = `📚 ${a.course}  ·  📅 Due ${a.due_date}`;
+  document.getElementById('modalMeta').innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-study"/></svg>${a.course}</span>&nbsp;&nbsp;·&nbsp;&nbsp;<span style="display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-scheduler"/></svg>Due ${a.due_date}</span>`;
   const pb = document.getElementById('modalPriority');
   pb.textContent = a.priority; pb.className = `priority-badge ${a.priority.toLowerCase()}`;
-  document.getElementById('modalDifficulty').textContent = `⚡ ${a.difficulty||'Unknown'}`;
-  document.getElementById('modalTime').textContent       = `⏱ ${formatModalTime(a.estimated_time)}`;
+  document.getElementById('modalDifficulty').innerHTML = `<span style="display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-lightning"/></svg>${a.difficulty||'Unknown'}</span>`;
+  document.getElementById('modalTime').innerHTML       = `<span style="display:inline-flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-clock"/></svg>${formatModalTime(a.estimated_time)}</span>`;
   document.getElementById('modalDescription').textContent = 'Loading...';
   document.getElementById('modalCustomWrap').style.display = 'none';
   document.getElementById('modalCustomInput').value = '';
@@ -1214,7 +1239,7 @@ function openAssignmentModal(a) {
   if (a.course_id) params.append('course_id', a.course_id);
   fetch(`/assignment/description?${params}`).then(r=>r.json()).then(data => {
     if (data.description) {
-      const lbl = data.source==='custom' ? '✏️ Your description' : '📋 From Canvas';
+      const lbl = data.source==='custom' ? 'Your description' : 'From Canvas';
       document.getElementById('modalDescription').textContent = data.description;
       document.getElementById('modalDescriptionWrap').querySelector('div').textContent = lbl;
       document.getElementById('modalCustomWrap').style.display = 'none';
@@ -1240,7 +1265,7 @@ function saveCustomDescription() {
     body:JSON.stringify({title:_modalAssignment.title, description:desc})
   }).then(() => {
     document.getElementById('modalDescription').textContent = desc;
-    document.getElementById('modalDescriptionWrap').querySelector('div').textContent = '✏️ Your description';
+    document.getElementById('modalDescriptionWrap').querySelector('div').textContent = 'Your description';
     document.getElementById('modalCustomWrap').style.display = 'none';
   });
 }
@@ -1273,12 +1298,12 @@ let planiHistory = [];
 let planiBubbleTimer = null;
 
 const BUBBLES = [
-  "Hi! I'm Plani 👋 Ask me anything.",
-  "Need help getting started? 🚀",
-  "Tip: Connect Canvas for auto-sync ✓",
-  "Check your Dashboard for today's tasks 📅",
-  "Ask me how any feature works! 🤖",
-  "Struggling with a study question? IntelliPlan can help! 📚",
+  "Hi! I'm Plani — ask me anything.",
+  "Need help getting started?",
+  "Tip: Connect Canvas for auto-sync.",
+  "Check your Dashboard for today's tasks.",
+  "Ask me how any feature works!",
+  "Struggling with a study question? I can help!",
 ];
 // "Join our Discord for updates 💬",
 
@@ -1290,7 +1315,7 @@ function openPlani() {
   hideBubble();
   document.getElementById('planiChat').classList.add('open');
   if (planiHistory.length === 0) {
-    addMsg('bot', "Hey there! I'm Plani, your IntelliPlan assistant 🤖 I can help you navigate the platform, explain features, or answer study questions. What can I help you with?");
+    addMsg('bot', "Hey there! I'm Plani, your IntelliPlan assistant. I can help you navigate the platform, explain features, or answer study questions. What can I help you with?");
   }
   setTimeout(() => document.getElementById('planiInput').focus(), 220);
 }
@@ -1323,7 +1348,7 @@ function scheduleBubble() {
 }
 
 window.addEventListener('load', () => {
-  setTimeout(() => { if (!planiOpen) showBubble("Hi! I'm Plani 👋 Ask me anything."); }, 2600);
+  setTimeout(() => { if (!planiOpen) showBubble("Hi! I'm Plani — ask me anything."); }, 2600);
   setInterval(() => { if (!planiOpen) scheduleBubble(); }, 50000);
 });
 
@@ -1335,8 +1360,13 @@ function addMsg(role, text) {
 
   const av = document.createElement('div');
   av.className = 'plani-msg-avatar';
-  av.textContent = role === 'bot' ? '🤖' : '👤';
   av.setAttribute('aria-hidden','true');
+  if (role === 'bot') {
+    av.style.background = 'linear-gradient(135deg,#1d4ed8,#3b82f6)';
+    av.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-robot"/></svg>';
+  } else {
+    av.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-user"/></svg>';
+  }
 
   const bbl = document.createElement('div');
   bbl.className = 'plani-msg-bubble';
@@ -1374,10 +1404,10 @@ async function sendPlaniMessage() {
     if (!res.ok) throw new Error('Network error');
     const data = await res.json();
     setTyping(false);
-    addMsg('bot', data.reply || "I didn't catch that, try again! 🤖");
+    addMsg('bot', data.reply || "I didn't catch that — try again!");
   } catch(err) {
     setTyping(false);
-    addMsg('bot', "Oops, had a glitch! 🤖 Try again in a moment.");
+    addMsg('bot', "Oops, had a glitch! Try again in a moment.");
   } finally {
     document.getElementById('planiSendBtn').disabled = false;
     document.getElementById('planiInput').focus();

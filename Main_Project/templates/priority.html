@@ -8,21 +8,21 @@
 
 <div class="stats-bar" id="statsBar">
   <div class="stat-card">
-    <div class="stat-icon" style="background:#fef2f2;">🔴</div>
+    <div class="stat-icon" style="background:#fef2f2;color:var(--high);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg></div>
     <div class="stat-info">
       <div class="stat-value" id="statHigh">—</div>
       <div class="stat-label">High Priority</div>
     </div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon" style="background:#fffbeb;">🟡</div>
+    <div class="stat-icon" style="background:#fffbeb;color:var(--medium);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg></div>
     <div class="stat-info">
       <div class="stat-value" id="statMedium">—</div>
       <div class="stat-label">Medium Priority</div>
     </div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon" style="background:#f0fdf4;">🟢</div>
+    <div class="stat-icon" style="background:#f0fdf4;color:var(--low);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></div>
     <div class="stat-info">
       <div class="stat-value" id="statLow">—</div>
       <div class="stat-label">Low Priority</div>
@@ -32,12 +32,12 @@
 
 <div class="dropdown-wrap">
   <button class="dropdown-btn" id="priorityDropBtn">
-    🔴 High Priority <span class="chevron">▾</span>
+    High Priority <span class="chevron">▾</span>
   </button>
   <div class="dropdown-menu" id="priorityMenu">
-    <div class="dropdown-item active" data-filter="high">🔴 High</div>
-    <div class="dropdown-item" data-filter="medium">🟡 Medium</div>
-    <div class="dropdown-item" data-filter="low">🟢 Low</div>
+    <div class="dropdown-item active" data-filter="high">High</div>
+    <div class="dropdown-item" data-filter="medium">Medium</div>
+    <div class="dropdown-item" data-filter="low">Low</div>
   </div>
 </div>
 
@@ -49,7 +49,7 @@
 </div>
 
 <div class="empty-state" id="emptyState">
-  <div class="empty-icon">✅</div>
+  <div class="empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></div>
   <div class="empty-title">No assignments here</div>
   <p>Try a different priority level</p>
 </div>
@@ -75,10 +75,14 @@ function daysUntil(dateStr) {
   const due = new Date(dateStr + 'T00:00:00');
   const now = new Date(); now.setHours(0,0,0,0);
   const diff = Math.round((due - now) / 86400000);
-  if (diff < 0)  return '⚠️ Overdue';
-  if (diff === 0) return '📌 Due today';
-  if (diff === 1) return '⏰ Due tomorrow';
-  return `📅 ${diff} days left`;
+  const svgWarn  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg>`;
+  const svgPin   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pin"/></svg>`;
+  const svgClock = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg>`;
+  const svgCal   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>`;
+  if (diff < 0)  return `${svgWarn} Overdue`;
+  if (diff === 0) return `${svgPin} Due today`;
+  if (diff === 1) return `${svgClock} Due tomorrow`;
+  return `${svgCal} ${diff} days left`;
 }
 
 function renderCards(assignments) {
@@ -103,14 +107,14 @@ function renderCards(assignments) {
       <div class="card-main">
         <div class="card-title">${a.title}</div>
         <div class="card-meta">
-          <span class="meta-item">📚 ${a.course}</span>
-          <span class="meta-item">📅 ${formatDate(a.due_date)}</span>
+          <span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg> ${a.course}</span>
+          <span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> ${formatDate(a.due_date)}</span>
           <span class="meta-item">${daysUntil(a.due_date)}</span>
         </div>
       </div>
-      <span class="time-pill">⏱ ${formatTime(a.estimated_time)}</span>
+      <span class="time-pill"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg> ${formatTime(a.estimated_time)}</span>
       <span class="priority-badge ${priority}">${a.priority}</span>
-      <button class="dismiss-btn" onclick="dismissAssignment('${a.title.replace(/'/g, "\\'")}', this)">✓ Done</button>
+      <button class="dismiss-btn" onclick="dismissAssignment('${a.title.replace(/'/g, "\\'")}', this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-done"/></svg> Done</button>
     `;
     list.appendChild(card);
   });
@@ -183,7 +187,7 @@ document.querySelectorAll('.dropdown-item').forEach(item => {
     document.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('active'));
     item.classList.add('active');
     currentFilter = item.dataset.filter;
-    const labels = { high: '🔴 High Priority', medium: '🟡 Medium Priority', low: '🟢 Low Priority' };
+    const labels = { high: 'High Priority', medium: 'Medium Priority', low: 'Low Priority' };
     dropBtn.innerHTML = `${labels[currentFilter]} <span class="chevron">▾</span>`;
     dropMenu.classList.remove('open');
     renderCards(allAssignments.filter(a => a.priority.toLowerCase() === currentFilter));
@@ -205,6 +209,6 @@ fetch('/live')
 
   .catch(() => {
     document.getElementById('assignmentsList').innerHTML =
-      '<div class="loading"><p>⚠️ Could not connect to backend.</p></div>';
+      '<div class="loading"><p>Could not connect to backend.</p></div>';
   });
 {% endblock %}

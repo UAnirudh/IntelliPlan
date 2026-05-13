@@ -59,9 +59,11 @@
 }
 
 .error-emoji {
-  font-size: 3.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   animation: float 3.5s ease-in-out infinite;
-  display: block;
+  color: var(--accent);
 }
 
 .error-code-badge {
@@ -230,13 +232,13 @@
       <div class="orbit-dot od2"></div>
       <div class="orbit-dot od3"></div>
       <div class="error-circle">
-        <span class="error-emoji">
-          {% if error_code == 404 %}🔍
-          {% elif error_code == 403 %}🔒
-          {% elif error_code == 429 %}⏳
-          {% elif error_code == 503 %}🔧
-          {% else %}⚡{% endif %}
-        </span>
+        <div class="error-emoji">
+          {% if error_code == 404 %}<svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg>
+          {% elif error_code == 403 %}<svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg>
+          {% elif error_code == 429 %}<svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg>
+          {% elif error_code == 503 %}<svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg>
+          {% else %}<svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg>{% endif %}
+        </div>
       </div>
       <div class="error-code-badge">{{ error_code or '500' }}</div>
     </div>
@@ -283,10 +285,10 @@
 
     <div class="quick-links">
       <span style="font-size:0.72rem;color:var(--text-muted);font-weight:600;align-self:center;">Quick links:</span>
-      <a href="/scheduler" class="ql-item">🤖 AI Scheduler</a>
-      <a href="/grades" class="ql-item">📊 Grades</a>
-      <a href="/study" class="ql-item">📚 Study</a>
-      <a href="/settings" class="ql-item">⚙ Settings</a>
+      <a href="/scheduler" class="ql-item">AI Scheduler</a>
+      <a href="/grades" class="ql-item">Grades</a>
+      <a href="/study" class="ql-item">Study</a>
+      <a href="/settings" class="ql-item">Settings</a>
     </div>
 
   </div>

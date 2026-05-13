@@ -14,7 +14,7 @@
 </div>
 
 <div class="empty-state" id="emptyState">
-  <div class="empty-icon">✅</div>
+  <div class="empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></div>
   <div class="empty-title">Nothing dismissed yet</div>
   <p>Assignments you mark as done will appear here</p>
 </div>
@@ -47,8 +47,8 @@ fetch('/dismissed/data')
         <div class="card-main">
           <div class="card-title" style="text-decoration:line-through;">${a.title}</div>
           <div class="card-meta">
-            <span class="meta-item">📚 ${a.course || '—'}</span>
-            <span class="meta-item">📅 ${a.due_date ? formatDate(a.due_date) : '—'}</span>
+            <span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg> ${a.course || '—'}</span>
+            <span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> ${a.due_date ? formatDate(a.due_date) : '—'}</span>
           </div>
         </div>
         <span class="priority-badge ${priority}">${a.priority || '—'}</span>

@@ -397,9 +397,9 @@ body.serious-mode .nav-tabs { display:none !important; }
 <!-- Extreme Overlay -->
 <div id="xOverlay">
   <div class="xh">
-    <div class="xl">📅 IntelliPlan — Extreme Focus</div>
+    <div class="xl">IntelliPlan — Extreme Focus</div>
     <div id="xTimerDisplay" class="xtimer">25:00</div>
-    <div id="xPtsDisplay" style="font-size:0.82rem;color:#a5b4fc;font-weight:700;">⚡ 0 pts</div>
+    <div id="xPtsDisplay" style="font-size:0.82rem;color:#a5b4fc;font-weight:700;display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> 0 pts</div>
   </div>
   <div class="xcontent">
     <div class="xprog"><div class="xprog-fill" id="xProgFill" style="width:0%"></div></div>
@@ -409,9 +409,9 @@ body.serious-mode .nav-tabs { display:none !important; }
     </div>
     <div class="xconf-label">How confident are you?</div>
     <div class="xconf-row" id="xConfRow">
-      <button class="xconf-btn" onclick="xSetConf('low',this)">😟 Low</button>
-      <button class="xconf-btn" onclick="xSetConf('medium',this)">🙂 Medium</button>
-      <button class="xconf-btn" onclick="xSetConf('high',this)">😎 High</button>
+      <button class="xconf-btn" onclick="xSetConf('low',this)">Low</button>
+      <button class="xconf-btn" onclick="xSetConf('medium',this)">Medium</button>
+      <button class="xconf-btn" onclick="xSetConf('high',this)">High</button>
     </div>
     <textarea class="x-ans-ta" id="xAnsInput" placeholder="Type your answer here..."></textarea>
     <button class="x-submit" id="xSubmitBtn" onclick="xSubmit()">Submit Answer</button>
@@ -435,20 +435,20 @@ body.serious-mode .nav-tabs { display:none !important; }
   <div class="sh">
     <h1 class="st">Study <em>&amp; Learn</em></h1>
     <div class="streak-bar">
-      <div class="s-chip fire" id="sChipStreak" onclick="switchTab('streak')">🔥 <span id="sStreakNum">0</span></div>
-      <div class="s-chip pts" id="sChipPts">⚡ <span id="sPtsNum">0</span></div>
-      <div class="s-chip freeze" id="sChipFreeze">🛡 <span id="sFreezeNum">0</span></div>
+      <div class="s-chip fire" id="sChipStreak" onclick="switchTab('streak')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-fire"/></svg> <span id="sStreakNum">0</span></div>
+      <div class="s-chip pts" id="sChipPts"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> <span id="sPtsNum">0</span></div>
+      <div class="s-chip freeze" id="sChipFreeze"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pin"/></svg> <span id="sFreezeNum">0</span></div>
     </div>
   </div>
 
   <!-- Navigation -->
   <div class="study-nav">
-    <button class="snav-btn active" onclick="switchTab('learn')" id="tab-learn">📖 Learn</button>
-    <button class="snav-btn" onclick="switchTab('flashcards')" id="tab-flashcards">🃏 Flashcards</button>
-    <button class="snav-btn" onclick="switchTab('review')" id="tab-review">🔁 Review</button>
-    <button class="snav-btn" onclick="switchTab('mastery')" id="tab-mastery">📊 Mastery</button>
-    <button class="snav-btn" onclick="switchTab('progress')" id="tab-progress">📈 Progress</button>
-    <button class="snav-btn" onclick="switchTab('streak')" id="tab-streak">🔥 Streak</button>
+    <button class="snav-btn active" onclick="switchTab('learn')" id="tab-learn">Learn</button>
+    <button class="snav-btn" onclick="switchTab('flashcards')" id="tab-flashcards">Flashcards</button>
+    <button class="snav-btn" onclick="switchTab('review')" id="tab-review">Review</button>
+    <button class="snav-btn" onclick="switchTab('mastery')" id="tab-mastery">Mastery</button>
+    <button class="snav-btn" onclick="switchTab('progress')" id="tab-progress">Progress</button>
+    <button class="snav-btn" onclick="switchTab('streak')" id="tab-streak">Streak</button>
   </div>
 
   <!-- ══ LEARN TAB ══ -->
@@ -458,8 +458,8 @@ body.serious-mode .nav-tabs { display:none !important; }
       <div class="sp">
         <div class="sp-label">Step 1 — Add Study Material</div>
         <div class="itabs">
-          <button class="itab active" onclick="switchInputTab('paste')">✏️ Paste Text</button>
-          <button class="itab" onclick="switchInputTab('upload')">📄 Upload File</button>
+          <button class="itab active" onclick="switchInputTab('paste')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pencil"/></svg> Paste Text</button>
+          <button class="itab" onclick="switchInputTab('upload')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-download"/></svg> Upload File</button>
         </div>
         <div class="ipanel active" id="pastePanel">
           <textarea class="study-ta" id="pasteContent" placeholder="Paste notes, textbook text, articles, or any study material..."></textarea>
@@ -467,7 +467,7 @@ body.serious-mode .nav-tabs { display:none !important; }
         <div class="ipanel" id="uploadPanel">
           <div class="upload-z" id="uploadZone">
             <input type="file" id="fileUpload" accept=".txt,.pdf" onchange="handleUpload(this)"/>
-            <div style="font-size:2rem;margin-bottom:8px;">📎</div>
+            <div style="margin-bottom:8px;color:var(--accent);"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-link"/></svg></div>
             <div style="font-size:0.88rem;color:#64748b;">Drop a file or click to browse</div>
             <div style="font-size:0.72rem;color:#94a3b8;margin-top:4px;">Supports .txt and .pdf</div>
             <div id="uploadMsg" style="font-size:0.82rem;color:#10b981;margin-top:8px;display:none;"></div>
@@ -480,19 +480,19 @@ body.serious-mode .nav-tabs { display:none !important; }
         <div class="sp-label">Step 2 — Choose Mode</div>
         <div class="mode-grid">
           <div class="mc sel" style="--mc:#10b981" data-mode="casual" onclick="selMode('casual')">
-            <div class="mc-icon">😌</div>
+            <div class="mc-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></div>
             <div class="mc-name">Casual</div>
             <div class="mc-desc">Relaxed. No timer. Full AI evaluation.</div>
             <span class="mc-badge" style="background:#d1fae5;color:#059669;">Chill</span>
           </div>
           <div class="mc" style="--mc:#6366f1" data-mode="serious" onclick="selMode('serious')">
-            <div class="mc-icon">⏱</div>
+            <div class="mc-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg></div>
             <div class="mc-name">Serious</div>
             <div class="mc-desc">25-min Pomodoro. Hides nav. Focus mode.</div>
             <span class="mc-badge" style="background:#e0e7ff;color:#4f46e5;">Focus</span>
           </div>
           <div class="mc" style="--mc:#ef4444" data-mode="extreme" onclick="selMode('extreme')">
-            <div class="mc-icon">🔥</div>
+            <div class="mc-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-fire"/></svg></div>
             <div class="mc-name">Extreme</div>
             <div class="mc-desc">Fullscreen lock. 10s hold to exit.</div>
             <span class="mc-badge" style="background:#fee2e2;color:#dc2626;">Locked</span>
@@ -500,7 +500,7 @@ body.serious-mode .nav-tabs { display:none !important; }
         </div>
       </div>
 
-      <button class="s-start" id="startBtn" onclick="startSession()">🚀 Generate Study Session</button>
+      <button class="s-start" id="startBtn" onclick="startSession()" style="display:inline-flex;align-items:center;gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-rocket"/></svg> Generate Study Session</button>
     </div>
 
     <!-- Session View -->
@@ -520,14 +520,14 @@ body.serious-mode .nav-tabs { display:none !important; }
               <div class="timer-txt" id="timerTxt">25:00</div>
             </div>
           </div>
-          <button onclick="exitSession()" style="background:none;border:none;cursor:pointer;font-size:0.78rem;color:#94a3b8;font-family:'DM Sans',sans-serif;">✕ Exit</button>
+          <button onclick="exitSession()" style="background:none;border:none;cursor:pointer;font-size:0.78rem;color:#94a3b8;font-family:'DM Sans',sans-serif;display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x"/></svg> Exit</button>
         </div>
       </div>
 
       <div class="prog-info">
         <span id="progTxt" style="font-weight:600;color:var(--si);">Q 1 of 8</span>
         <div style="display:flex;gap:10px;">
-          <span id="sesPtsDisp" style="font-weight:700;color:var(--si);">⚡ 0 pts</span>
+          <span id="sesPtsDisp" style="font-weight:700;color:var(--si);display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> 0 pts</span>
           <span id="sesAccDisp" style="color:var(--txm);">0/0 correct</span>
         </div>
       </div>
@@ -541,7 +541,7 @@ body.serious-mode .nav-tabs { display:none !important; }
   <!-- ══ FLASHCARDS TAB ══ -->
   <div id="tabFlashcards" style="display:none;">
     <div id="fcNoData" class="sp" style="text-align:center;padding:3rem;">
-      <div style="font-size:2.5rem;margin-bottom:1rem;">🃏</div>
+      <div style="margin-bottom:1rem;color:var(--accent);"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightbulb"/></svg></div>
       <div style="font-size:1rem;font-weight:600;color:var(--tx);margin-bottom:8px;">No flashcards yet</div>
       <div style="font-size:0.85rem;color:var(--txm);">Complete a study session to generate flashcards from your material.</div>
     </div>
@@ -577,7 +577,7 @@ body.serious-mode .nav-tabs { display:none !important; }
     </div>
     <div id="reviewDueWrap" style="display:none;">
       <div class="sp">
-        <div class="sp-label">📅 Due for Review (Spaced Repetition)</div>
+        <div class="sp-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> Due for Review (Spaced Repetition)</div>
         <div id="dueList"></div>
       </div>
     </div>
@@ -616,14 +616,14 @@ body.serious-mode .nav-tabs { display:none !important; }
   <!-- ══ STREAK TAB ══ -->
   <div id="tabStreak" style="display:none;">
     <div class="streak-hero">
-      <span class="streak-fire">🔥</span>
+      <span class="streak-fire"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-fire"/></svg></span>
       <div class="streak-num" id="streakBigNum">0</div>
       <div class="streak-word" id="streakWordLabel">Day Streak</div>
       <div class="streak-sub" id="streakSubMsg">Study today to start your streak!</div>
       <div class="streak-stats-row">
-        <div class="ss-item">🏆 Best: <span id="longestStreakDisp">0</span> days</div>
-        <div class="ss-item">📅 Total sessions: <span id="totalSesDisp">0</span></div>
-        <div class="ss-item">⚡ <span id="totalPtsDisp2">0</span> points</div>
+        <div class="ss-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg> Best: <span id="longestStreakDisp">0</span> days</div>
+        <div class="ss-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> Total sessions: <span id="totalSesDisp">0</span></div>
+        <div class="ss-item"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> <span id="totalPtsDisp2">0</span> points</div>
       </div>
     </div>
 
@@ -634,7 +634,7 @@ body.serious-mode .nav-tabs { display:none !important; }
     </div>
 
     <div class="sp">
-      <div class="sp-label">🛡 Streak Freezes</div>
+      <div class="sp-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pin"/></svg> Streak Freezes</div>
       <div class="freeze-section">
         <div class="freeze-row">
           <div class="freeze-icons" id="freezeIcons"></div>
@@ -647,7 +647,7 @@ body.serious-mode .nav-tabs { display:none !important; }
     </div>
 
     <div class="sp">
-      <div class="sp-label">🏅 Milestones</div>
+      <div class="sp-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg> Milestones</div>
       <div class="milestone-row" id="milestoneRow"></div>
     </div>
   </div>
@@ -756,12 +756,12 @@ function selMode(m) {
 async function handleUpload(input) {
   const file = input.files[0]; if (!file) return;
   const msg = document.getElementById('uploadMsg');
-  msg.style.display = 'block'; msg.textContent = '⏳ Extracting...'; msg.style.color = '#94a3b8';
+  msg.style.display = 'block'; msg.textContent = 'Extracting...'; msg.style.color = '#94a3b8';
   if (file.name.endsWith('.txt')) {
     const t = await file.text();
     document.getElementById('uploadContent').value = t;
     document.getElementById('uploadContent').style.display = 'block';
-    msg.textContent = `✅ Loaded (${t.length} chars)`; msg.style.color = '#10b981';
+    msg.textContent = `Loaded (${t.length} chars)`; msg.style.color = '#10b981';
   } else if (file.name.endsWith('.pdf')) {
     const fd = new FormData(); fd.append('file', file);
     try {
@@ -770,9 +770,9 @@ async function handleUpload(input) {
       if (d.status === 'ok') {
         document.getElementById('uploadContent').value = d.text;
         document.getElementById('uploadContent').style.display = 'block';
-        msg.textContent = `✅ ${file.name} (${d.text.length} chars)`; msg.style.color = '#10b981';
-      } else { msg.textContent = '❌ ' + (d.message || 'Extraction failed'); msg.style.color = '#ef4444'; }
-    } catch(e) { msg.textContent = '❌ Upload failed'; msg.style.color = '#ef4444'; }
+        msg.textContent = `${file.name} (${d.text.length} chars)`; msg.style.color = '#10b981';
+      } else { msg.textContent = (d.message || 'Extraction failed'); msg.style.color = '#ef4444'; }
+    } catch(e) { msg.textContent = 'Upload failed'; msg.style.color = '#ef4444'; }
   }
 }
 
@@ -820,7 +820,7 @@ async function startSession() {
   } catch(e) { alert('Could not generate: ' + e.message); }
   finally {
     btn.disabled = false;
-    btn.innerHTML = '🚀 Generate Study Session';
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-rocket"/></svg> Generate Study Session';
     G.generating = false;
   }
 }
@@ -852,25 +852,25 @@ function renderQ() {
   const pct = (G.curQ / total) * 100;
   document.getElementById('progFill').style.width = pct + '%';
   document.getElementById('progTxt').textContent = `Q ${G.curQ + 1} of ${total}`;
-  document.getElementById('sesPtsDisp').textContent = `⚡ ${G.sesPts}`;
+  document.getElementById('sesPtsDisp').innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> ${G.sesPts}`;
   document.getElementById('sesAccDisp').textContent = `${G.sesCorrect}/${G.sesAnswered} correct`;
 
-  const typeLabel = {recall:'📌 Recall', conceptual:'🧠 Conceptual', 'short-answer':'✍️ Short Answer'}[q.type] || '📌 Recall';
+  const typeLabel = {recall:'Recall', conceptual:'Conceptual', 'short-answer':'Short Answer'}[q.type] || 'Recall';
   const typeClass = {recall:'qtb-recall', conceptual:'qtb-conceptual', 'short-answer':'qtb-short-answer'}[q.type] || 'qtb-recall';
 
   document.getElementById('questionArea').innerHTML = `
     <div class="q-card">
       <span class="q-type-badge ${typeClass}">${typeLabel}</span>
       <div class="q-text">${escHtml(q.question)}</div>
-      ${q.hint ? `<div class="q-hint">💡 ${escHtml(q.hint)}</div>` : ''}
+      ${q.hint ? `<div class="q-hint"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightbulb"/></svg> ${escHtml(q.hint)}</div>` : ''}
     </div>
 
     <div class="sp" style="margin-top:0;">
       <div class="conf-label">How confident are you?</div>
       <div class="conf-row" id="confRow">
-        <button class="conf-btn" onclick="setConf('low',this)">😟 Low confidence</button>
-        <button class="conf-btn sel-med" onclick="setConf('medium',this)">🙂 Medium</button>
-        <button class="conf-btn" onclick="setConf('high',this)">😎 High confidence</button>
+        <button class="conf-btn" onclick="setConf('low',this)">Low confidence</button>
+        <button class="conf-btn sel-med" onclick="setConf('medium',this)">Medium</button>
+        <button class="conf-btn" onclick="setConf('high',this)">High confidence</button>
       </div>
 
       <div class="ans-input-wrap">
@@ -883,7 +883,7 @@ function renderQ() {
       <div id="fbArea" style="display:none;margin-top:1rem;"></div>
 
       <button class="next-btn" id="nextBtn" style="display:none;" onclick="nextQuestion()">
-        ${G.curQ + 1 < total ? 'Next Question →' : '🎉 Finish Session'}
+        ${G.curQ + 1 < total ? 'Next Question →' : 'Finish Session'}
       </button>
     </div>
   `;
@@ -951,41 +951,41 @@ async function submitAnswer() {
 function displayFeedback(ev, q, userAns) {
   const fbClass = { correct:'fb-correct', partial:'fb-partial', incorrect:'fb-incorrect' }[ev.verdict];
   const vbClass = { correct:'vb-correct', partial:'vb-partial', incorrect:'vb-incorrect' }[ev.verdict];
-  const vbEmoji = { correct:'✅', partial:'🟡', incorrect:'❌' }[ev.verdict];
+  const vbIcon = { correct:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg>', partial:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg>', incorrect:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg>' }[ev.verdict];
   const vbText = { correct:'Correct', partial:'Partially Correct', incorrect:'Needs Work' }[ev.verdict];
 
   document.getElementById('fbArea').style.display = 'block';
   document.getElementById('fbArea').innerHTML = `
     <div class="fb-panel ${fbClass}">
-      <span class="verdict-badge ${vbClass}">${vbEmoji} ${vbText}</span>
+      <span class="verdict-badge ${vbClass}">${vbIcon} ${vbText}</span>
 
       <div class="correct-ans-box">
-        <div class="fb-box-label" style="color:#6366f1;">✦ Correct Answer</div>
+        <div class="fb-box-label" style="color:#6366f1;">Correct Answer</div>
         <div class="fb-box-text">${escHtml(q.answer)}</div>
       </div>
 
       ${ev.what_was_right ? `<div class="fb-section">
-        <div class="fb-section-label">✅ What You Got Right</div>
+        <div class="fb-section-label"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg> What You Got Right</div>
         <div class="fb-section-text">${escHtml(ev.what_was_right)}</div>
       </div>` : ''}
 
       ${ev.what_was_missing ? `<div class="fb-section">
-        <div class="fb-section-label">🎯 What Was Missing</div>
+        <div class="fb-section-label"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg> What Was Missing</div>
         <div class="fb-section-text">${escHtml(ev.what_was_missing)}</div>
       </div>` : ''}
 
       ${ev.critique ? `<div class="fb-section">
-        <div class="fb-section-label">📝 Critique</div>
+        <div class="fb-section-label"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pencil"/></svg> Critique</div>
         <div class="fb-section-text">${escHtml(ev.critique)}</div>
       </div>` : ''}
 
       <div class="memory-anchor-box">
-        <div class="fb-box-label" style="color:#d97706;">🧠 Memory Anchor</div>
+        <div class="fb-box-label" style="color:#d97706;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightbulb"/></svg> Memory Anchor</div>
         <div class="fb-box-text">${escHtml(ev.memory_anchor || q.memory_anchor || 'Think about the core concept and how it connects to what you already know.')}</div>
       </div>
 
       <div class="better-ans-box">
-        <div class="fb-box-label" style="color:#059669;">💡 Ideal Answer</div>
+        <div class="fb-box-label" style="color:#059669;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg> Ideal Answer</div>
         <div class="fb-box-text">${escHtml(ev.better_answer || q.better_answer_example || q.answer)}</div>
       </div>
 
@@ -1001,17 +1001,17 @@ function displayFallbackFeedback(q, userAns) {
   document.getElementById('fbArea').style.display = 'block';
   document.getElementById('fbArea').innerHTML = `
     <div class="fb-panel fb-partial">
-      <span class="verdict-badge vb-partial">📖 Answer Revealed</span>
+      <span class="verdict-badge vb-partial">Answer Revealed</span>
       <div class="correct-ans-box">
-        <div class="fb-box-label" style="color:#6366f1;">✦ Correct Answer</div>
+        <div class="fb-box-label" style="color:#6366f1;">Correct Answer</div>
         <div class="fb-box-text">${escHtml(q.answer)}</div>
       </div>
       ${q.memory_anchor ? `<div class="memory-anchor-box">
-        <div class="fb-box-label" style="color:#d97706;">🧠 Memory Anchor</div>
+        <div class="fb-box-label" style="color:#d97706;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightbulb"/></svg> Memory Anchor</div>
         <div class="fb-box-text">${escHtml(q.memory_anchor)}</div>
       </div>` : ''}
       ${q.better_answer_example ? `<div class="better-ans-box">
-        <div class="fb-box-label" style="color:#059669;">💡 Ideal Answer</div>
+        <div class="fb-box-label" style="color:#059669;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg> Ideal Answer</div>
         <div class="fb-box-text">${escHtml(q.better_answer_example)}</div>
       </div>` : ''}
     </div>
@@ -1072,11 +1072,11 @@ async function completeSession() {
 
   const streakRes = await updateStreak();
   document.getElementById('progFill').style.width = '100%';
-  document.getElementById('progTxt').textContent = `✅ Complete`;
+  document.getElementById('progTxt').innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg> Complete`;
   document.getElementById('questionArea').style.display = 'none';
 
   const acc = G.questions.length > 0 ? Math.round(G.sesCorrect / G.questions.length * 100) : 0;
-  const emoji = acc >= 80 ? '🏆' : acc >= 60 ? '🎉' : '💪';
+  const emoji = acc >= 80 ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg>' : acc >= 60 ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg>' : '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-rocket"/></svg>';
   const sub = acc >= 80 ? 'Exceptional work! Knowledge locked in.' : acc >= 60 ? 'Solid session. Keep building.' : 'Every rep counts. Come back stronger.';
 
   document.getElementById('completeCard').style.display = 'block';
@@ -1092,11 +1092,11 @@ async function completeSession() {
           <div class="cstat"><div class="cstat-num">${G.sesPts}</div><div class="cstat-lbl">Pts Earned</div></div>
           <div class="cstat"><div class="cstat-num">${Math.round(duration/60)}m</div><div class="cstat-lbl">Time</div></div>
         </div>
-        ${streakRes && streakRes.bonus_points > 0 ? `<div style="padding:12px;background:rgba(239,68,68,0.08);border-radius:12px;font-size:0.88rem;font-weight:700;color:#ef4444;margin-bottom:1rem;">🔥 ${streakRes.streak_count}-day streak! +${streakRes.bonus_points} bonus pts</div>` : ''}
+        ${streakRes && streakRes.bonus_points > 0 ? `<div style="padding:12px;background:rgba(239,68,68,0.08);border-radius:12px;font-size:0.88rem;font-weight:700;color:#ef4444;margin-bottom:1rem;display:flex;align-items:center;gap:6px;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-fire"/></svg> ${streakRes.streak_count}-day streak! +${streakRes.bonus_points} bonus pts</div>` : ''}
         <div class="comp-btns">
-          <button class="btn-solid" onclick="restartSetup()">📚 Study Again</button>
-          <button class="btn-outline" onclick="switchTab('flashcards')">🃏 Flashcards</button>
-          <button class="btn-outline" onclick="switchTab('review')">🔁 Review</button>
+          <button class="btn-solid" onclick="restartSetup()">Study Again</button>
+          <button class="btn-outline" onclick="switchTab('flashcards')">Flashcards</button>
+          <button class="btn-outline" onclick="switchTab('review')">Review</button>
         </div>
       </div>
     </div>
@@ -1130,7 +1130,7 @@ function startTimer() {
   G.timer = setInterval(() => {
     G.timerRem--;
     updateTimerUI();
-    if (G.timerRem <= 0) { clearInterval(G.timer); showToast('⏱ Time\'s up!'); }
+    if (G.timerRem <= 0) { clearInterval(G.timer); showToast('Time\'s up!'); }
   }, 1000);
 }
 
@@ -1217,8 +1217,8 @@ function renderStreakTab() {
   const today = new Date().toISOString().split('T')[0];
   const sub = document.getElementById('streakSubMsg');
   if (G.streak === 0) sub.textContent = 'Complete a session today to start your streak!';
-  else if (G.streakHistory.includes(today)) sub.textContent = `🎯 Already studied today. Come back tomorrow to continue!`;
-  else sub.textContent = `⚡ You studied ${G.streak} day${G.streak!==1?'s':''} in a row! Study today to keep it going.`;
+  else if (G.streakHistory.includes(today)) sub.textContent = `Already studied today. Come back tomorrow to continue!`;
+  else sub.textContent = `You studied ${G.streak} day${G.streak!==1?'s':''} in a row! Study today to keep it going.`;
 
   // Calendar — last 60 days
   const headers = ['S','M','T','W','T','F','S'];
@@ -1247,7 +1247,7 @@ function renderStreakTab() {
 
   // Freezes
   const fi = document.getElementById('freezeIcons');
-  fi.innerHTML = [0,1].map(i => `<div class="freeze-icon ${i >= G.freezes ? 'used' : ''}">🛡</div>`).join('');
+  fi.innerHTML = [0,1].map(i => `<div class="freeze-icon ${i >= G.freezes ? 'used' : ''}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pin"/></svg></div>`).join('');
   document.getElementById('freezeSubMsg').textContent = G.freezes > 0
     ? `You have ${G.freezes} freeze${G.freezes!==1?'s':''} — miss a day without losing your streak!`
     : 'No freezes. Earn one by reaching a 7-day streak.';
@@ -1258,8 +1258,8 @@ function renderStreakTab() {
     const reached = G.longestStreak >= m;
     const isNext = !reached && milestones.filter(x => G.longestStreak >= x).length === milestones.indexOf(m);
     const cls = reached ? 'm-reached' : isNext ? 'm-next' : 'm-locked';
-    const icon = reached ? '✅' : isNext ? '🎯' : '🔒';
-    return `<div class="milestone ${cls}">${icon} ${m} days${m===7?' (+🛡)':m===14?' (+20pts)':m===30?' (+🛡)':''}</div>`;
+    const icon = reached ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg>' : isNext ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg>' : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg>';
+    return `<div class="milestone ${cls}">${icon} ${m} days${m===7?' (+freeze)':m===14?' (+20pts)':m===30?' (+freeze)':''}</div>`;
   }).join('');
 }
 
@@ -1294,7 +1294,7 @@ function renderReviewTab() {
     rl.innerHTML = G.mistakes.map((m, i) => `
       <div class="rm-item">
         <div class="rm-q">${escHtml(m.q)}</div>
-        <span class="rm-verdict ${m.verdict === 'partial' ? 'rmv-partial' : 'rmv-incorrect'}">${m.verdict === 'partial' ? '🟡 Partial' : '❌ Incorrect'}</span>
+        <span class="rm-verdict ${m.verdict === 'partial' ? 'rmv-partial' : 'rmv-incorrect'}">${m.verdict === 'partial' ? 'Partial' : 'Incorrect'}</span>
         <div class="rm-ans"><strong>Your answer:</strong> ${escHtml(m.userAns)}</div>
         <div class="rm-ans" style="margin-top:6px;"><strong>Correct:</strong> ${escHtml(m.correctAns)}</div>
       </div>
@@ -1394,7 +1394,7 @@ function xRenderQ() {
   const q = G.questions[G.xQ];
   const total = G.questions.length;
   document.getElementById('xProgFill').style.width = ((G.xQ / total) * 100) + '%';
-  document.getElementById('xQType').textContent = {recall:'📌 Recall', conceptual:'🧠 Conceptual', 'short-answer':'✍️ Short Answer'}[q.type] || '📌 Recall';
+  document.getElementById('xQType').textContent = {recall:'Recall', conceptual:'Conceptual', 'short-answer':'Short Answer'}[q.type] || 'Recall';
   document.getElementById('xQText').textContent = q.question;
   document.getElementById('xAnsInput').value = '';
   document.getElementById('xFbBox').style.display = 'none';
@@ -1404,7 +1404,7 @@ function xRenderQ() {
   document.getElementById('xSubmitBtn').style.display = 'block';
   document.getElementById('xSubmitBtn').disabled = false;
   document.getElementById('xSubmitBtn').textContent = 'Submit Answer';
-  document.getElementById('xPtsDisplay').textContent = `⚡ ${G.sesPts} pts`;
+  document.getElementById('xPtsDisplay').innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> ${G.sesPts} pts`;
   G.xConf = 'medium'; G.xRevealed = false;
   document.querySelectorAll('.xconf-btn').forEach(b => b.className = 'xconf-btn');
 }
@@ -1432,12 +1432,11 @@ async function xSubmit() {
       const ev = d.evaluation;
       const fb = document.getElementById('xFbBox');
       fb.style.display = 'block';
-      const vEmoji = {correct:'✅', partial:'🟡', incorrect:'❌'}[ev.verdict];
-      fb.innerHTML = `<div style="font-weight:800;margin-bottom:8px;">${vEmoji} ${ev.verdict.charAt(0).toUpperCase()+ev.verdict.slice(1)}</div>
+      fb.innerHTML = `<div style="font-weight:800;margin-bottom:8px;">${ev.verdict.charAt(0).toUpperCase()+ev.verdict.slice(1)}</div>
         <div style="margin-bottom:8px;font-size:0.82rem;color:rgba(255,255,255,0.6);">Correct Answer:</div>
         <div style="margin-bottom:10px;">${escHtml(q.answer)}</div>
         ${ev.critique ? `<div style="font-size:0.82rem;color:rgba(255,255,255,0.7);">${escHtml(ev.critique)}</div>` : ''}
-        ${ev.memory_anchor ? `<div style="margin-top:8px;padding:8px;background:rgba(245,158,11,0.15);border-radius:8px;font-size:0.82rem;">🧠 ${escHtml(ev.memory_anchor)}</div>` : ''}`;
+        ${ev.memory_anchor ? `<div style="margin-top:8px;padding:8px;background:rgba(245,158,11,0.15);border-radius:8px;font-size:0.82rem;">${escHtml(ev.memory_anchor)}</div>` : ''}`;
 
       const pts = ev.points_earned || 1;
       await addPoints(pts, `+${pts} pts`);
@@ -1448,14 +1447,14 @@ async function xSubmit() {
     }
   } catch(e) {
     document.getElementById('xFbBox').style.display = 'block';
-    document.getElementById('xFbBox').innerHTML = `<div style="margin-bottom:8px;font-weight:700;">📖 Correct Answer:</div><div>${escHtml(q.answer)}</div>`;
+    document.getElementById('xFbBox').innerHTML = `<div style="margin-bottom:8px;font-weight:700;">Correct Answer:</div><div>${escHtml(q.answer)}</div>`;
     await addPoints(2, '+2 pts');
     G.sesAnswered++;
   }
 
   btn.style.display = 'none';
   document.getElementById('xNextBtn').style.display = 'block';
-  document.getElementById('xNextBtn').textContent = G.xQ + 1 < G.questions.length ? 'Next Question →' : '🎉 Finish';
+  document.getElementById('xNextBtn').textContent = G.xQ + 1 < G.questions.length ? 'Next Question →' : 'Finish';
 }
 
 function xNext() {

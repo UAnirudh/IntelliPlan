@@ -5,8 +5,8 @@
 <div id="feedbackModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
   <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:420px; width:90%; box-shadow:var(--shadow-hover); animation:fadeUp 0.25s ease both;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
-      <h2 style="font-family:'DM Serif Display',serif; font-size:1.1rem; color:var(--text-primary);">Task Complete! 🎉</h2>
-      <button onclick="closeFeedbackModal()" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--text-muted);">✕</button>
+      <h2 style="font-family:'DM Serif Display',serif; font-size:1.1rem; color:var(--text-primary); display:flex; align-items:center; gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg>Task Complete!</h2>
+      <button onclick="closeFeedbackModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <input type="hidden" id="feedbackTaskTitle" />
     <p id="feedbackTaskName" style="font-size:0.9rem; font-weight:600; color:var(--text-primary); margin-bottom:1rem;"></p>
@@ -29,8 +29,8 @@
   </div>
   <div style="display:flex; gap:8px; flex-wrap:wrap;">
     <button onclick="openNewTaskModal()" class="btn-primary" style="padding:10px 20px; border:none; cursor:pointer; font-size:0.88rem;">+ New Task</button>
-    <button onclick="openIntegrationsModal()" class="btn-secondary" style="padding:10px 20px; font-size:0.88rem;">⚙ Integrations</button>
-    <button onclick="openSilenceModal()" class="btn-secondary" style="padding:10px 20px; font-size:0.88rem;">🔕 Silence</button>
+    <button onclick="openIntegrationsModal()" class="btn-secondary" style="padding:10px 20px; font-size:0.88rem; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-settings"/></svg>Integrations</button>
+    <button onclick="openSilenceModal()" class="btn-secondary" style="padding:10px 20px; font-size:0.88rem; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-bell-off"/></svg>Silence</button>
   </div>
 </div>
 
@@ -39,7 +39,7 @@
 <!-- Schedule Export Bar -->
 <div id="exportBar" style="display:none; background:var(--bg-card); border:1px solid var(--border); border-radius:14px; padding:1rem 1.5rem; margin-bottom:1.5rem; display:none; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
   <div style="font-size:0.85rem; color:var(--text-secondary);">
-    <strong style="color:var(--text-primary);">📅 Export to Google Calendar</strong>
+    <strong style="color:var(--text-primary); display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>Export to Google Calendar</strong>
     <span id="exportStatus" style="margin-left:8px; font-size:0.78rem; color:var(--text-muted);"></span>
   </div>
   <div style="display:flex; gap:8px; align-items:center;">
@@ -59,7 +59,7 @@
 <!-- Saved Schedule Banner -->
 <div id="savedScheduleBanner" style="display:none; background:var(--accent-soft); border:1px solid var(--accent-mid); border-radius:16px; padding:1.25rem 1.5rem; margin-bottom:1.5rem; display:none; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
   <div>
-    <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent); margin-bottom:4px;">📅 Active Study Plan</div>
+    <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent); margin-bottom:4px; display:flex; align-items:center; gap:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>Active Study Plan</div>
     <div id="savedScheduleName" style="font-family:'DM Serif Display',serif; font-size:1.1rem; color:var(--text-primary);"></div>
     <div id="savedScheduleDate" style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;"></div>
   </div>
@@ -79,14 +79,14 @@
 <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.25rem;" id="dashColumns">
   <div>
     <div style="display:flex; align-items:center; gap:8px; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:2px solid var(--high);">
-      <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--high);">⚠ Overdue</span>
+      <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--high); display:inline-flex; align-items:center; gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg>Overdue</span>
       <span id="overdueCount" style="font-size:0.7rem; background:var(--high-bg); color:var(--high); padding:2px 8px; border-radius:10px; font-weight:600;">0</span>
     </div>
     <div id="overdueList" class="notion-col"></div>
   </div>
   <div>
     <div style="display:flex; align-items:center; gap:8px; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:2px solid var(--accent);">
-      <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--accent);">📅 Today</span>
+      <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--accent); display:inline-flex; align-items:center; gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>Today</span>
       <span id="todayCount" style="font-size:0.7rem; background:var(--accent-soft); color:var(--accent); padding:2px 8px; border-radius:10px; font-weight:600;">0</span>
     </div>
     <div id="todayList" class="notion-col"></div>
@@ -105,7 +105,7 @@
   <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:500px; width:90%; box-shadow:var(--shadow-hover); animation:fadeUp 0.25s ease both; max-height:90vh; overflow-y:auto;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
       <h2 style="font-family:'DM Serif Display',serif; font-size:1.2rem; color:var(--text-primary);">New Task</h2>
-      <button onclick="closeNewTaskModal()" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--text-muted);">✕</button>
+      <button onclick="closeNewTaskModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div style="display:flex; flex-direction:column; gap:1rem;">
       <div class="form-group">
@@ -120,9 +120,9 @@
         <div class="form-group">
           <label class="form-label">Priority</label>
           <select id="newTaskPriority" class="form-input">
-            <option value="High">🔴 High</option>
-            <option value="Medium" selected>🟡 Medium</option>
-            <option value="Low">🟢 Low</option>
+            <option value="High">High</option>
+            <option value="Medium" selected>Medium</option>
+            <option value="Low">Low</option>
           </select>
         </div>
       </div>
@@ -142,7 +142,7 @@
       </div>
       <div style="display:flex; align-items:center; gap:8px; padding:10px; background:var(--bg); border-radius:10px; border:1px solid var(--border);">
         <input type="checkbox" id="syncNotion" style="width:16px;height:16px;accent-color:var(--accent);" />
-        <label for="syncNotion" style="font-size:0.85rem; color:var(--text-secondary); cursor:pointer;">📝 Also add to Notion</label>
+        <label for="syncNotion" style="font-size:0.85rem; color:var(--text-secondary); cursor:pointer; display:inline-flex; align-items:center; gap:5px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-notion"/></svg>Also add to Notion</label>
       </div>
       <button onclick="createManualTask()" class="btn-primary" style="padding:14px; border:none; cursor:pointer; font-size:0.9rem;">Create Task</button>
     </div>
@@ -154,7 +154,7 @@
   <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:500px; width:90%; box-shadow:var(--shadow-hover); animation:fadeUp 0.25s ease both;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
       <h2 style="font-family:'DM Serif Display',serif; font-size:1.2rem; color:var(--text-primary);">Edit Task</h2>
-      <button onclick="closeEditModal()" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--text-muted);">✕</button>
+      <button onclick="closeEditModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div style="display:flex; flex-direction:column; gap:1rem;">
       <input type="hidden" id="editTaskId" />
@@ -172,9 +172,9 @@
         <div class="form-group">
           <label class="form-label">Priority</label>
           <select id="editTaskPriority" class="form-input">
-            <option value="High">🔴 High</option>
-            <option value="Medium">🟡 Medium</option>
-            <option value="Low">🟢 Low</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
           </select>
         </div>
       </div>
@@ -205,13 +205,13 @@
   <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:520px; width:90%; box-shadow:var(--shadow-hover); animation:fadeUp 0.25s ease both; max-height:85vh; overflow-y:auto;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
       <h2 style="font-family:'DM Serif Display',serif; font-size:1.2rem; color:var(--text-primary);">Integrations</h2>
-      <button onclick="closeIntegrationsModal()" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--text-muted);">✕</button>
+      <button onclick="closeIntegrationsModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
 
     <!-- Google Calendar -->
     <div style="background:var(--bg); border:1px solid var(--border); border-radius:14px; padding:1.25rem; margin-bottom:1rem;">
       <div style="display:flex; align-items:center; gap:12px;">
-        <div style="width:42px;height:42px;border-radius:10px;background:#ea4335;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">📅</div>
+        <div style="width:42px;height:42px;border-radius:10px;background:#ea4335;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg></div>
         <div style="flex:1;">
           <div style="font-size:0.95rem;font-weight:600;color:var(--text-primary);">Google Calendar</div>
           <div id="gcalStatus" style="font-size:0.78rem;color:var(--text-muted);">Checking...</div>
@@ -223,7 +223,7 @@
     <!-- Notion -->
     <div style="background:var(--bg); border:1px solid var(--border); border-radius:14px; padding:1.25rem;">
       <div style="display:flex; align-items:center; gap:12px; margin-bottom:1rem;">
-        <div style="width:42px;height:42px;border-radius:10px;background:#191919;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">📝</div>
+        <div style="width:42px;height:42px;border-radius:10px;background:#191919;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-notion"/></svg></div>
         <div style="flex:1;">
           <div style="font-size:0.95rem;font-weight:600;color:var(--text-primary);">Notion</div>
           <div id="notionStatus" style="font-size:0.78rem;color:var(--text-muted);">Not connected</div>
@@ -258,7 +258,7 @@
 
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
       <h2 style="font-family:'DM Serif Display',serif;">Silence Notifications</h2>
-      <button onclick="closeSilenceModal()" style="background:none;border:none;cursor:pointer;">✕</button>
+      <button onclick="closeSilenceModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
 
     <label class="form-label">Duration (minutes)</label>
@@ -445,9 +445,9 @@ function updateSubtitle(tasks) {
   const sub = document.getElementById('dashSubtitle');
   const total = tasks.overdue.length + tasks.today.length;
   if (tasks.overdue.length > 0) {
-    sub.innerHTML = `<span style="color:var(--high);">⚠ ${tasks.overdue.length} overdue</span> · ${tasks.today.length} today · ${tasks.upcoming.length} upcoming`;
+    sub.innerHTML = `<span style="color:var(--high);display:inline-flex;align-items:center;gap:3px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg>${tasks.overdue.length} overdue</span> · ${tasks.today.length} today · ${tasks.upcoming.length} upcoming`;
   } else if (tasks.today.length > 0) {
-    sub.innerHTML = `<span style="color:var(--accent);">📅 ${tasks.today.length} due today</span> · ${tasks.upcoming.length} upcoming`;
+    sub.innerHTML = `<span style="color:var(--accent);display:inline-flex;align-items:center;gap:3px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>${tasks.today.length} due today</span> · ${tasks.upcoming.length} upcoming`;
   } else {
     sub.innerHTML = `<span style="color:var(--text-muted);">${tasks.upcoming.length} upcoming tasks</span>`;
   }
@@ -459,8 +459,8 @@ function renderIntegrationBar(calRes) {
   if (calRes.connected) {
     chips.push(`
       <div style="display:flex;align-items:center;gap:8px;padding:6px 14px;background:var(--low-bg);border:1px solid var(--low);border-radius:20px;font-size:0.78rem;font-weight:600;color:var(--low);">
-        📅 Google Calendar connected ✓
-        <button onclick="disconnectGCal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:0.75rem;padding:0;font-family:'DM Sans',sans-serif;">✕</button>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>Google Calendar connected
+        <button onclick="disconnectGCal()" aria-label="Disconnect" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:2px;display:flex;align-items:center;justify-content:center;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>`);
   } else {
     chips.push(`<a href="/oauth/google" style="display:flex;align-items:center;gap:6px;padding:6px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:20px;font-size:0.78rem;font-weight:600;color:var(--accent);text-decoration:none;">+ Connect Google Calendar</a>`);
@@ -520,7 +520,7 @@ async function exportScheduleToCal() {
   const status = document.getElementById('exportStatus');
   const skipOverlaps = document.getElementById('skipOverlaps').checked;
 
-  btn.textContent = '⏳ Exporting...';
+  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="spin" aria-hidden="true"><use href="#i-spinner"/></svg> Exporting...';
   btn.disabled = true;
 
   // Get saved schedule
@@ -564,7 +564,7 @@ async function exportScheduleToCal() {
 
   btn.disabled = false;
   if (res.status === 'ok') {
-    btn.textContent = `✅ Added ${res.created} events`;
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg> Added ${res.created} events`;
     btn.style.background = 'var(--low)';
     status.textContent = `· ${res.skipped || 0} overlaps skipped`;
     setTimeout(() => {
@@ -611,16 +611,16 @@ function renderColumn(listId, countId, tasks) {
         ${isMissing ? `<span style="color:var(--high);font-size:0.72rem;font-weight:700;"> · ${t.score_label || 'Missing'}</span>` : ''}
       </div>
       <div class="notion-card-meta">
-        ${t.due_date ? `<span class="notion-pill" style="background:var(--accent-soft);color:var(--accent);">📅 ${t.due_date}</span>` : ''}
+        ${t.due_date ? `<span class="notion-pill" style="background:var(--accent-soft);color:var(--accent);display:inline-flex;align-items:center;gap:3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>${t.due_date}</span>` : ''}
         <span class="notion-pill" style="background:${t.color}22;color:${t.color};">${t.priority}</span>
         <span class="source-badge" style="background:${srcColor}22;color:${srcColor};">${srcLabel}</span>
         ${t.course && t.course !== 'Unknown' && t.course !== 'Personal' ? `<span class="notion-pill" style="background:var(--bg);color:var(--text-muted);border:1px solid var(--border);">${t.course}</span>` : ''}
       </div>
       <div class="notion-card-actions">
-        ${t.source === 'manual' ? `<button class="notion-action-btn" onclick='openEditTask(event, ${JSON.stringify(t)})'>✏ Edit</button>` : ''}
-        ${t.notion_page_id ? `<button class="notion-action-btn" onclick="completeNotionTask(event,'${t.notion_page_id}')">✓ Notion</button>` : ''}
-        ${_gcalConnected && t.due_date ? `<button class="notion-action-btn" onclick='addToCalendar(event, ${JSON.stringify(t)})'>📅 Cal</button>` : ''}
-        <button class="notion-action-btn done-btn" onclick="dismissTask(event,'${t.title.replace(/'/g, "\\'")}',this)">✓ Done</button>
+        ${t.source === 'manual' ? `<button class="notion-action-btn" onclick='openEditTask(event, ${JSON.stringify(t)})' style="display:inline-flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pencil"/></svg>Edit</button>` : ''}
+        ${t.notion_page_id ? `<button class="notion-action-btn" onclick="completeNotionTask(event,'${t.notion_page_id}')" style="display:inline-flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-notion"/></svg>Notion</button>` : ''}
+        ${_gcalConnected && t.due_date ? `<button class="notion-action-btn" onclick='addToCalendar(event, ${JSON.stringify(t)})' style="display:inline-flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>Cal</button>` : ''}
+        <button class="notion-action-btn done-btn" onclick="dismissTask(event,'${t.title.replace(/'/g, "\\'")}',this)" style="display:inline-flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-done"/></svg>Done</button>
       </div>
     `;
     list.appendChild(card);
@@ -660,7 +660,7 @@ function completeNotionTask(e, pageId) {
 async function addToCalendar(e, task) {
   e.stopPropagation();
   const btn = e.target;
-  btn.textContent = '⏳';
+  btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="spin" aria-hidden="true"><use href="#i-spinner"/></svg>';
   btn.disabled = true;
   const res = await fetch(`/calendar/free-slot?date=${task.due_date}`).then(r => r.json());
   const start = res.slot || '7:00 PM';
@@ -675,8 +675,8 @@ async function addToCalendar(e, task) {
       }
     })
   });
-  btn.textContent = '✅';
-  setTimeout(() => { btn.textContent = '📅 Cal'; btn.disabled = false; }, 2000);
+  btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg>';
+  setTimeout(() => { btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>Cal'; btn.disabled = false; }, 2000);
 }
 
 // ── NEW TASK ──────────────────────────────────────────────────

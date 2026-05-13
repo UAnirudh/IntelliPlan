@@ -20,7 +20,7 @@
           <option value="afternoon">Afternoon</option>
           <option value="evening" selected>Evening</option>
         </select>
-        <button id="autoTimeBtn" onclick="autoDetectTime()" style="padding:10px 16px; border-radius:10px; border:1px solid var(--accent); background:var(--accent-soft); color:var(--accent); cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.85rem; font-weight:600;">✨ Auto</button>
+        <button id="autoTimeBtn" onclick="autoDetectTime()" style="padding:10px 16px; border-radius:10px; border:1px solid var(--accent); background:var(--accent-soft); color:var(--accent); cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.85rem; font-weight:600; display:inline-flex; align-items:center; gap:5px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg> Auto</button>
       </div>
       <span class="form-hint" id="autoTimeHint"></span>
     </div>
@@ -34,10 +34,10 @@
     </div>
   </div>
   <div style="display:flex; gap:10px; align-items:center; margin-top:1.5rem; flex-wrap:wrap;">
-    <button class="btn-primary" id="generateBtn" onclick="generateSchedule()" style="padding:14px 32px; border:none; cursor:pointer;">🤖 Generate My Study Plan</button>
+    <button class="btn-primary" id="generateBtn" onclick="generateSchedule()" style="padding:14px 32px; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-robot"/></svg> Generate My Study Plan</button>
     <div id="savePanel" style="display:none; gap:8px; align-items:center;">
       <input type="text" id="scheduleName" class="form-input" placeholder="Schedule name..." style="max-width:200px;" />
-      <button onclick="saveSchedule()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--low); background:var(--low-bg); color:var(--low); cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.88rem; font-weight:600;">💾 Save to Dashboard</button>
+      <button onclick="saveSchedule()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--low); background:var(--low-bg); color:var(--low); cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-save"/></svg> Save to Dashboard</button>
     </div>
   </div>
 </div>
@@ -54,7 +54,7 @@
 </div>
 
 <div class="empty-state" id="emptyState" style="display:none;">
-  <div class="empty-icon">📅</div>
+  <div class="empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg></div>
   <div class="empty-title">No assignments to schedule</div>
   <p>Add some assignments first from your Canvas or StudentVue account</p>
 </div>
@@ -87,7 +87,7 @@ function renderCustomTasks() {
   list.innerHTML = customTasks.map((t, i) => `
     <div class="custom-task-item">
       <span>${t}</span>
-      <button onclick="removeTask(${i})">✕</button>
+      <button onclick="removeTask(${i})" aria-label="Remove task"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x"/></svg></button>
     </div>
   `).join('');
 }
@@ -99,11 +99,11 @@ function removeTask(index) {
 
 async function autoDetectTime() {
   const btn = document.getElementById('autoTimeBtn');
-  btn.textContent = '⏳...';
+  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="spin"><use href="#i-spinner"/></svg>';
   btn.disabled = true;
   const today = new Date().toISOString().split('T')[0];
   const res = await fetch(`/calendar/free-slot?date=${today}`).then(r => r.json()).catch(() => ({ connected: false }));
-  btn.textContent = '✨ Auto';
+  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg> Auto';
   btn.disabled = false;
   if (res.connected) {
     const slot = res.slot;
@@ -114,7 +114,7 @@ async function autoDetectTime() {
     if (hour24 < 12) preference = 'morning';
     else if (hour24 < 17) preference = 'afternoon';
     document.getElementById('preferredTime').value = preference;
-    document.getElementById('autoTimeHint').textContent = `📅 First free slot: ${slot} → ${preference}`;
+    document.getElementById('autoTimeHint').textContent = `First free slot: ${slot} → ${preference}`;
   } else {
     document.getElementById('autoTimeHint').textContent = 'Connect Google Calendar to use Auto';
   }
@@ -177,7 +177,7 @@ function updateCalExportButton() {
           background:#ea4335; color:white; border:none; border-radius:12px;
           cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.9rem;
           font-weight:600; box-shadow:0 4px 16px rgba(234,67,53,0.3); transition:all 0.2s;">
-          📅 Export to Google Calendar
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> Export to Google Calendar
         </button>`;
     } else {
       wrap.innerHTML = `
@@ -186,7 +186,7 @@ function updateCalExportButton() {
           background:var(--bg-card); color:var(--text-secondary); border:1px solid var(--border);
           border-radius:12px; text-decoration:none; font-family:'DM Sans',sans-serif;
           font-size:0.88rem; font-weight:600;">
-          🔗 Connect Google Calendar to export
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-link"/></svg> Connect Google Calendar to export
         </a>`;
     }
   }).catch(() => {});
@@ -203,7 +203,7 @@ async function saveSchedule() {
   if (res.status === 'ok') {
     const btn = document.querySelector('[onclick="saveSchedule()"]');
     const orig = btn.textContent;
-    btn.textContent = '✅ Saved to Dashboard!';
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg> Saved to Dashboard!';
     btn.style.background = 'var(--low)';
     btn.style.color = 'white';
     btn.style.borderColor = 'var(--low)';
@@ -219,7 +219,7 @@ async function saveSchedule() {
 async function exportToCalendar() {
   if (!_lastScheduleData) return;
   const btn = document.getElementById('calExportBtn');
-  btn.textContent = '⏳ Exporting...';
+  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="spin"><use href="#i-spinner"/></svg> Exporting...';
   btn.disabled = true;
   const res = await fetch('/calendar/export', {
     method: 'POST',
@@ -228,14 +228,14 @@ async function exportToCalendar() {
   }).then(r => r.json());
   btn.disabled = false;
   if (res.status === 'ok') {
-    btn.textContent = `✅ Added ${res.created} events to Calendar`;
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg> Added ${res.created} events to Calendar`;
     btn.style.background = 'var(--low)';
     setTimeout(() => {
-      btn.textContent = '📅 Export to Google Calendar';
+      btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> Export to Google Calendar';
       btn.style.background = '#ea4335';
     }, 3000);
   } else {
-    btn.textContent = '📅 Export to Google Calendar';
+    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> Export to Google Calendar';
     alert('Export failed: ' + (res.message || 'Unknown error'));
   }
 }
@@ -245,7 +245,7 @@ function renderSchedule(data) {
   overview.innerHTML = `
     <div class="overview-card">
       <div class="overview-text">${data.overview}</div>
-      <div class="overview-stat">⏱ Total study time: <strong>${data.total_study_time}</strong></div>
+      <div class="overview-stat"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg> Total study time: <strong>${data.total_study_time}</strong></div>
     </div>`;
   const days = document.getElementById('scheduleDays');
   days.innerHTML = data.schedule.map((day, di) => `
@@ -255,17 +255,17 @@ function renderSchedule(data) {
           <div class="day-name">${day.day_name}, ${day.date}</div>
           ${day.workload_level ? `<div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;">${day.workload_level} workload</div>` : ''}
         </div>
-        <div class="day-hours">⏱ ${day.total_hours}h</div>
+        <div class="day-hours"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg> ${day.total_hours}h</div>
       </div>
       <div class="day-blocks">
         ${day.blocks.map(block => `
           <div class="time-block ${block.is_break ? 'break-block' : ''}" style="${block.color ? `border-left:3px solid ${block.color};` : ''}">
             <div class="time-slot">${block.time_slot}</div>
             <div class="block-content">
-              <div class="block-title">${block.is_break ? '☕ Break' : block.assignment}</div>
-              ${!block.is_break ? `<div class="block-course">📚 ${block.course}</div>` : ''}
-              ${block.notes ? `<div class="block-notes">💡 ${block.notes}</div>` : ''}
-              ${block.energy_level && !block.is_break ? `<div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;">⚡ ${block.energy_level}</div>` : ''}
+              <div class="block-title">${block.is_break ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-coffee"/></svg> Break' : block.assignment}</div>
+              ${!block.is_break ? `<div class="block-course"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg> ${block.course}</div>` : ''}
+              ${block.notes ? `<div class="block-notes"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightbulb"/></svg> ${block.notes}</div>` : ''}
+              ${block.energy_level && !block.is_break ? `<div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;display:flex;align-items:center;gap:3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> ${block.energy_level}</div>` : ''}
             </div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
               <div class="block-duration">${block.duration_minutes}m</div>
@@ -273,7 +273,7 @@ function renderSchedule(data) {
             </div>
           </div>`).join('')}
       </div>
-      ${day.daily_tip ? `<div class="daily-tip">✨ ${day.daily_tip}</div>` : ''}
+      ${day.daily_tip ? `<div class="daily-tip"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg> ${day.daily_tip}</div>` : ''}
     </div>`).join('');
 }
 
@@ -283,7 +283,7 @@ fetch('/calendar/events').then(r => r.json()).then(res => {
   _gcalConnected = res.connected;
   if (res.connected) {
     // Show a pre-generate hint that calendar is ready
-    document.getElementById('autoTimeHint').textContent = '📅 Google Calendar connected — export button appears after generating';
+    document.getElementById('autoTimeHint').textContent = 'Google Calendar connected — export button appears after generating';
   }
 }).catch(() => {});
 

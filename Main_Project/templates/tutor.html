@@ -523,15 +523,15 @@ main { max-width:100% !important; padding:0 !important; margin:0 !important; dis
       <p class="tutor-empty-sub">Ask Plani anything — math, science, history, coding, and more. I'll teach you step by step, not just hand you the answer.</p>
 
       <div class="tutor-chips" id="tutorChips">
-        <button class="tutor-chip active" data-subject="General"          onclick="selectSubject(this)">✦ General</button>
-        <button class="tutor-chip"        data-subject="Math"             onclick="selectSubject(this)">∑ Math</button>
-        <button class="tutor-chip"        data-subject="Science"          onclick="selectSubject(this)">⚗ Science</button>
-        <button class="tutor-chip"        data-subject="History"          onclick="selectSubject(this)">🏛 History</button>
-        <button class="tutor-chip"        data-subject="English"          onclick="selectSubject(this)">✏ English</button>
-        <button class="tutor-chip"        data-subject="Computer Science" onclick="selectSubject(this)">⌨ CS</button>
-        <button class="tutor-chip"        data-subject="Languages"        onclick="selectSubject(this)">◈ Languages</button>
-        <button class="tutor-chip"        data-subject="Economics"        onclick="selectSubject(this)">$ Economics</button>
-        <button class="tutor-chip"        data-subject="Test Prep"        onclick="selectSubject(this)">◉ Test Prep</button>
+        <button class="tutor-chip active" data-subject="General"          onclick="selectSubject(this)">General</button>
+        <button class="tutor-chip"        data-subject="Math"             onclick="selectSubject(this)">Math</button>
+        <button class="tutor-chip"        data-subject="Science"          onclick="selectSubject(this)">Science</button>
+        <button class="tutor-chip"        data-subject="History"          onclick="selectSubject(this)">History</button>
+        <button class="tutor-chip"        data-subject="English"          onclick="selectSubject(this)">English</button>
+        <button class="tutor-chip"        data-subject="Computer Science" onclick="selectSubject(this)">CS</button>
+        <button class="tutor-chip"        data-subject="Languages"        onclick="selectSubject(this)">Languages</button>
+        <button class="tutor-chip"        data-subject="Economics"        onclick="selectSubject(this)">Economics</button>
+        <button class="tutor-chip"        data-subject="Test Prep"        onclick="selectSubject(this)">Test Prep</button>
       </div>
 
       <div class="tutor-suggestions" id="tutorSuggestions"></div>
@@ -576,49 +576,49 @@ main { max-width:100% !important; padding:0 !important; margin:0 !important; dis
 <script>
 const SUGGESTIONS = {
   General: [
-    { icon: '💡', text: 'Explain a concept I\'m struggling to understand' },
-    { icon: '📖', text: 'Help me understand something from class today' },
-    { icon: '✍',  text: 'Quiz me on a topic I\'m currently studying' },
+    { text: 'Explain a concept I\'m struggling to understand' },
+    { text: 'Help me understand something from class today' },
+    { text: 'Quiz me on a topic I\'m currently studying' },
   ],
   Math: [
-    { icon: '∫', text: 'Explain derivatives step by step' },
-    { icon: '²', text: 'How do I solve quadratic equations?' },
-    { icon: '∑', text: 'Walk me through integration by parts' },
+    { text: 'Explain derivatives step by step' },
+    { text: 'How do I solve quadratic equations?' },
+    { text: 'Walk me through integration by parts' },
   ],
   Science: [
-    { icon: '🧬', text: 'How does DNA replication work?' },
-    { icon: '⚛',  text: 'Explain Newton\'s three laws of motion' },
-    { icon: '⚗',  text: 'What happens during a chemical reaction?' },
+    { text: 'How does DNA replication work?' },
+    { text: 'Explain Newton\'s three laws of motion' },
+    { text: 'What happens during a chemical reaction?' },
   ],
   History: [
-    { icon: '🌍', text: 'What caused World War I?' },
-    { icon: '🏛',  text: 'Why did the Roman Empire fall?' },
-    { icon: '📜', text: 'Explain the main causes of the American Civil War' },
+    { text: 'What caused World War I?' },
+    { text: 'Why did the Roman Empire fall?' },
+    { text: 'Explain the main causes of the American Civil War' },
   ],
   English: [
-    { icon: '✍',  text: 'Help me write a strong thesis statement' },
-    { icon: '📚', text: 'Explain the main themes in The Great Gatsby' },
-    { icon: '🔤', text: 'When do I use a semicolon vs. a comma?' },
+    { text: 'Help me write a strong thesis statement' },
+    { text: 'Explain the main themes in The Great Gatsby' },
+    { text: 'When do I use a semicolon vs. a comma?' },
   ],
   'Computer Science': [
-    { icon: '🔁', text: 'Explain recursion with a simple example' },
-    { icon: '⏱',  text: 'What is Big O notation and why does it matter?' },
-    { icon: '🗂',  text: 'How does a binary search tree work?' },
+    { text: 'Explain recursion with a simple example' },
+    { text: 'What is Big O notation and why does it matter?' },
+    { text: 'How does a binary search tree work?' },
   ],
   Languages: [
-    { icon: '🇪🇸', text: 'Explain Spanish verb conjugation (present tense)' },
-    { icon: '🇫🇷', text: 'When do I use the French subjunctive?' },
-    { icon: '🔤', text: 'What are the most common irregular verbs in Spanish?' },
+    { text: 'Explain Spanish verb conjugation (present tense)' },
+    { text: 'When do I use the French subjunctive?' },
+    { text: 'What are the most common irregular verbs in Spanish?' },
   ],
   Economics: [
-    { icon: '📈', text: 'Explain supply and demand with a real example' },
-    { icon: '💰', text: 'What causes inflation?' },
-    { icon: '🔄', text: 'What is opportunity cost? Give me an example.' },
+    { text: 'Explain supply and demand with a real example' },
+    { text: 'What causes inflation?' },
+    { text: 'What is opportunity cost? Give me an example.' },
   ],
   'Test Prep': [
-    { icon: '📝', text: 'What\'s the best strategy for SAT math?' },
-    { icon: '⏱',  text: 'How should I pace myself on the ACT?' },
-    { icon: '📊', text: 'Quiz me on AP US History key events' },
+    { text: 'What\'s the best strategy for SAT math?' },
+    { text: 'How should I pace myself on the ACT?' },
+    { text: 'Quiz me on AP US History key events' },
   ],
 };
 
@@ -763,7 +763,7 @@ function renderSuggestions(subject) {
     `<div class="tutor-sug-label">Suggested questions</div>` +
     items.map(s =>
       `<button class="tutor-sug-card" onclick="useSuggestion(this)">
-         <span class="tutor-sug-icon">${s.icon}</span>
+         <span class="tutor-sug-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg></span>
          <span>${escHtml(s.text)}</span>
        </button>`
     ).join('');

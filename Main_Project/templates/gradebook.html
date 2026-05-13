@@ -16,7 +16,7 @@
   <!-- Course Selector -->
   <div style="margin-bottom:1.5rem;">
     <div class="dropdown-wrap">
-      <button class="dropdown-btn" id="courseDropBtn">📚 Select a Course <span class="chevron">▾</span></button>
+      <button class="dropdown-btn" id="courseDropBtn">Select a Course <span class="chevron">▾</span></button>
       <div class="dropdown-menu" id="courseMenu"></div>
     </div>
   </div>
@@ -153,7 +153,7 @@ fetch('/gradebook/detail')
   })
   .catch(() => {
     document.getElementById('loadingState').innerHTML =
-      '<p>⚠️ Could not load gradebook. Make sure you are logged in with StudentVue.</p>';
+      '<p>Could not load gradebook. Make sure you are logged in with StudentVue.</p>';
   });
 
 function populateCourseMenu(courses) {
@@ -163,7 +163,7 @@ function populateCourseMenu(courses) {
   courses.forEach(c => {
     const item = document.createElement('div');
     item.className = 'dropdown-item';
-    item.textContent = `📚 ${c.course}`;
+    item.textContent = c.course;
     item.addEventListener('click', () => selectCourse(c));
     menu.appendChild(item);
   });
@@ -206,7 +206,7 @@ function selectCourse(course) {
   modifiedWeights = {};
   activeCategoryFilter = 'all';
 
-  dropBtn.innerHTML = `📚 ${course.course} <span class="chevron">▾</span>`;
+  dropBtn.innerHTML = `${course.course} <span class="chevron">▾</span>`;
   dropMenu.classList.remove('open');
   document.getElementById('courseOverview').style.display = 'block';
   document.getElementById('modelResult').style.display = 'none';
@@ -330,11 +330,11 @@ function renderBreakdown(assignments) {
       : 200;
 
     card.innerHTML = `
-      <div class="rank-bubble" style="font-size:0.7rem;">${a.graded || isModified ? '✓' : '⏳'}</div>
+      <div class="rank-bubble" style="font-size:0.7rem;">${a.graded || isModified ? '✓' : '–'}</div>
       <div class="card-main">
         <div class="card-title">${a.title} ${isModified ? '<span style="font-size:0.7rem;color:var(--accent);font-weight:500;">· modified</span>' : ''}</div>
         <div class="card-meta">
-          ${a.due_date ? `<span class="meta-item">📅 ${a.due_date}</span>` : ''}
+          ${a.due_date ? `<span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> ${a.due_date}</span>` : ''}
           <span class="meta-item" style="background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:0.72rem;">${a.category || '—'}</span>
         </div>
         ${scoreBar}
@@ -466,7 +466,7 @@ function syncAssignmentCard(id) {
 
   card.style.borderColor = isModified ? 'var(--accent)' : '';
   const bubble = card.querySelector('.rank-bubble');
-  if (bubble) bubble.textContent = a.graded || isModified ? '✓' : '⏳';
+  if (bubble) bubble.textContent = a.graded || isModified ? '✓' : '–';
 }
 
 function syncVisibleAssignments() {
@@ -657,7 +657,7 @@ function runModel() {
 
     if (neededFromCat !== null) {
       if (neededFromCat > 100) achievable = false;
-      lines.push(`<strong>${cat.type}</strong> (${cat.weight}% of grade): need <strong>${Math.max(0, neededFromCat).toFixed(1)}%</strong> avg on ${d.pendingAssignments.length} remaining assignment${d.pendingAssignments.length !== 1 ? 's' : ''}${neededFromCat > 100 ? ' <span style="color:var(--high)">⚠️ not possible</span>' : ''}`);
+      lines.push(`<strong>${cat.type}</strong> (${cat.weight}% of grade): need <strong>${Math.max(0, neededFromCat).toFixed(1)}%</strong> avg on ${d.pendingAssignments.length} remaining assignment${d.pendingAssignments.length !== 1 ? 's' : ''}${neededFromCat > 100 ? ' <span style="color:var(--high)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px"><use href="#i-warning"/></svg> not possible</span>' : ''}`);
     } else {
       const actual = currentWeightedPct !== null ? (currentWeightedPct * 100).toFixed(1) : '—';
       lines.push(`<strong>${cat.type}</strong>: all graded — currently at ${actual}%`);
@@ -667,8 +667,10 @@ function runModel() {
   const result = document.getElementById('modelResult');
   result.style.display = 'block';
   result.innerHTML = `
-    <div style="margin-bottom:8px; font-weight:600; color:${achievable ? 'var(--low)' : 'var(--high)'};">
-      ${achievable ? `✅ Target of ${target}% is achievable` : `⚠️ Target of ${target}% may not be reachable`}
+    <div style="margin-bottom:8px; font-weight:600; color:${achievable ? 'var(--low)' : 'var(--high)'}; display:flex; align-items:center; gap:6px;">
+      ${achievable
+        ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg> Target of ${target}% is achievable`
+        : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg> Target of ${target}% may not be reachable`}
     </div>
     ${lines.map(l => `<div style="padding:4px 0; border-bottom:1px solid var(--border); font-size:0.88rem;">${l}</div>`).join('')}
   `;

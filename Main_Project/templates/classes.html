@@ -16,21 +16,21 @@
 
 <div class="stats-bar" id="statsBar">
   <div class="stat-card">
-    <div class="stat-icon" style="background:#dbeafe;">📚</div>
+    <div class="stat-icon" style="background:#dbeafe;color:var(--accent);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg></div>
     <div class="stat-info">
       <div class="stat-value" id="statCourses">—</div>
       <div class="stat-label">Total Courses</div>
     </div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon" style="background:#fef2f2;">📝</div>
+    <div class="stat-icon" style="background:#fef2f2;color:var(--high);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pencil"/></svg></div>
     <div class="stat-info">
       <div class="stat-value" id="statTotal">—</div>
       <div class="stat-label">Total Assignments</div>
     </div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon" style="background:#f0fdf4;">⏱</div>
+    <div class="stat-icon" style="background:#f0fdf4;color:var(--low);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg></div>
     <div class="stat-info">
       <div class="stat-value" id="statTime">—</div>
       <div class="stat-label">Total Study Time</div>
@@ -40,10 +40,10 @@
 
 <div class="dropdown-wrap">
   <button class="dropdown-btn" id="classDropBtn">
-    📚 Select a Course <span class="chevron">▾</span>
+    Select a Course <span class="chevron">▾</span>
   </button>
   <div class="dropdown-menu" id="classMenu">
-    <div class="dropdown-item active" data-filter="all">📋 All Courses</div>
+    <div class="dropdown-item active" data-filter="all">All Courses</div>
   </div>
 </div>
 
@@ -55,7 +55,7 @@
 </div>
 
 <div class="empty-state" id="emptyState">
-  <div class="empty-icon">📚</div>
+  <div class="empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg></div>
   <div class="empty-title">No assignments found</div>
   <p>Try selecting a different course</p>
 </div>
@@ -67,7 +67,7 @@
         <div class="notes-eyebrow">Course Notes</div>
         <div id="notesCourseTitle" class="notes-title">Select a course</div>
       </div>
-      <button class="notes-close" onclick="closeNotesModal()">✕</button>
+      <button class="notes-close" onclick="closeNotesModal()" aria-label="Close notes"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x"/></svg></button>
     </div>
 
     <div class="notes-grid">
@@ -561,10 +561,14 @@ function daysUntil(dateStr) {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   const diff = Math.round((due - now) / 86400000);
-  if (diff < 0) return '⚠️ Overdue';
-  if (diff === 0) return '📌 Due today';
-  if (diff === 1) return '⏰ Due tomorrow';
-  return `📅 ${diff} days left`;
+  const svgWarn  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg>`;
+  const svgPin   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pin"/></svg>`;
+  const svgClock = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg>`;
+  const svgCal   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>`;
+  if (diff < 0) return `${svgWarn} Overdue`;
+  if (diff === 0) return `${svgPin} Due today`;
+  if (diff === 1) return `${svgClock} Due tomorrow`;
+  return `${svgCal} ${diff} days left`;
 }
 
 function courseLabel(course) {
@@ -611,14 +615,14 @@ function renderCards(assignments) {
       <div class="card-main">
         <div class="card-title">${a.title}</div>
         <div class="card-meta">
-          <span class="meta-item">📚 ${a.course}</span>
-          <span class="meta-item">📅 ${formatDate(a.due_date)}</span>
+          <span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg> ${a.course}</span>
+          <span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> ${formatDate(a.due_date)}</span>
           <span class="meta-item">${daysUntil(a.due_date)}</span>
         </div>
       </div>
-      <span class="time-pill">⏱ ${formatTime(a.estimated_time)}</span>
+      <span class="time-pill"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg> ${formatTime(a.estimated_time)}</span>
       <span class="priority-badge ${priority}">${a.priority}</span>
-      <button class="dismiss-btn" onclick="dismissAssignment('${a.title.replace(/'/g, "\\'")}', this)">✓ Done</button>
+      <button class="dismiss-btn" onclick="dismissAssignment('${a.title.replace(/'/g, "\\'")}', this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-done"/></svg> Done</button>
     `;
     list.appendChild(card);
   });
@@ -637,7 +641,7 @@ function populateDropdown(courses) {
   allCourses = Array.isArray(courses) ? courses : [];
 
   const menu = document.getElementById('classMenu');
-  menu.innerHTML = '<div class="dropdown-item active" data-filter="all">📋 All Courses</div>';
+  menu.innerHTML = '<div class="dropdown-item active" data-filter="all">All Courses</div>';
 
   allCourses.forEach((course, idx) => {
     const name = courseLabel(course);
@@ -647,7 +651,7 @@ function populateDropdown(courses) {
     item.className = 'dropdown-item';
     item.dataset.filter = name;
     item.dataset.index = String(idx);
-    item.textContent = '📚 ' + name;
+    item.textContent = name;
     menu.appendChild(item);
   });
 
@@ -665,11 +669,11 @@ function attachDropdownListeners() {
 
       if (currentCourse === 'all') {
         currentCourseObj = null;
-        dropBtn.innerHTML = `📚 All Courses <span class="chevron">▾</span>`;
+        dropBtn.innerHTML = `All Courses <span class="chevron">▾</span>`;
       } else {
         const idx = item.dataset.index ? parseInt(item.dataset.index, 10) : -1;
         currentCourseObj = idx >= 0 ? allCourses[idx] : allCourses.find(c => courseLabel(c) === currentCourse);
-        dropBtn.innerHTML = `📚 ${currentCourse} <span class="chevron">▾</span>`;
+        dropBtn.innerHTML = `${currentCourse} <span class="chevron">▾</span>`;
       }
 
       dropMenu.classList.remove('open');
@@ -746,7 +750,7 @@ function openNotesModal(course) {
   notesDrawerOpen = true;
   shell.classList.remove("drawer-closed");
   shell.classList.add("drawer-open");
-  document.getElementById("notesToggleBtn").textContent = "➜";
+  document.getElementById("notesToggleBtn").textContent = "→";
 
   loadCourseNotes();
 }
@@ -781,7 +785,7 @@ function toggleNotesDrawer() {
   } else {
     shell.classList.remove('drawer-open');
     shell.classList.add('drawer-closed');
-    btn.textContent = '⬅';
+    btn.textContent = '←';
   }
 }
 
@@ -1218,7 +1222,7 @@ fetch('/live')
   })
   .catch(() => {
     document.getElementById('assignmentsList').innerHTML =
-      '<div class="loading"><p>⚠️ Could not connect to backend.</p></div>';
+      '<div class="loading"><p>Could not connect to backend.</p></div>';
   });
 
 fetch('/courses')

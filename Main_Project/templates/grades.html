@@ -125,7 +125,7 @@
 </div>
 
 <div class="empty-state" id="emptyState">
-  <div class="empty-icon">📊</div>
+  <div class="empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-chart-bar"/></svg></div>
   <div class="empty-title">No grades available</div>
   <p>Grades will appear here once they are posted</p>
 </div>
@@ -175,7 +175,7 @@ fetch('/grades/data')
         <div class="grade-card-header">
           <div class="grade-card-info">
             <div class="grade-course-name">${g.course || 'Unknown Course'}</div>
-            <div class="grade-teacher">👤 ${g.teacher || 'No teacher listed'}</div>
+            <div class="grade-teacher"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-user"/></svg> ${g.teacher || 'No teacher listed'}</div>
           </div>
           <div class="grade-badge" style="background:${colors.bg}; color:${colors.color};">
             ${letter}
@@ -202,7 +202,7 @@ fetch('/grades/data')
     const grid = document.getElementById('gradesGrid');
     grid.innerHTML = `
       <div class="grades-error">
-        <div style="font-size:2rem;margin-bottom:0.75rem;">⚠️</div>
+        <div style="margin-bottom:0.75rem;color:var(--medium);"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg></div>
         <div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">Could not load grades</div>
         <div style="font-size:0.82rem;">Check your StudentVue connection in Settings</div>
         <button onclick="location.reload()" style="margin-top:1rem;padding:8px 18px;border-radius:10px;border:1px solid var(--border);background:var(--bg-card);color:var(--accent);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:0.82rem;font-weight:600;">Try Again</button>

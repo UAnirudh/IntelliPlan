@@ -32,7 +32,8 @@ fetch('/profiles/list')
 
     profiles.forEach(p => {
       const isActive = p.id === data.active;
-      const icon = p.login_type === 'canvas' ? '🟦' : p.login_type === 'schoology' ? '🟧' : '🟩';
+      const iconColor = p.login_type === 'canvas' ? '#e53e3e' : p.login_type === 'schoology' ? '#3182ce' : '#38a169';
+      const icon = `<span style="display:inline-block;width:28px;height:28px;border-radius:6px;background:${iconColor};flex-shrink:0;"></span>`;
       const card = document.createElement('div');
       card.style.cssText = `
         background:var(--bg-card); border:${isActive ? '2px solid var(--accent)' : '1px solid var(--border)'};
