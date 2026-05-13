@@ -810,7 +810,10 @@
       </div>
     </nav>
 
-    <button id="mobileMenuBtn" type="button" aria-label="Toggle navigation" aria-expanded="false">☰</button>
+    <button id="mobileMenuBtn" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mainNav">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <div id="mobileNavBackdrop" aria-hidden="true"></div>
     <span class="date-badge" id="dateBadge"></span>
     <label class="toggle" title="Toggle dark mode" aria-label="Toggle dark mode">
       <input type="checkbox" id="themeToggle" />
@@ -1035,13 +1038,20 @@ const _dateStr = new Date().toLocaleDateString('en-US', {weekday:'short',month:'
 });
 
 /* ── MOBILE MENU ────────────────────── */
+const HAMBURGER_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>';
+const CLOSE_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+
 function setMobileMenuState(isOpen) {
   const nav = document.getElementById('mainNav');
   const btn = document.getElementById('mobileMenuBtn');
+  const back = document.getElementById('mobileNavBackdrop');
   if (!nav || !btn) return;
   nav.classList.toggle('mobile-open', isOpen);
-  btn.textContent = isOpen ? '✕' : '☰';
+  if (back) back.classList.toggle('mobile-open', isOpen);
+  btn.innerHTML = isOpen ? CLOSE_SVG : HAMBURGER_SVG;
   btn.setAttribute('aria-expanded', String(isOpen));
+  btn.setAttribute('aria-label', isOpen ? 'Close navigation' : 'Open navigation');
+  document.body.classList.toggle('mobile-nav-open', isOpen);
 }
 
 function toggleMobileMenu() {
@@ -1049,6 +1059,14 @@ function toggleMobileMenu() {
   if (!nav) return;
   setMobileMenuState(!nav.classList.contains('mobile-open'));
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  const back = document.getElementById('mobileNavBackdrop');
+  if (back) back.addEventListener('click', () => setMobileMenuState(false));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') setMobileMenuState(false);
+  });
+});
 
 const mobileMenuBtn = document.getElementById('mobileMenuBtn');
 if (mobileMenuBtn) {

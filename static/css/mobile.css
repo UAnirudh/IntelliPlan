@@ -45,13 +45,12 @@ select {
   }
 
   body {
-    padding-top: calc(62px + 56px) !important; /* header + tabs strip */
+    padding-top: 62px !important;
     overflow-x: hidden;
   }
 
-  /* Pages without the in-app tabs strip (landing, legal, etc.) only need header room */
-  body:not(.has-side) {
-    padding-top: 62px !important;
+  body.mobile-nav-open {
+    overflow: hidden;
   }
 
   /* ════════════════════════════════════════════════════════
@@ -99,125 +98,152 @@ select {
   }
 
   /* ════════════════════════════════════════════════════════
-     MAIN NAV — horizontal scrolling tab bar pinned under header.
-     Always visible on in-app pages. Hide the hamburger.
+     MAIN NAV — hamburger + slide-in side drawer.
+     Hamburger visible on every page; drawer slides from the left.
   ════════════════════════════════════════════════════════ */
-  #mobileMenuBtn { display: none !important; }
+  #mobileMenuBtn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-size: 1.05rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.14s, color 0.14s, border-color 0.14s;
+  }
+  #mobileMenuBtn:hover,
+  #mobileMenuBtn[aria-expanded="true"] {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-color: var(--border-accent);
+  }
 
-  body.has-side #mainNav {
+  #mainNav {
     position: fixed !important;
-    top: 62px !important;
+    top: 0 !important;
     left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    height: 56px !important;
-    max-height: 56px !important;
-    padding: 8px 10px !important;
+    bottom: 0 !important;
+    right: auto !important;
+    width: min(82vw, 320px) !important;
+    height: 100dvh !important;
+    max-height: none !important;
+    padding: 78px 14px calc(18px + env(safe-area-inset-bottom)) !important;
     margin: 0 !important;
-    gap: 6px !important;
+    gap: 4px !important;
     background: var(--bg-card) !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    border-bottom: 1px solid var(--border) !important;
-    box-shadow: 0 1px 0 var(--border) !important;
+    border-right: 1px solid var(--border) !important;
+    border-bottom: none !important;
+    box-shadow: 12px 0 36px rgba(0,0,0,0.18) !important;
     display: flex !important;
-    flex-direction: row !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    transform: translateX(-100%) !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    z-index: 100001 !important;
+    isolation: isolate;
+  }
+  #mainNav.mobile-open {
+    transform: translateX(0) !important;
+    pointer-events: auto !important;
+  }
+
+  /* Drawer backdrop */
+  #mobileNavBackdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+    z-index: 100000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+  }
+  #mobileNavBackdrop.mobile-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Drawer items stack vertically with comfortable tap targets */
+  #mainNav .nav-group {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 2px !important;
+    width: 100% !important;
+  }
+  #mainNav .nav-divider {
+    display: block !important;
+    width: 100% !important;
+    height: 1px !important;
+    background: var(--border) !important;
+    margin: 10px 0 !important;
+  }
+  #mainNav .nav-tab,
+  #mainNav .dropdown-toggle {
+    display: flex !important;
     align-items: center !important;
     justify-content: flex-start !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-    transform: none !important;
+    width: 100% !important;
+    min-height: 46px !important;
+    padding: 11px 14px !important;
+    font-size: 0.95rem !important;
+    font-weight: 500 !important;
+    border-radius: 12px !important;
+    white-space: nowrap !important;
+    text-align: left !important;
+    gap: 12px !important;
+  }
+  #mainNav .nav-tab-icon {
+    width: 20px !important;
+    height: 20px !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+  }
+  #mainNav .nav-dropdown {
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  #mainNav .nav-dropdown .dropdown-panel {
+    position: static !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 4px 0 0 30px !important;
+    padding: 4px 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
     opacity: 1 !important;
     pointer-events: auto !important;
-    z-index: 99998 !important;
-    isolation: isolate;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
   }
-  body.has-side #mainNav::-webkit-scrollbar { display: none; }
-
-  /* Non-app pages keep the original hidden-by-default behavior intact;
-     show the menu inline as a column when toggled open. */
-  body:not(.has-side) #mainNav {
-    max-height: calc(100dvh - 62px);
-    overflow-y: auto;
-    z-index: 99999 !important;
-    isolation: isolate;
-  }
-  body:not(.has-side) #mainNav .nav-group {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    width: 100%;
-  }
-  body:not(.has-side) #mainNav .nav-tab,
-  body:not(.has-side) #mainNav .dropdown-toggle,
-  body:not(.has-side) #mainNav .dropdown-item {
-    width: 100%;
-    justify-content: flex-start;
-    min-height: 44px;
-    border-radius: 10px;
-  }
-  body:not(.has-side) #mobileMenuBtn { display: flex !important; }
-
-  /* Horizontal tab styling for in-app pages */
-  body.has-side #mainNav .nav-group {
-    display: inline-flex !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    gap: 6px !important;
-    flex: 0 0 auto !important;
-    width: auto !important;
-  }
-  body.has-side #mainNav .nav-divider {
-    display: inline-block !important;
-    width: 1px;
-    height: 22px;
-    flex: 0 0 1px;
-    background: var(--border);
-    margin: 0 4px;
-  }
-  body.has-side #mainNav .nav-tab,
-  body.has-side #mainNav .dropdown-toggle {
-    flex: 0 0 auto !important;
-    width: auto !important;
-    min-height: 40px !important;
-    padding: 8px 12px !important;
-    font-size: 0.8rem !important;
-    border-radius: 10px !important;
-    white-space: nowrap !important;
-    scroll-snap-align: start;
-  }
-  body.has-side #mainNav .nav-tab-icon {
-    width: 16px !important;
-    height: 16px !important;
-    margin-right: 6px;
-  }
-  body.has-side #mainNav .nav-dropdown {
-    position: relative !important;
-  }
-  body.has-side #mainNav .nav-dropdown .dropdown-panel {
-    position: absolute !important;
-    top: calc(100% + 6px) !important;
-    left: 0 !important;
-    right: auto !important;
-    min-width: 180px !important;
-    width: max-content !important;
-    background: var(--bg-card) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 12px !important;
-    box-shadow: 0 12px 32px rgba(0,0,0,0.18) !important;
-    padding: 6px !important;
-    z-index: 100000 !important;
-  }
-  body.has-side #mainNav .nav-dropdown .dropdown-item {
+  #mainNav .nav-dropdown .dropdown-item {
     width: 100% !important;
     justify-content: flex-start !important;
     min-height: 40px !important;
-    border-radius: 8px !important;
-    padding: 8px 12px !important;
+    padding: 8px 14px !important;
+    border-radius: 10px !important;
+    font-size: 0.88rem !important;
+    color: var(--text-secondary) !important;
   }
+  #mainNav .nav-dropdown::before { display: none !important; }
+  #mainNav .chevron { margin-left: auto; }
 
   /* Page content select/input safety */
   main select,
