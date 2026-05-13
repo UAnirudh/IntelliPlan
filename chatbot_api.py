@@ -677,6 +677,49 @@ def _update_tutor_profile(profile, user_text, reply):
     return profile
 
 
+def _load_user_identity():
+    """Load the logged-in user's identity profile (grade level, focus, goals).
+
+    Returns a small dict or None for guests. The chatbot uses this to personalize
+    every reply. Reads through SQLAlchemy via the User model declared in App.py;
+    we import lazily to avoid a circular import at module load.
+    """
+    if not current_user.is_authenticated:
+        return None
+    try:
+        from App import UserIdentity  # local import: chatbot_api is registered after models
+        row = UserIdentity.query.filter_by(user_id=current_user.id).first()
+        if not row:
+            return None
+        return row.to_dict()
+    except Exception as e:
+        print(f'[identity] load failed: {e}')
+        return None
+
+
+def _build_identity_prompt(identity):
+    if not identity:
+        return None
+    grade = (identity.get('grade_level') or '').strip()
+    focus = identity.get('focus_areas') or []
+    goals = (identity.get('goals') or '').strip()
+    if not grade and not focus and not goals:
+        return None
+    parts = ['STUDENT IDENTITY PROFILE (use to tailor every reply — vocabulary level, depth, examples):']
+    if grade:
+        parts.append(f'- Grade level: {grade}')
+    if focus:
+        parts.append(f'- Academic focus areas: {", ".join(focus[:10])}')
+    if goals:
+        parts.append(f'- Goals / priorities: {goals[:600]}')
+    parts.append(
+        'Calibrate explanations, examples, and difficulty to this grade. '
+        'When the student\'s subject matches a focus area, lean into it with richer examples. '
+        'Connect lessons back to their stated goals where natural — do NOT name-drop the profile, just let it shape the answer.'
+    )
+    return '\n'.join(parts)
+
+
 def _build_tutor_memory_prompt(profile):
     profile = profile or _default_tutor_profile()
     style = dict(profile.get('style') or {})
@@ -885,14 +928,19 @@ def tutor():
 
         recent = messages[-16:]
         memory_prompt = _build_tutor_memory_prompt(profile)
+        identity_prompt = _build_identity_prompt(_load_user_identity())
+
+        system_messages = [
+            {'role': 'system', 'content': TUTOR_SYSTEM_PROMPT},
+            {'role': 'system', 'content': memory_prompt},
+        ]
+        if identity_prompt:
+            system_messages.append({'role': 'system', 'content': identity_prompt})
 
         client = Groq(api_key=os.getenv('GROQ_API_KEY'))
         response = client.chat.completions.create(
             model='llama-3.3-70b-versatile',
-            messages=[
-                {'role': 'system', 'content': TUTOR_SYSTEM_PROMPT},
-                {'role': 'system', 'content': memory_prompt},
-            ] + recent,
+            messages=system_messages + recent,
             temperature=0.65,
             max_tokens=700,
         )
@@ -956,10 +1004,15 @@ def chatbot():
             return jsonify({'reply': reply, 'refusal': refusal})
 
         recent = messages[-10:]
+        identity_prompt = _build_identity_prompt(_load_user_identity())
+        system_messages = [{'role': 'system', 'content': PLANI_SYSTEM_PROMPT}]
+        if identity_prompt:
+            system_messages.append({'role': 'system', 'content': identity_prompt})
+
         client = Groq(api_key=os.getenv('GROQ_API_KEY'))
         response = client.chat.completions.create(
             model='llama-3.3-70b-versatile',
-            messages=[{'role': 'system', 'content': PLANI_SYSTEM_PROMPT}] + recent,
+            messages=system_messages + recent,
             temperature=0.75,
             max_tokens=200
         )

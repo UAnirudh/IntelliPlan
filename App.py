@@ -160,6 +160,39 @@ class User(UserMixin, db.Model):
     dismissed = db.relationship("DismissedAssignment", backref="user", lazy=True, cascade="all, delete-orphan")
     descriptions = db.relationship("CustomDescription", backref="user", lazy=True, cascade="all, delete-orphan")
 
+class UserIdentity(db.Model):
+    """Student identity profile collected at onboarding and editable in settings.
+
+    Drives chatbot/tutor personalization — grade level, academic focus areas, and
+    goals/priorities are injected into the Plani/Tutor system prompt so replies
+    match the student's curriculum and ambitions.
+    """
+    __tablename__ = "user_identities"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), unique=True, nullable=False)
+    grade_level = db.Column(db.String(32), nullable=True)        # e.g. "11th grade"
+    focus_areas = db.Column(db.Text, default="[]")                # JSON list of subjects
+    goals = db.Column(db.Text, default="")                        # free-text priorities
+    completed = db.Column(db.Boolean, default=False)              # questionnaire finished
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def focus_list(self):
+        try:
+            value = json.loads(self.focus_areas or "[]")
+            return value if isinstance(value, list) else []
+        except (TypeError, json.JSONDecodeError):
+            return []
+
+    def to_dict(self):
+        return {
+            "grade_level": self.grade_level or "",
+            "focus_areas": self.focus_list(),
+            "goals": self.goals or "",
+            "completed": bool(self.completed),
+        }
+
+
 class LinkedAccount(db.Model):
     __tablename__ = "linked_accounts"
     id = db.Column(db.Integer, primary_key=True)
@@ -787,7 +820,14 @@ def profiles():
 def settings():
     if not is_logged_in():
         return redirect(url_for("login"))
-    return render_template("settings.html", active_page="settings")
+    identity = _get_or_create_identity(current_user.id)
+    return render_template(
+        "settings.html",
+        active_page="settings",
+        identity=identity.to_dict(),
+        grade_choices=GRADE_LEVEL_CHOICES,
+        focus_choices=FOCUS_AREA_CHOICES,
+    )
 
 @app.route("/dashboard")
 def dashboard():
@@ -845,8 +885,86 @@ def register():
             db.session.add(user)
             db.session.commit()
             login_user(user, remember=True)
-            return redirect(url_for("connect_account"))
+            return redirect(url_for("onboarding"))
     return render_template("register.html", active_page="login", error=error)
+
+
+GRADE_LEVEL_CHOICES = [
+    "6th grade", "7th grade", "8th grade",
+    "9th grade", "10th grade", "11th grade", "12th grade",
+    "Undergraduate", "Graduate", "Other",
+]
+
+FOCUS_AREA_CHOICES = [
+    "Math", "Science", "Biology", "Chemistry", "Physics",
+    "English / Literature", "History", "Foreign language",
+    "Computer Science", "Economics", "Arts",
+    "Test prep (SAT / ACT / AP)",
+]
+
+
+def _get_or_create_identity(user_id):
+    identity = UserIdentity.query.filter_by(user_id=user_id).first()
+    if not identity:
+        identity = UserIdentity(user_id=user_id)
+        db.session.add(identity)
+        db.session.commit()
+    return identity
+
+
+@app.route("/onboarding", methods=["GET", "POST"])
+def onboarding():
+    if not is_logged_in():
+        return redirect(url_for("login"))
+    identity = _get_or_create_identity(current_user.id)
+    if request.method == "POST":
+        grade = (request.form.get("grade_level") or "").strip()[:32]
+        focus = request.form.getlist("focus_areas")
+        focus = [f.strip()[:48] for f in focus if f.strip()][:12]
+        goals = (request.form.get("goals") or "").strip()[:1000]
+        identity.grade_level = grade or None
+        identity.focus_areas = json.dumps(focus)
+        identity.goals = goals
+        identity.completed = True
+        db.session.commit()
+        next_url = request.args.get("next")
+        if next_url and next_url.startswith("/"):
+            return redirect(next_url)
+        return redirect(url_for("connect_account"))
+    return render_template(
+        "onboarding.html",
+        active_page="onboarding",
+        identity=identity.to_dict(),
+        grade_choices=GRADE_LEVEL_CHOICES,
+        focus_choices=FOCUS_AREA_CHOICES,
+    )
+
+
+@app.route("/identity", methods=["POST"])
+def update_identity():
+    if not is_logged_in():
+        return jsonify({"error": "auth required"}), 401
+    payload = request.get_json(silent=True) or {}
+    identity = _get_or_create_identity(current_user.id)
+    if "grade_level" in payload:
+        identity.grade_level = str(payload.get("grade_level") or "").strip()[:32] or None
+    if "focus_areas" in payload:
+        raw = payload.get("focus_areas") or []
+        if isinstance(raw, list):
+            identity.focus_areas = json.dumps([str(x).strip()[:48] for x in raw if str(x).strip()][:12])
+    if "goals" in payload:
+        identity.goals = str(payload.get("goals") or "").strip()[:1000]
+    identity.completed = True
+    db.session.commit()
+    return jsonify({"ok": True, "identity": identity.to_dict()})
+
+
+@app.route("/api/identity", methods=["GET"])
+def get_identity():
+    if not is_logged_in():
+        return jsonify({"error": "auth required"}), 401
+    identity = _get_or_create_identity(current_user.id)
+    return jsonify({"identity": identity.to_dict()})
 
 @app.route("/login/google")
 def login_google():

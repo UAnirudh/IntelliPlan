@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block page_title %}Welcome — set up your study profile | IntelliPlan{% endblock %}
+
+{% block head_extra %}
+<style>
+  .onboard-wrap {
+    max-width: 640px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    animation: fadeUp 0.45s var(--ease-out) both;
+  }
+  .onboard-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 1.75rem 1.75rem 1.5rem;
+    box-shadow: var(--shadow);
+  }
+  .onboard-eyebrow {
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+  .onboard-title {
+    font-family: var(--font-display);
+    font-size: 1.85rem;
+    color: var(--text-primary);
+    margin: 0 0 8px;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+  .onboard-sub {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    margin: 0 0 1.75rem;
+    line-height: 1.55;
+  }
+  .onboard-section { margin-bottom: 1.5rem; }
+  .onboard-label {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 10px;
+    display: block;
+  }
+  .onboard-pillgrid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .onboard-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-family: var(--font-body);
+    font-size: 0.86rem;
+    cursor: pointer;
+    transition: all 0.13s;
+    user-select: none;
+  }
+  .onboard-pill input { display: none; }
+  .onboard-pill:hover { border-color: var(--border-accent); color: var(--accent); }
+  .onboard-pill.is-on {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+  .onboard-input,
+  .onboard-textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.16s, box-shadow 0.16s;
+  }
+  .onboard-input:focus,
+  .onboard-textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .onboard-textarea { resize: vertical; min-height: 90px; }
+  .onboard-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 1.5rem;
+  }
+  .onboard-skip {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: var(--border);
+    text-underline-offset: 3px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="onboard-wrap">
+  <div class="onboard-card">
+    <div class="onboard-eyebrow">Step 1 of 1 · Welcome</div>
+    <h1 class="onboard-title">Tell Plani a little about you.</h1>
+    <p class="onboard-sub">Three quick answers — Plani uses them so every reply matches your grade level, your subjects, and what you're trying to pull off this semester. You can change all of this anytime in Settings.</p>
+
+    <form method="POST" action="{{ url_for('onboarding') }}">
+      <div class="onboard-section">
+        <label class="onboard-label" for="grade">Grade level</label>
+        <select id="grade" name="grade_level" class="onboard-input">
+          <option value="">Choose one</option>
+          {% for g in grade_choices %}
+            <option value="{{ g }}" {% if identity.grade_level == g %}selected{% endif %}>{{ g }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="onboard-section">
+        <span class="onboard-label">Academic focus areas (pick as many as fit)</span>
+        <div class="onboard-pillgrid" id="focusGrid">
+          {% for f in focus_choices %}
+            <label class="onboard-pill {% if f in identity.focus_areas %}is-on{% endif %}">
+              <input type="checkbox" name="focus_areas" value="{{ f }}" {% if f in identity.focus_areas %}checked{% endif %}>
+              {{ f }}
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="onboard-section">
+        <label class="onboard-label" for="goals">Goals or priorities</label>
+        <textarea id="goals" name="goals" class="onboard-textarea" placeholder="e.g. raise my AP Calc grade to an A, build study habits for the SAT, finish essays faster">{{ identity.goals }}</textarea>
+      </div>
+
+      <div class="onboard-actions">
+        <a class="onboard-skip" href="{{ url_for('connect_account') }}">Skip for now</a>
+        <button type="submit" class="btn-primary" style="padding:12px 28px;">Save and continue</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('#focusGrid input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', () => cb.closest('.onboard-pill').classList.toggle('is-on', cb.checked));
+  });
+</script>
+{% endblock %}
