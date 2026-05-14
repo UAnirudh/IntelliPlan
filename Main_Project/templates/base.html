@@ -1626,6 +1626,163 @@ window.addEventListener('load',()=>{
 {% endif %}
 </script>
 
+<!-- ══════════════════════════════════════
+     UPGRADE MODAL (Pro gate)
+     Show with: showUpgradeModal('tutor_messages') or showUpgradeModal('schedules')
+     Also shown automatically when any fetch() returns 429 with limit_type field.
+══════════════════════════════════════ -->
+<div id="upgradeModal" role="dialog" aria-modal="true"
+  style="display:none;position:fixed;inset:0;z-index:100002;
+         background:rgba(0,0,0,0.48);backdrop-filter:blur(6px);
+         align-items:center;justify-content:center;">
+  <div style="background:var(--bg-card);border:1px solid var(--border-strong);
+              border-radius:20px;padding:2rem;max-width:440px;width:90%;
+              box-shadow:0 24px 64px rgba(0,0,0,0.2);
+              animation:fadeUp 0.22s var(--ease-out) both;position:relative;">
+
+    <!-- close -->
+    <button onclick="closeUpgradeModal()" aria-label="Close"
+      style="position:absolute;top:14px;right:14px;background:none;border:none;
+             cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;
+             display:flex;align-items:center;justify-content:center;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+
+    <!-- icon -->
+    <div style="width:52px;height:52px;border-radius:14px;
+                background:linear-gradient(135deg,#2563eb,#7c3aed);
+                display:flex;align-items:center;justify-content:center;margin-bottom:1.25rem;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+      </svg>
+    </div>
+
+    <h2 style="font-family:var(--font-display);font-size:1.35rem;color:var(--text-primary);
+               margin:0 0 0.5rem;">Upgrade to Pro</h2>
+    <p id="upgradeModalMsg"
+       style="font-family:var(--font-ui);font-size:0.92rem;color:var(--text-secondary);
+              line-height:1.65;margin:0 0 1.25rem;"></p>
+
+    <!-- perk list -->
+    <ul style="list-style:none;padding:0;margin:0 0 1.5rem;
+               display:flex;flex-direction:column;gap:0.5rem;">
+      <li style="display:flex;align-items:center;gap:0.55rem;font-family:var(--font-ui);
+                 font-size:0.88rem;color:var(--text-secondary);">
+        <span style="color:#059669;font-weight:800;flex-shrink:0;">✓</span>
+        Unlimited Plani AI tutor messages
+      </li>
+      <li style="display:flex;align-items:center;gap:0.55rem;font-family:var(--font-ui);
+                 font-size:0.88rem;color:var(--text-secondary);">
+        <span style="color:#059669;font-weight:800;flex-shrink:0;">✓</span>
+        Unlimited AI study schedule generations
+      </li>
+      <li style="display:flex;align-items:center;gap:0.55rem;font-family:var(--font-ui);
+                 font-size:0.88rem;color:var(--text-secondary);">
+        <span style="color:#059669;font-weight:800;flex-shrink:0;">✓</span>
+        Advanced Grade Modeler + GPA simulation
+      </li>
+      <li style="display:flex;align-items:center;gap:0.55rem;font-family:var(--font-ui);
+                 font-size:0.88rem;color:var(--text-secondary);">
+        <span style="color:#059669;font-weight:800;flex-shrink:0;">✓</span>
+        Notion export + Pro badge
+      </li>
+    </ul>
+
+    <div style="display:flex;flex-direction:column;gap:0.6rem;">
+      <button id="upgradeModalCta" onclick="startProCheckout()"
+        style="width:100%;padding:13px;background:var(--accent);color:white;border:none;
+               border-radius:var(--r-md);cursor:pointer;font-family:var(--font-ui);
+               font-size:0.95rem;font-weight:700;letter-spacing:0.01em;
+               transition:background 0.15s;">
+        Upgrade to Pro — $4.99/mo
+      </button>
+      <button onclick="closeUpgradeModal()"
+        style="width:100%;padding:11px;background:none;border:1px solid var(--border);
+               border-radius:var(--r-md);cursor:pointer;font-family:var(--font-ui);
+               font-size:0.88rem;color:var(--text-muted);">
+        Maybe later
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ── Upgrade modal ───────────────────────────────────────────── */
+const UPGRADE_MESSAGES = {
+  tutor_messages: "You've used all 50 free Plani messages this month. Upgrade to Pro for unlimited conversations.",
+  schedules: "You've used your 2 free AI schedule generations today. Upgrade to Pro for unlimited scheduling.",
+  notion: "Notion export is a Pro feature. Upgrade to unlock it.",
+  grade_modeler: "Advanced grade modelling is a Pro feature. Upgrade to unlock GPA simulation.",
+  default: "You've reached the free tier limit. Upgrade to Pro to keep going.",
+};
+
+function showUpgradeModal(limitType) {
+  const msg = UPGRADE_MESSAGES[limitType] || UPGRADE_MESSAGES.default;
+  document.getElementById('upgradeModalMsg').textContent = msg;
+  document.getElementById('upgradeModal').style.display = 'flex';
+}
+
+function closeUpgradeModal() {
+  document.getElementById('upgradeModal').style.display = 'none';
+}
+
+document.getElementById('upgradeModal').addEventListener('click', function(e) {
+  if (e.target === this) closeUpgradeModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeUpgradeModal();
+});
+
+async function startProCheckout() {
+  const btn = document.getElementById('upgradeModalCta');
+  btn.textContent = 'Redirecting…';
+  btn.disabled = true;
+  try {
+    const res = await fetch('/pro/checkout', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' } });
+    const data = await res.json();
+    if (data.checkout_url) {
+      window.location.href = data.checkout_url;
+    } else if (data.message === 'Sign in to upgrade') {
+      window.location.href = '/login?next=/pricing';
+    } else {
+      alert(data.message || 'Could not start checkout. Try again.');
+      btn.textContent = 'Upgrade to Pro — $4.99/mo';
+      btn.disabled = false;
+    }
+  } catch {
+    alert('Network error — please try again.');
+    btn.textContent = 'Upgrade to Pro — $4.99/mo';
+    btn.disabled = false;
+  }
+}
+
+/* ── Global 429 interceptor ─────────────────────────────────── */
+/* Wrap the native fetch so any API call returning 429 with
+   a limit_type field automatically opens the upgrade modal. */
+(function patchFetch() {
+  const _origFetch = window.fetch;
+  window.fetch = async function(...args) {
+    const res = await _origFetch(...args);
+    if (res.status === 429) {
+      const clone = res.clone();
+      try {
+        const data = await clone.json();
+        if (data.limit_type) {
+          showUpgradeModal(data.limit_type);
+        }
+      } catch {}
+    }
+    return res;
+  };
+})();
+</script>
+
 {% include "footer.html" %}
 </body>
 </html>
