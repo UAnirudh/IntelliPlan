@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block page_title %}IntelliPlan Pricing — Free AI Study Planner for Students{% endblock %}
+{% block page_title %}IntelliPlan Pricing — Free &amp; Pro Plans for Students{% endblock %}
 
 {% block head_extra %}
-<meta name="description" content="IntelliPlan is free to get started. Connect Canvas, StudentVue, or Schoology, auto-prioritize your assignments, and build your study schedule — no credit card required.">
+<meta name="description" content="IntelliPlan is free to get started. Upgrade to Pro for $4.99/month — unlimited AI tutor, unlimited scheduling, advanced grade modelling, and more.">
 <link rel="canonical" href="https://intelliplan.tech/pricing">
-<meta property="og:title" content="IntelliPlan Pricing — Free for Students">
-<meta property="og:description" content="IntelliPlan is free to get started. No credit card required. Connect Canvas, StudentVue, or Schoology and get your first AI study schedule today.">
+<meta property="og:title" content="IntelliPlan Pricing — Free &amp; Pro">
+<meta property="og:description" content="Free to start. $4.99/month for unlimited AI tutoring, scheduling, and advanced grade modelling.">
 <meta property="og:url" content="https://intelliplan.tech/pricing">
 <meta property="og:type" content="website">
 <script type="application/ld+json">
@@ -21,7 +21,15 @@
       "name": "Free Plan",
       "price": "0",
       "priceCurrency": "USD",
-      "description": "Get started free. Connect Canvas, StudentVue, or Schoology and see your priorities."
+      "description": "Get started free. Connect Canvas, StudentVue, or Schoology."
+    },
+    {
+      "@type": "Offer",
+      "name": "Pro Plan",
+      "price": "4.99",
+      "priceCurrency": "USD",
+      "billingIncrement": "P1M",
+      "description": "Unlimited AI tutoring, unlimited scheduling, advanced grade modelling."
     }
   ]
 }
@@ -29,207 +37,309 @@
 {% endblock %}
 
 {% block content %}
-
 <style>
-  .pricing-page {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 2.5rem 1rem 4rem;
-  }
-  .pricing-kicker {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.45rem 0.8rem;
-    border-radius: 999px;
-    background: var(--accent-soft);
-    color: var(--accent);
-    font-family: var(--font-ui);
-    font-size: 0.8rem;
-    font-weight: 700;
-    margin-bottom: 1rem;
-  }
-  .pricing-title {
-    font-family: var(--font-display);
-    font-size: clamp(2rem, 4vw, 3rem);
-    line-height: 1.05;
-    color: var(--text-primary);
-    letter-spacing: -0.03em;
-    margin: 0 0 0.75rem;
-  }
-  .pricing-subtitle {
-    font-family: var(--font-ui);
-    font-size: 1rem;
-    color: var(--text-secondary);
-    line-height: 1.7;
-    margin: 0 0 2.5rem;
-  }
-  .pricing-cards {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1.25rem;
-    margin-bottom: 2.5rem;
-  }
-  .pricing-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--r-xl);
-    padding: 2rem;
-    box-shadow: var(--shadow);
-  }
-  .pricing-card.featured {
-    border-color: var(--border-accent);
-    box-shadow: var(--accent-glow);
-  }
-  .pricing-card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
-  }
-  .pricing-plan-name {
-    font-family: var(--font-display);
-    font-size: 1.4rem;
-    color: var(--text-primary);
-    margin: 0;
-  }
-  .pricing-plan-name.accent { color: var(--accent); }
-  .pricing-badge {
-    background: var(--accent-soft);
-    color: var(--accent);
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 800;
-    padding: 0.3rem 0.7rem;
-    border-radius: 999px;
-  }
-  .pricing-price {
-    font-family: var(--font-display);
-    font-size: 2.8rem;
-    color: var(--accent);
-    letter-spacing: -0.04em;
-    margin: 0 0 0.25rem;
-    line-height: 1;
-  }
-  .pricing-price-note {
-    font-family: var(--font-ui);
-    font-size: 0.88rem;
-    color: var(--text-muted);
-    margin: 0 0 1.5rem;
-  }
-  .pricing-features {
-    list-style: none;
-    padding: 0;
-    margin: 0 0 1.75rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-  }
-  .pricing-features li {
-    font-family: var(--font-ui);
-    font-size: 0.95rem;
-    color: var(--text-secondary);
-    display: flex;
-    align-items: flex-start;
-    gap: 0.6rem;
-  }
-  .pricing-features li::before {
-    content: "✓";
-    color: #059669;
-    font-weight: 800;
-    flex-shrink: 0;
-    margin-top: 0.05rem;
-  }
-  .pricing-faq {
-    margin-top: 2.5rem;
-  }
-  .pricing-faq h2 {
-    font-family: var(--font-display);
-    font-size: 1.5rem;
-    color: var(--text-primary);
-    margin: 0 0 1rem;
-  }
-  .pricing-faq-item {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--r-xl);
-    padding: 1rem 1.25rem;
-    margin-bottom: 0.6rem;
-    box-shadow: var(--shadow);
-  }
-  .pricing-faq-item summary {
-    cursor: pointer;
-    font-family: var(--font-ui);
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    list-style: none;
-  }
-  .pricing-faq-item summary::-webkit-details-marker { display: none; }
-  .pricing-faq-item p {
-    margin: 0.75rem 0 0;
-    font-family: var(--font-ui);
-    font-size: 0.92rem;
-    color: var(--text-secondary);
-    line-height: 1.7;
-  }
+.pricing-page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 2.5rem 1rem 4rem;
+}
+.pricing-kicker {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+.pricing-title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1.05;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+  margin: 0 0 0.75rem;
+}
+.pricing-subtitle {
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin: 0 0 2.5rem;
+}
+.pricing-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin-bottom: 2.5rem;
+  align-items: start;
+}
+@media (max-width: 600px) {
+  .pricing-cards { grid-template-columns: 1fr; }
+  .pricing-card.pro { order: -1; }
+}
+.pricing-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 2rem;
+  box-shadow: var(--shadow);
+  position: relative;
+}
+.pricing-card.pro {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), var(--shadow-hover);
+}
+.pricing-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.pricing-plan-name {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  color: var(--text-primary);
+  margin: 0;
+}
+.pricing-plan-name.accent { color: var(--accent); }
+.pricing-badge {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--font-ui);
+  font-size: 0.76rem;
+  font-weight: 800;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+}
+.pricing-badge.pro-badge {
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: white;
+}
+.pricing-price {
+  font-family: var(--font-display);
+  font-size: 2.8rem;
+  color: var(--text-primary);
+  letter-spacing: -0.04em;
+  margin: 0 0 0.15rem;
+  line-height: 1;
+}
+.pricing-price.accent { color: var(--accent); }
+.pricing-price-note {
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  margin: 0 0 1.5rem;
+}
+.pricing-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.pricing-features li {
+  font-family: var(--font-ui);
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  line-height: 1.4;
+}
+.pricing-features li .check {
+  color: #059669;
+  font-weight: 800;
+  flex-shrink: 0;
+  margin-top: 0.05rem;
+}
+.pricing-features li .check.accent { color: var(--accent); }
+.pricing-features .section-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+  display: block;
+  padding-left: 0;
+}
+.pricing-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.9rem 0;
+}
+.pricing-cta {
+  display: block;
+  width: 100%;
+  padding: 13px;
+  border-radius: var(--r-md);
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.16s;
+  text-decoration: none;
+  border: none;
+}
+.pricing-cta.primary {
+  background: var(--accent);
+  color: white;
+}
+.pricing-cta.primary:hover { background: #1d4ed8; }
+.pricing-cta.secondary {
+  background: var(--bg);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.pricing-cta.secondary:hover { background: var(--bg-card); }
+.pricing-faq {
+  margin-top: 3rem;
+}
+.pricing-faq h2 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  color: var(--text-primary);
+  margin: 0 0 1rem;
+}
+.pricing-faq-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 1rem 1.25rem;
+  margin-bottom: 0.6rem;
+  box-shadow: var(--shadow);
+}
+.pricing-faq-item summary {
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  list-style: none;
+}
+.pricing-faq-item summary::-webkit-details-marker { display: none; }
+.pricing-faq-item p {
+  margin: 0.75rem 0 0;
+  font-family: var(--font-ui);
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
 </style>
 
 <div class="pricing-page">
   <span class="pricing-kicker">Pricing</span>
-  <h1 class="pricing-title">Simple pricing. Free to start.</h1>
+  <h1 class="pricing-title">Simple pricing for students.</h1>
   <p class="pricing-subtitle">
-    IntelliPlan is free for students. Connect your school tools, auto-prioritize your assignments,
-    and build your first AI study schedule today — no credit card required.
+    IntelliPlan is free to get started — no credit card, no time limit.
+    Upgrade to Pro when you need more.
   </p>
 
   <div class="pricing-cards">
-    <div class="pricing-card featured">
+
+    <!-- FREE -->
+    <div class="pricing-card">
       <div class="pricing-card-header">
-        <h2 class="pricing-plan-name accent">Free Plan</h2>
-        <span class="pricing-badge">Current Plan</span>
+        <h2 class="pricing-plan-name">Free</h2>
+        {% if current_user.is_authenticated and not current_user.pro_active %}
+          <span class="pricing-badge">Current plan</span>
+        {% endif %}
       </div>
       <div class="pricing-price">$0</div>
-      <p class="pricing-price-note">No credit card required. No time limit.</p>
+      <p class="pricing-price-note">No credit card. No time limit.</p>
       <ul class="pricing-features">
-        <li>Canvas LMS integration — auto-import all assignments</li>
-        <li>StudentVue integration — sync from your district portal</li>
-        <li>Schoology integration — pull all coursework automatically</li>
-        <li>AI-generated study schedules</li>
-        <li>Google Calendar export</li>
-        <li>Notion export</li>
-        <li>Grade Modeler — simulate your final grade</li>
-        <li>Study &amp; Learn — upload notes, generate flashcards</li>
-        <li>Priority scoring across all classes</li>
-        <li>Time estimation per assignment</li>
-        <li>PWA — install on iPhone and Android</li>
+        <li><span class="check">✓</span> Canvas, StudentVue &amp; Schoology integration</li>
+        <li><span class="check">✓</span> AI priority scoring across all classes</li>
+        <li><span class="check">✓</span> AI study schedules — <strong>2 per day</strong></li>
+        <li><span class="check">✓</span> Plani AI tutor — <strong>50 messages/month</strong></li>
+        <li><span class="check">✓</span> Grade Modeler (basic)</li>
+        <li><span class="check">✓</span> Google Calendar export</li>
+        <li><span class="check">✓</span> Daily streak &amp; Sparks system</li>
+        <li><span class="check">✓</span> PWA — install on iPhone &amp; Android</li>
       </ul>
-      <a href="/login" class="btn-primary" style="text-decoration:none;display:inline-block">Get Started Free →</a>
+      {% if current_user.is_authenticated %}
+        <a href="/dashboard" class="pricing-cta secondary">Go to Dashboard</a>
+      {% else %}
+        <a href="/login" class="pricing-cta secondary">Get Started Free</a>
+      {% endif %}
+    </div>
+
+    <!-- PRO -->
+    <div class="pricing-card pro">
+      <div class="pricing-card-header">
+        <h2 class="pricing-plan-name accent">Pro</h2>
+        {% if current_user.is_authenticated and current_user.pro_active %}
+          <span class="pricing-badge">Active</span>
+        {% else %}
+          <span class="pricing-badge pro-badge">Most popular</span>
+        {% endif %}
+      </div>
+      <div class="pricing-price accent">$4.99</div>
+      <p class="pricing-price-note">per month · cancel anytime</p>
+      <ul class="pricing-features">
+        <li><span class="check accent">✓</span> Everything in Free</li>
+        <hr class="pricing-divider">
+        <li><span class="check accent">✓</span> <strong>Unlimited</strong> Plani AI tutor messages</li>
+        <li><span class="check accent">✓</span> <strong>Unlimited</strong> AI study schedule generations</li>
+        <li><span class="check accent">✓</span> Advanced Grade Modeler + GPA simulation</li>
+        <li><span class="check accent">✓</span> Notion export</li>
+        <li><span class="check accent">✓</span> Pro badge on your profile</li>
+      </ul>
+      {% if current_user.is_authenticated and current_user.pro_active %}
+        <button class="pricing-cta primary" disabled
+          style="opacity:0.6;cursor:default;">You're on Pro</button>
+      {% elif current_user.is_authenticated %}
+        <button class="pricing-cta primary" onclick="startProCheckout()">
+          Upgrade to Pro
+        </button>
+      {% else %}
+        <a href="/login?next=/pricing" class="pricing-cta primary">
+          Sign in to Upgrade
+        </a>
+      {% endif %}
     </div>
   </div>
 
   <div class="pricing-faq">
-    <h2>Pricing questions</h2>
+    <h2>Common questions</h2>
 
     <details class="pricing-faq-item">
-      <summary>Is IntelliPlan actually free? What's the catch?</summary>
-      <p>Yes, it's genuinely free to use. There's no hidden paywall or trial period — you can connect Canvas, StudentVue, or Schoology and use every feature without paying anything. If we introduce a paid tier in the future, we'll announce it well in advance and existing features will stay accessible.</p>
+      <summary>Is the free plan actually free — what's the catch?</summary>
+      <p>Yes, genuinely free. Connect Canvas, StudentVue, or Schoology, get AI priority scoring, schedule up to 2 study plans per day, and chat with Plani up to 50 times a month — no credit card ever required.</p>
     </details>
 
     <details class="pricing-faq-item">
-      <summary>Do I need to enter a credit card to sign up?</summary>
-      <p>No. You can create an account and connect your school tools with just an email address (or Google sign-in). No credit card is ever required to get started.</p>
+      <summary>What happens when I hit the free limits?</summary>
+      <p>You'll see a prompt explaining what you hit and what Pro unlocks. You can dismiss it and keep using everything else for free. We don't lock you out of the app — just the specific over-limit feature.</p>
+    </details>
+
+    <details class="pricing-faq-item">
+      <summary>Can I cancel Pro at any time?</summary>
+      <p>Yes. Cancel from your Lemon Squeezy subscription portal anytime. You'll keep Pro access until the end of the billing period you already paid for.</p>
+    </details>
+
+    <details class="pricing-faq-item">
+      <summary>How does the AI scheduler limit work for free users?</summary>
+      <p>Free users can generate 2 AI study schedules every 24 hours. The counter resets daily. Pro users have no limit.</p>
     </details>
 
     <details class="pricing-faq-item">
       <summary>How does IntelliPlan compare to paid tools like Shovel?</summary>
       <p>
-        Shovel charges a yearly or lifetime subscription to access its core scheduling features. IntelliPlan gives you AI scheduling, LMS integration (including StudentVue, which Shovel doesn't support), and Grade Modeling for free.
-        See the full <a href="/compare" style="color:var(--accent)">comparison here</a>.
+        Shovel charges a yearly or lifetime subscription for its core scheduling.
+        IntelliPlan's free tier already includes AI scheduling, StudentVue support (which Shovel lacks),
+        and Grade Modeling. Pro adds unlimited AI usage and advanced features at $4.99/month.
+        <a href="/compare" style="color:var(--accent);">See the full comparison →</a>
       </p>
     </details>
   </div>
 </div>
-
 {% endblock %}
