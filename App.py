@@ -2443,7 +2443,12 @@ def dismiss():
         return flask.jsonify({"status": "error", "message": "Missing title"}), 400
     try:
         save_dismissed(title, data)
-        return flask.jsonify({"status": "ok"})
+        spark_result = None
+        if current_user.is_authenticated:
+            p = get_study_profile(user_id=current_user.id)
+            spark_result = grant_sparks(p, 10, "task_dismissed")
+            db.session.commit()
+        return flask.jsonify({"status": "ok", "sparks": spark_result})
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)}), 500
 
@@ -3108,8 +3113,12 @@ def feedback_complete():
     db.session.add(feedback)
     if data.get("dismiss"):
         save_dismissed(title, data)
+    spark_result = None
+    if current_user.is_authenticated:
+        p = get_study_profile(user_id=current_user.id)
+        spark_result = grant_sparks(p, 15, "task_completed_with_feedback")
     db.session.commit()
-    return flask.jsonify({"status": "ok"})
+    return flask.jsonify({"status": "ok", "sparks": spark_result})
 
 @app.route("/feedback/export")
 def feedback_export():
