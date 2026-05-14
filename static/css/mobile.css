@@ -244,6 +244,8 @@ select {
   }
   #mainNav .nav-dropdown::before { display: none !important; }
   #mainNav .chevron { margin-left: auto; }
+  /* Always show nav label text inside the mobile drawer */
+  #mainNav .nav-label { display: inline !important; }
 
   /* Page content select/input safety */
   main select,
