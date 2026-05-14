@@ -1939,6 +1939,166 @@ def account_delete():
     session.clear()
     return flask.jsonify({"status": "ok"})
 
+# ══════════════════════════════════════════════════════════════
+#  LEMON SQUEEZY  —  Pro subscription
+# ══════════════════════════════════════════════════════════════
+# Required env vars:
+#   LEMONSQUEEZY_API_KEY        — your LS API key (Bearer token)
+#   LEMONSQUEEZY_STORE_ID       — numeric store ID
+#   LEMONSQUEEZY_VARIANT_ID     — variant ID for the $4.99/mo product
+#   LEMONSQUEEZY_WEBHOOK_SECRET — secret set in LS dashboard → Webhooks
+
+import hmac
+import hashlib
+
+LS_API_KEY    = os.getenv("LEMONSQUEEZY_API_KEY", "")
+LS_STORE_ID   = os.getenv("LEMONSQUEEZY_STORE_ID", "")
+LS_VARIANT_ID = os.getenv("LEMONSQUEEZY_VARIANT_ID", "")
+LS_WEBHOOK_SECRET = os.getenv("LEMONSQUEEZY_WEBHOOK_SECRET", "")
+LS_API_BASE   = "https://api.lemonsqueezy.com/v1"
+
+def _ls_headers():
+    return {
+        "Authorization": f"Bearer {LS_API_KEY}",
+        "Accept": "application/vnd.api+json",
+        "Content-Type": "application/vnd.api+json",
+    }
+
+@app.route("/pro/checkout", methods=["POST"])
+def pro_checkout():
+    """Create a Lemon Squeezy checkout URL and return it to the client."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error", "message": "Sign in to upgrade"}), 401
+    if current_user.pro_active:
+        return flask.jsonify({"status": "error", "message": "Already Pro"}), 400
+    if not LS_API_KEY or not LS_STORE_ID or not LS_VARIANT_ID:
+        return flask.jsonify({"status": "error", "message": "Payment not configured"}), 503
+
+    payload = {
+        "data": {
+            "type": "checkouts",
+            "attributes": {
+                "checkout_data": {
+                    "email": current_user.email,
+                    "custom": {"user_id": str(current_user.id)},
+                },
+                "checkout_options": {
+                    "embed": False,
+                    "media": False,
+                    "button_color": "#2563eb",
+                },
+                "product_options": {
+                    "redirect_url": f"{APP_BASE_URL}/pro/success",
+                    "receipt_button_text": "Back to IntelliPlan",
+                    "receipt_link_url": APP_BASE_URL,
+                },
+            },
+            "relationships": {
+                "store": {"data": {"type": "stores", "id": str(LS_STORE_ID)}},
+                "variant": {"data": {"type": "variants", "id": str(LS_VARIANT_ID)}},
+            },
+        }
+    }
+    try:
+        resp = requests.post(f"{LS_API_BASE}/checkouts", headers=_ls_headers(), json=payload, timeout=10)
+        resp.raise_for_status()
+        url = resp.json()["data"]["attributes"]["url"]
+        return flask.jsonify({"status": "ok", "checkout_url": url})
+    except Exception as e:
+        print(f"LS checkout error: {e}")
+        return flask.jsonify({"status": "error", "message": "Could not create checkout"}), 502
+
+@app.route("/pro/success")
+def pro_success():
+    """Landing page after successful Lemon Squeezy checkout."""
+    return render_template("pro_success.html", active_page="settings")
+
+@app.route("/pro/status")
+def pro_status():
+    """Return current user's Pro status for front-end checks."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"is_pro": False, "pro_active": False})
+    return flask.jsonify({
+        "is_pro": bool(current_user.is_pro),
+        "pro_active": bool(current_user.pro_active),
+        "pro_expires": current_user.pro_expires.isoformat() if current_user.pro_expires else None,
+    })
+
+@app.route("/webhooks/lemonsqueezy", methods=["POST"])
+def lemonsqueezy_webhook():
+    """Handle subscription lifecycle events from Lemon Squeezy."""
+    raw_body = request.get_data()
+    sig = request.headers.get("X-Signature", "")
+
+    # Verify HMAC-SHA256 signature
+    if LS_WEBHOOK_SECRET:
+        expected = hmac.new(LS_WEBHOOK_SECRET.encode(), raw_body, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, sig):
+            return flask.jsonify({"status": "invalid signature"}), 401
+
+    try:
+        event = request.get_json(force=True)
+    except Exception:
+        return flask.jsonify({"status": "bad json"}), 400
+
+    event_name = event.get("meta", {}).get("event_name", "")
+    attrs = event.get("data", {}).get("attributes", {})
+    custom = event.get("meta", {}).get("custom_data", {}) or {}
+    user_id = custom.get("user_id")
+
+    # Resolve user — prefer custom_data.user_id, fall back to email
+    user = None
+    if user_id:
+        user = User.query.get(int(user_id))
+    if not user:
+        email = attrs.get("user_email") or attrs.get("email")
+        if email:
+            user = User.query.filter_by(email=email).first()
+    if not user:
+        print(f"LS webhook: no user found for event {event_name}")
+        return flask.jsonify({"status": "ok"})  # acknowledge to avoid retries
+
+    subscription_id = str(event.get("data", {}).get("id", ""))
+    customer_id = str(attrs.get("customer_id", ""))
+
+    if event_name in ("subscription_created", "subscription_resumed", "subscription_updated"):
+        status = attrs.get("status", "")
+        if status in ("active", "trialing"):
+            user.is_pro = True
+            user.pro_since = user.pro_since or datetime.utcnow()
+            user.pro_expires = None  # keep alive until cancelled/failed
+            user.lemon_squeezy_customer_id = customer_id or user.lemon_squeezy_customer_id
+            user.lemon_squeezy_subscription_id = subscription_id or user.lemon_squeezy_subscription_id
+        elif status in ("cancelled", "expired", "past_due", "unpaid", "paused"):
+            user.is_pro = False
+            renews_at = attrs.get("renews_at") or attrs.get("ends_at")
+            if renews_at:
+                try:
+                    user.pro_expires = datetime.fromisoformat(renews_at.replace("Z", "+00:00")).replace(tzinfo=None)
+                except Exception:
+                    user.pro_expires = datetime.utcnow()
+            else:
+                user.pro_expires = datetime.utcnow()
+
+    elif event_name in ("subscription_cancelled", "subscription_expired"):
+        user.is_pro = False
+        ends_at = attrs.get("ends_at") or attrs.get("renews_at")
+        if ends_at:
+            try:
+                user.pro_expires = datetime.fromisoformat(ends_at.replace("Z", "+00:00")).replace(tzinfo=None)
+            except Exception:
+                user.pro_expires = datetime.utcnow()
+        else:
+            user.pro_expires = datetime.utcnow()
+
+    elif event_name == "subscription_payment_failed":
+        user.is_pro = False
+        user.pro_expires = datetime.utcnow()
+
+    db.session.commit()
+    print(f"LS webhook: {event_name} → user {user.id} is_pro={user.is_pro}")
+    return flask.jsonify({"status": "ok"})
+
 # ── DATA ROUTES ───────────────────────────────────────────────
 @app.route("/live")
 @limiter.limit("30 per minute")

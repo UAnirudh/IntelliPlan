@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+.success-wrap {
+  max-width: 540px;
+  margin: 4rem auto;
+  text-align: center;
+  padding: 0 1rem;
+}
+.success-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem;
+  box-shadow: 0 8px 32px rgba(37,99,235,0.3);
+}
+.success-title {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  color: var(--text-primary);
+  margin: 0 0 0.75rem;
+}
+.success-sub {
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 2rem;
+}
+.success-perks {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  text-align: left;
+  box-shadow: var(--shadow);
+}
+.success-perks h3 {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin: 0 0 1rem;
+}
+.success-perks ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.success-perks li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-ui);
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+}
+.success-perks li::before {
+  content: "✓";
+  color: #059669;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.success-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+</style>
+
+<div class="success-wrap">
+  <div class="success-icon">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+  </div>
+  <h1 class="success-title">Welcome to Pro!</h1>
+  <p class="success-sub">Your subscription is active. Every Pro feature is now unlocked — enjoy the upgrade.</p>
+
+  <div class="success-perks">
+    <h3>Your Pro benefits</h3>
+    <ul>
+      <li>Unlimited Plani AI tutor messages</li>
+      <li>Unlimited AI study schedule generations</li>
+      <li>Advanced Grade Modeler + GPA simulation</li>
+      <li>Notion export</li>
+      <li>Pro badge on your profile</li>
+    </ul>
+  </div>
+
+  <div class="success-actions">
+    <a href="/dashboard" class="btn-primary" style="text-decoration:none;padding:12px 24px;">Go to Dashboard</a>
+    <a href="/scheduler" class="btn-secondary" style="text-decoration:none;padding:12px 24px;">Build a Schedule</a>
+  </div>
+</div>
+{% endblock %}
