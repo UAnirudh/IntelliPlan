@@ -157,6 +157,24 @@
     .nav-tab-tutor:hover { background:var(--accent) !important; color:#fff !important; }
     .nav-tab-tutor.active { background:var(--accent) !important; color:#fff !important; }
 
+    .pro-pill {
+      display:inline-flex; align-items:center;
+      padding:3px 9px; border-radius:var(--r-full);
+      background:linear-gradient(135deg,#2563eb,#7c3aed);
+      color:#fff; font-family:var(--font-ui); font-size:0.68rem; font-weight:800;
+      letter-spacing:0.05em; text-transform:uppercase; flex-shrink:0;
+      box-shadow:0 1px 6px rgba(124,58,237,0.35);
+    }
+    .free-upgrade-link {
+      display:inline-flex; align-items:center; gap:4px;
+      padding:3px 9px; border-radius:var(--r-full);
+      background:var(--accent-soft); color:var(--accent);
+      font-family:var(--font-ui); font-size:0.68rem; font-weight:700;
+      letter-spacing:0.04em; text-decoration:none; flex-shrink:0;
+      transition:background 0.15s, color 0.15s;
+    }
+    .free-upgrade-link:hover { background:var(--accent); color:#fff; }
+
     .nav-dropdown { position:relative; }
     .dropdown-toggle {
       background:none; border:none; font-family:var(--font-body); font-size:0.84rem; font-weight:500;
@@ -881,6 +899,13 @@
 
   <div class="side-foot">
     {% if logged_in %}
+      <div style="padding:6px 12px 2px;">
+        {% if user_is_pro %}
+          <span class="pro-pill">Pro</span>
+        {% else %}
+          <a href="/pricing" class="free-upgrade-link" title="Upgrade to Pro">Free Plan ↑</a>
+        {% endif %}
+      </div>
       <a href="/settings" class="side-link {% if active_page == 'settings' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-settings"/></svg></span>Settings</a>
       <form action="/logout" method="POST" style="margin:0;">
         <button type="submit" class="side-link side-logout"><span class="side-icon"><svg><use href="#i-logout"/></svg></span>Logout</button>
@@ -937,6 +962,11 @@
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
         {% if logged_in %}
+          {% if user_is_pro %}
+            <span class="pro-pill">Pro</span>
+          {% else %}
+            <a href="/pricing" class="free-upgrade-link" title="Upgrade to Pro">Free Plan ↑</a>
+          {% endif %}
           <a href="/settings" class="nav-tab {% if active_page == 'settings' %}active{% endif %}" aria-label="Settings"><span class="nav-tab-icon"><svg><use href="#i-settings"/></svg></span><span class="nav-label">Settings</span></a>
           <form action="/logout" method="POST" style="display:inline;">
             <button type="submit" class="nav-tab logout-btn"><span class="nav-tab-icon"><svg><use href="#i-logout"/></svg></span><span class="nav-label">Logout</span></button>

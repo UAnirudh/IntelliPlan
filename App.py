@@ -1054,7 +1054,8 @@ def get_study_profile(user_id=None, guest_id=None):
 
 @app.context_processor
 def inject_auth():
-    return dict(logged_in=is_logged_in())
+    is_pro = current_user.is_authenticated and current_user.pro_active
+    return dict(logged_in=is_logged_in(), user_is_pro=is_pro)
 
 # ── SCHEDULE LOGIC ────────────────────────────────────────────
 def infer_task_difficulty(points_possible, priority, due_date_str):
