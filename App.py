@@ -176,6 +176,9 @@ class UserIdentity(db.Model):
     focus_areas = db.Column(db.Text, default="[]")                # JSON list of subjects
     goals = db.Column(db.Text, default="")                        # free-text priorities
     completed = db.Column(db.Boolean, default=False)              # questionnaire finished
+    availability = db.Column(db.Text, default="{}")               # JSON: day -> time range
+    weekly_commitments = db.Column(db.Text, default="")           # free-text extracurriculars
+    class_schedule = db.Column(db.Text, default="[]")             # JSON list of class slots
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -186,12 +189,29 @@ class UserIdentity(db.Model):
         except (TypeError, json.JSONDecodeError):
             return []
 
+    def avail_dict(self):
+        try:
+            v = json.loads(self.availability or "{}")
+            return v if isinstance(v, dict) else {}
+        except Exception:
+            return {}
+
+    def class_list(self):
+        try:
+            v = json.loads(self.class_schedule or "[]")
+            return v if isinstance(v, list) else []
+        except Exception:
+            return []
+
     def to_dict(self):
         return {
             "grade_level": self.grade_level or "",
             "focus_areas": self.focus_list(),
             "goals": self.goals or "",
             "completed": bool(self.completed),
+            "availability": self.avail_dict(),
+            "weekly_commitments": self.weekly_commitments or "",
+            "class_schedule": self.class_list(),
         }
 
 
@@ -1338,7 +1358,20 @@ def update_identity():
             identity.focus_areas = json.dumps([str(x).strip()[:48] for x in raw if str(x).strip()][:12])
     if "goals" in payload:
         identity.goals = str(payload.get("goals") or "").strip()[:1000]
-    identity.completed = True
+    if "availability" in payload:
+        av = payload.get("availability") or {}
+        if isinstance(av, dict):
+            identity.availability = json.dumps(av)
+    if "weekly_commitments" in payload:
+        identity.weekly_commitments = str(payload.get("weekly_commitments") or "").strip()[:500]
+    if "class_schedule" in payload:
+        cs = payload.get("class_schedule") or []
+        if isinstance(cs, list):
+            identity.class_schedule = json.dumps(cs[:50])
+    if payload.get("completed"):
+        identity.completed = True
+    else:
+        identity.completed = True
     db.session.commit()
     return jsonify({"ok": True, "identity": identity.to_dict()})
 
@@ -2291,10 +2324,33 @@ def generate_schedule():
         custom_text = f"\nCUSTOM TASKS ADDED BY STUDENT — use EXACT names as written ({len(custom_tasks)}):\n" + "\n".join([f"  - {t}" for t in custom_tasks])
     today = datetime.now().strftime("%Y-%m-%d")
     total = len(normalized_assignments) + len(custom_tasks)
+    # Build study profile context if user is logged in
+    profile_context = ""
+    if is_logged_in():
+        try:
+            identity = _get_or_create_identity(current_user.id)
+            p = identity.to_dict()
+            parts = []
+            if p.get("grade_level"):
+                parts.append(f"Grade: {p['grade_level']}")
+            if p.get("focus_areas"):
+                parts.append(f"Subjects: {', '.join(p['focus_areas'])}")
+            if p.get("goals"):
+                parts.append(f"Goals: {p['goals'][:200]}")
+            if p.get("weekly_commitments"):
+                parts.append(f"Weekly commitments: {p['weekly_commitments'][:150]}")
+            if p.get("availability"):
+                av_str = "; ".join(f"{d}: {t}" for d, t in p["availability"].items())
+                if av_str:
+                    parts.append(f"Availability: {av_str}")
+            if parts:
+                profile_context = "\nSTUDENT PROFILE:\n" + "\n".join(f"  - {x}" for x in parts) + "\n"
+        except Exception:
+            pass
     prompt = f"""You are IntelliPlan — an adaptive academic study-planning system. Today is {today}.
 
 You must schedule ALL {total} items below. Every single one must appear in the schedule.
-{overdue_text}
+{profile_context}{overdue_text}
 {upcoming_text}
 {custom_text}
 
