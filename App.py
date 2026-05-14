@@ -158,9 +158,30 @@ class User(UserMixin, db.Model):
     google_id = db.Column(db.String(255), unique=True, nullable=True)
     name = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # ── Pro tier ──────────────────────────────────────────────
+    is_pro = db.Column(db.Boolean, default=False, nullable=False)
+    pro_since = db.Column(db.DateTime, nullable=True)
+    pro_expires = db.Column(db.DateTime, nullable=True)
+    lemon_squeezy_customer_id = db.Column(db.String(128), nullable=True)
+    lemon_squeezy_subscription_id = db.Column(db.String(128), nullable=True)
+    # ── Usage counters (reset periodically; Pro bypasses) ─────
+    monthly_tutor_messages = db.Column(db.Integer, default=0, nullable=False)
+    tutor_reset_date = db.Column(db.DateTime, nullable=True)        # next monthly reset
+    daily_schedules = db.Column(db.Integer, default=0, nullable=False)
+    daily_schedules_reset = db.Column(db.DateTime, nullable=True)   # next 24-h reset
     linked_accounts = db.relationship("LinkedAccount", backref="user", lazy=True, cascade="all, delete-orphan")
     dismissed = db.relationship("DismissedAssignment", backref="user", lazy=True, cascade="all, delete-orphan")
     descriptions = db.relationship("CustomDescription", backref="user", lazy=True, cascade="all, delete-orphan")
+
+    # ── Convenience helpers ───────────────────────────────────
+    @property
+    def pro_active(self):
+        """True when the user currently has an active Pro subscription."""
+        if not self.is_pro:
+            return False
+        if self.pro_expires and self.pro_expires < datetime.utcnow():
+            return False
+        return True
 
 class UserIdentity(db.Model):
     """Student identity profile collected at onboarding and editable in settings.
@@ -716,9 +737,82 @@ def apply_study_schema_migrations():
     db.session.execute(text("UPDATE study_points SET badges = COALESCE(badges, '[]'), active_booster = COALESCE(active_booster, 'null'), active_cosmetics = COALESCE(active_cosmetics, '{}'), weekly_quests = COALESCE(weekly_quests, '{}'), shop_purchases = COALESCE(shop_purchases, '[]')"))
     db.session.commit()
 
+def apply_user_schema_migrations():
+    """Add Pro-tier and usage-counter columns to the users table if missing."""
+    inspector = inspect(db.engine)
+    if "users" not in inspector.get_table_names():
+        return
+    existing = {col["name"] for col in inspector.get_columns("users")}
+    dialect = db.engine.dialect.name
+    dt_type = "TIMESTAMP" if dialect != "sqlite" else "DATETIME"
+    columns = {
+        "is_pro": "BOOLEAN DEFAULT FALSE",
+        "pro_since": dt_type,
+        "pro_expires": dt_type,
+        "lemon_squeezy_customer_id": "VARCHAR(128)",
+        "lemon_squeezy_subscription_id": "VARCHAR(128)",
+        "monthly_tutor_messages": "INTEGER DEFAULT 0",
+        "tutor_reset_date": dt_type,
+        "daily_schedules": "INTEGER DEFAULT 0",
+        "daily_schedules_reset": dt_type,
+    }
+    for name, ddl in columns.items():
+        if name not in existing:
+            db.session.execute(text(f"ALTER TABLE users ADD COLUMN {name} {ddl}"))
+    db.session.commit()
+
+# ── Pro limits config (easy to adjust) ────────────────────────
+PRO_CONFIG = {
+    "free_tutor_messages_per_month": 50,
+    "free_schedules_per_day": 2,
+}
+
+def _ensure_tutor_counter(user):
+    """Reset monthly tutor message counter if the calendar month rolled over."""
+    now = datetime.utcnow()
+    if user.tutor_reset_date is None or now >= user.tutor_reset_date:
+        user.monthly_tutor_messages = 0
+        # Next reset: 1st of next month at midnight UTC
+        if now.month == 12:
+            user.tutor_reset_date = datetime(now.year + 1, 1, 1)
+        else:
+            user.tutor_reset_date = datetime(now.year, now.month + 1, 1)
+        db.session.commit()
+
+def _ensure_schedule_counter(user):
+    """Reset daily schedule counter if 24 hours have passed."""
+    now = datetime.utcnow()
+    if user.daily_schedules_reset is None or now >= user.daily_schedules_reset:
+        user.daily_schedules = 0
+        user.daily_schedules_reset = now + timedelta(hours=24)
+        db.session.commit()
+
+def check_tutor_limit():
+    """Return (allowed, remaining, limit). Non-blocking for guests."""
+    if not current_user.is_authenticated:
+        return True, None, None
+    _ensure_tutor_counter(current_user)
+    if current_user.pro_active:
+        return True, None, None
+    limit = PRO_CONFIG["free_tutor_messages_per_month"]
+    remaining = max(0, limit - (current_user.monthly_tutor_messages or 0))
+    return remaining > 0, remaining, limit
+
+def check_schedule_limit():
+    """Return (allowed, remaining, limit). Non-blocking for guests."""
+    if not current_user.is_authenticated:
+        return True, None, None
+    _ensure_schedule_counter(current_user)
+    if current_user.pro_active:
+        return True, None, None
+    limit = PRO_CONFIG["free_schedules_per_day"]
+    remaining = max(0, limit - (current_user.daily_schedules or 0))
+    return remaining > 0, remaining, limit
+
 with app.app_context():
     db.create_all()
     apply_study_schema_migrations()
+    apply_user_schema_migrations()
 
 print([str(r) for r in app.url_map.iter_rules() if 'tutor' in str(r)])
 
