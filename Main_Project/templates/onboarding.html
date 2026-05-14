@@ -3,127 +3,224 @@
 
 {% block head_extra %}
 <style>
-  .onboard-wrap {
-    max-width: 640px;
-    margin: 2rem auto;
-    padding: 0 1rem;
-    animation: fadeUp 0.45s var(--ease-out) both;
-  }
-  .onboard-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    padding: 1.75rem 1.75rem 1.5rem;
-    box-shadow: var(--shadow);
-  }
-  .onboard-eyebrow {
-    font-family: var(--font-ui);
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 8px;
-  }
-  .onboard-title {
-    font-family: var(--font-display);
-    font-size: 1.85rem;
-    color: var(--text-primary);
-    margin: 0 0 8px;
-    letter-spacing: -0.02em;
-    line-height: 1.15;
-  }
-  .onboard-sub {
-    font-size: 0.95rem;
-    color: var(--text-secondary);
-    margin: 0 0 1.75rem;
-    line-height: 1.55;
-  }
-  .onboard-section { margin-bottom: 1.5rem; }
-  .onboard-label {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    margin-bottom: 10px;
-    display: block;
-  }
-  .onboard-pillgrid { display: flex; flex-wrap: wrap; gap: 8px; }
-  .onboard-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 8px 14px;
-    border-radius: 999px;
-    border: 1px solid var(--border-strong);
-    background: var(--bg-card);
-    color: var(--text-secondary);
-    font-family: var(--font-body);
-    font-size: 0.86rem;
-    cursor: pointer;
-    transition: all 0.13s;
-    user-select: none;
-  }
-  .onboard-pill input { display: none; }
-  .onboard-pill:hover { border-color: var(--border-accent); color: var(--accent); }
-  .onboard-pill.is-on {
-    background: var(--accent);
-    color: white;
-    border-color: var(--accent);
-  }
-  .onboard-input,
-  .onboard-textarea {
-    width: 100%;
-    padding: 12px 14px;
-    border-radius: 12px;
-    border: 1px solid var(--border-strong);
-    background: var(--bg);
-    color: var(--text-primary);
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-    outline: none;
-    transition: border-color 0.16s, box-shadow 0.16s;
-  }
-  .onboard-input:focus,
-  .onboard-textarea:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
-  }
-  .onboard-textarea { resize: vertical; min-height: 90px; }
-  .onboard-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-top: 1.5rem;
-  }
-  .onboard-skip {
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    font-size: 0.88rem;
-    cursor: pointer;
-    text-decoration: underline;
-    text-decoration-color: var(--border);
-    text-underline-offset: 3px;
-  }
+.onboard-wrap {
+  max-width: 660px; margin: 2rem auto; padding: 0 1rem;
+  animation: fadeUp 0.45s var(--ease-out) both;
+}
+/* Progress bar */
+.onboard-progress {
+  display: flex; align-items: center; gap: 0; margin-bottom: 1.75rem;
+}
+.onboard-step-dot {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-ui); font-size: 0.72rem; font-weight: 700;
+  border: 2px solid var(--border-strong);
+  background: var(--bg-card); color: var(--text-muted);
+  transition: all 0.22s var(--ease-out); flex-shrink: 0;
+}
+.onboard-step-dot.active { border-color: var(--accent); background: var(--accent); color: white; }
+.onboard-step-dot.done   { border-color: var(--low); background: var(--low-bg); color: var(--low); }
+.onboard-step-line {
+  flex: 1; height: 2px; background: var(--border); transition: background 0.22s;
+}
+.onboard-step-line.done { background: var(--low); }
+.onboard-step-label {
+  font-family: var(--font-ui); font-size: 0.64rem; font-weight: 700;
+  color: var(--text-muted); text-align: center; margin-top: 4px;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+
+.onboard-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 20px; padding: 1.75rem 1.75rem 1.5rem;
+  box-shadow: var(--shadow);
+}
+.onboard-eyebrow {
+  font-family: var(--font-ui); font-size: 0.72rem; font-weight: 700;
+  color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;
+}
+.onboard-title {
+  font-family: var(--font-display); font-size: 1.75rem; color: var(--text-primary);
+  margin: 0 0 8px; letter-spacing: -0.02em; line-height: 1.2;
+}
+.onboard-sub { font-size: 0.93rem; color: var(--text-secondary); margin: 0 0 1.75rem; line-height: 1.6; }
+.onboard-section { margin-bottom: 1.4rem; }
+.onboard-label {
+  font-family: var(--font-ui); font-size: 0.74rem; font-weight: 700;
+  color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.07em;
+  margin-bottom: 9px; display: block;
+}
+.onboard-pillgrid { display: flex; flex-wrap: wrap; gap: 8px; }
+.onboard-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 14px; border-radius: 999px;
+  border: 1px solid var(--border-strong); background: var(--bg-card);
+  color: var(--text-secondary); font-family: var(--font-body); font-size: 0.84rem;
+  cursor: pointer; transition: all 0.13s; user-select: none;
+}
+.onboard-pill input { display: none; }
+.onboard-pill:hover { border-color: var(--border-accent); color: var(--accent); }
+.onboard-pill.is-on { background: var(--accent); color: white; border-color: var(--accent); }
+.onboard-input, .onboard-textarea, .onboard-select {
+  width: 100%; padding: 11px 14px; border-radius: 12px;
+  border: 1px solid var(--border-strong); background: var(--bg); color: var(--text-primary);
+  font-family: var(--font-body); font-size: 0.92rem; outline: none;
+  transition: border-color 0.16s, box-shadow 0.16s;
+}
+.onboard-input:focus, .onboard-textarea:focus, .onboard-select:focus {
+  border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.onboard-textarea { resize: vertical; min-height: 88px; line-height: 1.55; }
+.onboard-actions {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 10px; flex-wrap: wrap; margin-top: 1.5rem; padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+.onboard-skip {
+  background: none; border: none; color: var(--text-muted); font-size: 0.86rem;
+  cursor: pointer; text-decoration: underline; text-decoration-color: var(--border);
+  text-underline-offset: 3px; font-family: var(--font-body);
+}
+
+/* Account connect cards */
+.connect-grid { display: flex; flex-direction: column; gap: 10px; }
+.connect-card {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 16px; border-radius: 14px;
+  border: 1px solid var(--border-strong); background: var(--bg-card);
+  text-decoration: none; cursor: pointer;
+  transition: all 0.15s; box-shadow: var(--shadow);
+}
+.connect-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-hover); border-color: var(--border-accent); }
+.connect-card .cc-icon {
+  width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 18px;
+  background: var(--bg-elevated);
+}
+.connect-card .cc-text { flex: 1; }
+.connect-card .cc-title { font-family: var(--font-ui); font-size: 0.9rem; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
+.connect-card .cc-sub { font-size: 0.78rem; color: var(--text-muted); }
+.connect-card .cc-badge {
+  font-family: var(--font-ui); font-size: 0.69rem; font-weight: 700;
+  padding: 3px 10px; border-radius: var(--r-full); flex-shrink: 0;
+}
+.cc-badge.connected { background: var(--low-bg); color: var(--low); }
+.cc-badge.optional  { background: var(--accent-soft); color: var(--accent); }
+
+/* Availability grid */
+.avail-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;
+}
+.avail-day {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+}
+.avail-day-name {
+  font-family: var(--font-ui); font-size: 0.65rem; font-weight: 700;
+  color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em;
+}
+.avail-slot {
+  width: 100%; padding: 5px 0; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg-card);
+  font-family: var(--font-ui); font-size: 0.64rem; font-weight: 600; color: var(--text-muted);
+  cursor: pointer; transition: all 0.13s; text-align: center;
+}
+.avail-slot:hover { border-color: var(--border-accent); color: var(--accent); }
+.avail-slot.on { background: var(--accent); color: white; border-color: var(--accent); }
+
+/* Step panels */
+.onboard-step { display: none; }
+.onboard-step.active { display: block; animation: fadeUp 0.3s var(--ease-out) both; }
+
+@media (max-width: 600px) {
+  .onboard-card { padding: 1.25rem 1.1rem; }
+  .onboard-title { font-size: 1.45rem; }
+  .avail-grid { grid-template-columns: repeat(4, 1fr); }
+}
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="onboard-wrap">
-  <div class="onboard-card">
-    <div class="onboard-eyebrow">Step 1 of 1 · Welcome</div>
-    <h1 class="onboard-title">Tell Plani a little about you.</h1>
-    <p class="onboard-sub">Three quick answers — Plani uses them so every reply matches your grade level, your subjects, and what you're trying to pull off this semester. You can change all of this anytime in Settings.</p>
 
-    <form method="POST" action="{{ url_for('onboarding') }}">
+  <!-- Progress indicator -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="onboard-progress" id="progressBar">
+      <div class="onboard-step-dot active" id="dot1">1</div>
+      <div class="onboard-step-line" id="line1"></div>
+      <div class="onboard-step-dot" id="dot2">2</div>
+      <div class="onboard-step-line" id="line2"></div>
+      <div class="onboard-step-dot" id="dot3">3</div>
+      <div class="onboard-step-line" id="line3"></div>
+      <div class="onboard-step-dot" id="dot4">4</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:0 6px;margin-top:5px;">
+      <span class="onboard-step-label">Accounts</span>
+      <span class="onboard-step-label">Profile</span>
+      <span class="onboard-step-label">Schedule</span>
+      <span class="onboard-step-label">Done</span>
+    </div>
+  </div>
+
+  <div class="onboard-card">
+
+    <!-- ── STEP 1: Connect accounts ── -->
+    <div class="onboard-step active" id="step1">
+      <div class="onboard-eyebrow">Step 1 of 4 · Accounts</div>
+      <h1 class="onboard-title">Connect your school.</h1>
+      <p class="onboard-sub">Plani works best when it can see your real assignments. Connect your school account — or skip and add tasks manually.</p>
+
+      <div class="connect-grid">
+        <a href="/login/canvas" class="connect-card">
+          <div class="cc-icon" style="background:#fff3eb;color:#e66000;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-backpack"/></svg>
+          </div>
+          <div class="cc-text">
+            <div class="cc-title">Canvas LMS</div>
+            <div class="cc-sub">Used by most colleges and many high schools</div>
+          </div>
+          <span class="cc-badge optional">Connect</span>
+        </a>
+        <a href="/login/studentvue" class="connect-card">
+          <div class="cc-icon" style="background:#edfff4;color:#059669;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-study"/></svg>
+          </div>
+          <div class="cc-text">
+            <div class="cc-title">StudentVue</div>
+            <div class="cc-sub">Common in K-12 districts across the US</div>
+          </div>
+          <span class="cc-badge optional">Connect</span>
+        </a>
+        <a href="/login/schoology" class="connect-card">
+          <div class="cc-icon" style="background:#eef0ff;color:#5865F2;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-classes"/></svg>
+          </div>
+          <div class="cc-text">
+            <div class="cc-title">Schoology</div>
+            <div class="cc-sub">Used by many districts nationwide</div>
+          </div>
+          <span class="cc-badge optional">Connect</span>
+        </a>
+      </div>
+
+      <div class="onboard-actions">
+        <button class="onboard-skip" onclick="nextStep()">Skip for now</button>
+        <button class="btn-primary" onclick="nextStep()">
+          Continue
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:6px"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── STEP 2: Study profile ── -->
+    <div class="onboard-step" id="step2">
+      <div class="onboard-eyebrow">Step 2 of 4 · Study Profile</div>
+      <h1 class="onboard-title">Tell Plani about yourself.</h1>
+      <p class="onboard-sub">Plani uses your grade, subjects, and goals to personalize every study plan and tutoring response.</p>
+
       <div class="onboard-section">
-        <label class="onboard-label" for="grade">Grade level</label>
-        <select id="grade" name="grade_level" class="onboard-input">
+        <label class="onboard-label" for="gradeSelect">Grade level</label>
+        <select id="gradeSelect" class="onboard-select">
           <option value="">Choose one</option>
           {% for g in grade_choices %}
             <option value="{{ g }}" {% if identity.grade_level == g %}selected{% endif %}>{{ g }}</option>
@@ -132,7 +229,7 @@
       </div>
 
       <div class="onboard-section">
-        <span class="onboard-label">Academic focus areas (pick as many as fit)</span>
+        <span class="onboard-label">Academic focus areas</span>
         <div class="onboard-pillgrid" id="focusGrid">
           {% for f in focus_choices %}
             <label class="onboard-pill {% if f in identity.focus_areas %}is-on{% endif %}">
@@ -144,21 +241,195 @@
       </div>
 
       <div class="onboard-section">
-        <label class="onboard-label" for="goals">Goals or priorities</label>
-        <textarea id="goals" name="goals" class="onboard-textarea" placeholder="e.g. raise my AP Calc grade to an A, build study habits for the SAT, finish essays faster">{{ identity.goals }}</textarea>
+        <label class="onboard-label" for="goalsInput">Goals &amp; priorities</label>
+        <textarea id="goalsInput" class="onboard-textarea"
+          placeholder="e.g. raise my AP Calc grade to an A, build study habits for the SAT, get faster at essays">{{ identity.goals }}</textarea>
       </div>
 
       <div class="onboard-actions">
-        <a class="onboard-skip" href="{{ url_for('connect_account') }}">Skip for now</a>
-        <button type="submit" class="btn-primary" style="padding:12px 28px;">Save and continue</button>
+        <button class="onboard-skip" onclick="prevStep()">Back</button>
+        <button class="btn-primary" onclick="nextStep()">
+          Continue
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:6px"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
       </div>
-    </form>
+    </div>
+
+    <!-- ── STEP 3: Schedule ── -->
+    <div class="onboard-step" id="step3">
+      <div class="onboard-eyebrow">Step 3 of 4 · Schedule</div>
+      <h1 class="onboard-title">When are you free to study?</h1>
+      <p class="onboard-sub">Tap the time slots when you're typically available. Plani will work around your schedule.</p>
+
+      <div class="onboard-section">
+        <span class="onboard-label">Available days &amp; times</span>
+        <div class="avail-grid" id="availGrid">
+          <!-- JS-rendered -->
+        </div>
+      </div>
+
+      <div class="onboard-section">
+        <label class="onboard-label" for="commitmentsInput">Weekly commitments</label>
+        <input type="text" id="commitmentsInput" class="onboard-input"
+          placeholder="e.g. sports Mon/Wed 3-5pm, work Sat 10am-2pm"
+          value="{{ identity.weekly_commitments }}" />
+      </div>
+
+      <div class="onboard-section">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
+          <span class="onboard-label" style="margin:0;">Sync with Google Calendar</span>
+          <span style="font-size:0.75rem;color:var(--text-muted);">Optional</span>
+        </div>
+        <div id="gcalStatus" style="display:flex;align-items:center;gap:10px;">
+          <a id="gcalConnectBtn" href="/calendar/auth" class="btn-secondary" style="font-size:0.82rem;padding:8px 16px;display:inline-flex;align-items:center;gap:7px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-scheduler"/></svg>
+            Connect Google Calendar
+          </a>
+          <span id="gcalNote" style="font-size:0.76rem;color:var(--text-muted);">Add study events directly to your calendar</span>
+        </div>
+      </div>
+
+      <div class="onboard-actions">
+        <button class="onboard-skip" onclick="prevStep()">Back</button>
+        <button class="btn-primary" onclick="saveAndFinish()">
+          Save &amp; finish
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:6px"><use href="#i-check-circle"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── STEP 4: Done ── -->
+    <div class="onboard-step" id="step4">
+      <div style="text-align:center;padding:2rem 1rem;">
+        <div style="width:64px;height:64px;background:var(--low-bg);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;color:var(--low);">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check-circle"/></svg>
+        </div>
+        <h1 class="onboard-title" style="text-align:center;">You're all set!</h1>
+        <p class="onboard-sub" style="text-align:center;">Plani knows your profile now. Head to your dashboard to see your assignments, or let Plani build your first study schedule.</p>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:1.25rem;">
+          <a href="/dashboard" class="btn-primary">Go to Dashboard</a>
+          <a href="/scheduler" class="btn-secondary">Build my schedule</a>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
 <script>
-  document.querySelectorAll('#focusGrid input[type="checkbox"]').forEach(cb => {
-    cb.addEventListener('change', () => cb.closest('.onboard-pill').classList.toggle('is-on', cb.checked));
+let currentStep = 1;
+const totalSteps = 4;
+
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const SLOTS = ['Morning','Afternoon','Evening'];
+const savedAvail = {{ identity.availability | tojson }};
+const avail = {};
+
+// Init availability from saved data
+DAYS.forEach(d => { avail[d] = {}; SLOTS.forEach(s => { avail[d][s] = false; }); });
+Object.entries(savedAvail).forEach(([d, val]) => {
+  if (typeof val === 'string') {
+    SLOTS.forEach(s => { if (val.toLowerCase().includes(s.toLowerCase())) avail[d][s] = true; });
+  }
+});
+
+function renderAvailGrid() {
+  const grid = document.getElementById('availGrid');
+  grid.innerHTML = DAYS.map(day => `
+    <div class="avail-day">
+      <span class="avail-day-name">${day}</span>
+      ${SLOTS.map(slot => `
+        <button type="button" class="avail-slot ${avail[day][slot] ? 'on' : ''}"
+          data-day="${day}" data-slot="${slot}"
+          onclick="toggleSlot(this,'${day}','${slot}')">${slot[0]}</button>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
+function toggleSlot(btn, day, slot) {
+  avail[day][slot] = !avail[day][slot];
+  btn.classList.toggle('on', avail[day][slot]);
+}
+
+function buildAvailDict() {
+  const result = {};
+  DAYS.forEach(d => {
+    const on = SLOTS.filter(s => avail[d][s]);
+    if (on.length) result[d] = on.join(', ');
   });
+  return result;
+}
+
+function updateProgress(step) {
+  for (let i = 1; i <= totalSteps; i++) {
+    const dot = document.getElementById(`dot${i}`);
+    if (i < step)       { dot.className = 'onboard-step-dot done'; dot.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'; }
+    else if (i === step) { dot.className = 'onboard-step-dot active'; dot.textContent = i; }
+    else                 { dot.className = 'onboard-step-dot'; dot.textContent = i; }
+    if (i < totalSteps) {
+      document.getElementById(`line${i}`).className = `onboard-step-line ${i < step ? 'done' : ''}`;
+    }
+  }
+}
+
+function showStep(n) {
+  document.querySelectorAll('.onboard-step').forEach(el => el.classList.remove('active'));
+  document.getElementById(`step${n}`).classList.add('active');
+  updateProgress(n);
+  currentStep = n;
+}
+
+function nextStep() { if (currentStep < totalSteps) showStep(currentStep + 1); }
+function prevStep() { if (currentStep > 1) showStep(currentStep - 1); }
+
+async function saveAndFinish() {
+  const grade = document.getElementById('gradeSelect').value;
+  const focusEls = document.querySelectorAll('#focusGrid input[type="checkbox"]:checked');
+  const focus = Array.from(focusEls).map(el => el.value);
+  const goals = document.getElementById('goalsInput').value.trim();
+  const commitments = document.getElementById('commitmentsInput').value.trim();
+  const availability = buildAvailDict();
+
+  const btn = event.currentTarget;
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  try {
+    await fetch('/identity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ grade_level: grade, focus_areas: focus, goals, weekly_commitments: commitments, availability, completed: true })
+    });
+    showStep(4);
+  } catch (e) {
+    btn.disabled = false;
+    btn.innerHTML = 'Save &amp; finish <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:6px"><use href="#i-check-circle"/></svg>';
+    alert('Something went wrong — please try again.');
+  }
+}
+
+// Check Google Calendar status
+async function checkGcal() {
+  try {
+    const res = await fetch('/calendar/events');
+    const data = await res.json();
+    if (data.connected) {
+      document.getElementById('gcalConnectBtn').outerHTML =
+        '<span style="display:inline-flex;align-items:center;gap:6px;background:var(--low-bg);color:var(--low);padding:7px 14px;border-radius:var(--r-full);font-family:var(--font-ui);font-size:0.78rem;font-weight:700;">' +
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Google Calendar connected</span>';
+    }
+  } catch(e) {}
+}
+
+// Pill toggle
+document.querySelectorAll('#focusGrid input[type="checkbox"]').forEach(cb => {
+  cb.addEventListener('change', () => cb.closest('.onboard-pill').classList.toggle('is-on', cb.checked));
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderAvailGrid();
+  checkGcal();
+});
 </script>
 {% endblock %}

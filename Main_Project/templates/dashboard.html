@@ -69,6 +69,9 @@
   </div>
 </div>
 
+<!-- ── Streak Widget ──────────────────────────────── -->
+<div id="streakWidget" style="display:none; margin-bottom:1.5rem;"></div>
+
 <!-- Today's schedule preview -->
 <div id="todayScheduleWrap" style="display:none; margin-bottom:1.5rem;">
   <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin-bottom:0.75rem;">Today's Blocks</div>
@@ -274,6 +277,137 @@
 </div>
 
 <style>
+/* ── Streak widget ──────────────────────────────── */
+.streak-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.1rem 1.4rem;
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+.streak-flame {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  min-width: 60px;
+}
+.streak-flame-icon {
+  font-size: 2rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 6px rgba(251,146,60,0.5));
+  transition: transform 0.2s;
+}
+.streak-flame-icon.cold { filter: grayscale(1); opacity: 0.4; }
+.streak-flame-count {
+  font-family: var(--font-ui);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.1;
+  margin-top: 2px;
+}
+.streak-flame-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.streak-days {
+  display: flex;
+  gap: 5px;
+  flex: 1;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.streak-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 32px;
+}
+.streak-day-dot {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  transition: all 0.18s;
+}
+.streak-day-dot.active {
+  background: linear-gradient(135deg, #fb923c, #f97316);
+  border-color: #f97316;
+  box-shadow: 0 2px 8px rgba(249,115,22,0.35);
+  color: white;
+}
+.streak-day-dot.today-ring {
+  border-color: var(--accent);
+  border-width: 2.5px;
+}
+.streak-day-dot.frozen {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #3b82f6;
+}
+.streak-day-label {
+  font-family: var(--font-ui);
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.streak-day-label.today-txt { color: var(--accent); }
+.streak-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.streak-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+.streak-stat svg { flex-shrink: 0; }
+.streak-at-risk {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #c2410c;
+  width: 100%;
+  margin-top: 4px;
+}
+.streak-tier-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid currentColor;
+}
+
+/* ── Notion columns ─────────────────────────────── */
 .notion-col { display:flex; flex-direction:column; gap:8px; min-height:80px; }
 
 .notion-card {
@@ -889,7 +1023,81 @@ async function loadSilenceState() {
   }
 }
 
+// ── STREAK WIDGET ─────────────────────────────────────────────
+async function loadStreak() {
+  let data;
+  try { data = await fetch('/study/streak').then(r => r.json()); }
+  catch { return; }
+  if (!data || data.status === 'error') return;
+
+  const wrap = document.getElementById('streakWidget');
+  const streak = data.streak_count || 0;
+  const history = new Set(data.streak_history || []);
+  const freezes = data.streak_freeze_count || 0;
+  const longest = data.longest_streak || streak;
+  const atRisk = data.at_risk;
+  const tier = data.streak_tier || {};
+
+  // Build last-7-days row
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const ds = d.toISOString().split('T')[0];
+    days.push({ ds, label: dayNames[d.getDay()], isToday: ds === todayStr, active: history.has(ds) });
+  }
+
+  const tierColor = tier.color || '#f97316';
+  const tierLabel = tier.name || 'Starter';
+
+  const daysHtml = days.map(d => `
+    <div class="streak-day">
+      <div class="streak-day-dot ${d.active ? 'active' : ''} ${d.isToday ? 'today-ring' : ''}">
+        ${d.active ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>` : ''}
+      </div>
+      <span class="streak-day-label ${d.isToday ? 'today-txt' : ''}">${d.isToday ? 'Today' : d.label}</span>
+    </div>`).join('');
+
+  const freezeHtml = freezes > 0
+    ? `<div class="streak-stat">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-snowflake"/></svg>
+        <span style="color:#3b82f6;font-weight:600;">${freezes} freeze${freezes !== 1 ? 's' : ''}</span>
+      </div>`
+    : '';
+
+  const atRiskHtml = atRisk
+    ? `<div class="streak-at-risk">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg>
+        Study today to keep your streak alive!
+        <a href="/study" style="margin-left:auto;color:#c2410c;text-decoration:underline;white-space:nowrap;">Go study</a>
+      </div>` : '';
+
+  wrap.innerHTML = `
+    <div class="streak-card">
+      <div class="streak-flame">
+        <div class="streak-flame-icon ${streak === 0 ? 'cold' : ''}">🔥</div>
+        <div class="streak-flame-count">${streak}</div>
+        <div class="streak-flame-label">day streak</div>
+      </div>
+      <div class="streak-days">${daysHtml}</div>
+      <div class="streak-meta">
+        <span class="streak-tier-badge" style="color:${tierColor};border-color:${tierColor};">${tierLabel}</span>
+        <div class="streak-stat">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg>
+          Best: ${longest} days
+        </div>
+        ${freezeHtml}
+      </div>
+      ${atRiskHtml}
+    </div>`;
+  wrap.style.display = 'block';
+}
+
 // Init
 loadDashboard();
+loadStreak();
 setInterval(loadDashboard, 60000);
 {% endblock %}

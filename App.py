@@ -176,6 +176,9 @@ class UserIdentity(db.Model):
     focus_areas = db.Column(db.Text, default="[]")                # JSON list of subjects
     goals = db.Column(db.Text, default="")                        # free-text priorities
     completed = db.Column(db.Boolean, default=False)              # questionnaire finished
+    availability = db.Column(db.Text, default="{}")               # JSON: day -> time range
+    weekly_commitments = db.Column(db.Text, default="")           # free-text extracurriculars
+    class_schedule = db.Column(db.Text, default="[]")             # JSON list of class slots
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -186,12 +189,29 @@ class UserIdentity(db.Model):
         except (TypeError, json.JSONDecodeError):
             return []
 
+    def avail_dict(self):
+        try:
+            v = json.loads(self.availability or "{}")
+            return v if isinstance(v, dict) else {}
+        except Exception:
+            return {}
+
+    def class_list(self):
+        try:
+            v = json.loads(self.class_schedule or "[]")
+            return v if isinstance(v, list) else []
+        except Exception:
+            return []
+
     def to_dict(self):
         return {
             "grade_level": self.grade_level or "",
             "focus_areas": self.focus_list(),
             "goals": self.goals or "",
             "completed": bool(self.completed),
+            "availability": self.avail_dict(),
+            "weekly_commitments": self.weekly_commitments or "",
+            "class_schedule": self.class_list(),
         }
 
 
@@ -219,6 +239,15 @@ class DismissedAssignment(db.Model):
     guest_session_id = db.Column(db.String(64), nullable=True)
     title = db.Column(db.String(512), nullable=False)
     data = db.Column(db.Text, default="{}")
+
+class TestMark(db.Model):
+    __tablename__ = "test_marks"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    guest_session_id = db.Column(db.String(64), nullable=True)
+    title = db.Column(db.String(512), nullable=False)
+    data = db.Column(db.Text, default="{}")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class CustomDescription(db.Model):
     __tablename__ = "custom_descriptions"
@@ -819,6 +848,40 @@ def delete_dismissed(title):
         DismissedAssignment.query.filter_by(guest_session_id=gid, title=title).delete()
     db.session.commit()
 
+def get_test_titles():
+    if current_user.is_authenticated:
+        rows = TestMark.query.filter_by(user_id=current_user.id).all()
+    else:
+        gid = get_guest_session_id()
+        rows = TestMark.query.filter_by(guest_session_id=gid).all()
+    return {r.title for r in rows}
+
+def get_test_marks():
+    if current_user.is_authenticated:
+        return TestMark.query.filter_by(user_id=current_user.id).order_by(TestMark.created_at.desc()).all()
+    gid = get_guest_session_id()
+    return TestMark.query.filter_by(guest_session_id=gid).order_by(TestMark.created_at.desc()).all()
+
+def save_test_mark(title, data_dict):
+    if current_user.is_authenticated:
+        existing = TestMark.query.filter_by(user_id=current_user.id, title=title).first()
+        if not existing:
+            db.session.add(TestMark(user_id=current_user.id, title=title, data=json.dumps(data_dict)))
+    else:
+        gid = get_guest_session_id()
+        existing = TestMark.query.filter_by(guest_session_id=gid, title=title).first()
+        if not existing:
+            db.session.add(TestMark(guest_session_id=gid, title=title, data=json.dumps(data_dict)))
+    db.session.commit()
+
+def delete_test_mark(title):
+    if current_user.is_authenticated:
+        TestMark.query.filter_by(user_id=current_user.id, title=title).delete()
+    else:
+        gid = get_guest_session_id()
+        TestMark.query.filter_by(guest_session_id=gid, title=title).delete()
+    db.session.commit()
+
 def get_custom_description(assignment_title):
     if current_user.is_authenticated:
         row = CustomDescription.query.filter_by(user_id=current_user.id, assignment_title=assignment_title).first()
@@ -1295,7 +1358,20 @@ def update_identity():
             identity.focus_areas = json.dumps([str(x).strip()[:48] for x in raw if str(x).strip()][:12])
     if "goals" in payload:
         identity.goals = str(payload.get("goals") or "").strip()[:1000]
-    identity.completed = True
+    if "availability" in payload:
+        av = payload.get("availability") or {}
+        if isinstance(av, dict):
+            identity.availability = json.dumps(av)
+    if "weekly_commitments" in payload:
+        identity.weekly_commitments = str(payload.get("weekly_commitments") or "").strip()[:500]
+    if "class_schedule" in payload:
+        cs = payload.get("class_schedule") or []
+        if isinstance(cs, list):
+            identity.class_schedule = json.dumps(cs[:50])
+    if payload.get("completed"):
+        identity.completed = True
+    else:
+        identity.completed = True
     db.session.commit()
     return jsonify({"ok": True, "identity": identity.to_dict()})
 
@@ -1777,6 +1853,8 @@ def get_live_schedule():
     if not acct:
         return flask.jsonify([])
     dismissed = get_dismissed_titles()
+    test_titles = get_test_titles()
+    excluded = dismissed | test_titles
     login_type = acct["login_type"]
     if login_type == "studentvue":
         try:
@@ -1785,7 +1863,7 @@ def get_live_schedule():
             if not isinstance(result, list):
                 print("StudentVue returned non-list data")
                 return flask.jsonify([])
-            filtered = [a for a in result if isinstance(a, dict) and a.get("title") not in dismissed]
+            filtered = [a for a in result if isinstance(a, dict) and a.get("title") not in excluded]
             return flask.jsonify(filtered)
         except Exception as e:
             print(f"StudentVue Live Error: {str(e)}")
@@ -1794,7 +1872,7 @@ def get_live_schedule():
         try:
             from schoology_helper import get_schoology_assignments
             result = get_schoology_assignments(acct["schoology_key"], acct["schoology_secret"])
-            return flask.jsonify([a for a in result if a.get("title", "") not in dismissed])
+            return flask.jsonify([a for a in result if a.get("title", "") not in excluded])
         except Exception as e:
             print(f"Schoology Error: {e}")
             return flask.jsonify([])
@@ -1831,7 +1909,7 @@ def get_live_schedule():
             rounded_minutes = max(30, round(raw_minutes / 30) * 30)
             difficulty = infer_task_difficulty(a["points_possible"], priority, due_str[:10])
             title = a["name"]
-            if title in dismissed: continue
+            if title in excluded: continue
             schedule.append({
                 "id": str(a["id"]),
                 "course_id": str(a["course_id"]),
@@ -2126,6 +2204,49 @@ def restore():
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route("/tests")
+def tests_page():
+    return flask.render_template("tests.html", active_page="tests",
+                                 logged_in=current_user.is_authenticated)
+
+@app.route("/api/tests", methods=["GET"])
+def api_get_tests():
+    rows = get_test_marks()
+    result = []
+    for r in rows:
+        try:
+            d = json.loads(r.data) if r.data else {}
+        except Exception:
+            d = {}
+        d["title"] = r.title
+        d["marked_at"] = r.created_at.isoformat() if r.created_at else ""
+        result.append(d)
+    return flask.jsonify(result)
+
+@app.route("/test/mark", methods=["POST"])
+def mark_as_test():
+    data = request.get_json(silent=True) or {}
+    title = (data.get("title") or "").strip()
+    if not title:
+        return flask.jsonify({"status": "error", "message": "Missing title"}), 400
+    try:
+        save_test_mark(title, data)
+        return flask.jsonify({"status": "ok"})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/test/unmark", methods=["POST"])
+def unmark_as_test():
+    data = request.get_json(silent=True) or {}
+    title = (data.get("title") or "").strip()
+    if not title:
+        return flask.jsonify({"status": "error", "message": "Missing title"}), 400
+    try:
+        delete_test_mark(title)
+        return flask.jsonify({"status": "ok"})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route("/assignment/description", methods=["GET"])
 def get_description():
     assignment_id = request.args.get("id")
@@ -2203,10 +2324,33 @@ def generate_schedule():
         custom_text = f"\nCUSTOM TASKS ADDED BY STUDENT — use EXACT names as written ({len(custom_tasks)}):\n" + "\n".join([f"  - {t}" for t in custom_tasks])
     today = datetime.now().strftime("%Y-%m-%d")
     total = len(normalized_assignments) + len(custom_tasks)
+    # Build study profile context if user is logged in
+    profile_context = ""
+    if is_logged_in():
+        try:
+            identity = _get_or_create_identity(current_user.id)
+            p = identity.to_dict()
+            parts = []
+            if p.get("grade_level"):
+                parts.append(f"Grade: {p['grade_level']}")
+            if p.get("focus_areas"):
+                parts.append(f"Subjects: {', '.join(p['focus_areas'])}")
+            if p.get("goals"):
+                parts.append(f"Goals: {p['goals'][:200]}")
+            if p.get("weekly_commitments"):
+                parts.append(f"Weekly commitments: {p['weekly_commitments'][:150]}")
+            if p.get("availability"):
+                av_str = "; ".join(f"{d}: {t}" for d, t in p["availability"].items())
+                if av_str:
+                    parts.append(f"Availability: {av_str}")
+            if parts:
+                profile_context = "\nSTUDENT PROFILE:\n" + "\n".join(f"  - {x}" for x in parts) + "\n"
+        except Exception:
+            pass
     prompt = f"""You are IntelliPlan — an adaptive academic study-planning system. Today is {today}.
 
 You must schedule ALL {total} items below. Every single one must appear in the schedule.
-{overdue_text}
+{profile_context}{overdue_text}
 {upcoming_text}
 {custom_text}
 
