@@ -474,7 +474,7 @@ body.serious-mode .nav-tabs { display:none !important; }
   <div class="xh">
     <div class="xl">IntelliPlan — Extreme Focus</div>
     <div id="xTimerDisplay" class="xtimer">25:00</div>
-    <div id="xPtsDisplay" style="font-size:0.82rem;color:#a5b4fc;font-weight:700;">⚡ 0 Sparks</div>
+    <div id="xPtsDisplay" style="font-size:0.82rem;color:#a5b4fc;font-weight:700;display:flex;align-items:center;gap:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> 0 Sparks</div>
   </div>
   <div class="xcontent">
     <div class="xprog"><div class="xprog-fill" id="xProgFill" style="width:0%"></div></div>
@@ -493,7 +493,7 @@ body.serious-mode .nav-tabs { display:none !important; }
     <div class="x-fb" id="xFbBox"></div>
     <div class="x-self-check" id="xSelfCheck">
       <button class="x-sc-btn x-correct" onclick="xMark(true)">✓ Got it</button>
-      <button class="x-sc-btn x-wrong" onclick="xMark(false)">✗ Missed it</button>
+      <button class="x-sc-btn x-wrong" onclick="xMark(false)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x"/></svg> Missed it</button>
     </div>
     <button class="x-next" id="xNextBtn" onclick="xNext()">Next Question →</button>
   </div>
@@ -519,23 +519,23 @@ body.serious-mode .nav-tabs { display:none !important; }
   <div class="sh">
     <h1 class="st">Study <em>&amp; Learn</em></h1>
     <div class="streak-bar">
-      <div class="s-chip fire" id="sChipStreak" onclick="switchTab('streak')">🔥 <span id="sStreakNum">0</span></div>
-      <div class="s-chip pts" id="sChipPts" onclick="switchTab('shop')">⚡ <span id="sPtsNum">0</span></div>
-      <div class="s-chip freeze" id="sChipFreeze">🛡 <span id="sFreezeNum">0</span></div>
+      <div class="s-chip fire" id="sChipStreak" onclick="switchTab('streak')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-fire"/></svg> <span id="sStreakNum">0</span></div>
+      <div class="s-chip pts" id="sChipPts" onclick="switchTab('shop')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> <span id="sPtsNum">0</span></div>
+      <div class="s-chip freeze" id="sChipFreeze"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pin"/></svg> <span id="sFreezeNum">0</span></div>
       <div class="s-chip level" id="sChipLevel" onclick="switchTab('progress')">Lv <span id="sLevelNum">1</span></div>
     </div>
   </div>
 
   <!-- Navigation -->
   <div class="study-nav">
-    <button class="snav-btn active" onclick="switchTab('learn')" id="tab-learn">📖 Learn</button>
-    <button class="snav-btn" onclick="switchTab('flashcards')" id="tab-flashcards">🃏 Flashcards</button>
-    <button class="snav-btn" onclick="switchTab('review')" id="tab-review">🔁 Review</button>
-    <button class="snav-btn" onclick="switchTab('mastery')" id="tab-mastery">📊 Mastery</button>
-    <button class="snav-btn" onclick="switchTab('progress')" id="tab-progress">📈 Progress</button>
+    <button class="snav-btn active" onclick="switchTab('learn')" id="tab-learn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg> Learn</button>
+    <button class="snav-btn" onclick="switchTab('flashcards')" id="tab-flashcards"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pencil"/></svg> Flashcards</button>
+    <button class="snav-btn" onclick="switchTab('review')" id="tab-review"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg> Review</button>
+    <button class="snav-btn" onclick="switchTab('mastery')" id="tab-mastery"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-chart-bar"/></svg> Mastery</button>
+    <button class="snav-btn" onclick="switchTab('progress')" id="tab-progress"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-chart-bar"/></svg> Progress</button>
     <button class="snav-btn" onclick="switchTab('quests')" id="tab-quests">Quests</button>
     <button class="snav-btn" onclick="switchTab('shop')" id="tab-shop">Shop</button>
-    <button class="snav-btn" onclick="switchTab('streak')" id="tab-streak">🔥 Streak</button>
+    <button class="snav-btn" onclick="switchTab('streak')" id="tab-streak"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-fire"/></svg> Streak</button>
   </div>
 
   <!-- ══ LEARN TAB ══ -->
@@ -614,7 +614,7 @@ body.serious-mode .nav-tabs { display:none !important; }
       <div class="prog-info">
         <span id="progTxt" style="font-weight:600;color:var(--si);">Q 1 of 8</span>
         <div style="display:flex;gap:10px;">
-          <span id="sesPtsDisp" style="font-weight:700;color:var(--si);">⚡ 0 Sparks</span>
+          <span id="sesPtsDisp" style="font-weight:700;color:var(--si);display:inline-flex;align-items:center;gap:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> 0 Sparks</span>
           <span id="sesAccDisp" style="color:var(--txm);">0/0 correct</span>
         </div>
       </div>
@@ -736,9 +736,9 @@ body.serious-mode .nav-tabs { display:none !important; }
       <div class="streak-word" id="streakWordLabel">Day Streak</div>
       <div class="streak-sub" id="streakSubMsg">Study today to start your streak!</div>
       <div class="streak-stats-row">
-        <div class="ss-item">🏆 Best: <span id="longestStreakDisp">0</span> days</div>
-        <div class="ss-item">📅 Total sessions: <span id="totalSesDisp">0</span></div>
-        <div class="ss-item">⚡ <span id="totalPtsDisp2">0</span> Sparks</div>
+        <div class="ss-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg> Best: <span id="longestStreakDisp">0</span> days</div>
+        <div class="ss-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> Total sessions: <span id="totalSesDisp">0</span></div>
+        <div class="ss-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> <span id="totalPtsDisp2">0</span> Sparks</div>
       </div>
     </div>
 
@@ -998,7 +998,7 @@ function renderQ() {
   const pct = (G.curQ / total) * 100;
   document.getElementById('progFill').style.width = pct + '%';
   document.getElementById('progTxt').textContent = `Q ${G.curQ + 1} of ${total}`;
-  document.getElementById('sesPtsDisp').textContent = `⚡ ${G.sesPts} Sparks`;
+  document.getElementById('sesPtsDisp').innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> ${G.sesPts} Sparks`;
   document.getElementById('sesAccDisp').textContent = `${G.sesCorrect}/${G.sesAnswered} correct`;
 
   const typeLabel = {recall:'Recall', conceptual:'Conceptual', 'short-answer':'Short Answer'}[q.type] || 'Recall';
@@ -1245,7 +1245,7 @@ async function completeSession() {
           <div class="cstat"><div class="cstat-num">${G.sesPts}</div><div class="cstat-lbl">Sparks</div></div>
           <div class="cstat"><div class="cstat-num">${Math.round(duration/60)}m</div><div class="cstat-lbl">Time</div></div>
         </div>
-        ${streakRes && streakRes.bonus_points > 0 ? `<div style="padding:12px;background:rgba(239,68,68,0.08);border-radius:12px;font-size:0.88rem;font-weight:700;color:#ef4444;margin-bottom:1rem;">🔥 ${streakRes.streak_count}-day ${escHtml(streakRes.streak_tier?.name || 'streak')}! +${streakRes.bonus_points} Sparks</div>` : ''}
+        ${streakRes && streakRes.bonus_points > 0 ? `<div style="padding:12px;background:rgba(239,68,68,0.08);border-radius:12px;font-size:0.88rem;font-weight:700;color:#ef4444;margin-bottom:1rem;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-fire"/></svg> ${streakRes.streak_count}-day ${escHtml(streakRes.streak_tier?.name || 'streak')}! +${streakRes.bonus_points} Sparks</div>` : ''}
         <div class="comp-btns">
           <button class="btn-solid" onclick="restartSetup()">Study Again</button>
           <button class="btn-outline" onclick="switchTab('flashcards')">Flashcards</button>
@@ -1438,7 +1438,7 @@ function renderStreakTab() {
 
   // Freezes
   const fi = document.getElementById('freezeIcons');
-  fi.innerHTML = Array.from({length:G.freezeCapacity}, (_, i) => `<div class="freeze-icon ${i >= G.freezes ? 'used' : ''}">🛡</div>`).join('');
+  fi.innerHTML = Array.from({length:G.freezeCapacity}, (_, i) => `<div class="freeze-icon ${i >= G.freezes ? 'used' : ''}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pin"/></svg></div>`).join('');
   document.getElementById('freezeSubMsg').textContent = G.freezes > 0
     ? `You have ${G.freezes}/${G.freezeCapacity} freezes. Long streaks earn passive weekly protection.`
     : 'No freezes. Earn one at milestones or buy protection in the Spark Shop.';
@@ -1449,7 +1449,11 @@ function renderStreakTab() {
     const reached = G.longestStreak >= m;
     const isNext = !reached && milestones.filter(x => G.longestStreak >= x).length === milestones.indexOf(m);
     const cls = reached ? 'm-reached' : isNext ? 'm-next' : 'm-locked';
-    const icon = reached ? '✅' : isNext ? '🎯' : '🔒';
+    const icon = reached
+      ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;color:var(--low)"><use href="#i-check-circle"/></svg>'
+      : isNext
+        ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;color:var(--accent)"><use href="#i-sparkle"/></svg>'
+        : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;color:var(--text-muted)"><use href="#i-warning"/></svg>';
     const reward = {3:25,7:75,14:100,21:150,30:250,60:500,100:1000,365:2000}[m];
     return `<div class="milestone ${cls}">${icon} ${m} days (+${reward} Sparks)</div>`;
   }).join('');
@@ -1460,7 +1464,7 @@ function renderStreakTab() {
   } else {
     bg.innerHTML = G.badges.map(b => `
       <div class="badge-item">
-        <div class="badge-mark">★</div>
+        <div class="badge-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg></div>
         <div><div class="badge-name">${escHtml(b.name || b.id)}</div><div class="badge-kind">${escHtml(b.kind || 'earned')}</div></div>
       </div>
     `).join('');
@@ -1608,7 +1612,7 @@ function xRenderQ() {
   document.getElementById('xSubmitBtn').style.display = 'block';
   document.getElementById('xSubmitBtn').disabled = false;
   document.getElementById('xSubmitBtn').textContent = 'Submit Answer';
-  document.getElementById('xPtsDisplay').textContent = `⚡ ${G.sesPts} Sparks`;
+  document.getElementById('xPtsDisplay').innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> ${G.sesPts} Sparks`;
   G.xConf = 'medium'; G.xRevealed = false;
   document.querySelectorAll('.xconf-btn').forEach(b => b.className = 'xconf-btn');
 }
@@ -1651,7 +1655,7 @@ async function xSubmit() {
     }
   } catch(e) {
     document.getElementById('xFbBox').style.display = 'block';
-    document.getElementById('xFbBox').innerHTML = `<div style="margin-bottom:8px;font-weight:700;">📖 Correct Answer:</div><div>${escHtml(q.answer)}</div>`;
+    document.getElementById('xFbBox').innerHTML = `<div style="margin-bottom:8px;font-weight:700;display:flex;align-items:center;gap:5px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg> Correct Answer:</div><div>${escHtml(q.answer)}</div>`;
     await addPoints(1, '+1 Sparks');
     G.sesAnswered++;
   }
@@ -1726,7 +1730,7 @@ function renderQuestsTab() {
     return `
       <div class="quest-card">
         <div class="quest-head">
-          <div class="quest-title">${done ? '✅ ' : ''}${escHtml(q.title)}</div>
+          <div class="quest-title">${done ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;color:var(--low)"><use href="#i-check-circle"/></svg> ' : ''}${escHtml(q.title)}</div>
           <div class="quest-reward">+${q.reward} Sparks</div>
         </div>
         <div class="quest-track"><div class="quest-fill" style="width:${pct}%"></div></div>

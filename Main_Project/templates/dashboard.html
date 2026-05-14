@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block content %}
 <!-- Feedback Modal -->
@@ -96,7 +96,7 @@
   </div>
   <div>
     <div style="display:flex; align-items:center; gap:8px; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:2px solid var(--low);">
-      <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--low);">🗓 Upcoming</span>
+      <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--low); display:inline-flex; align-items:center; gap:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> Upcoming</span>
       <span id="upcomingCount" style="font-size:0.7rem; background:var(--low-bg); color:var(--low); padding:2px 8px; border-radius:10px; font-weight:600;">0</span>
     </div>
     <div id="upcomingList" class="notion-col"></div>
@@ -1078,7 +1078,7 @@ async function loadStreak() {
   wrap.innerHTML = `
     <div class="streak-card">
       <div class="streak-flame">
-        <div class="streak-flame-icon ${streak === 0 ? 'cold' : ''}">🔥</div>
+        <div class="streak-flame-icon ${streak === 0 ? 'cold' : ''}"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-fire"/></svg></div>
         <div class="streak-flame-count">${streak}</div>
         <div class="streak-flame-label">day streak</div>
       </div>
