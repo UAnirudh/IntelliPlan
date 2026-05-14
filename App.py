@@ -418,16 +418,28 @@ STREAK_TIERS = [
     {"id": "eternal", "name": "Eternal", "min": 365, "max": 99999, "bonus": 150, "freeze_cap": 5, "color": "#22c55e"},
 ]
 
+LEVEL_TITLE_TIERS = [
+    (1, "Learner"),
+    (5, "Student"),
+    (10, "Scholar"),
+    (15, "Researcher"),
+    (20, "Expert"),
+    (25, "Veteran"),
+    (30, "Mentor"),
+    (40, "Master"),
+    (50, "Legend"),
+]
+
+def level_title_for(level):
+    title = LEVEL_TITLE_TIERS[0][1]
+    for threshold, candidate in LEVEL_TITLE_TIERS:
+        if level >= threshold:
+            title = candidate
+    return title
+
 LEVELS = [
-    (1, "Learner", 0),
-    (5, "Student", 500),
-    (10, "Scholar", 1500),
-    (15, "Researcher", 3500),
-    (20, "Expert", 7000),
-    (25, "Veteran", 13000),
-    (30, "Mentor", 22000),
-    (40, "Master", 45000),
-    (50, "Legend", 100000),
+    (level, level_title_for(level), 0 if level == 1 else int(round((35 * ((level - 1) ** 2)) / 25) * 25))
+    for level in range(1, 51)
 ]
 
 STREAK_MILESTONES = {
@@ -463,23 +475,38 @@ BADGE_CATALOG = {
     "night_owl": {"name": "Night Owl", "kind": "special"},
     "early_bird": {"name": "Early Bird", "kind": "special"},
     "comeback_kid": {"name": "Comeback Kid", "kind": "special"},
+    "quest_starter": {"name": "Quest Starter", "kind": "quest"},
+    "quest_finisher": {"name": "Quest Finisher", "kind": "quest"},
+    "weekly_champion": {"name": "Weekly Champion", "kind": "quest"},
+    "shopper": {"name": "Spark Shopper", "kind": "shop"},
+    "deal_hunter": {"name": "Deal Hunter", "kind": "shop"},
+    "freeze_ready": {"name": "Freeze Ready", "kind": "protection"},
+    "booster_pilot": {"name": "Booster Pilot", "kind": "shop"},
+    "spark_saver": {"name": "Spark Saver", "kind": "currency"},
+    "style_setter": {"name": "Style Setter", "kind": "cosmetic"},
 }
 
 SHOP_ITEMS = {
     "streak_freeze": {"name": "Streak Freeze", "price": 200, "kind": "protection", "value": 1, "description": "Blocks one missed day."},
     "freeze_pack": {"name": "Freeze Pack", "price": 500, "kind": "protection", "value": 3, "description": "Three freezes at a discount."},
+    "weekend_shield": {"name": "Weekend Shield", "price": 350, "kind": "protection", "value": 2, "description": "Adds two freezes for busy weekends or travel days."},
+    "repair_token": {"name": "Repair Token", "price": 900, "kind": "inventory", "field": "repair_credits", "value": 1, "description": "Cuts the next streak repair cost in half."},
     "booster_2x": {"name": "2x Sparks", "price": 100, "kind": "booster", "multiplier": 2, "uses": 1, "description": "Doubles Sparks in the next session."},
     "booster_3x": {"name": "3x Sparks", "price": 250, "kind": "booster", "multiplier": 3, "uses": 1, "description": "Triples Sparks in the next session."},
     "daily_booster": {"name": "Daily Booster", "price": 350, "kind": "booster", "multiplier": 1.5, "hours": 24, "description": "+50% Sparks for 24 hours."},
+    "focus_booster": {"name": "Focus Booster", "price": 180, "kind": "booster", "multiplier": 1.25, "hours": 72, "description": "+25% Sparks for the next three days."},
     "skip_pack": {"name": "Question Skip Pack", "price": 75, "kind": "inventory", "field": "skips", "value": 5, "description": "Skip five questions without losing momentum."},
     "hint_pack": {"name": "Hint Token Pack", "price": 120, "kind": "inventory", "field": "hints", "value": 10, "description": "Use AI hints on hard questions."},
     "color_gold": {"name": "Streak Color: Gold", "price": 400, "kind": "cosmetic", "slot": "streak_color", "value": "gold", "description": "Gold streak glow."},
     "color_neon": {"name": "Streak Color: Neon", "price": 400, "kind": "cosmetic", "slot": "streak_color", "value": "neon", "description": "Neon streak glow."},
+    "color_forest": {"name": "Streak Color: Forest", "price": 400, "kind": "cosmetic", "slot": "streak_color", "value": "forest", "description": "Calm green streak glow."},
     "title_scholar": {"name": "Profile Title: Scholar", "price": 300, "kind": "cosmetic", "slot": "title", "value": "Scholar", "description": "Display Scholar by your name."},
     "title_grinder": {"name": "Profile Title: Grinder", "price": 300, "kind": "cosmetic", "slot": "title", "value": "Grinder", "description": "Display Grinder by your name."},
+    "title_comeback": {"name": "Profile Title: Comeback Kid", "price": 450, "kind": "cosmetic", "slot": "title", "value": "Comeback Kid", "description": "Display Comeback Kid by your name."},
     "calendar_dark": {"name": "Calendar Theme: Dark", "price": 500, "kind": "cosmetic", "slot": "calendar_theme", "value": "dark", "description": "Dark calendar grid."},
     "frame_ember": {"name": "Streak Frame: Ember", "price": 600, "kind": "cosmetic", "slot": "streak_frame", "value": "ember", "description": "Animated ember frame."},
     "frame_aurora": {"name": "Streak Frame: Aurora", "price": 800, "kind": "cosmetic", "slot": "streak_frame", "value": "aurora", "description": "Rare aurora frame."},
+    "frame_cosmic": {"name": "Streak Frame: Cosmic", "price": 950, "kind": "cosmetic", "slot": "streak_frame", "value": "cosmic", "description": "Premium cosmic streak frame."},
 }
 
 QUEST_POOL = [
@@ -617,6 +644,7 @@ def update_quest_progress(p, session_data):
         "study_minutes": int(round((int(session_data.get("duration", 0) or 0)) / 60)),
     }
     rewards = []
+    quest_badges = []
     for q in quests.get("quests", []):
         qid = q["id"]
         metric = q["metric"]
@@ -630,12 +658,16 @@ def update_quest_progress(p, session_data):
             completed.add(qid)
             rewards.append({"quest_id": qid, "title": q["title"], "sparks": q["reward"]})
             grant_sparks(p, q["reward"], f"quest:{qid}", apply_booster=False)
+            quest_badges.append("quest_starter")
     quests["completed"] = sorted(completed)
     if len(completed) >= 3 and not quests.get("completion_bonus_claimed"):
         quests["completion_bonus_claimed"] = True
         rewards.append({"quest_id": "weekly_completion", "title": "Weekly Completion Bonus", "sparks": 150, "freezes": 1})
         grant_sparks(p, 150, "weekly_completion", apply_booster=False)
         p.streak_freeze_count = min(int(p.freeze_capacity or 2), int(p.streak_freeze_count or 0) + 1)
+        quest_badges.extend(["quest_finisher", "weekly_champion"])
+    if quest_badges:
+        add_badges(p, quest_badges)
     p.weekly_quests = json.dumps(quests)
     return rewards
 
@@ -3721,10 +3753,12 @@ def study_shop_buy():
             return flask.jsonify({"status": "error", "message": "Not enough Sparks.", "spark_balance": p.spark_balance}), 400
         p.spark_balance = int(p.spark_balance or 0) - price
         cosmetics = safe_json_load(p.active_cosmetics, {})
+        badges_to_add = ["shopper"]
         if item["kind"] == "protection":
             tier = current_study_tier(p.streak_count)
             p.freeze_capacity = tier["freeze_cap"]
             p.streak_freeze_count = min(int(p.freeze_capacity or 2), int(p.streak_freeze_count or 0) + int(item["value"]))
+            badges_to_add.append("freeze_ready")
         elif item["kind"] == "booster":
             booster = {"type": item_id, "multiplier": item["multiplier"], "created_at": datetime.utcnow().isoformat()}
             if item.get("uses"):
@@ -3732,6 +3766,7 @@ def study_shop_buy():
             if item.get("hours"):
                 booster["expires_at"] = (datetime.utcnow() + timedelta(hours=item["hours"])).isoformat()
             p.active_booster = json.dumps(booster)
+            badges_to_add.append("booster_pilot")
         elif item["kind"] == "inventory":
             field = item["field"]
             cosmetics[field] = int(cosmetics.get(field, 0) or 0) + int(item["value"])
@@ -3742,6 +3777,12 @@ def study_shop_buy():
             cosmetics["owned"] = sorted(owned)
             cosmetics[item["slot"]] = item["value"]
             p.active_cosmetics = json.dumps(cosmetics)
+            badges_to_add.append("style_setter")
+        if item_id == weekly_deal_id:
+            badges_to_add.append("deal_hunter")
+        if int(p.spark_balance or 0) >= 1000:
+            badges_to_add.append("spark_saver")
+        new_badges = add_badges(p, badges_to_add)
         purchases = safe_json_load(p.shop_purchases, [])
         purchases.append({"id": str(uuid.uuid4()), "item_id": item_id, "price": price, "created_at": datetime.utcnow().isoformat()})
         p.shop_purchases = json.dumps(purchases[-200:])
@@ -3755,7 +3796,8 @@ def study_shop_buy():
             "streak_freeze_count": p.streak_freeze_count,
             "freeze_capacity": p.freeze_capacity,
             "active_booster": safe_json_load(p.active_booster, None),
-            "active_cosmetics": safe_json_load(p.active_cosmetics, {})
+            "active_cosmetics": safe_json_load(p.active_cosmetics, {}),
+            "badges_unlocked": new_badges
         })
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
@@ -3778,6 +3820,11 @@ def study_repair():
             except Exception:
                 pass
         cost = repair_cost_for(broken_streak)
+        used_repair_credit = False
+        if int(cosmetics.get("repair_credits", 0) or 0) > 0:
+            cost = max(1, int(round(cost * 0.5)))
+            cosmetics["repair_credits"] = max(0, int(cosmetics.get("repair_credits", 0) or 0) - 1)
+            used_repair_credit = True
         if int(p.spark_balance or 0) < cost:
             return flask.jsonify({"status": "error", "message": "Not enough Sparks to repair this streak.", "cost": cost, "spark_balance": p.spark_balance}), 400
         p.spark_balance = int(p.spark_balance or 0) - cost
@@ -3791,7 +3838,7 @@ def study_repair():
         p.active_cosmetics = json.dumps(cosmetics)
         new_badges = add_badges(p, ["comeback_kid"])
         db.session.commit()
-        return flask.jsonify({"status": "ok", "streak_count": p.streak_count, "spark_balance": p.spark_balance, "badges_unlocked": new_badges, "message": "Streak repaired."})
+        return flask.jsonify({"status": "ok", "streak_count": p.streak_count, "spark_balance": p.spark_balance, "badges_unlocked": new_badges, "message": "Streak repaired.", "repair_cost": cost, "used_repair_credit": used_repair_credit})
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
 
