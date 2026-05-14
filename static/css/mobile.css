@@ -895,6 +895,164 @@ select {
     z-index: 9150 !important;
   }
 
+
+  /* ════════════════════════════════════════════════════════
+     PRIORITY PAGE
+  ════════════════════════════════════════════════════════ */
+  .assignment-card {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    padding: 0.85rem 1rem !important;
+  }
+  .rank-bubble {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 0.72rem !important;
+    flex-shrink: 0 !important;
+  }
+  .card-main {
+    flex: 1 1 calc(100% - 50px) !important;
+    min-width: 0 !important;
+  }
+  .time-pill {
+    order: 3;
+    font-size: 0.7rem !important;
+  }
+  .priority-badge {
+    order: 4;
+    font-size: 0.7rem !important;
+  }
+  .test-btn,
+  .dismiss-btn {
+    order: 5;
+    flex-shrink: 0 !important;
+    font-size: 0.72rem !important;
+    padding: 5px 10px !important;
+  }
+  /* Dropdown filter full width */
+  .dropdown-wrap {
+    width: 100% !important;
+  }
+  .dropdown-btn {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+  .dropdown-menu {
+    width: 100% !important;
+  }
+
+  /* ════════════════════════════════════════════════════════
+     TESTS PAGE
+  ════════════════════════════════════════════════════════ */
+  .tests-stats {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.75rem !important;
+  }
+  .test-card {
+    flex-wrap: wrap !important;
+    padding: 0.85rem 1rem !important;
+  }
+  .test-card-body {
+    flex: 1 1 100% !important;
+    min-width: 0 !important;
+  }
+  .test-card-actions {
+    flex-wrap: wrap !important;
+    width: 100% !important;
+    gap: 6px !important;
+  }
+  .test-prep-btn,
+  .test-remove-btn {
+    flex: 1 1 auto !important;
+    text-align: center !important;
+    justify-content: center !important;
+    min-height: 38px !important;
+  }
+  #prepModal .prep-panel {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: calc(100dvh - 20px) !important;
+    border-radius: 16px !important;
+    padding: 1.1rem !important;
+  }
+  #addTestModal > div {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 1.1rem !important;
+    border-radius: 16px !important;
+  }
+  .filter-tabs {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+    padding-bottom: 4px !important;
+  }
+
+  /* ════════════════════════════════════════════════════════
+     SETTINGS PAGE — Study Profile tabs
+  ════════════════════════════════════════════════════════ */
+  .profile-tab-bar {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    flex-wrap: nowrap !important;
+    gap: 0 !important;
+  }
+  .profile-tab {
+    flex-shrink: 0 !important;
+    font-size: 0.8rem !important;
+    padding: 8px 12px !important;
+  }
+  .settings-section {
+    padding: 1rem !important;
+  }
+
+  /* ════════════════════════════════════════════════════════
+     STREAK WIDGET
+  ════════════════════════════════════════════════════════ */
+  .streak-card {
+    gap: 0.75rem !important;
+    padding: 0.9rem 1rem !important;
+  }
+  .streak-days {
+    gap: 4px !important;
+    order: 3 !important;
+    flex-basis: 100% !important;
+    justify-content: center !important;
+  }
+  .streak-day-dot {
+    width: 28px !important;
+    height: 28px !important;
+  }
+  .streak-meta {
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    order: 2 !important;
+    flex: 1 !important;
+    align-items: center !important;
+  }
+
+  /* ════════════════════════════════════════════════════════
+     ONBOARDING WIZARD
+  ════════════════════════════════════════════════════════ */
+  .onb-card {
+    padding: 1.25rem 1rem !important;
+    border-radius: 16px !important;
+  }
+  .onb-step-dots {
+    gap: 6px !important;
+  }
+  .onb-nav {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  .onb-nav button {
+    width: 100% !important;
+    min-height: 46px !important;
+  }
+
 } /* end @media (max-width: 768px) */
 
 /* ── Very small phones (< 390px) ─────────────────────────── */
