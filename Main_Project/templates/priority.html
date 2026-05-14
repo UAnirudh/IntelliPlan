@@ -101,7 +101,10 @@ function renderCards(assignments) {
     const card = document.createElement('div');
     card.className = `assignment-card ${priority}`;
     card.style.animationDelay = `${i * 0.07}s`;
-    card.onclick = (e) => { if (!e.target.classList.contains('dismiss-btn')) openAssignmentModal(a); };
+    card.onclick = (e) => {
+      if (!e.target.closest('.dismiss-btn') && !e.target.closest('.test-btn')) openAssignmentModal(a);
+    };
+    const safeTitle = a.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
     card.innerHTML = `
       <div class="rank-bubble">#${i + 1}</div>
       <div class="card-main">
@@ -114,9 +117,30 @@ function renderCards(assignments) {
       </div>
       <span class="time-pill"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg> ${formatTime(a.estimated_time)}</span>
       <span class="priority-badge ${priority}">${a.priority}</span>
-      <button class="dismiss-btn" onclick="dismissAssignment('${a.title.replace(/'/g, "\\'")}', this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-done"/></svg> Done</button>
+      <button class="test-btn" title="Mark as test" onclick="markAsTest(${JSON.stringify(a)}, this)">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-test"/></svg> Test
+      </button>
+      <button class="dismiss-btn" onclick="dismissAssignment('${safeTitle}', this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-done"/></svg> Done</button>
     `;
     list.appendChild(card);
+  });
+}
+
+function markAsTest(assignment, btn) {
+  fetch('/test/mark', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(assignment)
+  }).then(r => r.json()).then(data => {
+    if (data.status === 'ok') {
+      const card = btn.closest('.assignment-card');
+      card.style.transition = 'opacity 0.3s, transform 0.3s';
+      card.style.opacity = '0';
+      card.style.transform = 'translateX(8px)';
+      setTimeout(() => card.remove(), 300);
+      // Show brief toast
+      showToast('Moved to Tests', 'primary');
+    }
   });
 }
 
@@ -131,6 +155,18 @@ function dismissAssignment(title, btn) {
       btn.closest('.assignment-card').remove();
     }, 300);
   });
+}
+
+function showToast(msg, type) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:var(--accent);color:white;padding:9px 20px;border-radius:999px;
+    font-family:var(--font-ui);font-size:0.82rem;font-weight:600;
+    box-shadow:0 4px 18px rgba(37,99,235,0.35);z-index:9999;
+    animation:fadeUp 0.2s var(--ease-out) both;`;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity 0.3s'; setTimeout(() => t.remove(), 300); }, 2000);
 }
 
 function updateStats(assignments) {

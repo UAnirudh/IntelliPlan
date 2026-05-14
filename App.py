@@ -220,6 +220,15 @@ class DismissedAssignment(db.Model):
     title = db.Column(db.String(512), nullable=False)
     data = db.Column(db.Text, default="{}")
 
+class TestMark(db.Model):
+    __tablename__ = "test_marks"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    guest_session_id = db.Column(db.String(64), nullable=True)
+    title = db.Column(db.String(512), nullable=False)
+    data = db.Column(db.Text, default="{}")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 class CustomDescription(db.Model):
     __tablename__ = "custom_descriptions"
     id = db.Column(db.Integer, primary_key=True)
@@ -817,6 +826,40 @@ def delete_dismissed(title):
     else:
         gid = get_guest_session_id()
         DismissedAssignment.query.filter_by(guest_session_id=gid, title=title).delete()
+    db.session.commit()
+
+def get_test_titles():
+    if current_user.is_authenticated:
+        rows = TestMark.query.filter_by(user_id=current_user.id).all()
+    else:
+        gid = get_guest_session_id()
+        rows = TestMark.query.filter_by(guest_session_id=gid).all()
+    return {r.title for r in rows}
+
+def get_test_marks():
+    if current_user.is_authenticated:
+        return TestMark.query.filter_by(user_id=current_user.id).order_by(TestMark.created_at.desc()).all()
+    gid = get_guest_session_id()
+    return TestMark.query.filter_by(guest_session_id=gid).order_by(TestMark.created_at.desc()).all()
+
+def save_test_mark(title, data_dict):
+    if current_user.is_authenticated:
+        existing = TestMark.query.filter_by(user_id=current_user.id, title=title).first()
+        if not existing:
+            db.session.add(TestMark(user_id=current_user.id, title=title, data=json.dumps(data_dict)))
+    else:
+        gid = get_guest_session_id()
+        existing = TestMark.query.filter_by(guest_session_id=gid, title=title).first()
+        if not existing:
+            db.session.add(TestMark(guest_session_id=gid, title=title, data=json.dumps(data_dict)))
+    db.session.commit()
+
+def delete_test_mark(title):
+    if current_user.is_authenticated:
+        TestMark.query.filter_by(user_id=current_user.id, title=title).delete()
+    else:
+        gid = get_guest_session_id()
+        TestMark.query.filter_by(guest_session_id=gid, title=title).delete()
     db.session.commit()
 
 def get_custom_description(assignment_title):
@@ -1777,6 +1820,8 @@ def get_live_schedule():
     if not acct:
         return flask.jsonify([])
     dismissed = get_dismissed_titles()
+    test_titles = get_test_titles()
+    excluded = dismissed | test_titles
     login_type = acct["login_type"]
     if login_type == "studentvue":
         try:
@@ -1785,7 +1830,7 @@ def get_live_schedule():
             if not isinstance(result, list):
                 print("StudentVue returned non-list data")
                 return flask.jsonify([])
-            filtered = [a for a in result if isinstance(a, dict) and a.get("title") not in dismissed]
+            filtered = [a for a in result if isinstance(a, dict) and a.get("title") not in excluded]
             return flask.jsonify(filtered)
         except Exception as e:
             print(f"StudentVue Live Error: {str(e)}")
@@ -1794,7 +1839,7 @@ def get_live_schedule():
         try:
             from schoology_helper import get_schoology_assignments
             result = get_schoology_assignments(acct["schoology_key"], acct["schoology_secret"])
-            return flask.jsonify([a for a in result if a.get("title", "") not in dismissed])
+            return flask.jsonify([a for a in result if a.get("title", "") not in excluded])
         except Exception as e:
             print(f"Schoology Error: {e}")
             return flask.jsonify([])
@@ -1831,7 +1876,7 @@ def get_live_schedule():
             rounded_minutes = max(30, round(raw_minutes / 30) * 30)
             difficulty = infer_task_difficulty(a["points_possible"], priority, due_str[:10])
             title = a["name"]
-            if title in dismissed: continue
+            if title in excluded: continue
             schedule.append({
                 "id": str(a["id"]),
                 "course_id": str(a["course_id"]),
@@ -2122,6 +2167,49 @@ def restore():
         return flask.jsonify({"status": "error", "message": "Missing title"}), 400
     try:
         delete_dismissed(title)
+        return flask.jsonify({"status": "ok"})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/tests")
+def tests_page():
+    return flask.render_template("tests.html", active_page="tests",
+                                 logged_in=current_user.is_authenticated)
+
+@app.route("/api/tests", methods=["GET"])
+def api_get_tests():
+    rows = get_test_marks()
+    result = []
+    for r in rows:
+        try:
+            d = json.loads(r.data) if r.data else {}
+        except Exception:
+            d = {}
+        d["title"] = r.title
+        d["marked_at"] = r.created_at.isoformat() if r.created_at else ""
+        result.append(d)
+    return flask.jsonify(result)
+
+@app.route("/test/mark", methods=["POST"])
+def mark_as_test():
+    data = request.get_json(silent=True) or {}
+    title = (data.get("title") or "").strip()
+    if not title:
+        return flask.jsonify({"status": "error", "message": "Missing title"}), 400
+    try:
+        save_test_mark(title, data)
+        return flask.jsonify({"status": "ok"})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/test/unmark", methods=["POST"])
+def unmark_as_test():
+    data = request.get_json(silent=True) or {}
+    title = (data.get("title") or "").strip()
+    if not title:
+        return flask.jsonify({"status": "error", "message": "Missing title"}), 400
+    try:
+        delete_test_mark(title)
         return flask.jsonify({"status": "ok"})
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)}), 500
