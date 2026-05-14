@@ -2534,6 +2534,21 @@ def save_description():
 @app.route("/generate_schedule", methods=["POST"])
 @limiter.limit("10 per hour")
 def generate_schedule():
+    # ── Daily schedule usage limit (free: 2/day) ──────────────
+    allowed, remaining, limit = check_schedule_limit()
+    if not allowed:
+        return flask.jsonify({
+            "status": "error",
+            "limit_type": "schedules",
+            "message": f"You've used your {limit} free schedule generations today.",
+            "remaining": 0,
+            "limit": limit,
+        }), 429
+    # Increment before generation so repeated failures still count
+    if current_user.is_authenticated and not current_user.pro_active:
+        current_user.daily_schedules = (current_user.daily_schedules or 0) + 1
+        db.session.commit()
+
     data = request.json
     assignments = data.get("assignments", [])
     hours_per_day = data.get("hours_per_day", 2)
