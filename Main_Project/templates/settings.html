@@ -1,109 +1,491 @@
 {% extends "base.html" %}
 {% block content %}
+<style>
+/* ── Settings page ──────────────────────────────── */
+.settings-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
+  margin-bottom: 1.5rem;
+}
+.settings-section-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 1rem;
+}
+.profile-tab-bar {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.25rem;
+}
+.profile-tab {
+  padding: 8px 16px;
+  font-family: var(--font-ui);
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  margin-bottom: -1px;
+}
+.profile-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.profile-tab:hover:not(.active) { color: var(--text-primary); }
+.profile-pane { display: none; }
+.profile-pane.visible { display: block; }
+
+/* Availability grid */
+.avail-grid {
+  display: grid;
+  grid-template-columns: 80px repeat(3, 1fr);
+  gap: 6px;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+}
+.avail-grid .col-head {
+  text-align: center;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 4px 0;
+}
+.avail-grid .row-label {
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+}
+.avail-cell {
+  position: relative;
+}
+.avail-cell input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.avail-cell label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 8px 4px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  user-select: none;
+}
+.avail-cell input:checked + label {
+  background: var(--accent-subtle, #eff6ff);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.avail-cell label:hover {
+  border-color: var(--accent);
+  background: var(--accent-subtle, #eff6ff);
+}
+
+/* Focus pill checkboxes */
+.focus-pill-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.focus-pill {
+  position: relative;
+}
+.focus-pill input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.focus-pill label {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--bg-card);
+  font-size: 0.84rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.focus-pill input:checked + label {
+  background: var(--accent-subtle, #eff6ff);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.focus-pill label:hover {
+  border-color: var(--accent);
+}
+
+/* Save status indicator */
+.save-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 0.25rem;
+}
+.saved-note {
+  font-size: 0.78rem;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+/* Profile summary chip */
+.profile-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 1.25rem;
+}
+.summary-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+}
+.summary-chip svg { flex-shrink: 0; }
+
+/* Integration rows */
+.integration-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.integration-row:last-child { border-bottom: none; }
+.integration-label {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+.integration-sub {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.connected-badge {
+  font-size: 0.72rem;
+  background: var(--low-bg, #f0fdf4);
+  color: var(--low);
+  border: 1px solid var(--low);
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+@media (max-width: 480px) {
+  .avail-grid {
+    grid-template-columns: 64px repeat(3, 1fr);
+    gap: 4px;
+    font-size: 0.72rem;
+  }
+  .avail-cell label { padding: 6px 2px; font-size: 0.68rem; }
+}
+</style>
+
 <div class="page-header">
   <h1 class="page-title">Settings</h1>
-  <p class="page-subtitle">Manage your account and connected schools</p>
+  <p class="page-subtitle">Manage your account, study profile, and integrations</p>
 </div>
 
 <div id="settingsWrap">
 
-  <!-- Identity profile (drives Plani / Tutor personalization) -->
-  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;box-shadow:var(--shadow);margin-bottom:1.5rem;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px;">
+  <!-- ── Study Profile ──────────────────────────────── -->
+  <div class="settings-section">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:0.75rem;">
       <div>
-        <div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Your study profile</div>
-        <div style="font-size:0.85rem;color:var(--text-secondary);margin-top:4px;">Plani uses this to tailor every reply to your grade and goals.</div>
+        <div class="settings-section-title" style="margin-bottom:2px;">Study Profile</div>
+        <div style="font-size:0.84rem;color:var(--text-secondary);">Plani uses this to personalise every reply and schedule.</div>
       </div>
-      <span id="identitySavedNote" style="font-size:0.78rem;color:var(--low);font-weight:600;opacity:0;transition:opacity 0.2s;">Saved</span>
+      <span id="identitySavedNote" class="saved-note" style="color:var(--low);"></span>
     </div>
 
-    <form id="identityForm" onsubmit="saveIdentity(event)" style="display:flex;flex-direction:column;gap:1rem;">
-      <div class="form-group">
-        <label class="form-label" for="idGrade">Grade level</label>
-        <select id="idGrade" name="grade_level" class="form-input">
-          <option value="">Prefer not to say</option>
-          {% for g in grade_choices %}
-            <option value="{{ g }}" {% if identity.grade_level == g %}selected{% endif %}>{{ g }}</option>
-          {% endfor %}
-        </select>
-      </div>
+    <!-- Summary chips (filled on load) -->
+    <div class="profile-summary" id="profileSummary"></div>
 
-      <div class="form-group">
-        <label class="form-label">Academic focus areas</label>
-        <div id="idFocus" style="display:flex;flex-wrap:wrap;gap:8px;">
-          {% for f in focus_choices %}
-            <label style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;border:1px solid var(--border-strong);background:var(--bg-card);font-size:0.84rem;cursor:pointer;">
-              <input type="checkbox" name="focus_areas" value="{{ f }}" {% if f in identity.focus_areas %}checked{% endif %} style="margin:0;">
-              {{ f }}
-            </label>
-          {% endfor %}
+    <!-- Tab bar -->
+    <div class="profile-tab-bar">
+      <button class="profile-tab active" data-pane="basics">Basics</button>
+      <button class="profile-tab" data-pane="schedule">Availability</button>
+      <button class="profile-tab" data-pane="extras">Goals & Extras</button>
+    </div>
+
+    <!-- Pane: Basics -->
+    <div class="profile-pane visible" id="pane-basics">
+      <form id="identityForm" onsubmit="saveIdentity(event)" style="display:flex;flex-direction:column;gap:1rem;">
+        <div class="form-group">
+          <label class="form-label" for="idGrade">Grade level</label>
+          <select id="idGrade" name="grade_level" class="form-input">
+            <option value="">Prefer not to say</option>
+            {% for g in grade_choices %}
+              <option value="{{ g }}" {% if identity.grade_level == g %}selected{% endif %}>{{ g }}</option>
+            {% endfor %}
+          </select>
         </div>
+
+        <div class="form-group">
+          <label class="form-label">Academic focus areas</label>
+          <div class="focus-pill-group" id="idFocus">
+            {% for f in focus_choices %}
+              <div class="focus-pill">
+                <input type="checkbox" id="fp-{{ loop.index }}" name="focus_areas" value="{{ f }}"
+                  {% if f in identity.focus_areas %}checked{% endif %}>
+                <label for="fp-{{ loop.index }}">{{ f }}</label>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="save-row">
+          <button type="submit" class="btn-primary" style="padding:10px 20px;">Save basics</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Pane: Availability -->
+    <div class="profile-pane" id="pane-schedule">
+      <p style="font-size:0.84rem;color:var(--text-secondary);margin-bottom:1rem;">
+        Check the time slots when you're generally free to study.
+      </p>
+      <div class="avail-grid" id="availGrid">
+        <div></div>
+        <div class="col-head">Morning</div>
+        <div class="col-head">Afternoon</div>
+        <div class="col-head">Evening</div>
+        {% set days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"] %}
+        {% for day in days %}
+          <div class="row-label">{{ day[:3] }}</div>
+          {% for slot in ["morning","afternoon","evening"] %}
+            <div class="avail-cell">
+              <input type="checkbox" id="av-{{ day }}-{{ slot }}" data-day="{{ day }}" data-slot="{{ slot }}">
+              <label for="av-{{ day }}-{{ slot }}">✓</label>
+            </div>
+          {% endfor %}
+        {% endfor %}
       </div>
 
+      <div class="form-group" style="margin-top:1.25rem;">
+        <label class="form-label" for="idCommitments">Weekly commitments / extracurriculars</label>
+        <input type="text" id="idCommitments" class="form-input"
+          placeholder="e.g. soccer Mon/Wed 4–6 pm, piano Fri 5 pm"
+          value="{{ identity.weekly_commitments }}">
+      </div>
+
+      <div class="save-row" style="margin-top:1rem;">
+        <button class="btn-primary" onclick="saveAvailability()" style="padding:10px 20px;">Save availability</button>
+      </div>
+    </div>
+
+    <!-- Pane: Goals & Extras -->
+    <div class="profile-pane" id="pane-extras">
       <div class="form-group">
         <label class="form-label" for="idGoals">Goals / priorities</label>
-        <textarea id="idGoals" name="goals" rows="3" class="form-input" placeholder="e.g. raise my AP Calc grade to an A, build study habits for the SAT, get faster at essays">{{ identity.goals }}</textarea>
+        <textarea id="idGoals" name="goals" rows="4" class="form-input"
+          placeholder="e.g. raise my AP Calc grade to an A, build study habits for the SAT, get faster at essays">{{ identity.goals }}</textarea>
       </div>
-
-      <div>
-        <button type="submit" class="btn-primary" style="padding:10px 20px;">Save profile</button>
+      <div class="save-row" style="margin-top:0.25rem;">
+        <button class="btn-primary" onclick="saveGoals()" style="padding:10px 20px;">Save goals</button>
       </div>
-    </form>
+    </div>
   </div>
 
-  <!-- Account -->
-  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;box-shadow:var(--shadow);margin-bottom:1.5rem;" id="accountCard">
-    <div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:1rem;">Account</div>
+  <!-- ── Account ──────────────────────────────────── -->
+  <div class="settings-section" id="accountCard">
+    <div class="settings-section-title">Account</div>
     <div id="accountInfo" style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:1rem;"></div>
-
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-      <a href="/login/canvas" class="btn-secondary" style="text-decoration:none;padding:10px 20px;font-size:0.88rem;">+ Connect Canvas</a>
-      <a href="/login/studentvue" class="btn-secondary" style="text-decoration:none;padding:10px 20px;font-size:0.88rem;">+ Connect StudentVue</a>
-      <a href="/login/schoology" class="btn-secondary" style="text-decoration:none;padding:10px 20px;font-size:0.88rem;">+ Connect Schoology</a>
-      <button id="deleteAccountBtn" onclick="deleteAccount()" style="padding:10px 20px;border-radius:10px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:600;">Delete Account</button>
+      <a href="/login/canvas"     class="btn-secondary" style="text-decoration:none;padding:10px 20px;font-size:0.88rem;">+ Canvas</a>
+      <a href="/login/studentvue" class="btn-secondary" style="text-decoration:none;padding:10px 20px;font-size:0.88rem;">+ StudentVue</a>
+      <a href="/login/schoology"  class="btn-secondary" style="text-decoration:none;padding:10px 20px;font-size:0.88rem;">+ Schoology</a>
+      <button id="deleteAccountBtn" onclick="deleteAccount()"
+        style="padding:10px 20px;border-radius:10px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:var(--font-ui);font-size:0.88rem;font-weight:600;">
+        Delete Account
+      </button>
     </div>
   </div>
 
-  <!-- Integrations -->
-  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;box-shadow:var(--shadow);margin-bottom:1.5rem;">
-    <div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:1rem;">
-      Integrations
-    </div>
+  <!-- ── Integrations ─────────────────────────────── -->
+  <div class="settings-section">
+    <div class="settings-section-title">Integrations</div>
+    <div id="integrationsWrap">
 
-    <div id="integrationsWrap" style="display:flex;flex-direction:column;gap:12px;">
-
-      <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:10px;">
+      <div class="integration-row">
         <div>
-          <div style="font-weight:600;display:flex;align-items:center;gap:6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> Google Calendar</div>
-          <div style="font-size:0.75rem;color:var(--text-muted);">Sync your schedule automatically</div>
+          <div class="integration-label">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>
+            Google Calendar
+          </div>
+          <div class="integration-sub">Sync your schedule automatically</div>
         </div>
-        <button onclick="connectGoogle()" class="btn-primary" style="padding:6px 14px;font-size:0.8rem;">
-          Connect
-        </button>
+        <span id="gcalStatus"></span>
       </div>
 
-      <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="integration-row">
         <div>
-          <div style="font-weight:600;display:flex;align-items:center;gap:6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-notion"/></svg> Notion</div>
-          <div style="font-size:0.75rem;color:var(--text-muted);">Sync tasks to your Notion workspace</div>
+          <div class="integration-label">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-notion"/></svg>
+            Notion
+          </div>
+          <div class="integration-sub">Sync tasks to your Notion workspace</div>
         </div>
-        <button onclick="connectNotion()" class="btn-primary" style="padding:6px 14px;font-size:0.8rem;">
-          Connect
-        </button>
+        <button onclick="connectNotion()" class="btn-primary" style="padding:6px 14px;font-size:0.8rem;">Connect</button>
       </div>
 
     </div>
   </div>
 
-  <!-- Connected Schools -->
-  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;box-shadow:var(--shadow);">
-    <div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:1rem;">Connected Schools</div>
+  <!-- ── Connected Schools ────────────────────────── -->
+  <div class="settings-section">
+    <div class="settings-section-title">Connected Schools</div>
     <div id="linkedAccounts"></div>
   </div>
+
 </div>
 {% endblock %}
 
 {% block scripts %}
+/* ── Identity data injected from server ────────── */
+const IDENTITY = {{ identity | tojson }};
+
+/* ── Tab switching ──────────────────────────────── */
+document.querySelectorAll('.profile-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.profile-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.profile-pane').forEach(p => p.classList.remove('visible'));
+    tab.classList.add('active');
+    document.getElementById('pane-' + tab.dataset.pane).classList.add('visible');
+  });
+});
+
+/* ── Populate availability grid ─────────────────── */
+(function populateAvailGrid() {
+  const avail = IDENTITY.availability || {};
+  Object.entries(avail).forEach(([day, slots]) => {
+    const slotArr = typeof slots === 'string' ? slots.split(',') : (Array.isArray(slots) ? slots : []);
+    slotArr.forEach(s => {
+      const cb = document.getElementById(`av-${day}-${s.trim()}`);
+      if (cb) cb.checked = true;
+    });
+  });
+})();
+
+/* ── Profile summary chips ──────────────────────── */
+function refreshSummary() {
+  const wrap = document.getElementById('profileSummary');
+  const chips = [];
+  const grade = document.getElementById('idGrade').value;
+  if (grade) chips.push({ icon: '#i-backpack', text: grade });
+
+  const focusChecked = Array.from(document.querySelectorAll('input[name="focus_areas"]:checked')).map(i => i.value);
+  if (focusChecked.length) chips.push({ icon: '#i-pin', text: focusChecked.slice(0, 3).join(', ') + (focusChecked.length > 3 ? ` +${focusChecked.length - 3}` : '') });
+
+  const slotCount = document.querySelectorAll('#availGrid input[type="checkbox"]:checked').length;
+  if (slotCount) chips.push({ icon: '#i-scheduler', text: `${slotCount} available slot${slotCount !== 1 ? 's' : ''}` });
+
+  const goals = (document.getElementById('idGoals').value || '').trim();
+  if (goals) chips.push({ icon: '#i-check-circle', text: goals.slice(0, 40) + (goals.length > 40 ? '…' : '') });
+
+  wrap.innerHTML = chips.map(c => `
+    <div class="summary-chip">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="${c.icon}"/></svg>
+      ${c.text}
+    </div>`).join('');
+}
+
+/* Run once on load, then on changes */
+refreshSummary();
+document.getElementById('identityForm').addEventListener('change', refreshSummary);
+document.getElementById('availGrid').addEventListener('change', refreshSummary);
+document.getElementById('idGoals').addEventListener('input', refreshSummary);
+
+/* ── Show saved note ────────────────────────────── */
+function flashSaved(ok) {
+  const note = document.getElementById('identitySavedNote');
+  note.textContent = ok ? 'Saved' : 'Could not save';
+  note.style.color = ok ? 'var(--low)' : 'var(--high)';
+  note.style.opacity = '1';
+  setTimeout(() => { note.style.opacity = '0'; }, 2000);
+}
+
+/* ── Save basics (grade + focus) ────────────────── */
+function saveIdentity(ev) {
+  if (ev) ev.preventDefault();
+  const focus = Array.from(document.querySelectorAll('input[name="focus_areas"]:checked')).map(i => i.value);
+  const payload = {
+    grade_level: document.getElementById('idGrade').value,
+    focus_areas: focus,
+  };
+  fetch('/identity', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+    .then(r => r.json())
+    .then(d => { flashSaved(d && d.ok); refreshSummary(); })
+    .catch(() => flashSaved(false));
+}
+
+/* ── Save availability ──────────────────────────── */
+function saveAvailability() {
+  const avail = {};
+  document.querySelectorAll('#availGrid input[type="checkbox"]:checked').forEach(cb => {
+    const { day, slot } = cb.dataset;
+    if (!avail[day]) avail[day] = [];
+    avail[day].push(slot);
+  });
+  const commitments = document.getElementById('idCommitments').value.trim();
+  fetch('/identity', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ availability: avail, weekly_commitments: commitments }),
+  })
+    .then(r => r.json())
+    .then(d => { flashSaved(d && d.ok); refreshSummary(); })
+    .catch(() => flashSaved(false));
+}
+
+/* ── Save goals ─────────────────────────────────── */
+function saveGoals() {
+  const goals = document.getElementById('idGoals').value.trim();
+  fetch('/identity', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ goals }),
+  })
+    .then(r => r.json())
+    .then(d => { flashSaved(d && d.ok); refreshSummary(); })
+    .catch(() => flashSaved(false));
+}
+
+/* ── Account & school profiles ──────────────────── */
 fetch('/profiles/list')
   .then(r => r.json())
   .then(data => {
@@ -112,12 +494,10 @@ fetch('/profiles/list')
     const wrap = document.getElementById('linkedAccounts');
 
     if (data.is_guest) {
-      accountInfo.innerHTML =
-        'You are using IntelliPlan as a <strong>guest</strong>. <a href="/register" class="login-link">Create a free account</a> to save your data.';
+      accountInfo.innerHTML = 'You are using IntelliPlan as a <strong>guest</strong>. <a href="/register" class="login-link">Create a free account</a> to save your data.';
       if (deleteBtn) deleteBtn.style.display = 'none';
     } else {
       accountInfo.innerHTML = `Signed in as <strong>${data.email}</strong>`;
-      if (deleteBtn) deleteBtn.style.display = 'inline-block';
     }
 
     if (!data.profiles || !data.profiles.length) {
@@ -127,88 +507,65 @@ fetch('/profiles/list')
 
     wrap.innerHTML = '';
     data.profiles.forEach(p => {
-      const iconColor = p.login_type === 'canvas' ? '#e53e3e' : p.login_type === 'schoology' ? '#3182ce' : '#38a169';
-      const icon = `<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${iconColor};"></span>`;
+      const colorMap = { canvas: '#e53e3e', schoology: '#3182ce' };
+      const color = colorMap[p.login_type] || '#38a169';
+      const icon = `<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${color};"></span>`;
       const div = document.createElement('div');
       div.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);';
       div.innerHTML = `
-        <span style="font-size:1.4rem;">${icon}</span>
+        <span>${icon}</span>
         <div style="flex:1;">
-          <div style="font-size:0.9rem;font-weight:600;color:var(--text-primary);">${p.name}</div>
+          <div style="font-size:0.9rem;font-weight:600;">${p.name}</div>
           <div style="font-size:0.75rem;color:var(--text-muted);text-transform:capitalize;">${p.login_type}</div>
         </div>
         ${p.is_active
           ? '<span style="font-size:0.72rem;background:var(--accent);color:white;padding:2px 8px;border-radius:10px;font-weight:600;">Active</span>'
           : `<button onclick="switchProfile('${p.id}')" class="btn-primary" style="padding:6px 14px;border:none;cursor:pointer;font-size:0.8rem;">Switch</button>`
         }
-        <button onclick="deleteProfile('${p.id}')" style="padding:6px 12px;border-radius:8px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:0.8rem;">Remove</button>
+        <button onclick="deleteProfile('${p.id}')" style="padding:6px 12px;border-radius:8px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:var(--font-ui);font-size:0.8rem;">Remove</button>
       `;
       wrap.appendChild(div);
     });
   });
 
+/* ── Google Calendar status ─────────────────────── */
+fetch('/gcal/status')
+  .then(r => r.json())
+  .then(d => {
+    const el = document.getElementById('gcalStatus');
+    if (d.connected) {
+      el.innerHTML = '<span class="connected-badge">Connected</span>';
+    } else {
+      el.innerHTML = '<button onclick="connectGoogle()" class="btn-primary" style="padding:6px 14px;font-size:0.8rem;">Connect</button>';
+    }
+  })
+  .catch(() => {
+    const el = document.getElementById('gcalStatus');
+    el.innerHTML = '<button onclick="connectGoogle()" class="btn-primary" style="padding:6px 14px;font-size:0.8rem;">Connect</button>';
+  });
+
+function connectGoogle() { window.location.href = "/oauth/google"; }
+
 function switchProfile(id) {
-  fetch('/profiles/switch', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({id})
-  }).then(() => window.location.reload());
+  fetch('/profiles/switch', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) })
+    .then(() => window.location.reload());
 }
 
 function deleteProfile(id) {
   if (!confirm('Remove this school account?')) return;
-  fetch('/profiles/delete', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({id})
-  }).then(() => window.location.reload());
+  fetch('/profiles/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) })
+    .then(() => window.location.reload());
 }
 
 function deleteAccount() {
   if (!confirm('Permanently delete your IntelliPlan account and all data? This cannot be undone.')) return;
-  fetch('/account/delete', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'}
-  }).then(() => window.location.href = '/');
-}
-
-function connectGoogle() {
-  window.location.href = "/oauth/google";
-}
-
-function saveIdentity(ev) {
-  ev.preventDefault();
-  const form = document.getElementById('identityForm');
-  const focus = Array.from(form.querySelectorAll('input[name="focus_areas"]:checked')).map(i => i.value);
-  const payload = {
-    grade_level: document.getElementById('idGrade').value,
-    focus_areas: focus,
-    goals: document.getElementById('idGoals').value,
-  };
-  fetch('/identity', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(payload),
-  })
-    .then(r => r.json())
-    .then(data => {
-      const note = document.getElementById('identitySavedNote');
-      if (!note) return;
-      note.textContent = data && data.ok ? 'Saved' : 'Could not save';
-      note.style.color = data && data.ok ? 'var(--low)' : 'var(--high)';
-      note.style.opacity = '1';
-      setTimeout(() => { note.style.opacity = '0'; }, 1800);
-    })
-    .catch(() => {
-      const note = document.getElementById('identitySavedNote');
-      if (note) { note.textContent = 'Network error'; note.style.color = 'var(--high)'; note.style.opacity = '1'; }
-    });
+  fetch('/account/delete', { method:'POST', headers:{'Content-Type':'application/json'} })
+    .then(() => window.location.href = '/');
 }
 
 function connectNotion() {
   const token = prompt("Enter your Notion integration token:");
   if (!token) return;
-
   fetch("/notion/connect", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
@@ -216,12 +573,8 @@ function connectNotion() {
   })
   .then(res => res.json())
   .then(data => {
-    if (data.status === "ok") {
-      alert("Notion connected. Now select a database.");
-      console.log(data.databases);
-    } else {
-      alert("Failed: " + data.message);
-    }
+    if (data.status === "ok") alert("Notion connected.");
+    else alert("Failed: " + data.message);
   });
 }
 {% endblock %}
