@@ -299,61 +299,68 @@ select {
   }
 
   /* ════════════════════════════════════════════════════════
-     PLANI
+     PLANI — bottom-LEFT on mobile, tight hitbox so it never
+     covers nearby buttons.
   ════════════════════════════════════════════════════════ */
   #planiBot,
   #planiWrap {
     position: fixed !important;
-    right: 14px !important;
-    bottom: 14px !important;
-    left: auto !important;
+    left: 12px !important;
+    bottom: 12px !important;
+    right: auto !important;
     top: auto !important;
-    width: auto !important;
+    width: 52px !important;
     height: auto !important;
-    max-width: calc(100vw - 28px) !important;
+    max-width: 52px !important;
     display: flex !important;
     flex-direction: column !important;
-    align-items: flex-end !important;
+    align-items: flex-start !important;
     justify-content: flex-end !important;
-    gap: 8px !important;
+    gap: 6px !important;
     z-index: 9999 !important;
     transform: none !important;
     margin: 0 !important;
     padding: 0 !important;
+    pointer-events: none !important;
   }
 
   #planiRobot {
-    width: 56px !important;
-    height: 56px !important;
+    width: 52px !important;
+    height: 52px !important;
   }
 
-  #planiBot > *,
-  #planiWrap > * {
+  #planiAvatar {
     pointer-events: auto !important;
-    transform: none !important;
+    width: 52px !important;
+    height: 52px !important;
   }
 
   #planiBubble {
-    pointer-events: auto !important;
-    position: relative !important;
-    display: inline-flex !important;
-    align-self: flex-end !important;
-    width: auto !important;
-    max-width: calc(100vw - 28px) !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    bottom: calc(100% + 8px) !important;
+    left: 0 !important;
+    right: auto !important;
+    width: max-content !important;
+    max-width: min(220px, calc(100vw - 30px)) !important;
+    white-space: normal !important;
     z-index: 10001 !important;
     transform: none !important;
+    scale: 1 !important;
+    border-radius: 13px 13px 13px 2px !important;
+    font-size: 0.78rem !important;
+    padding: 7px 11px !important;
     margin: 0 !important;
-    scale: 0.88;
-    transform-origin: bottom right;
   }
 
   #planiChat {
     position: fixed !important;
-    right: 14px !important;
-    bottom: 76px !important;
-    left: auto !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: 72px !important;
     top: auto !important;
-    width: min(360px, calc(100vw - 28px)) !important;
+    width: auto !important;
+    max-width: calc(100vw - 24px) !important;
     max-height: min(70dvh, 560px) !important;
     pointer-events: auto !important;
     z-index: 10000 !important;
@@ -704,6 +711,92 @@ select {
   }
 
   /* ════════════════════════════════════════════════════════
+     UNIVERSAL TOUCH TARGETS
+     Small inline action buttons need at least 36px hit area
+     and reliable touch handling on mobile.
+  ════════════════════════════════════════════════════════ */
+  .notion-action-btn,
+  .test-prep-btn,
+  .test-unmark-btn,
+  .test-remove-btn,
+  .filter-btn,
+  .dropdown-item,
+  .shop-filter,
+  .snav-btn,
+  .itab,
+  .streak-tab,
+  .profile-tab,
+  .nav-tab {
+    min-height: 36px !important;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: rgba(37,99,235,0.18) !important;
+  }
+
+  .notion-action-btn {
+    font-size: 0.78rem !important;
+    padding: 7px 11px !important;
+  }
+
+  .filter-bar {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    flex-wrap: nowrap !important;
+    padding-bottom: 4px !important;
+  }
+  .filter-btn {
+    flex-shrink: 0 !important;
+  }
+
+  /* Close (X) buttons in modals and chips — ensure tap target */
+  .modal-close,
+  [aria-label="Close"],
+  [aria-label="Close chat"],
+  #planiCloseBtn,
+  #installDismissBtn {
+    min-width: 34px !important;
+    min-height: 34px !important;
+  }
+
+  /* Session-complete animation card fits mobile width */
+  #scAnim { padding: 14px !important; }
+  .sca-card {
+    width: 100% !important;
+    max-width: 380px !important;
+    padding: 1.5rem 1.1rem 1.25rem !important;
+  }
+  .sca-btn {
+    width: 100% !important;
+    padding: 13px !important;
+    min-height: 46px !important;
+  }
+
+  /* Toggle on mobile — make sure full tap target */
+  .toggle {
+    flex-shrink: 0 !important;
+  }
+
+  /* Streak hero adapts on narrow */
+  .streak-hero-card {
+    grid-template-columns: auto 1fr !important;
+    grid-template-areas:
+      "flame info"
+      "stats stats" !important;
+    padding: 1.1rem !important;
+    gap: 1rem !important;
+  }
+  .streak-flame-stage { grid-area: flame; }
+  .streak-hero-stats {
+    grid-area: stats !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+  .streak-hero-stats div { padding: 0.55rem !important; }
+  .streak-hero-stats span { font-size: 0.95rem !important; }
+  .streak-hero-stats small { font-size: 0.6rem !important; }
+  .streak-main-number span:first-child { font-size: 3rem !important; }
+
+  /* ════════════════════════════════════════════════════════
      MODALS — above nav and plani
   ════════════════════════════════════════════════════════ */
   #assignmentModal,
@@ -880,6 +973,33 @@ select {
     bottom: 70px !important;
     right: 16px !important;
     z-index: 9150 !important;
+  }
+
+  /* Install banner — sit on the bottom-RIGHT on mobile (Plani is on the
+     left now), show text without needing hover, larger close target */
+  #installBanner {
+    left: auto !important;
+    right: 12px !important;
+    bottom: 12px !important;
+    max-width: calc(100vw - 80px) !important;
+    padding: 8px 10px !important;
+  }
+  #installBanner .install-copy {
+    display: flex !important;
+    flex-direction: column !important;
+    line-height: 1.15 !important;
+  }
+  #installBanner .install-title { font-size: 0.78rem !important; }
+  #installBanner .install-subtitle { display: none !important; }
+  #installBtn {
+    min-width: 0 !important;
+    padding: 8px 12px !important;
+    font-size: 0.74rem !important;
+  }
+  #installDismissBtn {
+    width: 34px !important;
+    height: 34px !important;
+    font-size: 16px !important;
   }
 
   #chatbot-window,
