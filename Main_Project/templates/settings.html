@@ -371,9 +371,9 @@
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-notion"/></svg>
             Notion
           </div>
-          <div class="integration-sub">Sync tasks to your Notion workspace</div>
+          <div class="integration-sub" id="notionSub">Sync tasks to your Notion workspace</div>
         </div>
-        <button onclick="connectNotion()" class="btn-primary" style="padding:6px 14px;font-size:0.8rem;">Connect</button>
+        <span id="notionStatus"></span>
       </div>
 
     </div>
@@ -590,7 +590,36 @@ function saveAnimSetting(key, value) {
   if (t) t.checked = localStorage.getItem('ip_anim_session') !== 'false';
 })();
 
-function connectNotion() {
+/* ── Notion connection (OAuth + token-paste fallback) ──── */
+function renderNotionStatus(s) {
+  const el = document.getElementById('notionStatus');
+  const sub = document.getElementById('notionSub');
+  if (!el) return;
+  if (!s.configured) {
+    el.innerHTML = '<span style="font-size:0.78rem;color:var(--text-muted);">Notion library unavailable</span>';
+    return;
+  }
+  if (s.connected) {
+    const ws = s.workspace || {};
+    const name = ws.name ? ('Workspace: ' + ws.name) : 'Connected';
+    const via = ws.auth_type === 'oauth' ? ' · via OAuth' : ' · via token';
+    if (sub) sub.textContent = name + via + (s.has_database ? '' : ' · choose a database below');
+    el.innerHTML = '<button onclick="disconnectNotion()" style="padding:6px 14px;border-radius:10px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:var(--font-ui);font-size:0.78rem;font-weight:600;">Disconnect</button>';
+    return;
+  }
+  const oauthBtn = s.oauth_available
+    ? '<a href="/oauth/notion" class="btn-primary" style="padding:6px 14px;font-size:0.78rem;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">Connect with Notion</a>'
+    : '';
+  const tokenBtn = '<button onclick="connectNotionToken()" style="padding:6px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-secondary);cursor:pointer;font-family:var(--font-ui);font-size:0.76rem;font-weight:600;">Paste token</button>';
+  el.innerHTML = '<span style="display:inline-flex;gap:6px;align-items:center;">' + oauthBtn + tokenBtn + '</span>';
+}
+
+function refreshNotionStatus() {
+  fetch('/notion/status').then(r => r.json()).then(renderNotionStatus).catch(() => {});
+}
+refreshNotionStatus();
+
+function connectNotionToken() {
   const token = prompt("Enter your Notion integration token:");
   if (!token) return;
   fetch("/notion/connect", {
@@ -600,8 +629,21 @@ function connectNotion() {
   })
   .then(res => res.json())
   .then(data => {
-    if (data.status === "ok") alert("Notion connected.");
-    else alert("Failed: " + data.message);
+    if (data.status === "ok") { refreshNotionStatus(); }
+    else { alert("Failed: " + (data.message || 'unknown error')); }
   });
+}
+
+function disconnectNotion() {
+  if (!confirm("Disconnect Notion?")) return;
+  fetch('/notion/disconnect', { method: 'POST' })
+    .then(() => refreshNotionStatus());
+}
+
+/* If the user just returned from the OAuth callback we get a flag in
+   the query string (?notion=connected). Refresh status to pick up the
+   newly-stored workspace metadata. */
+if (new URLSearchParams(location.search).get('notion') === 'connected') {
+  refreshNotionStatus();
 }
 {% endblock %}

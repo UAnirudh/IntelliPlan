@@ -1,6 +1,87 @@
 from notion_client import Client
-from datetime import datetime
+from datetime import datetime, timedelta
+import base64
 import os
+import urllib.parse
+
+import requests as http_requests
+
+
+# ── OAuth ────────────────────────────────────────────────────────────
+NOTION_OAUTH_AUTHORIZE_URL = "https://api.notion.com/v1/oauth/authorize"
+NOTION_OAUTH_TOKEN_URL = "https://api.notion.com/v1/oauth/token"
+NOTION_API_VERSION = "2022-06-28"
+
+
+def _notion_redirect_uri(redirect_uri=None):
+    return (
+        redirect_uri
+        or os.getenv("NOTION_REDIRECT_URI")
+        or "https://intelliplan.tech/oauth/notion/callback"
+    )
+
+
+def get_notion_auth_url(state, redirect_uri=None):
+    """Build the Notion OAuth authorization URL (mirrors GCal's pattern).
+
+    Notion public integrations don't support PKCE — only the `state`
+    parameter is used to defeat CSRF. The session stores `state` until
+    the callback arrives.
+    """
+    client_id = os.getenv("NOTION_CLIENT_ID")
+    if not client_id:
+        raise RuntimeError("NOTION_CLIENT_ID not configured.")
+    params = {
+        "client_id": client_id,
+        "redirect_uri": _notion_redirect_uri(redirect_uri),
+        "response_type": "code",
+        "owner": "user",
+        "state": state,
+    }
+    return f"{NOTION_OAUTH_AUTHORIZE_URL}?{urllib.parse.urlencode(params)}"
+
+
+def exchange_notion_code(code, redirect_uri=None):
+    """Exchange an OAuth `code` for a long-lived workspace access token.
+
+    Notion access tokens don't expire unless the user revokes them, so
+    no refresh flow is needed (unlike Google). Returns the JSON payload
+    from Notion which already contains workspace metadata.
+    """
+    client_id = os.getenv("NOTION_CLIENT_ID")
+    client_secret = os.getenv("NOTION_CLIENT_SECRET")
+    if not client_id or not client_secret:
+        raise RuntimeError("Notion OAuth credentials missing.")
+    basic = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
+    resp = http_requests.post(
+        NOTION_OAUTH_TOKEN_URL,
+        headers={
+            "Authorization": f"Basic {basic}",
+            "Content-Type": "application/json",
+            "Notion-Version": NOTION_API_VERSION,
+        },
+        json={
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": _notion_redirect_uri(redirect_uri),
+        },
+        timeout=20,
+    )
+    data = resp.json()
+    if resp.status_code >= 400 or "error" in data:
+        raise Exception(f"Notion token exchange failed: {data}")
+    # Normalise the fields we care about; keep the full payload too.
+    return {
+        "access_token": data.get("access_token"),
+        "workspace_id": data.get("workspace_id"),
+        "workspace_name": data.get("workspace_name"),
+        "workspace_icon": data.get("workspace_icon"),
+        "bot_id": data.get("bot_id"),
+        "owner": data.get("owner"),
+        "duplicated_template_id": data.get("duplicated_template_id"),
+        "raw": data,
+    }
+
 
 def get_notion_client(token):
     return Client(auth=token)
@@ -131,3 +212,117 @@ def update_notion_task(token, page_id, updates):
 def complete_notion_task(token, page_id):
     """Mark a Notion task as done."""
     update_notion_task(token, page_id, {"done": True})
+
+
+def get_upcoming_notion_tasks(token, database_id, days=7):
+    """Notion analog of Google Calendar's `get_upcoming_events`.
+
+    Returns the next `days` of tasks that have a due date and are not
+    already marked done. Same dict shape as get_notion_tasks for easy
+    merging into the unified dashboard payload.
+    """
+    if not token or not database_id:
+        return []
+    today = datetime.utcnow().date()
+    horizon = today + timedelta(days=days)
+    tasks = get_notion_tasks(token, database_id)
+    upcoming = []
+    for t in tasks:
+        due = t.get("due_date") or ""
+        if not due:
+            continue
+        try:
+            d = datetime.strptime(due[:10], "%Y-%m-%d").date()
+        except Exception:
+            continue
+        if today <= d <= horizon:
+            upcoming.append(t)
+    upcoming.sort(key=lambda x: x.get("due_date") or "")
+    return upcoming
+
+
+def add_schedule_to_notion(token, database_id, schedule_data):
+    """Push a generated study schedule back into Notion as task rows.
+
+    Mirrors `add_schedule_to_calendar`. Skips rows that already exist
+    (same Name + Due) so re-running an export is idempotent. Returns
+    (created_ids, skipped_count).
+    """
+    if not token or not database_id:
+        return [], 0
+    client = get_notion_client(token)
+
+    # Pre-fetch existing pages so we don't duplicate when the user
+    # re-exports the same plan.
+    try:
+        existing_rows = client.databases.query(database_id=database_id).get("results", [])
+    except Exception:
+        existing_rows = []
+    existing_keys = set()
+    for page in existing_rows:
+        props = page.get("properties", {})
+        title = ""
+        for key in ["Name", "Task", "Title", "title"]:
+            if key in props and props[key].get("type") == "title":
+                rich = props[key].get("title", [])
+                if rich:
+                    title = rich[0].get("plain_text", "")
+                break
+        due_date = ""
+        for key in ["Due", "Due Date", "Date", "Deadline"]:
+            if key in props and props[key].get("type") == "date":
+                date_obj = props[key].get("date") or {}
+                due_date = (date_obj.get("start") or "")[:10]
+                break
+        if title:
+            existing_keys.add((title.lower(), due_date))
+
+    created_ids = []
+    skipped = 0
+    for day in schedule_data.get("schedule", []):
+        date_str = day.get("date", "")
+        for block in day.get("blocks", []):
+            if block.get("is_break"):
+                continue
+            assignment = block.get("assignment") or "Study"
+            course = block.get("course") or ""
+            time_slot = block.get("time_slot", "")
+            duration = block.get("duration_minutes", 30)
+            title = f"📚 {assignment}"
+            key = (title.lower(), date_str)
+            if key in existing_keys:
+                skipped += 1
+                continue
+
+            props = {"Name": {"title": [{"text": {"content": title}}]}}
+            if date_str:
+                props["Due"] = {"date": {"start": date_str}}
+            try:
+                page = client.pages.create(
+                    parent={"database_id": database_id},
+                    properties=props,
+                    children=[
+                        {
+                            "object": "block",
+                            "type": "paragraph",
+                            "paragraph": {
+                                "rich_text": [{
+                                    "type": "text",
+                                    "text": {
+                                        "content": (
+                                            f"Course: {course}\n"
+                                            f"Time: {time_slot}\n"
+                                            f"Duration: {duration} min\n"
+                                            f"\nCreated by IntelliPlan"
+                                        )
+                                    }
+                                }]
+                            }
+                        }
+                    ],
+                )
+                created_ids.append(page["id"])
+                existing_keys.add(key)
+            except Exception as e:
+                print(f"[Notion export] failed to create page: {e}")
+    return created_ids, skipped

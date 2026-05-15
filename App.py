@@ -63,12 +63,26 @@ try:
     from notion_helper import (
         test_notion_token, get_notion_databases,
         get_notion_tasks, create_notion_task,
-        update_notion_task, complete_notion_task
+        update_notion_task, complete_notion_task,
+        get_notion_auth_url, exchange_notion_code,
+        get_upcoming_notion_tasks, add_schedule_to_notion,
     )
     NOTION_AVAILABLE = True
 except Exception as e:
     print(f"Notion not available: {e}")
     NOTION_AVAILABLE = False
+
+try:
+    from canvas_oauth import (
+        get_canvas_auth_url, exchange_canvas_code,
+        refresh_canvas_token, revoke_canvas_token,
+        oauth_is_configured as canvas_oauth_configured,
+        DEFAULT_CANVAS_BASE,
+    )
+    CANVAS_OAUTH_AVAILABLE = True
+except Exception as e:
+    print(f"Canvas OAuth not available: {e}")
+    CANVAS_OAUTH_AVAILABLE = False
 
 if os.getenv("SENTRY_DSN"):
     sentry_sdk.init(
@@ -280,6 +294,29 @@ class NotionIntegration(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     token = db.Column(db.String(512), nullable=False)
     database_id = db.Column(db.String(256), nullable=True)
+    # New OAuth metadata — populated by /oauth/notion/callback. Older
+    # rows from the manual-token flow leave these as NULL.
+    auth_type = db.Column(db.String(16), default="manual")  # "oauth" | "manual"
+    workspace_id = db.Column(db.String(64), nullable=True)
+    workspace_name = db.Column(db.String(256), nullable=True)
+    workspace_icon = db.Column(db.String(512), nullable=True)
+    bot_id = db.Column(db.String(64), nullable=True)
+    connected_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class CanvasIntegration(db.Model):
+    """Canvas LMS OAuth tokens. Separate from the legacy token-paste flow,
+    which still writes to LinkedAccount.credentials for backwards compat."""
+    __tablename__ = "canvas_integrations"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    canvas_base = db.Column(db.String(256), nullable=False)
+    access_token = db.Column(db.String(2048), nullable=False)
+    refresh_token = db.Column(db.String(2048), nullable=True)
+    token_expires_at = db.Column(db.DateTime, nullable=True)
+    canvas_user_id = db.Column(db.String(64), nullable=True)
+    canvas_user_name = db.Column(db.String(256), nullable=True)
+    connected_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class ManualTask(db.Model):
     __tablename__ = "manual_tasks"
@@ -1508,7 +1545,141 @@ def login_canvas():
                 return redirect(url_for("dashboard"))
             else:
                 error = "Invalid token or Canvas URL."
-    return render_template("login_canvas.html", active_page="login", error=error)
+    return render_template(
+        "login_canvas.html",
+        active_page="login",
+        error=error,
+        canvas_oauth_available=(CANVAS_OAUTH_AVAILABLE and canvas_oauth_configured()),
+    )
+
+# ── CANVAS OAUTH ──────────────────────────────────────────────
+# Lets students connect Canvas with one click instead of finding and
+# pasting a personal access token. Backed by canvas_oauth.py.
+@app.route("/oauth/canvas")
+def oauth_canvas_start():
+    if not CANVAS_OAUTH_AVAILABLE or not canvas_oauth_configured():
+        return redirect(url_for("login_canvas") + "?reason=oauth_unavailable")
+    canvas_base = request.args.get("canvas_base") or DEFAULT_CANVAS_BASE
+    profile_name = request.args.get("profile_name") or "Canvas Account"
+    state = secrets_module.token_urlsafe(24)
+    session["canvas_oauth_state"] = state
+    session["canvas_oauth_base"] = canvas_base
+    session["canvas_oauth_profile_name"] = profile_name
+    session.modified = True
+    redirect_uri = os.getenv("CANVAS_REDIRECT_URI") or (
+        APP_BASE_URL.rstrip("/") + "/oauth/canvas/callback"
+    )
+    try:
+        url = get_canvas_auth_url(state, canvas_base=canvas_base, redirect_uri=redirect_uri)
+    except Exception as e:
+        return render_template("error.html", active_page="error", error_code=500,
+                               error_id=f"CANVAS-OAUTH-{make_error_id()}",
+                               message=str(e)), 500
+    return redirect(url)
+
+
+@app.route("/oauth/canvas/callback")
+def oauth_canvas_callback():
+    if not CANVAS_OAUTH_AVAILABLE:
+        return redirect(url_for("login_canvas"))
+    code = request.args.get("code")
+    state = request.args.get("state")
+    err = request.args.get("error")
+    if err:
+        return redirect(url_for("login_canvas") + f"?error={err}")
+    expected_state = session.pop("canvas_oauth_state", None)
+    canvas_base = session.pop("canvas_oauth_base", None) or DEFAULT_CANVAS_BASE
+    profile_name = session.pop("canvas_oauth_profile_name", None) or "Canvas Account"
+    if not code or not state or state != expected_state:
+        return render_template("error.html", active_page="error", error_code=400,
+                               error_id="CANVAS-OAUTH-STATE",
+                               message="Canvas OAuth state did not match. Try again."), 400
+    redirect_uri = os.getenv("CANVAS_REDIRECT_URI") or (
+        APP_BASE_URL.rstrip("/") + "/oauth/canvas/callback"
+    )
+    try:
+        tokens = exchange_canvas_code(code, canvas_base, redirect_uri=redirect_uri)
+    except Exception as e:
+        return render_template("error.html", active_page="error", error_code=500,
+                               error_id=f"CANVAS-OAUTH-{make_error_id()}",
+                               message=str(e)), 500
+
+    access_token = tokens.get("access_token")
+    refresh_token = tokens.get("refresh_token")
+    expires_in = tokens.get("expires_in")
+    expires_at = (datetime.utcnow() + timedelta(seconds=int(expires_in))) if expires_in else None
+    user_info = tokens.get("user") or {}
+    canvas_user_id = str(user_info.get("id") or "") or None
+    canvas_user_name = user_info.get("name") or profile_name
+
+    creds = {
+        "canvas_token": access_token,
+        "canvas_url": tokens.get("canvas_base") or canvas_base,
+        "canvas_refresh_token": refresh_token,
+        "canvas_token_expires_at": expires_at.isoformat() if expires_at else None,
+        "canvas_oauth": True,
+    }
+
+    if current_user.is_authenticated:
+        # Persist long-lived OAuth tokens in their own table for refresh,
+        # AND mirror short-lived access_token onto LinkedAccount so the
+        # existing /live, /grades, /classes paths keep working unchanged.
+        existing_oauth = CanvasIntegration.query.filter_by(user_id=current_user.id).first()
+        if existing_oauth:
+            existing_oauth.canvas_base = tokens.get("canvas_base") or canvas_base
+            existing_oauth.access_token = access_token
+            existing_oauth.refresh_token = refresh_token or existing_oauth.refresh_token
+            existing_oauth.token_expires_at = expires_at
+            existing_oauth.canvas_user_id = canvas_user_id or existing_oauth.canvas_user_id
+            existing_oauth.canvas_user_name = canvas_user_name or existing_oauth.canvas_user_name
+            existing_oauth.connected_at = datetime.utcnow()
+        else:
+            db.session.add(CanvasIntegration(
+                user_id=current_user.id,
+                canvas_base=tokens.get("canvas_base") or canvas_base,
+                access_token=access_token,
+                refresh_token=refresh_token,
+                token_expires_at=expires_at,
+                canvas_user_id=canvas_user_id,
+                canvas_user_name=canvas_user_name,
+            ))
+        LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
+        acct = LinkedAccount(
+            user_id=current_user.id,
+            name=canvas_user_name or profile_name,
+            login_type="canvas",
+            is_active=True,
+        )
+        acct.set_credentials(creds)
+        db.session.add(acct)
+        db.session.commit()
+    else:
+        session.permanent = True
+        session["canvas_token"] = access_token
+        session["canvas_url"] = tokens.get("canvas_base") or canvas_base
+        session["canvas_refresh_token"] = refresh_token
+        session["canvas_oauth"] = True
+        session["login_type"] = "canvas"
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/oauth/canvas/disconnect", methods=["POST"])
+def oauth_canvas_disconnect():
+    if current_user.is_authenticated:
+        ci = CanvasIntegration.query.filter_by(user_id=current_user.id).first()
+        if ci and ci.access_token:
+            try:
+                revoke_canvas_token(ci.access_token, ci.canvas_base)
+            except Exception:
+                pass
+            db.session.delete(ci)
+            db.session.commit()
+    session.pop("canvas_token", None)
+    session.pop("canvas_url", None)
+    session.pop("canvas_refresh_token", None)
+    session.pop("canvas_oauth", None)
+    return flask.jsonify({"status": "ok"})
+
 
 @app.route("/login/studentvue", methods=["GET", "POST"])
 def login_studentvue():
@@ -2477,6 +2648,155 @@ def service_worker():
     response.headers["Content-Type"] = "application/javascript"
     response.headers["Service-Worker-Allowed"] = "/"
     return response
+
+# ── NOTION OAUTH ──────────────────────────────────────────────
+@app.route("/oauth/notion")
+def oauth_notion_start():
+    """Begin the Notion OAuth flow. Requires NOTION_CLIENT_ID."""
+    if not NOTION_AVAILABLE:
+        return redirect(url_for("settings"))
+    if not os.getenv("NOTION_CLIENT_ID"):
+        return render_template(
+            "error.html",
+            active_page="error",
+            error_code=503,
+            error_id="NOTION-OAUTH-NOT-CONFIGURED",
+            message="Notion OAuth isn't set up on this deployment yet. "
+                    "Use the integration token form instead.",
+        ), 503
+    state = secrets_module.token_urlsafe(24)
+    session["notion_oauth_state"] = state
+    session.modified = True
+    redirect_uri = os.getenv("NOTION_REDIRECT_URI") or (
+        APP_BASE_URL.rstrip("/") + "/oauth/notion/callback"
+    )
+    try:
+        url = get_notion_auth_url(state, redirect_uri=redirect_uri)
+    except Exception as e:
+        return render_template("error.html", active_page="error", error_code=500,
+                               error_id=f"NOTION-OAUTH-{make_error_id()}",
+                               message=str(e)), 500
+    return redirect(url)
+
+
+@app.route("/oauth/notion/callback")
+def oauth_notion_callback():
+    if not NOTION_AVAILABLE:
+        return redirect(url_for("settings"))
+    code = request.args.get("code")
+    state = request.args.get("state")
+    expected_state = session.pop("notion_oauth_state", None)
+    if not code or not state or state != expected_state:
+        return render_template("error.html", active_page="error", error_code=400,
+                               error_id="NOTION-OAUTH-STATE",
+                               message="Notion OAuth state did not match. Try again."), 400
+    redirect_uri = os.getenv("NOTION_REDIRECT_URI") or (
+        APP_BASE_URL.rstrip("/") + "/oauth/notion/callback"
+    )
+    try:
+        tokens = exchange_notion_code(code, redirect_uri=redirect_uri)
+    except Exception as e:
+        return render_template("error.html", active_page="error", error_code=500,
+                               error_id=f"NOTION-OAUTH-{make_error_id()}",
+                               message=str(e)), 500
+
+    access_token = tokens.get("access_token")
+    if not access_token:
+        return render_template("error.html", active_page="error", error_code=500,
+                               error_id="NOTION-OAUTH-NO-TOKEN",
+                               message="Notion did not return an access token."), 500
+
+    # Persist on the user (or in session for guests).
+    session["notion_token"] = access_token
+    session.modified = True
+    if current_user.is_authenticated:
+        existing = NotionIntegration.query.filter_by(user_id=current_user.id).first()
+        if existing:
+            existing.token = access_token
+            existing.auth_type = "oauth"
+            existing.workspace_id = tokens.get("workspace_id")
+            existing.workspace_name = tokens.get("workspace_name")
+            existing.workspace_icon = tokens.get("workspace_icon")
+            existing.bot_id = tokens.get("bot_id")
+            existing.connected_at = datetime.utcnow()
+            # Don't clobber database_id if the user already chose one.
+        else:
+            db.session.add(NotionIntegration(
+                user_id=current_user.id,
+                token=access_token,
+                auth_type="oauth",
+                workspace_id=tokens.get("workspace_id"),
+                workspace_name=tokens.get("workspace_name"),
+                workspace_icon=tokens.get("workspace_icon"),
+                bot_id=tokens.get("bot_id"),
+            ))
+        db.session.commit()
+    return redirect(url_for("settings") + "?notion=connected")
+
+
+@app.route("/notion/status")
+def notion_status():
+    """Mirror of /calendar/events — does the dashboard widget have data?"""
+    if not NOTION_AVAILABLE:
+        return flask.jsonify({"connected": False, "configured": False})
+    token, db_id = get_notion_token_and_db()
+    if not token:
+        return flask.jsonify({
+            "connected": False,
+            "configured": True,
+            "oauth_available": bool(os.getenv("NOTION_CLIENT_ID")),
+        })
+    workspace = None
+    if current_user.is_authenticated:
+        ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
+        if ni and ni.workspace_name:
+            workspace = {
+                "id": ni.workspace_id,
+                "name": ni.workspace_name,
+                "icon": ni.workspace_icon,
+                "auth_type": ni.auth_type or "manual",
+                "connected_at": ni.connected_at.isoformat() if ni.connected_at else None,
+            }
+    return flask.jsonify({
+        "connected": True,
+        "configured": True,
+        "has_database": bool(db_id),
+        "workspace": workspace,
+        "oauth_available": bool(os.getenv("NOTION_CLIENT_ID")),
+    })
+
+
+@app.route("/notion/upcoming")
+def notion_upcoming():
+    """Notion analog of /calendar/events — used by the dashboard widget."""
+    if not NOTION_AVAILABLE:
+        return flask.jsonify({"connected": False, "tasks": []})
+    token, db_id = get_notion_token_and_db()
+    if not token or not db_id:
+        return flask.jsonify({"connected": False, "tasks": []})
+    try:
+        days = int(request.args.get("days", 7))
+        tasks = get_upcoming_notion_tasks(token, db_id, days=days)
+        return flask.jsonify({"connected": True, "tasks": tasks})
+    except Exception as e:
+        return flask.jsonify({"connected": False, "error": str(e), "tasks": []})
+
+
+@app.route("/notion/export", methods=["POST"])
+def notion_export_schedule():
+    """Push a generated schedule to Notion — mirror of /calendar/export."""
+    if not NOTION_AVAILABLE:
+        return flask.jsonify({"status": "error", "message": "Notion not configured"}), 503
+    token, db_id = get_notion_token_and_db()
+    if not token or not db_id:
+        return flask.jsonify({"status": "error", "message": "Notion not connected"}), 400
+    schedule = (request.get_json(silent=True) or {}).get("schedule") or {}
+    try:
+        created, skipped = add_schedule_to_notion(token, db_id, schedule)
+        return flask.jsonify({"status": "ok", "created": len(created), "skipped": skipped, "ids": created})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+
 
 # ── NOTION ────────────────────────────────────────────────────
 @app.route("/notion/connect", methods=["POST"])
