@@ -70,7 +70,16 @@
 </div>
 
 <!-- ── Streak Widget ──────────────────────────────── -->
-<div id="streakWidget" style="display:none; margin-bottom:1.5rem;"></div>
+<div id="streakWidget" style="margin-bottom:1.5rem;">
+  <div class="streak-card dashboard-streak-card loading">
+    <div class="streak-flame">
+      <div class="streak-flame-icon cold"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-fire"/></svg></div>
+      <div class="streak-flame-count">0</div>
+      <div class="streak-flame-label">day streak</div>
+    </div>
+    <div class="streak-loading-copy">Loading your streak...</div>
+  </div>
+</div>
 
 <!-- Today's schedule preview -->
 <div id="todayScheduleWrap" style="display:none; margin-bottom:1.5rem;">
@@ -279,37 +288,63 @@
 <style>
 /* ── Streak widget ──────────────────────────────── */
 .streak-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 1.1rem 1.4rem;
+  --tier:#f97316;
+  background:
+    radial-gradient(circle at 8% 20%, color-mix(in srgb, var(--tier) 18%, transparent), transparent 25%),
+    linear-gradient(135deg, var(--bg-card), var(--bg-elevated));
+  border: 1px solid color-mix(in srgb, var(--tier) 26%, var(--border));
+  border-radius: 18px;
+  padding: 1.25rem 1.4rem;
   box-shadow: var(--shadow);
   display: flex;
   align-items: center;
   gap: 1.25rem;
   flex-wrap: wrap;
+  overflow: hidden;
+  position: relative;
+}
+.dashboard-streak-card::after {
+  content:"";
+  position:absolute;
+  inset:auto 8% -52px;
+  height:88px;
+  background:radial-gradient(circle, color-mix(in srgb, var(--tier) 20%, transparent), transparent 66%);
+  filter:blur(10px);
+  pointer-events:none;
+}
+.dashboard-streak-card > * { position:relative; z-index:1; }
+.dashboard-streak-card.loading { color:var(--text-muted); }
+.streak-loading-copy {
+  color:var(--text-muted);
+  font-size:.9rem;
+  font-weight:700;
 }
 .streak-flame {
   display: flex;
   flex-direction: column;
   align-items: center;
   flex-shrink: 0;
-  min-width: 60px;
+  min-width: 72px;
 }
 .streak-flame-icon {
-  font-size: 2rem;
-  line-height: 1;
+  width:44px;
+  height:44px;
+  border-radius:15px;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  background:linear-gradient(135deg,#ef4444,#f97316 55%,#facc15);
   filter: drop-shadow(0 0 6px rgba(251,146,60,0.5));
   transition: transform 0.2s;
 }
-.streak-flame-icon.cold { filter: grayscale(1); opacity: 0.4; }
+.streak-flame-icon.cold { filter: grayscale(1); opacity: 0.45; background:var(--bg); color:var(--text-muted); }
 .streak-flame-count {
   font-family: var(--font-ui);
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   font-weight: 800;
-  color: var(--text-primary);
+  color: var(--tier);
   line-height: 1.1;
-  margin-top: 2px;
+  margin-top: 5px;
 }
 .streak-flame-label {
   font-size: 0.65rem;
@@ -368,8 +403,10 @@
 .streak-day-label.today-txt { color: var(--accent); }
 .streak-meta {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: row;
+  align-items:center;
+  gap: 8px;
+  flex-wrap:wrap;
   flex-shrink: 0;
 }
 .streak-stat {
@@ -405,6 +442,35 @@
   font-size: 0.72rem;
   font-weight: 700;
   border: 1px solid currentColor;
+}
+.streak-actions {
+  margin-left:auto;
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.streak-action {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  min-height:34px;
+  padding:8px 12px;
+  border-radius:10px;
+  font-family:var(--font-ui);
+  font-size:.78rem;
+  font-weight:800;
+  text-decoration:none;
+  border:1px solid var(--border);
+  background:var(--bg-card);
+  color:var(--text-secondary);
+}
+.streak-action.primary { background:var(--tier); color:#fff; border-color:var(--tier); }
+@media (max-width: 720px) {
+  .streak-days { order:3; width:100%; flex-basis:100%; justify-content:space-between; }
+  .streak-meta { order:4; width:100%; }
+  .streak-actions { margin-left:0; width:100%; }
+  .streak-action { flex:1; }
 }
 
 /* ── Notion columns ─────────────────────────────── */
@@ -1037,11 +1103,13 @@ async function loadStreak() {
   const longest = data.longest_streak || streak;
   const atRisk = data.at_risk;
   const tier = data.streak_tier || {};
+  const sparks = data.spark_balance || 0;
 
   // Build last-7-days row
   const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
+  const todayDone = history.has(todayStr);
   const days = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(today);
@@ -1052,6 +1120,11 @@ async function loadStreak() {
 
   const tierColor = tier.color || '#f97316';
   const tierLabel = tier.name || 'Starter';
+  const copy = streak === 0
+    ? 'Start with one short study session today.'
+    : todayDone
+      ? `Protected today. Tomorrow earns a +${tier.bonus || 5} Spark streak bonus.`
+      : `Study today to keep this alive and earn +${tier.bonus || 5} Sparks.`;
 
   const daysHtml = days.map(d => `
     <div class="streak-day">
@@ -1076,20 +1149,28 @@ async function loadStreak() {
       </div>` : '';
 
   wrap.innerHTML = `
-    <div class="streak-card">
+    <div class="streak-card dashboard-streak-card" style="--tier:${tierColor};">
       <div class="streak-flame">
         <div class="streak-flame-icon ${streak === 0 ? 'cold' : ''}"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-fire"/></svg></div>
         <div class="streak-flame-count">${streak}</div>
         <div class="streak-flame-label">day streak</div>
       </div>
+      <div style="min-width:160px;flex:1;">
+        <div style="font-family:var(--font-ui);font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:${tierColor};margin-bottom:4px;">${tierLabel} streak</div>
+        <div style="font-size:0.92rem;color:var(--text-secondary);line-height:1.45;">${copy}</div>
+      </div>
       <div class="streak-days">${daysHtml}</div>
       <div class="streak-meta">
-        <span class="streak-tier-badge" style="color:${tierColor};border-color:${tierColor};">${tierLabel}</span>
+        <span class="streak-tier-badge" style="color:${tierColor};border-color:${tierColor};">${sparks} Sparks</span>
         <div class="streak-stat">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg>
           Best: ${longest} days
         </div>
         ${freezeHtml}
+      </div>
+      <div class="streak-actions">
+        <a href="/study" class="streak-action primary">Study now</a>
+        <a href="/streak" class="streak-action">Open Streak</a>
       </div>
       ${atRiskHtml}
     </div>`;

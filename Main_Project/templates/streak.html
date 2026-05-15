@@ -1,0 +1,664 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header streak-page-head">
+  <div>
+    <h1 class="page-title">Streak</h1>
+    <p class="page-subtitle">Protect your daily momentum, spend Sparks, and unlock streak rewards.</p>
+  </div>
+  <a class="btn-primary streak-study-cta" href="/study">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-rocket"/></svg>
+    Study now
+  </a>
+</div>
+
+<div id="streakApp" class="streak-shell">
+  <div class="streak-hero-card" id="streakHero">
+    <div class="streak-flame-stage" aria-hidden="true">
+      <span class="streak-flame-core"></span>
+      <span class="streak-spark s1"></span>
+      <span class="streak-spark s2"></span>
+      <span class="streak-spark s3"></span>
+    </div>
+    <div>
+      <div class="streak-kicker" id="streakTier">Spark streak</div>
+      <div class="streak-main-number"><span id="streakCount">0</span><span> days</span></div>
+      <div class="streak-hero-copy" id="streakMessage">Complete a study session today to start your streak.</div>
+    </div>
+    <div class="streak-hero-stats">
+      <div><span id="sparkBalance">0</span><small>Sparks</small></div>
+      <div><span id="freezeCount">0/2</span><small>Freezes</small></div>
+      <div><span id="longestStreak">0</span><small>Best</small></div>
+      <div><span id="levelDisplay">1</span><small>Level</small></div>
+    </div>
+  </div>
+
+  <div class="streak-alert" id="riskAlert" hidden></div>
+  <div class="streak-alert repair" id="repairAlert" hidden></div>
+
+  <div class="streak-tabs" role="tablist" aria-label="Streak sections">
+    <button class="streak-tab active" data-tab="overview" onclick="switchStreakTab('overview')">Overview</button>
+    <button class="streak-tab" data-tab="shop" onclick="switchStreakTab('shop')">Spark Shop</button>
+    <button class="streak-tab" data-tab="quests" onclick="switchStreakTab('quests')">Quests</button>
+    <button class="streak-tab" data-tab="badges" onclick="switchStreakTab('badges')">Badges</button>
+  </div>
+
+  <section id="panel-overview" class="streak-panel">
+    <div class="streak-grid two">
+      <div class="streak-card">
+        <div class="streak-section-title">This Week</div>
+        <div class="week-strip" id="weekStrip"></div>
+      </div>
+      <div class="streak-card">
+        <div class="streak-section-title">Protection</div>
+        <div class="freeze-row" id="freezeRow"></div>
+        <p class="streak-muted" id="freezeHelp">Freezes protect missed days. Long streaks earn passive weekly protection.</p>
+      </div>
+    </div>
+
+    <div class="streak-card">
+      <div class="streak-section-title">Milestones</div>
+      <div class="milestone-lane" id="milestoneLane"></div>
+    </div>
+  </section>
+
+  <section id="panel-shop" class="streak-panel" hidden>
+    <div class="shop-headline">
+      <div>
+        <div class="streak-section-title">Spark Shop</div>
+        <p class="streak-muted" id="weeklyDeal">Weekly deal loading...</p>
+      </div>
+      <div class="shop-balance"><span id="shopBalance">0</span> Sparks</div>
+    </div>
+    <div class="shop-category-row">
+      <button class="shop-filter active" data-kind="all" onclick="filterShop('all')">All</button>
+      <button class="shop-filter" data-kind="protection" onclick="filterShop('protection')">Protection</button>
+      <button class="shop-filter" data-kind="booster" onclick="filterShop('booster')">Boosters</button>
+      <button class="shop-filter" data-kind="inventory" onclick="filterShop('inventory')">Inventory</button>
+      <button class="shop-filter" data-kind="cosmetic" onclick="filterShop('cosmetic')">Cosmetics</button>
+    </div>
+    <div class="streak-shop-grid" id="shopGrid"></div>
+  </section>
+
+  <section id="panel-quests" class="streak-panel" hidden>
+    <div class="streak-card">
+      <div class="streak-section-title">Weekly Quests</div>
+      <p class="streak-muted" id="questSummary">Three quests refresh every Monday.</p>
+      <div class="quest-list" id="questList"></div>
+    </div>
+  </section>
+
+  <section id="panel-badges" class="streak-panel" hidden>
+    <div class="streak-card">
+      <div class="streak-section-title">Badges and Identity</div>
+      <p class="streak-muted">Titles, badges, colors, and frames make the streak feel owned instead of just counted.</p>
+      <div class="badge-grid" id="badgeGrid"></div>
+    </div>
+  </section>
+</div>
+
+<div class="streak-toast" id="streakToast" hidden></div>
+
+<style>
+.streak-page-head {
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:1rem;
+}
+.streak-study-cta { gap:8px; }
+.streak-shell { display:flex; flex-direction:column; gap:1rem; }
+.streak-hero-card {
+  --tier:#f97316;
+  position:relative;
+  overflow:hidden;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  gap:1.25rem;
+  align-items:center;
+  padding:1.5rem;
+  border:1px solid color-mix(in srgb, var(--tier) 32%, var(--border));
+  border-radius:18px;
+  background:
+    radial-gradient(circle at 12% 20%, color-mix(in srgb, var(--tier) 20%, transparent), transparent 28%),
+    linear-gradient(135deg, var(--bg-card), var(--bg-elevated));
+  box-shadow:var(--shadow);
+}
+.streak-hero-card::after {
+  content:"";
+  position:absolute;
+  inset:auto 8% -60px;
+  height:110px;
+  background:radial-gradient(circle, color-mix(in srgb, var(--tier) 20%, transparent), transparent 65%);
+  filter:blur(12px);
+  pointer-events:none;
+}
+.streak-flame-stage {
+  width:84px;
+  height:96px;
+  position:relative;
+  display:grid;
+  place-items:end center;
+  z-index:1;
+}
+.streak-flame-core {
+  width:58px;
+  height:72px;
+  position:relative;
+  display:block;
+  filter:drop-shadow(0 12px 18px color-mix(in srgb, var(--tier) 42%, transparent));
+  animation:streakFlameBob 1.2s ease-in-out infinite;
+}
+.streak-flame-core::before,
+.streak-flame-core::after {
+  content:"";
+  position:absolute;
+  left:50%;
+  bottom:0;
+  transform:translateX(-50%) rotate(45deg);
+  border-radius:62% 38% 62% 38%;
+  transform-origin:center bottom;
+}
+.streak-flame-core::before {
+  width:58px;
+  height:58px;
+  background:linear-gradient(135deg,#ef4444 5%,#f97316 52%,#facc15 100%);
+}
+.streak-flame-core::after {
+  width:32px;
+  height:32px;
+  bottom:7px;
+  background:linear-gradient(135deg,#fff7ad,#facc15 48%,#fb923c);
+}
+.streak-spark {
+  position:absolute;
+  width:6px;
+  height:6px;
+  border-radius:999px;
+  background:#facc15;
+  opacity:0;
+  animation:streakSparkRise 1.7s ease-out infinite;
+}
+.streak-spark.s1 { left:34px; bottom:30px; }
+.streak-spark.s2 { left:50px; bottom:36px; animation-delay:.45s; background:#fb923c; }
+.streak-spark.s3 { left:43px; bottom:40px; animation-delay:.9s; width:4px; height:4px; }
+@keyframes streakFlameBob { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-5px) scale(1.04)} }
+@keyframes streakSparkRise { 0%{transform:translateY(0) scale(.6);opacity:0} 22%{opacity:.9} 100%{transform:translateY(-56px) translateX(16px) scale(.25);opacity:0} }
+.streak-kicker {
+  font-family:var(--font-ui);
+  font-size:.72rem;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.09em;
+  color:var(--tier);
+  margin-bottom:.25rem;
+}
+.streak-main-number {
+  display:flex;
+  align-items:baseline;
+  gap:.45rem;
+  font-family:var(--font-display);
+  line-height:.95;
+  color:var(--text-primary);
+}
+.streak-main-number span:first-child { font-size:4.2rem; color:var(--tier); }
+.streak-main-number span:last-child { font-size:1.25rem; color:var(--text-secondary); }
+.streak-hero-copy { margin-top:.55rem; color:var(--text-secondary); font-size:.92rem; line-height:1.5; }
+.streak-hero-stats {
+  position:relative;
+  z-index:1;
+  display:grid;
+  grid-template-columns:repeat(2,minmax(86px,1fr));
+  gap:.6rem;
+}
+.streak-hero-stats div {
+  background:color-mix(in srgb, var(--bg-card) 82%, transparent);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:.8rem;
+}
+.streak-hero-stats span { display:block; font-family:var(--font-ui); font-size:1.2rem; font-weight:800; color:var(--text-primary); }
+.streak-hero-stats small { display:block; margin-top:.2rem; color:var(--text-muted); font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
+.streak-tabs {
+  display:flex;
+  gap:6px;
+  padding:5px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  box-shadow:var(--shadow);
+  overflow-x:auto;
+}
+.streak-tab {
+  flex:1;
+  min-width:max-content;
+  border:0;
+  border-radius:10px;
+  padding:.72rem .9rem;
+  background:transparent;
+  color:var(--text-secondary);
+  font-family:var(--font-ui);
+  font-weight:700;
+  cursor:pointer;
+}
+.streak-tab.active { background:var(--accent); color:#fff; }
+.streak-panel { display:flex; flex-direction:column; gap:1rem; }
+.streak-panel[hidden],
+.streak-alert[hidden],
+.streak-toast[hidden] { display:none !important; }
+.streak-grid.two { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+.streak-card {
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:1.25rem;
+  box-shadow:var(--shadow);
+}
+.streak-section-title {
+  font-family:var(--font-ui);
+  font-size:.76rem;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:var(--text-muted);
+  margin-bottom:.9rem;
+}
+.streak-muted { color:var(--text-muted); font-size:.86rem; line-height:1.55; }
+.week-strip { display:grid; grid-template-columns:repeat(7,1fr); gap:.5rem; }
+.week-day { display:flex; flex-direction:column; align-items:center; gap:.35rem; min-width:0; }
+.week-dot {
+  width:36px;
+  height:36px;
+  border-radius:999px;
+  display:grid;
+  place-items:center;
+  border:2px solid var(--border-strong);
+  color:var(--text-muted);
+  background:var(--bg);
+}
+.week-dot.done { color:#fff; border-color:#f97316; background:linear-gradient(135deg,#fb923c,#f97316); box-shadow:0 6px 14px rgba(249,115,22,.24); }
+.week-dot.today { border-color:var(--accent); }
+.week-day span { color:var(--text-muted); font-family:var(--font-ui); font-size:.68rem; font-weight:700; }
+.freeze-row { display:flex; gap:.45rem; flex-wrap:wrap; margin-bottom:.8rem; }
+.freeze-chip {
+  width:38px;
+  height:38px;
+  display:grid;
+  place-items:center;
+  border-radius:12px;
+  background:#dbeafe;
+  color:#2563eb;
+  border:1px solid #bfdbfe;
+}
+.freeze-chip.used { opacity:.35; filter:grayscale(1); }
+.milestone-lane { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.65rem; }
+.milestone-card {
+  border:1px solid var(--border);
+  background:var(--bg);
+  border-radius:12px;
+  padding:.85rem;
+}
+.milestone-card.reached { border-color:#10b981; background:rgba(16,185,129,.07); }
+.milestone-card.next { border-color:#f97316; background:rgba(249,115,22,.08); }
+.milestone-card strong { display:block; font-family:var(--font-ui); color:var(--text-primary); margin-bottom:.25rem; }
+.milestone-card span { display:block; color:var(--text-muted); font-size:.76rem; line-height:1.35; }
+.streak-alert {
+  display:flex;
+  align-items:center;
+  gap:.7rem;
+  padding:.85rem 1rem;
+  border-radius:13px;
+  border:1px solid #fed7aa;
+  background:#fff7ed;
+  color:#c2410c;
+  font-weight:700;
+  font-size:.86rem;
+}
+.streak-alert.repair { border-color:#fca5a5; background:#fef2f2; color:#b91c1c; }
+.streak-alert button {
+  margin-left:auto;
+  border:0;
+  border-radius:9px;
+  padding:.45rem .7rem;
+  color:#fff;
+  background:#c2410c;
+  cursor:pointer;
+}
+.streak-alert.repair button { background:#b91c1c; }
+.shop-headline { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
+.shop-balance { font-family:var(--font-ui); font-weight:800; color:var(--accent); background:var(--accent-soft); border:1px solid var(--accent-mid); padding:.55rem .75rem; border-radius:999px; white-space:nowrap; }
+.shop-category-row { display:flex; gap:.5rem; flex-wrap:wrap; }
+.shop-filter {
+  border:1px solid var(--border);
+  background:var(--bg-card);
+  color:var(--text-secondary);
+  border-radius:999px;
+  padding:.45rem .8rem;
+  font-family:var(--font-ui);
+  font-size:.78rem;
+  font-weight:700;
+  cursor:pointer;
+}
+.shop-filter.active { color:#fff; background:var(--accent); border-color:var(--accent); }
+.streak-shop-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.8rem; }
+.shop-item {
+  border:1px solid var(--border);
+  background:var(--bg-card);
+  border-radius:14px;
+  padding:1rem;
+  box-shadow:var(--shadow);
+}
+.shop-item.deal { border-color:#f59e0b; background:rgba(245,158,11,.07); }
+.shop-item-top { display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem; margin-bottom:.5rem; }
+.shop-item-title { color:var(--text-primary); font-weight:800; line-height:1.25; }
+.shop-item-price { color:var(--accent); font-family:var(--font-ui); font-weight:800; white-space:nowrap; }
+.shop-item-desc { color:var(--text-muted); font-size:.82rem; line-height:1.45; min-height:2.35rem; }
+.shop-buy {
+  width:100%;
+  margin-top:.8rem;
+  border:0;
+  border-radius:10px;
+  padding:.65rem .8rem;
+  color:#fff;
+  background:linear-gradient(135deg,#2563eb,#4f46e5);
+  font-family:var(--font-ui);
+  font-weight:800;
+  cursor:pointer;
+}
+.shop-buy:disabled { opacity:.48; cursor:not-allowed; }
+.quest-list { display:grid; gap:.75rem; }
+.quest-card {
+  border:1px solid var(--border);
+  border-radius:13px;
+  padding:.9rem;
+  background:var(--bg);
+}
+.quest-row { display:flex; justify-content:space-between; gap:1rem; margin-bottom:.55rem; }
+.quest-title { color:var(--text-primary); font-weight:800; }
+.quest-reward { color:var(--accent); font-family:var(--font-ui); font-weight:800; white-space:nowrap; }
+.quest-track { height:8px; border-radius:999px; background:var(--border); overflow:hidden; }
+.quest-fill { height:100%; border-radius:999px; background:linear-gradient(90deg,#10b981,#2563eb); }
+.quest-meta { margin-top:.45rem; color:var(--text-muted); font-size:.76rem; font-weight:700; }
+.badge-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.75rem; }
+.badge-card {
+  border:1px solid var(--border);
+  border-radius:13px;
+  padding:.9rem;
+  background:var(--bg);
+  display:flex;
+  align-items:center;
+  gap:.7rem;
+}
+.badge-mark {
+  width:36px;
+  height:36px;
+  border-radius:11px;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(135deg,#f97316,#facc15);
+  color:white;
+  flex-shrink:0;
+}
+.badge-name { color:var(--text-primary); font-weight:800; line-height:1.25; }
+.badge-kind { color:var(--text-muted); font-size:.72rem; text-transform:capitalize; margin-top:.15rem; }
+.streak-toast {
+  position:fixed;
+  right:1rem;
+  bottom:1rem;
+  z-index:1000;
+  padding:.8rem 1rem;
+  border-radius:12px;
+  background:var(--text-primary);
+  color:var(--bg-card);
+  box-shadow:var(--shadow-lg);
+  font-weight:700;
+}
+@media (max-width: 820px) {
+  .streak-page-head,
+  .shop-headline { flex-direction:column; }
+  .streak-hero-card { grid-template-columns:1fr; text-align:center; justify-items:center; }
+  .streak-hero-stats { width:100%; }
+  .streak-grid.two,
+  .streak-shop-grid,
+  .badge-grid { grid-template-columns:1fr; }
+  .milestone-lane { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 480px) {
+  .streak-main-number span:first-child { font-size:3.2rem; }
+  .milestone-lane { grid-template-columns:1fr; }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+const STREAK_MILESTONES = {
+  3: { sparks: 25, freezes: 0, label: 'First Flame' },
+  7: { sparks: 75, freezes: 1, label: 'Week Warrior' },
+  14: { sparks: 100, freezes: 1, label: 'Fortnight Fighter' },
+  21: { sparks: 150, freezes: 0, label: 'Grinder title' },
+  30: { sparks: 250, freezes: 2, label: 'Monthly Master' },
+  60: { sparks: 500, freezes: 2, label: 'Sixty Strong' },
+  100: { sparks: 1000, freezes: 3, label: 'Century Club' },
+  365: { sparks: 2000, freezes: 3, label: 'Year of Fire' }
+};
+const SHOP_ORDER = ['streak_freeze','freeze_pack','weekend_shield','repair_token','booster_2x','booster_3x','daily_booster','focus_booster','skip_pack','hint_pack','color_gold','color_neon','color_forest','title_scholar','title_grinder','title_comeback','calendar_dark','frame_ember','frame_aurora','frame_cosmic'];
+let streakState = null;
+let currentShopKind = 'all';
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+function showToast(message) {
+  const toast = document.getElementById('streakToast');
+  toast.textContent = message;
+  toast.hidden = false;
+  setTimeout(() => { toast.hidden = true; }, 2400);
+}
+
+function switchStreakTab(tab) {
+  document.querySelectorAll('.streak-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+  ['overview','shop','quests','badges'].forEach(name => {
+    document.getElementById('panel-' + name).hidden = name !== tab;
+  });
+}
+
+function filterShop(kind) {
+  currentShopKind = kind;
+  document.querySelectorAll('.shop-filter').forEach(btn => btn.classList.toggle('active', btn.dataset.kind === kind));
+  renderShop();
+}
+
+async function loadStreakPage() {
+  const data = await fetch('/study/points').then(r => r.json()).catch(() => ({ status:'error' }));
+  if (data.status !== 'ok') {
+    showToast('Could not load streak data.');
+    return;
+  }
+  streakState = data;
+  renderAll();
+}
+
+function renderAll() {
+  renderHero();
+  renderAlerts();
+  renderWeek();
+  renderFreezes();
+  renderMilestones();
+  renderShop();
+  renderQuests();
+  renderBadges();
+}
+
+function tierColor() {
+  const colorMap = { gold:'#d97706', neon:'#06b6d4', forest:'#059669' };
+  return colorMap[streakState.active_cosmetics?.streak_color] || streakState.streak_tier?.color || '#f97316';
+}
+
+function renderHero() {
+  const tier = streakState.streak_tier || { name:'Spark', bonus:5 };
+  const today = new Date().toISOString().split('T')[0];
+  const doneToday = (streakState.streak_history || []).includes(today);
+  const title = streakState.active_cosmetics?.title;
+  document.getElementById('streakHero').style.setProperty('--tier', tierColor());
+  document.getElementById('streakTier').textContent = `${title ? title + ' - ' : ''}${tier.name || 'Spark'} streak`;
+  document.getElementById('streakCount').textContent = streakState.streak_count || 0;
+  document.getElementById('sparkBalance').textContent = streakState.spark_balance || 0;
+  document.getElementById('shopBalance').textContent = streakState.spark_balance || 0;
+  document.getElementById('freezeCount').textContent = `${streakState.streak_freeze_count || 0}/${streakState.freeze_capacity || 2}`;
+  document.getElementById('longestStreak').textContent = streakState.longest_streak || streakState.streak_count || 0;
+  document.getElementById('levelDisplay').textContent = streakState.level || 1;
+  document.getElementById('streakMessage').textContent = doneToday
+    ? `Protected for today. Come back tomorrow for +${tier.bonus || 5} Sparks.`
+    : `One 5-question session today keeps this alive and earns a +${tier.bonus || 5} Spark streak bonus.`;
+}
+
+function renderAlerts() {
+  const risk = document.getElementById('riskAlert');
+  const repair = document.getElementById('repairAlert');
+  risk.hidden = !streakState.at_risk || streakState.repair_available;
+  repair.hidden = !streakState.repair_available;
+  if (!risk.hidden) {
+    risk.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg><span>Your streak is at risk. Finish a short study session today.</span><button onclick="location.href='/study'">Study</button>`;
+  }
+  if (!repair.hidden) {
+    repair.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg><span>Your streak can still be repaired for ${streakState.repair_cost || 0} Sparks.</span><button onclick="repairStreak()">Repair</button>`;
+  }
+}
+
+function renderWeek() {
+  const history = new Set(streakState.streak_history || []);
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  const names = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const html = Array.from({ length:7 }, (_, idx) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - (6 - idx));
+    const ds = d.toISOString().split('T')[0];
+    const done = history.has(ds);
+    return `<div class="week-day">
+      <div class="week-dot ${done ? 'done' : ''} ${ds === todayStr ? 'today' : ''}">${done ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>' : ''}</div>
+      <span>${ds === todayStr ? 'Today' : names[d.getDay()]}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('weekStrip').innerHTML = html;
+}
+
+function renderFreezes() {
+  const freezes = streakState.streak_freeze_count || 0;
+  const cap = streakState.freeze_capacity || 2;
+  document.getElementById('freezeRow').innerHTML = Array.from({ length: cap }, (_, idx) => `
+    <div class="freeze-chip ${idx >= freezes ? 'used' : ''}">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-snowflake"/></svg>
+    </div>
+  `).join('');
+  document.getElementById('freezeHelp').textContent = freezes
+    ? `You have ${freezes} freeze${freezes === 1 ? '' : 's'} ready. Tier capacity is ${cap}.`
+    : 'No freezes ready. Buy protection or reach a milestone before a busy week.';
+}
+
+function renderMilestones() {
+  const best = streakState.longest_streak || streakState.streak_count || 0;
+  const days = Object.keys(STREAK_MILESTONES).map(Number);
+  const next = days.find(day => day > best);
+  document.getElementById('milestoneLane').innerHTML = days.map(day => {
+    const item = STREAK_MILESTONES[day];
+    const cls = best >= day ? 'reached' : next === day ? 'next' : '';
+    return `<div class="milestone-card ${cls}">
+      <strong>${day} days</strong>
+      <span>+${item.sparks} Sparks${item.freezes ? `, +${item.freezes} freeze${item.freezes === 1 ? '' : 's'}` : ''}</span>
+      <span>${esc(item.label)}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderShop() {
+  if (!streakState?.shop?.items) return;
+  const deal = streakState.shop.weekly_deal || {};
+  const items = streakState.shop.items;
+  const dealName = items[deal.item_id]?.name || 'one item';
+  document.getElementById('weeklyDeal').textContent = `Weekly deal: ${dealName} is ${deal.discount_percent || 30}% off.`;
+  document.getElementById('shopBalance').textContent = streakState.spark_balance || 0;
+  document.getElementById('shopGrid').innerHTML = SHOP_ORDER
+    .filter(id => items[id])
+    .filter(id => currentShopKind === 'all' || items[id].kind === currentShopKind)
+    .map(id => {
+      const item = items[id];
+      const price = id === deal.item_id ? deal.price : item.price;
+      const canBuy = (streakState.spark_balance || 0) >= price;
+      return `<div class="shop-item ${id === deal.item_id ? 'deal' : ''}">
+        <div class="shop-item-top">
+          <div class="shop-item-title">${esc(item.name)}</div>
+          <div class="shop-item-price">${price} Sparks</div>
+        </div>
+        <div class="shop-item-desc">${esc(item.description)}</div>
+        <button class="shop-buy" ${canBuy ? '' : 'disabled'} onclick="buyItem('${id}')">${canBuy ? 'Buy' : 'Need more Sparks'}</button>
+      </div>`;
+    }).join('');
+}
+
+function renderQuests() {
+  const qd = streakState.weekly_quests || {};
+  const quests = qd.quests || [];
+  const completed = new Set(qd.completed || []);
+  const progress = qd.progress || {};
+  document.getElementById('questSummary').textContent = completed.size >= 3
+    ? 'Weekly set complete. The bonus freeze is yours.'
+    : `${3 - completed.size} quest${3 - completed.size === 1 ? '' : 's'} left for the weekly completion bonus.`;
+  document.getElementById('questList').innerHTML = quests.length ? quests.map(q => {
+    const cur = Math.min(progress[q.id] || 0, q.target);
+    const pct = Math.min(100, Math.round((cur / q.target) * 100));
+    return `<div class="quest-card">
+      <div class="quest-row">
+        <div class="quest-title">${completed.has(q.id) ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;"><use href="#i-check-circle"/></svg> ' : ''}${esc(q.title)}</div>
+        <div class="quest-reward">+${q.reward} Sparks</div>
+      </div>
+      <div class="quest-track"><div class="quest-fill" style="width:${pct}%"></div></div>
+      <div class="quest-meta">${cur}/${q.target} complete</div>
+    </div>`;
+  }).join('') : '<p class="streak-muted">Finish a study session to refresh your weekly quests.</p>';
+}
+
+function renderBadges() {
+  const badges = streakState.badges || [];
+  document.getElementById('badgeGrid').innerHTML = badges.length ? badges.map(b => `
+    <div class="badge-card">
+      <div class="badge-mark"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg></div>
+      <div>
+        <div class="badge-name">${esc(b.name || b.id)}</div>
+        <div class="badge-kind">${esc(b.kind || 'earned')}</div>
+      </div>
+    </div>
+  `).join('') : '<p class="streak-muted">No badges yet. Day 3 unlocks First Flame.</p>';
+}
+
+async function buyItem(itemId) {
+  const res = await fetch('/study/shop/buy', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ item_id: itemId })
+  }).then(r => r.json());
+  if (res.status !== 'ok') {
+    showToast(res.message || 'Could not buy item.');
+    return;
+  }
+  showToast(`Bought ${res.item?.name || 'item'}.`);
+  await loadStreakPage();
+}
+
+async function repairStreak() {
+  const res = await fetch('/study/repair', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:'{}'
+  }).then(r => r.json());
+  if (res.status !== 'ok') {
+    showToast(res.message || 'Could not repair streak.');
+    return;
+  }
+  showToast(res.used_repair_credit ? 'Streak repaired with a Repair Token.' : 'Streak repaired.');
+  await loadStreakPage();
+}
+
+loadStreakPage();
+{% endblock %}

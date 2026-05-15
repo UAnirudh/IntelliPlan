@@ -1277,6 +1277,12 @@ def study():
         return redirect(url_for("login"))
     return render_template("study.html", active_page="study")
 
+@app.route("/streak")
+def streak():
+    if not is_logged_in():
+        return redirect(url_for("login"))
+    return render_template("streak.html", active_page="streak")
+
 @app.route("/legal")
 def legal():
     return render_template("legal.html", active_page="legal")
@@ -3393,6 +3399,7 @@ def analyze_image_general():
         return flask.jsonify({"status": "error", "message": "Service temporarily unavailable. Please try again later."})
 
 @app.route("/study/points", methods=["GET"])
+@app.route("/study/streak", methods=["GET"])
 def study_get_points():
     uid = current_user.id if current_user.is_authenticated else None
     gid = None if uid else get_guest_session_id()

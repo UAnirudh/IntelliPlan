@@ -805,7 +805,7 @@
   {% block head_extra %}{% endblock %}
 </head>
 
-{% set _app_pages = ['dashboard','scheduler','study','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings'] %}
+{% set _app_pages = ['dashboard','scheduler','study','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings'] %}
 <body class="{% if active_page in _app_pages %}has-side{% endif %}">
 
 <!-- ══════════════════════════════════════
@@ -867,6 +867,7 @@
   <a href="/dashboard" class="side-link {% if active_page == 'dashboard' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard</a>
   <a href="/scheduler" class="side-link {% if active_page == 'scheduler' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-scheduler"/></svg></span>Scheduler</a>
   <a href="/study"     class="side-link {% if active_page == 'study' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Study &amp; Learn</a>
+  <a href="/streak"    class="side-link {% if active_page == 'streak' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-fire"/></svg></span>Streak</a>
   <a href="/tutor"     class="side-link tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-tutor"/></svg></span>Tutor</a>
 
   <div class="side-section-label">Tasks</div>
@@ -919,6 +920,7 @@
         <a href="/dashboard" class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-dashboard"/></svg></span><span class="nav-label">Dashboard</span></a>
         <a href="/scheduler"  class="nav-tab {% if active_page == 'scheduler' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-scheduler"/></svg></span><span class="nav-label">Scheduler</span></a>
         <a href="/study"      class="nav-tab {% if active_page == 'study' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-study"/></svg></span><span class="nav-label">Study &amp; Learn</span></a>
+        <a href="/streak"     class="nav-tab {% if active_page == 'streak' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-fire"/></svg></span><span class="nav-label">Streak</span></a>
         <a href="/tutor"      class="nav-tab nav-tab-tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-tutor"/></svg></span><span class="nav-label">Tutor</span></a>
       </div>
       <div class="nav-divider" aria-hidden="true"></div>
