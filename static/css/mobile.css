@@ -353,6 +353,10 @@ select {
     margin: 0 !important;
   }
 
+  /* Plani chat panel — only intercept clicks when actually open.
+     When closed (opacity 0), pointer-events must be NONE or it covers
+     the bottom half of every page and steals taps from any button there
+     (e.g. the Generate Study Plan button on /scheduler). */
   #planiChat {
     position: fixed !important;
     left: 12px !important;
@@ -362,11 +366,18 @@ select {
     width: auto !important;
     max-width: calc(100vw - 24px) !important;
     max-height: min(70dvh, 560px) !important;
-    pointer-events: auto !important;
+    pointer-events: none !important;
     z-index: 10000 !important;
-    transform: none !important;
+    transform: translateY(14px) scale(0.96) !important;
+    opacity: 0 !important;
     margin: 0 !important;
     border-radius: 16px !important;
+    transition: opacity 0.24s var(--ease-out), transform 0.24s var(--ease-out) !important;
+  }
+  #planiChat.open {
+    pointer-events: auto !important;
+    opacity: 1 !important;
+    transform: translateY(0) scale(1) !important;
   }
 
   /* ════════════════════════════════════════════════════════

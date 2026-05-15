@@ -1,4 +1,15 @@
 import flask
+import sys as _sys
+
+# ── Dev-mode fix: when this file is run via `python App.py` it loads as
+# `__main__`. Any subsequent `from App import ...` (e.g. from auth_api's
+# lazy helpers) would re-execute this whole file as a SECOND `App`
+# module, creating duplicate `db`/`User`/Flask-app instances and
+# producing "current Flask app is not registered with this 'SQLAlchemy'
+# instance" errors when blueprints touch the DB. Aliasing __main__ as
+# `App` makes both import paths resolve to the same module object.
+if __name__ == "__main__":
+    _sys.modules.setdefault("App", _sys.modules[__name__])
 from flask import render_template, request, redirect, session, url_for
 import requests
 import os
@@ -4069,6 +4080,20 @@ def handle_unhandled_exception(e):
         return render_template("error.html", active_page="error", error_code=500, error_id=err_id), 500
     except Exception:
         return flask.Response(f"<h1>Server Error</h1><p>Error ID: {err_id}</p><a href='/'>Home</a>", status=500, mimetype="text/html")
+
+
+# ── Public REST API for third-party clients and the IntelliPlan MCP server.
+# Registered at the very end so all models and helpers are defined.
+# Attach key references to the Flask app so the blueprint can resolve them
+# via `current_app` (avoids a double-import / double-SQLAlchemy-instance bug
+# when running as `python App.py` — module loaded as both `__main__` and
+# `App`).
+app.intelliplan_db = db
+app.intelliplan_bcrypt = bcrypt
+app.intelliplan_user_model = User
+app.intelliplan_get_identity = _get_or_create_identity
+from intelliplan_api import api_bp as intelliplan_api_bp
+app.register_blueprint(intelliplan_api_bp)
 
 
 if __name__ == "__main__":
