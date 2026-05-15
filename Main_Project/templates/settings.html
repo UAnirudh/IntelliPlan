@@ -317,6 +317,23 @@
     </div>
   </div>
 
+  <!-- ── Display & Animations ──────────────────────── -->
+  <div class="settings-section">
+    <div class="settings-section-title">Display &amp; Animations</div>
+
+    <div class="integration-row">
+      <div>
+        <div class="integration-label">Session completion animation</div>
+        <div class="integration-sub">Play a Plani celebration when you finish a study session</div>
+      </div>
+      <label class="toggle" title="Toggle session animation">
+        <input type="checkbox" id="animSessionToggle" onchange="saveAnimSetting('ip_anim_session', this.checked)">
+        <div class="toggle-track"></div>
+        <div class="toggle-knob"></div>
+      </label>
+    </div>
+  </div>
+
   <!-- ── Account ──────────────────────────────────── -->
   <div class="settings-section" id="accountCard">
     <div class="settings-section-title">Account</div>
@@ -562,6 +579,16 @@ function deleteAccount() {
   fetch('/account/delete', { method:'POST', headers:{'Content-Type':'application/json'} })
     .then(() => window.location.href = '/');
 }
+
+/* ── Animation settings ─────────────────────────── */
+function saveAnimSetting(key, value) {
+  localStorage.setItem(key, value ? 'true' : 'false');
+}
+
+(function initAnimToggles() {
+  const t = document.getElementById('animSessionToggle');
+  if (t) t.checked = localStorage.getItem('ip_anim_session') !== 'false';
+})();
 
 function connectNotion() {
   const token = prompt("Enter your Notion integration token:");

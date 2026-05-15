@@ -38,6 +38,7 @@
     <div class="dropdown-item active" data-filter="high">High</div>
     <div class="dropdown-item" data-filter="medium">Medium</div>
     <div class="dropdown-item" data-filter="low">Low</div>
+    <div class="dropdown-item" data-filter="tests">Tests</div>
   </div>
 </div>
 
@@ -105,10 +106,15 @@ function renderCards(assignments) {
       if (!e.target.closest('.dismiss-btn') && !e.target.closest('.test-btn')) openAssignmentModal(a);
     };
     const safeTitle = a.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    const isTest = isTestAssignment(a);
+    if (isTest) card.classList.add('is-test');
     card.innerHTML = `
       <div class="rank-bubble">#${i + 1}</div>
       <div class="card-main">
-        <div class="card-title">${a.title}</div>
+        <div class="card-title">
+          ${a.title}
+          ${isTest ? '<span class="test-auto-badge">Test</span>' : ''}
+        </div>
         <div class="card-meta">
           <span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg> ${a.course}</span>
           <span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> ${formatDate(a.due_date)}</span>
@@ -117,8 +123,8 @@ function renderCards(assignments) {
       </div>
       <span class="time-pill"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg> ${formatTime(a.estimated_time)}</span>
       <span class="priority-badge ${priority}">${a.priority}</span>
-      <button class="test-btn" title="Mark as test" onclick="markAsTest(${JSON.stringify(a)}, this)">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-test"/></svg> Test
+      <button class="test-btn${isTest ? ' already-test' : ''}" title="${isTest ? 'Already in Tests' : 'Mark as test'}" onclick="markAsTest(${JSON.stringify(a)}, this)">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-test"/></svg> ${isTest ? 'In Tests' : 'Test'}
       </button>
       <button class="dismiss-btn" onclick="dismissAssignment('${safeTitle}', this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-done"/></svg> Done</button>
     `;
@@ -218,31 +224,47 @@ document.addEventListener('click', (e) => {
   }
 });
 
+const TEST_RE = /\btest(s|ing)?\b/i;
+
+function isTestAssignment(a) {
+  return TEST_RE.test(a.title || '');
+}
+
+function filterByTab(assignments, filter) {
+  if (filter === 'tests') return assignments.filter(isTestAssignment);
+  return assignments.filter(a => a.priority.toLowerCase() === filter);
+}
+
 document.querySelectorAll('.dropdown-item').forEach(item => {
   item.addEventListener('click', () => {
     document.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('active'));
     item.classList.add('active');
     currentFilter = item.dataset.filter;
-    const labels = { high: 'High Priority', medium: 'Medium Priority', low: 'Low Priority' };
-    dropBtn.innerHTML = `${labels[currentFilter]} <span class="chevron">▾</span>`;
+    const labels = { high: 'High Priority', medium: 'Medium Priority', low: 'Low Priority', tests: 'Tests' };
+    dropBtn.innerHTML = `${labels[currentFilter] || currentFilter} <span class="chevron">▾</span>`;
     dropMenu.classList.remove('open');
-    renderCards(allAssignments.filter(a => a.priority.toLowerCase() === currentFilter));
+    renderCards(filterByTab(allAssignments, currentFilter));
   });
 });
+
+function autoMarkTests(assignments) {
+  assignments.filter(isTestAssignment).forEach(a => {
+    fetch('/test/mark', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(a)
+    }).catch(() => {});
+  });
+}
 
 fetch('/live')
   .then(r => r.json())
   .then(data => {
-    allAssignments = dedupeTasks(data); // ← USE IT (finally)
-
+    allAssignments = dedupeTasks(data);
     updateStats(allAssignments);
-
-    renderCards(
-      allAssignments.filter(a => a.priority.toLowerCase() === 'high')
-    );
+    autoMarkTests(allAssignments);
+    renderCards(filterByTab(allAssignments, 'high'));
   })
-
-
   .catch(() => {
     document.getElementById('assignmentsList').innerHTML =
       '<div class="loading"><p>Could not connect to backend.</p></div>';

@@ -15,10 +15,17 @@
 <div id="streakApp" class="streak-shell">
   <div class="streak-hero-card" id="streakHero">
     <div class="streak-flame-stage" aria-hidden="true">
-      <span class="streak-flame-core"></span>
+      <div class="streak-flame-wrap">
+        <span class="sfx-outer"></span>
+        <span class="sfx-mid"></span>
+        <span class="sfx-inner"></span>
+        <span class="sfx-core"></span>
+        <span class="sfx-glow"></span>
+      </div>
       <span class="streak-spark s1"></span>
       <span class="streak-spark s2"></span>
       <span class="streak-spark s3"></span>
+      <span class="streak-spark s4"></span>
     </div>
     <div>
       <div class="streak-kicker" id="streakTier">Spark streak</div>
@@ -135,55 +142,102 @@
 }
 .streak-flame-stage {
   width:84px;
-  height:96px;
+  height:100px;
   position:relative;
   display:grid;
   place-items:end center;
   z-index:1;
 }
-.streak-flame-core {
-  width:58px;
-  height:72px;
+.streak-flame-wrap {
   position:relative;
-  display:block;
-  filter:drop-shadow(0 12px 18px color-mix(in srgb, var(--tier) 42%, transparent));
-  animation:streakFlameBob 1.2s ease-in-out infinite;
+  width:60px;
+  height:80px;
+  animation:streakFlameBob 1.4s cubic-bezier(0.45,0.05,0.55,0.95) infinite;
+  filter:drop-shadow(0 6px 16px color-mix(in srgb, var(--tier) 55%, transparent))
+         drop-shadow(0 0 28px color-mix(in srgb, var(--tier) 30%, transparent));
 }
-.streak-flame-core::before,
-.streak-flame-core::after {
-  content:"";
+/* Flame layers — all share the same "teardrop" shape,
+   scaled down and brightened toward the core */
+.sfx-outer, .sfx-mid, .sfx-inner, .sfx-core, .sfx-glow {
   position:absolute;
   left:50%;
+  transform:translateX(-50%);
+  border-radius:50% 50% 30% 30% / 58% 58% 42% 42%;
+}
+/* Outer flame — deep red/orange */
+.sfx-outer {
   bottom:0;
-  transform:translateX(-50%) rotate(45deg);
-  border-radius:62% 38% 62% 38%;
-  transform-origin:center bottom;
+  width:56px; height:74px;
+  background:linear-gradient(180deg, #fde68a 0%, #f97316 38%, #dc2626 80%, #7f1d1d 100%);
+  animation:flameFlickerA 1.1s ease-in-out infinite alternate;
 }
-.streak-flame-core::before {
-  width:58px;
-  height:58px;
-  background:linear-gradient(135deg,#ef4444 5%,#f97316 52%,#facc15 100%);
+/* Mid flame — orange */
+.sfx-mid {
+  bottom:4px;
+  width:42px; height:58px;
+  background:linear-gradient(180deg, #fef9c3 0%, #fbbf24 30%, #f97316 68%, #dc2626 100%);
+  animation:flameFlickerB 0.85s ease-in-out infinite alternate;
 }
-.streak-flame-core::after {
-  width:32px;
-  height:32px;
-  bottom:7px;
-  background:linear-gradient(135deg,#fff7ad,#facc15 48%,#fb923c);
+/* Inner flame — bright yellow */
+.sfx-inner {
+  bottom:8px;
+  width:28px; height:42px;
+  background:linear-gradient(180deg, #ffffff 0%, #fef08a 25%, #facc15 60%, #fb923c 100%);
+  animation:flameFlickerA 0.65s ease-in-out infinite alternate-reverse;
+}
+/* Hot core — white/cream */
+.sfx-core {
+  bottom:12px;
+  width:16px; height:26px;
+  background:linear-gradient(180deg, #ffffff 0%, #fefce8 60%, #fde68a 100%);
+  border-radius:50% 50% 40% 40% / 60% 60% 40% 40%;
+  opacity:0.88;
+  animation:flameFlickerB 0.5s ease-in-out infinite alternate;
+}
+/* Soft glow disc at base */
+.sfx-glow {
+  bottom:-6px;
+  width:52px; height:14px;
+  border-radius:50%;
+  background:radial-gradient(ellipse, color-mix(in srgb, var(--tier) 55%, transparent) 0%, transparent 72%);
+  animation:glowPulse 1.6s ease-in-out infinite;
 }
 .streak-spark {
   position:absolute;
-  width:6px;
-  height:6px;
   border-radius:999px;
   background:#facc15;
   opacity:0;
-  animation:streakSparkRise 1.7s ease-out infinite;
+  animation:streakSparkRise 1.8s ease-out infinite;
 }
-.streak-spark.s1 { left:34px; bottom:30px; }
-.streak-spark.s2 { left:50px; bottom:36px; animation-delay:.45s; background:#fb923c; }
-.streak-spark.s3 { left:43px; bottom:40px; animation-delay:.9s; width:4px; height:4px; }
-@keyframes streakFlameBob { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-5px) scale(1.04)} }
-@keyframes streakSparkRise { 0%{transform:translateY(0) scale(.6);opacity:0} 22%{opacity:.9} 100%{transform:translateY(-56px) translateX(16px) scale(.25);opacity:0} }
+.streak-spark.s1 { width:6px; height:6px; left:30px; bottom:34px; }
+.streak-spark.s2 { width:5px; height:5px; left:48px; bottom:38px; animation-delay:.5s; background:#fb923c; }
+.streak-spark.s3 { width:4px; height:4px; left:40px; bottom:42px; animation-delay:1.0s; }
+.streak-spark.s4 { width:3px; height:3px; left:20px; bottom:36px; animation-delay:1.4s; background:#fde68a; }
+
+@keyframes streakFlameBob {
+  0%,100% { transform:translateY(0) scaleX(1); }
+  30%      { transform:translateY(-6px) scaleX(0.97); }
+  70%      { transform:translateY(-3px) scaleX(1.02); }
+}
+@keyframes flameFlickerA {
+  0%   { transform:translateX(-50%) scaleX(1)    scaleY(1); }
+  40%  { transform:translateX(-50%) scaleX(1.04) scaleY(0.97); }
+  100% { transform:translateX(-50%) scaleX(0.96) scaleY(1.03); }
+}
+@keyframes flameFlickerB {
+  0%   { transform:translateX(-50%) scaleX(0.96) scaleY(1.02); }
+  55%  { transform:translateX(-50%) scaleX(1.05) scaleY(0.96); }
+  100% { transform:translateX(-50%) scaleX(1)    scaleY(1); }
+}
+@keyframes glowPulse {
+  0%,100% { opacity:.7; transform:translateX(-50%) scaleX(1); }
+  50%     { opacity:1;  transform:translateX(-50%) scaleX(1.12); }
+}
+@keyframes streakSparkRise {
+  0%   { transform:translateY(0) scale(.7); opacity:0; }
+  18%  { opacity:1; }
+  100% { transform:translateY(-62px) translateX(14px) scale(.2); opacity:0; }
+}
 .streak-kicker {
   font-family:var(--font-ui);
   font-size:.72rem;

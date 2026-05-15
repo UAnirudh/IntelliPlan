@@ -1254,13 +1254,22 @@ def profiles():
 
 @app.route("/settings")
 def settings():
-    if not is_logged_in():
+    if not current_user.is_authenticated:
         return redirect(url_for("login"))
-    identity = _get_or_create_identity(current_user.id)
+    try:
+        identity = _get_or_create_identity(current_user.id)
+        identity_dict = identity.to_dict()
+    except Exception as e:
+        print(f"Settings identity error: {e}")
+        identity_dict = {
+            "grade_level": "", "focus_areas": [], "goals": "",
+            "completed": False, "availability": {},
+            "weekly_commitments": "", "class_schedule": [],
+        }
     return render_template(
         "settings.html",
         active_page="settings",
-        identity=identity.to_dict(),
+        identity=identity_dict,
         grade_choices=GRADE_LEVEL_CHOICES,
         focus_choices=FOCUS_AREA_CHOICES,
     )

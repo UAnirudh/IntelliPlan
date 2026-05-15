@@ -626,6 +626,9 @@ async function loadDashboard() {
   _unifiedTasks = tasksRes;
   _gcalConnected = calRes.connected;
 
+  const allDashTasks = [...(tasksRes.overdue||[]), ...(tasksRes.today||[]), ...(tasksRes.upcoming||[])];
+  autoDashMarkTests(allDashTasks);
+
   updateSubtitle(tasksRes);
   renderColumn('overdueList', 'overdueCount', tasksRes.overdue);
   renderColumn('todayList', 'todayCount', tasksRes.today);
@@ -805,10 +808,13 @@ function renderColumn(listId, countId, tasks) {
     const [srcColor, srcLabel] = sourceMap[t.source] || ['#64748b', t.source || 'Task'];
     const isMissing = t.is_missing || t.source === 'studentvue_missing';
 
+    const isDashTest = DASH_TEST_RE.test(t.title || '');
+    if (isDashTest) card.style.borderLeftColor = 'var(--medium)';
     card.innerHTML = `
       <div class="notion-card-title">
         ${t.title}
         ${isMissing ? `<span style="color:var(--high);font-size:0.72rem;font-weight:700;"> · ${t.score_label || 'Missing'}</span>` : ''}
+        ${isDashTest ? '<span class="test-auto-badge">Test</span>' : ''}
       </div>
       <div class="notion-card-meta">
         ${t.due_date ? `<span class="notion-pill" style="background:var(--accent-soft);color:var(--accent);display:inline-flex;align-items:center;gap:3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>${t.due_date}</span>` : ''}
@@ -820,6 +826,7 @@ function renderColumn(listId, countId, tasks) {
         ${t.source === 'manual' ? `<button class="notion-action-btn" onclick='openEditTask(event, ${JSON.stringify(t)})' style="display:inline-flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pencil"/></svg>Edit</button>` : ''}
         ${t.notion_page_id ? `<button class="notion-action-btn" onclick="completeNotionTask(event,'${t.notion_page_id}')" style="display:inline-flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-notion"/></svg>Notion</button>` : ''}
         ${_gcalConnected && t.due_date ? `<button class="notion-action-btn" onclick='addToCalendar(event, ${JSON.stringify(t)})' style="display:inline-flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>Cal</button>` : ''}
+        <button class="notion-action-btn" onclick="dashMarkAsTest(event,'${t.title.replace(/'/g, "\\'")}',${JSON.stringify(t)},this)" style="display:inline-flex;align-items:center;gap:3px;color:var(--medium);border-color:var(--medium);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-test"/></svg>Test</button>
         <button class="notion-action-btn done-btn" onclick="dismissTask(event,'${t.title.replace(/'/g, "\\'")}',this)" style="display:inline-flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-done"/></svg>Done</button>
       </div>
     `;
@@ -828,6 +835,33 @@ function renderColumn(listId, countId, tasks) {
 }
 
 // ── ACTIONS ───────────────────────────────────────────────────
+const DASH_TEST_RE = /\btest(s|ing)?\b/i;
+
+function dashMarkAsTest(e, title, taskObj, btn) {
+  e.stopPropagation();
+  fetch('/test/mark', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(taskObj)
+  }).then(r => r.json()).then(d => {
+    if (d.status === 'ok') {
+      btn.textContent = 'In Tests';
+      btn.disabled = true;
+      btn.style.opacity = '0.55';
+    }
+  }).catch(() => {});
+}
+
+function autoDashMarkTests(tasks) {
+  tasks.filter(t => DASH_TEST_RE.test(t.title || '')).forEach(t => {
+    fetch('/test/mark', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(t)
+    }).catch(() => {});
+  });
+}
+
 function dismissTask(e, title, btn) {
   e.stopPropagation();
   // Find the task data
