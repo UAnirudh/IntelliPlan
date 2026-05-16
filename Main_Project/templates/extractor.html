@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Task Extractor</h1>
+  <p class="page-subtitle">Paste notes, messages, or emails — IntelliPlan pulls out the to-dos.</p>
+</div>
+
+<style>
+.ex-grid { display:grid; grid-template-columns:1fr 1.1fr; gap:1.25rem; }
+@media (max-width:900px){ .ex-grid{grid-template-columns:1fr;} }
+.ex-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); padding:1.25rem; box-shadow:var(--shadow); }
+.ex-textarea { width:100%; min-height:300px; padding:14px; border:1.5px solid var(--border-strong); border-radius:12px; background:var(--bg); color:var(--text-primary); font-family:var(--font-body); font-size:0.92rem; resize:vertical; line-height:1.55; }
+.ex-textarea:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+.task-row { display:flex; gap:12px; align-items:flex-start; padding:12px 14px; border-radius:12px; background:var(--bg-elevated); border:1px solid var(--border); margin-bottom:8px; animation:fadeUp 0.25s var(--ease-out) both; }
+.task-check { width:20px; height:20px; flex-shrink:0; margin-top:2px; accent-color:var(--accent); cursor:pointer; }
+.task-body { flex:1; min-width:0; }
+.task-title { font-weight:600; color:var(--text-primary); margin-bottom:4px; }
+.task-row.done .task-title { text-decoration:line-through; color:var(--text-muted); }
+.task-meta { display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:0.78rem; color:var(--text-muted); }
+.tag-pill { padding:2px 9px; border-radius:999px; font-family:var(--font-ui); font-size:0.7rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; }
+.tag-pill.high { background:var(--high-bg); color:var(--high); }
+.tag-pill.medium { background:var(--medium-bg); color:var(--medium); }
+.tag-pill.low { background:var(--low-bg); color:var(--low); }
+</style>
+
+<div class="ex-grid">
+  <div class="ex-card">
+    <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:10px;">Source text</div>
+    <textarea id="exText" class="ex-textarea" placeholder="Paste class notes, a chat thread, or an email here..."></textarea>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:8px;flex-wrap:wrap;">
+      <label style="display:flex;align-items:center;gap:6px;font-size:0.84rem;color:var(--text-secondary);cursor:pointer;">
+        <input type="checkbox" id="exSave" style="accent-color:var(--accent);">
+        Save extracted tasks to my dashboard
+      </label>
+      <button class="btn-primary" id="exBtn" onclick="extractTasks()" style="padding:10px 22px;border:none;cursor:pointer;">Extract tasks</button>
+    </div>
+  </div>
+
+  <div class="ex-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);">Tasks <span id="exCount" style="color:var(--text-muted);font-weight:600;"></span></div>
+      <button id="exClear" onclick="clearTasks()" style="display:none;font-size:0.78rem;border:1px solid var(--border);background:transparent;padding:5px 12px;border-radius:999px;cursor:pointer;color:var(--text-secondary);">Clear</button>
+    </div>
+    <div id="exResult">
+      <div style="color:var(--text-muted);font-size:0.9rem;text-align:center;padding:2rem 0;">Click <strong>Extract tasks</strong> to pull a checklist from the source text.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function extractTasks() {
+  const text = document.getElementById('exText').value.trim();
+  if (!text) return;
+  const save = document.getElementById('exSave').checked;
+  const btn = document.getElementById('exBtn');
+  btn.disabled = true; btn.textContent = 'Extracting...';
+  fetch('/api/tasks/extract' + (save ? '?save=1' : ''), {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ text }),
+  }).then(r => r.json()).then(d => {
+    btn.disabled = false; btn.textContent = 'Extract tasks';
+    if (d.status !== 'ok') {
+      document.getElementById('exResult').innerHTML = '<div style="color:var(--high);">' + esc(d.message||'error') + '</div>';
+      return;
+    }
+    render(d.tasks || [], save);
+  }).catch(() => {
+    btn.disabled = false; btn.textContent = 'Extract tasks';
+    document.getElementById('exResult').innerHTML = '<div style="color:var(--high);">Network error</div>';
+  });
+}
+
+function render(tasks, saved) {
+  const out = document.getElementById('exResult');
+  document.getElementById('exCount').textContent = tasks.length ? `(${tasks.length})` : '';
+  document.getElementById('exClear').style.display = tasks.length ? 'inline-block' : 'none';
+  if (!tasks.length) {
+    out.innerHTML = '<div style="color:var(--text-muted);">No tasks detected in this text.</div>';
+    return;
+  }
+  let html = '';
+  tasks.forEach((t,i) => {
+    const pri = (t.priority || 'Medium').toLowerCase();
+    html += `
+      <div class="task-row" data-i="${i}">
+        <input type="checkbox" class="task-check" onchange="this.closest('.task-row').classList.toggle('done', this.checked)">
+        <div class="task-body">
+          <div class="task-title">${esc(t.title || 'Untitled')}</div>
+          <div class="task-meta">
+            <span class="tag-pill ${pri}">${esc(t.priority || 'Medium')}</span>
+            ${t.due_date ? `<span>Due ${esc(t.due_date)}</span>` : ''}
+            ${t.notes ? `<span style="opacity:0.85;">${esc(t.notes).slice(0,80)}</span>` : ''}
+          </div>
+        </div>
+      </div>`;
+  });
+  if (saved) html += '<div style="margin-top:10px;color:var(--low);font-size:0.82rem;">Saved to your dashboard.</div>';
+  out.innerHTML = html;
+}
+
+function clearTasks() {
+  document.getElementById('exResult').innerHTML = '<div style="color:var(--text-muted);font-size:0.9rem;text-align:center;padding:2rem 0;">Click <strong>Extract tasks</strong> to pull a checklist.</div>';
+  document.getElementById('exCount').textContent = '';
+  document.getElementById('exClear').style.display = 'none';
+}
+</script>
+{% endblock %}

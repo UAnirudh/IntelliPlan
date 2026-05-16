@@ -420,25 +420,41 @@
   from { opacity:0; transform:scale(0.82) translateY(30px); }
   to   { opacity:1; transform:scale(1)    translateY(0); }
 }
-/* Mini flame for overlay */
+/* Mini 🔥 flame for the session-complete overlay (matches the streak page) */
 .sca-flame-wrap {
-  position:relative; width:52px; height:68px;
-  margin:0 auto 0.5rem; animation:scFlameBob 1.3s ease-in-out infinite;
+  position:relative; width:64px; height:68px;
+  margin:0 auto 0.5rem;
+  display:grid; place-items:center;
 }
-.sca-fl-outer,.sca-fl-mid,.sca-fl-inner,.sca-fl-core,.sca-fl-glow {
-  position:absolute; left:50%;
-  transform:translateX(-50%);
-  border-radius:50% 50% 30% 30% / 58% 58% 42% 42%;
+.sca-fl-emoji {
+  position:relative; z-index:2;
+  font-size:54px; line-height:1;
+  filter:drop-shadow(0 4px 8px rgba(249,115,22,.55)) drop-shadow(0 0 16px rgba(249,115,22,.45));
+  animation:scFlameLive 1.3s cubic-bezier(0.45,0.05,0.55,0.95) infinite;
+  font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;
+  user-select:none;
 }
-.sca-fl-outer { bottom:0; width:50px; height:64px; background:linear-gradient(180deg,#fde68a 0%,#f97316 38%,#dc2626 80%,#7f1d1d 100%); animation:scFlkA 1.1s ease-in-out infinite alternate; }
-.sca-fl-mid   { bottom:4px; width:36px; height:50px; background:linear-gradient(180deg,#fef9c3 0%,#fbbf24 30%,#f97316 70%,#dc2626 100%); animation:scFlkB 0.85s ease-in-out infinite alternate; }
-.sca-fl-inner { bottom:8px; width:24px; height:36px; background:linear-gradient(180deg,#ffffff 0%,#fef08a 28%,#facc15 65%,#fb923c 100%); animation:scFlkA 0.65s ease-in-out infinite alternate-reverse; }
-.sca-fl-core  { bottom:12px; width:13px; height:22px; background:linear-gradient(180deg,#fff 0%,#fefce8 60%,#fde68a 100%); border-radius:50% 50% 40% 40%/60% 60% 40% 40%; opacity:.9; animation:scFlkB 0.5s ease-in-out infinite alternate; }
-.sca-fl-glow  { bottom:-5px; width:44px; height:12px; border-radius:50%; background:radial-gradient(ellipse,rgba(249,115,22,.55) 0%,transparent 72%); animation:scGlwP 1.5s ease-in-out infinite; }
-@keyframes scFlameBob { 0%,100%{transform:translateY(0) scaleX(1)} 45%{transform:translateY(-5px) scaleX(.97)} }
-@keyframes scFlkA { 0%{transform:translateX(-50%) scaleX(1) scaleY(1)} 100%{transform:translateX(-50%) scaleX(.96) scaleY(1.04)} }
-@keyframes scFlkB { 0%{transform:translateX(-50%) scaleX(.97) scaleY(1.02)} 100%{transform:translateX(-50%) scaleX(1.04) scaleY(.97)} }
-@keyframes scGlwP { 0%,100%{opacity:.7} 50%{opacity:1} }
+.sca-fl-aura {
+  position:absolute;
+  inset:auto 0 -4px 0;
+  height:18px;
+  margin:0 auto;
+  border-radius:50%;
+  background:radial-gradient(ellipse, rgba(249,115,22,.55) 0%, transparent 72%);
+  filter:blur(3px);
+  z-index:1;
+  animation:scFlameAura 1.5s ease-in-out infinite;
+}
+@keyframes scFlameLive {
+  0%   { transform:translateY(0)    rotate(-1deg)  scale(1); }
+  25%  { transform:translateY(-2px) rotate(1.5deg) scale(1.05); }
+  60%  { transform:translateY(-4px) rotate(-1deg)  scale(0.98); }
+  100% { transform:translateY(0)    rotate(-1deg)  scale(1); }
+}
+@keyframes scFlameAura {
+  0%,100% { transform:scaleX(1)    scaleY(1);    opacity:0.75; }
+  50%     { transform:scaleX(1.15) scaleY(0.85); opacity:1;    }
+}
 /* Plani clone area */
 .sca-plani { display:flex; justify-content:center; margin-bottom:0.5rem; }
 .sca-plani svg { width:72px; height:72px; animation:scPlaniFloat 2.4s ease-in-out infinite; filter:drop-shadow(0 8px 20px rgba(37,99,235,.42)); }
@@ -594,12 +610,9 @@ body.serious-mode .nav-tabs { display:none !important; }
 <div id="scAnim" aria-live="assertive">
   <div class="sca-confetti" id="scaConfetti"></div>
   <div class="sca-card" id="scaCard">
-    <div class="sca-flame-wrap">
-      <span class="sca-fl-outer"></span>
-      <span class="sca-fl-mid"></span>
-      <span class="sca-fl-inner"></span>
-      <span class="sca-fl-core"></span>
-      <span class="sca-fl-glow"></span>
+    <div class="sca-flame-wrap" aria-hidden="true">
+      <span class="sca-fl-emoji">🔥</span>
+      <span class="sca-fl-aura"></span>
     </div>
     <div class="sca-plani" id="scaPlani"></div>
     <div class="sca-title">Session Complete!</div>

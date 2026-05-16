@@ -39,13 +39,16 @@
       </div>
       <div style="flex:1; min-width:220px;">
         <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">Target Grade (%)</div>
-        <div style="display:flex; gap:8px; align-items:center;">
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
           <input type="number" id="targetInput" class="form-input" min="0" max="100" step="0.1"
             placeholder="e.g. 97" style="max-width:120px;" />
           <button class="btn-primary" onclick="runModel()" style="padding:10px 20px; border:none; cursor:pointer; font-size:0.88rem;">
             Model It
           </button>
+          <button class="btn-secondary" onclick="simulateBest()" id="simBtn" style="padding:10px 16px; cursor:pointer; font-size:0.84rem;">Simulate</button>
+          <button onclick="resetModel()" id="resetBtn" style="padding:10px 14px; cursor:pointer; font-size:0.84rem; border-radius:10px; border:1px solid var(--border-strong); background:var(--bg-card); color:var(--text-secondary); font-family:var(--font-ui); font-weight:600;">Reset</button>
         </div>
+        <div style="font-size:0.74rem;color:var(--text-muted);margin-top:6px;">Simulate fills pending assignments with the scores you need; Reset restores real data.</div>
       </div>
     </div>
 
@@ -72,6 +75,8 @@
 {% block scripts %}
 let gradebookData = [];
 let selectedCourse = null;
+let originalAssignments = null;   // immutable copy of the real data
+let simulatedScores = {};         // key -> {points_earned, points_possible, simulated:true}
 
 fetch('/gradebook/detail')
   .then(r => r.json())
@@ -108,6 +113,9 @@ document.addEventListener('click', e => {
 
 function selectCourse(course) {
   selectedCourse = course;
+  // Snapshot the original assignments so Reset can restore them exactly.
+  originalAssignments = JSON.parse(JSON.stringify(course.assignments || []));
+  simulatedScores = {};
   dropBtn.innerHTML = `${course.course} <span class="chevron">▾</span>`;
   dropMenu.classList.remove('open');
   document.getElementById('courseOverview').style.display = 'block';
@@ -120,6 +128,128 @@ function selectCourse(course) {
   lb.className = 'priority-badge ' + letterToClass(course.letter);
 
   renderBreakdown(course.assignments);
+}
+
+/* ── Simulate / Reset helpers ──────────────────────────── */
+function _assignmentKey(a) { return String(a.id || a.title || ''); }
+
+function applySimulation() {
+  if (!selectedCourse || !originalAssignments) return;
+  // Replace selectedCourse.assignments with originals + simulated overlays.
+  selectedCourse.assignments = originalAssignments.map(a => {
+    const key = _assignmentKey(a);
+    if (!a.graded && simulatedScores[key]) {
+      return {
+        ...a,
+        points_earned: simulatedScores[key].points_earned,
+        graded: true,        // visually displayed as simulated
+        simulated: true,
+      };
+    }
+    return { ...a };
+  });
+  // Recompute course percentage from the assignment list.
+  const tp = selectedCourse.assignments.reduce((s,a)=>s + (a.points_possible||0), 0);
+  const te = selectedCourse.assignments.reduce((s,a)=>s + ((a.graded&&a.points_possible)?a.points_earned:0), 0);
+  if (tp > 0) {
+    const pct = (te / tp) * 100;
+    selectedCourse.percentage = pct.toFixed(2);
+    selectedCourse.letter = pctToLetter(pct);
+    document.getElementById('currentPct').textContent = `${pct.toFixed(1)}% ${Object.keys(simulatedScores).length?'(sim)':''}`;
+    const lb = document.getElementById('currentLetter');
+    lb.textContent = selectedCourse.letter;
+    lb.className = 'priority-badge ' + letterToClass(selectedCourse.letter);
+  }
+  renderBreakdown(selectedCourse.assignments);
+}
+
+function pctToLetter(p) {
+  if (p >= 93) return 'A';
+  if (p >= 90) return 'A-';
+  if (p >= 87) return 'B+';
+  if (p >= 83) return 'B';
+  if (p >= 80) return 'B-';
+  if (p >= 77) return 'C+';
+  if (p >= 73) return 'C';
+  if (p >= 70) return 'C-';
+  if (p >= 67) return 'D+';
+  if (p >= 60) return 'D';
+  return 'F';
+}
+
+function resetModel() {
+  if (!selectedCourse || !originalAssignments) return;
+  simulatedScores = {};
+  selectedCourse.assignments = JSON.parse(JSON.stringify(originalAssignments));
+  // Recompute and re-render from scratch
+  const tp = selectedCourse.assignments.reduce((s,a)=>s + (a.points_possible||0), 0);
+  const te = selectedCourse.assignments.filter(a=>a.graded).reduce((s,a)=>s + (a.points_earned||0), 0);
+  const gradedPoss = selectedCourse.assignments.filter(a=>a.graded).reduce((s,a)=>s + (a.points_possible||0), 0);
+  const realPct = gradedPoss > 0 ? (te / gradedPoss * 100) : 0;
+  selectedCourse.percentage = realPct.toFixed(2);
+  selectedCourse.letter = pctToLetter(realPct);
+  document.getElementById('currentPct').textContent = `${realPct.toFixed(1)}%`;
+  const lb = document.getElementById('currentLetter');
+  lb.textContent = selectedCourse.letter;
+  lb.className = 'priority-badge ' + letterToClass(selectedCourse.letter);
+  document.getElementById('modelResult').style.display = 'none';
+  renderBreakdown(selectedCourse.assignments);
+}
+
+/* Simulate the BEST scenario that gets us to target (or the highest-
+   achievable grade when the target is impossible). Only pending
+   assignments are touched. */
+function simulateBest() {
+  if (!selectedCourse || !originalAssignments) return;
+  const target = parseFloat(document.getElementById('targetInput').value);
+  const pending = originalAssignments.filter(a => !a.graded && a.points_possible);
+  const graded = originalAssignments.filter(a => a.graded && a.points_possible);
+  const earnedTotal = graded.reduce((s,a)=>s+a.points_earned,0);
+  const gradedPoss = graded.reduce((s,a)=>s+a.points_possible,0);
+  const pendingPoss = pending.reduce((s,a)=>s+a.points_possible,0);
+  const totalPoss = gradedPoss + pendingPoss;
+
+  if (pending.length === 0) {
+    alert('No pending assignments to simulate.');
+    return;
+  }
+
+  // If no target supplied → simulate "best possible" (100% on all pending).
+  let neededPct;
+  if (isNaN(target)) {
+    neededPct = 100;
+  } else {
+    const pointsNeeded = (target / 100) * totalPoss;
+    const stillNeeded = pointsNeeded - earnedTotal;
+    neededPct = pendingPoss > 0 ? (stillNeeded / pendingPoss * 100) : 0;
+    if (neededPct > 100) neededPct = 100;   // best-achievable fallback
+    if (neededPct < 0) neededPct = 0;       // already there
+  }
+
+  simulatedScores = {};
+  pending.forEach(a => {
+    const key = _assignmentKey(a);
+    simulatedScores[key] = {
+      points_earned: +(a.points_possible * (neededPct / 100)).toFixed(2),
+      points_possible: a.points_possible,
+      simulated: true,
+    };
+  });
+  applySimulation();
+
+  // Summary
+  const summary = document.getElementById('modelSummary');
+  document.getElementById('modelResult').style.display = 'block';
+  if (isNaN(target)) {
+    summary.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--low)"><use href="#i-check-circle"/></svg> Simulating the <strong>best possible</strong> scenario: scoring <strong>100%</strong> on all ${pending.length} remaining assignment${pending.length!==1?'s':''}. Predicted grade: <strong>${selectedCourse.percentage}%</strong>.`;
+  } else {
+    const reached = parseFloat(selectedCourse.percentage) + 1e-6 >= target;
+    if (reached) {
+      summary.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--low)"><use href="#i-check-circle"/></svg> Simulated <strong>${neededPct.toFixed(1)}%</strong> on each remaining assignment — predicted grade <strong>${selectedCourse.percentage}%</strong>, meeting your target of <strong>${target}%</strong>.`;
+    } else {
+      summary.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--medium)"><use href="#i-warning"/></svg> A grade of <strong>${target}%</strong> is no longer mathematically possible. Simulated the <strong>best achievable</strong> scenario instead — predicted grade <strong>${selectedCourse.percentage}%</strong> with perfect scores on every remaining assignment.`;
+    }
+  }
 }
 
 function letterToClass(letter) {
@@ -146,17 +276,22 @@ function renderBreakdown(assignments) {
       ? Math.round((a.points_earned / a.points_possible) * 100) + '%'
       : '';
 
+    const statusLabel = a.simulated
+      ? '<span style="font-family:var(--font-ui);font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;background:rgba(99,102,241,0.12);color:#6366f1;padding:2px 7px;border-radius:999px;">simulated</span>'
+      : a.graded
+        ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--low)"><use href="#i-check-circle"/></svg> Graded'
+        : 'Pending';
     card.innerHTML = `
-      <div class="rank-bubble" style="font-size:0.7rem;">${a.graded ? '✓' : '–'}</div>
+      <div class="rank-bubble" style="font-size:0.7rem;${a.simulated?'background:rgba(99,102,241,0.12);color:#6366f1;':''}">${a.simulated ? '~' : a.graded ? '✓' : '–'}</div>
       <div class="card-main">
         <div class="card-title">${a.title}</div>
         <div class="card-meta">
           ${a.due_date ? `<span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> ${a.due_date}</span>` : ''}
-          <span class="meta-item">${a.graded ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--low)"><use href="#i-check-circle"/></svg> Graded' : 'Pending'}</span>
+          <span class="meta-item">${statusLabel}</span>
         </div>
       </div>
       <div style="text-align:right; flex-shrink:0;">
-        <div style="font-size:0.88rem; font-weight:600; color:var(--text-primary);">${scoreDisplay}</div>
+        <div style="font-size:0.88rem; font-weight:600; color:${a.simulated ? '#6366f1' : 'var(--text-primary)'};">${scoreDisplay}</div>
         ${pct ? `<div style="font-size:0.75rem; color:var(--text-muted);">${pct}</div>` : ''}
       </div>
     `;
@@ -215,9 +350,9 @@ function runModel() {
 
   if (parseFloat(neededPct) > 100) {
     const maxPossible = ((earnedTotal + pendingPossible) / totalPossible * 100).toFixed(1);
-    summary.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--high)"><use href="#i-warning"/></svg> It is <strong>no longer mathematically possible</strong> to reach <strong>${target}%</strong>.
-      Even scoring 100% on all ${pending.length} remaining assignment${pending.length !== 1 ? 's' : ''}, 
-      the highest you can reach is <strong>${maxPossible}%</strong>.`;
+    summary.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--medium)"><use href="#i-warning"/></svg> Reaching <strong>${target}%</strong> is no longer mathematically possible.
+      The <strong>highest achievable grade</strong> in <strong>${selectedCourse.course}</strong> is <strong>${maxPossible}%</strong> — earned by scoring 100% on all ${pending.length} remaining assignment${pending.length !== 1 ? 's' : ''}.<br>
+      <button class="btn-secondary" onclick="simulateBest()" style="margin-top:10px;padding:8px 16px;cursor:pointer;font-size:0.84rem;">Simulate best achievable</button>`;
     return;
   }
 

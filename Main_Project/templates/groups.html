@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
+  <div>
+    <h1 class="page-title">Study Groups</h1>
+    <p class="page-subtitle">Find a group by topic, level, and study style — or start your own.</p>
+  </div>
+  <button class="btn-primary" onclick="openCreate()" style="padding:10px 22px;border:none;cursor:pointer;">+ Create Study Group</button>
+</div>
+
+<style>
+.gr-filters { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-bottom:1.25rem; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); padding:1rem; box-shadow:var(--shadow); }
+.gr-filters .form-group { flex:1 1 160px; }
+.gr-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:1rem; margin-bottom:2rem; }
+.gr-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); padding:1.1rem 1.2rem; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:8px; cursor:pointer; transition:transform 0.16s, box-shadow 0.16s; }
+.gr-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-hover); }
+.gr-card.member { border-color:color-mix(in srgb, var(--accent) 35%, var(--border)); background:linear-gradient(135deg, color-mix(in srgb, var(--accent) 6%, var(--bg-card)), var(--bg-card)); }
+.gr-name { font-family:var(--font-display); font-size:1.1rem; line-height:1.25; color:var(--text-primary); }
+.gr-topic { font-size:0.84rem; color:var(--text-secondary); }
+.gr-tags { display:flex; flex-wrap:wrap; gap:6px; }
+.gr-pill { padding:2px 10px; border-radius:999px; font-family:var(--font-ui); font-size:0.66rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; background:var(--accent-soft); color:var(--accent); }
+.gr-pill.level { background:rgba(217,119,6,0.1); color:#d97706; }
+.gr-pill.style { background:rgba(99,102,241,0.1); color:#6366f1; }
+.gr-pill.members { background:rgba(5,150,105,0.1); color:#059669; }
+
+.gr-detail { display:none; }
+.gr-detail.on { display:block; }
+.gr-detail-grid { display:grid; grid-template-columns:1.4fr 1fr; gap:1.25rem; }
+@media (max-width:900px){ .gr-detail-grid{grid-template-columns:1fr;} }
+.gr-panel { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); padding:1.25rem; box-shadow:var(--shadow); }
+.gr-panel-title { font-family:var(--font-ui); font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin-bottom:10px; }
+.notes-area { width:100%; min-height:280px; padding:14px; border:1.5px solid var(--border-strong); border-radius:12px; background:var(--bg); color:var(--text-primary); font-family:var(--font-body); font-size:0.92rem; resize:vertical; line-height:1.55; }
+.notes-area:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+.meeting-frame { width:100%; aspect-ratio:16/10; border:1px solid var(--border); border-radius:12px; background:#000; }
+.member-row { display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid var(--border); }
+.member-row:last-child { border-bottom:none; }
+.member-avatar { width:30px; height:30px; border-radius:50%; background:var(--accent); color:white; font-family:var(--font-ui); font-weight:800; display:flex; align-items:center; justify-content:center; font-size:0.78rem; flex-shrink:0; }
+.plan-md { font-size:0.86rem; color:var(--text-secondary); line-height:1.55; white-space:pre-wrap; max-height:280px; overflow:auto; }
+
+/* Modal */
+.cg-modal { position:fixed; inset:0; z-index:1500; background:rgba(7,8,20,0.62); backdrop-filter:blur(6px); display:none; align-items:center; justify-content:center; padding:1rem; }
+.cg-modal.on { display:flex; }
+.cg-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-xl); padding:1.75rem; width:min(540px,100%); box-shadow:var(--shadow-lg); max-height:90vh; overflow:auto; }
+</style>
+
+<!-- Discover view -->
+<div id="grList">
+  <div class="gr-filters">
+    <div class="form-group">
+      <label class="form-label">Topic</label>
+      <input type="text" id="fTopic" class="form-input" placeholder="e.g. SAT Math">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Level</label>
+      <select id="fLevel" class="form-input">
+        <option value="">Any</option>
+        <option value="beginner">Beginner</option>
+        <option value="intermediate">Intermediate</option>
+        <option value="advanced">Advanced</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Style</label>
+      <select id="fStyle" class="form-input">
+        <option value="">Any</option>
+        <option value="focused">Focused</option>
+        <option value="discussion">Discussion</option>
+        <option value="quizzing">Quizzing</option>
+        <option value="flashcards">Flashcards</option>
+      </select>
+    </div>
+    <button class="btn-primary" onclick="loadGroups()" style="padding:10px 18px;border:none;cursor:pointer;">Find groups</button>
+  </div>
+
+  <div id="grGrid" class="gr-grid">
+    <div style="grid-column:1/-1;color:var(--text-muted);text-align:center;padding:3rem 1rem;">Loading...</div>
+  </div>
+</div>
+
+<!-- Detail view -->
+<div id="grDetail" class="gr-detail">
+  <div style="margin-bottom:1rem;">
+    <button onclick="backToList()" style="background:none;border:1px solid var(--border);padding:7px 14px;border-radius:999px;cursor:pointer;color:var(--text-secondary);font-family:var(--font-ui);font-weight:600;font-size:0.82rem;">← All groups</button>
+  </div>
+  <div id="grDetailContent"></div>
+</div>
+
+<!-- Create modal -->
+<div id="cgMod" class="cg-modal" onclick="if(event.target===this)closeCreate()">
+  <div class="cg-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <h2 style="font-family:var(--font-display);font-size:1.25rem;color:var(--text-primary);margin:0;">Create Study Group</h2>
+      <button onclick="closeCreate()" style="background:none;border:none;font-size:1.4rem;color:var(--text-muted);cursor:pointer;">×</button>
+    </div>
+    <form id="cgForm" onsubmit="submitCreate(event)" style="display:flex;flex-direction:column;gap:0.9rem;">
+      <div class="form-group">
+        <label class="form-label">Group name</label>
+        <input type="text" name="name" class="form-input" required maxlength="120" placeholder="e.g. AP Bio crew">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Topic</label>
+        <input type="text" name="topic" class="form-input" maxlength="120" placeholder="AP Biology, SAT Math, Algebra 2...">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.9rem;">
+        <div class="form-group">
+          <label class="form-label">Level</label>
+          <select name="level" class="form-input">
+            <option value="any">Any</option>
+            <option value="beginner">Beginner</option>
+            <option value="intermediate" selected>Intermediate</option>
+            <option value="advanced">Advanced</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Study style</label>
+          <select name="style" class="form-input">
+            <option value="any">Any</option>
+            <option value="focused" selected>Focused</option>
+            <option value="discussion">Discussion</option>
+            <option value="quizzing">Quizzing</option>
+            <option value="flashcards">Flashcards</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea name="description" class="form-input" rows="3" placeholder="What will the group work on?"></textarea>
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.84rem;color:var(--text-secondary);">
+          <input type="checkbox" name="visibility" value="private" style="accent-color:var(--accent);">
+          Private (invite-only)
+        </label>
+      </div>
+      <button type="submit" class="btn-primary" id="cgBtn" style="padding:12px;border:none;cursor:pointer;">Create group</button>
+    </form>
+  </div>
+</div>
+
+<script>
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function openCreate(){ document.getElementById('cgMod').classList.add('on'); }
+function closeCreate(){ document.getElementById('cgMod').classList.remove('on'); }
+
+let _allGroups = [];
+
+function loadGroups() {
+  const topic = document.getElementById('fTopic').value.trim();
+  const level = document.getElementById('fLevel').value;
+  const style = document.getElementById('fStyle').value;
+  const qs = new URLSearchParams({topic, level, style});
+  fetch('/api/groups?' + qs).then(r => r.json()).then(d => {
+    _allGroups = d.groups || [];
+    const grid = document.getElementById('grGrid');
+    if (!_allGroups.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;color:var(--text-muted);text-align:center;padding:3rem 1rem;">No groups match yet. Try wider filters or <a href="#" onclick="openCreate();return false;">create one</a>.</div>';
+      return;
+    }
+    grid.innerHTML = _allGroups.map(g => `
+      <div class="gr-card ${g.is_member ? 'member' : ''}" onclick="openGroup(${g.id})">
+        <div class="gr-name">${esc(g.name)} ${g.is_member ? '<span class="gr-pill" style="background:var(--accent);color:white;">member</span>' : ''}</div>
+        ${g.topic ? `<div class="gr-topic">${esc(g.topic)}</div>` : ''}
+        <div class="gr-tags">
+          <span class="gr-pill level">${esc(g.level||'any')}</span>
+          <span class="gr-pill style">${esc(g.style||'any')}</span>
+          <span class="gr-pill members">${g.member_count} member${g.member_count===1?'':'s'}</span>
+        </div>
+        ${g.description ? `<div style="font-size:0.84rem;color:var(--text-muted);line-height:1.45;">${esc(g.description).slice(0,160)}${g.description.length>160?'…':''}</div>` : ''}
+      </div>`).join('');
+  });
+}
+
+function backToList() {
+  document.getElementById('grDetail').classList.remove('on');
+  document.getElementById('grList').style.display = 'block';
+}
+
+function openGroup(id) {
+  fetch('/api/groups/' + id).then(r => r.json()).then(g => {
+    document.getElementById('grList').style.display = 'none';
+    document.getElementById('grDetail').classList.add('on');
+    renderDetail(g);
+  });
+}
+
+function renderDetail(g) {
+  const members = (g.members || []).map(m => `
+    <div class="member-row">
+      <div class="member-avatar">${esc((m.name||'M').slice(0,1).toUpperCase())}</div>
+      <div style="font-size:0.88rem;color:var(--text-primary);flex:1;">${esc(m.name||'Member')}</div>
+      <span class="gr-pill" style="background:${m.role==='owner'?'var(--accent)':'var(--bg)'};color:${m.role==='owner'?'white':'var(--text-muted)'};">${esc(m.role)}</span>
+    </div>`).join('') || '<div style="color:var(--text-muted);font-size:0.86rem;">No members yet.</div>';
+
+  const nextMeeting = g.next_meeting_at
+    ? `<div><strong>Next meeting:</strong> ${esc(new Date(g.next_meeting_at).toLocaleString())} ${g.next_meeting_topic ? '— ' + esc(g.next_meeting_topic) : ''}</div>`
+    : `<div style="color:var(--text-muted);">No meeting scheduled.</div>`;
+
+  document.getElementById('grDetailContent').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;margin-bottom:1.25rem;">
+      <div>
+        <h2 style="font-family:var(--font-display);font-size:1.7rem;color:var(--text-primary);margin:0 0 6px 0;">${esc(g.name)}</h2>
+        <div class="gr-tags">
+          ${g.topic ? `<span class="gr-pill">${esc(g.topic)}</span>` : ''}
+          <span class="gr-pill level">${esc(g.level)}</span>
+          <span class="gr-pill style">${esc(g.style)}</span>
+        </div>
+        ${g.description ? `<div style="margin-top:8px;color:var(--text-secondary);font-size:0.92rem;line-height:1.55;">${esc(g.description)}</div>` : ''}
+      </div>
+      <div>
+        ${g.is_member
+          ? `<button onclick="leaveGroup(${g.id})" style="padding:8px 16px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);border-radius:10px;cursor:pointer;font-family:var(--font-ui);font-weight:600;">Leave group</button>`
+          : `<button onclick="joinGroup(${g.id})" class="btn-primary" style="padding:10px 22px;border:none;cursor:pointer;">Join group</button>`}
+      </div>
+    </div>
+
+    <div class="gr-detail-grid">
+      <div class="gr-panel">
+        <div class="gr-panel-title">Video Room</div>
+        ${g.meeting_url
+          ? `<iframe src="${esc(g.meeting_url)}#config.prejoinPageEnabled=true&config.startWithAudioMuted=true" class="meeting-frame" allow="camera; microphone; display-capture; fullscreen" allowfullscreen></iframe>
+             <div style="margin-top:8px;font-size:0.78rem;color:var(--text-muted);">Powered by Jitsi · <a href="${esc(g.meeting_url)}" target="_blank" rel="noopener" style="color:var(--accent);">open in new tab</a></div>`
+          : '<div style="color:var(--text-muted);">No room yet.</div>'}
+        <div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:0.9rem;">
+          ${nextMeeting}
+          ${g.is_member ? `
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:flex-end;">
+              <div class="form-group" style="flex:1 1 180px;">
+                <label class="form-label" style="font-size:0.72rem;">Schedule</label>
+                <input type="datetime-local" id="gWhen" class="form-input">
+              </div>
+              <div class="form-group" style="flex:2 1 180px;">
+                <label class="form-label" style="font-size:0.72rem;">Topic</label>
+                <input type="text" id="gMTopic" class="form-input" placeholder="Cell respiration practice">
+              </div>
+              <button onclick="setMeeting(${g.id})" class="btn-secondary" style="padding:8px 14px;cursor:pointer;">Save</button>
+            </div>` : ''}
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:1.25rem;">
+        <div class="gr-panel">
+          <div class="gr-panel-title">Shared Notes</div>
+          <textarea id="grNotes" class="notes-area" ${g.is_member?'':'disabled'} placeholder="${g.is_member?'Take notes together — saved when you click Save':'Join this group to take shared notes.'}">${esc(g.shared_notes||'')}</textarea>
+          ${g.is_member ? `<button onclick="saveNotes(${g.id})" class="btn-secondary" style="margin-top:8px;padding:8px 16px;cursor:pointer;">Save notes</button>` : ''}
+        </div>
+
+        <div class="gr-panel">
+          <div class="gr-panel-title">Suggested study plan</div>
+          <div class="plan-md">${g.suggested_plan ? esc(g.suggested_plan) : '<em style="color:var(--text-muted);">Generating plan…</em>'}</div>
+        </div>
+
+        <div class="gr-panel">
+          <div class="gr-panel-title">Members (${g.members.length})</div>
+          ${members}
+        </div>
+      </div>
+    </div>`;
+}
+
+function joinGroup(id) { fetch('/api/groups/'+id+'/join',{method:'POST'}).then(()=>openGroup(id)); }
+function leaveGroup(id) { fetch('/api/groups/'+id+'/leave',{method:'POST'}).then(()=>{ backToList(); loadGroups(); }); }
+
+function saveNotes(id) {
+  const notes = document.getElementById('grNotes').value;
+  fetch('/api/groups/'+id+'/notes', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({notes}) })
+    .then(r=>r.json()).then(d=>{ if(d.status==='ok') alert('Notes saved.'); });
+}
+
+function setMeeting(id) {
+  const when = document.getElementById('gWhen').value;
+  const topic = document.getElementById('gMTopic').value;
+  fetch('/api/groups/'+id+'/meeting', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({when, topic}) })
+    .then(()=>openGroup(id));
+}
+
+function submitCreate(e) {
+  e.preventDefault();
+  const form = document.getElementById('cgForm');
+  const data = Object.fromEntries(new FormData(form));
+  data.visibility = data.visibility === 'private' ? 'private' : 'public';
+  const btn = document.getElementById('cgBtn');
+  btn.disabled = true; btn.textContent = 'Creating...';
+  fetch('/api/groups', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) })
+    .then(r=>r.json()).then(d=>{
+      btn.disabled = false; btn.textContent = 'Create group';
+      if (d.status !== 'ok') { alert(d.message||'failed'); return; }
+      closeCreate(); form.reset();
+      openGroup(d.id);
+    });
+}
+
+loadGroups();
+</script>
+{% endblock %}

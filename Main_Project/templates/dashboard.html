@@ -73,10 +73,31 @@
 <div id="streakWidget" style="margin-bottom:1.5rem;">
   <div class="streak-card dashboard-streak-card loading">
     <div class="streak-flame">
-      <div class="streak-flame-icon cold"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-fire"/></svg></div>
+      <div class="streak-flame-icon cold dash-flame-emoji" aria-hidden="true">🔥</div>
       <div class="streak-flame-count">0</div>
       <div class="streak-flame-label">day streak</div>
     </div>
+    <style>
+      .dash-flame-emoji {
+        font-size:34px;
+        line-height:1;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        background:none !important;
+        border:none !important;
+        filter:drop-shadow(0 3px 6px rgba(249,115,22,.45)) drop-shadow(0 0 14px rgba(249,115,22,.35));
+        animation:dashFlameLive 1.4s cubic-bezier(0.45,0.05,0.55,0.95) infinite;
+        font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;
+      }
+      @keyframes dashFlameLive {
+        0%   { transform:translateY(0)    rotate(-1deg)  scale(1); }
+        30%  { transform:translateY(-2px) rotate(1.5deg) scale(1.05); }
+        65%  { transform:translateY(-3px) rotate(-1deg)  scale(0.98); }
+        100% { transform:translateY(0)    rotate(-1deg)  scale(1); }
+      }
+      @media (prefers-reduced-motion: reduce) { .dash-flame-emoji { animation:none !important; } }
+    </style>
     <div class="streak-loading-copy">Loading your streak...</div>
   </div>
 </div>

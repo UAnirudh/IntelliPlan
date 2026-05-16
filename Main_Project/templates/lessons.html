@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
+  <div>
+    <h1 class="page-title">Lesson Library</h1>
+    <p class="page-subtitle">Upload class recordings — IntelliPlan summarises each one for revision.</p>
+  </div>
+  <button class="btn-primary" onclick="openUpload()" style="padding:10px 22px;border:none;cursor:pointer;">+ Upload Lesson</button>
+</div>
+
+<style>
+.lesson-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:1.25rem; }
+.lesson-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); padding:0; box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:hidden; animation:fadeUp 0.3s var(--ease-out) both; }
+.lesson-media { width:100%; aspect-ratio:16/9; background:#000; display:flex; align-items:center; justify-content:center; }
+.lesson-media video, .lesson-media audio { width:100%; height:100%; object-fit:cover; }
+.lesson-body { padding:1rem 1.1rem; display:flex; flex-direction:column; gap:8px; flex:1; }
+.lesson-title { font-family:var(--font-display); font-size:1.1rem; color:var(--text-primary); line-height:1.25; }
+.lesson-meta { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:0.74rem; color:var(--text-muted); }
+.lesson-tag { padding:2px 9px; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-family:var(--font-ui); font-size:0.66rem; font-weight:700; }
+.lesson-summary { font-size:0.86rem; color:var(--text-secondary); line-height:1.55; max-height:140px; overflow:auto; white-space:pre-wrap; border-top:1px dashed var(--border); padding-top:8px; }
+.lesson-status { display:inline-block; padding:2px 8px; border-radius:6px; font-family:var(--font-ui); font-size:0.65rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; }
+.status-pending { background:var(--medium-bg); color:var(--medium); }
+.status-ready { background:var(--low-bg); color:var(--low); }
+.status-failed { background:var(--high-bg); color:var(--high); }
+.upload-modal { position:fixed; inset:0; z-index:1500; background:rgba(7,8,20,0.62); backdrop-filter:blur(6px); display:none; align-items:center; justify-content:center; padding:1rem; }
+.upload-modal.on { display:flex; }
+.upload-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-xl); padding:1.75rem; width:min(540px,100%); box-shadow:var(--shadow-lg); max-height:90vh; overflow:auto; }
+</style>
+
+<div id="lessonsList" class="lesson-grid">
+  <div style="grid-column:1/-1;color:var(--text-muted);text-align:center;padding:3rem 1rem;">Loading lessons...</div>
+</div>
+
+<!-- Upload modal -->
+<div id="upMod" class="upload-modal" onclick="if(event.target===this)closeUpload()">
+  <div class="upload-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <h2 style="font-family:var(--font-display);font-size:1.25rem;color:var(--text-primary);margin:0;">Upload Lesson</h2>
+      <button onclick="closeUpload()" style="background:none;border:none;font-size:1.4rem;color:var(--text-muted);cursor:pointer;">×</button>
+    </div>
+    <form id="upForm" onsubmit="submitUpload(event)" style="display:flex;flex-direction:column;gap:0.9rem;">
+      <div class="form-group">
+        <label class="form-label">Title</label>
+        <input type="text" name="title" class="form-input" required maxlength="255" placeholder="e.g. AP Bio - Cell Respiration">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.9rem;">
+        <div class="form-group">
+          <label class="form-label">Course (optional)</label>
+          <input type="text" name="course" class="form-input" maxlength="128" placeholder="AP Biology">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tags (comma-separated)</label>
+          <input type="text" name="tags" class="form-input" maxlength="200" placeholder="biology, exam-1">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Audio or video file</label>
+        <input type="file" name="file" accept="audio/*,video/*" required class="form-input">
+        <span class="form-hint">Up to ~25 MB. Supports mp3, m4a, wav, mp4, webm, mov.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Transcript (optional, paste for better summary)</label>
+        <textarea name="transcript" rows="5" class="form-input" placeholder="Paste a transcript if you have one — the summary will use it for accurate notes."></textarea>
+      </div>
+      <button type="submit" class="btn-primary" id="upBtn" style="padding:12px;border:none;cursor:pointer;">Upload & summarise</button>
+    </form>
+  </div>
+</div>
+
+<script>
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function openUpload() { document.getElementById('upMod').classList.add('on'); }
+function closeUpload() { document.getElementById('upMod').classList.remove('on'); }
+
+function statusClass(s) { return s === 'ready' ? 'status-ready' : s === 'failed' ? 'status-failed' : 'status-pending'; }
+
+function loadLessons() {
+  fetch('/api/lessons').then(r => r.json()).then(d => {
+    const list = document.getElementById('lessonsList');
+    const ls = d.lessons || [];
+    if (!ls.length) {
+      list.innerHTML = '<div style="grid-column:1/-1;color:var(--text-muted);text-align:center;padding:3rem 1rem;">No lessons yet. Click <strong>+ Upload Lesson</strong> to get started.</div>';
+      return;
+    }
+    list.innerHTML = ls.map(l => {
+      const tagsHtml = (l.tags || []).map(t => `<span class="lesson-tag">${esc(t)}</span>`).join('');
+      const media = l.media_kind === 'audio'
+        ? `<div class="lesson-media" style="background:linear-gradient(135deg,#1e40af,#6366f1);"><audio controls src="${esc(l.stream_url)}" preload="metadata" style="width:90%;"></audio></div>`
+        : `<div class="lesson-media"><video controls src="${esc(l.stream_url)}" preload="metadata"></video></div>`;
+      return `
+        <div class="lesson-card">
+          ${media}
+          <div class="lesson-body">
+            <div class="lesson-title">${esc(l.title)}</div>
+            <div class="lesson-meta">
+              <span class="lesson-status ${statusClass(l.summary_status)}">${esc(l.summary_status)}</span>
+              ${l.course ? `<span>· ${esc(l.course)}</span>` : ''}
+              ${tagsHtml}
+            </div>
+            <div class="lesson-summary">${(l.summary || '').trim() ? esc(l.summary) : '<em style=\"color:var(--text-muted);\">Summary not ready yet — try refresh.</em>'}</div>
+            <div style="display:flex;gap:6px;margin-top:6px;">
+              <button onclick="resumm(${l.id})" style="font-size:0.72rem;padding:5px 11px;border:1px solid var(--border);background:var(--bg);border-radius:999px;cursor:pointer;color:var(--text-secondary);">Refresh summary</button>
+              <button onclick="delLesson(${l.id})" style="font-size:0.72rem;padding:5px 11px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);border-radius:999px;cursor:pointer;margin-left:auto;">Delete</button>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  });
+}
+
+function submitUpload(e) {
+  e.preventDefault();
+  const form = document.getElementById('upForm');
+  const data = new FormData(form);
+  const btn = document.getElementById('upBtn');
+  btn.disabled = true; btn.textContent = 'Uploading...';
+  fetch('/api/lessons', { method: 'POST', body: data }).then(r => r.json()).then(d => {
+    btn.disabled = false; btn.textContent = 'Upload & summarise';
+    if (d.status !== 'ok') { alert(d.message || 'upload failed'); return; }
+    form.reset();
+    closeUpload();
+    loadLessons();
+  }).catch(() => {
+    btn.disabled = false; btn.textContent = 'Upload & summarise';
+    alert('Network error.');
+  });
+}
+
+function resumm(id) {
+  fetch('/api/lessons/' + id + '/resummarize', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' })
+    .then(r => r.json()).then(() => loadLessons());
+}
+
+function delLesson(id) {
+  if (!confirm('Delete this lesson and its recording?')) return;
+  fetch('/api/lessons/' + id, { method: 'DELETE' }).then(() => loadLessons());
+}
+
+loadLessons();
+</script>
+{% endblock %}

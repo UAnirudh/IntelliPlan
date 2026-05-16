@@ -821,7 +821,7 @@
   {% block head_extra %}{% endblock %}
 </head>
 
-{% set _app_pages = ['dashboard','scheduler','study','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings'] %}
+{% set _app_pages = ['dashboard','scheduler','study','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor'] %}
 <body class="{% if active_page in _app_pages %}has-side{% endif %}">
 
 <!-- ══════════════════════════════════════
@@ -893,6 +893,13 @@
   <a href="/gradebook" class="side-link {% if active_page == 'gradebook' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Grade Modeler</a>
   <a href="/tests"     class="side-link {% if active_page == 'tests' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-test"/></svg></span>Tests</a>
   <a href="/dismissed" class="side-link {% if active_page == 'dismissed' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-done"/></svg></span>Done</a>
+
+  <div class="side-section-label">Toolkit</div>
+  <a href="/lessons"   class="side-link {% if active_page == 'lessons' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Lessons</a>
+  <a href="/groups"    class="side-link {% if active_page == 'groups' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-tutor"/></svg></span>Study Groups</a>
+  <a href="/writing"   class="side-link {% if active_page == 'writing' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-pencil"/></svg></span>Writing</a>
+  <a href="/math"      class="side-link {% if active_page == 'math' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Math Explainer</a>
+  <a href="/extractor" class="side-link {% if active_page == 'extractor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-check-circle"/></svg></span>Task Extractor</a>
 
   <div class="side-spacer"></div>
 

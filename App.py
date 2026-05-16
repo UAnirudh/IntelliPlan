@@ -397,6 +397,76 @@ class ExtensionToken(db.Model):
     token = db.Column(db.String(64), unique=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+
+class Lesson(db.Model):
+    """Uploaded lesson recording (audio or video) + AI-generated summary."""
+    __tablename__ = "lessons"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    guest_session_id = db.Column(db.String(64), nullable=True)
+    title = db.Column(db.String(255), nullable=False)
+    course = db.Column(db.String(128), default="")
+    tags = db.Column(db.Text, default="[]")            # JSON list of tag strings
+    media_kind = db.Column(db.String(16), default="video")  # video | audio
+    original_filename = db.Column(db.String(255), default="")
+    stored_filename = db.Column(db.String(255), default="")
+    mime_type = db.Column(db.String(64), default="")
+    duration_seconds = db.Column(db.Integer, default=0)
+    transcript = db.Column(db.Text, default="")
+    summary = db.Column(db.Text, default="")
+    summary_status = db.Column(db.String(16), default="pending")  # pending | ready | failed
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def tag_list(self):
+        try:
+            v = json.loads(self.tags or "[]")
+            return v if isinstance(v, list) else []
+        except Exception:
+            return []
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "course": self.course or "",
+            "tags": self.tag_list(),
+            "media_kind": self.media_kind,
+            "stream_url": f"/lessons/{self.id}/stream",
+            "original_filename": self.original_filename,
+            "duration_seconds": int(self.duration_seconds or 0),
+            "summary": self.summary or "",
+            "summary_status": self.summary_status or "pending",
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class StudyGroup(db.Model):
+    """A small study group: shared notes, schedule, video room link."""
+    __tablename__ = "study_groups"
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    topic = db.Column(db.String(120), default="")           # e.g. "AP Calc BC", "SAT Math"
+    level = db.Column(db.String(32), default="any")         # beginner | intermediate | advanced | any
+    style = db.Column(db.String(32), default="any")         # focused | discussion | quizzing | flashcards | any
+    visibility = db.Column(db.String(16), default="public") # public | private
+    description = db.Column(db.Text, default="")
+    shared_notes = db.Column(db.Text, default="")
+    meeting_url = db.Column(db.String(512), default="")     # generated Jitsi room
+    next_meeting_at = db.Column(db.DateTime, nullable=True)
+    next_meeting_topic = db.Column(db.String(255), default="")
+    suggested_plan = db.Column(db.Text, default="")          # AI-generated study plan
+    owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class StudyGroupMember(db.Model):
+    __tablename__ = "study_group_members"
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey("study_groups.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    role = db.Column(db.String(16), default="member")  # owner | member
+    joined_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 class StudySession(db.Model):
     __tablename__ = "study_sessions"
     id = db.Column(db.Integer, primary_key=True)
@@ -4349,6 +4419,650 @@ def error_403(e):
         return render_template("error.html", active_page="error", error_code=403, error_id=make_error_id()), 403
     except:
         return flask.Response("<h1>403 Forbidden</h1><a href='/'>Home</a>", status=403, mimetype="text/html")
+
+# ═════════════════════════════════════════════════════════════════════
+# NEW FEATURE MODULES
+# (Grade simulator, Lesson Recorder, Study Groups, Writing Assistant,
+#  Math Explainer, Task Extractor)
+# Each block is self-contained: lazy Groq client, light DB use, JSON
+# responses. The web pages each new module needs sit in /Main_Project/
+# templates/ — see lessons.html, groups.html, writing.html, math.html,
+# extractor.html. The upgraded grade modeller lives in grademodel.html.
+# ═════════════════════════════════════════════════════════════════════
+
+GROQ_MODEL = "llama-3.3-70b-versatile"
+
+
+def _groq():
+    return Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+
+def _owner_filter(model):
+    """Build a SQLAlchemy filter that scopes a model query to the current
+    user or guest session."""
+    if current_user.is_authenticated:
+        return model.user_id == current_user.id
+    gid = get_guest_session_id()
+    return model.guest_session_id == gid
+
+
+# ── GRADE MODELLER UPGRADES ─────────────────────────────────
+# Realistic feasibility + Simulate + Reset are implemented in JS for
+# instant feedback; this endpoint is the optional server-side check that
+# returns the highest-achievable grade when the user asks for one that
+# math forbids.
+
+def _gradebook_compute(courses, simulated=None):
+    """Given courses [{name, weight_total, categories:[{name,weight,assignments:[...]}]}],
+    return overall course grades and the weighted final."""
+    simulated = simulated or {}
+    out_courses = []
+    overall_total = 0.0
+    overall_weight = 0.0
+    for course in courses or []:
+        cw = float(course.get("weight") or 0)
+        cat_grade_total = 0.0
+        cat_weight_total = 0.0
+        for cat in course.get("categories") or []:
+            w = float(cat.get("weight") or 0)
+            earned = 0.0
+            possible = 0.0
+            for a in cat.get("assignments") or []:
+                key = str(a.get("id") or a.get("title") or "")
+                sim = simulated.get(key)
+                if sim is not None:
+                    pts = float(sim.get("points_earned", 0))
+                    poss = float(sim.get("points_possible", a.get("points_possible") or 0))
+                    earned += pts
+                    possible += poss
+                elif a.get("graded"):
+                    earned += float(a.get("points_earned") or 0)
+                    possible += float(a.get("points_possible") or 0)
+            if possible > 0 and w > 0:
+                cat_grade_total += (earned / possible) * w
+                cat_weight_total += w
+        course_pct = (cat_grade_total / cat_weight_total) * 100 if cat_weight_total > 0 else None
+        out_courses.append({"name": course.get("name"), "grade": course_pct, "weight": cw})
+        if course_pct is not None and cw > 0:
+            overall_total += course_pct * cw
+            overall_weight += cw
+    overall = (overall_total / overall_weight) if overall_weight > 0 else None
+    return {"courses": out_courses, "overall": overall}
+
+
+@app.route("/api/grademodel/feasibility", methods=["POST"])
+@limiter.limit("30 per minute")
+def grademodel_feasibility():
+    """Decide whether a target grade is mathematically reachable.
+
+    Body:
+      {
+        "courses": [...],            # full gradebook data (same shape as gradebook page)
+        "target": 92,                # desired course or overall percent
+        "course_name": "AP Calc BC", # optional — limit to one course
+        "max_score_pct": 100         # cap on per-assignment performance (e.g. 100% for perfect)
+      }
+    """
+    body = request.get_json(silent=True) or {}
+    courses = body.get("courses") or []
+    target = float(body.get("target") or 100)
+    course_name = body.get("course_name")
+    max_pct = float(body.get("max_score_pct") or 100)
+
+    sims = {}
+    for course in courses:
+        if course_name and course.get("name") != course_name:
+            continue
+        for cat in course.get("categories") or []:
+            for a in cat.get("assignments") or []:
+                if a.get("graded"):
+                    continue
+                key = str(a.get("id") or a.get("title") or "")
+                poss = float(a.get("points_possible") or 0)
+                sims[key] = {
+                    "points_earned": poss * (max_pct / 100.0),
+                    "points_possible": poss,
+                    "auto": True,
+                }
+    best = _gradebook_compute(courses, simulated=sims)
+    best_value = None
+    if course_name:
+        match = next((c for c in best["courses"] if c["name"] == course_name), None)
+        best_value = match["grade"] if match else None
+    else:
+        best_value = best["overall"]
+    reachable = best_value is not None and best_value + 1e-6 >= target
+    return flask.jsonify({
+        "status": "ok",
+        "reachable": bool(reachable),
+        "best_possible": best_value,
+        "target": target,
+        "simulated_assignments": sims,
+    })
+
+
+@app.route("/api/grademodel/simulate", methods=["POST"])
+@limiter.limit("60 per minute")
+def grademodel_simulate():
+    """Apply user-supplied simulated scores to UPCOMING assignments only.
+
+    Body: {courses, simulated: {assignment_id_or_title: {points_earned, points_possible}}}
+    Existing graded assignments are never modified — the helper just ignores
+    sim entries for already-graded items.
+    """
+    body = request.get_json(silent=True) or {}
+    courses = body.get("courses") or []
+    simulated_in = body.get("simulated") or {}
+    safe_sim = {}
+    for course in courses:
+        for cat in course.get("categories") or []:
+            for a in cat.get("assignments") or []:
+                if a.get("graded"):
+                    continue
+                key = str(a.get("id") or a.get("title") or "")
+                if key in simulated_in:
+                    s = simulated_in[key]
+                    safe_sim[key] = {
+                        "points_earned": float(s.get("points_earned", 0) or 0),
+                        "points_possible": float(s.get("points_possible") or a.get("points_possible") or 0),
+                    }
+    result = _gradebook_compute(courses, simulated=safe_sim)
+    return flask.jsonify({"status": "ok", "result": result, "applied": safe_sim})
+
+
+# ── LESSON RECORDER ─────────────────────────────────────────
+LESSON_UPLOAD_FOLDER = os.path.join(app.root_path, "uploads", "lessons")
+os.makedirs(LESSON_UPLOAD_FOLDER, exist_ok=True)
+LESSON_ALLOWED_EXT = {".mp3", ".m4a", ".wav", ".ogg", ".mp4", ".webm", ".mov", ".mkv"}
+LESSON_AUDIO_EXT = {".mp3", ".m4a", ".wav", ".ogg"}
+
+
+def _summarize_lesson_async(lesson_id):
+    """Lightweight summary generator. Pulls transcript from the Lesson
+    row (we don't have Whisper wired up locally — the upload form lets
+    users paste a transcript; if absent the summary uses the title + tags
+    as a stub) and asks Groq for a clear, detailed summary.
+    """
+    lesson = Lesson.query.get(lesson_id)
+    if not lesson:
+        return
+    seed = (lesson.transcript or "").strip()
+    if not seed:
+        seed = f"Title: {lesson.title}\nCourse: {lesson.course or 'general'}\nTags: {', '.join(lesson.tag_list())}\nNo transcript was provided — produce a study-friendly placeholder summary describing what a lesson with this title and tags likely covers, and list 5 likely sub-topics."
+    try:
+        client = _groq()
+        resp = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {"role": "system", "content": "You write simple, clear, detailed study summaries for student-uploaded lesson recordings. Output plain markdown with sections: TL;DR (1 sentence), Key Points (bullets), Examples / Vocabulary (bullets), Suggested Practice (bullets)."},
+                {"role": "user", "content": seed[:14000]},
+            ],
+            temperature=0.4,
+            max_tokens=900,
+        )
+        summary = resp.choices[0].message.content.strip()
+        lesson.summary = summary
+        lesson.summary_status = "ready"
+    except Exception as e:
+        lesson.summary_status = "failed"
+        lesson.summary = f"Summary generation failed: {e}"
+    db.session.commit()
+
+
+@app.route("/lessons")
+def lessons_page():
+    if not is_logged_in():
+        return redirect(url_for("login"))
+    return render_template("lessons.html", active_page="lessons")
+
+
+@app.route("/api/lessons", methods=["GET"])
+def api_list_lessons():
+    rows = Lesson.query.filter(_owner_filter(Lesson)).order_by(Lesson.created_at.desc()).all()
+    return flask.jsonify({"lessons": [l.to_dict() for l in rows]})
+
+
+@app.route("/api/lessons", methods=["POST"])
+@limiter.limit("12 per minute")
+def api_upload_lesson():
+    upload = request.files.get("file")
+    title = (request.form.get("title") or "").strip()[:255]
+    course = (request.form.get("course") or "").strip()[:128]
+    tags_raw = (request.form.get("tags") or "").strip()
+    transcript = (request.form.get("transcript") or "").strip()
+    if not title:
+        return flask.jsonify({"status": "error", "message": "title required"}), 400
+    if not upload or not upload.filename:
+        return flask.jsonify({"status": "error", "message": "file required"}), 400
+    ext = os.path.splitext(upload.filename)[1].lower()
+    if ext not in LESSON_ALLOWED_EXT:
+        return flask.jsonify({"status": "error", "message": f"unsupported type {ext}"}), 400
+    safe_root = secure_filename(os.path.splitext(upload.filename)[0])[:120] or "lesson"
+    stored = f"{uuid.uuid4().hex}_{safe_root}{ext}"
+    path = os.path.join(LESSON_UPLOAD_FOLDER, stored)
+    upload.save(path)
+    tags = [t.strip() for t in tags_raw.split(",") if t.strip()][:12]
+    lesson = Lesson(
+        user_id=current_user.id if current_user.is_authenticated else None,
+        guest_session_id=None if current_user.is_authenticated else get_guest_session_id(),
+        title=title,
+        course=course,
+        tags=json.dumps(tags),
+        media_kind="audio" if ext in LESSON_AUDIO_EXT else "video",
+        original_filename=upload.filename[:255],
+        stored_filename=stored,
+        mime_type=upload.mimetype or "",
+        transcript=transcript[:60000],
+        summary_status="pending",
+    )
+    db.session.add(lesson)
+    db.session.commit()
+    # Kick the summary in-process (best effort; runs synchronously but
+    # cheaply because the prompt is small). For long videos a background
+    # worker would be the next upgrade.
+    _summarize_lesson_async(lesson.id)
+    return flask.jsonify({"status": "ok", "lesson": lesson.to_dict()})
+
+
+@app.route("/lessons/<int:lesson_id>/stream")
+def lesson_stream(lesson_id):
+    lesson = Lesson.query.filter(Lesson.id == lesson_id, _owner_filter(Lesson)).first()
+    if not lesson or not lesson.stored_filename:
+        return flask.jsonify({"status": "error", "message": "not found"}), 404
+    return send_from_directory(LESSON_UPLOAD_FOLDER, lesson.stored_filename, as_attachment=False)
+
+
+@app.route("/api/lessons/<int:lesson_id>", methods=["DELETE"])
+def api_delete_lesson(lesson_id):
+    lesson = Lesson.query.filter(Lesson.id == lesson_id, _owner_filter(Lesson)).first()
+    if not lesson:
+        return flask.jsonify({"status": "error"}), 404
+    try:
+        if lesson.stored_filename:
+            os.remove(os.path.join(LESSON_UPLOAD_FOLDER, lesson.stored_filename))
+    except Exception:
+        pass
+    db.session.delete(lesson)
+    db.session.commit()
+    return flask.jsonify({"status": "ok"})
+
+
+@app.route("/api/lessons/<int:lesson_id>/resummarize", methods=["POST"])
+@limiter.limit("6 per minute")
+def api_resummarize_lesson(lesson_id):
+    lesson = Lesson.query.filter(Lesson.id == lesson_id, _owner_filter(Lesson)).first()
+    if not lesson:
+        return flask.jsonify({"status": "error"}), 404
+    body = request.get_json(silent=True) or {}
+    if body.get("transcript"):
+        lesson.transcript = str(body.get("transcript"))[:60000]
+        db.session.commit()
+    lesson.summary_status = "pending"
+    db.session.commit()
+    _summarize_lesson_async(lesson.id)
+    return flask.jsonify({"status": "ok", "lesson": Lesson.query.get(lesson_id).to_dict()})
+
+
+# ── STUDY GROUPS ────────────────────────────────────────────
+def _group_match_score(group, prefs):
+    """Tiny matcher: + for matching topic substring, level, style."""
+    score = 0
+    topic = (prefs.get("topic") or "").lower().strip()
+    if topic and topic in (group.topic or "").lower():
+        score += 3
+    if prefs.get("level") and (prefs["level"] == group.level or group.level == "any"):
+        score += 1
+    if prefs.get("style") and (prefs["style"] == group.style or group.style == "any"):
+        score += 1
+    return score
+
+
+@app.route("/groups")
+def groups_page():
+    if not is_logged_in():
+        return redirect(url_for("login"))
+    return render_template("groups.html", active_page="groups")
+
+
+@app.route("/api/groups", methods=["GET"])
+def api_list_groups():
+    """List public groups + groups the user belongs to."""
+    public_q = StudyGroup.query.filter_by(visibility="public").order_by(StudyGroup.created_at.desc()).limit(50).all()
+    mine_ids = set()
+    if current_user.is_authenticated:
+        mine_ids = {m.group_id for m in StudyGroupMember.query.filter_by(user_id=current_user.id).all()}
+
+    def _ser(g):
+        return {
+            "id": g.id,
+            "name": g.name,
+            "topic": g.topic,
+            "level": g.level,
+            "style": g.style,
+            "visibility": g.visibility,
+            "description": g.description or "",
+            "meeting_url": g.meeting_url or "",
+            "next_meeting_at": g.next_meeting_at.isoformat() if g.next_meeting_at else None,
+            "next_meeting_topic": g.next_meeting_topic or "",
+            "member_count": StudyGroupMember.query.filter_by(group_id=g.id).count(),
+            "is_member": g.id in mine_ids,
+        }
+
+    prefs = {
+        "topic": request.args.get("topic", ""),
+        "level": request.args.get("level", ""),
+        "style": request.args.get("style", ""),
+    }
+    scored = [(_group_match_score(g, prefs), g) for g in public_q]
+    scored.sort(key=lambda x: (-x[0], -(x[1].id or 0)))
+    return flask.jsonify({
+        "groups": [_ser(g) for _, g in scored],
+        "my_group_ids": list(mine_ids),
+    })
+
+
+@app.route("/api/groups", methods=["POST"])
+def api_create_group():
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error", "message": "login required"}), 401
+    body = request.get_json(silent=True) or {}
+    name = (body.get("name") or "").strip()[:120]
+    if not name:
+        return flask.jsonify({"status": "error", "message": "name required"}), 400
+    room_slug = secrets_module.token_urlsafe(8).replace("-", "").replace("_", "")
+    group = StudyGroup(
+        name=name,
+        topic=(body.get("topic") or "").strip()[:120],
+        level=(body.get("level") or "any")[:32],
+        style=(body.get("style") or "any")[:32],
+        visibility=(body.get("visibility") or "public")[:16],
+        description=(body.get("description") or "").strip()[:2000],
+        owner_id=current_user.id,
+        meeting_url=f"https://meet.jit.si/intelliplan-{room_slug}",
+    )
+    db.session.add(group)
+    db.session.commit()
+    db.session.add(StudyGroupMember(group_id=group.id, user_id=current_user.id, role="owner"))
+    db.session.commit()
+    # Async-ish AI plan suggestion (synchronous + cheap).
+    try:
+        prompt = (
+            f"You are an academic coach. Suggest a 4-week study plan for a small group studying \"{group.topic or group.name}\".\n"
+            f"Level: {group.level}. Study style: {group.style}.\n"
+            "Output plain markdown: Week 1 / Week 2 / Week 3 / Week 4 with 3 bullets each."
+        )
+        resp = _groq().chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5, max_tokens=700,
+        )
+        group.suggested_plan = resp.choices[0].message.content.strip()
+        db.session.commit()
+    except Exception:
+        pass
+    return flask.jsonify({"status": "ok", "id": group.id})
+
+
+@app.route("/api/groups/<int:group_id>", methods=["GET"])
+def api_get_group(group_id):
+    g = StudyGroup.query.get(group_id)
+    if not g:
+        return flask.jsonify({"status": "error"}), 404
+    members = []
+    for m in StudyGroupMember.query.filter_by(group_id=group_id).all():
+        u = User.query.get(m.user_id)
+        members.append({
+            "user_id": m.user_id,
+            "role": m.role,
+            "name": (u.name if u else None) or (u.email if u else "Member"),
+        })
+    is_member = current_user.is_authenticated and any(m["user_id"] == current_user.id for m in members)
+    return flask.jsonify({
+        "id": g.id,
+        "name": g.name,
+        "topic": g.topic,
+        "level": g.level,
+        "style": g.style,
+        "description": g.description or "",
+        "shared_notes": g.shared_notes or "",
+        "meeting_url": g.meeting_url or "",
+        "next_meeting_at": g.next_meeting_at.isoformat() if g.next_meeting_at else None,
+        "next_meeting_topic": g.next_meeting_topic or "",
+        "suggested_plan": g.suggested_plan or "",
+        "members": members,
+        "is_member": is_member,
+        "is_owner": current_user.is_authenticated and g.owner_id == current_user.id,
+    })
+
+
+@app.route("/api/groups/<int:group_id>/join", methods=["POST"])
+def api_join_group(group_id):
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error", "message": "login required"}), 401
+    g = StudyGroup.query.get(group_id)
+    if not g:
+        return flask.jsonify({"status": "error"}), 404
+    existing = StudyGroupMember.query.filter_by(group_id=group_id, user_id=current_user.id).first()
+    if not existing:
+        db.session.add(StudyGroupMember(group_id=group_id, user_id=current_user.id, role="member"))
+        db.session.commit()
+    return flask.jsonify({"status": "ok"})
+
+
+@app.route("/api/groups/<int:group_id>/leave", methods=["POST"])
+def api_leave_group(group_id):
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error"}), 401
+    StudyGroupMember.query.filter_by(group_id=group_id, user_id=current_user.id).delete()
+    db.session.commit()
+    return flask.jsonify({"status": "ok"})
+
+
+@app.route("/api/groups/<int:group_id>/notes", methods=["POST"])
+def api_save_group_notes(group_id):
+    g = StudyGroup.query.get(group_id)
+    if not g:
+        return flask.jsonify({"status": "error"}), 404
+    if not current_user.is_authenticated or not StudyGroupMember.query.filter_by(group_id=group_id, user_id=current_user.id).first():
+        return flask.jsonify({"status": "error", "message": "not a member"}), 403
+    body = request.get_json(silent=True) or {}
+    g.shared_notes = (body.get("notes") or "")[:60000]
+    db.session.commit()
+    return flask.jsonify({"status": "ok"})
+
+
+@app.route("/api/groups/<int:group_id>/meeting", methods=["POST"])
+def api_set_group_meeting(group_id):
+    g = StudyGroup.query.get(group_id)
+    if not g:
+        return flask.jsonify({"status": "error"}), 404
+    if not current_user.is_authenticated or not StudyGroupMember.query.filter_by(group_id=group_id, user_id=current_user.id).first():
+        return flask.jsonify({"status": "error"}), 403
+    body = request.get_json(silent=True) or {}
+    when = (body.get("when") or "").strip()
+    topic = (body.get("topic") or "").strip()[:255]
+    try:
+        g.next_meeting_at = datetime.fromisoformat(when) if when else None
+    except Exception:
+        g.next_meeting_at = None
+    g.next_meeting_topic = topic
+    db.session.commit()
+    return flask.jsonify({"status": "ok"})
+
+
+# ── WRITING IMPROVEMENT ASSISTANT ───────────────────────────
+@app.route("/writing")
+def writing_page():
+    return render_template("writing.html", active_page="writing")
+
+
+@app.route("/api/writing/analyze", methods=["POST"])
+@limiter.limit("20 per minute")
+def api_writing_analyze():
+    body = request.get_json(silent=True) or {}
+    text = (body.get("text") or "").strip()
+    tone = (body.get("tone") or "neutral")[:32]
+    purpose = (body.get("purpose") or "essay")[:32]
+    if not text:
+        return flask.jsonify({"status": "error", "message": "text required"}), 400
+    if len(text) > 12000:
+        text = text[:12000]
+    system = (
+        "You are an expert writing coach. Review the user's writing and "
+        "respond with STRICT JSON only (no preamble). Schema:\n"
+        "{\n"
+        "  \"overall\": {\"score\": int 0-100, \"summary\": string},\n"
+        "  \"suggestions\": [{\"category\": one of [\"grammar\",\"clarity\",\"tone\",\"structure\",\"argument\"],\n"
+        "      \"excerpt\": string (≤120 chars from the original), \"suggestion\": string, \"why\": string}],\n"
+        "  \"revised\": string (a clean revised draft)\n"
+        "}\n"
+        "Return at most 8 suggestions, prioritised by impact. Be specific."
+    )
+    try:
+        resp = _groq().chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": f"Purpose: {purpose}\nTarget tone: {tone}\n\nText:\n{text}"},
+            ],
+            temperature=0.3,
+            max_tokens=1400,
+            response_format={"type": "json_object"},
+        )
+        raw = resp.choices[0].message.content.strip()
+        data = json.loads(raw)
+        return flask.jsonify({"status": "ok", **data})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+
+
+# ── MATH EXPLAINER ──────────────────────────────────────────
+@app.route("/math")
+def math_page():
+    return render_template("math.html", active_page="math")
+
+
+@app.route("/api/math/explain", methods=["POST"])
+@limiter.limit("30 per minute")
+def api_math_explain():
+    body = request.get_json(silent=True) or {}
+    problem = (body.get("problem") or "").strip()
+    level = (body.get("level") or "high_school")[:32]
+    if not problem:
+        return flask.jsonify({"status": "error", "message": "problem required"}), 400
+    system = (
+        "You are a patient, rigorous math tutor. Respond with STRICT JSON only (no preamble).\n"
+        "Schema:\n"
+        "{\n"
+        "  \"problem\": string,\n"
+        "  \"steps\": [{\"step\": int, \"explanation\": string, \"math\": string}],\n"
+        "  \"answer\": string,\n"
+        "  \"notes\": string (common pitfalls, intuition)\n"
+        "}\n"
+        f"Adjust depth for level={level}. Keep each step short and self-contained. Use plain text for math (e.g. x^2 not LaTeX)."
+    )
+    try:
+        resp = _groq().chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": problem[:8000]},
+            ],
+            temperature=0.2,
+            max_tokens=1400,
+            response_format={"type": "json_object"},
+        )
+        raw = resp.choices[0].message.content.strip()
+        data = json.loads(raw)
+        return flask.jsonify({"status": "ok", **data})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/math/similar", methods=["POST"])
+@limiter.limit("30 per minute")
+def api_math_similar():
+    body = request.get_json(silent=True) or {}
+    problem = (body.get("problem") or "").strip()
+    if not problem:
+        return flask.jsonify({"status": "error", "message": "problem required"}), 400
+    system = (
+        "Generate ONE similar practice problem at the same difficulty. Respond with STRICT JSON only:\n"
+        "{\"problem\": string, \"answer\": string}"
+    )
+    try:
+        resp = _groq().chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": problem[:6000]},
+            ],
+            temperature=0.7,
+            max_tokens=600,
+            response_format={"type": "json_object"},
+        )
+        data = json.loads(resp.choices[0].message.content.strip())
+        return flask.jsonify({"status": "ok", **data})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+
+
+# ── TASK EXTRACTOR ──────────────────────────────────────────
+@app.route("/extractor")
+def extractor_page():
+    return render_template("extractor.html", active_page="extractor")
+
+
+@app.route("/api/tasks/extract", methods=["POST"])
+@limiter.limit("30 per minute")
+def api_task_extract():
+    body = request.get_json(silent=True) or {}
+    text = (body.get("text") or "").strip()
+    if not text:
+        return flask.jsonify({"status": "error", "message": "text required"}), 400
+    today_iso = datetime.utcnow().date().isoformat()
+    system = (
+        "Extract actionable tasks from user-supplied notes / messages / emails. Respond with STRICT JSON only:\n"
+        "{\n"
+        "  \"tasks\": [{\"title\": string, \"due_date\": null | YYYY-MM-DD, \"priority\": \"High\"|\"Medium\"|\"Low\", \"notes\": string}]\n"
+        "}\n"
+        f"Today is {today_iso}. Resolve relative dates (e.g. 'next Friday') to absolute YYYY-MM-DD where possible. "
+        "Use null for due_date when no date is implied. Use High for urgent or graded items, Low for nice-to-have."
+    )
+    try:
+        resp = _groq().chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": text[:12000]},
+            ],
+            temperature=0.2,
+            max_tokens=1200,
+            response_format={"type": "json_object"},
+        )
+        data = json.loads(resp.choices[0].message.content.strip())
+        tasks = data.get("tasks") or []
+        # Optionally persist as ManualTask when ?save=1
+        saved_ids = []
+        if request.args.get("save") == "1" and current_user.is_authenticated:
+            for t in tasks[:25]:
+                mt = ManualTask(
+                    user_id=current_user.id,
+                    title=(t.get("title") or "")[:255],
+                    due_date=t.get("due_date") or None,
+                    priority=(t.get("priority") or "Medium")[:16],
+                    course=(t.get("course") or "Personal")[:128],
+                    estimated_time=int(t.get("estimated_time") or 60),
+                    notes=(t.get("notes") or "")[:2000],
+                )
+                db.session.add(mt)
+                db.session.flush()
+                saved_ids.append(mt.id)
+            db.session.commit()
+        return flask.jsonify({"status": "ok", "tasks": tasks, "saved_ids": saved_ids})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app.errorhandler(429)
 def error_429(e):
