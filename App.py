@@ -1493,21 +1493,41 @@ def register():
             error = "Passwords do not match."
         elif len(password) < 8:
             error = "Password must be at least 8 characters."
-        elif User.query.filter_by(email=email).first():
-            error = "An account with that email already exists."
         else:
-            pw_hash = bcrypt.generate_password_hash(password).decode("utf-8")
-            user = User(email=email, password_hash=pw_hash)
-            db.session.add(user)
-            db.session.commit()
-            # Apply any pending referral bonus (sets referred_by_id and
-            # grants both accounts Pro days). Safe no-op if there's none.
+            # Same defensive lookup as login — re-run the migration if
+            # the SELECT trips on a missing column.
             try:
-                _grant_referral_bonus(user)
-            except Exception as _ref_e:
-                print(f"[referral] grant failed: {_ref_e}")
-            login_user(user, remember=True)
-            return redirect(url_for("onboarding"))
+                _existing = User.query.filter_by(email=email).first()
+            except Exception as _e:
+                print(f"[register] User lookup failed: {_e}")
+                try: db.session.rollback()
+                except Exception: pass
+                try:
+                    _run_boot_migration_once()
+                    _existing = User.query.filter_by(email=email).first()
+                except Exception:
+                    _existing = None
+            if _existing:
+                error = "An account with that email already exists."
+        if not error:
+            try:
+                pw_hash = bcrypt.generate_password_hash(password).decode("utf-8")
+                user = User(email=email, password_hash=pw_hash)
+                db.session.add(user)
+                db.session.commit()
+                # Apply any pending referral bonus (sets referred_by_id and
+                # grants both accounts Pro days). Safe no-op if there's none.
+                try:
+                    _grant_referral_bonus(user)
+                except Exception as _ref_e:
+                    print(f"[referral] grant failed: {_ref_e}")
+                login_user(user, remember=True)
+                return redirect(url_for("onboarding"))
+            except Exception as _e:
+                print(f"[register] user create failed: {_e}")
+                try: db.session.rollback()
+                except Exception: pass
+                error = "Could not create that account right now — please try again."
     return render_template("register.html", active_page="login", error=error)
 
 
@@ -1624,19 +1644,40 @@ def login_account():
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "").strip()
-        user = User.query.filter_by(email=email).first()
-        if user and user.password_hash and bcrypt.check_password_hash(user.password_hash, password):
-            login_user(user, remember=True)
-            # Auto-join any group whose invite link was clicked pre-login.
-            joined_gid = _apply_pending_group_join()
-            if joined_gid:
-                return redirect(url_for("groups_page") + f"?open={joined_gid}")
-            acct = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
-            if not acct:
-                return redirect(url_for("connect_account"))
-            return redirect(url_for("dashboard"))
-        else:
-            error = "Invalid email or password."
+        try:
+            user = User.query.filter_by(email=email).first()
+        except Exception as _e:
+            # If the SELECT itself blows up (e.g. a new column hasn't
+            # been migrated yet on production), retry the migration and
+            # try ONCE more before surfacing a friendly error.
+            print(f"[login] User lookup failed: {_e}")
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            try:
+                _run_boot_migration_once()
+                user = User.query.filter_by(email=email).first()
+            except Exception as _e2:
+                print(f"[login] retry also failed: {_e2}")
+                user = None
+                error = "Login is briefly unavailable. Please try again in a moment."
+        if not error:
+            if user and user.password_hash and bcrypt.check_password_hash(user.password_hash, password):
+                login_user(user, remember=True)
+                # Auto-join any group whose invite link was clicked pre-login.
+                joined_gid = _apply_pending_group_join()
+                if joined_gid:
+                    return redirect(url_for("groups_page") + f"?open={joined_gid}")
+                try:
+                    acct = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
+                except Exception:
+                    acct = None
+                if not acct:
+                    return redirect(url_for("connect_account"))
+                return redirect(url_for("dashboard"))
+            else:
+                error = "Invalid email or password."
     return render_template("login_account.html", active_page="login", error=error)
 
 @app.route("/connect", methods=["GET"])
@@ -5480,12 +5521,40 @@ def _migrate_user_columns():
 # because the new user.tier / pro_until columns didn't exist yet and
 # inject_pro's lookup blew up the whole Jinja render — including the
 # error page.
-try:
-    with app.app_context():
+_MIGRATION_DONE = False
+
+def _run_boot_migration_once():
+    """Idempotent migration helper — safe to call repeatedly."""
+    global _MIGRATION_DONE
+    if _MIGRATION_DONE:
+        return
+    try:
         db.create_all()
         _migrate_user_columns()
+        _MIGRATION_DONE = True
+    except Exception as _boot_e:
+        print(f"[boot] DB bootstrap failed: {_boot_e}")
+
+try:
+    with app.app_context():
+        _run_boot_migration_once()
 except Exception as _boot_e:
-    print(f"[boot] DB bootstrap failed: {_boot_e}")
+    print(f"[boot] App context unavailable at import: {_boot_e}")
+
+
+@app.before_request
+def _ensure_migration_ran():
+    """Belt-and-braces: if for any reason the import-time migration
+    didn't complete (e.g. the DB wasn't ready yet during gunicorn cold
+    start on Railway), retry it on the very first request. This is the
+    only way to guarantee the new user.tier / pro_until / referral_code
+    columns exist before any User SELECT hits them."""
+    if _MIGRATION_DONE:
+        return
+    try:
+        _run_boot_migration_once()
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":
