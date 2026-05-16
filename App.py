@@ -879,7 +879,21 @@ print([str(r) for r in app.url_map.iter_rules() if 'tutor' in str(r)])
 
 @login_manager.user_loader
 def load_user(user_id):
-    return db.session.get(User, int(user_id))
+    # Defensive: if the SELECT for User fails (e.g. a column from a new
+    # migration doesn't exist yet on a freshly-deployed DB), DO NOT
+    # propagate the exception. Flask-Login bubbles it up into every
+    # template render, and the error page itself extends base.html
+    # which calls is_logged_in() → load_user → the same exception, so
+    # users see only the raw "Server Error" fallback with no way out.
+    try:
+        return db.session.get(User, int(user_id))
+    except Exception as _e:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        print(f"[load_user] failed for {user_id}: {_e}")
+        return None
 
 @login_manager.request_loader
 def load_user_from_request(req):
@@ -1115,7 +1129,13 @@ def get_study_profile(user_id=None, guest_id=None):
 
 @app.context_processor
 def inject_auth():
-    return dict(logged_in=is_logged_in())
+    # Defensive: same reasoning as inject_pro. If load_user blows up
+    # (e.g. mid-migration DB schema), we still need every template
+    # render — including error.html — to succeed.
+    try:
+        return dict(logged_in=is_logged_in())
+    except Exception:
+        return dict(logged_in=False)
 
 # ── SCHEDULE LOGIC ────────────────────────────────────────────
 def infer_task_difficulty(points_possible, priority, due_date_str):
