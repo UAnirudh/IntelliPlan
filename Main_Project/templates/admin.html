@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .admin-grid { display:grid; gap:1.25rem; }
+  .admin-stat-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; }
+  .admin-stat {
+    background:var(--bg-card); border:1px solid var(--border); border-radius:14px;
+    padding:1rem 1.25rem; box-shadow:var(--shadow);
+  }
+  .admin-stat-num { font-family:var(--font-display); font-size:2rem; color:var(--text-primary); line-height:1; }
+  .admin-stat-label { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin-top:4px; }
+  .admin-section {
+    background:var(--bg-card); border:1px solid var(--border); border-radius:14px;
+    padding:1.25rem 1.4rem; box-shadow:var(--shadow);
+  }
+  .admin-flag-row {
+    display:flex; align-items:center; gap:14px;
+    padding:12px 0; border-bottom:1px solid var(--border);
+  }
+  .admin-flag-row:last-child { border-bottom:none; }
+  .admin-flag-meta { flex:1; min-width:0; }
+  .admin-flag-key  { font-family:'DM Mono', monospace; font-size:0.84rem; color:var(--text-primary); font-weight:700; }
+  .admin-flag-desc { font-size:0.78rem; color:var(--text-muted); margin-top:2px; }
+  .admin-banner {
+    background:linear-gradient(135deg, color-mix(in srgb, var(--high) 10%, var(--bg-card)), var(--bg-card));
+    border:1.5px solid color-mix(in srgb, var(--high) 30%, var(--border));
+    border-radius:14px; padding:1rem 1.2rem;
+    display:flex; gap:12px; align-items:center;
+  }
+  .admin-banner .dot {
+    width:10px; height:10px; border-radius:50%;
+    background:var(--high);
+    box-shadow:0 0 0 4px color-mix(in srgb, var(--high) 25%, transparent);
+    flex-shrink:0;
+  }
+  .admin-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:1rem; }
+  .admin-input {
+    width:100%; padding:9px 12px; border:1px solid var(--border-strong);
+    border-radius:10px; background:var(--bg); color:var(--text-primary);
+    font-family:var(--font-body); font-size:0.88rem;
+  }
+</style>
+
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
+  <div>
+    <h1 class="page-title">Admin</h1>
+    <p class="page-subtitle">Restricted area — feature kill switches, testing tools, and quick stats.</p>
+  </div>
+  <div style="font-family:var(--font-ui);font-size:0.78rem;color:var(--text-muted);font-weight:600;">
+    Signed in as <strong style="color:var(--text-primary);">{{ admin_email }}</strong>
+  </div>
+</div>
+
+<div class="admin-banner">
+  <span class="dot"></span>
+  <div>
+    <strong>Hidden surface.</strong>
+    <span style="color:var(--text-secondary);font-size:0.88rem;">Anyone other than an admin sees a 404 on this URL. Do not share it.</span>
+  </div>
+</div>
+
+<div class="admin-grid" style="margin-top:1.25rem;">
+  <div class="admin-stat-row">
+    <div class="admin-stat"><div class="admin-stat-num">{{ user_count }}</div><div class="admin-stat-label">Total users</div></div>
+    <div class="admin-stat"><div class="admin-stat-num">{{ pro_count }}</div><div class="admin-stat-label">Pro subscribers</div></div>
+    <div class="admin-stat"><div class="admin-stat-num">{{ flags|length }}</div><div class="admin-stat-label">Feature flags</div></div>
+  </div>
+
+  <div class="admin-section">
+    <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:0.75rem;">Feature flags</div>
+    <p style="font-size:0.84rem;color:var(--text-secondary);margin-bottom:1rem;">
+      Toggling a flag off hides the corresponding feature for everyone and returns a 503 from any related API. Useful for testing or pulling a broken feature offline without redeploying.
+    </p>
+    <div id="flagsWrap">
+      {% for f in flags %}
+      <div class="admin-flag-row" data-key="{{ f.key }}">
+        <div class="admin-flag-meta">
+          <div class="admin-flag-key">{{ f.key }}</div>
+          <div class="admin-flag-desc">{{ f.description or '—' }}</div>
+        </div>
+        <label class="toggle" title="Toggle {{ f.key }}">
+          <input type="checkbox" {% if f.enabled %}checked{% endif %} onchange="setFlag('{{ f.key }}', this.checked, this)">
+          <div class="toggle-track"></div>
+          <div class="toggle-knob"></div>
+        </label>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="admin-section">
+    <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:0.75rem;">Grant Pro tier</div>
+    <p style="font-size:0.84rem;color:var(--text-secondary);margin-bottom:0.75rem;">
+      Add Pro days to any account by email — useful for testing or comping early supporters.
+    </p>
+    <div style="display:grid;grid-template-columns:1fr 100px auto;gap:8px;align-items:center;max-width:560px;">
+      <input id="grantEmail" type="email" class="admin-input" placeholder="user@example.com">
+      <input id="grantDays" type="number" class="admin-input" value="30" min="1" max="3650">
+      <button onclick="grantPro()" class="btn-primary" style="padding:9px 16px;border:none;cursor:pointer;">Grant</button>
+    </div>
+    <div id="grantResult" style="margin-top:8px;font-size:0.82rem;color:var(--text-muted);"></div>
+  </div>
+
+  <div class="admin-section">
+    <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:0.75rem;">Diagnostics</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <a href="/health" target="_blank" class="btn-secondary" style="padding:9px 14px;text-decoration:none;font-size:0.84rem;">DB schema /health</a>
+      <a href="/api/v1/docs" target="_blank" class="btn-secondary" style="padding:9px 14px;text-decoration:none;font-size:0.84rem;">Public REST API</a>
+    </div>
+  </div>
+</div>
+
+<script>
+function setFlag(key, enabled, el) {
+  el.disabled = true;
+  fetch('/api/admin/flag', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ key, enabled }),
+  })
+    .then(r => r.json())
+    .then(d => {
+      el.disabled = false;
+      if (d.status !== 'ok') {
+        el.checked = !enabled;
+        alert(d.message || 'Failed to update flag');
+      }
+    })
+    .catch(() => { el.disabled = false; el.checked = !enabled; alert('Network error'); });
+}
+
+function grantPro() {
+  const email = document.getElementById('grantEmail').value.trim();
+  const days = parseInt(document.getElementById('grantDays').value, 10) || 30;
+  const out = document.getElementById('grantResult');
+  if (!email) { out.textContent = 'Enter an email first.'; return; }
+  out.textContent = 'Granting...';
+  fetch('/api/admin/grant-pro', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ email, days }),
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'ok') {
+        out.style.color = 'var(--low)';
+        out.textContent = `✓ ${d.user} → Pro until ${new Date(d.pro_until).toLocaleDateString()}`;
+      } else {
+        out.style.color = 'var(--high)';
+        out.textContent = d.message || 'Failed';
+      }
+    });
+}
+</script>
+{% endblock %}

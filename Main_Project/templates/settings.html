@@ -702,9 +702,33 @@ function refreshPro() {
   });
 }
 function upgradePro() {
-  if (!confirm('Start your 30-day Pro trial?')) return;
-  fetch('/api/pro/upgrade', { method:'POST' })
-    .then(r => r.json()).then(d => { if (d.status === 'ok') refreshPro(); else alert(d.message||'Upgrade failed'); });
+  // Try Stripe Checkout first. If Stripe isn't configured server-side
+  // the endpoint falls back to the 30-day trial grant automatically.
+  const btn = event && event.target;
+  if (btn) { btn.disabled = true; btn.textContent = 'Redirecting...'; }
+  fetch('/api/pro/checkout', { method:'POST' })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'ok' && d.url) {
+        window.location.href = d.url;
+      } else if (d.status === 'ok') {
+        refreshPro();
+        if (btn) { btn.disabled = false; btn.textContent = 'Upgrade to Pro · $4.99/mo'; }
+      } else {
+        alert(d.message || 'Upgrade failed');
+        if (btn) { btn.disabled = false; btn.textContent = 'Upgrade to Pro · $4.99/mo'; }
+      }
+    })
+    .catch(() => {
+      alert('Network error.');
+      if (btn) { btn.disabled = false; btn.textContent = 'Upgrade to Pro · $4.99/mo'; }
+    });
+}
+
+// Stripe Checkout returns to /settings?pro=success — auto-refresh the
+// Pro card when we see that query param.
+if (new URLSearchParams(location.search).get('pro') === 'success') {
+  setTimeout(refreshPro, 800);
 }
 function cancelPro() {
   if (!confirm('Cancel Pro? You\'ll keep features until the end of your current period.')) return;

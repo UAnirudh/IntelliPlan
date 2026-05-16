@@ -472,6 +472,35 @@ class StudyGroupMember(db.Model):
     role = db.Column(db.String(16), default="member")  # owner | member
     joined_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+
+class FeatureFlag(db.Model):
+    """Admin-controlled kill switches. Default behaviour for an unknown
+    flag is "enabled" — so apps still work if a flag row is missing or
+    the table fails to load. Set `enabled=False` to disable a feature."""
+    __tablename__ = "feature_flags"
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(64), unique=True, nullable=False)
+    enabled = db.Column(db.Boolean, default=True)
+    description = db.Column(db.String(255), default="")
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class LiveSession(db.Model):
+    """A real-time study room — Jitsi-backed. Anyone with the link can
+    join. Owner can toggle audio/video defaults and pin materials."""
+    __tablename__ = "live_sessions"
+    id = db.Column(db.Integer, primary_key=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    title = db.Column(db.String(160), nullable=False, default="Study session")
+    topic = db.Column(db.String(160), default="")
+    room_slug = db.Column(db.String(48), unique=True, nullable=False)
+    audio_only = db.Column(db.Boolean, default=False)
+    video_enabled = db.Column(db.Boolean, default=True)
+    audio_enabled = db.Column(db.Boolean, default=True)
+    materials = db.Column(db.Text, default="")
+    is_open = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 class StudySession(db.Model):
     __tablename__ = "study_sessions"
     id = db.Column(db.Integer, primary_key=True)
@@ -509,6 +538,7 @@ class StudyPoints(db.Model):
     shop_purchases = db.Column(db.Text, default="[]")
     longest_streak = db.Column(db.Integer, default=0)
     total_sessions = db.Column(db.Integer, default=0)
+    last_daily_claim = db.Column(db.String(16), default="")   # YYYY-MM-DD of last daily-chest claim
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class StudyMastery(db.Model):
@@ -4545,6 +4575,148 @@ def error_403(e):
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
 
+# ── ADMIN / FEATURE FLAGS ───────────────────────────────────────────
+# Hidden admin surface for the project owner. Email-gated so even if
+# someone discovers the URL, only the configured account can use it.
+ADMIN_EMAILS = {
+    e.strip().lower()
+    for e in (os.getenv("ADMIN_EMAILS") or "uanirudh0811@gmail.com").split(",")
+    if e.strip()
+}
+ADMIN_PATH = os.getenv("ADMIN_PATH", "/admin-x9k2p7")  # not linked anywhere
+
+
+def is_admin(user):
+    try:
+        return bool(user and getattr(user, "is_authenticated", False)
+                    and (user.email or "").lower() in ADMIN_EMAILS)
+    except Exception:
+        return False
+
+
+def require_admin(fn):
+    from functools import wraps as _wraps
+    @_wraps(fn)
+    def w(*a, **kw):
+        if not is_admin(current_user):
+            # 404 to hide existence from non-admins. Admin gets a fresh
+            # /login redirect if simply not yet signed in.
+            if not current_user.is_authenticated:
+                return redirect(url_for("login"))
+            return render_template("error.html", error_code=404,
+                                   error_id="ADMIN-403"), 404
+        return fn(*a, **kw)
+    return w
+
+
+# Default flag descriptions seeded into the DB on first admin visit so
+# the admin page is useful out-of-the-box. Adding new keys here keeps
+# them in sync.
+DEFAULT_FLAGS = {
+    "lessons":       "Lesson Library (uploads + Whisper summary)",
+    "groups":        "Study Groups",
+    "live_sessions": "Live study sessions (Jitsi)",
+    "writing":       "Writing Assistant",
+    "math":          "Math Explainer",
+    "extractor":     "Task Extractor",
+    "stripe":        "Stripe Checkout for Pro upgrades",
+    "referral":      "Referral program",
+    "onboarding":    "First-run onboarding modal",
+    "ai_chat":       "Plani chat assistant",
+}
+
+
+def feature_enabled(key):
+    """Cheap per-request check. Default True so an empty / missing
+    flag row never disables a feature accidentally."""
+    try:
+        row = FeatureFlag.query.filter_by(key=key).first()
+        return True if row is None else bool(row.enabled)
+    except Exception:
+        return True
+
+
+@app.context_processor
+def inject_admin():
+    try:
+        return {
+            "is_admin": is_admin(current_user) if current_user.is_authenticated else False,
+            "feature_enabled": feature_enabled,
+            "admin_path": ADMIN_PATH,
+        }
+    except Exception:
+        return {"is_admin": False, "feature_enabled": lambda k: True, "admin_path": ADMIN_PATH}
+
+
+def _seed_default_flags():
+    try:
+        for k, desc in DEFAULT_FLAGS.items():
+            row = FeatureFlag.query.filter_by(key=k).first()
+            if not row:
+                db.session.add(FeatureFlag(key=k, enabled=True, description=desc))
+        db.session.commit()
+    except Exception:
+        try: db.session.rollback()
+        except Exception: pass
+
+
+@app.route(ADMIN_PATH, methods=["GET"])
+@require_admin
+def admin_panel():
+    _seed_default_flags()
+    flags = FeatureFlag.query.order_by(FeatureFlag.key.asc()).all()
+    user_count = 0
+    pro_count = 0
+    try:
+        user_count = User.query.count()
+        pro_count = User.query.filter_by(tier="pro").count()
+    except Exception:
+        pass
+    return render_template(
+        "admin.html",
+        active_page="admin",
+        flags=flags,
+        user_count=user_count,
+        pro_count=pro_count,
+        admin_email=(current_user.email if current_user.is_authenticated else ""),
+    )
+
+
+@app.route("/api/admin/flag", methods=["POST"])
+@require_admin
+def admin_set_flag():
+    body = request.get_json(silent=True) or {}
+    key = (body.get("key") or "").strip()[:64]
+    enabled = bool(body.get("enabled"))
+    if not key:
+        return flask.jsonify({"status": "error", "message": "key required"}), 400
+    row = FeatureFlag.query.filter_by(key=key).first()
+    if not row:
+        row = FeatureFlag(key=key, enabled=enabled, description=DEFAULT_FLAGS.get(key, ""))
+        db.session.add(row)
+    else:
+        row.enabled = enabled
+    db.session.commit()
+    return flask.jsonify({"status": "ok", "key": key, "enabled": enabled})
+
+
+@app.route("/api/admin/grant-pro", methods=["POST"])
+@require_admin
+def admin_grant_pro():
+    """Admin testing helper — grant N days of Pro to any user by email."""
+    body = request.get_json(silent=True) or {}
+    email = (body.get("email") or "").strip().lower()
+    days = int(body.get("days") or 30)
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return flask.jsonify({"status": "error", "message": "user not found"}), 404
+    base = user.pro_until if (user.pro_until and user.pro_until > datetime.utcnow()) else datetime.utcnow()
+    user.pro_until = base + timedelta(days=days)
+    user.tier = "pro"
+    db.session.commit()
+    return flask.jsonify({"status": "ok", "user": user.email, "pro_until": user.pro_until.isoformat()})
+
+
 # ── REFERRAL + PRO TIER ─────────────────────────────────────────────
 PRO_TRIAL_DAYS = 30
 PRO_REFERRAL_BONUS_DAYS = 14
@@ -4672,6 +4844,235 @@ def api_pro_cancel():
         current_user.tier = "free"
         db.session.commit()
     return flask.jsonify({"status": "ok"})
+
+
+# ── STRIPE CHECKOUT ────────────────────────────────────────────────
+# Live billing path: /api/pro/checkout creates a Stripe Checkout session
+# and returns the redirect URL. After payment, Stripe POSTs to
+# /api/stripe/webhook and we flip the user to Pro.
+#
+# Required env vars on the deployment:
+#   STRIPE_SECRET_KEY        (sk_live_… or sk_test_…)
+#   STRIPE_PRICE_ID          (price_… of the Pro recurring product)
+#   STRIPE_WEBHOOK_SECRET    (whsec_… from the Stripe dashboard)
+def _stripe():
+    if not feature_enabled("stripe"):
+        return None
+    try:
+        import stripe as _stripe_lib
+    except ImportError:
+        print("[stripe] stripe library not installed — `pip install stripe`")
+        return None
+    sk = os.getenv("STRIPE_SECRET_KEY")
+    if not sk:
+        return None
+    _stripe_lib.api_key = sk
+    return _stripe_lib
+
+
+@app.route("/api/pro/checkout", methods=["POST"])
+def api_pro_checkout():
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error", "message": "login required"}), 401
+    stripe = _stripe()
+    if not stripe:
+        # Graceful fallback: dev / unconfigured deploys still get a trial.
+        return api_pro_upgrade()
+    price_id = os.getenv("STRIPE_PRICE_ID")
+    if not price_id:
+        return flask.jsonify({"status": "error", "message": "Stripe not configured (STRIPE_PRICE_ID missing)"}), 500
+    base = APP_BASE_URL.rstrip("/") if APP_BASE_URL else (request.url_root.rstrip("/"))
+    try:
+        sess = stripe.checkout.Session.create(
+            mode="subscription",
+            line_items=[{"price": price_id, "quantity": 1}],
+            customer_email=current_user.email,
+            client_reference_id=str(current_user.id),
+            metadata={"user_id": str(current_user.id), "email": current_user.email},
+            success_url=base + "/settings?pro=success",
+            cancel_url=base + "/settings?pro=canceled",
+            allow_promotion_codes=True,
+        )
+    except Exception as e:
+        print(f"[stripe] checkout create failed: {e}")
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+    return flask.jsonify({"status": "ok", "url": sess.url})
+
+
+@app.route("/api/stripe/webhook", methods=["POST"])
+def stripe_webhook():
+    """Stripe → IntelliPlan webhook. Promotes a user to Pro on
+    `checkout.session.completed` and downgrades on subscription
+    cancellation. Webhook signature is verified with STRIPE_WEBHOOK_SECRET."""
+    stripe = _stripe()
+    if not stripe:
+        return ("stripe disabled", 200)
+    payload = request.get_data(as_text=False)
+    sig = request.headers.get("Stripe-Signature", "")
+    secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+    try:
+        if secret:
+            event = stripe.Webhook.construct_event(payload, sig, secret)
+        else:
+            event = json.loads(payload.decode("utf-8"))
+    except Exception as e:
+        print(f"[stripe webhook] bad payload/signature: {e}")
+        return ("invalid", 400)
+    etype = event.get("type") if isinstance(event, dict) else event["type"]
+    data = (event.get("data") if isinstance(event, dict) else event["data"]).get("object", {})
+    try:
+        if etype == "checkout.session.completed":
+            uid = data.get("client_reference_id") or (data.get("metadata") or {}).get("user_id")
+            email = data.get("customer_email") or (data.get("metadata") or {}).get("email")
+            user = (User.query.get(int(uid)) if uid and str(uid).isdigit() else None) \
+                or (User.query.filter_by(email=(email or "").lower()).first() if email else None)
+            if user:
+                base_until = user.pro_until if (user.pro_until and user.pro_until > datetime.utcnow()) else datetime.utcnow()
+                user.pro_until = base_until + timedelta(days=31)
+                user.tier = "pro"
+                db.session.commit()
+                print(f"[stripe webhook] {user.email} → pro until {user.pro_until}")
+        elif etype in ("customer.subscription.deleted", "invoice.payment_failed"):
+            email = (data.get("customer_email") or "").lower()
+            if email:
+                user = User.query.filter_by(email=email).first()
+                if user:
+                    # Leave them with whatever pro_until they already had — they
+                    # get the period they paid for. After expiry is_pro() flips
+                    # them to free automatically.
+                    print(f"[stripe webhook] subscription ended for {user.email}")
+    except Exception as e:
+        print(f"[stripe webhook] handler failure: {e}")
+        try: db.session.rollback()
+        except Exception: pass
+    return ("ok", 200)
+
+
+# ── DAILY CHECK-IN CHEST (Duolingo-style) ─────────────────────────
+@app.route("/api/streak/daily-claim", methods=["POST"])
+def api_daily_claim():
+    """One-shot daily Sparks claim. Returns the reward + whether it was
+    already claimed today. Front-end uses this for the chest animation
+    on the dashboard."""
+    if not is_logged_in():
+        return flask.jsonify({"status": "error"}), 401
+    try:
+        p = get_study_profile(
+            user_id=current_user.id if current_user.is_authenticated else None,
+            guest_id=None if current_user.is_authenticated else get_guest_session_id(),
+        )
+        today = datetime.utcnow().date().isoformat()
+        last_claim = (p.last_daily_claim or "") if hasattr(p, "last_daily_claim") else ""
+        # last_daily_claim might not exist yet — try/except handles that.
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+    already = (last_claim == today)
+    if already:
+        return flask.jsonify({"status": "ok", "claimed": False, "reward": 0,
+                              "message": "Already claimed today. Come back tomorrow!"})
+    # Reward scales with streak length to reward consistency.
+    streak = int(getattr(p, "streak_count", 0) or 0)
+    reward = 10 + min(40, streak * 2)
+    try:
+        p.spark_balance = int(getattr(p, "spark_balance", 0) or 0) + reward
+        if hasattr(p, "last_daily_claim"):
+            p.last_daily_claim = today
+        db.session.commit()
+    except Exception:
+        try: db.session.rollback()
+        except Exception: pass
+    return flask.jsonify({"status": "ok", "claimed": True, "reward": reward,
+                          "spark_balance": getattr(p, "spark_balance", 0)})
+
+
+# ── LIVE STUDY SESSIONS (audio/video + materials) ─────────────────
+def _live_session_to_dict(s):
+    return {
+        "id": s.id,
+        "title": s.title,
+        "topic": s.topic or "",
+        "room_url": f"https://meet.jit.si/intelliplan-live-{s.room_slug}",
+        "room_slug": s.room_slug,
+        "audio_only": bool(s.audio_only),
+        "video_enabled": bool(s.video_enabled),
+        "audio_enabled": bool(s.audio_enabled),
+        "materials": s.materials or "",
+        "is_open": bool(s.is_open),
+        "owner_id": s.owner_id,
+        "created_at": s.created_at.isoformat() if s.created_at else None,
+        "is_owner": current_user.is_authenticated and s.owner_id == current_user.id,
+        "invite_url": (APP_BASE_URL.rstrip("/") if APP_BASE_URL else "") + f"/live/{s.id}",
+    }
+
+
+@app.route("/live/<int:session_id>")
+def live_session_page(session_id):
+    """Public-by-link landing for a live session. Anyone with the link
+    can join. Used for sharing invites among IntelliPlan accounts."""
+    if not feature_enabled("live_sessions"):
+        return render_template("error.html", error_code=404, error_id="LIVE-DISABLED"), 404
+    s = LiveSession.query.get(session_id)
+    if not s:
+        return render_template("error.html", error_code=404, error_id="LIVE-NOT-FOUND",
+                               message="That study room no longer exists."), 404
+    return render_template("live_session.html", active_page="study", session=_live_session_to_dict(s))
+
+
+@app.route("/api/live", methods=["POST"])
+def api_create_live_session():
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error", "message": "login required"}), 401
+    if not feature_enabled("live_sessions"):
+        return flask.jsonify({"status": "error", "message": "feature disabled"}), 503
+    body = request.get_json(silent=True) or {}
+    title = (body.get("title") or "Study session").strip()[:160]
+    topic = (body.get("topic") or "").strip()[:160]
+    audio_only = bool(body.get("audio_only"))
+    slug = secrets_module.token_urlsafe(8).replace("-", "").replace("_", "")[:12]
+    s = LiveSession(
+        owner_id=current_user.id, title=title, topic=topic,
+        audio_only=audio_only, video_enabled=not audio_only, audio_enabled=True,
+        room_slug=slug, materials=(body.get("materials") or "")[:8000],
+    )
+    db.session.add(s); db.session.commit()
+    return flask.jsonify({"status": "ok", "session": _live_session_to_dict(s)})
+
+
+@app.route("/api/live/<int:session_id>", methods=["GET"])
+def api_get_live_session(session_id):
+    s = LiveSession.query.get(session_id)
+    if not s:
+        return flask.jsonify({"status": "error"}), 404
+    return flask.jsonify({"status": "ok", "session": _live_session_to_dict(s)})
+
+
+@app.route("/api/live/<int:session_id>", methods=["PATCH"])
+def api_update_live_session(session_id):
+    s = LiveSession.query.get(session_id)
+    if not s:
+        return flask.jsonify({"status": "error"}), 404
+    if not current_user.is_authenticated or s.owner_id != current_user.id:
+        return flask.jsonify({"status": "error", "message": "not the owner"}), 403
+    body = request.get_json(silent=True) or {}
+    if "materials" in body:        s.materials = str(body["materials"])[:8000]
+    if "title" in body:            s.title = str(body["title"]).strip()[:160] or s.title
+    if "topic" in body:            s.topic = str(body["topic"]).strip()[:160]
+    if "audio_only" in body:       s.audio_only = bool(body["audio_only"])
+    if "video_enabled" in body:    s.video_enabled = bool(body["video_enabled"])
+    if "audio_enabled" in body:    s.audio_enabled = bool(body["audio_enabled"])
+    if "is_open" in body:          s.is_open = bool(body["is_open"])
+    db.session.commit()
+    return flask.jsonify({"status": "ok", "session": _live_session_to_dict(s)})
+
+
+@app.route("/api/live", methods=["GET"])
+def api_list_live_sessions():
+    """Owner's live rooms (so they can rejoin)."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"sessions": []})
+    rows = LiveSession.query.filter_by(owner_id=current_user.id, is_open=True) \
+        .order_by(LiveSession.created_at.desc()).limit(20).all()
+    return flask.jsonify({"sessions": [_live_session_to_dict(s) for s in rows]})
 
 
 def _grant_referral_bonus(new_user):
@@ -4932,6 +5333,9 @@ def _summarize_lesson_async(lesson_id):
 def lessons_page():
     if not is_logged_in():
         return redirect(url_for("login"))
+    if not feature_enabled("lessons"):
+        return render_template("error.html", error_code=503, error_id="LESSONS-DISABLED",
+                               message="Lesson Library is temporarily disabled."), 503
     return render_template("lessons.html", active_page="lessons")
 
 
@@ -5053,6 +5457,9 @@ def _group_match_score(group, prefs):
 def groups_page():
     if not is_logged_in():
         return redirect(url_for("login"))
+    if not feature_enabled("groups"):
+        return render_template("error.html", error_code=503, error_id="GROUPS-DISABLED",
+                               message="Study Groups is temporarily disabled."), 503
     return render_template("groups.html", active_page="groups")
 
 
@@ -5258,6 +5665,9 @@ def api_set_group_meeting(group_id):
 # ── WRITING IMPROVEMENT ASSISTANT ───────────────────────────
 @app.route("/writing")
 def writing_page():
+    if not feature_enabled("writing"):
+        return render_template("error.html", error_code=503, error_id="WRITING-DISABLED",
+                               message="Writing Assistant is temporarily disabled."), 503
     return render_template("writing.html", active_page="writing")
 
 
@@ -5304,6 +5714,9 @@ def api_writing_analyze():
 # ── MATH EXPLAINER ──────────────────────────────────────────
 @app.route("/math")
 def math_page():
+    if not feature_enabled("math"):
+        return render_template("error.html", error_code=503, error_id="MATH-DISABLED",
+                               message="Math Explainer is temporarily disabled."), 503
     return render_template("math.html", active_page="math")
 
 
@@ -5375,6 +5788,9 @@ def api_math_similar():
 # ── TASK EXTRACTOR ──────────────────────────────────────────
 @app.route("/extractor")
 def extractor_page():
+    if not feature_enabled("extractor"):
+        return render_template("error.html", error_code=503, error_id="EXTRACTOR-DISABLED",
+                               message="Task Extractor is temporarily disabled."), 503
     return render_template("extractor.html", active_page="extractor")
 
 
@@ -5543,6 +5959,8 @@ def _migrate_user_columns():
         ("notion_integrations", "workspace_icon", "VARCHAR(512)"),
         ("notion_integrations", "bot_id", "VARCHAR(64)"),
         ("notion_integrations", "connected_at", "TIMESTAMP"),
+        # daily check-in chest tracking
+        ("study_points", "last_daily_claim", "VARCHAR(16) DEFAULT ''"),
     ]
 
     # Group targets by table so we only inspect each table once.
