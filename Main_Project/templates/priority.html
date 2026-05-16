@@ -105,7 +105,10 @@ function renderCards(assignments) {
     card.onclick = (e) => {
       if (!e.target.closest('.dismiss-btn') && !e.target.closest('.test-btn')) openAssignmentModal(a);
     };
-    const safeTitle = a.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    // Store the canonical title on the card so the Done handler never has
+    // to round-trip through string-escaping in an onclick attribute (the
+    // old approach broke for titles containing apostrophes + backslashes).
+    card.dataset.title = a.title;
     const isTest = isTestAssignment(a);
     if (isTest) card.classList.add('is-test');
     card.innerHTML = `
@@ -126,7 +129,7 @@ function renderCards(assignments) {
       <button class="test-btn${isTest ? ' already-test' : ''}" title="${isTest ? 'Already in Tests' : 'Mark as test'}" onclick="markAsTest(${JSON.stringify(a)}, this)">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-test"/></svg> ${isTest ? 'In Tests' : 'Test'}
       </button>
-      <button class="dismiss-btn" onclick="dismissAssignment('${safeTitle}', this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-done"/></svg> Done</button>
+      <button class="dismiss-btn" data-action="dismiss"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-done"/></svg> Done</button>
     `;
     list.appendChild(card);
   });
@@ -150,17 +153,49 @@ function markAsTest(assignment, btn) {
   });
 }
 
-function dismissAssignment(title, btn) {
+// Delegated handler — survives titles with quotes/backslashes/HTML and
+// surfaces failures with a toast so the button never "silently" does
+// nothing.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.dismiss-btn[data-action="dismiss"]');
+  if (!btn) return;
+  e.stopPropagation();
+  const card = btn.closest('.assignment-card');
+  if (!card) return;
+  const title = card.dataset.title || '';
+  btn.disabled = true;
+  card.style.opacity = '0.45';
   fetch('/dismiss', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: title })
-  }).then(() => {
-    btn.closest('.assignment-card').style.opacity = '0';
-    setTimeout(() => {
-      btn.closest('.assignment-card').remove();
-    }, 300);
-  });
+    body: JSON.stringify({ title }),
+  })
+    .then(r => r.json().catch(() => ({})))
+    .then(d => {
+      if (d && d.status === 'ok') {
+        card.style.transition = 'opacity 0.25s, transform 0.25s';
+        card.style.opacity = '0';
+        card.style.transform = 'translateX(12px)';
+        setTimeout(() => card.remove(), 260);
+        showToast('Dismissed', 'low');
+      } else {
+        card.style.opacity = '1';
+        btn.disabled = false;
+        showToast(d && d.message ? d.message : 'Could not dismiss', 'high');
+      }
+    })
+    .catch(() => {
+      card.style.opacity = '1';
+      btn.disabled = false;
+      showToast('Network error — try again', 'high');
+    });
+});
+
+// Backwards-compat shim for any legacy onclick="dismissAssignment(...)" calls.
+function dismissAssignment(title, btn) {
+  const card = btn && btn.closest ? btn.closest('.assignment-card') : null;
+  if (card) card.dataset.title = title;
+  if (btn) btn.click();
 }
 
 function showToast(msg, type) {

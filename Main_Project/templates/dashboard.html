@@ -888,20 +888,41 @@ function dismissTask(e, title, btn) {
   // Find the task data
   const taskData = _unifiedTasks.today.concat(_unifiedTasks.upcoming, _unifiedTasks.overdue)
     .find(t => t.title === title);
-  
+
   if (taskData) {
     openFeedbackModal(taskData, btn.closest('.notion-card'));
-  } else {
-    // Just dismiss without feedback
-    fetch('/dismiss', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ title })
-    }).then(() => {
-      const card = btn.closest('.notion-card');
-      card.style.opacity = '0';
-      setTimeout(() => card.remove(), 200);
-    });
+    return;
   }
+  // Just dismiss without feedback — with error handling so the button
+  // never silently does nothing if the request fails.
+  const card = btn.closest('.notion-card');
+  btn.disabled = true;
+  if (card) card.style.opacity = '0.5';
+  fetch('/dismiss', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ title })
+  })
+    .then(r => r.json().catch(() => ({})))
+    .then(d => {
+      if (d && d.status === 'ok') {
+        if (card) {
+          card.style.transition = 'opacity 0.2s, transform 0.2s';
+          card.style.transform = 'translateX(10px)';
+          card.style.opacity = '0';
+          setTimeout(() => card.remove(), 220);
+        }
+      } else {
+        if (card) card.style.opacity = '1';
+        btn.disabled = false;
+        alert(d && d.message ? d.message : 'Could not dismiss — try again.');
+      }
+    })
+    .catch(() => {
+      if (card) card.style.opacity = '1';
+      btn.disabled = false;
+      alert('Network error — could not dismiss.');
+    });
 }
 
 function completeNotionTask(e, pageId) {

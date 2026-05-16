@@ -534,64 +534,45 @@
     <h2 class="section-title" style="margin-top:0.5rem;">Real students. Real results.</h2>
   </div>
 
-  <div class="reviews-track-wrap">
-    <div class="reviews-fade reviews-fade-left"></div>
-    <div class="reviews-fade reviews-fade-right"></div>
-    <div class="reviews-track" id="reviewsTrack"></div>
+  <!-- Vertical grid replaces the old auto-scrolling horizontal carousel.
+       Cards stack into a responsive 1/2/3-column grid so users can
+       actually read them and they don't slide off-screen. -->
+  <div class="reviews-grid-wrap">
+    <div class="reviews-grid" id="reviewsTrack"></div>
   </div>
 </section>
 
 <style>
   .reviews-section {
     max-width: 100%;
-    overflow: hidden;
     padding: 1rem 0 3.5rem;
   }
   .reviews-header {
     max-width: var(--page-max);
     margin: 0 auto 2rem;
     padding: 0 1rem;
+    text-align: center;
   }
-  .reviews-track-wrap {
-    position: relative;
-    width: 100%;
-    overflow: hidden;
+  .reviews-grid-wrap {
+    max-width: var(--page-max);
+    margin: 0 auto;
+    padding: 0 1rem;
   }
-  .reviews-fade {
-    position: absolute;
-    top: 0; bottom: 0;
-    width: 120px;
-    z-index: 2;
-    pointer-events: none;
+  .reviews-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.25rem;
+    align-items: stretch;
   }
-  .reviews-fade-left  { left: 0;  background: linear-gradient(to right, var(--bg-base, var(--bg-surface, var(--bg-page, #ffffff))), transparent); }
-  .reviews-fade-right { right: 0; background: linear-gradient(to left,  var(--bg-base, var(--bg-surface, var(--bg-page, #ffffff))), transparent); }
-  .reviews-track {
-    display: flex;
-    gap: 1rem;
-    width: max-content;
-    animation: scrollReviews 38s linear infinite;
-    animation-play-state: running;
-    padding: 0.5rem 0 1rem;
-    will-change: transform;
-  }
-  /* Only pause on hover for actual pointer devices — touch devices keep :hover
-     state stuck after a tap, which would freeze the banner permanently. */
-  @media (hover: hover) and (pointer: fine) {
-    .reviews-track:hover { animation-play-state: paused; }
-  }
-  @keyframes scrollReviews {
-    0%   { transform: translateX(0); }
-    100% { transform: translateX(-50%); }
-  }
+  @media (max-width: 960px) { .reviews-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 600px) { .reviews-grid { grid-template-columns: 1fr; gap: 0.9rem; } }
   .review-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--r-xl);
     box-shadow: var(--shadow-sm);
     padding: 1.25rem 1.4rem;
-    width: 280px;
-    flex-shrink: 0;
+    width: 100%;
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
@@ -662,20 +643,12 @@
       return card;
     }
 
-    /* Build two full sets so the loop is perfectly seamless */
+    /* Vertical grid layout — render each review exactly once. The
+       previous version duplicated the array to fake a seamless marquee,
+       which is now unnecessary. */
     var fragment = document.createDocumentFragment();
     reviews.forEach(function(r) { fragment.appendChild(buildCard(r)); });
-    reviews.forEach(function(r) { fragment.appendChild(buildCard(r)); });
     track.appendChild(fragment);
-
-    /*
-      The animation translates by -50% which equals exactly one set width.
-      This only works correctly AFTER the cards are painted and the track
-      has its real scrollWidth. We kick it off on the next frame.
-    */
-    requestAnimationFrame(function() {
-      track.style.animationPlayState = 'running';
-    });
   }
 
   if (document.readyState === 'loading') {

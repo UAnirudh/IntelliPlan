@@ -183,6 +183,11 @@ class User(UserMixin, db.Model):
     google_id = db.Column(db.String(255), unique=True, nullable=True)
     name = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # ── Referral + tier columns (added together so we only schema-migrate once) ──
+    referral_code = db.Column(db.String(16), unique=True, nullable=True)
+    referred_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    tier = db.Column(db.String(16), default="free")            # "free" | "pro"
+    pro_until = db.Column(db.DateTime, nullable=True)          # Pro expiry timestamp
     linked_accounts = db.relationship("LinkedAccount", backref="user", lazy=True, cascade="all, delete-orphan")
     dismissed = db.relationship("DismissedAssignment", backref="user", lazy=True, cascade="all, delete-orphan")
     descriptions = db.relationship("CustomDescription", backref="user", lazy=True, cascade="all, delete-orphan")
@@ -1453,6 +1458,12 @@ def register():
             user = User(email=email, password_hash=pw_hash)
             db.session.add(user)
             db.session.commit()
+            # Apply any pending referral bonus (sets referred_by_id and
+            # grants both accounts Pro days). Safe no-op if there's none.
+            try:
+                _grant_referral_bonus(user)
+            except Exception as _ref_e:
+                print(f"[referral] grant failed: {_ref_e}")
             login_user(user, remember=True)
             return redirect(url_for("onboarding"))
     return render_template("register.html", active_page="login", error=error)
@@ -1574,6 +1585,10 @@ def login_account():
         user = User.query.filter_by(email=email).first()
         if user and user.password_hash and bcrypt.check_password_hash(user.password_hash, password):
             login_user(user, remember=True)
+            # Auto-join any group whose invite link was clicked pre-login.
+            joined_gid = _apply_pending_group_join()
+            if joined_gid:
+                return redirect(url_for("groups_page") + f"?open={joined_gid}")
             acct = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
             if not acct:
                 return redirect(url_for("connect_account"))
@@ -4433,6 +4448,160 @@ def error_403(e):
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
 
+# ── REFERRAL + PRO TIER ─────────────────────────────────────────────
+PRO_TRIAL_DAYS = 30
+PRO_REFERRAL_BONUS_DAYS = 14
+
+
+def _ensure_referral_code(user):
+    if user.referral_code:
+        return user.referral_code
+    # 8-char URL-safe code; retry on the unlikely collision.
+    for _ in range(5):
+        code = secrets_module.token_urlsafe(6).replace("-", "").replace("_", "")[:8].lower()
+        if not User.query.filter_by(referral_code=code).first():
+            user.referral_code = code
+            db.session.commit()
+            return code
+    return None
+
+
+def is_pro(user):
+    """True if the user has an active Pro subscription right now."""
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if (user.tier or "free") != "pro":
+        return False
+    if user.pro_until and user.pro_until < datetime.utcnow():
+        return False
+    return True
+
+
+@app.context_processor
+def inject_pro():
+    """Templates can read `is_pro` directly: {% if is_pro %} ... {% endif %}."""
+    try:
+        return {"is_pro": is_pro(current_user) if current_user.is_authenticated else False}
+    except Exception:
+        return {"is_pro": False}
+
+
+def require_pro(fn):
+    """Decorator for endpoints that should fall behind the paywall."""
+    from functools import wraps as _wraps
+    @_wraps(fn)
+    def w(*a, **kw):
+        if not current_user.is_authenticated:
+            return flask.jsonify({"status": "error", "code": "auth_required"}), 401
+        if not is_pro(current_user):
+            return flask.jsonify({"status": "error", "code": "pro_required",
+                                  "message": "IntelliPlan Pro is required for this feature."}), 402
+        return fn(*a, **kw)
+    return w
+
+
+@app.route("/ref/<code>")
+def referral_landing(code):
+    """Public landing — stash the code in session, then redirect to register.
+
+    A new account created during this session gets `referred_by_id` set,
+    bumping both accounts' Pro day balance on signup.
+    """
+    code = (code or "").strip().lower()[:16]
+    if code:
+        ref_user = User.query.filter_by(referral_code=code).first()
+        if ref_user:
+            session["pending_referral"] = ref_user.id
+            session.modified = True
+    if current_user.is_authenticated:
+        return redirect(url_for("dashboard"))
+    return redirect(url_for("register"))
+
+
+@app.route("/api/referral", methods=["GET"])
+def api_referral():
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error", "message": "login required"}), 401
+    code = _ensure_referral_code(current_user)
+    invited = User.query.filter_by(referred_by_id=current_user.id).count()
+    return flask.jsonify({
+        "status": "ok",
+        "code": code,
+        "invited_count": invited,
+        "pro_days_earned": invited * PRO_REFERRAL_BONUS_DAYS,
+    })
+
+
+@app.route("/api/pro/status", methods=["GET"])
+def api_pro_status():
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "ok", "tier": "free", "pro_until": None})
+    return flask.jsonify({
+        "status": "ok",
+        "tier": "pro" if is_pro(current_user) else "free",
+        "pro_until": current_user.pro_until.isoformat() if current_user.pro_until else None,
+    })
+
+
+@app.route("/api/pro/upgrade", methods=["POST"])
+def api_pro_upgrade():
+    """Lightweight trial-start endpoint. Production deployments would put
+    a real Stripe Checkout in front of this; we still record the tier so
+    the rest of the gating works end-to-end."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error", "message": "login required"}), 401
+    current_user.tier = "pro"
+    base = current_user.pro_until if (current_user.pro_until and current_user.pro_until > datetime.utcnow()) else datetime.utcnow()
+    current_user.pro_until = base + timedelta(days=PRO_TRIAL_DAYS)
+    db.session.commit()
+    return flask.jsonify({"status": "ok", "pro_until": current_user.pro_until.isoformat()})
+
+
+@app.route("/api/pro/cancel", methods=["POST"])
+def api_pro_cancel():
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error"}), 401
+    # Keep Pro until the end of the current period.
+    if not current_user.pro_until:
+        current_user.tier = "free"
+        db.session.commit()
+    return flask.jsonify({"status": "ok"})
+
+
+def _grant_referral_bonus(new_user):
+    """Apply Pro day bonuses to both the inviter and the new signup."""
+    ref_id = session.pop("pending_referral", None) if session else None
+    if not ref_id:
+        return
+    inviter = User.query.get(ref_id)
+    if not inviter or inviter.id == new_user.id:
+        return
+    new_user.referred_by_id = inviter.id
+    for u in (inviter, new_user):
+        base = u.pro_until if (u.pro_until and u.pro_until > datetime.utcnow()) else datetime.utcnow()
+        u.pro_until = base + timedelta(days=PRO_REFERRAL_BONUS_DAYS)
+        u.tier = "pro"
+    db.session.commit()
+
+
+def _apply_pending_group_join():
+    """Run after login_user to consume a pending /groups/invite/<id> click."""
+    try:
+        gid = session.pop("pending_group_join", None) if session else None
+        if not gid:
+            return None
+        existing = StudyGroupMember.query.filter_by(group_id=gid, user_id=current_user.id).first()
+        if not existing:
+            db.session.add(StudyGroupMember(group_id=gid, user_id=current_user.id, role="member"))
+            db.session.commit()
+        return gid
+    except Exception:
+        return None
+
+
+
+
+
 def _groq():
     return Groq(api_key=os.getenv("GROQ_API_KEY"))
 
@@ -4622,6 +4791,10 @@ def api_list_lessons():
     return flask.jsonify({"lessons": [l.to_dict() for l in rows]})
 
 
+FREE_LESSON_LIMIT = 3
+FREE_GROUP_OWNED_LIMIT = 1
+
+
 @app.route("/api/lessons", methods=["POST"])
 @limiter.limit("12 per minute")
 def api_upload_lesson():
@@ -4634,6 +4807,15 @@ def api_upload_lesson():
         return flask.jsonify({"status": "error", "message": "title required"}), 400
     if not upload or not upload.filename:
         return flask.jsonify({"status": "error", "message": "file required"}), 400
+    # Free-tier cap: 3 lessons total. Pro = unlimited.
+    if current_user.is_authenticated and not is_pro(current_user):
+        existing = Lesson.query.filter_by(user_id=current_user.id).count()
+        if existing >= FREE_LESSON_LIMIT:
+            return flask.jsonify({
+                "status": "error",
+                "code": "pro_required",
+                "message": f"Free tier is capped at {FREE_LESSON_LIMIT} lessons. Upgrade to Pro for unlimited uploads."
+            }), 402
     ext = os.path.splitext(upload.filename)[1].lower()
     if ext not in LESSON_ALLOWED_EXT:
         return flask.jsonify({"status": "error", "message": f"unsupported type {ext}"}), 400
@@ -4769,6 +4951,15 @@ def api_create_group():
     name = (body.get("name") or "").strip()[:120]
     if not name:
         return flask.jsonify({"status": "error", "message": "name required"}), 400
+    # Free-tier cap: at most 1 owned group. Pro can create unlimited.
+    if not is_pro(current_user):
+        owned = StudyGroup.query.filter_by(owner_id=current_user.id).count()
+        if owned >= FREE_GROUP_OWNED_LIMIT:
+            return flask.jsonify({
+                "status": "error",
+                "code": "pro_required",
+                "message": "Free tier can own one study group. Upgrade to Pro to create more."
+            }), 402
     room_slug = secrets_module.token_urlsafe(8).replace("-", "").replace("_", "")
     group = StudyGroup(
         name=name,
@@ -4817,6 +5008,7 @@ def api_get_group(group_id):
             "name": (u.name if u else None) or (u.email if u else "Member"),
         })
     is_member = current_user.is_authenticated and any(m["user_id"] == current_user.id for m in members)
+    invite_url = (APP_BASE_URL.rstrip("/") + url_for("groups_invite", group_id=g.id)) if APP_BASE_URL else url_for("groups_invite", group_id=g.id)
     return flask.jsonify({
         "id": g.id,
         "name": g.name,
@@ -4832,6 +5024,7 @@ def api_get_group(group_id):
         "members": members,
         "is_member": is_member,
         "is_owner": current_user.is_authenticated and g.owner_id == current_user.id,
+        "invite_url": invite_url,
     })
 
 
@@ -4847,6 +5040,28 @@ def api_join_group(group_id):
         db.session.add(StudyGroupMember(group_id=group_id, user_id=current_user.id, role="member"))
         db.session.commit()
     return flask.jsonify({"status": "ok"})
+
+
+@app.route("/groups/invite/<int:group_id>")
+def groups_invite(group_id):
+    """Shareable invite link. Anyone with an IntelliPlan account who hits
+    this URL is auto-joined and dropped into the group room. Logged-out
+    visitors are bounced to /login and joined right after sign-in via the
+    `pending_group_join` session flag."""
+    g = StudyGroup.query.get(group_id)
+    if not g:
+        return render_template("error.html", active_page="error", error_code=404,
+                               error_id="GROUP-NOT-FOUND",
+                               message="That study group invite link no longer works."), 404
+    if not current_user.is_authenticated:
+        session["pending_group_join"] = group_id
+        session.modified = True
+        return redirect(url_for("login"))
+    existing = StudyGroupMember.query.filter_by(group_id=group_id, user_id=current_user.id).first()
+    if not existing:
+        db.session.add(StudyGroupMember(group_id=group_id, user_id=current_user.id, role="member"))
+        db.session.commit()
+    return redirect(url_for("groups_page") + f"?open={group_id}")
 
 
 @app.route("/api/groups/<int:group_id>/leave", methods=["POST"])
@@ -5130,8 +5345,42 @@ from intelliplan_api import api_bp as intelliplan_api_bp
 app.register_blueprint(intelliplan_api_bp)
 
 
+def _migrate_user_columns():
+    """Lightweight ALTER TABLE shim for SQLite/Postgres.
+
+    SQLAlchemy's `db.create_all()` adds new TABLES but never new COLUMNS
+    on existing ones. The referral / tier work added 4 columns to `users`
+    and several to `notion_integrations` after this DB was first created,
+    so we patch them in here. Idempotent — each ADD COLUMN check is
+    wrapped in a try/except, so re-runs are safe.
+    """
+    from sqlalchemy import text as _t
+    targets = [
+        # users
+        ("users", "referral_code", "VARCHAR(16)"),
+        ("users", "referred_by_id", "INTEGER"),
+        ("users", "tier", "VARCHAR(16) DEFAULT 'free'"),
+        ("users", "pro_until", "DATETIME"),
+        # notion_integrations (from a previous migration that also lacked this)
+        ("notion_integrations", "auth_type", "VARCHAR(16) DEFAULT 'manual'"),
+        ("notion_integrations", "workspace_id", "VARCHAR(64)"),
+        ("notion_integrations", "workspace_name", "VARCHAR(256)"),
+        ("notion_integrations", "workspace_icon", "VARCHAR(512)"),
+        ("notion_integrations", "bot_id", "VARCHAR(64)"),
+        ("notion_integrations", "connected_at", "DATETIME"),
+    ]
+    for table, col, decl in targets:
+        try:
+            db.session.execute(_t(f"ALTER TABLE {table} ADD COLUMN {col} {decl}"))
+            db.session.commit()
+            print(f"[migrate] added {table}.{col}")
+        except Exception:
+            db.session.rollback()
+
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
+        _migrate_user_columns()
     port = int(os.environ.get("PORT", 3000))
     app.run(host="0.0.0.0", port=port)

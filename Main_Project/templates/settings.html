@@ -323,6 +323,21 @@
 
     <div class="integration-row">
       <div>
+        <div class="integration-label">Theme</div>
+        <div class="integration-sub">Switch between light and dark across IntelliPlan</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:0.78rem;color:var(--text-muted);font-weight:600;" id="themeSettingsLabel">Light</span>
+        <label class="toggle" title="Toggle dark mode" aria-label="Toggle dark mode">
+          <input type="checkbox" id="themeToggleSettings">
+          <div class="toggle-track"></div>
+          <div class="toggle-knob"></div>
+        </label>
+      </div>
+    </div>
+
+    <div class="integration-row">
+      <div>
         <div class="integration-label">Session completion animation</div>
         <div class="integration-sub">Play a Plani celebration when you finish a study session</div>
       </div>
@@ -332,6 +347,33 @@
         <div class="toggle-knob"></div>
       </label>
     </div>
+  </div>
+
+  <!-- ── Refer a friend ─────────────────────────────── -->
+  <div class="settings-section">
+    <div class="settings-section-title">Refer a friend</div>
+    <div id="refSub" style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.75rem;">
+      Share your link — both of you get IntelliPlan Pro time when they sign up.
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input type="text" id="refLink" class="form-input" readonly style="flex:1;min-width:240px;font-family:'DM Mono',monospace;font-size:0.84rem;" value="Loading...">
+      <button class="btn-primary" onclick="copyReferralLink()" id="refCopyBtn" style="padding:9px 18px;border:none;cursor:pointer;">Copy link</button>
+    </div>
+    <div id="refStats" style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:1rem;font-size:0.84rem;color:var(--text-secondary);"></div>
+  </div>
+
+  <!-- ── IntelliPlan Pro ────────────────────────────── -->
+  <div class="settings-section" id="proCard">
+    <div class="settings-section-title">IntelliPlan Pro</div>
+    <div id="proStatus" style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:1rem;">Loading...</div>
+    <ul style="font-size:0.86rem;color:var(--text-secondary);line-height:1.7;margin:0 0 1rem 0;padding-left:1.2rem;">
+      <li>Unlimited lesson recordings + auto-summary</li>
+      <li>Unlimited study groups + private rooms</li>
+      <li>Writing Assistant, Math Explainer, Task Extractor — no daily caps</li>
+      <li>Public REST API + MCP server access</li>
+      <li>Priority Plani replies</li>
+    </ul>
+    <div id="proAction"></div>
   </div>
 
   <!-- ── Account ──────────────────────────────────── -->
@@ -589,6 +631,87 @@ function saveAnimSetting(key, value) {
   const t = document.getElementById('animSessionToggle');
   if (t) t.checked = localStorage.getItem('ip_anim_session') !== 'false';
 })();
+
+/* ── Settings theme toggle — mirrors header + sidebar toggles ── */
+(function initThemeToggle() {
+  const t = document.getElementById('themeToggleSettings');
+  const label = document.getElementById('themeSettingsLabel');
+  if (!t) return;
+  const cur = document.documentElement.getAttribute('data-theme') || 'light';
+  t.checked = cur === 'dark';
+  if (label) label.textContent = cur === 'dark' ? 'Dark' : 'Light';
+  t.addEventListener('change', () => {
+    const next = t.checked ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch(e){}
+    if (label) label.textContent = next === 'dark' ? 'Dark' : 'Light';
+    // Keep header + sidebar toggles in sync
+    const h = document.getElementById('themeToggle');       if (h) h.checked = t.checked;
+    const s = document.getElementById('themeToggleSide');   if (s) s.checked = t.checked;
+  });
+})();
+
+/* ── Referral link + stats ────────────────────────── */
+function refreshReferral() {
+  fetch('/api/referral').then(r => r.json()).then(d => {
+    if (d.status !== 'ok') return;
+    const url = (location.origin + '/ref/' + d.code);
+    const el = document.getElementById('refLink');
+    if (el) el.value = url;
+    const stats = document.getElementById('refStats');
+    if (stats) {
+      stats.innerHTML = `
+        <div><strong style="color:var(--text-primary);">${d.invited_count || 0}</strong> friends joined</div>
+        <div><strong style="color:var(--text-primary);">${d.pro_days_earned || 0}</strong> Pro days earned</div>
+      `;
+    }
+  }).catch(() => {
+    const el = document.getElementById('refLink');
+    if (el) el.value = 'Sign in to get your referral link';
+  });
+}
+function copyReferralLink() {
+  const el = document.getElementById('refLink');
+  if (!el || !el.value) return;
+  el.select(); el.setSelectionRange(0, 999);
+  try {
+    navigator.clipboard.writeText(el.value);
+  } catch(e) {
+    document.execCommand && document.execCommand('copy');
+  }
+  const btn = document.getElementById('refCopyBtn');
+  if (btn) { const t = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(() => btn.textContent = t, 1400); }
+}
+refreshReferral();
+
+/* ── IntelliPlan Pro status ──────────────────────── */
+function refreshPro() {
+  fetch('/api/pro/status').then(r => r.json()).then(d => {
+    if (d.status !== 'ok') return;
+    const out = document.getElementById('proStatus');
+    const act = document.getElementById('proAction');
+    if (!out || !act) return;
+    if (d.tier === 'pro') {
+      const until = d.pro_until ? ' until ' + new Date(d.pro_until).toLocaleDateString() : '';
+      out.innerHTML = `<span style="color:var(--low);font-weight:700;">You're on Pro${until}.</span>`;
+      act.innerHTML = `<button onclick="cancelPro()" style="padding:9px 16px;border-radius:10px;border:1px solid var(--border-strong);background:transparent;color:var(--text-secondary);cursor:pointer;font-family:var(--font-ui);font-weight:600;">Manage subscription</button>`;
+    } else {
+      out.innerHTML = `Currently on the free tier. Upgrade any time.`;
+      act.innerHTML = `<button class="btn-primary" onclick="upgradePro()" style="padding:10px 22px;border:none;cursor:pointer;">Upgrade to Pro · $4.99/mo</button>`;
+    }
+  });
+}
+function upgradePro() {
+  if (!confirm('Start your 30-day Pro trial?')) return;
+  fetch('/api/pro/upgrade', { method:'POST' })
+    .then(r => r.json()).then(d => { if (d.status === 'ok') refreshPro(); else alert(d.message||'Upgrade failed'); });
+}
+function cancelPro() {
+  if (!confirm('Cancel Pro? You\'ll keep features until the end of your current period.')) return;
+  fetch('/api/pro/cancel', { method:'POST' })
+    .then(r => r.json()).then(d => { if (d.status === 'ok') refreshPro(); });
+}
+refreshPro();
 
 /* ── Notion connection (OAuth + token-paste fallback) ──── */
 function renderNotionStatus(s) {

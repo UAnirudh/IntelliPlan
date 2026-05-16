@@ -133,6 +133,33 @@ function selectCourse(course) {
 /* ── Simulate / Reset helpers ──────────────────────────── */
 function _assignmentKey(a) { return String(a.id || a.title || ''); }
 
+/* Per-assignment manual simulate input: typing a score here is exactly
+   like clicking Simulate but for one assignment instead of all pending.
+   Empty → that assignment falls back to "pending" (no simulation). */
+function onSimInput(inputEl) {
+  if (!selectedCourse) return;
+  const key = inputEl.dataset.akey;
+  const poss = parseFloat(inputEl.dataset.poss) || 0;
+  const raw = inputEl.value.trim();
+  if (raw === '') {
+    delete simulatedScores[key];
+  } else {
+    let n = parseFloat(raw);
+    if (isNaN(n)) { delete simulatedScores[key]; }
+    else {
+      if (n < 0) n = 0;
+      if (n > poss) n = poss;
+      simulatedScores[key] = { points_earned: n, points_possible: poss, simulated: true };
+    }
+  }
+  applySimulation();
+  // Re-focus the same input + place caret at end so users can keep typing.
+  setTimeout(() => {
+    const next = document.querySelector(`input.sim-input[data-akey="${CSS.escape(key)}"]`);
+    if (next) { next.focus(); next.setSelectionRange(next.value.length, next.value.length); }
+  }, 0);
+}
+
 function applySimulation() {
   if (!selectedCourse || !originalAssignments) return;
   // Replace selectedCourse.assignments with originals + simulated overlays.
@@ -276,11 +303,33 @@ function renderBreakdown(assignments) {
       ? Math.round((a.points_earned / a.points_possible) * 100) + '%'
       : '';
 
+    // Find the matching original (pre-simulation) record to decide
+    // whether to render an editable input for pending assignments.
+    const origMatch = originalAssignments ? originalAssignments.find(o => _assignmentKey(o) === _assignmentKey(a)) : null;
+    const wasOriginallyPending = origMatch && !origMatch.graded;
+
     const statusLabel = a.simulated
       ? '<span style="font-family:var(--font-ui);font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;background:rgba(99,102,241,0.12);color:#6366f1;padding:2px 7px;border-radius:999px;">simulated</span>'
       : a.graded
         ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--low)"><use href="#i-check-circle"/></svg> Graded'
         : 'Pending';
+
+    const editorHtml = wasOriginallyPending ? `
+      <div style="display:flex; align-items:center; gap:4px; justify-content:flex-end; margin-top:4px;">
+        <input
+          type="number" min="0" max="${a.points_possible}" step="0.5"
+          value="${a.simulated ? (a.points_earned ?? '') : ''}"
+          placeholder="—"
+          data-akey="${_assignmentKey(a)}"
+          data-poss="${a.points_possible}"
+          oninput="onSimInput(this)"
+          class="form-input sim-input"
+          style="width:64px;padding:4px 6px;font-size:0.82rem;text-align:right;"
+        />
+        <span style="font-size:0.78rem;color:var(--text-muted);">/ ${a.points_possible}</span>
+      </div>
+    ` : '';
+
     card.innerHTML = `
       <div class="rank-bubble" style="font-size:0.7rem;${a.simulated?'background:rgba(99,102,241,0.12);color:#6366f1;':''}">${a.simulated ? '~' : a.graded ? '✓' : '–'}</div>
       <div class="card-main">
@@ -293,6 +342,7 @@ function renderBreakdown(assignments) {
       <div style="text-align:right; flex-shrink:0;">
         <div style="font-size:0.88rem; font-weight:600; color:${a.simulated ? '#6366f1' : 'var(--text-primary)'};">${scoreDisplay}</div>
         ${pct ? `<div style="font-size:0.75rem; color:var(--text-muted);">${pct}</div>` : ''}
+        ${editorHtml}
       </div>
     `;
     wrap.appendChild(card);

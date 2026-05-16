@@ -328,29 +328,35 @@
 .milestone-card.next { border-color:#f97316; background:rgba(249,115,22,.08); }
 .milestone-card strong { display:block; font-family:var(--font-ui); color:var(--text-primary); margin-bottom:.25rem; }
 .milestone-card span { display:block; color:var(--text-muted); font-size:.76rem; line-height:1.35; }
+/* Use the theme medium/high alert colours so dark mode stays readable.
+   The previous version hard-coded light-mode #fff7ed/#fef2f2. */
 .streak-alert {
   display:flex;
   align-items:center;
   gap:.7rem;
   padding:.85rem 1rem;
   border-radius:13px;
-  border:1px solid #fed7aa;
-  background:#fff7ed;
-  color:#c2410c;
+  border:1px solid color-mix(in srgb, var(--medium) 40%, var(--border));
+  background:color-mix(in srgb, var(--medium) 12%, var(--bg-card));
+  color:var(--medium);
   font-weight:700;
   font-size:.86rem;
 }
-.streak-alert.repair { border-color:#fca5a5; background:#fef2f2; color:#b91c1c; }
+.streak-alert.repair {
+  border-color:color-mix(in srgb, var(--high) 45%, var(--border));
+  background:color-mix(in srgb, var(--high) 12%, var(--bg-card));
+  color:var(--high);
+}
 .streak-alert button {
   margin-left:auto;
   border:0;
   border-radius:9px;
   padding:.45rem .7rem;
   color:#fff;
-  background:#c2410c;
+  background:var(--medium);
   cursor:pointer;
 }
-.streak-alert.repair button { background:#b91c1c; }
+.streak-alert.repair button { background:var(--high); }
 .shop-headline { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
 .shop-balance { font-family:var(--font-ui); font-weight:800; color:var(--accent); background:var(--accent-soft); border:1px solid var(--accent-mid); padding:.55rem .75rem; border-radius:999px; white-space:nowrap; }
 .shop-category-row { display:flex; gap:.5rem; flex-wrap:wrap; }
@@ -374,7 +380,10 @@
   padding:1rem;
   box-shadow:var(--shadow);
 }
-.shop-item.deal { border-color:#f59e0b; background:rgba(245,158,11,.07); }
+.shop-item.deal {
+  border-color:color-mix(in srgb, var(--medium) 50%, var(--border));
+  background:color-mix(in srgb, var(--medium) 10%, var(--bg-card));
+}
 .shop-item-top { display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem; margin-bottom:.5rem; }
 .shop-item-title { color:var(--text-primary); font-weight:800; line-height:1.25; }
 .shop-item-price { color:var(--accent); font-family:var(--font-ui); font-weight:800; white-space:nowrap; }
@@ -386,7 +395,7 @@
   border-radius:10px;
   padding:.65rem .8rem;
   color:#fff;
-  background:linear-gradient(135deg,#2563eb,#4f46e5);
+  background:linear-gradient(135deg, var(--accent), var(--accent-hover));
   font-family:var(--font-ui);
   font-weight:800;
   cursor:pointer;
