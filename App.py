@@ -1401,7 +1401,29 @@ def settings():
 def dashboard():
     if not is_logged_in():
         return redirect(url_for("login"))
-    return render_template("dashboard.html", active_page="dashboard")
+    # First-run questionnaire: open the modal if the student hasn't
+    # completed their profile yet. Guests skip this (no identity row).
+    needs_onboarding = False
+    grade_choices = []
+    focus_choices = []
+    identity_dict = None
+    if current_user.is_authenticated:
+        try:
+            identity = _get_or_create_identity(current_user.id)
+            needs_onboarding = not bool(identity.completed)
+            identity_dict = identity.to_dict()
+            grade_choices = GRADE_LEVEL_CHOICES
+            focus_choices = FOCUS_AREA_CHOICES
+        except Exception:
+            needs_onboarding = False
+    return render_template(
+        "dashboard.html",
+        active_page="dashboard",
+        needs_onboarding=needs_onboarding,
+        identity=identity_dict,
+        grade_choices=grade_choices,
+        focus_choices=focus_choices,
+    )
 
 @app.route("/study")
 def study():
@@ -4479,11 +4501,20 @@ def is_pro(user):
 
 @app.context_processor
 def inject_pro():
-    """Templates can read `is_pro` directly: {% if is_pro %} ... {% endif %}."""
+    """Templates can read `is_pro` directly: {% if is_pro %} ... {% endif %}.
+
+    Defensive — if the `tier`/`pro_until` columns are missing (e.g. an
+    older DB the migration hasn't reached yet) we MUST swallow the
+    error here, otherwise every Jinja2 render (including the error
+    page itself) blows up and the user sees a raw "Server Error" page
+    with a Home link that loops back to the same broken state.
+    """
     try:
-        return {"is_pro": is_pro(current_user) if current_user.is_authenticated else False}
+        if current_user and current_user.is_authenticated:
+            return {"is_pro": is_pro(current_user)}
     except Exception:
-        return {"is_pro": False}
+        pass
+    return {"is_pro": False}
 
 
 def require_pro(fn):
@@ -4746,18 +4777,62 @@ LESSON_ALLOWED_EXT = {".mp3", ".m4a", ".wav", ".ogg", ".mp4", ".webm", ".mov", "
 LESSON_AUDIO_EXT = {".mp3", ".m4a", ".wav", ".ogg"}
 
 
+GROQ_WHISPER_MODEL = "whisper-large-v3-turbo"
+
+
+def _transcribe_lesson(lesson):
+    """Real audio/video → text transcription via Groq's Whisper endpoint.
+
+    Groq's audio.transcriptions.create accepts mp3/m4a/wav/ogg/flac and
+    will also pull audio off mp4/webm containers. Free-tier accounts have
+    a per-minute audio quota, so we cap to ~25 MB which matches our
+    Flask MAX_CONTENT_LENGTH.
+    """
+    if not lesson.stored_filename:
+        return ""
+    path = os.path.join(LESSON_UPLOAD_FOLDER, lesson.stored_filename)
+    if not os.path.exists(path):
+        return ""
+    try:
+        client = _groq()
+        with open(path, "rb") as fh:
+            resp = client.audio.transcriptions.create(
+                model=GROQ_WHISPER_MODEL,
+                file=(lesson.original_filename or lesson.stored_filename, fh.read()),
+                response_format="text",
+            )
+        text = resp if isinstance(resp, str) else getattr(resp, "text", "") or ""
+        return (text or "").strip()
+    except Exception as e:
+        print(f"[lesson {lesson.id}] transcription failed: {e}")
+        return ""
+
+
 def _summarize_lesson_async(lesson_id):
-    """Lightweight summary generator. Pulls transcript from the Lesson
-    row (we don't have Whisper wired up locally — the upload form lets
-    users paste a transcript; if absent the summary uses the title + tags
-    as a stub) and asks Groq for a clear, detailed summary.
+    """Two-stage pipeline:
+
+    1. If we don't already have a transcript, run the audio through Groq
+       Whisper and persist the text.
+    2. Ask the chat model for a clear, detailed study-style summary.
     """
     lesson = Lesson.query.get(lesson_id)
     if not lesson:
         return
-    seed = (lesson.transcript or "").strip()
+    transcript = (lesson.transcript or "").strip()
+    if not transcript:
+        transcript = _transcribe_lesson(lesson)
+        if transcript:
+            lesson.transcript = transcript
+            db.session.commit()
+    seed = transcript
     if not seed:
-        seed = f"Title: {lesson.title}\nCourse: {lesson.course or 'general'}\nTags: {', '.join(lesson.tag_list())}\nNo transcript was provided — produce a study-friendly placeholder summary describing what a lesson with this title and tags likely covers, and list 5 likely sub-topics."
+        seed = (
+            f"Title: {lesson.title}\nCourse: {lesson.course or 'general'}\n"
+            f"Tags: {', '.join(lesson.tag_list())}\n"
+            "No transcript was available — produce a study-friendly placeholder "
+            "summary describing what a lesson with this title and tags likely "
+            "covers, and list 5 likely sub-topics."
+        )
     try:
         client = _groq()
         resp = client.chat.completions.create(
@@ -5378,9 +5453,21 @@ def _migrate_user_columns():
             db.session.rollback()
 
 
-if __name__ == "__main__":
+# Run the schema bootstrap + column migration at IMPORT time so production
+# WSGI servers (gunicorn etc.) see the new columns. Previously this was
+# gated on __name__=="__main__", which caused every request to surface
+# the raw "<h1>Server Error</h1><a href='/'>Home</a>" fallback in prod
+# because the new user.tier / pro_until columns didn't exist yet and
+# inject_pro's lookup blew up the whole Jinja render — including the
+# error page.
+try:
     with app.app_context():
         db.create_all()
         _migrate_user_columns()
+except Exception as _boot_e:
+    print(f"[boot] DB bootstrap failed: {_boot_e}")
+
+
+if __name__ == "__main__":
     port = int(os.environ.get("PORT", 3000))
     app.run(host="0.0.0.0", port=port)

@@ -264,6 +264,35 @@
       color: currentColor;
     }
     .side-icon svg { width: 100%; height: 100%; }
+
+    /* Collapsible sidebar groups (Plan / Toolkit). The active page's
+       group opens by default; users can toggle the others. State is
+       persisted in localStorage so the preference sticks across pages. */
+    .side-group { display: flex; flex-direction: column; }
+    .side-group-toggle {
+      background: none; border: 0; cursor: pointer; width: 100%;
+      text-align: left;
+    }
+    .side-group .side-chev {
+      margin-left: auto; font-size: 0.7rem; color: var(--text-muted);
+      transition: transform 0.18s ease;
+    }
+    .side-group.is-open .side-chev { transform: rotate(180deg); }
+    .side-group-body {
+      display: flex; flex-direction: column; gap: 2px;
+      max-height: 0; overflow: hidden;
+      transition: max-height 0.22s ease;
+      padding-left: 8px;
+      margin-left: 12px;
+      border-left: 1px solid var(--border);
+    }
+    .side-group.is-open .side-group-body { max-height: 520px; }
+    .side-link.side-sub {
+      padding: 7px 10px; font-size: 0.84rem; font-weight: 500;
+      color: var(--text-secondary);
+    }
+    .side-link.side-sub.active { background: var(--accent); color: white; }
+
     .side-spacer { flex: 1; }
     .side-foot {
       border-top: 1px solid var(--border); padding-top: 10px; margin-top: 6px;
@@ -631,7 +660,16 @@
     #planiBot {
       position:fixed; bottom:24px; right:24px; z-index:999;
       display:flex; flex-direction:column; align-items:flex-end; gap:12px;
+      /* Container itself must NEVER block clicks — only the avatar and
+         the bubble accept pointer events. Without this rule any element
+         that sits behind Plani (the Done button on the last assignment
+         card, the bottom mobile-cta-bar, etc.) becomes un-clickable. */
+      pointer-events:none;
     }
+    #planiAvatar { pointer-events:auto; }
+    #planiBubble { pointer-events:none; }
+    #planiChat { pointer-events:none; }
+    #planiChat.open { pointer-events:auto; }
     @media (max-width:600px) {
       #planiBot {
         right:auto; left:14px; bottom:14px;
@@ -880,26 +918,47 @@
     <span class="logo-text">Intelli<span>Plan</span></span>
   </a>
 
+  {# ── Always-visible top items ──────────────────────────────── #}
   <a href="/dashboard" class="side-link {% if active_page == 'dashboard' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard</a>
-  <a href="/scheduler" class="side-link {% if active_page == 'scheduler' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-scheduler"/></svg></span>Scheduler</a>
   <a href="/study"     class="side-link {% if active_page == 'study' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Study &amp; Learn</a>
   <a href="/streak"    class="side-link {% if active_page == 'streak' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-fire"/></svg></span>Streak</a>
   <a href="/tutor"     class="side-link tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-tutor"/></svg></span>Tutor</a>
 
-  <div class="side-section-label">Tasks</div>
-  <a href="/priority"  class="side-link {% if active_page == 'priority' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-priority"/></svg></span>Priority</a>
-  <a href="/classes"   class="side-link {% if active_page == 'classes' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-classes"/></svg></span>Classes</a>
-  <a href="/grades"    class="side-link {% if active_page == 'grades' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-grades"/></svg></span>Grades</a>
-  <a href="/gradebook" class="side-link {% if active_page == 'gradebook' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Grade Modeler</a>
-  <a href="/tests"     class="side-link {% if active_page == 'tests' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-test"/></svg></span>Tests</a>
-  <a href="/dismissed" class="side-link {% if active_page == 'dismissed' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-done"/></svg></span>Done</a>
+  {# ── Plan dropdown: schedule + tasks + grades ──────────────── #}
+  {% set _plan_pages = ['scheduler','priority','classes','grades','gradebook','tests','dismissed'] %}
+  <div class="side-group {% if active_page in _plan_pages %}is-open{% endif %}" data-side-group="plan">
+    <button type="button" class="side-link side-group-toggle" aria-expanded="{% if active_page in _plan_pages %}true{% else %}false{% endif %}">
+      <span class="side-icon"><svg><use href="#i-priority"/></svg></span>
+      <span style="flex:1;text-align:left;">Plan</span>
+      <span class="side-chev">▾</span>
+    </button>
+    <div class="side-group-body">
+      <a href="/scheduler" class="side-link side-sub {% if active_page == 'scheduler' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-scheduler"/></svg></span>Scheduler</a>
+      <a href="/priority"  class="side-link side-sub {% if active_page == 'priority' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-priority"/></svg></span>Priority</a>
+      <a href="/classes"   class="side-link side-sub {% if active_page == 'classes' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-classes"/></svg></span>Classes</a>
+      <a href="/grades"    class="side-link side-sub {% if active_page == 'grades' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-grades"/></svg></span>Grades</a>
+      <a href="/gradebook" class="side-link side-sub {% if active_page == 'gradebook' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Grade Modeler</a>
+      <a href="/tests"     class="side-link side-sub {% if active_page == 'tests' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-test"/></svg></span>Tests</a>
+      <a href="/dismissed" class="side-link side-sub {% if active_page == 'dismissed' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-done"/></svg></span>Done</a>
+    </div>
+  </div>
 
-  <div class="side-section-label">Toolkit</div>
-  <a href="/lessons"   class="side-link {% if active_page == 'lessons' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Lessons</a>
-  <a href="/groups"    class="side-link {% if active_page == 'groups' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-tutor"/></svg></span>Study Groups</a>
-  <a href="/writing"   class="side-link {% if active_page == 'writing' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-pencil"/></svg></span>Writing</a>
-  <a href="/math"      class="side-link {% if active_page == 'math' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Math Explainer</a>
-  <a href="/extractor" class="side-link {% if active_page == 'extractor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-check-circle"/></svg></span>Task Extractor</a>
+  {# ── Toolkit dropdown: AI tools + collaboration ────────────── #}
+  {% set _tool_pages = ['lessons','groups','writing','math','extractor'] %}
+  <div class="side-group {% if active_page in _tool_pages %}is-open{% endif %}" data-side-group="tools">
+    <button type="button" class="side-link side-group-toggle" aria-expanded="{% if active_page in _tool_pages %}true{% else %}false{% endif %}">
+      <span class="side-icon"><svg><use href="#i-modeler"/></svg></span>
+      <span style="flex:1;text-align:left;">Toolkit</span>
+      <span class="side-chev">▾</span>
+    </button>
+    <div class="side-group-body">
+      <a href="/lessons"   class="side-link side-sub {% if active_page == 'lessons' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Lessons</a>
+      <a href="/groups"    class="side-link side-sub {% if active_page == 'groups' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-tutor"/></svg></span>Study Groups</a>
+      <a href="/writing"   class="side-link side-sub {% if active_page == 'writing' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-pencil"/></svg></span>Writing</a>
+      <a href="/math"      class="side-link side-sub {% if active_page == 'math' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Math Explainer</a>
+      <a href="/extractor" class="side-link side-sub {% if active_page == 'extractor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-check-circle"/></svg></span>Task Extractor</a>
+    </div>
+  </div>
 
   <div class="side-spacer"></div>
 
@@ -1238,6 +1297,25 @@ const mobileMenuBtn = document.getElementById('mobileMenuBtn');
 if (mobileMenuBtn) {
   mobileMenuBtn.addEventListener('click', toggleMobileMenu);
 }
+
+/* ── Sidebar group collapse (Plan / Toolkit) ───────────── */
+document.querySelectorAll('.side-group-toggle').forEach(toggleBtn => {
+  const group = toggleBtn.closest('.side-group');
+  if (!group) return;
+  const key = 'ip_sideGroup_' + (group.dataset.sideGroup || 'g');
+  // If a user explicitly toggled this group before, respect that choice;
+  // otherwise the server-rendered .is-open (active page lives inside)
+  // is kept as the default.
+  const stored = localStorage.getItem(key);
+  if (stored === 'open')  group.classList.add('is-open');
+  if (stored === 'closed') group.classList.remove('is-open');
+  toggleBtn.addEventListener('click', () => {
+    const nowOpen = !group.classList.contains('is-open');
+    group.classList.toggle('is-open', nowOpen);
+    toggleBtn.setAttribute('aria-expanded', String(nowOpen));
+    try { localStorage.setItem(key, nowOpen ? 'open' : 'closed'); } catch(e){}
+  });
+});
 
 document.querySelectorAll('#mainNav .dropdown-toggle').forEach(toggleBtn => {
   toggleBtn.addEventListener('click', e => {

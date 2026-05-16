@@ -1,6 +1,185 @@
 {% extends "base.html" %}
 
 {% block content %}
+
+{# ─── First-run questionnaire modal ─────────────────────────────
+   Pops up automatically the first time a brand-new account hits the
+   dashboard. Mirrors the full /settings Study Profile + connect flow
+   so the student is ready to use the planner in two clicks. ──────── #}
+{% if needs_onboarding %}
+<div id="onbModal" style="position:fixed;inset:0;z-index:1400;background:rgba(7,8,20,0.72);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:22px;padding:2rem;width:min(620px,100%);max-height:92vh;overflow:auto;box-shadow:var(--shadow-lg);animation:fadeUp 0.32s var(--ease-out) both;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1.25rem;">
+      <div>
+        <div style="font-family:var(--font-ui);font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);margin-bottom:6px;">Welcome to IntelliPlan</div>
+        <h2 style="font-family:var(--font-display);font-size:1.65rem;color:var(--text-primary);margin:0;">Let's set up your study profile</h2>
+        <p style="margin:0.5rem 0 0;color:var(--text-secondary);font-size:0.92rem;">Plani uses this to personalise every reply, schedule, and study plan. Takes about 60 seconds — you can edit anything later in Settings.</p>
+      </div>
+      <button onclick="dismissOnb()" aria-label="Skip" style="background:none;border:none;color:var(--text-muted);font-size:1.4rem;cursor:pointer;line-height:1;">×</button>
+    </div>
+
+    <!-- Step pill bar -->
+    <div id="onbSteps" style="display:flex;gap:6px;margin-bottom:1.4rem;">
+      <span class="onb-pill on"></span>
+      <span class="onb-pill"></span>
+      <span class="onb-pill"></span>
+    </div>
+
+    <!-- Step 1: Grade + focus -->
+    <section class="onb-step on" data-step="1">
+      <div class="form-group" style="margin-bottom:1rem;">
+        <label class="form-label">What grade are you in?</label>
+        <select id="onbGrade" class="form-input">
+          <option value="">Prefer not to say</option>
+          {% for g in (grade_choices or []) %}
+            <option value="{{ g }}" {% if identity and identity.grade_level == g %}selected{% endif %}>{{ g }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">What subjects are you focused on?</label>
+        <div id="onbFocus" style="display:flex;flex-wrap:wrap;gap:8px;">
+          {% for f in (focus_choices or []) %}
+            <label class="onb-chip">
+              <input type="checkbox" value="{{ f }}" {% if identity and f in identity.focus_areas %}checked{% endif %}>
+              <span>{{ f }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 2: Goals + commitments -->
+    <section class="onb-step" data-step="2" style="display:none;">
+      <div class="form-group" style="margin-bottom:1rem;">
+        <label class="form-label">What do you want to get out of IntelliPlan?</label>
+        <textarea id="onbGoals" rows="3" class="form-input" placeholder="e.g. raise my AP Calc grade to an A, build study habits for the SAT, get faster at essays">{{ (identity.goals if identity else '') }}</textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Weekly commitments / extracurriculars (optional)</label>
+        <input type="text" id="onbCommit" class="form-input" placeholder="e.g. soccer Mon/Wed 4–6pm, piano Fri 5pm" value="{{ identity.weekly_commitments if identity else '' }}">
+        <span class="form-hint">Plani uses this to avoid scheduling study during your busy times.</span>
+      </div>
+    </section>
+
+    <!-- Step 3: Connect a service -->
+    <section class="onb-step" data-step="3" style="display:none;">
+      <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:8px;">Connect your school (optional)</div>
+      <p style="color:var(--text-secondary);font-size:0.88rem;margin-bottom:1rem;">Pulling assignments automatically is the magic. You can also skip and add a manual task later.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <a class="onb-svc" href="/oauth/canvas">
+          <span class="onb-svc-dot" style="background:#e66000;">C</span>
+          <div>
+            <div class="onb-svc-name">Canvas</div>
+            <div class="onb-svc-sub">One-click OAuth</div>
+          </div>
+        </a>
+        <a class="onb-svc" href="/login/studentvue">
+          <span class="onb-svc-dot" style="background:#16a34a;">SV</span>
+          <div>
+            <div class="onb-svc-name">StudentVue</div>
+            <div class="onb-svc-sub">District login</div>
+          </div>
+        </a>
+        <a class="onb-svc" href="/login/schoology">
+          <span class="onb-svc-dot" style="background:#5865F2;">S</span>
+          <div>
+            <div class="onb-svc-name">Schoology</div>
+            <div class="onb-svc-sub">API key</div>
+          </div>
+        </a>
+        <a class="onb-svc" href="/oauth/google">
+          <span class="onb-svc-dot" style="background:#4285f4;">G</span>
+          <div>
+            <div class="onb-svc-name">Google Calendar</div>
+            <div class="onb-svc-sub">Sync events</div>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <!-- Nav -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1.5rem;gap:8px;flex-wrap:wrap;">
+      <button onclick="dismissOnb()" style="background:none;border:0;font-size:0.84rem;color:var(--text-muted);cursor:pointer;font-family:var(--font-ui);font-weight:600;">Skip for now</button>
+      <div style="display:flex;gap:8px;">
+        <button id="onbBack" onclick="onbStep(-1)" style="padding:10px 18px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-secondary);cursor:pointer;font-family:var(--font-ui);font-weight:600;visibility:hidden;">Back</button>
+        <button id="onbNext" class="btn-primary" onclick="onbStep(1)" style="padding:10px 22px;border:none;cursor:pointer;">Next</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .onb-pill { flex:1; height:6px; border-radius:999px; background:var(--border); }
+  .onb-pill.on { background:linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 70%, white)); }
+  .onb-chip { position:relative; cursor:pointer; }
+  .onb-chip input { position:absolute; opacity:0; pointer-events:none; }
+  .onb-chip span {
+    display:inline-block; padding:8px 14px; border-radius:999px;
+    border:1.5px solid var(--border-strong); background:var(--bg-card);
+    font-size:0.86rem; color:var(--text-secondary);
+    transition:all 0.14s;
+  }
+  .onb-chip input:checked + span {
+    background:var(--accent-soft); border-color:var(--accent); color:var(--accent); font-weight:700;
+  }
+  .onb-svc {
+    display:flex; align-items:center; gap:12px; padding:12px 14px;
+    border-radius:14px; border:1px solid var(--border);
+    background:var(--bg-card); text-decoration:none; color:var(--text-primary);
+    transition:transform 0.16s, box-shadow 0.16s, border-color 0.16s;
+  }
+  .onb-svc:hover { transform:translateY(-1px); box-shadow:var(--shadow-hover); border-color:var(--border-accent); }
+  .onb-svc-dot {
+    width:36px; height:36px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    color:white; font-family:var(--font-ui); font-weight:800; font-size:0.84rem; flex-shrink:0;
+  }
+  .onb-svc-name { font-weight:700; font-size:0.95rem; }
+  .onb-svc-sub  { font-size:0.74rem; color:var(--text-muted); margin-top:2px; }
+</style>
+
+<script>
+  let _onbCur = 1;
+  const _onbMax = 3;
+  function onbStep(dir) {
+    const next = _onbCur + dir;
+    if (next < 1) return;
+    if (next > _onbMax) { finishOnb(); return; }
+    document.querySelectorAll('.onb-step').forEach(s => s.style.display = (parseInt(s.dataset.step) === next) ? '' : 'none');
+    document.querySelectorAll('#onbSteps .onb-pill').forEach((el, i) => el.classList.toggle('on', i < next));
+    document.getElementById('onbBack').style.visibility = next === 1 ? 'hidden' : 'visible';
+    document.getElementById('onbNext').textContent = (next === _onbMax) ? 'Finish' : 'Next';
+    _onbCur = next;
+  }
+  function _onbPayload(markCompleted) {
+    const focus = Array.from(document.querySelectorAll('#onbFocus input:checked')).map(i => i.value);
+    return {
+      grade_level: document.getElementById('onbGrade').value,
+      focus_areas: focus,
+      goals: document.getElementById('onbGoals').value.trim(),
+      weekly_commitments: document.getElementById('onbCommit').value.trim(),
+      completed: !!markCompleted,
+    };
+  }
+  function finishOnb() {
+    const btn = document.getElementById('onbNext');
+    btn.disabled = true; btn.textContent = 'Saving...';
+    fetch('/identity', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(_onbPayload(true)) })
+      .then(() => closeOnb())
+      .catch(() => { btn.disabled = false; btn.textContent = 'Finish'; alert('Could not save — try again.'); });
+  }
+  function dismissOnb() {
+    // Save partial info but mark completed so we don't nag again.
+    fetch('/identity', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(_onbPayload(true)) }).finally(closeOnb);
+  }
+  function closeOnb() {
+    const m = document.getElementById('onbModal');
+    if (m) m.remove();
+  }
+</script>
+{% endif %}
+
 <!-- Feedback Modal -->
 <div id="feedbackModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
   <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:420px; width:90%; box-shadow:var(--shadow-hover); animation:fadeUp 0.25s ease both;">
@@ -69,38 +248,152 @@
   </div>
 </div>
 
-<!-- ── Streak Widget ──────────────────────────────── -->
-<div id="streakWidget" style="margin-bottom:1.5rem;">
-  <div class="streak-card dashboard-streak-card loading">
-    <div class="streak-flame">
-      <div class="streak-flame-icon cold dash-flame-emoji" aria-hidden="true">🔥</div>
-      <div class="streak-flame-count">0</div>
-      <div class="streak-flame-label">day streak</div>
+<!-- ── Streak Widget (Duolingo-flavoured) ─────────────────────── -->
+<a href="/streak" id="streakWidget" class="dash-streak-link" aria-label="View streak details">
+  <div class="dash-streak" id="dashStreakCard">
+    <div class="dash-streak-left">
+      <div class="dash-flame-stage" aria-hidden="true">
+        <span class="dash-flame-emoji">🔥</span>
+        <span class="dash-flame-aura"></span>
+        <span class="dash-flame-spark s1"></span>
+        <span class="dash-flame-spark s2"></span>
+        <span class="dash-flame-spark s3"></span>
+      </div>
+      <div>
+        <div class="dash-streak-count" id="dashStreakCount">0</div>
+        <div class="dash-streak-label">day streak</div>
+      </div>
     </div>
-    <style>
-      .dash-flame-emoji {
-        font-size:34px;
-        line-height:1;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        background:none !important;
-        border:none !important;
-        filter:drop-shadow(0 3px 6px rgba(249,115,22,.45)) drop-shadow(0 0 14px rgba(249,115,22,.35));
-        animation:dashFlameLive 1.4s cubic-bezier(0.45,0.05,0.55,0.95) infinite;
-        font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;
-      }
-      @keyframes dashFlameLive {
-        0%   { transform:translateY(0)    rotate(-1deg)  scale(1); }
-        30%  { transform:translateY(-2px) rotate(1.5deg) scale(1.05); }
-        65%  { transform:translateY(-3px) rotate(-1deg)  scale(0.98); }
-        100% { transform:translateY(0)    rotate(-1deg)  scale(1); }
-      }
-      @media (prefers-reduced-motion: reduce) { .dash-flame-emoji { animation:none !important; } }
-    </style>
-    <div class="streak-loading-copy">Loading your streak...</div>
+
+    <!-- 7-day strip (Mon-Sun), filled vs hollow circles -->
+    <div class="dash-week" id="dashWeek" aria-hidden="true">
+      <div class="dash-week-day" data-d="0"><span class="dash-week-dot"></span><span class="dash-week-let">M</span></div>
+      <div class="dash-week-day" data-d="1"><span class="dash-week-dot"></span><span class="dash-week-let">T</span></div>
+      <div class="dash-week-day" data-d="2"><span class="dash-week-dot"></span><span class="dash-week-let">W</span></div>
+      <div class="dash-week-day" data-d="3"><span class="dash-week-dot"></span><span class="dash-week-let">T</span></div>
+      <div class="dash-week-day" data-d="4"><span class="dash-week-dot"></span><span class="dash-week-let">F</span></div>
+      <div class="dash-week-day" data-d="5"><span class="dash-week-dot"></span><span class="dash-week-let">S</span></div>
+      <div class="dash-week-day" data-d="6"><span class="dash-week-dot"></span><span class="dash-week-let">S</span></div>
+    </div>
+
+    <div class="dash-streak-right">
+      <div class="dash-spark-row">
+        <span class="dash-spark-icon" aria-hidden="true">⚡</span>
+        <div>
+          <div class="dash-spark-num" id="dashSparkNum">0</div>
+          <div class="dash-spark-label">Sparks</div>
+        </div>
+      </div>
+      <div class="dash-streak-cta" id="dashStreakCta">Study now →</div>
+    </div>
   </div>
-</div>
+</a>
+
+<style>
+  .dash-streak-link { display:block; text-decoration:none; color:inherit; margin-bottom:1.5rem; }
+  .dash-streak {
+    background: linear-gradient(135deg, color-mix(in srgb, #f97316 12%, var(--bg-card)), var(--bg-card) 60%);
+    border:1px solid color-mix(in srgb, #f97316 25%, var(--border));
+    border-radius:18px;
+    padding:1.1rem 1.25rem;
+    box-shadow:var(--shadow);
+    display:grid;
+    grid-template-columns: auto 1fr auto;
+    align-items:center;
+    gap:1rem;
+    position:relative;
+    overflow:hidden;
+    transition:transform 0.18s ease, box-shadow 0.18s ease;
+  }
+  .dash-streak::before {
+    content:""; position:absolute; inset:auto -40px -40px auto;
+    width:160px; height:160px; border-radius:50%;
+    background:radial-gradient(circle, rgba(249,115,22,0.18), transparent 70%);
+    pointer-events:none;
+  }
+  .dash-streak:hover { transform:translateY(-2px); box-shadow:var(--shadow-hover); }
+  .dash-streak-left { display:flex; align-items:center; gap:14px; min-width:0; }
+
+  .dash-flame-stage { position:relative; width:64px; height:72px; display:grid; place-items:center; flex-shrink:0; }
+  .dash-flame-emoji {
+    font-size:46px; line-height:1; z-index:2; position:relative;
+    filter:drop-shadow(0 4px 10px rgba(249,115,22,.55)) drop-shadow(0 0 22px rgba(249,115,22,.45));
+    animation:dashFlameLive 1.4s cubic-bezier(0.45,0.05,0.55,0.95) infinite;
+    font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;
+    user-select:none;
+  }
+  .dash-flame-aura {
+    position:absolute; bottom:-4px; left:50%; transform:translateX(-50%);
+    width:46px; height:14px; border-radius:50%;
+    background:radial-gradient(ellipse, rgba(249,115,22,.6) 0%, transparent 72%);
+    filter:blur(3px);
+    animation:dashAura 1.6s ease-in-out infinite;
+  }
+  .dash-flame-spark { position:absolute; border-radius:999px; opacity:0; animation:dashSparkRise 1.8s ease-out infinite; pointer-events:none; z-index:3; }
+  .dash-flame-spark.s1 { width:5px; height:5px; left:22px; bottom:30px; background:#facc15; animation-delay:.2s; }
+  .dash-flame-spark.s2 { width:4px; height:4px; left:36px; bottom:32px; background:#fb923c; animation-delay:.8s; }
+  .dash-flame-spark.s3 { width:3px; height:3px; left:30px; bottom:38px; background:#fde68a; animation-delay:1.4s; }
+
+  .dash-streak-count {
+    font-family:'DM Serif Display',serif; font-size:2.6rem; line-height:1;
+    color:#ea580c; letter-spacing:-0.02em;
+  }
+  .dash-streak-label { font-family:var(--font-ui); font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin-top:4px; }
+
+  /* Week strip */
+  .dash-week { display:flex; gap:6px; justify-self:center; }
+  .dash-week-day { display:flex; flex-direction:column; align-items:center; gap:4px; min-width:24px; }
+  .dash-week-let { font-family:var(--font-ui); font-size:0.62rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em; }
+  .dash-week-dot {
+    width:18px; height:18px; border-radius:50%;
+    border:2px solid color-mix(in srgb, #f97316 35%, var(--border));
+    background:transparent;
+    transition:all 0.22s var(--ease-spring);
+  }
+  .dash-week-day.studied .dash-week-dot {
+    background:linear-gradient(135deg, #f97316, #facc15);
+    border-color:transparent;
+    box-shadow:0 0 12px rgba(249,115,22,0.55);
+  }
+  .dash-week-day.today .dash-week-dot { border-color:#ea580c; transform:scale(1.18); }
+  .dash-week-day.today.studied .dash-week-dot { animation:dashTodayPop 1.6s ease-in-out infinite; }
+
+  .dash-streak-right { display:flex; flex-direction:column; align-items:flex-end; gap:8px; min-width:0; }
+  .dash-spark-row { display:flex; align-items:center; gap:8px; }
+  .dash-spark-icon { font-size:22px; filter:drop-shadow(0 2px 6px rgba(99,102,241,0.45)); }
+  .dash-spark-num { font-family:var(--font-ui); font-size:1.25rem; font-weight:800; color:var(--text-primary); line-height:1; }
+  .dash-spark-label { font-size:0.66rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin-top:2px; }
+  .dash-streak-cta { font-family:var(--font-ui); font-size:0.78rem; font-weight:700; color:var(--accent); }
+
+  @keyframes dashFlameLive {
+    0%   { transform:translateY(0)    rotate(-1deg)  scale(1); }
+    30%  { transform:translateY(-3px) rotate(1.5deg) scale(1.05); }
+    65%  { transform:translateY(-4px) rotate(-1deg)  scale(0.98); }
+    100% { transform:translateY(0)    rotate(-1deg)  scale(1); }
+  }
+  @keyframes dashAura {
+    0%,100% { transform:translateX(-50%) scaleX(1)    scaleY(1);    opacity:0.7; }
+    50%     { transform:translateX(-50%) scaleX(1.18) scaleY(0.82); opacity:1; }
+  }
+  @keyframes dashSparkRise {
+    0%   { transform:translateY(0)    scale(.6); opacity:0; }
+    18%  { opacity:1; }
+    100% { transform:translateY(-44px) translateX(10px) scale(.2); opacity:0; }
+  }
+  @keyframes dashTodayPop {
+    0%,100% { transform:scale(1.18); box-shadow:0 0 12px rgba(249,115,22,0.55); }
+    50%     { transform:scale(1.32); box-shadow:0 0 22px rgba(249,115,22,0.85); }
+  }
+
+  @media (max-width:600px) {
+    .dash-streak { grid-template-columns: auto 1fr; padding:1rem; }
+    .dash-week { grid-column:1/-1; justify-self:start; }
+    .dash-streak-right { grid-column:1/-1; flex-direction:row; justify-content:space-between; align-items:center; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dash-flame-emoji, .dash-flame-aura, .dash-flame-spark, .dash-week-day.today.studied .dash-week-dot { animation:none !important; }
+  }
+</style>
 
 <!-- Today's schedule preview -->
 <div id="todayScheduleWrap" style="display:none; margin-bottom:1.5rem;">
@@ -1165,92 +1458,45 @@ async function loadSilenceState() {
   }
 }
 
-// ── STREAK WIDGET ─────────────────────────────────────────────
+// ── STREAK WIDGET (Duolingo-style) ────────────────────────────
+// Fills in the live data on the existing .dash-streak markup instead
+// of rebuilding it — keeps animations + the link wrapper intact.
 async function loadStreak() {
   let data;
   try { data = await fetch('/study/streak').then(r => r.json()); }
   catch { return; }
   if (!data || data.status === 'error') return;
 
-  const wrap = document.getElementById('streakWidget');
   const streak = data.streak_count || 0;
   const history = new Set(data.streak_history || []);
-  const freezes = data.streak_freeze_count || 0;
-  const longest = data.longest_streak || streak;
-  const atRisk = data.at_risk;
-  const tier = data.streak_tier || {};
-  const sparks = data.spark_balance || 0;
+  const sparks  = data.spark_balance || 0;
+  const tier    = data.streak_tier || {};
+  const atRisk  = !!data.at_risk;
 
-  // Build last-7-days row
-  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
-  const todayDone = history.has(todayStr);
-  const days = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const ds = d.toISOString().split('T')[0];
-    days.push({ ds, label: dayNames[d.getDay()], isToday: ds === todayStr, active: history.has(ds) });
+  const countEl = document.getElementById('dashStreakCount');
+  const sparkEl = document.getElementById('dashSparkNum');
+  const ctaEl   = document.getElementById('dashStreakCta');
+  if (countEl) countEl.textContent = streak;
+  if (sparkEl) sparkEl.textContent = sparks;
+  if (ctaEl) {
+    if (streak === 0) ctaEl.textContent = 'Start a session →';
+    else if (atRisk)  ctaEl.textContent = '⚠ Study today →';
+    else              ctaEl.textContent = (tier.name || 'Keep it going') + ' →';
   }
 
-  const tierColor = tier.color || '#f97316';
-  const tierLabel = tier.name || 'Starter';
-  const copy = streak === 0
-    ? 'Start with one short study session today.'
-    : todayDone
-      ? `Protected today. Tomorrow earns a +${tier.bonus || 5} Spark streak bonus.`
-      : `Study today to keep this alive and earn +${tier.bonus || 5} Sparks.`;
-
-  const daysHtml = days.map(d => `
-    <div class="streak-day">
-      <div class="streak-day-dot ${d.active ? 'active' : ''} ${d.isToday ? 'today-ring' : ''}">
-        ${d.active ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>` : ''}
-      </div>
-      <span class="streak-day-label ${d.isToday ? 'today-txt' : ''}">${d.isToday ? 'Today' : d.label}</span>
-    </div>`).join('');
-
-  const freezeHtml = freezes > 0
-    ? `<div class="streak-stat">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-snowflake"/></svg>
-        <span style="color:#3b82f6;font-weight:600;">${freezes} freeze${freezes !== 1 ? 's' : ''}</span>
-      </div>`
-    : '';
-
-  const atRiskHtml = atRisk
-    ? `<div class="streak-at-risk">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg>
-        Study today to keep your streak alive!
-        <a href="/study" style="margin-left:auto;color:#c2410c;text-decoration:underline;white-space:nowrap;">Go study</a>
-      </div>` : '';
-
-  wrap.innerHTML = `
-    <div class="streak-card dashboard-streak-card" style="--tier:${tierColor};">
-      <div class="streak-flame">
-        <div class="streak-flame-icon ${streak === 0 ? 'cold' : ''}"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-fire"/></svg></div>
-        <div class="streak-flame-count">${streak}</div>
-        <div class="streak-flame-label">day streak</div>
-      </div>
-      <div style="min-width:160px;flex:1;">
-        <div style="font-family:var(--font-ui);font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:${tierColor};margin-bottom:4px;">${tierLabel} streak</div>
-        <div style="font-size:0.92rem;color:var(--text-secondary);line-height:1.45;">${copy}</div>
-      </div>
-      <div class="streak-days">${daysHtml}</div>
-      <div class="streak-meta">
-        <span class="streak-tier-badge" style="color:${tierColor};border-color:${tierColor};">${sparks} Sparks</span>
-        <div class="streak-stat">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg>
-          Best: ${longest} days
-        </div>
-        ${freezeHtml}
-      </div>
-      <div class="streak-actions">
-        <a href="/study" class="streak-action primary">Study now</a>
-        <a href="/streak" class="streak-action">Open Streak</a>
-      </div>
-      ${atRiskHtml}
-    </div>`;
-  wrap.style.display = 'block';
+  // Light the 7-day strip (Mon=0..Sun=6) for the current ISO week.
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  const jsMonIdx = (today.getDay() + 6) % 7;  // shift Sun=0..Sat=6 → Mon=0..Sun=6
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - (jsMonIdx - i));
+    const ds = d.toISOString().split('T')[0];
+    const el = document.querySelector(`.dash-week-day[data-d="${i}"]`);
+    if (!el) continue;
+    el.classList.toggle('studied', history.has(ds));
+    el.classList.toggle('today', ds === todayStr);
+  }
 }
 
 // Init
