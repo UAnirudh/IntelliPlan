@@ -2023,10 +2023,24 @@ def _handle_google_callback():
             session.modified = True
         return redirect(url_for("dashboard"))
 
-    # ── Find or create User ──
-    user = User.query.filter_by(google_id=google_id).first()
+    # ── Find or create User (defensive — see login_account for rationale) ──
+    try:
+        user = User.query.filter_by(google_id=google_id).first()
+    except Exception as _e:
+        print(f"[GOOGLE CALLBACK] User.query failed, retrying after migration: {_e}")
+        try: db.session.rollback()
+        except Exception: pass
+        try:
+            _run_boot_migration_once()
+            user = User.query.filter_by(google_id=google_id).first()
+        except Exception as _e2:
+            print(f"[GOOGLE CALLBACK] User.query still failing after migration: {_e2}")
+            return redirect(url_for("login") + "?err=oauth_db")
     if not user:
-        user = User.query.filter_by(email=email).first()
+        try:
+            user = User.query.filter_by(email=email).first()
+        except Exception:
+            user = None
         if user:
             # Existing email-based account — link the Google ID
             user.google_id = google_id
@@ -5481,37 +5495,87 @@ from intelliplan_api import api_bp as intelliplan_api_bp
 app.register_blueprint(intelliplan_api_bp)
 
 
-def _migrate_user_columns():
-    """Lightweight ALTER TABLE shim for SQLite/Postgres.
+def _existing_columns(table_name):
+    """Return a set of column names that exist on `table_name`, or an
+    empty set if the table doesn't exist. Works on both SQLite and
+    Postgres without needing the ORM's metadata to be in sync."""
+    from sqlalchemy import inspect as _inspect
+    try:
+        insp = _inspect(db.engine)
+        if table_name not in insp.get_table_names():
+            return set()
+        return {c["name"] for c in insp.get_columns(table_name)}
+    except Exception as e:
+        print(f"[migrate] inspect {table_name} failed: {e}")
+        return set()
 
-    SQLAlchemy's `db.create_all()` adds new TABLES but never new COLUMNS
-    on existing ones. The referral / tier work added 4 columns to `users`
-    and several to `notion_integrations` after this DB was first created,
-    so we patch them in here. Idempotent — each ADD COLUMN check is
-    wrapped in a try/except, so re-runs are safe.
+
+def _migrate_user_columns():
+    """Bulletproof ALTER TABLE shim for SQLite/Postgres.
+
+    The previous version used `db.session.execute(...)` per column,
+    which on Postgres aborts the WHOLE transaction the moment any one
+    of the ALTERs fails (e.g. "column already exists"). Subsequent
+    ALTERs in the same transaction then silently no-op and the App
+    boots without the new columns — which is the bug that left users
+    seeing "Login is briefly unavailable" every time.
+
+    Now we:
+      1. Inspect the live schema first and only attempt ALTERs for
+         columns that are genuinely missing.
+      2. Use a fresh, autocommit-style connection per ALTER so a
+         failure on one column can't poison the rest.
+      3. Verify after the loop that the new columns landed and log
+         the result for production debugging.
     """
     from sqlalchemy import text as _t
+
     targets = [
         # users
         ("users", "referral_code", "VARCHAR(16)"),
         ("users", "referred_by_id", "INTEGER"),
         ("users", "tier", "VARCHAR(16) DEFAULT 'free'"),
-        ("users", "pro_until", "DATETIME"),
-        # notion_integrations (from a previous migration that also lacked this)
+        ("users", "pro_until", "TIMESTAMP"),
+        # notion_integrations (from an earlier migration)
         ("notion_integrations", "auth_type", "VARCHAR(16) DEFAULT 'manual'"),
         ("notion_integrations", "workspace_id", "VARCHAR(64)"),
         ("notion_integrations", "workspace_name", "VARCHAR(256)"),
         ("notion_integrations", "workspace_icon", "VARCHAR(512)"),
         ("notion_integrations", "bot_id", "VARCHAR(64)"),
-        ("notion_integrations", "connected_at", "DATETIME"),
+        ("notion_integrations", "connected_at", "TIMESTAMP"),
     ]
-    for table, col, decl in targets:
-        try:
-            db.session.execute(_t(f"ALTER TABLE {table} ADD COLUMN {col} {decl}"))
-            db.session.commit()
-            print(f"[migrate] added {table}.{col}")
-        except Exception:
-            db.session.rollback()
+
+    # Group targets by table so we only inspect each table once.
+    by_table = {}
+    for t, c, d in targets:
+        by_table.setdefault(t, []).append((c, d))
+
+    for table, cols in by_table.items():
+        existing = _existing_columns(table)
+        if not existing:
+            # Table doesn't exist at all — db.create_all() will handle it
+            # the next time around. No ALTER needed.
+            continue
+        for col, decl in cols:
+            if col in existing:
+                continue
+            try:
+                # Fresh connection per ALTER, autocommit on, so one failure
+                # can't roll back the others.
+                with db.engine.connect() as conn:
+                    conn.execute(_t(f"ALTER TABLE {table} ADD COLUMN {col} {decl}"))
+                    try:
+                        conn.commit()
+                    except Exception:
+                        pass
+                print(f"[migrate] added {table}.{col}")
+            except Exception as e:
+                print(f"[migrate] could not add {table}.{col}: {e}")
+
+    # Verify result so production logs make the state obvious.
+    users_cols = _existing_columns("users")
+    have_new = {"referral_code", "referred_by_id", "tier", "pro_until"}.issubset(users_cols)
+    print(f"[migrate] users new columns present: {have_new}  (got: {sorted(users_cols)})")
 
 
 # Run the schema bootstrap + column migration at IMPORT time so production
@@ -5540,6 +5604,21 @@ try:
         _run_boot_migration_once()
 except Exception as _boot_e:
     print(f"[boot] App context unavailable at import: {_boot_e}")
+
+
+@app.route("/health")
+def health_check():
+    """Diagnostic endpoint. Returns DB-schema state so we can see in
+    production whether the migration ran. Public, no secrets exposed."""
+    out = {
+        "status": "ok",
+        "migration_done": bool(_MIGRATION_DONE),
+        "users_columns": sorted(_existing_columns("users")),
+        "notion_columns": sorted(_existing_columns("notion_integrations")),
+    }
+    expected = {"id", "email", "password_hash", "referral_code", "referred_by_id", "tier", "pro_until"}
+    out["users_schema_ok"] = expected.issubset(set(out["users_columns"]))
+    return flask.jsonify(out)
 
 
 @app.before_request
