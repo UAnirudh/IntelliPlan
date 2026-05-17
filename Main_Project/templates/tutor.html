@@ -4,10 +4,23 @@
 {% block head_extra %}
 <meta name="description" content="Ask Plani anything and learn step by step. IntelliPlan's AI tutor covers math, science, history, coding, languages, and more — free for every student.">
 <style>
-/* ── Override base main for full-height layout ── */
-main { max-width:100% !important; padding:0 !important; margin:0 !important; display:flex; flex-direction:column; height:100vh; height:100dvh; min-height:0; overflow:hidden; }
+/* ── Override base layout: tutor owns the entire viewport ── */
+/* The base.html footer normally sits below <main>; on the tutor page we
+   hide it so the floating composer is actually anchored to the visible
+   viewport (otherwise body scroll moves the composer off-screen). */
+html, body { height: 100%; overflow: hidden !important; }
+body > footer, body > .footer { display: none !important; }
+main {
+  max-width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex; flex-direction: column;
+  flex: 1 1 auto;
+  height: 100vh; height: 100dvh;
+  min-height: 0; overflow: hidden;
+}
 @media (max-width: 720px) {
-  main { height:calc(100vh - 62px) !important; height:calc(100dvh - 62px) !important; }
+  main { height: calc(100vh - 62px) !important; height: calc(100dvh - 62px) !important; }
 }
 
 /* ── Shell ── */

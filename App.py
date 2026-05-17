@@ -1822,11 +1822,21 @@ def login_canvas():
 # ── CANVAS OAUTH ──────────────────────────────────────────────
 # Lets students connect Canvas with one click instead of finding and
 # pasting a personal access token. Backed by canvas_oauth.py.
+@app.route("/oauth/canvas/check")
+def oauth_canvas_check():
+    """Lightweight probe used by the login page to decide whether to show
+    the "Continue with Canvas" button for a given canvas_base."""
+    base = (request.args.get("canvas_base") or DEFAULT_CANVAS_BASE).strip()
+    if not CANVAS_OAUTH_AVAILABLE:
+        return flask.jsonify({"available": False, "reason": "library_missing"})
+    return flask.jsonify({"available": bool(canvas_oauth_configured(base)), "canvas_base": base})
+
+
 @app.route("/oauth/canvas")
 def oauth_canvas_start():
-    if not CANVAS_OAUTH_AVAILABLE or not canvas_oauth_configured():
-        return redirect(url_for("login_canvas") + "?reason=oauth_unavailable")
     canvas_base = request.args.get("canvas_base") or DEFAULT_CANVAS_BASE
+    if not CANVAS_OAUTH_AVAILABLE or not canvas_oauth_configured(canvas_base):
+        return redirect(url_for("login_canvas") + "?reason=oauth_unavailable&canvas_base=" + urllib.parse.quote(canvas_base))
     profile_name = request.args.get("profile_name") or "Canvas Account"
     state = secrets_module.token_urlsafe(24)
     session["canvas_oauth_state"] = state

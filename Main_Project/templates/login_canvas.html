@@ -28,22 +28,55 @@
 
     {% if canvas_oauth_available %}
     <div style="margin-bottom:1.25rem;">
-      <form method="GET" action="/oauth/canvas" style="display:flex;flex-direction:column;gap:10px;">
-        <input type="url" name="canvas_base" class="form-input" placeholder="https://canvas.instructure.com" value="{{ request.args.get('canvas_base', '') }}">
-        <button type="submit" class="btn-primary" style="display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;width:100%;font-size:0.95rem;background:#e66000;border:none;cursor:pointer;">
+      <form id="canvasOauthForm" method="GET" action="/oauth/canvas" style="display:flex;flex-direction:column;gap:10px;">
+        <input type="url" id="canvasOauthBase" name="canvas_base" class="form-input" placeholder="https://canvas.instructure.com" value="{{ request.args.get('canvas_base', 'https://canvas.instructure.com') }}">
+        <button type="submit" id="canvasOauthBtn" class="btn-primary" style="display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;width:100%;font-size:0.95rem;background:#e66000;border:none;cursor:pointer;">
           <span style="font-weight:800;">C</span>
-          Continue with Canvas OAuth
+          Continue with Canvas
         </button>
+        <div id="canvasOauthHint" style="font-size:0.78rem;color:var(--text-muted);text-align:center;">
+          Sign in through Canvas — no access token needed.
+        </div>
       </form>
-      <div style="font-size:0.78rem;color:var(--text-muted);text-align:center;margin-top:8px;">
-        Sign in through Canvas — no need to find an access token.
-      </div>
     </div>
     <div style="display:flex;align-items:center;gap:12px;margin:1rem 0 1rem;">
       <div style="flex:1;height:1px;background:var(--border);"></div>
       <span style="font-size:0.74rem;color:var(--text-muted);font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">or paste a token</span>
       <div style="flex:1;height:1px;background:var(--border);"></div>
     </div>
+    <script>
+    (function() {
+      const baseInput = document.getElementById('canvasOauthBase');
+      const btn = document.getElementById('canvasOauthBtn');
+      const hint = document.getElementById('canvasOauthHint');
+      if (!baseInput || !btn) return;
+      let timer = null;
+      async function probe() {
+        const val = (baseInput.value || '').trim();
+        if (!val) return;
+        try {
+          const r = await fetch('/oauth/canvas/check?canvas_base=' + encodeURIComponent(val));
+          const data = await r.json();
+          if (data.available) {
+            btn.disabled = false;
+            btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+            hint.textContent = 'Sign in through Canvas — no access token needed.';
+            hint.style.color = 'var(--text-muted)';
+          } else {
+            btn.disabled = true;
+            btn.style.opacity = '0.55'; btn.style.cursor = 'not-allowed';
+            hint.innerHTML = "IntelliPlan isn't registered on this Canvas yet. Paste an access token below — it works on any Canvas.";
+            hint.style.color = '#d97706';
+          }
+        } catch (e) {}
+      }
+      baseInput.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(probe, 350);
+      });
+      probe();
+    })();
+    </script>
     {% endif %}
 
     <form class="login-form" method="POST" action="/login/canvas">

@@ -37,6 +37,40 @@ def _redirect_uri(redirect_uri=None):
     return redirect_uri or os.getenv("CANVAS_REDIRECT_URI") or DEFAULT_REDIRECT_URI
 
 
+def _host_key_suffix(canvas_base):
+    """Build the env-var suffix used to look up per-instance Developer Keys.
+
+    e.g. https://canvas.school.edu -> "CANVAS_SCHOOL_EDU"
+         https://canvas.instructure.com -> "CANVAS_INSTRUCTURE_COM"
+
+    Multi-tenant deploys can set:
+        CANVAS_CLIENT_ID_CANVAS_INSTRUCTURE_COM
+        CANVAS_CLIENT_SECRET_CANVAS_INSTRUCTURE_COM
+        CANVAS_CLIENT_ID_CANVAS_SCHOOL_EDU
+        CANVAS_CLIENT_SECRET_CANVAS_SCHOOL_EDU
+    to register one Developer Key per Canvas instance. Falls back to the
+    global CANVAS_CLIENT_ID / CANVAS_CLIENT_SECRET when no override exists.
+    """
+    base = _normalize_base(canvas_base)
+    host = base.split("://", 1)[-1].split("/", 1)[0]
+    return host.replace(".", "_").replace("-", "_").upper()
+
+
+def _client_credentials(canvas_base):
+    """Return (client_id, client_secret) for this Canvas base, preferring
+    a per-instance override before the global key."""
+    suffix = _host_key_suffix(canvas_base) if canvas_base else None
+    client_id = (
+        (os.getenv(f"CANVAS_CLIENT_ID_{suffix}") if suffix else None)
+        or os.getenv("CANVAS_CLIENT_ID")
+    )
+    client_secret = (
+        (os.getenv(f"CANVAS_CLIENT_SECRET_{suffix}") if suffix else None)
+        or os.getenv("CANVAS_CLIENT_SECRET")
+    )
+    return client_id, client_secret
+
+
 def _normalize_base(canvas_base):
     """Strip trailing slashes; default to Instructure SaaS if blank."""
     base = (canvas_base or "").strip().rstrip("/")
@@ -58,10 +92,13 @@ def get_canvas_auth_url(state, canvas_base=None, redirect_uri=None, scopes=None)
       - scope (optional, space-delimited)
       - purpose (optional, shown to user)
     """
-    client_id = os.getenv("CANVAS_CLIENT_ID")
-    if not client_id:
-        raise RuntimeError("CANVAS_CLIENT_ID not configured.")
     base = _normalize_base(canvas_base)
+    client_id, _ = _client_credentials(base)
+    if not client_id:
+        raise RuntimeError(
+            f"No Canvas Developer Key registered for {base}. Set CANVAS_CLIENT_ID "
+            f"(global) or CANVAS_CLIENT_ID_{_host_key_suffix(base)} (per-instance)."
+        )
     params = {
         "client_id": client_id,
         "response_type": "code",
@@ -81,11 +118,10 @@ def exchange_canvas_code(code, canvas_base, redirect_uri=None):
     so we can show the linked account in IntelliPlan settings without an
     extra API call.
     """
-    client_id = os.getenv("CANVAS_CLIENT_ID")
-    client_secret = os.getenv("CANVAS_CLIENT_SECRET")
-    if not client_id or not client_secret:
-        raise RuntimeError("Canvas OAuth credentials missing.")
     base = _normalize_base(canvas_base)
+    client_id, client_secret = _client_credentials(base)
+    if not client_id or not client_secret:
+        raise RuntimeError(f"Canvas OAuth credentials missing for {base}.")
     resp = http_requests.post(
         f"{base}/login/oauth2/token",
         data={
@@ -115,11 +151,10 @@ def refresh_canvas_token(refresh_token, canvas_base):
     expire (typically 1 hour) so this MUST be called before each batch
     of API calls if the cached token is older than ~55 minutes.
     """
-    client_id = os.getenv("CANVAS_CLIENT_ID")
-    client_secret = os.getenv("CANVAS_CLIENT_SECRET")
-    if not client_id or not client_secret:
-        raise RuntimeError("Canvas OAuth credentials missing.")
     base = _normalize_base(canvas_base)
+    client_id, client_secret = _client_credentials(base)
+    if not client_id or not client_secret:
+        raise RuntimeError(f"Canvas OAuth credentials missing for {base}.")
     resp = http_requests.post(
         f"{base}/login/oauth2/token",
         data={
@@ -153,5 +188,9 @@ def revoke_canvas_token(access_token, canvas_base):
         pass
 
 
-def oauth_is_configured():
-    return bool(os.getenv("CANVAS_CLIENT_ID") and os.getenv("CANVAS_CLIENT_SECRET"))
+def oauth_is_configured(canvas_base=None):
+    """True when the global Canvas Developer Key is set OR a per-instance
+    override exists for the given canvas_base. Used to decide whether to
+    show the "Continue with Canvas" button vs. the token-paste fallback."""
+    cid, sec = _client_credentials(canvas_base)
+    return bool(cid and sec)
