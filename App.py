@@ -15,7 +15,12 @@ import requests
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
-from studentvue_helper import test_login, get_assignments as get_sv_assignments, get_missing_assignments
+from studentvue_helper import (
+    test_login,
+    get_assignments as get_sv_assignments,
+    get_missing_assignments,
+    normalize_district_url,
+)
 from groq import Groq
 import re
 import json
@@ -1370,6 +1375,15 @@ def blog_studentvue():
 def blog_prioritize():
     return render_template("blog_prioritize.html", active_page="blog")
 
+@app.route("/about")
+def about():
+    return render_template("about.html", active_page="about")
+
+@app.route("/api-docs")
+@app.route("/developers")
+def api_docs_page():
+    return render_template("api_docs.html", active_page="api_docs")
+
 @app.route("/schedule")
 def home():
     if not is_logged_in():
@@ -1775,6 +1789,8 @@ def login_canvas():
         token = request.form.get("canvas_token", "").strip()
         canvas_url = request.form.get("canvas_url", "").strip().rstrip("/")
         profile_name = request.form.get("profile_name", "").strip() or "Canvas Account"
+        if canvas_url and not canvas_url.startswith(("http://", "https://")):
+            canvas_url = "https://" + canvas_url
         if not token or not canvas_url:
             error = "Please fill in both fields."
         else:
@@ -1937,7 +1953,7 @@ def login_studentvue():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "").strip()
-        district_url = request.form.get("district_url", "").strip().rstrip("/")
+        district_url = normalize_district_url(request.form.get("district_url", ""))
         profile_name = request.form.get("profile_name", "").strip() or "StudentVue Account"
         if not username or not password or not district_url:
             error = "Please fill in all fields."
@@ -1958,8 +1974,13 @@ def login_studentvue():
                     session["login_type"] = "studentvue"
                 return redirect(url_for("dashboard"))
             else:
-                error = "Invalid credentials."
+                error = "Invalid StudentVUE credentials or district URL. Try your district's StudentVUE web address, like https://district-psv.edupoint.com."
     return render_template("login_studentvue.html", active_page="login", error=error)
+
+
+@app.route("/oauth/studentvue")
+def oauth_studentvue_start():
+    return redirect(url_for("login_studentvue") + "?oauth=studentvue")
 
 @app.route("/login/schoology", methods=["GET", "POST"])
 def login_schoology():
@@ -3113,6 +3134,22 @@ def notion_set_database():
     session["notion_database_id"] = db_id
     session.modified = True
     return flask.jsonify({"status": "ok"})
+
+@app.route("/notion/databases")
+def notion_databases_route():
+    if not NOTION_AVAILABLE:
+        return flask.jsonify({"status": "error", "databases": []}), 503
+    token, db_id = get_notion_token_and_db()
+    if not token:
+        return flask.jsonify({"status": "error", "message": "Notion not connected", "databases": []}), 400
+    try:
+        return flask.jsonify({
+            "status": "ok",
+            "selected": db_id,
+            "databases": get_notion_databases(token),
+        })
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e), "databases": []}), 500
 
 @app.route("/notion/tasks")
 def notion_tasks_route():
@@ -4919,6 +4956,7 @@ def _stripe():
     if not sk:
         return None
     _stripe_lib.api_key = sk
+    _stripe_lib.api_version = "2026-04-22.dahlia"
     return _stripe_lib
 
 
@@ -4977,6 +5015,41 @@ def api_pro_checkout():
     return flask.jsonify({"status": "ok", "url": sess.url})
 
 
+@app.route("/api/pro/billing-portal", methods=["POST"])
+def api_pro_billing_portal():
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error", "message": "login required"}), 401
+    stripe = _stripe()
+    if not stripe or not current_user.stripe_customer_id:
+        return flask.jsonify({
+            "status": "error",
+            "message": "No Stripe customer is attached to this account yet."
+        }), 400
+    base = APP_BASE_URL.rstrip("/") if APP_BASE_URL else request.url_root.rstrip("/")
+    try:
+        portal = stripe.billing_portal.Session.create(
+            customer=current_user.stripe_customer_id,
+            return_url=base + "/settings#proCard",
+        )
+        return flask.jsonify({"status": "ok", "url": portal.url})
+    except Exception as e:
+        print(f"[stripe] billing portal failed: {e}")
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/stripe/status", methods=["GET"])
+def api_stripe_status():
+    return flask.jsonify({
+        "status": "ok",
+        "enabled": feature_enabled("stripe"),
+        "library_available": _stripe() is not None,
+        "secret_configured": bool(os.getenv("STRIPE_SECRET_KEY")),
+        "price_id": os.getenv("STRIPE_PRICE_ID") or STRIPE_DEFAULT_PRICE_ID,
+        "webhook_configured": bool(os.getenv("STRIPE_WEBHOOK_SECRET")),
+        "portal_available": current_user.is_authenticated and bool(getattr(current_user, "stripe_customer_id", None)),
+    })
+
+
 @app.route("/api/stripe/webhook", methods=["POST"])
 def stripe_webhook():
     """Stripe → IntelliPlan webhook. Promotes a user to Pro on
@@ -5011,14 +5084,18 @@ def stripe_webhook():
                 db.session.commit()
                 print(f"[stripe webhook] {user.email} → pro until {user.pro_until}")
         elif etype in ("customer.subscription.deleted", "invoice.payment_failed"):
+            customer_id = data.get("customer")
             email = (data.get("customer_email") or "").lower()
-            if email:
+            user = None
+            if customer_id:
+                user = User.query.filter_by(stripe_customer_id=customer_id).first()
+            if not user and email:
                 user = User.query.filter_by(email=email).first()
-                if user:
-                    # Leave them with whatever pro_until they already had — they
-                    # get the period they paid for. After expiry is_pro() flips
-                    # them to free automatically.
-                    print(f"[stripe webhook] subscription ended for {user.email}")
+            if user:
+                # Leave them with whatever pro_until they already had — they
+                # get the period they paid for. After expiry is_pro() flips
+                # them to free automatically.
+                print(f"[stripe webhook] subscription ended for {user.email}")
     except Exception as e:
         print(f"[stripe webhook] handler failure: {e}")
         try: db.session.rollback()

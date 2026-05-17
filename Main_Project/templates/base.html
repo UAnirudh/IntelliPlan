@@ -292,6 +292,7 @@
       color: var(--text-secondary);
     }
     .side-link.side-sub.active { background: var(--accent); color: white; }
+    .side-link.nav-hidden, .side-group.nav-empty { display: none !important; }
 
     .side-spacer { flex: 1; }
     .side-foot {
@@ -919,10 +920,10 @@
   </a>
 
   {# ── Always-visible top items ──────────────────────────────── #}
-  <a href="/dashboard" class="side-link {% if active_page == 'dashboard' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard</a>
-  <a href="/study"     class="side-link {% if active_page == 'study' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Study &amp; Learn</a>
-  <a href="/streak"    class="side-link {% if active_page == 'streak' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-fire"/></svg></span>Streak</a>
-  <a href="/tutor"     class="side-link tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-tutor"/></svg></span>Tutor</a>
+  <a href="/dashboard" data-nav-item="dashboard" class="side-link {% if active_page == 'dashboard' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard</a>
+  <a href="/study"     data-nav-item="study" class="side-link {% if active_page == 'study' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Study &amp; Learn</a>
+  <a href="/streak"    data-nav-item="streak" class="side-link {% if active_page == 'streak' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-fire"/></svg></span>Streak</a>
+  <a href="/tutor"     data-nav-item="tutor" class="side-link tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-tutor"/></svg></span>Tutor</a>
 
   {# ── Plan dropdown: schedule + tasks + grades ──────────────── #}
   {% set _plan_pages = ['scheduler','priority','classes','grades','gradebook','tests','dismissed'] %}
@@ -933,13 +934,13 @@
       <span class="side-chev">▾</span>
     </button>
     <div class="side-group-body">
-      <a href="/scheduler" class="side-link side-sub {% if active_page == 'scheduler' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-scheduler"/></svg></span>Scheduler</a>
-      <a href="/priority"  class="side-link side-sub {% if active_page == 'priority' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-priority"/></svg></span>Priority</a>
-      <a href="/classes"   class="side-link side-sub {% if active_page == 'classes' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-classes"/></svg></span>Classes</a>
-      <a href="/grades"    class="side-link side-sub {% if active_page == 'grades' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-grades"/></svg></span>Grades</a>
-      <a href="/gradebook" class="side-link side-sub {% if active_page == 'gradebook' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Grade Modeler</a>
-      <a href="/tests"     class="side-link side-sub {% if active_page == 'tests' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-test"/></svg></span>Tests</a>
-      <a href="/dismissed" class="side-link side-sub {% if active_page == 'dismissed' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-done"/></svg></span>Done</a>
+      <a href="/scheduler" data-nav-item="scheduler" class="side-link side-sub {% if active_page == 'scheduler' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-scheduler"/></svg></span>Scheduler</a>
+      <a href="/priority"  data-nav-item="priority" class="side-link side-sub {% if active_page == 'priority' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-priority"/></svg></span>Priority</a>
+      <a href="/classes"   data-nav-item="classes" class="side-link side-sub {% if active_page == 'classes' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-classes"/></svg></span>Classes</a>
+      <a href="/grades"    data-nav-item="grades" class="side-link side-sub {% if active_page == 'grades' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-grades"/></svg></span>Grades</a>
+      <a href="/gradebook" data-nav-item="gradebook" class="side-link side-sub {% if active_page == 'gradebook' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Grade Modeler</a>
+      <a href="/tests"     data-nav-item="tests" class="side-link side-sub {% if active_page == 'tests' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-test"/></svg></span>Tests</a>
+      <a href="/dismissed" data-nav-item="dismissed" class="side-link side-sub {% if active_page == 'dismissed' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-done"/></svg></span>Done</a>
     </div>
   </div>
 
@@ -952,11 +953,11 @@
       <span class="side-chev">▾</span>
     </button>
     <div class="side-group-body">
-      <a href="/lessons"   class="side-link side-sub {% if active_page == 'lessons' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Lessons</a>
-      <a href="/groups"    class="side-link side-sub {% if active_page == 'groups' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-tutor"/></svg></span>Study Groups</a>
-      <a href="/writing"   class="side-link side-sub {% if active_page == 'writing' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-pencil"/></svg></span>Writing</a>
-      <a href="/math"      class="side-link side-sub {% if active_page == 'math' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Math Explainer</a>
-      <a href="/extractor" class="side-link side-sub {% if active_page == 'extractor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-check-circle"/></svg></span>Task Extractor</a>
+      <a href="/lessons"   data-nav-item="lessons" class="side-link side-sub {% if active_page == 'lessons' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Lessons</a>
+      <a href="/groups"    data-nav-item="groups" class="side-link side-sub {% if active_page == 'groups' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-tutor"/></svg></span>Study Groups</a>
+      <a href="/writing"   data-nav-item="writing" class="side-link side-sub {% if active_page == 'writing' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-pencil"/></svg></span>Writing</a>
+      <a href="/math"      data-nav-item="math" class="side-link side-sub {% if active_page == 'math' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Math Explainer</a>
+      <a href="/extractor" data-nav-item="extractor" class="side-link side-sub {% if active_page == 'extractor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-check-circle"/></svg></span>Task Extractor</a>
     </div>
   </div>
 
@@ -1297,6 +1298,33 @@ const mobileMenuBtn = document.getElementById('mobileMenuBtn');
 if (mobileMenuBtn) {
   mobileMenuBtn.addEventListener('click', toggleMobileMenu);
 }
+
+/* ── Sidebar customization ─────────────────────────────── */
+(function applySidebarPreferences() {
+  const side = document.querySelector('.app-side');
+  if (!side) return;
+  let prefs = {};
+  try { prefs = JSON.parse(localStorage.getItem('ip_navPrefs') || '{}') || {}; }
+  catch(e) { prefs = {}; }
+  const firstGroup = side.querySelector('.side-group');
+  const topAnchor = firstGroup || side.querySelector('.side-spacer');
+  const firstFolderBody = side.querySelector('.side-group-body');
+  document.querySelectorAll('.app-side [data-nav-item]').forEach(link => {
+    const mode = prefs[link.dataset.navItem] || 'default';
+    link.classList.toggle('nav-hidden', mode === 'hidden');
+    if (mode === 'pinned' && topAnchor && link.parentElement !== side) {
+      link.classList.remove('side-sub');
+      side.insertBefore(link, topAnchor);
+    } else if (mode === 'folder' && firstFolderBody && link.parentElement === side) {
+      link.classList.add('side-sub');
+      firstFolderBody.appendChild(link);
+    }
+  });
+  document.querySelectorAll('.app-side .side-group').forEach(group => {
+    const visible = Array.from(group.querySelectorAll('[data-nav-item]')).some(el => !el.classList.contains('nav-hidden'));
+    group.classList.toggle('nav-empty', !visible);
+  });
+})();
 
 /* ── Sidebar group collapse (Plan / Toolkit) ───────────── */
 document.querySelectorAll('.side-group-toggle').forEach(toggleBtn => {

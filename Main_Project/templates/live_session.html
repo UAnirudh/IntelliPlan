@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <style>
-  .live-wrap { display:grid; grid-template-columns: 1.55fr 1fr; gap:1.25rem; }
+  .live-wrap { display:grid; grid-template-columns: minmax(0, 1fr) 320px; gap:1.25rem; align-items:start; }
   @media (max-width:1000px){ .live-wrap{ grid-template-columns: 1fr; } }
   .live-card {
     background:var(--bg-card); border:1px solid var(--border);
@@ -13,7 +13,7 @@
     margin-bottom:0.75rem;
   }
   .live-frame {
-    width:100%; aspect-ratio:16/10; border-radius:14px;
+    width:100%; min-height:72dvh; aspect-ratio:16/9; border-radius:14px;
     border:1px solid var(--border); background:#000;
   }
   .live-toggle-row {
@@ -64,6 +64,7 @@
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
     <a href="/groups" class="btn-secondary" style="padding:9px 16px;text-decoration:none;font-size:0.84rem;">← Back to groups</a>
+    <a href="{{ session.room_url }}" target="_blank" rel="noopener" class="btn-primary" style="padding:9px 16px;text-decoration:none;font-size:0.84rem;">Open full meeting</a>
   </div>
 </div>
 

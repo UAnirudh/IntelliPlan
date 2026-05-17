@@ -40,7 +40,8 @@
 .gr-panel-title { font-family:var(--font-ui); font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin-bottom:10px; }
 .notes-area { width:100%; min-height:280px; padding:14px; border:1.5px solid var(--border-strong); border-radius:12px; background:var(--bg); color:var(--text-primary); font-family:var(--font-body); font-size:0.92rem; resize:vertical; line-height:1.55; }
 .notes-area:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
-.meeting-frame { width:100%; aspect-ratio:16/10; border:1px solid var(--border); border-radius:12px; background:#000; }
+.meeting-frame { width:100%; aspect-ratio:16/9; min-height:420px; border:1px solid var(--border); border-radius:12px; background:#000; }
+@media (max-width:768px){ .meeting-frame{min-height:62dvh;} }
 .member-row { display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid var(--border); }
 .member-row:last-child { border-bottom:none; }
 .member-avatar { width:30px; height:30px; border-radius:50%; background:var(--accent); color:white; font-family:var(--font-ui); font-weight:800; display:flex; align-items:center; justify-content:center; font-size:0.78rem; flex-shrink:0; }
@@ -226,10 +227,14 @@ function renderDetail(g) {
 
     <div class="gr-detail-grid">
       <div class="gr-panel">
-        <div class="gr-panel-title">Video Room</div>
+        <div class="gr-panel-title">Study Group Meeting</div>
         ${g.meeting_url
           ? `<iframe src="${esc(g.meeting_url)}#config.prejoinPageEnabled=true&config.startWithAudioMuted=true" class="meeting-frame" allow="camera; microphone; display-capture; fullscreen" allowfullscreen></iframe>
-             <div style="margin-top:8px;font-size:0.78rem;color:var(--text-muted);">Powered by Jitsi · <a href="${esc(g.meeting_url)}" target="_blank" rel="noopener" style="color:var(--accent);">open in new tab</a></div>`
+             <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+               <a href="${esc(g.meeting_url)}" target="_blank" rel="noopener" class="btn-primary" style="padding:10px 16px;text-decoration:none;font-size:0.84rem;">Open full meeting</a>
+               <button type="button" onclick="expandMeeting(this)" class="btn-secondary" style="padding:10px 16px;cursor:pointer;font-size:0.84rem;">Large view</button>
+               <span style="font-size:0.78rem;color:var(--text-muted);">Powered by Jitsi</span>
+             </div>`
           : '<div style="color:var(--text-muted);">No room yet.</div>'}
         <div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:0.9rem;">
           ${nextMeeting}
@@ -295,6 +300,14 @@ function setMeeting(id) {
   const topic = document.getElementById('gMTopic').value;
   fetch('/api/groups/'+id+'/meeting', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({when, topic}) })
     .then(()=>openGroup(id));
+}
+
+function expandMeeting(btn) {
+  const frame = btn.closest('.gr-panel').querySelector('.meeting-frame');
+  if (!frame) return;
+  const large = frame.style.minHeight === '78dvh';
+  frame.style.minHeight = large ? '' : '78dvh';
+  btn.textContent = large ? 'Large view' : 'Normal view';
 }
 
 function submitCreate(e) {

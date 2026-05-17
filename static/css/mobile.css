@@ -236,8 +236,8 @@ select {
   #mainNav .nav-dropdown .dropdown-item {
     width: 100% !important;
     justify-content: flex-start !important;
-    min-height: 40px !important;
-    padding: 8px 14px !important;
+    min-height: 48px !important;
+    padding: 12px 14px !important;
     border-radius: 10px !important;
     font-size: 0.88rem !important;
     color: var(--text-secondary) !important;
@@ -723,7 +723,7 @@ select {
 
   /* ════════════════════════════════════════════════════════
      UNIVERSAL TOUCH TARGETS
-     Small inline action buttons need at least 36px hit area
+     Small inline action buttons need at least 48px hit area
      and reliable touch handling on mobile.
   ════════════════════════════════════════════════════════ */
   .notion-action-btn,
@@ -738,9 +738,9 @@ select {
   .streak-tab,
   .profile-tab,
   .nav-tab {
-    min-height: 36px !important;
-    padding-top: 8px !important;
-    padding-bottom: 8px !important;
+    min-height: 48px !important;
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
     touch-action: manipulation !important;
     -webkit-tap-highlight-color: rgba(37,99,235,0.18) !important;
   }
@@ -766,8 +766,8 @@ select {
   [aria-label="Close chat"],
   #planiCloseBtn,
   #installDismissBtn {
-    min-width: 34px !important;
-    min-height: 34px !important;
+    min-width: 48px !important;
+    min-height: 48px !important;
   }
 
   /* Session-complete animation card fits mobile width */
@@ -1097,7 +1097,7 @@ select {
     flex: 1 1 auto !important;
     text-align: center !important;
     justify-content: center !important;
-    min-height: 38px !important;
+    min-height: 48px !important;
   }
   #prepModal .prep-panel {
     width: 100% !important;

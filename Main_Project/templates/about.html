@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block page_title %}About IntelliPlan{% endblock %}
+{% block content %}
+<style>
+  .about-wrap { max-width: 900px; margin: 0 auto; }
+  .about-hero {
+    padding: 2.25rem;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: var(--bg-card);
+    box-shadow: var(--shadow);
+    margin-bottom: 1.25rem;
+  }
+  .about-kicker {
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+  }
+  .about-title {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 3.25rem);
+    line-height: 1.05;
+    margin: 0 0 0.85rem;
+    color: var(--text-primary);
+  }
+  .about-copy {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    line-height: 1.75;
+  }
+  .about-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1.25rem 0; }
+  .about-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.1rem;
+    box-shadow: var(--shadow);
+  }
+  .about-card h2 {
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    margin: 0 0 0.45rem;
+    color: var(--text-primary);
+  }
+  .about-card p { margin: 0; font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; }
+  @media (max-width: 760px) { .about-grid { grid-template-columns: 1fr; } .about-hero { padding: 1.4rem; } }
+</style>
+
+<div class="about-wrap">
+  <section class="about-hero">
+    <div class="about-kicker">About the founder</div>
+    <h1 class="about-title">Built by Anirudh Ulabala to help students try with a system.</h1>
+    <div class="about-copy">
+      <p>Anirudh Ulabala created IntelliPlan after noticing something at school: students were not struggling because they lacked intelligence. They were struggling because they lacked a practical system for time, assignments, accountability, and confidence.</p>
+      <p>After an eighth-grade election loss, Anirudh remembered the lesson his mom gave him: the only thing he could control was whether he tried. That idea became more than personal advice. It became the reason he kept helping classmates with proofs, tests, essays, and study plans.</p>
+      <p>At school, classmates started calling him "AI" for "Ani Intelligence." The nickname stuck because people trusted him to show up. IntelliPlan carries that same idea into software: a tool that thinks alongside students without replacing them.</p>
+    </div>
+  </section>
+
+  <div class="about-grid">
+    <div class="about-card">
+      <h2>Why IntelliPlan Exists</h2>
+      <p>Students deserve a planner that understands their actual free time, learning style, assignments, and study habits.</p>
+    </div>
+    <div class="about-card">
+      <h2>What It Does</h2>
+      <p>IntelliPlan builds personalized schedules, syncs with Google Calendar and Notion, supports uploaded study materials, and helps students practice directly.</p>
+    </div>
+    <div class="about-card">
+      <h2>The Mission</h2>
+      <p>Give every student the structure that high-performing students often discover by luck, support, or trial and error.</p>
+    </div>
+  </div>
+
+  <section class="about-card">
+    <h2>The short version</h2>
+    <p>IntelliPlan is not about replacing effort. It is about making effort easier to aim. Anirudh built it so more students can break big work into manageable pieces, stay accountable, and keep going when school feels messy.</p>
+  </section>
+</div>
+{% endblock %}

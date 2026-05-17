@@ -44,6 +44,26 @@
 .profile-tab:hover:not(.active) { color: var(--text-primary); }
 .profile-pane { display: none; }
 .profile-pane.visible { display: block; }
+.nav-custom-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
+.nav-custom-row {
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:10px;
+  background:var(--bg);
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.nav-custom-title { font-size:0.88rem; font-weight:700; color:var(--text-primary); }
+.nav-custom-row select {
+  width:100%;
+  min-height:40px;
+  border:1px solid var(--border-strong);
+  border-radius:10px;
+  background:var(--bg-card);
+  color:var(--text-primary);
+  padding:8px 10px;
+}
 
 /* Availability grid */
 .avail-grid {
@@ -350,6 +370,18 @@
   </div>
 
   <!-- ── Phone + SMS reminders ──────────────────────── -->
+  <div class="settings-section" id="sidebarSettings">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:1rem;">
+      <div>
+        <div class="settings-section-title" style="margin-bottom:2px;">Sidebar</div>
+        <div style="font-size:0.84rem;color:var(--text-secondary);">Choose which tabs are pinned, hidden, or kept inside folders.</div>
+      </div>
+      <button type="button" class="btn-secondary" onclick="resetNavPrefs()" style="padding:8px 14px;cursor:pointer;">Reset</button>
+    </div>
+    <div class="nav-custom-grid" id="navCustomGrid"></div>
+    <div id="navCustomSaved" style="margin-top:10px;font-size:0.8rem;color:var(--low);"></div>
+  </div>
+
   <div class="settings-section">
     <div class="settings-section-title">Phone &amp; reminders</div>
     <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.9rem;">
@@ -674,6 +706,52 @@ function saveAnimSetting(key, value) {
 })();
 
 /* ── Referral link + stats ────────────────────────── */
+/* Sidebar customization */
+const NAV_ITEMS = [
+  ['dashboard', 'Dashboard'], ['study', 'Study & Learn'], ['streak', 'Streak'], ['tutor', 'Tutor'],
+  ['scheduler', 'Scheduler'], ['priority', 'Priority'], ['classes', 'Classes'], ['grades', 'Grades'],
+  ['gradebook', 'Grade Modeler'], ['tests', 'Tests'], ['dismissed', 'Done'], ['lessons', 'Lessons'],
+  ['groups', 'Study Groups'], ['writing', 'Writing'], ['math', 'Math Explainer'], ['extractor', 'Task Extractor'],
+];
+function getNavPrefs() {
+  try { return JSON.parse(localStorage.getItem('ip_navPrefs') || '{}') || {}; }
+  catch(e) { return {}; }
+}
+function setNavPref(key, value) {
+  const prefs = getNavPrefs();
+  prefs[key] = value;
+  localStorage.setItem('ip_navPrefs', JSON.stringify(prefs));
+  const note = document.getElementById('navCustomSaved');
+  if (note) {
+    note.textContent = 'Saved. Refresh or open another page to see the sidebar update.';
+    setTimeout(() => { note.textContent = ''; }, 2200);
+  }
+}
+function resetNavPrefs() {
+  localStorage.removeItem('ip_navPrefs');
+  renderNavPrefs();
+  const note = document.getElementById('navCustomSaved');
+  if (note) note.textContent = 'Sidebar reset.';
+}
+function renderNavPrefs() {
+  const grid = document.getElementById('navCustomGrid');
+  if (!grid) return;
+  const prefs = getNavPrefs();
+  grid.innerHTML = NAV_ITEMS.map(([key, label]) => {
+    const val = prefs[key] || 'default';
+    return `<div class="nav-custom-row">
+      <div class="nav-custom-title">${label}</div>
+      <select aria-label="${label} sidebar placement" onchange="setNavPref('${key}', this.value)">
+        <option value="default" ${val === 'default' ? 'selected' : ''}>Default folder</option>
+        <option value="pinned" ${val === 'pinned' ? 'selected' : ''}>Pin to top</option>
+        <option value="folder" ${val === 'folder' ? 'selected' : ''}>Keep in folder</option>
+        <option value="hidden" ${val === 'hidden' ? 'selected' : ''}>Hide</option>
+      </select>
+    </div>`;
+  }).join('');
+}
+renderNavPrefs();
+
 function refreshReferral() {
   fetch('/api/referral').then(r => r.json()).then(d => {
     if (d.status !== 'ok') return;
@@ -767,7 +845,7 @@ function refreshPro() {
     if (d.tier === 'pro') {
       const until = d.pro_until ? ' until ' + new Date(d.pro_until).toLocaleDateString() : '';
       out.innerHTML = `<span style="color:var(--low);font-weight:700;">You're on Pro${until}.</span>`;
-      act.innerHTML = `<button onclick="cancelPro()" style="padding:9px 16px;border-radius:10px;border:1px solid var(--border-strong);background:transparent;color:var(--text-secondary);cursor:pointer;font-family:var(--font-ui);font-weight:600;">Manage subscription</button>`;
+      act.innerHTML = `<button onclick="manageBilling()" style="padding:9px 16px;border-radius:10px;border:1px solid var(--border-strong);background:transparent;color:var(--text-secondary);cursor:pointer;font-family:var(--font-ui);font-weight:600;">Manage subscription</button>`;
     } else {
       out.innerHTML = `Currently on the free tier. Upgrade any time.`;
       act.innerHTML = `<button class="btn-primary" onclick="upgradePro()" style="padding:10px 22px;border:none;cursor:pointer;">Upgrade to Pro · $4.99/mo</button>`;
@@ -803,10 +881,14 @@ function upgradePro() {
 if (new URLSearchParams(location.search).get('pro') === 'success') {
   setTimeout(refreshPro, 800);
 }
-function cancelPro() {
-  if (!confirm('Cancel Pro? You\'ll keep features until the end of your current period.')) return;
-  fetch('/api/pro/cancel', { method:'POST' })
-    .then(r => r.json()).then(d => { if (d.status === 'ok') refreshPro(); });
+function manageBilling() {
+  fetch('/api/pro/billing-portal', { method:'POST' })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'ok' && d.url) window.location.href = d.url;
+      else alert(d.message || 'Billing portal is not available for this account yet.');
+    })
+    .catch(() => alert('Network error.'));
 }
 refreshPro();
 
@@ -824,7 +906,7 @@ function renderNotionStatus(s) {
     const name = ws.name ? ('Workspace: ' + ws.name) : 'Connected';
     const via = ws.auth_type === 'oauth' ? ' · via OAuth' : ' · via token';
     if (sub) sub.textContent = name + via + (s.has_database ? '' : ' · choose a database below');
-    el.innerHTML = '<button onclick="disconnectNotion()" style="padding:6px 14px;border-radius:10px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:var(--font-ui);font-size:0.78rem;font-weight:600;">Disconnect</button>';
+    el.innerHTML = '<span style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;"><button onclick="chooseNotionDatabase()" style="padding:6px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-secondary);cursor:pointer;font-family:var(--font-ui);font-size:0.76rem;font-weight:600;">Choose database</button><button onclick="disconnectNotion()" style="padding:6px 14px;border-radius:10px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:var(--font-ui);font-size:0.78rem;font-weight:600;">Disconnect</button></span>';
     return;
   }
   const oauthBtn = s.oauth_available
@@ -852,6 +934,25 @@ function connectNotionToken() {
     if (data.status === "ok") { refreshNotionStatus(); }
     else { alert("Failed: " + (data.message || 'unknown error')); }
   });
+}
+
+function chooseNotionDatabase() {
+  fetch('/notion/databases').then(r => r.json()).then(d => {
+    if (d.status !== 'ok' || !d.databases || !d.databases.length) {
+      alert(d.message || 'No Notion databases are shared with IntelliPlan yet.');
+      return;
+    }
+    const labels = d.databases.map((db, i) => `${i + 1}. ${db.name || 'Untitled'} (${db.id})`).join('\n');
+    const answer = prompt('Choose a Notion database number:\n\n' + labels, '1');
+    const idx = parseInt(answer, 10) - 1;
+    const picked = d.databases[idx];
+    if (!picked) return;
+    fetch('/notion/set-database', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ database_id: picked.id })
+    }).then(() => refreshNotionStatus());
+  }).catch(() => alert('Could not load Notion databases.'));
 }
 
 function disconnectNotion() {

@@ -15,10 +15,13 @@
 
     {% if canvas_oauth_available %}
     <div style="margin-bottom:1.25rem;">
-      <a href="/oauth/canvas" class="btn-primary" style="display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;width:100%;text-decoration:none;font-size:0.95rem;background:#e66000;border:none;">
-        <span style="font-weight:800;">C</span>
-        Connect with Canvas (one-click)
-      </a>
+      <form method="GET" action="/oauth/canvas" style="display:flex;flex-direction:column;gap:10px;">
+        <input type="url" name="canvas_base" class="form-input" placeholder="https://canvas.instructure.com" value="{{ request.args.get('canvas_base', '') }}">
+        <button type="submit" class="btn-primary" style="display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;width:100%;font-size:0.95rem;background:#e66000;border:none;cursor:pointer;">
+          <span style="font-weight:800;">C</span>
+          Continue with Canvas OAuth
+        </button>
+      </form>
       <div style="font-size:0.78rem;color:var(--text-muted);text-align:center;margin-top:8px;">
         Sign in through Canvas — no need to find an access token.
       </div>

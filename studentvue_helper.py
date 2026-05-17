@@ -3,10 +3,37 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 import html as html_module
 import re
+from urllib.parse import urlparse
 
 SOAP_ACTION = "http://edupoint.com/webservices/ProcessWebServiceRequest"
 
+DISTRICT_URL_ALIASES = {
+    "northshore": "https://wa-nor-psv.edupoint.com",
+    "nsd": "https://wa-nor-psv.edupoint.com",
+}
+
+def normalize_district_url(district_url):
+    """Accept common StudentVUE inputs and return the Synergy service host."""
+    raw = (district_url or "").strip()
+    if not raw:
+        return ""
+    alias = DISTRICT_URL_ALIASES.get(raw.lower())
+    if alias:
+        return alias
+    if not raw.startswith(("http://", "https://")):
+        raw = "https://" + raw
+    raw = raw.strip().rstrip("/")
+    raw = re.sub(r"/(PXP2_Login_Student\.aspx|PXP2_Login\.aspx|Login_Student_PXP\.aspx)$", "", raw, flags=re.I)
+    raw = re.sub(r"/(studentvue|parentvue|pxp2?|login)$", "", raw, flags=re.I)
+    parsed = urlparse(raw)
+    if not parsed.netloc:
+        return raw
+    return f"{parsed.scheme}://{parsed.netloc}"
+
 def make_request(district_url, username, password, method, params="&lt;Parms/&gt;"):
+    district_url = normalize_district_url(district_url)
+    user_xml = html_module.escape(username or "", quote=True)
+    pass_xml = html_module.escape(password or "", quote=True)
     url = f"{district_url}/Service/PXPCommunication.asmx"
     headers = {
         "Content-Type": "text/xml; charset=utf-8",
@@ -16,8 +43,8 @@ def make_request(district_url, username, password, method, params="&lt;Parms/&gt
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
     <ProcessWebServiceRequest xmlns="http://edupoint.com/webservices/">
-      <userID>{username}</userID>
-      <password>{password}</password>
+      <userID>{user_xml}</userID>
+      <password>{pass_xml}</password>
       <skipLoginLog>1</skipLoginLog>
       <parent>0</parent>
       <webServiceHandleName>PXPWebServices</webServiceHandleName>
@@ -27,11 +54,15 @@ def make_request(district_url, username, password, method, params="&lt;Parms/&gt
   </soap:Body>
 </soap:Envelope>"""
     response = requests.post(url, headers=headers, data=body, timeout=15)
+    response.raise_for_status()
     return response.text
 
 def test_login(district_url, username, password):
-    result = make_request(district_url, username, password, "StudentInfo")
-    if "RT_ERROR" in result or "Invalid user" in result:
+    try:
+        result = make_request(district_url, username, password, "StudentInfo")
+    except Exception:
+        return False
+    if "RT_ERROR" in result or "Invalid user" in result or "Invalid User" in result:
         return False
     return True
 
@@ -156,8 +187,8 @@ def get_assignments(district_url, username, password):
 # if __name__ == "__main__":
 #     assignments = get_assignments(
 #         "https://wa-nor-psv.edupoint.com",
-#         "2009716",
-#         "bluesnakesing5"
+#         "student-id",
+#         "password"
 #     )
 #     for a in assignments[:3]:
 #         print(a)
@@ -554,7 +585,7 @@ def get_missing_assignments(district_url, username, password):
 
 if __name__ == "__main__":
     debug_gradebook(
-        "https://wa-nor-psv.edupoint.com",
-        "2009716",
-        "Intelliplanisamazing09!"
+        "https://example-psv.edupoint.com",
+        "student-id",
+        "password"
     )
