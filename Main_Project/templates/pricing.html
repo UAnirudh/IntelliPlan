@@ -3,10 +3,10 @@
 {% block page_title %}IntelliPlan Pricing — Free AI Study Planner for Students{% endblock %}
 
 {% block head_extra %}
-<meta name="description" content="IntelliPlan is free to get started. Connect Canvas, StudentVue, or Schoology, auto-prioritize your assignments, and build your study schedule — no credit card required.">
+<meta name="description" content="IntelliPlan is free forever for students. Upgrade to Pro ($4.99/mo) for unlimited lesson recordings, study groups, and AI tools.">
 <link rel="canonical" href="https://intelliplan.tech/pricing">
-<meta property="og:title" content="IntelliPlan Pricing — Free for Students">
-<meta property="og:description" content="IntelliPlan is free to get started. No credit card required. Connect Canvas, StudentVue, or Schoology and get your first AI study schedule today.">
+<meta property="og:title" content="IntelliPlan Pricing — Free Forever, Pro $4.99/mo">
+<meta property="og:description" content="IntelliPlan is free to get started. Upgrade to Pro for unlimited AI study tools, lesson recordings, and live study groups.">
 <meta property="og:url" content="https://intelliplan.tech/pricing">
 <meta property="og:type" content="website">
 <script type="application/ld+json">
@@ -22,6 +22,20 @@
       "price": "0",
       "priceCurrency": "USD",
       "description": "Get started free. Connect Canvas, StudentVue, or Schoology and see your priorities."
+    },
+    {
+      "@type": "Offer",
+      "name": "IntelliPlan Pro",
+      "price": "4.99",
+      "priceCurrency": "USD",
+      "priceSpecification": {
+        "@type": "UnitPriceSpecification",
+        "price": "4.99",
+        "priceCurrency": "USD",
+        "billingDuration": "P1M",
+        "unitText": "MONTH"
+      },
+      "description": "Unlimited lesson recordings with AI summaries, unlimited study groups, no daily caps on Writing, Math, and Task Extractor."
     }
   ]
 }
@@ -65,20 +79,45 @@
   }
   .pricing-cards {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1.25rem;
     margin-bottom: 2.5rem;
+    align-items: stretch;
   }
+  @media (max-width: 720px) { .pricing-cards { grid-template-columns: 1fr; } }
   .pricing-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--r-xl);
     padding: 2rem;
     box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    position: relative;
   }
   .pricing-card.featured {
     border-color: var(--border-accent);
     box-shadow: var(--accent-glow);
+  }
+  .pricing-card.pro {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, var(--bg-card)), var(--bg-card) 65%);
+    border: 1.5px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  }
+  .pricing-card .pricing-features { flex: 1; }
+  .pricing-strike {
+    text-decoration: line-through;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-family: var(--font-ui);
+    margin-left: 6px;
+    font-weight: 600;
+  }
+  .pricing-month-tag {
+    font-family: var(--font-ui);
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-left: 4px;
   }
   .pricing-card-header {
     display: flex;
@@ -178,34 +217,55 @@
 
 <div class="pricing-page">
   <span class="pricing-kicker">Pricing</span>
-  <h1 class="pricing-title">Simple pricing. Free to start.</h1>
+  <h1 class="pricing-title">Free forever. Pro when you're ready.</h1>
   <p class="pricing-subtitle">
     IntelliPlan is free for students. Connect your school tools, auto-prioritize your assignments,
-    and build your first AI study schedule today — no credit card required.
+    and build your first AI study schedule today — no credit card required. Upgrade to Pro for
+    unlimited lesson recordings, study groups, and AI tools whenever you want.
   </p>
 
   <div class="pricing-cards">
     <div class="pricing-card featured">
       <div class="pricing-card-header">
-        <h2 class="pricing-plan-name accent">Free Plan</h2>
-        <span class="pricing-badge">Current Plan</span>
+        <h2 class="pricing-plan-name accent">Free</h2>
+        <span class="pricing-badge">Get started</span>
       </div>
-      <div class="pricing-price">$0</div>
-      <p class="pricing-price-note">No credit card required. No time limit.</p>
+      <div class="pricing-price">$0<span class="pricing-month-tag">/forever</span></div>
+      <p class="pricing-price-note">No credit card. No time limit.</p>
       <ul class="pricing-features">
-        <li>Canvas LMS integration — auto-import all assignments</li>
-        <li>StudentVue integration — sync from your district portal</li>
-        <li>Schoology integration — pull all coursework automatically</li>
-        <li>AI-generated study schedules</li>
-        <li>Google Calendar export</li>
-        <li>Notion export</li>
-        <li>Grade Modeler — simulate your final grade</li>
-        <li>Study &amp; Learn — upload notes, generate flashcards</li>
-        <li>Priority scoring across all classes</li>
-        <li>Time estimation per assignment</li>
-        <li>PWA — install on iPhone and Android</li>
+        <li>Canvas / StudentVue / Schoology auto-import</li>
+        <li>AI-generated study schedules + Google Calendar &amp; Notion export</li>
+        <li>Priority scoring across every class</li>
+        <li>Grade Modeler with simulate &amp; reset</li>
+        <li>Study &amp; Learn — flashcards, quizzes, lesson sessions</li>
+        <li>Daily Spark chest + streak rewards</li>
+        <li>Writing Assistant, Math Explainer, Task Extractor <em>(daily caps)</em></li>
+        <li>Up to 3 lesson recordings with AI summaries</li>
+        <li>Up to 1 owned study group</li>
+        <li>PWA — install on iPhone &amp; Android</li>
       </ul>
-      <a href="/login" class="btn-primary" style="text-decoration:none;display:inline-block">Get Started Free →</a>
+      <a href="/login" class="btn-primary" style="text-decoration:none;display:inline-block;text-align:center;">Get Started Free →</a>
+    </div>
+
+    <div class="pricing-card pro">
+      <div class="pricing-card-header">
+        <h2 class="pricing-plan-name accent">Pro</h2>
+        <span class="pricing-badge">Most popular</span>
+      </div>
+      <div class="pricing-price">$4.99<span class="pricing-month-tag">/month</span></div>
+      <p class="pricing-price-note">Cancel anytime. Billed monthly via Stripe.</p>
+      <ul class="pricing-features">
+        <li><strong>Everything in Free</strong>, plus:</li>
+        <li>Unlimited lesson recordings + Whisper transcripts &amp; AI summaries</li>
+        <li>Unlimited study groups with private Jitsi rooms</li>
+        <li>Live study sessions — audio/video + shared materials</li>
+        <li>Writing Assistant, Math Explainer, Task Extractor — no daily caps</li>
+        <li>Public REST API + MCP server access</li>
+        <li>Priority Plani replies + faster AI</li>
+        <li>SMS study reminders (Twilio-backed)</li>
+        <li>Refer a friend → both get 14 bonus Pro days</li>
+      </ul>
+      <a href="/settings#proCard" class="btn-primary" style="text-decoration:none;display:inline-block;text-align:center;">Upgrade to Pro →</a>
     </div>
   </div>
 
@@ -213,13 +273,28 @@
     <h2>Pricing questions</h2>
 
     <details class="pricing-faq-item">
-      <summary>Is IntelliPlan actually free? What's the catch?</summary>
-      <p>Yes, it's genuinely free to use. There's no hidden paywall or trial period — you can connect Canvas, StudentVue, or Schoology and use every feature without paying anything. If we introduce a paid tier in the future, we'll announce it well in advance and existing features will stay accessible.</p>
+      <summary>Is the Free plan really free forever?</summary>
+      <p>Yes. The Free plan stays free with no time limit and no credit card. You can connect Canvas, StudentVue, or Schoology, build AI study schedules, model your grade, and use Writing / Math / Task Extractor every day. The only ceilings are the lesson recordings (3), owned study groups (1), and per-day caps on the AI tools — Pro lifts all of those.</p>
     </details>
 
     <details class="pricing-faq-item">
-      <summary>Do I need to enter a credit card to sign up?</summary>
-      <p>No. You can create an account and connect your school tools with just an email address (or Google sign-in). No credit card is ever required to get started.</p>
+      <summary>What do I get with Pro?</summary>
+      <p>Unlimited lesson recordings with Whisper transcription + AI summaries, unlimited study groups (including live audio/video study sessions with shared materials), and no daily caps on the Writing Assistant, Math Explainer, or Task Extractor. You also get access to the public REST API + MCP server, priority Plani replies, and optional SMS study reminders.</p>
+    </details>
+
+    <details class="pricing-faq-item">
+      <summary>How does billing work?</summary>
+      <p>Pro is $4.99/month, billed by Stripe. You'll be redirected to Stripe Checkout — never enter card details on IntelliPlan directly. Cancel anytime from Settings → IntelliPlan Pro, and you keep access until the end of the period you paid for.</p>
+    </details>
+
+    <details class="pricing-faq-item">
+      <summary>Can I try Pro before paying?</summary>
+      <p>Refer a friend with your link (Settings → Refer a friend) and you both get 14 days of Pro for free, every time. Stack invites to keep Pro running indefinitely. There's also a 30-day trial path for new accounts when Stripe isn't required by the deployment.</p>
+    </details>
+
+    <details class="pricing-faq-item">
+      <summary>Do I need a credit card to sign up?</summary>
+      <p>No. You can create an account and connect your school tools with just an email address (or Google sign-in). A card is only required when you choose to upgrade to Pro.</p>
     </details>
 
     <details class="pricing-faq-item">
