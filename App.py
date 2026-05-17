@@ -188,6 +188,11 @@ class User(UserMixin, db.Model):
     referred_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     tier = db.Column(db.String(16), default="free")            # "free" | "pro"
     pro_until = db.Column(db.DateTime, nullable=True)          # Pro expiry timestamp
+    # ── Phone + reminder opt-in ──
+    phone = db.Column(db.String(32), nullable=True)            # E.164 (+15551234567) or blank
+    sms_reminders_opt_in = db.Column(db.Boolean, default=False)
+    # ── Stripe customer linkage ──
+    stripe_customer_id = db.Column(db.String(64), nullable=True)
     linked_accounts = db.relationship("LinkedAccount", backref="user", lazy=True, cascade="all, delete-orphan")
     dismissed = db.relationship("DismissedAssignment", backref="user", lazy=True, cascade="all, delete-orphan")
     descriptions = db.relationship("CustomDescription", backref="user", lazy=True, cascade="all, delete-orphan")
@@ -1458,14 +1463,27 @@ def dashboard():
     focus_choices = []
     identity_dict = None
     if current_user.is_authenticated:
+        identity = None
         try:
             identity = _get_or_create_identity(current_user.id)
+        except Exception as _e:
+            print(f"[dashboard] identity load failed: {_e}")
+            try: db.session.rollback()
+            except Exception: pass
+            try:
+                _run_boot_migration_once()
+                identity = _get_or_create_identity(current_user.id)
+            except Exception as _e2:
+                print(f"[dashboard] identity retry failed: {_e2}")
+                identity = None
+        if identity is not None:
             needs_onboarding = not bool(identity.completed)
-            identity_dict = identity.to_dict()
-            grade_choices = GRADE_LEVEL_CHOICES
-            focus_choices = FOCUS_AREA_CHOICES
-        except Exception:
-            needs_onboarding = False
+            try:
+                identity_dict = identity.to_dict()
+            except Exception:
+                identity_dict = None
+        grade_choices = GRADE_LEVEL_CHOICES
+        focus_choices = FOCUS_AREA_CHOICES
     return render_template(
         "dashboard.html",
         active_page="dashboard",
@@ -1473,6 +1491,8 @@ def dashboard():
         identity=identity_dict,
         grade_choices=grade_choices,
         focus_choices=focus_choices,
+        phone=(current_user.phone if current_user.is_authenticated else "") or "",
+        sms_opt_in=bool(getattr(current_user, "sms_reminders_opt_in", False)) if current_user.is_authenticated else False,
     )
 
 @app.route("/study")
@@ -1542,7 +1562,16 @@ def register():
         if not error:
             try:
                 pw_hash = bcrypt.generate_password_hash(password).decode("utf-8")
-                user = User(email=email, password_hash=pw_hash)
+                # Optional phone + SMS opt-in from the register form
+                phone_raw = request.form.get("phone", "").strip()
+                phone_norm = _normalise_phone(phone_raw) if phone_raw else None
+                sms_optin = bool(request.form.get("sms_reminders_opt_in"))
+                if not phone_norm:
+                    sms_optin = False  # can't reminder without a number
+                user = User(
+                    email=email, password_hash=pw_hash,
+                    phone=phone_norm, sms_reminders_opt_in=sms_optin,
+                )
                 db.session.add(user)
                 db.session.commit()
                 # Apply any pending referral bonus (sets referred_by_id and
@@ -1552,7 +1581,15 @@ def register():
                 except Exception as _ref_e:
                     print(f"[referral] grant failed: {_ref_e}")
                 login_user(user, remember=True)
-                return redirect(url_for("onboarding"))
+                # Best-effort welcome SMS so the user sees the integration
+                # work the moment they opt in.
+                if phone_norm and sms_optin:
+                    try: _twilio_send(phone_norm, "Welcome to IntelliPlan! Reply STOP anytime to opt out.")
+                    except Exception: pass
+                # Skip the legacy /onboarding page entirely — the dashboard's
+                # built-in modal handles the questionnaire and never 500s on
+                # a partial migration.
+                return redirect(url_for("dashboard"))
             except Exception as _e:
                 print(f"[register] user create failed: {_e}")
                 try: db.session.rollback()
@@ -1588,7 +1625,22 @@ def _get_or_create_identity(user_id):
 def onboarding():
     if not is_logged_in():
         return redirect(url_for("login"))
-    identity = _get_or_create_identity(current_user.id)
+    try:
+        identity = _get_or_create_identity(current_user.id)
+    except Exception as _e:
+        # The dashboard modal handles the questionnaire too — if the
+        # legacy /onboarding page can't load (e.g. column missing on a
+        # not-yet-fully-migrated DB), forward to dashboard and let the
+        # modal handle it from there. Don't 500.
+        print(f"[onboarding] identity load failed: {_e}")
+        try: db.session.rollback()
+        except Exception: pass
+        try:
+            _run_boot_migration_once()
+            identity = _get_or_create_identity(current_user.id)
+        except Exception as _e2:
+            print(f"[onboarding] retry failed: {_e2}")
+            return redirect(url_for("dashboard"))
     if request.method == "POST":
         grade = (request.form.get("grade_level") or "").strip()[:32]
         focus = request.form.getlist("focus_areas")
@@ -4870,6 +4922,13 @@ def _stripe():
     return _stripe_lib
 
 
+# Live recurring Pro price created in the IntelliPlan Stripe account
+# (acct_1TXoIJDEIZ8BeiXx). Used as a fallback when STRIPE_PRICE_ID env
+# var isn't set, so the live deploy can take payments out of the box.
+STRIPE_DEFAULT_PRICE_ID = "price_1TXoQtDEIZ8BeiXx5l4kmfJ6"
+STRIPE_DEFAULT_PRODUCT_ID = "prod_UWsBXvOf2LiKRR"
+
+
 @app.route("/api/pro/checkout", methods=["POST"])
 def api_pro_checkout():
     if not current_user.is_authenticated:
@@ -4878,21 +4937,40 @@ def api_pro_checkout():
     if not stripe:
         # Graceful fallback: dev / unconfigured deploys still get a trial.
         return api_pro_upgrade()
-    price_id = os.getenv("STRIPE_PRICE_ID")
-    if not price_id:
-        return flask.jsonify({"status": "error", "message": "Stripe not configured (STRIPE_PRICE_ID missing)"}), 500
+    price_id = os.getenv("STRIPE_PRICE_ID") or STRIPE_DEFAULT_PRICE_ID
     base = APP_BASE_URL.rstrip("/") if APP_BASE_URL else (request.url_root.rstrip("/"))
     try:
-        sess = stripe.checkout.Session.create(
+        # Reuse the Stripe Customer if we already have one for this user
+        # so repeat purchases / cancellations land on the same record.
+        customer_id = current_user.stripe_customer_id
+        if not customer_id:
+            try:
+                cust = stripe.Customer.create(
+                    email=current_user.email,
+                    name=current_user.name or current_user.email.split("@")[0],
+                    metadata={"user_id": str(current_user.id)},
+                )
+                customer_id = cust.id
+                current_user.stripe_customer_id = customer_id
+                db.session.commit()
+            except Exception as _ce:
+                print(f"[stripe] customer create failed: {_ce}")
+                customer_id = None
+
+        kwargs = dict(
             mode="subscription",
             line_items=[{"price": price_id, "quantity": 1}],
-            customer_email=current_user.email,
             client_reference_id=str(current_user.id),
             metadata={"user_id": str(current_user.id), "email": current_user.email},
             success_url=base + "/settings?pro=success",
             cancel_url=base + "/settings?pro=canceled",
             allow_promotion_codes=True,
         )
+        if customer_id:
+            kwargs["customer"] = customer_id
+        else:
+            kwargs["customer_email"] = current_user.email
+        sess = stripe.checkout.Session.create(**kwargs)
     except Exception as e:
         print(f"[stripe] checkout create failed: {e}")
         return flask.jsonify({"status": "error", "message": str(e)}), 500
@@ -4946,6 +5024,80 @@ def stripe_webhook():
         try: db.session.rollback()
         except Exception: pass
     return ("ok", 200)
+
+
+# ── PHONE + SMS REMINDERS ─────────────────────────────────────────
+import re as _re_phone
+
+
+def _normalise_phone(raw):
+    """Return E.164-ish format like +15551234567, or empty string on bad input."""
+    if not raw:
+        return ""
+    s = _re_phone.sub(r"[^0-9+]", "", raw)
+    if not s:
+        return ""
+    # Default to +1 if user typed a bare 10-digit US number.
+    if s.startswith("+"):
+        return s[:32]
+    if len(s) == 10:
+        return "+1" + s
+    if len(s) == 11 and s.startswith("1"):
+        return "+" + s
+    return ("+" + s)[:32]
+
+
+def _twilio_send(to_phone, body):
+    """Best-effort SMS. Logs and returns False when Twilio env isn't set."""
+    sid = os.getenv("TWILIO_ACCOUNT_SID")
+    token = os.getenv("TWILIO_AUTH_TOKEN")
+    src = os.getenv("TWILIO_FROM_NUMBER")
+    if not (sid and token and src and to_phone):
+        return False
+    try:
+        from twilio.rest import Client as _TwClient
+        _TwClient(sid, token).messages.create(to=to_phone, from_=src, body=body[:600])
+        return True
+    except Exception as e:
+        print(f"[twilio] send failed: {e}")
+        return False
+
+
+@app.route("/api/profile/phone", methods=["GET", "POST"])
+def api_profile_phone():
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error"}), 401
+    if request.method == "GET":
+        return flask.jsonify({
+            "status": "ok",
+            "phone": current_user.phone or "",
+            "sms_reminders_opt_in": bool(current_user.sms_reminders_opt_in),
+        })
+    body = request.get_json(silent=True) or {}
+    if "phone" in body:
+        normalised = _normalise_phone(body.get("phone") or "")
+        current_user.phone = normalised or None
+    if "sms_reminders_opt_in" in body:
+        current_user.sms_reminders_opt_in = bool(body.get("sms_reminders_opt_in"))
+        # Clearing the phone means you can't be reminded — also clear the flag.
+        if not current_user.phone:
+            current_user.sms_reminders_opt_in = False
+    db.session.commit()
+    return flask.jsonify({
+        "status": "ok",
+        "phone": current_user.phone or "",
+        "sms_reminders_opt_in": bool(current_user.sms_reminders_opt_in),
+    })
+
+
+@app.route("/api/profile/phone/test", methods=["POST"])
+def api_profile_phone_test():
+    """Admin / opt-in user helper: send a one-line test SMS."""
+    if not current_user.is_authenticated or not current_user.phone:
+        return flask.jsonify({"status": "error", "message": "phone not set"}), 400
+    ok = _twilio_send(current_user.phone, "👋 IntelliPlan reminders are active for this number.")
+    return flask.jsonify({"status": "ok" if ok else "error",
+                          "message": "Sent!" if ok else "SMS provider not configured."})
 
 
 # ── DAILY CHECK-IN CHEST (Duolingo-style) ─────────────────────────
@@ -5947,12 +6099,21 @@ def _migrate_user_columns():
     from sqlalchemy import text as _t
 
     targets = [
-        # users
+        # users — referral / tier / phone / reminder prefs
         ("users", "referral_code", "VARCHAR(16)"),
         ("users", "referred_by_id", "INTEGER"),
         ("users", "tier", "VARCHAR(16) DEFAULT 'free'"),
         ("users", "pro_until", "TIMESTAMP"),
-        # notion_integrations (from an earlier migration)
+        ("users", "phone", "VARCHAR(32)"),
+        ("users", "sms_reminders_opt_in", "BOOLEAN DEFAULT FALSE"),
+        ("users", "stripe_customer_id", "VARCHAR(64)"),
+        # user_identities — earlier migration's columns. Without these,
+        # _get_or_create_identity() blows up and registration redirects
+        # to /onboarding which then 500s.
+        ("user_identities", "availability", "TEXT"),
+        ("user_identities", "weekly_commitments", "TEXT"),
+        ("user_identities", "class_schedule", "TEXT"),
+        # notion_integrations
         ("notion_integrations", "auth_type", "VARCHAR(16) DEFAULT 'manual'"),
         ("notion_integrations", "workspace_id", "VARCHAR(64)"),
         ("notion_integrations", "workspace_name", "VARCHAR(256)"),
