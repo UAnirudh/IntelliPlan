@@ -202,7 +202,7 @@ def add_schedule_to_calendar(token_dict, schedule_data, existing_events=None):
             try:
                 start_dt = datetime.fromisoformat(start_str.replace("Z", ""))
                 busy_ranges.append(start_dt)
-            except:
+            except Exception:
                 pass
 
     for day in schedule_data.get("schedule", []):
@@ -216,10 +216,10 @@ def add_schedule_to_calendar(token_dict, schedule_data, existing_events=None):
             start_str = time_slot.split(" - ")[0].strip()
             try:
                 start_dt = datetime.strptime(f"{date_str} {start_str}", "%Y-%m-%d %I:%M %p")
-            except:
+            except Exception:
                 try:
                     start_dt = datetime.strptime(f"{date_str} {start_str}", "%Y-%m-%d %H:%M")
-                except:
+                except Exception:
                     continue
 
             end_dt = start_dt + timedelta(minutes=block.get("duration_minutes", 30))

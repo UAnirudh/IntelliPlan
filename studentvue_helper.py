@@ -145,7 +145,7 @@ def get_assignments(district_url, username, password):
             try:
                 due_date = datetime.strptime(due_date_str, "%m/%d/%Y")
                 due_date = due_date.replace(tzinfo=timezone.utc)
-            except:
+            except (ValueError, TypeError):
                 continue
 
             days = (due_date - today).days

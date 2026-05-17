@@ -1795,7 +1795,7 @@ def login_canvas():
         if not token or not canvas_url:
             error = "Please fill in both fields."
         else:
-            test = requests.get(f"{canvas_url}/api/v1/courses", headers={"Authorization": f"Bearer {token}"})
+            test = requests.get(f"{canvas_url}/api/v1/courses", headers={"Authorization": f"Bearer {token}"}, timeout=20)
             if test.status_code == 200:
                 creds = {"canvas_token": token, "canvas_url": canvas_url}
                 if current_user.is_authenticated:
@@ -2302,7 +2302,7 @@ def calendar_export():
         if skip_overlaps:
             try:
                 existing_events = get_upcoming_events(token)
-            except:
+            except Exception:
                 existing_events = []
         ids, new_token, skipped = add_schedule_to_calendar(token, schedule_data, existing_events if skip_overlaps else [])
         if new_token:
@@ -2341,7 +2341,7 @@ def profiles_list():
 def profiles_switch():
     if not current_user.is_authenticated:
         return flask.jsonify({"status": "error"})
-    profile_id = request.json.get("id")
+    profile_id = (request.json or {}).get("id")
     acct = LinkedAccount.query.filter_by(user_id=current_user.id, profile_id=profile_id).first()
     if not acct:
         return flask.jsonify({"status": "error"})
@@ -2354,7 +2354,7 @@ def profiles_switch():
 def profiles_delete():
     if not current_user.is_authenticated:
         return flask.jsonify({"status": "error"})
-    profile_id = request.json.get("id")
+    profile_id = (request.json or {}).get("id")
     acct = LinkedAccount.query.filter_by(user_id=current_user.id, profile_id=profile_id).first()
     if acct:
         db.session.delete(acct)
@@ -2365,8 +2365,8 @@ def profiles_delete():
 def profiles_rename():
     if not current_user.is_authenticated:
         return flask.jsonify({"status": "error"})
-    profile_id = request.json.get("id")
-    name = request.json.get("name", "").strip()
+    profile_id = (request.json or {}).get("id")
+    name = (request.json or {}).get("name", "").strip()
     acct = LinkedAccount.query.filter_by(user_id=current_user.id, profile_id=profile_id).first()
     if acct and name:
         acct.name = name
@@ -2420,7 +2420,7 @@ def get_live_schedule():
         canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
         base = f"{canvas_url}/api/v1"
         headers = {"Authorization": f"Bearer {token}"}
-        course_response = requests.get(f"{base}/courses", headers=headers)
+        course_response = requests.get(f"{base}/courses", headers=headers, timeout=20)
         courses = course_response.json()
         course_map = {}
         for c in courses:
@@ -2428,7 +2428,7 @@ def get_live_schedule():
                 course_map[c["id"]] = c.get("name", "Unknown")
         assignments = []
         for course_id in course_map:
-            response = requests.get(f"{base}/courses/{course_id}/assignments", headers=headers)
+            response = requests.get(f"{base}/courses/{course_id}/assignments", headers=headers, timeout=20)
             data = response.json()
             if isinstance(data, list):
                 assignments += data
@@ -2479,12 +2479,12 @@ def get_courses():
         try:
             from schoology_helper import get_schoology_courses
             return flask.jsonify(get_schoology_courses(acct["schoology_key"], acct["schoology_secret"]))
-        except:
+        except Exception:
             return flask.jsonify([])
     token = acct["canvas_token"]
     canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
     headers = {"Authorization": f"Bearer {token}"}
-    course_response = requests.get(f"{canvas_url}/api/v1/courses", headers=headers)
+    course_response = requests.get(f"{canvas_url}/api/v1/courses", headers=headers, timeout=20)
     courses = course_response.json()
     return flask.jsonify([{"name": c.get("name", "Unknown")} for c in courses if isinstance(c, dict) and "id" in c])
 
@@ -2501,7 +2501,7 @@ def grades_data():
         try:
             from schoology_helper import get_schoology_grades
             return flask.jsonify(get_schoology_grades(acct["schoology_key"], acct["schoology_secret"]))
-        except:
+        except Exception:
             return flask.jsonify([])
     if login_type == "canvas":
         try:
@@ -2542,7 +2542,7 @@ def dismissed_data():
     for r in rows:
         try:
             result.append(json.loads(r.data))
-        except:
+        except Exception:
             result.append({"title": r.title})
     return flask.jsonify(result)
 
@@ -2694,7 +2694,7 @@ def notes_quiz(note_id):
     note_text = (note.text_content or "").strip()
     if not note_text:
         return flask.jsonify({"status": "error", "message": "No note text available"}), 400
-    history = request.json.get("history", []) if request.is_json else []
+    history = (request.json or {}).get("history", []) if request.is_json else []
     history_text = json.dumps(history[-8:], ensure_ascii=False)
     client = Groq(api_key=os.getenv("GROQ_API_KEY"))
     prompt = f"""Generate one study question from the note below.\n\nPrior questions:\n{history_text}\n\nNote:\n{note_text[:12000]}\n\nReturn JSON:\n{{\n  "question": "one question",\n  "answer": "one correct answer",\n  "key_points": ["point 1", "point 2"]\n}}"""
@@ -2798,7 +2798,7 @@ def get_description():
     if acct and acct["login_type"] == "canvas" and assignment_id and course_id:
         token = acct["canvas_token"]
         canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
-        resp = requests.get(f"{canvas_url}/api/v1/courses/{course_id}/assignments/{assignment_id}", headers={"Authorization": f"Bearer {token}"})
+        resp = requests.get(f"{canvas_url}/api/v1/courses/{course_id}/assignments/{assignment_id}", headers={"Authorization": f"Bearer {token}"}, timeout=20)
         if resp.status_code == 200:
             raw = resp.json().get("description") or ""
             clean = re.sub(r"<[^>]+>", " ", raw).strip()
@@ -2809,7 +2809,7 @@ def get_description():
 
 @app.route("/assignment/description", methods=["POST"])
 def save_description():
-    data = request.json
+    data = request.json or {}
     title = data.get("title")
     description = data.get("description", "").strip()
     if title and description:
@@ -2868,7 +2868,7 @@ def api_save_assignment_due_date():
 @app.route("/generate_schedule", methods=["POST"])
 @limiter.limit("10 per hour")
 def generate_schedule():
-    data = request.json
+    data = request.json or {}
     assignments = data.get("assignments", [])
     hours_per_day = data.get("hours_per_day", 2)
     preferred_time = data.get("preferred_time", "evening")
@@ -3219,7 +3219,7 @@ def notion_disconnect():
 
 @app.route("/notion/set-database", methods=["POST"])
 def notion_set_database():
-    db_id = request.json.get("database_id")
+    db_id = (request.json or {}).get("database_id")
     if not db_id:
         return flask.jsonify({"status": "error"})
     if current_user.is_authenticated:
@@ -3272,7 +3272,7 @@ def notion_create_task():
     token, db_id = get_notion_token_and_db()
     if not token or not db_id:
         return flask.jsonify({"status": "error", "message": "Notion not connected"})
-    data = request.json
+    data = request.json or {}
     try:
         page_id = create_notion_task(token, db_id, data.get("title", ""), data.get("due_date"), data.get("priority", "Medium"))
         return flask.jsonify({"status": "ok", "page_id": page_id})
@@ -3286,7 +3286,7 @@ def notion_update_task():
     token, _ = get_notion_token_and_db()
     if not token:
         return flask.jsonify({"status": "error"})
-    data = request.json
+    data = request.json or {}
     try:
         update_notion_task(token, data["page_id"], data.get("updates", {}))
         return flask.jsonify({"status": "ok"})
@@ -3300,7 +3300,7 @@ def notion_complete_task():
     token, _ = get_notion_token_and_db()
     if not token:
         return flask.jsonify({"status": "error"})
-    page_id = request.json.get("page_id")
+    page_id = (request.json or {}).get("page_id")
     try:
         complete_notion_task(token, page_id)
         return flask.jsonify({"status": "ok"})
@@ -3364,11 +3364,11 @@ def unified_tasks():
                 canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
                 base = f"{canvas_url}/api/v1"
                 headers = {"Authorization": f"Bearer {token}"}
-                course_response = requests.get(f"{base}/courses", headers=headers)
+                course_response = requests.get(f"{base}/courses", headers=headers, timeout=20)
                 courses = course_response.json()
                 course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
                 for course_id in course_map:
-                    resp = requests.get(f"{base}/courses/{course_id}/assignments", headers=headers)
+                    resp = requests.get(f"{base}/courses/{course_id}/assignments", headers=headers, timeout=20)
                     data = resp.json()
                     if not isinstance(data, list):
                         continue
@@ -3378,7 +3378,7 @@ def unified_tasks():
                         due_str = a["due_at"][:10]
                         try:
                             due = datetime.strptime(due_str, "%Y-%m-%d").date()
-                        except:
+                        except Exception:
                             continue
                         days = (due - today).days
                         if days < -14:
@@ -3448,7 +3448,7 @@ def unified_tasks():
                 result["today"].append(t)
             else:
                 result["upcoming"].append(t)
-        except:
+        except Exception:
             result["upcoming"].append(t)
     for key in result:
         result[key].sort(key=lambda x: (x.get("due_date", "9999-12-31"), priority_order.get(x.get("priority", "Low"), 2)))
@@ -3479,7 +3479,7 @@ def missing_data():
 # ── MANUAL TASKS ──────────────────────────────────────────────
 @app.route("/tasks/manual/create", methods=["POST"])
 def manual_create_task():
-    data = request.json
+    data = request.json or {}
     title = data.get("title", "").strip()
     if not title:
         return flask.jsonify({"status": "error", "message": "Title required"})
@@ -3502,13 +3502,13 @@ def manual_create_task():
                 page_id = create_notion_task(notion_token, notion_db_id, title, data.get("due_date"), data.get("priority", "Medium"))
                 task.notion_page_id = page_id
                 db.session.commit()
-            except:
+            except Exception:
                 pass
     return flask.jsonify({"status": "ok", "id": task.id})
 
 @app.route("/tasks/manual/update", methods=["POST"])
 def manual_update_task():
-    data = request.json
+    data = request.json or {}
     task_id = data.get("id")
     task = db.session.get(ManualTask, task_id)
     if not task:
@@ -3526,13 +3526,13 @@ def manual_update_task():
         if notion_token:
             try:
                 update_notion_task(notion_token, task.notion_page_id, data)
-            except:
+            except Exception:
                 pass
     return flask.jsonify({"status": "ok"})
 
 @app.route("/tasks/manual/delete", methods=["POST"])
 def manual_delete_task():
-    task_id = request.json.get("id")
+    task_id = (request.json or {}).get("id")
     task = db.session.get(ManualTask, task_id)
     if task:
         db.session.delete(task)
@@ -3556,7 +3556,7 @@ def manual_list_tasks():
 # ── SAVED SCHEDULE ────────────────────────────────────────────
 @app.route("/schedule/save", methods=["POST"])
 def save_schedule():
-    data = request.json
+    data = request.json or {}
     schedule_data = data.get("schedule_data")
     name = data.get("name", f"Schedule {datetime.now().strftime('%b %d')}")
     if not schedule_data:
@@ -3595,7 +3595,7 @@ def delete_saved_schedule():
 # ── FEEDBACK ──────────────────────────────────────────────────
 @app.route("/feedback/complete", methods=["POST"])
 def feedback_complete():
-    data = request.json
+    data = request.json or {}
     title = data.get("title", "").strip()
     actual_time = data.get("actual_time")
     if not title:
@@ -3638,7 +3638,7 @@ def feedback_export():
 # ── PUSH NOTIFICATIONS ────────────────────────────────────────
 @app.route("/push/subscribe", methods=["POST"])
 def push_subscribe():
-    data = request.json
+    data = request.json or {}
     sub_json = json.dumps(data.get("subscription"))
     uid = current_user.id if current_user.is_authenticated else None
     gid = None if current_user.is_authenticated else get_guest_session_id()
@@ -3675,7 +3675,7 @@ def vapid_public():
 
 @app.route("/notifications/silence", methods=["POST"])
 def silence_notifications():
-    data = request.json
+    data = request.json or {}
     minutes = int(data.get("minutes", 0))
     if minutes <= 0:
         return jsonify({"status": "error", "message": "Invalid duration"})
@@ -3845,7 +3845,7 @@ def get_extension_user(token):
         if not row:
             return None
         return db.session.get(User, row.user_id)
-    except:
+    except Exception:
         return None
 
 def ext_response(data, status=200):
@@ -3899,7 +3899,7 @@ def extension_tasks():
                             due_str = a["due_at"][:10]
                             try:
                                 due = datetime.strptime(due_str, "%Y-%m-%d").date()
-                            except:
+                            except Exception:
                                 continue
                             days = (due - today).days
                             if days < -14:
@@ -3937,7 +3937,7 @@ def extension_tasks():
                     result["today"].append(t)
                 else:
                     result["upcoming"].append(t)
-            except:
+            except Exception:
                 result["upcoming"].append(t)
         for key in result:
             result[key].sort(key=lambda x: (x.get("due_date", "9999"), priority_order.get(x.get("priority", "Low"), 2)))
@@ -4777,7 +4777,7 @@ def error_404(e):
         return flask.jsonify({"status": "error", "message": "Not found"}), 404
     try:
         return render_template("error.html", active_page="error", error_code=404, error_id=make_error_id()), 404
-    except:
+    except Exception:
         return flask.Response("<h1>404 Not Found</h1><a href='/'>Home</a>", status=404, mimetype="text/html")
 
 @app.errorhandler(403)
@@ -4786,7 +4786,7 @@ def error_403(e):
         return flask.jsonify({"status": "error", "message": "Forbidden"}), 403
     try:
         return render_template("error.html", active_page="error", error_code=403, error_id=make_error_id()), 403
-    except:
+    except Exception:
         return flask.Response("<h1>403 Forbidden</h1><a href='/'>Home</a>", status=403, mimetype="text/html")
 
 # ═════════════════════════════════════════════════════════════════════
@@ -6235,7 +6235,7 @@ def error_429(e):
         return flask.jsonify({"status": "error", "message": "Rate limit exceeded. Please wait a moment before trying again."}), 429
     try:
         return render_template("error.html", active_page="error", error_code=429, error_id=make_error_id()), 429
-    except:
+    except Exception:
         return flask.Response("<h1>429 Too Many Requests</h1><a href='/'>Home</a>", status=429, mimetype="text/html")
 
 @app.errorhandler(500)
@@ -6251,7 +6251,7 @@ def error_500(e):
         return flask.jsonify({"status": "error", "message": "Internal server error. Please try again.", "error_id": err_id}), 500
     try:
         return render_template("error.html", active_page="error", error_code=500, error_id=err_id), 500
-    except:
+    except Exception:
         return flask.Response(f"<h1>500 Server Error</h1><p>Error ID: {err_id}</p><a href='/'>Home</a>", status=500, mimetype="text/html")
 
 @app.errorhandler(503)
@@ -6260,7 +6260,7 @@ def error_503(e):
         return flask.jsonify({"status": "error", "message": "Service temporarily unavailable. Please try again later."}), 503
     try:
         return render_template("error.html", active_page="error", error_code=503, error_id=make_error_id()), 503
-    except:
+    except Exception:
         return flask.Response("<h1>503 Service Unavailable</h1><a href='/'>Home</a>", status=503, mimetype="text/html")
 
 @app.errorhandler(Exception)
