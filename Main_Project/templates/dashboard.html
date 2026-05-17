@@ -1,6 +1,45 @@
 {% extends "base.html" %}
 
 {% block content %}
+<style>
+.mobile-top-nav { display:none; align-items:center; justify-content:space-between; padding:0 1rem; height:52px; background:var(--bg-card); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:90; margin:-2.5rem -1.5rem 1.5rem; }
+.mobile-nav-ham { background:none; border:1px solid var(--border); border-radius:8px; padding:6px 8px; cursor:pointer; color:var(--text-secondary); display:flex; align-items:center; }
+.mobile-nav-drawer { position:fixed; top:0; left:-280px; bottom:0; width:270px; background:var(--bg-card); border-right:1px solid var(--border); z-index:900; transition:left 0.28s var(--ease-out); box-shadow:var(--shadow-lg); overflow-y:auto; }
+.mobile-nav-drawer.open { left:0; }
+.mobile-nav-inner { display:flex; flex-direction:column; height:100%; }
+.mobile-nav-link { display:flex; align-items:center; gap:12px; padding:12px 1.25rem; font-size:0.92rem; font-weight:500; color:var(--text-secondary); text-decoration:none; transition:background 0.13s, color 0.13s; }
+.mobile-nav-link:hover, .mobile-nav-link.active { background:var(--accent-soft); color:var(--accent); }
+@media (max-width: 720px) { .mobile-top-nav { display:flex; } }
+</style>
+
+<div id="mobileTopNav" class="mobile-top-nav">
+  <button onclick="openMobileNav()" class="mobile-nav-ham" aria-label="Open navigation">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+  <span style="font-family:var(--font-ui);font-weight:700;font-size:1rem;color:var(--text-primary);">IntelliPlan</span>
+  <div style="width:36px;"></div>
+</div>
+
+<div id="mobileNavDrawer" class="mobile-nav-drawer" aria-hidden="true">
+  <div class="mobile-nav-inner">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
+      <span style="font-family:var(--font-ui);font-weight:800;font-size:1.05rem;color:var(--text-primary);">IntelliPlan</span>
+      <button onclick="closeMobileNav()" style="background:none;border:none;font-size:1.5rem;color:var(--text-muted);cursor:pointer;">×</button>
+    </div>
+    <nav style="padding:0.75rem 0;">
+      <a href="/dashboard" class="mobile-nav-link active">📋 Dashboard</a>
+      <a href="/tutor" class="mobile-nav-link">🤖 Plani Tutor</a>
+      <a href="/schedule" class="mobile-nav-link">📅 Scheduler</a>
+      <a href="/study" class="mobile-nav-link">📚 Study & Learn</a>
+      <a href="/grademodel" class="mobile-nav-link">📊 Grade Modeler</a>
+      <a href="/streak" class="mobile-nav-link">🔥 Streak</a>
+      <a href="/groups" class="mobile-nav-link">👥 Study Groups</a>
+      <a href="/lessons" class="mobile-nav-link">🎥 Lessons</a>
+      <a href="/settings" class="mobile-nav-link">⚙️ Settings</a>
+    </nav>
+  </div>
+</div>
+<div id="mobileNavBackdrop" onclick="closeMobileNav()" style="display:none;position:fixed;inset:0;z-index:899;background:rgba(7,8,20,0.5);backdrop-filter:blur(4px);"></div>
 
 {# ─── First-run questionnaire modal ─────────────────────────────
    Pops up automatically the first time a brand-new account hits the
@@ -884,6 +923,33 @@
 }
 @media (max-width: 768px) { #dashColumns { grid-template-columns:1fr !important; } }
 </style>
+
+{# ── Assignment Detail Modal ──────────────────────────────────── #}
+<div id="assignDetailModal" style="display:none;position:fixed;inset:0;z-index:1400;background:rgba(7,8,20,0.62);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:22px;padding:2rem;width:min(580px,100%);max-height:88vh;overflow:auto;box-shadow:var(--shadow-lg);animation:fadeUp 0.28s var(--ease-out) both;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1.25rem;">
+      <h2 id="adTitle" style="font-family:var(--font-display);font-size:1.4rem;color:var(--text-primary);margin:0;line-height:1.25;"></h2>
+      <button onclick="closeAssignDetail()" style="background:none;border:none;font-size:1.4rem;color:var(--text-muted);cursor:pointer;line-height:1;">×</button>
+    </div>
+    <div id="adMeta" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1.25rem;"></div>
+    <div class="form-group" style="margin-bottom:1rem;">
+      <label class="form-label">Due Date</label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="date" id="adDueDate" class="form-input" style="max-width:180px;" />
+        <button onclick="saveAssignDueDate()" class="btn-secondary" style="padding:8px 14px;cursor:pointer;font-size:0.84rem;">Update</button>
+      </div>
+      <span class="form-hint">Override the system date if it's incorrect</span>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Personal Notes</label>
+      <textarea id="adNotes" class="form-input" rows="5" placeholder="Add notes, reminders, or a personal description for this assignment..."></textarea>
+      <div style="margin-top:8px;display:flex;gap:8px;">
+        <button onclick="saveAssignNotes()" class="btn-primary" style="padding:10px 20px;border:none;cursor:pointer;">Save Notes</button>
+        <span id="adSaveStatus" style="font-size:0.78rem;color:var(--low);align-self:center;display:none;">Saved ✓</span>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -1191,6 +1257,11 @@ function renderColumn(listId, countId, tasks) {
 
     const isDashTest = DASH_TEST_RE.test(t.title || '');
     if (isDashTest) card.style.borderLeftColor = 'var(--medium)';
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', function(e) {
+      if (e.target.closest('button, a')) return;
+      openAssignDetail(t.title, t.course || '', t.due_date || '', t.priority || '', '');
+    });
     card.innerHTML = `
       <div class="notion-card-title">
         ${t.title}
@@ -1621,4 +1692,87 @@ function startLiveSession() {
 loadDashboard();
 loadStreak();
 setInterval(loadDashboard, 60000);
+
+// ── Assignment Detail Modal ────────────────────────────────────
+let _currentAssignTitle = '';
+
+function openAssignDetail(title, course, dueDate, priority, notes) {
+  _currentAssignTitle = title;
+  document.getElementById('adTitle').textContent = title;
+  // Meta pills
+  const meta = document.getElementById('adMeta');
+  meta.innerHTML = '';
+  if (course && course !== 'Unknown' && course !== 'Personal') {
+    const p = document.createElement('span');
+    p.className = 'notion-pill';
+    p.style = 'background:var(--bg);color:var(--text-muted);border:1px solid var(--border);';
+    p.textContent = course;
+    meta.appendChild(p);
+  }
+  if (priority) {
+    const p = document.createElement('span');
+    p.className = 'notion-pill';
+    p.textContent = priority;
+    meta.appendChild(p);
+  }
+  // Due date field
+  document.getElementById('adDueDate').value = dueDate || '';
+  // Notes — fetch existing from server
+  document.getElementById('adNotes').value = notes || '';
+  document.getElementById('adSaveStatus').style.display = 'none';
+  fetch('/api/assignment/notes?title=' + encodeURIComponent(title))
+    .then(r => r.json())
+    .then(d => {
+      if (d.notes) document.getElementById('adNotes').value = d.notes;
+      if (d.due_date) document.getElementById('adDueDate').value = d.due_date;
+    })
+    .catch(() => {});
+  const modal = document.getElementById('assignDetailModal');
+  modal.style.display = 'flex';
+}
+
+function closeAssignDetail() {
+  document.getElementById('assignDetailModal').style.display = 'none';
+}
+
+function saveAssignNotes() {
+  const notes = document.getElementById('adNotes').value;
+  fetch('/api/assignment/notes', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({title: _currentAssignTitle, notes})
+  }).then(r => r.json()).then(d => {
+    if (d.status === 'ok') {
+      const s = document.getElementById('adSaveStatus');
+      s.style.display = 'inline';
+      setTimeout(() => s.style.display = 'none', 2000);
+    }
+  });
+}
+
+function saveAssignDueDate() {
+  const due_date = document.getElementById('adDueDate').value;
+  fetch('/api/assignment/due-date', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({title: _currentAssignTitle, due_date})
+  }).then(r => r.json()).then(d => {
+    if (d.status === 'ok') {
+      const s = document.getElementById('adSaveStatus');
+      s.textContent = 'Date saved ✓';
+      s.style.display = 'inline';
+      setTimeout(() => { s.style.display = 'none'; s.textContent = 'Saved ✓'; }, 2000);
+    }
+  });
+}
+function openMobileNav() {
+  document.getElementById('mobileNavDrawer').classList.add('open');
+  document.getElementById('mobileNavBackdrop').style.display = 'block';
+  document.getElementById('mobileNavDrawer').removeAttribute('aria-hidden');
+}
+function closeMobileNav() {
+  document.getElementById('mobileNavDrawer').classList.remove('open');
+  document.getElementById('mobileNavBackdrop').style.display = 'none';
+  document.getElementById('mobileNavDrawer').setAttribute('aria-hidden','true');
+}
 {% endblock %}

@@ -99,24 +99,76 @@ function removeTask(index) {
 
 async function autoDetectTime() {
   const btn = document.getElementById('autoTimeBtn');
-  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="spin"><use href="#i-spinner"/></svg>';
+  const hint = document.getElementById('autoTimeHint');
+  btn.innerHTML = '<span class="btn-spin" style="display:inline-block;width:13px;height:13px;border:2px solid rgba(37,99,235,0.3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:4px;"></span> Scanning...';
   btn.disabled = true;
-  const today = new Date().toISOString().split('T')[0];
-  const res = await fetch(`/calendar/free-slot?date=${today}`).then(r => r.json()).catch(() => ({ connected: false }));
-  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg> Auto';
-  btn.disabled = false;
-  if (res.connected) {
-    const slot = res.slot;
-    const hour = parseInt(slot.split(':')[0]);
-    const isPM = slot.includes('PM');
-    const hour24 = isPM && hour !== 12 ? hour + 12 : hour;
+  hint.textContent = '';
+
+  try {
+    const today = new Date();
+    const dates = Array.from({length: 3}, (_, i) => {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      return d.toISOString().split('T')[0];
+    });
+
+    // Fetch free slots for each day
+    const results = await Promise.all(
+      dates.map(date =>
+        fetch(`/calendar/free-slot?date=${date}`)
+          .then(r => r.json())
+          .catch(() => ({ connected: false }))
+      )
+    );
+
+    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg> Auto';
+    btn.disabled = false;
+
+    if (!results[0]?.connected) {
+      hint.innerHTML = '<span style="color:var(--text-muted);">Connect Google Calendar to use Auto-detect →</span>';
+      return;
+    }
+
+    // Analyze today's slot
+    const todaySlot = results[0];
+    const slot = todaySlot.slot || '';
+    let totalFreeHours = todaySlot.free_hours || 0;
+
+    // Determine time of day preference
     let preference = 'evening';
-    if (hour24 < 12) preference = 'morning';
-    else if (hour24 < 17) preference = 'afternoon';
+    let prefLabel = 'Evening';
+    if (slot) {
+      const hourMatch = slot.match(/(\d+)(?::(\d+))?\s*(AM|PM)?/i);
+      if (hourMatch) {
+        let h = parseInt(hourMatch[1]);
+        const isPM = hourMatch[3] && hourMatch[3].toUpperCase() === 'PM';
+        if (isPM && h !== 12) h += 12;
+        if (!isPM && h === 12) h = 0;
+        if (h < 12) { preference = 'morning'; prefLabel = 'Morning'; }
+        else if (h < 17) { preference = 'afternoon'; prefLabel = 'Afternoon'; }
+      }
+    }
+
     document.getElementById('preferredTime').value = preference;
-    document.getElementById('autoTimeHint').textContent = `First free slot: ${slot} → ${preference}`;
-  } else {
-    document.getElementById('autoTimeHint').textContent = 'Connect Google Calendar to use Auto';
+
+    // Auto-fill hours per day based on free time detected
+    if (totalFreeHours > 0) {
+      const cappedHours = Math.min(Math.round(totalFreeHours * 2) / 2, 6);
+      document.getElementById('hoursPerDay').value = cappedHours || 2;
+    }
+
+    // Build summary
+    const summaryParts = [];
+    if (slot) summaryParts.push(`First free: ${slot}`);
+    if (totalFreeHours > 0) summaryParts.push(`~${totalFreeHours}h free today`);
+    summaryParts.push(`→ ${prefLabel} sessions recommended`);
+
+    hint.innerHTML = `<span style="color:var(--low);font-weight:600;">✓</span> ${summaryParts.join(' · ')}`;
+
+  } catch (e) {
+    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg> Auto';
+    btn.disabled = false;
+    hint.textContent = 'Could not detect free time. Set manually.';
   }
 }
 

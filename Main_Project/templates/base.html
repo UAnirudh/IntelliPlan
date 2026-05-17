@@ -1758,5 +1758,108 @@ window.addEventListener('load',()=>{
 </script>
 
 {% include "footer.html" %}
+
+<!-- ═══ APP TOUR ═══ -->
+<div id="tourOverlay" style="display:none;position:fixed;inset:0;z-index:9000;pointer-events:none;"></div>
+<div id="tourHighlight" style="display:none;position:fixed;z-index:9001;border:2.5px solid var(--accent);border-radius:14px;box-shadow:0 0 0 4000px rgba(7,8,20,0.55);pointer-events:none;transition:all 0.3s var(--ease-out);"></div>
+<div id="tourTooltip" style="display:none;position:fixed;z-index:9002;background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.25rem 1.5rem;max-width:320px;box-shadow:var(--shadow-lg);pointer-events:auto;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:0.75rem;">
+    <div id="tourStepLabel" style="font-family:var(--font-ui);font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);"></div>
+    <button onclick="closeTour()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.2rem;line-height:1;flex-shrink:0;">×</button>
+  </div>
+  <div id="tourText" style="font-size:0.92rem;color:var(--text-primary);line-height:1.6;margin-bottom:1.1rem;"></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <div id="tourDots" style="display:flex;gap:5px;"></div>
+    <div style="display:flex;gap:8px;">
+      <button id="tourPrev" onclick="tourNav(-1)" style="padding:8px 16px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-secondary);cursor:pointer;font-family:var(--font-ui);font-size:0.82rem;font-weight:600;">Back</button>
+      <button id="tourNext" onclick="tourNav(1)" class="btn-primary" style="padding:8px 18px;border:none;cursor:pointer;font-size:0.82rem;">Next</button>
+    </div>
+  </div>
+</div>
+<script>
+(function() {
+  const STEPS = [
+    { selector: '.side-logo, .logo', text: 'Welcome to IntelliPlan — your AI-powered study planner. Let\'s take a quick tour!', title: 'Welcome 👋' },
+    { selector: 'a[href="/dashboard"].side-link, a[href="/dashboard"].nav-tab', text: 'Your Dashboard shows all your assignments, prioritized by urgency and due date.', title: 'Dashboard' },
+    { selector: 'a[href="/tutor"].side-link, a[href="/tutor"].nav-tab', text: 'Plani AI Tutor answers any question step by step — math, science, history, and more.', title: 'AI Tutor' },
+    { selector: 'a[href="/schedule"].side-link, a[href="/schedule"].nav-tab', text: 'The Scheduler builds a personalized study plan around your free time and deadlines.', title: 'Scheduler' },
+    { selector: 'a[href="/study"].side-link, a[href="/study"].nav-tab', text: 'Study & Learn uses spaced repetition and AI quizzes to help you actually retain material.', title: 'Study & Learn' },
+    { selector: 'a[href="/grademodel"].side-link, a[href="/grademodel"].nav-tab', text: 'The Grade Modeler shows exactly what scores you need on upcoming assignments to hit your target grade.', title: 'Grade Modeler' },
+    { selector: 'a[href="/streak"].side-link, a[href="/streak"].nav-tab', text: 'Build a daily study streak and earn Sparks to spend in the reward shop!', title: 'Streaks & Rewards' },
+    { selector: 'a[href="/settings"].side-link, a[href="/settings"].nav-tab', text: 'Customize your study profile, connect your school\'s LMS, and manage integrations here.', title: 'Settings' },
+  ];
+  let _step = 0;
+  let _active = false;
+  function startTour(step) {
+    _step = step || 0;
+    _active = true;
+    document.getElementById('tourOverlay').style.display = 'block';
+    showStep();
+  }
+  function closeTour() {
+    _active = false;
+    document.getElementById('tourOverlay').style.display = 'none';
+    document.getElementById('tourHighlight').style.display = 'none';
+    document.getElementById('tourTooltip').style.display = 'none';
+    localStorage.setItem('ip_tour_done', '1');
+  }
+  function tourNav(dir) {
+    _step += dir;
+    if (_step < 0) _step = 0;
+    if (_step >= STEPS.length) { closeTour(); return; }
+    showStep();
+  }
+  function showStep() {
+    const s = STEPS[_step];
+    let target = null;
+    for (const sel of s.selector.split(',')) {
+      target = document.querySelector(sel.trim());
+      if (target) break;
+    }
+    const hl = document.getElementById('tourHighlight');
+    const tt = document.getElementById('tourTooltip');
+    document.getElementById('tourStepLabel').textContent = `Step ${_step + 1} of ${STEPS.length} — ${s.title}`;
+    document.getElementById('tourText').textContent = s.text;
+    document.getElementById('tourPrev').style.display = _step === 0 ? 'none' : '';
+    document.getElementById('tourNext').textContent = _step === STEPS.length - 1 ? 'Finish' : 'Next →';
+    const dots = document.getElementById('tourDots');
+    dots.innerHTML = STEPS.map((_,i) => `<div style="width:7px;height:7px;border-radius:50%;background:${i===_step?'var(--accent)':'var(--border-strong)'};transition:background 0.2s;"></div>`).join('');
+    if (target) {
+      const r = target.getBoundingClientRect();
+      const pad = 8;
+      hl.style.cssText = `display:block;position:fixed;z-index:9001;border:2.5px solid var(--accent);border-radius:14px;box-shadow:0 0 0 4000px rgba(7,8,20,0.55);pointer-events:none;transition:all 0.3s;top:${r.top-pad}px;left:${r.left-pad}px;width:${r.width+pad*2}px;height:${r.height+pad*2}px;`;
+      tt.style.display = 'block';
+      const ttW = 320, ttH = 160;
+      let top = r.bottom + 16;
+      let left = Math.max(12, Math.min(r.left, window.innerWidth - ttW - 12));
+      if (top + ttH > window.innerHeight - 20) top = r.top - ttH - 16;
+      if (top < 10) top = r.bottom + 8;
+      tt.style.top = top + 'px';
+      tt.style.left = left + 'px';
+      tt.style.maxWidth = ttW + 'px';
+      tt.style.transform = '';
+      target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      hl.style.display = 'none';
+      tt.style.display = 'block';
+      tt.style.top = '50%'; tt.style.left = '50%';
+      tt.style.transform = 'translate(-50%,-50%)';
+    }
+  }
+  window.addEventListener('start-tour', () => startTour(0));
+  window.closeTour = closeTour;
+  window.tourNav = tourNav;
+  const appPages = ['/dashboard','/tutor','/schedule','/study','/streak','/settings','/grademodel','/groups'];
+  const isAppPage = appPages.some(p => location.pathname.startsWith(p));
+  const tourDone = localStorage.getItem('ip_tour_done');
+  if (isAppPage && !tourDone) {
+    setTimeout(() => startTour(0), 1200);
+  }
+  if (new URLSearchParams(location.search).get('tour') === '1') {
+    setTimeout(() => startTour(0), 600);
+  }
+  window.startAppTour = () => startTour(0);
+})();
+</script>
 </body>
 </html>

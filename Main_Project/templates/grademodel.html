@@ -46,7 +46,7 @@
             Model It
           </button>
           <button class="btn-secondary" onclick="simulateBest()" id="simBtn" style="padding:10px 16px; cursor:pointer; font-size:0.84rem;">Simulate</button>
-          <button onclick="resetModel()" id="resetBtn" style="padding:10px 14px; cursor:pointer; font-size:0.84rem; border-radius:10px; border:1px solid var(--border-strong); background:var(--bg-card); color:var(--text-secondary); font-family:var(--font-ui); font-weight:600;">Reset</button>
+          <button onclick="resetModel()" id="resetBtn" style="padding:10px 14px; cursor:pointer; font-size:0.84rem; border-radius:10px; border:1px solid var(--border-strong); background:var(--bg-card); color:var(--text-secondary); font-family:var(--font-ui); font-weight:600;">&#x21BA; Reset</button>
         </div>
         <div style="font-size:0.74rem;color:var(--text-muted);margin-top:6px;">Simulate fills pending assignments with the scores you need; Reset restores real data.</div>
       </div>
@@ -70,6 +70,14 @@
   </div>
 
 </div>
+
+<style>
+@keyframes simFlash {
+  0%, 100% { background: var(--bg-card); }
+  50%       { background: rgba(99,102,241,0.15); }
+}
+.sim-highlight { animation: simFlash 0.4s ease; }
+</style>
 {% endblock %}
 
 {% block scripts %}
@@ -401,8 +409,10 @@ function runModel() {
   if (parseFloat(neededPct) > 100) {
     const maxPossible = ((earnedTotal + pendingPossible) / totalPossible * 100).toFixed(1);
     summary.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--medium)"><use href="#i-warning"/></svg> Reaching <strong>${target}%</strong> is no longer mathematically possible.
-      The <strong>highest achievable grade</strong> in <strong>${selectedCourse.course}</strong> is <strong>${maxPossible}%</strong> — earned by scoring 100% on all ${pending.length} remaining assignment${pending.length !== 1 ? 's' : ''}.<br>
-      <button class="btn-secondary" onclick="simulateBest()" style="margin-top:10px;padding:8px 16px;cursor:pointer;font-size:0.84rem;">Simulate best achievable</button>`;
+      The <strong>highest achievable grade</strong> in <strong>${selectedCourse.course}</strong> is <strong>${maxPossible}%</strong> — earned by scoring 100% on all ${pending.length} remaining assignment${pending.length !== 1 ? 's' : ''}.`;
+    simulateBest();
+    _flashSimInputs();
+    document.getElementById('assignmentBreakdown').scrollIntoView({ behavior: 'smooth', block: 'start' });
     return;
   }
 
@@ -411,12 +421,26 @@ function runModel() {
   ).join(' ');
 
   summary.innerHTML = `
-    To reach <strong>${target}%</strong> in <strong>${selectedCourse.course}</strong>, 
-    you need to average <strong>${neededPct}%</strong> across your 
+    To reach <strong>${target}%</strong> in <strong>${selectedCourse.course}</strong>,
+    you need to average <strong>${neededPct}%</strong> across your
     ${pending.length} remaining assignment${pending.length !== 1 ? 's' : ''}
     (${pendingPossible} points possible).<br><br>
     <strong>Remaining assignments:</strong><br>
     <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;">${pendingList}</div>
   `;
+  simulateBest();
+  _flashSimInputs();
+  document.getElementById('assignmentBreakdown').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function _flashSimInputs() {
+  const inputs = document.querySelectorAll('.sim-input');
+  inputs.forEach(el => {
+    el.classList.remove('sim-highlight');
+    // Force reflow so the animation re-triggers even if already applied
+    void el.offsetWidth;
+    el.classList.add('sim-highlight');
+    el.addEventListener('animationend', () => el.classList.remove('sim-highlight'), { once: true });
+  });
 }
 {% endblock %}

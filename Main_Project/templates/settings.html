@@ -5,6 +5,7 @@
 .settings-section {
   background: var(--bg-card);
   border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
   border-radius: 16px;
   padding: 1.5rem;
   box-shadow: var(--shadow);
@@ -21,27 +22,30 @@
 .profile-tab-bar {
   display: flex;
   gap: 4px;
-  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px;
   margin-bottom: 1.25rem;
+  width: fit-content;
 }
 .profile-tab {
-  padding: 8px 16px;
+  padding: 7px 16px;
   font-family: var(--font-ui);
   font-size: 0.84rem;
   font-weight: 600;
   color: var(--text-muted);
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-radius: 999px;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
-  margin-bottom: -1px;
+  transition: background 0.15s, color 0.15s;
 }
 .profile-tab.active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
+  background: var(--accent);
+  color: white;
 }
-.profile-tab:hover:not(.active) { color: var(--text-primary); }
+.profile-tab:hover:not(.active) { color: var(--text-primary); background: var(--border); }
 .profile-pane { display: none; }
 .profile-pane.visible { display: block; }
 .nav-custom-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
@@ -65,59 +69,14 @@
   padding:8px 10px;
 }
 
-/* Availability grid */
-.avail-grid {
-  display: grid;
-  grid-template-columns: 80px repeat(3, 1fr);
-  gap: 6px;
-  font-family: var(--font-ui);
-  font-size: 0.8rem;
-}
-.avail-grid .col-head {
-  text-align: center;
-  font-weight: 600;
-  color: var(--text-muted);
-  padding: 4px 0;
-}
-.avail-grid .row-label {
-  font-weight: 600;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-}
-.avail-cell {
-  position: relative;
-}
-.avail-cell input[type="checkbox"] {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-.avail-cell label {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1.5px solid var(--border-strong);
-  border-radius: 8px;
-  padding: 8px 4px;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  background: var(--bg-card);
-  user-select: none;
-}
-.avail-cell input:checked + label {
-  background: var(--accent-subtle, #eff6ff);
-  border-color: var(--accent);
-  color: var(--accent);
-  font-weight: 600;
-}
-.avail-cell label:hover {
-  border-color: var(--accent);
-  background: var(--accent-subtle, #eff6ff);
-}
+/* Availability time-block rows */
+.avail-day-row { display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); }
+.avail-day-row:last-child { border-bottom:none; }
+.avail-day-label { width:36px; font-family:var(--font-ui); font-size:0.82rem; font-weight:700; color:var(--text-secondary); flex-shrink:0; }
+.avail-slots { display:flex; gap:6px; flex-wrap:wrap; }
+.avail-slot-btn { padding:6px 12px; border-radius:999px; border:1.5px solid var(--border-strong); background:var(--bg); font-size:0.78rem; cursor:pointer; color:var(--text-muted); transition:all 0.15s; font-family:var(--font-body); }
+.avail-slot-btn.on { background:var(--accent); color:white; border-color:var(--accent); }
+.avail-slot-btn:hover:not(.on) { border-color:var(--accent); color:var(--accent); background:var(--accent-soft,#eff6ff); }
 
 /* Focus pill checkboxes */
 .focus-pill-group {
@@ -195,10 +154,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 0;
+  padding: 10px 8px;
   border-bottom: 1px solid var(--border);
+  border-radius: 8px;
+  transition: background 0.15s;
 }
 .integration-row:last-child { border-bottom: none; }
+.integration-row:hover { background: var(--bg); }
 .integration-label {
   font-weight: 600;
   display: flex;
@@ -222,12 +184,7 @@
 }
 
 @media (max-width: 480px) {
-  .avail-grid {
-    grid-template-columns: 64px repeat(3, 1fr);
-    gap: 4px;
-    font-size: 0.72rem;
-  }
-  .avail-cell label { padding: 6px 2px; font-size: 0.68rem; }
+  .avail-slot-btn { padding:5px 8px; font-size:0.72rem; }
 }
 </style>
 
@@ -293,24 +250,9 @@
     <!-- Pane: Availability -->
     <div class="profile-pane" id="pane-schedule">
       <p style="font-size:0.84rem;color:var(--text-secondary);margin-bottom:1rem;">
-        Check the time slots when you're generally free to study.
+        Tap the time blocks when you're generally free to study.
       </p>
-      <div class="avail-grid" id="availGrid">
-        <div></div>
-        <div class="col-head">Morning</div>
-        <div class="col-head">Afternoon</div>
-        <div class="col-head">Evening</div>
-        {% set days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"] %}
-        {% for day in days %}
-          <div class="row-label">{{ day[:3] }}</div>
-          {% for slot in ["morning","afternoon","evening"] %}
-            <div class="avail-cell">
-              <input type="checkbox" id="av-{{ day }}-{{ slot }}" data-day="{{ day }}" data-slot="{{ slot }}">
-              <label for="av-{{ day }}-{{ slot }}">✓</label>
-            </div>
-          {% endfor %}
-        {% endfor %}
-      </div>
+      <div class="avail-days" id="availDays"></div>
 
       <div class="form-group" style="margin-top:1.25rem;">
         <label class="form-label" for="idCommitments">Weekly commitments / extracurriculars</label>
@@ -445,6 +387,16 @@
     </div>
   </div>
 
+  <!-- ── App Tour ────────────────────────────────── -->
+  <div class="settings-section" style="border-left:3px solid #8b5cf6;">
+    <div class="settings-section-title">App Tour</div>
+    <p style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:1rem;">Replay the interactive tour of IntelliPlan's features.</p>
+    <button onclick="startAppTour()" class="btn-primary" style="padding:10px 22px;border:none;cursor:pointer;background:#8b5cf6;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Start Demo Tour
+    </button>
+  </div>
+
   <!-- ── Integrations ─────────────────────────────── -->
   <div class="settings-section">
     <div class="settings-section-title">Integrations</div>
@@ -498,17 +450,56 @@ document.querySelectorAll('.profile-tab').forEach(tab => {
   });
 });
 
-/* ── Populate availability grid ─────────────────── */
-(function populateAvailGrid() {
-  const avail = IDENTITY.availability || {};
-  Object.entries(avail).forEach(([day, slots]) => {
-    const slotArr = typeof slots === 'string' ? slots.split(',') : (Array.isArray(slots) ? slots : []);
-    slotArr.forEach(s => {
-      const cb = document.getElementById(`av-${day}-${s.trim()}`);
-      if (cb) cb.checked = true;
-    });
+/* ── Availability time-block UI ─────────────────── */
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const SLOTS = [
+  {id:'morning',  label:'Morning',   icon:'☀️', range:'6–12am'},
+  {id:'afternoon',label:'Afternoon', icon:'🌤', range:'12–5pm'},
+  {id:'evening',  label:'Evening',   icon:'🌙', range:'5–10pm'}
+];
+let availData = {};
+
+// Seed from server identity (keys may be full day names like "Monday" or short "Mon")
+(function seedAvailData() {
+  const raw = IDENTITY.availability || {};
+  Object.entries(raw).forEach(([day, slots]) => {
+    const short = day.slice(0,3);
+    const slotArr = typeof slots === 'string' ? slots.split(',').map(s=>s.trim()) : (Array.isArray(slots) ? slots : []);
+    if (slotArr.length) availData[short] = slotArr;
   });
 })();
+
+function isAvail(day, slot) {
+  return (availData[day] || []).includes(slot);
+}
+function toggleAvail(day, slot, btn) {
+  if (!availData[day]) availData[day] = [];
+  const idx = availData[day].indexOf(slot);
+  if (idx >= 0) availData[day].splice(idx, 1);
+  else availData[day].push(slot);
+  btn.classList.toggle('on');
+  refreshSummary();
+}
+function renderAvailRows() {
+  const wrap = document.getElementById('availDays');
+  if (!wrap) return;
+  wrap.innerHTML = DAYS.map(day => `
+    <div class="avail-day-row" data-day="${day}">
+      <div class="avail-day-label">${day}</div>
+      <div class="avail-slots">
+        ${SLOTS.map(s => `
+          <button type="button" class="avail-slot-btn ${isAvail(day,s.id)?'on':''}"
+            data-day="${day}" data-slot="${s.id}"
+            onclick="toggleAvail('${day}','${s.id}',this)"
+            title="${s.range}">
+            ${s.icon} ${s.label}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+renderAvailRows();
 
 /* ── Profile summary chips ──────────────────────── */
 function refreshSummary() {
@@ -520,7 +511,7 @@ function refreshSummary() {
   const focusChecked = Array.from(document.querySelectorAll('input[name="focus_areas"]:checked')).map(i => i.value);
   if (focusChecked.length) chips.push({ icon: '#i-pin', text: focusChecked.slice(0, 3).join(', ') + (focusChecked.length > 3 ? ` +${focusChecked.length - 3}` : '') });
 
-  const slotCount = document.querySelectorAll('#availGrid input[type="checkbox"]:checked').length;
+  const slotCount = Object.values(availData).reduce((n, arr) => n + arr.length, 0);
   if (slotCount) chips.push({ icon: '#i-scheduler', text: `${slotCount} available slot${slotCount !== 1 ? 's' : ''}` });
 
   const goals = (document.getElementById('idGoals').value || '').trim();
@@ -536,7 +527,6 @@ function refreshSummary() {
 /* Run once on load, then on changes */
 refreshSummary();
 document.getElementById('identityForm').addEventListener('change', refreshSummary);
-document.getElementById('availGrid').addEventListener('change', refreshSummary);
 document.getElementById('idGoals').addEventListener('input', refreshSummary);
 
 /* ── Show saved note ────────────────────────────── */
@@ -568,12 +558,7 @@ function saveIdentity(ev) {
 
 /* ── Save availability ──────────────────────────── */
 function saveAvailability() {
-  const avail = {};
-  document.querySelectorAll('#availGrid input[type="checkbox"]:checked').forEach(cb => {
-    const { day, slot } = cb.dataset;
-    if (!avail[day]) avail[day] = [];
-    avail[day].push(slot);
-  });
+  const avail = availData;
   const commitments = document.getElementById('idCommitments').value.trim();
   fetch('/identity', {
     method: 'POST',
@@ -966,5 +951,14 @@ function disconnectNotion() {
    newly-stored workspace metadata. */
 if (new URLSearchParams(location.search).get('notion') === 'connected') {
   refreshNotionStatus();
+}
+
+/* ── App Demo Tour ──────────────────────────────── */
+function startAppTour() {
+  if (window.location.pathname !== '/dashboard') {
+    window.location.href = '/dashboard?tour=1';
+  } else {
+    window.dispatchEvent(new CustomEvent('start-tour'));
+  }
 }
 {% endblock %}

@@ -144,6 +144,29 @@ def find_free_slots(token_dict, date_str):
         return evening[0] if evening else slots[0]
     return "7:00 PM"
 
+def compute_free_hours(token_dict, date_str):
+    """Return total free hours between 7 AM and 11 PM for the given date."""
+    try:
+        busy = get_free_busy(token_dict, date_str)
+        day = datetime.strptime(date_str, "%Y-%m-%d")
+        current = day.replace(hour=7, minute=0)
+        end_of_day = day.replace(hour=23, minute=0)
+        busy_ranges = []
+        for b in busy:
+            start = datetime.fromisoformat(b["start"].replace("Z", ""))
+            end = datetime.fromisoformat(b["end"].replace("Z", ""))
+            busy_ranges.append((start, end))
+        free_slots = 0
+        while current + timedelta(minutes=30) <= end_of_day:
+            slot_end = current + timedelta(minutes=30)
+            is_free = all(not (current < bend and slot_end > bstart) for bstart, bend in busy_ranges)
+            if is_free:
+                free_slots += 1
+            current += timedelta(minutes=30)
+        return round(free_slots * 0.5, 1)
+    except Exception:
+        return 0
+
 def get_upcoming_events(token_dict):
     service, _ = get_calendar_service(token_dict)
     now = datetime.utcnow().isoformat() + "Z"

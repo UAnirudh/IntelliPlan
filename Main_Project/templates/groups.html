@@ -235,7 +235,10 @@ function renderDetail(g) {
                <button type="button" onclick="expandMeeting(this)" class="btn-secondary" style="padding:10px 16px;cursor:pointer;font-size:0.84rem;">Large view</button>
                <span style="font-size:0.78rem;color:var(--text-muted);">Powered by Jitsi</span>
              </div>`
-          : '<div style="color:var(--text-muted);">No room yet.</div>'}
+          : g.is_member
+            ? `<button onclick="startMeeting(${g.id})" class="btn-primary" style="padding:10px 20px;border:none;cursor:pointer;">Start Meeting</button>
+               <p style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;">Creates a private Jitsi room for this group.</p>`
+            : '<div style="color:var(--text-muted);">Join this group to start a meeting.</div>'}
         <div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:0.9rem;">
           ${nextMeeting}
           ${g.is_member ? `
@@ -275,6 +278,12 @@ function renderDetail(g) {
 
 function joinGroup(id) { fetch('/api/groups/'+id+'/join',{method:'POST'}).then(()=>openGroup(id)); }
 function leaveGroup(id) { fetch('/api/groups/'+id+'/leave',{method:'POST'}).then(()=>{ backToList(); loadGroups(); }); }
+
+function startMeeting(id) {
+  fetch('/api/groups/'+id+'/start-meeting', {method:'POST'})
+    .then(r=>r.json())
+    .then(d=>{ if(d.status==='ok') openGroup(id); else alert(d.message||'Error'); });
+}
 
 function copyInvite(url, btn) {
   try { navigator.clipboard.writeText(url); }

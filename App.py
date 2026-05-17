@@ -57,7 +57,7 @@ try:
     from google_calendar_helper import (
         get_auth_url, exchange_code_for_token,
         get_upcoming_events, add_schedule_to_calendar, find_free_slots,
-        merge_token_data, has_calendar_scope
+        compute_free_hours, merge_token_data, has_calendar_scope
     )
     GCAL_AVAILABLE = True
 except Exception as e:
@@ -2256,7 +2256,8 @@ def calendar_free_slot():
         return flask.jsonify({"slot": "7:00 PM", "connected": False})
     try:
         slot = find_free_slots(token, date_str)
-        return flask.jsonify({"slot": slot, "connected": True})
+        free_hours = compute_free_hours(token, date_str)
+        return flask.jsonify({"slot": slot, "connected": True, "free_hours": free_hours})
     except Exception as e:
         return flask.jsonify({"slot": "7:00 PM", "connected": False, "error": str(e)})
 
@@ -2789,6 +2790,55 @@ def save_description():
     description = data.get("description", "").strip()
     if title and description:
         save_custom_description(title, description)
+    return flask.jsonify({"status": "ok"})
+
+
+@app.route("/api/assignment/notes", methods=["GET"])
+def api_get_assignment_notes():
+    title = request.args.get("title", "").strip()
+    if not title:
+        return flask.jsonify({"notes": "", "due_date": ""})
+    raw = get_custom_description(title)
+    if raw:
+        try:
+            data = json.loads(raw)
+            return flask.jsonify({"notes": data.get("notes", ""), "due_date": data.get("due_date", "")})
+        except Exception:
+            return flask.jsonify({"notes": raw, "due_date": ""})
+    return flask.jsonify({"notes": "", "due_date": ""})
+
+
+@app.route("/api/assignment/notes", methods=["POST"])
+def api_save_assignment_notes():
+    body = request.get_json(silent=True) or {}
+    title = (body.get("title") or "").strip()
+    notes = (body.get("notes") or "").strip()
+    if not title:
+        return flask.jsonify({"status": "error", "message": "title required"}), 400
+    raw = get_custom_description(title)
+    try:
+        existing = json.loads(raw) if raw else {}
+    except Exception:
+        existing = {"notes": raw} if raw else {}
+    existing["notes"] = notes
+    save_custom_description(title, json.dumps(existing))
+    return flask.jsonify({"status": "ok"})
+
+
+@app.route("/api/assignment/due-date", methods=["POST"])
+def api_save_assignment_due_date():
+    body = request.get_json(silent=True) or {}
+    title = (body.get("title") or "").strip()
+    due_date = (body.get("due_date") or "").strip()
+    if not title:
+        return flask.jsonify({"status": "error", "message": "title required"}), 400
+    raw = get_custom_description(title)
+    try:
+        existing = json.loads(raw) if raw else {}
+    except Exception:
+        existing = {"notes": raw} if raw else {}
+    existing["due_date"] = due_date
+    save_custom_description(title, json.dumps(existing))
     return flask.jsonify({"status": "ok"})
 
 @app.route("/generate_schedule", methods=["POST"])
@@ -4204,6 +4254,43 @@ def study_update_streak():
             "freezes_awarded": freeze_awarded,
             "streak_event": streak_event
         })
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)})
+
+@app.route("/api/activity", methods=["POST"])
+def api_activity():
+    uid = current_user.id if current_user.is_authenticated else None
+    gid = None if uid else get_guest_session_id()
+    data = request.json or {}
+    today_str = (data.get("local_date") or datetime.now().strftime("%Y-%m-%d"))[:10]
+    try:
+        p = get_study_profile(uid, gid)
+        reconcile_missed_streak(p)
+        history = safe_json_load(p.streak_history, [])
+        last = p.last_active_date
+        if last == today_str:
+            return flask.jsonify({"status": "ok", "already_counted": True, "streak_count": p.streak_count, "spark_balance": p.spark_balance, "streak_history": history})
+        yesterday = (datetime.strptime(today_str, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
+        if last == yesterday:
+            p.streak_count += 1
+        elif last == "":
+            p.streak_count = 1
+        else:
+            if p.streak_freeze_count > 0:
+                p.streak_freeze_count -= 1
+                p.streak_count += 1
+            else:
+                p.streak_count = 1
+        p.last_active_date = today_str
+        if today_str not in history:
+            history.append(today_str)
+        history = sorted(history)[-90:]
+        p.streak_history = json.dumps(history)
+        if p.streak_count > (p.longest_streak or 0):
+            p.longest_streak = p.streak_count
+        grant_sparks(p, 5, "daily_activity")
+        db.session.commit()
+        return flask.jsonify({"status": "ok", "streak_count": p.streak_count, "spark_balance": p.spark_balance, "streak_history": history})
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)})
 
@@ -5870,6 +5957,23 @@ def api_save_group_notes(group_id):
     g.shared_notes = (body.get("notes") or "")[:60000]
     db.session.commit()
     return flask.jsonify({"status": "ok"})
+
+
+@app.route("/api/groups/<int:group_id>/start-meeting", methods=["POST"])
+def api_start_group_meeting(group_id):
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error", "message": "login required"}), 401
+    g = StudyGroup.query.get(group_id)
+    if not g:
+        return flask.jsonify({"status": "error", "message": "not found"}), 404
+    if not StudyGroupMember.query.filter_by(group_id=group_id, user_id=current_user.id).first():
+        return flask.jsonify({"status": "error", "message": "not a member"}), 403
+    if g.meeting_url:
+        return flask.jsonify({"status": "ok", "meeting_url": g.meeting_url})
+    room_name = f"vpaas-magic-cookie-a0f824ad588d472db70a0847bffc500e/{g.name.replace(' ', '').replace(',', '')[:20]}{g.id}{secrets_module.token_hex(4).upper()}"
+    g.meeting_url = f"https://8x8.vc/{room_name}"
+    db.session.commit()
+    return flask.jsonify({"status": "ok", "meeting_url": g.meeting_url})
 
 
 @app.route("/api/groups/<int:group_id>/meeting", methods=["POST"])
