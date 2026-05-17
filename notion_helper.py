@@ -87,12 +87,26 @@ def get_notion_client(token):
     return Client(auth=token)
 
 def test_notion_token(token):
+    """Return True if the token authenticates, else False. Used by the
+    legacy connect endpoint that only needs a boolean."""
+    ok, _ = test_notion_token_detail(token)
+    return ok
+
+
+def test_notion_token_detail(token):
+    """Return (ok, info_or_error). On success info is the bot user dict
+    so callers can populate workspace metadata for manual-token connections
+    without an extra round-trip."""
+    if not token:
+        return False, "No token provided"
     try:
         client = get_notion_client(token)
-        client.users.me()
-        return True
-    except:
-        return False
+        me = client.users.me()
+        return True, me
+    except Exception as e:
+        # Notion's APIResponseError carries .code/.body — surface what we can.
+        msg = getattr(e, "body", None) or str(e) or "Notion rejected the token"
+        return False, msg
 
 def get_notion_databases(token):
     """List available databases the user can access."""

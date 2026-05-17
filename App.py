@@ -37,6 +37,7 @@ from auth_api import auth_bp, verify_token
 from chatbot_api import chatbot_bp
 from werkzeug.utils import secure_filename
 import secrets as secrets_module
+import urllib.parse
 from flask import jsonify, send_from_directory
 from datetime import datetime, timedelta
 from flask_sqlalchemy import SQLAlchemy
@@ -66,7 +67,7 @@ except Exception as e:
 
 try:
     from notion_helper import (
-        test_notion_token, get_notion_databases,
+        test_notion_token, test_notion_token_detail, get_notion_databases,
         get_notion_tasks, create_notion_task,
         update_notion_task, complete_notion_task,
         get_notion_auth_url, exchange_notion_code,
@@ -1851,7 +1852,17 @@ def oauth_canvas_callback():
     code = request.args.get("code")
     state = request.args.get("state")
     err = request.args.get("error")
+    err_desc = request.args.get("error_description") or ""
     if err:
+        # Canvas returns ?error=invalid_client when the institution hasn't
+        # registered IntelliPlan as a Developer Key. Redirect to the token
+        # paste page with a clear explanation instead of a generic error.
+        if "invalid_client" in err or "unauthorized" in err:
+            return redirect(
+                url_for("login_canvas")
+                + "?reason=oauth_not_registered"
+                + ("&desc=" + urllib.parse.quote(err_desc) if err_desc else "")
+            )
         return redirect(url_for("login_canvas") + f"?error={err}")
     expected_state = session.pop("canvas_oauth_state", None)
     canvas_base = session.pop("canvas_oauth_base", None) or DEFAULT_CANVAS_BASE
@@ -1866,9 +1877,12 @@ def oauth_canvas_callback():
     try:
         tokens = exchange_canvas_code(code, canvas_base, redirect_uri=redirect_uri)
     except Exception as e:
+        msg = str(e)
+        if "invalid_client" in msg or "unauthorized_client" in msg or "redirect_uri" in msg:
+            return redirect(url_for("login_canvas") + "?reason=oauth_not_registered")
         return render_template("error.html", active_page="error", error_code=500,
                                error_id=f"CANVAS-OAUTH-{make_error_id()}",
-                               message=str(e)), 500
+                               message=msg), 500
 
     access_token = tokens.get("access_token")
     refresh_token = tokens.get("refresh_token")
@@ -3137,12 +3151,22 @@ def notion_export_schedule():
 @app.route("/notion/connect", methods=["POST"])
 def notion_connect():
     if not NOTION_AVAILABLE:
-        return flask.jsonify({"status": "error", "message": "Notion not configured"})
-    token = request.json.get("token", "").strip()
+        return flask.jsonify({
+            "status": "error",
+            "message": "Notion library is not installed on this server. The admin needs to add notion-client to requirements.txt and redeploy."
+        }), 503
+    token = (request.json or {}).get("token", "").strip()
     if not token:
-        return flask.jsonify({"status": "error", "message": "No token provided"})
-    if not test_notion_token(token):
-        return flask.jsonify({"status": "error", "message": "Invalid Notion token"})
+        return flask.jsonify({"status": "error", "message": "No token provided"}), 400
+    ok, info = test_notion_token_detail(token)
+    if not ok:
+        return flask.jsonify({"status": "error", "message": f"Notion rejected the token: {info}"}), 400
+    # Populate workspace metadata from the bot's user record so the UI can
+    # show "Connected to <workspace>" even for manual-token connections.
+    bot_info = info if isinstance(info, dict) else {}
+    bot = (bot_info.get("bot") or {}) if bot_info.get("type") == "bot" else {}
+    workspace_name = bot.get("workspace_name") or bot_info.get("name") or "Notion workspace"
+    bot_id = bot_info.get("id")
     session["notion_token"] = token
     session.modified = True
     if current_user.is_authenticated:
@@ -3150,10 +3174,27 @@ def notion_connect():
         if existing:
             existing.token = token
             existing.database_id = None
+            existing.auth_type = "manual"
+            existing.workspace_name = workspace_name
+            existing.bot_id = bot_id
+            existing.connected_at = datetime.utcnow()
         else:
-            db.session.add(NotionIntegration(user_id=current_user.id, token=token))
+            db.session.add(NotionIntegration(
+                user_id=current_user.id,
+                token=token,
+                auth_type="manual",
+                workspace_name=workspace_name,
+                bot_id=bot_id,
+            ))
         db.session.commit()
-    dbs = get_notion_databases(token)
+    try:
+        dbs = get_notion_databases(token)
+    except Exception as e:
+        return flask.jsonify({
+            "status": "ok",
+            "databases": [],
+            "warning": f"Connected, but could not list databases yet: {e}. Share a database with your integration in Notion, then refresh."
+        })
     return flask.jsonify({"status": "ok", "databases": dbs})
 
 @app.route("/notion/disconnect", methods=["POST"])

@@ -13,6 +13,19 @@
     <div class="login-error"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px"><use href="#i-warning"/></svg> {{ error }}</div>
     {% endif %}
 
+    {% if request.args.get('reason') == 'oauth_not_registered' %}
+    <div class="login-error" style="background:rgba(217,119,6,0.12);border-color:rgba(217,119,6,0.4);color:#d97706;">
+      <strong>One-click Canvas sign-in isn't available for this school yet.</strong><br>
+      Canvas requires each school to register IntelliPlan as a Developer Key. Until your school's admin does that, please paste a personal access token below — it works just as well.
+      {% if request.args.get('desc') %}<br><span style="font-size:0.78rem;opacity:0.85;">Canvas said: {{ request.args.get('desc') }}</span>{% endif %}
+    </div>
+    {% endif %}
+    {% if request.args.get('reason') == 'oauth_unavailable' %}
+    <div class="login-error" style="background:rgba(217,119,6,0.12);border-color:rgba(217,119,6,0.4);color:#d97706;">
+      One-click Canvas sign-in isn't configured on this IntelliPlan instance. Use the personal access token method below.
+    </div>
+    {% endif %}
+
     {% if canvas_oauth_available %}
     <div style="margin-bottom:1.25rem;">
       <form method="GET" action="/oauth/canvas" style="display:flex;flex-direction:column;gap:10px;">
