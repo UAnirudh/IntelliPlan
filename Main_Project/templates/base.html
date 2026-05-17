@@ -1782,9 +1782,9 @@ window.addEventListener('load',()=>{
     { selector: '.side-logo, .logo', text: 'Welcome to IntelliPlan — your AI-powered study planner. Let\'s take a quick tour!', title: 'Welcome 👋' },
     { selector: 'a[href="/dashboard"].side-link, a[href="/dashboard"].nav-tab', text: 'Your Dashboard shows all your assignments, prioritized by urgency and due date.', title: 'Dashboard' },
     { selector: 'a[href="/tutor"].side-link, a[href="/tutor"].nav-tab', text: 'Plani AI Tutor answers any question step by step — math, science, history, and more.', title: 'AI Tutor' },
-    { selector: 'a[href="/schedule"].side-link, a[href="/schedule"].nav-tab', text: 'The Scheduler builds a personalized study plan around your free time and deadlines.', title: 'Scheduler' },
+    { selector: 'a[href="/scheduler"].side-link, a[href="/schedule"].side-link, a[href="/scheduler"].nav-tab', text: 'The Scheduler builds a personalized study plan around your free time and deadlines.', title: 'Scheduler' },
     { selector: 'a[href="/study"].side-link, a[href="/study"].nav-tab', text: 'Study & Learn uses spaced repetition and AI quizzes to help you actually retain material.', title: 'Study & Learn' },
-    { selector: 'a[href="/grademodel"].side-link, a[href="/grademodel"].nav-tab', text: 'The Grade Modeler shows exactly what scores you need on upcoming assignments to hit your target grade.', title: 'Grade Modeler' },
+    { selector: 'a[href="/gradebook"].side-link, a[href="/grademodel"].side-link, a[href="/gradebook"].nav-tab', text: 'The Grade Modeler shows exactly what scores you need on upcoming assignments to hit your target grade.', title: 'Grade Modeler' },
     { selector: 'a[href="/streak"].side-link, a[href="/streak"].nav-tab', text: 'Build a daily study streak and earn Sparks to spend in the reward shop!', title: 'Streaks & Rewards' },
     { selector: 'a[href="/settings"].side-link, a[href="/settings"].nav-tab', text: 'Customize your study profile, connect your school\'s LMS, and manage integrations here.', title: 'Settings' },
   ];
@@ -1809,6 +1809,24 @@ window.addEventListener('load',()=>{
     if (_step >= STEPS.length) { closeTour(); return; }
     showStep();
   }
+  function expandAncestorFolders(el) {
+    // Walk up the DOM and open any collapsed sidebar group (.side-group) or
+    // <details> ancestor so nested tour targets are visible. Also un-hide
+    // any nav-hidden ancestor so the highlight has something to land on.
+    let node = el;
+    while (node && node !== document.body) {
+      if (node.classList) {
+        if (node.classList.contains('side-group') && !node.classList.contains('is-open')) {
+          node.classList.add('is-open');
+          const btn = node.querySelector('.side-group-toggle');
+          if (btn) btn.setAttribute('aria-expanded', 'true');
+        }
+        if (node.classList.contains('nav-hidden')) node.classList.remove('nav-hidden');
+      }
+      if (node.tagName === 'DETAILS' && !node.open) node.open = true;
+      node = node.parentElement;
+    }
+  }
   function showStep() {
     const s = STEPS[_step];
     let target = null;
@@ -1816,6 +1834,7 @@ window.addEventListener('load',()=>{
       target = document.querySelector(sel.trim());
       if (target) break;
     }
+    if (target) expandAncestorFolders(target);
     const hl = document.getElementById('tourHighlight');
     const tt = document.getElementById('tourTooltip');
     document.getElementById('tourStepLabel').textContent = `Step ${_step + 1} of ${STEPS.length} — ${s.title}`;
@@ -1844,6 +1863,12 @@ window.addEventListener('load',()=>{
       tt.style.display = 'block';
       tt.style.top = '50%'; tt.style.left = '50%';
       tt.style.transform = 'translate(-50%,-50%)';
+      // Fallback hint when this step's item isn't on the current page —
+      // e.g. tour started from a route that doesn't include the sidebar item.
+      const fallback = document.getElementById('tourText');
+      if (fallback && !fallback.dataset.fallbackAdded) {
+        fallback.textContent = s.text + '  (Open the sidebar to find this item.)';
+      }
     }
   }
   window.addEventListener('start-tour', () => startTour(0));

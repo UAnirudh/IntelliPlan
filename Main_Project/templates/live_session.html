@@ -64,6 +64,7 @@
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
     <a href="/groups" class="btn-secondary" style="padding:9px 16px;text-decoration:none;font-size:0.84rem;">← Back to groups</a>
+    <button onclick="popoutMeeting()" type="button" class="btn-secondary" style="padding:9px 14px;font-size:0.84rem;cursor:pointer;" title="Open meeting in its own window">⧉ Pop out</button>
     <a href="{{ session.room_url }}" target="_blank" rel="noopener" class="btn-primary" style="padding:9px 16px;text-decoration:none;font-size:0.84rem;">Open full meeting</a>
   </div>
 </div>
@@ -72,12 +73,25 @@
 
   <div class="live-card">
     <div class="live-card-title">Room</div>
-    <iframe
-      id="liveFrame"
-      class="live-frame"
-      src=""
-      allow="camera; microphone; display-capture; fullscreen; speaker; autoplay"
-      allowfullscreen></iframe>
+    <div style="position:relative;">
+      <iframe
+        id="liveFrame"
+        class="live-frame"
+        src=""
+        allow="camera; microphone; display-capture; fullscreen; speaker; autoplay"
+        allowfullscreen></iframe>
+      <div id="meetingWaitOverlay" style="display:none;position:absolute;inset:0;background:rgba(7,8,20,0.78);border-radius:14px;color:#fff;align-items:center;justify-content:center;text-align:center;padding:1.5rem;">
+        <div style="max-width:420px;">
+          <div style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;">Waiting for the meeting to start</div>
+          <div style="font-size:0.92rem;opacity:0.85;margin-bottom:1rem;">If you're seeing a "no moderators have arrived" message, that's a Jitsi cold-start. Pop out, retry, or have the owner sign in once to start the room.</div>
+          <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+            <button onclick="retryMeeting()" class="btn-primary" style="padding:8px 16px;border:none;cursor:pointer;font-size:0.86rem;">Retry</button>
+            <button onclick="popoutMeeting()" class="btn-secondary" style="padding:8px 16px;cursor:pointer;font-size:0.86rem;">⧉ Open in new window</button>
+            <button onclick="document.getElementById('meetingWaitOverlay').style.display='none'" style="padding:8px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.3);background:transparent;color:#fff;cursor:pointer;font-size:0.86rem;">Dismiss</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div class="live-toggle-row">
       <button id="micBtn"   class="live-toggle-btn on" onclick="toggleMic()">🎤 Mic on</button>
@@ -115,19 +129,61 @@ const _isOwner = {{ 'true' if session.is_owner else 'false' }};
 
 function buildRoomUrl(audioOnly) {
   // Use Jitsi config hash to set defaults — joiners get the same state.
+  // The extra flags below stop meet.jit.si from showing the "conference has
+  // not yet started because no moderators have arrived" blocking screen for
+  // attendees, and skip lobby/auth flows so the meeting UI is always reachable.
   const params = [
     'config.prejoinPageEnabled=true',
     'config.startWithAudioMuted=false',
     'config.startWithVideoMuted=' + (audioOnly ? 'true' : 'false'),
     audioOnly ? 'config.startAudioOnly=true' : 'config.startAudioOnly=false',
+    'config.requireDisplayName=false',
+    'config.enableLobbyChat=false',
+    'config.lobby.enableChat=false',
+    'config.lobby.autoKnock=true',
+    'config.disableModeratorIndicator=true',
+    'config.startWithModeratorMuted=false',
+    'config.disableProfile=true',
+    'interfaceConfig.MOBILE_APP_PROMO=false',
   ];
   return ROOM_URL + '#' + params.join('&');
 }
 
+function popoutMeeting() {
+  // Minimal meeting-only popout. We pass the same config hash so audio/video
+  // permissions are preserved — the user shouldn't need to re-grant them.
+  const url = buildRoomUrl(_audioOnly);
+  const features = 'noopener,noreferrer,width=1100,height=720,menubar=no,toolbar=no,location=no,status=no';
+  const w = window.open(url, 'intelliplan_meet_' + SESS_ID, features);
+  if (!w) { alert('Pop-up blocked. Please allow pop-ups for this site to open the meeting in a new window.'); return; }
+  try { w.focus(); } catch (e) {}
+}
+
 function refreshFrame() {
   document.getElementById('liveFrame').src = buildRoomUrl(_audioOnly);
+  // Show waiting-room overlay after 12s if the iframe hasn't fully loaded —
+  // this typically catches the meet.jit.si "no moderators" cold-start screen,
+  // since that view leaves the iframe in a non-interactive state.
+  clearTimeout(window._meetWaitTimer);
+  window._meetWaitTimer = setTimeout(() => {
+    const ov = document.getElementById('meetingWaitOverlay');
+    if (ov) ov.style.display = 'flex';
+  }, 12000);
+}
+function retryMeeting() {
+  document.getElementById('meetingWaitOverlay').style.display = 'none';
+  refreshFrame();
 }
 refreshFrame();
+document.getElementById('liveFrame').addEventListener('load', () => {
+  // Frame finished initial load — hide the auto wait overlay. The user can
+  // still trigger it manually via Retry if Jitsi later shows the moderator screen.
+  setTimeout(() => {
+    const ov = document.getElementById('meetingWaitOverlay');
+    if (ov && ov.dataset.userOpened !== '1') ov.style.display = 'none';
+    clearTimeout(window._meetWaitTimer);
+  }, 1500);
+});
 
 function toggleMic() {
   // Jitsi exposes mic/cam toggles via its API; the simplest cross-browser

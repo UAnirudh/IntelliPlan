@@ -112,20 +112,38 @@ async function autoDetectTime() {
       return d.toISOString().split('T')[0];
     });
 
-    // Fetch free slots for each day
-    const results = await Promise.all(
-      dates.map(date =>
-        fetch(`/calendar/free-slot?date=${date}`)
-          .then(r => r.json())
-          .catch(() => ({ connected: false }))
-      )
-    );
+    // Fetch free slots for each day, with one retry per request to absorb
+    // transient token-refresh blips that can otherwise look like "disconnected".
+    async function fetchSlot(date) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const r = await fetch(`/calendar/free-slot?date=${date}`);
+          const data = await r.json();
+          if (data && data.connected) return data;
+          if (attempt === 0) await new Promise(res => setTimeout(res, 350));
+        } catch (e) {
+          if (attempt === 0) await new Promise(res => setTimeout(res, 350));
+        }
+      }
+      // Final check against /calendar/events — the source of truth for token validity.
+      try {
+        const status = await fetch('/calendar/events').then(r => r.json());
+        return { connected: !!status.connected, slot: '', free_hours: 0, _tokenExpired: status.connected === false && !!status.error };
+      } catch (e) {
+        return { connected: false };
+      }
+    }
+    const results = await Promise.all(dates.map(fetchSlot));
 
     btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg> Auto';
     btn.disabled = false;
 
     if (!results[0]?.connected) {
-      hint.innerHTML = '<span style="color:var(--text-muted);">Connect Google Calendar to use Auto-detect →</span>';
+      if (results[0]?._tokenExpired) {
+        hint.innerHTML = '<span style="color:var(--text-muted);">Google session expired — <a href="/oauth/google" style="color:var(--accent);font-weight:600;">reconnect Google Calendar</a> →</span>';
+      } else {
+        hint.innerHTML = '<span style="color:var(--text-muted);"><a href="/oauth/google" style="color:var(--accent);font-weight:600;">Connect Google Calendar</a> to use Auto-detect →</span>';
+      }
       return;
     }
 
@@ -273,11 +291,25 @@ async function exportToCalendar() {
   const btn = document.getElementById('calExportBtn');
   btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="spin"><use href="#i-spinner"/></svg> Exporting...';
   btn.disabled = true;
-  const res = await fetch('/calendar/export', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ schedule_data: _lastScheduleData })
-  }).then(r => r.json());
+  // Retry with exponential backoff on transient sync failures.
+  async function callExport() {
+    let lastErr = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const r = await fetch('/calendar/export', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ schedule_data: _lastScheduleData })
+        });
+        const data = await r.json();
+        if (data.status === 'ok') return data;
+        lastErr = data;
+      } catch (e) { lastErr = { status: 'error', message: e.message }; }
+      await new Promise(res => setTimeout(res, 400 * Math.pow(2, attempt)));
+    }
+    return lastErr || { status: 'error', message: 'Sync failed after 3 attempts' };
+  }
+  const res = await callExport();
   btn.disabled = false;
   if (res.status === 'ok') {
     btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg> Added ${res.created} events to Calendar`;

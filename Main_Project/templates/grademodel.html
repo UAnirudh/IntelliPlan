@@ -87,16 +87,29 @@ let originalAssignments = null;   // immutable copy of the real data
 let simulatedScores = {};         // key -> {points_earned, points_possible, simulated:true}
 
 fetch('/gradebook/detail')
-  .then(r => r.json())
+  .then(r => {
+    if (r.status === 401 || r.status === 403) {
+      throw new Error('unauthorized');
+    }
+    return r.json();
+  })
   .then(data => {
+    if (!Array.isArray(data) || data.length === 0) {
+      document.getElementById('loadingState').innerHTML =
+        '<p style="margin-bottom:0.5rem;">No gradebook data found.</p>' +
+        '<p style="font-size:0.88rem;color:var(--text-muted);">If you connected Canvas with an access token, make sure the token has the <code>url:GET|/api/v1/courses</code> and <code>url:GET|/api/v1/courses/:id/enrollments</code> scopes (or use an unscoped token). Then reconnect from <a href="/settings" style="color:var(--accent);">Settings → Integrations</a>.</p>';
+      return;
+    }
     gradebookData = data;
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('modelerWrap').style.display = 'block';
     populateCourseMenu(data);
   })
-  .catch(() => {
-    document.getElementById('loadingState').innerHTML =
-      '<p>Could not load gradebook. Make sure you are logged in with StudentVue.</p>';
+  .catch((err) => {
+    const msg = (err && err.message === 'unauthorized')
+      ? 'Your Canvas / StudentVue session has expired. <a href="/connect" style="color:var(--accent);font-weight:600;">Reconnect</a> to load grades.'
+      : 'Could not load gradebook. Make sure you are connected with Canvas or StudentVue from <a href="/connect" style="color:var(--accent);font-weight:600;">Integrations</a>.';
+    document.getElementById('loadingState').innerHTML = '<p>' + msg + '</p>';
   });
 
 function populateCourseMenu(courses) {
