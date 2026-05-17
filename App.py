@@ -20,6 +20,7 @@ from studentvue_helper import (
     get_assignments as get_sv_assignments,
     get_missing_assignments,
     normalize_district_url,
+    _compute_priority as compute_priority,
 )
 from groq import Groq
 import re
@@ -2443,7 +2444,7 @@ def get_live_schedule():
             due_date = datetime.fromisoformat(due_str.replace("Z", "+00:00"))
             days = (due_date - today).days
             if days < -14: continue
-            priority = "High" if days < 0 or days <= 3 else "Medium" if days <= 7 else "Low"
+            priority = compute_priority(days, a["points_possible"], a.get("name", ""))
             raw_minutes = a["points_possible"] * 1.5
             rounded_minutes = max(30, round(raw_minutes / 30) * 30)
             difficulty = infer_task_difficulty(a["points_possible"], priority, due_str[:10])
@@ -3383,8 +3384,8 @@ def unified_tasks():
                         days = (due - today).days
                         if days < -14:
                             continue
-                        priority = "High" if days <= 3 else "Medium" if days <= 7 else "Low"
                         title = a["name"]
+                        priority = compute_priority(days, a.get("points_possible") or 0, title)
                         if title in dismissed:
                             continue
                         tasks.append({
@@ -3904,8 +3905,8 @@ def extension_tasks():
                             days = (due - today).days
                             if days < -14:
                                 continue
-                            priority = "High" if days <= 3 else "Medium" if days <= 7 else "Low"
                             title = a["name"]
+                            priority = compute_priority(days, a.get("points_possible") or 0, title)
                             if title in dismissed:
                                 continue
                             tasks.append({

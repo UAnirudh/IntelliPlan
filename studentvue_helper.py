@@ -7,6 +7,51 @@ from urllib.parse import urlparse
 
 SOAP_ACTION = "http://edupoint.com/webservices/ProcessWebServiceRequest"
 
+
+_BIG_TITLE_RE = re.compile(r"\b(test|exam|midterm|final|project|essay|presentation|lab\s*report)\b", re.I)
+
+
+def _compute_priority(days_until_due, points_possible, title=""):
+    """Rank an assignment by combined urgency + weight + type.
+
+    The old rule (anything due in <= 3 days = High) made every dashboard
+    light up red. This version is balanced:
+
+      High   = overdue, or due today/tomorrow, or a major assessment
+               (test/exam/project) due within 3 days, or a big-point
+               assignment (>= 80 pts) due within 4 days.
+      Medium = due within 5 days, OR a major assessment within 7 days,
+               OR a 30-79 pt assignment due within 7 days.
+      Low    = everything else (small, far away, or low-stakes).
+    """
+    try:
+        d = int(days_until_due)
+    except (TypeError, ValueError):
+        return "Medium"
+    try:
+        pts = float(points_possible or 0)
+    except (TypeError, ValueError):
+        pts = 0.0
+    is_big = bool(title and _BIG_TITLE_RE.search(title))
+
+    if d < 0:
+        return "High"
+    if d <= 1:
+        return "High"
+    if is_big and d <= 3:
+        return "High"
+    if pts >= 80 and d <= 4:
+        return "High"
+
+    if d <= 5:
+        return "Medium"
+    if is_big and d <= 7:
+        return "Medium"
+    if pts >= 30 and d <= 7:
+        return "Medium"
+
+    return "Low"
+
 DISTRICT_URL_ALIASES = {
     "northshore": "https://wa-nor-psv.edupoint.com",
     "nsd": "https://wa-nor-psv.edupoint.com",
@@ -154,19 +199,12 @@ def get_assignments(district_url, username, password):
             if days < -14:
                 continue
 
-            if days < 0:
-                priority = "High"
-            elif days <= 3:
-                priority = "High"
-            elif days <= 7:
-                priority = "Medium"
-            else:
-                priority = "Low"
-
             try:
                 points_possible = float(points_str.split("/")[-1].strip().split()[0])
-            except:
+            except Exception:
                 points_possible = 60
+
+            priority = _compute_priority(days, points_possible, title)
 
             raw_minutes = points_possible * 1.5
             rounded_minutes = round(raw_minutes / 30) * 30

@@ -41,7 +41,7 @@
         <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">Target Grade (%)</div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
           <input type="number" id="targetInput" class="form-input" min="0" max="100" step="0.1"
-            placeholder="e.g. 97" style="max-width:120px;" />
+            placeholder="e.g. 97" style="max-width:120px;" oninput="onTargetTyped()" />
           <button class="btn-primary" onclick="runModel()" style="padding:10px 20px; border:none; cursor:pointer; font-size:0.88rem;">
             Model It
           </button>
@@ -49,6 +49,7 @@
           <button onclick="resetModel()" id="resetBtn" style="padding:10px 14px; cursor:pointer; font-size:0.84rem; border-radius:10px; border:1px solid var(--border-strong); background:var(--bg-card); color:var(--text-secondary); font-family:var(--font-ui); font-weight:600;">&#x21BA; Reset</button>
         </div>
         <div style="font-size:0.74rem;color:var(--text-muted);margin-top:6px;">Simulate fills pending assignments with the scores you need; Reset restores real data.</div>
+        <div id="targetHint" style="font-size:0.78rem;margin-top:4px;font-family:var(--font-ui);min-height:1.1rem;"></div>
       </div>
     </div>
 
@@ -148,7 +149,50 @@ function selectCourse(course) {
   lb.textContent = course.letter;
   lb.className = 'priority-badge ' + letterToClass(course.letter);
 
+  renderMaxBadge();
   renderBreakdown(course.assignments);
+}
+
+/* Maximum grade that's still mathematically reachable in this course
+   given what's already been graded. If 99/100 is locked in, the max is
+   (99 + remainingPoints) / totalPoints — never 100%. */
+function computeMaxPossible() {
+  if (!originalAssignments) return null;
+  const graded = originalAssignments.filter(a => a.graded && a.points_possible);
+  const pending = originalAssignments.filter(a => !a.graded && a.points_possible);
+  const earned = graded.reduce((s,a)=>s + (a.points_earned||0), 0);
+  const gp = graded.reduce((s,a)=>s + (a.points_possible||0), 0);
+  const pp = pending.reduce((s,a)=>s + (a.points_possible||0), 0);
+  const total = gp + pp;
+  if (total <= 0) return null;
+  return ((earned + pp) / total) * 100;
+}
+function computeMinPossible() {
+  if (!originalAssignments) return null;
+  const graded = originalAssignments.filter(a => a.graded && a.points_possible);
+  const pending = originalAssignments.filter(a => !a.graded && a.points_possible);
+  const earned = graded.reduce((s,a)=>s + (a.points_earned||0), 0);
+  const gp = graded.reduce((s,a)=>s + (a.points_possible||0), 0);
+  const pp = pending.reduce((s,a)=>s + (a.points_possible||0), 0);
+  const total = gp + pp;
+  if (total <= 0) return null;
+  return (earned / total) * 100;
+}
+function renderMaxBadge() {
+  const maxP = computeMaxPossible();
+  const minP = computeMinPossible();
+  let badge = document.getElementById('maxRange');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.id = 'maxRange';
+    badge.style.cssText = 'font-size:0.75rem;color:var(--text-muted);margin-top:4px;font-family:var(--font-ui);';
+    const lb = document.getElementById('currentLetter');
+    if (lb && lb.parentNode && lb.parentNode.parentNode) {
+      lb.parentNode.parentNode.appendChild(badge);
+    }
+  }
+  if (maxP == null) { badge.textContent = ''; return; }
+  badge.innerHTML = `Reachable range: <strong>${minP.toFixed(1)}%</strong> – <strong>${maxP.toFixed(1)}%</strong>`;
 }
 
 /* ── Simulate / Reset helpers ──────────────────────────── */
@@ -378,14 +422,37 @@ function runModel() {
     return;
   }
 
-  const assignments = selectedCourse.assignments;
-  const graded = assignments.filter(a => a.graded && a.points_possible);
-  const pending = assignments.filter(a => !a.graded && a.points_possible);
+  // Use the ORIGINAL graded data — not the (possibly already-simulated)
+  // selectedCourse.assignments — so re-running Model It from a simulated
+  // state still computes against reality. This prevents the "I'm at 99%
+  // but the model says 100% is reachable" bug: previously, a prior
+  // simulation could be counted as "graded", inflating the earned total.
+  const source = originalAssignments || selectedCourse.assignments;
+  const graded = source.filter(a => a.graded && a.points_possible);
+  const pending = source.filter(a => !a.graded && a.points_possible);
 
-  const earnedTotal = graded.reduce((s, a) => s + a.points_earned, 0);
-  const gradedPossible = graded.reduce((s, a) => s + a.points_possible, 0);
-  const pendingPossible = pending.reduce((s, a) => s + a.points_possible, 0);
+  const earnedTotal = graded.reduce((s, a) => s + (a.points_earned || 0), 0);
+  const gradedPossible = graded.reduce((s, a) => s + (a.points_possible || 0), 0);
+  const pendingPossible = pending.reduce((s, a) => s + (a.points_possible || 0), 0);
   const totalPossible = gradedPossible + pendingPossible;
+
+  // Hard ceiling: max grade achievable from here. If target > this, it's
+  // mathematically impossible regardless of what you score on pending work.
+  // Subtract a tiny epsilon so 99.4 is reported as "not reachable" instead
+  // of being rounded up to 100 in the comparison.
+  const maxPossible = totalPossible > 0 ? ((earnedTotal + pendingPossible) / totalPossible) * 100 : 0;
+  if (target > maxPossible + 1e-9) {
+    document.getElementById('modelResult').style.display = 'block';
+    document.getElementById('modelSummary').innerHTML =
+      `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--medium)"><use href="#i-warning"/></svg> ` +
+      `<strong>${target}%</strong> isn't reachable from here. With <strong>${earnedTotal.toFixed(1)} of ${gradedPossible.toFixed(0)}</strong> points already locked in, ` +
+      `the <strong>highest achievable grade</strong> in this course is <strong>${maxPossible.toFixed(2)}%</strong> — earned by scoring 100% on every remaining assignment. ` +
+      `Try a target up to <strong>${Math.floor(maxPossible * 10) / 10}%</strong>.`;
+    simulateBest();
+    _flashSimInputs();
+    document.getElementById('assignmentBreakdown').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
 
   if (totalPossible === 0) {
     document.getElementById('modelSummary').innerHTML =
@@ -444,6 +511,26 @@ function runModel() {
   simulateBest();
   _flashSimInputs();
   document.getElementById('assignmentBreakdown').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function onTargetTyped() {
+  const el = document.getElementById('targetInput');
+  const hint = document.getElementById('targetHint');
+  if (!hint) return;
+  const v = parseFloat(el.value);
+  if (isNaN(v)) { hint.textContent = ''; return; }
+  const maxP = computeMaxPossible();
+  if (maxP == null) { hint.textContent = ''; return; }
+  if (v > maxP + 1e-9) {
+    hint.style.color = '#d97706';
+    hint.innerHTML = `Not reachable — your max achievable is <strong>${maxP.toFixed(2)}%</strong>.`;
+  } else if (v > maxP - 1) {
+    hint.style.color = 'var(--text-muted)';
+    hint.innerHTML = `Tight — needs nearly perfect scores. Max is <strong>${maxP.toFixed(2)}%</strong>.`;
+  } else {
+    hint.style.color = 'var(--low)';
+    hint.textContent = 'Reachable.';
+  }
 }
 
 function _flashSimInputs() {
