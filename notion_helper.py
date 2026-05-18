@@ -109,17 +109,85 @@ def test_notion_token_detail(token):
         return False, msg
 
 def get_notion_databases(token):
-    """List available databases the user can access."""
+    """List databases the integration can read.
+
+    Notion only returns objects that have been explicitly shared with the
+    integration (under Notion's permission model the integration is a
+    bot user). If this list is empty the user almost always needs to
+    open a database in Notion and click "Connections -> IntelliPlan".
+    """
     client = get_notion_client(token)
     results = client.search(filter={"property": "object", "value": "database"}).get("results", [])
     databases = []
     for db in results:
-        title = ""
+        title = "Untitled"
         title_arr = db.get("title", [])
         if title_arr:
             title = title_arr[0].get("plain_text", "Untitled")
-        databases.append({"id": db["id"], "name": title})
+        parent = db.get("parent", {}) or {}
+        databases.append({
+            "id": db["id"],
+            "name": title,
+            "url": db.get("url", ""),
+            "parent_type": parent.get("type", ""),
+            "last_edited": db.get("last_edited_time", ""),
+        })
     return databases
+
+
+def get_shared_pages(token):
+    """Pages the integration can see — used as parent candidates when we
+    auto-create an IntelliPlan tasks database."""
+    client = get_notion_client(token)
+    results = client.search(filter={"property": "object", "value": "page"}).get("results", [])
+    pages = []
+    for p in results:
+        title = ""
+        props = p.get("properties", {})
+        for v in props.values():
+            if v.get("type") == "title":
+                arr = v.get("title", [])
+                if arr:
+                    title = arr[0].get("plain_text", "")
+                    break
+        if not title:
+            # workspace-level pages put their title in object["title"]
+            arr = p.get("title", []) or []
+            if arr:
+                title = arr[0].get("plain_text", "")
+        pages.append({
+            "id": p["id"],
+            "name": title or "Untitled",
+            "url": p.get("url", ""),
+        })
+    return pages
+
+
+def create_intelliplan_database(token, parent_page_id, name="IntelliPlan Tasks"):
+    """Create a new tasks database under a page the integration owns,
+    pre-populated with the schema the rest of the code expects.
+
+    Returns the new database's id. Lets the user go from "I just clicked
+    Connect" to "I have a working sync target" in one step instead of
+    having to build the schema by hand in Notion.
+    """
+    client = get_notion_client(token)
+    db = client.databases.create(
+        parent={"type": "page_id", "page_id": parent_page_id},
+        title=[{"type": "text", "text": {"content": name}}],
+        properties={
+            "Name":     {"title": {}},
+            "Due":      {"date": {}},
+            "Priority": {"select": {"options": [
+                {"name": "High",   "color": "red"},
+                {"name": "Medium", "color": "yellow"},
+                {"name": "Low",    "color": "green"},
+            ]}},
+            "Done":     {"checkbox": {}},
+            "Course":   {"rich_text": {}},
+        },
+    )
+    return db["id"]
 
 def get_notion_tasks(token, database_id):
     """Pull tasks from a Notion database."""

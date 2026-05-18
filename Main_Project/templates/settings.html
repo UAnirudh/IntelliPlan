@@ -907,37 +907,134 @@ function refreshNotionStatus() {
 refreshNotionStatus();
 
 function connectNotionToken() {
-  const token = prompt("Enter your Notion integration token:");
-  if (!token) return;
-  fetch("/notion/connect", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({ token })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.status === "ok") { refreshNotionStatus(); }
-    else { alert("Failed: " + (data.message || 'unknown error')); }
+  _notionModal(`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <h3 style="margin:0;font-family:var(--font-display);font-size:1.1rem;">Connect Notion with a token</h3>
+      <button onclick="document.getElementById('notionModal').remove()" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--text-muted);">✕</button>
+    </div>
+    <ol style="padding-left:1.2rem;font-size:0.86rem;color:var(--text-secondary);line-height:1.7;margin-bottom:0.75rem;">
+      <li>Open <a href="https://www.notion.so/profile/integrations" target="_blank" rel="noopener" style="color:var(--accent);">notion.so/profile/integrations</a> and click <strong>New integration</strong>.</li>
+      <li>Name it "IntelliPlan", pick your workspace, and submit.</li>
+      <li>Copy the <strong>Internal Integration Secret</strong> (starts with <code>secret_</code> or <code>ntn_</code>).</li>
+      <li>Paste it below, then in Notion share a database with the integration (<strong>•••</strong> → Connections → IntelliPlan).</li>
+    </ol>
+    <input id="ipNotionTokenInput" type="password" placeholder="secret_…" style="width:100%;padding:9px 11px;border:1px solid var(--border-strong);border-radius:10px;background:var(--bg);color:var(--text-primary);font-family:'DM Mono',monospace;font-size:0.85rem;">
+    <div id="ipNotionTokenErr" style="font-size:0.8rem;color:var(--high);min-height:1.1rem;margin-top:4px;"></div>
+    <button id="ipNotionTokenSubmit" class="btn-primary" style="margin-top:10px;width:100%;padding:10px 14px;border:none;cursor:pointer;font-size:0.88rem;">Connect</button>
+  `);
+  document.getElementById('ipNotionTokenSubmit').addEventListener('click', async () => {
+    const input = document.getElementById('ipNotionTokenInput');
+    const err = document.getElementById('ipNotionTokenErr');
+    const token = (input.value || '').trim();
+    if (!token) { err.textContent = 'Paste your integration secret first.'; return; }
+    err.textContent = 'Connecting…';
+    err.style.color = 'var(--text-muted)';
+    try {
+      const r = await fetch('/notion/connect', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ token })
+      });
+      const data = await r.json();
+      if (data.status === 'ok') {
+        const m = document.getElementById('notionModal'); if (m) m.remove();
+        refreshNotionStatus();
+        setTimeout(chooseNotionDatabase, 300);
+      } else {
+        err.style.color = 'var(--high)';
+        err.textContent = data.message || 'Notion rejected the token.';
+      }
+    } catch (e) {
+      err.style.color = 'var(--high)';
+      err.textContent = String(e);
+    }
   });
 }
 
-function chooseNotionDatabase() {
-  fetch('/notion/databases').then(r => r.json()).then(d => {
-    if (d.status !== 'ok' || !d.databases || !d.databases.length) {
-      alert(d.message || 'No Notion databases are shared with IntelliPlan yet.');
-      return;
-    }
-    const labels = d.databases.map((db, i) => `${i + 1}. ${db.name || 'Untitled'} (${db.id})`).join('\n');
-    const answer = prompt('Choose a Notion database number:\n\n' + labels, '1');
-    const idx = parseInt(answer, 10) - 1;
-    const picked = d.databases[idx];
-    if (!picked) return;
-    fetch('/notion/set-database', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ database_id: picked.id })
-    }).then(() => refreshNotionStatus());
-  }).catch(() => alert('Could not load Notion databases.'));
+function _notionModal(innerHTML) {
+  let m = document.getElementById('notionModal');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'notionModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(7,8,20,0.55);z-index:10000;display:flex;align-items:center;justify-content:center;padding:1rem;';
+    m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+    document.body.appendChild(m);
+  }
+  m.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.25rem 1.4rem;max-width:520px;width:100%;box-shadow:var(--shadow-lg);max-height:80vh;overflow-y:auto;">${innerHTML}</div>`;
+  return m;
+}
+
+async function chooseNotionDatabase() {
+  const modal = _notionModal('<div style="text-align:center;padding:1rem;color:var(--text-muted);">Loading databases…</div>');
+  try {
+    const [dbsRes, pagesRes] = await Promise.all([
+      fetch('/notion/databases').then(r => r.json()),
+      fetch('/notion/pages').then(r => r.json()).catch(() => ({pages: []})),
+    ]);
+    const dbs = (dbsRes.status === 'ok' ? dbsRes.databases : []) || [];
+    const pages = (pagesRes.status === 'ok' ? pagesRes.pages : []) || [];
+
+    const dbList = dbs.length
+      ? dbs.map(db => `
+          <button onclick="pickNotionDatabase('${db.id}')" style="display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);cursor:pointer;margin-bottom:6px;">
+            <span style="font-weight:600;">${(db.name || 'Untitled').replace(/</g,'&lt;')}</span>
+            <span style="font-size:0.74rem;color:var(--text-muted);">Use →</span>
+          </button>`).join('')
+      : `<div style="padding:10px 12px;border-radius:10px;background:var(--accent-soft);color:var(--text-secondary);font-size:0.86rem;">
+           No databases are shared with this integration yet. Open a database in Notion → <strong>•••</strong> → <strong>Connections</strong> → <strong>IntelliPlan</strong>, then come back and refresh.
+         </div>`;
+
+    const pageOpts = pages.length
+      ? `<select id="ipNotionParent" style="width:100%;padding:8px;border:1px solid var(--border-strong);border-radius:8px;background:var(--bg);color:var(--text-primary);">${pages.map(p => `<option value="${p.id}">${(p.name || 'Untitled').replace(/</g,'&lt;')}</option>`).join('')}</select>`
+      : `<div style="font-size:0.84rem;color:var(--text-muted);">Share a page with IntelliPlan in Notion first, then refresh — we'll list it here so you can pick where the new database lives.</div>`;
+
+    _notionModal(`
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <h3 style="margin:0;font-family:var(--font-display);font-size:1.1rem;">Pick a Notion database</h3>
+        <button onclick="document.getElementById('notionModal').remove()" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--text-muted);">✕</button>
+      </div>
+      <div style="margin-bottom:14px;">${dbList}</div>
+      <div style="border-top:1px solid var(--border);padding-top:12px;">
+        <div style="font-family:var(--font-ui);font-size:0.74rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:6px;">Or create a new one</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <input id="ipNotionName" type="text" value="IntelliPlan Tasks" placeholder="Database name" style="width:100%;padding:8px;border:1px solid var(--border-strong);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+          ${pageOpts}
+          <button onclick="createNotionDatabase()" ${pages.length ? '' : 'disabled style="opacity:0.55;cursor:not-allowed;"'} class="btn-primary" style="padding:9px 14px;border:none;cursor:pointer;font-size:0.85rem;">Create database for me</button>
+        </div>
+        <div style="margin-top:10px;font-size:0.76rem;color:var(--text-muted);">
+          New here? In Notion, open any page → <strong>•••</strong> → <strong>Connections</strong> → <strong>IntelliPlan</strong> to share it with us.
+        </div>
+      </div>
+    `);
+  } catch (e) {
+    _notionModal(`<div style="color:var(--high);">Could not load Notion databases: ${String(e)}</div>`);
+  }
+}
+
+function pickNotionDatabase(id) {
+  fetch('/notion/set-database', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ database_id: id })
+  }).then(r => r.json()).then(() => {
+    const m = document.getElementById('notionModal'); if (m) m.remove();
+    refreshNotionStatus();
+  });
+}
+
+async function createNotionDatabase() {
+  const parent = document.getElementById('ipNotionParent');
+  const nameEl = document.getElementById('ipNotionName');
+  if (!parent || !parent.value) { alert('Pick a parent page first.'); return; }
+  const r = await fetch('/notion/create-database', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ parent_page_id: parent.value, name: (nameEl && nameEl.value) || 'IntelliPlan Tasks' })
+  }).then(r => r.json());
+  if (r.status === 'ok') {
+    const m = document.getElementById('notionModal'); if (m) m.remove();
+    refreshNotionStatus();
+  } else {
+    alert('Could not create: ' + (r.message || 'unknown error'));
+  }
 }
 
 function disconnectNotion() {

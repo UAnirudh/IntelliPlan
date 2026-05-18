@@ -636,9 +636,29 @@ function runModel() {
     }
   });
 
+  // ── Compute the maximum reachable weighted grade ─────────────
+  // For each category that has weight, the best possible category
+  // average is (earned + pendingPossible) / (gradedPossible + pendingPossible)
+  // — i.e. perfect scores on everything still pending. The overall max
+  // grade is the weight-normalised sum of those per-category bests.
+  // If your category is fully graded, its average is locked in and that
+  // limits the overall grade regardless of what's still pending elsewhere.
+  let weightedMaxSum = 0, weightUsed = 0;
+  categories.forEach(cat => {
+    const d = catData[normKey(cat.type)];
+    if (!d) return;
+    const total = d.gradedPossible + d.pendingPossible;
+    if (total === 0) return;
+    const catMax = (d.earned + d.pendingPossible) / total;  // 0..1
+    const w = Number(cat.weight) || 0;
+    weightedMaxSum += catMax * w;
+    weightUsed += w;
+  });
+  const maxPossiblePct = weightUsed > 0 ? (weightedMaxSum / weightUsed) * 100 : 100;
+
   const targetDecimal = target / 100;
+  const achievable = target <= maxPossiblePct + 1e-9;
   let lines = [];
-  let achievable = true;
 
   categories.forEach(cat => {
     const catKey = normKey(cat.type);
@@ -656,21 +676,24 @@ function runModel() {
       : null;
 
     if (neededFromCat !== null) {
-      if (neededFromCat > 100) achievable = false;
       lines.push(`<strong>${cat.type}</strong> (${cat.weight}% of grade): need <strong>${Math.max(0, neededFromCat).toFixed(1)}%</strong> avg on ${d.pendingAssignments.length} remaining assignment${d.pendingAssignments.length !== 1 ? 's' : ''}${neededFromCat > 100 ? ' <span style="color:var(--high)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px"><use href="#i-warning"/></svg> not possible</span>' : ''}`);
     } else {
       const actual = currentWeightedPct !== null ? (currentWeightedPct * 100).toFixed(1) : '—';
-      lines.push(`<strong>${cat.type}</strong>: all graded — currently at ${actual}%`);
+      const lockedNote = currentWeightedPct !== null && currentWeightedPct * 100 < target
+        ? ` <span style="color:var(--high)">— locked in below target, caps overall at ${(currentWeightedPct * 100).toFixed(1)}%</span>`
+        : '';
+      lines.push(`<strong>${cat.type}</strong>: all graded — currently at ${actual}%${lockedNote}`);
     }
   });
 
   const result = document.getElementById('modelResult');
   result.style.display = 'block';
+  const headline = achievable
+    ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg> Target of ${target}% is achievable <span style="color:var(--text-muted);font-weight:400;">(max possible: ${maxPossiblePct.toFixed(2)}%)</span>`
+    : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg> Target of ${target}% isn't reachable — your max achievable is <strong>${maxPossiblePct.toFixed(2)}%</strong>`;
   result.innerHTML = `
     <div style="margin-bottom:8px; font-weight:600; color:${achievable ? 'var(--low)' : 'var(--high)'}; display:flex; align-items:center; gap:6px;">
-      ${achievable
-        ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg> Target of ${target}% is achievable`
-        : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg> Target of ${target}% may not be reachable`}
+      ${headline}
     </div>
     ${lines.map(l => `<div style="padding:4px 0; border-bottom:1px solid var(--border); font-size:0.88rem;">${l}</div>`).join('')}
   `;

@@ -69,6 +69,7 @@ except Exception as e:
 try:
     from notion_helper import (
         test_notion_token, test_notion_token_detail, get_notion_databases,
+        get_shared_pages, create_intelliplan_database,
         get_notion_tasks, create_notion_task,
         update_notion_task, complete_notion_task,
         get_notion_auth_url, exchange_notion_code,
@@ -2631,7 +2632,7 @@ def summarize_note(note_id):
         return flask.jsonify({"status": "error", "message": "No extracted text is available for this note."}), 400
     if not os.getenv("GROQ_API_KEY"):
         return flask.jsonify({"status": "error", "message": "GROQ_API_KEY is not set."}), 500
-    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+    client = _groq_client()
     text = (note.text_content or "")[:12000]
     prompt = f"""Summarize these class notes for a student.\n\nReturn:\n- 5 to 8 bullet points\n- a short "Key takeaways" section\n- keep it clear, practical, and concise\n\nNotes:\n{text}"""
     try:
@@ -2650,7 +2651,7 @@ def study_note_route(note_id):
         return flask.jsonify({"status": "error", "message": "Note not found"}), 404
     if not (note.text_content or "").strip():
         return flask.jsonify({"status": "error", "message": "No extracted text is available for this note."}), 400
-    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+    client = _groq_client()
     text = (note.text_content or "")[:12000]
     prompt = f"""Turn these notes into study material.\n\nReturn ONLY valid JSON:\n{{\n  "title": "Study Guide",\n  "summary": "short summary",\n  "cards": [{{"question": "Q1", "answer": "A1"}}],\n  "quiz": [{{"question": "Q1", "answer": "A1"}}]\n}}\n\nNotes:\n{text}"""
     try:
@@ -2697,7 +2698,7 @@ def notes_quiz(note_id):
         return flask.jsonify({"status": "error", "message": "No note text available"}), 400
     history = (request.json or {}).get("history", []) if request.is_json else []
     history_text = json.dumps(history[-8:], ensure_ascii=False)
-    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+    client = _groq_client()
     prompt = f"""Generate one study question from the note below.\n\nPrior questions:\n{history_text}\n\nNote:\n{note_text[:12000]}\n\nReturn JSON:\n{{\n  "question": "one question",\n  "answer": "one correct answer",\n  "key_points": ["point 1", "point 2"]\n}}"""
     try:
         response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}], temperature=0.5, max_tokens=900)
@@ -2893,7 +2894,7 @@ def generate_schedule():
     upcoming = [a for a in normalized_assignments if a.get("due_date", "9999") >= today_str]
     upcoming.sort(key=lambda x: x.get("due_date", "9999"))
     try:
-        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        client = _groq_client()
     except Exception:
         return flask.jsonify({"status": "error", "message": API_ERROR_MESSAGES["groq"], "retryable": True}), 503
     overdue_text = ""
@@ -3252,6 +3253,50 @@ def notion_databases_route():
         })
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e), "databases": []}), 500
+
+
+@app.route("/notion/pages")
+def notion_pages_route():
+    """Pages the integration is allowed to see — used as parent options
+    when creating a new IntelliPlan database in Notion."""
+    if not NOTION_AVAILABLE:
+        return flask.jsonify({"status": "error", "pages": []}), 503
+    token, _ = get_notion_token_and_db()
+    if not token:
+        return flask.jsonify({"status": "error", "message": "Notion not connected", "pages": []}), 400
+    try:
+        return flask.jsonify({"status": "ok", "pages": get_shared_pages(token)})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e), "pages": []}), 500
+
+
+@app.route("/notion/create-database", methods=["POST"])
+def notion_create_database_route():
+    """One-click "set up Notion for me" — create a tasks database with
+    the right schema under a page the user has shared with us."""
+    if not NOTION_AVAILABLE:
+        return flask.jsonify({"status": "error", "message": "Notion library not installed"}), 503
+    token, _ = get_notion_token_and_db()
+    if not token:
+        return flask.jsonify({"status": "error", "message": "Notion not connected"}), 400
+    body = request.json or {}
+    parent_id = body.get("parent_page_id")
+    name = (body.get("name") or "IntelliPlan Tasks").strip()
+    if not parent_id:
+        return flask.jsonify({"status": "error", "message": "Pick a parent page first"}), 400
+    try:
+        new_id = create_intelliplan_database(token, parent_id, name=name)
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+    # Auto-select the new database as the active target.
+    if current_user.is_authenticated:
+        ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
+        if ni:
+            ni.database_id = new_id
+            db.session.commit()
+    session["notion_database_id"] = new_id
+    session.modified = True
+    return flask.jsonify({"status": "ok", "database_id": new_id, "name": name})
 
 @app.route("/notion/tasks")
 def notion_tasks_route():
@@ -4045,7 +4090,7 @@ Scoring guide:
 - incorrect: 0-39 (core idea missing or wrong)
 '''
     try:
-        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        client = _groq_client()
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
@@ -4096,9 +4141,9 @@ def study_analyze_image():
             return flask.jsonify({"status": "error", "message": "Image too large. Max 10MB."})
         b64 = base64.b64encode(raw).decode("utf-8")
         media_type = img_file.content_type
-        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        client = _groq_client()
         response = client.chat.completions.create(
-            model="llama-3.2-11b-vision-preview",
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[{
                 "role": "user",
                 "content": [
@@ -4129,9 +4174,9 @@ def analyze_image_general():
             return flask.jsonify({"status": "error", "message": "Image too large. Max 10MB."})
         b64 = base64.b64encode(raw).decode("utf-8")
         media_type = img_file.content_type or "image/jpeg"
-        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        client = _groq_client()
         response = client.chat.completions.create(
-            model="llama-3.2-11b-vision-preview",
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[{"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{b64}"}}, {"type": "text", "text": question}]}],
             max_tokens=1500,
             temperature=0.3
@@ -4748,7 +4793,7 @@ Question types: "recall", "conceptual", "short-answer"
 Make answers comprehensive (2-4 sentences). Make questions specific to the content.
 Be accurate, but keep the tone supportive and student-friendly.'''
     try:
-        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        client = _groq_client()
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
@@ -4801,6 +4846,26 @@ def error_403(e):
 # ═════════════════════════════════════════════════════════════════════
 
 GROQ_MODEL = "llama-3.3-70b-versatile"
+# Fast/small model for short classification tasks (priority assignment,
+# task extraction, simple suggestions) — ~10x faster + cheaper than the
+# 70b model with comparable quality for short prompts.
+GROQ_FAST_MODEL = os.getenv("GROQ_FAST_MODEL", "llama-3.1-8b-instant")
+# Vision-capable model. The old meta-llama/llama-4-scout-17b-16e-instruct was retired
+# by Groq; meta-llama/llama-4-scout-17b-16e-instruct is the current
+# multimodal model on Groq with image input support.
+GROQ_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+GROQ_WHISPER_MODEL = os.getenv("GROQ_WHISPER_MODEL", "whisper-large-v3-turbo")
+
+# Singleton Groq client. The previous code created a new client on every
+# request, which re-allocated httpx connection pools and added 50-200ms
+# of overhead per call. The client is thread-safe so one global is fine
+# under gunicorn workers.
+_groq_client_cache = None
+def _groq_client():
+    global _groq_client_cache
+    if _groq_client_cache is None:
+        _groq_client_cache = Groq(api_key=os.getenv("GROQ_API_KEY"))
+    return _groq_client_cache
 
 
 # ── ADMIN / FEATURE FLAGS ───────────────────────────────────────────
@@ -5478,7 +5543,7 @@ def _apply_pending_group_join():
 
 
 def _groq():
-    return Groq(api_key=os.getenv("GROQ_API_KEY"))
+    return _groq_client()
 
 
 def _owner_filter(model):
