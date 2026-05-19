@@ -54,8 +54,14 @@
         <div style="display:flex; gap:8px; align-items:center; margin-bottom:1rem;">
           <input type="number" id="targetInput" class="form-input" min="0" max="100" step="0.1" placeholder="e.g. 97" style="max-width:110px;" />
           <button class="btn-primary" onclick="runModel()" style="padding:10px 20px; border:none; cursor:pointer; font-size:0.88rem;">Model It</button>
-          <button onclick="forecastRealistic()" title="Predict remaining scores using your historical category averages" style="padding:10px 16px; background:var(--accent-soft); border:1px solid var(--border-accent); border-radius:10px; cursor:pointer; font-size:0.82rem; color:var(--accent); font-family:'DM Sans',sans-serif; font-weight:600;">📈 Realistic Forecast</button>
-          <button onclick="resetAll()" style="padding:10px 16px; background:var(--bg); border:1px solid var(--border); border-radius:10px; cursor:pointer; font-size:0.82rem; color:var(--text-muted); font-family:'DM Sans',sans-serif;">↺ Reset</button>
+          <button onclick="forecastRealistic()" title="Predict remaining scores using your historical category averages" style="display:inline-flex; align-items:center; gap:6px; padding:10px 16px; background:var(--accent-soft); border:1px solid var(--border-accent); border-radius:10px; cursor:pointer; font-size:0.82rem; color:var(--accent); font-family:'DM Sans',sans-serif; font-weight:600;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            Realistic Forecast
+          </button>
+          <button onclick="resetAll()" style="display:inline-flex; align-items:center; gap:6px; padding:10px 16px; background:var(--bg); border:1px solid var(--border); border-radius:10px; cursor:pointer; font-size:0.82rem; color:var(--text-muted); font-family:'DM Sans',sans-serif;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+            Reset
+          </button>
         </div>
         <div id="modelResult" style="display:none; font-size:0.88rem; color:var(--text-primary); line-height:1.6;"></div>
       </div>
@@ -111,6 +117,22 @@ function normKey(v) {
 
 function getAssignmentKey(a) {
   return a?.id ?? a?.title ?? '';
+}
+
+/* Robust grading detection — Canvas doesn't emit `graded`, StudentVue sometimes
+   marks a graded row as "Not Graded" while still showing a percent. Treat an
+   assignment as graded only when we have a real numeric points_earned AND
+   the display label doesn't explicitly say it's pending. This keeps the
+   forecast and "Nothing pending" branch in sync with what users actually see. */
+function isGraded(a) {
+  if (!a) return false;
+  if (a.graded === true) return true;
+  const earned = safeNum(a.points_earned);
+  if (earned === null) return false;
+  const label = String(a.display_score ?? '').trim().toLowerCase();
+  const pendingLabels = ['', 'not graded', 'not due', 'missing', 'pending', '-', '—'];
+  if (pendingLabels.includes(label)) return false;
+  return true;
 }
 
 function getBaseAssignmentValues(a) {
@@ -312,7 +334,8 @@ function renderBreakdown(assignments) {
     const isModified = hasActualModification(a);
 
     const card = document.createElement('div');
-    card.className = 'assignment-card ' + (a.graded ? 'low' : 'medium');
+    const graded = isGraded(a);
+    card.className = 'assignment-card ' + (graded ? 'low' : 'medium');
     card.style.animationDelay = `${i * 0.04}s`;
     card.dataset.assignmentId = key;
     if (isModified) card.style.borderColor = 'var(--accent)';
@@ -335,7 +358,7 @@ function renderBreakdown(assignments) {
       : 100;
 
     card.innerHTML = `
-      <div class="rank-bubble" style="font-size:0.7rem;">${a.graded || isModified ? '✓' : '–'}</div>
+      <div class="rank-bubble" style="font-size:0.7rem;">${graded || isModified ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/></svg>'}</div>
       <div class="card-main">
         <div class="card-title">${a.title} ${isModified ? '<span style="font-size:0.7rem;color:var(--accent);font-weight:500;">· modified</span>' : ''}</div>
         <div class="card-meta">
@@ -471,7 +494,9 @@ function syncAssignmentCard(id) {
 
   card.style.borderColor = isModified ? 'var(--accent)' : '';
   const bubble = card.querySelector('.rank-bubble');
-  if (bubble) bubble.textContent = a.graded || isModified ? '✓' : '–';
+  if (bubble) bubble.innerHTML = isGraded(a) || isModified
+    ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>'
+    : '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/></svg>';
 }
 
 function syncVisibleAssignments() {
@@ -577,7 +602,7 @@ function forecastRealistic() {
     catTotals[normKey(c.type)] = { earned: 0, possible: 0 };
   });
   assignments.forEach(a => {
-    if (!a.graded) return;
+    if (!isGraded(a)) return;
     const k = normKey(a.category);
     const b = getBaseAssignmentValues(a);
     if (b.earned !== null && b.possible !== null && b.possible > 0 && catTotals[k]) {
@@ -600,7 +625,7 @@ function forecastRealistic() {
   // points_possible * predictedPct (clamped 0..points_possible).
   const targets = [];
   assignments.forEach(a => {
-    if (a.graded) return;
+    if (isGraded(a)) return;
     const base = getBaseAssignmentValues(a);
     if (base.possible === null || base.possible <= 0) return;
     let pct = catPct[normKey(a.category)];
@@ -618,7 +643,18 @@ function forecastRealistic() {
     const result = document.getElementById('modelResult');
     if (result) {
       result.style.display = 'block';
-      result.innerHTML = '<div style="color:var(--text-muted);">Nothing pending — every assignment is already graded.</div>';
+      result.innerHTML = `
+        <div class="empty-state" style="padding:2rem 1rem;">
+          <div class="empty-icon" aria-hidden="true">
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 11l3 3L22 4"/>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+          </div>
+          <div class="empty-title">All caught up</div>
+          <p>Every assignment in this course is already graded — there's nothing pending to forecast. Switch courses or wait for the next assignment to drop.</p>
+        </div>`;
     }
     return;
   }
@@ -652,7 +688,10 @@ function forecastRealistic() {
           .map(([k, p]) => `${k}: ${(p * 100).toFixed(1)}%`)
           .join(' · ');
         result.innerHTML =
-          `<div style="font-weight:600;color:var(--accent);margin-bottom:6px;">📈 Realistic forecast: <strong>${modeled}%</strong></div>` +
+          `<div style="font-weight:600;color:var(--accent);margin-bottom:6px;display:inline-flex;align-items:center;gap:6px;">
+             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+             Realistic forecast: <strong>${modeled}%</strong>
+           </div>` +
           `<div style="font-size:0.82rem;color:var(--text-muted);">Pending work predicted at your current category averages${avgs ? ' (' + avgs + ')' : ''}. Adjust any slider to override.</div>`;
       }
     }

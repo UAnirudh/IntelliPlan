@@ -921,12 +921,13 @@
 
   {# ── Always-visible top items ──────────────────────────────── #}
   <a href="/dashboard" data-nav-item="dashboard" class="side-link {% if active_page == 'dashboard' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard</a>
+  <a href="/scheduler" data-nav-item="scheduler" class="side-link {% if active_page == 'scheduler' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-scheduler"/></svg></span>Scheduler</a>
   <a href="/study"     data-nav-item="study" class="side-link {% if active_page == 'study' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Study &amp; Learn</a>
   <a href="/streak"    data-nav-item="streak" class="side-link {% if active_page == 'streak' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-fire"/></svg></span>Streak</a>
   <a href="/tutor"     data-nav-item="tutor" class="side-link tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-tutor"/></svg></span>Tutor</a>
 
-  {# ── Plan dropdown: schedule + tasks + grades ──────────────── #}
-  {% set _plan_pages = ['scheduler','priority','classes','grades','gradebook','tests','dismissed'] %}
+  {# ── Plan dropdown: priority queue, grades, and completed work ──────────────── #}
+  {% set _plan_pages = ['priority','classes','grades','gradebook','tests','dismissed'] %}
   <div class="side-group {% if active_page in _plan_pages %}is-open{% endif %}" data-side-group="plan">
     <button type="button" class="side-link side-group-toggle" aria-expanded="{% if active_page in _plan_pages %}true{% else %}false{% endif %}">
       <span class="side-icon"><svg><use href="#i-priority"/></svg></span>
@@ -934,7 +935,6 @@
       <span class="side-chev">▾</span>
     </button>
     <div class="side-group-body">
-      <a href="/scheduler" data-nav-item="scheduler" class="side-link side-sub {% if active_page == 'scheduler' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-scheduler"/></svg></span>Scheduler</a>
       <a href="/priority"  data-nav-item="priority" class="side-link side-sub {% if active_page == 'priority' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-priority"/></svg></span>Priority</a>
       <a href="/classes"   data-nav-item="classes" class="side-link side-sub {% if active_page == 'classes' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-classes"/></svg></span>Classes</a>
       <a href="/grades"    data-nav-item="grades" class="side-link side-sub {% if active_page == 'grades' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-grades"/></svg></span>Grades</a>
@@ -1011,13 +1011,14 @@
         <a href="/priority" class="nav-tab {% if active_page == 'priority' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-priority"/></svg></span><span class="nav-label">Priority</span></a>
         <a href="/classes"  class="nav-tab {% if active_page == 'classes' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-classes"/></svg></span><span class="nav-label">Classes</span></a>
         <div class="nav-dropdown">
-          <button class="dropdown-toggle" aria-haspopup="true"><span class="nav-tab-icon"><svg><use href="#i-grades"/></svg></span><span class="nav-label">Grades</span> <span class="chevron" aria-hidden="true">▾</span></button>
+          <button class="dropdown-toggle" aria-haspopup="true"><span class="nav-tab-icon"><svg><use href="#i-priority"/></svg></span><span class="nav-label">Plan</span> <span class="chevron" aria-hidden="true">▾</span></button>
           <div class="dropdown-panel" role="menu">
-            <a href="/grades"    class="dropdown-item" role="menuitem">Overview</a>
+            <a href="/grades"    class="dropdown-item" role="menuitem">Grades Overview</a>
             <a href="/gradebook" class="dropdown-item" role="menuitem">Grade Modeler</a>
+            <a href="/tests"     class="dropdown-item" role="menuitem">Tests</a>
+            <a href="/dismissed" class="dropdown-item" role="menuitem">Done</a>
           </div>
         </div>
-        <a href="/dismissed" class="nav-tab {% if active_page == 'dismissed' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-done"/></svg></span><span class="nav-label">Done</span></a>
       </div>
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
