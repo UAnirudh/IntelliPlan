@@ -231,6 +231,7 @@
     <div class="form-group" style="margin-bottom:1rem;">
       <label class="form-label">How long did this actually take? (minutes)</label>
       <input type="number" id="feedbackActualTime" class="form-input" placeholder="e.g. 45" min="1" max="480" />
+      <span class="form-hint" id="feedbackTimeHint" style="color:var(--accent);"></span>
       <span class="form-hint">Helps IntelliPlan estimate better next time</span>
     </div>
     <div style="display:flex; gap:8px;">
@@ -1001,9 +1002,46 @@ function openFeedbackModal(task, card) {
   _feedbackCard = card;
   document.getElementById('feedbackTaskTitle').value = task.title;
   document.getElementById('feedbackTaskName').textContent = task.title;
-  document.getElementById('feedbackActualTime').value = task.estimated_time || '';
+  const timeInput = document.getElementById('feedbackActualTime');
+  // Start with the original estimate while we fetch a better prediction
+  // from the user's task-completion history. The fetch is async so the
+  // modal still opens immediately if the network is slow.
+  timeInput.value = task.estimated_time || '';
+  timeInput.dataset.predicted = '';
+  // Clear any prior hint
+  const hintEl = document.getElementById('feedbackTimeHint');
+  if (hintEl) hintEl.textContent = '';
+  const params = new URLSearchParams({
+    title: task.title || '',
+    course: task.course || '',
+    priority: task.priority || 'Medium',
+    fallback: String(task.estimated_time || 60),
+  });
+  fetch('/feedback/predict-time?' + params.toString())
+    .then(r => r.json())
+    .then(d => {
+      if (d.status !== 'ok' || !d.predicted_minutes) return;
+      // Only pre-fill if the user hasn't already typed something.
+      if (timeInput.value === String(task.estimated_time || '') || timeInput.value === '') {
+        timeInput.value = d.predicted_minutes;
+        timeInput.dataset.predicted = d.predicted_minutes;
+      }
+      if (hintEl) {
+        const sourceLabels = {
+          same_title: 'last time you did this',
+          'course+priority': 'past ' + (task.course || 'course') + ' work',
+          course: 'past ' + (task.course || 'course') + ' work',
+          priority: (task.priority || 'this priority') + ' tasks',
+          global: 'all your past tasks',
+          fallback: 'default estimate',
+        };
+        const lbl = sourceLabels[d.source] || 'past tasks';
+        hintEl.textContent = `Predicted from ${lbl}${d.sample_size ? ' (' + d.sample_size + ' samples)' : ''}`;
+      }
+    })
+    .catch(() => {});
   document.getElementById('feedbackModal').style.display = 'flex';
-  setTimeout(() => document.getElementById('feedbackActualTime').focus(), 100);
+  setTimeout(() => timeInput.focus(), 100);
 }
 
 function closeFeedbackModal() {
@@ -1638,6 +1676,41 @@ async function loadStreak() {
 }
 
 // ── Daily Spark Chest ──────────────────────────────────────────
+function _renderChestClaimedState() {
+  const btn = document.getElementById('dashChest');
+  const sub = document.getElementById('chestSub');
+  const cta = document.getElementById('chestCta');
+  const emoji = document.getElementById('chestEmoji');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.setAttribute('disabled', 'disabled');
+  // Grey it out and stop the wobble animation so users can see at a
+  // glance the chest is locked until tomorrow.
+  btn.style.filter = 'grayscale(0.85)';
+  btn.style.opacity = '0.55';
+  btn.style.cursor = 'not-allowed';
+  if (emoji) {
+    emoji.textContent = '🌙';
+    emoji.style.animation = 'none';
+  }
+  if (sub) sub.textContent = 'Already claimed — come back tomorrow.';
+  if (cta) cta.textContent = 'Locked';
+}
+
+function refreshChestState() {
+  // GET-side companion to the POST /api/streak/daily-claim. If the user
+  // already claimed today, render the chest in its locked state on first
+  // paint instead of letting them click and only then learn.
+  fetch('/api/streak/daily-claim')
+    .then(r => r.json())
+    .then(d => {
+      if (d && d.status === 'ok' && d.claimed) {
+        _renderChestClaimedState();
+      }
+    })
+    .catch(() => {});
+}
+
 function claimDaily() {
   const btn = document.getElementById('dashChest');
   const sub = document.getElementById('chestSub');
@@ -1655,10 +1728,11 @@ function claimDaily() {
         sub.innerHTML = '<strong style="color:var(--low);">+' + d.reward + ' Sparks</strong> added to your balance!';
         cta.textContent = 'Claimed ✓';
         loadStreak();   // refresh spark balance widget
+        // After the celebratory animation finishes, lock the chest down
+        // for the rest of the day so it's visually clear it's done.
+        setTimeout(_renderChestClaimedState, 1500);
       } else if (d.status === 'ok' && !d.claimed) {
-        emoji.textContent = '🌙';
-        sub.textContent = d.message || 'Already claimed today.';
-        cta.textContent = 'Tomorrow';
+        _renderChestClaimedState();
       } else {
         sub.textContent = d.message || 'Could not claim — try again.';
         cta.textContent = 'Retry';
@@ -1691,6 +1765,7 @@ function startLiveSession() {
 // Init
 loadDashboard();
 loadStreak();
+refreshChestState();
 setInterval(loadDashboard, 60000);
 
 // ── Assignment Detail Modal ────────────────────────────────────

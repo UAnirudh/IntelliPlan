@@ -3639,6 +3639,79 @@ def delete_saved_schedule():
     return flask.jsonify({"status": "ok"})
 
 # ── FEEDBACK ──────────────────────────────────────────────────
+@app.route("/feedback/predict-time", methods=["GET"])
+def feedback_predict_time():
+    """Predict how long this task will take based on the user's past
+    TaskFeedback records. Falls back to the original estimate if there's
+    no signal yet.
+
+    Lookup strategy (most → least specific):
+      1. Median actual_time of past completions of THIS exact title.
+      2. Weighted blend of:
+         - course average actual_time
+         - priority-bucket average actual_time
+         (weights = 0.6 / 0.4 when both exist; else whichever is present)
+      3. Global median actual_time across all the user's completions.
+      4. The estimate the caller already had (or 60 min).
+    """
+    if not is_logged_in():
+        return flask.jsonify({"status": "ok", "predicted_minutes": None, "source": "anon"})
+    title = (request.args.get("title") or "").strip()
+    course = (request.args.get("course") or "").strip()
+    priority = (request.args.get("priority") or "Medium").strip()
+    fallback = request.args.get("fallback")
+    try:
+        fallback = int(fallback) if fallback else 60
+    except (TypeError, ValueError):
+        fallback = 60
+
+    uid = current_user.id if current_user.is_authenticated else None
+    gid = None if uid else get_guest_session_id()
+    q = TaskFeedback.query
+    if uid:
+        q = q.filter_by(user_id=uid)
+    else:
+        q = q.filter_by(guest_session_id=gid)
+    rows = q.filter(TaskFeedback.actual_time.isnot(None)).order_by(TaskFeedback.id.desc()).limit(500).all()
+
+    def median(xs):
+        xs = sorted(int(x) for x in xs if x is not None)
+        if not xs:
+            return None
+        n = len(xs)
+        return xs[n // 2] if n % 2 else (xs[n // 2 - 1] + xs[n // 2]) // 2
+
+    same_title = [r.actual_time for r in rows if r.title.lower() == title.lower()] if title else []
+    if same_title:
+        med = median(same_title)
+        if med:
+            return flask.jsonify({"status": "ok", "predicted_minutes": med, "source": "same_title", "sample_size": len(same_title)})
+
+    same_course = [r.actual_time for r in rows if course and (r.course or "").lower() == course.lower()]
+    same_priority = [r.actual_time for r in rows if (r.priority or "").lower() == priority.lower()]
+
+    course_med = median(same_course)
+    prio_med = median(same_priority)
+
+    if course_med and prio_med:
+        blended = int(round(course_med * 0.6 + prio_med * 0.4))
+        return flask.jsonify({"status": "ok", "predicted_minutes": blended, "source": "course+priority",
+                              "course_sample": len(same_course), "priority_sample": len(same_priority)})
+    if course_med:
+        return flask.jsonify({"status": "ok", "predicted_minutes": course_med, "source": "course",
+                              "sample_size": len(same_course)})
+    if prio_med:
+        return flask.jsonify({"status": "ok", "predicted_minutes": prio_med, "source": "priority",
+                              "sample_size": len(same_priority)})
+
+    global_med = median([r.actual_time for r in rows])
+    if global_med:
+        return flask.jsonify({"status": "ok", "predicted_minutes": global_med, "source": "global",
+                              "sample_size": len(rows)})
+
+    return flask.jsonify({"status": "ok", "predicted_minutes": fallback, "source": "fallback"})
+
+
 @app.route("/feedback/complete", methods=["POST"])
 def feedback_complete():
     data = request.json or {}
@@ -5382,6 +5455,33 @@ def api_profile_phone_test():
 
 
 # ── DAILY CHECK-IN CHEST (Duolingo-style) ─────────────────────────
+@app.route("/api/streak/daily-claim", methods=["GET"])
+def api_daily_claim_status():
+    """Read-only check used by the dashboard on load. Returns whether the
+    chest has been claimed today so we can render it blacked out instead
+    of waiting for the user to click and discover it themselves."""
+    if not is_logged_in():
+        return flask.jsonify({"status": "ok", "claimed": False, "logged_in": False})
+    try:
+        p = get_study_profile(
+            user_id=current_user.id if current_user.is_authenticated else None,
+            guest_id=None if current_user.is_authenticated else get_guest_session_id(),
+        )
+        today = datetime.utcnow().date().isoformat()
+        last_claim = (p.last_daily_claim or "") if hasattr(p, "last_daily_claim") else ""
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+    streak = int(getattr(p, "streak_count", 0) or 0)
+    reward = 10 + min(40, streak * 2)
+    return flask.jsonify({
+        "status": "ok",
+        "claimed": last_claim == today,
+        "logged_in": True,
+        "reward_if_claimed_now": reward,
+        "last_claim": last_claim,
+    })
+
+
 @app.route("/api/streak/daily-claim", methods=["POST"])
 def api_daily_claim():
     """One-shot daily Sparks claim. Returns the reward + whether it was

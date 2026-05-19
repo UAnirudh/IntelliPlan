@@ -54,6 +54,7 @@
         <div style="display:flex; gap:8px; align-items:center; margin-bottom:1rem;">
           <input type="number" id="targetInput" class="form-input" min="0" max="100" step="0.1" placeholder="e.g. 97" style="max-width:110px;" />
           <button class="btn-primary" onclick="runModel()" style="padding:10px 20px; border:none; cursor:pointer; font-size:0.88rem;">Model It</button>
+          <button onclick="forecastRealistic()" title="Predict remaining scores using your historical category averages" style="padding:10px 16px; background:var(--accent-soft); border:1px solid var(--border-accent); border-radius:10px; cursor:pointer; font-size:0.82rem; color:var(--accent); font-family:'DM Sans',sans-serif; font-weight:600;">📈 Realistic Forecast</button>
           <button onclick="resetAll()" style="padding:10px 16px; background:var(--bg); border:1px solid var(--border); border-radius:10px; cursor:pointer; font-size:0.82rem; color:var(--text-muted); font-family:'DM Sans',sans-serif;">↺ Reset</button>
         </div>
         <div id="modelResult" style="display:none; font-size:0.88rem; color:var(--text-primary); line-height:1.6;"></div>
@@ -325,9 +326,13 @@ function renderBreakdown(assignments) {
         <div class="score-bar-fill" style="height:100%; width:${Math.min(pct,100)}%; background:${pct>=90?'var(--low)':pct>=70?'var(--accent)':'var(--high)'}; border-radius:2px; transition:width 0.3s;"></div>
       </div>` : '';
 
+    // Cap the slider/numeric input at the assignment's points_possible so
+    // a user can't drag a score above 100% — those grades aren't real.
+    // If the school awards extra credit on a specific assignment they
+    // can still type the value, but the slider stops at 100%.
     const maxPossibleForInput = possible !== null && possible > 0
-      ? Math.max(200, possible * 3)
-      : 200;
+      ? possible
+      : 100;
 
     card.innerHTML = `
       <div class="rank-bubble" style="font-size:0.7rem;">${a.graded || isModified ? '✓' : '–'}</div>
@@ -499,7 +504,16 @@ function updateScore(id, value) {
 
   const base = getBaseAssignmentValues(a);
   const current = getAssignmentScore(a);
-  const parsed = safeNum(value);
+  let parsed = safeNum(value);
+
+  // Hard cap: a modeled score can't exceed the assignment's points_possible.
+  // Going above 100% on a single assignment isn't a real outcome (unless the
+  // teacher specifically marked it extra-credit, which is rare and not what
+  // the modeler is for), so clamp here.
+  if (parsed !== null && current.possible !== null && current.possible > 0) {
+    if (parsed > current.possible) parsed = current.possible;
+    if (parsed < 0) parsed = 0;
+  }
 
   const next = {
     earned: parsed !== null ? parsed : base.earned,
@@ -541,6 +555,109 @@ function updatePossible(id, value) {
 
   syncAssignmentCard(id);
   recalculateModeled();
+}
+
+/* Realistic Forecast — fill pending assignments with the user's current
+   per-category average score (NOT 100%). If you average 87% on tests so
+   far, the modeler now assumes 87% on future tests, not a perfect 100%
+   which is mathematically possible but historically unrealistic.
+   Animates each slider from its current position to the predicted score
+   so the user can see the dials physically move. */
+function forecastRealistic() {
+  if (!selectedCourse) return;
+  const assignments = selectedCourse.assignments || [];
+
+  // Compute current per-category percentage from GRADED, real data only.
+  const catPct = {};
+  (selectedCourse.categories || []).forEach(c => {
+    catPct[normKey(c.type)] = null;
+  });
+  const catTotals = {};
+  (selectedCourse.categories || []).forEach(c => {
+    catTotals[normKey(c.type)] = { earned: 0, possible: 0 };
+  });
+  assignments.forEach(a => {
+    if (!a.graded) return;
+    const k = normKey(a.category);
+    const b = getBaseAssignmentValues(a);
+    if (b.earned !== null && b.possible !== null && b.possible > 0 && catTotals[k]) {
+      catTotals[k].earned   += b.earned;
+      catTotals[k].possible += b.possible;
+    }
+  });
+  Object.keys(catTotals).forEach(k => {
+    const t = catTotals[k];
+    if (t.possible > 0) catPct[k] = t.earned / t.possible;
+  });
+  // Course-level fallback for categories with no graded data yet.
+  const overall = (() => {
+    let e = 0, p = 0;
+    Object.values(catTotals).forEach(t => { e += t.earned; p += t.possible; });
+    return p > 0 ? e / p : 0.85;   // last-resort default: 85%
+  })();
+
+  // Plan: for every pending assignment, set its modeled `earned` to
+  // points_possible * predictedPct (clamped 0..points_possible).
+  const targets = [];
+  assignments.forEach(a => {
+    if (a.graded) return;
+    const base = getBaseAssignmentValues(a);
+    if (base.possible === null || base.possible <= 0) return;
+    let pct = catPct[normKey(a.category)];
+    if (pct === null || pct === undefined) pct = overall;
+    // Clamp the prediction to [0, 1]. Above-100% averages can happen with
+    // extra-credit graded items; we don't carry that forward into pending
+    // work because over-100% predictions aren't realistic.
+    if (pct > 1) pct = 1;
+    if (pct < 0) pct = 0;
+    const predicted = Math.round(base.possible * pct * 10) / 10;
+    targets.push({ id: getAssignmentKey(a), from: base.earned ?? 0, to: predicted, possible: base.possible });
+  });
+
+  if (!targets.length) {
+    const result = document.getElementById('modelResult');
+    if (result) {
+      result.style.display = 'block';
+      result.innerHTML = '<div style="color:var(--text-muted);">Nothing pending — every assignment is already graded.</div>';
+    }
+    return;
+  }
+
+  // Animate the modeled scores from current → predicted over ~600ms,
+  // updating sliders and the running grade so the dials visibly slide.
+  const duration = 600;
+  const t0 = performance.now();
+  function step(now) {
+    const t = Math.min(1, (now - t0) / duration);
+    const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;  // easeInOutQuad
+    targets.forEach(tgt => {
+      const val = tgt.from + (tgt.to - tgt.from) * eased;
+      modifiedScores[tgt.id] = { earned: val, possible: tgt.possible };
+      syncAssignmentCard(tgt.id);
+    });
+    recalculateModeled();
+    if (t < 1) requestAnimationFrame(step);
+    else {
+      // Final pass with exact target values (avoid floating-point drift).
+      targets.forEach(tgt => {
+        modifiedScores[tgt.id] = { earned: tgt.to, possible: tgt.possible };
+        syncAssignmentCard(tgt.id);
+      });
+      const modeled = recalculateModeled();
+      const result = document.getElementById('modelResult');
+      if (result) {
+        result.style.display = 'block';
+        const avgs = Object.entries(catPct)
+          .filter(([_, p]) => p !== null)
+          .map(([k, p]) => `${k}: ${(p * 100).toFixed(1)}%`)
+          .join(' · ');
+        result.innerHTML =
+          `<div style="font-weight:600;color:var(--accent);margin-bottom:6px;">📈 Realistic forecast: <strong>${modeled}%</strong></div>` +
+          `<div style="font-size:0.82rem;color:var(--text-muted);">Pending work predicted at your current category averages${avgs ? ' (' + avgs + ')' : ''}. Adjust any slider to override.</div>`;
+      }
+    }
+  }
+  requestAnimationFrame(step);
 }
 
 function recalculateModeled() {
