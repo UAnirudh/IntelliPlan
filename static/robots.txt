@@ -1,16 +1,84 @@
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /scheduler
+Disallow: /settings
+Disallow: /admin
+Disallow: /logout
+Disallow: /assignment/
+
+User-agent: Googlebot
+Allow: /
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /scheduler
+Disallow: /settings
+Disallow: /admin
+Disallow: /logout
+Disallow: /assignment/
+
+User-agent: Bingbot
+Allow: /
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /scheduler
+Disallow: /settings
+Disallow: /admin
+Disallow: /logout
+Disallow: /assignment/
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /scheduler
+Disallow: /settings
+Disallow: /admin
+Disallow: /logout
+Disallow: /assignment/
 
 User-agent: GPTBot
+Allow: /
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /scheduler
+Disallow: /settings
+Disallow: /admin
+Disallow: /logout
+Disallow: /assignment/
+
+User-agent: ChatGPT-User
 Allow: /
 
 User-agent: ClaudeBot
 Allow: /
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /scheduler
+Disallow: /settings
+Disallow: /admin
+Disallow: /logout
+Disallow: /assignment/
+
+User-agent: Claude-SearchBot
+Allow: /
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /scheduler
+Disallow: /settings
+Disallow: /admin
+Disallow: /logout
+Disallow: /assignment/
 
 User-agent: PerplexityBot
 Allow: /
-
-User-agent: GoogleOther
-Allow: /
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /scheduler
+Disallow: /settings
+Disallow: /admin
+Disallow: /logout
+Disallow: /assignment/
 
 Sitemap: https://intelliplan.tech/sitemap.xml
