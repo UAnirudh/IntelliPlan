@@ -642,10 +642,10 @@
   </div>
 </section>
 
-<!-- ── ROTATING REVIEWS BANNER ─────────────────────────────── -->
-<section class="reviews-section" aria-label="Student reviews">
+<!-- ── STUDENT TESTIMONIALS ───────────────────────────────── -->
+<section class="reviews-section" aria-label="Student testimonials">
   <div class="reviews-header">
-    <span class="section-kicker">What students say</span>
+    <span class="section-kicker">Student testimonials</span>
     <h2 class="section-title" style="margin-top:0.5rem;">Real students. Real results.</h2>
   </div>
 
@@ -694,7 +694,22 @@
     transition: box-shadow 0.2s, transform 0.2s;
   }
   .review-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
-  .review-stars { color: #f59e0b; font-size: 0.95rem; letter-spacing: 1px; }
+  .testimonial-label {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--border-accent);
+    border-radius: var(--r-full);
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    padding: 0.38rem 0.58rem;
+    text-transform: uppercase;
+  }
   .review-text {
     font-family: var(--font-ui);
     font-size: 0.93rem;
@@ -726,9 +741,9 @@
 </style>
 
 <script>
-  /* ── Reviews banner — runs after DOM is fully parsed ── */
-  function initReviewsBanner() {
-    var reviews = [
+  /* ── Testimonials grid — runs after DOM is fully parsed ── */
+  function initTestimonialsGrid() {
+    var testimonials = [
       { name: "Jack",   role: "AP student, 11th grade",    color: "#2563eb", text: "I used to spend 20 minutes every morning figuring out what to do first. IntelliPlan just tells me. That alone is worth it." },
       { name: "Max",    role: "College freshman",           color: "#7c3aed", text: "Canvas dumps everything on you with zero order. IntelliPlan sorts it by what's actually urgent. I haven't missed a deadline since." },
       { name: "Sai",    role: "IB student, 12th grade",    color: "#0891b2", text: "The grade modeler is insane. I can simulate what score I need on my next test to keep my GPA exactly where I want it." },
@@ -740,36 +755,60 @@
     ];
 
     var track = document.getElementById('reviewsTrack');
-    if (!track) return; /* safety — exits cleanly if element missing */
+    if (!track) return;
+    track.replaceChildren();
 
     function buildCard(r) {
       var card = document.createElement('div');
       card.className = 'review-card';
-      card.innerHTML =
-        '<div class="review-stars">\u2605\u2605\u2605\u2605\u2605</div>' +
-        '<p class="review-text">\u201c' + r.text + '\u201d</p>' +
-        '<div class="review-author">' +
-          '<div class="review-avatar" style="background:' + r.color + '">' + r.name.charAt(0) + '</div>' +
-          '<div>' +
-            '<div class="review-name">' + r.name + '</div>' +
-            '<div class="review-role">' + r.role + '</div>' +
-          '</div>' +
-        '</div>';
+
+      var label = document.createElement('div');
+      label.className = 'testimonial-label';
+      label.textContent = 'Testimonial';
+
+      var text = document.createElement('p');
+      text.className = 'review-text';
+      text.textContent = '\u201c' + r.text + '\u201d';
+
+      var author = document.createElement('div');
+      author.className = 'review-author';
+
+      var avatar = document.createElement('div');
+      avatar.className = 'review-avatar';
+      avatar.style.background = r.color;
+      avatar.textContent = r.name.charAt(0);
+
+      var meta = document.createElement('div');
+      var name = document.createElement('div');
+      name.className = 'review-name';
+      name.textContent = r.name;
+
+      var role = document.createElement('div');
+      role.className = 'review-role';
+      role.textContent = r.role;
+
+      meta.appendChild(name);
+      meta.appendChild(role);
+      author.appendChild(avatar);
+      author.appendChild(meta);
+      card.appendChild(label);
+      card.appendChild(text);
+      card.appendChild(author);
       return card;
     }
 
-    /* Vertical grid layout — render each review exactly once. The
+    /* Vertical grid layout — render each testimonial exactly once. The
        previous version duplicated the array to fake a seamless marquee,
        which is now unnecessary. */
     var fragment = document.createDocumentFragment();
-    reviews.forEach(function(r) { fragment.appendChild(buildCard(r)); });
+    testimonials.forEach(function(r) { fragment.appendChild(buildCard(r)); });
     track.appendChild(fragment);
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initReviewsBanner);
+    document.addEventListener('DOMContentLoaded', initTestimonialsGrid);
   } else {
-    initReviewsBanner();
+    initTestimonialsGrid();
   }
 </script>
 

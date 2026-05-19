@@ -427,15 +427,6 @@ select {
     padding-right: 0 !important;
   }
 
-  .reviews-track-wrap {
-    width: 100vw !important;
-    margin-left: calc(-50vw + 50%) !important;
-  }
-
-  .reviews-fade {
-    width: 48px !important;
-  }
-
   /* Stats: 2-col grid */
   .stats-strip {
     padding: 0 0.75rem !important;
@@ -470,12 +461,18 @@ select {
   }
 
   /* Reviews cards */
-  .review-card {
-    width: 220px !important;
+  .reviews-grid-wrap {
+    padding: 0 0.85rem !important;
   }
 
-  .reviews-fade {
-    width: 36px !important;
+  .reviews-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.85rem !important;
+  }
+
+  .review-card {
+    width: 100% !important;
+    padding: 1rem !important;
   }
 
   /* Demo panel */
@@ -1206,9 +1203,7 @@ select {
     font-size: 1.45rem !important;
   }
 
-  .review-card {
-    width: 190px !important;
-  }
+  .review-card { width: 100% !important; }
 
   .hero-title {
     font-size: 1.75rem !important;
@@ -1217,7 +1212,5 @@ select {
 
 /* ── Reduced motion ───────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  .reviews-track {
-    animation: none !important;
-  }
+  .review-card { transition: none !important; }
 }
