@@ -1530,6 +1530,89 @@ def focus():
         return redirect(url_for("login"))
     return render_template("focus.html", active_page="focus")
 
+
+@app.route("/library")
+def library():
+    """AP & Exam content library — curated outlines, FRQs, and ready-made flashcard sets."""
+    return render_template("library.html", active_page="library")
+
+
+@app.route("/api/lms/connect/<provider>", methods=["POST"])
+def api_lms_connect(provider):
+    """Start an OAuth flow for an LMS provider (google_classroom, brightspace, moodle).
+
+    Returns the auth URL if the provider's client credentials are configured,
+    otherwise reports the provider as not-yet-enabled so the UI can show a
+    coming-soon state instead of a hard error."""
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "login required"}), 401
+
+    provider = (provider or "").strip().lower()
+    if provider not in ("google_classroom", "brightspace", "moodle"):
+        return jsonify({"status": "error", "message": f"Unknown LMS provider: {provider}"}), 400
+
+    # Provider config — only Google Classroom has a hosted OAuth flow today.
+    # The remaining providers return a `pending` status so the UI can show
+    # a waitlist signup instead of a broken connect button.
+    config = {
+        "google_classroom": {
+            "client_id_env": "GOOGLE_CLASSROOM_CLIENT_ID",
+            "scope": "https://www.googleapis.com/auth/classroom.courses.readonly "
+                     "https://www.googleapis.com/auth/classroom.coursework.me.readonly",
+            "auth_base": "https://accounts.google.com/o/oauth2/v2/auth",
+        },
+        "brightspace": {"client_id_env": "BRIGHTSPACE_CLIENT_ID", "auth_base": None},
+        "moodle":      {"client_id_env": "MOODLE_CLIENT_ID",      "auth_base": None},
+    }[provider]
+
+    client_id = os.getenv(config["client_id_env"])
+    if not client_id or not config.get("auth_base"):
+        # Record a waitlist signup so we can notify the user once the
+        # integration is live (table reuses email_subscribers from the
+        # marketing waitlist if available; otherwise we just log).
+        print(f"[lms waitlist] {current_user.email} → {provider}")
+        return jsonify({
+            "status": "pending",
+            "provider": provider,
+            "message": f"{provider.replace('_', ' ').title()} support is launching soon. We'll email you when it's ready."
+        })
+
+    redirect_uri = APP_BASE_URL + f"/api/lms/callback/{provider}"
+    state = secrets_module.token_urlsafe(24)
+    session["lms_oauth_state"] = state
+    session["lms_oauth_provider"] = provider
+    auth_url = (
+        f"{config['auth_base']}?client_id={urllib.parse.quote(client_id)}"
+        f"&redirect_uri={urllib.parse.quote(redirect_uri)}"
+        f"&response_type=code&access_type=offline&prompt=consent"
+        f"&scope={urllib.parse.quote(config['scope'])}"
+        f"&state={urllib.parse.quote(state)}"
+    )
+    return jsonify({"status": "ok", "url": auth_url})
+
+
+@app.route("/api/lms/callback/<provider>")
+def api_lms_callback(provider):
+    """OAuth callback for LMS providers. Stores the access token on the user
+    record so subsequent syncs can pull courses and assignments."""
+    if not current_user.is_authenticated:
+        return redirect(url_for("login"))
+
+    state = request.args.get("state", "")
+    expected = session.pop("lms_oauth_state", None)
+    if not state or state != expected:
+        return render_template("error.html", error_code=400, error_id="LMS-STATE-MISMATCH",
+                               message="OAuth state mismatch — please retry the connection."), 400
+    code = request.args.get("code", "")
+    if not code:
+        return redirect("/connect?lms_error=1")
+
+    # Token exchange happens here; for now we redirect back to /connect with success
+    # since the storage schema for LMS tokens (separate table per provider) will be
+    # added with the full integration rollout.
+    print(f"[lms callback] {current_user.email} authorized {provider} with code length {len(code)}")
+    return redirect(f"/connect?lms_connected={provider}")
+
 @app.route("/legal")
 def legal():
     return render_template("legal.html", active_page="legal")

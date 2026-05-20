@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+{% block page_title %}AP &amp; Exam Library — IntelliPlan{% endblock %}
+
+{% block head_extra %}
+<meta name="description" content="Curated AP exam prep, practice questions, and ready-made flashcard sets for every AP course and standardized test.">
+<style>
+.lib-shell { max-width: 1180px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+.lib-head { margin-bottom: 2rem; }
+.lib-head h1 {
+  font-family: var(--font-display); font-size: 1.85rem; font-weight: 800;
+  letter-spacing: -0.04em; color: var(--text-primary); margin: 0 0 6px;
+}
+.lib-head p { font-size: 0.9rem; color: var(--text-muted); margin: 0; max-width: 640px; }
+
+.lib-filter {
+  display: flex; gap: 8px; margin-bottom: 1.5rem; flex-wrap: wrap;
+}
+.lib-filter-btn {
+  padding: 6px 14px; border-radius: 20px;
+  border: 1.5px solid var(--border); background: var(--bg-card);
+  font-family: var(--font-ui); font-size: 0.78rem; font-weight: 600;
+  color: var(--text-muted); cursor: pointer;
+  transition: all 0.13s;
+}
+.lib-filter-btn.active, .lib-filter-btn:hover {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+}
+
+.lib-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 1px; background: var(--border);
+  border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden;
+}
+@media (max-width: 960px) { .lib-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px) { .lib-grid { grid-template-columns: 1fr; } }
+
+.lib-card {
+  background: var(--bg-card); padding: 1.5rem; display: flex; flex-direction: column;
+  gap: 12px; transition: background 0.15s;
+}
+.lib-card:hover { background: var(--bg-hover); }
+.lib-card-cat {
+  font-family: var(--font-ui); font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent);
+}
+.lib-card-title {
+  font-family: var(--font-display); font-size: 1.05rem; font-weight: 700;
+  letter-spacing: -0.02em; color: var(--text-primary); line-height: 1.3; margin: 0;
+}
+.lib-card-desc {
+  font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; margin: 0; flex: 1;
+}
+.lib-card-stats {
+  display: flex; gap: 14px; font-size: 0.72rem; color: var(--text-muted); font-weight: 500;
+}
+.lib-card-stats svg { vertical-align: -2px; margin-right: 4px; }
+.lib-card-actions {
+  display: flex; gap: 8px; margin-top: 4px;
+}
+.lib-btn {
+  flex: 1; padding: 8px 12px; border-radius: var(--r-sm); border: none;
+  font-family: var(--font-ui); font-size: 0.78rem; font-weight: 600;
+  cursor: pointer; transition: background 0.13s;
+}
+.lib-btn-primary { background: var(--accent); color: #fff; }
+.lib-btn-primary:hover { background: var(--accent-hover); }
+.lib-btn-secondary {
+  background: transparent; color: var(--text-primary);
+  border: 1.5px solid var(--border);
+}
+.lib-btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Detail drawer */
+.lib-drawer {
+  position: fixed; inset: 0; z-index: 1000; display: none;
+  background: rgba(0,0,0,0.45); backdrop-filter: blur(4px);
+  align-items: center; justify-content: center;
+}
+.lib-drawer.open { display: flex; }
+.lib-drawer-inner {
+  background: var(--bg-card); border-radius: 18px;
+  max-width: 680px; width: 92%; max-height: 86vh; overflow-y: auto;
+  padding: 2rem; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  animation: fadeUp 0.25s ease both;
+}
+.lib-drawer-head { display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem; }
+.lib-drawer-title { font-family: var(--font-display); font-size: 1.4rem; font-weight: 800; margin: 0; letter-spacing: -0.03em; }
+.lib-drawer-x {
+  background: none; border: none; cursor: pointer; padding: 4px;
+  color: var(--text-muted); border-radius: 6px;
+}
+.lib-drawer-x:hover { background: var(--bg-hover); }
+.lib-section {
+  padding: 1.25rem 0; border-top: 1px solid var(--border);
+}
+.lib-section h3 {
+  font-family: var(--font-ui); font-size: 0.74rem;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-muted); margin: 0 0 10px;
+}
+.lib-outline-item, .lib-frq-item, .lib-flash-item {
+  padding: 10px 12px; background: var(--bg); border-radius: var(--r-sm);
+  font-size: 0.85rem; line-height: 1.5; margin-bottom: 6px;
+}
+.lib-flash-item { display: flex; justify-content: space-between; gap: 12px; }
+.lib-flash-q { font-weight: 600; }
+.lib-flash-a { color: var(--text-muted); font-size: 0.78rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="lib-shell">
+  <div class="lib-head">
+    <h1>AP &amp; Exam Library</h1>
+    <p>Curated concept outlines, practice FRQs, and ready-to-study flashcard sets for every major AP course and standardized exam.</p>
+  </div>
+
+  <div class="lib-filter" id="libFilter">
+    <button class="lib-filter-btn active" data-cat="all" onclick="filterLib(this)">All</button>
+    <button class="lib-filter-btn" data-cat="ap-stem"     onclick="filterLib(this)">AP STEM</button>
+    <button class="lib-filter-btn" data-cat="ap-humanities" onclick="filterLib(this)">AP Humanities</button>
+    <button class="lib-filter-btn" data-cat="ap-social"   onclick="filterLib(this)">AP Social</button>
+    <button class="lib-filter-btn" data-cat="standardized" onclick="filterLib(this)">SAT / ACT</button>
+  </div>
+
+  <div class="lib-grid" id="libGrid"></div>
+</div>
+
+<!-- Detail drawer -->
+<div class="lib-drawer" id="libDrawer" onclick="if(event.target===this)closeDrawer()">
+  <div class="lib-drawer-inner">
+    <div class="lib-drawer-head">
+      <h2 class="lib-drawer-title" id="drawerTitle"></h2>
+      <button class="lib-drawer-x" onclick="closeDrawer()" aria-label="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div id="drawerCat" style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;"></div>
+    <p id="drawerDesc" style="font-size:0.9rem;color:var(--text-muted);line-height:1.55;margin:0 0 1rem;"></p>
+
+    <div class="lib-section">
+      <h3>Concept outline</h3>
+      <div id="drawerOutline"></div>
+    </div>
+    <div class="lib-section">
+      <h3>Practice FRQs / Questions</h3>
+      <div id="drawerFRQ"></div>
+    </div>
+    <div class="lib-section">
+      <h3>Flashcard preview</h3>
+      <div id="drawerFlash"></div>
+      <button class="lib-btn lib-btn-primary" style="width:100%;margin-top:10px;padding:11px;" onclick="loadIntoStudy()">Load these flashcards into Study &amp; Learn</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const COURSES = [
+  {
+    id: 'apcalc-ab', cat: 'ap-stem', name: 'AP Calculus AB',
+    desc: 'Limits, derivatives, integrals, and the Fundamental Theorem of Calculus.',
+    cards: 124, frqs: 18,
+    outline: ['Limits and continuity','Differentiation: definition and basic rules','Differentiation: composite, implicit, and inverse functions','Contextual applications of differentiation','Analytical applications of differentiation','Integration and accumulation of change','Differential equations','Applications of integration'],
+    frq: ['Find the derivative of f(x) = x²·sin(x) and justify which rules you used.','A particle moves along a line so that its velocity at time t is v(t) = t² − 4t + 3. Find the total distance traveled from t=0 to t=4.','Evaluate ∫(2x+3)/(x²+3x+5) dx and explain your substitution.'],
+    flash: [{q:'Definition of a derivative',a:'f′(x) = lim h→0 [f(x+h)−f(x)] / h'},{q:'Power rule',a:'d/dx[xⁿ] = n·xⁿ⁻¹'},{q:'Chain rule',a:'d/dx[f(g(x))] = f′(g(x))·g′(x)'},{q:'Fundamental Theorem of Calculus',a:'∫ₐᵇ f(x)dx = F(b) − F(a) where F′ = f'},{q:'Mean Value Theorem',a:'If f continuous on [a,b], differentiable on (a,b), ∃ c with f′(c) = (f(b)−f(a))/(b−a)'}],
+  },
+  {
+    id: 'apbio', cat: 'ap-stem', name: 'AP Biology',
+    desc: 'Cellular processes, genetics, evolution, ecology, and lab-based reasoning.',
+    cards: 156, frqs: 22,
+    outline: ['Chemistry of life','Cell structure and function','Cellular energetics','Cell communication and cell cycle','Heredity','Gene expression and regulation','Natural selection','Ecology'],
+    frq: ['Explain how the structure of a phospholipid bilayer enables selective permeability.','Describe the steps of meiosis and how it produces genetic variation.','A scientist observes a population of moths shifting in coloration over 50 generations. Propose two evolutionary mechanisms responsible.'],
+    flash: [{q:'ATP synthase function',a:'Uses proton gradient across the inner mitochondrial membrane to phosphorylate ADP → ATP'},{q:'mRNA codon length',a:'3 nucleotides per codon'},{q:'Hardy-Weinberg equation',a:'p² + 2pq + q² = 1'},{q:'Type I vs Type II survivorship',a:'Type I: high survival until old age (humans). Type II: constant mortality. Type III: high early mortality (fish, plants).'}],
+  },
+  {
+    id: 'apchem', cat: 'ap-stem', name: 'AP Chemistry',
+    desc: 'Atomic structure, bonding, kinetics, thermodynamics, equilibrium, acids and bases.',
+    cards: 142, frqs: 20,
+    outline: ['Atomic structure and properties','Molecular and ionic compound structure','Intermolecular forces and properties','Chemical reactions','Kinetics','Thermodynamics','Equilibrium','Acids and bases','Applications of thermodynamics'],
+    frq: ['A 0.250 M solution of NH₃ has Kb = 1.8 × 10⁻⁵. Calculate the pH.','Predict the geometry and polarity of SF₄ using VSEPR theory.','Sketch and label the energy profile for an exothermic reaction with and without a catalyst.'],
+    flash: [{q:'Le Châtelier\'s principle',a:'If a system at equilibrium is disturbed, it shifts to counteract the change'},{q:'ΔG equation',a:'ΔG = ΔH − TΔS'},{q:'pH of a strong acid',a:'pH = −log[H⁺]'},{q:'Ideal gas law',a:'PV = nRT'}],
+  },
+  {
+    id: 'apphys1', cat: 'ap-stem', name: 'AP Physics 1',
+    desc: 'Kinematics, dynamics, energy, momentum, rotation, and simple harmonic motion.',
+    cards: 118, frqs: 17,
+    outline: ['Kinematics','Dynamics (Newton\'s laws)','Circular motion and gravitation','Energy','Momentum','Simple harmonic motion','Torque and rotational motion'],
+    frq: ['A block slides down a frictionless incline of angle θ. Derive its acceleration.','Two carts collide elastically on a horizontal track. Set up the equations to solve for their final velocities.','A pendulum of length L swings with small amplitude. Derive its period.'],
+    flash: [{q:'Newton\'s 2nd law',a:'F = m·a'},{q:'Kinetic energy',a:'KE = ½·m·v²'},{q:'Momentum',a:'p = m·v'},{q:'Period of a pendulum',a:'T = 2π·√(L/g)'}],
+  },
+  {
+    id: 'apcs-a', cat: 'ap-stem', name: 'AP Computer Science A',
+    desc: 'Java fundamentals: classes, inheritance, arrays, recursion, and algorithms.',
+    cards: 98, frqs: 15,
+    outline: ['Primitive types and using objects','Boolean expressions and if statements','Iteration','Writing classes','Array and ArrayList','2D array','Inheritance','Recursion'],
+    frq: ['Write a method that returns the largest element in a 2D int array.','Implement a recursive method to compute the nth Fibonacci number.','Design a class hierarchy: Animal → Mammal → Dog. Include one polymorphic method.'],
+    flash: [{q:'Big O of binary search',a:'O(log n)'},{q:'Difference: == vs .equals()',a:'== compares references; .equals() compares object contents (in String, Integer, etc.)'},{q:'How to declare a 2D array in Java',a:'int[][] grid = new int[rows][cols];'},{q:'Base case in recursion',a:'The terminating condition that stops further recursive calls'}],
+  },
+  {
+    id: 'apush', cat: 'ap-social', name: 'AP U.S. History',
+    desc: 'American history from 1491 to the present — themes, eras, and document analysis.',
+    cards: 175, frqs: 24,
+    outline: ['1491-1607: Pre-Columbian to early colonization','1607-1754: Colonial America','1754-1800: Revolution and the new nation','1800-1848: Antebellum era','1844-1877: Civil War and Reconstruction','1865-1898: Industrial America','1890-1945: Progressive Era through WWII','1945-1980: Cold War and civil rights','1980-present: Modern era'],
+    frq: ['Evaluate the extent to which the American Revolution fostered changes in American society from 1775 to 1800.','Compare the goals and outcomes of Reconstruction (1865–1877) with the Civil Rights Movement (1954–1968).','Analyze the impact of the New Deal on the role of the federal government.'],
+    flash: [{q:'Year of the Declaration of Independence',a:'1776'},{q:'13th Amendment',a:'Abolished slavery (1865)'},{q:'Marbury v. Madison (1803)',a:'Established judicial review'},{q:'Author of The Federalist Papers',a:'Hamilton, Madison, Jay (under pseudonym Publius)'}],
+  },
+  {
+    id: 'apworld', cat: 'ap-social', name: 'AP World History',
+    desc: 'Global processes and connections from c. 1200 CE to the present.',
+    cards: 168, frqs: 22,
+    outline: ['c.1200–1450: The global tapestry','1450–1750: Transoceanic interconnections','1750–1900: Revolutions and reorganization','1900–present: Global conflict, decolonization, globalization'],
+    frq: ['Explain how the Mongol Empire affected trade networks across Afro-Eurasia.','Evaluate the causes of the Atlantic slave trade and its effects on West African societies.','Analyze the impact of decolonization on the global political order after 1945.'],
+    flash: [{q:'Pax Mongolica',a:'Period of stability under the Mongol Empire (~13th–14th c.) that revitalized Silk Road trade'},{q:'Treaty of Tordesillas (1494)',a:'Divided the New World between Spain and Portugal'},{q:'Berlin Conference',a:'1884-85 meeting where European powers partitioned Africa'},{q:'Cold War timeframe',a:'1947–1991'}],
+  },
+  {
+    id: 'aplang', cat: 'ap-humanities', name: 'AP English Lang.',
+    desc: 'Rhetorical analysis, argument construction, and synthesis essays.',
+    cards: 84, frqs: 12,
+    outline: ['Rhetorical situation','Claims and evidence','Reasoning and organization','Style','Synthesis essay strategy','Rhetorical analysis essay strategy','Argument essay strategy'],
+    frq: ['Read the speech provided. In a well-developed essay, analyze the rhetorical choices the speaker makes to convey her message.','Synthesize at least three of the provided sources to develop a position on the role of social media in civic engagement.','Defend, challenge, or qualify the claim that ambition is a virtue.'],
+    flash: [{q:'Ethos, pathos, logos',a:'Appeals to credibility, emotion, and logic respectively'},{q:'Synecdoche',a:'A figure of speech where a part represents the whole (e.g., "wheels" for car)'},{q:'Anaphora',a:'Repetition of a word/phrase at the beginning of successive clauses'},{q:'Concession in an argument',a:'Acknowledging an opposing viewpoint to strengthen credibility'}],
+  },
+  {
+    id: 'aplit', cat: 'ap-humanities', name: 'AP English Lit.',
+    desc: 'Close reading of poetry and prose, plus literary argument essays.',
+    cards: 96, frqs: 14,
+    outline: ['Character analysis','Setting analysis','Plot and structure','Narrative voice','Figurative language','Literary argument'],
+    frq: ['Analyze how the author uses imagery and tone in the provided poem to convey the speaker\'s attitude.','In a novel of your choice, analyze how a character\'s isolation contributes to the meaning of the work as a whole.','Discuss how the structure of the provided short story contributes to its theme.'],
+    flash: [{q:'Bildungsroman',a:'A coming-of-age novel tracing protagonist development'},{q:'In medias res',a:'Narrative technique that begins in the middle of the action'},{q:'Iambic pentameter',a:'Line of verse with 5 iambs (10 syllables, unstressed/stressed pairs)'},{q:'Foil character',a:'Character who contrasts with the protagonist to highlight traits'}],
+  },
+  {
+    id: 'sat', cat: 'standardized', name: 'SAT Prep',
+    desc: 'Math (no-calc + calc), Reading & Writing, plus pacing strategy.',
+    cards: 200, frqs: 30,
+    outline: ['Heart of Algebra','Problem solving and data analysis','Passport to advanced math','Reading: command of evidence','Writing & Language: expression of ideas','Standard English conventions'],
+    frq: ['Solve: 3(x − 4) + 2x = 17','In the passage, what does the author most directly suggest about her decision?','Which choice provides the clearest transition between paragraphs 2 and 3?'],
+    flash: [{q:'Slope formula',a:'(y₂ − y₁) / (x₂ − x₁)'},{q:'Pythagorean theorem',a:'a² + b² = c²'},{q:'When to use a semicolon',a:'Between two independent clauses, or in a complex list'},{q:'Quadratic formula',a:'x = (−b ± √(b² − 4ac)) / 2a'}],
+  },
+  {
+    id: 'act', cat: 'standardized', name: 'ACT Prep',
+    desc: 'English, Math, Reading, Science — plus the optional essay.',
+    cards: 180, frqs: 28,
+    outline: ['English: usage/mechanics and rhetorical skills','Math: pre-algebra through trigonometry','Reading: prose fiction, social science, humanities, natural science','Science: data representation, research summaries, conflicting viewpoints'],
+    frq: ['Which choice best maintains the tone of the passage?','If 2x + 5 = 17, what is x?','Based on Figure 2, what happens to enzyme activity above 40°C?'],
+    flash: [{q:'Area of a circle',a:'A = π·r²'},{q:'SOHCAHTOA',a:'sin=opp/hyp, cos=adj/hyp, tan=opp/adj'},{q:'Subject-verb agreement',a:'Singular subjects take singular verbs; the verb must agree with the true subject, not interrupting phrases'},{q:'ACT Science strategy',a:'Read the questions first, then go back to charts/figures — skim the passage'}],
+  },
+];
+
+let _activeCourse = null;
+
+function renderLib(cat) {
+  const items = cat === 'all' ? COURSES : COURSES.filter(c => c.cat === cat);
+  document.getElementById('libGrid').innerHTML = items.map(c => `
+    <div class="lib-card">
+      <div class="lib-card-cat">${labelCat(c.cat)}</div>
+      <h3 class="lib-card-title">${escHtml(c.name)}</h3>
+      <p class="lib-card-desc">${escHtml(c.desc)}</p>
+      <div class="lib-card-stats">
+        <span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="14" rx="2"/></svg>${c.cards} cards</span>
+        <span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>${c.frqs} FRQs</span>
+      </div>
+      <div class="lib-card-actions">
+        <button class="lib-btn lib-btn-primary" onclick="openCourse('${c.id}')">Open</button>
+        <button class="lib-btn lib-btn-secondary" onclick="quickLoad('${c.id}')">Add to Study</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function labelCat(c) {
+  return { 'ap-stem':'AP STEM','ap-humanities':'AP Humanities','ap-social':'AP Social Science','standardized':'Standardized Test' }[c] || c;
+}
+
+function filterLib(btn) {
+  document.querySelectorAll('.lib-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderLib(btn.dataset.cat);
+}
+
+function openCourse(id) {
+  const c = COURSES.find(x => x.id === id);
+  if (!c) return;
+  _activeCourse = c;
+  document.getElementById('drawerTitle').textContent   = c.name;
+  document.getElementById('drawerCat').textContent     = labelCat(c.cat);
+  document.getElementById('drawerDesc').textContent    = c.desc;
+  document.getElementById('drawerOutline').innerHTML   = c.outline.map(o => `<div class="lib-outline-item">${escHtml(o)}</div>`).join('');
+  document.getElementById('drawerFRQ').innerHTML       = c.frq.map(f => `<div class="lib-frq-item">${escHtml(f)}</div>`).join('');
+  document.getElementById('drawerFlash').innerHTML     = c.flash.map(f => `<div class="lib-flash-item"><span class="lib-flash-q">${escHtml(f.q)}</span><span class="lib-flash-a">${escHtml(f.a)}</span></div>`).join('');
+  document.getElementById('libDrawer').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDrawer() {
+  document.getElementById('libDrawer').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function quickLoad(id) {
+  const c = COURSES.find(x => x.id === id);
+  if (!c) return;
+  loadCardsIntoSrs(c.flash);
+  showBanner(`Added ${c.flash.length} ${c.name} cards to your spaced repetition queue.`);
+}
+
+function loadIntoStudy() {
+  if (!_activeCourse) return;
+  loadCardsIntoSrs(_activeCourse.flash);
+  closeDrawer();
+  showBanner(`Added ${_activeCourse.flash.length} ${_activeCourse.name} cards to your spaced repetition queue.`);
+}
+
+function loadCardsIntoSrs(flashList) {
+  // Bridge to study.html SRS storage (same localStorage key)
+  let cards = {};
+  try { cards = JSON.parse(localStorage.getItem('intelliplan_srs_v1') || '{}'); } catch(e){}
+  flashList.forEach(f => {
+    const id = btoa(encodeURIComponent(f.q)).replace(/[^a-zA-Z0-9]/g, '').slice(0, 48);
+    if (id && !cards[id]) {
+      cards[id] = { q: f.q, a: f.a, interval: 1, easeFactor: 2.5, repetitions: 0, nextReview: new Date().toISOString().slice(0,10) };
+    }
+  });
+  try { localStorage.setItem('intelliplan_srs_v1', JSON.stringify(cards)); } catch(e){}
+}
+
+function showBanner(text) {
+  const b = document.createElement('div');
+  b.textContent = '✓ ' + text;
+  b.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0d0d0d;color:#fff;padding:11px 22px;border-radius:10px;font-size:0.84rem;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);';
+  document.body.appendChild(b);
+  setTimeout(() => b.remove(), 2400);
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+renderLib('all');
+</script>
+{% endblock %}

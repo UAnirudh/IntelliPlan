@@ -1781,23 +1781,38 @@ function renderReviewTab() {
   loadDueReviews();
 }
 
+// Seed sample SRS cards on first visit so the feature is discoverable
+function srsSeedIfEmpty() {
+  const cards = srsLoad();
+  if (Object.keys(cards).length > 0) return;
+  const samples = [
+    { q: 'What is the derivative of sin(x)?',                          a: 'cos(x)' },
+    { q: 'In photosynthesis, what gas do plants release?',             a: 'Oxygen (O₂)' },
+    { q: 'Who wrote "The Great Gatsby"?',                              a: 'F. Scott Fitzgerald' },
+    { q: 'What is the time complexity of binary search?',              a: 'O(log n)' },
+    { q: 'What year did World War II end?',                            a: '1945' },
+  ];
+  srsRegisterQuestions(samples.map(s => ({ question: s.q, answer: s.a })));
+}
+
 async function loadDueReviews() {
+  srsSeedIfEmpty();
   const due = srsDueCards();
+  document.getElementById('reviewDueWrap').style.display = 'block';
+  document.getElementById('srsCountBadge').textContent = due.length + ' due';
   if (due.length) {
-    document.getElementById('reviewDueWrap').style.display = 'block';
-    document.getElementById('srsCountBadge').textContent = due.length + ' due';
     startSrsSession();
   } else {
-    document.getElementById('reviewDueWrap').style.display = 'none';
+    document.getElementById('srsSession').style.display = 'none';
+    document.getElementById('srsDoneMsg').style.display  = 'block';
+    document.getElementById('srsDoneMsg').innerHTML = `
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+      <div style="font-weight:700;font-size:1rem;margin-top:8px;">All caught up!</div>
+      <div style="font-size:0.82rem;color:var(--txm);margin-top:4px;">Your next cards are scheduled for future days.</div>
+    `;
   }
-  // Also try server-side mastery endpoint
-  try {
-    const r = await fetch('/study/mastery/due');
-    const d = await r.json();
-    if (d.length && !due.length) {
-      document.getElementById('reviewDueWrap').style.display = 'block';
-    }
-  } catch(e) {}
+  // Also try server-side mastery endpoint (non-blocking)
+  try { await fetch('/study/mastery/due'); } catch(e) {}
 }
 
 // ══ MASTERY TAB ═══════════════════════════════════════════
