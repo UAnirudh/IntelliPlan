@@ -5,24 +5,23 @@
 <meta name="description" content="Stay focused with IntelliPlan's Pomodoro timer. 25-minute deep work sessions with short breaks to maximize your study efficiency.">
 <style>
 .focus-shell {
-  max-width: 680px;
+  max-width: 720px;
   margin: 0 auto;
-  padding: 2.5rem 1.5rem 4rem;
+  padding: 1.5rem 1.5rem 3rem;
 }
 .focus-header {
-  text-align: center;
-  margin-bottom: 2.5rem;
+  margin-bottom: 1.5rem;
 }
 .focus-header h1 {
   font-family: var(--font-display);
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   font-weight: 800;
   letter-spacing: -0.04em;
   color: var(--text-primary);
-  margin: 0 0 6px;
+  margin: 0 0 4px;
 }
 .focus-header p {
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   color: var(--text-muted);
   margin: 0;
 }
@@ -61,8 +60,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 .focus-ring-svg {
   transform: rotate(-90deg);
@@ -208,24 +207,31 @@
 .focus-stats {
   display: flex; gap: 1px;
   background: var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--r-md);
   overflow: hidden;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 .focus-stat {
   flex: 1; background: var(--bg-card);
-  padding: 0.75rem 1rem;
+  padding: 0.6rem 0.75rem;
   text-align: center;
 }
 .focus-stat-num {
   font-family: var(--font-display);
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   font-weight: 800;
   letter-spacing: -0.03em;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
+  line-height: 1.1;
 }
-.focus-stat-lbl { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+.focus-stat-lbl { font-size: 0.66rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 3px; }
+.focus-task-card { padding: 1rem 1.25rem; margin-bottom: 1.25rem; }
+.focus-log-card  { padding: 1rem 1.25rem; }
+.focus-ring-container { width: 200px; height: 200px; }
+.focus-ring-svg { width: 200px; height: 200px; }
+.focus-clock { font-size: 2.8rem; }
 </style>
 {% endblock %}
 
