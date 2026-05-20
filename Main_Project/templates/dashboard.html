@@ -1464,6 +1464,7 @@ function closeNewTaskModal() {
 }
 
 // ── Syllabus Import ────────────────────────────────────────────
+function _sEsc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 let _syllabusAssignments = [];
 
 function openSyllabusModal() {
@@ -1524,9 +1525,9 @@ function renderSyllabusResults(items) {
     <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer;background:var(--bg);">
       <input type="checkbox" checked data-idx="${i}" style="margin-top:3px;accent-color:var(--accent);flex-shrink:0;">
       <div style="flex:1;min-width:0;">
-        <div style="font-weight:600;font-size:0.86rem;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(item.title || 'Untitled')}</div>
-        <div style="font-size:0.76rem;color:var(--text-muted);margin-top:2px;">${item.course ? escHtml(item.course) + ' · ' : ''}${item.due_date || 'No date'}</div>
-        ${item.description ? `<div style="font-size:0.76rem;color:var(--text-muted);margin-top:2px;">${escHtml(item.description)}</div>` : ''}
+        <div style="font-weight:600;font-size:0.86rem;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_sEsc(item.title || 'Untitled')}</div>
+        <div style="font-size:0.76rem;color:var(--text-muted);margin-top:2px;">${item.course ? _sEsc(item.course) + ' · ' : ''}${item.due_date || 'No date'}</div>
+        ${item.description ? `<div style="font-size:0.76rem;color:var(--text-muted);margin-top:2px;">${_sEsc(item.description)}</div>` : ''}
       </div>
     </label>
   `).join('');
@@ -1538,27 +1539,34 @@ async function importSelectedSyllabus() {
   const selected = Array.from(checks).map(cb => _syllabusAssignments[parseInt(cb.dataset.idx)]);
   if (!selected.length) { alert('Select at least one assignment to add.'); return; }
 
+  const btn = document.querySelector('#syllabusResults .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Adding…'; }
+
   let added = 0;
   for (const item of selected) {
     try {
-      await fetch('/api/tasks', {
+      const res = await fetch('/tasks/manual/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: item.title,
-          due_date: item.due_date || null,
-          course: item.course || '',
+          title: item.title || 'Untitled',
+          due_date: item.due_date || '',
+          course: item.course || 'Personal',
           notes: item.description || '',
-          source: 'manual',
-          priority: 'medium',
+          priority: 'Medium',
+          estimated_time: 60,
         }),
       });
-      added++;
+      if (res.ok) added++;
     } catch (e) { /* skip individual failures */ }
   }
   closeSyllabusModal();
-  showToast(`Added ${added} assignment${added !== 1 ? 's' : ''} from syllabus.`);
-  setTimeout(() => location.reload(), 900);
+  // Show a brief banner then reload
+  const banner = document.createElement('div');
+  banner.textContent = `✓ Added ${added} assignment${added !== 1 ? 's' : ''} from syllabus`;
+  banner.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0d0d0d;color:#fff;padding:10px 22px;border-radius:10px;font-size:0.84rem;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);';
+  document.body.appendChild(banner);
+  setTimeout(() => { banner.remove(); location.reload(); }, 1800);
 }
 
 async function createManualTask() {
