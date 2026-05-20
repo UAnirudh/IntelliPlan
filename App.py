@@ -1524,6 +1524,12 @@ def streak():
         return redirect(url_for("login"))
     return render_template("streak.html", active_page="streak")
 
+@app.route("/focus")
+def focus():
+    if not is_logged_in():
+        return redirect(url_for("login"))
+    return render_template("focus.html", active_page="focus")
+
 @app.route("/legal")
 def legal():
     return render_template("legal.html", active_page="legal")
@@ -6611,6 +6617,86 @@ def _ensure_migration_ran():
         _run_boot_migration_once()
     except Exception:
         pass
+
+
+@app.route("/api/syllabus/import", methods=["POST"])
+def api_syllabus_import():
+    """Extract assignments from an uploaded PDF syllabus using AI.
+    Returns a JSON list of {title, due_date, course, description} objects."""
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "login required"}), 401
+
+    if "file" not in request.files:
+        return jsonify({"status": "error", "message": "No file uploaded"}), 400
+
+    f = request.files["file"]
+    if not f.filename or not f.filename.lower().endswith(".pdf"):
+        return jsonify({"status": "error", "message": "Only PDF files are supported"}), 400
+
+    raw_text = ""
+    try:
+        try:
+            import pdfplumber
+            with pdfplumber.open(f) as pdf:
+                raw_text = "\n".join(
+                    page.extract_text() or "" for page in pdf.pages[:20]
+                )
+        except ImportError:
+            # Fallback: read raw bytes and try to extract ASCII text
+            f.seek(0)
+            data = f.read()
+            raw_text = data.decode("latin-1", errors="replace")
+            raw_text = re.sub(r"[^\x20-\x7E\n\t]", " ", raw_text)
+            raw_text = re.sub(r" {3,}", " ", raw_text)
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Could not read PDF: {e}"}), 422
+
+    if not raw_text.strip():
+        return jsonify({"status": "error", "message": "PDF appears to have no readable text"}), 422
+
+    truncated = raw_text[:6000]
+    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+    prompt = f"""You are a syllabus parser. Today is {today_str}.
+Extract every assignment, exam, quiz, project, or deadline from the syllabus text below.
+Return ONLY a valid JSON array — no markdown, no explanations — where each item has:
+  "title": short assignment name (string),
+  "due_date": due date as YYYY-MM-DD if determinable, else null,
+  "course": course name/code if visible (string or null),
+  "description": one-line description (string or null)
+
+Syllabus text:
+---
+{truncated}
+---
+JSON array:"""
+
+    try:
+        groq_key = os.getenv("GROQ_API_KEY")
+        if not groq_key:
+            return jsonify({"status": "error", "message": "AI extraction not configured"}), 503
+        client = Groq(api_key=groq_key)
+        resp = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1,
+            max_tokens=2000,
+            response_format={"type": "json_object"},
+        )
+        raw_json = resp.choices[0].message.content.strip()
+        # Model sometimes wraps in {"assignments": [...]}
+        parsed = json.loads(raw_json)
+        if isinstance(parsed, dict):
+            for key in ("assignments", "items", "tasks", "deadlines", "data"):
+                if isinstance(parsed.get(key), list):
+                    parsed = parsed[key]
+                    break
+        if not isinstance(parsed, list):
+            parsed = []
+    except Exception as e:
+        print(f"[syllabus import] AI parse error: {e}")
+        return jsonify({"status": "error", "message": "AI could not parse the syllabus"}), 500
+
+    return jsonify({"status": "ok", "assignments": parsed, "count": len(parsed)})
 
 
 if __name__ == "__main__":

@@ -1073,6 +1073,69 @@ def tutor():
         return jsonify({'reply': "Sorry, I hit a snag. Try again in a moment."})
 
 
+@chatbot_bp.route('/api/tutor/vision', methods=['POST'])
+def tutor_vision():
+    """Snap & Solve — accepts a base64 image + question, returns an AI explanation."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid JSON'}), 400
+        question  = (data.get('question') or '').strip() or 'What is shown in this image? Explain step by step.'
+        image_b64 = data.get('image_b64', '')
+        image_mime = data.get('image_mime') or 'image/jpeg'
+        subject   = data.get('subject') or 'General'
+        convo_id  = data.get('conversation_id')
+
+        if not image_b64:
+            return jsonify({'error': 'No image provided'}), 400
+
+        api_key = os.getenv('GROQ_API_KEY')
+        if not api_key:
+            return jsonify({'reply': 'Vision analysis requires a Groq API key with vision support.'}), 503
+
+        client = Groq(api_key=api_key)
+        vision_messages = [
+            {
+                'role': 'system',
+                'content': (
+                    f'You are Plani, an AI tutor for students. The student is studying {subject}. '
+                    'Analyse the image provided and give a clear, educational explanation. '
+                    'If it contains a math problem, solve it step by step. '
+                    'If it is a diagram, explain what it shows. '
+                    'Be concise and use plain language a student can understand.'
+                )
+            },
+            {
+                'role': 'user',
+                'content': [
+                    {'type': 'text', 'text': question},
+                    {'type': 'image_url', 'image_url': {'url': f'data:{image_mime};base64,{image_b64}'}},
+                ],
+            }
+        ]
+        resp = client.chat.completions.create(
+            model='meta-llama/llama-4-scout-17b-16e-instruct',
+            messages=vision_messages,
+            temperature=0.5,
+            max_tokens=800,
+        )
+        reply = resp.choices[0].message.content.strip()
+
+        # Persist to conversation history so context carries forward
+        convo_row = _get_conversation(int(convo_id)) if convo_id else None
+        stored = _safe_json((convo_row or {}).get('messages_json'), []) if convo_row else []
+        stored.append({'role': 'user', 'content': f'[Subject: {subject}]\n[Image attached] {question}'})
+        stored.append({'role': 'assistant', 'content': reply})
+        convo_row = _ensure_conversation(convo_row, stored)
+        _save_conversation(convo_row['id'], stored)
+
+        return jsonify({'reply': reply, 'conversation_id': convo_row['id']})
+
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({'reply': "I couldn't analyse that image. Try a clearer photo or describe the problem in text."})
+
+
 @chatbot_bp.route('/api/chatbot', methods=['POST'])
 def chatbot():
     try:

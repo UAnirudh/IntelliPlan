@@ -248,6 +248,7 @@
   </div>
   <div style="display:flex; gap:8px; flex-wrap:wrap;">
     <button onclick="openNewTaskModal()" class="btn-primary" style="padding:10px 20px; border:none; cursor:pointer; font-size:0.88rem;">+ New Task</button>
+    <button onclick="openSyllabusModal()" class="btn-secondary" style="padding:10px 20px; font-size:0.88rem; display:inline-flex; align-items:center; gap:6px;" title="Import assignments from a PDF syllabus"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>Import Syllabus</button>
     <button onclick="openIntegrationsModal()" class="btn-secondary" style="padding:10px 20px; font-size:0.88rem; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-settings"/></svg>Integrations</button>
     <button onclick="openSilenceModal()" class="btn-secondary" style="padding:10px 20px; font-size:0.88rem; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-bell-off"/></svg>Silence</button>
   </div>
@@ -578,6 +579,35 @@
         <label for="syncNotion" style="font-size:0.85rem; color:var(--text-secondary); cursor:pointer; display:inline-flex; align-items:center; gap:5px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-notion"/></svg>Also add to Notion</label>
       </div>
       <button onclick="createManualTask()" class="btn-primary" style="padding:14px; border:none; cursor:pointer; font-size:0.9rem;">Create Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- Syllabus Import Modal -->
+<div id="syllabusModal" style="display:none; position:fixed; inset:0; z-index:1010; background:rgba(0,0,0,0.45); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:520px; width:90%; box-shadow:var(--shadow-hover); animation:fadeUp 0.25s ease both; max-height:80vh; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+      <h2 style="font-family:var(--font-display); font-size:1.15rem; font-weight:800; color:var(--text-primary); margin:0;">Import Syllabus</h2>
+      <button onclick="closeSyllabusModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <p style="font-size:0.84rem; color:var(--text-muted); margin:0 0 1.25rem;">Upload your course syllabus PDF and Plani will extract all assignments and deadlines automatically.</p>
+
+    <!-- Upload area -->
+    <div id="syllabusDropZone" style="border:2px dashed var(--border); border-radius:14px; padding:2rem; text-align:center; cursor:pointer; transition:border-color 0.15s, background 0.15s;" onclick="document.getElementById('syllabusFileInput').click()" ondragover="event.preventDefault();this.style.borderColor='var(--accent)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="handleSyllabusDrop(event)">
+      <input type="file" id="syllabusFileInput" accept=".pdf" style="display:none;" onchange="handleSyllabusFile(this)">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" style="margin-bottom:10px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+      <div id="syllabusDropLabel" style="font-size:0.88rem; color:var(--text-muted);">Drop your PDF here or <span style="color:var(--accent); font-weight:600;">browse</span></div>
+    </div>
+
+    <!-- Status / results -->
+    <div id="syllabusStatus" style="display:none; margin-top:1rem; font-size:0.84rem; color:var(--text-muted); text-align:center;"></div>
+    <div id="syllabusResults" style="display:none; margin-top:1rem;">
+      <div style="font-family:var(--font-ui); font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); margin-bottom:8px;">Extracted assignments — select which to add:</div>
+      <div id="syllabusResultList" style="display:flex; flex-direction:column; gap:6px; max-height:280px; overflow-y:auto;"></div>
+      <div style="display:flex; gap:8px; margin-top:1.25rem; justify-content:flex-end;">
+        <button onclick="closeSyllabusModal()" class="btn-secondary" style="padding:9px 18px; font-size:0.84rem;">Cancel</button>
+        <button onclick="importSelectedSyllabus()" class="btn-primary" style="padding:9px 18px; border:none; cursor:pointer; font-size:0.84rem;">Add Selected Tasks</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1431,6 +1461,104 @@ function openNewTaskModal() {
 }
 function closeNewTaskModal() {
   document.getElementById('newTaskModal').style.display = 'none';
+}
+
+// ── Syllabus Import ────────────────────────────────────────────
+let _syllabusAssignments = [];
+
+function openSyllabusModal() {
+  document.getElementById('syllabusModal').style.display = 'flex';
+  document.getElementById('syllabusStatus').style.display = 'none';
+  document.getElementById('syllabusResults').style.display = 'none';
+  document.getElementById('syllabusDropLabel').innerHTML = 'Drop your PDF here or <span style="color:var(--accent);font-weight:600;">browse</span>';
+  document.getElementById('syllabusFileInput').value = '';
+  _syllabusAssignments = [];
+}
+function closeSyllabusModal() {
+  document.getElementById('syllabusModal').style.display = 'none';
+}
+
+function handleSyllabusDrop(e) {
+  e.preventDefault();
+  document.getElementById('syllabusDropZone').style.borderColor = 'var(--border)';
+  const file = e.dataTransfer.files[0];
+  if (file) processSyllabusFile(file);
+}
+function handleSyllabusFile(input) {
+  const file = input.files[0];
+  if (file) processSyllabusFile(file);
+}
+
+async function processSyllabusFile(file) {
+  if (!file.name.toLowerCase().endsWith('.pdf')) {
+    alert('Please upload a PDF file.');
+    return;
+  }
+  document.getElementById('syllabusDropLabel').textContent = file.name;
+  const status = document.getElementById('syllabusStatus');
+  status.style.display = 'block';
+  status.textContent = 'Analysing syllabus with AI…';
+  document.getElementById('syllabusResults').style.display = 'none';
+
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const res = await fetch('/api/syllabus/import', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok || data.status !== 'ok') throw new Error(data.message || 'Import failed');
+    _syllabusAssignments = data.assignments || [];
+    if (!_syllabusAssignments.length) {
+      status.textContent = 'No assignments found in this PDF. Try a different file.';
+      return;
+    }
+    status.style.display = 'none';
+    renderSyllabusResults(_syllabusAssignments);
+  } catch (err) {
+    status.textContent = 'Error: ' + err.message;
+  }
+}
+
+function renderSyllabusResults(items) {
+  const list = document.getElementById('syllabusResultList');
+  list.innerHTML = items.map((item, i) => `
+    <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer;background:var(--bg);">
+      <input type="checkbox" checked data-idx="${i}" style="margin-top:3px;accent-color:var(--accent);flex-shrink:0;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:0.86rem;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(item.title || 'Untitled')}</div>
+        <div style="font-size:0.76rem;color:var(--text-muted);margin-top:2px;">${item.course ? escHtml(item.course) + ' · ' : ''}${item.due_date || 'No date'}</div>
+        ${item.description ? `<div style="font-size:0.76rem;color:var(--text-muted);margin-top:2px;">${escHtml(item.description)}</div>` : ''}
+      </div>
+    </label>
+  `).join('');
+  document.getElementById('syllabusResults').style.display = 'block';
+}
+
+async function importSelectedSyllabus() {
+  const checks = document.querySelectorAll('#syllabusResultList input[type=checkbox]:checked');
+  const selected = Array.from(checks).map(cb => _syllabusAssignments[parseInt(cb.dataset.idx)]);
+  if (!selected.length) { alert('Select at least one assignment to add.'); return; }
+
+  let added = 0;
+  for (const item of selected) {
+    try {
+      await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: item.title,
+          due_date: item.due_date || null,
+          course: item.course || '',
+          notes: item.description || '',
+          source: 'manual',
+          priority: 'medium',
+        }),
+      });
+      added++;
+    } catch (e) { /* skip individual failures */ }
+  }
+  closeSyllabusModal();
+  showToast(`Added ${added} assignment${added !== 1 ? 's' : ''} from syllabus.`);
+  setTimeout(() => location.reload(), 900);
 }
 
 async function createManualTask() {
