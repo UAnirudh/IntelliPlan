@@ -384,6 +384,11 @@
 #     return json_ok({"extension_users_legacy": legacy_count, "users_app_db": app_count})
 
 
+
+
+
+
+
 """
 auth_api.py — Token-based auth API for the Chrome extension.
 
