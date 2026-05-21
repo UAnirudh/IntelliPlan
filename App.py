@@ -1514,9 +1514,18 @@ def dashboard():
 
 @app.route("/study")
 def study():
+    """New Deep Study Pipeline — the 3-step setup → encoding → database workflow."""
     if not is_logged_in():
         return redirect(url_for("login"))
-    return render_template("study.html", active_page="study")
+    return render_template("deep_study.html", active_page="study")
+
+
+@app.route("/learn")
+def learn():
+    """Classic Study & Learn experience — quiz generation, flashcards, mastery, etc."""
+    if not is_logged_in():
+        return redirect(url_for("login"))
+    return render_template("study.html", active_page="learn")
 
 @app.route("/streak")
 def streak():
@@ -1535,6 +1544,218 @@ def focus():
 def library():
     """AP & Exam content library — curated outlines, FRQs, and ready-made flashcard sets."""
     return render_template("library.html", active_page="library")
+
+
+# ════════════════════════════════════════════════════════════════
+# DEEP STUDY PIPELINE — Step 0 (ingest) / Step 2 (voice coach feedback) /
+# Step 3 (fact → active-recall card transform). All three endpoints share
+# the Groq Llama backend used by the rest of the AI surface.
+# ════════════════════════════════════════════════════════════════
+def _deepstudy_extract_text_from_file(f):
+    """Best-effort text extraction for the ingest endpoint. PDF/DOCX use
+    optional packages with ASCII fallback; .txt and .md read directly."""
+    name = (f.filename or "").lower()
+    raw = f.read()
+    if name.endswith((".txt", ".md")):
+        try:
+            return raw.decode("utf-8", errors="replace")
+        except Exception:
+            return raw.decode("latin-1", errors="replace")
+    if name.endswith(".pdf"):
+        try:
+            import pdfplumber, io
+            with pdfplumber.open(io.BytesIO(raw)) as pdf:
+                return "\n".join(p.extract_text() or "" for p in pdf.pages[:25])
+        except Exception:
+            t = raw.decode("latin-1", errors="replace")
+            return re.sub(r"[^\x20-\x7E\n\t]", " ", t)
+    if name.endswith(".docx"):
+        try:
+            import docx, io
+            d = docx.Document(io.BytesIO(raw))
+            return "\n".join(p.text for p in d.paragraphs)
+        except Exception:
+            t = raw.decode("latin-1", errors="replace")
+            return re.sub(r"[^\x20-\x7E\n\t]", " ", t)
+    return raw.decode("utf-8", errors="replace")
+
+
+@app.route("/api/deepstudy/ingest", methods=["POST"])
+def api_deepstudy_ingest():
+    """Step 0: extract source text and produce a topic + factual outline.
+
+    Accepts multipart with optional `file` and `text` fields. Runs the
+    extracted material through Groq to produce a short topic label plus
+    a list of atomic factual statements that drive Steps 1-3."""
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "login required"}), 401
+
+    text_in = (request.form.get("text") or "").strip()
+    source_text = text_in
+    if "file" in request.files and request.files["file"].filename:
+        file_text = _deepstudy_extract_text_from_file(request.files["file"]).strip()
+        if file_text:
+            source_text = (source_text + "\n\n" + file_text).strip() if source_text else file_text
+
+    if not source_text:
+        return jsonify({"status": "error", "message": "Provide a file or describe your topic."}), 400
+
+    truncated = source_text[:8000]
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        # Graceful fallback: split on sentences so the pipeline keeps working.
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", truncated) if 12 < len(s.strip()) < 280][:12]
+        return jsonify({
+            "status": "ok",
+            "topic": (text_in or "Study Session")[:60],
+            "source_text": source_text,
+            "facts": sentences or [truncated[:240]],
+        })
+
+    prompt = (
+        "You are a study coach. Given the material below, return ONLY valid JSON with two keys:\n"
+        "  \"topic\": a short 2-6 word topic label\n"
+        "  \"facts\": an array of 8-12 atomic factual statements (each ≤ 35 words) drawn from the material\n\n"
+        f"MATERIAL:\n---\n{truncated}\n---\nJSON:"
+    )
+    try:
+        client = Groq(api_key=api_key)
+        resp = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=1400,
+            response_format={"type": "json_object"},
+        )
+        parsed = json.loads(resp.choices[0].message.content)
+        topic = (parsed.get("topic") or text_in or "Study Session")[:80]
+        facts = parsed.get("facts") or []
+        if not isinstance(facts, list):
+            facts = []
+        facts = [str(f).strip() for f in facts if str(f).strip()][:14]
+    except Exception as e:
+        print(f"[deepstudy ingest] groq error: {e}")
+        topic = (text_in or "Study Session")[:60]
+        facts = [s.strip() for s in re.split(r"(?<=[.!?])\s+", truncated) if 12 < len(s.strip()) < 280][:12]
+
+    return jsonify({
+        "status": "ok",
+        "topic": topic,
+        "source_text": source_text,
+        "facts": facts,
+    })
+
+
+@app.route("/api/deepstudy/feedback", methods=["POST"])
+def api_deepstudy_feedback():
+    """Step 2: voice coach reply. Reads the user's utterance, the mode
+    (feynman vs blurting), and the ingested source text; returns a short
+    spoken-style reply that pushes them back into the technique."""
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "login required"}), 401
+
+    data = request.get_json() or {}
+    mode = (data.get("mode") or "feynman").lower()
+    topic = (data.get("topic") or "this topic").strip()
+    src   = (data.get("source_text") or "")[:3500]
+    user_text = (data.get("user_text") or "").strip()
+    if not user_text:
+        return jsonify({"reply": "Keep going — I'm listening."})
+
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        return jsonify({"reply": "Got it — keep explaining. Try to simplify any jargon."})
+
+    if mode == "feynman":
+        system_msg = (
+            f"You are Plani, a Feynman-technique voice coach. The student is studying '{topic}'. "
+            "Your job is to make sure they explain concepts in PLAIN LANGUAGE, as if to a 10-year-old. "
+            "If their utterance quotes textbook jargon or hides behind technical terms from the source, "
+            "INTERRUPT gently and ask them to re-explain that exact phrase in everyday words. "
+            "If they explain well, give one short specific encouragement and ask the next probing question. "
+            "Always reply in 1-3 short sentences — this is a spoken voice call, not a lecture."
+        )
+    else:
+        system_msg = (
+            f"You are Plani, a Blurting-technique voice coach. The student is studying '{topic}' and just "
+            "brain-dumped what they remember. Cross-reference against the SOURCE MATERIAL below. "
+            "Reply in 2-4 short spoken-style sentences: name 1-2 specific things they nailed, then name 1-2 "
+            "specific concepts FROM THE SOURCE they did not mention. Be encouraging but factual. "
+            f"\n\nSOURCE MATERIAL:\n---\n{src}\n---"
+        )
+
+    try:
+        client = Groq(api_key=api_key)
+        resp = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user",   "content": user_text},
+            ],
+            temperature=0.6,
+            max_tokens=180,
+        )
+        reply = resp.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"[deepstudy feedback] groq error: {e}")
+        reply = "Good — keep going. Try to put that in your own words."
+
+    return jsonify({"reply": reply})
+
+
+@app.route("/api/deepstudy/transform", methods=["POST"])
+def api_deepstudy_transform():
+    """Step 3: convert raw source facts into active-recall question cards."""
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "login required"}), 401
+
+    data = request.get_json() or {}
+    facts = data.get("facts") or []
+    topic = (data.get("topic") or "this topic").strip()
+    if not facts or not isinstance(facts, list):
+        return jsonify({"status": "error", "message": "No facts to transform."}), 400
+
+    facts_clean = [str(f).strip() for f in facts if str(f).strip()][:14]
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        # Fallback: heuristic question for each fact
+        cards = [{
+            "question": f"In your own words, explain: {f[:120]}",
+            "answer": f,
+        } for f in facts_clean]
+        return jsonify({"status": "ok", "cards": cards})
+
+    numbered = "\n".join(f"{i+1}. {f}" for i, f in enumerate(facts_clean))
+    prompt = (
+        f"You are an active-recall coach. Topic: {topic}.\n"
+        "For each numbered passive fact below, write a SINGLE active-testing question that forces a student to "
+        "retrieve the underlying mechanism or definition. The question must NOT contain the answer.\n"
+        "Return ONLY valid JSON with key \"cards\": an array of objects with \"question\" and \"answer\" fields, "
+        "in the same order as the input.\n\n"
+        f"FACTS:\n{numbered}\n\nJSON:"
+    )
+    try:
+        client = Groq(api_key=api_key)
+        resp = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=2000,
+            response_format={"type": "json_object"},
+        )
+        parsed = json.loads(resp.choices[0].message.content)
+        cards = parsed.get("cards") or []
+        if not isinstance(cards, list):
+            cards = []
+        cards = [{
+            "question": str(c.get("question", "")).strip(),
+            "answer":   str(c.get("answer",   "")).strip(),
+        } for c in cards if c.get("question")][:14]
+    except Exception as e:
+        print(f"[deepstudy transform] groq error: {e}")
+        cards = [{"question": f"Explain in your own words: {f[:120]}", "answer": f} for f in facts_clean]
+
+    return jsonify({"status": "ok", "cards": cards})
 
 
 @app.route("/api/lms/connect/<provider>", methods=["POST"])

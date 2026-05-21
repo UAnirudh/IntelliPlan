@@ -879,7 +879,7 @@
   {% block head_extra %}{% endblock %}
 </head>
 
-{% set _app_pages = ['dashboard','scheduler','study','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library'] %}
+{% set _app_pages = ['dashboard','scheduler','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library'] %}
 <body class="{% if active_page in _app_pages %}has-side{% endif %}">
 
 <!-- ══════════════════════════════════════
@@ -941,7 +941,8 @@
   {# ── Always-visible top items ──────────────────────────────── #}
   <a href="/dashboard" data-nav-item="dashboard" class="side-link {% if active_page == 'dashboard' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard</a>
   <a href="/scheduler" data-nav-item="scheduler" class="side-link {% if active_page == 'scheduler' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-scheduler"/></svg></span>Scheduler</a>
-  <a href="/study"     data-nav-item="study" class="side-link {% if active_page == 'study' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Study &amp; Learn</a>
+  <a href="/study"     data-nav-item="study" class="side-link {% if active_page == 'study' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-rocket"/></svg></span>Study</a>
+  <a href="/learn"     data-nav-item="learn" class="side-link {% if active_page == 'learn' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Learn</a>
   <a href="/streak"    data-nav-item="streak" class="side-link {% if active_page == 'streak' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-fire"/></svg></span>Streak</a>
   <a href="/tutor"     data-nav-item="tutor" class="side-link tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-tutor"/></svg></span>Tutor</a>
   <a href="/focus"     data-nav-item="focus" class="side-link {% if active_page == 'focus' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-fire"/></svg></span>Focus Timer</a>
@@ -1023,7 +1024,8 @@
       <div class="nav-group">
         <a href="/dashboard" class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-dashboard"/></svg></span><span class="nav-label">Dashboard</span></a>
         <a href="/scheduler"  class="nav-tab {% if active_page == 'scheduler' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-scheduler"/></svg></span><span class="nav-label">Scheduler</span></a>
-        <a href="/study"      class="nav-tab {% if active_page == 'study' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-study"/></svg></span><span class="nav-label">Study &amp; Learn</span></a>
+        <a href="/study"      class="nav-tab {% if active_page == 'study' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-rocket"/></svg></span><span class="nav-label">Study</span></a>
+        <a href="/learn"      class="nav-tab {% if active_page == 'learn' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-study"/></svg></span><span class="nav-label">Learn</span></a>
         <a href="/streak"     class="nav-tab {% if active_page == 'streak' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-fire"/></svg></span><span class="nav-label">Streak</span></a>
         <a href="/tutor"      class="nav-tab nav-tab-tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-tutor"/></svg></span><span class="nav-label">Tutor</span></a>
       </div>

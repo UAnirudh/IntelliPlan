@@ -1,0 +1,955 @@
+{% extends "base.html" %}
+{% block page_title %}Deep Study Pipeline — IntelliPlan{% endblock %}
+
+{% block head_extra %}
+<meta name="description" content="A high-yield 3-step study system: Setup → Encoding → Database. Lock in, encode with voice AI, transform into long-term memory.">
+<style>
+/* ── Premium dark-first deep-study shell ── */
+.ds-shell {
+  max-width: 1100px; margin: 0 auto;
+  padding: 1.5rem 1.5rem 4rem;
+}
+.ds-head { margin-bottom: 1.5rem; }
+.ds-eyebrow {
+  font-family: var(--font-ui); font-size: 0.68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--accent); margin-bottom: 6px;
+}
+.ds-title {
+  font-family: var(--font-display); font-size: 1.75rem; font-weight: 800;
+  letter-spacing: -0.04em; color: var(--text-primary);
+  margin: 0 0 6px;
+}
+.ds-sub { font-size: 0.9rem; color: var(--text-muted); margin: 0; max-width: 620px; }
+
+/* ── Step indicator (top stepper) ── */
+.ds-steps {
+  display: flex; gap: 0; margin: 1.5rem 0 1.75rem;
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  overflow: hidden;
+}
+.ds-step-pill {
+  flex: 1; padding: 12px 16px;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg-card);
+  font-family: var(--font-ui); font-size: 0.82rem; font-weight: 600;
+  color: var(--text-muted);
+  border-right: 1px solid var(--border);
+  position: relative;
+}
+.ds-step-pill:last-child { border-right: none; }
+.ds-step-pill.active { background: var(--accent); color: #fff; }
+.ds-step-pill.done { color: var(--text-primary); }
+.ds-step-pill.done::after {
+  content: '✓'; margin-left: auto; font-weight: 800; color: #10b981;
+}
+.ds-step-pill.locked { opacity: 0.45; }
+.ds-step-num {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.72rem; font-weight: 800;
+  flex-shrink: 0;
+}
+.ds-step-pill:not(.active) .ds-step-num { background: var(--bg); color: var(--text-muted); }
+
+/* ── Step pane ── */
+.ds-pane {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 1.75rem 2rem;
+  margin-bottom: 1rem;
+  animation: ds-rise 0.32s ease both;
+}
+@keyframes ds-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ds-pane.hidden { display: none; }
+.ds-pane h2 {
+  font-family: var(--font-display);
+  font-size: 1.2rem; font-weight: 800; letter-spacing: -0.03em;
+  margin: 0 0 4px; color: var(--text-primary);
+}
+.ds-pane-sub {
+  font-size: 0.83rem; color: var(--text-muted); margin: 0 0 1.5rem;
+}
+
+/* ── STEP 0 — Ingestion ── */
+.ds-ingest-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md); overflow: hidden;
+}
+@media (max-width: 760px) { .ds-ingest-grid { grid-template-columns: 1fr; } }
+.ds-drop, .ds-textwrap {
+  background: var(--bg); padding: 1.5rem;
+  display: flex; flex-direction: column;
+}
+.ds-drop {
+  border: 2px dashed transparent;
+  align-items: center; justify-content: center;
+  text-align: center; min-height: 220px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.ds-drop:hover, .ds-drop.dragging {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.ds-drop-icon {
+  width: 48px; height: 48px; border-radius: 14px;
+  background: var(--accent-soft); color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 12px;
+}
+.ds-drop-title { font-weight: 700; font-size: 0.95rem; color: var(--text-primary); margin-bottom: 4px; }
+.ds-drop-sub   { font-size: 0.78rem; color: var(--text-muted); }
+.ds-drop-types { margin-top: 10px; font-size: 0.68rem; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+.ds-textwrap label {
+  font-family: var(--font-ui); font-size: 0.7rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-muted); margin-bottom: 8px;
+}
+.ds-textwrap textarea {
+  flex: 1; min-height: 160px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-card);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  font-family: var(--font-body); font-size: 0.9rem;
+  color: var(--text-primary); resize: vertical;
+  line-height: 1.55;
+  transition: border-color 0.13s, box-shadow 0.13s;
+}
+.ds-textwrap textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.ds-textwrap textarea::placeholder { color: var(--text-muted); }
+.ds-ingest-actions {
+  display: flex; gap: 10px; align-items: center; margin-top: 1.25rem;
+}
+.ds-btn {
+  padding: 11px 22px; border-radius: var(--r-md); border: none;
+  font-family: var(--font-ui); font-size: 0.84rem; font-weight: 700;
+  cursor: pointer; transition: background 0.13s, transform 0.12s;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.ds-btn-primary { background: var(--accent); color: #fff; }
+.ds-btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+.ds-btn-primary:active { transform: scale(0.97); }
+.ds-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+.ds-btn-ghost {
+  background: transparent; color: var(--text-primary);
+  border: 1.5px solid var(--border);
+}
+.ds-btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+.ds-file-chip {
+  font-size: 0.78rem; color: var(--text-muted);
+  background: var(--bg); padding: 6px 12px;
+  border-radius: 20px; border: 1px solid var(--border);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+
+/* ── STEP 1 — Lock-In ── */
+.ds-check {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; border-radius: var(--r-md);
+  border: 1.5px solid var(--border); background: var(--bg);
+  margin-bottom: 8px; cursor: pointer;
+  transition: border-color 0.13s, background 0.13s;
+}
+.ds-check:hover { border-color: var(--accent); }
+.ds-check input { display: none; }
+.ds-check .ds-cbox {
+  width: 22px; height: 22px; border-radius: 6px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--bg-card);
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.13s, border-color 0.13s;
+}
+.ds-check input:checked + .ds-cbox {
+  background: var(--accent); border-color: var(--accent);
+}
+.ds-check input:checked + .ds-cbox::after {
+  content: ''; width: 5px; height: 10px;
+  border-right: 2.5px solid #fff; border-bottom: 2.5px solid #fff;
+  transform: rotate(45deg) translateY(-1px);
+}
+.ds-check-text { font-size: 0.88rem; color: var(--text-primary); font-weight: 500; line-height: 1.4; }
+.ds-check input:checked ~ .ds-check-text {
+  color: var(--text-muted); text-decoration: line-through;
+}
+
+/* Meditation timer */
+.ds-meditate {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: var(--bg);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  display: flex; flex-direction: column; align-items: center; gap: 1rem;
+}
+.ds-med-label {
+  font-family: var(--font-ui); font-size: 0.7rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+.ds-med-ring {
+  position: relative; width: 160px; height: 160px;
+}
+.ds-med-ring svg { transform: rotate(-90deg); }
+.ds-med-ring .track { fill: none; stroke: var(--border); stroke-width: 6; }
+.ds-med-ring .fill  {
+  fill: none; stroke: var(--accent); stroke-width: 6;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s linear;
+}
+.ds-med-time {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 2rem; font-weight: 800;
+  letter-spacing: -0.03em; font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.ds-med-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+/* ── STEP 2 — Encoding (voice call UI) ── */
+.ds-call-shell {
+  position: relative; padding: 2rem 1.5rem;
+  background: radial-gradient(ellipse at center top, var(--accent-soft) 0%, var(--bg) 65%);
+  border-radius: var(--r-lg);
+  text-align: center;
+  min-height: 360px;
+  overflow: hidden;
+}
+.ds-call-avatar {
+  width: 110px; height: 110px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  margin: 0 auto 1.25rem;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 0 6px var(--accent-soft), 0 12px 40px rgba(0,0,0,0.18);
+  color: #fff;
+}
+.ds-call-avatar.speaking { animation: pulse-glow 1.6s ease-in-out infinite; }
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 6px var(--accent-soft), 0 12px 40px rgba(0,0,0,0.18); }
+  50%      { box-shadow: 0 0 0 16px var(--accent-soft), 0 12px 50px rgba(0,0,0,0.25); }
+}
+.ds-call-name {
+  font-family: var(--font-display); font-size: 1.2rem; font-weight: 800;
+  letter-spacing: -0.02em; margin: 0 0 4px;
+}
+.ds-call-status {
+  font-size: 0.8rem; color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+/* Soundwave */
+.ds-wave {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  height: 50px; margin: 1.5rem 0;
+}
+.ds-wave-bar {
+  width: 4px; background: var(--accent); border-radius: 4px;
+  height: 8px;
+}
+.ds-wave.active .ds-wave-bar {
+  animation: wave-bounce 1.1s ease-in-out infinite;
+}
+.ds-wave.active .ds-wave-bar:nth-child(2) { animation-delay: 0.1s; }
+.ds-wave.active .ds-wave-bar:nth-child(3) { animation-delay: 0.2s; }
+.ds-wave.active .ds-wave-bar:nth-child(4) { animation-delay: 0.3s; }
+.ds-wave.active .ds-wave-bar:nth-child(5) { animation-delay: 0.4s; }
+.ds-wave.active .ds-wave-bar:nth-child(6) { animation-delay: 0.5s; }
+.ds-wave.active .ds-wave-bar:nth-child(7) { animation-delay: 0.6s; }
+@keyframes wave-bounce {
+  0%, 100% { height: 8px; }
+  50%      { height: 44px; }
+}
+
+.ds-mode-toggle {
+  display: inline-flex; background: var(--bg-card);
+  border: 1.5px solid var(--border); border-radius: 20px;
+  padding: 3px; margin-bottom: 1.25rem;
+}
+.ds-mode-toggle button {
+  padding: 6px 14px; border-radius: 18px; border: none;
+  background: transparent; cursor: pointer;
+  font-family: var(--font-ui); font-size: 0.74rem; font-weight: 700;
+  color: var(--text-muted);
+}
+.ds-mode-toggle button.active { background: var(--accent); color: #fff; }
+.ds-call-controls {
+  display: flex; justify-content: center; gap: 14px; margin-top: 1.5rem;
+}
+.ds-call-btn {
+  width: 52px; height: 52px; border-radius: 50%;
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.12s, background 0.13s;
+}
+.ds-call-btn:hover { transform: scale(1.07); }
+.ds-call-btn:active { transform: scale(0.95); }
+.ds-call-btn.mute { background: var(--bg-card); border: 1.5px solid var(--border); color: var(--text-primary); }
+.ds-call-btn.mute.is-muted { background: #fee2e2; color: #dc2626; border-color: #fecaca; }
+.ds-call-btn.end { background: #ef4444; color: #fff; }
+.ds-call-btn.end:hover { background: #dc2626; }
+
+.ds-transcript {
+  margin-top: 1.5rem;
+  max-height: 220px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  padding: 1rem; background: var(--bg);
+}
+.ds-tr-line { padding: 6px 0; font-size: 0.85rem; line-height: 1.45; }
+.ds-tr-line.user { color: var(--text-primary); }
+.ds-tr-line.ai   { color: var(--accent); font-weight: 600; }
+.ds-tr-line strong { font-family: var(--font-ui); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.7; margin-right: 6px; }
+
+/* ── STEP 3 — Q&A Database ── */
+.ds-db-grid {
+  display: grid; grid-template-columns: 1fr 1.4fr; gap: 1rem;
+}
+@media (max-width: 880px) { .ds-db-grid { grid-template-columns: 1fr; } }
+.ds-db-panel {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 1rem 1.25rem;
+  min-height: 320px;
+}
+.ds-db-panel-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px;
+}
+.ds-db-panel-title {
+  font-family: var(--font-ui); font-size: 0.7rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+.ds-db-fact {
+  padding: 10px 12px; background: var(--bg-card);
+  border-radius: var(--r-sm); margin-bottom: 8px;
+  font-size: 0.84rem; line-height: 1.5; color: var(--text-primary);
+  border-left: 3px solid var(--accent);
+}
+.ds-testcard {
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 14px 16px; margin-bottom: 10px;
+  transition: border-color 0.15s;
+}
+.ds-testcard:hover { border-color: var(--accent); }
+.ds-testcard-q {
+  font-size: 0.9rem; font-weight: 600;
+  color: var(--text-primary); line-height: 1.4;
+  margin-bottom: 10px;
+}
+.ds-testcard-input {
+  width: 100%; min-height: 60px;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--bg); padding: 8px 10px;
+  font-family: var(--font-body); font-size: 0.84rem;
+  color: var(--text-primary); resize: vertical; line-height: 1.45;
+}
+.ds-testcard-input:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.ds-testcard-actions {
+  display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap;
+}
+.ds-tc-btn {
+  padding: 6px 12px; border-radius: var(--r-sm); border: 1px solid var(--border);
+  background: transparent; cursor: pointer;
+  font-family: var(--font-ui); font-size: 0.74rem; font-weight: 600;
+  color: var(--text-muted);
+  transition: color 0.13s, background 0.13s, border-color 0.13s;
+}
+.ds-tc-btn:hover { color: var(--accent); border-color: var(--accent); }
+.ds-tc-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.ds-tc-btn.primary:hover { background: var(--accent-hover); }
+.ds-tc-answer {
+  margin-top: 10px; padding: 10px 12px;
+  background: var(--accent-soft); border-radius: var(--r-sm);
+  font-size: 0.82rem; line-height: 1.5; color: var(--text-primary);
+  display: none;
+}
+.ds-tc-answer.visible { display: block; }
+.ds-tc-answer strong { font-family: var(--font-ui); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); display: block; margin-bottom: 4px; }
+
+.ds-magic-btn-wrap { text-align: center; margin-bottom: 1rem; }
+
+.ds-empty {
+  text-align: center; padding: 2rem 1rem;
+  color: var(--text-muted); font-size: 0.85rem;
+}
+.ds-spinner {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid currentColor; border-right-color: transparent;
+  border-radius: 50%; animation: ds-spin 0.8s linear infinite;
+  vertical-align: -2px;
+}
+@keyframes ds-spin { to { transform: rotate(360deg); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ds-shell">
+  <div class="ds-head">
+    <div class="ds-eyebrow">Deep Study Pipeline</div>
+    <h1 class="ds-title">Setup → Encoding → Database</h1>
+    <p class="ds-sub">A high-yield 3-step workflow that locks you in, encodes the material via voice coaching, then transforms it into long-term recall assets.</p>
+  </div>
+
+  <!-- Stepper -->
+  <div class="ds-steps" id="dsStepper">
+    <div class="ds-step-pill active" data-step="0"><div class="ds-step-num">0</div>Ingest</div>
+    <div class="ds-step-pill locked"  data-step="1"><div class="ds-step-num">1</div>Lock In</div>
+    <div class="ds-step-pill locked"  data-step="2"><div class="ds-step-num">2</div>Encode</div>
+    <div class="ds-step-pill locked"  data-step="3"><div class="ds-step-num">3</div>Database</div>
+  </div>
+
+  <!-- ════════ STEP 0 — INGESTION ════════ -->
+  <section class="ds-pane" id="dsStep0">
+    <h2>What are you studying today?</h2>
+    <p class="ds-pane-sub">Drop a PDF, DOCX or TXT, paste your notes, or describe the topic. Plani extracts the source material for every step that follows.</p>
+
+    <div class="ds-ingest-grid">
+      <div class="ds-drop" id="dsDrop" onclick="document.getElementById('dsFile').click()"
+           ondragover="event.preventDefault();this.classList.add('dragging')"
+           ondragleave="this.classList.remove('dragging')"
+           ondrop="event.preventDefault();this.classList.remove('dragging');dsHandleDrop(event)">
+        <input type="file" id="dsFile" accept=".pdf,.docx,.txt,.md" style="display:none;" onchange="dsHandleFile(this.files[0])">
+        <div class="ds-drop-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="ds-drop-title" id="dsDropTitle">Drop a file or click to browse</div>
+        <div class="ds-drop-sub" id="dsDropSub">We extract the text and use it as your study source</div>
+        <div class="ds-drop-types">PDF · DOCX · TXT · MD</div>
+      </div>
+      <div class="ds-textwrap">
+        <label for="dsText">Or paste / describe your topic</label>
+        <textarea id="dsText" placeholder="e.g. McArdle's disease mechanisms, Advanced Organic Chemistry Chapter 4, my biology notes on cellular respiration…"></textarea>
+      </div>
+    </div>
+
+    <div class="ds-ingest-actions">
+      <button class="ds-btn ds-btn-primary" id="dsIngestBtn" onclick="dsIngest()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        Lock in &amp; continue
+      </button>
+      <span class="ds-file-chip" id="dsFileChip" style="display:none;"></span>
+      <span id="dsIngestMsg" style="font-size:0.78rem;color:var(--text-muted);"></span>
+    </div>
+  </section>
+
+  <!-- ════════ STEP 1 — LOCK-IN SETUP ════════ -->
+  <section class="ds-pane hidden" id="dsStep1">
+    <h2>Lock-in setup</h2>
+    <p class="ds-pane-sub">Tick every box and finish the silence timer to unlock the encoding session. This eliminates context-switching before deep work begins.</p>
+
+    <div id="dsChecklist">
+      <label class="ds-check"><input type="checkbox" data-ck="phone" onchange="dsCheckTick()"><span class="ds-cbox"></span><span class="ds-check-text">Phone hidden and placed entirely out of sight to prevent context-shifting.</span></label>
+      <label class="ds-check"><input type="checkbox" data-ck="clutter" onchange="dsCheckTick()"><span class="ds-cbox"></span><span class="ds-check-text">Study workspace completely cleared of clutter.</span></label>
+      <label class="ds-check"><input type="checkbox" data-ck="tabs" onchange="dsCheckTick()"><span class="ds-cbox"></span><span class="ds-check-text">Browser tabs minimized (Only IntelliPlan is active).</span></label>
+      <label class="ds-check"><input type="checkbox" data-ck="topic" onchange="dsCheckTick()"><span class="ds-cbox"></span><span class="ds-check-text" id="dsTopicCheck">I am ready to strictly focus on <strong>this topic</strong>.</span></label>
+    </div>
+
+    <div class="ds-meditate">
+      <div class="ds-med-label">Clear cognitive load — 10 min silence</div>
+      <div class="ds-med-ring">
+        <svg width="160" height="160" viewBox="0 0 160 160">
+          <circle class="track" cx="80" cy="80" r="72"/>
+          <circle class="fill"  cx="80" cy="80" r="72"
+            stroke-dasharray="452.39"
+            stroke-dashoffset="0" id="dsMedRing"/>
+        </svg>
+        <div class="ds-med-time" id="dsMedTime">10:00</div>
+      </div>
+      <div class="ds-med-actions">
+        <button class="ds-btn ds-btn-primary" id="dsMedBtn" onclick="dsMedToggle()">Begin silence</button>
+        <button class="ds-btn ds-btn-ghost" onclick="dsMedSkipShort()">Skip to 1 min (dev mode)</button>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1.5rem;gap:1rem;">
+      <span style="font-size:0.78rem;color:var(--text-muted);" id="dsLockStatus">Complete all 4 items and finish the timer to unlock Step 2.</span>
+      <button class="ds-btn ds-btn-primary" id="dsUnlock2" onclick="dsGoto(2)" disabled>
+        Unlock Encoding Engine →
+      </button>
+    </div>
+  </section>
+
+  <!-- ════════ STEP 2 — ENCODING ENGINE ════════ -->
+  <section class="ds-pane hidden" id="dsStep2">
+    <h2>Encoding engine — voice AI coach</h2>
+    <p class="ds-pane-sub">Pick a mode. Plani listens to your explanation and pushes back when you drift from the technique.</p>
+
+    <div style="text-align:center;">
+      <div class="ds-mode-toggle">
+        <button class="active" data-mode="feynman" onclick="dsSetMode(this)">Feynman</button>
+        <button data-mode="blurting" onclick="dsSetMode(this)">Blurting</button>
+      </div>
+    </div>
+
+    <div class="ds-call-shell">
+      <div class="ds-call-avatar" id="dsAvatar">
+        <svg width="44" height="50" viewBox="0 0 80 92" aria-hidden="true">
+          <rect x="13" y="14" width="54" height="42" rx="15" fill="rgba(255,255,255,0.95)"/>
+          <g transform="translate(26,27)"><rect width="12" height="9" rx="4" fill="#1e3a8a"/></g>
+          <g transform="translate(42,27)"><rect width="12" height="9" rx="4" fill="#1e3a8a"/></g>
+          <path d="M26 42 Q40 52 54 42" stroke="#1e3a8a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <rect x="19" y="59" width="42" height="29" rx="11" fill="rgba(255,255,255,0.85)"/>
+        </svg>
+      </div>
+      <div class="ds-call-name">Plani Voice Coach</div>
+      <div class="ds-call-status" id="dsCallStatus">Tap the mic to start the call</div>
+
+      <div class="ds-wave" id="dsWave">
+        <div class="ds-wave-bar"></div>
+        <div class="ds-wave-bar"></div>
+        <div class="ds-wave-bar"></div>
+        <div class="ds-wave-bar"></div>
+        <div class="ds-wave-bar"></div>
+        <div class="ds-wave-bar"></div>
+        <div class="ds-wave-bar"></div>
+      </div>
+
+      <div class="ds-call-controls">
+        <button class="ds-call-btn mute" id="dsCallMute" onclick="dsCallMute()" title="Start / mute">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+        <button class="ds-call-btn end" onclick="dsCallEnd()" title="End session">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 12a9.94 9.94 0 0 0-2.93-7.07A10 10 0 1 0 22 12z"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="ds-transcript" id="dsTranscript">
+      <div class="ds-empty">Live transcript will appear here once you start the call.</div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;margin-top:1.5rem;align-items:center;">
+      <span style="font-size:0.78rem;color:var(--text-muted);">Whenever you're ready, end the session to move on.</span>
+      <button class="ds-btn ds-btn-primary" id="dsUnlock3" onclick="dsGoto(3)" disabled>Proceed to Database →</button>
+    </div>
+  </section>
+
+  <!-- ════════ STEP 3 — Q&A DATABASE ════════ -->
+  <section class="ds-pane hidden" id="dsStep3">
+    <h2>Active recall database</h2>
+    <p class="ds-pane-sub">Transform passive source facts into active testing prompts. Sync the best ones to your long-term spaced repetition queue or Notion.</p>
+
+    <div class="ds-magic-btn-wrap">
+      <button class="ds-btn ds-btn-primary" id="dsMagicBtn" onclick="dsTransform()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 8.5 22 9.3 17 14.1 18.2 21 12 17.8 5.8 21 7 14.1 2 9.3 9 8.5 12 2"/></svg>
+        AI Magic Transform →
+      </button>
+    </div>
+
+    <div class="ds-db-grid">
+      <div class="ds-db-panel">
+        <div class="ds-db-panel-head">
+          <span class="ds-db-panel-title">Raw source facts</span>
+          <span style="font-size:0.7rem;color:var(--text-muted);" id="dsFactCount">0</span>
+        </div>
+        <div id="dsFactList"><div class="ds-empty">Ingested facts will appear here once Step 0 completes.</div></div>
+      </div>
+      <div class="ds-db-panel">
+        <div class="ds-db-panel-head">
+          <span class="ds-db-panel-title">Active testing questions</span>
+          <span style="font-size:0.7rem;color:var(--text-muted);" id="dsCardCount">0</span>
+        </div>
+        <div id="dsCardList"><div class="ds-empty">Tap "AI Magic Transform" to convert facts into active recall cards.</div></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   Deep Study Pipeline — state machine
+   ════════════════════════════════════════════════════════════════ */
+const DS = {
+  step: 0,
+  topic: '',
+  sourceText: '',
+  facts: [],
+  cards: [],
+  file: null,
+  checklist: { phone:false, clutter:false, tabs:false, topic:false },
+  medRunning: false,
+  medRemaining: 600, // 10 min
+  medTotal: 600,
+  medInterval: null,
+  medDone: false,
+  callActive: false,
+  callMuted: false,
+  callMode: 'feynman',
+  recognition: null,
+  transcript: [],
+};
+
+const escHtml = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+/* ── STEP 0: Ingestion ───────────────────────────────────────── */
+function dsHandleDrop(e) {
+  const f = e.dataTransfer.files[0];
+  if (f) dsHandleFile(f);
+}
+function dsHandleFile(f) {
+  if (!f) return;
+  DS.file = f;
+  document.getElementById('dsDropTitle').textContent = f.name;
+  document.getElementById('dsDropSub').textContent = `${(f.size / 1024).toFixed(1)} KB · ready to ingest`;
+  const chip = document.getElementById('dsFileChip');
+  chip.style.display = 'inline-flex';
+  chip.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>${escHtml(f.name)}`;
+}
+
+async function dsIngest() {
+  const text = document.getElementById('dsText').value.trim();
+  if (!DS.file && !text) {
+    document.getElementById('dsIngestMsg').textContent = 'Add a file or describe what you\'re studying.';
+    return;
+  }
+  const btn = document.getElementById('dsIngestBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="ds-spinner"></span> Extracting…';
+  document.getElementById('dsIngestMsg').textContent = '';
+
+  try {
+    const fd = new FormData();
+    if (DS.file) fd.append('file', DS.file);
+    if (text)    fd.append('text', text);
+
+    const res = await fetch('/api/deepstudy/ingest', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.status !== 'ok') throw new Error(data.message || 'Could not parse');
+
+    DS.topic      = data.topic || text.slice(0, 60) || (DS.file ? DS.file.name : 'Study session');
+    DS.sourceText = data.source_text || text;
+    DS.facts      = data.facts || [];
+
+    dsRenderFacts();
+    document.getElementById('dsTopicCheck').innerHTML = `I am ready to strictly focus on <strong>${escHtml(DS.topic)}</strong>.`;
+    dsGoto(1);
+  } catch (err) {
+    document.getElementById('dsIngestMsg').textContent = 'Error: ' + err.message;
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg> Lock in &amp; continue';
+  }
+}
+
+/* ── STEP 1: Lock-in setup ───────────────────────────────────── */
+function dsCheckTick() {
+  document.querySelectorAll('#dsChecklist input').forEach(i => {
+    DS.checklist[i.dataset.ck] = i.checked;
+  });
+  dsRefreshLockStatus();
+}
+function dsRefreshLockStatus() {
+  const allChecked = Object.values(DS.checklist).every(Boolean);
+  const ok = allChecked && DS.medDone;
+  document.getElementById('dsUnlock2').disabled = !ok;
+  const msg = document.getElementById('dsLockStatus');
+  if (!allChecked) msg.textContent = `Tick all 4 items above (${Object.values(DS.checklist).filter(Boolean).length}/4 done).`;
+  else if (!DS.medDone) msg.textContent = 'Finish the silence timer to unlock the encoding engine.';
+  else msg.textContent = '✓ Lock-in complete — encoding engine unlocked.';
+}
+
+function dsMedToggle() {
+  if (DS.medDone) return;
+  if (DS.medRunning) { dsMedPause(); } else { dsMedStart(); }
+}
+function dsMedStart() {
+  DS.medRunning = true;
+  document.getElementById('dsMedBtn').textContent = 'Pause';
+  DS.medInterval = setInterval(dsMedTick, 1000);
+}
+function dsMedPause() {
+  DS.medRunning = false;
+  document.getElementById('dsMedBtn').textContent = 'Resume';
+  clearInterval(DS.medInterval);
+}
+function dsMedTick() {
+  DS.medRemaining--;
+  dsMedRender();
+  if (DS.medRemaining <= 0) dsMedFinish();
+}
+function dsMedRender() {
+  const m = String(Math.floor(DS.medRemaining / 60)).padStart(2,'0');
+  const s = String(DS.medRemaining % 60).padStart(2,'0');
+  document.getElementById('dsMedTime').textContent = `${m}:${s}`;
+  const pct = DS.medRemaining / DS.medTotal;
+  document.getElementById('dsMedRing').style.strokeDashoffset = 452.39 * pct;
+}
+function dsMedFinish() {
+  clearInterval(DS.medInterval);
+  DS.medRunning = false;
+  DS.medDone = true;
+  document.getElementById('dsMedBtn').textContent = '✓ Done';
+  document.getElementById('dsMedBtn').disabled = true;
+  dsRefreshLockStatus();
+}
+function dsMedSkipShort() {
+  if (DS.medDone) return;
+  DS.medRemaining = 60;
+  DS.medTotal     = 60;
+  dsMedRender();
+  if (!DS.medRunning) dsMedStart();
+}
+
+/* ── STEP 2: Voice coach session ─────────────────────────────── */
+function dsSetMode(btn) {
+  document.querySelectorAll('.ds-mode-toggle button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  DS.callMode = btn.dataset.mode;
+}
+
+function dsCallMute() {
+  if (!DS.callActive) { dsCallStart(); return; }
+  DS.callMuted = !DS.callMuted;
+  const btn = document.getElementById('dsCallMute');
+  btn.classList.toggle('is-muted', DS.callMuted);
+  document.getElementById('dsWave').classList.toggle('active', !DS.callMuted);
+  if (DS.callMuted && DS.recognition) { try { DS.recognition.stop(); } catch(e){} }
+  else if (!DS.callMuted) dsStartRecognition();
+  document.getElementById('dsCallStatus').textContent = DS.callMuted ? 'Muted' : 'Listening…';
+}
+
+function dsCallStart() {
+  DS.callActive = true;
+  DS.transcript = [];
+  document.getElementById('dsTranscript').innerHTML = '';
+  document.getElementById('dsAvatar').classList.add('speaking');
+  document.getElementById('dsWave').classList.add('active');
+  document.getElementById('dsCallStatus').textContent = 'Connecting…';
+
+  // AI opens the conversation
+  const opening = DS.callMode === 'feynman'
+    ? `Hi! Let's do a Feynman pass on ${DS.topic}. Explain the core mechanism to me like I'm 10 years old — no jargon. Start whenever you're ready.`
+    : `Brain dump time — blurt out everything you remember about ${DS.topic}. Don't censor yourself. Go.`;
+  dsAIspeak(opening);
+
+  // Start listening after AI finishes
+  setTimeout(dsStartRecognition, 400);
+}
+
+function dsStartRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    dsAddLine('ai', '(Voice recognition not supported in this browser. Try Chrome.)');
+    return;
+  }
+  DS.recognition = new SR();
+  DS.recognition.continuous = true;
+  DS.recognition.interimResults = true;
+  DS.recognition.lang = 'en-US';
+
+  let userBuffer = '';
+  let silenceTimer = null;
+
+  DS.recognition.onresult = e => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) userBuffer += e.results[i][0].transcript + ' ';
+      else interim = e.results[i][0].transcript;
+    }
+    // Show interim in last line or add new
+    document.getElementById('dsCallStatus').textContent = 'Listening… ' + (interim ? '“' + interim.slice(0, 40) + '…”' : '');
+    if (silenceTimer) clearTimeout(silenceTimer);
+    silenceTimer = setTimeout(async () => {
+      const finalUser = userBuffer.trim();
+      if (!finalUser) return;
+      dsAddLine('user', finalUser);
+      userBuffer = '';
+      await dsAIReply(finalUser);
+    }, 1800);
+  };
+  DS.recognition.onerror = e => {
+    if (e.error !== 'no-speech') console.warn('Voice err:', e.error);
+  };
+  DS.recognition.onend = () => {
+    if (DS.callActive && !DS.callMuted) {
+      try { DS.recognition.start(); } catch(e){}
+    }
+  };
+  try { DS.recognition.start(); document.getElementById('dsCallStatus').textContent = 'Listening…'; }
+  catch(e) { console.warn('recognition start failed', e); }
+}
+
+async function dsAIReply(userUtterance) {
+  document.getElementById('dsCallStatus').textContent = 'Thinking…';
+  try {
+    const res = await fetch('/api/deepstudy/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode: DS.callMode,
+        topic: DS.topic,
+        source_text: DS.sourceText.slice(0, 4000),
+        user_text: userUtterance,
+      }),
+    });
+    const data = await res.json();
+    const reply = data.reply || 'Keep going — I\'m listening.';
+    dsAIspeak(reply);
+  } catch (e) {
+    dsAddLine('ai', 'Hmm, I lost the connection. Keep talking — I\'ll catch up.');
+  }
+}
+
+function dsAIspeak(text) {
+  dsAddLine('ai', text);
+  document.getElementById('dsCallStatus').textContent = 'Plani speaking…';
+  if (window.speechSynthesis) {
+    const utt = new SpeechSynthesisUtterance(text.replace(/[*_`#]/g, ''));
+    utt.rate = 1.04;
+    utt.onend = () => { document.getElementById('dsCallStatus').textContent = DS.callMuted ? 'Muted' : 'Listening…'; };
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utt);
+  } else {
+    document.getElementById('dsCallStatus').textContent = DS.callMuted ? 'Muted' : 'Listening…';
+  }
+}
+
+function dsAddLine(role, text) {
+  const t = document.getElementById('dsTranscript');
+  if (t.querySelector('.ds-empty')) t.innerHTML = '';
+  const line = document.createElement('div');
+  line.className = 'ds-tr-line ' + role;
+  line.innerHTML = `<strong>${role === 'ai' ? 'Plani' : 'You'}</strong>${escHtml(text)}`;
+  t.appendChild(line);
+  t.scrollTop = t.scrollHeight;
+  DS.transcript.push({ role, text });
+}
+
+function dsCallEnd() {
+  if (DS.recognition) { try { DS.recognition.stop(); } catch(e){} }
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  DS.callActive = false;
+  document.getElementById('dsAvatar').classList.remove('speaking');
+  document.getElementById('dsWave').classList.remove('active');
+  document.getElementById('dsCallStatus').textContent = 'Session ended';
+  document.getElementById('dsUnlock3').disabled = false;
+}
+
+/* ── STEP 3: Q&A database ────────────────────────────────────── */
+function dsRenderFacts() {
+  const list = document.getElementById('dsFactList');
+  document.getElementById('dsFactCount').textContent = DS.facts.length + ' facts';
+  if (!DS.facts.length) {
+    list.innerHTML = '<div class="ds-empty">No facts extracted. Try a richer file or topic description.</div>';
+    return;
+  }
+  list.innerHTML = DS.facts.map(f => `<div class="ds-db-fact">${escHtml(f)}</div>`).join('');
+}
+
+async function dsTransform() {
+  if (!DS.facts.length) { alert('No source facts to transform. Run Step 0 first.'); return; }
+  const btn = document.getElementById('dsMagicBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="ds-spinner"></span> Generating questions…';
+  try {
+    const res = await fetch('/api/deepstudy/transform', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ facts: DS.facts, topic: DS.topic }),
+    });
+    const data = await res.json();
+    if (data.status !== 'ok') throw new Error(data.message || 'Generation failed');
+    DS.cards = data.cards || [];
+    dsRenderCards();
+  } catch (e) {
+    alert('Error: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 8.5 22 9.3 17 14.1 18.2 21 12 17.8 5.8 21 7 14.1 2 9.3 9 8.5 12 2"/></svg> Regenerate cards';
+  }
+}
+
+function dsRenderCards() {
+  const list = document.getElementById('dsCardList');
+  document.getElementById('dsCardCount').textContent = DS.cards.length + ' cards';
+  if (!DS.cards.length) {
+    list.innerHTML = '<div class="ds-empty">No cards yet. Tap AI Magic Transform.</div>';
+    return;
+  }
+  list.innerHTML = DS.cards.map((c, i) => `
+    <div class="ds-testcard">
+      <div class="ds-testcard-q">${escHtml(c.question)}</div>
+      <textarea class="ds-testcard-input" id="dsTryAns${i}" placeholder="Type your answer from memory…"></textarea>
+      <div class="ds-testcard-actions">
+        <button class="ds-tc-btn" onclick="dsToggleAnswer(${i})">Show/Hide answer</button>
+        <button class="ds-tc-btn primary" onclick="dsSync(${i}, this)">Sync to Long-Term Database</button>
+      </div>
+      <div class="ds-tc-answer" id="dsAns${i}"><strong>Answer key</strong>${escHtml(c.answer)}</div>
+    </div>
+  `).join('');
+}
+
+function dsToggleAnswer(i) {
+  document.getElementById('dsAns' + i).classList.toggle('visible');
+}
+
+async function dsSync(i, btn) {
+  const c = DS.cards[i];
+  if (!c) return;
+  btn.disabled = true;
+  btn.textContent = 'Syncing…';
+  try {
+    // Local SRS push (immediate). Server sync is best-effort.
+    let cards = {};
+    try { cards = JSON.parse(localStorage.getItem('intelliplan_srs_v1') || '{}'); } catch(e){}
+    const id = btoa(encodeURIComponent(c.question)).replace(/[^a-zA-Z0-9]/g,'').slice(0,48);
+    if (id && !cards[id]) {
+      cards[id] = { q: c.question, a: c.answer, interval: 1, easeFactor: 2.5, repetitions: 0, nextReview: new Date().toISOString().slice(0,10) };
+      localStorage.setItem('intelliplan_srs_v1', JSON.stringify(cards));
+    }
+    // Optional Notion sync
+    try {
+      await fetch('/notion/tasks/create', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: '[Recall] ' + c.question.slice(0, 80) }),
+      });
+    } catch(e){}
+    btn.textContent = '✓ Synced';
+    btn.style.background = '#10b981';
+    btn.style.borderColor = '#10b981';
+  } catch (e) {
+    btn.textContent = 'Retry';
+    btn.disabled = false;
+  }
+}
+
+/* ── Step navigation ─────────────────────────────────────────── */
+function dsGoto(step) {
+  if (step < 0 || step > 3) return;
+  DS.step = step;
+  for (let i = 0; i <= 3; i++) {
+    document.getElementById('dsStep' + i).classList.toggle('hidden', i !== step);
+  }
+  document.querySelectorAll('.ds-step-pill').forEach((p, i) => {
+    p.classList.remove('active', 'done', 'locked');
+    if (i < step)      p.classList.add('done');
+    else if (i === step) p.classList.add('active');
+    else                 p.classList.add('locked');
+  });
+  document.querySelectorAll('.ds-step-pill').forEach((p, i) => {
+    p.onclick = (i < step) ? () => dsGoto(i) : null;
+    p.style.cursor = (i < step) ? 'pointer' : 'default';
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Init
+dsMedRender();
+dsRefreshLockStatus();
+</script>
+{% endblock %}
