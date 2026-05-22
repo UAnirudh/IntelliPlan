@@ -163,20 +163,22 @@ app.register_blueprint(chatbot_bp)
 
 @app.after_request
 def add_cors_headers(response):
-    # ── FIX: Allow requests from the new domain intelliplan.tech
     origin = request.headers.get("Origin", "")
     is_extension = origin.startswith("chrome-extension://")
     is_local = origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1")
     if origin and (origin.rstrip("/") in ALLOWED_WEB_ORIGINS or is_extension or is_local):
+        # Echo origin back for our own domains/extension so credentials work
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Vary"] = "Origin"
-    elif not origin:
+    else:
+        # Allow any other origin (including Lotus and other embedders)
         response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Extension-Token"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    # Allow this site to be embedded in iframes on any domain
+    # Allow embedding in iframes on any domain
     response.headers.pop("X-Frame-Options", None)
     response.headers["Content-Security-Policy"] = "frame-ancestors *"
+    response.headers["X-Permitted-Cross-Domain-Policies"] = "all"
     return response
 
 limiter = Limiter(
