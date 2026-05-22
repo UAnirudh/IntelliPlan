@@ -174,6 +174,9 @@ def add_cors_headers(response):
         response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Extension-Token"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    # Allow this site to be embedded in iframes on any domain
+    response.headers.pop("X-Frame-Options", None)
+    response.headers["Content-Security-Policy"] = "frame-ancestors *"
     return response
 
 limiter = Limiter(
