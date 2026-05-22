@@ -177,7 +177,7 @@ def add_cors_headers(response):
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     # Allow embedding in iframes on any domain
     response.headers.pop("X-Frame-Options", None)
-    response.headers["Content-Security-Policy"] = "frame-ancestors *"
+    response.headers["Content-Security-Policy"] = "frame-ancestors * https://lotus-72e3e.web.app https://intelliplan.tech http://localhost:5000"
     response.headers["X-Permitted-Cross-Domain-Policies"] = "all"
     return response
 

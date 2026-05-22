@@ -1476,6 +1476,13 @@ if ('serviceWorker' in navigator && window.self === window.top) {
       .then(r=>console.log('SW:',r.scope)).catch(e=>console.log('SW fail:',e));
   });
 }
+
+/* ── LOTUS EMBED HANDSHAKE ──────────── */
+window.addEventListener("message", (e) => {
+  if (e.data?.type === "lotus:ping") {
+    e.source.postMessage({ type: "intelliplan:pong" }, e.origin);
+  }
+});
 </script>
 
 <!-- ══════════════════════════════════════
