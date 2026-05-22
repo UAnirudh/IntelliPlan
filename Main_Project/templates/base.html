@@ -1470,7 +1470,7 @@ document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); 
 {% block scripts %}{% endblock %}
 
 /* ── SERVICE WORKER ─────────────────── */
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && window.self === window.top) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/static/sw.js')
       .then(r=>console.log('SW:',r.scope)).catch(e=>console.log('SW fail:',e));

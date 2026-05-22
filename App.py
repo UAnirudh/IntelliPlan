@@ -134,12 +134,12 @@ ALLOWED_WEB_ORIGINS = [
 #   needs the app config ready, and we wire it up after db is created below.
 app.config["SESSION_TYPE"] = "sqlalchemy"
 app.config["SESSION_PERMANENT"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SECURE"] = APP_BASE_URL.startswith("https://")
-app.config["REMEMBER_COOKIE_SECURE"] = APP_BASE_URL.startswith("https://")
+app.config["SESSION_COOKIE_SECURE"] = True
+app.config["REMEMBER_COOKIE_SECURE"] = True
 app.config["REMEMBER_COOKIE_HTTPONLY"] = True
-app.config["REMEMBER_COOKIE_SAMESITE"] = "Lax"
+app.config["REMEMBER_COOKIE_SAMESITE"] = "None"
 app.config["PREFERRED_URL_SCHEME"] = "https" if APP_BASE_URL.startswith("https://") else "http"
 app.permanent_session_lifetime = timedelta(days=7)
 
