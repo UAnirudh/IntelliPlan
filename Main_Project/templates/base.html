@@ -1327,23 +1327,68 @@ if (mobileMenuBtn) {
 (function applySidebarPreferences() {
   const side = document.querySelector('.app-side');
   if (!side) return;
-  let prefs = {};
-  try { prefs = JSON.parse(localStorage.getItem('ip_navPrefs') || '{}') || {}; }
-  catch(e) { prefs = {}; }
+  // Anchors / containers we'll re-arrange items into.
+  const planGroup = side.querySelector('.side-group[data-side-group="plan"]');
+  const planBody  = planGroup && planGroup.querySelector('.side-group-body');
+  const toolsGroup = side.querySelector('.side-group[data-side-group="tools"]');
+  const toolsBody  = toolsGroup && toolsGroup.querySelector('.side-group-body');
   const firstGroup = side.querySelector('.side-group');
   const topAnchor = firstGroup || side.querySelector('.side-spacer');
-  const firstFolderBody = side.querySelector('.side-group-body');
-  document.querySelectorAll('.app-side [data-nav-item]').forEach(link => {
-    const mode = prefs[link.dataset.navItem] || 'default';
-    link.classList.toggle('nav-hidden', mode === 'hidden');
-    if (mode === 'pinned' && topAnchor && link.parentElement !== side) {
-      link.classList.remove('side-sub');
-      side.insertBefore(link, topAnchor);
-    } else if (mode === 'folder' && firstFolderBody && link.parentElement === side) {
-      link.classList.add('side-sub');
-      firstFolderBody.appendChild(link);
-    }
-  });
+
+  // Helper: locate the link element for a given nav key.
+  const findLink = key => side.querySelector(`[data-nav-item="${key}"]`);
+
+  // Try the new ip_navLayout first.
+  let layout = null;
+  try {
+    const raw = localStorage.getItem('ip_navLayout');
+    if (raw) layout = JSON.parse(raw);
+  } catch(e) {}
+
+  if (layout && typeof layout === 'object') {
+    const bucketContainers = {
+      pinned: { container: side, before: topAnchor,  sub: false },
+      plan:   { container: planBody,  before: null,  sub: true },
+      tools:  { container: toolsBody, before: null,  sub: true },
+      hidden: null,
+    };
+    ['pinned','plan','tools','hidden'].forEach(bucket => {
+      const order = Array.isArray(layout[bucket]) ? layout[bucket] : [];
+      const target = bucketContainers[bucket];
+      order.forEach(key => {
+        const link = findLink(key);
+        if (!link) return;
+        if (bucket === 'hidden') { link.classList.add('nav-hidden'); return; }
+        link.classList.remove('nav-hidden');
+        if (target && target.container) {
+          link.classList.toggle('side-sub', !!target.sub);
+          if (target.before && target.before.parentElement === target.container) {
+            target.container.insertBefore(link, target.before);
+          } else {
+            target.container.appendChild(link);
+          }
+        }
+      });
+    });
+  } else {
+    // Legacy ip_navPrefs (dropdown-era) fallback.
+    let prefs = {};
+    try { prefs = JSON.parse(localStorage.getItem('ip_navPrefs') || '{}') || {}; }
+    catch(e) { prefs = {}; }
+    document.querySelectorAll('.app-side [data-nav-item]').forEach(link => {
+      const mode = prefs[link.dataset.navItem] || 'default';
+      link.classList.toggle('nav-hidden', mode === 'hidden');
+      if (mode === 'pinned' && topAnchor && link.parentElement !== side) {
+        link.classList.remove('side-sub');
+        side.insertBefore(link, topAnchor);
+      } else if (mode === 'folder' && planBody && link.parentElement === side) {
+        link.classList.add('side-sub');
+        planBody.appendChild(link);
+      }
+    });
+  }
+
+  // Hide folder groups whose body is empty (after re-arranging).
   document.querySelectorAll('.app-side .side-group').forEach(group => {
     const visible = Array.from(group.querySelectorAll('[data-nav-item]')).some(el => !el.classList.contains('nav-hidden'));
     group.classList.toggle('nav-empty', !visible);

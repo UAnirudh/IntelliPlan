@@ -48,26 +48,56 @@
 .profile-tab:hover:not(.active) { color: var(--text-primary); background: var(--border); }
 .profile-pane { display: none; }
 .profile-pane.visible { display: block; }
-.nav-custom-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
-.nav-custom-row {
-  border:1px solid var(--border);
-  border-radius:12px;
-  padding:10px;
-  background:var(--bg);
-  display:flex;
-  flex-direction:column;
-  gap:8px;
+/* ── Sidebar customizer (drag-and-drop, mirrors real sidebar) ── */
+.sb-cust-wrap {
+  display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap;
 }
-.nav-custom-title { font-size:0.88rem; font-weight:700; color:var(--text-primary); }
-.nav-custom-row select {
-  width:100%;
-  min-height:40px;
-  border:1px solid var(--border-strong);
-  border-radius:10px;
-  background:var(--bg-card);
-  color:var(--text-primary);
-  padding:8px 10px;
+.sb-cust-preview {
+  width:248px; flex-shrink:0;
+  background:var(--bg-card); border:1px solid var(--border); border-radius:14px;
+  padding:12px 10px; display:flex; flex-direction:column; gap:4px;
+  box-shadow: var(--shadow);
 }
+.sb-cust-section {
+  display:flex; flex-direction:column; gap:3px; padding:6px 4px;
+  border-radius:10px; min-height:38px;
+  transition: background 0.15s, border-color 0.15s;
+  border:1px dashed transparent;
+}
+.sb-cust-section.is-folder {
+  margin-left:10px; padding-left:8px; border-left:1px solid var(--border);
+}
+.sb-cust-section.drop-target { background: var(--accent-soft); border-color: var(--accent); }
+.sb-cust-section-label {
+  font-family:var(--font-ui); font-size:0.62rem; font-weight:700;
+  text-transform:uppercase; letter-spacing:0.09em; color:var(--text-muted);
+  padding:6px 8px 2px;
+}
+.sb-cust-item {
+  display:flex; align-items:center; gap:10px;
+  padding:8px 10px; border-radius:8px;
+  background: var(--bg); border:1px solid var(--border);
+  color:var(--text-secondary); font-size:0.84rem; font-weight:500;
+  cursor:grab; user-select:none;
+  transition: background 0.12s, transform 0.12s, opacity 0.12s, border-color 0.12s;
+}
+.sb-cust-item:hover { background: var(--accent-soft); border-color: var(--border-accent); color: var(--accent); }
+.sb-cust-item:active { cursor:grabbing; }
+.sb-cust-item.is-dragging { opacity:0.35; }
+.sb-cust-item.drop-before { box-shadow: 0 -3px 0 0 var(--accent); }
+.sb-cust-item.drop-after  { box-shadow: 0  3px 0 0 var(--accent); }
+.sb-cust-item .sb-cust-handle {
+  width:12px; height:12px; flex-shrink:0; color:var(--text-muted);
+  display:inline-flex; align-items:center; justify-content:center;
+}
+.sb-cust-item .sb-cust-icon { width:16px; height:16px; flex-shrink:0; }
+.sb-cust-item .sb-cust-icon svg { width:100%; height:100%; }
+.sb-cust-section.is-hidden .sb-cust-item { opacity:0.5; }
+.sb-cust-help {
+  flex:1; min-width:200px; font-size:0.84rem; color:var(--text-secondary); line-height:1.55;
+}
+.sb-cust-help ul { padding-left:1.05rem; margin:0.5rem 0; }
+.sb-cust-help li { margin-bottom:4px; }
 
 /* Availability time-block rows */
 .avail-day-row { display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); }
@@ -311,17 +341,36 @@
     </div>
   </div>
 
-  <!-- ── Phone + SMS reminders ──────────────────────── -->
+  <!-- ── Sidebar customizer (drag-and-drop) ───────── -->
   <div class="settings-section" id="sidebarSettings">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:1rem;">
       <div>
         <div class="settings-section-title" style="margin-bottom:2px;">Sidebar</div>
-        <div style="font-size:0.84rem;color:var(--text-secondary);">Choose which tabs are pinned, hidden, or kept inside folders.</div>
+        <div style="font-size:0.84rem;color:var(--text-secondary);">Drag tabs between sections (or reorder within a section) to lay out your sidebar exactly how you like it.</div>
       </div>
       <button type="button" class="btn-secondary" onclick="resetNavPrefs()" style="padding:8px 14px;cursor:pointer;">Reset</button>
     </div>
-    <div class="nav-custom-grid" id="navCustomGrid"></div>
-    <div id="navCustomSaved" style="margin-top:10px;font-size:0.8rem;color:var(--low);"></div>
+    <div class="sb-cust-wrap">
+      <div class="sb-cust-preview" id="sbCustPreview" aria-label="Sidebar preview (drag to customize)">
+        <div class="sb-cust-section-label">Pinned to top</div>
+        <div class="sb-cust-section" data-bucket="pinned" id="sbBucketPinned"></div>
+        <div class="sb-cust-section-label">Plan folder</div>
+        <div class="sb-cust-section is-folder" data-bucket="plan" id="sbBucketPlan"></div>
+        <div class="sb-cust-section-label">Toolkit folder</div>
+        <div class="sb-cust-section is-folder" data-bucket="tools" id="sbBucketTools"></div>
+        <div class="sb-cust-section-label">Hidden</div>
+        <div class="sb-cust-section is-hidden" data-bucket="hidden" id="sbBucketHidden"></div>
+      </div>
+      <div class="sb-cust-help">
+        <strong style="color:var(--text-primary);">How it works</strong>
+        <ul>
+          <li><strong>Pinned</strong> — appears at the top of the sidebar.</li>
+          <li><strong>Plan / Toolkit</strong> — tucked inside the collapsible folder of the same name.</li>
+          <li><strong>Hidden</strong> — completely removed from the sidebar (still accessible by URL).</li>
+        </ul>
+        <span id="navCustomSaved" style="font-size:0.8rem;color:var(--low);"></span>
+      </div>
+    </div>
   </div>
 
   <div class="settings-section">
@@ -690,52 +739,186 @@ function saveAnimSetting(key, value) {
   });
 })();
 
-/* ── Referral link + stats ────────────────────────── */
-/* Sidebar customization */
+/* ── Sidebar customizer (drag-and-drop) ──────────── */
+/* Layout schema:
+   ip_navLayout = { pinned:[keys], plan:[keys], tools:[keys], hidden:[keys] }
+   The order of keys within a bucket determines order in the sidebar.
+   base.html reads ip_navLayout (falling back to ip_navPrefs for old users). */
 const NAV_ITEMS = [
-  ['dashboard', 'Dashboard'], ['study', 'Study & Learn'], ['streak', 'Streak'], ['tutor', 'Tutor'],
-  ['scheduler', 'Scheduler'], ['priority', 'Priority'], ['classes', 'Classes'], ['grades', 'Grades'],
-  ['gradebook', 'Grade Modeler'], ['tests', 'Tests'], ['dismissed', 'Done'], ['lessons', 'Lessons'],
-  ['groups', 'Study Groups'], ['writing', 'Writing'], ['math', 'Math Explainer'], ['extractor', 'Task Extractor'],
+  // key, label, default bucket, icon-id (matches <symbol id="i-..."> in base.html)
+  ['dashboard',  'Dashboard',     'pinned', 'i-dashboard'],
+  ['scheduler',  'Scheduler',     'pinned', 'i-scheduler'],
+  ['study',      'Study',         'pinned', 'i-rocket'],
+  ['learn',      'Learn',         'pinned', 'i-study'],
+  ['streak',     'Streak',        'pinned', 'i-fire'],
+  ['tutor',      'Tutor',         'pinned', 'i-tutor'],
+  ['focus',      'Focus Timer',   'pinned', 'i-fire'],
+  ['library',    'AP Library',    'pinned', 'i-backpack'],
+  ['priority',   'Priority',      'plan',   'i-priority'],
+  ['classes',    'Classes',       'plan',   'i-classes'],
+  ['grades',     'Grades',        'plan',   'i-grades'],
+  ['gradebook',  'Grade Modeler', 'plan',   'i-modeler'],
+  ['tests',      'Tests',         'plan',   'i-test'],
+  ['dismissed',  'Done',          'plan',   'i-done'],
+  ['lessons',    'Lessons',       'tools',  'i-study'],
+  ['groups',     'Study Groups',  'tools',  'i-tutor'],
+  ['writing',    'Writing',       'tools',  'i-pencil'],
+  ['math',       'Math Explainer','tools',  'i-modeler'],
+  ['extractor',  'Task Extractor','tools',  'i-check-circle'],
 ];
-function getNavPrefs() {
-  try { return JSON.parse(localStorage.getItem('ip_navPrefs') || '{}') || {}; }
-  catch(e) { return {}; }
+const NAV_BUCKETS = ['pinned', 'plan', 'tools', 'hidden'];
+const NAV_META = Object.fromEntries(NAV_ITEMS.map(([k,l,b,i]) => [k, {label:l, defaultBucket:b, icon:i}]));
+
+function defaultNavLayout() {
+  const layout = { pinned:[], plan:[], tools:[], hidden:[] };
+  NAV_ITEMS.forEach(([k,_l,b]) => layout[b].push(k));
+  return layout;
 }
-function setNavPref(key, value) {
-  const prefs = getNavPrefs();
-  prefs[key] = value;
-  localStorage.setItem('ip_navPrefs', JSON.stringify(prefs));
+
+function getNavLayout() {
+  // Prefer new ip_navLayout; migrate from legacy ip_navPrefs if needed.
+  try {
+    const raw = localStorage.getItem('ip_navLayout');
+    if (raw) {
+      const saved = JSON.parse(raw) || {};
+      const layout = defaultNavLayout();
+      // Wipe defaults and rebuild from saved, in order, then append any new keys.
+      NAV_BUCKETS.forEach(b => layout[b] = []);
+      const placed = new Set();
+      NAV_BUCKETS.forEach(b => {
+        (saved[b] || []).forEach(k => {
+          if (NAV_META[k] && !placed.has(k)) { layout[b].push(k); placed.add(k); }
+        });
+      });
+      // Any newly-added keys go to their default bucket.
+      NAV_ITEMS.forEach(([k,_l,b]) => { if (!placed.has(k)) layout[b].push(k); });
+      return layout;
+    }
+  } catch(e) {}
+  // Migrate from legacy ip_navPrefs.
+  try {
+    const legacy = JSON.parse(localStorage.getItem('ip_navPrefs') || '{}') || {};
+    const layout = defaultNavLayout();
+    Object.entries(legacy).forEach(([k, v]) => {
+      if (!NAV_META[k]) return;
+      const target = v === 'pinned' ? 'pinned'
+                  : v === 'folder' ? 'plan'
+                  : v === 'hidden' ? 'hidden'
+                  : null;
+      if (!target) return;
+      NAV_BUCKETS.forEach(b => { layout[b] = layout[b].filter(x => x !== k); });
+      layout[target].push(k);
+    });
+    return layout;
+  } catch(e) { return defaultNavLayout(); }
+}
+
+function saveNavLayout(layout) {
+  localStorage.setItem('ip_navLayout', JSON.stringify(layout));
   const note = document.getElementById('navCustomSaved');
   if (note) {
     note.textContent = 'Saved. Refresh or open another page to see the sidebar update.';
     setTimeout(() => { note.textContent = ''; }, 2200);
   }
 }
+
 function resetNavPrefs() {
+  localStorage.removeItem('ip_navLayout');
   localStorage.removeItem('ip_navPrefs');
-  renderNavPrefs();
+  renderNavCustomizer();
   const note = document.getElementById('navCustomSaved');
-  if (note) note.textContent = 'Sidebar reset.';
+  if (note) note.textContent = 'Sidebar reset to defaults.';
 }
-function renderNavPrefs() {
-  const grid = document.getElementById('navCustomGrid');
-  if (!grid) return;
-  const prefs = getNavPrefs();
-  grid.innerHTML = NAV_ITEMS.map(([key, label]) => {
-    const val = prefs[key] || 'default';
-    return `<div class="nav-custom-row">
-      <div class="nav-custom-title">${label}</div>
-      <select aria-label="${label} sidebar placement" onchange="setNavPref('${key}', this.value)">
-        <option value="default" ${val === 'default' ? 'selected' : ''}>Default folder</option>
-        <option value="pinned" ${val === 'pinned' ? 'selected' : ''}>Pin to top</option>
-        <option value="folder" ${val === 'folder' ? 'selected' : ''}>Keep in folder</option>
-        <option value="hidden" ${val === 'hidden' ? 'selected' : ''}>Hide</option>
-      </select>
-    </div>`;
-  }).join('');
+
+function renderNavCustomizer() {
+  const layout = getNavLayout();
+  NAV_BUCKETS.forEach(bucket => {
+    const el = document.getElementById('sbBucket' + bucket.charAt(0).toUpperCase() + bucket.slice(1));
+    if (!el) return;
+    el.innerHTML = layout[bucket].map(key => {
+      const meta = NAV_META[key];
+      if (!meta) return '';
+      return `<div class="sb-cust-item" draggable="true" data-key="${key}" data-bucket="${bucket}">
+        <span class="sb-cust-handle" aria-hidden="true">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><circle cx="2" cy="2" r="1"/><circle cx="2" cy="5" r="1"/><circle cx="2" cy="8" r="1"/><circle cx="6" cy="2" r="1"/><circle cx="6" cy="5" r="1"/><circle cx="6" cy="8" r="1"/></svg>
+        </span>
+        <span class="sb-cust-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#${meta.icon}"/></svg></span>
+        <span>${meta.label}</span>
+      </div>`;
+    }).join('');
+  });
+  wireNavDragHandlers();
 }
-renderNavPrefs();
+
+let _navDragKey = null;
+let _navDragFromBucket = null;
+
+function wireNavDragHandlers() {
+  document.querySelectorAll('#sbCustPreview .sb-cust-item').forEach(item => {
+    item.addEventListener('dragstart', e => {
+      _navDragKey = item.dataset.key;
+      _navDragFromBucket = item.dataset.bucket;
+      item.classList.add('is-dragging');
+      try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', _navDragKey); } catch(_){}
+    });
+    item.addEventListener('dragend', () => {
+      item.classList.remove('is-dragging');
+      document.querySelectorAll('.sb-cust-item').forEach(el => el.classList.remove('drop-before','drop-after'));
+      document.querySelectorAll('.sb-cust-section').forEach(el => el.classList.remove('drop-target'));
+      _navDragKey = null; _navDragFromBucket = null;
+    });
+    item.addEventListener('dragover', e => {
+      if (!_navDragKey || item.dataset.key === _navDragKey) return;
+      e.preventDefault();
+      const rect = item.getBoundingClientRect();
+      const after = (e.clientY - rect.top) > rect.height / 2;
+      document.querySelectorAll('.sb-cust-item').forEach(el => el.classList.remove('drop-before','drop-after'));
+      item.classList.add(after ? 'drop-after' : 'drop-before');
+    });
+    item.addEventListener('drop', e => {
+      if (!_navDragKey || item.dataset.key === _navDragKey) return;
+      e.preventDefault(); e.stopPropagation();
+      const rect = item.getBoundingClientRect();
+      const after = (e.clientY - rect.top) > rect.height / 2;
+      const layout = getNavLayout();
+      // Remove from old bucket
+      NAV_BUCKETS.forEach(b => { layout[b] = layout[b].filter(k => k !== _navDragKey); });
+      // Insert relative to target item
+      const targetBucket = item.dataset.bucket;
+      const targetIdx = layout[targetBucket].indexOf(item.dataset.key);
+      const insertAt = after ? targetIdx + 1 : targetIdx;
+      layout[targetBucket].splice(insertAt, 0, _navDragKey);
+      saveNavLayout(layout);
+      renderNavCustomizer();
+    });
+  });
+  document.querySelectorAll('#sbCustPreview .sb-cust-section').forEach(section => {
+    section.addEventListener('dragover', e => {
+      if (!_navDragKey) return;
+      // Only trigger when dragging over an empty area of the section (not over an item)
+      if (e.target.closest('.sb-cust-item')) return;
+      e.preventDefault();
+      document.querySelectorAll('.sb-cust-section').forEach(el => el.classList.remove('drop-target'));
+      section.classList.add('drop-target');
+    });
+    section.addEventListener('dragleave', e => {
+      if (e.target === section) section.classList.remove('drop-target');
+    });
+    section.addEventListener('drop', e => {
+      if (!_navDragKey) return;
+      if (e.target.closest('.sb-cust-item')) return;
+      e.preventDefault();
+      const bucket = section.dataset.bucket;
+      const layout = getNavLayout();
+      NAV_BUCKETS.forEach(b => { layout[b] = layout[b].filter(k => k !== _navDragKey); });
+      layout[bucket].push(_navDragKey);
+      saveNavLayout(layout);
+      renderNavCustomizer();
+    });
+  });
+}
+
+renderNavCustomizer();
 
 function refreshReferral() {
   fetch('/api/referral').then(r => r.json()).then(d => {
