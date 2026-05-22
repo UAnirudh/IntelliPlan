@@ -376,20 +376,38 @@
   <div class="settings-section">
     <div class="settings-section-title">Phone &amp; reminders</div>
     <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.9rem;">
-      Add a number to get optional text reminders for due assignments and study sessions. We never share or sell your phone number.
+      Get a heads-up before assignments are due — by text, browser push, or both. We never share or sell your phone number.
     </div>
     <div class="form-group" style="margin-bottom:0.75rem;">
       <label class="form-label" for="phoneInput">Phone number</label>
       <input type="tel" id="phoneInput" class="form-input" placeholder="+1 555 123 4567" autocomplete="tel">
       <span class="form-hint">Format any way — we'll normalise to +1… for US numbers automatically.</span>
     </div>
-    <label style="display:flex;align-items:flex-start;gap:10px;font-size:0.88rem;color:var(--text-secondary);cursor:pointer;margin-bottom:0.75rem;">
+    <label style="display:flex;align-items:flex-start;gap:10px;font-size:0.88rem;color:var(--text-secondary);cursor:pointer;margin-bottom:0.55rem;">
       <input type="checkbox" id="smsOptIn" style="margin-top:3px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;">
-      <span>Send me SMS reminders for due assignments and live study sessions. Reply STOP anytime to opt out. Standard rates apply.</span>
+      <span>Send me <strong>SMS reminders</strong> for due assignments and live study sessions. Reply STOP anytime to opt out. Standard rates apply.</span>
     </label>
+    <label style="display:flex;align-items:flex-start;gap:10px;font-size:0.88rem;color:var(--text-secondary);cursor:pointer;margin-bottom:0.75rem;">
+      <input type="checkbox" id="pushOptIn" style="margin-top:3px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;">
+      <span>Send me <strong>browser push notifications</strong> for due assignments and study sessions.</span>
+    </label>
+    <div class="form-group" style="margin-bottom:0.75rem;">
+      <label class="form-label" for="leadSelect">Remind me how far in advance?</label>
+      <select id="leadSelect" class="form-input" style="max-width:240px;">
+        <option value="15">15 minutes</option>
+        <option value="30">30 minutes</option>
+        <option value="60" selected>1 hour</option>
+        <option value="120">2 hours</option>
+        <option value="360">6 hours</option>
+        <option value="1440">1 day</option>
+        <option value="2880">2 days</option>
+      </select>
+    </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <button class="btn-primary" onclick="savePhone()" id="phoneSaveBtn" style="padding:9px 18px;border:none;cursor:pointer;">Save</button>
-      <button class="btn-secondary" onclick="testPhone()" id="phoneTestBtn" style="padding:9px 16px;cursor:pointer;font-size:0.84rem;">Send test SMS</button>
+      <button class="btn-secondary" onclick="testPhone()" id="phoneTestBtn" style="padding:9px 16px;cursor:pointer;font-size:0.84rem;">Test SMS</button>
+      <button class="btn-secondary" onclick="enablePushNotifications()" id="pushEnableBtn" style="padding:9px 16px;cursor:pointer;font-size:0.84rem;">Enable browser push</button>
+      <button class="btn-secondary" onclick="previewReminders()" id="previewBtn" style="padding:9px 16px;cursor:pointer;font-size:0.84rem;">Send me a sample reminder now</button>
       <span id="phoneStatus" style="font-size:0.82rem;color:var(--text-muted);"></span>
     </div>
   </div>
@@ -986,41 +1004,49 @@ function copyReferralLink() {
 }
 refreshReferral();
 
-/* ── Phone & SMS reminders ───────────────────────── */
+/* ── Phone & reminders (SMS + browser push + lead time) ──── */
 function _phoneStatus(msg, ok) {
   const el = document.getElementById('phoneStatus');
   if (!el) return;
   el.textContent = msg;
   el.style.color = ok ? 'var(--low)' : (ok === false ? 'var(--high)' : 'var(--text-muted)');
-  if (msg) setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 2400);
+  if (msg) setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 3200);
 }
 function refreshPhone() {
   fetch('/api/profile/phone').then(r => r.json()).then(d => {
     if (d.status !== 'ok') return;
     const i = document.getElementById('phoneInput');
     const o = document.getElementById('smsOptIn');
+    const p = document.getElementById('pushOptIn');
+    const l = document.getElementById('leadSelect');
     if (i) i.value = d.phone || '';
     if (o) o.checked = !!d.sms_reminders_opt_in;
+    if (p) p.checked = !!d.push_reminders_opt_in;
+    if (l && d.reminder_lead_minutes) l.value = String(d.reminder_lead_minutes);
   }).catch(() => {});
 }
 function savePhone() {
   const phone = document.getElementById('phoneInput').value.trim();
   const sms = document.getElementById('smsOptIn').checked;
+  const push = document.getElementById('pushOptIn').checked;
+  const lead = parseInt(document.getElementById('leadSelect').value || '60', 10);
   const btn = document.getElementById('phoneSaveBtn');
   btn.disabled = true; btn.textContent = 'Saving...';
   fetch('/api/profile/phone', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ phone, sms_reminders_opt_in: sms }),
+    body: JSON.stringify({
+      phone,
+      sms_reminders_opt_in: sms,
+      push_reminders_opt_in: push,
+      reminder_lead_minutes: lead,
+    }),
   })
     .then(r => r.json())
     .then(d => {
       btn.disabled = false; btn.textContent = 'Save';
       if (d.status === 'ok') {
         _phoneStatus('Saved ✓', true);
-        const i = document.getElementById('phoneInput');
-        const o = document.getElementById('smsOptIn');
-        if (i) i.value = d.phone || '';
-        if (o) o.checked = !!d.sms_reminders_opt_in;
+        refreshPhone();
       } else _phoneStatus(d.message || 'Failed', false);
     })
     .catch(() => { btn.disabled = false; btn.textContent = 'Save'; _phoneStatus('Network error', false); });
@@ -1031,10 +1057,78 @@ function testPhone() {
   fetch('/api/profile/phone/test', { method: 'POST' })
     .then(r => r.json())
     .then(d => {
-      btn.disabled = false; btn.textContent = 'Send test SMS';
+      btn.disabled = false; btn.textContent = 'Test SMS';
       _phoneStatus(d.message || (d.status === 'ok' ? 'Sent ✓' : 'Failed'), d.status === 'ok');
     });
 }
+
+/* ── Browser push: ask permission + subscribe ──────────── */
+function _urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = window.atob(base64);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; ++i) out[i] = raw.charCodeAt(i);
+  return out;
+}
+async function enablePushNotifications() {
+  const btn = document.getElementById('pushEnableBtn');
+  const original = btn.textContent;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    _phoneStatus('This browser does not support push notifications.', false);
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Setting up…';
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      _phoneStatus('Notifications were blocked. Allow them in your browser settings.', false);
+      btn.disabled = false; btn.textContent = original;
+      return;
+    }
+    const reg = await navigator.serviceWorker.ready;
+    const keyResp = await fetch('/push/vapid-public').then(r => r.json());
+    if (!keyResp.key) {
+      _phoneStatus('Push notifications are not configured on the server yet.', false);
+      btn.disabled = false; btn.textContent = original;
+      return;
+    }
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: _urlBase64ToUint8Array(keyResp.key),
+    });
+    await fetch('/push/subscribe', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ subscription: sub }),
+    });
+    // Auto-tick the opt-in box and persist.
+    document.getElementById('pushOptIn').checked = true;
+    await fetch('/api/profile/phone', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ push_reminders_opt_in: true }),
+    });
+    _phoneStatus('Browser push enabled ✓', true);
+  } catch(e) {
+    console.error(e);
+    _phoneStatus('Could not enable push: ' + (e.message || e), false);
+  } finally {
+    btn.disabled = false; btn.textContent = original;
+  }
+}
+
+function previewReminders() {
+  const btn = document.getElementById('previewBtn');
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Sending…';
+  fetch('/api/reminders/preview', { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+      btn.disabled = false; btn.textContent = original;
+      _phoneStatus(d.message || 'Done', d.status === 'ok');
+    })
+    .catch(() => { btn.disabled = false; btn.textContent = original; _phoneStatus('Network error', false); });
+}
+
 refreshPhone();
 
 /* ── IntelliPlan Pro status ──────────────────────── */

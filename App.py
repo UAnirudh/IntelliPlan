@@ -204,6 +204,8 @@ class User(UserMixin, db.Model):
     # ── Phone + reminder opt-in ──
     phone = db.Column(db.String(32), nullable=True)            # E.164 (+15551234567) or blank
     sms_reminders_opt_in = db.Column(db.Boolean, default=False)
+    push_reminders_opt_in = db.Column(db.Boolean, default=False)
+    reminder_lead_minutes = db.Column(db.Integer, default=60)  # how far ahead to remind
     # ── Stripe customer linkage ──
     stripe_customer_id = db.Column(db.String(64), nullable=True)
     linked_accounts = db.relationship("LinkedAccount", backref="user", lazy=True, cascade="all, delete-orphan")
@@ -402,6 +404,17 @@ class PushSubscription(db.Model):
     guest_session_id = db.Column(db.String(64), nullable=True)
     subscription_json = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class ReminderSent(db.Model):
+    """Dedupe row — one per (user, task, channel) so a reminder is sent
+    at most once per task, regardless of how often the cron runs."""
+    __tablename__ = "reminders_sent"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    task_key = db.Column(db.String(256), nullable=False)  # "manual:<id>" or "canvas:<id>"
+    channel = db.Column(db.String(16), nullable=False)    # "sms" or "push"
+    sent_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class CourseNote(db.Model):
     __tablename__ = "course_notes"
@@ -5863,16 +5876,22 @@ def _twilio_send(to_phone, body):
         return False
 
 
+def _profile_payload(u):
+    return {
+        "status": "ok",
+        "phone": u.phone or "",
+        "sms_reminders_opt_in": bool(getattr(u, "sms_reminders_opt_in", False)),
+        "push_reminders_opt_in": bool(getattr(u, "push_reminders_opt_in", False)),
+        "reminder_lead_minutes": int(getattr(u, "reminder_lead_minutes", 60) or 60),
+    }
+
+
 @app.route("/api/profile/phone", methods=["GET", "POST"])
 def api_profile_phone():
     if not current_user.is_authenticated:
         return flask.jsonify({"status": "error"}), 401
     if request.method == "GET":
-        return flask.jsonify({
-            "status": "ok",
-            "phone": current_user.phone or "",
-            "sms_reminders_opt_in": bool(current_user.sms_reminders_opt_in),
-        })
+        return flask.jsonify(_profile_payload(current_user))
     body = request.get_json(silent=True) or {}
     if "phone" in body:
         normalised = _normalise_phone(body.get("phone") or "")
@@ -5882,12 +5901,17 @@ def api_profile_phone():
         # Clearing the phone means you can't be reminded — also clear the flag.
         if not current_user.phone:
             current_user.sms_reminders_opt_in = False
+    if "push_reminders_opt_in" in body:
+        current_user.push_reminders_opt_in = bool(body.get("push_reminders_opt_in"))
+    if "reminder_lead_minutes" in body:
+        try:
+            lead = int(body.get("reminder_lead_minutes") or 60)
+            # Clamp to 5 minutes .. 7 days
+            current_user.reminder_lead_minutes = max(5, min(lead, 10080))
+        except (TypeError, ValueError):
+            pass
     db.session.commit()
-    return flask.jsonify({
-        "status": "ok",
-        "phone": current_user.phone or "",
-        "sms_reminders_opt_in": bool(current_user.sms_reminders_opt_in),
-    })
+    return flask.jsonify(_profile_payload(current_user))
 
 
 @app.route("/api/profile/phone/test", methods=["POST"])
@@ -5898,6 +5922,145 @@ def api_profile_phone_test():
     ok = _twilio_send(current_user.phone, "👋 IntelliPlan reminders are active for this number.")
     return flask.jsonify({"status": "ok" if ok else "error",
                           "message": "Sent!" if ok else "SMS provider not configured."})
+
+
+def _send_push_to_user(user_id, payload):
+    """Send a webpush payload to every subscription tied to user_id.
+    Returns the count of successful deliveries."""
+    subs = PushSubscription.query.filter_by(user_id=user_id).all()
+    if not subs:
+        return 0
+    try:
+        from pywebpush import webpush, WebPushException
+    except ImportError:
+        return 0
+    private_key = os.getenv("VAPID_PRIVATE_KEY")
+    if not private_key:
+        return 0
+    claims = {"sub": f"mailto:{os.getenv('VAPID_EMAIL', 'hello@intelliplan.tech')}"}
+    ok = 0
+    for sub in list(subs):
+        try:
+            webpush(
+                subscription_info=json.loads(sub.subscription_json),
+                data=json.dumps(payload),
+                vapid_private_key=private_key,
+                vapid_claims=claims,
+            )
+            ok += 1
+        except Exception as e:
+            msg = str(e)
+            # 410 Gone / 404 mean the browser unsubscribed — drop the row.
+            if "410" in msg or "404" in msg:
+                try: db.session.delete(sub); db.session.commit()
+                except Exception: pass
+            else:
+                print(f"[push] webpush failed: {e}")
+    return ok
+
+
+def _upcoming_tasks_for(user, lead_minutes):
+    """Return ManualTasks due within the next `lead_minutes`, not yet done."""
+    now = datetime.utcnow()
+    cutoff = now + timedelta(minutes=int(lead_minutes or 60))
+    rows = ManualTask.query.filter_by(user_id=user.id, done=False).all()
+    upcoming = []
+    for row in rows:
+        if not row.due_date:
+            continue
+        try:
+            due = datetime.fromisoformat(str(row.due_date)[:19])
+        except (TypeError, ValueError):
+            try: due = datetime.fromisoformat(str(row.due_date)[:10])
+            except (TypeError, ValueError): continue
+        if now <= due <= cutoff:
+            upcoming.append((row, due))
+    upcoming.sort(key=lambda p: p[1])
+    return upcoming
+
+
+def _send_reminders_for_user(user, mark_sent=True, force=False):
+    """Find a user's upcoming tasks and send SMS + push for each, skipping
+    any task already reminded.  Returns a dict counting what went out."""
+    lead = int(getattr(user, "reminder_lead_minutes", 60) or 60)
+    upcoming = _upcoming_tasks_for(user, lead)
+    sent = {"sms": 0, "push": 0, "skipped": 0, "tasks": 0}
+    if not upcoming:
+        return sent
+    want_sms  = bool(getattr(user, "sms_reminders_opt_in", False) and user.phone)
+    want_push = bool(getattr(user, "push_reminders_opt_in", False))
+    for task, due in upcoming:
+        sent["tasks"] += 1
+        key = f"manual:{task.id}"
+        for channel, want in (("sms", want_sms), ("push", want_push)):
+            if not want:
+                continue
+            if not force:
+                already = ReminderSent.query.filter_by(
+                    user_id=user.id, task_key=key, channel=channel
+                ).first()
+                if already:
+                    sent["skipped"] += 1
+                    continue
+            mins = max(1, int((due - datetime.utcnow()).total_seconds() // 60))
+            body = f"⏰ {task.title} is due in {mins} min ({task.course})."
+            ok = False
+            if channel == "sms":
+                ok = _twilio_send(user.phone, body[:300])
+            else:
+                ok = _send_push_to_user(user.id, {
+                    "title": "Assignment due soon",
+                    "body": body,
+                    "url": "/dashboard",
+                }) > 0
+            if ok:
+                sent[channel] += 1
+                if mark_sent:
+                    try:
+                        db.session.add(ReminderSent(user_id=user.id, task_key=key, channel=channel))
+                        db.session.commit()
+                    except Exception:
+                        db.session.rollback()
+    return sent
+
+
+@app.route("/api/reminders/preview", methods=["POST"])
+def api_reminders_preview():
+    """User-facing test: ignore the dedupe table and fire any pending
+    reminders for the current user right now, so the user can verify
+    SMS/push delivery without waiting for the cron to run."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error"}), 401
+    result = _send_reminders_for_user(current_user, mark_sent=False, force=True)
+    msg = (
+        f"Found {result['tasks']} upcoming task(s). "
+        f"Sent {result['sms']} SMS, {result['push']} push notification(s)."
+        if result["tasks"] else
+        "Nothing due within your reminder window yet."
+    )
+    return flask.jsonify({"status": "ok", "result": result, "message": msg})
+
+
+@app.route("/cron/send-reminders", methods=["GET", "POST"])
+def cron_send_reminders():
+    """Hit by Railway cron / external scheduler. Requires CRON_SECRET in
+    a `secret` query param (or X-Cron-Secret header) to prevent abuse."""
+    expected = os.getenv("CRON_SECRET", "")
+    provided = request.args.get("secret") or request.headers.get("X-Cron-Secret") or ""
+    if not expected or provided != expected:
+        return flask.jsonify({"status": "error", "message": "unauthorized"}), 401
+    total = {"users": 0, "sms": 0, "push": 0, "tasks": 0}
+    candidates = User.query.filter(
+        (User.sms_reminders_opt_in.is_(True)) | (User.push_reminders_opt_in.is_(True))
+    ).all()
+    for u in candidates:
+        r = _send_reminders_for_user(u, mark_sent=True, force=False)
+        if r["tasks"]:
+            total["users"] += 1
+            total["sms"]  += r["sms"]
+            total["push"] += r["push"]
+            total["tasks"] += r["tasks"]
+    return flask.jsonify({"status": "ok", "summary": total})
 
 
 # ── DAILY CHECK-IN CHEST (Duolingo-style) ─────────────────────────
@@ -6950,6 +7113,8 @@ def _migrate_user_columns():
         ("users", "pro_until", "TIMESTAMP"),
         ("users", "phone", "VARCHAR(32)"),
         ("users", "sms_reminders_opt_in", "BOOLEAN DEFAULT FALSE"),
+        ("users", "push_reminders_opt_in", "BOOLEAN DEFAULT FALSE"),
+        ("users", "reminder_lead_minutes", "INTEGER DEFAULT 60"),
         ("users", "stripe_customer_id", "VARCHAR(64)"),
         # user_identities — earlier migration's columns. Without these,
         # _get_or_create_identity() blows up and registration redirects
