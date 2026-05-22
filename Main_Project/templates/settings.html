@@ -675,23 +675,57 @@ fetch('/profiles/list')
     });
   });
 
-/* ── Google Calendar status ─────────────────────── */
-fetch('/gcal/status')
-  .then(r => r.json())
-  .then(d => {
-    const el = document.getElementById('gcalStatus');
-    if (d.connected) {
-      el.innerHTML = '<span class="connected-badge">Connected</span>';
-    } else {
-      el.innerHTML = '<button onclick="connectGoogle()" class="btn-primary" style="padding:6px 14px;font-size:0.8rem;">Connect</button>';
-    }
-  })
-  .catch(() => {
-    const el = document.getElementById('gcalStatus');
+/* ── Google Calendar status (multi-account) ───────── */
+function renderGcalStatus(d) {
+  const el = document.getElementById('gcalStatus');
+  if (!el) return;
+  if (!d || !d.connected) {
     el.innerHTML = '<button onclick="connectGoogle()" class="btn-primary" style="padding:6px 14px;font-size:0.8rem;">Connect</button>';
-  });
+    return;
+  }
+  const accounts = d.accounts || [];
+  // Wider layout when there are connected accounts to list.
+  const rows = accounts.map(a => {
+    const label = a.email || a.name || 'Google account';
+    const activeBadge = a.is_active
+      ? '<span style="font-size:0.7rem;background:var(--low);color:white;padding:2px 8px;border-radius:10px;font-weight:600;">Active</span>'
+      : `<button onclick="gcalActivate(${a.id})" class="btn-secondary" style="padding:4px 10px;font-size:0.74rem;cursor:pointer;">Use this</button>`;
+    return `<div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px;">
+      <span style="font-size:0.78rem;color:var(--text-secondary);font-family:'DM Mono',monospace;">${label}</span>
+      ${activeBadge}
+      <button onclick="gcalRemove(${a.id})" title="Disconnect this account" style="padding:3px 9px;border-radius:8px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:var(--font-ui);font-size:0.74rem;font-weight:600;">Remove</button>
+    </div>`;
+  }).join('');
+  el.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="connected-badge" style="opacity:0.6;cursor:not-allowed;" title="Already connected — use Add account for a second one">Connected</span>
+        <button onclick="connectGoogleAdd()" class="btn-secondary" style="padding:6px 12px;font-size:0.78rem;cursor:pointer;">+ Add account</button>
+      </div>
+      ${rows}
+    </div>`;
+}
 
-function connectGoogle() { window.location.href = "/oauth/google"; }
+function refreshGcal() {
+  fetch('/gcal/status')
+    .then(r => r.json())
+    .then(renderGcalStatus)
+    .catch(() => renderGcalStatus({ connected: false }));
+}
+refreshGcal();
+
+function connectGoogle()    { window.location.href = "/oauth/google?return=settings"; }
+function connectGoogleAdd() { window.location.href = "/oauth/google?add=1&return=settings"; }
+
+function gcalActivate(id) {
+  fetch('/gcal/activate', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) })
+    .then(r => r.json()).then(() => refreshGcal());
+}
+function gcalRemove(id) {
+  if (!confirm('Disconnect this Google account from IntelliPlan?')) return;
+  fetch('/gcal/remove', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) })
+    .then(r => r.json()).then(() => refreshGcal());
+}
 
 function switchProfile(id) {
   fetch('/profiles/switch', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) })

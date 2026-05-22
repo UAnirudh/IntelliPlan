@@ -310,6 +310,12 @@ class GoogleIntegration(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     token_data = db.Column(db.Text, nullable=False)
+    # Multi-account support — each row is one connected Google Account.
+    # `is_active=True` marks the account currently used for calendar sync.
+    account_email = db.Column(db.String(255), nullable=True)
+    account_name = db.Column(db.String(255), nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    connected_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class NotionIntegration(db.Model):
     __tablename__ = "notion_integrations"
@@ -1125,7 +1131,16 @@ def save_custom_description(assignment_title, description):
 
 def get_google_token():
     if current_user.is_authenticated:
-        gi = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
+        # Prefer the active row; fall back to the most recent if none flagged.
+        gi = (
+            GoogleIntegration.query
+            .filter_by(user_id=current_user.id, is_active=True)
+            .first()
+            or GoogleIntegration.query
+            .filter_by(user_id=current_user.id)
+            .order_by(GoogleIntegration.id.desc())
+            .first()
+        )
         if gi:
             try:
                 return json.loads(gi.token_data)
@@ -2454,18 +2469,34 @@ def _handle_google_callback():
             user.name = name
         db.session.commit()
         if has_calendar_scope(token_dict):
-            gi = GoogleIntegration.query.filter_by(user_id=user.id).first()
+            # Multi-account: match the row by account_email so a second
+            # Google sign-in adds a new row instead of overwriting the first.
+            gi = (
+                GoogleIntegration.query
+                .filter_by(user_id=user.id, account_email=email)
+                .first()
+            )
             existing_token = json.loads(gi.token_data) if gi else {}
             token_dict = merge_token_data(existing_token, token_dict)
+            # Newly-linked account becomes the active one.
+            GoogleIntegration.query.filter_by(user_id=user.id).update({"is_active": False})
             if gi:
                 gi.token_data = json.dumps(token_dict)
+                gi.account_name = name or gi.account_name
+                gi.is_active = True
             else:
-                db.session.add(GoogleIntegration(user_id=user.id, token_data=json.dumps(token_dict)))
+                db.session.add(GoogleIntegration(
+                    user_id=user.id,
+                    token_data=json.dumps(token_dict),
+                    account_email=email,
+                    account_name=name,
+                    is_active=True,
+                ))
             db.session.commit()
             session["google_token"] = token_dict
             session.permanent = True
             session.modified = True
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("settings") if session.pop("oauth_return_to_settings", False) else url_for("dashboard"))
 
     # ── Find or create User (defensive — see login_account for rationale) ──
     try:
@@ -2508,13 +2539,26 @@ def _handle_google_callback():
 
     # ── Persist the Google token for calendar use ──
     if has_calendar_scope(token_dict):
-        gi = GoogleIntegration.query.filter_by(user_id=user.id).first()
+        gi = (
+            GoogleIntegration.query
+            .filter_by(user_id=user.id, account_email=email)
+            .first()
+        )
         existing_token = json.loads(gi.token_data) if gi else {}
         token_dict = merge_token_data(existing_token, token_dict)
+        GoogleIntegration.query.filter_by(user_id=user.id).update({"is_active": False})
         if gi:
             gi.token_data = json.dumps(token_dict)
+            gi.account_name = name or gi.account_name
+            gi.is_active = True
         else:
-            db.session.add(GoogleIntegration(user_id=user.id, token_data=json.dumps(token_dict)))
+            db.session.add(GoogleIntegration(
+                user_id=user.id,
+                token_data=json.dumps(token_dict),
+                account_email=email,
+                account_name=name,
+                is_active=True,
+            ))
         db.session.commit()
         session["google_token"] = token_dict
         session.permanent = True
@@ -2532,7 +2576,9 @@ def _handle_google_callback():
 
 @app.route("/oauth/google")
 def google_oauth_start():
-    """Start the OAuth flow from the calendar-linking UI."""
+    """Start the OAuth flow from the calendar-linking UI.
+    Accepts ?add=1 to force the Google account chooser (so the user can
+    add a second account) and ?return=settings to come back to /settings."""
     if not is_logged_in():
         return redirect(url_for("login"))
     if not GCAL_AVAILABLE:
@@ -2540,12 +2586,97 @@ def google_oauth_start():
     state = secrets_module.token_urlsafe(32)
     session["oauth_state"] = state
     session["oauth_purpose"] = "calendar"
+    if request.args.get("return") == "settings":
+        session["oauth_return_to_settings"] = True
     session.permanent = True
     session.modified = True
     auth_url, code_verifier = get_auth_url(state, purpose="calendar")
+    # When the user clicks "Add another account", force Google to show
+    # the account picker even if they're already signed in.
+    if request.args.get("add") == "1":
+        sep = "&" if "?" in auth_url else "?"
+        auth_url = f"{auth_url}{sep}prompt=select_account"
     session["oauth_code_verifier"] = code_verifier
     session.modified = True
     return redirect(auth_url)
+
+
+@app.route("/gcal/status")
+def gcal_status():
+    """List the user's connected Google accounts and which one is active."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"connected": False, "accounts": [], "active_id": None})
+    rows = (
+        GoogleIntegration.query
+        .filter_by(user_id=current_user.id)
+        .order_by(GoogleIntegration.id.asc())
+        .all()
+    )
+    accounts = [{
+        "id": r.id,
+        "email": r.account_email or "",
+        "name": r.account_name or "",
+        "is_active": bool(r.is_active),
+    } for r in rows]
+    active = next((a for a in accounts if a["is_active"]), accounts[0] if accounts else None)
+    return flask.jsonify({
+        "connected": bool(accounts),
+        "accounts": accounts,
+        "active_id": active["id"] if active else None,
+        "active_email": active["email"] if active else "",
+    })
+
+
+@app.route("/gcal/activate", methods=["POST"])
+def gcal_activate():
+    """Mark a specific GoogleIntegration row as the active account."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error"}), 401
+    body = request.get_json(silent=True) or {}
+    row_id = body.get("id")
+    if not row_id:
+        return flask.jsonify({"status": "error", "message": "id required"}), 400
+    target = GoogleIntegration.query.filter_by(user_id=current_user.id, id=row_id).first()
+    if not target:
+        return flask.jsonify({"status": "error", "message": "not found"}), 404
+    GoogleIntegration.query.filter_by(user_id=current_user.id).update({"is_active": False})
+    target.is_active = True
+    db.session.commit()
+    try:
+        session["google_token"] = json.loads(target.token_data)
+        session.modified = True
+    except Exception:
+        pass
+    return flask.jsonify({"status": "ok"})
+
+
+@app.route("/gcal/remove", methods=["POST"])
+def gcal_remove():
+    """Disconnect a single Google account by row id (multi-account aware)."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error"}), 401
+    body = request.get_json(silent=True) or {}
+    row_id = body.get("id")
+    if not row_id:
+        return flask.jsonify({"status": "error", "message": "id required"}), 400
+    target = GoogleIntegration.query.filter_by(user_id=current_user.id, id=row_id).first()
+    if not target:
+        return flask.jsonify({"status": "error", "message": "not found"}), 404
+    was_active = bool(target.is_active)
+    db.session.delete(target)
+    db.session.commit()
+    if was_active:
+        # Promote the next-most-recent account to active.
+        nxt = GoogleIntegration.query.filter_by(user_id=current_user.id).order_by(GoogleIntegration.id.desc()).first()
+        if nxt:
+            nxt.is_active = True
+            db.session.commit()
+            try: session["google_token"] = json.loads(nxt.token_data)
+            except Exception: pass
+        else:
+            session.pop("google_token", None)
+        session.modified = True
+    return flask.jsonify({"status": "ok"})
 
 
 # ── FIX: Both route paths registered so either redirect URI works.
@@ -6835,6 +6966,11 @@ def _migrate_user_columns():
         ("notion_integrations", "connected_at", "TIMESTAMP"),
         # daily check-in chest tracking
         ("study_points", "last_daily_claim", "VARCHAR(16) DEFAULT ''"),
+        # google_integrations — multi-account support
+        ("google_integrations", "account_email", "VARCHAR(255)"),
+        ("google_integrations", "account_name", "VARCHAR(255)"),
+        ("google_integrations", "is_active", "BOOLEAN DEFAULT TRUE"),
+        ("google_integrations", "connected_at", "TIMESTAMP"),
     ]
 
     # Group targets by table so we only inspect each table once.
