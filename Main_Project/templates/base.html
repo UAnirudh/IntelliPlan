@@ -95,6 +95,40 @@
     ══════════════════════════════════════ */
     *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
     html { scroll-behavior:smooth; }
+
+    /* ── Accessibility classes (toggled from Settings → Accessibility) ── */
+    html.a11y-large-text { font-size: 17.25px; }
+    @media (max-width: 720px) { html.a11y-large-text { font-size: 18px; } }
+    html.a11y-high-contrast {
+      --text-primary: #000;
+      --text-secondary: #1f2937;
+      --text-muted: #374151;
+      --border: #6b7280;
+      --border-strong: #111827;
+      --accent: #1d4ed8;
+    }
+    html.a11y-high-contrast[data-theme="dark"] {
+      --text-primary: #fff;
+      --text-secondary: #f3f4f6;
+      --text-muted: #d1d5db;
+      --border: #9ca3af;
+      --border-strong: #f3f4f6;
+      --accent: #60a5fa;
+    }
+    html.a11y-reduce-motion *,
+    html.a11y-reduce-motion *::before,
+    html.a11y-reduce-motion *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        transition-duration: 0.001ms !important;
+      }
+    }
     body {
       font-family: var(--font-body);
       background: var(--bg);
@@ -1322,6 +1356,19 @@ const mobileMenuBtn = document.getElementById('mobileMenuBtn');
 if (mobileMenuBtn) {
   mobileMenuBtn.addEventListener('click', toggleMobileMenu);
 }
+
+/* ── Accessibility preferences (applied on every page) ─── */
+(function applyA11y() {
+  const root = document.documentElement;
+  const map = [
+    ['ip_a11y_largeText',    'a11y-large-text'],
+    ['ip_a11y_highContrast', 'a11y-high-contrast'],
+    ['ip_a11y_reduceMotion', 'a11y-reduce-motion'],
+  ];
+  map.forEach(([key, cls]) => {
+    if (localStorage.getItem(key) === '1') root.classList.add(cls);
+  });
+})();
 
 /* ── Sidebar customization ─────────────────────────────── */
 (function applySidebarPreferences() {

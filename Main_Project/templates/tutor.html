@@ -1030,8 +1030,19 @@ async function sendTutorMessage() {
   showChat();
   await new Promise(r => setTimeout(r, 0));
 
+  // Accessibility prefs: respect language + simple-reading-level on every send.
+  const a11yLang   = (() => { try { return localStorage.getItem('ip_a11y_lang') || 'en'; } catch(e){ return 'en'; } })();
+  const simpleRead = (() => { try { return localStorage.getItem('ip_a11y_simpleReading') === '1'; } catch(e){ return false; } })();
+  const a11yPrefix = [];
+  if (a11yLang && a11yLang !== 'en') {
+    const langNames = { es:'Spanish', fr:'French', zh:'Chinese', vi:'Vietnamese', ko:'Korean', ar:'Arabic', hi:'Hindi', pt:'Portuguese', ru:'Russian' };
+    a11yPrefix.push(`Please reply in ${langNames[a11yLang] || a11yLang}.`);
+  }
+  if (simpleRead) a11yPrefix.push('Use plain, short sentences and simple vocabulary appropriate for a struggling reader.');
+  const prefixStr = a11yPrefix.length ? `[${a11yPrefix.join(' ')}]\n` : '';
+
   addTutorMsg('user', text || '(image attached)');
-  tutorHistory.push({ role: 'user', content: `[Subject: ${currentSubject}]\n${text || 'What is shown in this image?'}` });
+  tutorHistory.push({ role: 'user', content: `[Subject: ${currentSubject}]\n${prefixStr}${text || 'What is shown in this image?'}` });
   scrollBottom();
 
   setPlaniState('thinking');

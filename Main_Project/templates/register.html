@@ -13,6 +13,11 @@
     {% if error %}
     <div class="login-error"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px"><use href="#i-warning"/></svg> {{ error }}</div>
     {% endif %}
+    {% if info %}
+    <div style="background:var(--accent-soft);border:1px solid var(--border-accent);color:var(--text-primary);padding:12px 14px;border-radius:10px;margin-bottom:1rem;font-size:0.88rem;line-height:1.55;">
+      {{ info }}
+    </div>
+    {% endif %}
 
     <!-- Google Sign Up (recommended) -->
     <a href="/login/google" style="display:flex;align-items:center;gap:10px;justify-content:center;padding:12px;border-radius:var(--r-md);border:1px solid var(--border-strong);background:#fff;color:#3c4043;font-family:var(--font-ui);font-size:0.87rem;font-weight:600;text-decoration:none;margin-bottom:0.75rem;box-shadow:var(--shadow);transition:all 0.16s;"
@@ -45,6 +50,16 @@
         <input type="password" name="confirm_password" class="form-input" placeholder="••••••••" required />
       </div>
       <div class="form-group">
+        <label class="form-label" for="regBirthYear">Birth year <span style="font-weight:normal;color:var(--text-muted);font-size:0.78rem;">(required for COPPA compliance)</span></label>
+        <input type="number" id="regBirthYear" name="birth_year" class="form-input" placeholder="e.g. 2010" min="1900" max="2025" required onchange="_toggleParentField()" oninput="_toggleParentField()" />
+        <span class="form-hint">If you're under 13 we'll ask a parent or guardian to approve the account.</span>
+      </div>
+      <div class="form-group" id="regParentWrap" style="display:none;">
+        <label class="form-label" for="regParentEmail">Parent or guardian email <span style="color:var(--high);">*</span></label>
+        <input type="email" id="regParentEmail" name="parent_email" class="form-input" placeholder="parent@example.com" />
+        <span class="form-hint">We'll send a one-time link they click to approve the account. We never email them again.</span>
+      </div>
+      <div class="form-group">
         <label class="form-label">Phone number <span style="font-weight:normal;color:var(--text-muted);font-size:0.78rem;">(optional, for reminders)</span></label>
         <input type="tel" name="phone" class="form-input" placeholder="+1 555 123 4567" autocomplete="tel" />
         <span class="form-hint">Used only if you opt in to SMS reminders below. You can change this anytime in Settings.</span>
@@ -61,7 +76,27 @@
     <div class="login-footer">
       <p>Already have an account? <a href="/login/account" class="login-link">Sign in</a></p>
       <p style="margin-top:6px;"><a href="/login" class="login-link">← Back to login options</a></p>
+      <p style="margin-top:6px;font-size:0.74rem;color:var(--text-muted);">
+        By creating an account you agree to our
+        <a href="/terms" class="login-link">Terms</a> and
+        <a href="/privacy" class="login-link">Privacy Policy</a>
+        (which describes COPPA and FERPA handling).
+      </p>
     </div>
   </div>
 </div>
+<script>
+function _toggleParentField() {
+  const yr = parseInt(document.getElementById('regBirthYear').value || '0', 10);
+  if (!yr) return;
+  const currentYear = new Date().getFullYear();
+  const age = currentYear - yr;
+  const wrap = document.getElementById('regParentWrap');
+  const input = document.getElementById('regParentEmail');
+  const show = (age > 0 && age < 13);
+  wrap.style.display = show ? '' : 'none';
+  if (input) input.required = show;
+}
+_toggleParentField();
+</script>
 {% endblock %}

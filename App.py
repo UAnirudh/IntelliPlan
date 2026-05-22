@@ -206,6 +206,11 @@ class User(UserMixin, db.Model):
     sms_reminders_opt_in = db.Column(db.Boolean, default=False)
     push_reminders_opt_in = db.Column(db.Boolean, default=False)
     reminder_lead_minutes = db.Column(db.Integer, default=60)  # how far ahead to remind
+    # ── COPPA: under-13 gating ──
+    birth_year = db.Column(db.Integer, nullable=True)          # collected at signup
+    parent_email = db.Column(db.String(255), nullable=True)    # for under-13 accounts
+    parent_consent_granted = db.Column(db.Boolean, default=False)
+    parent_consent_token = db.Column(db.String(64), nullable=True)  # signed verification token
     # ── Stripe customer linkage ──
     stripe_customer_id = db.Column(db.String(64), nullable=True)
     linked_accounts = db.relationship("LinkedAccount", backref="user", lazy=True, cascade="all, delete-orphan")
@@ -1919,6 +1924,30 @@ def register():
                     _existing = None
             if _existing:
                 error = "An account with that email already exists."
+        # ── COPPA: capture birth year and (if needed) parent email ──
+        birth_year_raw = request.form.get("birth_year", "").strip()
+        parent_email_raw = request.form.get("parent_email", "").strip().lower()
+        birth_year_val = None
+        age = None
+        if not error and birth_year_raw:
+            try:
+                birth_year_val = int(birth_year_raw)
+                current_year = datetime.utcnow().year
+                if birth_year_val < 1900 or birth_year_val > current_year:
+                    error = "Please enter a valid birth year."
+                else:
+                    age = current_year - birth_year_val
+            except ValueError:
+                error = "Please enter a valid birth year."
+        elif not error:
+            error = "Please tell us your birth year so we can comply with COPPA."
+        if not error and age is not None and age < 13:
+            if not parent_email_raw or "@" not in parent_email_raw:
+                error = ("Because you're under 13, a parent or guardian's email is required. "
+                         "We'll send them a one-time consent link before activating your account.")
+            elif parent_email_raw == email:
+                error = "Your parent or guardian's email must be different from your own."
+
         if not error:
             try:
                 pw_hash = bcrypt.generate_password_hash(password).decode("utf-8")
@@ -1928,18 +1957,51 @@ def register():
                 sms_optin = bool(request.form.get("sms_reminders_opt_in"))
                 if not phone_norm:
                     sms_optin = False  # can't reminder without a number
+                under_13 = (age is not None and age < 13)
+                consent_token = secrets_module.token_urlsafe(24) if under_13 else None
                 user = User(
                     email=email, password_hash=pw_hash,
                     phone=phone_norm, sms_reminders_opt_in=sms_optin,
+                    birth_year=birth_year_val,
+                    parent_email=parent_email_raw if under_13 else None,
+                    parent_consent_granted=not under_13,  # adults skip the gate
+                    parent_consent_token=consent_token,
                 )
                 db.session.add(user)
                 db.session.commit()
+                # Fire the parental consent email out-of-band.
+                if under_13 and parent_email_raw:
+                    try:
+                        consent_url = f"{APP_BASE_URL}/parent/consent?token={consent_token}"
+                        body = (
+                            f"Hi,\n\nYour child ({email}) signed up for IntelliPlan, a free study "
+                            f"planner. Because they're under 13, COPPA requires your consent before "
+                            f"their account becomes active.\n\nApprove the account:\n{consent_url}\n\n"
+                            f"If you didn't expect this email, you can safely ignore it — the account "
+                            f"stays locked until you click the link.\n\n— IntelliPlan"
+                        )
+                        # Send via SMTP if SMTP_HOST is set; otherwise log
+                        # the link so it can still be delivered manually.
+                        _send_email(parent_email_raw, "Consent needed: your child's IntelliPlan account", body)
+                        print(f"[coppa] consent link emailed to {parent_email_raw}: {consent_url}")
+                    except Exception as _e:
+                        print(f"[coppa] consent email failed: {_e}")
                 # Apply any pending referral bonus (sets referred_by_id and
                 # grants both accounts Pro days). Safe no-op if there's none.
                 try:
                     _grant_referral_bonus(user)
                 except Exception as _ref_e:
                     print(f"[referral] grant failed: {_ref_e}")
+                # Under-13 accounts stay logged-out until the parent clicks
+                # the consent link. Show a friendly "waiting for parent" page.
+                if under_13:
+                    return render_template(
+                        "register.html",
+                        active_page="login",
+                        error=None,
+                        info=(f"Account created for {email}. We've emailed a consent link to "
+                              f"{parent_email_raw}. Your account will activate as soon as they approve it."),
+                    )
                 login_user(user, remember=True)
                 # Best-effort welcome SMS so the user sees the integration
                 # work the moment they opt in.
@@ -2106,6 +2168,12 @@ def login_account():
                 error = "Login is briefly unavailable. Please try again in a moment."
         if not error:
             if user and user.password_hash and bcrypt.check_password_hash(user.password_hash, password):
+                # COPPA: block sign-in for under-13 accounts that haven't been approved yet.
+                if hasattr(user, "parent_consent_granted") and user.parent_consent_granted is False and (user.parent_email or ""):
+                    error = ("This account is waiting for parental consent. We emailed "
+                             f"{user.parent_email} a consent link — once they click it, "
+                             "you'll be able to sign in.")
+                    return render_template("login_account.html", active_page="login", error=error)
                 login_user(user, remember=True)
                 # Auto-join any group whose invite link was clicked pre-login.
                 joined_gid = _apply_pending_group_join()
@@ -5843,6 +5911,69 @@ def stripe_webhook():
 import re as _re_phone
 
 
+def _send_email(to_addr, subject, body):
+    """Send a plain-text email via SMTP_*. If SMTP isn't configured, log
+    the message (the parental-consent link still gets printed to the
+    server log so an admin can deliver it manually)."""
+    host = os.getenv("SMTP_HOST")
+    port = int(os.getenv("SMTP_PORT", "587"))
+    user = os.getenv("SMTP_USER")
+    pw   = os.getenv("SMTP_PASSWORD")
+    sender = os.getenv("SMTP_FROM") or user or "no-reply@intelliplan.tech"
+    if not (host and to_addr):
+        print(f"[email] SMTP not configured — would send to {to_addr}: {subject}\n{body}")
+        return False
+    try:
+        import smtplib
+        from email.message import EmailMessage
+        msg = EmailMessage()
+        msg["From"] = sender
+        msg["To"] = to_addr
+        msg["Subject"] = subject
+        msg.set_content(body)
+        with smtplib.SMTP(host, port, timeout=10) as s:
+            s.starttls()
+            if user and pw:
+                s.login(user, pw)
+            s.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"[email] send failed: {e}")
+        return False
+
+
+@app.route("/parent/consent")
+def parent_consent():
+    """Public landing page for the COPPA parental-consent link."""
+    token = request.args.get("token", "").strip()
+    if not token:
+        return "Missing consent token.", 400
+    user = User.query.filter_by(parent_consent_token=token).first()
+    if not user:
+        return render_template(
+            "error.html",
+            error_title="Link not valid",
+            error_message="This consent link is no longer valid. Either the account has already been approved, or the link has expired."
+        ) if os.path.exists(os.path.join(app.template_folder, "error.html")) else (
+            "<h1>Consent link not valid</h1><p>This consent link is no longer valid.</p>", 404
+        )
+    if not user.parent_consent_granted:
+        user.parent_consent_granted = True
+        user.parent_consent_token = None  # one-shot
+        db.session.commit()
+    # Render a tiny inline confirmation — no template needed.
+    return (
+        "<!doctype html><meta charset='utf-8'><title>Consent granted</title>"
+        "<style>body{font-family:Arial,sans-serif;max-width:560px;margin:60px auto;padding:24px;"
+        "background:#f9fafb;color:#111827;line-height:1.6;}a{color:#2563eb;}</style>"
+        f"<h1>Thanks!</h1><p>You've approved <strong>{user.email}</strong>'s IntelliPlan account. "
+        "They can now sign in and start using the app. You can revoke consent any time by emailing "
+        "<a href='mailto:uanirudh0811@gmail.com'>uanirudh0811@gmail.com</a> — we'll delete the "
+        "account and all associated data within 30 days.</p>"
+        "<p><a href='/'>← Back to IntelliPlan</a></p>"
+    )
+
+
 def _normalise_phone(raw):
     """Return E.164-ish format like +15551234567, or empty string on bad input."""
     if not raw:
@@ -7115,6 +7246,10 @@ def _migrate_user_columns():
         ("users", "sms_reminders_opt_in", "BOOLEAN DEFAULT FALSE"),
         ("users", "push_reminders_opt_in", "BOOLEAN DEFAULT FALSE"),
         ("users", "reminder_lead_minutes", "INTEGER DEFAULT 60"),
+        ("users", "birth_year", "INTEGER"),
+        ("users", "parent_email", "VARCHAR(255)"),
+        ("users", "parent_consent_granted", "BOOLEAN DEFAULT FALSE"),
+        ("users", "parent_consent_token", "VARCHAR(64)"),
         ("users", "stripe_customer_id", "VARCHAR(64)"),
         # user_identities — earlier migration's columns. Without these,
         # _get_or_create_identity() blows up and registration redirects
