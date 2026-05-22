@@ -1075,7 +1075,9 @@ def tutor():
 
 @chatbot_bp.route('/api/tutor/vision', methods=['POST'])
 def tutor_vision():
-    """Snap & Solve — accepts a base64 image + question, returns an AI explanation."""
+    """Snap & Solve — accepts a base64 image + question, returns an AI
+    explanation.  When mode='multi', detects EVERY problem in the image
+    and works each one separately (Solvely / Photomath style)."""
     try:
         data = request.get_json()
         if not data:
@@ -1085,6 +1087,7 @@ def tutor_vision():
         image_mime = data.get('image_mime') or 'image/jpeg'
         subject   = data.get('subject') or 'General'
         convo_id  = data.get('conversation_id')
+        mode      = (data.get('mode') or 'single').strip().lower()
 
         if not image_b64:
             return jsonify({'error': 'No image provided'}), 400
@@ -1093,22 +1096,40 @@ def tutor_vision():
         if not api_key:
             return jsonify({'reply': 'Vision analysis requires a Groq API key with vision support.'}), 503
 
+        if mode == 'multi':
+            system_prompt = (
+                f'You are Plani, an AI tutor for students studying {subject}. '
+                'The image likely contains MULTIPLE separate problems or questions '
+                '(for example a worksheet, textbook page, or list). For EACH distinct '
+                'problem you can see, do the following:\n'
+                '  1. Restate the problem in your own words under a clear "Problem N:" header.\n'
+                '  2. Show the step-by-step working in plain language.\n'
+                '  3. Give the final answer on its own line as **Answer: …**.\n'
+                'Number the problems in reading order (top-to-bottom, left-to-right). '
+                'Do not skip any — if you can see ten, work all ten. '
+                'If a part of the image is unreadable, say so for that problem and move on. '
+                'Use simple language a student can follow.'
+            )
+            user_text = question or 'Identify and solve every problem you can see in this image.'
+            max_tok = 2400
+        else:
+            system_prompt = (
+                f'You are Plani, an AI tutor for students. The student is studying {subject}. '
+                'Analyse the image provided and give a clear, educational explanation. '
+                'If it contains a math problem, solve it step by step. '
+                'If it is a diagram, explain what it shows. '
+                'Be concise and use plain language a student can understand.'
+            )
+            user_text = question
+            max_tok = 800
+
         client = Groq(api_key=api_key)
         vision_messages = [
-            {
-                'role': 'system',
-                'content': (
-                    f'You are Plani, an AI tutor for students. The student is studying {subject}. '
-                    'Analyse the image provided and give a clear, educational explanation. '
-                    'If it contains a math problem, solve it step by step. '
-                    'If it is a diagram, explain what it shows. '
-                    'Be concise and use plain language a student can understand.'
-                )
-            },
+            {'role': 'system', 'content': system_prompt},
             {
                 'role': 'user',
                 'content': [
-                    {'type': 'text', 'text': question},
+                    {'type': 'text', 'text': user_text},
                     {'type': 'image_url', 'image_url': {'url': f'data:{image_mime};base64,{image_b64}'}},
                 ],
             }
@@ -1116,15 +1137,16 @@ def tutor_vision():
         resp = client.chat.completions.create(
             model='meta-llama/llama-4-scout-17b-16e-instruct',
             messages=vision_messages,
-            temperature=0.5,
-            max_tokens=800,
+            temperature=0.4 if mode == 'multi' else 0.5,
+            max_tokens=max_tok,
         )
         reply = resp.choices[0].message.content.strip()
 
         # Persist to conversation history so context carries forward
         convo_row = _get_conversation(int(convo_id)) if convo_id else None
         stored = _safe_json((convo_row or {}).get('messages_json'), []) if convo_row else []
-        stored.append({'role': 'user', 'content': f'[Subject: {subject}]\n[Image attached] {question}'})
+        tag = '[Image attached — solve every problem]' if mode == 'multi' else '[Image attached]'
+        stored.append({'role': 'user', 'content': f'[Subject: {subject}]\n{tag} {question}'})
         stored.append({'role': 'assistant', 'content': reply})
         convo_row = _ensure_conversation(convo_row, stored)
         _save_conversation(convo_row['id'], stored)

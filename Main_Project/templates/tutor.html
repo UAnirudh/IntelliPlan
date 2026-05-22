@@ -652,6 +652,10 @@ main {
       <div id="tutorImgPreview" class="tutor-img-preview" style="display:none;">
         <img id="tutorImgThumb" src="" alt="Attached image">
         <span class="tutor-img-preview-name" id="tutorImgName"></span>
+        <label id="tutorSolveAllWrap" style="display:inline-flex;align-items:center;gap:6px;font-size:0.74rem;color:var(--text-secondary);cursor:pointer;background:var(--accent-soft);padding:4px 10px;border-radius:999px;border:1px solid var(--border-accent);" title="Detect and solve every problem in the photo">
+          <input type="checkbox" id="tutorSolveAll" style="accent-color:var(--accent);width:13px;height:13px;cursor:pointer;">
+          Solve every problem
+        </label>
         <button class="tutor-img-remove" onclick="clearSnapImage()" aria-label="Remove image" title="Remove image">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
@@ -675,6 +679,11 @@ main {
         <button class="tutor-icon-btn" id="micBtn" onclick="toggleVoice()" aria-label="Voice input">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
           <span class="ib-tip">Speak your question</span>
+        </button>
+        <button class="tutor-icon-btn" id="ttsBtn" onclick="toggleTts()" aria-label="Toggle voice replies" aria-pressed="false">
+          <svg id="ttsIconOn"  style="display:none;" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+          <svg id="ttsIconOff" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+          <span class="ib-tip" id="ttsTip">Voice replies off</span>
         </button>
         <button id="tutorSendBtn" onclick="sendTutorMessage()" aria-label="Send message">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -968,7 +977,29 @@ function toggleVoice() {
 }
 
 // ── TTS ────────────────────────────────────────────────────────
-let ttsEnabled = false;
+let ttsEnabled = (() => { try { return localStorage.getItem('ip_tutor_tts') === '1'; } catch(e) { return false; } })();
+function _renderTtsState() {
+  const btn = document.getElementById('ttsBtn');
+  const on  = document.getElementById('ttsIconOn');
+  const off = document.getElementById('ttsIconOff');
+  const tip = document.getElementById('ttsTip');
+  if (!btn) return;
+  btn.classList.toggle('active', ttsEnabled);
+  btn.setAttribute('aria-pressed', String(ttsEnabled));
+  if (on)  on.style.display  = ttsEnabled ? '' : 'none';
+  if (off) off.style.display = ttsEnabled ? 'none' : '';
+  if (tip) tip.textContent = ttsEnabled ? 'Voice replies on' : 'Voice replies off';
+}
+function toggleTts() {
+  ttsEnabled = !ttsEnabled;
+  try { localStorage.setItem('ip_tutor_tts', ttsEnabled ? '1' : '0'); } catch(e){}
+  // If we're turning it off mid-speech, stop immediately.
+  if (!ttsEnabled && window.speechSynthesis) window.speechSynthesis.cancel();
+  _renderTtsState();
+}
+document.addEventListener('DOMContentLoaded', _renderTtsState);
+_renderTtsState();
+
 function speakReply(text) {
   if (!ttsEnabled || !window.speechSynthesis) return;
   const clean = text.replace(/[#*`_~\[\]]/g, '').trim();
@@ -992,6 +1023,8 @@ async function sendTutorMessage() {
   const imageB64  = pendingImageB64;
   const imageMime = pendingImageMime;
   const imgSrc    = document.getElementById('tutorImgThumb').src;
+  const solveAllEl = document.getElementById('tutorSolveAll');
+  const solveAll   = !!(solveAllEl && solveAllEl.checked);
   clearSnapImage();
 
   showChat();
@@ -1011,7 +1044,17 @@ async function sendTutorMessage() {
     let body = { messages: tutorHistory, conversation_id: conversationId };
     if (hasImage) {
       endpoint = '/api/tutor/vision';
-      body = { question: text || 'What is in this image? Explain step by step.', image_b64: imageB64, image_mime: imageMime, subject: currentSubject, conversation_id: conversationId };
+      const defaultQ = solveAll
+        ? 'Identify and solve every problem in this image.'
+        : 'What is in this image? Explain step by step.';
+      body = {
+        question: text || defaultQ,
+        image_b64: imageB64,
+        image_mime: imageMime,
+        subject: currentSubject,
+        conversation_id: conversationId,
+        mode: solveAll ? 'multi' : 'single',
+      };
     }
     const res = await fetch(endpoint, {
       method: 'POST',
