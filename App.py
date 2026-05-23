@@ -5617,6 +5617,27 @@ def admin_grant_pro():
     return flask.jsonify({"status": "ok", "user": user.email, "pro_until": user.pro_until.isoformat()})
 
 
+@app.route("/api/admin/smtp-status", methods=["GET"])
+@require_admin
+def admin_smtp_status():
+    """Show which SMTP env vars are detected — values masked, just presence/absence."""
+    host, port, user, pw, sender = _smtp_config()
+    return flask.jsonify({
+        "host": host or None,
+        "port": port,
+        "user_set": bool(user),
+        "password_set": bool(pw),
+        "sender": sender,
+        "ready": bool(host and user and pw),
+        "vars_checked": {
+            "host": ["SMTP_HOST", "MAIL_HOST", "EMAIL_HOST", "(gmail auto-detect)"],
+            "user": ["SMTP_USER", "SMTP_USERNAME", "MAIL_USERNAME", "EMAIL_USERNAME", "USERNAME"],
+            "password": ["SMTP_PASSWORD", "MAIL_PASSWORD", "EMAIL_PASSWORD", "PASSWORD"],
+            "port": ["SMTP_PORT", "MAIL_PORT", "(default 587)"],
+        },
+    })
+
+
 @app.route("/api/admin/sms-blast/preview", methods=["POST"])
 @require_admin
 def admin_sms_blast_preview():
@@ -6009,11 +6030,7 @@ def _send_email(to_addr, subject, body):
     """Send a plain-text email via SMTP_*. If SMTP isn't configured, log
     the message (the parental-consent link still gets printed to the
     server log so an admin can deliver it manually)."""
-    host = os.getenv("SMTP_HOST") or os.getenv("HOST")
-    port = int(os.getenv("SMTP_PORT", "587"))
-    user = os.getenv("SMTP_USER") or os.getenv("USERNAME")
-    pw   = os.getenv("SMTP_PASSWORD") or os.getenv("PASSWORD")
-    sender = os.getenv("SMTP_FROM") or user or "no-reply@intelliplan.tech"
+    host, port, user, pw, sender = _smtp_config()
     if not (host and to_addr):
         print(f"[email] SMTP not configured — would send to {to_addr}: {subject}\n{body}")
         return False
@@ -6108,21 +6125,53 @@ def _digits_only(s):
     return _re_phone.sub(r"[^0-9]", "", s or "")
 
 
+def _smtp_config():
+    """Resolve SMTP credentials from environment variables.
+
+    Checks several name variants so Railway vars named HOST / USERNAME /
+    PASSWORD work alongside the canonical SMTP_* names. Falls back to
+    smtp.gmail.com automatically when the username is a Gmail address and
+    no explicit host is set.
+    """
+    host = (os.getenv("SMTP_HOST")
+            or os.getenv("MAIL_HOST")
+            or os.getenv("EMAIL_HOST"))
+    port = int(os.getenv("SMTP_PORT") or os.getenv("MAIL_PORT") or "587")
+    user = (os.getenv("SMTP_USER")
+            or os.getenv("SMTP_USERNAME")
+            or os.getenv("MAIL_USERNAME")
+            or os.getenv("EMAIL_USERNAME")
+            or os.getenv("USERNAME"))
+    pw = (os.getenv("SMTP_PASSWORD")
+          or os.getenv("MAIL_PASSWORD")
+          or os.getenv("EMAIL_PASSWORD")
+          or os.getenv("PASSWORD"))
+    sender = os.getenv("SMTP_FROM") or user or "no-reply@intelliplan.tech"
+
+    # Auto-detect Gmail when no host is given but the address is @gmail.com
+    if not host and user and "@gmail.com" in user.lower():
+        host = "smtp.gmail.com"
+        port = 587
+
+    print(f"[smtp-config] host={'set' if host else 'MISSING'} "
+          f"user={'set' if user else 'MISSING'} "
+          f"pw={'set' if pw else 'MISSING'} port={port}")
+    return host, port, user, pw, sender
+
+
 def _sms_send_email_gateway(to_phone, body, carrier="tmobile"):
     """Send a short SMS by emailing the carrier's gateway address.
     Returns True if SMTP accepted the message. Safe no-op when SMTP
     isn't configured. Intended for personal notifications only.
 
-    Variables sourced from environment (so a teen developer can add
-    them in Railway's dashboard without touching code):
-      SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM
-    The recipient's number + carrier come from the User row.
+    Accepted Railway variable names (any of these work):
+      SMTP_HOST / MAIL_HOST / EMAIL_HOST
+      SMTP_USER / SMTP_USERNAME / MAIL_USERNAME / EMAIL_USERNAME / USERNAME
+      SMTP_PASSWORD / MAIL_PASSWORD / EMAIL_PASSWORD / PASSWORD
+      SMTP_PORT / MAIL_PORT  (default 587)
+    Gmail is auto-detected when USERNAME ends in @gmail.com and no host is set.
     """
-    smtp_host = os.getenv("SMTP_HOST") or os.getenv("HOST")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_username = os.getenv("SMTP_USER") or os.getenv("USERNAME")
-    smtp_password = os.getenv("SMTP_PASSWORD") or os.getenv("PASSWORD")
-    smtp_from = os.getenv("SMTP_FROM") or smtp_username or "no-reply@intelliplan.tech"
+    smtp_host, smtp_port, smtp_username, smtp_password, smtp_from = _smtp_config()
 
     digits = _digits_only(to_phone)
     # US carriers expect a 10-digit number; strip a leading 1 if present.

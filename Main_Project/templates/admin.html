@@ -144,7 +144,9 @@
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <a href="/health" target="_blank" class="btn-secondary" style="padding:9px 14px;text-decoration:none;font-size:0.84rem;">DB schema /health</a>
       <a href="/api/v1/docs" target="_blank" class="btn-secondary" style="padding:9px 14px;text-decoration:none;font-size:0.84rem;">Public REST API</a>
+      <button onclick="checkSmtp()" class="btn-secondary" style="padding:9px 14px;font-size:0.84rem;cursor:pointer;border:none;">Check SMTP config</button>
     </div>
+    <pre id="smtpStatusOut" style="display:none;margin-top:10px;font-size:0.78rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;overflow-x:auto;color:var(--text-secondary);"></pre>
   </div>
 </div>
 
@@ -220,6 +222,16 @@ function smsBlastSend() {
       out.style.color = 'var(--high)';
       out.textContent = 'Network error';
     });
+}
+
+function checkSmtp() {
+  const out = document.getElementById('smtpStatusOut');
+  out.style.display = 'block';
+  out.textContent = 'Checking…';
+  fetch('/api/admin/smtp-status')
+    .then(r => r.json())
+    .then(d => { out.textContent = JSON.stringify(d, null, 2); })
+    .catch(e => { out.textContent = 'Error: ' + e; });
 }
 
 function setFlag(key, enabled, el) {
