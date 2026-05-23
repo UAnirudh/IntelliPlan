@@ -179,10 +179,12 @@ def get_upcoming_events(token_dict):
     result = []
     for e in events:
         start = e["start"].get("dateTime", e["start"].get("date", ""))
+        end_t = e.get("end", {}).get("dateTime", e.get("end", {}).get("date", ""))
         result.append({
             "id": e["id"],
             "title": e.get("summary", "Untitled"),
             "start": start,
+            "end": end_t,
             "description": e.get("description", ""),
             "source": "google_calendar"
         })

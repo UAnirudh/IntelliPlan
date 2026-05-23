@@ -6053,13 +6053,54 @@ def stripe_webhook():
 import re as _re_phone
 
 
+def _send_email_via_resend(to_addr, subject, body):
+    """Send a plain-text email through the Resend HTTP API.
+    Returns True on success, False on failure or if not configured."""
+    api_key = os.getenv("RESEND_API_KEY")
+    if not api_key or not to_addr:
+        return False
+    from_addr = os.getenv("RESEND_FROM") or "IntelliPlan <noreply@intelliplan.tech>"
+    try:
+        import urllib.request, urllib.error, json as _json
+        payload = _json.dumps({
+            "from": from_addr,
+            "to": [to_addr],
+            "subject": subject or "",
+            "text": body or "",
+        }).encode()
+        req = urllib.request.Request(
+            "https://api.resend.com/emails",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            result = _json.loads(resp.read())
+            print(f"[email-resend] sent to {to_addr}, id={result.get('id')}")
+            return True
+    except urllib.error.HTTPError as e:
+        err = e.read().decode(errors="replace") if hasattr(e, "read") else str(e)
+        print(f"[email-resend] failed to {to_addr}: {e.code} {err}")
+        return False
+    except Exception as e:
+        print(f"[email-resend] error: {e}")
+        return False
+
+
 def _send_email(to_addr, subject, body):
-    """Send a plain-text email via SMTP_*. If SMTP isn't configured, log
-    the message (the parental-consent link still gets printed to the
-    server log so an admin can deliver it manually)."""
+    """Send a plain-text email. Tries Resend first (RESEND_API_KEY), then
+    falls back to SMTP. If neither is configured, logs the message so the
+    parental-consent link can still be delivered manually."""
+    if not to_addr:
+        return False
+    if _send_email_via_resend(to_addr, subject, body):
+        return True
+
     host, port, user, pw, sender = _smtp_config()
-    if not (host and to_addr):
-        print(f"[email] SMTP not configured — would send to {to_addr}: {subject}\n{body}")
+    if not host:
+        print(f"[email] neither Resend nor SMTP configured — would send to {to_addr}: {subject}\n{body}")
         return False
     try:
         import smtplib
@@ -6069,14 +6110,16 @@ def _send_email(to_addr, subject, body):
         msg["To"] = to_addr
         msg["Subject"] = subject
         msg.set_content(body)
+        clean_pw = "".join(pw.split()) if pw else ""
         with smtplib.SMTP(host, port, timeout=10) as s:
             s.starttls()
-            if user and pw:
-                s.login(user, pw)
+            if user and clean_pw:
+                s.login(user, clean_pw)
             s.send_message(msg)
+        print(f"[email-smtp] sent to {to_addr}")
         return True
     except Exception as e:
-        print(f"[email] send failed: {e}")
+        print(f"[email-smtp] send failed: {e}")
         return False
 
 
@@ -6275,7 +6318,10 @@ def _sms_via_resend(api_key, to_addr, text):
 
 
 def _sms_send_for_user(user, body):
-    """Thin wrapper that picks up the user's saved carrier preference.
+    """Send an SMS using the carrier email-to-SMS gateway.
+    IntelliPlan does NOT use a third-party SMS API (no Twilio etc.) — we
+    deliver SMS by emailing the carrier's gateway address (the carrier
+    converts the email to an SMS at no cost to us).
     Returns (True, None) on success or (None, error_str) on failure."""
     if not user or not user.phone:
         return None, "no phone on account"
@@ -6284,22 +6330,10 @@ def _sms_send_for_user(user, body):
 
 
 def _twilio_send(to_phone, body):
-    """Deprecated shim — kept so any older call site still resolves.
-    Always uses the email-gateway path (T-Mobile as a safe default)."""
+    """Compatibility shim — older call sites used this name. Routes to
+    the carrier email-to-SMS gateway (T-Mobile default) since IntelliPlan
+    no longer uses Twilio."""
     return _sms_send_email_gateway(to_phone, body, carrier="tmobile")
-    # The block below is intentionally unreachable; left for reviewers.
-    sid = os.getenv("TWILIO_ACCOUNT_SID")
-    token = os.getenv("TWILIO_AUTH_TOKEN")
-    src = os.getenv("TWILIO_FROM_NUMBER")
-    if not (sid and token and src and to_phone):
-        return False
-    try:
-        from twilio.rest import Client as _TwClient
-        _TwClient(sid, token).messages.create(to=to_phone, from_=src, body=body[:600])
-        return True
-    except Exception as e:
-        print(f"[twilio] send failed: {e}")
-        return False
 
 
 def _profile_payload(u):
@@ -6356,6 +6390,263 @@ def api_profile_phone_test():
     ok, err = _sms_send_for_user(current_user, "IntelliPlan reminders are active for this number.")
     return flask.jsonify({"status": "ok" if ok else "error",
                           "message": "Sent! Check your phone in a moment." if ok else (err or "Send failed")})
+
+
+def _iso_utc(dt):
+    """Normalize a datetime-ish value to an ISO-8601 UTC string ending in Z.
+    Returns None if conversion fails.
+    """
+    if not dt:
+        return None
+    try:
+        if isinstance(dt, str):
+            s = dt.strip()
+            if not s:
+                return None
+            if s.endswith("Z"):
+                return s
+            # Date-only ("2026-05-23") → start of day UTC
+            if len(s) == 10 and s.count("-") == 2:
+                return s + "T00:00:00Z"
+            # Add Z if it parses without a timezone
+            try:
+                parsed = datetime.fromisoformat(s.replace("Z", "+00:00"))
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=timezone.utc)
+                return parsed.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            except Exception:
+                return s
+        if isinstance(dt, datetime):
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    except Exception:
+        return None
+    return None
+
+
+def _classify_event_kind(title, description=""):
+    """Heuristic: pick "class" | "study" | "exam" | "deadline" from text."""
+    blob = ((title or "") + " " + (description or "")).lower()
+    if any(w in blob for w in ("exam", "test", "midterm", "final", "quiz")):
+        return "exam"
+    if any(w in blob for w in ("due", "deadline", "submit", "assignment")):
+        return "deadline"
+    if any(w in blob for w in ("study", "review", "flashcard", "practice")):
+        return "study"
+    return "class"
+
+
+def _build_lotus_snapshot(user):
+    """Build the rich Lotus-compatible snapshot payload for an authenticated user.
+
+    Shape matches the Lotus iframe contract:
+      nextEvent | deadlines[] | reviewQueue | streak | todayGoal
+    Each top-level field may be null when data is unavailable.
+    """
+    base = APP_BASE_URL.rstrip("/")
+    now_utc = datetime.now(timezone.utc)
+    today_str = now_utc.strftime("%Y-%m-%d")
+
+    payload = {
+        "nextEvent": None,
+        "deadlines": None,
+        "reviewQueue": None,
+        "streak": None,
+        "todayGoal": None,
+    }
+
+    # ── nextEvent ────────────────────────────────────────────────
+    # First preference: Google Calendar (real schedule). Falls back
+    # to the next-due ManualTask if Calendar isn't linked.
+    try:
+        if GCAL_AVAILABLE:
+            token = get_google_token()
+            if token:
+                events = get_upcoming_events(token) or []
+                for ev in events:
+                    start_iso = _iso_utc(ev.get("start"))
+                    if not start_iso:
+                        continue
+                    end_iso = _iso_utc(ev.get("end")) or start_iso
+                    payload["nextEvent"] = {
+                        "title": ev.get("title") or "Upcoming",
+                        "kind": _classify_event_kind(ev.get("title"), ev.get("description")),
+                        "startsAt": start_iso,
+                        "endsAt": end_iso,
+                        "deepLink": f"{base}/calendar",
+                    }
+                    break
+    except Exception as e:
+        print(f"[snapshot] calendar lookup failed: {e}")
+
+    if payload["nextEvent"] is None:
+        try:
+            soonest = (
+                ManualTask.query
+                .filter(ManualTask.user_id == user.id, ManualTask.done == False)  # noqa: E712
+                .filter(ManualTask.due_date >= today_str)
+                .order_by(ManualTask.due_date.asc())
+                .first()
+            )
+            if soonest and soonest.due_date:
+                start_iso = _iso_utc(soonest.due_date)
+                if start_iso:
+                    payload["nextEvent"] = {
+                        "title": soonest.title,
+                        "kind": "deadline",
+                        "startsAt": start_iso,
+                        "endsAt": start_iso,
+                        "deepLink": f"{base}/dashboard",
+                    }
+        except Exception as e:
+            print(f"[snapshot] manual-task next-event lookup failed: {e}")
+
+    # ── deadlines (up to 3, soonest first) ───────────────────────
+    try:
+        deadlines = (
+            ManualTask.query
+            .filter(ManualTask.user_id == user.id, ManualTask.done == False)  # noqa: E712
+            .filter(ManualTask.due_date >= today_str)
+            .order_by(ManualTask.due_date.asc())
+            .limit(3)
+            .all()
+        )
+        if deadlines:
+            payload["deadlines"] = [
+                {
+                    "title": t.title,
+                    "course": t.course or "Personal",
+                    "dueAt": _iso_utc(t.due_date),
+                    "deepLink": f"{base}/dashboard",
+                }
+                for t in deadlines if t.due_date
+            ] or None
+    except Exception as e:
+        print(f"[snapshot] deadlines lookup failed: {e}")
+
+    # ── reviewQueue (spaced-repetition items due today) ──────────
+    try:
+        due_count = (
+            StudyMastery.query
+            .filter(StudyMastery.user_id == user.id)
+            .filter(StudyMastery.next_review <= today_str)
+            .filter(StudyMastery.mastery_level < 3)
+            .count()
+        )
+        payload["reviewQueue"] = {
+            "dueToday": int(due_count or 0),
+            "deepLink": f"{base}/study",
+        }
+    except Exception as e:
+        print(f"[snapshot] review-queue lookup failed: {e}")
+
+    # ── streak ───────────────────────────────────────────────────
+    try:
+        p = get_study_profile(user.id, None)
+        if p:
+            streak_days = int(p.streak_count or 0)
+            # at-risk = no qualifying activity today *and* user already has a streak going
+            at_risk = (p.last_active_date != today_str) and streak_days > 0
+            payload["streak"] = {
+                "days": streak_days,
+                "atRisk": bool(at_risk),
+            }
+    except Exception as e:
+        print(f"[snapshot] streak lookup failed: {e}")
+
+    # ── todayGoal ────────────────────────────────────────────────
+    # Target: 4 focus sessions/day (the same yardstick Quests use).
+    # Completed: distinct completed StudySession rows for *today*.
+    try:
+        day_start = datetime(now_utc.year, now_utc.month, now_utc.day, tzinfo=timezone.utc)
+        completed_today = (
+            StudySession.query
+            .filter(StudySession.user_id == user.id)
+            .filter(StudySession.completed == True)  # noqa: E712
+            .filter(StudySession.created_at >= day_start.replace(tzinfo=None))
+            .count()
+        )
+        payload["todayGoal"] = {
+            "target": 4,
+            "completed": int(completed_today or 0),
+            "unit": "focus sessions",
+        }
+    except Exception as e:
+        print(f"[snapshot] today-goal lookup failed: {e}")
+
+    return payload
+
+
+@app.route("/api/snapshot", methods=["GET"])
+def api_snapshot():
+    """Return a portable JSON snapshot of the current user's IntelliPlan
+    state, suitable for export to external tools (e.g. Lotus).
+
+    The base template fetches this on every authenticated page load and
+    writes the result to `localStorage['intelliplan:snapshot']`, which any
+    embedded surface can then read synchronously without an extra round
+    trip. Anonymous callers get a small public stub so the client code
+    can run without branching.
+    """
+    snapshot = {
+        "version": 2,
+        "source": "intelliplan",
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "authenticated": bool(current_user.is_authenticated),
+        "user": None,
+        "linked_account": None,
+        "assignments": [],
+        # Lotus payload — top-level fields the Lotus iframe consumes
+        "nextEvent": None,
+        "deadlines": None,
+        "reviewQueue": None,
+        "streak": None,
+        "todayGoal": None,
+    }
+
+    if not current_user.is_authenticated:
+        return flask.jsonify(snapshot)
+
+    u = current_user
+    snapshot["user"] = {
+        "id": u.id,
+        "email": getattr(u, "email", None),
+        "name": getattr(u, "name", None) or getattr(u, "display_name", None),
+        "created_at": u.created_at.isoformat() if getattr(u, "created_at", None) else None,
+        "is_pro": bool(getattr(u, "is_pro", False)),
+    }
+
+    try:
+        acct = LinkedAccount.query.filter_by(user_id=u.id, is_active=True).first()
+        if acct:
+            snapshot["linked_account"] = {
+                "provider": acct.provider,
+                "display_name": getattr(acct, "display_name", None),
+                "district_url": getattr(acct, "district_url", None),
+                "linked_at": acct.created_at.isoformat() if getattr(acct, "created_at", None) else None,
+            }
+    except Exception as e:
+        print(f"[snapshot] linked account lookup failed: {e}")
+
+    # Cached assignments if they were stashed on the session by a recent
+    # dashboard fetch. We don't re-hit the LMS here — that would be slow
+    # on every page load. The dashboard endpoint keeps this fresh.
+    try:
+        cached = session.get("snapshot_assignments")
+        if isinstance(cached, list):
+            snapshot["assignments"] = cached[:200]
+    except Exception:
+        pass
+
+    # Merge the Lotus payload (nextEvent / deadlines / reviewQueue / streak / todayGoal)
+    try:
+        lotus = _build_lotus_snapshot(u)
+        snapshot.update(lotus)
+    except Exception as e:
+        print(f"[snapshot] lotus payload build failed: {e}")
+
+    return flask.jsonify(snapshot)
 
 
 def _send_push_to_user(user_id, payload):

@@ -17,33 +17,39 @@
       --font-body:    'Inter', sans-serif;
       --font-ui:      'Plus Jakarta Sans', sans-serif;
       --r-xs:   4px; --r-sm: 8px; --r-md: 12px;
-      --r-lg:  16px; --r-xl: 20px; --r-full: 9999px;
+      --r-lg:  16px; --r-xl: 20px; --r-2xl: 28px; --r-full: 9999px;
       --ease-spring: cubic-bezier(0.34,1.56,0.64,1);
       --ease-out:    cubic-bezier(0.16,1,0.3,1);
+      --ease-in-out: cubic-bezier(0.65,0,0.35,1);
+      /* Premium gradient accents (Fortune-500 palette).
+         Used for hero, CTAs, and elevated surfaces. */
+      --grad-brand:      linear-gradient(135deg,#2453d6 0%,#3b5fe0 40%,#6366f1 100%);
+      --grad-brand-soft: linear-gradient(135deg,rgba(36,83,214,0.10) 0%,rgba(99,102,241,0.06) 100%);
     }
 
     :root[data-theme="light"] {
-      --bg:            #f7f6f3;
+      --bg:            #fafaf7;
       --bg-secondary:  #ffffff;
       --bg-card:       #ffffff;
-      --bg-elevated:   #fafaf8;
-      --bg-dot:        rgba(0,0,0,0.028);
+      --bg-elevated:   #f5f5f1;
+      --bg-dot:        rgba(15,23,42,0.025);
       --accent:        #2453d6;
       --accent-hover:  #1a43c0;
       --accent-soft:   rgba(36,83,214,0.07);
       --accent-mid:    rgba(36,83,214,0.22);
-      --accent-glow:   0 0 40px rgba(36,83,214,0.12);
-      --text-primary:  #0d0d0d;
-      --text-secondary:#525252;
-      --text-muted:    #9b9b9b;
-      --border:        rgba(0,0,0,0.07);
-      --border-strong: rgba(0,0,0,0.12);
-      --border-accent: rgba(36,83,214,0.24);
-      --shadow:     0 1px 3px rgba(0,0,0,0.04),0 4px 12px rgba(0,0,0,0.05);
-      --shadow-hover:0 4px 8px rgba(0,0,0,0.06),0 12px 32px rgba(0,0,0,0.09);
-      --shadow-lg:  0 8px 16px rgba(0,0,0,0.07),0 24px 56px rgba(0,0,0,0.11);
-      --nav-bg:     rgba(255,255,255,0.88);
-      --nav-border: rgba(0,0,0,0.07);
+      --accent-glow:   0 0 60px rgba(36,83,214,0.18);
+      --text-primary:  #0a0a0a;
+      --text-secondary:#4b5563;
+      --text-muted:    #9ca3af;
+      --border:        rgba(15,23,42,0.06);
+      --border-strong: rgba(15,23,42,0.11);
+      --border-accent: rgba(36,83,214,0.28);
+      --shadow-sm:  0 1px 2px rgba(15,23,42,0.04);
+      --shadow:     0 1px 3px rgba(15,23,42,0.04),0 8px 20px rgba(15,23,42,0.05);
+      --shadow-hover:0 2px 6px rgba(15,23,42,0.06),0 18px 42px rgba(15,23,42,0.10);
+      --shadow-lg:  0 10px 22px rgba(15,23,42,0.08),0 32px 72px rgba(15,23,42,0.13);
+      --nav-bg:     rgba(255,255,255,0.78);
+      --nav-border: rgba(15,23,42,0.06);
       --high:        #c53030; --high-bg:    rgba(197,48,48,0.07);
       --medium:      #b45309; --medium-bg:  rgba(180,83,9,0.07);
       --low:         #047857; --low-bg:     rgba(4,120,87,0.07);
@@ -57,27 +63,28 @@
     }
 
     :root[data-theme="dark"] {
-      --bg:            #0a0a0a;
-      --bg-secondary:  #111111;
-      --bg-card:       #161616;
-      --bg-elevated:   #1c1c1c;
-      --bg-dot:        rgba(255,255,255,0.025);
-      --accent:        #4a7cf5;
-      --accent-hover:  #6390f7;
-      --accent-soft:   rgba(74,124,245,0.1);
-      --accent-mid:    rgba(74,124,245,0.26);
-      --accent-glow:   0 0 40px rgba(74,124,245,0.18);
-      --text-primary:  #ededed;
-      --text-secondary:#888888;
-      --text-muted:    #555555;
-      --border:        rgba(255,255,255,0.07);
-      --border-strong: rgba(255,255,255,0.11);
-      --border-accent: rgba(74,124,245,0.3);
-      --shadow:     0 1px 4px rgba(0,0,0,0.4),0 4px 16px rgba(0,0,0,0.45);
-      --shadow-hover:0 4px 8px rgba(0,0,0,0.45),0 12px 36px rgba(0,0,0,0.55);
-      --shadow-lg:  0 8px 16px rgba(0,0,0,0.55),0 24px 64px rgba(0,0,0,0.65);
-      --nav-bg:     rgba(10,10,10,0.92);
-      --nav-border: rgba(255,255,255,0.07);
+      --bg:            #07080b;
+      --bg-secondary:  #0d0f14;
+      --bg-card:       #12141b;
+      --bg-elevated:   #181b24;
+      --bg-dot:        rgba(255,255,255,0.022);
+      --accent:        #6390f7;
+      --accent-hover:  #82a6f8;
+      --accent-soft:   rgba(99,144,247,0.12);
+      --accent-mid:    rgba(99,144,247,0.30);
+      --accent-glow:   0 0 80px rgba(99,144,247,0.22);
+      --text-primary:  #f5f6f8;
+      --text-secondary:#a1a7b3;
+      --text-muted:    #6b7280;
+      --border:        rgba(255,255,255,0.06);
+      --border-strong: rgba(255,255,255,0.12);
+      --border-accent: rgba(99,144,247,0.34);
+      --shadow-sm:  0 1px 2px rgba(0,0,0,0.5);
+      --shadow:     0 1px 4px rgba(0,0,0,0.5),0 8px 22px rgba(0,0,0,0.55);
+      --shadow-hover:0 4px 10px rgba(0,0,0,0.55),0 18px 42px rgba(0,0,0,0.65);
+      --shadow-lg:  0 12px 28px rgba(0,0,0,0.65),0 32px 80px rgba(0,0,0,0.75);
+      --nav-bg:     rgba(7,8,11,0.78);
+      --nav-border: rgba(255,255,255,0.06);
       --high:        #f87171; --high-bg:   rgba(248,113,113,0.1);
       --medium:      #fbbf24; --medium-bg: rgba(251,191,36,0.1);
       --low:         #34d399; --low-bg:    rgba(52,211,153,0.1);
@@ -458,22 +465,47 @@
        BUTTONS
     ══════════════════════════════════════ */
     .btn-primary {
+      position:relative;
       display:inline-flex; align-items:center; justify-content:center;
-      padding:10px 22px; background:var(--accent); color:white;
-      border:none; border-radius:var(--r-md); font-family:var(--font-ui); font-size:0.87rem; font-weight:600;
-      text-decoration:none; cursor:pointer; transition:background 0.15s,transform 0.12s,box-shadow 0.15s;
-      box-shadow:0 1px 3px rgba(36,83,214,0.2),0 4px 16px rgba(36,83,214,0.22); white-space:nowrap;
+      padding:11px 22px;
+      background:var(--grad-brand); color:white;
+      border:1px solid rgba(255,255,255,0.10);
+      border-radius:var(--r-md);
+      font-family:var(--font-ui); font-size:0.88rem; font-weight:600;
+      text-decoration:none; cursor:pointer;
+      transition:transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), filter 0.18s ease;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.18),
+        0 1px 2px rgba(36,83,214,0.30),
+        0 8px 22px -4px rgba(36,83,214,0.40);
+      white-space:nowrap;
       letter-spacing:-0.01em;
+      overflow:hidden;
     }
-    .btn-primary:hover { background:var(--accent-hover); transform:translateY(-1px); box-shadow:0 2px 6px rgba(36,83,214,0.25),0 8px 24px rgba(36,83,214,0.3); }
-    .btn-primary:active { transform:scale(0.98) translateY(0); box-shadow:0 1px 4px rgba(36,83,214,0.18); }
+    .btn-primary::after {
+      content:''; position:absolute; inset:0;
+      background:linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0) 55%);
+      pointer-events:none;
+    }
+    .btn-primary:hover {
+      transform:translateY(-1px);
+      filter:saturate(1.08);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.22),
+        0 2px 4px rgba(36,83,214,0.35),
+        0 14px 32px -6px rgba(36,83,214,0.55);
+    }
+    .btn-primary:active { transform:scale(0.98) translateY(0); }
     .btn-secondary {
       display:inline-flex; align-items:center; justify-content:center;
-      padding:10px 22px; background:var(--bg-card); color:var(--text-primary);
+      padding:11px 22px; background:var(--bg-card); color:var(--text-primary);
       border:1px solid var(--border-strong); border-radius:var(--r-md);
-      font-family:var(--font-ui); font-size:0.87rem; font-weight:600;
-      text-decoration:none; cursor:pointer; transition:all 0.15s ease; white-space:nowrap;
+      font-family:var(--font-ui); font-size:0.88rem; font-weight:600;
+      text-decoration:none; cursor:pointer;
+      transition:transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), border-color 0.18s ease, color 0.18s ease;
+      white-space:nowrap;
       letter-spacing:-0.01em;
+      box-shadow:var(--shadow-sm);
     }
     .btn-secondary:hover { border-color:var(--border-accent); color:var(--accent); transform:translateY(-1px); box-shadow:var(--shadow-hover); }
     .btn-secondary:active { transform:scale(0.98) translateY(0); }
@@ -1569,10 +1601,15 @@ if ('serviceWorker' in navigator && window.self === window.top) {
   });
 }
 
-/* ── LOTUS EMBED HANDSHAKE ──────────── */
+/* ── LOTUS EMBED HANDSHAKE ──────────────────────────────────────────
+   The full bridge (snapshot fetch, broadcast on state changes, ping/pong)
+   lives in the script block near the bottom of <body>. This stub stays
+   here for legacy partners that may probe early, before the main script
+   is parsed. Both share the same protocol.
+   ─────────────────────────────────────────────────────────────────── */
 window.addEventListener("message", (e) => {
   if (e.data?.type === "lotus:ping") {
-    e.source.postMessage({ type: "intelliplan:pong" }, e.origin);
+    try { e.source.postMessage({ type: "intelliplan:pong" }, e.origin); } catch (err) {}
   }
 });
 </script>
@@ -2018,12 +2055,191 @@ window.addEventListener('load',()=>{
   }
 })();
 
-// ── postMessage ping/pong for Lotus (and any future partner) ─────────
-window.addEventListener('message', function(e) {
-  if (e.data && e.data.type === 'lotus:ping') {
-    e.source.postMessage({ type: 'intelliplan:pong' }, e.origin);
+// ── Lotus snapshot bridge ────────────────────────────────────────────
+// Two responsibilities:
+//   1) Maintain a fresh snapshot in localStorage['intelliplan:snapshot']
+//   2) Broadcast it to the Lotus iframe parent on load AND whenever
+//      meaningful state changes (task done, deadline added, etc.)
+//
+// Lotus expects the payload shape spec'd at:
+//   { type: "intelliplan:snapshot",
+//     payload: { nextEvent, deadlines[], reviewQueue, streak, todayGoal } }
+// Each field is nullable.
+//
+// We target https://lotus-72e3e.web.app explicitly (no "*"), since
+// IntelliPlan is also embeddable in other partners and we don't want
+// our snapshot to leak.
+(function() {
+  var SNAPSHOT_KEY = 'intelliplan:snapshot';
+  var STAMP_KEY = 'intelliplan:snapshot:fetched_at';
+  var LOTUS_ORIGINS = [
+    'https://lotus-72e3e.web.app',
+    'https://lotus-72e3e.firebaseapp.com'
+  ];
+  var THROTTLE_MS = 4000;     // Don't refetch more than once every 4s.
+  var MIN_BROADCAST_MS = 750; // Coalesce rapid-fire state changes.
+
+  // Pull only the Lotus-relevant fields out of a full snapshot.
+  function lotusPayload(snap) {
+    if (!snap) return {};
+    return {
+      nextEvent:   snap.nextEvent   || null,
+      deadlines:   snap.deadlines   || null,
+      reviewQueue: snap.reviewQueue || null,
+      streak:      snap.streak      || null,
+      todayGoal:   snap.todayGoal   || null
+    };
   }
-});
+
+  function readCached() {
+    try {
+      var raw = localStorage.getItem(SNAPSHOT_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+
+  function broadcast(snap) {
+    if (!snap) return;
+    var msg = { type: 'intelliplan:snapshot', payload: lotusPayload(snap) };
+    // Send to parent (covers the embedded-iframe case where Lotus is the host)
+    if (window.parent && window.parent !== window) {
+      LOTUS_ORIGINS.forEach(function(origin) {
+        try { window.parent.postMessage(msg, origin); } catch (e) {}
+      });
+    }
+    // Also reply to any opener (covers popups Lotus may have launched)
+    if (window.opener) {
+      LOTUS_ORIGINS.forEach(function(origin) {
+        try { window.opener.postMessage(msg, origin); } catch (e) {}
+      });
+    }
+    // Same-window listeners (in-app components reacting to snapshot change)
+    try {
+      window.dispatchEvent(new CustomEvent('intelliplan:snapshot', { detail: snap }));
+    } catch (e) {}
+  }
+
+  var inflight = null;
+  var lastFetchAt = 0;
+
+  function fetchSnapshot(force) {
+    var now = Date.now();
+    if (!force && now - lastFetchAt < THROTTLE_MS) {
+      return Promise.resolve(readCached());
+    }
+    if (inflight) return inflight;
+    lastFetchAt = now;
+    inflight = fetch('/api/snapshot', { credentials: 'same-origin', cache: 'no-store' })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(snap) {
+        if (!snap) return null;
+        try {
+          localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snap));
+          sessionStorage.setItem(STAMP_KEY, String(Date.now()));
+        } catch (e) {
+          console.warn('[intelliplan] snapshot persist failed:', e);
+        }
+        return snap;
+      })
+      .catch(function(err) {
+        console.warn('[intelliplan] snapshot fetch failed:', err);
+        return null;
+      })
+      .then(function(snap) {
+        inflight = null;
+        return snap;
+      });
+    return inflight;
+  }
+
+  // Public API — anywhere in the app can call to push fresh state to Lotus.
+  var broadcastTimer = null;
+  window.intelliplanSyncSnapshot = function(opts) {
+    var force = !!(opts && opts.force);
+    clearTimeout(broadcastTimer);
+    broadcastTimer = setTimeout(function() {
+      fetchSnapshot(force).then(function(snap) { if (snap) broadcast(snap); });
+    }, MIN_BROADCAST_MS);
+  };
+
+  // ── postMessage ping/pong + on-demand snapshot for Lotus ──────────
+  window.addEventListener('message', function(e) {
+    if (!e || !e.data) return;
+    if (e.data.type === 'lotus:ping') {
+      try { e.source.postMessage({ type: 'intelliplan:pong' }, e.origin); } catch (err) {}
+      // Piggyback the current snapshot if we have one cached.
+      var cached = readCached();
+      if (cached) {
+        try { e.source.postMessage({ type: 'intelliplan:snapshot', payload: lotusPayload(cached) }, e.origin); } catch (err) {}
+      }
+    }
+    if (e.data.type === 'lotus:snapshot:request') {
+      fetchSnapshot(true).then(function(snap) {
+        try {
+          e.source.postMessage({ type: 'intelliplan:snapshot', payload: lotusPayload(snap), snapshot: snap }, e.origin);
+        } catch (err) {}
+      });
+    }
+  });
+
+  // ── Initial broadcast on page load ────────────────────────────────
+  var schedule = window.requestIdleCallback || function(fn) { return setTimeout(fn, 600); };
+  schedule(function() {
+    fetchSnapshot(true).then(function(snap) { if (snap) broadcast(snap); });
+  });
+
+  // Visibility — re-sync when the tab comes back into focus.
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') {
+      window.intelliplanSyncSnapshot();
+    }
+  });
+
+  // ── State-change hooks ────────────────────────────────────────────
+  // Re-broadcast on user actions that meaningfully change the snapshot:
+  // a task is completed/added, a deadline shifts, a study session ends,
+  // a review is answered, etc. We listen for both fetch responses to
+  // mutating endpoints and explicit DOM custom events the app may dispatch.
+
+  // 1) Listen for custom events any feature surface can dispatch.
+  var APP_EVENTS = [
+    'intelliplan:task-completed', 'intelliplan:task-added', 'intelliplan:task-removed',
+    'intelliplan:deadline-changed', 'intelliplan:session-completed',
+    'intelliplan:review-answered', 'intelliplan:streak-updated',
+    'intelliplan:schedule-saved'
+  ];
+  APP_EVENTS.forEach(function(name) {
+    window.addEventListener(name, function() { window.intelliplanSyncSnapshot(); });
+  });
+
+  // 2) Transparent fetch wrapper — when the app POSTs to a mutating
+  //    endpoint, we trigger a re-sync after it succeeds. This catches
+  //    every legacy code path without needing to touch each one.
+  var MUTATING_PATTERNS = [
+    /\/api\/tasks(\/|\?|$)/, /\/api\/manual_task/, /\/tasks\/mark/,
+    /\/api\/deadline/, /\/study\/(start|complete|answer|reset|claim)/,
+    /\/api\/study\//, /\/api\/schedule/, /\/api\/calendar/,
+    /\/api\/profile/, /\/api\/snapshot\/refresh/
+  ];
+  var nativeFetch = window.fetch;
+  if (typeof nativeFetch === 'function') {
+    window.fetch = function(input, init) {
+      var url = (typeof input === 'string') ? input : (input && input.url) || '';
+      var method = ((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+      var isMutating = (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') &&
+                       MUTATING_PATTERNS.some(function(rx) { return rx.test(url); });
+      var p = nativeFetch.apply(this, arguments);
+      if (isMutating) {
+        p.then(function(resp) {
+          if (resp && (resp.ok || resp.status === 204)) {
+            window.intelliplanSyncSnapshot();
+          }
+        }, function() {});
+      }
+      return p;
+    };
+  }
+})();
 </script>
 </body>
 </html>

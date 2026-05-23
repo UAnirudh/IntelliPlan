@@ -1039,12 +1039,40 @@
   }
 
   /* ── Hero ─────────────────────────────────────────────────── */
+  .hero-wrap {
+    position: relative;
+    isolation: isolate;
+  }
+  /* Premium gradient-mesh backdrop. Sits behind the hero only.
+     Gives the landing a Fortune-500 "elevated marketing surface"
+     feel without adding any DOM. */
+  .hero-wrap::before {
+    content: '';
+    position: absolute;
+    inset: -40px -10% auto -10%;
+    height: 760px;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(45% 55% at 18% 28%, rgba(36,83,214,0.18) 0%, transparent 60%),
+      radial-gradient(40% 50% at 82% 18%, rgba(99,102,241,0.16) 0%, transparent 65%),
+      radial-gradient(38% 60% at 60% 78%, rgba(56,189,248,0.10) 0%, transparent 65%);
+    filter: blur(8px);
+    opacity: 0.95;
+  }
+  :root[data-theme="dark"] .hero-wrap::before {
+    background:
+      radial-gradient(45% 55% at 18% 28%, rgba(99,144,247,0.26) 0%, transparent 60%),
+      radial-gradient(40% 50% at 82% 18%, rgba(168,85,247,0.20) 0%, transparent 65%),
+      radial-gradient(38% 60% at 60% 78%, rgba(56,189,248,0.14) 0%, transparent 65%);
+    opacity: 0.7;
+  }
   .hero {
     display: grid;
     grid-template-columns: 1.05fr 0.95fr;
     gap: 3rem;
     align-items: center;
-    padding: 4rem 0 2.5rem;
+    padding: 4.5rem 0 3rem;
   }
 
   .hero-copy { min-width: 0; }
@@ -1069,16 +1097,38 @@
 
   .hero-title {
     font-family: var(--font-display);
-    font-size: clamp(2.4rem, 5vw, 4.75rem);
+    font-size: clamp(2.5rem, 5.2vw, 4.9rem);
     line-height: 1.0;
     color: var(--text-primary);
-    letter-spacing: -0.05em;
-    margin: 0 0 1.1rem;
+    letter-spacing: -0.055em;
+    margin: 0 0 1.15rem;
     font-weight: 800;
     text-wrap: balance;
+    /* Subtle dimensional treatment — gives the headline weight and depth
+       without going full gradient text (which fights with the brand). */
+    background: linear-gradient(180deg, var(--text-primary) 0%, color-mix(in srgb, var(--text-primary) 78%, transparent) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
 
-  .hero-title em { font-style: italic; color: var(--accent); font-weight: 700; }
+  .hero-title em {
+    font-style: italic;
+    font-weight: 700;
+    background: var(--grad-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero-trust-row span {
+    transition: border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  }
+  .hero-trust-row span:hover {
+    border-color: var(--border-accent);
+    color: var(--accent);
+    transform: translateY(-1px);
+  }
 
   .hero-subtitle {
     font-family: var(--font-ui);
@@ -1139,10 +1189,25 @@
     position: relative;
     z-index: 1;
     background: var(--bg-card);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-strong);
     border-radius: var(--r-xl);
-    padding: 1.5rem;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.08), 0 32px 72px rgba(0,0,0,0.1);
+    padding: 1.6rem;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.5),
+      0 1px 2px rgba(15,23,42,0.04),
+      0 12px 28px rgba(15,23,42,0.08),
+      0 42px 90px rgba(15,23,42,0.12);
+    transition: transform 0.4s var(--ease-out), box-shadow 0.4s var(--ease-out);
+  }
+  :root[data-theme="dark"] .preview-card {
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.04),
+      0 1px 2px rgba(0,0,0,0.5),
+      0 18px 40px rgba(0,0,0,0.55),
+      0 60px 120px rgba(0,0,0,0.65);
+  }
+  .preview-card:hover {
+    transform: translateY(-4px);
   }
 
   .preview-header {
@@ -1623,7 +1688,10 @@
     content: '';
     position: absolute;
     inset: 0;
-    background: radial-gradient(ellipse at 50% 0%, rgba(36,83,214,0.18) 0%, transparent 65%);
+    background:
+      radial-gradient(50% 60% at 30% 10%, rgba(36,83,214,0.30) 0%, transparent 70%),
+      radial-gradient(45% 55% at 75% 20%, rgba(99,102,241,0.24) 0%, transparent 70%),
+      radial-gradient(60% 60% at 50% 95%, rgba(56,189,248,0.10) 0%, transparent 75%);
     pointer-events: none;
   }
   [data-theme="dark"] .cta-outer { background: #080808; }
