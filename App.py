@@ -6202,7 +6202,7 @@ def _sms_send_email_gateway(to_phone, body, carrier="tmobile"):
         # Many gateways drop or prepend the subject — keep it short or empty.
         msg["Subject"] = ""
         msg.set_content(sms_message)
-        clean_pw = smtp_password.replace(" ", "") if smtp_password else ""
+        clean_pw = "".join(smtp_password.split()) if smtp_password else ""
         print(f"[sms-email] attempting login as {smtp_username}, pw_len={len(clean_pw)}")
         with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as s:
             s.starttls()
