@@ -6009,10 +6009,10 @@ def _send_email(to_addr, subject, body):
     """Send a plain-text email via SMTP_*. If SMTP isn't configured, log
     the message (the parental-consent link still gets printed to the
     server log so an admin can deliver it manually)."""
-    host = os.getenv("SMTP_HOST")
+    host = os.getenv("SMTP_HOST") or os.getenv("HOST")
     port = int(os.getenv("SMTP_PORT", "587"))
-    user = os.getenv("SMTP_USER")
-    pw   = os.getenv("SMTP_PASSWORD")
+    user = os.getenv("SMTP_USER") or os.getenv("USERNAME")
+    pw   = os.getenv("SMTP_PASSWORD") or os.getenv("PASSWORD")
     sender = os.getenv("SMTP_FROM") or user or "no-reply@intelliplan.tech"
     if not (host and to_addr):
         print(f"[email] SMTP not configured — would send to {to_addr}: {subject}\n{body}")
@@ -6118,10 +6118,10 @@ def _sms_send_email_gateway(to_phone, body, carrier="tmobile"):
       SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM
     The recipient's number + carrier come from the User row.
     """
-    smtp_host = os.getenv("SMTP_HOST")
+    smtp_host = os.getenv("SMTP_HOST") or os.getenv("HOST")
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_username = os.getenv("SMTP_USER")
-    smtp_password = os.getenv("SMTP_PASSWORD")
+    smtp_username = os.getenv("SMTP_USER") or os.getenv("USERNAME")
+    smtp_password = os.getenv("SMTP_PASSWORD") or os.getenv("PASSWORD")
     smtp_from = os.getenv("SMTP_FROM") or smtp_username or "no-reply@intelliplan.tech"
 
     digits = _digits_only(to_phone)
