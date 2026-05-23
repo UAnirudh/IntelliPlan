@@ -2132,10 +2132,33 @@ def get_identity():
     identity = _get_or_create_identity(current_user.id)
     return jsonify({"identity": identity.to_dict()})
 
+_RETURN_TO_ALLOWLIST = (
+    ".web.app", ".firebaseapp.com", ".replit.dev", "intelliplan.tech", "localhost",
+)
+
+def _safe_return_to(url):
+    """Return url if it's on the allowlist, else None."""
+    if not url:
+        return None
+    import urllib.parse as _up
+    try:
+        host = _up.urlparse(url).netloc.lower()
+        if any(host == a.lstrip(".") or host.endswith(a) for a in _RETURN_TO_ALLOWLIST):
+            return url
+    except Exception:
+        pass
+    return None
+
+
 @app.route("/login/google")
 def login_google():
     if not GCAL_AVAILABLE:
         return redirect(url_for("login"))
+    # Store a validated return_to URL so the callback can send the user back
+    # to an embedding partner (e.g. Lotus) after sign-in completes.
+    return_to = _safe_return_to(request.args.get("return_to", "").strip())
+    if return_to:
+        session["oauth_return_to"] = return_to
     state = secrets_module.token_urlsafe(32)
     session["oauth_state"] = state
     session["oauth_purpose"] = "login"
@@ -2144,7 +2167,7 @@ def login_google():
     auth_url, code_verifier = get_auth_url(state, purpose="login")
     session["oauth_code_verifier"] = code_verifier
     session.modified = True
-    print(f"[GOOGLE LOGIN] state={state[:8]}..., session_keys={list(session.keys())}")
+    print(f"[GOOGLE LOGIN] state={state[:8]}..., return_to={return_to!r}")
     return redirect(auth_url)
 
 @app.route("/login/account", methods=["GET", "POST"])
@@ -2658,6 +2681,10 @@ def _handle_google_callback():
 
     # ── Redirect ──
     if purpose == "login":
+        return_to = _safe_return_to(session.pop("oauth_return_to", None))
+        if return_to:
+            print(f"[GOOGLE CALLBACK] redirecting to partner return_to={return_to!r}")
+            return redirect(return_to)
         return redirect(url_for("dashboard"))
     return redirect(url_for("dashboard"))
 

@@ -2009,5 +2009,21 @@ window.addEventListener('load',()=>{
   window.startAppTour = () => startTour(0);
 })();
 </script>
+
+<script>
+// ── Embedded-mode detection ───────────────────────────────────────────
+(function() {
+  if (window !== window.top) {
+    document.documentElement.classList.add('embedded');
+  }
+})();
+
+// ── postMessage ping/pong for Lotus (and any future partner) ─────────
+window.addEventListener('message', function(e) {
+  if (e.data && e.data.type === 'lotus:ping') {
+    e.source.postMessage({ type: 'intelliplan:pong' }, e.origin);
+  }
+});
+</script>
 </body>
 </html>
