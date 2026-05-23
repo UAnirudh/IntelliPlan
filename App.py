@@ -6161,25 +6161,17 @@ def _smtp_config():
 
 def _sms_send_email_gateway(to_phone, body, carrier="tmobile"):
     """Send a short SMS by emailing the carrier's gateway address.
-    Returns True if SMTP accepted the message. Safe no-op when SMTP
-    isn't configured. Intended for personal notifications only.
+    Returns (True, None) on success or (None, error_str) on failure.
 
-    Accepted Railway variable names (any of these work):
-      SMTP_HOST / MAIL_HOST / EMAIL_HOST
-      SMTP_USER / SMTP_USERNAME / MAIL_USERNAME / EMAIL_USERNAME / USERNAME
-      SMTP_PASSWORD / MAIL_PASSWORD / EMAIL_PASSWORD / PASSWORD
-      SMTP_PORT / MAIL_PORT  (default 587)
-    Gmail is auto-detected when USERNAME ends in @gmail.com and no host is set.
+    Tries Resend API first (set RESEND_API_KEY in Railway), then falls
+    back to SMTP. Resend is recommended — no App Password headaches.
     """
-    smtp_host, smtp_port, smtp_username, smtp_password, smtp_from = _smtp_config()
-
     digits = _digits_only(to_phone)
-    # US carriers expect a 10-digit number; strip a leading 1 if present.
     if len(digits) == 11 and digits.startswith("1"):
         digits = digits[1:]
     if len(digits) != 10:
         print(f"[sms-email] refusing to send — number must be 10 digits, got {digits!r}")
-        return False
+        return None, f"phone must be 10 digits, got {len(digits)}"
 
     gateway = SMS_CARRIER_GATEWAYS.get((carrier or "tmobile").lower())
     if not gateway:
@@ -6187,11 +6179,18 @@ def _sms_send_email_gateway(to_phone, body, carrier="tmobile"):
         gateway = SMS_CARRIER_GATEWAYS["tmobile"]
 
     sms_recipient = f"{digits}@{gateway}"
-    sms_message = (body or "")[:300]  # carriers truncate; keep it tight
+    sms_message = (body or "")[:300]
 
+    # ── Resend API (preferred) ────────────────────────────────────────
+    resend_key = os.getenv("RESEND_API_KEY")
+    if resend_key:
+        return _sms_via_resend(resend_key, sms_recipient, sms_message)
+
+    # ── SMTP fallback ─────────────────────────────────────────────────
+    smtp_host, smtp_port, smtp_username, smtp_password, smtp_from = _smtp_config()
     if not smtp_host:
-        print(f"[sms-email] SMTP_HOST not set — would email {sms_recipient}: {sms_message}")
-        return None, "SMTP host not configured"
+        print(f"[sms-email] no sender configured — would email {sms_recipient}: {sms_message}")
+        return None, "No email sender configured (set RESEND_API_KEY in Railway)"
 
     try:
         import smtplib
@@ -6199,20 +6198,52 @@ def _sms_send_email_gateway(to_phone, body, carrier="tmobile"):
         msg = EmailMessage()
         msg["From"] = smtp_from
         msg["To"] = sms_recipient
-        # Many gateways drop or prepend the subject — keep it short or empty.
         msg["Subject"] = ""
         msg.set_content(sms_message)
         clean_pw = "".join(smtp_password.split()) if smtp_password else ""
-        print(f"[sms-email] attempting login as {smtp_username}, pw_len={len(clean_pw)}")
+        print(f"[sms-email] SMTP login as {smtp_username}, pw_len={len(clean_pw)}")
         with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as s:
             s.starttls()
             if smtp_username and clean_pw:
                 s.login(smtp_username, clean_pw)
             s.send_message(msg)
-        print(f"[sms-email] sent to {sms_recipient}")
+        print(f"[sms-email] sent via SMTP to {sms_recipient}")
         return True, None
     except Exception as e:
-        print(f"[sms-email] send to {sms_recipient} failed: {e}")
+        print(f"[sms-email] SMTP send to {sms_recipient} failed: {e}")
+        return None, str(e)
+
+
+def _sms_via_resend(api_key, to_addr, text):
+    """Send a plain-text email via the Resend HTTP API."""
+    import urllib.request, json as _json
+    from_addr = os.getenv("RESEND_FROM") or "IntelliPlan <noreply@intelliplan.tech>"
+    payload = _json.dumps({
+        "from": from_addr,
+        "to": [to_addr],
+        "subject": "",
+        "text": text,
+    }).encode()
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            result = _json.loads(resp.read())
+            print(f"[sms-resend] sent to {to_addr}, id={result.get('id')}")
+            return True, None
+    except urllib.error.HTTPError as e:
+        err = e.read().decode(errors="replace")
+        print(f"[sms-resend] failed to {to_addr}: {e.code} {err}")
+        return None, f"Resend {e.code}: {err}"
+    except Exception as e:
+        print(f"[sms-resend] error: {e}")
         return None, str(e)
 
 
