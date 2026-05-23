@@ -2013,7 +2013,7 @@ def register():
                             phone_norm,
                             "Welcome to IntelliPlan! Open the app to customise your reminder times.",
                             carrier=(user.sms_carrier or "tmobile"),
-                        )
+                        )  # return value intentionally ignored here
                     except Exception: pass
                 # Skip the legacy /onboarding page entirely — the dashboard's
                 # built-in modal handles the questionnaire and never 500s on
@@ -5687,7 +5687,7 @@ def admin_sms_blast_send():
             skipped += 1
             results.append({"email": u.email, "result": "skipped_no_phone"})
             continue
-        ok = _sms_send_for_user(u, message)
+        ok, _err = _sms_send_for_user(u, message)
         if ok:
             sent += 1
             results.append({"email": u.email, "result": "sent"})
@@ -6191,7 +6191,7 @@ def _sms_send_email_gateway(to_phone, body, carrier="tmobile"):
 
     if not smtp_host:
         print(f"[sms-email] SMTP_HOST not set — would email {sms_recipient}: {sms_message}")
-        return False
+        return None, "SMTP host not configured"
 
     try:
         import smtplib
@@ -6207,16 +6207,18 @@ def _sms_send_email_gateway(to_phone, body, carrier="tmobile"):
             if smtp_username and smtp_password:
                 s.login(smtp_username, smtp_password)
             s.send_message(msg)
-        return True
+        print(f"[sms-email] sent to {sms_recipient}")
+        return True, None
     except Exception as e:
         print(f"[sms-email] send to {sms_recipient} failed: {e}")
-        return False
+        return None, str(e)
 
 
 def _sms_send_for_user(user, body):
-    """Thin wrapper that picks up the user's saved carrier preference."""
+    """Thin wrapper that picks up the user's saved carrier preference.
+    Returns (True, None) on success or (None, error_str) on failure."""
     if not user or not user.phone:
-        return False
+        return None, "no phone on account"
     carrier = (getattr(user, "sms_carrier", None) or "tmobile").lower()
     return _sms_send_email_gateway(user.phone, body, carrier=carrier)
 
@@ -6291,9 +6293,9 @@ def api_profile_phone_test():
     """Admin / opt-in user helper: send a one-line test SMS."""
     if not current_user.is_authenticated or not current_user.phone:
         return flask.jsonify({"status": "error", "message": "phone not set"}), 400
-    ok = _sms_send_for_user(current_user, "IntelliPlan reminders are active for this number.")
+    ok, err = _sms_send_for_user(current_user, "IntelliPlan reminders are active for this number.")
     return flask.jsonify({"status": "ok" if ok else "error",
-                          "message": "Sent! Check your phone in a moment." if ok else "SMTP isn't configured on the server yet."})
+                          "message": "Sent! Check your phone in a moment." if ok else (err or "Send failed")})
 
 
 def _send_push_to_user(user_id, payload):
@@ -6378,7 +6380,7 @@ def _send_reminders_for_user(user, mark_sent=True, force=False):
             body = f"⏰ {task.title} is due in {mins} min ({task.course})."
             ok = False
             if channel == "sms":
-                ok = _sms_send_for_user(user, body[:300])
+                ok, _ = _sms_send_for_user(user, body[:300])
             else:
                 ok = _send_push_to_user(user.id, {
                     "title": "Assignment due soon",
