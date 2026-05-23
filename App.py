@@ -206,6 +206,7 @@ class User(UserMixin, db.Model):
     sms_reminders_opt_in = db.Column(db.Boolean, default=False)
     push_reminders_opt_in = db.Column(db.Boolean, default=False)
     reminder_lead_minutes = db.Column(db.Integer, default=60)  # how far ahead to remind
+    sms_carrier = db.Column(db.String(32), default="tmobile")  # SMS-over-email gateway key
     # ── COPPA: under-13 gating ──
     birth_year = db.Column(db.Integer, nullable=True)          # collected at signup
     parent_email = db.Column(db.String(255), nullable=True)    # for under-13 accounts
@@ -2006,7 +2007,13 @@ def register():
                 # Best-effort welcome SMS so the user sees the integration
                 # work the moment they opt in.
                 if phone_norm and sms_optin:
-                    try: _twilio_send(phone_norm, "Welcome to IntelliPlan! Reply STOP anytime to opt out.")
+                    # Best-effort welcome text via the email-to-SMS gateway.
+                    try:
+                        _sms_send_email_gateway(
+                            phone_norm,
+                            "Welcome to IntelliPlan! Open the app to customise your reminder times.",
+                            carrier=(user.sms_carrier or "tmobile"),
+                        )
                     except Exception: pass
                 # Skip the legacy /onboarding page entirely — the dashboard's
                 # built-in modal handles the questionnaire and never 500s on
@@ -5991,8 +5998,98 @@ def _normalise_phone(raw):
     return ("+" + s)[:32]
 
 
+# ── SMS over carrier email-to-SMS gateways ────────────────────────
+# IntelliPlan does NOT use Twilio. Instead, we send the reminder body
+# as a plain-text email to the recipient's carrier gateway address
+# (e.g. 5551234567@tmomail.net for T-Mobile). Each user picks their
+# carrier in Settings; T-Mobile is the default.
+SMS_CARRIER_GATEWAYS = {
+    "tmobile":   "tmomail.net",                # T-Mobile
+    "att":       "txt.att.net",                # AT&T
+    "verizon":   "vtext.com",                  # Verizon
+    "sprint":    "messaging.sprintpcs.com",    # Sprint (legacy)
+    "uscellular":"email.uscc.net",             # US Cellular
+    "cricket":   "sms.cricketwireless.net",    # Cricket
+    "metropcs":  "mymetropcs.com",             # Metro by T-Mobile
+    "boost":     "sms.myboostmobile.com",      # Boost Mobile
+    "googlefi":  "msg.fi.google.com",          # Google Fi
+}
+
+
+def _digits_only(s):
+    """Return the bare digits of a phone string — strips +, spaces, etc."""
+    return _re_phone.sub(r"[^0-9]", "", s or "")
+
+
+def _sms_send_email_gateway(to_phone, body, carrier="tmobile"):
+    """Send a short SMS by emailing the carrier's gateway address.
+    Returns True if SMTP accepted the message. Safe no-op when SMTP
+    isn't configured. Intended for personal notifications only.
+
+    Variables sourced from environment (so a teen developer can add
+    them in Railway's dashboard without touching code):
+      SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM
+    The recipient's number + carrier come from the User row.
+    """
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_username = os.getenv("SMTP_USER")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+    smtp_from = os.getenv("SMTP_FROM") or smtp_username or "no-reply@intelliplan.tech"
+
+    digits = _digits_only(to_phone)
+    # US carriers expect a 10-digit number; strip a leading 1 if present.
+    if len(digits) == 11 and digits.startswith("1"):
+        digits = digits[1:]
+    if len(digits) != 10:
+        print(f"[sms-email] refusing to send — number must be 10 digits, got {digits!r}")
+        return False
+
+    gateway = SMS_CARRIER_GATEWAYS.get((carrier or "tmobile").lower())
+    if not gateway:
+        print(f"[sms-email] unknown carrier {carrier!r} — falling back to T-Mobile")
+        gateway = SMS_CARRIER_GATEWAYS["tmobile"]
+
+    sms_recipient = f"{digits}@{gateway}"
+    sms_message = (body or "")[:300]  # carriers truncate; keep it tight
+
+    if not smtp_host:
+        print(f"[sms-email] SMTP_HOST not set — would email {sms_recipient}: {sms_message}")
+        return False
+
+    try:
+        import smtplib
+        from email.message import EmailMessage
+        msg = EmailMessage()
+        msg["From"] = smtp_from
+        msg["To"] = sms_recipient
+        # Many gateways drop or prepend the subject — keep it short or empty.
+        msg["Subject"] = ""
+        msg.set_content(sms_message)
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as s:
+            s.starttls()
+            if smtp_username and smtp_password:
+                s.login(smtp_username, smtp_password)
+            s.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"[sms-email] send to {sms_recipient} failed: {e}")
+        return False
+
+
+def _sms_send_for_user(user, body):
+    """Thin wrapper that picks up the user's saved carrier preference."""
+    if not user or not user.phone:
+        return False
+    carrier = (getattr(user, "sms_carrier", None) or "tmobile").lower()
+    return _sms_send_email_gateway(user.phone, body, carrier=carrier)
+
+
 def _twilio_send(to_phone, body):
-    """Best-effort SMS. Logs and returns False when Twilio env isn't set."""
+    """Deprecated shim — kept so any older call site still resolves.
+    Always uses the email-gateway path (T-Mobile as a safe default)."""
+    return _sms_send_email_gateway(to_phone, body, carrier="tmobile")
+    # The block below is intentionally unreachable; left for reviewers.
     sid = os.getenv("TWILIO_ACCOUNT_SID")
     token = os.getenv("TWILIO_AUTH_TOKEN")
     src = os.getenv("TWILIO_FROM_NUMBER")
@@ -6014,6 +6111,8 @@ def _profile_payload(u):
         "sms_reminders_opt_in": bool(getattr(u, "sms_reminders_opt_in", False)),
         "push_reminders_opt_in": bool(getattr(u, "push_reminders_opt_in", False)),
         "reminder_lead_minutes": int(getattr(u, "reminder_lead_minutes", 60) or 60),
+        "sms_carrier": (getattr(u, "sms_carrier", "tmobile") or "tmobile"),
+        "sms_carrier_choices": list(SMS_CARRIER_GATEWAYS.keys()),
     }
 
 
@@ -6041,6 +6140,12 @@ def api_profile_phone():
             current_user.reminder_lead_minutes = max(5, min(lead, 10080))
         except (TypeError, ValueError):
             pass
+    if "sms_carrier" in body:
+        carrier = (body.get("sms_carrier") or "tmobile").strip().lower()
+        # Silently fall back to T-Mobile for unknown values.
+        if carrier not in SMS_CARRIER_GATEWAYS:
+            carrier = "tmobile"
+        current_user.sms_carrier = carrier
     db.session.commit()
     return flask.jsonify(_profile_payload(current_user))
 
@@ -6050,9 +6155,9 @@ def api_profile_phone_test():
     """Admin / opt-in user helper: send a one-line test SMS."""
     if not current_user.is_authenticated or not current_user.phone:
         return flask.jsonify({"status": "error", "message": "phone not set"}), 400
-    ok = _twilio_send(current_user.phone, "👋 IntelliPlan reminders are active for this number.")
+    ok = _sms_send_for_user(current_user, "IntelliPlan reminders are active for this number.")
     return flask.jsonify({"status": "ok" if ok else "error",
-                          "message": "Sent!" if ok else "SMS provider not configured."})
+                          "message": "Sent! Check your phone in a moment." if ok else "SMTP isn't configured on the server yet."})
 
 
 def _send_push_to_user(user_id, payload):
@@ -6137,7 +6242,7 @@ def _send_reminders_for_user(user, mark_sent=True, force=False):
             body = f"⏰ {task.title} is due in {mins} min ({task.course})."
             ok = False
             if channel == "sms":
-                ok = _twilio_send(user.phone, body[:300])
+                ok = _sms_send_for_user(user, body[:300])
             else:
                 ok = _send_push_to_user(user.id, {
                     "title": "Assignment due soon",
@@ -7246,6 +7351,7 @@ def _migrate_user_columns():
         ("users", "sms_reminders_opt_in", "BOOLEAN DEFAULT FALSE"),
         ("users", "push_reminders_opt_in", "BOOLEAN DEFAULT FALSE"),
         ("users", "reminder_lead_minutes", "INTEGER DEFAULT 60"),
+        ("users", "sms_carrier", "VARCHAR(32) DEFAULT 'tmobile'"),
         ("users", "birth_year", "INTEGER"),
         ("users", "parent_email", "VARCHAR(255)"),
         ("users", "parent_consent_granted", "BOOLEAN DEFAULT FALSE"),

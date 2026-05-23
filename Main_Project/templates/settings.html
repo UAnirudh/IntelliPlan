@@ -449,6 +449,21 @@
       <input type="tel" id="phoneInput" class="form-input" placeholder="+1 555 123 4567" autocomplete="tel">
       <span class="form-hint">Format any way — we'll normalise to +1… for US numbers automatically.</span>
     </div>
+    <div class="form-group" style="margin-bottom:0.75rem;">
+      <label class="form-label" for="carrierSelect">Mobile carrier</label>
+      <select id="carrierSelect" class="form-input" style="max-width:280px;">
+        <option value="tmobile">T-Mobile</option>
+        <option value="att">AT&amp;T</option>
+        <option value="verizon">Verizon</option>
+        <option value="sprint">Sprint (legacy)</option>
+        <option value="uscellular">US Cellular</option>
+        <option value="cricket">Cricket</option>
+        <option value="metropcs">Metro by T-Mobile</option>
+        <option value="boost">Boost Mobile</option>
+        <option value="googlefi">Google Fi</option>
+      </select>
+      <span class="form-hint">IntelliPlan sends reminders for free through your carrier's email-to-SMS gateway (no third-party SMS service).</span>
+    </div>
     <label style="display:flex;align-items:flex-start;gap:10px;font-size:0.88rem;color:var(--text-secondary);cursor:pointer;margin-bottom:0.55rem;">
       <input type="checkbox" id="smsOptIn" style="margin-top:3px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;">
       <span>Send me <strong>SMS reminders</strong> for due assignments and live study sessions. Reply STOP anytime to opt out. Standard rates apply.</span>
@@ -1134,10 +1149,12 @@ function refreshPhone() {
     const o = document.getElementById('smsOptIn');
     const p = document.getElementById('pushOptIn');
     const l = document.getElementById('leadSelect');
+    const c = document.getElementById('carrierSelect');
     if (i) i.value = d.phone || '';
     if (o) o.checked = !!d.sms_reminders_opt_in;
     if (p) p.checked = !!d.push_reminders_opt_in;
     if (l && d.reminder_lead_minutes) l.value = String(d.reminder_lead_minutes);
+    if (c && d.sms_carrier) c.value = d.sms_carrier;
   }).catch(() => {});
 }
 function savePhone() {
@@ -1145,6 +1162,7 @@ function savePhone() {
   const sms = document.getElementById('smsOptIn').checked;
   const push = document.getElementById('pushOptIn').checked;
   const lead = parseInt(document.getElementById('leadSelect').value || '60', 10);
+  const carrier = (document.getElementById('carrierSelect') || {}).value || 'tmobile';
   const btn = document.getElementById('phoneSaveBtn');
   btn.disabled = true; btn.textContent = 'Saving...';
   fetch('/api/profile/phone', {
@@ -1154,6 +1172,7 @@ function savePhone() {
       sms_reminders_opt_in: sms,
       push_reminders_opt_in: push,
       reminder_lead_minutes: lead,
+      sms_carrier: carrier,
     }),
   })
     .then(r => r.json())
