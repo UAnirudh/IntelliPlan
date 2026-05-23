@@ -102,6 +102,44 @@
   </div>
 
   <div class="admin-section">
+    <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:0.75rem;">SMS Blast</div>
+    <p style="font-size:0.84rem;color:var(--text-secondary);margin-bottom:1rem;">
+      Send a text message to users via T-Mobile email-to-SMS gateway. Max 160 characters. Only users who have a phone number saved will receive it.
+    </p>
+
+    <div style="display:grid;gap:10px;max-width:600px;">
+      <div>
+        <label style="font-size:0.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Audience</label>
+        <select id="smsAudience" class="admin-input" style="margin-top:4px;" onchange="smsAudienceChanged()">
+          <option value="sms_opted_in">SMS opted-in users (recommended)</option>
+          <option value="pro">Pro subscribers — SMS opted in</option>
+          <option value="free">Free tier — SMS opted in</option>
+          <option value="all_with_phone">Everyone with a phone (ignores opt-in)</option>
+          <option value="specific">Specific emails (comma-separated)</option>
+        </select>
+      </div>
+
+      <div id="specificEmailsWrap" style="display:none;">
+        <label style="font-size:0.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Emails</label>
+        <input id="specificEmails" type="text" class="admin-input" style="margin-top:4px;" placeholder="alice@example.com, bob@example.com">
+      </div>
+
+      <div>
+        <label style="font-size:0.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Message <span id="smsCharCount" style="font-weight:400;font-family:var(--font-mono);font-size:0.76rem;">0 / 160</span></label>
+        <textarea id="smsMessage" class="admin-input" rows="3" maxlength="160" style="margin-top:4px;resize:vertical;" placeholder="Your message here…" oninput="document.getElementById('smsCharCount').textContent = this.value.length + ' / 160'"></textarea>
+      </div>
+
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button onclick="smsPreview()" class="btn-secondary" style="padding:9px 16px;border:none;cursor:pointer;font-size:0.84rem;">Preview recipients</button>
+        <button onclick="smsBlastSend()" class="btn-primary" id="smsSendBtn" style="padding:9px 16px;border:none;cursor:pointer;">Send SMS</button>
+      </div>
+
+      <div id="smsPreviewResult" style="font-size:0.82rem;color:var(--text-muted);display:none;"></div>
+      <div id="smsSendResult" style="font-size:0.82rem;display:none;"></div>
+    </div>
+  </div>
+
+  <div class="admin-section">
     <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:0.75rem;">Diagnostics</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <a href="/health" target="_blank" class="btn-secondary" style="padding:9px 14px;text-decoration:none;font-size:0.84rem;">DB schema /health</a>
@@ -111,6 +149,79 @@
 </div>
 
 <script>
+function smsAudienceChanged() {
+  const v = document.getElementById('smsAudience').value;
+  document.getElementById('specificEmailsWrap').style.display = v === 'specific' ? 'block' : 'none';
+  document.getElementById('smsPreviewResult').style.display = 'none';
+}
+
+function _smsPayload() {
+  return {
+    audience: document.getElementById('smsAudience').value,
+    emails: document.getElementById('specificEmails').value,
+    message: document.getElementById('smsMessage').value.trim(),
+  };
+}
+
+function smsPreview() {
+  const out = document.getElementById('smsPreviewResult');
+  out.style.display = 'block';
+  out.style.color = 'var(--text-muted)';
+  out.textContent = 'Counting…';
+  fetch('/api/admin/sms-blast/preview', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(_smsPayload()),
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'ok') {
+        const sample = d.sample.length ? ` (e.g. ${d.sample.slice(0,3).join(', ')})` : '';
+        out.textContent = `${d.count} recipient${d.count !== 1 ? 's' : ''}${sample}`;
+      } else {
+        out.style.color = 'var(--high)';
+        out.textContent = d.message || 'Error';
+      }
+    })
+    .catch(() => { out.style.color = 'var(--high)'; out.textContent = 'Network error'; });
+}
+
+function smsBlastSend() {
+  const p = _smsPayload();
+  const out = document.getElementById('smsSendResult');
+  const btn = document.getElementById('smsSendBtn');
+  if (!p.message) { out.style.display = 'block'; out.style.color = 'var(--high)'; out.textContent = 'Enter a message first.'; return; }
+  if (!confirm(`Send SMS to "${p.audience}" audience?\n\nMessage: ${p.message}`)) return;
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  out.style.display = 'block';
+  out.style.color = 'var(--text-muted)';
+  out.textContent = 'Sending…';
+  fetch('/api/admin/sms-blast/send', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(p),
+  })
+    .then(r => r.json())
+    .then(d => {
+      btn.disabled = false;
+      btn.textContent = 'Send SMS';
+      if (d.status === 'ok') {
+        out.style.color = 'var(--low)';
+        out.textContent = `✓ Sent ${d.sent} · Failed ${d.failed} · Skipped ${d.skipped} (total ${d.total})`;
+      } else {
+        out.style.color = 'var(--high)';
+        out.textContent = d.message || 'Error';
+      }
+    })
+    .catch(() => {
+      btn.disabled = false;
+      btn.textContent = 'Send SMS';
+      out.style.color = 'var(--high)';
+      out.textContent = 'Network error';
+    });
+}
+
 function setFlag(key, enabled, el) {
   el.disabled = true;
   fetch('/api/admin/flag', {

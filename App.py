@@ -5617,6 +5617,93 @@ def admin_grant_pro():
     return flask.jsonify({"status": "ok", "user": user.email, "pro_until": user.pro_until.isoformat()})
 
 
+@app.route("/api/admin/sms-blast/preview", methods=["POST"])
+@require_admin
+def admin_sms_blast_preview():
+    """Return recipient count and sample emails for the chosen audience — no SMS sent."""
+    body = request.get_json(silent=True) or {}
+    audience = (body.get("audience") or "sms_opted_in").strip()
+    specific_emails = [e.strip().lower() for e in (body.get("emails") or "").split(",") if e.strip()]
+
+    try:
+        q = _admin_sms_audience_query(audience, specific_emails)
+        users = q.all()
+        return flask.jsonify({
+            "status": "ok",
+            "count": len(users),
+            "sample": [u.email for u in users[:10]],
+        })
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/admin/sms-blast/send", methods=["POST"])
+@require_admin
+def admin_sms_blast_send():
+    """Send an SMS to every user in the selected audience.
+    Returns per-recipient results. Runs synchronously — keep audience small
+    or use the cron pipeline for large sends."""
+    body = request.get_json(silent=True) or {}
+    message = (body.get("message") or "").strip()
+    audience = (body.get("audience") or "sms_opted_in").strip()
+    specific_emails = [e.strip().lower() for e in (body.get("emails") or "").split(",") if e.strip()]
+
+    if not message:
+        return flask.jsonify({"status": "error", "message": "message is required"}), 400
+    if len(message) > 160:
+        return flask.jsonify({"status": "error", "message": "message must be 160 characters or fewer"}), 400
+
+    try:
+        q = _admin_sms_audience_query(audience, specific_emails)
+        users = q.all()
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+
+    sent, failed, skipped = 0, 0, 0
+    results = []
+    for u in users:
+        if not u.phone:
+            skipped += 1
+            results.append({"email": u.email, "result": "skipped_no_phone"})
+            continue
+        ok = _sms_send_for_user(u, message)
+        if ok:
+            sent += 1
+            results.append({"email": u.email, "result": "sent"})
+        else:
+            failed += 1
+            results.append({"email": u.email, "result": "failed"})
+
+    print(f"[admin-sms-blast] audience={audience} total={len(users)} sent={sent} failed={failed} skipped={skipped}")
+    return flask.jsonify({
+        "status": "ok",
+        "total": len(users),
+        "sent": sent,
+        "failed": failed,
+        "skipped": skipped,
+        "results": results,
+    })
+
+
+def _admin_sms_audience_query(audience, specific_emails=None):
+    """Return a SQLAlchemy query for users matching the given audience key."""
+    base = User.query.filter(User.phone.isnot(None), User.phone != "")
+
+    if audience == "specific":
+        if not specific_emails:
+            raise ValueError("No emails provided for specific audience")
+        return base.filter(User.email.in_(specific_emails))
+    elif audience == "all_with_phone":
+        return base
+    elif audience == "pro":
+        return base.filter(User.sms_reminders_opt_in.is_(True), User.tier == "pro")
+    elif audience == "free":
+        return base.filter(User.sms_reminders_opt_in.is_(True), User.tier == "free")
+    else:
+        # default: sms_opted_in — only users who consented
+        return base.filter(User.sms_reminders_opt_in.is_(True))
+
+
 # ── REFERRAL + PRO TIER ─────────────────────────────────────────────
 PRO_TRIAL_DAYS = 30
 PRO_REFERRAL_BONUS_DAYS = 14
