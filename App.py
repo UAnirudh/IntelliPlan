@@ -6205,7 +6205,7 @@ def _sms_send_email_gateway(to_phone, body, carrier="tmobile"):
         with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as s:
             s.starttls()
             if smtp_username and smtp_password:
-                s.login(smtp_username, smtp_password)
+                s.login(smtp_username, smtp_password.replace(" ", ""))
             s.send_message(msg)
         print(f"[sms-email] sent to {sms_recipient}")
         return True, None
