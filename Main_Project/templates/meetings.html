@@ -153,8 +153,8 @@
       <div><div class="platform-title">Microsoft Teams</div><div class="platform-sub">Most used by schools</div></div>
     </div>
     <div class="platform-actions">
-      <a class="pa-btn primary" href="https://teams.microsoft.com/" target="_blank" rel="noopener">Open</a>
-      <a class="pa-btn" href="https://teams.microsoft.com/_#/calendarv2" target="_blank" rel="noopener">Calendar</a>
+      <a class="pa-btn primary" href="https://teams.microsoft.com/" target="_blank" rel="noopener noreferrer">Open</a>
+      <a class="pa-btn" href="https://teams.microsoft.com/_#/calendarv2" target="_blank" rel="noopener noreferrer">Calendar</a>
       <button class="pa-btn" data-add-platform="teams" type="button">+ Save link</button>
     </div>
   </div>
@@ -165,8 +165,8 @@
       <div><div class="platform-title">Zoom</div><div class="platform-sub">HD video calls</div></div>
     </div>
     <div class="platform-actions">
-      <a class="pa-btn primary" href="https://zoom.us/join" target="_blank" rel="noopener">Join</a>
-      <a class="pa-btn" href="https://zoom.us/start/webmeeting" target="_blank" rel="noopener">Start</a>
+      <a class="pa-btn primary" href="https://zoom.us/join" target="_blank" rel="noopener noreferrer">Join</a>
+      <a class="pa-btn" href="https://zoom.us/start/webmeeting" target="_blank" rel="noopener noreferrer">Start</a>
       <button class="pa-btn" data-add-platform="zoom" type="button">+ Save link</button>
     </div>
   </div>
@@ -177,8 +177,8 @@
       <div><div class="platform-title">Google Meet</div><div class="platform-sub">Classroom friendly</div></div>
     </div>
     <div class="platform-actions">
-      <a class="pa-btn primary" href="https://meet.google.com/" target="_blank" rel="noopener">Open</a>
-      <a class="pa-btn" href="https://meet.google.com/new" target="_blank" rel="noopener">New</a>
+      <a class="pa-btn primary" href="https://meet.google.com/" target="_blank" rel="noopener noreferrer">Open</a>
+      <a class="pa-btn" href="https://meet.google.com/new" target="_blank" rel="noopener noreferrer">New</a>
       <button class="pa-btn" data-add-platform="meet" type="button">+ Save link</button>
     </div>
   </div>
@@ -189,7 +189,7 @@
       <div><div class="platform-title">Webex</div><div class="platform-sub">Cisco districts</div></div>
     </div>
     <div class="platform-actions">
-      <a class="pa-btn primary" href="https://www.webex.com/" target="_blank" rel="noopener">Open</a>
+      <a class="pa-btn primary" href="https://www.webex.com/" target="_blank" rel="noopener noreferrer">Open</a>
       <button class="pa-btn" data-add-platform="webex" type="button">+ Save link</button>
     </div>
   </div>
@@ -200,7 +200,7 @@
       <div><div class="platform-title">Discord</div><div class="platform-sub">Study servers + voice</div></div>
     </div>
     <div class="platform-actions">
-      <a class="pa-btn primary" href="https://discord.com/app" target="_blank" rel="noopener">Open</a>
+      <a class="pa-btn primary" href="https://discord.com/app" target="_blank" rel="noopener noreferrer">Open</a>
       <button class="pa-btn" data-add-platform="discord" type="button">+ Save link</button>
     </div>
   </div>
@@ -211,7 +211,7 @@
       <div><div class="platform-title">Slack</div><div class="platform-sub">Group chat + huddles</div></div>
     </div>
     <div class="platform-actions">
-      <a class="pa-btn primary" href="https://slack.com/signin" target="_blank" rel="noopener">Open</a>
+      <a class="pa-btn primary" href="https://slack.com/signin" target="_blank" rel="noopener noreferrer">Open</a>
       <button class="pa-btn" data-add-platform="slack" type="button">+ Save link</button>
     </div>
   </div>
@@ -300,6 +300,10 @@ function renderLinks() {
   empty.style.display = 'none';
   host.innerHTML = arr.map((m, i) => {
     const meta = PLATFORM_META[m.platform] || PLATFORM_META.other;
+    const url  = safeUrl(m.url);
+    const joinBtn = url
+      ? `<a class="pa-btn primary" href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer">Join</a>`
+      : `<span class="pa-btn" style="opacity:0.55;cursor:not-allowed;" title="Blocked: only http(s) URLs are allowed">Invalid URL</span>`;
     return `
       <div class="link-card">
         <div class="lc-head">
@@ -310,15 +314,28 @@ function renderLinks() {
         ${m.when ? `<div class="lc-sub">⏰ ${escapeHtml(m.when)}</div>` : ''}
         <div class="lc-sub">${escapeHtml(m.url)}</div>
         <div class="lc-row">
-          <a class="pa-btn primary" href="${escapeAttr(m.url)}" target="_blank" rel="noopener">Join</a>
-          <button class="lc-del" type="button" onclick="deleteLink(${i})" aria-label="Delete"><svg width="14" height="14"><use href="#i-trash"/></svg></button>
+          ${joinBtn}
+          <button class="lc-del" type="button" data-del-idx="${i}" aria-label="Delete"><svg width="14" height="14"><use href="#i-trash"/></svg></button>
         </div>
       </div>`;
   }).join('');
+  host.querySelectorAll('[data-del-idx]').forEach(btn => {
+    btn.addEventListener('click', () => deleteLink(parseInt(btn.dataset.delIdx, 10)));
+  });
 }
 
 function escapeHtml(s) { return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function escapeAttr(s) { return escapeHtml(s); }
+
+// Only http(s) URLs are accepted. Blocks javascript:, data:, vbscript:, file:, etc.
+// Returns "" for anything that's not a valid absolute http/https URL so href becomes "".
+function safeUrl(raw) {
+  if (!raw) return '';
+  let u;
+  try { u = new URL(String(raw).trim()); }
+  catch(e) { return ''; }
+  return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : '';
+}
 
 function openSaveModal(prefillPlatform) {
   document.getElementById('m-name').value = '';
@@ -331,12 +348,17 @@ function openSaveModal(prefillPlatform) {
 function closeSaveModal() { document.getElementById('saveModal').classList.remove('open'); }
 
 function saveMeeting() {
-  const name = document.getElementById('m-name').value.trim();
-  const url  = document.getElementById('m-url').value.trim();
-  const when = document.getElementById('m-when').value.trim();
+  const name = document.getElementById('m-name').value.trim().slice(0, 120);
+  const rawUrl = document.getElementById('m-url').value.trim();
+  const when = document.getElementById('m-when').value.trim().slice(0, 120);
   let platform = document.getElementById('m-platform').value;
-  if (!name || !url) {
+  if (!name || !rawUrl) {
     alert('Please enter both a name and a URL.');
+    return;
+  }
+  const url = safeUrl(rawUrl);
+  if (!url) {
+    alert('That URL is not allowed. Meeting links must start with http:// or https://');
     return;
   }
   if (platform === 'other') platform = detectPlatform(url);
@@ -356,9 +378,13 @@ function deleteLink(idx) {
 
 function quickJoin(e) {
   e.preventDefault();
-  const url = document.getElementById('quickJoinInput').value.trim();
-  if (!url) return false;
-  window.open(url, '_blank', 'noopener');
+  const raw = document.getElementById('quickJoinInput').value.trim();
+  const url = safeUrl(raw);
+  if (!url) {
+    alert('Only http(s) meeting links can be opened.');
+    return false;
+  }
+  window.open(url, '_blank', 'noopener,noreferrer');
   return false;
 }
 

@@ -863,7 +863,7 @@ function saveAnimSetting(key, value) {
   if (t) t.checked = localStorage.getItem('ip_anim_session') !== 'false';
 })();
 
-/* ── Settings theme toggle — mirrors header + sidebar toggles ── */
+/* ── Settings theme toggle — delegates to window.setThemeMode in base.html ── */
 (function initThemeToggle() {
   const t = document.getElementById('themeToggleSettings');
   const label = document.getElementById('themeSettingsLabel');
@@ -873,12 +873,15 @@ function saveAnimSetting(key, value) {
   if (label) label.textContent = cur === 'dark' ? 'Dark' : 'Light';
   t.addEventListener('change', () => {
     const next = t.checked ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', next);
-    try { localStorage.setItem('theme', next); } catch(e){}
+    if (window.setThemeMode) window.setThemeMode(next);
+    else document.documentElement.setAttribute('data-theme', next); // graceful fallback
     if (label) label.textContent = next === 'dark' ? 'Dark' : 'Light';
-    // Keep header + sidebar toggles in sync
-    const h = document.getElementById('themeToggle');       if (h) h.checked = t.checked;
-    const s = document.getElementById('themeToggleSide');   if (s) s.checked = t.checked;
+  });
+  // If theme changes elsewhere (sidebar, palette switch, Cmd+K), keep this toggle in sync.
+  document.addEventListener('ip-theme-change', e => {
+    const mode = (e && e.detail && e.detail.mode) || document.documentElement.getAttribute('data-theme') || 'light';
+    t.checked = mode === 'dark';
+    if (label) label.textContent = mode === 'dark' ? 'Dark' : 'Light';
   });
 })();
 
