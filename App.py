@@ -1585,6 +1585,12 @@ def library():
     return render_template("library.html", active_page="library")
 
 
+@app.route("/meetings")
+def meetings():
+    """Meetings hub: quick-launch Teams, Zoom, Google Meet, and user-managed class links."""
+    return render_template("meetings.html", active_page="meetings")
+
+
 # ════════════════════════════════════════════════════════════════
 # DEEP STUDY PIPELINE — Step 0 (ingest) / Step 2 (voice coach feedback) /
 # Step 3 (fact → active-recall card transform). All three endpoints share

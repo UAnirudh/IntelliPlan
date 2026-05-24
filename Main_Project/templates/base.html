@@ -97,6 +97,97 @@
       --footer-link: #4a7cf5;
     }
 
+    /* ───── Extra themes ──────────────────────────────────────
+       Each theme overrides accent + a tasteful set of surface colors
+       on top of the light or dark base. Theme switching is done by
+       setting both data-theme (light|dark) and data-palette (id). */
+    :root[data-palette="ocean"][data-theme="light"] {
+      --bg:#f3f8fb; --bg-secondary:#ffffff; --bg-card:#ffffff; --bg-elevated:#e9f1f7;
+      --accent:#0277bd; --accent-hover:#01579b;
+      --accent-soft:rgba(2,119,189,0.09); --accent-mid:rgba(2,119,189,0.25); --border-accent:rgba(2,119,189,0.32);
+      --grad-brand:linear-gradient(135deg,#0277bd 0%,#039be5 50%,#26c6da 100%);
+      --toggle-knob:#0277bd; --footer-link:#0277bd;
+    }
+    :root[data-palette="ocean"][data-theme="dark"] {
+      --bg:#031019; --bg-secondary:#06192a; --bg-card:#0a2237; --bg-elevated:#10324d;
+      --accent:#4fc3f7; --accent-hover:#81d4fa;
+      --accent-soft:rgba(79,195,247,0.14); --accent-mid:rgba(79,195,247,0.32); --border-accent:rgba(79,195,247,0.36);
+      --grad-brand:linear-gradient(135deg,#01579b 0%,#0288d1 50%,#4fc3f7 100%);
+      --toggle-knob:#4fc3f7; --footer-link:#4fc3f7;
+    }
+
+    :root[data-palette="forest"][data-theme="light"] {
+      --bg:#f3f8f4; --bg-secondary:#ffffff; --bg-card:#ffffff; --bg-elevated:#e6f1e9;
+      --accent:#2e7d32; --accent-hover:#1b5e20;
+      --accent-soft:rgba(46,125,50,0.09); --accent-mid:rgba(46,125,50,0.25); --border-accent:rgba(46,125,50,0.32);
+      --grad-brand:linear-gradient(135deg,#1b5e20 0%,#388e3c 50%,#8bc34a 100%);
+      --toggle-knob:#2e7d32; --footer-link:#2e7d32;
+    }
+    :root[data-palette="forest"][data-theme="dark"] {
+      --bg:#06120a; --bg-secondary:#0c1f13; --bg-card:#11301c; --bg-elevated:#194427;
+      --accent:#66bb6a; --accent-hover:#81c784;
+      --accent-soft:rgba(102,187,106,0.14); --accent-mid:rgba(102,187,106,0.32); --border-accent:rgba(102,187,106,0.36);
+      --grad-brand:linear-gradient(135deg,#1b5e20 0%,#43a047 50%,#a5d6a7 100%);
+      --toggle-knob:#66bb6a; --footer-link:#66bb6a;
+    }
+
+    :root[data-palette="sunset"][data-theme="light"] {
+      --bg:#fff7f1; --bg-secondary:#ffffff; --bg-card:#ffffff; --bg-elevated:#ffe9dc;
+      --accent:#e65100; --accent-hover:#bf360c;
+      --accent-soft:rgba(230,81,0,0.09); --accent-mid:rgba(230,81,0,0.25); --border-accent:rgba(230,81,0,0.32);
+      --grad-brand:linear-gradient(135deg,#e65100 0%,#ff7043 50%,#ffab91 100%);
+      --toggle-knob:#e65100; --footer-link:#e65100;
+    }
+    :root[data-palette="sunset"][data-theme="dark"] {
+      --bg:#150904; --bg-secondary:#22120a; --bg-card:#311a10; --bg-elevated:#44241a;
+      --accent:#ff8a65; --accent-hover:#ffab91;
+      --accent-soft:rgba(255,138,101,0.14); --accent-mid:rgba(255,138,101,0.32); --border-accent:rgba(255,138,101,0.36);
+      --grad-brand:linear-gradient(135deg,#bf360c 0%,#f4511e 50%,#ffab91 100%);
+      --toggle-knob:#ff8a65; --footer-link:#ff8a65;
+    }
+
+    :root[data-palette="rose"][data-theme="light"] {
+      --bg:#fdf2f7; --bg-secondary:#ffffff; --bg-card:#ffffff; --bg-elevated:#fce4ec;
+      --accent:#c2185b; --accent-hover:#880e4f;
+      --accent-soft:rgba(194,24,91,0.09); --accent-mid:rgba(194,24,91,0.25); --border-accent:rgba(194,24,91,0.32);
+      --grad-brand:linear-gradient(135deg,#c2185b 0%,#ec407a 50%,#f8bbd0 100%);
+      --toggle-knob:#c2185b; --footer-link:#c2185b;
+    }
+    :root[data-palette="rose"][data-theme="dark"] {
+      --bg:#160510; --bg-secondary:#240a1a; --bg-card:#341027; --bg-elevated:#481a37;
+      --accent:#f06292; --accent-hover:#f48fb1;
+      --accent-soft:rgba(240,98,146,0.14); --accent-mid:rgba(240,98,146,0.32); --border-accent:rgba(240,98,146,0.36);
+      --grad-brand:linear-gradient(135deg,#880e4f 0%,#d81b60 50%,#f48fb1 100%);
+      --toggle-knob:#f06292; --footer-link:#f06292;
+    }
+
+    :root[data-palette="midnight"][data-theme="dark"],
+    :root[data-palette="midnight"][data-theme="light"] {
+      --bg:#020207; --bg-secondary:#080814; --bg-card:#0c0d1c; --bg-elevated:#14152a;
+      --accent:#a78bfa; --accent-hover:#c4b5fd;
+      --accent-soft:rgba(167,139,250,0.14); --accent-mid:rgba(167,139,250,0.32); --border-accent:rgba(167,139,250,0.36);
+      --text-primary:#f5f6f8; --text-secondary:#a1a7b3; --text-muted:#6b7280;
+      --border:rgba(255,255,255,0.06); --border-strong:rgba(255,255,255,0.12);
+      --nav-bg:rgba(2,2,7,0.85);
+      --grad-brand:linear-gradient(135deg,#4c1d95 0%,#7c3aed 50%,#a78bfa 100%);
+      --toggle-knob:#a78bfa; --footer-link:#a78bfa;
+    }
+
+    :root[data-palette="mocha"][data-theme="light"] {
+      --bg:#f7f1ea; --bg-secondary:#fffaf3; --bg-card:#fffaf3; --bg-elevated:#ecddca;
+      --accent:#6f4e37; --accent-hover:#4e3724;
+      --accent-soft:rgba(111,78,55,0.10); --accent-mid:rgba(111,78,55,0.26); --border-accent:rgba(111,78,55,0.34);
+      --grad-brand:linear-gradient(135deg,#4e3724 0%,#8d6748 50%,#c4a380 100%);
+      --toggle-knob:#6f4e37; --footer-link:#6f4e37;
+    }
+    :root[data-palette="mocha"][data-theme="dark"] {
+      --bg:#100b06; --bg-secondary:#1c140d; --bg-card:#291d12; --bg-elevated:#3a2a1c;
+      --accent:#c8a17a; --accent-hover:#dcb893;
+      --accent-soft:rgba(200,161,122,0.14); --accent-mid:rgba(200,161,122,0.32); --border-accent:rgba(200,161,122,0.36);
+      --grad-brand:linear-gradient(135deg,#4e3724 0%,#a47551 50%,#c8a17a 100%);
+      --toggle-knob:#c8a17a; --footer-link:#c8a17a;
+    }
+
     /* ══════════════════════════════════════
        RESET & BASE
     ══════════════════════════════════════ */
@@ -349,6 +440,100 @@
     }
     .side-link.side-sub.active { background: var(--accent); color: white; }
     .side-link.nav-hidden, .side-group.nav-empty { display: none !important; }
+
+    /* Sidebar search trigger (opens command palette) */
+    .side-search {
+      display: flex; align-items: center; gap: 11px;
+      padding: 8px 12px; border-radius: var(--r-sm);
+      color: var(--text-muted);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      font-family: var(--font-body); font-size: 0.84rem; font-weight: 500;
+      cursor: pointer;
+      transition: background 0.13s, color 0.13s, border-color 0.13s;
+      margin: 4px 0 10px;
+      width: 100%; text-align: left;
+    }
+    .side-search:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--border-accent); }
+    .side-search .kbd-hint {
+      font-family: var(--font-ui); font-size: 0.68rem; font-weight: 700;
+      padding: 2px 7px; border-radius: var(--r-xs);
+      background: var(--bg-card); color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+
+    /* ── Command palette (Cmd/Ctrl + K) ── */
+    #cmdPalette {
+      position: fixed; inset: 0; z-index: 10005;
+      display: none; align-items: flex-start; justify-content: center;
+      background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
+      padding-top: 14vh;
+    }
+    #cmdPalette.open { display: flex; }
+    #cmdPalette .cmd-box {
+      width: min(560px, 92vw);
+      background: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--r-lg);
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+      animation: fadeUp 0.18s var(--ease-out) both;
+    }
+    #cmdPalette .cmd-input-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+    }
+    #cmdPalette .cmd-input-row svg { width: 18px; height: 18px; color: var(--text-muted); flex-shrink: 0; }
+    #cmdPalette input.cmd-input {
+      flex: 1; border: 0; outline: 0; background: transparent;
+      color: var(--text-primary);
+      font-family: var(--font-body); font-size: 0.98rem;
+    }
+    #cmdPalette input.cmd-input::placeholder { color: var(--text-muted); }
+    #cmdPalette .cmd-esc {
+      font-family: var(--font-ui); font-size: 0.68rem; font-weight: 700;
+      padding: 2px 7px; border-radius: var(--r-xs);
+      background: var(--bg-elevated); color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    #cmdPalette .cmd-results {
+      max-height: 50vh; overflow-y: auto;
+      padding: 6px;
+    }
+    #cmdPalette .cmd-section {
+      font-family: var(--font-ui); font-size: 0.64rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.09em;
+      color: var(--text-muted);
+      padding: 10px 12px 4px;
+    }
+    #cmdPalette .cmd-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 9px 12px; border-radius: var(--r-sm);
+      color: var(--text-primary);
+      cursor: pointer; text-decoration: none;
+      font-size: 0.88rem; font-weight: 500;
+      transition: background 0.1s;
+    }
+    #cmdPalette .cmd-item:hover,
+    #cmdPalette .cmd-item.active { background: var(--accent-soft); color: var(--accent); }
+    #cmdPalette .cmd-item .cmd-icon { width: 16px; height: 16px; color: var(--text-muted); flex-shrink: 0; }
+    #cmdPalette .cmd-item:hover .cmd-icon,
+    #cmdPalette .cmd-item.active .cmd-icon { color: var(--accent); }
+    #cmdPalette .cmd-item .cmd-arrow { margin-left: auto; opacity: 0; transition: opacity 0.12s; }
+    #cmdPalette .cmd-item.active .cmd-arrow { opacity: 1; }
+    #cmdPalette .cmd-empty { padding: 22px; text-align: center; color: var(--text-muted); font-size: 0.86rem; }
+    #cmdPalette .cmd-footer {
+      display: flex; gap: 12px; padding: 8px 14px;
+      border-top: 1px solid var(--border);
+      font-size: 0.72rem; color: var(--text-muted);
+      background: var(--bg);
+    }
+    #cmdPalette .cmd-footer .kbd {
+      font-family: var(--font-ui); font-weight: 700; font-size: 0.66rem;
+      padding: 1px 6px; border-radius: var(--r-xs);
+      background: var(--bg-card); border: 1px solid var(--border);
+      margin-right: 4px;
+    }
 
     .side-spacer { flex: 1; }
     .side-foot {
@@ -945,7 +1130,7 @@
   {% block head_extra %}{% endblock %}
 </head>
 
-{% set _app_pages = ['dashboard','scheduler','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library'] %}
+{% set _app_pages = ['dashboard','scheduler','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes'] %}
 <body class="{% if active_page in _app_pages %}has-side{% endif %}">
 
 <!-- ══════════════════════════════════════
@@ -991,6 +1176,13 @@
     <symbol id="i-test" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 7h8M8 11h5M8 15h3"/><circle cx="17" cy="17" r="3" fill="currentColor" stroke="none" opacity="0.2"/><path d="M15.5 17l1 1 2-2" stroke-width="1.5"/></symbol>
     <symbol id="i-backpack" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v10H4V10z"/><path d="M9 6V4a3 3 0 0 1 6 0v2"/><line x1="4" y1="15" x2="20" y2="15"/><path d="M10 19h4"/></symbol>
     <symbol id="i-snowflake" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 7l-5 5-5-5"/><path d="M17 17l-5-5-5 5"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M7 7l5 5 5-5"/><path d="M7 17l5-5 5 5"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></symbol>
+    <symbol id="i-video" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1.5" fill="currentColor"/><circle cx="17.5" cy="10.5" r="1.5" fill="currentColor"/><circle cx="8.5" cy="7.5" r="1.5" fill="currentColor"/><circle cx="6.5" cy="12.5" r="1.5" fill="currentColor"/><path d="M12 2a10 10 0 1 0 0 20 2.5 2.5 0 0 0 2.5-2.5v-1a2.5 2.5 0 0 1 2.5-2.5h2A2.5 2.5 0 0 0 22 13.5 10 10 0 0 0 12 2z"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></symbol>
   </defs>
 </svg>
 
@@ -1004,50 +1196,45 @@
     <span class="logo-text">Intelli<span>Plan</span></span>
   </a>
 
-  {# ── Always-visible top items ──────────────────────────────── #}
+  {# ── Search / command palette trigger ─────────────────────── #}
+  <button type="button" class="side-search" id="sideSearchTrigger" aria-label="Search and quick navigation">
+    <span class="side-icon"><svg><use href="#i-search"/></svg></span>
+    <span style="flex:1;text-align:left;">Search…</span>
+    <span class="kbd-hint">⌘K</span>
+  </button>
+
+  {# ── Primary actions: Home + AI ──────────────────────────── #}
   <a href="/dashboard" data-nav-item="dashboard" class="side-link {% if active_page == 'dashboard' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard</a>
-  <a href="/scheduler" data-nav-item="scheduler" class="side-link {% if active_page == 'scheduler' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-scheduler"/></svg></span>Scheduler</a>
-  <a href="/study"     data-nav-item="study" class="side-link {% if active_page == 'study' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-rocket"/></svg></span>Study</a>
-  <a href="/learn"     data-nav-item="learn" class="side-link {% if active_page == 'learn' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Learn</a>
-  <a href="/streak"    data-nav-item="streak" class="side-link {% if active_page == 'streak' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-fire"/></svg></span>Streak</a>
   <a href="/tutor"     data-nav-item="tutor" class="side-link tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-tutor"/></svg></span>Tutor</a>
-  <a href="/focus"     data-nav-item="focus" class="side-link {% if active_page == 'focus' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-fire"/></svg></span>Focus Timer</a>
-  <a href="/library"   data-nav-item="library" class="side-link {% if active_page == 'library' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-backpack"/></svg></span>AP Library</a>
 
-  {# ── Plan dropdown: priority queue, grades, and completed work ──────────────── #}
-  {% set _plan_pages = ['priority','classes','grades','gradebook','tests','dismissed'] %}
-  <div class="side-group {% if active_page in _plan_pages %}is-open{% endif %}" data-side-group="plan">
-    <button type="button" class="side-link side-group-toggle" aria-expanded="{% if active_page in _plan_pages %}true{% else %}false{% endif %}">
-      <span class="side-icon"><svg><use href="#i-priority"/></svg></span>
-      <span style="flex:1;text-align:left;">Plan</span>
-      <span class="side-chev">▾</span>
-    </button>
-    <div class="side-group-body">
-      <a href="/priority"  data-nav-item="priority" class="side-link side-sub {% if active_page == 'priority' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-priority"/></svg></span>Priority</a>
-      <a href="/classes"   data-nav-item="classes" class="side-link side-sub {% if active_page == 'classes' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-classes"/></svg></span>Classes</a>
-      <a href="/grades"    data-nav-item="grades" class="side-link side-sub {% if active_page == 'grades' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-grades"/></svg></span>Grades</a>
-      <a href="/gradebook" data-nav-item="gradebook" class="side-link side-sub {% if active_page == 'gradebook' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Grade Modeler</a>
-      <a href="/tests"     data-nav-item="tests" class="side-link side-sub {% if active_page == 'tests' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-test"/></svg></span>Tests</a>
-      <a href="/dismissed" data-nav-item="dismissed" class="side-link side-sub {% if active_page == 'dismissed' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-done"/></svg></span>Done</a>
-    </div>
-  </div>
+  {# ── PLAN: scheduling, assignments, grades ──────────────── #}
+  <div class="side-section-label">Plan</div>
+  <a href="/scheduler" data-nav-item="scheduler" class="side-link {% if active_page == 'scheduler' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-scheduler"/></svg></span>Scheduler</a>
+  <a href="/priority"  data-nav-item="priority" class="side-link {% if active_page == 'priority' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-priority"/></svg></span>Priority</a>
+  <a href="/classes"   data-nav-item="classes" class="side-link {% if active_page == 'classes' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-classes"/></svg></span>Classes</a>
+  <a href="/grades"    data-nav-item="grades" class="side-link {% if active_page in ['grades','gradebook','tests'] %}active{% endif %}"><span class="side-icon"><svg><use href="#i-grades"/></svg></span>Grades</a>
+  <a href="/dismissed" data-nav-item="dismissed" class="side-link {% if active_page == 'dismissed' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-done"/></svg></span>Done</a>
 
-  {# ── Toolkit dropdown: AI tools + collaboration ────────────── #}
-  {% set _tool_pages = ['lessons','groups','writing','math','extractor'] %}
-  <div class="side-group {% if active_page in _tool_pages %}is-open{% endif %}" data-side-group="tools">
-    <button type="button" class="side-link side-group-toggle" aria-expanded="{% if active_page in _tool_pages %}true{% else %}false{% endif %}">
-      <span class="side-icon"><svg><use href="#i-modeler"/></svg></span>
-      <span style="flex:1;text-align:left;">Toolkit</span>
-      <span class="side-chev">▾</span>
-    </button>
-    <div class="side-group-body">
-      <a href="/lessons"   data-nav-item="lessons" class="side-link side-sub {% if active_page == 'lessons' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Lessons</a>
-      <a href="/groups"    data-nav-item="groups" class="side-link side-sub {% if active_page == 'groups' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-tutor"/></svg></span>Study Groups</a>
-      <a href="/writing"   data-nav-item="writing" class="side-link side-sub {% if active_page == 'writing' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-pencil"/></svg></span>Writing</a>
-      <a href="/math"      data-nav-item="math" class="side-link side-sub {% if active_page == 'math' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Math Explainer</a>
-      <a href="/extractor" data-nav-item="extractor" class="side-link side-sub {% if active_page == 'extractor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-check-circle"/></svg></span>Task Extractor</a>
-    </div>
-  </div>
+  {# ── STUDY: spaced repetition, focus, streaks ──────────── #}
+  <div class="side-section-label">Study</div>
+  <a href="/study"   data-nav-item="study" class="side-link {% if active_page == 'study' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-rocket"/></svg></span>Deep Study</a>
+  <a href="/learn"   data-nav-item="learn" class="side-link {% if active_page == 'learn' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Learn</a>
+  <a href="/focus"   data-nav-item="focus" class="side-link {% if active_page == 'focus' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-clock"/></svg></span>Focus Timer</a>
+  <a href="/library" data-nav-item="library" class="side-link {% if active_page == 'library' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-backpack"/></svg></span>AP Library</a>
+  <a href="/streak"  data-nav-item="streak" class="side-link {% if active_page == 'streak' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-fire"/></svg></span>Streak</a>
+
+  {# ── TOOLS: AI helpers ──────────────────────────────────── #}
+  <div class="side-section-label">Tools</div>
+  <a href="/lessons"   data-nav-item="lessons" class="side-link {% if active_page == 'lessons' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-lightbulb"/></svg></span>Lessons</a>
+  <a href="/writing"   data-nav-item="writing" class="side-link {% if active_page == 'writing' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-pencil"/></svg></span>Writing</a>
+  <a href="/math"      data-nav-item="math" class="side-link {% if active_page == 'math' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Math</a>
+  <a href="/extractor" data-nav-item="extractor" class="side-link {% if active_page == 'extractor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-check-circle"/></svg></span>Extractor</a>
+  <a href="/gradebook" data-nav-item="gradebook" class="side-link {% if active_page == 'gradebook' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Grade Modeler</a>
+
+  {# ── CONNECT: meetings, groups ──────────────────────────── #}
+  <div class="side-section-label">Connect</div>
+  <a href="/meetings" data-nav-item="meetings" class="side-link {% if active_page == 'meetings' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-video"/></svg></span>Meetings</a>
+  <a href="/groups"  data-nav-item="groups" class="side-link {% if active_page == 'groups' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-users"/></svg></span>Study Groups</a>
 
   <div class="side-spacer"></div>
 
@@ -1088,26 +1275,47 @@
   <div class="header-right">
     <nav class="nav-tabs" id="mainNav" aria-label="Main navigation">
       <div class="nav-group">
-        <a href="/dashboard" class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-dashboard"/></svg></span><span class="nav-label">Dashboard</span></a>
-        <a href="/scheduler"  class="nav-tab {% if active_page == 'scheduler' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-scheduler"/></svg></span><span class="nav-label">Scheduler</span></a>
-        <a href="/study"      class="nav-tab {% if active_page == 'study' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-rocket"/></svg></span><span class="nav-label">Study</span></a>
-        <a href="/learn"      class="nav-tab {% if active_page == 'learn' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-study"/></svg></span><span class="nav-label">Learn</span></a>
-        <a href="/streak"     class="nav-tab {% if active_page == 'streak' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-fire"/></svg></span><span class="nav-label">Streak</span></a>
-        <a href="/tutor"      class="nav-tab nav-tab-tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-tutor"/></svg></span><span class="nav-label">Tutor</span></a>
-      </div>
-      <div class="nav-divider" aria-hidden="true"></div>
-      <div class="nav-group">
-        <a href="/priority" class="nav-tab {% if active_page == 'priority' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-priority"/></svg></span><span class="nav-label">Priority</span></a>
-        <a href="/classes"  class="nav-tab {% if active_page == 'classes' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-classes"/></svg></span><span class="nav-label">Classes</span></a>
+        <a href="/dashboard" class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-dashboard"/></svg></span><span class="nav-label">Home</span></a>
+        <a href="/tutor"     class="nav-tab nav-tab-tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-tutor"/></svg></span><span class="nav-label">Tutor</span></a>
         <div class="nav-dropdown">
           <button class="dropdown-toggle" aria-haspopup="true"><span class="nav-tab-icon"><svg><use href="#i-priority"/></svg></span><span class="nav-label">Plan</span> <span class="chevron" aria-hidden="true">▾</span></button>
           <div class="dropdown-panel" role="menu">
-            <a href="/grades"    class="dropdown-item" role="menuitem">Grades Overview</a>
-            <a href="/gradebook" class="dropdown-item" role="menuitem">Grade Modeler</a>
-            <a href="/tests"     class="dropdown-item" role="menuitem">Tests</a>
-            <a href="/dismissed" class="dropdown-item" role="menuitem">Done</a>
+            <a href="/scheduler" class="dropdown-item">Scheduler</a>
+            <a href="/priority"  class="dropdown-item">Priority</a>
+            <a href="/classes"   class="dropdown-item">Classes</a>
+            <a href="/grades"    class="dropdown-item">Grades</a>
+            <a href="/gradebook" class="dropdown-item">Grade Modeler</a>
+            <a href="/tests"     class="dropdown-item">Tests</a>
+            <a href="/dismissed" class="dropdown-item">Done</a>
           </div>
         </div>
+        <div class="nav-dropdown">
+          <button class="dropdown-toggle" aria-haspopup="true"><span class="nav-tab-icon"><svg><use href="#i-rocket"/></svg></span><span class="nav-label">Study</span> <span class="chevron" aria-hidden="true">▾</span></button>
+          <div class="dropdown-panel" role="menu">
+            <a href="/study"   class="dropdown-item">Deep Study</a>
+            <a href="/learn"   class="dropdown-item">Learn</a>
+            <a href="/focus"   class="dropdown-item">Focus Timer</a>
+            <a href="/library" class="dropdown-item">AP Library</a>
+            <a href="/streak"  class="dropdown-item">Streak</a>
+          </div>
+        </div>
+        <div class="nav-dropdown">
+          <button class="dropdown-toggle" aria-haspopup="true"><span class="nav-tab-icon"><svg><use href="#i-lightbulb"/></svg></span><span class="nav-label">Tools</span> <span class="chevron" aria-hidden="true">▾</span></button>
+          <div class="dropdown-panel" role="menu">
+            <a href="/lessons"   class="dropdown-item">Lessons</a>
+            <a href="/writing"   class="dropdown-item">Writing</a>
+            <a href="/math"      class="dropdown-item">Math</a>
+            <a href="/extractor" class="dropdown-item">Extractor</a>
+          </div>
+        </div>
+        <div class="nav-dropdown">
+          <button class="dropdown-toggle" aria-haspopup="true"><span class="nav-tab-icon"><svg><use href="#i-video"/></svg></span><span class="nav-label">Connect</span> <span class="chevron" aria-hidden="true">▾</span></button>
+          <div class="dropdown-panel" role="menu">
+            <a href="/meetings" class="dropdown-item">Meetings (Teams · Zoom)</a>
+            <a href="/groups"  class="dropdown-item">Study Groups</a>
+          </div>
+        </div>
+        <button type="button" class="nav-tab" id="topSearchTrigger" aria-label="Search"><span class="nav-tab-icon"><svg><use href="#i-search"/></svg></span><span class="nav-label">Search</span></button>
       </div>
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
@@ -1181,6 +1389,25 @@
       <div style="font-family:var(--font-ui);font-size:0.71rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Add your own description</div>
       <textarea id="modalCustomInput" style="width:100%;padding:10px 14px;border-radius:var(--r-sm);border:1px solid var(--border-strong);background:var(--bg);color:var(--text-primary);font-family:var(--font-body);font-size:0.87rem;resize:vertical;min-height:90px;outline:none;transition:border-color 0.16s;" placeholder="Describe what this assignment involves..."></textarea>
       <button class="btn-primary" style="margin-top:8px;padding:10px 20px;" onclick="saveCustomDescription()">Save Description</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     COMMAND PALETTE  (Cmd/Ctrl + K)
+══════════════════════════════════════ -->
+<div id="cmdPalette" role="dialog" aria-modal="true" aria-label="Quick navigation">
+  <div class="cmd-box">
+    <div class="cmd-input-row">
+      <svg><use href="#i-search"/></svg>
+      <input type="text" class="cmd-input" id="cmdInput" placeholder="Search pages, themes, actions…" autocomplete="off" spellcheck="false">
+      <span class="cmd-esc">esc</span>
+    </div>
+    <div class="cmd-results" id="cmdResults"></div>
+    <div class="cmd-footer">
+      <span><span class="kbd">↑↓</span>navigate</span>
+      <span><span class="kbd">↵</span>open</span>
+      <span><span class="kbd">esc</span>close</span>
     </div>
   </div>
 </div>
@@ -1328,22 +1555,41 @@
      SCRIPTS
 ══════════════════════════════════════ -->
 <script>
-/* ── THEME ─────────────────────────── */
-const html   = document.documentElement;
-const saved  = localStorage.getItem('theme') || 'light';
-html.setAttribute('data-theme', saved);
+/* ── THEME (mode + palette) ────────── */
+const html       = document.documentElement;
+const PALETTES   = ['default','ocean','forest','sunset','rose','midnight','mocha'];
+const savedMode  = localStorage.getItem('theme') || 'light';
+const savedPal   = (() => {
+  const p = localStorage.getItem('ip_theme_palette') || 'default';
+  return PALETTES.includes(p) ? p : 'default';
+})();
+html.setAttribute('data-theme', savedMode);
+if (savedPal && savedPal !== 'default') html.setAttribute('data-palette', savedPal);
+
 const themeToggles = [document.getElementById('themeToggle'), document.getElementById('themeToggleSide')].filter(Boolean);
 const themeLabel = document.getElementById('themeLabel');
-themeToggles.forEach(t => { t.checked = saved === 'dark'; });
-if (themeLabel) themeLabel.textContent = saved === 'dark' ? 'Dark' : 'Light';
+themeToggles.forEach(t => { t.checked = savedMode === 'dark'; });
+if (themeLabel) themeLabel.textContent = savedMode === 'dark' ? 'Dark' : 'Light';
+
+function setThemeMode(mode) {
+  html.setAttribute('data-theme', mode);
+  try { localStorage.setItem('theme', mode); } catch(e){}
+  themeToggles.forEach(o => { o.checked = mode === 'dark'; });
+  if (themeLabel) themeLabel.textContent = mode === 'dark' ? 'Dark' : 'Light';
+  document.dispatchEvent(new CustomEvent('ip-theme-change', { detail:{ mode, palette: html.getAttribute('data-palette') || 'default' }}));
+}
+function setThemePalette(pal) {
+  if (!PALETTES.includes(pal)) pal = 'default';
+  if (pal === 'default') html.removeAttribute('data-palette');
+  else html.setAttribute('data-palette', pal);
+  try { localStorage.setItem('ip_theme_palette', pal); } catch(e){}
+  document.dispatchEvent(new CustomEvent('ip-theme-change', { detail:{ mode: html.getAttribute('data-theme'), palette: pal }}));
+}
+window.setThemeMode    = setThemeMode;
+window.setThemePalette = setThemePalette;
+
 themeToggles.forEach(toggle => {
-  toggle.addEventListener('change', () => {
-    const t = toggle.checked ? 'dark' : 'light';
-    html.setAttribute('data-theme', t);
-    localStorage.setItem('theme', t);
-    themeToggles.forEach(o => { if (o !== toggle) o.checked = toggle.checked; });
-    if (themeLabel) themeLabel.textContent = t === 'dark' ? 'Dark' : 'Light';
-  });
+  toggle.addEventListener('change', () => setThemeMode(toggle.checked ? 'dark' : 'light'));
 });
 
 /* ── DATE BADGE ─────────────────────── */
@@ -1388,6 +1634,149 @@ const mobileMenuBtn = document.getElementById('mobileMenuBtn');
 if (mobileMenuBtn) {
   mobileMenuBtn.addEventListener('click', toggleMobileMenu);
 }
+
+/* ── COMMAND PALETTE (Cmd/Ctrl + K) ────── */
+(function setupCommandPalette() {
+  const palette = document.getElementById('cmdPalette');
+  const input   = document.getElementById('cmdInput');
+  const results = document.getElementById('cmdResults');
+  if (!palette || !input || !results) return;
+
+  const NAV_ITEMS = [
+    { section:'Primary', label:'Dashboard',      href:'/dashboard',  icon:'i-dashboard', keys:'home overview' },
+    { section:'Primary', label:'AI Tutor',       href:'/tutor',      icon:'i-tutor',     keys:'ask question help' },
+    { section:'Plan',    label:'Scheduler',      href:'/scheduler',  icon:'i-scheduler', keys:'plan calendar timetable' },
+    { section:'Plan',    label:'Priority Queue', href:'/priority',   icon:'i-priority',  keys:'urgent next' },
+    { section:'Plan',    label:'Classes',        href:'/classes',    icon:'i-classes',   keys:'courses' },
+    { section:'Plan',    label:'Grades',         href:'/grades',     icon:'i-grades',    keys:'gpa marks' },
+    { section:'Plan',    label:'Grade Modeler',  href:'/gradebook',  icon:'i-modeler',   keys:'what if predict' },
+    { section:'Plan',    label:'Tests',          href:'/tests',      icon:'i-test',      keys:'exam quiz' },
+    { section:'Plan',    label:'Done',           href:'/dismissed',  icon:'i-done',      keys:'completed dismissed' },
+    { section:'Study',   label:'Deep Study',     href:'/study',      icon:'i-rocket',    keys:'focus session' },
+    { section:'Study',   label:'Learn',          href:'/learn',      icon:'i-study',     keys:'practice flashcards' },
+    { section:'Study',   label:'Focus Timer',    href:'/focus',      icon:'i-clock',     keys:'pomodoro' },
+    { section:'Study',   label:'AP Library',     href:'/library',    icon:'i-backpack',  keys:'resources notes' },
+    { section:'Study',   label:'Streak',         href:'/streak',     icon:'i-fire',      keys:'daily rewards' },
+    { section:'Tools',   label:'Lessons',        href:'/lessons',    icon:'i-lightbulb', keys:'tutorial' },
+    { section:'Tools',   label:'Writing',        href:'/writing',    icon:'i-pencil',    keys:'essay grammar' },
+    { section:'Tools',   label:'Math Explainer', href:'/math',       icon:'i-modeler',   keys:'solve algebra' },
+    { section:'Tools',   label:'Task Extractor', href:'/extractor',  icon:'i-check-circle', keys:'import upload' },
+    { section:'Connect', label:'Meetings',       href:'/meetings',   icon:'i-video',     keys:'teams zoom meet call webex' },
+    { section:'Connect', label:'Study Groups',   href:'/groups',     icon:'i-users',     keys:'classmates friends' },
+    { section:'System',  label:'Themes',         href:'/settings#themes', icon:'i-palette',   keys:'colors dark light' },
+    { section:'System',  label:'Settings',       href:'/settings',   icon:'i-settings',  keys:'preferences profile' },
+  ];
+
+  const ACTIONS = [
+    { section:'Actions', label:'Toggle Dark / Light',  icon:'i-palette', keys:'theme', action:() => {
+        const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', cur);
+        try { localStorage.setItem('theme', cur); } catch(e){}
+        document.querySelectorAll('#themeToggle, #themeToggleSide').forEach(t => t.checked = cur === 'dark');
+    }},
+    { section:'Actions', label:'Logout', icon:'i-logout', keys:'sign out', action:() => {
+        const f = document.createElement('form'); f.method='POST'; f.action='/logout'; document.body.appendChild(f); f.submit();
+    }},
+    { section:'Themes', label:'Theme: Classic',  icon:'i-palette', keys:'palette default blue', action:() => window.setThemePalette && window.setThemePalette('default') },
+    { section:'Themes', label:'Theme: Ocean',    icon:'i-palette', keys:'palette blue water',    action:() => window.setThemePalette && window.setThemePalette('ocean') },
+    { section:'Themes', label:'Theme: Forest',   icon:'i-palette', keys:'palette green nature',  action:() => window.setThemePalette && window.setThemePalette('forest') },
+    { section:'Themes', label:'Theme: Sunset',   icon:'i-palette', keys:'palette orange warm',   action:() => window.setThemePalette && window.setThemePalette('sunset') },
+    { section:'Themes', label:'Theme: Rose',     icon:'i-palette', keys:'palette pink',          action:() => window.setThemePalette && window.setThemePalette('rose') },
+    { section:'Themes', label:'Theme: Midnight', icon:'i-palette', keys:'palette purple dark',   action:() => window.setThemePalette && window.setThemePalette('midnight') },
+    { section:'Themes', label:'Theme: Mocha',    icon:'i-palette', keys:'palette brown coffee',  action:() => window.setThemePalette && window.setThemePalette('mocha') },
+  ];
+
+  let selectedIdx = 0;
+  let currentList = [];
+
+  function render(query) {
+    const q = (query || '').trim().toLowerCase();
+    const pool = [...NAV_ITEMS, ...ACTIONS];
+    const filtered = !q ? pool : pool.filter(it =>
+      it.label.toLowerCase().includes(q) ||
+      it.section.toLowerCase().includes(q) ||
+      (it.keys && it.keys.toLowerCase().includes(q))
+    );
+    currentList = filtered;
+    selectedIdx = 0;
+    if (filtered.length === 0) {
+      results.innerHTML = '<div class="cmd-empty">No matches.</div>';
+      return;
+    }
+    let html = '';
+    let lastSection = null;
+    filtered.forEach((it, i) => {
+      if (it.section !== lastSection) {
+        html += '<div class="cmd-section">' + it.section + '</div>';
+        lastSection = it.section;
+      }
+      html += `<a class="cmd-item ${i===0?'active':''}" data-idx="${i}" ${it.href?`href="${it.href}"`:'href="#"'}>` +
+              `<svg class="cmd-icon"><use href="#${it.icon}"/></svg>` +
+              `<span>${it.label}</span>` +
+              `<svg class="cmd-icon cmd-arrow"><use href="#i-arrow-right"/></svg>` +
+              `</a>`;
+    });
+    results.innerHTML = html;
+    results.querySelectorAll('.cmd-item').forEach(el => {
+      el.addEventListener('mouseenter', () => {
+        selectedIdx = parseInt(el.dataset.idx, 10);
+        updateActive();
+      });
+      el.addEventListener('click', e => {
+        const idx = parseInt(el.dataset.idx, 10);
+        const item = currentList[idx];
+        if (item && item.action) { e.preventDefault(); item.action(); close(); }
+        else { close(); }
+      });
+    });
+  }
+
+  function updateActive() {
+    results.querySelectorAll('.cmd-item').forEach((el, i) => {
+      el.classList.toggle('active', i === selectedIdx);
+    });
+    const active = results.querySelector('.cmd-item.active');
+    if (active) active.scrollIntoView({ block:'nearest' });
+  }
+
+  function open() {
+    palette.classList.add('open');
+    input.value = '';
+    render('');
+    setTimeout(() => input.focus(), 30);
+  }
+  function close() {
+    palette.classList.remove('open');
+  }
+
+  input.addEventListener('input', () => render(input.value));
+  input.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); selectedIdx = Math.min(currentList.length - 1, selectedIdx + 1); updateActive(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); selectedIdx = Math.max(0, selectedIdx - 1); updateActive(); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      const item = currentList[selectedIdx];
+      if (!item) return;
+      if (item.action) { item.action(); close(); }
+      else if (item.href) { window.location.href = item.href; }
+    } else if (e.key === 'Escape') { close(); }
+  });
+
+  palette.addEventListener('click', e => { if (e.target === palette) close(); });
+
+  document.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      palette.classList.contains('open') ? close() : open();
+    }
+  });
+
+  document.getElementById('sideSearchTrigger')?.addEventListener('click', open);
+  document.getElementById('topSearchTrigger')?.addEventListener('click', open);
+
+  // expose for other features
+  window.openCommandPalette = open;
+})();
 
 /* ── Accessibility preferences (applied on every page) ─── */
 (function applyA11y() {

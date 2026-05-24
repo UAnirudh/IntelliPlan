@@ -328,6 +328,16 @@
       </div>
     </div>
 
+    <div class="integration-row" id="themes" style="flex-direction:column;align-items:flex-start;gap:14px;">
+      <div style="width:100%;">
+        <div class="integration-label">Color theme</div>
+        <div class="integration-sub">Pick a palette — works with both light and dark mode</div>
+      </div>
+      <div id="themeSwatches" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;width:100%;">
+        <!-- Swatches injected by script -->
+      </div>
+    </div>
+
     <div class="integration-row">
       <div>
         <div class="integration-label">Session completion animation</div>
@@ -869,6 +879,48 @@ function saveAnimSetting(key, value) {
     // Keep header + sidebar toggles in sync
     const h = document.getElementById('themeToggle');       if (h) h.checked = t.checked;
     const s = document.getElementById('themeToggleSide');   if (s) s.checked = t.checked;
+  });
+})();
+
+/* ── Theme palette swatches ───────────────────────── */
+(function initThemeSwatches() {
+  const host = document.getElementById('themeSwatches');
+  if (!host) return;
+  const THEMES = [
+    { id:'default',  label:'Classic',  colors:['#2453d6','#6366f1'] },
+    { id:'ocean',    label:'Ocean',    colors:['#0277bd','#26c6da'] },
+    { id:'forest',   label:'Forest',   colors:['#1b5e20','#8bc34a'] },
+    { id:'sunset',   label:'Sunset',   colors:['#e65100','#ffab91'] },
+    { id:'rose',     label:'Rose',     colors:['#c2185b','#f8bbd0'] },
+    { id:'midnight', label:'Midnight', colors:['#4c1d95','#a78bfa'] },
+    { id:'mocha',    label:'Mocha',    colors:['#4e3724','#c4a380'] },
+  ];
+  const current = localStorage.getItem('ip_theme_palette') || 'default';
+  host.innerHTML = THEMES.map(t => `
+    <button type="button" class="theme-swatch ${current===t.id?'active':''}" data-palette="${t.id}"
+            style="display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:12px;border-radius:12px;
+                   border:2px solid ${current===t.id?'var(--accent)':'var(--border)'};
+                   background:var(--bg-card);cursor:pointer;text-align:left;font:inherit;color:var(--text-primary);
+                   transition:transform 0.16s, box-shadow 0.16s, border-color 0.16s;">
+      <div style="display:flex;gap:0;width:100%;height:36px;border-radius:8px;overflow:hidden;">
+        <div style="flex:1;background:${t.colors[0]};"></div>
+        <div style="flex:1;background:linear-gradient(135deg,${t.colors[0]},${t.colors[1]});"></div>
+        <div style="flex:1;background:${t.colors[1]};"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+        <span style="font-size:0.86rem;font-weight:600;">${t.label}</span>
+        ${current===t.id?'<span style="font-size:0.68rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em;">Active</span>':''}
+      </div>
+    </button>
+  `).join('');
+  host.querySelectorAll('.theme-swatch').forEach(btn => {
+    btn.addEventListener('mouseenter', () => { btn.style.transform='translateY(-2px)'; btn.style.boxShadow='var(--shadow-hover)'; });
+    btn.addEventListener('mouseleave', () => { btn.style.transform=''; btn.style.boxShadow=''; });
+    btn.addEventListener('click', () => {
+      const pal = btn.dataset.palette;
+      if (window.setThemePalette) window.setThemePalette(pal);
+      initThemeSwatches();
+    });
   });
 })();
 
