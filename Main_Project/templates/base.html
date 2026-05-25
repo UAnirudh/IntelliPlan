@@ -388,10 +388,106 @@
     .side-logo .logo-text { font-family: var(--font-ui); font-size: 1rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; }
     .side-logo .logo-text span { color: var(--accent); }
     .side-section-label {
-      font-family: var(--font-ui); font-size: 0.65rem; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-muted);
-      padding: 10px 12px 4px;
+      font-family: var(--font-ui); font-size: 0.62rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted);
+      padding: 14px 12px 2px;
+      opacity: 0.75;
     }
+    .side-section-label:first-child { padding-top: 4px; }
+    /* Tighter, less cluttered sidebar links */
+    .app-side .side-link {
+      padding: 7px 11px;
+      font-size: 0.85rem;
+      gap: 10px;
+    }
+    .app-side .side-link .side-icon { width: 16px; height: 16px; }
+    .side-nav-list { display: flex; flex-direction: column; gap: 1px; }
+    .side-nav-list .side-link.nav-hidden { display: none !important; }
+    /* Sidebar customize trigger — quiet, lives just above footer */
+    .side-customize-btn {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 11px; margin: 10px 0 4px;
+      border-radius: var(--r-sm);
+      background: transparent;
+      border: 1px dashed var(--border);
+      color: var(--text-muted);
+      font-family: var(--font-body); font-size: 0.78rem; font-weight: 500;
+      cursor: pointer;
+      transition: color 0.13s, border-color 0.13s, background 0.13s;
+      width: 100%; text-align: left;
+    }
+    .side-customize-btn:hover { color: var(--accent); border-color: var(--border-accent); background: var(--accent-soft); }
+    .side-customize-btn .side-icon { width: 14px; height: 14px; }
+
+    /* ── Customizer modal ───────────────────────────────── */
+    #navCustomizer {
+      display: none; position: fixed; inset: 0; z-index: 10010;
+      align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
+    }
+    #navCustomizer.open { display: flex; }
+    #navCustomizer .nc-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--r-xl);
+      box-shadow: var(--shadow-lg);
+      width: min(540px, 94vw);
+      max-height: 80vh;
+      display: flex; flex-direction: column;
+      animation: fadeUp 0.18s var(--ease-out) both;
+      overflow: hidden;
+    }
+    #navCustomizer .nc-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; border-bottom: 1px solid var(--border);
+    }
+    #navCustomizer .nc-head h2 { font-family: var(--font-display); font-size: 1.1rem; margin: 0; }
+    #navCustomizer .nc-head button {
+      background: none; border: 0; cursor: pointer; color: var(--text-muted);
+      width: 30px; height: 30px; border-radius: var(--r-sm);
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    #navCustomizer .nc-head button:hover { background: var(--bg-elevated); color: var(--text-primary); }
+    #navCustomizer .nc-body { padding: 14px 18px; overflow-y: auto; }
+    #navCustomizer .nc-hint { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px; }
+    #navCustomizer .nc-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 10px; border-radius: var(--r-sm);
+      background: var(--bg-elevated);
+      margin-bottom: 6px;
+    }
+    #navCustomizer .nc-row .nc-label { flex: 1; font-size: 0.9rem; font-weight: 500; }
+    #navCustomizer .nc-row .nc-icon { width: 18px; height: 18px; color: var(--text-secondary); flex-shrink: 0; }
+    #navCustomizer .nc-row .nc-grp {
+      font-family: var(--font-ui); font-size: 0.65rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--text-muted); padding: 2px 8px;
+      background: var(--bg-card); border-radius: var(--r-full);
+      border: 1px solid var(--border);
+    }
+    #navCustomizer .nc-toggle {
+      display: inline-flex; gap: 4px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--r-full); padding: 2px;
+    }
+    #navCustomizer .nc-toggle button {
+      background: transparent; border: 0; cursor: pointer;
+      font-family: var(--font-ui); font-size: 0.7rem; font-weight: 700;
+      padding: 4px 10px; border-radius: var(--r-full);
+      color: var(--text-muted); transition: all 0.12s;
+    }
+    #navCustomizer .nc-toggle button:hover { color: var(--text-primary); }
+    #navCustomizer .nc-toggle button.active { background: var(--accent); color: #fff; }
+    #navCustomizer .nc-foot {
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+      padding: 12px 18px; border-top: 1px solid var(--border);
+      background: var(--bg);
+    }
+    #navCustomizer .nc-reset {
+      background: transparent; border: 0; cursor: pointer; color: var(--text-muted);
+      font-size: 0.82rem; font-weight: 600; padding: 6px 10px;
+    }
+    #navCustomizer .nc-reset:hover { color: var(--high); }
     .side-link {
       display: flex; align-items: center; gap: 11px;
       padding: 9px 12px; border-radius: var(--r-sm);
@@ -1209,34 +1305,47 @@
     <span class="kbd-hint">⌘K</span>
   </button>
 
-  {# ── CONNECT (top): join Teams/Zoom + study groups ─────── #}
-  <div class="side-section-label">Connect</div>
-  <a href="/meetings" data-nav-item="meetings" class="side-link side-pop {% if active_page == 'meetings' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-video"/></svg></span>Meetings</a>
-  <a href="/groups"   data-nav-item="groups"   class="side-link {% if active_page == 'groups' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-users"/></svg></span>Study Groups</a>
+  {# ── Pinned: the daily two — overview + AI help ──────── #}
+  <div class="side-nav-list" id="sideNavList">
+    <a href="/dashboard" data-nav-item="dashboard" class="side-link {% if active_page == 'dashboard' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard</a>
+    <a href="/tutor"     data-nav-item="tutor"     class="side-link tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-tutor"/></svg></span>Tutor</a>
 
-  {# ── PRIMARY: home + AI ─────────────────────────────────── #}
-  <div class="side-section-label">Home</div>
-  <a href="/dashboard" data-nav-item="dashboard" class="side-link {% if active_page == 'dashboard' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard</a>
-  <a href="/tutor"     data-nav-item="tutor"     class="side-link tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-tutor"/></svg></span>Tutor</a>
+    {# ── PLAN: scheduling → triage → courses → grades → done ── #}
+    <div class="side-section-label" data-nav-section="plan">Plan</div>
+    <a href="/scheduler" data-nav-item="scheduler" class="side-link {% if active_page == 'scheduler' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-scheduler"/></svg></span>Scheduler</a>
+    <a href="/priority"  data-nav-item="priority"  class="side-link {% if active_page == 'priority' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-priority"/></svg></span>Priority</a>
+    <a href="/classes"   data-nav-item="classes"   class="side-link {% if active_page == 'classes' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-classes"/></svg></span>Classes</a>
+    <a href="/grades"    data-nav-item="grades"    class="side-link {% if active_page == 'grades' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-grades"/></svg></span>Grades</a>
+    <a href="/gradebook" data-nav-item="gradebook" class="side-link {% if active_page == 'gradebook' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Grade Modeler</a>
+    <a href="/tests"     data-nav-item="tests"     class="side-link {% if active_page == 'tests' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-test"/></svg></span>Tests</a>
+    <a href="/dismissed" data-nav-item="dismissed" class="side-link {% if active_page == 'dismissed' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-done"/></svg></span>Done</a>
 
-  {# ── PLAN ─────────────────────────────────────────────── #}
-  <div class="side-section-label">Plan</div>
-  <a href="/scheduler" data-nav-item="scheduler" class="side-link {% if active_page == 'scheduler' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-scheduler"/></svg></span>Scheduler</a>
-  <a href="/priority"  data-nav-item="priority"  class="side-link {% if active_page == 'priority' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-priority"/></svg></span>Priority</a>
-  <a href="/classes"   data-nav-item="classes"   class="side-link {% if active_page in ['classes','grades','gradebook','tests','dismissed'] %}active{% endif %}"><span class="side-icon"><svg><use href="#i-classes"/></svg></span>Classes &amp; Grades</a>
+    {# ── STUDY: how the work gets done ──────────────────── #}
+    <div class="side-section-label" data-nav-section="study">Study</div>
+    <a href="/study"   data-nav-item="study"   class="side-link {% if active_page == 'study' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-rocket"/></svg></span>Deep Study</a>
+    <a href="/learn"   data-nav-item="learn"   class="side-link {% if active_page == 'learn' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Learn</a>
+    <a href="/focus"   data-nav-item="focus"   class="side-link {% if active_page == 'focus' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-clock"/></svg></span>Focus Timer</a>
+    <a href="/library" data-nav-item="library" class="side-link {% if active_page == 'library' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-backpack"/></svg></span>AP Library</a>
+    <a href="/streak"  data-nav-item="streak"  class="side-link {% if active_page == 'streak' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-fire"/></svg></span>Streak</a>
 
-  {# ── STUDY ────────────────────────────────────────────── #}
-  <div class="side-section-label">Study</div>
-  <a href="/study"  data-nav-item="study"  class="side-link {% if active_page in ['study','learn','library'] %}active{% endif %}"><span class="side-icon"><svg><use href="#i-rocket"/></svg></span>Deep Study</a>
-  <a href="/focus"  data-nav-item="focus"  class="side-link {% if active_page == 'focus' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-clock"/></svg></span>Focus Timer</a>
-  <a href="/streak" data-nav-item="streak" class="side-link {% if active_page == 'streak' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-fire"/></svg></span>Streak</a>
+    {# ── TOOLS: AI helpers ─────────────────────────────── #}
+    <div class="side-section-label" data-nav-section="tools">Tools</div>
+    <a href="/lessons"   data-nav-item="lessons"   class="side-link {% if active_page == 'lessons' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-lightbulb"/></svg></span>Lessons</a>
+    <a href="/writing"   data-nav-item="writing"   class="side-link {% if active_page == 'writing' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-pencil"/></svg></span>Writing</a>
+    <a href="/math"      data-nav-item="math"      class="side-link {% if active_page == 'math' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Math Explainer</a>
+    <a href="/extractor" data-nav-item="extractor" class="side-link {% if active_page == 'extractor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-check-circle"/></svg></span>Task Extractor</a>
 
-  {# ── TOOLS (compact) ──────────────────────────────────── #}
-  <div class="side-section-label">Tools</div>
-  <a href="/lessons"   data-nav-item="lessons"   class="side-link {% if active_page == 'lessons' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-lightbulb"/></svg></span>Lessons</a>
-  <a href="/writing"   data-nav-item="writing"   class="side-link {% if active_page == 'writing' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-pencil"/></svg></span>Writing</a>
-  <a href="/math"      data-nav-item="math"      class="side-link {% if active_page == 'math' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Math</a>
-  <a href="/extractor" data-nav-item="extractor" class="side-link {% if active_page == 'extractor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-check-circle"/></svg></span>Extractor</a>
+    {# ── CONNECT: live + collaboration ─────────────────── #}
+    <div class="side-section-label" data-nav-section="connect">Connect</div>
+    <a href="/meetings" data-nav-item="meetings" class="side-link {% if active_page == 'meetings' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-video"/></svg></span>Meetings</a>
+    <a href="/groups"   data-nav-item="groups"   class="side-link {% if active_page == 'groups' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-users"/></svg></span>Study Groups</a>
+  </div>
+
+  {# Sidebar customizer trigger #}
+  <button type="button" id="sideCustomizeBtn" class="side-customize-btn" aria-label="Customize sidebar">
+    <span class="side-icon"><svg><use href="#i-settings"/></svg></span>
+    <span style="flex:1;text-align:left;">Customize sidebar</span>
+  </button>
 
   <div class="side-spacer"></div>
 
@@ -1277,13 +1386,6 @@
   <div class="header-right">
     <nav class="nav-tabs" id="mainNav" aria-label="Main navigation">
       <div class="nav-group">
-        <div class="nav-dropdown">
-          <button class="dropdown-toggle" aria-haspopup="true"><span class="nav-tab-icon"><svg><use href="#i-video"/></svg></span><span class="nav-label">Connect</span> <span class="chevron" aria-hidden="true">▾</span></button>
-          <div class="dropdown-panel" role="menu">
-            <a href="/meetings" class="dropdown-item">Meetings (Teams · Zoom · Meet)</a>
-            <a href="/groups"   class="dropdown-item">Study Groups</a>
-          </div>
-        </div>
         <a href="/dashboard" class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-dashboard"/></svg></span><span class="nav-label">Home</span></a>
         <a href="/tutor"     class="nav-tab nav-tab-tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-tutor"/></svg></span><span class="nav-label">Tutor</span></a>
         <div class="nav-dropdown">
@@ -1306,11 +1408,22 @@
             <a href="/focus"   class="dropdown-item">Focus Timer</a>
             <a href="/library" class="dropdown-item">AP Library</a>
             <a href="/streak"  class="dropdown-item">Streak</a>
-            <div style="height:1px;background:var(--border);margin:6px 4px;"></div>
+          </div>
+        </div>
+        <div class="nav-dropdown">
+          <button class="dropdown-toggle" aria-haspopup="true"><span class="nav-tab-icon"><svg><use href="#i-lightbulb"/></svg></span><span class="nav-label">Tools</span> <span class="chevron" aria-hidden="true">▾</span></button>
+          <div class="dropdown-panel" role="menu">
             <a href="/lessons"   class="dropdown-item">Lessons</a>
             <a href="/writing"   class="dropdown-item">Writing</a>
             <a href="/math"      class="dropdown-item">Math</a>
             <a href="/extractor" class="dropdown-item">Extractor</a>
+          </div>
+        </div>
+        <div class="nav-dropdown">
+          <button class="dropdown-toggle" aria-haspopup="true"><span class="nav-tab-icon"><svg><use href="#i-video"/></svg></span><span class="nav-label">Connect</span> <span class="chevron" aria-hidden="true">▾</span></button>
+          <div class="dropdown-panel" role="menu">
+            <a href="/meetings" class="dropdown-item">Meetings (Teams · Zoom · Meet)</a>
+            <a href="/groups"   class="dropdown-item">Study Groups</a>
           </div>
         </div>
         <button type="button" class="nav-tab" id="topSearchTrigger" aria-label="Search"><span class="nav-tab-icon"><svg><use href="#i-search"/></svg></span><span class="nav-label">Search</span></button>
@@ -1387,6 +1500,28 @@
       <div style="font-family:var(--font-ui);font-size:0.71rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Add your own description</div>
       <textarea id="modalCustomInput" style="width:100%;padding:10px 14px;border-radius:var(--r-sm);border:1px solid var(--border-strong);background:var(--bg);color:var(--text-primary);font-family:var(--font-body);font-size:0.87rem;resize:vertical;min-height:90px;outline:none;transition:border-color 0.16s;" placeholder="Describe what this assignment involves..."></textarea>
       <button class="btn-primary" style="margin-top:8px;padding:10px 20px;" onclick="saveCustomDescription()">Save Description</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SIDEBAR CUSTOMIZER
+══════════════════════════════════════ -->
+<div id="navCustomizer" role="dialog" aria-modal="true" aria-label="Customize sidebar">
+  <div class="nc-box">
+    <div class="nc-head">
+      <h2>Customize sidebar</h2>
+      <button type="button" id="navCustomizerClose" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="nc-body">
+      <div class="nc-hint">Toggle items to show or hide them in the sidebar. Hidden items are still accessible via the search palette (⌘K).</div>
+      <div id="navCustomizerList"></div>
+    </div>
+    <div class="nc-foot">
+      <button type="button" class="nc-reset" id="navCustomizerReset">Reset to default</button>
+      <button type="button" class="btn-primary" id="navCustomizerDone" style="padding:8px 18px;">Done</button>
     </div>
   </div>
 </div>
@@ -1672,6 +1807,7 @@ if (mobileMenuBtn) {
         try { localStorage.setItem('theme', cur); } catch(e){}
         document.querySelectorAll('#themeToggle, #themeToggleSide').forEach(t => t.checked = cur === 'dark');
     }},
+    { section:'Actions', label:'Customize sidebar', icon:'i-settings', keys:'sidebar hide show pin nav layout', action:() => window.openSidebarCustomizer && window.openSidebarCustomizer() },
     { section:'Actions', label:'Logout', icon:'i-logout', keys:'sign out', action:() => {
         const f = document.createElement('form'); f.method='POST'; f.action='/logout'; document.body.appendChild(f); f.submit();
     }},
@@ -1776,6 +1912,128 @@ if (mobileMenuBtn) {
   window.openCommandPalette = open;
 })();
 
+/* ── IN-APP REMINDER TICKER ───────────────────────────
+   Polls /api/reminders/check while the page is open. For every
+   task that newly enters the lead-time window, fires a browser
+   Notification (if the user granted permission) and an in-app
+   toast. Dedupe lives in localStorage so the same task doesn't
+   re-fire on every poll. Silently no-ops for guests. */
+(function setupReminderTicker() {
+  if (typeof window === 'undefined' || !window.fetch) return;
+  const POLL_MS  = 90 * 1000;          // 90s — friendly to the server
+  const FIRST_MS = 5  * 1000;          // wait briefly before first poll
+  const SEEN_KEY = 'ip_reminderSeen';  // { [taskKey]: dueIso }
+  const SILENCE_KEY = 'ip_reminderSilencedUntil'; // ISO string
+
+  function loadSeen() {
+    try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}') || {}; }
+    catch(e) { return {}; }
+  }
+  function saveSeen(map) {
+    try { localStorage.setItem(SEEN_KEY, JSON.stringify(map)); } catch(e){}
+  }
+  function isSilenced() {
+    const v = localStorage.getItem(SILENCE_KEY);
+    if (!v) return false;
+    return new Date(v).getTime() > Date.now();
+  }
+  // Expose a quick silence helper for tests / future UI
+  window.silenceReminders = mins => {
+    const t = new Date(Date.now() + mins * 60 * 1000).toISOString();
+    try { localStorage.setItem(SILENCE_KEY, t); } catch(e){}
+  };
+
+  function showToast(title, body) {
+    let host = document.getElementById('reminderToastHost');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'reminderToastHost';
+      host.style.cssText = 'position:fixed;top:78px;right:18px;z-index:10020;display:flex;flex-direction:column;gap:8px;max-width:340px;';
+      document.body.appendChild(host);
+    }
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--bg-card);border:1px solid var(--border-strong);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow-lg);font-family:var(--font-body);animation:fadeUp 0.22s var(--ease-out) both;display:flex;gap:10px;align-items:flex-start;';
+    card.innerHTML = `
+      <div style="width:30px;height:30px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="16" height="16"><use href="#i-clock"/></svg>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;font-size:0.88rem;color:var(--text-primary);margin-bottom:2px;">${title}</div>
+        <div style="font-size:0.8rem;color:var(--text-secondary);line-height:1.4;">${body}</div>
+      </div>
+      <button type="button" aria-label="Dismiss" style="background:none;border:0;color:var(--text-muted);cursor:pointer;padding:2px;line-height:1;">×</button>
+    `;
+    card.querySelector('button').addEventListener('click', () => card.remove());
+    host.appendChild(card);
+    setTimeout(() => { if (card.isConnected) card.remove(); }, 14000);
+  }
+
+  function fireNotification(task) {
+    const title = '⏰ Due soon: ' + (task.title || 'Assignment');
+    const body  = task.course
+      ? `${task.course} — due in ${task.minutes_until_due} min`
+      : `Due in ${task.minutes_until_due} min`;
+    // In-app toast always (user might have notifications blocked)
+    showToast(title, body);
+    // Native browser notification — only if permission already granted
+    try {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const n = new Notification(title, {
+          body, icon: '/static/icons/icon-192.png', tag: task.key, renotify: false,
+        });
+        n.onclick = () => { try { window.focus(); window.location.href = '/dashboard'; } catch(e){} n.close(); };
+      }
+    } catch(e) { /* iOS Safari etc. */ }
+  }
+
+  async function tick() {
+    if (document.visibilityState === 'hidden') return;
+    if (isSilenced()) return;
+    let res;
+    try { res = await fetch('/api/reminders/check', { credentials: 'same-origin' }); }
+    catch(e) { return; }
+    if (!res.ok) return;
+    let data;
+    try { data = await res.json(); } catch(e) { return; }
+    if (!data || data.status !== 'ok' || !Array.isArray(data.tasks)) return;
+    const seen = loadSeen();
+    let changed = false;
+    data.tasks.forEach(task => {
+      if (!task || !task.key) return;
+      // Re-notify only if the due date moved (task rescheduled) OR it's been more than 6h since last seen.
+      const prev = seen[task.key];
+      const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
+      const prevTime = prev ? new Date(prev.fired || 0).getTime() : 0;
+      const newDue = task.due_iso !== (prev && prev.due);
+      if (!prev || newDue || prevTime < sixHoursAgo) {
+        fireNotification(task);
+        seen[task.key] = { due: task.due_iso, fired: new Date().toISOString() };
+        changed = true;
+      }
+    });
+    // Garbage-collect entries for tasks that have left the window for >24h
+    const stale = Date.now() - 24 * 60 * 60 * 1000;
+    Object.keys(seen).forEach(k => {
+      const t = new Date(seen[k]?.fired || 0).getTime();
+      if (t < stale) { delete seen[k]; changed = true; }
+    });
+    if (changed) saveSeen(seen);
+  }
+
+  // Start polling once the page is idle.
+  setTimeout(() => {
+    tick();
+    setInterval(tick, POLL_MS);
+  }, FIRST_MS);
+
+  // Re-check when the tab regains focus.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') tick();
+  });
+
+  window.checkRemindersNow = tick;
+})();
+
 /* ── Accessibility preferences (applied on every page) ─── */
 (function applyA11y() {
   const root = document.documentElement;
@@ -1789,96 +2047,128 @@ if (mobileMenuBtn) {
   });
 })();
 
-/* ── Sidebar customization ─────────────────────────────── */
-(function applySidebarPreferences() {
+/* ── Sidebar customizer ────────────────────────────────
+   Stores a visibility map in localStorage under ip_sideHidden.
+   { [navKey]: true } means hidden. Applies on every page load.
+   The modal renders one row per item with a Show/Hide toggle. */
+(function setupSidebarCustomizer() {
   const side = document.querySelector('.app-side');
-  if (!side) return;
-  // Anchors / containers we'll re-arrange items into.
-  const planGroup = side.querySelector('.side-group[data-side-group="plan"]');
-  const planBody  = planGroup && planGroup.querySelector('.side-group-body');
-  const toolsGroup = side.querySelector('.side-group[data-side-group="tools"]');
-  const toolsBody  = toolsGroup && toolsGroup.querySelector('.side-group-body');
-  const firstGroup = side.querySelector('.side-group');
-  const topAnchor = firstGroup || side.querySelector('.side-spacer');
+  const STORAGE_KEY = 'ip_sideHidden';
 
-  // Helper: locate the link element for a given nav key.
-  const findLink = key => side.querySelector(`[data-nav-item="${key}"]`);
+  // Section labels and the items inside each (must match data-nav-item attrs)
+  const SECTIONS = [
+    { key:'home',    label:'Home',    items:['dashboard','tutor'] },
+    { key:'plan',    label:'Plan',    items:['scheduler','priority','classes','grades','gradebook','tests','dismissed'] },
+    { key:'study',   label:'Study',   items:['study','learn','focus','library','streak'] },
+    { key:'tools',   label:'Tools',   items:['lessons','writing','math','extractor'] },
+    { key:'connect', label:'Connect', items:['meetings','groups'] },
+  ];
+  const NEVER_HIDE = new Set(['dashboard']); // always keep at least Dashboard reachable
 
-  // Try the new ip_navLayout first.
-  let layout = null;
-  try {
-    const raw = localStorage.getItem('ip_navLayout');
-    if (raw) layout = JSON.parse(raw);
-  } catch(e) {}
+  function loadHidden() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {}; }
+    catch(e) { return {}; }
+  }
+  function saveHidden(map) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(map)); } catch(e){}
+  }
 
-  if (layout && typeof layout === 'object') {
-    const bucketContainers = {
-      pinned: { container: side, before: topAnchor,  sub: false },
-      plan:   { container: planBody,  before: null,  sub: true },
-      tools:  { container: toolsBody, before: null,  sub: true },
-      hidden: null,
-    };
-    ['pinned','plan','tools','hidden'].forEach(bucket => {
-      const order = Array.isArray(layout[bucket]) ? layout[bucket] : [];
-      const target = bucketContainers[bucket];
-      order.forEach(key => {
-        const link = findLink(key);
-        if (!link) return;
-        if (bucket === 'hidden') { link.classList.add('nav-hidden'); return; }
-        link.classList.remove('nav-hidden');
-        if (target && target.container) {
-          link.classList.toggle('side-sub', !!target.sub);
-          if (target.before && target.before.parentElement === target.container) {
-            target.container.insertBefore(link, target.before);
-          } else {
-            target.container.appendChild(link);
-          }
-        }
-      });
+  function applyHidden() {
+    if (!side) return;
+    const hidden = loadHidden();
+    side.querySelectorAll('[data-nav-item]').forEach(link => {
+      const key = link.dataset.navItem;
+      link.classList.toggle('nav-hidden', !!hidden[key] && !NEVER_HIDE.has(key));
     });
-  } else {
-    // Legacy ip_navPrefs (dropdown-era) fallback.
-    let prefs = {};
-    try { prefs = JSON.parse(localStorage.getItem('ip_navPrefs') || '{}') || {}; }
-    catch(e) { prefs = {}; }
-    document.querySelectorAll('.app-side [data-nav-item]').forEach(link => {
-      const mode = prefs[link.dataset.navItem] || 'default';
-      link.classList.toggle('nav-hidden', mode === 'hidden');
-      if (mode === 'pinned' && topAnchor && link.parentElement !== side) {
-        link.classList.remove('side-sub');
-        side.insertBefore(link, topAnchor);
-      } else if (mode === 'folder' && planBody && link.parentElement === side) {
-        link.classList.add('side-sub');
-        planBody.appendChild(link);
-      }
+    // Hide a section label if every item under it is hidden
+    side.querySelectorAll('[data-nav-section]').forEach(label => {
+      const sec = SECTIONS.find(s => s.key === label.dataset.navSection);
+      if (!sec) return;
+      const anyVisible = sec.items.some(k => !hidden[k] || NEVER_HIDE.has(k));
+      label.style.display = anyVisible ? '' : 'none';
     });
   }
 
-  // Hide folder groups whose body is empty (after re-arranging).
-  document.querySelectorAll('.app-side .side-group').forEach(group => {
-    const visible = Array.from(group.querySelectorAll('[data-nav-item]')).some(el => !el.classList.contains('nav-hidden'));
-    group.classList.toggle('nav-empty', !visible);
-  });
-})();
+  function labelFor(navKey) {
+    if (!side) return navKey;
+    const link = side.querySelector(`[data-nav-item="${navKey}"]`);
+    if (!link) return navKey;
+    // Last text node = visible label (siblings are icons)
+    return (link.textContent || navKey).trim();
+  }
 
-/* ── Sidebar group collapse (Plan / Toolkit) ───────────── */
-document.querySelectorAll('.side-group-toggle').forEach(toggleBtn => {
-  const group = toggleBtn.closest('.side-group');
-  if (!group) return;
-  const key = 'ip_sideGroup_' + (group.dataset.sideGroup || 'g');
-  // If a user explicitly toggled this group before, respect that choice;
-  // otherwise the server-rendered .is-open (active page lives inside)
-  // is kept as the default.
-  const stored = localStorage.getItem(key);
-  if (stored === 'open')  group.classList.add('is-open');
-  if (stored === 'closed') group.classList.remove('is-open');
-  toggleBtn.addEventListener('click', () => {
-    const nowOpen = !group.classList.contains('is-open');
-    group.classList.toggle('is-open', nowOpen);
-    toggleBtn.setAttribute('aria-expanded', String(nowOpen));
-    try { localStorage.setItem(key, nowOpen ? 'open' : 'closed'); } catch(e){}
+  function renderCustomizer() {
+    const host = document.getElementById('navCustomizerList');
+    if (!host) return;
+    const hidden = loadHidden();
+    host.innerHTML = SECTIONS.map(sec => {
+      const rows = sec.items.map(k => {
+        const isHidden = !!hidden[k] && !NEVER_HIDE.has(k);
+        const locked = NEVER_HIDE.has(k);
+        const link = side && side.querySelector(`[data-nav-item="${k}"]`);
+        if (!link) return '';
+        const lbl = labelFor(k);
+        return `
+          <div class="nc-row">
+            <span class="nc-icon"><svg width="18" height="18">${link.querySelector('.side-icon svg')?.innerHTML || ''}</svg></span>
+            <span class="nc-label">${lbl}</span>
+            <span class="nc-grp">${sec.label}</span>
+            <div class="nc-toggle" role="group" aria-label="Visibility for ${lbl}">
+              <button type="button" data-key="${k}" data-mode="show" class="${!isHidden?'active':''}">Show</button>
+              <button type="button" data-key="${k}" data-mode="hide" class="${isHidden?'active':''}" ${locked?'disabled title="Dashboard cannot be hidden"':''}>Hide</button>
+            </div>
+          </div>`;
+      }).join('');
+      return rows;
+    }).join('');
+
+    host.querySelectorAll('.nc-toggle button').forEach(btn => {
+      if (btn.disabled) return;
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.key;
+        const mode = btn.dataset.mode;
+        if (NEVER_HIDE.has(key) && mode === 'hide') return;
+        const map = loadHidden();
+        if (mode === 'hide') map[key] = true; else delete map[key];
+        saveHidden(map);
+        applyHidden();
+        renderCustomizer(); // re-render to flip toggle state
+      });
+    });
+  }
+
+  function open() {
+    renderCustomizer();
+    const modal = document.getElementById('navCustomizer');
+    if (modal) modal.classList.add('open');
+  }
+  function close() {
+    const modal = document.getElementById('navCustomizer');
+    if (modal) modal.classList.remove('open');
+  }
+
+  // Wire up triggers
+  document.getElementById('sideCustomizeBtn')?.addEventListener('click', open);
+  document.getElementById('navCustomizerClose')?.addEventListener('click', close);
+  document.getElementById('navCustomizerDone')?.addEventListener('click', close);
+  document.getElementById('navCustomizer')?.addEventListener('click', e => {
+    if (e.target.id === 'navCustomizer') close();
   });
-});
+  document.getElementById('navCustomizerReset')?.addEventListener('click', () => {
+    if (!confirm('Reset sidebar to default? All hidden items will reappear.')) return;
+    saveHidden({});
+    applyHidden();
+    renderCustomizer();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') close();
+  });
+
+  // Apply on load
+  applyHidden();
+  // Expose for the command palette
+  window.openSidebarCustomizer = open;
+})();
 
 document.querySelectorAll('#mainNav .dropdown-toggle').forEach(toggleBtn => {
   toggleBtn.addEventListener('click', e => {

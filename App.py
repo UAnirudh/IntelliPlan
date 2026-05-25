@@ -4324,16 +4324,31 @@ def feedback_export():
 # ── PUSH NOTIFICATIONS ────────────────────────────────────────
 @app.route("/push/subscribe", methods=["POST"])
 def push_subscribe():
-    data = request.json or {}
-    sub_json = json.dumps(data.get("subscription"))
+    data = request.get_json(silent=True) or {}
+    sub = data.get("subscription") or {}
+    # Validate shape so we don't store garbage payloads. A real Web Push
+    # subscription always has an https endpoint + p256dh + auth keys.
+    endpoint = (sub.get("endpoint") if isinstance(sub, dict) else None) or ""
+    keys = sub.get("keys") if isinstance(sub, dict) else None
+    if (not isinstance(endpoint, str) or not endpoint.startswith("https://")
+            or not isinstance(keys, dict) or "p256dh" not in keys or "auth" not in keys):
+        return flask.jsonify({"status": "error", "message": "invalid subscription"}), 400
+    sub_json = json.dumps(sub)
+    # Cap size to avoid abusive payloads filling the DB.
+    if len(sub_json) > 4000:
+        return flask.jsonify({"status": "error", "message": "subscription too large"}), 400
     uid = current_user.id if current_user.is_authenticated else None
     gid = None if current_user.is_authenticated else get_guest_session_id()
-    existing = PushSubscription.query.filter_by(user_id=uid, guest_session_id=gid).first()
-    if existing:
-        existing.subscription_json = sub_json
-    else:
-        db.session.add(PushSubscription(user_id=uid, guest_session_id=gid, subscription_json=sub_json))
-    db.session.commit()
+    try:
+        existing = PushSubscription.query.filter_by(user_id=uid, guest_session_id=gid).first()
+        if existing:
+            existing.subscription_json = sub_json
+        else:
+            db.session.add(PushSubscription(user_id=uid, guest_session_id=gid, subscription_json=sub_json))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
     return flask.jsonify({"status": "ok"})
 
 @app.route("/push/test", methods=["POST"])
@@ -6162,20 +6177,30 @@ def parent_consent():
 
 
 def _normalise_phone(raw):
-    """Return E.164-ish format like +15551234567, or empty string on bad input."""
+    """Return E.164-ish format like +15551234567, or empty string on bad input.
+    Reject anything that isn't 10-15 digits (E.164 max). Strips junk like
+    extensions ('ext 999') so a half-typed number doesn't get stored as garbage.
+    """
     if not raw:
         return ""
     s = _re_phone.sub(r"[^0-9+]", "", raw)
     if not s:
         return ""
-    # Default to +1 if user typed a bare 10-digit US number.
-    if s.startswith("+"):
-        return s[:32]
-    if len(s) == 10:
-        return "+1" + s
-    if len(s) == 11 and s.startswith("1"):
-        return "+" + s
-    return ("+" + s)[:32]
+    # Collapse any stray '+' chars to a single leading one.
+    leading_plus = s.startswith("+")
+    digits = _re_phone.sub(r"[^0-9]", "", s)
+    if not digits:
+        return ""
+    # Default-to-US: a bare 10-digit number becomes +1XXXXXXXXXX.
+    if not leading_plus:
+        if len(digits) == 10:
+            digits = "1" + digits
+        elif len(digits) < 7 or len(digits) > 15:
+            return ""  # too short or too long to be a real phone number
+    else:
+        if len(digits) < 7 or len(digits) > 15:
+            return ""
+    return "+" + digits
 
 
 # ── SMS over carrier email-to-SMS gateways ────────────────────────
@@ -6755,6 +6780,38 @@ def _send_reminders_for_user(user, mark_sent=True, force=False):
     return sent
 
 
+@app.route("/api/reminders/check", methods=["GET"])
+def api_reminders_check():
+    """Read-only check used by the in-app reminder ticker.
+    Returns tasks due within the user's lead-time window so the
+    browser can show a native Notification — no cron required."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "ok", "tasks": []})
+    lead = int(getattr(current_user, "reminder_lead_minutes", 60) or 60)
+    try:
+        upcoming = _upcoming_tasks_for(current_user, lead)
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+    out = []
+    now = datetime.utcnow()
+    for task, due in upcoming:
+        mins = max(1, int((due - now).total_seconds() // 60))
+        out.append({
+            "id":         task.id,
+            "key":        f"manual:{task.id}",
+            "title":      task.title or "(untitled task)",
+            "course":     task.course or "",
+            "due_iso":    due.isoformat() + "Z",
+            "minutes_until_due": mins,
+        })
+    return flask.jsonify({
+        "status": "ok",
+        "tasks": out,
+        "lead_minutes": lead,
+        "checked_at": now.isoformat() + "Z",
+    })
+
+
 @app.route("/api/reminders/preview", methods=["POST"])
 def api_reminders_preview():
     """User-facing test: ignore the dedupe table and fire any pending
@@ -6774,11 +6831,15 @@ def api_reminders_preview():
 
 @app.route("/cron/send-reminders", methods=["GET", "POST"])
 def cron_send_reminders():
-    """Hit by Railway cron / external scheduler. Requires CRON_SECRET in
-    a `secret` query param (or X-Cron-Secret header) to prevent abuse."""
+    """Hit by Railway cron / external scheduler. Requires CRON_SECRET in the
+    X-Cron-Secret header (preferred) or a `secret` query param to prevent abuse.
+    Uses hmac.compare_digest to avoid timing attacks on the secret."""
     expected = os.getenv("CRON_SECRET", "")
-    provided = request.args.get("secret") or request.headers.get("X-Cron-Secret") or ""
-    if not expected or provided != expected:
+    provided = request.headers.get("X-Cron-Secret") or request.args.get("secret") or ""
+    if not expected:
+        return flask.jsonify({"status": "error", "message": "cron not configured"}), 503
+    import hmac as _hmac
+    if not _hmac.compare_digest(str(expected), str(provided)):
         return flask.jsonify({"status": "error", "message": "unauthorized"}), 401
     total = {"users": 0, "sms": 0, "push": 0, "tasks": 0}
     candidates = User.query.filter(
