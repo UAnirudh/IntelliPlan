@@ -6,6 +6,14 @@
   <title>{% block page_title %}IntelliPlan{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  {# Canonical: forces Google to consolidate http/https + trailing-slash variants
+     onto the single HTTPS URL. `canonical_url` is set by App.py's after_request
+     hook from the public request URL; fallback derives it from request.path. #}
+  <link rel="canonical" href="{{ canonical_url or ('https://intelliplan.tech' + (request.path if request else '/')) }}">
+  {# Pages that aren't part of the public marketing surface get noindex. Set
+     `noindex_page=True` from the view (or via after_request) and this tag
+     prevents Google from listing the URL even if it's followed from elsewhere. #}
+  {% if noindex_page %}<meta name="robots" content="noindex, nofollow">{% endif %}
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700&family=Inter:wght@400;500;600;700&family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
 
   <style>

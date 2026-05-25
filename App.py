@@ -1762,6 +1762,90 @@ def sitemap_xml():
 def llms_txt():
     return send_from_directory(app.static_folder, "llms.txt", mimetype="text/plain")
 
+
+# ── SEO: /schedule is a permanent alias for /scheduler ──────────
+# Google's Search Console previously flagged /schedule as "Page with
+# redirect" because it 302'd or 404'd inconsistently. A clean 301 to
+# the canonical /scheduler resolves the duplicate and lets the link
+# equity flow through.
+@app.route("/schedule")
+def schedule_alias_redirect():
+    return redirect("/scheduler", code=301)
+
+
+# ── SEO: canonical + noindex helpers ────────────────────────────
+# Public canonical host. Lock it to the apex HTTPS domain so any
+# www./http variants are consolidated by the <link rel="canonical">
+# emitted in base.html.
+CANONICAL_HOST = "https://intelliplan.tech"
+
+# Paths that should NEVER appear in Google's index. Headers (X-Robots-
+# Tag) are set on responses for these, in addition to robots.txt
+# Disallow rules, so even if a URL gets crawled before robots.txt
+# is fetched (e.g. via an external backlink), Google honors noindex.
+_NOINDEX_PREFIXES = (
+    "/api/", "/push/", "/notifications/", "/cron/", "/oauth/",
+    "/calendar/", "/debug/", "/feedback/", "/assignment/",
+    "/admin", "/logout",
+)
+_NOINDEX_EXACT = {
+    "/dashboard", "/scheduler", "/schedule", "/settings", "/priority",
+    "/classes", "/grades", "/gradebook", "/grademodel", "/tests",
+    "/dismissed", "/study", "/learn", "/focus", "/streak", "/lessons",
+    "/writing", "/math", "/extractor", "/groups", "/meetings",
+    "/connect", "/profiles",
+}
+
+
+def _should_noindex(path):
+    if not path:
+        return False
+    if path in _NOINDEX_EXACT:
+        return True
+    for pref in _NOINDEX_PREFIXES:
+        if path.startswith(pref):
+            return True
+    if path.startswith("/live/"):
+        return True
+    return False
+
+
+@app.context_processor
+def _seo_context():
+    """Make `canonical_url` + `noindex_page` available to every Jinja template
+    so base.html can render the right <link rel="canonical"> and noindex meta
+    without each view needing to set them explicitly."""
+    try:
+        path = request.path or "/"
+    except Exception:
+        path = "/"
+    # Strip the trailing slash on canonical for paths beyond "/" so we don't
+    # split traffic between e.g. /faq and /faq/.
+    canon_path = path.rstrip("/") or "/"
+    return {
+        "canonical_url": CANONICAL_HOST + canon_path,
+        "noindex_page": _should_noindex(path),
+    }
+
+
+@app.after_request
+def _seo_headers(response):
+    """Send X-Robots-Tag: noindex, nofollow on every authenticated page,
+    every API endpoint, and every internal route. Belt-and-suspenders
+    alongside robots.txt — header is authoritative even if a crawler
+    skipped robots.txt for that path."""
+    try:
+        path = request.path or ""
+    except Exception:
+        return response
+    if _should_noindex(path):
+        # Use 'noindex, nofollow' — we don't want crawlers following links
+        # out of authenticated pages (they'd hit /login redirects).
+        existing = response.headers.get("X-Robots-Tag", "")
+        if "noindex" not in existing.lower():
+            response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return response
+
 @app.route("/tutor")
 def tutor():
     logged_in = bool(session.get('logged_in') or (current_user.is_authenticated if hasattr(current_user, 'is_authenticated') else False))
