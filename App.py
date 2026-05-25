@@ -1773,6 +1773,22 @@ def schedule_alias_redirect():
     return redirect("/scheduler", code=301)
 
 
+# ── /privacy and /terms are canonical aliases for /legal ────────
+# IntelliPlan keeps the Privacy Policy and Terms of Service together
+# on a single /legal page (anchored at #privacy and #terms). Old
+# inbound links (bookmarks, Google results, footers in saved emails)
+# still hit /privacy or /terms, so we 301 them to the anchored URL
+# on /legal — Google then consolidates the link equity onto /legal.
+@app.route("/privacy")
+def privacy_alias_redirect():
+    return redirect("/legal#privacy", code=301)
+
+
+@app.route("/terms")
+def terms_alias_redirect():
+    return redirect("/legal#terms", code=301)
+
+
 # ── SEO: canonical + noindex helpers ────────────────────────────
 # Public canonical host. Lock it to the apex HTTPS domain so any
 # www./http variants are consolidated by the <link rel="canonical">
@@ -5953,10 +5969,58 @@ Be accurate, but keep the tone supportive and student-friendly.'''
         }), 500
 
 # ── ERROR HANDLERS ────────────────────────────────────────────
+def _referrer_is_internal():
+    """True iff the request's Referer header points at our own host.
+    Used by the 404 handler to decide between rendering the 404 page
+    (internal navigation hit a dead link — show it so we can fix it)
+    and a soft redirect to /dashboard (someone arrived from outside
+    on a URL that doesn't exist — be friendly).
+    """
+    try:
+        ref = (request.referrer or "").strip()
+    except Exception:
+        return False
+    if not ref:
+        return False
+    try:
+        from urllib.parse import urlparse
+        ref_host = (urlparse(ref).netloc or "").lower().split(":")[0]
+        our_host = (request.host or "").lower().split(":")[0]
+    except Exception:
+        return False
+    if not ref_host or not our_host:
+        return False
+    # Accept the apex + any subdomain of the same registrable domain so
+    # www. → apex, embedded iframe origins, etc. all count as internal.
+    if ref_host == our_host:
+        return True
+    if ref_host.endswith("." + our_host) or our_host.endswith("." + ref_host):
+        return True
+    return False
+
+
 @app.errorhandler(404)
 def error_404(e):
+    # API + extension callers always get JSON, never an HTML redirect —
+    # a redirect would corrupt the JSON they're parsing.
     if request.path.startswith("/extension/") or request.path.startswith("/api/"):
         return flask.jsonify({"status": "error", "message": "Not found"}), 404
+    # Don't redirect missing static assets (favicon, images, manifests,
+    # service-worker probes, sourcemaps) — those need a real 404 so the
+    # browser stops asking, and an HTML redirect would just confuse it.
+    _path_l = (request.path or "").lower()
+    _asset_exts = (".ico", ".png", ".jpg", ".jpeg", ".gif", ".svg",
+                   ".webp", ".css", ".js", ".map", ".woff", ".woff2",
+                   ".ttf", ".json", ".xml", ".txt", ".webmanifest")
+    if (_path_l.startswith("/static/") or _path_l.endswith(_asset_exts)
+            or _path_l in ("/favicon.ico", "/robots.txt", "/sitemap.xml")):
+        return flask.Response("Not Found", status=404, mimetype="text/plain")
+    # If the visitor came from outside intelliplan.tech (typed-in URL,
+    # stale Google result, social link, blank Referer), bounce them to
+    # the dashboard instead of showing a dead-end 404. Internal broken
+    # links still render the 404 page so we can spot and fix them.
+    if not _referrer_is_internal():
+        return redirect(url_for("dashboard"), code=302)
     try:
         return render_template("error.html", active_page="error", error_code=404, error_id=make_error_id()), 404
     except Exception:
