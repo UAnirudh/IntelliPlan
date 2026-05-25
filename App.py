@@ -1290,6 +1290,382 @@ def build_daily_tip(workload_level, preferred_time, high_priority_count, hard_ta
         return "Knock out the urgent task first while your attention is strongest."
     return "Balanced day — finish each block fully and keep your momentum steady."
 
+def classify_block_kind(title, course=""):
+    """Infer the *type* of work in a block from its title + course.
+    Drives the per-block icon, the checklist template, and the
+    "Open in …" deep-link in the Interactive View.
+
+    Returns one of:
+      writing | math | reading | exam_prep | review | research |
+      project | language | coding | general
+    """
+    t = f"{title or ''} {course or ''}".lower()
+    pairs = [
+        ("exam_prep", ("test", "exam", "midterm", "final", "quiz", "ap exam", "study guide")),
+        ("writing",   ("essay", "paper", "writing", "draft", "thesis", "argument", "narrative", "reflection", "journal")),
+        ("math",      ("math", "algebra", "geometry", "calc", "calculus", "trig", "statistics", "problem set", "equation", "homework problems")),
+        ("coding",    ("code", "coding", "program", "python", "java ", "javascript", "leetcode", "debug", "cs ", "computer science")),
+        ("language",  ("spanish", "french", "german", "latin", "chinese", "japanese", "vocab", "vocabulary", "conjugat", "translation")),
+        ("reading",   ("read", "chapter", "novel", "textbook", "annotate", "literature", "passage")),
+        ("research",  ("research", "sources", "annotated bibliography", "citation", "library", "data collection")),
+        ("project",   ("project", "presentation", "slides", "poster", "lab report", "lab ", "design", "build")),
+        ("review",    ("review", "revise", "go over", "flashcards", "spaced", "recap")),
+    ]
+    for kind, needles in pairs:
+        if any(n in t for n in needles):
+            return kind
+    return "general"
+
+
+# Deep-link map: Interactive View uses this to send the student to the
+# right tool when they click "Open in …" on a checklist.
+BLOCK_KIND_REDIRECT = {
+    "writing":   {"label": "Open Writing Assistant", "href": "/writing",   "icon": "i-pencil"},
+    "math":      {"label": "Open Math Explainer",    "href": "/math",      "icon": "i-modeler"},
+    "reading":   {"label": "Open Lessons",           "href": "/lessons",   "icon": "i-lightbulb"},
+    "exam_prep": {"label": "Open Tests Tracker",     "href": "/tests",     "icon": "i-test"},
+    "review":    {"label": "Open Learn (spaced)",    "href": "/learn",     "icon": "i-study"},
+    "research":  {"label": "Ask the Tutor",          "href": "/tutor",     "icon": "i-tutor"},
+    "project":   {"label": "Open Deep Study",        "href": "/study",     "icon": "i-rocket"},
+    "language":  {"label": "Open Learn (spaced)",    "href": "/learn",     "icon": "i-study"},
+    "coding":    {"label": "Ask the Tutor",          "href": "/tutor",     "icon": "i-tutor"},
+    "general":   {"label": "Start Focus Timer",      "href": "/focus",     "icon": "i-clock"},
+}
+
+
+def build_block_checklist(block, kind, assignment_meta):
+    """Generate a summary + detailed checklist for a block. Templates are
+    keyed by block kind so a writing block gets writing-shaped steps, a
+    math block gets practice/check steps, etc. We seed step 1 with the
+    block's own title so the checklist feels grounded in their task,
+    not generic advice."""
+    title = (block.get("assignment") or "this task").strip()
+    duration = int(block.get("duration_minutes") or 25)
+    short_title = title if len(title) <= 64 else title[:61] + "…"
+    course = (block.get("course") or "").strip()
+    # Each detailed step is { step, why } so the user understands intent.
+    if block.get("is_break"):
+        return {
+            "summary": ["Step away from your screen", "Hydrate / quick stretch", "Reset your workspace"],
+            "detailed": [
+                {"step": "Stand up and look 20 feet away for 20 seconds",
+                 "why":  "The 20-20-20 rule cuts eye strain so the next block has clean focus."},
+                {"step": "Drink a glass of water",
+                 "why":  "Mild dehydration reduces working memory measurably."},
+                {"step": "Tidy your desk so only the next task's materials are visible",
+                 "why":  "Visual clutter taxes attention before you even start."},
+            ],
+        }
+    templates = {
+        "writing": {
+            "summary": [
+                f"Re-read the prompt for '{short_title}'",
+                "Outline 3 key points before drafting",
+                "Draft without editing — momentum first",
+                "Read aloud, mark awkward sentences",
+                "Edit one pass for clarity, one pass for grammar",
+            ],
+            "detailed": [
+                {"step": f"Open the prompt for '{short_title}' and rewrite it in your own words",
+                 "why":  "Forces real comprehension before you write a single word."},
+                {"step": "Bullet 3-5 main ideas and pick the 3 strongest",
+                 "why":  "Picking before drafting prevents mid-paragraph thesis drift."},
+                {"step": "Set a timer for half the block and draft without backspacing",
+                 "why":  "Separating drafting from editing roughly doubles writing speed."},
+                {"step": "Read the draft aloud — mark every sentence that trips your tongue",
+                 "why":  "Awkward speech = awkward prose; your ear catches what your eye misses."},
+                {"step": "Do one pass for argument flow, then one pass for grammar/typos",
+                 "why":  "Single-purpose editing passes catch ~30% more issues than mixed passes."},
+            ],
+        },
+        "math": {
+            "summary": [
+                "Re-do 1-2 example problems first",
+                "Work the set, pencil only",
+                "Check answers, circle wrong ones",
+                "Redo wrong ones from scratch",
+                "Note the rule you missed in a flashcard",
+            ],
+            "detailed": [
+                {"step": "Pick 1-2 worked examples and solve them WITHOUT looking at the solution",
+                 "why":  "Replicating a known solution from memory primes the same patterns for new problems."},
+                {"step": "Work the actual problem set on paper — no calculator unless required",
+                 "why":  "Writing math by hand activates the muscle memory you need on tests."},
+                {"step": "Check answers; circle every wrong one (don't fix yet)",
+                 "why":  "Batching errors lets you see if you're missing one concept across many problems."},
+                {"step": "For each wrong problem, redo it from scratch on a clean line",
+                 "why":  "Re-deriving > erasing — it forces you to find your real misstep."},
+                {"step": "Write the missed rule on a flashcard / Learn deck for tomorrow",
+                 "why":  "Spaced repetition is the only thing that locks math facts long-term."},
+            ],
+        },
+        "reading": {
+            "summary": [
+                f"Skim the section of '{short_title}' first",
+                "Annotate margin notes as you read",
+                "Summarize each subsection in one line",
+                "Write 2 questions the reading raised",
+                "5-min recall: close the book and explain it aloud",
+            ],
+            "detailed": [
+                {"step": "Skim headings, bold terms, and the first sentence of each paragraph",
+                 "why":  "Building a mental map first triples retention on the careful read."},
+                {"step": "Annotate margins with one-word tags (claim, evidence, question, ?)",
+                 "why":  "Tagging forces active reading — you can't tag what you didn't process."},
+                {"step": "After each subsection, write one sentence that summarizes it",
+                 "why":  "Forces synthesis in the moment, when the context is still loaded."},
+                {"step": "Write 2 questions the reading raised but didn't answer",
+                 "why":  "Open questions become the best discussion / essay material."},
+                {"step": "Close the book and recall the main points aloud or in writing",
+                 "why":  "Free recall, even with errors, beats re-reading for memory by a wide margin."},
+            ],
+        },
+        "exam_prep": {
+            "summary": [
+                "List topics you'll likely be tested on",
+                "Self-test the weakest 2 topics first",
+                "Redo 2-3 past problems / FRQs",
+                "Make 1 cheat sheet (then put it away)",
+                "Recall everything blind for 5 min",
+            ],
+            "detailed": [
+                {"step": "Write all topics you expect on the exam, then rank each as Strong / Shaky / Weak",
+                 "why":  "Studying what you already know feels good but does nothing for your score."},
+                {"step": "Open a past test or FRQ for your two weakest topics — work them blind",
+                 "why":  "Practice under the format of the real test transfers ~3× better than re-reading notes."},
+                {"step": "Score yourself honestly; mark exactly which step broke",
+                 "why":  "Most missed points come from one of three repeated process errors — find yours."},
+                {"step": "Make a one-page cheat sheet by hand (you won't use it, that's the point)",
+                 "why":  "Compression forces you to decide what's load-bearing knowledge."},
+                {"step": "Close everything and brain-dump for 5 minutes",
+                 "why":  "Retrieval practice the night before correlates strongly with exam performance."},
+            ],
+        },
+        "review":  {
+            "summary": [
+                "Open your most recent notes / flashcards",
+                "Do 10-15 active-recall reps",
+                "Mark anything you guessed",
+                "Rework the gaps in a fresh sentence",
+                "Schedule the gaps for tomorrow",
+            ],
+            "detailed": [
+                {"step": "Open the deck or notes for the topic — start cold, no warm-up",
+                 "why":  "Friction at the start of recall is where the actual learning happens."},
+                {"step": "Run 10-15 active-recall reps (Anki, Quizlet, or hand-quizzed)",
+                 "why":  "Recalling is ~2× more effective per minute than re-reading."},
+                {"step": "Mark every card you got but had to guess on",
+                 "why":  "Guessed-right = not learned; don't let it pass."},
+                {"step": "Rewrite each gap as one sentence, in your own words",
+                 "why":  "If you can phrase it yourself, you'll recognize it on the test."},
+                {"step": "Tag those cards for review again tomorrow",
+                 "why":  "Spaced repetition only works if you actually space it."},
+            ],
+        },
+        "research": {
+            "summary": [
+                "Define the question in one sentence",
+                "Pull 2-3 credible sources",
+                "Take notes in your own words",
+                "Cite sources as you go (not at the end)",
+                "Summarize what you found",
+            ],
+            "detailed": [
+                {"step": "Write the question you're researching in one specific sentence",
+                 "why":  "Broad questions waste hours; narrow ones finish themselves."},
+                {"step": "Pull 2-3 sources from a library database or Google Scholar — not the open web",
+                 "why":  "Curated sources are higher signal and easier to cite cleanly."},
+                {"step": "Take notes in your own words only — never copy verbatim",
+                 "why":  "Paraphrasing now is the cheapest plagiarism insurance later."},
+                {"step": "Add a citation in your draft the moment you pull a fact",
+                 "why":  "Reconstructing citations at the end is where most bibliographies break."},
+                {"step": "End with a 3-bullet summary of what you actually found",
+                 "why":  "If you can't summarize it, you don't have it yet."},
+            ],
+        },
+        "project": {
+            "summary": [
+                "Look at the rubric / requirements",
+                "Pick the next concrete deliverable",
+                "Work the deliverable, not the project",
+                "Save / commit progress at the end",
+                "Note next step for tomorrow",
+            ],
+            "detailed": [
+                {"step": "Re-read the rubric or assignment description top to bottom",
+                 "why":  "Most lost points are for ignored rubric items, not bad work."},
+                {"step": "Pick ONE concrete deliverable for this block (a slide, a section, a feature)",
+                 "why":  "Projects stall on 'work on the project' — they move on shipped pieces."},
+                {"step": "Work only the deliverable — defer every shiny side-quest to a notes file",
+                 "why":  "Scope creep is the #1 reason projects miss deadlines."},
+                {"step": "Save / export / commit before you close the block",
+                 "why":  "Future-you should not have to remember what unsaved work was about."},
+                {"step": "Write tomorrow's first step in one sentence",
+                 "why":  "Starting the next block is the slowest part of any project."},
+            ],
+        },
+        "language": {
+            "summary": [
+                "Warm up with 5 min of audio",
+                "Run vocab flashcards (recall, not recognition)",
+                "Practice one grammar pattern in 5 sentences",
+                "Read or listen to a real text",
+                "Speak / write 3 sentences using today's pattern",
+            ],
+            "detailed": [
+                {"step": "Listen to 5 minutes of native audio (podcast, song with lyrics, news clip)",
+                 "why":  "Tunes your ear before active practice — measurable comprehension boost."},
+                {"step": "Run today's vocab as RECALL (target → English), not recognition",
+                 "why":  "Recognition flatters you; recall is what tests measure."},
+                {"step": "Write 5 sentences using today's grammar focus",
+                 "why":  "Generating sentences cements rules faster than translating them."},
+                {"step": "Read or listen to one paragraph of a real text",
+                 "why":  "Untextbook input shows you how the language actually behaves."},
+                {"step": "Say / write 3 sentences about your own day using today's pattern",
+                 "why":  "Personal content is the easiest to remember — it sticks."},
+            ],
+        },
+        "coding": {
+            "summary": [
+                "Re-read the problem / spec",
+                "Sketch a plan before typing",
+                "Write the test first if possible",
+                "Implement smallest passing version",
+                "Refactor and add edge cases",
+            ],
+            "detailed": [
+                {"step": "Re-read the prompt / spec twice, in your own words once",
+                 "why":  "Most coding mistakes start as misread requirements."},
+                {"step": "Sketch a 3-line plan on paper before touching the keyboard",
+                 "why":  "Coding without a plan is debugging with a plan — pay now or pay later."},
+                {"step": "Write a failing test (or a sample call you expect to work)",
+                 "why":  "A test makes 'done' a binary, not a feeling."},
+                {"step": "Implement the dumbest version that could pass — no abstractions yet",
+                 "why":  "Premature abstractions are the #1 source of bugs in student code."},
+                {"step": "Add 2 edge cases (empty, big, weird) and refactor only after they pass",
+                 "why":  "Refactoring red code makes both problems harder."},
+            ],
+        },
+        "general": {
+            "summary": [
+                f"Re-read what '{short_title}' actually asks for",
+                "Pick the first concrete sub-step",
+                "Work it cleanly with no tabs open",
+                "Capture progress at the end",
+                "Note tomorrow's first move",
+            ],
+            "detailed": [
+                {"step": f"Re-read '{short_title}' top to bottom — note what 'done' actually means",
+                 "why":  "Most procrastination is fear of an unclear target."},
+                {"step": "Pick a concrete first sub-step you can finish in 10 minutes",
+                 "why":  "Starting is the costly part; small first steps make starting cheap."},
+                {"step": f"Set a {min(duration, 45)}-min timer and work with only the needed tab open",
+                 "why":  "Time-boxing + single-window keeps the block honest."},
+                {"step": "At the end, save progress and tag where you stopped",
+                 "why":  "Re-orienting next session is what kills momentum."},
+                {"step": "Write the next first action in one sentence",
+                 "why":  "Tomorrow's start is decided today or it's decided by mood."},
+            ],
+        },
+    }
+    return templates.get(kind, templates["general"])
+
+
+def humanize_schedule(schedule_data, preferred_time, hours_per_day):
+    """Make the AI output look and feel like a real human study plan:
+      - Enforce minimum transition gaps between blocks (no back-to-back).
+      - Prevent two Hard tasks in a row — inject a break or a lighter task.
+      - Cap the streak of work blocks before a real break.
+      - Re-time blocks to clean 5-minute boundaries with realistic gaps.
+      - Attach kind / redirect / checklist data for the Interactive View.
+    Operates in place on schedule_data and returns it."""
+    from datetime import timedelta as _td
+    schedule = schedule_data.get("schedule", []) or []
+    # Hours-per-day pacing → tighter buffers if the student only has 1h,
+    # roomier ones if they have a long evening.
+    base_gap = 5 if hours_per_day and hours_per_day <= 1.5 else 10
+    long_break_after = 90  # minutes — after this much continuous work, insert a 15-min reset.
+    next_block_id = 1
+    for day_idx, day in enumerate(schedule):
+        blocks = day.get("blocks", []) or []
+        # 1. Anti-clustering: no two Hard work blocks back-to-back.
+        i = 1
+        while i < len(blocks):
+            prev, cur = blocks[i - 1], blocks[i]
+            if (not prev.get("is_break") and not cur.get("is_break")
+                    and prev.get("difficulty") == "Hard" and cur.get("difficulty") == "Hard"):
+                blocks.insert(i, {
+                    "assignment": "Stretch break",
+                    "course": "",
+                    "duration_minutes": 10,
+                    "time_slot": "",
+                    "notes": "Two demanding tasks in a row — reset before the next one.",
+                    "is_break": True,
+                })
+                i += 1
+            i += 1
+        # 2. Long-work-streak rule: more than long_break_after minutes of
+        #    continuous study without a break → inject a 15-min break.
+        i = 0
+        run = 0
+        while i < len(blocks):
+            b = blocks[i]
+            if b.get("is_break"):
+                run = 0
+            else:
+                run += int(b.get("duration_minutes") or 0)
+                if run >= long_break_after and i + 1 < len(blocks) and not blocks[i + 1].get("is_break"):
+                    blocks.insert(i + 1, {
+                        "assignment": "Long break",
+                        "course": "",
+                        "duration_minutes": 15,
+                        "time_slot": "",
+                        "notes": "You've worked a solid stretch. Step away, eat, walk.",
+                        "is_break": True,
+                    })
+                    run = 0
+                    i += 1
+            i += 1
+        # 3. Re-time everything from a clean start anchor. We respect the
+        #    preferred_time energy profile but ignore the LLM's exact time
+        #    strings — they're often inconsistent (e.g. "8 PM-8:45").
+        profile = get_energy_profile(preferred_time)
+        start_hour = profile["recommended_start_hour"]
+        # `recommended_start_hour` for "afternoon" returns 1 (i.e. 1 PM); fix.
+        if preferred_time == "afternoon" and start_hour <= 6: start_hour += 12
+        cursor = datetime.now().replace(hour=start_hour, minute=0, second=0, microsecond=0)
+        # If today's first day is *today*, push start forward to "now + 15min" rounded up.
+        if day_idx == 0:
+            now = datetime.now()
+            soonest = now + _td(minutes=15)
+            soonest = soonest.replace(minute=(soonest.minute // 5) * 5, second=0, microsecond=0)
+            if soonest > cursor:
+                cursor = soonest
+        def _fmt12(dt):
+            # Cross-platform 12-hour formatting with no leading zero on the hour.
+            return dt.strftime("%I:%M %p").lstrip("0") or "12:00 AM"
+        for b_idx, b in enumerate(blocks):
+            dur = int(b.get("duration_minutes") or 25)
+            end = cursor + _td(minutes=dur)
+            b["time_slot"] = f"{_fmt12(cursor)} - {_fmt12(end)}"
+            b["start_iso"] = cursor.isoformat()
+            b["end_iso"] = end.isoformat()
+            # Next block starts after a transition gap (longer after a long block).
+            gap = base_gap
+            if dur >= 60: gap = max(gap, 10)
+            cursor = end + _td(minutes=gap)
+        # 4. Attach metadata used by the Interactive View.
+        for b in blocks:
+            b["block_id"] = f"d{day_idx + 1}-b{next_block_id}"
+            next_block_id += 1
+            kind = "break" if b.get("is_break") else classify_block_kind(b.get("assignment", ""), b.get("course", ""))
+            b["kind"] = kind
+            b["redirect"] = BLOCK_KIND_REDIRECT.get(kind) if kind != "break" else None
+            b["checklist"] = build_block_checklist(b, kind, {})
+        day["blocks"] = blocks
+    return schedule_data
+
+
 def enrich_schedule_data(schedule_data, assignments, preferred_time, hours_per_day):
     assignment_lookup = {item["title"]: item for item in assignments if isinstance(item, dict) and item.get("title")}
     schedule = schedule_data.get("schedule", [])
@@ -3558,6 +3934,12 @@ Return ONLY valid JSON:
         result = re.sub(r"```\n?", "", result)
         schedule_data = json.loads(result)
         schedule_data = enrich_schedule_data(schedule_data, normalized_assignments, preferred_time, hours_per_day)
+        # Adaptive humanization pass — fix spacing, anti-cluster, attach
+        # checklist + redirect data the Interactive View needs.
+        try:
+            schedule_data = humanize_schedule(schedule_data, preferred_time, hours_per_day)
+        except Exception as he:
+            print(f"[scheduler] humanize_schedule failed (non-fatal): {he}")
         return flask.jsonify({"status": "ok", "data": schedule_data})
     except json.JSONDecodeError:
         return flask.jsonify({"status": "error", "message": "The AI returned an invalid schedule. Please try again.", "retryable": True})
@@ -4194,7 +4576,22 @@ def get_saved_schedule():
         s = SavedSchedule.query.filter_by(guest_session_id=gid, is_active=True).order_by(SavedSchedule.created_at.desc()).first()
     if not s:
         return flask.jsonify({"status": "none"})
-    return flask.jsonify({"status": "ok", "name": s.name, "created_at": s.created_at.strftime("%b %d, %Y"), "data": json.loads(s.schedule_data)})
+    data = json.loads(s.schedule_data)
+    # Backfill block_id / kind / checklist / redirect on schedules saved before
+    # the Interactive View shipped, so the new UI works without re-generating.
+    try:
+        needs_backfill = False
+        for d in (data.get("schedule") or []):
+            for b in (d.get("blocks") or []):
+                if not b.get("block_id") or not b.get("checklist"):
+                    needs_backfill = True
+                    break
+            if needs_backfill: break
+        if needs_backfill:
+            data = humanize_schedule(data, "evening", 2)
+    except Exception as e:
+        print(f"[scheduler] backfill on saved schedule failed: {e}")
+    return flask.jsonify({"status": "ok", "name": s.name, "created_at": s.created_at.strftime("%b %d, %Y"), "data": data})
 
 @app.route("/schedule/delete", methods=["POST"])
 def delete_saved_schedule():
