@@ -37,16 +37,17 @@
   <meta property="og:title" content="{% block og_title %}{{ self.page_title() }}{% endblock %}">
   <meta property="og:description" content="{% block og_description %}{{ _default_desc }}{% endblock %}">
   <meta property="og:url" content="{{ canonical_url or ('https://intelliplan.tech' + (request.path if request else '/')) }}">
-  <meta property="og:image" content="{% block og_image %}https://intelliplan.tech/static/icons/icon-512.png{% endblock %}">
-  <meta property="og:image:width" content="512">
-  <meta property="og:image:height" content="512">
+  <meta property="og:image" content="{% block og_image %}https://intelliplan.tech/static/og-image.png{% endblock %}">
+  <meta property="og:image:width" content="1376">
+  <meta property="og:image:height" content="768">
+  <meta property="og:image:alt" content="IntelliPlan — Free AI Study Planner for Students">
   <meta property="og:locale" content="en_US">
 
   {# Twitter / X large-image card #}
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="{% block twitter_title %}{{ self.page_title() }}{% endblock %}">
   <meta name="twitter:description" content="{% block twitter_description %}{{ _default_desc }}{% endblock %}">
-  <meta name="twitter:image" content="{% block twitter_image %}https://intelliplan.tech/static/icons/icon-512.png{% endblock %}">
+  <meta name="twitter:image" content="{% block twitter_image %}https://intelliplan.tech/static/og-image.png{% endblock %}">
 
   {# DNS warm-up for the third parties we always hit (fonts + model API). #}
   <link rel="dns-prefetch" href="https://fonts.googleapis.com">
@@ -375,6 +376,10 @@
     .nav-tab-tutor { background:var(--accent-soft); color:var(--accent) !important; font-weight:600; }
     .nav-tab-tutor:hover { background:var(--accent) !important; color:#fff !important; }
     .nav-tab-tutor.active { background:var(--accent) !important; color:#fff !important; }
+    /* Marketing "Get started" CTA — filled accent button, the conversion
+       anchor every leading SaaS marketing nav ends with. */
+    .nav-cta { background:var(--accent); color:#fff !important; font-weight:700; padding:7px 16px; }
+    .nav-cta:hover { background:var(--accent-hover); color:#fff !important; transform:translateY(-1px); }
 
     .nav-dropdown { position:relative; }
     .dropdown-toggle {
@@ -1465,6 +1470,8 @@
 
   <div class="header-right">
     <nav class="nav-tabs" id="mainNav" aria-label="Main navigation">
+      {% if logged_in %}
+      {# ── FULL APP NAV (authenticated users only) ──────────────── #}
       <div class="nav-group">
         <a href="/dashboard" class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-dashboard"/></svg></span><span class="nav-label">Home</span></a>
         <a href="/tutor"     class="nav-tab nav-tab-tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-tutor"/></svg></span><span class="nav-label">Tutor</span></a>
@@ -1510,14 +1517,29 @@
       </div>
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
-        {% if logged_in %}
-          <a href="/settings" class="nav-tab {% if active_page == 'settings' %}active{% endif %}" aria-label="Settings"><span class="nav-tab-icon"><svg><use href="#i-settings"/></svg></span><span class="nav-label">Settings</span></a>
-          <form action="/logout" method="POST" style="display:inline;">
-            <button type="submit" class="nav-tab logout-btn"><span class="nav-tab-icon"><svg><use href="#i-logout"/></svg></span><span class="nav-label">Logout</span></button>
-          </form>
-        {% else %}
-          <a href="/login" class="nav-tab {% if active_page == 'login' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-login"/></svg></span><span class="nav-label">Login</span></a>
-        {% endif %}
+        <a href="/settings" class="nav-tab {% if active_page == 'settings' %}active{% endif %}" aria-label="Settings"><span class="nav-tab-icon"><svg><use href="#i-settings"/></svg></span><span class="nav-label">Settings</span></a>
+        <form action="/logout" method="POST" style="display:inline;">
+          <button type="submit" class="nav-tab logout-btn"><span class="nav-tab-icon"><svg><use href="#i-logout"/></svg></span><span class="nav-label">Logout</span></button>
+        </form>
+      </div>
+      {% else %}
+      {# ── MARKETING NAV (logged-out visitors + search crawlers) ──
+           Contains NO links to authenticated app pages. This is what
+           keeps Googlebot from crawling /scheduler, /groups, /learn,
+           /focus, /lessons, etc. and filing them as "Page with redirect".
+           Only public, indexable destinations live here. ── #}
+      <div class="nav-group">
+        <a href="/tutor"   class="nav-tab nav-tab-tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-tutor"/></svg></span><span class="nav-label">AI Tutor</span></a>
+        <a href="/pricing" class="nav-tab {% if active_page == 'pricing' %}active{% endif %}"><span class="nav-label">Pricing</span></a>
+        <a href="/compare" class="nav-tab {% if active_page == 'compare' %}active{% endif %}"><span class="nav-label">Compare</span></a>
+        <a href="/faq"     class="nav-tab {% if active_page == 'faq' %}active{% endif %}"><span class="nav-label">FAQ</span></a>
+      </div>
+      <div class="nav-divider" aria-hidden="true"></div>
+      <div class="nav-group">
+        <a href="/login" class="nav-tab {% if active_page == 'login' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-login"/></svg></span><span class="nav-label">Log in</span></a>
+        <a href="/login" class="nav-tab nav-cta"><span class="nav-label">Get started</span></a>
+      </div>
+      {% endif %}
         <!-- <a class="discord-btn" href="https://discord.gg/34FYWhJQMU" target="_blank" rel="noopener noreferrer">
           <svg width="14" height="11" viewBox="0 0 14 11" fill="none" aria-hidden="true"><path d="M11.86 1.07A11.55 11.55 0 0 0 8.98.05a.04.04 0 0 0-.04.02c-.13.24-.28.55-.38.79a10.7 10.7 0 0 0-3.12 0 8.16 8.16 0 0 0-.39-.79.04.04 0 0 0-.04-.02A11.51 11.51 0 0 0 2.13 1.07a.04.04 0 0 0-.02.02C.31 3.72-.19 6.3.06 8.84a.04.04 0 0 0 .02.03 11.6 11.6 0 0 0 3.47 1.73.04.04 0 0 0 .05-.02c.27-.36.5-.74.71-1.14a.04.04 0 0 0-.02-.06 7.6 7.6 0 0 1-1.08-.51.04.04 0 0 1 0-.07l.22-.17a.04.04 0 0 1 .04 0c2.26 1.02 4.71 1.02 6.95 0a.04.04 0 0 1 .04 0l.22.17a.04.04 0 0 1 0 .07c-.35.2-.7.37-1.08.51a.04.04 0 0 0-.02.06c.21.4.45.78.71 1.14a.04.04 0 0 0 .05.02 11.57 11.57 0 0 0 3.47-1.73.04.04 0 0 0 .02-.03c.29-2.96-.49-5.52-2.06-7.75a.04.04 0 0 0-.02-.02ZM4.68 7.26c-.67 0-1.22-.61-1.22-1.36s.54-1.36 1.22-1.36c.69 0 1.23.61 1.22 1.36 0 .75-.54 1.36-1.22 1.36Zm4.52 0c-.68 0-1.22-.61-1.22-1.36s.54-1.36 1.22-1.36c.69 0 1.23.61 1.22 1.36 0 .75-.53 1.36-1.22 1.36Z" fill="currentColor"/></svg>
           Discord

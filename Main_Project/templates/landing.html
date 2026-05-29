@@ -6,16 +6,16 @@
 {% block meta_description %}IntelliPlan is a free AI study planner for students that imports Canvas, StudentVue, and Schoology assignments, prioritizes deadlines, builds weekly schedules, and includes an AI tutor.{% endblock %}
 {% block og_title %}IntelliPlan - Free AI Study Planner for Students{% endblock %}
 {% block og_description %}Connect Canvas, StudentVue, or Schoology. IntelliPlan ranks assignments, builds a weekly study plan, exports to Google Calendar, and gives students a built-in AI tutor.{% endblock %}
-{% block og_image %}https://intelliplan.tech/static/icons/icon-512.png{% endblock %}
+{% block og_image %}https://intelliplan.tech/static/og-image.png{% endblock %}
 {% block twitter_title %}IntelliPlan - Free AI Study Planner for Students{% endblock %}
 {% block twitter_description %}Automatically prioritize assignments from Canvas, StudentVue, and Schoology. Build your weekly schedule with AI and study with Plani Tutor.{% endblock %}
-{% block twitter_image %}https://intelliplan.tech/static/icons/icon-512.png{% endblock %}
+{% block twitter_image %}https://intelliplan.tech/static/og-image.png{% endblock %}
 
 {% block head_extra %}
 <!-- Trustpilot domain verification -->
 <meta name="trustpilot-one-time-domain-verification-id" content="97f8c009-e934-4e60-8802-4bc9cd2ff5f1"/>
 <meta name="googlebot" content="index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1">
-<meta property="og:image:alt" content="IntelliPlan AI study planner — assignment priorities and weekly schedule">
+{# og:image:alt is set globally in base.html; only twitter's alt is unique here. #}
 <meta name="twitter:image:alt" content="IntelliPlan AI study planner dashboard for students">
 <!-- SoftwareApplication structured data -->
 <script type="application/ld+json">
@@ -56,7 +56,7 @@
     "Time estimation",
     "PWA for iOS and Android"
   ],
-  "screenshot": "https://intelliplan.tech/static/icons/icon-512.png",
+  "screenshot": "https://intelliplan.tech/static/og-image.png",
   "publisher": {
     "@type": "Organization",
     "name": "IntelliPlan",
