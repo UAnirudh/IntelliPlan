@@ -45,8 +45,13 @@ select {
   }
 
   body {
-    padding-top: 62px !important;
+    /* Clear the fixed header AND the iOS notch / Dynamic Island. On devices
+       with no inset, env() resolves to 0 so this equals 62px. */
+    padding-top: calc(62px + env(safe-area-inset-top)) !important;
     overflow-x: hidden;
+    /* Stop the rubber-band overscroll from revealing a blank bar behind the
+       page on iOS, and stop scroll chaining out of the document. */
+    overscroll-behavior-y: none;
   }
 
   body.mobile-nav-open {
@@ -69,7 +74,11 @@ select {
     width: 100% !important;
     min-height: 62px;
     height: auto !important;
+    /* Pad for the notch (top) and landscape rounded corners (left/right). */
     padding: 10px 14px !important;
+    padding-top: calc(10px + env(safe-area-inset-top)) !important;
+    padding-left: calc(14px + env(safe-area-inset-left)) !important;
+    padding-right: calc(14px + env(safe-area-inset-right)) !important;
     display: flex !important;
     align-items: center !important;
     gap: 10px;
@@ -132,7 +141,8 @@ select {
     width: min(82vw, 320px) !important;
     height: 100dvh !important;
     max-height: none !important;
-    padding: 78px 14px calc(18px + env(safe-area-inset-bottom)) !important;
+    /* Top pad clears the notch; bottom pad clears the home indicator. */
+    padding: calc(78px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-left)) calc(18px + env(safe-area-inset-bottom)) !important;
     margin: 0 !important;
     gap: 4px !important;
     background: var(--bg-card) !important;
@@ -147,6 +157,7 @@ select {
     justify-content: flex-start !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
+    overscroll-behavior: contain !important;
     -webkit-overflow-scrolling: touch;
     transform: translateX(-100%) !important;
     opacity: 1 !important;
@@ -305,8 +316,8 @@ select {
   #planiBot,
   #planiWrap {
     position: fixed !important;
-    left: 12px !important;
-    bottom: 12px !important;
+    left: calc(12px + env(safe-area-inset-left)) !important;
+    bottom: calc(12px + env(safe-area-inset-bottom)) !important;
     right: auto !important;
     top: auto !important;
     width: 52px !important;
@@ -501,7 +512,9 @@ select {
     position: fixed !important;
     left: 0.75rem !important;
     right: 0.75rem !important;
-    bottom: 68px !important;
+    /* Sit above the Plani avatar (bottom-left) and install banner
+       (bottom-right) row, and clear the iOS home indicator. */
+    bottom: calc(76px + env(safe-area-inset-bottom)) !important;
     z-index: 9998 !important;
   }
 
@@ -546,9 +559,12 @@ select {
   .main-content,
   .page-content {
     max-width: 100% !important;
-    padding-left: 14px !important;
-    padding-right: 14px !important;
-    padding-bottom: 70px !important;
+    /* Respect landscape corner insets so content never hides under the
+       rounded screen edge / camera cutout. */
+    padding-left: calc(14px + env(safe-area-inset-left)) !important;
+    padding-right: calc(14px + env(safe-area-inset-right)) !important;
+    /* Clear the home indicator + leave room for floating Plani/CTA. */
+    padding-bottom: calc(70px + env(safe-area-inset-bottom)) !important;
     margin-left: 0 !important;
   }
 
@@ -830,10 +846,13 @@ select {
   .modal-content {
     width: 100% !important;
     max-width: none !important;
-    max-height: calc(100dvh - 20px) !important;
+    /* Leave the notch + a little breathing room at top; scroll inside. */
+    max-height: calc(100dvh - 20px - env(safe-area-inset-top)) !important;
     margin: 0 !important;
     padding: 1.1rem !important;
     overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
     border-radius: 16px !important;
   }
 
@@ -987,8 +1006,8 @@ select {
      left now), show text without needing hover, larger close target */
   #installBanner {
     left: auto !important;
-    right: 12px !important;
-    bottom: 12px !important;
+    right: calc(12px + env(safe-area-inset-right)) !important;
+    bottom: calc(12px + env(safe-area-inset-bottom)) !important;
     max-width: calc(100vw - 80px) !important;
     padding: 8px 10px !important;
   }
@@ -1013,14 +1032,15 @@ select {
   #chatbot-window,
   .chat-window {
     position: fixed !important;
-    bottom: 60px !important;
+    bottom: calc(60px + env(safe-area-inset-bottom)) !important;
     left: 0 !important;
     right: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
-    height: 70vh !important;
+    height: 70dvh !important;
     border-radius: 12px 12px 0 0 !important;
     z-index: 9150 !important;
+    overscroll-behavior: contain !important;
   }
 
 

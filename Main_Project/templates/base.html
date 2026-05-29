@@ -2,7 +2,9 @@
 <html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  {# viewport-fit=cover is REQUIRED for env(safe-area-inset-*) to resolve to
+     real values on notched iPhones — without it the insets are always 0. #}
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <title>{% block page_title %}IntelliPlan{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -491,9 +493,11 @@
 
     /* ── Customizer modal ───────────────────────────────── */
     #navCustomizer {
-      display: none; position: fixed; inset: 0; z-index: 10010;
+      display: none; position: fixed; inset: 0; z-index: 100010;
       align-items: center; justify-content: center;
       background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
+      /* Pad for notch/home-indicator so the box is never clipped on phones. */
+      padding: calc(12px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom));
     }
     #navCustomizer.open { display: flex; }
     #navCustomizer .nc-box {
@@ -636,10 +640,13 @@
 
     /* ── Command palette (Cmd/Ctrl + K) ── */
     #cmdPalette {
-      position: fixed; inset: 0; z-index: 10005;
+      position: fixed; inset: 0; z-index: 100012;
       display: none; align-items: flex-start; justify-content: center;
       background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
-      padding-top: 14vh;
+      /* Clear the notch; on phones this keeps the search field tappable
+         and out from under the fixed header. */
+      padding-top: max(14vh, calc(70px + env(safe-area-inset-top)));
+      padding-left: 12px; padding-right: 12px;
     }
     #cmdPalette.open { display: flex; }
     #cmdPalette .cmd-box {
@@ -1291,13 +1298,16 @@
   </style>
 
   <link rel="manifest" href="/static/manifest.json">
-  <meta name="theme-color" content="#2563eb">
+  {# Single theme-color tag, updated live by JS to match the active theme/
+     palette (see updateThemeColor()). The default matches the light --bg so
+     the very first paint (before JS) already looks right on iOS/Android. #}
+  <meta name="theme-color" content="#fafaf7" id="metaThemeColor">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="IntelliPlan">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  {# Single viewport tag lives at the top of <head>; duplicate removed. #}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
   {% block head_extra %}{% endblock %}
 </head>
@@ -1774,11 +1784,25 @@ const themeLabel = document.getElementById('themeLabel');
 themeToggles.forEach(t => { t.checked = savedMode === 'dark'; });
 if (themeLabel) themeLabel.textContent = savedMode === 'dark' ? 'Dark' : 'Light';
 
+/* Sync the browser UI color (iOS status bar tint + Android chrome) to the
+   live theme. Reads the actual computed --bg so it stays correct across all
+   seven palettes and both light/dark modes — no hardcoded color map to drift. */
+function updateThemeColor() {
+  try {
+    const meta = document.getElementById('metaThemeColor');
+    if (!meta) return;
+    const bg = getComputedStyle(html).getPropertyValue('--bg').trim();
+    if (bg) meta.setAttribute('content', bg);
+  } catch (e) {}
+}
+window.updateThemeColor = updateThemeColor;
+
 function setThemeMode(mode) {
   html.setAttribute('data-theme', mode);
   try { localStorage.setItem('theme', mode); } catch(e){}
   themeToggles.forEach(o => { o.checked = mode === 'dark'; });
   if (themeLabel) themeLabel.textContent = mode === 'dark' ? 'Dark' : 'Light';
+  updateThemeColor();
   document.dispatchEvent(new CustomEvent('ip-theme-change', { detail:{ mode, palette: html.getAttribute('data-palette') || 'default' }}));
 }
 function setThemePalette(pal) {
@@ -1786,10 +1810,14 @@ function setThemePalette(pal) {
   if (pal === 'default') html.removeAttribute('data-palette');
   else html.setAttribute('data-palette', pal);
   try { localStorage.setItem('ip_theme_palette', pal); } catch(e){}
+  updateThemeColor();
   document.dispatchEvent(new CustomEvent('ip-theme-change', { detail:{ mode: html.getAttribute('data-theme'), palette: pal }}));
 }
 window.setThemeMode    = setThemeMode;
 window.setThemePalette = setThemePalette;
+
+// Set the correct browser-UI color on first load too.
+updateThemeColor();
 
 themeToggles.forEach(toggle => {
   toggle.addEventListener('change', () => setThemeMode(toggle.checked ? 'dark' : 'light'));
