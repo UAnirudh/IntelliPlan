@@ -1860,6 +1860,19 @@ def _seo_headers(response):
         existing = response.headers.get("X-Robots-Tag", "")
         if "noindex" not in existing.lower():
             response.headers["X-Robots-Tag"] = "noindex, nofollow"
+
+    # ── Baseline security headers (professional hardening) ──────
+    # NOTE: We deliberately do NOT set X-Frame-Options or a restrictive
+    # Permissions-Policy — IntelliPlan is embedded in iframes (Lotus, etc.)
+    # and uses camera/mic (Jitsi live sessions), notifications, and speech.
+    # The headers below are safe everywhere and improve our security posture
+    # + Google's "HTTPS / best practices" signals without breaking embeds.
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    # HSTS: force HTTPS for a year. Browsers ignore this header over plain
+    # HTTP, so it's safe to always send. No includeSubDomains (we don't
+    # control every subdomain) and no preload (opt-in is a deliberate step).
+    response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
     return response
 
 @app.route("/tutor")

@@ -13,7 +13,69 @@
   {# Pages that aren't part of the public marketing surface get noindex. Set
      `noindex_page=True` from the view (or via after_request) and this tag
      prevents Google from listing the URL even if it's followed from elsewhere. #}
-  {% if noindex_page %}<meta name="robots" content="noindex, nofollow">{% endif %}
+  {% if noindex_page %}<meta name="robots" content="noindex, nofollow">
+  {% else %}<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">{% endif %}
+
+  {# ══════════════════════════════════════════════════════════════
+     SEO + SOCIAL META — sensible global defaults, override per page
+     by setting {% block meta_description %}, {% block og_title %}, etc.
+     A strong description + Open Graph/Twitter card is what leading
+     SaaS brands ship on every page; it drives click-through from
+     search and renders a rich preview when the link is shared.
+  ══════════════════════════════════════════════════════════════ #}
+  {%- set _default_desc = "IntelliPlan is a free AI study planner for students. Sync Canvas, StudentVue, and Schoology, auto-prioritize assignments, build weekly study schedules, model your grades, and learn with the Plani AI tutor." -%}
+  <meta name="description" content="{% block meta_description %}{{ _default_desc }}{% endblock %}">
+  <meta name="author" content="IntelliPlan">
+  <meta name="keywords" content="AI study planner, free study planner, Canvas study planner, StudentVue planner, assignment prioritizer, AI tutor for students, study schedule generator, grade calculator, homework planner, AP study tools">
+  <meta name="application-name" content="IntelliPlan">
+
+  {# Open Graph (Facebook, LinkedIn, iMessage, Slack, Discord previews) #}
+  <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+  <meta property="og:site_name" content="IntelliPlan">
+  <meta property="og:title" content="{% block og_title %}{{ self.page_title() }}{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}{{ _default_desc }}{% endblock %}">
+  <meta property="og:url" content="{{ canonical_url or ('https://intelliplan.tech' + (request.path if request else '/')) }}">
+  <meta property="og:image" content="{% block og_image %}https://intelliplan.tech/static/icons/icon-512.png{% endblock %}">
+  <meta property="og:image:width" content="512">
+  <meta property="og:image:height" content="512">
+  <meta property="og:locale" content="en_US">
+
+  {# Twitter / X large-image card #}
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{% block twitter_title %}{{ self.page_title() }}{% endblock %}">
+  <meta name="twitter:description" content="{% block twitter_description %}{{ _default_desc }}{% endblock %}">
+  <meta name="twitter:image" content="{% block twitter_image %}https://intelliplan.tech/static/icons/icon-512.png{% endblock %}">
+
+  {# DNS warm-up for the third parties we always hit (fonts + model API). #}
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+  <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+
+  {# ── Global structured data (every page) ──────────────────────
+     Organization + WebSite give Google the entity graph it needs to
+     show a knowledge panel / sitelinks and help AI Overviews cite us. #}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "IntelliPlan",
+    "url": "https://intelliplan.tech",
+    "logo": "https://intelliplan.tech/static/icons/icon-512.png",
+    "description": "Free AI study planner for students — syncs Canvas, StudentVue, and Schoology, prioritizes assignments, builds study schedules, and includes the Plani AI tutor.",
+    "sameAs": [
+      "https://github.com/UAnirudh/IntelliPlan"
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "IntelliPlan",
+    "url": "https://intelliplan.tech",
+    "inLanguage": "en-US",
+    "description": "Free AI study planner for students."
+  }
+  </script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700&family=Inter:wght@400;500;600;700&family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
 
   <style>

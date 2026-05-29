@@ -2,29 +2,18 @@
 
 {% block page_title %}IntelliPlan - Free AI Study Planner for Students | Canvas, StudentVue & Schoology{% endblock %}
 
+{# These override the base.html global defaults — no duplicate tags emitted. #}
+{% block meta_description %}IntelliPlan is a free AI study planner for students that imports Canvas, StudentVue, and Schoology assignments, prioritizes deadlines, builds weekly schedules, and includes an AI tutor.{% endblock %}
+{% block og_title %}IntelliPlan - Free AI Study Planner for Students{% endblock %}
+{% block og_description %}Connect Canvas, StudentVue, or Schoology. IntelliPlan ranks assignments, builds a weekly study plan, exports to Google Calendar, and gives students a built-in AI tutor.{% endblock %}
+{% block og_image %}https://intelliplan.tech/static/icons/icon-512.png{% endblock %}
+{% block twitter_title %}IntelliPlan - Free AI Study Planner for Students{% endblock %}
+{% block twitter_description %}Automatically prioritize assignments from Canvas, StudentVue, and Schoology. Build your weekly schedule with AI and study with Plani Tutor.{% endblock %}
+{% block twitter_image %}https://intelliplan.tech/static/icons/icon-512.png{% endblock %}
+
 {% block head_extra %}
-<meta name="description" content="IntelliPlan is a free AI study planner for students that imports Canvas, StudentVue, and Schoology assignments, prioritizes deadlines, builds weekly schedules, and includes an AI tutor.">
-<meta name="keywords" content="AI study planner for students, free student planner, Canvas study planner, StudentVue planner, Schoology planner, AI assignment prioritizer, AI study schedule generator, homework planner, college planner, high school planner, Google Calendar study plan, AI tutor for students">
-<meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1">
 <meta name="googlebot" content="index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1">
-<meta name="author" content="IntelliPlan">
-<meta name="application-name" content="IntelliPlan">
-<meta name="theme-color" content="#2563eb">
-<link rel="canonical" href="https://intelliplan.tech/">
-<!-- Open Graph -->
-<meta property="og:title" content="IntelliPlan - Free AI Study Planner for Students">
-<meta property="og:description" content="Connect Canvas, StudentVue, or Schoology. IntelliPlan ranks assignments, builds a weekly study plan, exports to Google Calendar, and gives students a built-in AI tutor.">
-<meta property="og:image" content="https://intelliplan.tech/static/og-image.png">
-<meta property="og:image:alt" content="IntelliPlan AI study planner dashboard showing student assignment priorities and a weekly schedule">
-<meta property="og:url" content="https://intelliplan.tech/">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="IntelliPlan">
-<meta property="og:locale" content="en_US">
-<!-- Twitter Card -->
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="IntelliPlan - Free AI Study Planner for Students">
-<meta name="twitter:description" content="Automatically prioritize assignments from Canvas, StudentVue, and Schoology. Build your weekly schedule with AI and study with Plani Tutor.">
-<meta name="twitter:image" content="https://intelliplan.tech/static/og-image.png">
+<meta property="og:image:alt" content="IntelliPlan AI study planner — assignment priorities and weekly schedule">
 <meta name="twitter:image:alt" content="IntelliPlan AI study planner dashboard for students">
 <!-- SoftwareApplication structured data -->
 <script type="application/ld+json">
@@ -65,7 +54,7 @@
     "Time estimation",
     "PWA for iOS and Android"
   ],
-  "screenshot": "https://intelliplan.tech/static/og-image.png",
+  "screenshot": "https://intelliplan.tech/static/icons/icon-512.png",
   "publisher": {
     "@type": "Organization",
     "name": "IntelliPlan",
@@ -165,36 +154,7 @@
   }
 }
 </script>
-<!-- WebSite structured data -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "WebSite",
-  "name": "IntelliPlan",
-  "url": "https://intelliplan.tech",
-  "description": "Free AI study planner for students. Connects to Canvas, StudentVue, and Schoology, auto-prioritizes assignments, builds weekly schedules, and includes Plani Tutor.",
-  "inLanguage": "en-US",
-  "publisher": {
-    "@type": "Organization",
-    "name": "IntelliPlan",
-    "url": "https://intelliplan.tech"
-  }
-}
-</script>
-<!-- Organization structured data -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  "name": "IntelliPlan",
-  "url": "https://intelliplan.tech",
-  "logo": "https://intelliplan.tech/static/og-image.png",
-  "description": "IntelliPlan builds AI-powered study planning, assignment prioritization, and tutoring tools for students.",
-  "sameAs": [
-    "https://github.com/UAnirudh/IntelliPlan"
-  ]
-}
-</script>
+{# WebSite + Organization JSON-LD now live globally in base.html — not duplicated here. #}
 <!-- FAQ structured data mirrors visible FAQ content below -->
 <script type="application/ld+json">
 {

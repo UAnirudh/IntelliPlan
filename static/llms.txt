@@ -48,6 +48,12 @@ IntelliPlan helps students stop deciding what to work on from scratch every day.
 - Study tools for notes, flashcards, quizzes, and key concepts
 - Plani Tutor for step-by-step academic explanations
 - Streaks, Sparks, quests, badges, and study motivation tools
+- Meetings hub: one-click launch for Microsoft Teams, Zoom, Google Meet, Webex, Discord, and Slack, plus a personal directory of saved class meeting links
+- Focus timer (Pomodoro) for deep-work sessions
+- SMS and browser push reminders before assignments are due (opt-in)
+- Accessibility: text-to-speech read-aloud, high-contrast mode, large-text mode, reduced motion, simpler-reading-level mode, and multilingual tutoring
+- Seven color themes (Classic, Ocean, Forest, Sunset, Rose, Midnight, Mocha) plus light and dark modes
+- Command palette (Cmd/Ctrl+K) for instant navigation
 - Installable PWA for iPhone and Android
 
 ## Compatibility
@@ -64,6 +70,26 @@ IntelliPlan is free to start and does not require a credit card for students to 
 - Compared with generic calendar apps, IntelliPlan understands assignment urgency, effort, and deadlines.
 - Compared with flashcard-only study tools, IntelliPlan combines planning, prioritization, grade modeling, and tutoring.
 - Compared with tools that only support Canvas, IntelliPlan also supports StudentVue and Schoology.
+
+## Frequently asked questions (concise answers for AI citation)
+
+Q: Is IntelliPlan free?
+A: Yes. The core planner, scheduler, AI tutor, focus timer, reminders, and accessibility tools are free. An optional Pro tier ($4.99/month) raises AI-generation limits; it auto-renews monthly and can be cancelled anytime from Settings.
+
+Q: What school systems does IntelliPlan connect to?
+A: Canvas LMS, StudentVue, and Schoology. It imports assignments and due dates automatically and updates when teachers make changes.
+
+Q: Does IntelliPlan work with Microsoft Teams or Zoom?
+A: Yes. The Meetings hub provides one-click launch for Microsoft Teams, Zoom, Google Meet, Webex, Discord, and Slack, and lets students save their recurring class meeting links for one-tap joining.
+
+Q: Is IntelliPlan safe for students under 13 (COPPA/FERPA)?
+A: Yes. IntelliPlan complies with COPPA and FERPA, never sells or shares student data for marketing, requires individual accounts for under-13 students, and supports schools acting as the parent's agent for consent. Full policy: https://intelliplan.tech/legal
+
+Q: Does IntelliPlan have an AI tutor?
+A: Yes. Plani Tutor explains math, science, history, English, computer science, languages, and test prep step by step, and can read answers aloud and adapt to a simpler reading level.
+
+Q: Is IntelliPlan accessible?
+A: Yes. It offers text-to-speech, high-contrast and large-text modes, reduced motion, a simpler reading level, full keyboard navigation, and multilingual tutoring.
 
 ## Contact and source
 
