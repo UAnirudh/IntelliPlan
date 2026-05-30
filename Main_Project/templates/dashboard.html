@@ -8,7 +8,7 @@
 .mobile-nav-drawer.open { left:0; }
 .mobile-nav-inner { display:flex; flex-direction:column; height:100%; }
 .mobile-nav-link { display:flex; align-items:center; gap:12px; padding:12px 1.25rem; font-size:0.92rem; font-weight:500; color:var(--text-secondary); text-decoration:none; transition:background 0.13s, color 0.13s; }
-.mobile-nav-link:hover.mobile-nav-link.active { background:var(--accent-soft); color:var(--accent); }
+.mobile-nav-link:hover, .mobile-nav-link.active { background:var(--accent-soft); color:var(--accent); }
 @media (max-width: 720px) { .mobile-top-nav { display:flex; } }
 </style>
 
@@ -313,7 +313,7 @@
 <style>
 .dash-chest-row { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.25rem; }
 @media (max-width:700px){ .dash-chest-row{ grid-template-columns:1fr; } }
-.dash-chest-card.dash-live-card {
+.dash-chest-card, .dash-live-card {
   display:flex; align-items:center; gap:14px;
   padding:1rem 1.2rem; border-radius:16px;
   background:linear-gradient(135deg, color-mix(in srgb, #d97706 12%, var(--bg-card)), var(--bg-card) 60%);
@@ -326,7 +326,7 @@
   background:linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, var(--bg-card)), var(--bg-card) 60%);
   border-color:color-mix(in srgb, var(--accent) 25%, var(--border));
 }
-.dash-chest-card:hover.dash-live-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-hover); }
+.dash-chest-card:hover, .dash-live-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-hover); }
 .dash-chest-card[disabled] { opacity:0.55; cursor:not-allowed; transform:none !important; }
 .chest-emoji {
   font-size:42px; line-height:1;
@@ -499,7 +499,7 @@
     .dash-streak-right { grid-column:1/-1; flex-direction:row; justify-content:space-between; align-items:center; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .dash-flame-emoji.dash-flame-aura.dash-flame-spark.dash-week-day.today.studied .dash-week-dot { animation:none !important; }
+    .dash-flame-emoji, .dash-flame-aura, .dash-flame-spark, .dash-week-day.today.studied .dash-week-dot { animation:none !important; }
   }
 </style>
 
@@ -1105,7 +1105,7 @@ async function submitFeedback(save) {
     await fetch('/dismiss', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ title: task.title...task })
+      body: JSON.stringify({ title: task.title, ...task })
     });
   }
   if (notificationsSilenced()) {
@@ -1141,7 +1141,7 @@ async function loadDashboard() {
   _unifiedTasks = tasksRes;
   _gcalConnected = calRes.connected;
 
-  const allDashTasks = [...(tasksRes.overdue||[])...(tasksRes.today||[])...(tasksRes.upcoming||[])];
+  const allDashTasks = [...(tasksRes.overdue||[]), ...(tasksRes.today||[]), ...(tasksRes.upcoming||[])];
   autoDashMarkTests(allDashTasks);
 
   updateSubtitle(tasksRes);
@@ -1631,7 +1631,7 @@ async function saveEditTask() {
   if (source === 'manual' && id) {
     await fetch('/tasks/manual/update', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ id...updates })
+      body: JSON.stringify({ id, ...updates })
     });
   } else if (source === 'notion' && notionId) {
     await fetch('/notion/tasks/update', {

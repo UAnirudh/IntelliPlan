@@ -620,7 +620,7 @@
       color: var(--text-secondary);
     }
     .side-link.side-sub.active { background: var(--accent); color: white; }
-    .side-link.nav-hidden.side-group.nav-empty { display: none !important; }
+    .side-link.nav-hidden, .side-group.nav-empty { display: none !important; }
 
     /* Sidebar search trigger (opens command palette) */
     .side-search {
@@ -1320,8 +1320,8 @@
    Improves touch scrolling smoothness and button-press feedback so
    Android behaves closer to iOS. Safe on desktop. */
 a, button, summary, label, [role="button"],
-.btn-primary.btn-secondary.mini-btn.cta-btn.demo-btn.cta-ghost-btn,
-.mobile-cta-primary.mobile-cta-secondary {
+.btn-primary, .btn-secondary, .mini-btn, .cta-btn, .demo-btn, .cta-ghost-btn,
+.mobile-cta-primary, .mobile-cta-secondary {
   touch-action: manipulation;            /* removes the 300ms tap delay */
   -webkit-tap-highlight-color: transparent;
 }
@@ -1336,9 +1336,9 @@ body {
 }
 /* Immediate visual feedback when pressing buttons on touch devices */
 @media (hover: none) {
-  .btn-primary:active.btn-secondary:active.mini-btn:active.cta-btn:active,
-  .demo-btn:active.cta-ghost-btn:active,
-  .mobile-cta-primary:active.mobile-cta-secondary:active {
+  .btn-primary:active, .btn-secondary:active, .mini-btn:active, .cta-btn:active,
+  .demo-btn:active, .cta-ghost-btn:active,
+  .mobile-cta-primary:active, .mobile-cta-secondary:active {
     transform: translateY(1px) scale(0.98);
     transition: transform .06s ease;
   }
@@ -1350,15 +1350,15 @@ body {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
   }
-  .hero-wrap::before.hero-preview::before { display: none !important; }
+  .hero-wrap::before, .hero-preview::before { display: none !important; }
   /* Lighter shadows mean far fewer expensive repaints while scrolling */
-  .preview-card.feature-card.step-card.answer-card.integration-card,
-  .faq-item.review-card.about-card.comparison-card.tutor-promo-preview {
+  .preview-card, .feature-card, .step-card, .answer-card, .integration-card,
+  .faq-item, .review-card, .about-card, .comparison-card, .tutor-promo-preview {
     box-shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 14px rgba(15,23,42,.06) !important;
   }
   /* Finger-friendly tap targets */
-  .btn-primary.btn-secondary.mini-btn.cta-btn.demo-btn.cta-ghost-btn,
-  .mobile-cta-primary.mobile-cta-secondary {
+  .btn-primary, .btn-secondary, .mini-btn, .cta-btn, .demo-btn, .cta-ghost-btn,
+  .mobile-cta-primary, .mobile-cta-secondary {
     min-height: 46px;
     display: inline-flex;
     align-items: center;
@@ -1372,8 +1372,6 @@ body {
 <!-- End TrustBox script -->
 <style id="android-ux-v2">
 @media (max-width: 768px) {
-  /* On touch screens :hover styles "stick" after a tap and force repaints while
-     scrolling. Neutralize the lift/scale hovers on small screens for smoothness. */
   .feature-card:hover, .step-card:hover, .integration-card:hover, .review-card:hover,
   .preview-card:hover, .answer-card:hover, .comparison-card:hover, .faq-item:hover,
   .btn-primary:hover, .btn-secondary:hover, .nav-tab:hover, .nav-cta:hover,
@@ -1381,7 +1379,6 @@ body {
     transform: none !important;
     box-shadow: var(--shadow-sm) !important;
   }
-  /* Snappier button transitions = less perceived lag on Android */
   .btn-primary, .btn-secondary, .mini-btn, .cta-btn, .demo-btn, .nav-tab {
     transition-duration: .12s !important;
   }
@@ -2017,7 +2014,7 @@ if (mobileMenuBtn) {
 
   function render(query) {
     const q = (query || '').trim().toLowerCase();
-    const pool = [...NAV_ITEMS...ACTIONS];
+    const pool = [...NAV_ITEMS, ...ACTIONS];
     const filtered = !q ? pool : pool.filter(it =>
       it.label.toLowerCase().includes(q) ||
       it.section.toLowerCase().includes(q) ||
@@ -2453,7 +2450,7 @@ function saveCustomDescription() {
   });
 }
 function formatModalTime(mins) {
-  if (!mins) return ', ';
+  if (!mins) return '-';
   if (mins < 60) return `${mins}m`;
   const h = Math.floor(mins/60), m = mins%60;
   return m ? `${h}h ${m}m` : `${h}h`;
@@ -2808,7 +2805,7 @@ window.addEventListener('load',()=>{
 <script>
 (function() {
   const STEPS = [
-    { selector: '.side-logo.logo', text: 'Welcome to IntelliPlan, your AI-powered study planner. Let\'s take a quick tour!', title: 'Welcome 👋' },
+    { selector: '.side-logo, .logo', text: 'Welcome to IntelliPlan, your AI-powered study planner. Let\'s take a quick tour!', title: 'Welcome 👋' },
     { selector: 'a[href="/dashboard"].side-link, a[href="/dashboard"].nav-tab', text: 'Your Dashboard shows all your assignments, prioritized by urgency and due date.', title: 'Dashboard' },
     { selector: 'a[href="/tutor"].side-link, a[href="/tutor"].nav-tab', text: 'Plani AI Tutor answers any question step by step, math, science, history, and more.', title: 'AI Tutor' },
     { selector: 'a[href="/scheduler"].side-link, a[href="/schedule"].side-link, a[href="/scheduler"].nav-tab', text: 'The Scheduler builds a personalized study plan around your free time and deadlines.', title: 'Scheduler' },
@@ -2892,7 +2889,7 @@ window.addEventListener('load',()=>{
       tt.style.display = 'block';
       tt.style.top = '50%'; tt.style.left = '50%';
       tt.style.transform = 'translate(-50%,-50%)';
-      // Fallback hint when this step's item isn't on the current page, 
+      // Fallback hint when this step's item isn't on the current page -
       // e.g. tour started from a route that doesn't include the sidebar item.
       const fallback = document.getElementById('tourText');
       if (fallback && !fallback.dataset.fallbackAdded) {

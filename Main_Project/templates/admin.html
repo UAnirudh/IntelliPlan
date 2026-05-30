@@ -76,7 +76,7 @@
       <div class="admin-flag-row" data-key="{{ f.key }}">
         <div class="admin-flag-meta">
           <div class="admin-flag-key">{{ f.key }}</div>
-          <div class="admin-flag-desc">{{ f.description or ', ' }}</div>
+          <div class="admin-flag-desc">{{ f.description or '-' }}</div>
         </div>
         <label class="toggle" title="Toggle {{ f.key }}">
           <input type="checkbox" {% if f.enabled %}checked{% endif %} onchange="setFlag('{{ f.key }}', this.checked, this)">

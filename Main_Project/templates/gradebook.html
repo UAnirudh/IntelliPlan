@@ -41,8 +41,8 @@
           <div>
             <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:4px;">Modeled</div>
             <div style="display:flex; align-items:baseline; gap:8px;">
-              <span id="modeledPct" style="font-family:'DM Serif Display',serif; font-size:2.2rem; color:var(--accent);"></span>
-              <span id="modeledLetter" class="priority-badge" style="background:var(--accent-soft); color:var(--accent);"></span>
+              <span id="modeledPct" style="font-family:'DM Serif Display',serif; font-size:2.2rem; color:var(--accent);">-</span>
+              <span id="modeledLetter" class="priority-badge" style="background:var(--accent-soft); color:var(--accent);">-</span>
             </div>
           </div>
         </div>
@@ -130,7 +130,7 @@ function isGraded(a) {
   const earned = safeNum(a.points_earned);
   if (earned === null) return false;
   const label = String(a.display_score ?? '').trim().toLowerCase();
-  const pendingLabels = ['', 'not graded', 'not due', 'missing', 'pending', '-', ', '];
+  const pendingLabels = ['', 'not graded', 'not due', 'missing', 'pending', '-', '-'];
   if (pendingLabels.includes(label)) return false;
   return true;
 }
@@ -303,7 +303,7 @@ function renderCategoryTabs(course) {
   const tabs = document.getElementById('categoryTabs');
   tabs.innerHTML = '';
 
-  const categories = ['all'...new Set(course.assignments.map(a => a.category).filter(Boolean))];
+  const categories = ['all', ...new Set(course.assignments.map(a => a.category).filter(Boolean))];
 
   categories.forEach(cat => {
     const btn = document.createElement('button');
@@ -363,7 +363,7 @@ function renderBreakdown(assignments) {
         <div class="card-title">${a.title} ${isModified ? '<span style="font-size:0.7rem;color:var(--accent);font-weight:500;">· modified</span>' : ''}</div>
         <div class="card-meta">
           ${a.due_date ? `<span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> ${a.due_date}</span>` : ''}
-          <span class="meta-item" style="background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:0.72rem;">${a.category || ', '}</span>
+          <span class="meta-item" style="background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:0.72rem;">${a.category || '-'}</span>
         </div>
         ${scoreBar}
       </div>
@@ -387,7 +387,7 @@ function renderBreakdown(assignments) {
               font-size:0.85rem; text-align:center;"
             oninput="updatePossible('${key}', this.value);" />
 
-          ${pct !== null ? `<span class="score-pct" style="font-size:0.82rem; font-weight:600; color:var(--text-primary);">${pct}%</span>` : `<span class="score-pct" style="font-size:0.82rem; font-weight:600; color:var(--text-muted);"></span>`}
+          ${pct !== null ? `<span class="score-pct" style="font-size:0.82rem; font-weight:600; color:var(--text-primary);">${pct}%</span>` : `<span class="score-pct" style="font-size:0.82rem; font-weight:600; color:var(--text-muted);">-</span>`}
         </div>
 
         ${possible !== null ? `
@@ -470,7 +470,7 @@ function syncAssignmentCard(id) {
     : null;
 
   if (pctDisplay) {
-    pctDisplay.textContent = pct !== null ? `${pct}%` : ', ';
+    pctDisplay.textContent = pct !== null ? `${pct}%` : '-';
     pctDisplay.style.color = pct !== null ? 'var(--text-primary)' : 'var(--text-muted)';
   }
 
@@ -834,9 +834,9 @@ function runModel() {
     if (neededFromCat !== null) {
       lines.push(`<strong>${cat.type}</strong> (${cat.weight}% of grade): need <strong>${Math.max(0, neededFromCat).toFixed(1)}%</strong> avg on ${d.pendingAssignments.length} remaining assignment${d.pendingAssignments.length !== 1 ? 's' : ''}${neededFromCat > 100 ? ' <span style="color:var(--high)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px"><use href="#i-warning"/></svg> not possible</span>' : ''}`);
     } else {
-      const actual = currentWeightedPct !== null ? (currentWeightedPct * 100).toFixed(1) : ', ';
+      const actual = currentWeightedPct !== null ? (currentWeightedPct * 100).toFixed(1) : '-';
       const lockedNote = currentWeightedPct !== null && currentWeightedPct * 100 < target
-        ? ` <span style="color:var(--high)">locked in below target, caps overall at ${(currentWeightedPct * 100).toFixed(1)}%</span>`
+        ? ` <span style="color:var(--high)">- locked in below target, caps overall at ${(currentWeightedPct * 100).toFixed(1)}%</span>`
         : '';
       lines.push(`<strong>${cat.type}</strong>: all graded, currently at ${actual}%${lockedNote}`);
     }

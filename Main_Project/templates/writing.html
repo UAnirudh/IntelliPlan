@@ -129,7 +129,7 @@ function renderResult() {
   }
   const overall = d.overall || {};
   const suggestions = d.suggestions || [];
-  const score = overall.score != null ? overall.score : ', ';
+  const score = overall.score != null ? overall.score : '-';
   let html = `
     <div class="score-bubble">
       <div class="score-num">${score}</div>

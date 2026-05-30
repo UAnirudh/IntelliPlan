@@ -161,7 +161,7 @@ function popoutMeeting() {
 
 function refreshFrame() {
   document.getElementById('liveFrame').src = buildRoomUrl(_audioOnly);
-  // Show waiting-room overlay after 12s if the iframe hasn't fully loaded, 
+  // Show waiting-room overlay after 12s if the iframe hasn't fully loaded -
   // this typically catches the meet.jit.si "no moderators" cold-start screen,
   // since that view leaves the iframe in a non-interactive state.
   clearTimeout(window._meetWaitTimer);

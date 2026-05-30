@@ -203,7 +203,7 @@ function renderDetail(g) {
     </div>`).join('') || '<div style="color:var(--text-muted);font-size:0.86rem;">No members yet.</div>';
 
   const nextMeeting = g.next_meeting_at
-    ? `<div><strong>Next meeting:</strong> ${esc(new Date(g.next_meeting_at).toLocaleString())} ${g.next_meeting_topic ? ', ' + esc(g.next_meeting_topic) : ''}</div>`
+    ? `<div><strong>Next meeting:</strong> ${esc(new Date(g.next_meeting_at).toLocaleString())} ${g.next_meeting_topic ? '- ' + esc(g.next_meeting_topic) : ''}</div>`
     : `<div style="color:var(--text-muted);">No meeting scheduled.</div>`;
 
   document.getElementById('grDetailContent').innerHTML = `

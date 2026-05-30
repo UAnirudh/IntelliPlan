@@ -85,7 +85,7 @@
   border:2px dashed var(--bdr); border-radius:12px; padding:2rem; text-align:center;
   cursor:pointer; transition:all 0.2s; position:relative; overflow:hidden;
 }
-.upload-z:hover.upload-z.dv { border-color:var(--si); background:rgba(99,102,241,0.04); }
+.upload-z:hover, .upload-z.dv { border-color:var(--si); background:rgba(99,102,241,0.04); }
 .upload-z input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
 
 /* ── MODE CARDS ── */
@@ -833,7 +833,7 @@ body.serious-mode .nav-tabs { display:none !important; }
       <div class="perf-grid">
         <div class="perf-card"><div class="perf-num" id="pTotalPts">0</div><div class="perf-lbl">Lifetime Sparks</div></div>
         <div class="perf-card"><div class="perf-num" id="pTotalSes">0</div><div class="perf-lbl">Sessions</div></div>
-        <div class="perf-card"><div class="perf-num" id="pAccuracy">%</div><div class="perf-lbl">Accuracy</div></div>
+        <div class="perf-card"><div class="perf-num" id="pAccuracy">-%</div><div class="perf-lbl">Accuracy</div></div>
       </div>
     </div>
     <div class="sp">
@@ -1741,7 +1741,7 @@ function srsGetOrCreate(q, a) {
     cards[id] = { q, a, interval: 1, easeFactor: 2.5, repetitions: 0, nextReview: new Date().toISOString().slice(0,10) };
     srsSave(cards);
   }
-  return { id...cards[id] };
+  return { id, ...cards[id] };
 }
 
 function srsRate(cardId, quality) {
@@ -1771,7 +1771,7 @@ function srsDueCards() {
   const today = new Date().toISOString().slice(0,10);
   return Object.entries(cards)
     .filter(([,c]) => c.nextReview <= today)
-    .map(([id, c]) => ({ id...c }));
+    .map(([id, c]) => ({ id, ...c }));
 }
 
 // ── Register flashcards into SRS when a session completes ──
@@ -1929,7 +1929,7 @@ function renderProgressTab() {
   const allSessions = G.sessionHistory;
   let totalCorrect = 0, totalQs = 0;
   allSessions.forEach(s => { totalCorrect += s.correct || 0; totalQs += s.questions || 0; });
-  document.getElementById('pAccuracy').textContent = totalQs > 0 ? Math.round(totalCorrect/totalQs*100) + '%' : ', %';
+  document.getElementById('pAccuracy').textContent = totalQs > 0 ? Math.round(totalCorrect/totalQs*100) + '%' : '-%';
 
   const hl = document.getElementById('sessionHistList');
   if (!allSessions.length) {

@@ -62,13 +62,13 @@
 .onboard-pill input { display: none; }
 .onboard-pill:hover { border-color: var(--border-accent); color: var(--accent); }
 .onboard-pill.is-on { background: var(--accent); color: white; border-color: var(--accent); }
-.onboard-input.onboard-textarea.onboard-select {
+.onboard-input, .onboard-textarea, .onboard-select {
   width: 100%; padding: 11px 14px; border-radius: 12px;
   border: 1px solid var(--border-strong); background: var(--bg); color: var(--text-primary);
   font-family: var(--font-body); font-size: 0.92rem; outline: none;
   transition: border-color 0.16s, box-shadow 0.16s;
 }
-.onboard-input:focus.onboard-textarea:focus.onboard-select:focus {
+.onboard-input:focus, .onboard-textarea:focus, .onboard-select:focus {
   border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
 }
 .onboard-textarea { resize: vertical; min-height: 88px; line-height: 1.55; }

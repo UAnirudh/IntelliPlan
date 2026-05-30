@@ -84,7 +84,7 @@
   border-radius: var(--r-md); overflow: hidden;
 }
 @media (max-width: 760px) { .ds-ingest-grid { grid-template-columns: 1fr; } }
-.ds-drop.ds-textwrap {
+.ds-drop, .ds-textwrap {
   background: var(--bg); padding: 1.5rem;
   display: flex; flex-direction: column;
 }
@@ -95,7 +95,7 @@
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
 }
-.ds-drop:hover.ds-drop.dragging {
+.ds-drop:hover, .ds-drop.dragging {
   background: var(--accent-soft);
   border-color: var(--accent);
 }
