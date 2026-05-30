@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   {# viewport-fit=cover is REQUIRED for env(safe-area-inset-*) to resolve to
-     real values on notched iPhones — without it the insets are always 0. #}
+     real values on notched iPhones, without it the insets are always 0. #}
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <title>{% block page_title %}IntelliPlan{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,7 +19,7 @@
   {% else %}<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">{% endif %}
 
   {# ══════════════════════════════════════════════════════════════
-     SEO + SOCIAL META — sensible global defaults, override per page
+     SEO + SOCIAL META, sensible global defaults, override per page
      by setting {% block meta_description %}, {% block og_title %}, etc.
      A strong description + Open Graph/Twitter card is what leading
      SaaS brands ship on every page; it drives click-through from
@@ -40,7 +40,7 @@
   <meta property="og:image" content="{% block og_image %}https://intelliplan.tech/static/og-image.png{% endblock %}">
   <meta property="og:image:width" content="1376">
   <meta property="og:image:height" content="768">
-  <meta property="og:image:alt" content="IntelliPlan — Free AI Study Planner for Students">
+  <meta property="og:image:alt" content="IntelliPlan, Free AI Study Planner for Students">
   <meta property="og:locale" content="en_US">
 
   {# Twitter / X large-image card #}
@@ -63,7 +63,7 @@
     "name": "IntelliPlan",
     "url": "https://intelliplan.tech",
     "logo": "https://intelliplan.tech/static/icons/icon-512.png",
-    "description": "Free AI study planner for students — syncs Canvas, StudentVue, and Schoology, prioritizes assignments, builds study schedules, and includes the Plani AI tutor.",
+    "description": "Free AI study planner for students, syncs Canvas, StudentVue, and Schoology, prioritizes assignments, builds study schedules, and includes the Plani AI tutor.",
     "sameAs": [
       "https://github.com/UAnirudh/IntelliPlan"
     ]
@@ -313,7 +313,7 @@
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
     }
-    /* Subtle grain overlay — breaks digital flatness without adding weight */
+    /* Subtle grain overlay, breaks digital flatness without adding weight */
     body::after {
       content: '';
       position: fixed;
@@ -376,7 +376,7 @@
     .nav-tab-tutor { background:var(--accent-soft); color:var(--accent) !important; font-weight:600; }
     .nav-tab-tutor:hover { background:var(--accent) !important; color:#fff !important; }
     .nav-tab-tutor.active { background:var(--accent) !important; color:#fff !important; }
-    /* Marketing "Get started" CTA — filled accent button, the conversion
+    /* Marketing "Get started" CTA, filled accent button, the conversion
        anchor every leading SaaS marketing nav ends with. */
     .nav-cta { background:var(--accent); color:#fff !important; font-weight:700; padding:7px 16px; }
     .nav-cta:hover { background:var(--accent-hover); color:#fff !important; transform:translateY(-1px); }
@@ -480,7 +480,7 @@
     .app-side .side-link .side-icon { width: 16px; height: 16px; }
     .side-nav-list { display: flex; flex-direction: column; gap: 1px; }
     .side-nav-list .side-link.nav-hidden { display: none !important; }
-    /* Sidebar customize trigger — quiet, lives just above footer */
+    /* Sidebar customize trigger, quiet, lives just above footer */
     .side-customize-btn {
       display: flex; align-items: center; gap: 10px;
       padding: 7px 11px; margin: 10px 0 4px;
@@ -580,7 +580,7 @@
     .side-link.active .side-icon { color: white; }
     .side-link.tutor { color: var(--accent); font-weight: 600; }
     .side-link.tutor:hover { background: var(--accent); color: white; }
-    /* "side-pop" — soft accent background to draw eye (used for Meetings). */
+    /* "side-pop", soft accent background to draw eye (used for Meetings). */
     .side-link.side-pop {
       background: var(--accent-soft); color: var(--accent); font-weight: 600;
     }
@@ -620,7 +620,7 @@
       color: var(--text-secondary);
     }
     .side-link.side-sub.active { background: var(--accent); color: white; }
-    .side-link.nav-hidden, .side-group.nav-empty { display: none !important; }
+    .side-link.nav-hidden.side-group.nav-empty { display: none !important; }
 
     /* Sidebar search trigger (opens command palette) */
     .side-search {
@@ -915,7 +915,7 @@
     .test-auto-badge { display:inline-flex; align-items:center; margin-left:6px; padding:1px 7px; border-radius:var(--r-full); background:var(--medium-bg); color:var(--medium); font-family:var(--font-ui); font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; vertical-align:middle; }
     .assignment-card.is-test { border-color:color-mix(in srgb, var(--medium) 28%, var(--border)); }
 
-    /* Login card — every action below renders as a proper button on desktop.
+    /* Login card, every action below renders as a proper button on desktop.
        (Mobile.css already covers ≤768px; these rules cover the desktop view.) */
     .btn-google {
       display:flex; align-items:center; justify-content:center; gap:10px;
@@ -1115,7 +1115,7 @@
     #planiBot {
       position:fixed; bottom:24px; right:24px; z-index:999;
       display:flex; flex-direction:column; align-items:flex-end; gap:12px;
-      /* Container itself must NEVER block clicks — only the avatar and
+      /* Container itself must NEVER block clicks, only the avatar and
          the bubble accept pointer events. Without this rule any element
          that sits behind Plani (the Done button on the last assignment
          card, the bottom mobile-cta-bar, etc.) becomes un-clickable. */
@@ -1234,7 +1234,7 @@
        RESPONSIVE
     ══════════════════════════════════════ */
 
-    /* Nav label text — visible by default, hidden on small/mid screens */
+    /* Nav label text, visible by default, hidden on small/mid screens */
     .nav-label { display:inline; }
 
     /* ── Tablet wide (900–1100px): reduce padding, hide date ── */
@@ -1320,8 +1320,8 @@
    Improves touch scrolling smoothness and button-press feedback so
    Android behaves closer to iOS. Safe on desktop. */
 a, button, summary, label, [role="button"],
-.btn-primary, .btn-secondary, .mini-btn, .cta-btn, .demo-btn, .cta-ghost-btn,
-.mobile-cta-primary, .mobile-cta-secondary {
+.btn-primary.btn-secondary.mini-btn.cta-btn.demo-btn.cta-ghost-btn,
+.mobile-cta-primary.mobile-cta-secondary {
   touch-action: manipulation;            /* removes the 300ms tap delay */
   -webkit-tap-highlight-color: transparent;
 }
@@ -1336,9 +1336,9 @@ body {
 }
 /* Immediate visual feedback when pressing buttons on touch devices */
 @media (hover: none) {
-  .btn-primary:active, .btn-secondary:active, .mini-btn:active, .cta-btn:active,
-  .demo-btn:active, .cta-ghost-btn:active,
-  .mobile-cta-primary:active, .mobile-cta-secondary:active {
+  .btn-primary:active.btn-secondary:active.mini-btn:active.cta-btn:active,
+  .demo-btn:active.cta-ghost-btn:active,
+  .mobile-cta-primary:active.mobile-cta-secondary:active {
     transform: translateY(1px) scale(0.98);
     transition: transform .06s ease;
   }
@@ -1350,15 +1350,15 @@ body {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
   }
-  .hero-wrap::before, .hero-preview::before { display: none !important; }
+  .hero-wrap::before.hero-preview::before { display: none !important; }
   /* Lighter shadows mean far fewer expensive repaints while scrolling */
-  .preview-card, .feature-card, .step-card, .answer-card, .integration-card,
-  .faq-item, .review-card, .about-card, .comparison-card, .tutor-promo-preview {
+  .preview-card.feature-card.step-card.answer-card.integration-card,
+  .faq-item.review-card.about-card.comparison-card.tutor-promo-preview {
     box-shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 14px rgba(15,23,42,.06) !important;
   }
   /* Finger-friendly tap targets */
-  .btn-primary, .btn-secondary, .mini-btn, .cta-btn, .demo-btn, .cta-ghost-btn,
-  .mobile-cta-primary, .mobile-cta-secondary {
+  .btn-primary.btn-secondary.mini-btn.cta-btn.demo-btn.cta-ghost-btn,
+  .mobile-cta-primary.mobile-cta-secondary {
     min-height: 46px;
     display: inline-flex;
     align-items: center;
@@ -1370,6 +1370,23 @@ body {
 <!-- TrustBox script (Trustpilot) -->
 <script type="text/javascript" src="//widget.trustpilot.com/bootstrap/v5/tp.widget.bootstrap.min.js" async></script>
 <!-- End TrustBox script -->
+<style id="android-ux-v2">
+@media (max-width: 768px) {
+  /* On touch screens :hover styles "stick" after a tap and force repaints while
+     scrolling. Neutralize the lift/scale hovers on small screens for smoothness. */
+  .feature-card:hover, .step-card:hover, .integration-card:hover, .review-card:hover,
+  .preview-card:hover, .answer-card:hover, .comparison-card:hover, .faq-item:hover,
+  .btn-primary:hover, .btn-secondary:hover, .nav-tab:hover, .nav-cta:hover,
+  .mini-btn:hover, .cta-btn:hover {
+    transform: none !important;
+    box-shadow: var(--shadow-sm) !important;
+  }
+  /* Snappier button transitions = less perceived lag on Android */
+  .btn-primary, .btn-secondary, .mini-btn, .cta-btn, .demo-btn, .nav-tab {
+    transition-duration: .12s !important;
+  }
+}
+</style>
 </head>
 
 {% set _app_pages = ['dashboard','scheduler','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes'] %}
@@ -1429,7 +1446,7 @@ body {
 </svg>
 
 <!-- ══════════════════════════════════════
-     APP SIDEBAR (desktop) — only for in-app pages
+     APP SIDEBAR (desktop), only for in-app pages
 ══════════════════════════════════════ -->
 {% if active_page in _app_pages %}
 <aside class="app-side" aria-label="Primary navigation">
@@ -1445,7 +1462,7 @@ body {
     <span class="kbd-hint">⌘K</span>
   </button>
 
-  {# ── Pinned: the daily two — overview + AI help ──────── #}
+  {# ── Pinned: the daily two, overview + AI help ──────── #}
   <div class="side-nav-list" id="sideNavList">
     <a href="/dashboard" data-nav-item="dashboard" class="side-link {% if active_page == 'dashboard' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard</a>
     <a href="/tutor"     data-nav-item="tutor"     class="side-link tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-tutor"/></svg></span>Tutor</a>
@@ -1863,7 +1880,7 @@ if (themeLabel) themeLabel.textContent = savedMode === 'dark' ? 'Dark' : 'Light'
 
 /* Sync the browser UI color (iOS status bar tint + Android chrome) to the
    live theme. Reads the actual computed --bg so it stays correct across all
-   seven palettes and both light/dark modes — no hardcoded color map to drift. */
+   seven palettes and both light/dark modes, no hardcoded color map to drift. */
 function updateThemeColor() {
   try {
     const meta = document.getElementById('metaThemeColor');
@@ -2000,7 +2017,7 @@ if (mobileMenuBtn) {
 
   function render(query) {
     const q = (query || '').trim().toLowerCase();
-    const pool = [...NAV_ITEMS, ...ACTIONS];
+    const pool = [...NAV_ITEMS...ACTIONS];
     const filtered = !q ? pool : pool.filter(it =>
       it.label.toLowerCase().includes(q) ||
       it.section.toLowerCase().includes(q) ||
@@ -2095,7 +2112,7 @@ if (mobileMenuBtn) {
    re-fire on every poll. Silently no-ops for guests. */
 (function setupReminderTicker() {
   if (typeof window === 'undefined' || !window.fetch) return;
-  const POLL_MS  = 90 * 1000;          // 90s — friendly to the server
+  const POLL_MS  = 90 * 1000;          // 90s, friendly to the server
   const FIRST_MS = 5  * 1000;          // wait briefly before first poll
   const SEEN_KEY = 'ip_reminderSeen';  // { [taskKey]: dueIso }
   const SILENCE_KEY = 'ip_reminderSilencedUntil'; // ISO string
@@ -2146,11 +2163,11 @@ if (mobileMenuBtn) {
   function fireNotification(task) {
     const title = '⏰ Due soon: ' + (task.title || 'Assignment');
     const body  = task.course
-      ? `${task.course} — due in ${task.minutes_until_due} min`
+      ? `${task.course}, due in ${task.minutes_until_due} min`
       : `Due in ${task.minutes_until_due} min`;
     // In-app toast always (user might have notifications blocked)
     showToast(title, body);
-    // Native browser notification — only if permission already granted
+    // Native browser notification, only if permission already granted
     try {
       if ('Notification' in window && Notification.permission === 'granted') {
         const n = new Notification(title, {
@@ -2436,7 +2453,7 @@ function saveCustomDescription() {
   });
 }
 function formatModalTime(mins) {
-  if (!mins) return '—';
+  if (!mins) return ', ';
   if (mins < 60) return `${mins}m`;
   const h = Math.floor(mins/60), m = mins%60;
   return m ? `${h}h ${m}m` : `${h}h`;
@@ -2476,7 +2493,7 @@ let planiHistory = [];
 let planiBubbleTimer = null;
 
 const BUBBLES = [
-  "Hi! I'm Plani — ask me anything.",
+  "Hi! I'm Plani, ask me anything.",
   "Need help getting started?",
   "Tip: Connect Canvas for auto-sync.",
   "Check your Dashboard for today's tasks.",
@@ -2526,7 +2543,7 @@ function scheduleBubble() {
 }
 
 window.addEventListener('load', () => {
-  setTimeout(() => { if (!planiOpen) showBubble("Hi! I'm Plani — ask me anything."); }, 2600);
+  setTimeout(() => { if (!planiOpen) showBubble("Hi! I'm Plani, ask me anything."); }, 2600);
   setInterval(() => { if (!planiOpen) scheduleBubble(); }, 50000);
 });
 
@@ -2582,7 +2599,7 @@ async function sendPlaniMessage() {
     if (!res.ok) throw new Error('Network error');
     const data = await res.json();
     setTyping(false);
-    addMsg('bot', data.reply || "I didn't catch that — try again!");
+    addMsg('bot', data.reply || "I didn't catch that, try again!");
   } catch(err) {
     setTyping(false);
     addMsg('bot', "Oops, had a glitch! Try again in a moment.");
@@ -2608,7 +2625,7 @@ document.addEventListener('keydown', e => { if (e.key==='Escape' && planiOpen) c
   const bot = document.getElementById('planiBot');
   if (!bot) return;
 
-  // Selectors ordered by priority — first match in viewport wins
+  // Selectors ordered by priority, first match in viewport wins
   const ANCHORS = [
     { sel: 'form',                   side: 'right', hint: "Need help with this form?" },
     { sel: '.btn-primary',           side: 'right', hint: "Ready to get started?" },
@@ -2791,9 +2808,9 @@ window.addEventListener('load',()=>{
 <script>
 (function() {
   const STEPS = [
-    { selector: '.side-logo, .logo', text: 'Welcome to IntelliPlan — your AI-powered study planner. Let\'s take a quick tour!', title: 'Welcome 👋' },
+    { selector: '.side-logo.logo', text: 'Welcome to IntelliPlan, your AI-powered study planner. Let\'s take a quick tour!', title: 'Welcome 👋' },
     { selector: 'a[href="/dashboard"].side-link, a[href="/dashboard"].nav-tab', text: 'Your Dashboard shows all your assignments, prioritized by urgency and due date.', title: 'Dashboard' },
-    { selector: 'a[href="/tutor"].side-link, a[href="/tutor"].nav-tab', text: 'Plani AI Tutor answers any question step by step — math, science, history, and more.', title: 'AI Tutor' },
+    { selector: 'a[href="/tutor"].side-link, a[href="/tutor"].nav-tab', text: 'Plani AI Tutor answers any question step by step, math, science, history, and more.', title: 'AI Tutor' },
     { selector: 'a[href="/scheduler"].side-link, a[href="/schedule"].side-link, a[href="/scheduler"].nav-tab', text: 'The Scheduler builds a personalized study plan around your free time and deadlines.', title: 'Scheduler' },
     { selector: 'a[href="/study"].side-link, a[href="/study"].nav-tab', text: 'Study & Learn uses spaced repetition and AI quizzes to help you actually retain material.', title: 'Study & Learn' },
     { selector: 'a[href="/gradebook"].side-link, a[href="/grademodel"].side-link, a[href="/gradebook"].nav-tab', text: 'The Grade Modeler shows exactly what scores you need on upcoming assignments to hit your target grade.', title: 'Grade Modeler' },
@@ -2849,7 +2866,7 @@ window.addEventListener('load',()=>{
     if (target) expandAncestorFolders(target);
     const hl = document.getElementById('tourHighlight');
     const tt = document.getElementById('tourTooltip');
-    document.getElementById('tourStepLabel').textContent = `Step ${_step + 1} of ${STEPS.length} — ${s.title}`;
+    document.getElementById('tourStepLabel').textContent = `Step ${_step + 1} of ${STEPS.length}, ${s.title}`;
     document.getElementById('tourText').textContent = s.text;
     document.getElementById('tourPrev').style.display = _step === 0 ? 'none' : '';
     document.getElementById('tourNext').textContent = _step === STEPS.length - 1 ? 'Finish' : 'Next →';
@@ -2875,7 +2892,7 @@ window.addEventListener('load',()=>{
       tt.style.display = 'block';
       tt.style.top = '50%'; tt.style.left = '50%';
       tt.style.transform = 'translate(-50%,-50%)';
-      // Fallback hint when this step's item isn't on the current page —
+      // Fallback hint when this step's item isn't on the current page, 
       // e.g. tour started from a route that doesn't include the sidebar item.
       const fallback = document.getElementById('tourText');
       if (fallback && !fallback.dataset.fallbackAdded) {
@@ -3004,7 +3021,7 @@ window.addEventListener('load',()=>{
     return inflight;
   }
 
-  // Public API — anywhere in the app can call to push fresh state to Lotus.
+  // Public API, anywhere in the app can call to push fresh state to Lotus.
   var broadcastTimer = null;
   window.intelliplanSyncSnapshot = function(opts) {
     var force = !!(opts && opts.force);
@@ -3040,7 +3057,7 @@ window.addEventListener('load',()=>{
     fetchSnapshot(true).then(function(snap) { if (snap) broadcast(snap); });
   });
 
-  // Visibility — re-sync when the tab comes back into focus.
+  // Visibility, re-sync when the tab comes back into focus.
   document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'visible') {
       window.intelliplanSyncSnapshot();
@@ -3064,7 +3081,7 @@ window.addEventListener('load',()=>{
     window.addEventListener(name, function() { window.intelliplanSyncSnapshot(); });
   });
 
-  // 2) Transparent fetch wrapper — when the app POSTs to a mutating
+  // 2) Transparent fetch wrapper, when the app POSTs to a mutating
   //    endpoint, we trigger a re-sync after it succeeds. This catches
   //    every legacy code path without needing to touch each one.
   var MUTATING_PATTERNS = [

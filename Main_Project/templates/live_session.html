@@ -128,7 +128,7 @@ let _audioOnly = {{ 'true' if session.audio_only else 'false' }};
 const _isOwner = {{ 'true' if session.is_owner else 'false' }};
 
 function buildRoomUrl(audioOnly) {
-  // Use Jitsi config hash to set defaults — joiners get the same state.
+  // Use Jitsi config hash to set defaults, joiners get the same state.
   // The extra flags below stop meet.jit.si from showing the "conference has
   // not yet started because no moderators have arrived" blocking screen for
   // attendees, and skip lobby/auth flows so the meeting UI is always reachable.
@@ -151,7 +151,7 @@ function buildRoomUrl(audioOnly) {
 
 function popoutMeeting() {
   // Minimal meeting-only popout. We pass the same config hash so audio/video
-  // permissions are preserved — the user shouldn't need to re-grant them.
+  // permissions are preserved, the user shouldn't need to re-grant them.
   const url = buildRoomUrl(_audioOnly);
   const features = 'noopener,noreferrer,width=1100,height=720,menubar=no,toolbar=no,location=no,status=no';
   const w = window.open(url, 'intelliplan_meet_' + SESS_ID, features);
@@ -161,7 +161,7 @@ function popoutMeeting() {
 
 function refreshFrame() {
   document.getElementById('liveFrame').src = buildRoomUrl(_audioOnly);
-  // Show waiting-room overlay after 12s if the iframe hasn't fully loaded —
+  // Show waiting-room overlay after 12s if the iframe hasn't fully loaded, 
   // this typically catches the meet.jit.si "no moderators" cold-start screen,
   // since that view leaves the iframe in a non-interactive state.
   clearTimeout(window._meetWaitTimer);
@@ -176,7 +176,7 @@ function retryMeeting() {
 }
 refreshFrame();
 document.getElementById('liveFrame').addEventListener('load', () => {
-  // Frame finished initial load — hide the auto wait overlay. The user can
+  // Frame finished initial load, hide the auto wait overlay. The user can
   // still trigger it manually via Retry if Jitsi later shows the moderator screen.
   setTimeout(() => {
     const ov = document.getElementById('meetingWaitOverlay');
@@ -187,7 +187,7 @@ document.getElementById('liveFrame').addEventListener('load', () => {
 
 function toggleMic() {
   // Jitsi exposes mic/cam toggles via its API; the simplest cross-browser
-  // path is to flip the iframe's URL hash & reload — that asks Jitsi to
+  // path is to flip the iframe's URL hash & reload, that asks Jitsi to
   // start with the new state. Users can still toggle individually
   // inside the meeting itself.
   const btn = document.getElementById('micBtn');
@@ -195,7 +195,7 @@ function toggleMic() {
   btn.classList.toggle('on', on);
   btn.classList.toggle('off-mic', !on);
   btn.textContent = on ? '🎤 Mic on' : '🎤 Mic off';
-  // No reload — user controls live mic from inside the iframe. This
+  // No reload, user controls live mic from inside the iframe. This
   // button is a UI affordance + UX cue.
 }
 

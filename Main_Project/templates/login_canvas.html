@@ -16,7 +16,7 @@
     {% if request.args.get('reason') == 'oauth_not_registered' %}
     <div class="login-error" style="background:rgba(217,119,6,0.12);border-color:rgba(217,119,6,0.4);color:#d97706;">
       <strong>One-click Canvas sign-in isn't available for this school yet.</strong><br>
-      Canvas requires each school to register IntelliPlan as a Developer Key. Until your school's admin does that, please paste a personal access token below — it works just as well.
+      Canvas requires each school to register IntelliPlan as a Developer Key. Until your school's admin does that, please paste a personal access token below, it works just as well.
       {% if request.args.get('desc') %}<br><span style="font-size:0.78rem;opacity:0.85;">Canvas said: {{ request.args.get('desc') }}</span>{% endif %}
     </div>
     {% endif %}
@@ -35,7 +35,7 @@
           Continue with Canvas
         </button>
         <div id="canvasOauthHint" style="font-size:0.78rem;color:var(--text-muted);text-align:center;">
-          Sign in through Canvas — no access token needed.
+          Sign in through Canvas, no access token needed.
         </div>
       </form>
     </div>
@@ -60,12 +60,12 @@
           if (data.available) {
             btn.disabled = false;
             btn.style.opacity = '1'; btn.style.cursor = 'pointer';
-            hint.textContent = 'Sign in through Canvas — no access token needed.';
+            hint.textContent = 'Sign in through Canvas, no access token needed.';
             hint.style.color = 'var(--text-muted)';
           } else {
             btn.disabled = true;
             btn.style.opacity = '0.55'; btn.style.cursor = 'not-allowed';
-            hint.innerHTML = "IntelliPlan isn't registered on this Canvas yet. Paste an access token below — it works on any Canvas.";
+            hint.innerHTML = "IntelliPlan isn't registered on this Canvas yet. Paste an access token below, it works on any Canvas.";
             hint.style.color = '#d97706';
           }
         } catch (e) {}
@@ -83,7 +83,7 @@
       <div class="form-group">
         <label class="form-label">Profile Name</label>
         <input type="text" name="profile_name" class="form-input" placeholder="e.g. School Canvas" />
-        <span class="form-hint">Optional — helps identify this account</span>
+        <span class="form-hint">Optional, helps identify this account</span>
       </div>
       <div class="form-group">
         <label class="form-label">Canvas URL</label>

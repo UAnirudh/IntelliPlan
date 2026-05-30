@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block page_title %}Deep Study Pipeline — IntelliPlan{% endblock %}
+{% block page_title %}Deep Study Pipeline, IntelliPlan{% endblock %}
 {% block meta_description %}A high-yield 3-step study system: Setup → Encoding → Database. Lock in, encode with voice AI, transform into long-term memory.{% endblock %}
 
 {% block head_extra %}
@@ -76,7 +76,7 @@
   font-size: 0.83rem; color: var(--text-muted); margin: 0 0 1.5rem;
 }
 
-/* ── STEP 0 — Ingestion ── */
+/* ── STEP 0, Ingestion ── */
 .ds-ingest-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
   background: var(--border);
@@ -84,7 +84,7 @@
   border-radius: var(--r-md); overflow: hidden;
 }
 @media (max-width: 760px) { .ds-ingest-grid { grid-template-columns: 1fr; } }
-.ds-drop, .ds-textwrap {
+.ds-drop.ds-textwrap {
   background: var(--bg); padding: 1.5rem;
   display: flex; flex-direction: column;
 }
@@ -95,7 +95,7 @@
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
 }
-.ds-drop:hover, .ds-drop.dragging {
+.ds-drop:hover.ds-drop.dragging {
   background: var(--accent-soft);
   border-color: var(--accent);
 }
@@ -155,7 +155,7 @@
   display: inline-flex; align-items: center; gap: 6px;
 }
 
-/* ── STEP 1 — Lock-In ── */
+/* ── STEP 1, Lock-In ── */
 .ds-check {
   display: flex; align-items: center; gap: 12px;
   padding: 14px 16px; border-radius: var(--r-md);
@@ -219,7 +219,7 @@
 }
 .ds-med-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 
-/* ── STEP 2 — Encoding (voice call UI) ── */
+/* ── STEP 2, Encoding (voice call UI) ── */
 .ds-call-shell {
   position: relative; padding: 2rem 1.5rem;
   background: radial-gradient(ellipse at center top, var(--accent-soft) 0%, var(--bg) 65%);
@@ -311,7 +311,7 @@
 .ds-tr-line.ai   { color: var(--accent); font-weight: 600; }
 .ds-tr-line strong { font-family: var(--font-ui); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.7; margin-right: 6px; }
 
-/* ── STEP 3 — Q&A Database ── */
+/* ── STEP 3, Q&A Database ── */
 .ds-db-grid {
   display: grid; grid-template-columns: 1fr 1.4fr; gap: 1rem;
 }
@@ -414,7 +414,7 @@
     <div class="ds-step-pill locked"  data-step="3"><div class="ds-step-num">3</div>Database</div>
   </div>
 
-  <!-- ════════ STEP 0 — INGESTION ════════ -->
+  <!-- ════════ STEP 0, INGESTION ════════ -->
   <section class="ds-pane" id="dsStep0">
     <h2>What are you studying today?</h2>
     <p class="ds-pane-sub">Drop a PDF, DOCX or TXT, paste your notes, or describe the topic. Plani extracts the source material for every step that follows.</p>
@@ -448,7 +448,7 @@
     </div>
   </section>
 
-  <!-- ════════ STEP 1 — LOCK-IN SETUP ════════ -->
+  <!-- ════════ STEP 1, LOCK-IN SETUP ════════ -->
   <section class="ds-pane hidden" id="dsStep1">
     <h2>Lock-in setup</h2>
     <p class="ds-pane-sub">Tick every box and finish the silence timer to unlock the encoding session. This eliminates context-switching before deep work begins.</p>
@@ -461,7 +461,7 @@
     </div>
 
     <div class="ds-meditate">
-      <div class="ds-med-label">Clear cognitive load — 10 min silence</div>
+      <div class="ds-med-label">Clear cognitive load, 10 min silence</div>
       <div class="ds-med-ring">
         <svg width="160" height="160" viewBox="0 0 160 160">
           <circle class="track" cx="80" cy="80" r="72"/>
@@ -485,9 +485,9 @@
     </div>
   </section>
 
-  <!-- ════════ STEP 2 — ENCODING ENGINE ════════ -->
+  <!-- ════════ STEP 2, ENCODING ENGINE ════════ -->
   <section class="ds-pane hidden" id="dsStep2">
-    <h2>Encoding engine — voice AI coach</h2>
+    <h2>Encoding engine, voice AI coach</h2>
     <p class="ds-pane-sub">Pick a mode. Plani listens to your explanation and pushes back when you drift from the technique.</p>
 
     <div style="text-align:center;">
@@ -540,7 +540,7 @@
     </div>
   </section>
 
-  <!-- ════════ STEP 3 — Q&A DATABASE ════════ -->
+  <!-- ════════ STEP 3, Q&A DATABASE ════════ -->
   <section class="ds-pane hidden" id="dsStep3">
     <h2>Active recall database</h2>
     <p class="ds-pane-sub">Transform passive source facts into active testing prompts. Sync the best ones to your long-term spaced repetition queue or Notion.</p>
@@ -573,7 +573,7 @@
 
 <script>
 /* ════════════════════════════════════════════════════════════════
-   Deep Study Pipeline — state machine
+   Deep Study Pipeline, state machine
    ════════════════════════════════════════════════════════════════ */
 const DS = {
   step: 0,
@@ -660,7 +660,7 @@ function dsRefreshLockStatus() {
   const msg = document.getElementById('dsLockStatus');
   if (!allChecked) msg.textContent = `Tick all 4 items above (${Object.values(DS.checklist).filter(Boolean).length}/4 done).`;
   else if (!DS.medDone) msg.textContent = 'Finish the silence timer to unlock the encoding engine.';
-  else msg.textContent = '✓ Lock-in complete — encoding engine unlocked.';
+  else msg.textContent = '✓ Lock-in complete, encoding engine unlocked.';
 }
 
 function dsMedToggle() {
@@ -733,8 +733,8 @@ function dsCallStart() {
 
   // AI opens the conversation
   const opening = DS.callMode === 'feynman'
-    ? `Hi! Let's do a Feynman pass on ${DS.topic}. Explain the core mechanism to me like I'm 10 years old — no jargon. Start whenever you're ready.`
-    : `Brain dump time — blurt out everything you remember about ${DS.topic}. Don't censor yourself. Go.`;
+    ? `Hi! Let's do a Feynman pass on ${DS.topic}. Explain the core mechanism to me like I'm 10 years old, no jargon. Start whenever you're ready.`
+    : `Brain dump time, blurt out everything you remember about ${DS.topic}. Don't censor yourself. Go.`;
   dsAIspeak(opening);
 
   // Start listening after AI finishes
@@ -798,10 +798,10 @@ async function dsAIReply(userUtterance) {
       }),
     });
     const data = await res.json();
-    const reply = data.reply || 'Keep going — I\'m listening.';
+    const reply = data.reply || 'Keep going, I\'m listening.';
     dsAIspeak(reply);
   } catch (e) {
-    dsAddLine('ai', 'Hmm, I lost the connection. Keep talking — I\'ll catch up.');
+    dsAddLine('ai', 'Hmm, I lost the connection. Keep talking, I\'ll catch up.');
   }
 }
 

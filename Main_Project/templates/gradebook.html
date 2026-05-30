@@ -41,8 +41,8 @@
           <div>
             <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:4px;">Modeled</div>
             <div style="display:flex; align-items:baseline; gap:8px;">
-              <span id="modeledPct" style="font-family:'DM Serif Display',serif; font-size:2.2rem; color:var(--accent);">—</span>
-              <span id="modeledLetter" class="priority-badge" style="background:var(--accent-soft); color:var(--accent);">—</span>
+              <span id="modeledPct" style="font-family:'DM Serif Display',serif; font-size:2.2rem; color:var(--accent);"></span>
+              <span id="modeledLetter" class="priority-badge" style="background:var(--accent-soft); color:var(--accent);"></span>
             </div>
           </div>
         </div>
@@ -119,7 +119,7 @@ function getAssignmentKey(a) {
   return a?.id ?? a?.title ?? '';
 }
 
-/* Robust grading detection — Canvas doesn't emit `graded`, StudentVue sometimes
+/* Robust grading detection, Canvas doesn't emit `graded`, StudentVue sometimes
    marks a graded row as "Not Graded" while still showing a percent. Treat an
    assignment as graded only when we have a real numeric points_earned AND
    the display label doesn't explicitly say it's pending. This keeps the
@@ -130,7 +130,7 @@ function isGraded(a) {
   const earned = safeNum(a.points_earned);
   if (earned === null) return false;
   const label = String(a.display_score ?? '').trim().toLowerCase();
-  const pendingLabels = ['', 'not graded', 'not due', 'missing', 'pending', '-', '—'];
+  const pendingLabels = ['', 'not graded', 'not due', 'missing', 'pending', '-', ', '];
   if (pendingLabels.includes(label)) return false;
   return true;
 }
@@ -303,7 +303,7 @@ function renderCategoryTabs(course) {
   const tabs = document.getElementById('categoryTabs');
   tabs.innerHTML = '';
 
-  const categories = ['all', ...new Set(course.assignments.map(a => a.category).filter(Boolean))];
+  const categories = ['all'...new Set(course.assignments.map(a => a.category).filter(Boolean))];
 
   categories.forEach(cat => {
     const btn = document.createElement('button');
@@ -350,7 +350,7 @@ function renderBreakdown(assignments) {
       </div>` : '';
 
     // Cap the slider/numeric input at the assignment's points_possible so
-    // a user can't drag a score above 100% — those grades aren't real.
+    // a user can't drag a score above 100%, those grades aren't real.
     // If the school awards extra credit on a specific assignment they
     // can still type the value, but the slider stops at 100%.
     const maxPossibleForInput = possible !== null && possible > 0
@@ -363,7 +363,7 @@ function renderBreakdown(assignments) {
         <div class="card-title">${a.title} ${isModified ? '<span style="font-size:0.7rem;color:var(--accent);font-weight:500;">· modified</span>' : ''}</div>
         <div class="card-meta">
           ${a.due_date ? `<span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> ${a.due_date}</span>` : ''}
-          <span class="meta-item" style="background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:0.72rem;">${a.category || '—'}</span>
+          <span class="meta-item" style="background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:0.72rem;">${a.category || ', '}</span>
         </div>
         ${scoreBar}
       </div>
@@ -387,7 +387,7 @@ function renderBreakdown(assignments) {
               font-size:0.85rem; text-align:center;"
             oninput="updatePossible('${key}', this.value);" />
 
-          ${pct !== null ? `<span class="score-pct" style="font-size:0.82rem; font-weight:600; color:var(--text-primary);">${pct}%</span>` : `<span class="score-pct" style="font-size:0.82rem; font-weight:600; color:var(--text-muted);">—</span>`}
+          ${pct !== null ? `<span class="score-pct" style="font-size:0.82rem; font-weight:600; color:var(--text-primary);">${pct}%</span>` : `<span class="score-pct" style="font-size:0.82rem; font-weight:600; color:var(--text-muted);"></span>`}
         </div>
 
         ${possible !== null ? `
@@ -470,7 +470,7 @@ function syncAssignmentCard(id) {
     : null;
 
   if (pctDisplay) {
-    pctDisplay.textContent = pct !== null ? `${pct}%` : '—';
+    pctDisplay.textContent = pct !== null ? `${pct}%` : ', ';
     pctDisplay.style.color = pct !== null ? 'var(--text-primary)' : 'var(--text-muted)';
   }
 
@@ -582,7 +582,7 @@ function updatePossible(id, value) {
   recalculateModeled();
 }
 
-/* Realistic Forecast — fill pending assignments with the user's current
+/* Realistic Forecast, fill pending assignments with the user's current
    per-category average score (NOT 100%). If you average 87% on tests so
    far, the modeler now assumes 87% on future tests, not a perfect 100%
    which is mathematically possible but historically unrealistic.
@@ -653,7 +653,7 @@ function forecastRealistic() {
             </svg>
           </div>
           <div class="empty-title">All caught up</div>
-          <p>Every assignment in this course is already graded — there's nothing pending to forecast. Switch courses or wait for the next assignment to drop.</p>
+          <p>Every assignment in this course is already graded, there's nothing pending to forecast. Switch courses or wait for the next assignment to drop.</p>
         </div>`;
     }
     return;
@@ -795,7 +795,7 @@ function runModel() {
   // ── Compute the maximum reachable weighted grade ─────────────
   // For each category that has weight, the best possible category
   // average is (earned + pendingPossible) / (gradedPossible + pendingPossible)
-  // — i.e. perfect scores on everything still pending. The overall max
+  //, i.e. perfect scores on everything still pending. The overall max
   // grade is the weight-normalised sum of those per-category bests.
   // If your category is fully graded, its average is locked in and that
   // limits the overall grade regardless of what's still pending elsewhere.
@@ -834,11 +834,11 @@ function runModel() {
     if (neededFromCat !== null) {
       lines.push(`<strong>${cat.type}</strong> (${cat.weight}% of grade): need <strong>${Math.max(0, neededFromCat).toFixed(1)}%</strong> avg on ${d.pendingAssignments.length} remaining assignment${d.pendingAssignments.length !== 1 ? 's' : ''}${neededFromCat > 100 ? ' <span style="color:var(--high)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px"><use href="#i-warning"/></svg> not possible</span>' : ''}`);
     } else {
-      const actual = currentWeightedPct !== null ? (currentWeightedPct * 100).toFixed(1) : '—';
+      const actual = currentWeightedPct !== null ? (currentWeightedPct * 100).toFixed(1) : ', ';
       const lockedNote = currentWeightedPct !== null && currentWeightedPct * 100 < target
-        ? ` <span style="color:var(--high)">— locked in below target, caps overall at ${(currentWeightedPct * 100).toFixed(1)}%</span>`
+        ? ` <span style="color:var(--high)">locked in below target, caps overall at ${(currentWeightedPct * 100).toFixed(1)}%</span>`
         : '';
-      lines.push(`<strong>${cat.type}</strong>: all graded — currently at ${actual}%${lockedNote}`);
+      lines.push(`<strong>${cat.type}</strong>: all graded, currently at ${actual}%${lockedNote}`);
     }
   });
 
@@ -846,7 +846,7 @@ function runModel() {
   result.style.display = 'block';
   const headline = achievable
     ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg> Target of ${target}% is achievable <span style="color:var(--text-muted);font-weight:400;">(max possible: ${maxPossiblePct.toFixed(2)}%)</span>`
-    : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg> Target of ${target}% isn't reachable — your max achievable is <strong>${maxPossiblePct.toFixed(2)}%</strong>`;
+    : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg> Target of ${target}% isn't reachable, your max achievable is <strong>${maxPossiblePct.toFixed(2)}%</strong>`;
   result.innerHTML = `
     <div style="margin-bottom:8px; font-weight:600; color:${achievable ? 'var(--low)' : 'var(--high)'}; display:flex; align-items:center; gap:6px;">
       ${headline}

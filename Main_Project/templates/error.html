@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-{# Standalone error page — intentionally does NOT extend base.html so a
+{# Standalone error page, intentionally does NOT extend base.html so a
    broken context processor (e.g. inject_pro / inject_auth blowing up
    during a partial DB migration) can never cascade into the error
    render itself. If this template fails to find a variable, Jinja2's

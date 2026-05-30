@@ -331,7 +331,7 @@
     <div class="integration-row" id="themes" style="flex-direction:column;align-items:flex-start;gap:14px;">
       <div style="width:100%;">
         <div class="integration-label">Color theme</div>
-        <div class="integration-sub">Pick a palette — works with both light and dark mode</div>
+        <div class="integration-sub">Pick a palette, works with both light and dark mode</div>
       </div>
       <div id="themeSwatches" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;width:100%;">
         <!-- Swatches injected by script -->
@@ -440,9 +440,9 @@
       <div class="sb-cust-help">
         <strong style="color:var(--text-primary);">How it works</strong>
         <ul>
-          <li><strong>Pinned</strong> — appears at the top of the sidebar.</li>
-          <li><strong>Plan / Toolkit</strong> — tucked inside the collapsible folder of the same name.</li>
-          <li><strong>Hidden</strong> — completely removed from the sidebar (still accessible by URL).</li>
+          <li><strong>Pinned</strong>appears at the top of the sidebar.</li>
+          <li><strong>Plan / Toolkit</strong>tucked inside the collapsible folder of the same name.</li>
+          <li><strong>Hidden</strong>completely removed from the sidebar (still accessible by URL).</li>
         </ul>
         <span id="navCustomSaved" style="font-size:0.8rem;color:var(--low);"></span>
       </div>
@@ -452,12 +452,12 @@
   <div class="settings-section">
     <div class="settings-section-title">Phone &amp; reminders</div>
     <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.9rem;">
-      Get a heads-up before assignments are due — by text, browser push, or both. We never share or sell your phone number.
+      Get a heads-up before assignments are due, by text, browser push, or both. We never share or sell your phone number.
     </div>
     <div class="form-group" style="margin-bottom:0.75rem;">
       <label class="form-label" for="phoneInput">Phone number</label>
       <input type="tel" id="phoneInput" class="form-input" placeholder="+1 555 123 4567" autocomplete="tel">
-      <span class="form-hint">Format any way — we'll normalise to +1… for US numbers automatically.</span>
+      <span class="form-hint">Format any way, we'll normalise to +1… for US numbers automatically.</span>
     </div>
     <div class="form-group" style="margin-bottom:0.75rem;">
       <label class="form-label" for="carrierSelect">Mobile carrier</label>
@@ -507,7 +507,7 @@
   <div class="settings-section">
     <div class="settings-section-title">Refer a friend</div>
     <div id="refSub" style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.75rem;">
-      Share your link — both of you get IntelliPlan Pro time when they sign up.
+      Share your link, both of you get IntelliPlan Pro time when they sign up.
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <input type="text" id="refLink" class="form-input" readonly style="flex:1;min-width:240px;font-family:'DM Mono',monospace;font-size:0.84rem;" value="Loading...">
@@ -523,7 +523,7 @@
     <ul style="font-size:0.86rem;color:var(--text-secondary);line-height:1.7;margin:0 0 1rem 0;padding-left:1.2rem;">
       <li>Unlimited lesson recordings + auto-summary</li>
       <li>Unlimited study groups + private rooms</li>
-      <li>Writing Assistant, Math Explainer, Task Extractor — no daily caps</li>
+      <li>Writing Assistant, Math Explainer, Task Extractor, no daily caps</li>
       <li>Public REST API + MCP server access</li>
       <li>Priority Plani replies</li>
     </ul>
@@ -808,7 +808,7 @@ function renderGcalStatus(d) {
   el.innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
       <div style="display:flex;align-items:center;gap:8px;">
-        <span class="connected-badge" style="opacity:0.6;cursor:not-allowed;" title="Already connected — use Add account for a second one">Connected</span>
+        <span class="connected-badge" style="opacity:0.6;cursor:not-allowed;" title="Already connected, use Add account for a second one">Connected</span>
         <button onclick="connectGoogleAdd()" class="btn-secondary" style="padding:6px 12px;font-size:0.78rem;cursor:pointer;">+ Add account</button>
       </div>
       ${rows}
@@ -863,7 +863,7 @@ function saveAnimSetting(key, value) {
   if (t) t.checked = localStorage.getItem('ip_anim_session') !== 'false';
 })();
 
-/* ── Settings theme toggle — delegates to window.setThemeMode in base.html ── */
+/* ── Settings theme toggle, delegates to window.setThemeMode in base.html ── */
 (function initThemeToggle() {
   const t = document.getElementById('themeToggleSettings');
   const label = document.getElementById('themeSettingsLabel');
@@ -1361,7 +1361,7 @@ function upgradePro() {
     });
 }
 
-// Stripe Checkout returns to /settings?pro=success — auto-refresh the
+// Stripe Checkout returns to /settings?pro=success, auto-refresh the
 // Pro card when we see that query param.
 if (new URLSearchParams(location.search).get('pro') === 'success') {
   setTimeout(refreshPro, 800);
@@ -1480,12 +1480,12 @@ async function chooseNotionDatabase() {
             <span style="font-size:0.74rem;color:var(--text-muted);">Use →</span>
           </button>`).join('')
       : `<div style="padding:10px 12px;border-radius:10px;background:var(--accent-soft);color:var(--text-secondary);font-size:0.86rem;">
-           No databases are shared with this integration yet. Open a database in Notion → <strong>•••</strong> → <strong>Connections</strong> → <strong>IntelliPlan</strong>, then come back and refresh.
+           No databases are shared with this integration yet. Open a database in Notion → <strong>•••</strong> → <strong>Connections</strong> → <strong>IntelliPlan</strong>then come back and refresh.
          </div>`;
 
     const pageOpts = pages.length
       ? `<select id="ipNotionParent" style="width:100%;padding:8px;border:1px solid var(--border-strong);border-radius:8px;background:var(--bg);color:var(--text-primary);">${pages.map(p => `<option value="${p.id}">${(p.name || 'Untitled').replace(/</g,'&lt;')}</option>`).join('')}</select>`
-      : `<div style="font-size:0.84rem;color:var(--text-muted);">Share a page with IntelliPlan in Notion first, then refresh — we'll list it here so you can pick where the new database lives.</div>`;
+      : `<div style="font-size:0.84rem;color:var(--text-muted);">Share a page with IntelliPlan in Notion first, then refresh, we'll list it here so you can pick where the new database lives.</div>`;
 
     _notionModal(`
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">

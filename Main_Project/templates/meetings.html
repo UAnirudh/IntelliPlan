@@ -129,7 +129,7 @@
   }
   .modal h2 { font-family: var(--font-display); font-size: 1.2rem; margin-bottom: 1rem; }
   .modal label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); margin: 8px 0 4px; }
-  .modal input, .modal select {
+  .modal input.modal select {
     width: 100%; padding: 10px 12px;
     border: 1px solid var(--border-strong); border-radius: var(--r-sm);
     background: var(--bg); color: var(--text-primary);
@@ -142,7 +142,7 @@
 {% block content %}
 <div class="connect-hero">
   <h1>Meetings</h1>
-  <p>One-click launch for Microsoft Teams, Zoom, Google Meet, and more — plus a personal directory of class meeting links so you never dig through emails again.</p>
+  <p>One-click launch for Microsoft Teams, Zoom, Google Meet, and more, plus a personal directory of class meeting links so you never dig through emails again.</p>
 </div>
 
 <div class="section-title">Quick launch</div>
@@ -236,7 +236,7 @@
   <div class="modal">
     <h2 id="modalHeading">Save a meeting</h2>
     <label for="m-name">Name</label>
-    <input type="text" id="m-name" placeholder="e.g. AP Calc — Period 3">
+    <input type="text" id="m-name" placeholder="e.g. AP Calc, Period 3">
     <label for="m-url">Meeting URL</label>
     <input type="url" id="m-url" placeholder="https://teams.microsoft.com/…">
     <label for="m-platform">Platform</label>

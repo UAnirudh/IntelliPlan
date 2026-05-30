@@ -8,7 +8,7 @@
 .mobile-nav-drawer.open { left:0; }
 .mobile-nav-inner { display:flex; flex-direction:column; height:100%; }
 .mobile-nav-link { display:flex; align-items:center; gap:12px; padding:12px 1.25rem; font-size:0.92rem; font-weight:500; color:var(--text-secondary); text-decoration:none; transition:background 0.13s, color 0.13s; }
-.mobile-nav-link:hover, .mobile-nav-link.active { background:var(--accent-soft); color:var(--accent); }
+.mobile-nav-link:hover.mobile-nav-link.active { background:var(--accent-soft); color:var(--accent); }
 @media (max-width: 720px) { .mobile-top-nav { display:flex; } }
 </style>
 
@@ -52,7 +52,7 @@
       <div>
         <div style="font-family:var(--font-ui);font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);margin-bottom:6px;">Welcome to IntelliPlan</div>
         <h2 style="font-family:var(--font-display);font-size:1.65rem;color:var(--text-primary);margin:0;">Let's set up your study profile</h2>
-        <p style="margin:0.5rem 0 0;color:var(--text-secondary);font-size:0.92rem;">Plani uses this to personalise every reply, schedule, and study plan. Takes about 60 seconds — you can edit anything later in Settings.</p>
+        <p style="margin:0.5rem 0 0;color:var(--text-secondary);font-size:0.92rem;">Plani uses this to personalise every reply, schedule, and study plan. Takes about 60 seconds, you can edit anything later in Settings.</p>
       </div>
       <button onclick="dismissOnb()" aria-label="Skip" style="background:none;border:none;color:var(--text-muted);font-size:1.4rem;cursor:pointer;line-height:1;">×</button>
     </div>
@@ -206,7 +206,7 @@
     btn.disabled = true; btn.textContent = 'Saving...';
     fetch('/identity', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(_onbPayload(true)) })
       .then(() => closeOnb())
-      .catch(() => { btn.disabled = false; btn.textContent = 'Finish'; alert('Could not save — try again.'); });
+      .catch(() => { btn.disabled = false; btn.textContent = 'Finish'; alert('Could not save, try again.'); });
   }
   function dismissOnb() {
     // Save partial info but mark completed so we don't nag again.
@@ -304,7 +304,7 @@
     <div class="live-emoji">🎙️</div>
     <div class="chest-body">
       <div class="chest-title">Start Live Session</div>
-      <div class="chest-sub">Invite friends — audio or video, share materials live</div>
+      <div class="chest-sub">Invite friends, audio or video, share materials live</div>
     </div>
     <span class="chest-cta accent">Start →</span>
   </button>
@@ -313,7 +313,7 @@
 <style>
 .dash-chest-row { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.25rem; }
 @media (max-width:700px){ .dash-chest-row{ grid-template-columns:1fr; } }
-.dash-chest-card, .dash-live-card {
+.dash-chest-card.dash-live-card {
   display:flex; align-items:center; gap:14px;
   padding:1rem 1.2rem; border-radius:16px;
   background:linear-gradient(135deg, color-mix(in srgb, #d97706 12%, var(--bg-card)), var(--bg-card) 60%);
@@ -326,7 +326,7 @@
   background:linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, var(--bg-card)), var(--bg-card) 60%);
   border-color:color-mix(in srgb, var(--accent) 25%, var(--border));
 }
-.dash-chest-card:hover, .dash-live-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-hover); }
+.dash-chest-card:hover.dash-live-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-hover); }
 .dash-chest-card[disabled] { opacity:0.55; cursor:not-allowed; transform:none !important; }
 .chest-emoji {
   font-size:42px; line-height:1;
@@ -499,7 +499,7 @@
     .dash-streak-right { grid-column:1/-1; flex-direction:row; justify-content:space-between; align-items:center; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .dash-flame-emoji, .dash-flame-aura, .dash-flame-spark, .dash-week-day.today.studied .dash-week-dot { animation:none !important; }
+    .dash-flame-emoji.dash-flame-aura.dash-flame-spark.dash-week-day.today.studied .dash-week-dot { animation:none !important; }
   }
 </style>
 
@@ -602,7 +602,7 @@
     <!-- Status / results -->
     <div id="syllabusStatus" style="display:none; margin-top:1rem; font-size:0.84rem; color:var(--text-muted); text-align:center;"></div>
     <div id="syllabusResults" style="display:none; margin-top:1rem;">
-      <div style="font-family:var(--font-ui); font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); margin-bottom:8px;">Extracted assignments — select which to add:</div>
+      <div style="font-family:var(--font-ui); font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); margin-bottom:8px;">Extracted assignments, select which to add:</div>
       <div id="syllabusResultList" style="display:flex; flex-direction:column; gap:6px; max-height:280px; overflow-y:auto;"></div>
       <div style="display:flex; gap:8px; margin-top:1.25rem; justify-content:flex-end;">
         <button onclick="closeSyllabusModal()" class="btn-secondary" style="padding:9px 18px; font-size:0.84rem;">Cancel</button>
@@ -1105,7 +1105,7 @@ async function submitFeedback(save) {
     await fetch('/dismiss', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ title: task.title, ...task })
+      body: JSON.stringify({ title: task.title...task })
     });
   }
   if (notificationsSilenced()) {
@@ -1141,7 +1141,7 @@ async function loadDashboard() {
   _unifiedTasks = tasksRes;
   _gcalConnected = calRes.connected;
 
-  const allDashTasks = [...(tasksRes.overdue||[]), ...(tasksRes.today||[]), ...(tasksRes.upcoming||[])];
+  const allDashTasks = [...(tasksRes.overdue||[])...(tasksRes.today||[])...(tasksRes.upcoming||[])];
   autoDashMarkTests(allDashTasks);
 
   updateSubtitle(tasksRes);
@@ -1268,7 +1268,7 @@ async function exportScheduleToCal() {
         // Check overlap with existing events on same date
         const dayEvents = busyTimes.filter(e => e.start && e.start.startsWith(day.date));
         if (dayEvents.length === 0) return true;
-        // Simple check — include block (server handles detailed overlap)
+        // Simple check, include block (server handles detailed overlap)
         return true;
       })
     }));
@@ -1392,7 +1392,7 @@ function dismissTask(e, title, btn) {
     openFeedbackModal(taskData, btn.closest('.notion-card'));
     return;
   }
-  // Just dismiss without feedback — with error handling so the button
+  // Just dismiss without feedback, with error handling so the button
   // never silently does nothing if the request fails.
   const card = btn.closest('.notion-card');
   btn.disabled = true;
@@ -1414,13 +1414,13 @@ function dismissTask(e, title, btn) {
       } else {
         if (card) card.style.opacity = '1';
         btn.disabled = false;
-        alert(d && d.message ? d.message : 'Could not dismiss — try again.');
+        alert(d && d.message ? d.message : 'Could not dismiss, try again.');
       }
     })
     .catch(() => {
       if (card) card.style.opacity = '1';
       btn.disabled = false;
-      alert('Network error — could not dismiss.');
+      alert('Network error, could not dismiss.');
     });
 }
 
@@ -1631,7 +1631,7 @@ async function saveEditTask() {
   if (source === 'manual' && id) {
     await fetch('/tasks/manual/update', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ id, ...updates })
+      body: JSON.stringify({ id...updates })
     });
   } else if (source === 'notion' && notionId) {
     await fetch('/notion/tasks/update', {
@@ -1772,7 +1772,7 @@ async function loadSilenceState() {
 
 // ── STREAK WIDGET (Duolingo-style) ────────────────────────────
 // Fills in the live data on the existing .dash-streak markup instead
-// of rebuilding it — keeps animations + the link wrapper intact.
+// of rebuilding it, keeps animations + the link wrapper intact.
 async function loadStreak() {
   let data;
   try { data = await fetch('/study/streak').then(r => r.json()); }
@@ -1829,7 +1829,7 @@ function _renderChestClaimedState() {
     emoji.textContent = '🌙';
     emoji.style.animation = 'none';
   }
-  if (sub) sub.textContent = 'Already claimed — come back tomorrow.';
+  if (sub) sub.textContent = 'Already claimed, come back tomorrow.';
   if (cta) cta.textContent = 'Locked';
 }
 
@@ -1870,7 +1870,7 @@ function claimDaily() {
       } else if (d.status === 'ok' && !d.claimed) {
         _renderChestClaimedState();
       } else {
-        sub.textContent = d.message || 'Could not claim — try again.';
+        sub.textContent = d.message || 'Could not claim, try again.';
         cta.textContent = 'Retry';
         btn.disabled = false;
       }
@@ -1928,7 +1928,7 @@ function openAssignDetail(title, course, dueDate, priority, notes) {
   }
   // Due date field
   document.getElementById('adDueDate').value = dueDate || '';
-  // Notes — fetch existing from server
+  // Notes, fetch existing from server
   document.getElementById('adNotes').value = notes || '';
   document.getElementById('adSaveStatus').style.display = 'none';
   fetch('/api/assignment/notes?title=' + encodeURIComponent(title))

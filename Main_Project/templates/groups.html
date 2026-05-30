@@ -3,7 +3,7 @@
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
   <div>
     <h1 class="page-title">Study Groups {% if not is_pro %}<span style="display:inline-block;margin-left:6px;font-family:var(--font-ui);font-size:0.62rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:999px;vertical-align:middle;">Free · 1 owned</span>{% endif %}</h1>
-    <p class="page-subtitle">Find a group by topic, level, and study style — or start your own. Anyone can join via your invite link.</p>
+    <p class="page-subtitle">Find a group by topic, level, and study style, or start your own. Anyone can join via your invite link.</p>
   </div>
   <button class="btn-primary" onclick="openCreate()" style="padding:10px 22px;border:none;cursor:pointer;">+ Create Study Group</button>
 </div>
@@ -203,7 +203,7 @@ function renderDetail(g) {
     </div>`).join('') || '<div style="color:var(--text-muted);font-size:0.86rem;">No members yet.</div>';
 
   const nextMeeting = g.next_meeting_at
-    ? `<div><strong>Next meeting:</strong> ${esc(new Date(g.next_meeting_at).toLocaleString())} ${g.next_meeting_topic ? '— ' + esc(g.next_meeting_topic) : ''}</div>`
+    ? `<div><strong>Next meeting:</strong> ${esc(new Date(g.next_meeting_at).toLocaleString())} ${g.next_meeting_topic ? ', ' + esc(g.next_meeting_topic) : ''}</div>`
     : `<div style="color:var(--text-muted);">No meeting scheduled.</div>`;
 
   document.getElementById('grDetailContent').innerHTML = `
@@ -259,7 +259,7 @@ function renderDetail(g) {
       <div style="display:flex;flex-direction:column;gap:1.25rem;">
         <div class="gr-panel">
           <div class="gr-panel-title">Shared Notes</div>
-          <textarea id="grNotes" class="notes-area" ${g.is_member?'':'disabled'} placeholder="${g.is_member?'Take notes together — saved when you click Save':'Join this group to take shared notes.'}">${esc(g.shared_notes||'')}</textarea>
+          <textarea id="grNotes" class="notes-area" ${g.is_member?'':'disabled'} placeholder="${g.is_member?'Take notes together, saved when you click Save':'Join this group to take shared notes.'}">${esc(g.shared_notes||'')}</textarea>
           ${g.is_member ? `<button onclick="saveNotes(${g.id})" class="btn-secondary" style="margin-top:8px;padding:8px 16px;cursor:pointer;">Save notes</button>` : ''}
         </div>
 

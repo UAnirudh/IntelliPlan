@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block page_title %}AP &amp; Exam Library — IntelliPlan{% endblock %}
+{% block page_title %}AP &amp; Exam Library, IntelliPlan{% endblock %}
 {% block meta_description %}Curated AP exam prep, practice questions, and ready-made flashcard sets for every AP course and standardized test.{% endblock %}
 
 {% block head_extra %}
@@ -22,7 +22,7 @@
   color: var(--text-muted); cursor: pointer;
   transition: all 0.13s;
 }
-.lib-filter-btn.active, .lib-filter-btn:hover {
+.lib-filter-btn.active.lib-filter-btn:hover {
   background: var(--accent); border-color: var(--accent); color: #fff;
 }
 
@@ -98,7 +98,7 @@
   text-transform: uppercase; letter-spacing: 0.08em;
   color: var(--text-muted); margin: 0 0 10px;
 }
-.lib-outline-item, .lib-frq-item, .lib-flash-item {
+.lib-outline-item.lib-frq-item.lib-flash-item {
   padding: 10px 12px; background: var(--bg); border-radius: var(--r-sm);
   font-size: 0.85rem; line-height: 1.5; margin-bottom: 6px;
 }
@@ -198,7 +198,7 @@ const COURSES = [
   },
   {
     id: 'apush', cat: 'ap-social', name: 'AP U.S. History',
-    desc: 'American history from 1491 to the present — themes, eras, and document analysis.',
+    desc: 'American history from 1491 to the present, themes, eras, and document analysis.',
     cards: 175, frqs: 24,
     outline: ['1491-1607: Pre-Columbian to early colonization','1607-1754: Colonial America','1754-1800: Revolution and the new nation','1800-1848: Antebellum era','1844-1877: Civil War and Reconstruction','1865-1898: Industrial America','1890-1945: Progressive Era through WWII','1945-1980: Cold War and civil rights','1980-present: Modern era'],
     frq: ['Evaluate the extent to which the American Revolution fostered changes in American society from 1775 to 1800.','Compare the goals and outcomes of Reconstruction (1865–1877) with the Civil Rights Movement (1954–1968).','Analyze the impact of the New Deal on the role of the federal government.'],
@@ -238,11 +238,11 @@ const COURSES = [
   },
   {
     id: 'act', cat: 'standardized', name: 'ACT Prep',
-    desc: 'English, Math, Reading, Science — plus the optional essay.',
+    desc: 'English, Math, Reading, Science, plus the optional essay.',
     cards: 180, frqs: 28,
     outline: ['English: usage/mechanics and rhetorical skills','Math: pre-algebra through trigonometry','Reading: prose fiction, social science, humanities, natural science','Science: data representation, research summaries, conflicting viewpoints'],
     frq: ['Which choice best maintains the tone of the passage?','If 2x + 5 = 17, what is x?','Based on Figure 2, what happens to enzyme activity above 40°C?'],
-    flash: [{q:'Area of a circle',a:'A = π·r²'},{q:'SOHCAHTOA',a:'sin=opp/hyp, cos=adj/hyp, tan=opp/adj'},{q:'Subject-verb agreement',a:'Singular subjects take singular verbs; the verb must agree with the true subject, not interrupting phrases'},{q:'ACT Science strategy',a:'Read the questions first, then go back to charts/figures — skim the passage'}],
+    flash: [{q:'Area of a circle',a:'A = π·r²'},{q:'SOHCAHTOA',a:'sin=opp/hyp, cos=adj/hyp, tan=opp/adj'},{q:'Subject-verb agreement',a:'Singular subjects take singular verbs; the verb must agree with the true subject, not interrupting phrases'},{q:'ACT Science strategy',a:'Read the questions first, then go back to charts/figures, skim the passage'}],
   },
 ];
 

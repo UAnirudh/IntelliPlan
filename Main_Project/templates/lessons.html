@@ -3,7 +3,7 @@
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
   <div>
     <h1 class="page-title">Lesson Library {% if not is_pro %}<span style="display:inline-block;margin-left:6px;font-family:var(--font-ui);font-size:0.62rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:999px;vertical-align:middle;">Free · 3 lessons</span>{% endif %}</h1>
-    <p class="page-subtitle">Upload class recordings — IntelliPlan summarises each one for revision.</p>
+    <p class="page-subtitle">Upload class recordings, IntelliPlan summarises each one for revision.</p>
   </div>
   <button class="btn-primary" onclick="openUpload()" style="padding:10px 22px;border:none;cursor:pointer;">+ Upload Lesson</button>
 </div>
@@ -21,7 +21,7 @@
 .lesson-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:1.25rem; }
 .lesson-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); padding:0; box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:hidden; animation:fadeUp 0.3s var(--ease-out) both; }
 .lesson-media { width:100%; aspect-ratio:16/9; background:#000; display:flex; align-items:center; justify-content:center; }
-.lesson-media video, .lesson-media audio { width:100%; height:100%; object-fit:cover; }
+.lesson-media video.lesson-media audio { width:100%; height:100%; object-fit:cover; }
 .lesson-body { padding:1rem 1.1rem; display:flex; flex-direction:column; gap:8px; flex:1; }
 .lesson-title { font-family:var(--font-display); font-size:1.1rem; color:var(--text-primary); line-height:1.25; }
 .lesson-meta { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:0.74rem; color:var(--text-muted); }
@@ -69,7 +69,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">Transcript (optional, paste for better summary)</label>
-        <textarea name="transcript" rows="5" class="form-input" placeholder="Paste a transcript if you have one — the summary will use it for accurate notes."></textarea>
+        <textarea name="transcript" rows="5" class="form-input" placeholder="Paste a transcript if you have one, the summary will use it for accurate notes."></textarea>
       </div>
       <button type="submit" class="btn-primary" id="upBtn" style="padding:12px;border:none;cursor:pointer;">Upload & summarise</button>
     </form>
@@ -107,7 +107,7 @@ function loadLessons() {
               ${l.course ? `<span>· ${esc(l.course)}</span>` : ''}
               ${tagsHtml}
             </div>
-            <div class="lesson-summary">${(l.summary || '').trim() ? esc(l.summary) : '<em style=\"color:var(--text-muted);\">Summary not ready yet — try refresh.</em>'}</div>
+            <div class="lesson-summary">${(l.summary || '').trim() ? esc(l.summary) : '<em style=\"color:var(--text-muted);\">Summary not ready yet, try refresh.</em>'}</div>
             <div style="display:flex;gap:6px;margin-top:6px;">
               <button onclick="resumm(${l.id})" style="font-size:0.72rem;padding:5px 11px;border:1px solid var(--border);background:var(--bg);border-radius:999px;cursor:pointer;color:var(--text-secondary);">Refresh summary</button>
               <button onclick="delLesson(${l.id})" style="font-size:0.72rem;padding:5px 11px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);border-radius:999px;cursor:pointer;margin-left:auto;">Delete</button>

@@ -44,7 +44,7 @@
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
   <div>
     <h1 class="page-title">Admin</h1>
-    <p class="page-subtitle">Restricted area — feature kill switches, testing tools, and quick stats.</p>
+    <p class="page-subtitle">Restricted area, feature kill switches, testing tools, and quick stats.</p>
   </div>
   <div style="font-family:var(--font-ui);font-size:0.78rem;color:var(--text-muted);font-weight:600;">
     Signed in as <strong style="color:var(--text-primary);">{{ admin_email }}</strong>
@@ -76,7 +76,7 @@
       <div class="admin-flag-row" data-key="{{ f.key }}">
         <div class="admin-flag-meta">
           <div class="admin-flag-key">{{ f.key }}</div>
-          <div class="admin-flag-desc">{{ f.description or '—' }}</div>
+          <div class="admin-flag-desc">{{ f.description or ', ' }}</div>
         </div>
         <label class="toggle" title="Toggle {{ f.key }}">
           <input type="checkbox" {% if f.enabled %}checked{% endif %} onchange="setFlag('{{ f.key }}', this.checked, this)">
@@ -91,7 +91,7 @@
   <div class="admin-section">
     <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:0.75rem;">Grant Pro tier</div>
     <p style="font-size:0.84rem;color:var(--text-secondary);margin-bottom:0.75rem;">
-      Add Pro days to any account by email — useful for testing or comping early supporters.
+      Add Pro days to any account by email, useful for testing or comping early supporters.
     </p>
     <div style="display:grid;grid-template-columns:1fr 100px auto;gap:8px;align-items:center;max-width:560px;">
       <input id="grantEmail" type="email" class="admin-input" placeholder="user@example.com">
@@ -112,8 +112,8 @@
         <label style="font-size:0.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Audience</label>
         <select id="smsAudience" class="admin-input" style="margin-top:4px;" onchange="smsAudienceChanged()">
           <option value="sms_opted_in">SMS opted-in users (recommended)</option>
-          <option value="pro">Pro subscribers — SMS opted in</option>
-          <option value="free">Free tier — SMS opted in</option>
+          <option value="pro">Pro subscribers, SMS opted in</option>
+          <option value="free">Free tier, SMS opted in</option>
           <option value="all_with_phone">Everyone with a phone (ignores opt-in)</option>
           <option value="specific">Specific emails (comma-separated)</option>
         </select>

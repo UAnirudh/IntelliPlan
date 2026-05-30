@@ -1,4 +1,4 @@
-# IntelliPlan — Apple App Store (everything in one file)
+# IntelliPlan, Apple App Store (everything in one file)
 
 This single file has **everything** needed to publish IntelliPlan to the iOS App Store.
 
@@ -12,33 +12,33 @@ This single file has **everything** needed to publish IntelliPlan to the iOS App
 > **The one hard requirement:** iOS apps can only be built and uploaded from **macOS with
 > Xcode**. An Apple Developer subscription alone is not enough, and it cannot be done on
 > Windows. IntelliPlan is a website/PWA (live at **https://intelliplan.tech**), so the job
-> is to **wrap the live site into a small iOS app** and submit it — the same idea as the
+> is to **wrap the live site into a small iOS app** and submit it, the same idea as the
 > Google Play package, just for Apple. No app source code is needed.
 
 The only extra file that goes with this guide is the app icon: **`IntelliPlan-AppIcon-1024.png`**.
 
 ---
 
-# Part 1 — Message to send your friend
+# Part 1, Message to send your friend
 
 > Copy everything in the box below and send it to him (text/email/Discord), and attach
 > this file plus `IntelliPlan-AppIcon-1024.png`.
 
 ```
 Hey! Thanks for helping me get IntelliPlan onto the App Store with your Apple Developer
-account. I've attached a full guide (APPLE_APP_STORE.md) and the app icon
+account. I've attached a full guide (README.md) and the app icon
 (IntelliPlan-AppIcon-1024.png). Here's the short version + the exact details you'll need
 to type in.
 
 WHAT IT IS
 IntelliPlan is my study-planner web app (live at https://intelliplan.tech). It's a PWA,
-so we don't build native code — we wrap the live site into an iOS app using a free tool
+so we don't build native code, we wrap the live site into an iOS app using a free tool
 called PWABuilder, then you open it in Xcode and upload it. The full guide walks through
 every click.
 
 WHAT YOU NEED
 - Your Apple Developer account (you have it)
-- A Mac with Xcode installed (free from the Mac App Store) — required, can't be done on
+- A Mac with Xcode installed (free from the Mac App Store), required, can't be done on
   Windows
 - About 2–3 hours, plus Apple's ~1–2 day review wait
 
@@ -49,7 +49,7 @@ DETAILS TO INPUT (use these exact values)
 - SKU:                  intelliplan-ios-001
 - Primary language:     English (U.S.)
 - Category:             Education (primary), Productivity (secondary)
-- Price:                Free  (important — keep it free, no in-app purchases; see guide)
+- Price:                Free  (important, keep it free, no in-app purchases; see guide)
 - Privacy Policy URL:   https://intelliplan.tech/legal
 - Support URL:          https://intelliplan.tech/faq
 - App icon:             use the attached IntelliPlan-AppIcon-1024.png
@@ -65,7 +65,7 @@ THE 5 STEPS (full detail in the guide)
 TWO THINGS THAT CAUSE REJECTIONS (both handled in the guide)
 - Apple may say "this is just a website." I've written reviewer notes + you'll add a test
   login so they see real features. I'll send you a working IntelliPlan test account.
-- No Stripe/paywall inside the iOS app — keep it free. The guide explains.
+- No Stripe/paywall inside the iOS app, keep it free. The guide explains.
 
 One decision for me to confirm: whose Apple account owns the published app. Submitting
 under yours is fine to get it live; long-term I may move it to my own account. (Guide has
@@ -76,14 +76,14 @@ Anything unclear, just ask. Thank you!! 🙏
 
 ---
 
-# Part 2 — Full step-by-step guide (for your friend, on the Mac)
+# Part 2, Full step-by-step guide (for your friend, on the Mac)
 
-### Step 0 — Install tools (one time)
+### Step 0, Install tools (one time)
 1. Install **Xcode** from the Mac App Store; open it once and let it finish setup; accept
    the license.
 2. If prompted: `xcode-select --install`.
 
-### Step 1 — Generate the iOS app from the website (PWABuilder)
+### Step 1, Generate the iOS app from the website (PWABuilder)
 1. Go to **https://www.pwabuilder.com**.
 2. Enter **`https://intelliplan.tech`** → Start. Let it analyze (minor manifest warnings
    are fine to continue past).
@@ -94,7 +94,7 @@ Anything unclear, just ask. Thank you!! 🙏
 4. **Download** the `.zip` (an Xcode project). Unzip it somewhere easy, e.g.
    `~/Desktop/IntelliPlan-iOS`.
 
-### Step 2 — Configure in Xcode
+### Step 2, Configure in Xcode
 1. Open the **`.xcworkspace`** (use the workspace, not `.xcodeproj`).
 2. Select the app **target → Signing & Capabilities**:
    - ✅ **Automatically manage signing**
@@ -104,13 +104,13 @@ Anything unclear, just ask. Thank you!! 🙏
 4. **App icon:** open **Assets.xcassets → AppIcon** and drag **`IntelliPlan-AppIcon-1024.png`**
    onto the 1024 slot.
 
-### Step 3 — Archive & upload
+### Step 3, Archive & upload
 1. Set the destination to **"Any iOS Device (arm64)"** (can't archive on a simulator).
 2. **Product → Archive**.
 3. In the Organizer: **Distribute App → App Store Connect → Upload**.
 4. Wait ~5–30 min for the build to finish **"Processing"** in App Store Connect.
 
-### Step 4 — Create the app in App Store Connect
+### Step 4, Create the app in App Store Connect
 Go to **https://appstoreconnect.apple.com → My Apps → ➕ → New App**, then use the values
 in **Part 3**. Add screenshots (see below) and complete **App Privacy** (**Part 4**).
 Set **Pricing = Free**. Select the processed build for the version.
@@ -121,7 +121,7 @@ Pro Max** (6.9"), **Run** the app, sign in with the test account so real content
 them under the version's **iPhone 6.9" Display**. iPad screenshots only if the app supports
 iPad.
 
-### Step 5 — TestFlight, then submit
+### Step 5, TestFlight, then submit
 1. **TestFlight** tab → install on a real iPhone → confirm it loads, logs in, and doesn't
    crash.
 2. **App Store** tab → confirm build + metadata + privacy → **Add for Review → Submit**.
@@ -131,7 +131,7 @@ iPad.
 Whoever's account it's submitted under **owns** it (controls updates/pricing). Submitting
 under your friend's account is fine to launch; for long-term control the owner can get
 their own Apple Developer account ($99/yr) and add the friend under **Users and Access**.
-Apps can be transferred later but with conditions — decide before first submission.
+Apps can be transferred later but with conditions, decide before first submission.
 
 ### No Mac?
 **Codemagic** (codemagic.io) or **GitHub Actions** `macos-latest` can build/upload in the
@@ -139,7 +139,7 @@ cloud; **MacinCloud/MacStadium** rent a remote Mac. Apple credentials still requ
 
 ---
 
-# Part 3 — App Store listing (copy-paste, within Apple's limits)
+# Part 3, App Store listing (copy-paste, within Apple's limits)
 
 **App Name** (≤30): `IntelliPlan: AI Study Planner`
 **Subtitle** (≤30): `Plan smarter with Canvas + AI`
@@ -148,7 +148,7 @@ cloud; **MacinCloud/MacStadium** rent a remote Mac. Apple credentials still requ
 
 **Promotional Text** (≤170):
 ```
-Connect Canvas, StudentVue, or Schoology and let AI build your study schedule, prioritize assignments, and tutor you — all in one free app for students.
+Connect Canvas, StudentVue, or Schoology and let AI build your study schedule, prioritize assignments, and tutor you, all in one free app for students.
 ```
 
 **Keywords** (≤100, no spaces after commas):
@@ -158,7 +158,7 @@ study planner,canvas,studentvue,schoology,homework,assignments,AI tutor,schedule
 
 **Description** (≤4000):
 ```
-IntelliPlan is the AI-powered study planner built by a student, for students. Connect your school account and turn a messy list of due dates into a clear, personalized plan — so you always know what to work on next.
+IntelliPlan is the AI-powered study planner built by a student, for students. Connect your school account and turn a messy list of due dates into a clear, personalized plan, so you always know what to work on next.
 
 Canvas and StudentVue show you WHAT'S due. IntelliPlan tells you WHEN to do it, WHAT to prioritize, and HOW LONG it'll take.
 
@@ -179,7 +179,7 @@ STUDY & LEARN
 - Upload notes (PDF, DOCX, and more) and get flashcards, key concepts, summaries, and quizzes
 - Built-in spaced repetition tracks what you've mastered
 
-PLANI — YOUR AI TUTOR
+PLANI, YOUR AI TUTOR
 - Step-by-step help in math, science, history, English, CS, languages, and test prep
 - Builds understanding instead of just giving answers
 
@@ -202,7 +202,7 @@ Welcome to IntelliPlan! Our first App Store release. Connect Canvas, StudentVue,
 
 ---
 
-# Part 4 — Privacy & compliance
+# Part 4, Privacy & compliance
 
 ### App Privacy form (App Store Connect → App Privacy)
 **Does the app collect data? → Yes.** Declare these, all **linked to the user** and **NOT
@@ -218,7 +218,7 @@ used for tracking** (IntelliPlan has no ad/tracking SDK):
 Result: **"Data Linked to You"**, **not** "Data Used to Track You."
 Privacy Policy URL: `https://intelliplan.tech/legal`.
 
-### Guideline 4.2 — "it's just a website" (the #1 risk)
+### Guideline 4.2, "it's just a website" (the #1 risk)
 In **App Review Information**, set **Sign-in required: Yes** and provide a **working test
 account** that already has a school connected (so real assignments show). Paste these notes:
 ```
@@ -226,19 +226,19 @@ IntelliPlan is an AI study-planning app for students. After signing in with the 
 account, you'll see imported assignments on the Dashboard, an AI-generated study schedule
 under Scheduler, the Plani AI tutor, grade tracking, and a flashcard/quiz generator. It
 connects to Canvas, StudentVue, and Schoology to import real coursework and uses AI to
-prioritize and schedule it — well beyond a website, including offline access and reminders.
+prioritize and schedule it, well beyond a website, including offline access and reminders.
 ```
-The app opens to `/dashboard` (app-like), not a marketing page — good. If still rejected
+The app opens to `/dashboard` (app-like), not a marketing page, good. If still rejected
 under 4.2, switch to a **Capacitor** wrapper for more native APIs.
 
-### Guideline 3.1.1 — payments
+### Guideline 3.1.1, payments
 The project has a Stripe webhook + pricing page. **Apple requires In-App Purchase for
 digital goods bought inside the app; a Stripe paywall inside iOS = rejection.** For v1:
 ship **Free with no in-app purchasing / no Stripe checkout shown in the app**. Add Apple
 IAP later only if you sell subscriptions in-app.
 
 ### Notifications
-Web-push inside an iOS wrapper is limited — **don't depend on push for v1**; the app works
+Web-push inside an iOS wrapper is limited, **don't depend on push for v1**; the app works
 without it.
 
 ### Common rejections → fixes
@@ -248,11 +248,11 @@ without it.
 | Payments (3.1.1) | No Stripe paywall in the iOS app, or use Apple IAP |
 | Crash on launch | Missing Info.plist usage string for a permission requested |
 | Privacy URL invalid | Ensure `https://intelliplan.tech/legal` loads |
-| Blank after login | Test account has no school connected — connect one first |
+| Blank after login | Test account has no school connected, connect one first |
 
 ---
 
-# Part 5 — Checklist
+# Part 5, Checklist
 
 - [ ] Mac + Xcode installed; signed in with the Apple Developer Apple ID
 - [ ] Bundle ID `tech.intelliplan.app` confirmed; ownership decided

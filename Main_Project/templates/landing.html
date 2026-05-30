@@ -2,7 +2,7 @@
 
 {% block page_title %}IntelliPlan - Free AI Study Planner for Students | Canvas, StudentVue & Schoology{% endblock %}
 
-{# These override the base.html global defaults — no duplicate tags emitted. #}
+{# These override the base.html global defaults, no duplicate tags emitted. #}
 {% block meta_description %}IntelliPlan is a free AI study planner for students that imports Canvas, StudentVue, and Schoology assignments, prioritizes deadlines, builds weekly schedules, and includes an AI tutor.{% endblock %}
 {% block og_title %}IntelliPlan - Free AI Study Planner for Students{% endblock %}
 {% block og_description %}Connect Canvas, StudentVue, or Schoology. IntelliPlan ranks assignments, builds a weekly study plan, exports to Google Calendar, and gives students a built-in AI tutor.{% endblock %}
@@ -85,7 +85,7 @@
   ]
 }
 </script>
-<!-- HowTo structured data — exposes the setup flow to AI assistants -->
+<!-- HowTo structured data, exposes the setup flow to AI assistants -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -126,7 +126,7 @@
   ]
 }
 </script>
-<!-- ItemList of core features — gives AI assistants a clean, ordered feature index -->
+<!-- ItemList of core features, gives AI assistants a clean, ordered feature index -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -144,19 +144,19 @@
   ]
 }
 </script>
-<!-- Speakable schema — flags hero copy as voice-assistant-friendly -->
+<!-- Speakable schema, flags hero copy as voice-assistant-friendly -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "WebPage",
-  "name": "IntelliPlan — Free AI Study Planner for Students",
+  "name": "IntelliPlan, Free AI Study Planner for Students",
   "speakable": {
     "@type": "SpeakableSpecification",
     "cssSelector": [".hero-title", ".hero-subtitle", "#ai-answer-title"]
   }
 }
 </script>
-{# WebSite + Organization JSON-LD now live globally in base.html — not duplicated here. #}
+{# WebSite + Organization JSON-LD now live globally in base.html, not duplicated here. #}
 <!-- FAQ structured data mirrors visible FAQ content below -->
 <script type="application/ld+json">
 {
@@ -200,7 +200,7 @@
       "name": "How does IntelliPlan compare to Notion, Todoist, or My Study Life?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Notion, Todoist, and My Study Life require students to type every assignment manually. IntelliPlan imports assignments directly from Canvas, StudentVue, and Schoology, scores priority automatically, and builds a weekly study plan with AI — none of which the others do natively."
+        "text": "Notion, Todoist, and My Study Life require students to type every assignment manually. IntelliPlan imports assignments directly from Canvas, StudentVue, and Schoology, scores priority automatically, and builds a weekly study plan with AI, none of which the others do natively."
       }
     },
     {
@@ -232,7 +232,7 @@
       "name": "Does IntelliPlan work on iPhone, Android, and Chromebook?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. IntelliPlan is a Progressive Web App that installs on iPhone, Android, Chromebook, Mac, and Windows. There is no App Store download required — just visit intelliplan.tech and tap Install."
+        "text": "Yes. IntelliPlan is a Progressive Web App that installs on iPhone, Android, Chromebook, Mac, and Windows. There is no App Store download required, just visit intelliplan.tech and tap Install."
       }
     },
     {
@@ -240,7 +240,7 @@
       "name": "How does the IntelliPlan Grade Modeler work?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "The Grade Modeler imports a student's real category weights and graded scores, then lets them simulate what-if scenarios — for example, 'If I score 85% on my next test, what's my final grade?' It shows the realistic best-case grade given remaining assignments and flags impossible targets."
+        "text": "The Grade Modeler imports a student's real category weights and graded scores, then lets them simulate what-if scenarios, for example, 'If I score 85% on my next test, what's my final grade?' It shows the realistic best-case grade given remaining assignments and flags impossible targets."
       }
     }
   ]
@@ -256,11 +256,11 @@
       <div class="hero-badge"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px"><use href="#i-sparkle"/></svg> Built for students who are done guessing</div>
       <h1 class="hero-title">Stop missing assignments and build your study plan automatically</h1>
       <p class="hero-subtitle">
-        The free study planner that connects to Canvas, StudentVue, and Schoology — automatically prioritizes your assignments and builds your weekly schedule with AI.
+        The free AI study planner that syncs Canvas, StudentVue, and Schoology, ranks every assignment by what is due first, and builds a weekly study schedule you can actually follow.
       </p>
 
       <div class="hero-actions">
-        <a href="/login" class="btn-primary hero-btn">Build My Study Plan →</a>
+        <a href="/login" class="btn-primary hero-btn">Build My Free Study Plan →</a>
         <a href="#how-it-works" class="btn-secondary hero-btn">See How It Works</a>
       </div>
 
@@ -289,7 +289,7 @@
           <div class="task task-high">
             <div class="task-dot"></div>
             <div class="task-main">
-              <div class="task-name">Calc BC — Related Rates</div>
+              <div class="task-name">Calc BC, Related Rates</div>
               <div class="task-meta">High priority • due tomorrow</div>
             </div>
             <div class="task-time">45m</div>
@@ -298,7 +298,7 @@
           <div class="task task-medium">
             <div class="task-dot"></div>
             <div class="task-main">
-              <div class="task-name">AP Bio — Ch. 7 quiz prep</div>
+              <div class="task-name">AP Bio, Ch. 7 quiz prep</div>
               <div class="task-meta">Medium priority • this week</div>
             </div>
             <div class="task-time">30m</div>
@@ -307,7 +307,7 @@
           <div class="task task-low">
             <div class="task-dot"></div>
             <div class="task-main">
-              <div class="task-name">English — Essay outline</div>
+              <div class="task-name">English, Essay outline</div>
               <div class="task-meta">Low priority • later this week</div>
             </div>
             <div class="task-time">25m</div>
@@ -316,7 +316,7 @@
           <div class="task task-accent">
             <div class="task-dot"></div>
             <div class="task-main">
-              <div class="task-name">Physics — Problem set #4</div>
+              <div class="task-name">Physics, Problem set #4</div>
               <div class="task-meta">Auto-scheduled into your calendar</div>
             </div>
             <div class="task-time">60m</div>
@@ -333,22 +333,22 @@
 <section class="stats-strip" aria-label="Live usage stats">
   <div class="stats-strip-inner">
     <div class="stat-item">
-      <div class="stat-number" id="statStudents">—</div>
+      <div class="stat-number" id="statStudents"></div>
       <div class="stat-label">students organized</div>
     </div>
     <div class="stat-divider"></div>
     <div class="stat-item">
-      <div class="stat-number" id="statAssignments">—</div>
+      <div class="stat-number" id="statAssignments"></div>
       <div class="stat-label">assignments tracked</div>
     </div>
     <div class="stat-divider"></div>
     <div class="stat-item">
-      <div class="stat-number" id="statHours">—</div>
+      <div class="stat-number" id="statHours"></div>
       <div class="stat-label">hours saved planning</div>
     </div>
     <div class="stat-divider"></div>
     <div class="stat-item">
-      <div class="stat-number" id="statSessions">—</div>
+      <div class="stat-number" id="statSessions"></div>
       <div class="stat-label">study sessions completed</div>
     </div>
   </div>
@@ -412,7 +412,7 @@
       <div>
         <h3 class="demo-title">See IntelliPlan in Action</h3>
         <p class="demo-subtitle">
-          Watch how IntelliPlan automatically prioritizes assignments, builds schedules, and helps students stay ahead — no manual organizing required.
+          Watch how IntelliPlan automatically prioritizes assignments, builds schedules, and helps students stay ahead, no manual organizing required.
         </p>
       </div>
     </div>
@@ -426,7 +426,7 @@
            STEP 3: Delete the placeholder div entirely once you have a real embed.
       ──────────────────────────────────────────────────────────────────────── -->
 
-      <!-- PLACEHOLDER — shown until you add a real video -->
+      <!-- PLACEHOLDER, shown until you add a real video -->
       <div class="demo-video-placeholder" id="demoPlaceholder" onclick="handleDemoClick()">
         <div class="demo-play-ring">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="white" aria-hidden="true">
@@ -437,7 +437,7 @@
         <p class="demo-placeholder-sub">Connect your Canvas or StudentVue to see it live</p>
       </div>
 
-      <!-- REAL VIDEO — uncomment and replace YOUR_LOOM_ID when ready
+      <!-- REAL VIDEO, uncomment and replace YOUR_LOOM_ID when ready
       <iframe
         id="demoFrame"
         src="https://www.loom.com/embed/YOUR_LOOM_ID?autoplay=0&hide_owner=true&hide_share=true&hide_title=true&hideEmbedTopBar=true"
@@ -449,7 +449,7 @@
       </iframe>
       -->
 
-      <!-- YOUTUBE ALTERNATIVE — uncomment and replace YOUR_YOUTUBE_ID when ready
+      <!-- YOUTUBE ALTERNATIVE, uncomment and replace YOUR_YOUTUBE_ID when ready
       <iframe
         src="https://www.youtube.com/embed/YOUR_YOUTUBE_ID?autoplay=0&rel=0&modestbranding=1"
         frameborder="0"
@@ -514,26 +514,26 @@
 
     <!-- Left: copy -->
     <div class="tutor-promo-copy">
-      <span class="section-kicker"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px"><use href="#i-sparkle"/></svg> Plani Tutor — free for every student</span>
+      <span class="section-kicker"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px"><use href="#i-sparkle"/></svg> Plani Tutor, free for every student</span>
       <h2 class="tutor-promo-title">Stop Googling. Just ask Plani.</h2>
-      <p class="tutor-promo-desc">IntelliPlan's built-in AI tutor doesn't just hand you the answer — it teaches you the concept, walks through every step, and checks that you actually understood it. Math, science, history, coding, languages, test prep. All of it.</p>
+      <p class="tutor-promo-desc">IntelliPlan's built-in AI tutor doesn't just hand you the answer, it teaches you the concept, walks through every step, and checks that you actually understood it. Math, science, history, coding, languages, test prep. All of it.</p>
 
       <ul class="tutor-promo-list">
         <li>
           <span class="tutor-promo-bullet"></span>
-          <span><strong>Step-by-step explanations</strong> — no walls of text, no skipped steps</span>
+          <span><strong>Step-by-step explanations</strong>no walls of text, no skipped steps</span>
         </li>
         <li>
           <span class="tutor-promo-bullet"></span>
-          <span><strong>9 subjects covered</strong> — math, science, history, English, CS, and more</span>
+          <span><strong>9 subjects covered</strong>math, science, history, English, CS, and more</span>
         </li>
         <li>
           <span class="tutor-promo-bullet"></span>
-          <span><strong>Plani checks your understanding</strong> — asks follow-up questions, not just recites facts</span>
+          <span><strong>Plani checks your understanding</strong>asks follow-up questions, not just recites facts</span>
         </li>
         <li>
           <span class="tutor-promo-bullet"></span>
-          <span><strong>Always available</strong> — midnight before an exam, 7 AM before class, whenever</span>
+          <span><strong>Always available</strong>midnight before an exam, 7 AM before class, whenever</span>
         </li>
       </ul>
 
@@ -552,9 +552,9 @@
       <div class="tp-preview-msgs">
         <div class="tp-msg tp-msg-user">How do derivatives work?</div>
         <div class="tp-msg tp-msg-bot">
-          <strong>Great question — let's build up to it.</strong><br><br>
+          <strong>Great question, let's build up to it.</strong><br><br>
           A derivative measures <em>how fast something is changing</em> at any instant. Think of a speedometer: your position changes over time, and the derivative of position is speed.<br><br>
-          If <code>f(x) = x²</code>, the derivative <code>f'(x) = 2x</code>. At <code>x = 3</code> the function is changing at a rate of <code>6</code>.<br><br>
+          If <code>f(x) = x²</code>the derivative <code>f'(x) = 2x</code>. At <code>x = 3</code> the function is changing at a rate of <code>6</code>.<br><br>
           <span style="color:var(--accent);font-style:italic;font-size:0.85rem;">Can you tell me what you think the derivative of x³ might be?</span>
         </div>
       </div>
@@ -748,7 +748,7 @@
 
     <details class="faq-item">
       <summary>Does IntelliPlan work on iPhone, Android, and Chromebook?</summary>
-      <p>Yes. IntelliPlan installs as a Progressive Web App on iOS, Android, Chromebook, Mac, and Windows — no App Store download required.</p>
+      <p>Yes. IntelliPlan installs as a Progressive Web App on iOS, Android, Chromebook, Mac, and Windows, no App Store download required.</p>
     </details>
 
     <details class="faq-item">
@@ -860,7 +860,7 @@
 </style>
 
 <script>
-  /* ── Testimonials grid — runs after DOM is fully parsed ── */
+  /* ── Testimonials grid, runs after DOM is fully parsed ── */
   function initTestimonialsGrid() {
     var testimonials = [
       { name: "Jack Williams",   role: "AP student, 11th grade",    color: "#2563eb", text: "I used to spend 20 minutes every morning figuring out what to do first. IntelliPlan just tells me. That alone is worth it." },
@@ -916,7 +916,7 @@
       return card;
     }
 
-    /* Vertical grid layout — render each testimonial exactly once. The
+    /* Vertical grid layout, render each testimonial exactly once. The
        previous version duplicated the array to fake a seamless marquee,
        which is now unnecessary. */
     var fragment = document.createDocumentFragment();
@@ -934,7 +934,7 @@
 <div class="cta-outer">
 <section class="cta-section">
   <h2 class="cta-title">Ready to stop winging it?</h2>
-  <p class="cta-subtitle">Join students using IntelliPlan to stay ahead, reduce stress, and plan faster.</p>
+  <p class="cta-subtitle">Join students who use IntelliPlan to stay ahead, cut study stress, and plan their entire week in minutes. Free to start, no credit card.</p>
   <div class="cta-actions">
     <a href="/login" class="btn-primary cta-btn">Get Started Free →</a>
     <a href="#how-it-works" class="cta-ghost-btn cta-btn">See How It Works</a>
@@ -1074,10 +1074,10 @@
     margin: 0 0 1.15rem;
     font-weight: 800;
     text-wrap: balance;
-    /* Wrap on whole words only — never hyphenate or break mid-word.
+    /* Wrap on whole words only, never hyphenate or break mid-word.
        Sized so long words like "automatically" fit without clipping. */
     overflow-wrap: break-word;
-    /* Subtle dimensional treatment — gives the headline weight and depth
+    /* Subtle dimensional treatment, gives the headline weight and depth
        without going full gradient text (which fights with the brand). */
     background: linear-gradient(180deg, var(--text-primary) 0%, color-mix(in srgb, var(--text-primary) 78%, transparent) 100%);
     -webkit-background-clip: text;
@@ -1124,7 +1124,7 @@
 
   .cta-actions { justify-content: center; align-items: center; }
 
-  .hero-btn, .mini-btn, .demo-btn, .cta-btn { text-decoration: none; }
+  .hero-btn.mini-btn.demo-btn.cta-btn { text-decoration: none; }
 
   .hero-mini-actions { margin-top: 1rem; }
 
@@ -1394,7 +1394,7 @@
     border-radius: 0;
   }
 
-  .step-card h3, .feature-title {
+  .step-card h3.feature-title {
     margin: 0 0 0.45rem;
     color: var(--text-primary);
     font-family: var(--font-display);
@@ -1750,7 +1750,7 @@
     .hero { grid-template-columns: 1fr; gap: 2rem; padding-top: 2.5rem; }
     .answer-grid { grid-template-columns: 1fr; }
     .integration-grid { grid-template-columns: repeat(3, 1fr); }
-    .steps-grid, .comparison-wrap { grid-template-columns: 1fr; }
+    .steps-grid.comparison-wrap { grid-template-columns: 1fr; }
     .stats-strip-inner { flex-wrap: wrap; gap: 1rem; }
     .stat-divider { display: none; }
     .stat-item { min-width: 120px; }
@@ -1760,11 +1760,11 @@
     .hero { padding: 2rem 0 1.5rem; }
     .hero-title { font-size: 2.2rem; }
     .hero-subtitle { font-size: 0.98rem; }
-    .hero-actions, .hero-mini-actions, .demo-actions, .cta-actions {
+    .hero-actions.hero-mini-actions.demo-actions.cta-actions {
       flex-direction: column;
       align-items: stretch;
     }
-    .hero-btn, .mini-btn, .demo-btn, .cta-btn { width: 100%; text-align: center; }
+    .hero-btn.mini-btn.demo-btn.cta-btn { width: 100%; text-align: center; }
     .hero-preview { display: none; }
     .features-grid { grid-template-columns: 1fr; }
     .integration-grid { grid-template-columns: repeat(2, 1fr); }
@@ -1805,7 +1805,7 @@
       grid-template-columns: 1fr 0.75fr;
       gap: 0.6rem;
     }
-    .mobile-cta-primary, .mobile-cta-secondary {
+    .mobile-cta-primary.mobile-cta-secondary {
       text-decoration: none;
       text-align: center;
       border-radius: 999px;
@@ -1830,7 +1830,7 @@
     .preview-card { padding: 1.1rem; }
     .task { padding: 0.75rem; }
     .task-name { font-size: 0.87rem; }
-    .task-meta, .task-time { font-size: 0.75rem; }
+    .task-meta.task-time { font-size: 0.75rem; }
     .preview-header { align-items: flex-start; flex-direction: column; }
     .stat-number { font-size: 1.8rem; }
   }
@@ -1868,7 +1868,7 @@
         animateCount(document.getElementById('statSessions'),    Math.max(data.study_sessions, 10), '+');
       })
       .catch(function() {
-        // Graceful fallback — show reasonable static numbers if API is down
+        // Graceful fallback, show reasonable static numbers if API is down
         var s = document.getElementById('statStudents');
         var a = document.getElementById('statAssignments');
         var h = document.getElementById('statHours');
@@ -1876,7 +1876,7 @@
         if (s)  s.textContent  = '50+';
         if (a)  a.textContent  = '200+';
         if (h)  h.textContent  = '120h';
-        if (ss) ss.textContent = '—';
+        if (ss) ss.textContent = ', ';
       });
   }
 

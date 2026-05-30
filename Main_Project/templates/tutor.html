@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block page_title %}Plani Tutor — AI Study Tutor | IntelliPlan{% endblock %}
-{% block meta_description %}Ask Plani anything and learn step by step. IntelliPlan's AI tutor covers math, science, history, coding, languages, and more — free for every student.{% endblock %}
-{% block og_title %}Plani Tutor — Free AI Study Tutor for Students{% endblock %}
-{% block og_description %}Ask Plani anything and learn step by step — math, science, history, coding, and languages. Free for every student.{% endblock %}
+{% block page_title %}Plani Tutor, AI Study Tutor | IntelliPlan{% endblock %}
+{% block meta_description %}Ask Plani anything and learn step by step. IntelliPlan's AI tutor covers math, science, history, coding, languages, and more, free for every student.{% endblock %}
+{% block og_title %}Plani Tutor, Free AI Study Tutor for Students{% endblock %}
+{% block og_description %}Ask Plani anything and learn step by step, math, science, history, coding, and languages. Free for every student.{% endblock %}
 
 {% block head_extra %}
 <style>
@@ -333,7 +333,7 @@ main {
 .tutor-dot:nth-child(2) { animation-delay: 0.18s; }
 .tutor-dot:nth-child(3) { animation-delay: 0.36s; }
 
-/* ── Input bar — floating overlay, ChatGPT-style ──
+/* ── Input bar, floating overlay, ChatGPT-style ──
    Lives inside .tutor-main, pinned to its bottom edge with position:absolute,
    so messages scroll behind/under it instead of pushing it down. */
 .tutor-input-wrap {
@@ -428,13 +428,13 @@ main {
 }
 .tutor-messages.visible { display: flex; }
 
-/* Tutor page owns the chat experience — hide global Plani widget here. */
+/* Tutor page owns the chat experience, hide global Plani widget here. */
 #planiBot, #planiWrap { display: none !important; }
 
 /* ── Mobile action bar (top of tutor-main) ── */
 .tutor-mobile-bar { display: none; }
 
-/* ── Message bubbles — polished ── */
+/* ── Message bubbles, polished ── */
 .tutor-msg-group.bot .tutor-bubble {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -548,7 +548,7 @@ main {
 
     <div class="tutor-side-foot">
       <div class="tutor-side-tip">
-        <strong>Tip:</strong> Be specific — "explain quadratic equations" beats "help with math".
+        <strong>Tip:</strong> Be specific, "explain quadratic equations" beats "help with math".
       </div>
     </div>
   </aside>
@@ -607,7 +607,7 @@ main {
       </div>
 
       <h1 class="tutor-empty-title">What do you want to learn today?</h1>
-      <p class="tutor-empty-sub">Ask Plani anything — math, science, history, coding, and more. I'll teach you step by step, not just hand you the answer.</p>
+      <p class="tutor-empty-sub">Ask Plani anything, math, science, history, coding, and more. I'll teach you step by step, not just hand you the answer.</p>
 
       <div class="tutor-chips" id="tutorChips">
         <button class="tutor-chip active" data-subject="General"          onclick="selectSubject(this)">General</button>
@@ -691,7 +691,7 @@ main {
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
       </div>
-      <p class="tutor-input-hint">Plani can make mistakes — double-check important facts before using them in assignments.</p>
+      <p class="tutor-input-hint">Plani can make mistakes, double-check important facts before using them in assignments.</p>
     </div>
 
   </div><!-- /tutor-main -->
@@ -1087,7 +1087,7 @@ async function sendTutorMessage() {
     }
   } catch (err) {
     console.error('Tutor error:', err);
-    reply = 'Connection issue — check your internet and try again.';
+    reply = 'Connection issue, check your internet and try again.';
   }
 
   document.getElementById('tutorThinking').classList.remove('visible');

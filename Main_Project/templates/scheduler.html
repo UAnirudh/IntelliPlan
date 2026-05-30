@@ -279,7 +279,7 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════
-     TAB 1 — CREATOR
+     TAB 1, CREATOR
 ══════════════════════════════════════════════════ -->
 <div class="sched-pane active" id="pane-creator" role="tabpanel">
 
@@ -339,7 +339,7 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════
-     TAB 2 — INTERACTIVE VIEW
+     TAB 2, INTERACTIVE VIEW
 ══════════════════════════════════════════════════ -->
 <div class="sched-pane" id="pane-interactive" role="tabpanel">
 
@@ -743,7 +743,7 @@ function renderInteractive() {
   const sched = _lastScheduleData.schedule;
   const todayDay = sched.find(d => (d.date || '').slice(0, 10) === todayIso) || sched[0];
   const ctxBody = todayDay
-    ? `Today (${escapeText(todayDay.day_name || '')}): ${(todayDay.blocks || []).filter(b => !b.is_break).length} work blocks · ${escapeText(String(todayDay.total_hours || 0))}h planned${todayDay.daily_tip ? ' — ' + escapeText(todayDay.daily_tip) : ''}`
+    ? `Today (${escapeText(todayDay.day_name || '')}): ${(todayDay.blocks || []).filter(b => !b.is_break).length} work blocks · ${escapeText(String(todayDay.total_hours || 0))}h planned${todayDay.daily_tip ? ', ' + escapeText(todayDay.daily_tip) : ''}`
     : 'Pick a block to open its interactive checklist.';
   document.getElementById('ivContextBody').textContent = ctxBody;
 
@@ -769,7 +769,7 @@ function renderInteractive() {
   host.querySelectorAll('.iv-block').forEach(el => {
     if (el.classList.contains('is-break')) return;
     el.addEventListener('click', e => {
-      // ignore clicks on the inner check button — it has its own handler
+      // ignore clicks on the inner check button, it has its own handler
       if (e.target.closest('.iv-check')) return;
       openChecklist(el.dataset.blockId);
     });
@@ -959,7 +959,7 @@ document.addEventListener('keydown', e => {
 fetch('/calendar/events').then(r => r.json()).then(res => {
   _gcalConnected = res.connected;
   if (res.connected) {
-    document.getElementById('autoTimeHint').textContent = 'Google Calendar connected — export button appears after generating';
+    document.getElementById('autoTimeHint').textContent = 'Google Calendar connected, export button appears after generating';
   }
 }).catch(() => {});
 

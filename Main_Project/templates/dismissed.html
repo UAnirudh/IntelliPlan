@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-header">
   <h1 class="page-title">Dismissed Assignments</h1>
-  <p class="page-subtitle">Assignments you marked as done — restore any if needed</p>
+  <p class="page-subtitle">Assignments you marked as done, restore any if needed</p>
 </div>
 
 <div id="dismissedList" class="assignments-list">
@@ -47,11 +47,11 @@ fetch('/dismissed/data')
         <div class="card-main">
           <div class="card-title" style="text-decoration:line-through;">${a.title}</div>
           <div class="card-meta">
-            <span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg> ${a.course || '—'}</span>
-            <span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> ${a.due_date ? formatDate(a.due_date) : '—'}</span>
+            <span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg> ${a.course || ', '}</span>
+            <span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> ${a.due_date ? formatDate(a.due_date) : ', '}</span>
           </div>
         </div>
-        <span class="priority-badge ${priority}">${a.priority || '—'}</span>
+        <span class="priority-badge ${priority}">${a.priority || ', '}</span>
         <button class="dismiss-btn" style="border-color:var(--accent);background:var(--accent-soft);color:var(--accent);"
           onclick="restore('${a.title.replace(/'/g, "\\'")}', this)">↩ Restore</button>
       `;

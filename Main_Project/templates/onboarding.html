@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block page_title %}Welcome — set up your study profile | IntelliPlan{% endblock %}
+{% block page_title %}Welcome, set up your study profile | IntelliPlan{% endblock %}
 
 {% block head_extra %}
 <style>
@@ -62,13 +62,13 @@
 .onboard-pill input { display: none; }
 .onboard-pill:hover { border-color: var(--border-accent); color: var(--accent); }
 .onboard-pill.is-on { background: var(--accent); color: white; border-color: var(--accent); }
-.onboard-input, .onboard-textarea, .onboard-select {
+.onboard-input.onboard-textarea.onboard-select {
   width: 100%; padding: 11px 14px; border-radius: 12px;
   border: 1px solid var(--border-strong); background: var(--bg); color: var(--text-primary);
   font-family: var(--font-body); font-size: 0.92rem; outline: none;
   transition: border-color 0.16s, box-shadow 0.16s;
 }
-.onboard-input:focus, .onboard-textarea:focus, .onboard-select:focus {
+.onboard-input:focus.onboard-textarea:focus.onboard-select:focus {
   border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
 }
 .onboard-textarea { resize: vertical; min-height: 88px; line-height: 1.55; }
@@ -168,7 +168,7 @@
     <div class="onboard-step active" id="step1">
       <div class="onboard-eyebrow">Step 1 of 4 · Accounts</div>
       <h1 class="onboard-title">Connect your school.</h1>
-      <p class="onboard-sub">Plani works best when it can see your real assignments. Connect your school account — or skip and add tasks manually.</p>
+      <p class="onboard-sub">Plani works best when it can see your real assignments. Connect your school account, or skip and add tasks manually.</p>
 
       <div class="connect-grid">
         <a href="/login/canvas" class="connect-card">
@@ -405,7 +405,7 @@ async function saveAndFinish() {
   } catch (e) {
     btn.disabled = false;
     btn.innerHTML = 'Save &amp; finish <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:6px"><use href="#i-check-circle"/></svg>';
-    alert('Something went wrong — please try again.');
+    alert('Something went wrong, please try again.');
   }
 }
 

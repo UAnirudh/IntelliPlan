@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block page_title %}Focus Timer — Pomodoro | IntelliPlan{% endblock %}
+{% block page_title %}Focus Timer, Pomodoro | IntelliPlan{% endblock %}
 {% block meta_description %}Stay focused with IntelliPlan's Pomodoro timer. 25-minute deep work sessions with short breaks to maximize your study efficiency.{% endblock %}
 
 {% block head_extra %}
@@ -239,7 +239,7 @@
 <div class="focus-shell">
   <div class="focus-header">
     <h1>Focus Timer</h1>
-    <p>Deep work sessions with structured breaks — the Pomodoro technique.</p>
+    <p>Deep work sessions with structured breaks, the Pomodoro technique.</p>
   </div>
 
   <!-- Stats -->
@@ -304,7 +304,7 @@
   <div class="focus-log-card">
     <div class="focus-log-title">Today's sessions</div>
     <div class="focus-log-list" id="sessionLog">
-      <div class="focus-empty-log">No sessions yet — start the timer to begin.</div>
+      <div class="focus-empty-log">No sessions yet, start the timer to begin.</div>
     </div>
   </div>
 </div>
@@ -406,7 +406,7 @@ function updateDisplay() {
   document.getElementById('timerDisplay').textContent = `${m}:${s}`;
   const pct = remaining / totalSecs;
   document.getElementById('timerRing').style.strokeDashoffset = CIRC * pct;
-  document.title = `${m}:${s} — ${isBreak ? 'Break' : 'Focus'} | IntelliPlan`;
+  document.title = `${m}:${s}, ${isBreak ? 'Break' : 'Focus'} | IntelliPlan`;
 }
 
 function logSession(task, mins) {
@@ -436,7 +436,7 @@ function renderStats(raw) {
 function renderLog() {
   const list = document.getElementById('sessionLog');
   if (!sessionLog.length) {
-    list.innerHTML = '<div class="focus-empty-log">No sessions yet — start the timer to begin.</div>';
+    list.innerHTML = '<div class="focus-empty-log">No sessions yet, start the timer to begin.</div>';
     return;
   }
   list.innerHTML = sessionLog.map(s => {

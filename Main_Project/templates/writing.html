@@ -2,7 +2,7 @@
 {% block content %}
 <div class="page-header">
   <h1 class="page-title">Writing Assistant</h1>
-  <p class="page-subtitle">Paste an essay, paragraph, or email — get targeted improvements with reasoning.</p>
+  <p class="page-subtitle">Paste an essay, paragraph, or email, get targeted improvements with reasoning.</p>
 </div>
 
 <style>
@@ -129,7 +129,7 @@ function renderResult() {
   }
   const overall = d.overall || {};
   const suggestions = d.suggestions || [];
-  const score = overall.score != null ? overall.score : '—';
+  const score = overall.score != null ? overall.score : ', ';
   let html = `
     <div class="score-bubble">
       <div class="score-num">${score}</div>
@@ -139,7 +139,7 @@ function renderResult() {
       </div>
     </div>`;
   if (!suggestions.length) {
-    html += '<div style="color:var(--text-muted);font-size:0.9rem;">No suggestions — clean draft.</div>';
+    html += '<div style="color:var(--text-muted);font-size:0.9rem;">No suggestions, clean draft.</div>';
   } else {
     html += suggestions.map(s => `
       <div class="suggestion">

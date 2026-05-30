@@ -85,7 +85,7 @@
   border:2px dashed var(--bdr); border-radius:12px; padding:2rem; text-align:center;
   cursor:pointer; transition:all 0.2s; position:relative; overflow:hidden;
 }
-.upload-z:hover, .upload-z.dv { border-color:var(--si); background:rgba(99,102,241,0.04); }
+.upload-z:hover.upload-z.dv { border-color:var(--si); background:rgba(99,102,241,0.04); }
 .upload-z input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
 
 /* ── MODE CARDS ── */
@@ -564,7 +564,7 @@ body.serious-mode .nav-tabs { display:none !important; }
 <!-- Extreme Overlay -->
 <div id="xOverlay">
   <div class="xh">
-    <div class="xl">IntelliPlan — Extreme Focus</div>
+    <div class="xl">IntelliPlan, Extreme Focus</div>
     <div id="xTimerDisplay" class="xtimer">25:00</div>
     <div id="xPtsDisplay" style="font-size:0.82rem;color:#a5b4fc;font-weight:700;display:flex;align-items:center;gap:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> 0 Sparks</div>
   </div>
@@ -644,7 +644,7 @@ body.serious-mode .nav-tabs { display:none !important; }
     <!-- Setup -->
     <div id="setupView">
       <div class="sp">
-        <div class="sp-label">Step 1 — Add Study Material</div>
+        <div class="sp-label">Step 1, Add Study Material</div>
         <div class="itabs">
           <button class="itab active" onclick="switchInputTab('paste')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pencil"/></svg> Paste Text</button>
           <button class="itab" onclick="switchInputTab('upload')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-download"/></svg> Upload File</button>
@@ -665,7 +665,7 @@ body.serious-mode .nav-tabs { display:none !important; }
       </div>
 
       <div class="sp">
-        <div class="sp-label">Step 2 — Choose Mode</div>
+        <div class="sp-label">Step 2, Choose Mode</div>
         <div class="mode-grid">
           <div class="mc sel" style="--mc:#10b981" data-mode="casual" onclick="selMode('casual')">
             <div class="mc-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></div>
@@ -728,7 +728,7 @@ body.serious-mode .nav-tabs { display:none !important; }
 
   <!-- ══ FLASHCARDS TAB ══ -->
   <div id="tabFlashcards" style="display:none;">
-    <!-- Saved sets — visible whenever the user has saved sets, regardless of current session -->
+    <!-- Saved sets, visible whenever the user has saved sets, regardless of current session -->
     <div id="fcSetsWrap" class="sp" style="display:none;margin-bottom:1rem;">
       <div class="sp-label" style="display:flex;align-items:center;justify-content:space-between;">
         <span>My Flashcard Sets</span>
@@ -833,7 +833,7 @@ body.serious-mode .nav-tabs { display:none !important; }
       <div class="perf-grid">
         <div class="perf-card"><div class="perf-num" id="pTotalPts">0</div><div class="perf-lbl">Lifetime Sparks</div></div>
         <div class="perf-card"><div class="perf-num" id="pTotalSes">0</div><div class="perf-lbl">Sessions</div></div>
-        <div class="perf-card"><div class="perf-num" id="pAccuracy">—%</div><div class="perf-lbl">Accuracy</div></div>
+        <div class="perf-card"><div class="perf-num" id="pAccuracy">%</div><div class="perf-lbl">Accuracy</div></div>
       </div>
     </div>
     <div class="sp">
@@ -885,7 +885,7 @@ body.serious-mode .nav-tabs { display:none !important; }
     </div>
 
     <div class="sp">
-      <div class="sp-label">Study Calendar — Last 60 Days</div>
+      <div class="sp-label">Study Calendar, Last 60 Days</div>
       <div class="cal-grid" id="calDayHeaders"></div>
       <div id="calGrid" style="margin-top:4px;"></div>
     </div>
@@ -1164,7 +1164,7 @@ function renderQ() {
 
       <div class="ans-input-wrap">
         <label style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--txm);display:block;margin-bottom:8px;">Your Answer</label>
-        <textarea class="ans-ta" id="ansInput" placeholder="Type your answer here — be as detailed as you can..."></textarea>
+        <textarea class="ans-ta" id="ansInput" placeholder="Type your answer here, be as detailed as you can..."></textarea>
       </div>
 
       <button class="submit-btn" id="submitBtn" onclick="submitAnswer()">Submit Answer</button>
@@ -1562,7 +1562,7 @@ function renderStreakTab() {
   else if (G.atRisk) sub.textContent = 'Your streak is at risk. One 5-question session protects it.';
   else sub.textContent = `Daily ${tier.name} bonus: +${tier.bonus} Sparks when you finish a session.`;
 
-  // Calendar — last 60 days
+  // Calendar, last 60 days
   const headers = ['S','M','T','W','T','F','S'];
   document.getElementById('calDayHeaders').innerHTML = headers.map(h => `<div class="cal-day-header">${h}</div>`).join('');
 
@@ -1636,7 +1636,7 @@ function fcSaveCurrentSet() {
   if (!G.questions || !G.questions.length) return;
   const sets = fcSetsLoad();
   const title = G.title || 'Study Session';
-  // De-dupe by title — replace if same title already saved
+  // De-dupe by title, replace if same title already saved
   const filtered = sets.filter(s => s.title !== title);
   filtered.unshift({
     id: 's_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
@@ -1741,7 +1741,7 @@ function srsGetOrCreate(q, a) {
     cards[id] = { q, a, interval: 1, easeFactor: 2.5, repetitions: 0, nextReview: new Date().toISOString().slice(0,10) };
     srsSave(cards);
   }
-  return { id, ...cards[id] };
+  return { id...cards[id] };
 }
 
 function srsRate(cardId, quality) {
@@ -1771,7 +1771,7 @@ function srsDueCards() {
   const today = new Date().toISOString().slice(0,10);
   return Object.entries(cards)
     .filter(([,c]) => c.nextReview <= today)
-    .map(([id, c]) => ({ id, ...c }));
+    .map(([id, c]) => ({ id...c }));
 }
 
 // ── Register flashcards into SRS when a session completes ──
@@ -1929,7 +1929,7 @@ function renderProgressTab() {
   const allSessions = G.sessionHistory;
   let totalCorrect = 0, totalQs = 0;
   allSessions.forEach(s => { totalCorrect += s.correct || 0; totalQs += s.questions || 0; });
-  document.getElementById('pAccuracy').textContent = totalQs > 0 ? Math.round(totalCorrect/totalQs*100) + '%' : '—%';
+  document.getElementById('pAccuracy').textContent = totalQs > 0 ? Math.round(totalCorrect/totalQs*100) + '%' : ', %';
 
   const hl = document.getElementById('sessionHistList');
   if (!allSessions.length) {

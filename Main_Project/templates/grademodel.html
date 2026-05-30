@@ -155,7 +155,7 @@ function selectCourse(course) {
 
 /* Maximum grade that's still mathematically reachable in this course
    given what's already been graded. If 99/100 is locked in, the max is
-   (99 + remainingPoints) / totalPoints — never 100%. */
+   (99 + remainingPoints) / totalPoints, never 100%. */
 function computeMaxPossible() {
   if (!originalAssignments) return null;
   const graded = originalAssignments.filter(a => a.graded && a.points_possible);
@@ -337,9 +337,9 @@ function simulateBest() {
   } else {
     const reached = parseFloat(selectedCourse.percentage) + 1e-6 >= target;
     if (reached) {
-      summary.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--low)"><use href="#i-check-circle"/></svg> Simulated <strong>${neededPct.toFixed(1)}%</strong> on each remaining assignment — predicted grade <strong>${selectedCourse.percentage}%</strong>, meeting your target of <strong>${target}%</strong>.`;
+      summary.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--low)"><use href="#i-check-circle"/></svg> Simulated <strong>${neededPct.toFixed(1)}%</strong> on each remaining assignment, predicted grade <strong>${selectedCourse.percentage}%</strong>meeting your target of <strong>${target}%</strong>.`;
     } else {
-      summary.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--medium)"><use href="#i-warning"/></svg> A grade of <strong>${target}%</strong> is no longer mathematically possible. Simulated the <strong>best achievable</strong> scenario instead — predicted grade <strong>${selectedCourse.percentage}%</strong> with perfect scores on every remaining assignment.`;
+      summary.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--medium)"><use href="#i-warning"/></svg> A grade of <strong>${target}%</strong> is no longer mathematically possible. Simulated the <strong>best achievable</strong> scenario instead, predicted grade <strong>${selectedCourse.percentage}%</strong> with perfect scores on every remaining assignment.`;
     }
   }
 }
@@ -361,7 +361,7 @@ function renderBreakdown(assignments) {
     const scoreDisplay = a.graded
       ? `${a.points_earned} / ${a.points_possible} pts`
       : a.points_possible
-        ? `— / ${a.points_possible} pts`
+        ? `, / ${a.points_possible} pts`
         : 'Ungraded';
 
     const pct = (a.graded && a.points_possible)
@@ -384,7 +384,7 @@ function renderBreakdown(assignments) {
         <input
           type="number" min="0" max="${a.points_possible}" step="0.5"
           value="${a.simulated ? (a.points_earned ?? '') : ''}"
-          placeholder="—"
+          placeholder=", "
           data-akey="${_assignmentKey(a)}"
           data-poss="${a.points_possible}"
           oninput="onSimInput(this)"
@@ -422,8 +422,8 @@ function runModel() {
     return;
   }
 
-  // Use the ORIGINAL graded data — not the (possibly already-simulated)
-  // selectedCourse.assignments — so re-running Model It from a simulated
+  // Use the ORIGINAL graded data, not the (possibly already-simulated)
+  // selectedCourse.assignments, so re-running Model It from a simulated
   // state still computes against reality. This prevents the "I'm at 99%
   // but the model says 100% is reachable" bug: previously, a prior
   // simulation could be counted as "graded", inflating the earned total.
@@ -446,7 +446,7 @@ function runModel() {
     document.getElementById('modelSummary').innerHTML =
       `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--medium)"><use href="#i-warning"/></svg> ` +
       `<strong>${target}%</strong> isn't reachable from here. With <strong>${earnedTotal.toFixed(1)} of ${gradedPossible.toFixed(0)}</strong> points already locked in, ` +
-      `the <strong>highest achievable grade</strong> in this course is <strong>${maxPossible.toFixed(2)}%</strong> — earned by scoring 100% on every remaining assignment. ` +
+      `the <strong>highest achievable grade</strong> in this course is <strong>${maxPossible.toFixed(2)}%</strong>earned by scoring 100% on every remaining assignment. ` +
       `Try a target up to <strong>${Math.floor(maxPossible * 10) / 10}%</strong>.`;
     simulateBest();
     _flashSimInputs();
@@ -479,7 +479,7 @@ function runModel() {
   }
 
   if (pointsStillNeeded <= 0) {
-    summary.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--low)"><use href="#i-check-circle"/></svg> You've already earned enough points to reach <strong>${target}%</strong> —
+    summary.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--low)"><use href="#i-check-circle"/></svg> You've already earned enough points to reach <strong>${target}%</strong>
       even scoring 0 on all remaining assignments would get you there.`;
     return;
   }
@@ -489,7 +489,7 @@ function runModel() {
   if (parseFloat(neededPct) > 100) {
     const maxPossible = ((earnedTotal + pendingPossible) / totalPossible * 100).toFixed(1);
     summary.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--medium)"><use href="#i-warning"/></svg> Reaching <strong>${target}%</strong> is no longer mathematically possible.
-      The <strong>highest achievable grade</strong> in <strong>${selectedCourse.course}</strong> is <strong>${maxPossible}%</strong> — earned by scoring 100% on all ${pending.length} remaining assignment${pending.length !== 1 ? 's' : ''}.`;
+      The <strong>highest achievable grade</strong> in <strong>${selectedCourse.course}</strong> is <strong>${maxPossible}%</strong>earned by scoring 100% on all ${pending.length} remaining assignment${pending.length !== 1 ? 's' : ''}.`;
     simulateBest();
     _flashSimInputs();
     document.getElementById('assignmentBreakdown').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -523,10 +523,10 @@ function onTargetTyped() {
   if (maxP == null) { hint.textContent = ''; return; }
   if (v > maxP + 1e-9) {
     hint.style.color = '#d97706';
-    hint.innerHTML = `Not reachable — your max achievable is <strong>${maxP.toFixed(2)}%</strong>.`;
+    hint.innerHTML = `Not reachable, your max achievable is <strong>${maxP.toFixed(2)}%</strong>.`;
   } else if (v > maxP - 1) {
     hint.style.color = 'var(--text-muted)';
-    hint.innerHTML = `Tight — needs nearly perfect scores. Max is <strong>${maxP.toFixed(2)}%</strong>.`;
+    hint.innerHTML = `Tight, needs nearly perfect scores. Max is <strong>${maxP.toFixed(2)}%</strong>.`;
   } else {
     hint.style.color = 'var(--low)';
     hint.textContent = 'Reachable.';

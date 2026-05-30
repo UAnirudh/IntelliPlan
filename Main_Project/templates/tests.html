@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block page_title %}Tests — IntelliPlan{% endblock %}
+{% block page_title %}Tests, IntelliPlan{% endblock %}
 
 {% block head_extra %}
 <style>
@@ -249,7 +249,7 @@
       </button>
     </div>
     <div class="countdown-big">
-      <div class="countdown-big-num" id="prepCountdown">—</div>
+      <div class="countdown-big-num" id="prepCountdown"></div>
       <div class="countdown-big-lbl" id="prepCountdownLbl">until test</div>
     </div>
     <div class="prep-section">
@@ -304,12 +304,12 @@ const PREP_TIPS = {
   urgent: [
     'Review your notes from the last two weeks focusing on key formulas and definitions.',
     'Do 2–3 practice problems per major topic tonight.',
-    'Get at least 7 hours of sleep — it significantly improves recall.',
+    'Get at least 7 hours of sleep, it significantly improves recall.',
   ],
   soon: [
     'Create a summary sheet: one page covering every major topic.',
     'Use active recall: close your notes and try to write everything you know.',
-    'Space out your study sessions — 45 min on, 15 min off.',
+    'Space out your study sessions, 45 min on, 15 min off.',
   ],
   later: [
     'Start reviewing lecture notes and identify gaps in your understanding.',
@@ -341,7 +341,7 @@ function countdownText(due) {
 }
 
 function formatDate(d) {
-  if (!d) return '—';
+  if (!d) return ', ';
   const dt = new Date(d + 'T00:00:00');
   return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
@@ -448,11 +448,11 @@ function openPrepModal(test) {
   const cd = countdownText(test.due_date);
   const cdEl = document.getElementById('prepCountdown');
   const cdLbl = document.getElementById('prepCountdownLbl');
-  if (!test.due_date) { cdEl.textContent = '—'; cdLbl.textContent = 'no date set'; }
+  if (!test.due_date) { cdEl.textContent = ', '; cdLbl.textContent = 'no date set'; }
   else {
     const diff = Math.ceil((new Date(test.due_date + 'T00:00:00') - new Date()) / 86400000);
     cdEl.textContent = diff <= 0 ? 'Today' : `${diff}`;
-    cdLbl.textContent = diff > 1 ? 'days until test' : diff === 1 ? 'day until test' : '— test day!';
+    cdLbl.textContent = diff > 1 ? 'days until test' : diff === 1 ? 'day until test' : ', test day!';
   }
   const urg = urgencyClass(test.due_date);
   const tips = PREP_TIPS[urg] || PREP_TIPS.later;

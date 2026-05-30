@@ -161,7 +161,7 @@ fetch('/grades/data')
     }
 
     data.forEach((g, i) => {
-      const letter = g.letter || '—';
+      const letter = g.letter || ', ';
       const colors = getLetterColor(letter);
       const bar = getBarWidth(g.percentage);
       const pctDisplay = (g.percentage !== null && g.percentage !== undefined)

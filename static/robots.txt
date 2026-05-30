@@ -1,4 +1,4 @@
-# IntelliPlan — robots.txt
+# IntelliPlan, robots.txt
 #
 # Indexable: public marketing pages (/, /faq, /pricing, /compare, /about,
 # /tutor, /install, /legal, /blog/*).
