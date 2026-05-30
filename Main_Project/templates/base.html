@@ -1315,6 +1315,58 @@
   {# Single viewport tag lives at the top of <head>; duplicate removed. #}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
   {% block head_extra %}{% endblock %}
+<style id="android-touch-polish">
+/* ===== Android scroll + tap responsiveness and mobile polish =====
+   Improves touch scrolling smoothness and button-press feedback so
+   Android behaves closer to iOS. Safe on desktop. */
+a, button, summary, label, [role="button"],
+.btn-primary, .btn-secondary, .mini-btn, .cta-btn, .demo-btn, .cta-ghost-btn,
+.mobile-cta-primary, .mobile-cta-secondary {
+  touch-action: manipulation;            /* removes the 300ms tap delay */
+  -webkit-tap-highlight-color: transparent;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+body {
+  -webkit-overflow-scrolling: touch;     /* momentum scrolling */
+  overscroll-behavior-y: contain;        /* stops janky scroll chaining */
+}
+/* Immediate visual feedback when pressing buttons on touch devices */
+@media (hover: none) {
+  .btn-primary:active, .btn-secondary:active, .mini-btn:active, .cta-btn:active,
+  .demo-btn:active, .cta-ghost-btn:active,
+  .mobile-cta-primary:active, .mobile-cta-secondary:active {
+    transform: translateY(1px) scale(0.98);
+    transition: transform .06s ease;
+  }
+}
+@media (max-width: 768px) {
+  /* backdrop-filter and large blurred backdrops are the biggest cause of
+     stuttery scrolling on Android. Disable them on small screens. */
+  *, *::before, *::after {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  .hero-wrap::before, .hero-preview::before { display: none !important; }
+  /* Lighter shadows mean far fewer expensive repaints while scrolling */
+  .preview-card, .feature-card, .step-card, .answer-card, .integration-card,
+  .faq-item, .review-card, .about-card, .comparison-card, .tutor-promo-preview {
+    box-shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 14px rgba(15,23,42,.06) !important;
+  }
+  /* Finger-friendly tap targets */
+  .btn-primary, .btn-secondary, .mini-btn, .cta-btn, .demo-btn, .cta-ghost-btn,
+  .mobile-cta-primary, .mobile-cta-secondary {
+    min-height: 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
 </head>
 
 {% set _app_pages = ['dashboard','scheduler','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes'] %}
