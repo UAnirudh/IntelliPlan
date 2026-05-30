@@ -1059,13 +1059,18 @@
 
   .hero-title {
     font-family: var(--font-display);
-    font-size: clamp(2.5rem, 5.2vw, 4.9rem);
-    line-height: 1.0;
+    font-size: clamp(2.25rem, 4.6vw, 4.5rem);
+    line-height: 1.04;
     color: var(--text-primary);
-    letter-spacing: -0.055em;
+    letter-spacing: -0.04em;
     margin: 0 0 1.15rem;
     font-weight: 800;
     text-wrap: balance;
+    /* Prevent long words (e.g. "automatically") from overflowing the
+       hero column and being clipped by the preview panel beside it. */
+    overflow-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
     /* Subtle dimensional treatment — gives the headline weight and depth
        without going full gradient text (which fights with the brand). */
     background: linear-gradient(180deg, var(--text-primary) 0%, color-mix(in srgb, var(--text-primary) 78%, transparent) 100%);
