@@ -1386,7 +1386,7 @@ body {
 </style>
 </head>
 
-{% set _app_pages = ['dashboard','scheduler','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes'] %}
+{% set _app_pages = ['dashboard','scheduler','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub'] %}
 <body class="{% if active_page in _app_pages %}has-side{% endif %}">
 
 <!-- ══════════════════════════════════════
@@ -1459,45 +1459,22 @@ body {
     <span class="kbd-hint">⌘K</span>
   </button>
 
-  {# ── Simplified nav: Scheduler, Grade Modeler, Study & Learn group ── #}
-  {%- set _study_sub = ['tutor','priority','classes','grades','grademodel','dismissed','tests','study','learn','focus','library','streak','lessons','writing','math','extractor','meetings','groups'] -%}
+  {# ── Simplified nav: Dashboard, Scheduler, Grade Modeler, Study & Learn hub ── #}
+  {%- set _study_sub = ['tutor','priority','classes','grades','dismissed','tests','study','learn','focus','library','streak','lessons','writing','math','extractor','meetings','groups','study_hub'] -%}
   <div class="side-nav-list" id="sideNavList">
 
-    {# Top-level direct links #}
+    <a href="/dashboard" data-nav-item="dashboard" class="side-link {% if active_page == 'dashboard' %}active{% endif %}">
+      <span class="side-icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard
+    </a>
     <a href="/scheduler" data-nav-item="scheduler" class="side-link {% if active_page == 'scheduler' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-scheduler"/></svg></span>Scheduler
     </a>
     <a href="/gradebook" data-nav-item="gradebook" class="side-link {% if active_page in ['gradebook','grademodel'] %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Grade Modeler
     </a>
-
-    {# Study & Learn — collapsible group ─────────────────── #}
-    <div class="side-group {% if active_page in _study_sub %}is-open{% endif %}" data-group-id="study">
-      <button type="button" class="side-group-toggle side-link" aria-expanded="{% if active_page in _study_sub %}true{% else %}false{% endif %}">
-        <span class="side-icon"><svg><use href="#i-study"/></svg></span>
-        Study &amp; Learn
-        <span class="side-chev">▾</span>
-      </button>
-      <div class="side-group-body">
-        <a href="/tutor"     data-nav-item="tutor"     class="side-link side-sub {% if active_page == 'tutor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-tutor"/></svg></span>AI Tutor</a>
-        <a href="/priority"  data-nav-item="priority"  class="side-link side-sub {% if active_page == 'priority' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-priority"/></svg></span>Priority</a>
-        <a href="/classes"   data-nav-item="classes"   class="side-link side-sub {% if active_page == 'classes' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-classes"/></svg></span>Classes</a>
-        <a href="/grades"    data-nav-item="grades"    class="side-link side-sub {% if active_page == 'grades' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-grades"/></svg></span>Grades</a>
-        <a href="/tests"     data-nav-item="tests"     class="side-link side-sub {% if active_page == 'tests' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-test"/></svg></span>Tests</a>
-        <a href="/dismissed" data-nav-item="dismissed" class="side-link side-sub {% if active_page == 'dismissed' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-done"/></svg></span>Done</a>
-        <a href="/study"     data-nav-item="study"     class="side-link side-sub {% if active_page == 'study' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-rocket"/></svg></span>Deep Study</a>
-        <a href="/learn"     data-nav-item="learn"     class="side-link side-sub {% if active_page == 'learn' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Learn</a>
-        <a href="/focus"     data-nav-item="focus"     class="side-link side-sub {% if active_page == 'focus' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-clock"/></svg></span>Focus Timer</a>
-        <a href="/library"   data-nav-item="library"   class="side-link side-sub {% if active_page == 'library' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-backpack"/></svg></span>AP Library</a>
-        <a href="/streak"    data-nav-item="streak"    class="side-link side-sub {% if active_page == 'streak' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-fire"/></svg></span>Streak</a>
-        <a href="/lessons"   data-nav-item="lessons"   class="side-link side-sub {% if active_page == 'lessons' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-lightbulb"/></svg></span>Lessons</a>
-        <a href="/writing"   data-nav-item="writing"   class="side-link side-sub {% if active_page == 'writing' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-pencil"/></svg></span>Writing</a>
-        <a href="/math"      data-nav-item="math"      class="side-link side-sub {% if active_page == 'math' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Math</a>
-        <a href="/extractor" data-nav-item="extractor" class="side-link side-sub {% if active_page == 'extractor' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-check-circle"/></svg></span>Task Extractor</a>
-        <a href="/meetings"  data-nav-item="meetings"  class="side-link side-sub {% if active_page == 'meetings' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-video"/></svg></span>Meetings</a>
-        <a href="/groups"    data-nav-item="groups"    class="side-link side-sub {% if active_page == 'groups' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-users"/></svg></span>Study Groups</a>
-      </div>
-    </div>
+    <a href="/study-and-learn" data-nav-item="study_hub" class="side-link {% if active_page in _study_sub %}active{% endif %}">
+      <span class="side-icon"><svg><use href="#i-study"/></svg></span>Study &amp; Learn
+    </a>
 
   </div>
 
@@ -2252,10 +2229,9 @@ if (mobileMenuBtn) {
 
   // Section labels and the items inside each (must match data-nav-item attrs)
   const SECTIONS = [
-    { key:'top',   label:'Main',         items:['scheduler','gradebook'] },
-    { key:'study', label:'Study & Learn', items:['tutor','priority','classes','grades','tests','dismissed','study','learn','focus','library','streak','lessons','writing','math','extractor','meetings','groups'] },
+    { key:'top', label:'Main', items:['dashboard','scheduler','gradebook','study_hub'] },
   ];
-  const NEVER_HIDE = new Set(['scheduler']); // always keep Scheduler reachable
+  const NEVER_HIDE = new Set(['dashboard']); // always keep Dashboard reachable
 
   function loadHidden() {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {}; }

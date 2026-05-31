@@ -1,0 +1,517 @@
+{% extends "base.html" %}
+{% block page_title %}Study & Learn — IntelliPlan{% endblock %}
+{% block meta_description %}One place for every IntelliPlan study tool — AI Tutor, flashcards, deep study, focus timer, AP library, writing help, math explainer, and more.{% endblock %}
+
+{% block head_extra %}
+<style>
+  .hub-hero {
+    background: var(--grad-brand);
+    border-radius: var(--r-2xl);
+    padding: 2rem 2rem 2.25rem;
+    color: #fff;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.18),
+      0 8px 30px rgba(36,83,214,0.25);
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp 0.5s var(--ease-out) both;
+  }
+  .hub-hero::before {
+    content: "";
+    position: absolute; right: -60px; top: -60px;
+    width: 220px; height: 220px;
+    background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 60%);
+    pointer-events: none;
+  }
+  .hub-hero-title {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    letter-spacing: -0.03em;
+    margin-bottom: 4px;
+    line-height: 1.1;
+  }
+  .hub-hero-title em { font-style: italic; color: rgba(255,255,255,0.85); }
+  .hub-hero-sub {
+    color: rgba(255,255,255,0.85);
+    font-size: 0.95rem;
+    margin-bottom: 1.25rem;
+    line-height: 1.5;
+  }
+  /* AI chat bar at the top of the hub */
+  .hub-chat-wrap {
+    background: rgba(255,255,255,0.16);
+    border: 1px solid rgba(255,255,255,0.25);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: var(--r-lg);
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    z-index: 1;
+  }
+  .hub-chat-input {
+    flex: 1;
+    background: transparent;
+    border: 0;
+    outline: 0;
+    color: #fff;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    padding: 8px 8px;
+    min-width: 0;
+  }
+  .hub-chat-input::placeholder { color: rgba(255,255,255,0.7); }
+  .hub-chat-submit {
+    background: #fff;
+    color: var(--accent);
+    border: 0;
+    border-radius: var(--r-sm);
+    padding: 8px 14px;
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.14s, box-shadow 0.14s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .hub-chat-submit:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+  }
+  .hub-chat-submit:disabled { opacity: 0.65; cursor: wait; }
+  .hub-chat-icon {
+    width: 22px; height: 22px;
+    flex-shrink: 0;
+    color: rgba(255,255,255,0.85);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .hub-chat-suggest {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-top: 10px;
+    position: relative; z-index: 1;
+  }
+  .hub-chat-chip {
+    background: rgba(255,255,255,0.16);
+    border: 1px solid rgba(255,255,255,0.25);
+    color: #fff;
+    font-family: var(--font-ui);
+    font-size: 0.74rem;
+    font-weight: 600;
+    padding: 5px 11px;
+    border-radius: var(--r-full);
+    cursor: pointer;
+    transition: background 0.14s;
+  }
+  .hub-chat-chip:hover { background: rgba(255,255,255,0.28); }
+  .hub-chat-result {
+    margin-top: 10px;
+    background: rgba(255,255,255,0.16);
+    border: 1px solid rgba(255,255,255,0.28);
+    color: #fff;
+    border-radius: var(--r-md);
+    padding: 12px 14px;
+    display: none;
+    animation: fadeUp 0.22s var(--ease-out) both;
+    position: relative; z-index: 1;
+  }
+  .hub-chat-result.visible { display: block; }
+  .hub-chat-result-title { font-weight: 700; margin-bottom: 4px; font-size: 0.95rem; }
+  .hub-chat-result-reason { font-size: 0.82rem; color: rgba(255,255,255,0.85); margin-bottom: 8px; line-height: 1.5; }
+  .hub-chat-result-go {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: #fff; color: var(--accent);
+    padding: 6px 14px; border-radius: var(--r-sm);
+    text-decoration: none;
+    font-family: var(--font-ui); font-size: 0.8rem; font-weight: 700;
+    transition: transform 0.14s, box-shadow 0.14s;
+  }
+  .hub-chat-result-go:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.18); }
+
+  /* Section filter tabs */
+  .hub-filter-bar {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-bottom: 1.25rem;
+    animation: fadeUp 0.5s 0.1s var(--ease-out) both;
+  }
+  .hub-filter-btn {
+    padding: 6px 14px; border-radius: var(--r-full);
+    border: 1px solid var(--border);
+    background: var(--bg-card); color: var(--text-secondary);
+    font-family: var(--font-ui); font-size: 0.78rem; font-weight: 600;
+    cursor: pointer; transition: all 0.16s;
+  }
+  .hub-filter-btn:hover { border-color: var(--border-accent); color: var(--accent); }
+  .hub-filter-btn.active { background: var(--accent); color: #fff; border-color: transparent; }
+
+  /* Card grid */
+  .hub-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+    margin-bottom: 2rem;
+  }
+  .hub-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: 1.1rem 1.15rem 1rem;
+    box-shadow: var(--shadow);
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.18s var(--ease-out), box-shadow 0.18s, border-color 0.18s;
+    animation: fadeUp 0.4s var(--ease-out) both;
+    position: relative;
+    overflow: hidden;
+  }
+  .hub-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+    border-color: var(--border-accent);
+  }
+  .hub-card-header {
+    display: flex; align-items: flex-start; gap: 10px;
+    margin-bottom: 8px;
+  }
+  .hub-card-icon {
+    width: 36px; height: 36px;
+    border-radius: var(--r-sm);
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .hub-card-icon svg { width: 18px; height: 18px; }
+  .hub-card-title {
+    font-family: var(--font-ui);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    margin-top: 2px;
+  }
+  .hub-card-desc {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    flex: 1;
+    margin-bottom: 12px;
+  }
+  .hub-card-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px;
+  }
+  .hub-card-tag {
+    font-family: var(--font-ui);
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    background: var(--bg-elevated);
+    padding: 3px 9px;
+    border-radius: var(--r-full);
+  }
+  .hub-card-go {
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--accent);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: gap 0.16s;
+  }
+  .hub-card:hover .hub-card-go { gap: 8px; }
+  .hub-card.featured {
+    background: linear-gradient(135deg, var(--accent-soft) 0%, rgba(255,255,255,0) 100%);
+    border-color: var(--border-accent);
+  }
+
+  @media (max-width: 600px) {
+    .hub-hero { padding: 1.5rem 1.25rem 1.75rem; }
+    .hub-hero-title { font-size: 1.6rem; }
+    .hub-grid { grid-template-columns: 1fr; gap: 10px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="hub-hero">
+  <h1 class="hub-hero-title">Study &amp; <em>Learn</em></h1>
+  <p class="hub-hero-sub">All your AI-powered study tools in one place. Not sure where to start? Just ask.</p>
+
+  <div class="hub-chat-wrap">
+    <span class="hub-chat-icon" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg>
+    </span>
+    <input id="hubChatInput" class="hub-chat-input" type="text"
+      placeholder="What do you want to do? e.g. 'help me with calculus'"
+      autocomplete="off" />
+    <button id="hubChatSubmit" class="hub-chat-submit" type="button">
+      Ask
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+    </button>
+  </div>
+
+  <div class="hub-chat-suggest" aria-label="Suggested prompts">
+    <button class="hub-chat-chip" data-q="help me prep for a calculus test" type="button">Prep for a test</button>
+    <button class="hub-chat-chip" data-q="quiz me with flashcards" type="button">Quiz me</button>
+    <button class="hub-chat-chip" data-q="what should I work on first" type="button">What's most important?</button>
+    <button class="hub-chat-chip" data-q="start a 25 minute focus session" type="button">Start focus session</button>
+    <button class="hub-chat-chip" data-q="help me write my essay" type="button">Essay help</button>
+  </div>
+
+  <div id="hubChatResult" class="hub-chat-result" role="status" aria-live="polite">
+    <div class="hub-chat-result-title" id="hubResultTitle">…</div>
+    <div class="hub-chat-result-reason" id="hubResultReason">…</div>
+    <a id="hubResultGo" class="hub-chat-result-go" href="#">
+      Go there
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+    </a>
+  </div>
+</section>
+
+<div class="hub-filter-bar" id="hubFilterBar" role="tablist">
+  <button class="hub-filter-btn active" data-filter="all" type="button">All</button>
+  <button class="hub-filter-btn" data-filter="ai"      type="button">AI Help</button>
+  <button class="hub-filter-btn" data-filter="practice" type="button">Practice</button>
+  <button class="hub-filter-btn" data-filter="planning" type="button">Planning</button>
+  <button class="hub-filter-btn" data-filter="social"   type="button">Social</button>
+</div>
+
+<div class="hub-grid" id="hubGrid">
+  {# ── AI HELP ── #}
+  <a href="/tutor" class="hub-card featured" data-cat="ai">
+    <div class="hub-card-header">
+      <span class="hub-card-icon"><svg><use href="#i-tutor"/></svg></span>
+      <span class="hub-card-title">AI Tutor</span>
+    </div>
+    <p class="hub-card-desc">Ask Plani anything — homework help, concept explanations, study strategies. Available 24/7.</p>
+    <div class="hub-card-footer"><span class="hub-card-tag">AI Help</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+  </a>
+
+  <a href="/writing" class="hub-card" data-cat="ai">
+    <div class="hub-card-header">
+      <span class="hub-card-icon"><svg><use href="#i-pencil"/></svg></span>
+      <span class="hub-card-title">Writing</span>
+    </div>
+    <p class="hub-card-desc">Essay help, grammar checking, draft refinement, and proofreading — all powered by AI.</p>
+    <div class="hub-card-footer"><span class="hub-card-tag">AI Help</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+  </a>
+
+  <a href="/math" class="hub-card" data-cat="ai">
+    <div class="hub-card-header">
+      <span class="hub-card-icon"><svg><use href="#i-modeler"/></svg></span>
+      <span class="hub-card-title">Math Explainer</span>
+    </div>
+    <p class="hub-card-desc">Step-by-step solutions for algebra, calculus, geometry, and more. See the work, not just the answer.</p>
+    <div class="hub-card-footer"><span class="hub-card-tag">AI Help</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+  </a>
+
+  <a href="/extractor" class="hub-card" data-cat="ai">
+    <div class="hub-card-header">
+      <span class="hub-card-icon"><svg><use href="#i-check-circle"/></svg></span>
+      <span class="hub-card-title">Task Extractor</span>
+    </div>
+    <p class="hub-card-desc">Upload a syllabus, screenshot, or PDF — IntelliPlan pulls out every assignment and due date for you.</p>
+    <div class="hub-card-footer"><span class="hub-card-tag">AI Help</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+  </a>
+
+  {# ── PRACTICE ── #}
+  <a href="/study" class="hub-card featured" data-cat="practice">
+    <div class="hub-card-header">
+      <span class="hub-card-icon"><svg><use href="#i-rocket"/></svg></span>
+      <span class="hub-card-title">Deep Study</span>
+    </div>
+    <p class="hub-card-desc">A structured 3-step session — setup, encoding, and database building — designed for serious study time.</p>
+    <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+  </a>
+
+  <a href="/learn" class="hub-card" data-cat="practice">
+    <div class="hub-card-header">
+      <span class="hub-card-icon"><svg><use href="#i-study"/></svg></span>
+      <span class="hub-card-title">Learn</span>
+    </div>
+    <p class="hub-card-desc">AI-generated flashcards and quizzes for mastery practice. Spaced repetition keeps it sticky.</p>
+    <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+  </a>
+
+  <a href="/focus" class="hub-card" data-cat="practice">
+    <div class="hub-card-header">
+      <span class="hub-card-icon"><svg><use href="#i-clock"/></svg></span>
+      <span class="hub-card-title">Focus Timer</span>
+    </div>
+    <p class="hub-card-desc">A clean Pomodoro timer with break reminders and session history. No distractions, just deep work.</p>
+    <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+  </a>
+
+  <a href="/library" class="hub-card" data-cat="practice">
+    <div class="hub-card-header">
+      <span class="hub-card-icon"><svg><use href="#i-backpack"/></svg></span>
+      <span class="hub-card-title">AP Library</span>
+    </div>
+    <p class="hub-card-desc">Curated AP-course study guides, practice tests, and reference materials.</p>
+    <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+  </a>
+
+  <a href="/lessons" class="hub-card" data-cat="practice">
+    <div class="hub-card-header">
+      <span class="hub-card-icon"><svg><use href="#i-lightbulb"/></svg></span>
+      <span class="hub-card-title">Lessons</span>
+    </div>
+    <p class="hub-card-desc">Upload a class recording — IntelliPlan transcribes it and pulls out the key takeaways.</p>
+    <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+  </a>
+
+  {# ── PLANNING ── #}
+  <a href="/priority" class="hub-card" data-cat="planning">
+    <div class="hub-card-header">
+      <span class="hub-card-icon"><svg><use href="#i-priority"/></svg></span>
+      <span class="hub-card-title">Priority Queue</span>
+    </div>
+    <p class="hub-card-desc">Your assignments, ranked by urgency. Always know what to tackle next.</p>
+    <div class="hub-card-footer"><span class="hub-card-tag">Planning</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+  </a>
+
+  <a href="/classes" class="hub-card" data-cat="planning">
+    <div class="hub-card-header">
+      <span class="hub-card-icon"><svg><use href="#i-classes"/></svg></span>
+      <span class="hub-card-title">Classes</span>
+    </div>
+    <p class="hub-card-desc">Every course in one place — assignments, grades, and materials side-by-side.</p>
+    <div class="hub-card-footer"><span class="hub-card-tag">Planning</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+  </a>
+
+  <a href="/grades" class="hub-card" data-cat="planning">
+    <div class="hub-card-header">
+      <span class="hub-card-icon"><svg><use href="#i-grades"/></svg></span>
+      <span class="hub-card-title">Grades</span>
+    </div>
+    <p class="hub-card-desc">Live grades with trends, target tracking, and "what-if" projections.</p>
+    <div class="hub-card-footer"><span class="hub-card-tag">Planning</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+  </a>
+
+  <a href="/tests" class="hub-card" data-cat="planning">
+    <div class="hub-card-header">
+      <span class="hub-card-icon"><svg><use href="#i-test"/></svg></span>
+      <span class="hub-card-title">Tests &amp; Quizzes</span>
+    </div>
+    <p class="hub-card-desc">Upcoming tests, prep checklists, and practice exam libraries.</p>
+    <div class="hub-card-footer"><span class="hub-card-tag">Planning</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+  </a>
+
+  <a href="/dismissed" class="hub-card" data-cat="planning">
+    <div class="hub-card-header">
+      <span class="hub-card-icon"><svg><use href="#i-done"/></svg></span>
+      <span class="hub-card-title">Completed Work</span>
+    </div>
+    <p class="hub-card-desc">Your archive of finished assignments. Restore any of them with one click.</p>
+    <div class="hub-card-footer"><span class="hub-card-tag">Planning</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+  </a>
+
+  <a href="/streak" class="hub-card" data-cat="planning">
+    <div class="hub-card-header">
+      <span class="hub-card-icon"><svg><use href="#i-fire"/></svg></span>
+      <span class="hub-card-title">Streak</span>
+    </div>
+    <p class="hub-card-desc">Track your daily study habit and earn rewards for consistency.</p>
+    <div class="hub-card-footer"><span class="hub-card-tag">Planning</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+  </a>
+
+  {# ── SOCIAL ── #}
+  <a href="/meetings" class="hub-card" data-cat="social">
+    <div class="hub-card-header">
+      <span class="hub-card-icon"><svg><use href="#i-video"/></svg></span>
+      <span class="hub-card-title">Meetings</span>
+    </div>
+    <p class="hub-card-desc">Your Zoom, Teams, Meet, and Webex calls — all in one synced feed.</p>
+    <div class="hub-card-footer"><span class="hub-card-tag">Social</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+  </a>
+
+  <a href="/groups" class="hub-card" data-cat="social">
+    <div class="hub-card-header">
+      <span class="hub-card-icon"><svg><use href="#i-users"/></svg></span>
+      <span class="hub-card-title">Study Groups</span>
+    </div>
+    <p class="hub-card-desc">Form a group, share notes, and study together — even when you're apart.</p>
+    <div class="hub-card-footer"><span class="hub-card-tag">Social</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+  </a>
+</div>
+
+<script>
+(function () {
+  // ── Filter bar ──
+  const filterBar = document.getElementById('hubFilterBar');
+  const cards     = Array.from(document.querySelectorAll('#hubGrid .hub-card'));
+  filterBar?.querySelectorAll('.hub-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      filterBar.querySelectorAll('.hub-filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const cat = btn.dataset.filter;
+      cards.forEach(c => {
+        c.style.display = (cat === 'all' || c.dataset.cat === cat) ? '' : 'none';
+      });
+    });
+  });
+
+  // ── AI chat bar ──
+  const input  = document.getElementById('hubChatInput');
+  const submit = document.getElementById('hubChatSubmit');
+  const result = document.getElementById('hubChatResult');
+  const title  = document.getElementById('hubResultTitle');
+  const reason = document.getElementById('hubResultReason');
+  const go     = document.getElementById('hubResultGo');
+
+  async function ask(query) {
+    if (!query || !query.trim()) return;
+    submit.disabled = true;
+    const originalLabel = submit.innerHTML;
+    submit.innerHTML = '<svg width="14" height="14" class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-spinner"/></svg>';
+    try {
+      const res = await fetch('/api/study-hub/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        title.textContent  = data.title;
+        reason.textContent = data.reason;
+        go.href = data.route;
+        result.classList.add('visible');
+      } else {
+        title.textContent  = 'Something went wrong';
+        reason.textContent = data.message || 'Please try again.';
+        go.href = '#';
+        result.classList.add('visible');
+      }
+    } catch (e) {
+      title.textContent  = 'Connection error';
+      reason.textContent = 'Check your internet and try again.';
+      result.classList.add('visible');
+    }
+    submit.disabled = false;
+    submit.innerHTML = originalLabel;
+  }
+
+  submit?.addEventListener('click', () => ask(input.value));
+  input?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ask(input.value); } });
+
+  document.querySelectorAll('.hub-chat-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      input.value = chip.dataset.q || chip.textContent;
+      ask(input.value);
+    });
+  });
+})();
+</script>
+{% endblock %}

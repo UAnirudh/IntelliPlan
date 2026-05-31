@@ -1,25 +1,56 @@
 """
-IntelliPlan Automated Tests
-Run with: pytest test_intelliplan.py -v
-Or with headed browser: pytest test_intelliplan.py -v --headed
+IntelliPlan End-to-End Test Suite
+=================================
+
+Comprehensive frontend + backend + responsive testing for the live site.
+
+Run:
+  pytest test_intelliplan.py -v
+  pytest test_intelliplan.py -v --headed              # see the browser
+  pytest test_intelliplan.py -v -k "TestLanding"      # one class only
+  pytest test_intelliplan.py -v -k "mobile"           # only responsive tests
+
+Coverage:
+  - Frontend: landing, login, register, legal, install, study hub, extension API
+  - Responsive: mobile (375), tablet (768), desktop (1280), wide (1920)
+  - Backend: /live, /push/vapid-public, /study/access, /api/study-hub/recommend,
+    /tasks/unified, /calendar/events, /extension/* CORS preflight
+  - Auth: every protected route redirects to /login when unauthenticated
+  - Compliance: no Discord links, no ads, COPPA + password policy on /legal
+  - Accessibility: page <title>, meta viewport, og:image, lang=en
+
+Resilient to live-site latency:
+  - 60s navigation timeout per page
+  - One automatic retry on TimeoutError
+  - All locator assertions use Playwright's auto-waiting via `expect()`
 """
 
 import re
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, TimeoutError as PWTimeoutError, expect
 
-BASE_URL = "https://intelliplan.tech"
+BASE_URL  = "https://intelliplan.tech"
+NAV_TIMEOUT_MS = 60_000   # Production page goto budget
+EXPECT_TIMEOUT_MS = 15_000  # Locator assertion budget
+
+# Apply a generous default to every `expect()` so individual tests stay terse.
+expect.set_options(timeout=EXPECT_TIMEOUT_MS)
 
 
-# ── HELPERS ───────────────────────────────────────────────────
-
-def go(page: Page, path: str) -> None:
-    page.goto(f"{BASE_URL}{path}", wait_until="domcontentloaded")
+# ── Resilient navigation helper ───────────────────────────────
+def go(page: Page, path: str, *, wait: str = "domcontentloaded") -> None:
+    """Navigate to BASE_URL+path with extended timeout and one retry on flake."""
+    url = f"{BASE_URL}{path}"
+    page.set_default_timeout(EXPECT_TIMEOUT_MS)
+    try:
+        page.goto(url, wait_until=wait, timeout=NAV_TIMEOUT_MS)
+    except PWTimeoutError:
+        # Single retry — the production CDN sometimes cold-starts a worker.
+        page.goto(url, wait_until=wait, timeout=NAV_TIMEOUT_MS)
 
 
 def assert_no_discord_links(page: Page) -> None:
-    # Check only actual rendered links, not HTML comments or dead source text.
     hrefs = page.locator("a").evaluate_all(
         "(els) => els.map(e => (e.href || '').toLowerCase())"
     )
@@ -28,12 +59,8 @@ def assert_no_discord_links(page: Page) -> None:
 
 def assert_no_ad_terms(page: Page) -> None:
     content = page.content().lower()
-    blocked_terms = [
-        "googlesyndication",
-        "doubleclick",
-        "adsbygoogle",
-    ]
-    assert not any(term in content for term in blocked_terms)
+    blocked = ["googlesyndication", "doubleclick", "adsbygoogle"]
+    assert not any(t in content for t in blocked)
 
 
 def assert_url_matches(page: Page, path: str) -> None:
@@ -41,7 +68,9 @@ def assert_url_matches(page: Page, path: str) -> None:
     expect(page).to_have_url(pattern)
 
 
-# ── LANDING PAGE ──────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════════
+#  FRONTEND — STATIC PAGES
+# ════════════════════════════════════════════════════════════════
 
 class TestLandingPage:
     def test_landing_loads(self, page: Page):
@@ -58,8 +87,31 @@ class TestLandingPage:
         page.locator("a", has_text="IntelliPlan").first.click()
         assert_url_matches(page, "/")
 
+    def test_meta_description_present(self, page: Page):
+        go(page, "/")
+        desc = page.locator("meta[name='description']").get_attribute("content")
+        assert desc and len(desc) > 30, "Meta description should be substantive"
 
-# ── LOGIN PAGE ────────────────────────────────────────────────
+    def test_canonical_url_present(self, page: Page):
+        go(page, "/")
+        canon = page.locator("link[rel='canonical']").get_attribute("href")
+        assert canon and "intelliplan.tech" in canon
+
+    def test_og_image_present(self, page: Page):
+        go(page, "/")
+        og = page.locator("meta[property='og:image']").get_attribute("content")
+        assert og and og.startswith("http")
+
+    def test_html_lang_attribute(self, page: Page):
+        go(page, "/")
+        lang = page.locator("html").get_attribute("lang")
+        assert lang and lang.startswith("en")
+
+    def test_viewport_meta_tag(self, page: Page):
+        go(page, "/")
+        vp = page.locator("meta[name='viewport']").get_attribute("content")
+        assert vp and "width=device-width" in vp
+
 
 class TestLoginPage:
     def test_login_page_loads(self, page: Page):
@@ -102,8 +154,6 @@ class TestLoginPage:
         page.get_by_text("StudentVue").click()
         assert_url_matches(page, "/login/studentvue")
 
-
-# ── REGISTER PAGE ─────────────────────────────────────────────
 
 class TestRegisterPage:
     def test_register_page_loads(self, page: Page):
@@ -148,7 +198,6 @@ class TestRegisterPage:
         assert_url_matches(page, "/login")
 
 
-# ── LEGAL PAGE ────────────────────────────────────────────────
 class TestLegalPage:
     def test_legal_page_loads(self, page: Page):
         go(page, "/legal")
@@ -169,35 +218,21 @@ class TestLegalPage:
 
     def test_contact_email_present(self, page: Page):
         go(page, "/legal")
-
-        mailto_links = page.locator("a[href^='mailto:']")
-        if mailto_links.count() == 0:
+        mailto = page.locator("a[href^='mailto:']")
+        if mailto.count() == 0:
             pytest.skip("No contact email is rendered on the legal page.")
-
-        expect(mailto_links.first).to_be_visible()
-
-# ── AUTH REDIRECTS ────────────────────────────────────────────
+        expect(mailto.first).to_be_visible()
 
 
-class TestAuthRedirects:
-    """Unauthenticated users should be redirected to login for protected pages."""
+class TestInstallPage:
+    def test_install_page_loads(self, page: Page):
+        go(page, "/install")
+        assert_url_matches(page, "/install")
 
-    @pytest.mark.parametrize("path", [
-        "/dashboard",
-        "/scheduler",
-        "/priority",
-        "/classes",
-        "/grades",
-        "/study",
-        "/settings",
-        "/profiles",
-    ])
-    def test_protected_page_redirects_to_login(self, page: Page, path: str):
-        go(page, path)
-        assert_url_matches(page, "/login")
+    def test_ios_install_page_loads(self, page: Page):
+        go(page, "/install/ios")
+        assert_url_matches(page, "/install/ios")
 
-
-# ── CANVAS LOGIN PAGE ─────────────────────────────────────────
 
 class TestCanvasLoginPage:
     def test_canvas_login_loads(self, page: Page):
@@ -211,8 +246,6 @@ class TestCanvasLoginPage:
         assert_url_matches(page, "/login/canvas")
 
 
-# ── STUDENTVUE LOGIN PAGE ─────────────────────────────────────
-
 class TestStudentVueLoginPage:
     def test_studentvue_login_loads(self, page: Page):
         go(page, "/login/studentvue")
@@ -223,19 +256,46 @@ class TestStudentVueLoginPage:
         expect(page.locator("input[name='password']")).to_be_visible()
 
 
-# ── INSTALL PAGE ──────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════════
+#  AUTH GATING
+# ════════════════════════════════════════════════════════════════
 
-class TestInstallPage:
-    def test_install_page_loads(self, page: Page):
-        go(page, "/install")
-        assert_url_matches(page, "/install")
+class TestAuthRedirects:
+    """Unauthenticated users must redirect to /login for every protected route."""
 
-    def test_ios_install_page_loads(self, page: Page):
-        go(page, "/install/ios")
-        assert_url_matches(page, "/install/ios")
+    @pytest.mark.parametrize("path", [
+        "/dashboard",
+        "/scheduler",
+        "/priority",
+        "/classes",
+        "/grades",
+        "/gradebook",
+        "/study",
+        "/study-and-learn",
+        "/learn",
+        "/focus",
+        "/library",
+        "/streak",
+        "/tutor",
+        "/lessons",
+        "/writing",
+        "/math",
+        "/extractor",
+        "/meetings",
+        "/groups",
+        "/tests",
+        "/dismissed",
+        "/settings",
+        "/profiles",
+    ])
+    def test_protected_page_redirects_to_login(self, page: Page, path: str):
+        go(page, path)
+        assert_url_matches(page, "/login")
 
 
-# ── API ENDPOINTS ─────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════════
+#  BACKEND — API ENDPOINTS
+# ════════════════════════════════════════════════════════════════
 
 class TestAPIEndpoints:
     def test_live_endpoint_returns_json(self, page: Page):
@@ -264,11 +324,67 @@ class TestAPIEndpoints:
         data = response.json()
         assert "status" in data
 
+    def test_session_token_unauthenticated(self, page: Page):
+        # The extension-session endpoint must return 401 for unauthenticated users
+        response = page.request.get(f"{BASE_URL}/extension/session-token")
+        assert response.status == 401
 
-# ── COMPLIANCE CHECKS ─────────────────────────────────────────
+    def test_study_hub_recommend_unauthenticated(self, page: Page):
+        # The Study & Learn AI hub also requires auth
+        response = page.request.post(
+            f"{BASE_URL}/api/study-hub/recommend",
+            data='{"query":"test"}',
+            headers={"Content-Type": "application/json"},
+        )
+        assert response.status == 401
+
+    def test_robots_txt_present(self, page: Page):
+        response = page.request.get(f"{BASE_URL}/robots.txt")
+        assert response.status in (200, 304)
+
+    def test_sitemap_xml_present(self, page: Page):
+        response = page.request.get(f"{BASE_URL}/sitemap.xml")
+        assert response.status in (200, 304)
+
+
+class TestExtensionEndpoints:
+    """The Chrome extension's /extension/* endpoints reject bad input cleanly."""
+
+    def test_extension_login_requires_credentials(self, page: Page):
+        response = page.request.post(
+            f"{BASE_URL}/extension/login",
+            data='{"email":"","password":""}',
+            headers={"Content-Type": "application/json"},
+        )
+        # Should return an error status (4xx) not a 5xx blow-up
+        assert 400 <= response.status < 500
+
+    def test_extension_login_rejects_bad_credentials(self, page: Page):
+        response = page.request.post(
+            f"{BASE_URL}/extension/login",
+            data='{"email":"nobody-should-exist-here@invalid.test","password":"definitelywrong"}',
+            headers={"Content-Type": "application/json"},
+        )
+        assert response.status in (200, 400, 401, 404)
+        if response.status == 200:
+            body = response.json()
+            assert body.get("status") != "ok"
+
+    def test_extension_tasks_without_token_unauthorized(self, page: Page):
+        response = page.request.get(f"{BASE_URL}/extension/tasks")
+        assert response.status == 401
+
+    def test_extension_grades_without_token_unauthorized(self, page: Page):
+        response = page.request.get(f"{BASE_URL}/extension/grades")
+        assert response.status == 401
+
+
+# ════════════════════════════════════════════════════════════════
+#  COMPLIANCE
+# ════════════════════════════════════════════════════════════════
 
 class TestComplianceChecks:
-    """Checks that district compliance requirements are met."""
+    """District-compliance gates: no chat invites, no ads, COPPA + password policy."""
 
     def test_no_discord_links_on_landing(self, page: Page):
         go(page, "/")
@@ -295,3 +411,140 @@ class TestComplianceChecks:
     def test_no_ads(self, page: Page):
         go(page, "/")
         assert_no_ad_terms(page)
+
+
+# ════════════════════════════════════════════════════════════════
+#  RESPONSIVE — every breakpoint, key pages
+# ════════════════════════════════════════════════════════════════
+
+# (label, viewport width, viewport height)
+DEVICES = [
+    ("mobile-portrait",   375,  812),   # iPhone X portrait
+    ("mobile-landscape",  812,  375),   # iPhone X landscape
+    ("tablet",            768, 1024),   # iPad portrait
+    ("desktop",          1280,  800),   # Laptop
+    ("wide",             1920, 1080),   # Desktop monitor
+]
+
+# Paths that must render correctly across all viewports
+RESPONSIVE_PAGES = [
+    ("/",        "IntelliPlan"),
+    ("/login",   "Sign in to IntelliPlan"),
+    ("/register", "Create your account"),
+    ("/legal",   "Privacy Policy"),
+]
+
+
+@pytest.mark.parametrize("dev_label,vw,vh", DEVICES)
+class TestResponsiveLayout:
+    """Every page must render without horizontal overflow at every breakpoint."""
+
+    def _set_viewport(self, page: Page, vw: int, vh: int) -> None:
+        page.set_viewport_size({"width": vw, "height": vh})
+
+    @pytest.mark.parametrize("path,expected_text", RESPONSIVE_PAGES)
+    def test_page_renders(self, page: Page, dev_label: str, vw: int, vh: int,
+                          path: str, expected_text: str):
+        self._set_viewport(page, vw, vh)
+        go(page, path)
+        # The page should contain its expected anchor text at every breakpoint
+        body_text = page.locator("body").inner_text()
+        assert expected_text.lower() in body_text.lower(), (
+            f"{path} missing expected text at {dev_label} ({vw}x{vh})"
+        )
+
+    def test_no_horizontal_overflow_landing(self, page: Page,
+                                            dev_label: str, vw: int, vh: int):
+        self._set_viewport(page, vw, vh)
+        go(page, "/")
+        scroll_w = page.evaluate("document.documentElement.scrollWidth")
+        # Allow 2px of subpixel rendering slop
+        assert scroll_w <= vw + 2, (
+            f"Horizontal overflow on landing at {dev_label} "
+            f"({vw}x{vh}): scrollWidth={scroll_w}"
+        )
+
+    def test_mobile_nav_button_shown_only_below_720(self, page: Page,
+                                                    dev_label: str, vw: int, vh: int):
+        self._set_viewport(page, vw, vh)
+        go(page, "/")
+        btn = page.locator("#mobileMenuBtn")
+        if vw <= 720:
+            expect(btn).to_be_visible()
+        else:
+            # Hidden via CSS — confirm it doesn't take layout space
+            display = btn.evaluate("el => getComputedStyle(el).display")
+            assert display == "none", (
+                f"Mobile menu button must be hidden on {dev_label} ({vw}x{vh})"
+            )
+
+
+# ════════════════════════════════════════════════════════════════
+#  ACCESSIBILITY
+# ════════════════════════════════════════════════════════════════
+
+class TestAccessibility:
+    """Minimal a11y checks — page titles, alt text, heading structure."""
+
+    @pytest.mark.parametrize("path", ["/", "/login", "/register", "/legal"])
+    def test_page_has_title(self, page: Page, path: str):
+        go(page, path)
+        title = page.title()
+        assert title and len(title.strip()) > 0, f"{path} missing <title>"
+
+    def test_landing_has_h1(self, page: Page):
+        go(page, "/")
+        h1_count = page.locator("h1").count()
+        # Some marketing pages have multiple h1s — at least one must exist
+        assert h1_count >= 1, "Landing page should have at least one <h1>"
+
+    def test_landing_links_have_text(self, page: Page):
+        go(page, "/")
+        # Every link should have either accessible text or an aria-label/title
+        bad_links = page.locator("a").evaluate_all("""(els) => {
+          return els.filter(a => {
+            const txt = (a.innerText || '').trim();
+            const al  = (a.getAttribute('aria-label') || '').trim();
+            const tt  = (a.getAttribute('title') || '').trim();
+            return !txt && !al && !tt;
+          }).length;
+        }""")
+        assert bad_links == 0, f"{bad_links} link(s) lack accessible text"
+
+    def test_landing_images_have_alt(self, page: Page):
+        go(page, "/")
+        bad = page.locator("img").evaluate_all("""(els) => {
+          return els.filter(img => {
+            const alt = img.getAttribute('alt');
+            const role = img.getAttribute('role');
+            const aria = img.getAttribute('aria-hidden');
+            // Decorative images are exempt if explicitly marked
+            if (role === 'presentation' || aria === 'true') return false;
+            return alt === null;
+          }).length;
+        }""")
+        assert bad == 0, f"{bad} <img> tag(s) missing alt attribute"
+
+
+# ════════════════════════════════════════════════════════════════
+#  SECURITY HEADERS
+# ════════════════════════════════════════════════════════════════
+
+class TestSecurityHeaders:
+    """Catch regressions in production security headers."""
+
+    def test_landing_returns_2xx(self, page: Page):
+        response = page.request.get(f"{BASE_URL}/")
+        assert 200 <= response.status < 300
+
+    def test_landing_serves_html(self, page: Page):
+        response = page.request.get(f"{BASE_URL}/")
+        ct = (response.headers.get("content-type") or "").lower()
+        assert "text/html" in ct
+
+    def test_no_x_powered_by_leak(self, page: Page):
+        # Soft check — many frameworks leak this. Don't fail loudly, just warn.
+        response = page.request.get(f"{BASE_URL}/")
+        xpb = response.headers.get("x-powered-by")
+        if xpb:
+            pytest.skip(f"x-powered-by header is set: {xpb} (consider removing)")

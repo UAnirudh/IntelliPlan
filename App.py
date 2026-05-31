@@ -2055,6 +2055,102 @@ def learn():
         return redirect(url_for("login"))
     return render_template("study.html", active_page="learn")
 
+
+@app.route("/study-and-learn")
+def study_and_learn_hub():
+    """Landing page that replaces the cluttered Study & Learn sidebar group.
+    Renders a grid of cards with descriptions for every study/learn surface,
+    plus an AI chat bar at the top that recommends the best page for the
+    user's current need (and can redirect them to it)."""
+    if not is_logged_in():
+        return redirect(url_for("login"))
+    return render_template("study_hub.html", active_page="study_hub")
+
+
+@app.route("/api/study-hub/recommend", methods=["POST"])
+def study_hub_recommend():
+    """Lightweight intent-router for the Study & Learn hub chat bar.
+    Takes a free-text user query and returns the best-matching feature
+    plus a one-line reason. Uses keyword matching so it works without
+    a paid LLM round-trip — and stays fast for the chat-bar UX."""
+    if not is_logged_in():
+        return flask.jsonify({"status": "error", "message": "Not logged in"}), 401
+
+    data  = request.get_json(silent=True) or {}
+    query = (data.get("query") or "").strip().lower()
+    if not query:
+        return flask.jsonify({"status": "error", "message": "Query required"}), 400
+
+    # Each entry: (page slug, route, title, score-weighted keywords)
+    catalog = [
+        ("tutor",     "/tutor",     "AI Tutor",        ["help","stuck","explain","tutor","question","ask","why","how","confused","understand"]),
+        ("priority",  "/priority",  "Priority Queue",  ["priority","urgent","first","next","triage","important","focus","what to do"]),
+        ("classes",   "/classes",   "Classes",         ["classes","course","class","subjects","schedule","period"]),
+        ("grades",    "/grades",    "Grades",          ["grades","grade","gpa","report card","marks","score"]),
+        ("tests",     "/tests",     "Tests & Quizzes", ["test","exam","quiz","midterm","final","prep","practice"]),
+        ("dismissed", "/dismissed", "Completed Work",  ["done","completed","finished","dismissed","archive","past"]),
+        ("study",     "/study",     "Deep Study",      ["deep","focus","session","intensive","study session","encoding","sprint"]),
+        ("learn",     "/learn",     "Learn",           ["learn","flashcards","quiz me","review","mastery","memorize","practice","cards"]),
+        ("focus",     "/focus",     "Focus Timer",     ["timer","pomodoro","focus time","25 minutes","countdown","stopwatch"]),
+        ("library",   "/library",   "AP Library",      ["library","ap","resources","textbook","notes","reference"]),
+        ("streak",    "/streak",    "Streak",          ["streak","daily","habit","reward","points","consistency"]),
+        ("lessons",   "/lessons",   "Lessons",         ["lessons","tutorial","walkthrough","recording","video lesson"]),
+        ("writing",   "/writing",   "Writing",         ["writing","essay","paper","grammar","draft","proofread","editor"]),
+        ("math",      "/math",      "Math Explainer",  ["math","equation","algebra","calculus","geometry","solve","derivative","integral"]),
+        ("extractor", "/extractor", "Task Extractor",  ["extract","upload","syllabus","pdf","screenshot","import tasks","from image"]),
+        ("meetings",  "/meetings",  "Meetings",        ["meeting","zoom","teams","google meet","webex","call","conference"]),
+        ("groups",    "/groups",    "Study Groups",    ["group","groups","classmates","friends","peers","collaborate","together"]),
+    ]
+
+    best = None
+    best_score = 0
+    for slug, route, title, keywords in catalog:
+        score = 0
+        for kw in keywords:
+            if kw in query:
+                # Multi-word keywords score higher than single words.
+                score += 2 if " " in kw else 1
+        if slug in query or title.lower() in query:
+            score += 3
+        if score > best_score:
+            best_score = score
+            best = (slug, route, title)
+
+    if not best:
+        # Fallback: send them to the AI Tutor — it can handle any open-ended question.
+        best = ("tutor", "/tutor", "AI Tutor")
+        reason = "I'm not sure which page fits best — try asking the AI Tutor, it can guide you from there."
+    else:
+        reason_map = {
+            "tutor":     "The AI Tutor can answer that directly.",
+            "priority":  "The Priority Queue ranks your tasks so you know what to tackle first.",
+            "classes":   "Classes shows everything for each course in one place.",
+            "grades":    "Grades has your current scores and trends.",
+            "tests":     "Tests & Quizzes has prep materials and practice exams.",
+            "dismissed": "Completed Work is your archive of finished assignments.",
+            "study":     "Deep Study runs a structured 3-step encoding session.",
+            "learn":     "Learn generates flashcards and quizzes for mastery practice.",
+            "focus":     "Focus Timer runs a Pomodoro session with break reminders.",
+            "library":   "AP Library has curated resources and study guides.",
+            "streak":    "Streak rewards consistent daily study habits.",
+            "lessons":   "Lessons has uploaded recordings with AI summaries.",
+            "writing":   "Writing helps with essays, grammar, and proofreading.",
+            "math":      "Math Explainer walks through problems step by step.",
+            "extractor": "Task Extractor imports assignments from PDFs and images.",
+            "meetings":  "Meetings shows your upcoming Teams, Zoom, and Meet calls.",
+            "groups":    "Study Groups lets you collaborate with classmates.",
+        }
+        reason = reason_map.get(best[0], "This page should help.")
+
+    return flask.jsonify({
+        "status":  "ok",
+        "slug":    best[0],
+        "route":   best[1],
+        "title":   best[2],
+        "reason":  reason,
+        "score":   best_score,
+    })
+
 @app.route("/streak")
 def streak():
     if not is_logged_in():
