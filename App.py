@@ -5215,6 +5215,50 @@ def extension_dismiss():
     except Exception as e:
         return ext_response({"status": "error"}, 500)
 
+
+@app.route("/extension/session-token", methods=["GET", "OPTIONS"])
+def extension_session_token():
+    """Return an extension token for the user's active web session.
+    Called by the Chrome extension with credentials:'include' so the
+    browser's session cookie is sent. If the user is already logged in
+    on intelliplan.tech, this auto-logs them into the extension too."""
+    origin = request.headers.get("Origin", "")
+
+    def _cors(resp):
+        allowed = (
+            origin.startswith("chrome-extension://") or
+            origin.startswith("http://localhost") or
+            origin.startswith("http://127.0.0.1") or
+            "intelliplan.tech" in origin
+        )
+        if allowed and origin:
+            resp.headers["Access-Control-Allow-Origin"] = origin
+            resp.headers["Access-Control-Allow-Credentials"] = "true"
+            resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+            resp.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+            resp.headers["Vary"] = "Origin"
+        return resp
+
+    if request.method == "OPTIONS":
+        return _cors(flask.make_response("", 204))
+
+    if not current_user.is_authenticated:
+        r = flask.jsonify({"status": "error", "message": "Not logged in"})
+        return _cors(r), 401
+
+    import secrets as _secrets
+    existing = ExtensionToken.query.filter_by(user_id=current_user.id).first()
+    if existing:
+        token = existing.token
+    else:
+        token = _secrets.token_hex(32)
+        db.session.add(ExtensionToken(user_id=current_user.id, token=token))
+        db.session.commit()
+
+    r = flask.jsonify({"status": "ok", "token": token, "email": current_user.email})
+    return _cors(r), 200
+
+
 # ── STUDY ROUTES ──────────────────────────────────────────────
 @app.route("/study/evaluate", methods=["POST"])
 def study_evaluate():
