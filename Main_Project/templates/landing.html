@@ -1022,6 +1022,12 @@
   .hero-wrap {
     position: relative;
     isolation: isolate;
+    /* The decorative ::before mesh bleeds 10% past each edge. Now that the
+       hero spans the full content width, that bleed caused horizontal page
+       overflow on narrow landscape viewports. Clip it on the X axis only
+       (the bleed was off-screen anyway, so no visual change); `clip` keeps
+       Y visible so the floating badge isn't cut off. */
+    overflow-x: clip;
   }
   /* Premium gradient-mesh backdrop. Sits behind the hero only.
      Gives the landing a Fortune-500 "elevated marketing surface"
