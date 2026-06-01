@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Math Explainer</h1>
+  <p class="page-subtitle">Drop in a math problem and get step-by-step reasoning.</p>
+</div>
+
+<style>
+.math-grid { display:grid; grid-template-columns:1fr 1.2fr; gap:1.25rem; }
+@media (max-width:900px){ .math-grid{grid-template-columns:1fr;} }
+.math-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); padding:1.25rem; box-shadow:var(--shadow); }
+.math-textarea { width:100%; min-height:200px; padding:14px; border:1.5px solid var(--border-strong); border-radius:12px; background:var(--bg); color:var(--text-primary); font-family:'DM Mono',monospace; font-size:0.92rem; resize:vertical; line-height:1.55; }
+.math-textarea:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+.step-row { display:flex; gap:12px; padding:12px 14px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:12px; margin-bottom:10px; }
+.step-num { width:28px; height:28px; flex-shrink:0; border-radius:50%; background:var(--accent); color:white; font-family:var(--font-ui); font-weight:800; font-size:0.84rem; display:flex; align-items:center; justify-content:center; }
+.step-body { flex:1; min-width:0; }
+.step-text { font-size:0.9rem; color:var(--text-primary); margin-bottom:6px; line-height:1.5; }
+.step-math { font-family:'DM Mono',monospace; font-size:0.95rem; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--text-primary); white-space:pre-wrap; overflow-x:auto; }
+.answer-card { background:linear-gradient(135deg,rgba(5,150,105,0.08),rgba(5,150,105,0.02)); border:1.5px solid color-mix(in srgb, var(--low) 35%, var(--border)); border-radius:14px; padding:1rem 1.2rem; margin-top:1rem; }
+.answer-label { font-family:var(--font-ui); font-size:0.7rem; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:var(--low); margin-bottom:4px; }
+.answer-value { font-family:'DM Mono',monospace; font-size:1.15rem; font-weight:700; color:var(--text-primary); word-break:break-word; }
+.notes-box { background:rgba(217,119,6,0.06); border:1px solid rgba(217,119,6,0.25); border-radius:10px; padding:10px 12px; margin-top:0.8rem; font-size:0.84rem; color:var(--text-secondary); line-height:1.5; }
+.similar-card { background:var(--bg-elevated); border:1px dashed var(--border-strong); border-radius:12px; padding:1rem; margin-top:1rem; }
+</style>
+
+<div class="math-grid">
+  <div class="math-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);">Problem</div>
+      <select id="mLevel" class="form-input" style="padding:6px 10px;font-size:0.84rem;">
+        <option value="middle_school">Middle school</option>
+        <option value="high_school" selected>High school</option>
+        <option value="undergrad">Undergrad</option>
+      </select>
+    </div>
+    <textarea id="mProblem" class="math-textarea" placeholder="e.g. Solve 2x^2 + 5x - 3 = 0"></textarea>
+    <button class="btn-primary" onclick="explainMath()" id="mBtn" style="margin-top:12px;padding:10px 22px;border:none;cursor:pointer;width:100%;">Explain step by step</button>
+  </div>
+
+  <div class="math-card">
+    <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:12px;">Solution</div>
+    <div id="mResult">
+      <div style="color:var(--text-muted);font-size:0.9rem;text-align:center;padding:2rem 0;">Enter a problem and click <strong>Explain step by step</strong>.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let _mLast = null;
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function explainMath() {
+  const problem = document.getElementById('mProblem').value.trim();
+  if (!problem) return;
+  const btn = document.getElementById('mBtn');
+  btn.disabled = true; btn.textContent = 'Solving...';
+  fetch('/api/math/explain', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ problem, level: document.getElementById('mLevel').value }),
+  }).then(r => r.json()).then(d => {
+    btn.disabled = false; btn.textContent = 'Explain step by step';
+    if (d.status !== 'ok') {
+      document.getElementById('mResult').innerHTML = '<div style="color:var(--high);font-size:0.9rem;">' + esc(d.message || 'error') + '</div>';
+      return;
+    }
+    _mLast = d;
+    render();
+  }).catch(() => {
+    btn.disabled = false; btn.textContent = 'Explain step by step';
+    document.getElementById('mResult').innerHTML = '<div style="color:var(--high);">Network error</div>';
+  });
+}
+
+function render() {
+  const d = _mLast;
+  const steps = d.steps || [];
+  let html = '';
+  steps.forEach(s => {
+    html += `
+      <div class="step-row">
+        <div class="step-num">${esc(s.step ?? '')}</div>
+        <div class="step-body">
+          <div class="step-text">${esc(s.explanation || '')}</div>
+          ${s.math ? `<div class="step-math">${esc(s.math)}</div>` : ''}
+        </div>
+      </div>`;
+  });
+  html += `
+    <div class="answer-card">
+      <div class="answer-label">Answer</div>
+      <div class="answer-value">${esc(d.answer || '-')}</div>
+    </div>`;
+  if (d.notes) html += `<div class="notes-box"><strong>Tips:</strong> ${esc(d.notes)}</div>`;
+  html += `<button class="btn-secondary" onclick="similar()" id="mSimBtn" style="margin-top:1rem;padding:10px 18px;cursor:pointer;width:100%;">Try a similar problem</button>`;
+  html += `<div id="mSim"></div>`;
+  document.getElementById('mResult').innerHTML = html;
+}
+
+function similar() {
+  const problem = (_mLast && _mLast.problem) || document.getElementById('mProblem').value.trim();
+  if (!problem) return;
+  const btn = document.getElementById('mSimBtn');
+  btn.disabled = true; btn.textContent = 'Generating...';
+  fetch('/api/math/similar', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ problem }),
+  }).then(r => r.json()).then(d => {
+    btn.disabled = false; btn.textContent = 'Try a similar problem';
+    if (d.status !== 'ok') return;
+    document.getElementById('mSim').innerHTML = `
+      <div class="similar-card">
+        <div style="font-family:var(--font-ui);font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:6px;">Try this</div>
+        <div style="font-family:'DM Mono',monospace;font-size:0.95rem;margin-bottom:8px;">${esc(d.problem || '')}</div>
+        <details><summary style="cursor:pointer;font-size:0.82rem;color:var(--text-secondary);">Reveal answer</summary><div style="margin-top:6px;font-family:'DM Mono',monospace;font-size:0.92rem;color:var(--low);">${esc(d.answer || '')}</div></details>
+        <div style="margin-top:8px;"><button class="btn-secondary" onclick="loadSimilarIntoInput(${JSON.stringify(d.problem||'').replace(/"/g,'&quot;')})" style="padding:6px 12px;font-size:0.78rem;cursor:pointer;">Solve this</button></div>
+      </div>`;
+  });
+}
+
+function loadSimilarIntoInput(p) {
+  document.getElementById('mProblem').value = p;
+  explainMath();
+}
+</script>
+{% endblock %}

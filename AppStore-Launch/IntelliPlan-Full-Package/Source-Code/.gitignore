@@ -1,0 +1,7 @@
+.env
+.early.coverage
+__pycache__/
+*.py[cod]
+instance/
+uploads/
+.claude/worktrees/focused-zhukovsky-8d7a67/

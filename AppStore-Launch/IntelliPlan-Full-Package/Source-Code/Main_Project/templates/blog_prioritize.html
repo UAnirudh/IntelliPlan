@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block page_title %}How to Prioritize Assignments When Everything Feels Urgent, IntelliPlan{% endblock %}
+
+{# Canonical + og:url emitted globally by base.html. #}
+{% block meta_description %}When every assignment feels urgent, deciding what to work on first wastes time and adds stress. Here's a practical system for prioritizing, and how IntelliPlan automates it.{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block og_title %}How to Prioritize Assignments When Everything Feels Urgent{% endblock %}
+{% block og_description %}A practical framework for prioritizing student assignments by urgency, point value, and effort, plus how IntelliPlan automates the whole thing.{% endblock %}
+{% block twitter_title %}How to Prioritize Assignments When Everything Feels Urgent{% endblock %}
+{% block twitter_description %}A practical framework for prioritizing student assignments by urgency, point value, and effort, plus how IntelliPlan automates the whole thing.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "How to Prioritize Assignments When Everything Feels Urgent",
+  "description": "A practical framework for prioritizing student assignments by urgency, point value, and effort, and how IntelliPlan automates the scoring.",
+  "url": "https://intelliplan.tech/blog/how-to-prioritize-assignments",
+  "author": { "@type": "Organization", "name": "IntelliPlan", "url": "https://intelliplan.tech" },
+  "publisher": { "@type": "Organization", "name": "IntelliPlan", "url": "https://intelliplan.tech" }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<style>
+  .blog-page {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 2.5rem 1rem 4rem;
+  }
+  .blog-kicker {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.45rem 0.8rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+  }
+  .blog-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+    line-height: 1.08;
+    color: var(--text-primary);
+    letter-spacing: -0.03em;
+    margin: 0 0 1rem;
+  }
+  .blog-body {
+    font-family: var(--font-ui);
+    font-size: 1rem;
+    color: var(--text-secondary);
+    line-height: 1.8;
+  }
+  .blog-body h2 {
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    color: var(--text-primary);
+    margin: 2rem 0 0.75rem;
+  }
+  .blog-body p { margin: 0 0 1.1rem; }
+  .blog-body ol, .blog-body ul { padding-left: 1.4rem; margin: 0 0 1.1rem; }
+  .blog-body li { margin-bottom: 0.5rem; }
+  .blog-body a { color: var(--accent); }
+  .priority-formula {
+    background: var(--bg-card);
+    border: 1px solid var(--border-accent);
+    border-radius: var(--r-lg);
+    padding: 1.25rem 1.5rem;
+    margin: 1.25rem 0;
+    font-family: var(--font-ui);
+    font-size: 1rem;
+    color: var(--text-primary);
+    text-align: center;
+    font-weight: 600;
+  }
+  .priority-formula span { color: var(--accent); }
+  .blog-cta {
+    margin-top: 2.5rem;
+    padding: 1.75rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-accent);
+    border-radius: var(--r-xl);
+    box-shadow: var(--accent-glow);
+    text-align: center;
+  }
+  .blog-cta h3 {
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem;
+  }
+  .blog-cta p {
+    font-family: var(--font-ui);
+    color: var(--text-secondary);
+    margin: 0 0 1rem;
+    font-size: 0.95rem;
+  }
+</style>
+
+<div class="blog-page">
+  <span class="blog-kicker">Study Tips</span>
+  <h1 class="blog-title">How to Prioritize Assignments When Everything Feels Urgent</h1>
+
+  <div class="blog-body">
+    <p>
+      You open your laptop with 45 minutes before dinner and stare at a list of eight assignments across
+      five classes. Everything is "due this week." You don't know where to start. So you spend 20 minutes
+      trying to figure out what to do first, and then the 45 minutes is almost gone.
+    </p>
+    <p>
+      This is one of the most common ways students lose time. Not procrastination exactly, indecision.
+      The good news is there's a simple framework for fixing it, and IntelliPlan can do the math for you automatically.
+    </p>
+
+    <h2>The problem with "everything is urgent"</h2>
+    <p>
+      When you treat all assignments as equally urgent, you're making an implicit decision: you'll do
+      whatever is on top of your mind first, not whatever matters most. That's usually the easiest task,
+      not the most important one. The high-stakes assignment due tomorrow gets pushed while you finish
+      the five-point worksheet due Friday.
+    </p>
+    <p>
+      Real prioritization requires weighing three things at once: how soon something is due, how much it
+      counts toward your grade, and how long it will actually take to finish.
+    </p>
+
+    <h2>The priority formula</h2>
+    <p>
+      A simple way to score each assignment:
+    </p>
+    <div class="priority-formula">
+      Priority = <span>Urgency</span> × <span>Point Value</span> ÷ <span>Estimated Time</span>
+    </div>
+    <p>
+      Urgency goes up as the deadline gets closer. Point value reflects how much the assignment affects
+      your grade. Dividing by estimated time rewards assignments you can finish quickly for a big payoff.
+    </p>
+    <p>
+      In practice, this means:
+    </p>
+    <ul>
+      <li>A 100-point test tomorrow beats a 10-point quiz due in four days, even if the quiz is faster.</li>
+      <li>A short assignment due tonight beats a long project due in two weeks, even if the project is worth more.</li>
+      <li>Two assignments worth the same points, do the shorter one first if both are due tomorrow.</li>
+    </ul>
+
+    <h2>Why doing this manually is exhausting</h2>
+    <p>
+      Running this calculation in your head for eight assignments across five classes, while also
+      remembering what's in each class, how each professor grades, and what your current grade is, is
+      genuinely hard. Most students don't do it properly. They go by gut, which is usually off.
+    </p>
+    <p>
+      This is exactly the problem IntelliPlan was built to solve.
+    </p>
+
+    <h2>How IntelliPlan automates priority scoring</h2>
+    <p>
+      IntelliPlan connects to Canvas, StudentVue, and Schoology to pull every assignment automatically.
+      It then scores each one using due date, point value, and estimated effort, and labels them High,
+      Medium, or Low across all your classes at once. You see one ranked list, not a separate list
+      per class, and you always know exactly what to work on next.
+    </p>
+    <p>
+      When you generate a study schedule, IntelliPlan places your highest-priority work in your nearest
+      available time blocks and exports the result to Google Calendar. Planning goes from 20 minutes to
+      under 5.
+    </p>
+    <p>
+      Read the <a href="/faq">FAQ</a> for more, or <a href="/compare">see how IntelliPlan compares to other study planners</a>.
+    </p>
+  </div>
+
+  <div class="blog-cta">
+    <h3>Stop deciding. Start studying.</h3>
+    <p>IntelliPlan scores every assignment automatically. Free for students.</p>
+    <a href="/login" class="btn-primary" style="text-decoration:none">Get Started Free →</a>
+  </div>
+</div>
+
+{% endblock %}

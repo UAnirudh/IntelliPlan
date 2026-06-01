@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Priority View</h1>
+  <p class="page-subtitle">Assignments grouped by priority level</p>
+</div>
+
+<div class="stats-bar" id="statsBar">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fef2f2;color:var(--high);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg></div>
+    <div class="stat-info">
+      <div class="stat-value" id="statHigh">-</div>
+      <div class="stat-label">High Priority</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fffbeb;color:var(--medium);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg></div>
+    <div class="stat-info">
+      <div class="stat-value" id="statMedium">-</div>
+      <div class="stat-label">Medium Priority</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#f0fdf4;color:var(--low);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></div>
+    <div class="stat-info">
+      <div class="stat-value" id="statLow">-</div>
+      <div class="stat-label">Low Priority</div>
+    </div>
+  </div>
+</div>
+
+<div class="dropdown-wrap">
+  <button class="dropdown-btn" id="priorityDropBtn">
+    High Priority <span class="chevron">▾</span>
+  </button>
+  <div class="dropdown-menu" id="priorityMenu">
+    <div class="dropdown-item active" data-filter="high">High</div>
+    <div class="dropdown-item" data-filter="medium">Medium</div>
+    <div class="dropdown-item" data-filter="low">Low</div>
+    <div class="dropdown-item" data-filter="tests">Tests</div>
+  </div>
+</div>
+
+<div id="assignmentsList" class="assignments-list" style="margin-top: 1.5rem;">
+  <div class="loading">
+    <div class="spinner"></div>
+    <p>Loading assignments...</p>
+  </div>
+</div>
+
+<div class="empty-state" id="emptyState">
+  <div class="empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></div>
+  <div class="empty-title">No assignments here</div>
+  <p>Try a different priority level</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+let allAssignments = [];
+let currentFilter = 'high';
+
+function formatDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatTime(mins) {
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
+
+function daysUntil(dateStr) {
+  const due = new Date(dateStr + 'T00:00:00');
+  const now = new Date(); now.setHours(0,0,0,0);
+  const diff = Math.round((due - now) / 86400000);
+  const svgWarn  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg>`;
+  const svgPin   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pin"/></svg>`;
+  const svgClock = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg>`;
+  const svgCal   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>`;
+  if (diff < 0)  return `${svgWarn} Overdue`;
+  if (diff === 0) return `${svgPin} Due today`;
+  if (diff === 1) return `${svgClock} Due tomorrow`;
+  return `${svgCal} ${diff} days left`;
+}
+
+function renderCards(assignments) {
+  const list = document.getElementById('assignmentsList');
+  const empty = document.getElementById('emptyState');
+  list.innerHTML = '';
+
+  if (!assignments.length) {
+    empty.classList.add('visible');
+    return;
+  }
+  empty.classList.remove('visible');
+
+  assignments.forEach((a, i) => {
+    const priority = a.priority.toLowerCase();
+    const card = document.createElement('div');
+    card.className = `assignment-card ${priority}`;
+    card.style.animationDelay = `${i * 0.07}s`;
+    card.onclick = (e) => {
+      if (!e.target.closest('.dismiss-btn') && !e.target.closest('.test-btn')) openAssignmentModal(a);
+    };
+    // Store the canonical title on the card so the Done handler never has
+    // to round-trip through string-escaping in an onclick attribute (the
+    // old approach broke for titles containing apostrophes + backslashes).
+    card.dataset.title = a.title;
+    const isTest = isTestAssignment(a);
+    if (isTest) card.classList.add('is-test');
+    card.innerHTML = `
+      <div class="rank-bubble">#${i + 1}</div>
+      <div class="card-main">
+        <div class="card-title">
+          ${a.title}
+          ${isTest ? '<span class="test-auto-badge">Test</span>' : ''}
+        </div>
+        <div class="card-meta">
+          <span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg> ${a.course}</span>
+          <span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> ${formatDate(a.due_date)}</span>
+          <span class="meta-item">${daysUntil(a.due_date)}</span>
+        </div>
+      </div>
+      <span class="time-pill"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg> ${formatTime(a.estimated_time)}</span>
+      <span class="priority-badge ${priority}">${a.priority}</span>
+      <button class="test-btn${isTest ? ' already-test' : ''}" title="${isTest ? 'Already in Tests' : 'Mark as test'}" onclick="markAsTest(${JSON.stringify(a)}, this)">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-test"/></svg> ${isTest ? 'In Tests' : 'Test'}
+      </button>
+      <button class="dismiss-btn" data-action="dismiss"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-done"/></svg> Done</button>
+    `;
+    list.appendChild(card);
+  });
+}
+
+function markAsTest(assignment, btn) {
+  fetch('/test/mark', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(assignment)
+  }).then(r => r.json()).then(data => {
+    if (data.status === 'ok') {
+      const card = btn.closest('.assignment-card');
+      card.style.transition = 'opacity 0.3s, transform 0.3s';
+      card.style.opacity = '0';
+      card.style.transform = 'translateX(8px)';
+      setTimeout(() => card.remove(), 300);
+      // Show brief toast
+      showToast('Moved to Tests', 'primary');
+    }
+  });
+}
+
+// Delegated handler, survives titles with quotes/backslashes/HTML and
+// surfaces failures with a toast so the button never "silently" does
+// nothing.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.dismiss-btn[data-action="dismiss"]');
+  if (!btn) return;
+  e.stopPropagation();
+  const card = btn.closest('.assignment-card');
+  if (!card) return;
+  const title = card.dataset.title || '';
+  btn.disabled = true;
+  card.style.opacity = '0.45';
+  fetch('/dismiss', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title }),
+  })
+    .then(r => r.json().catch(() => ({})))
+    .then(d => {
+      if (d && d.status === 'ok') {
+        card.style.transition = 'opacity 0.25s, transform 0.25s';
+        card.style.opacity = '0';
+        card.style.transform = 'translateX(12px)';
+        setTimeout(() => card.remove(), 260);
+        showToast('Dismissed', 'low');
+      } else {
+        card.style.opacity = '1';
+        btn.disabled = false;
+        showToast(d && d.message ? d.message : 'Could not dismiss', 'high');
+      }
+    })
+    .catch(() => {
+      card.style.opacity = '1';
+      btn.disabled = false;
+      showToast('Network error, try again', 'high');
+    });
+});
+
+// Backwards-compat shim for any legacy onclick="dismissAssignment(...)" calls.
+function dismissAssignment(title, btn) {
+  const card = btn && btn.closest ? btn.closest('.assignment-card') : null;
+  if (card) card.dataset.title = title;
+  if (btn) btn.click();
+}
+
+function showToast(msg, type) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:var(--accent);color:white;padding:9px 20px;border-radius:999px;
+    font-family:var(--font-ui);font-size:0.82rem;font-weight:600;
+    box-shadow:0 4px 18px rgba(37,99,235,0.35);z-index:9999;
+    animation:fadeUp 0.2s var(--ease-out) both;`;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity 0.3s'; setTimeout(() => t.remove(), 300); }, 2000);
+}
+
+function updateStats(assignments) {
+  document.getElementById('statHigh').textContent =
+    assignments.filter(a => a.priority.toLowerCase() === 'high').length;
+  document.getElementById('statMedium').textContent =
+    assignments.filter(a => a.priority.toLowerCase() === 'medium').length;
+  document.getElementById('statLow').textContent =
+    assignments.filter(a => a.priority.toLowerCase() === 'low').length;
+}
+
+function dedupeTasks(tasks) {
+  const map = new Map();
+
+  const priority = {
+    manual: 4,
+    notion: 3,
+    canvas: 2,
+    studentvue: 1,
+    studentvue_missing: 0
+  };
+
+  tasks.forEach(t => {
+    const key = `${t.title}|${t.course}|${t.due_date}`;
+
+    if (!map.has(key)) {
+      map.set(key, t);
+    } else {
+      const existing = map.get(key);
+      if ((priority[t.source] || 0) > (priority[existing.source] || 0)) {
+        map.set(key, t);
+      }
+    }
+  });
+
+  return Array.from(map.values());
+}
+
+const dropBtn = document.getElementById('priorityDropBtn');
+const dropMenu = document.getElementById('priorityMenu');
+
+dropBtn.addEventListener('click', () => {
+  dropMenu.classList.toggle('open');
+});
+
+document.addEventListener('click', (e) => {
+  if (!dropBtn.contains(e.target) && !dropMenu.contains(e.target)) {
+    dropMenu.classList.remove('open');
+  }
+});
+
+const TEST_RE = /\btest(s|ing)?\b/i;
+
+function isTestAssignment(a) {
+  return TEST_RE.test(a.title || '');
+}
+
+function filterByTab(assignments, filter) {
+  if (filter === 'tests') return assignments.filter(isTestAssignment);
+  return assignments.filter(a => a.priority.toLowerCase() === filter);
+}
+
+document.querySelectorAll('.dropdown-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('active'));
+    item.classList.add('active');
+    currentFilter = item.dataset.filter;
+    const labels = { high: 'High Priority', medium: 'Medium Priority', low: 'Low Priority', tests: 'Tests' };
+    dropBtn.innerHTML = `${labels[currentFilter] || currentFilter} <span class="chevron">▾</span>`;
+    dropMenu.classList.remove('open');
+    renderCards(filterByTab(allAssignments, currentFilter));
+  });
+});
+
+function autoMarkTests(assignments) {
+  assignments.filter(isTestAssignment).forEach(a => {
+    fetch('/test/mark', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(a)
+    }).catch(() => {});
+  });
+}
+
+fetch('/live')
+  .then(r => r.json())
+  .then(data => {
+    allAssignments = dedupeTasks(data);
+    updateStats(allAssignments);
+    autoMarkTests(allAssignments);
+    renderCards(filterByTab(allAssignments, 'high'));
+  })
+  .catch(() => {
+    document.getElementById('assignmentsList').innerHTML =
+      '<div class="loading"><p>Could not connect to backend.</p></div>';
+  });
+{% endblock %}

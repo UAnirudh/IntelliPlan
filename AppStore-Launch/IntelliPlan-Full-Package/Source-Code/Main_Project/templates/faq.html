@@ -1,0 +1,393 @@
+{% extends "base.html" %}
+
+{% block page_title %}FAQ, IntelliPlan | Canvas, StudentVue & Schoology Study Planner{% endblock %}
+
+{# Canonical, og:url, og:type are emitted globally by base.html. #}
+{% block meta_description %}Answers to common questions about IntelliPlan: Canvas and StudentVue integration, AI scheduling, pricing, customization, and more.{% endblock %}
+{% block og_title %}IntelliPlan FAQ, Canvas, StudentVue & AI Study Planner{% endblock %}
+{% block og_description %}Everything students need to know about IntelliPlan: how it connects to Canvas and StudentVue, what it costs, and how it builds your study schedule.{% endblock %}
+{% block twitter_title %}IntelliPlan FAQ, Canvas, StudentVue & AI Study Planner{% endblock %}
+{% block twitter_description %}Everything students need to know about IntelliPlan: how it connects to Canvas and StudentVue, what it costs, and how it builds your study schedule.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Can I use IntelliPlan to prioritize assignments for multiple classes?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. IntelliPlan pulls assignments from all connected classes, Canvas, StudentVue, or Schoology, and ranks them across every subject simultaneously using due date, point value, and difficulty. You get one unified priority list."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does IntelliPlan connect to school tools to import assignments?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "IntelliPlan integrates directly with Canvas LMS, StudentVue, and Schoology. After connecting your account, assignments import automatically and update when teachers make changes."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What are the benefits of using a study plan generator like IntelliPlan?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "IntelliPlan eliminates the time students waste deciding what to work on. It identifies the most urgent tasks based on real deadlines, estimates task duration, and builds a schedule around your free time, reducing planning from 20-30 minutes to under 5 minutes per day."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can IntelliPlan help me reduce the time spent figuring out what to do?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. IntelliPlan's core purpose is to answer 'what should I work on right now?' automatically. It gives you a ranked task list and a full weekly schedule so you skip the decision paralysis and get straight to studying."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How much does IntelliPlan cost for a student subscription?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "IntelliPlan is free to get started with no credit card required. Visit intelliplan.tech/pricing for current plan details."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I customize the schedule IntelliPlan generates?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. You can adjust time estimates, change task priorities, move sessions, and block unavailable times. The AI adapts your entire schedule whenever you make a change."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is IntelliPlan compatible with Canvas and StudentVue?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. IntelliPlan supports Canvas LMS, StudentVue, and Schoology natively, with export to Google Calendar and Notion. High school students using StudentVue can connect in minutes."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does IntelliPlan work for high school students?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. IntelliPlan works for both high school and college students. High school students often use StudentVue, which IntelliPlan connects to directly, something most competing planners don't support."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How is IntelliPlan different from MyStudyLife or Shovel?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "IntelliPlan connects to StudentVue, which neither MyStudyLife nor Shovel supports. IntelliPlan also includes a built-in Grade Modeler, AI-generated schedules, and a Study & Learn tool for flashcards, all in one app. Shovel requires a paid subscription; IntelliPlan is free to start."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does IntelliPlan replace my school portal like Canvas or StudentVue?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. IntelliPlan reads your assignments from those portals and organizes them. You still submit work through Canvas or StudentVue. IntelliPlan just tells you what to do and when to do it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What happens if my teacher changes a due date?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "IntelliPlan re-syncs with your school tools automatically. When a due date changes in Canvas or StudentVue, your IntelliPlan priority list and schedule update to reflect it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I use IntelliPlan on my phone?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. IntelliPlan is a Progressive Web App (PWA) available on iPhone and Android. You can install it from the website, no App Store required for Android, and it installs like a native app on iPhone via Safari."
+      }
+    }
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<style>
+  .faq-page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 2.5rem 1rem 4rem;
+  }
+  .faq-page-kicker {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.45rem 0.8rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+  }
+  .faq-page-title {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4vw, 3rem);
+    line-height: 1.05;
+    color: var(--text-primary);
+    letter-spacing: -0.03em;
+    margin: 0 0 0.75rem;
+  }
+  .faq-page-subtitle {
+    font-family: var(--font-ui);
+    font-size: 1rem;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin: 0 0 2.5rem;
+  }
+  .faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .faq-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+  }
+  .faq-item[open] { box-shadow: var(--shadow-hover); }
+  .faq-item summary {
+    cursor: pointer;
+    padding: 1.1rem 1.3rem;
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    color: var(--text-primary);
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    user-select: none;
+  }
+  .faq-item summary::-webkit-details-marker { display: none; }
+  .faq-chevron {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    transition: transform 0.2s;
+  }
+  .faq-item[open] .faq-chevron { transform: rotate(180deg); }
+  .faq-answer {
+    padding: 0 1.3rem 1.2rem;
+    font-family: var(--font-ui);
+    font-size: 0.97rem;
+    color: var(--text-secondary);
+    line-height: 1.75;
+    margin: 0;
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+  }
+  .faq-cta {
+    margin-top: 3rem;
+    text-align: center;
+    padding: 2rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow);
+  }
+  .faq-cta h2 {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem;
+  }
+  .faq-cta p {
+    font-family: var(--font-ui);
+    color: var(--text-secondary);
+    margin: 0 0 1.25rem;
+  }
+</style>
+
+<div class="faq-page">
+  <span class="faq-page-kicker">FAQ</span>
+  <h1 class="faq-page-title">Frequently Asked Questions</h1>
+  <p class="faq-page-subtitle">
+    Everything students need to know about IntelliPlan, from how it connects to Canvas and StudentVue,
+    to how it builds your schedule and what it costs.
+  </p>
+
+  <div class="faq-list">
+
+    <details class="faq-item">
+      <summary>
+        Can I use IntelliPlan to prioritize assignments for multiple classes at the same time?
+        <span class="faq-chevron" aria-hidden="true">▾</span>
+      </summary>
+      <p class="faq-answer">
+        Yes. IntelliPlan pulls all assignments from every connected class, whether from Canvas, StudentVue,
+        or Schoology, and ranks them across all subjects simultaneously using due date, point value, and
+        estimated difficulty. You see one unified priority list, not one per class.
+      </p>
+    </details>
+
+    <details class="faq-item">
+      <summary>
+        How does IntelliPlan connect to school tools to import assignments automatically?
+        <span class="faq-chevron" aria-hidden="true">▾</span>
+      </summary>
+      <p class="faq-answer">
+        IntelliPlan integrates directly with Canvas LMS, StudentVue, and Schoology. After you connect your
+        account, IntelliPlan pulls your assignments automatically. You don't have to copy anything manually.
+        When your teacher updates a due date, IntelliPlan updates too.
+      </p>
+    </details>
+
+    <details class="faq-item">
+      <summary>
+        What are the benefits of using an AI study plan generator like IntelliPlan?
+        <span class="faq-chevron" aria-hidden="true">▾</span>
+      </summary>
+      <p class="faq-answer">
+        The main benefit is eliminating the time students waste deciding what to work on. IntelliPlan figures
+        out what's most urgent based on your real deadlines, estimates how long each task will take, and builds
+        a schedule around your actual free time. Students report spending less time planning and more time
+        actually studying. It also reduces the anxiety of not knowing whether you're going to finish
+        everything on time.
+      </p>
+    </details>
+
+    <details class="faq-item">
+      <summary>
+        Can IntelliPlan help me reduce the time I spend figuring out what to do?
+        <span class="faq-chevron" aria-hidden="true">▾</span>
+      </summary>
+      <p class="faq-answer">
+        That is exactly what IntelliPlan is built for. The app's core goal is to answer "what should I work
+        on right now?" automatically. Instead of staring at five different portals trying to figure out
+        what's due when, IntelliPlan gives you a ranked list and a schedule. Most users say their planning
+        time drops from 20–30 minutes per day to under 5.
+      </p>
+    </details>
+
+    <details class="faq-item">
+      <summary>
+        How much does IntelliPlan cost for students?
+        <span class="faq-chevron" aria-hidden="true">▾</span>
+      </summary>
+      <p class="faq-answer">
+        IntelliPlan is free to get started, no credit card required. See the
+        <a href="/pricing" style="color:var(--accent)">pricing page</a> for current plan details.
+      </p>
+    </details>
+
+    <details class="faq-item">
+      <summary>
+        Can I customize the study schedule that IntelliPlan generates for me?
+        <span class="faq-chevron" aria-hidden="true">▾</span>
+      </summary>
+      <p class="faq-answer">
+        Yes. After IntelliPlan generates your schedule, you can adjust time estimates, change priorities,
+        move sessions around, and block off times you're not available. The AI adapts to your edits -
+        if you push something back, it recalculates the rest of your week automatically.
+      </p>
+    </details>
+
+    <details class="faq-item">
+      <summary>
+        Is IntelliPlan compatible with Canvas and StudentVue?
+        <span class="faq-chevron" aria-hidden="true">▾</span>
+      </summary>
+      <p class="faq-answer">
+        Yes. IntelliPlan supports Canvas LMS and StudentVue natively. It also supports Schoology and exports
+        to Google Calendar and Notion. If your school uses Canvas or StudentVue, you can connect IntelliPlan
+        in a few minutes and see all your assignments ranked by priority immediately.
+      </p>
+    </details>
+
+    <details class="faq-item">
+      <summary>
+        Does IntelliPlan work for high school students?
+        <span class="faq-chevron" aria-hidden="true">▾</span>
+      </summary>
+      <p class="faq-answer">
+        Yes. IntelliPlan works for both high school and college students. High school students often use
+        StudentVue, which IntelliPlan connects to directly, something most competing planners don't support.
+      </p>
+    </details>
+
+    <details class="faq-item">
+      <summary>
+        How is IntelliPlan different from MyStudyLife or Shovel?
+        <span class="faq-chevron" aria-hidden="true">▾</span>
+      </summary>
+      <p class="faq-answer">
+        IntelliPlan connects to StudentVue, which neither MyStudyLife nor Shovel supports. IntelliPlan also
+        includes a built-in Grade Modeler (simulate your final grade before you take a test), AI-generated
+        schedules, and a Study &amp; Learn tool for flashcards, all in one app. Shovel requires a paid
+        subscription to access its scheduling features; IntelliPlan is free to start. See the full
+        <a href="/compare" style="color:var(--accent)">comparison here</a>.
+      </p>
+    </details>
+
+    <details class="faq-item">
+      <summary>
+        Does IntelliPlan replace my school portal like Canvas or StudentVue?
+        <span class="faq-chevron" aria-hidden="true">▾</span>
+      </summary>
+      <p class="faq-answer">
+        No. IntelliPlan reads your assignments from those portals and organizes them. You still submit work
+        through Canvas or StudentVue. IntelliPlan just tells you what to do and when to do it.
+      </p>
+    </details>
+
+    <details class="faq-item">
+      <summary>
+        What happens if my teacher changes a due date?
+        <span class="faq-chevron" aria-hidden="true">▾</span>
+      </summary>
+      <p class="faq-answer">
+        IntelliPlan re-syncs with your school tools automatically. When a due date changes in Canvas or
+        StudentVue, your IntelliPlan priority list and schedule update to reflect it.
+      </p>
+    </details>
+
+    <details class="faq-item">
+      <summary>
+        Can I use IntelliPlan on my phone?
+        <span class="faq-chevron" aria-hidden="true">▾</span>
+      </summary>
+      <p class="faq-answer">
+        Yes. IntelliPlan is a Progressive Web App (PWA) available on iPhone and Android. You can install it
+        from the website, no App Store required for Android, and it installs like a native app on iPhone via
+        Safari. Visit <a href="/install" style="color:var(--accent)">the install page</a> for step-by-step
+        instructions.
+      </p>
+    </details>
+
+  </div>
+
+  <div class="faq-cta">
+    <h2>Ready to try it?</h2>
+    <p>Connect Canvas or StudentVue and see your priorities in under 5 minutes.</p>
+    <a href="/login" class="btn-primary" style="text-decoration:none">Get Started Free →</a>
+  </div>
+</div>
+
+{% endblock %}

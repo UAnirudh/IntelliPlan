@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block page_title %}Does Any Study Planner Connect to StudentVue? Yes, Here's How, IntelliPlan{% endblock %}
+
+{# Canonical + og:url emitted globally by base.html. #}
+{% block meta_description %}Looking for a study planner that works with StudentVue? IntelliPlan is the only major study planner with native StudentVue integration. Connect in minutes and auto-import all your assignments.{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block og_title %}Does Any Study Planner Connect to StudentVue? Yes, IntelliPlan{% endblock %}
+{% block og_description %}IntelliPlan is the only study planner with native StudentVue support. Connect your district portal and auto-prioritize every assignment. Free for high school students.{% endblock %}
+{% block twitter_title %}Does Any Study Planner Connect to StudentVue? Yes, IntelliPlan{% endblock %}
+{% block twitter_description %}IntelliPlan is the only study planner with native StudentVue support. Connect your district portal and auto-prioritize every assignment.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Does Any Study Planner Connect to StudentVue? Yes, Here's How",
+  "description": "IntelliPlan is the only study planner with native StudentVue integration. This guide explains how to connect and what you get.",
+  "url": "https://intelliplan.tech/blog/studentvue-study-planner",
+  "author": { "@type": "Organization", "name": "IntelliPlan", "url": "https://intelliplan.tech" },
+  "publisher": { "@type": "Organization", "name": "IntelliPlan", "url": "https://intelliplan.tech" }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<style>
+  .blog-page {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 2.5rem 1rem 4rem;
+  }
+  .blog-kicker {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.45rem 0.8rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+  }
+  .blog-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+    line-height: 1.08;
+    color: var(--text-primary);
+    letter-spacing: -0.03em;
+    margin: 0 0 1rem;
+  }
+  .blog-body {
+    font-family: var(--font-ui);
+    font-size: 1rem;
+    color: var(--text-secondary);
+    line-height: 1.8;
+  }
+  .blog-body h2 {
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    color: var(--text-primary);
+    margin: 2rem 0 0.75rem;
+  }
+  .blog-body p { margin: 0 0 1.1rem; }
+  .blog-body ol, .blog-body ul { padding-left: 1.4rem; margin: 0 0 1.1rem; }
+  .blog-body li { margin-bottom: 0.5rem; }
+  .blog-body a { color: var(--accent); }
+  .blog-cta {
+    margin-top: 2.5rem;
+    padding: 1.75rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-accent);
+    border-radius: var(--r-xl);
+    box-shadow: var(--accent-glow);
+    text-align: center;
+  }
+  .blog-cta h3 {
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem;
+  }
+  .blog-cta p {
+    font-family: var(--font-ui);
+    color: var(--text-secondary);
+    margin: 0 0 1rem;
+    font-size: 0.95rem;
+  }
+</style>
+
+<div class="blog-page">
+  <span class="blog-kicker">Guide</span>
+  <h1 class="blog-title">Does Any Study Planner Connect to StudentVue? Yes, Here's How</h1>
+
+  <div class="blog-body">
+    <p>
+      If you're a high school student, there's a good chance your school uses StudentVue to track grades,
+      attendance, and assignments. And if you've ever tried to find a study planner that connects to it -
+      you've probably noticed the answer is almost always no.
+    </p>
+    <p>
+      Apps like Shovel and MyStudyLife support Canvas or manual entry, but they skip StudentVue entirely.
+      IntelliPlan is different: it's the only student study planner with native StudentVue integration.
+    </p>
+
+    <h2>Why StudentVue support matters</h2>
+    <p>
+      Thousands of high schools across the United States use Synergy StudentVue as their student information
+      system. It's where your assignments, grades, and attendance live. But it's not designed to help you
+      plan your work, it just displays it.
+    </p>
+    <p>
+      Without a planner that connects to StudentVue, your options are to manually copy every assignment
+      into a separate app (tedious and error-prone) or try to plan from StudentVue directly (not what it's
+      built for). IntelliPlan closes that gap.
+    </p>
+
+    <h2>How to connect IntelliPlan to StudentVue</h2>
+    <ol>
+      <li>Go to <a href="https://intelliplan.tech">intelliplan.tech</a> and create a free account.</li>
+      <li>During onboarding, select <strong>StudentVue</strong> as your school system.</li>
+      <li>Enter your district's StudentVue URL, your username, and your password.</li>
+      <li>IntelliPlan will pull in your current assignments and grades automatically.</li>
+      <li>Within seconds you'll see a prioritized list, High, Medium, Low, across every subject.</li>
+    </ol>
+    <p>
+      IntelliPlan doesn't store your StudentVue credentials after connecting. Your data stays between you
+      and your district's portal.
+    </p>
+
+    <h2>What you get after connecting</h2>
+    <p>
+      After connecting StudentVue, IntelliPlan builds a ranked task list from all your assignments. Each
+      item is scored by urgency (due date), importance (point value), and estimated effort. You get one
+      clean list instead of navigating class by class through StudentVue.
+    </p>
+    <p>
+      You can also generate a full AI study schedule for the week and export it to Google Calendar, so
+      your study plan actually shows up where you plan your time. The Grade Modeler lets you simulate how
+      different scores on upcoming assignments will affect your final grade.
+    </p>
+
+    <h2>The only planner built for StudentVue users</h2>
+    <p>
+      If you've been looking for a study planner that works with StudentVue and haven't found one -
+      IntelliPlan is it. It's free to get started, takes about 3 minutes to connect, and works for both
+      high school and college students.
+    </p>
+    <p>
+      More questions? Read the <a href="/faq">FAQ</a> or
+      <a href="/compare">compare IntelliPlan to other study planners</a>.
+    </p>
+  </div>
+
+  <div class="blog-cta">
+    <h3>The only planner that connects to StudentVue</h3>
+    <p>Free for high school students. Connect in 3 minutes. No credit card required.</p>
+    <a href="/login" class="btn-primary" style="text-decoration:none">Get Started Free →</a>
+  </div>
+</div>
+
+{% endblock %}

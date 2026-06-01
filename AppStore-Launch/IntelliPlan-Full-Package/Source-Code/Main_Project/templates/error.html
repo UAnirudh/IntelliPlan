@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+{# Standalone error page, intentionally does NOT extend base.html so a
+   broken context processor (e.g. inject_pro / inject_auth blowing up
+   during a partial DB migration) can never cascade into the error
+   render itself. If this template fails to find a variable, Jinja2's
+   default mode treats it as empty rather than raising. #}
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ error_code or 500 }} · IntelliPlan</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+    body {
+      font-family:'DM Sans', system-ui, -apple-system, sans-serif;
+      background:#f3f5fb;
+      color:#0b0f1c;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:2rem 1rem;
+      line-height:1.5;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { background:#07080d; color:#e2e8f4; }
+      .err-card { background:#111520; border-color:rgba(255,255,255,0.08); }
+      .err-meta { background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.08); }
+      .err-btn-secondary { background:#161c2c; color:#cbd5e1; border-color:rgba(255,255,255,0.1); }
+    }
+    .err-card {
+      background:#ffffff;
+      border:1px solid rgba(15,23,60,0.08);
+      border-radius:24px;
+      padding:2.5rem 2.25rem;
+      max-width:520px;
+      width:100%;
+      text-align:center;
+      box-shadow:0 24px 64px rgba(15,23,60,0.08);
+    }
+    .err-emoji {
+      font-size:54px;
+      line-height:1;
+      margin-bottom:1rem;
+      display:inline-block;
+      filter:drop-shadow(0 6px 14px rgba(99,102,241,.25));
+    }
+    .err-code {
+      font-family:'DM Serif Display', serif;
+      font-size:3.6rem;
+      line-height:1;
+      letter-spacing:-0.03em;
+      background:linear-gradient(135deg, #6366f1, #8b5cf6);
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+      background-clip:text;
+      margin-bottom:0.5rem;
+    }
+    .err-title {
+      font-family:'DM Serif Display', serif;
+      font-size:1.35rem;
+      margin-bottom:0.5rem;
+    }
+    .err-desc {
+      color:#64748b;
+      font-size:0.95rem;
+      margin-bottom:1.5rem;
+      max-width:360px;
+      margin-left:auto;
+      margin-right:auto;
+    }
+    .err-actions { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:1.5rem; }
+    .err-btn {
+      padding:11px 24px;
+      border-radius:12px;
+      font-size:0.92rem;
+      font-weight:700;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-block;
+      border:0;
+      transition:transform 0.16s, box-shadow 0.16s;
+    }
+    .err-btn-primary {
+      background:linear-gradient(135deg, #6366f1, #8b5cf6);
+      color:#fff;
+      box-shadow:0 4px 14px rgba(99,102,241,0.32);
+    }
+    .err-btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(99,102,241,0.4); }
+    .err-btn-secondary {
+      background:#f8fafc;
+      color:#475569;
+      border:1px solid #e2e8f0;
+    }
+    .err-btn-secondary:hover { border-color:#6366f1; color:#6366f1; }
+    .err-meta {
+      margin-top:1rem;
+      padding:0.85rem 1rem;
+      background:#f8fafc;
+      border:1px solid #e2e8f0;
+      border-radius:12px;
+      font-family:'DM Mono', monospace;
+      font-size:0.78rem;
+      color:#64748b;
+      text-align:left;
+    }
+    .err-meta-label {
+      font-family:'DM Sans', sans-serif;
+      font-size:0.66rem;
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:0.08em;
+      color:#94a3b8;
+      margin-bottom:4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="err-card">
+    <div class="err-emoji">
+      {% if error_code == 404 %}🔍
+      {% elif error_code == 403 %}🚫
+      {% elif error_code == 429 %}⏳
+      {% elif error_code == 503 %}🔧
+      {% else %}⚠️{% endif %}
+    </div>
+
+    <div class="err-code">{{ error_code or 500 }}</div>
+
+    <div class="err-title">
+      {% if error_code == 404 %}Page not found
+      {% elif error_code == 403 %}Access restricted
+      {% elif error_code == 429 %}Slow down a moment
+      {% elif error_code == 503 %}Service unavailable
+      {% else %}Something went wrong{% endif %}
+    </div>
+
+    <p class="err-desc">
+      {% if error_code == 404 %}That page doesn't exist or has moved.
+      {% elif error_code == 403 %}You don't have permission to access this. Try signing in again.
+      {% elif error_code == 429 %}Too many requests. Give IntelliPlan a minute, then refresh.
+      {% elif error_code == 503 %}A dependency is temporarily down. This usually clears within a few minutes.
+      {% elif message %}{{ message }}
+      {% else %}An unexpected error occurred. We've logged it and will fix it shortly.{% endif %}
+    </p>
+
+    <div class="err-actions">
+      <a href="/" class="err-btn err-btn-primary">← Home</a>
+      <a href="/dashboard" class="err-btn err-btn-secondary">Dashboard</a>
+    </div>
+
+    {% if error_id %}
+    <div class="err-meta">
+      <div class="err-meta-label">Error Reference</div>
+      <div>{{ error_id }}</div>
+    </div>
+    {% endif %}
+  </div>
+</body>
+</html>

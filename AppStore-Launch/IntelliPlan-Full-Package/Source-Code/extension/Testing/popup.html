@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>IntelliPlan</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #f0f4ff;
+      --card:        #ffffff;
+      --accent:      #2563eb;
+      --accent-h:    #1d4ed8;
+      --accent-soft: rgba(37,99,235,0.09);
+      --accent-mid:  rgba(37,99,235,0.22);
+      --text:        #0f172a;
+      --text-2:      #334155;
+      --muted:       #64748b;
+      --border:      #e2e8f0;
+      --border-soft: rgba(0,0,0,0.06);
+      --high:        #ef4444;
+      --med:         #f59e0b;
+      --low:         #22c55e;
+      --r:           12px;
+      --r-sm:        8px;
+      --r-lg:        16px;
+      --r-xl:        20px;
+      --shadow-sm:   0 1px 2px rgba(0,0,0,0.04), 0 2px 6px rgba(0,0,0,0.04);
+      --shadow:      0 2px 8px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-lg:   0 8px 24px rgba(0,0,0,0.10), 0 2px 4px rgba(0,0,0,0.06);
+    }
+
+    body {
+      width: 380px;
+      min-height: 540px;
+      max-height: 680px;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── HEADER ─── */
+    .hdr {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+      padding: 13px 16px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .hdr-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      text-decoration: none;
+    }
+    .hdr-icon {
+      width: 30px;
+      height: 30px;
+      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(59,130,246,0.4);
+    }
+    .hdr-wordmark {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.01em;
+    }
+    .hdr-wordmark span { color: #93c5fd; }
+    .hdr-user {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .hdr-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.18);
+      border: 1.5px solid rgba(255,255,255,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    .hdr-logout {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 6px;
+      color: rgba(255,255,255,0.75);
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 4px 9px;
+      cursor: pointer;
+      transition: all 0.14s;
+      font-family: inherit;
+    }
+    .hdr-logout:hover {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+    }
+    .hdr-open-app {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 6px;
+      color: rgba(255,255,255,0.75);
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 4px 9px;
+      cursor: pointer;
+      transition: all 0.14s;
+      font-family: inherit;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .hdr-open-app:hover {
+      background: rgba(255,255,255,0.22);
+      color: #fff;
+    }
+
+    /* ─── QUICK LINKS ─── */
+    .quick-links {
+      display: flex;
+      gap: 6px;
+      padding: 10px 12px 0;
+    }
+    .ql-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 7px 6px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-2);
+      cursor: pointer;
+      transition: all 0.14s;
+      text-decoration: none;
+      font-family: inherit;
+      box-shadow: var(--shadow-sm);
+    }
+    .ql-btn:hover {
+      background: var(--accent-soft);
+      border-color: var(--accent-mid);
+      color: var(--accent);
+    }
+    .ql-btn.focus-active {
+      background: rgba(239,68,68,0.08);
+      border-color: rgba(239,68,68,0.3);
+      color: #ef4444;
+    }
+
+    /* ─── TAB BAR ─── */
+    .tab-bar {
+      display: flex;
+      gap: 4px;
+      padding: 10px 12px 0;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 7px 4px;
+      border: none;
+      background: var(--card);
+      border-radius: var(--r-sm);
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      box-shadow: var(--shadow-sm);
+    }
+    .tab-btn.active {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(37,99,235,0.35);
+    }
+    .tab-btn:not(.active):hover {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .tab-count {
+      font-size: 0.62rem;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.25);
+    }
+    .tab-btn:not(.active) .tab-count {
+      background: var(--accent-mid);
+      color: var(--accent);
+    }
+
+    /* ─── CONTENT AREA ─── */
+    .content {
+      padding: 10px 12px 14px;
+    }
+
+    /* ─── STATS ROW ─── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3,1fr);
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .stat-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 10px 8px;
+      text-align: center;
+      box-shadow: var(--shadow-sm);
+    }
+    .stat-num {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1;
+      margin-bottom: 3px;
+    }
+    .stat-lbl {
+      font-size: 0.58rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+    }
+
+    /* ─── SECTION LABEL ─── */
+    .sec-label {
+      font-size: 0.62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin: 10px 0 6px;
+    }
+    .sec-label:first-child { margin-top: 0; }
+
+    /* ─── TASK CARDS ─── */
+    .task-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--border);
+      border-radius: var(--r);
+      padding: 10px 12px;
+      margin-bottom: 6px;
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.13s, box-shadow 0.13s;
+    }
+    .task-card:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+    .task-card.high    { border-left-color: var(--high); }
+    .task-card.medium  { border-left-color: var(--med); }
+    .task-card.low     { border-left-color: var(--low); }
+    .task-card.missing { border-left-color: var(--high); background: #fff5f5; }
+    .task-card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 5px;
+    }
+    .task-title {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.35;
+    }
+    .dismiss-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 0.75rem;
+      padding: 0;
+      flex-shrink: 0;
+      line-height: 1;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: all 0.12s;
+    }
+    .dismiss-btn:hover { background: #fee2e2; color: var(--high); }
+    .task-meta {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .pill {
+      font-size: 0.6rem;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 20px;
+    }
+    .pill.due     { background: #dbeafe; color: #1d4ed8; }
+    .pill.high    { background: #fee2e2; color: #dc2626; }
+    .pill.medium  { background: #fef3c7; color: #b45309; }
+    .pill.low     { background: #dcfce7; color: #15803d; }
+    .pill.course  { background: var(--bg); color: var(--muted); }
+    .pill.missing { background: #fee2e2; color: #dc2626; }
+
+    /* ─── SCHEDULE BLOCKS ─── */
+    .block-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      border-radius: var(--r);
+      padding: 10px 12px;
+      margin-bottom: 6px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      box-shadow: var(--shadow-sm);
+    }
+    .block-card.is-break { border-left-color: var(--border); opacity: 0.6; }
+    .block-time {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--accent);
+      min-width: 64px;
+      flex-shrink: 0;
+    }
+    .block-card.is-break .block-time { color: var(--muted); }
+    .block-info { flex: 1; min-width: 0; }
+    .block-title { font-size: 0.8rem; font-weight: 600; color: var(--text); }
+    .block-course { font-size: 0.68rem; color: var(--muted); margin-top: 1px; }
+    .block-dur {
+      font-size: 0.65rem;
+      font-weight: 700;
+      background: var(--bg);
+      color: var(--muted);
+      padding: 2px 7px;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .daily-tip {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: var(--r);
+      padding: 8px 11px;
+      font-size: 0.73rem;
+      color: #92400e;
+      margin-top: 8px;
+      line-height: 1.45;
+    }
+
+    /* ─── GRADES ─── */
+    .gpa-banner {
+      background: linear-gradient(135deg, var(--accent) 0%, #1d4ed8 100%);
+      border-radius: var(--r);
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+      box-shadow: 0 4px 14px rgba(37,99,235,0.28);
+    }
+    .gpa-label { color: rgba(255,255,255,0.75); font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+    .gpa-value { color: #fff; font-size: 1.5rem; font-weight: 800; line-height: 1; margin-top: 1px; }
+    .gpa-right { flex: 1; text-align: right; }
+    .gpa-courses { color: rgba(255,255,255,0.7); font-size: 0.7rem; font-weight: 500; }
+    .grade-row {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 10px 12px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: var(--shadow-sm);
+    }
+    .grade-info { flex: 1; min-width: 0; }
+    .grade-name {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 4px;
+    }
+    .grade-bar-wrap { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .grade-bar { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+    .grade-pct { font-size: 0.62rem; color: var(--muted); margin-top: 2px; font-weight: 500; }
+    .grade-badge {
+      font-size: 0.85rem;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+
+    /* ─── FOCUS TIMER ─── */
+    .focus-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 20px;
+      gap: 16px;
+    }
+    .focus-ring {
+      width: 130px;
+      height: 130px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .focus-ring svg {
+      position: absolute;
+      top: 0; left: 0;
+      transform: rotate(-90deg);
+    }
+    .focus-ring circle {
+      fill: none;
+      stroke-width: 6;
+    }
+    .focus-ring .track { stroke: var(--border); }
+    .focus-ring .prog  { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+    .focus-time {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.03em;
+      line-height: 1;
+      position: relative;
+      z-index: 1;
+    }
+    .focus-label { font-size: 0.78rem; color: var(--muted); font-weight: 500; }
+    .focus-sub { font-size: 0.72rem; color: var(--muted); text-align: center; line-height: 1.4; }
+    .focus-actions { display: flex; gap: 8px; width: 100%; }
+    .focus-stop {
+      flex: 1;
+      padding: 10px;
+      background: #fee2e2;
+      border: 1px solid #fecaca;
+      border-radius: var(--r-sm);
+      color: #dc2626;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.13s;
+    }
+    .focus-stop:hover { background: #fecaca; }
+    .focus-open {
+      flex: 1;
+      padding: 10px;
+      background: var(--accent-soft);
+      border: 1px solid var(--accent-mid);
+      border-radius: var(--r-sm);
+      color: var(--accent);
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.13s;
+    }
+    .focus-open:hover { background: var(--accent-mid); }
+
+    /* ─── QUICK ADD TASK ─── */
+    .add-task-wrap {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 12px;
+      margin-bottom: 10px;
+      box-shadow: var(--shadow-sm);
+    }
+    .add-task-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .add-task-input {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 8px 11px;
+      font-size: 0.82rem;
+      color: var(--text);
+      font-family: inherit;
+      background: var(--bg);
+      outline: none;
+      transition: border-color 0.14s, box-shadow 0.14s;
+    }
+    .add-task-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+    .add-task-submit {
+      padding: 8px 13px;
+      background: var(--accent);
+      border: none;
+      border-radius: var(--r-sm);
+      color: #fff;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.13s;
+    }
+    .add-task-submit:hover { background: var(--accent-h); }
+
+    /* ─── ADD TASK TOGGLE ─── */
+    .add-task-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: none;
+      border: 1px dashed var(--border);
+      border-radius: var(--r-sm);
+      padding: 7px 11px;
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      margin-bottom: 8px;
+      transition: all 0.13s;
+      font-family: inherit;
+    }
+    .add-task-toggle:hover {
+      border-color: var(--accent-mid);
+      color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    /* ─── AUTH VIEW ─── */
+    .auth-view {
+      padding: 20px 16px 24px;
+    }
+    .auth-hero {
+      text-align: center;
+      margin-bottom: 18px;
+    }
+    .auth-logo {
+      width: 52px;
+      height: 52px;
+      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin: 0 auto 10px;
+      box-shadow: 0 4px 16px rgba(37,99,235,0.35);
+    }
+    .auth-title {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+    .auth-sub {
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .auth-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      padding: 18px;
+      box-shadow: var(--shadow-lg);
+    }
+
+    /* auto-login banner */
+    .auto-banner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent-soft);
+      border: 1px solid var(--accent-mid);
+      border-radius: var(--r-sm);
+      padding: 9px 12px;
+      margin-bottom: 14px;
+      font-size: 0.76rem;
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .auto-banner .spinner-sm {
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--accent-mid);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    /* Google button */
+    .btn-google {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 11px 14px;
+      background: #fff;
+      border: 1.5px solid var(--border);
+      border-radius: var(--r-sm);
+      color: #1a1a1a;
+      font-family: inherit;
+      font-size: 0.86rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.14s;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    .btn-google:hover {
+      border-color: #4285f4;
+      box-shadow: var(--shadow);
+      transform: translateY(-1px);
+    }
+    .btn-google svg { flex-shrink: 0; }
+
+    /* divider */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 2px 0 12px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 500;
+    }
+    .divider::before, .divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* mode toggle */
+    .mode-seg {
+      display: flex;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 3px;
+      margin-bottom: 12px;
+    }
+    .mode-btn {
+      flex: 1;
+      border: none;
+      background: transparent;
+      padding: 7px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--muted);
+      font-family: inherit;
+      transition: all 0.13s;
+    }
+    .mode-btn.active {
+      background: var(--card);
+      color: var(--accent);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* fields */
+    .field { margin-bottom: 10px; }
+    .field label { display: block; font-size: 0.71rem; font-weight: 700; color: var(--text-2); margin-bottom: 4px; }
+    .field input {
+      width: 100%;
+      border: 1.5px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 9px 11px;
+      font-size: 0.84rem;
+      outline: none;
+      background: var(--bg);
+      color: var(--text);
+      font-family: inherit;
+      transition: border-color 0.14s, box-shadow 0.14s;
+    }
+    .field input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+      background: #fff;
+    }
+
+    /* primary auth button */
+    .btn-primary {
+      width: 100%;
+      border: none;
+      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+      color: white;
+      border-radius: var(--r-sm);
+      padding: 11px 14px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.14s;
+      box-shadow: 0 2px 10px rgba(37,99,235,0.35);
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(37,99,235,0.45);
+    }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    /* Google waiting state */
+    .google-waiting {
+      text-align: center;
+      padding: 8px 0 4px;
+    }
+    .google-waiting-text {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+    .btn-signed-in {
+      width: 100%;
+      border: 1.5px solid var(--accent-mid);
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-radius: var(--r-sm);
+      padding: 10px 14px;
+      font-size: 0.86rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.14s;
+    }
+    .btn-signed-in:hover { background: var(--accent-mid); }
+    .btn-cancel-google {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+      font-family: inherit;
+      padding: 4px;
+    }
+    .btn-cancel-google:hover { color: var(--text); }
+
+    /* status message */
+    .status {
+      font-size: 0.76rem;
+      margin-top: 9px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.4;
+    }
+    .status.err  { color: #dc2626; }
+    .status.ok   { color: #16a34a; }
+    .status.info { color: var(--accent); }
+
+    /* ─── EMPTY / LOADING ─── */
+    .empty {
+      text-align: center;
+      padding: 24px 16px;
+      color: var(--muted);
+    }
+    .empty-icon { font-size: 2rem; margin-bottom: 8px; }
+    .empty-text { font-size: 0.82rem; line-height: 1.5; }
+    .link-btn {
+      display: inline-block;
+      margin-top: 8px;
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 0.8rem;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: inherit;
+      padding: 0;
+    }
+    .link-btn:hover { text-decoration: underline; }
+    .loading {
+      text-align: center;
+      padding: 24px 16px;
+      color: var(--muted);
+    }
+    .spinner {
+      width: 22px;
+      height: 22px;
+      border: 2.5px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+      margin: 0 auto 10px;
+    }
+    .loading-text { font-size: 0.8rem; font-weight: 500; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── UTIL ─── */
+    .hidden { display: none !important; }
+    .fade-in { animation: fadeIn 0.18s ease both; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════
+     AUTH VIEW
+══════════════════════ -->
+<div id="authView" class="auth-view">
+  <div class="auth-hero">
+    <div class="auth-logo">📅</div>
+    <div class="auth-title">Intelli<span style="color:var(--accent)">Plan</span></div>
+    <div class="auth-sub">Your AI study planner — right in your browser.</div>
+  </div>
+
+  <div class="auth-card">
+    <!-- Auto-detecting session -->
+    <div id="autoBanner" class="auto-banner hidden">
+      <div class="spinner-sm"></div>
+      <span>Detecting your IntelliPlan session…</span>
+    </div>
+
+    <!-- Google login -->
+    <button id="btnGoogle" class="btn-google" type="button">
+      <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+        <path fill="#FBBC05" d="M10.53 28.59c-.5-1.45-.79-3-.79-4.59s.29-3.14.79-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+      </svg>
+      Continue with Google
+    </button>
+
+    <!-- Google waiting state (hidden by default) -->
+    <div id="googleWaiting" class="google-waiting hidden">
+      <div class="google-waiting-text">
+        A tab has opened for Google sign-in.<br>Complete it, then click below.
+      </div>
+      <button id="btnSignedIn" class="btn-signed-in" type="button">I've signed in ✓</button>
+      <br>
+      <button id="btnCancelGoogle" class="btn-cancel-google" type="button">Cancel</button>
+    </div>
+
+    <!-- Divider (hidden when google waiting) -->
+    <div id="emailDivider" class="divider">or use email</div>
+
+    <!-- Mode toggle -->
+    <div id="emailSection">
+      <div class="mode-seg" role="tablist">
+        <button id="loginModeBtn" class="mode-btn active" type="button">Login</button>
+        <button id="signupModeBtn" class="mode-btn" type="button">Sign up</button>
+      </div>
+
+      <form id="authForm">
+        <div id="nameField" class="field hidden">
+          <label for="nameInput">Name</label>
+          <input id="nameInput" type="text" autocomplete="name" placeholder="Your name" />
+        </div>
+        <div class="field">
+          <label for="emailInput">Email</label>
+          <input id="emailInput" type="email" autocomplete="email" placeholder="you@school.edu" required />
+        </div>
+        <div class="field">
+          <label for="passwordInput">Password</label>
+          <input id="passwordInput" type="password" autocomplete="current-password" placeholder="••••••••" required />
+        </div>
+        <button id="authSubmitBtn" class="btn-primary" type="submit">Login</button>
+      </form>
+    </div>
+
+    <div id="authStatus" class="status"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════
+     APP VIEW
+══════════════════════ -->
+<div id="appView" class="hidden">
+
+  <!-- Header -->
+  <div class="hdr">
+    <div class="hdr-logo">
+      <div class="hdr-icon">📅</div>
+      <span class="hdr-wordmark">Intelli<span>Plan</span></span>
+    </div>
+    <div class="hdr-user">
+      <div class="hdr-avatar" id="userAvatar">?</div>
+      <button id="openAppBtn" class="hdr-open-app" type="button">Open ↗</button>
+      <button id="logoutBtn" class="hdr-logout" type="button">Logout</button>
+    </div>
+  </div>
+
+  <!-- Quick links -->
+  <div class="quick-links">
+    <button class="ql-btn" id="qlScheduler" type="button">📅 Scheduler</button>
+    <button class="ql-btn" id="qlTutor"     type="button">🤖 Tutor</button>
+    <button class="ql-btn" id="qlFocus"     type="button" id="qlFocus">⏱ Focus</button>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="tasks"    type="button">📋 Tasks <span class="tab-count" id="tcTasks">–</span></button>
+    <button class="tab-btn"        data-tab="schedule" type="button">📅 Today</button>
+    <button class="tab-btn"        data-tab="grades"   type="button">📊 Grades</button>
+  </div>
+
+  <!-- Content -->
+  <div class="content" id="content">
+    <div class="loading">
+      <div class="spinner"></div>
+      <div class="loading-text">Loading…</div>
+    </div>
+  </div>
+
+</div>
+
+<script src="popup.js"></script>
+</body>
+</html>

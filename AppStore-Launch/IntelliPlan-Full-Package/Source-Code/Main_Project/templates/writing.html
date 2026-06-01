@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Writing Assistant</h1>
+  <p class="page-subtitle">Paste an essay, paragraph, or email, get targeted improvements with reasoning.</p>
+</div>
+
+<style>
+.writing-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; }
+@media (max-width:900px){ .writing-grid{grid-template-columns:1fr;} }
+.writing-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); padding:1.25rem; box-shadow:var(--shadow); }
+.writing-textarea { width:100%; min-height:280px; padding:14px; border:1.5px solid var(--border-strong); border-radius:12px; background:var(--bg); color:var(--text-primary); font-family:var(--font-body); font-size:0.92rem; resize:vertical; line-height:1.6; }
+.writing-textarea:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+.suggestion { padding:12px 14px; border-radius:12px; background:var(--bg-elevated); border:1px solid var(--border); margin-bottom:10px; }
+.suggestion .cat { font-family:var(--font-ui); font-size:0.7rem; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; padding:3px 10px; border-radius:999px; display:inline-block; margin-bottom:8px; }
+.cat.grammar { background:rgba(220,38,38,0.1); color:#dc2626; }
+.cat.clarity { background:rgba(37,99,235,0.1); color:#2563eb; }
+.cat.tone    { background:rgba(217,119,6,0.1);  color:#d97706; }
+.cat.structure { background:rgba(99,102,241,0.1); color:#6366f1; }
+.cat.argument  { background:rgba(5,150,105,0.1); color:#059669; }
+.suggestion .ex { font-style:italic; color:var(--text-secondary); margin-bottom:6px; font-size:0.86rem; border-left:3px solid var(--border-strong); padding-left:10px; }
+.suggestion .fix { font-weight:600; color:var(--text-primary); margin-bottom:6px; font-size:0.92rem; }
+.suggestion .why { color:var(--text-muted); font-size:0.82rem; line-height:1.5; }
+.score-bubble { display:flex; align-items:center; gap:12px; margin-bottom:1rem; }
+.score-num { font-family:var(--font-display); font-size:2.4rem; color:var(--accent); line-height:1; }
+.score-label { font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); }
+.revised-box { background:var(--bg-elevated); border:1px solid var(--border); border-radius:12px; padding:14px; font-size:0.92rem; line-height:1.6; white-space:pre-wrap; max-height:340px; overflow:auto; }
+</style>
+
+<div class="writing-grid">
+  <div class="writing-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
+      <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);">Your draft</div>
+      <div style="display:flex;gap:6px;">
+        <select id="wPurpose" class="form-input" style="padding:6px 10px;font-size:0.84rem;">
+          <option value="essay">Essay</option>
+          <option value="paragraph">Paragraph</option>
+          <option value="email">Email</option>
+          <option value="message">Message</option>
+          <option value="application">Application</option>
+        </select>
+        <select id="wTone" class="form-input" style="padding:6px 10px;font-size:0.84rem;">
+          <option value="neutral">Neutral</option>
+          <option value="formal">Formal</option>
+          <option value="friendly">Friendly</option>
+          <option value="persuasive">Persuasive</option>
+          <option value="analytical">Analytical</option>
+        </select>
+      </div>
+    </div>
+    <textarea id="wText" class="writing-textarea" placeholder="Paste your writing here..."></textarea>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:8px;flex-wrap:wrap;">
+      <span id="wCount" style="font-size:0.75rem;color:var(--text-muted);">0 words</span>
+      <button class="btn-primary" onclick="analyzeWriting()" id="wBtn" style="padding:10px 22px;border:none;cursor:pointer;">Analyze writing</button>
+    </div>
+  </div>
+
+  <div class="writing-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);">Feedback</div>
+      <button id="wRevTab" onclick="switchTab('rev')" style="font-size:0.75rem;border:1px solid var(--border);background:transparent;padding:5px 12px;border-radius:999px;cursor:pointer;color:var(--text-secondary);">View revised draft</button>
+    </div>
+    <div id="wResult">
+      <div style="color:var(--text-muted);font-size:0.9rem;text-align:center;padding:2rem 0;">Click <strong>Analyze writing</strong> to see feedback.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const wText = document.getElementById('wText');
+const wCount = document.getElementById('wCount');
+let _wLast = null;
+let _wView = 'feedback';
+
+wText.addEventListener('input', () => {
+  const words = wText.value.trim().split(/\s+/).filter(Boolean).length;
+  wCount.textContent = words + ' word' + (words === 1 ? '' : 's');
+});
+
+function switchTab(view) {
+  _wView = view === 'rev' ? 'rev' : 'feedback';
+  document.getElementById('wRevTab').textContent = _wView === 'rev' ? 'View suggestions' : 'View revised draft';
+  if (_wLast) renderResult();
+}
+
+function analyzeWriting() {
+  const text = wText.value.trim();
+  if (!text) return;
+  const btn = document.getElementById('wBtn');
+  btn.disabled = true;
+  btn.textContent = 'Analyzing...';
+  fetch('/api/writing/analyze', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      text,
+      tone: document.getElementById('wTone').value,
+      purpose: document.getElementById('wPurpose').value,
+    }),
+  }).then(r => r.json()).then(d => {
+    btn.disabled = false;
+    btn.textContent = 'Analyze writing';
+    if (d.status !== 'ok') {
+      document.getElementById('wResult').innerHTML = '<div style="color:var(--high);font-size:0.9rem;">Error: ' + (d.message || 'unknown') + '</div>';
+      return;
+    }
+    _wLast = d;
+    _wView = 'feedback';
+    document.getElementById('wRevTab').textContent = 'View revised draft';
+    renderResult();
+  }).catch(e => {
+    btn.disabled = false;
+    btn.textContent = 'Analyze writing';
+    document.getElementById('wResult').innerHTML = '<div style="color:var(--high);font-size:0.9rem;">Network error</div>';
+  });
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderResult() {
+  const d = _wLast;
+  if (!d) return;
+  const out = document.getElementById('wResult');
+  if (_wView === 'rev') {
+    out.innerHTML = '<div class="revised-box">' + esc(d.revised || '(no revised draft returned)') + '</div>';
+    return;
+  }
+  const overall = d.overall || {};
+  const suggestions = d.suggestions || [];
+  const score = overall.score != null ? overall.score : '-';
+  let html = `
+    <div class="score-bubble">
+      <div class="score-num">${score}</div>
+      <div>
+        <div class="score-label">Overall score</div>
+        <div style="font-size:0.9rem;color:var(--text-secondary);max-width:280px;">${esc(overall.summary || '')}</div>
+      </div>
+    </div>`;
+  if (!suggestions.length) {
+    html += '<div style="color:var(--text-muted);font-size:0.9rem;">No suggestions, clean draft.</div>';
+  } else {
+    html += suggestions.map(s => `
+      <div class="suggestion">
+        <span class="cat ${esc(s.category||'')}">${esc(s.category||'note')}</span>
+        ${s.excerpt ? `<div class="ex">"${esc(s.excerpt)}"</div>` : ''}
+        <div class="fix">${esc(s.suggestion||'')}</div>
+        <div class="why">${esc(s.why||'')}</div>
+      </div>`).join('');
+  }
+  out.innerHTML = html;
+}
+</script>
+{% endblock %}

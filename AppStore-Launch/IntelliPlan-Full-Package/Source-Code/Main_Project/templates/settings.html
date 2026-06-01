@@ -1,0 +1,1561 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+/* ── Settings page ──────────────────────────────── */
+.settings-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
+  margin-bottom: 1.5rem;
+}
+.settings-section-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 1rem;
+}
+.profile-tab-bar {
+  display: flex;
+  gap: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px;
+  margin-bottom: 1.25rem;
+  width: fit-content;
+}
+.profile-tab {
+  padding: 7px 16px;
+  font-family: var(--font-ui);
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.profile-tab.active {
+  background: var(--accent);
+  color: white;
+}
+.profile-tab:hover:not(.active) { color: var(--text-primary); background: var(--border); }
+.profile-pane { display: none; }
+.profile-pane.visible { display: block; }
+/* ── Sidebar customizer (drag-and-drop, mirrors real sidebar) ── */
+.sb-cust-wrap {
+  display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap;
+}
+.sb-cust-preview {
+  width:248px; flex-shrink:0;
+  background:var(--bg-card); border:1px solid var(--border); border-radius:14px;
+  padding:12px 10px; display:flex; flex-direction:column; gap:4px;
+  box-shadow: var(--shadow);
+}
+.sb-cust-section {
+  display:flex; flex-direction:column; gap:3px; padding:6px 4px;
+  border-radius:10px; min-height:38px;
+  transition: background 0.15s, border-color 0.15s;
+  border:1px dashed transparent;
+}
+.sb-cust-section.is-folder {
+  margin-left:10px; padding-left:8px; border-left:1px solid var(--border);
+}
+.sb-cust-section.drop-target { background: var(--accent-soft); border-color: var(--accent); }
+.sb-cust-section-label {
+  font-family:var(--font-ui); font-size:0.62rem; font-weight:700;
+  text-transform:uppercase; letter-spacing:0.09em; color:var(--text-muted);
+  padding:6px 8px 2px;
+}
+.sb-cust-item {
+  display:flex; align-items:center; gap:10px;
+  padding:8px 10px; border-radius:8px;
+  background: var(--bg); border:1px solid var(--border);
+  color:var(--text-secondary); font-size:0.84rem; font-weight:500;
+  cursor:grab; user-select:none;
+  transition: background 0.12s, transform 0.12s, opacity 0.12s, border-color 0.12s;
+}
+.sb-cust-item:hover { background: var(--accent-soft); border-color: var(--border-accent); color: var(--accent); }
+.sb-cust-item:active { cursor:grabbing; }
+.sb-cust-item.is-dragging { opacity:0.35; }
+.sb-cust-item.drop-before { box-shadow: 0 -3px 0 0 var(--accent); }
+.sb-cust-item.drop-after  { box-shadow: 0  3px 0 0 var(--accent); }
+.sb-cust-item .sb-cust-handle {
+  width:12px; height:12px; flex-shrink:0; color:var(--text-muted);
+  display:inline-flex; align-items:center; justify-content:center;
+}
+.sb-cust-item .sb-cust-icon { width:16px; height:16px; flex-shrink:0; }
+.sb-cust-item .sb-cust-icon svg { width:100%; height:100%; }
+.sb-cust-section.is-hidden .sb-cust-item { opacity:0.5; }
+.sb-cust-help {
+  flex:1; min-width:200px; font-size:0.84rem; color:var(--text-secondary); line-height:1.55;
+}
+.sb-cust-help ul { padding-left:1.05rem; margin:0.5rem 0; }
+.sb-cust-help li { margin-bottom:4px; }
+
+/* Availability time-block rows */
+.avail-day-row { display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); }
+.avail-day-row:last-child { border-bottom:none; }
+.avail-day-label { width:36px; font-family:var(--font-ui); font-size:0.82rem; font-weight:700; color:var(--text-secondary); flex-shrink:0; }
+.avail-slots { display:flex; gap:6px; flex-wrap:wrap; }
+.avail-slot-btn { padding:6px 12px; border-radius:999px; border:1.5px solid var(--border-strong); background:var(--bg); font-size:0.78rem; cursor:pointer; color:var(--text-muted); transition:all 0.15s; font-family:var(--font-body); }
+.avail-slot-btn.on { background:var(--accent); color:white; border-color:var(--accent); }
+.avail-slot-btn:hover:not(.on) { border-color:var(--accent); color:var(--accent); background:var(--accent-soft,#eff6ff); }
+
+/* Focus pill checkboxes */
+.focus-pill-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.focus-pill {
+  position: relative;
+}
+.focus-pill input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.focus-pill label {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--bg-card);
+  font-size: 0.84rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.focus-pill input:checked + label {
+  background: var(--accent-subtle, #eff6ff);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.focus-pill label:hover {
+  border-color: var(--accent);
+}
+
+/* Save status indicator */
+.save-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 0.25rem;
+}
+.saved-note {
+  font-size: 0.78rem;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+/* Profile summary chip */
+.profile-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 1.25rem;
+}
+.summary-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+}
+.summary-chip svg { flex-shrink: 0; }
+
+/* Integration rows */
+.integration-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+.integration-row:last-child { border-bottom: none; }
+.integration-row:hover { background: var(--bg); }
+.integration-label {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+.integration-sub {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.connected-badge {
+  font-size: 0.72rem;
+  background: var(--low-bg, #f0fdf4);
+  color: var(--low);
+  border: 1px solid var(--low);
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+@media (max-width: 480px) {
+  .avail-slot-btn { padding:5px 8px; font-size:0.72rem; }
+}
+</style>
+
+<div class="page-header">
+  <h1 class="page-title">Settings</h1>
+  <p class="page-subtitle">Manage your account, study profile, and integrations</p>
+</div>
+
+<div id="settingsWrap">
+
+  <!-- ── Study Profile ──────────────────────────────── -->
+  <div class="settings-section">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:0.75rem;">
+      <div>
+        <div class="settings-section-title" style="margin-bottom:2px;">Study Profile</div>
+        <div style="font-size:0.84rem;color:var(--text-secondary);">Plani uses this to personalise every reply and schedule.</div>
+      </div>
+      <span id="identitySavedNote" class="saved-note" style="color:var(--low);"></span>
+    </div>
+
+    <!-- Summary chips (filled on load) -->
+    <div class="profile-summary" id="profileSummary"></div>
+
+    <!-- Tab bar -->
+    <div class="profile-tab-bar">
+      <button class="profile-tab active" data-pane="basics">Basics</button>
+      <button class="profile-tab" data-pane="schedule">Availability</button>
+      <button class="profile-tab" data-pane="extras">Goals & Extras</button>
+    </div>
+
+    <!-- Pane: Basics -->
+    <div class="profile-pane visible" id="pane-basics">
+      <form id="identityForm" onsubmit="saveIdentity(event)" style="display:flex;flex-direction:column;gap:1rem;">
+        <div class="form-group">
+          <label class="form-label" for="idGrade">Grade level</label>
+          <select id="idGrade" name="grade_level" class="form-input">
+            <option value="">Prefer not to say</option>
+            {% for g in grade_choices %}
+              <option value="{{ g }}" {% if identity.grade_level == g %}selected{% endif %}>{{ g }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Academic focus areas</label>
+          <div class="focus-pill-group" id="idFocus">
+            {% for f in focus_choices %}
+              <div class="focus-pill">
+                <input type="checkbox" id="fp-{{ loop.index }}" name="focus_areas" value="{{ f }}"
+                  {% if f in identity.focus_areas %}checked{% endif %}>
+                <label for="fp-{{ loop.index }}">{{ f }}</label>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="save-row">
+          <button type="submit" class="btn-primary" style="padding:10px 20px;">Save basics</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Pane: Availability -->
+    <div class="profile-pane" id="pane-schedule">
+      <p style="font-size:0.84rem;color:var(--text-secondary);margin-bottom:1rem;">
+        Tap the time blocks when you're generally free to study.
+      </p>
+      <div class="avail-days" id="availDays"></div>
+
+      <div class="form-group" style="margin-top:1.25rem;">
+        <label class="form-label" for="idCommitments">Weekly commitments / extracurriculars</label>
+        <input type="text" id="idCommitments" class="form-input"
+          placeholder="e.g. soccer Mon/Wed 4–6 pm, piano Fri 5 pm"
+          value="{{ identity.weekly_commitments }}">
+      </div>
+
+      <div class="save-row" style="margin-top:1rem;">
+        <button class="btn-primary" onclick="saveAvailability()" style="padding:10px 20px;">Save availability</button>
+      </div>
+    </div>
+
+    <!-- Pane: Goals & Extras -->
+    <div class="profile-pane" id="pane-extras">
+      <div class="form-group">
+        <label class="form-label" for="idGoals">Goals / priorities</label>
+        <textarea id="idGoals" name="goals" rows="4" class="form-input"
+          placeholder="e.g. raise my AP Calc grade to an A, build study habits for the SAT, get faster at essays">{{ identity.goals }}</textarea>
+      </div>
+      <div class="save-row" style="margin-top:0.25rem;">
+        <button class="btn-primary" onclick="saveGoals()" style="padding:10px 20px;">Save goals</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Display & Animations ──────────────────────── -->
+  <div class="settings-section">
+    <div class="settings-section-title">Display &amp; Animations</div>
+
+    <div class="integration-row">
+      <div>
+        <div class="integration-label">Theme</div>
+        <div class="integration-sub">Switch between light and dark across IntelliPlan</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:0.78rem;color:var(--text-muted);font-weight:600;" id="themeSettingsLabel">Light</span>
+        <label class="toggle" title="Toggle dark mode" aria-label="Toggle dark mode">
+          <input type="checkbox" id="themeToggleSettings">
+          <div class="toggle-track"></div>
+          <div class="toggle-knob"></div>
+        </label>
+      </div>
+    </div>
+
+    <div class="integration-row" id="themes" style="flex-direction:column;align-items:flex-start;gap:14px;">
+      <div style="width:100%;">
+        <div class="integration-label">Color theme</div>
+        <div class="integration-sub">Pick a palette, works with both light and dark mode</div>
+      </div>
+      <div id="themeSwatches" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;width:100%;">
+        <!-- Swatches injected by script -->
+      </div>
+    </div>
+
+    <div class="integration-row">
+      <div>
+        <div class="integration-label">Session completion animation</div>
+        <div class="integration-sub">Play a Plani celebration when you finish a study session</div>
+      </div>
+      <label class="toggle" title="Toggle session animation">
+        <input type="checkbox" id="animSessionToggle" onchange="saveAnimSetting('ip_anim_session', this.checked)">
+        <div class="toggle-track"></div>
+        <div class="toggle-knob"></div>
+      </label>
+    </div>
+  </div>
+
+  <!-- ── Accessibility (NSD Digital Resource compliance) ── -->
+  <div class="settings-section" id="accessibilitySettings">
+    <div class="settings-section-title">Accessibility</div>
+    <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.9rem;">
+      Tools that make IntelliPlan easier to read, hear, and use. All preferences are stored on this device.
+    </div>
+
+    <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
+      <span>
+        <strong>Read aloud (text-to-speech)</strong>
+        <span style="display:block;font-size:0.78rem;color:var(--text-muted);">When on, the Tutor reads its replies aloud and a Read button appears on lessons. Voice is provided by your browser.</span>
+      </span>
+      <label class="toggle"><input type="checkbox" id="a11yTts"><div class="toggle-track"></div><div class="toggle-knob"></div></label>
+    </label>
+
+    <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
+      <span>
+        <strong>Large text</strong>
+        <span style="display:block;font-size:0.78rem;color:var(--text-muted);">Increases the base font size site-wide by 15%.</span>
+      </span>
+      <label class="toggle"><input type="checkbox" id="a11yLargeText"><div class="toggle-track"></div><div class="toggle-knob"></div></label>
+    </label>
+
+    <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
+      <span>
+        <strong>High contrast</strong>
+        <span style="display:block;font-size:0.78rem;color:var(--text-muted);">Stronger borders and bolder text colors for low-vision users.</span>
+      </span>
+      <label class="toggle"><input type="checkbox" id="a11yHighContrast"><div class="toggle-track"></div><div class="toggle-knob"></div></label>
+    </label>
+
+    <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
+      <span>
+        <strong>Reduce motion</strong>
+        <span style="display:block;font-size:0.78rem;color:var(--text-muted);">Disables non-essential animations across the app.</span>
+      </span>
+      <label class="toggle"><input type="checkbox" id="a11yReduceMotion"><div class="toggle-track"></div><div class="toggle-knob"></div></label>
+    </label>
+
+    <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
+      <span>
+        <strong>Simpler reading level</strong>
+        <span style="display:block;font-size:0.78rem;color:var(--text-muted);">When on, the Tutor and Plani use plainer vocabulary and shorter sentences.</span>
+      </span>
+      <label class="toggle"><input type="checkbox" id="a11ySimpleReading"><div class="toggle-track"></div><div class="toggle-knob"></div></label>
+    </label>
+
+    <div class="form-group" style="margin:14px 0 0;">
+      <label class="form-label" for="a11yLang">Preferred language for AI replies</label>
+      <select id="a11yLang" class="form-input" style="max-width:280px;">
+        <option value="en">English</option>
+        <option value="es">Español (Spanish)</option>
+        <option value="fr">Français (French)</option>
+        <option value="zh">中文 (Chinese)</option>
+        <option value="vi">Tiếng Việt (Vietnamese)</option>
+        <option value="ko">한국어 (Korean)</option>
+        <option value="ar">العربية (Arabic)</option>
+        <option value="hi">हिन्दी (Hindi)</option>
+        <option value="pt">Português (Portuguese)</option>
+        <option value="ru">Русский (Russian)</option>
+      </select>
+      <span class="form-hint">Asks the AI tutor &amp; chatbot to reply in your chosen language when possible.</span>
+    </div>
+    <div id="a11yStatus" style="margin-top:10px;font-size:0.8rem;color:var(--low);"></div>
+  </div>
+
+  <!-- ── Sidebar customizer (drag-and-drop) ───────── -->
+  <div class="settings-section" id="sidebarSettings">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:1rem;">
+      <div>
+        <div class="settings-section-title" style="margin-bottom:2px;">Sidebar</div>
+        <div style="font-size:0.84rem;color:var(--text-secondary);">Drag tabs between sections (or reorder within a section) to lay out your sidebar exactly how you like it.</div>
+      </div>
+      <button type="button" class="btn-secondary" onclick="resetNavPrefs()" style="padding:8px 14px;cursor:pointer;">Reset</button>
+    </div>
+    <div class="sb-cust-wrap">
+      <div class="sb-cust-preview" id="sbCustPreview" aria-label="Sidebar preview (drag to customize)">
+        <div class="sb-cust-section-label">Pinned to top</div>
+        <div class="sb-cust-section" data-bucket="pinned" id="sbBucketPinned"></div>
+        <div class="sb-cust-section-label">Plan folder</div>
+        <div class="sb-cust-section is-folder" data-bucket="plan" id="sbBucketPlan"></div>
+        <div class="sb-cust-section-label">Toolkit folder</div>
+        <div class="sb-cust-section is-folder" data-bucket="tools" id="sbBucketTools"></div>
+        <div class="sb-cust-section-label">Hidden</div>
+        <div class="sb-cust-section is-hidden" data-bucket="hidden" id="sbBucketHidden"></div>
+      </div>
+      <div class="sb-cust-help">
+        <strong style="color:var(--text-primary);">How it works</strong>
+        <ul>
+          <li><strong>Pinned</strong>, appears at the top of the sidebar.</li>
+          <li><strong>Plan / Toolkit</strong>, tucked inside the collapsible folder of the same name.</li>
+          <li><strong>Hidden</strong>, completely removed from the sidebar (still accessible by URL).</li>
+        </ul>
+        <span id="navCustomSaved" style="font-size:0.8rem;color:var(--low);"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <div class="settings-section-title">Phone &amp; reminders</div>
+    <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.9rem;">
+      Get a heads-up before assignments are due, by text, browser push, or both. We never share or sell your phone number.
+    </div>
+    <div class="form-group" style="margin-bottom:0.75rem;">
+      <label class="form-label" for="phoneInput">Phone number</label>
+      <input type="tel" id="phoneInput" class="form-input" placeholder="+1 555 123 4567" autocomplete="tel">
+      <span class="form-hint">Format any way, we'll normalise to +1… for US numbers automatically.</span>
+    </div>
+    <div class="form-group" style="margin-bottom:0.75rem;">
+      <label class="form-label" for="carrierSelect">Mobile carrier</label>
+      <select id="carrierSelect" class="form-input" style="max-width:280px;">
+        <option value="tmobile">T-Mobile</option>
+        <option value="att">AT&amp;T</option>
+        <option value="verizon">Verizon</option>
+        <option value="sprint">Sprint (legacy)</option>
+        <option value="uscellular">US Cellular</option>
+        <option value="cricket">Cricket</option>
+        <option value="metropcs">Metro by T-Mobile</option>
+        <option value="boost">Boost Mobile</option>
+        <option value="googlefi">Google Fi</option>
+      </select>
+      <span class="form-hint">IntelliPlan sends reminders for free through your carrier's email-to-SMS gateway (no third-party SMS service).</span>
+    </div>
+    <label style="display:flex;align-items:flex-start;gap:10px;font-size:0.88rem;color:var(--text-secondary);cursor:pointer;margin-bottom:0.55rem;">
+      <input type="checkbox" id="smsOptIn" style="margin-top:3px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;">
+      <span>Send me <strong>SMS reminders</strong> for due assignments and live study sessions. Reply STOP anytime to opt out. Standard rates apply.</span>
+    </label>
+    <label style="display:flex;align-items:flex-start;gap:10px;font-size:0.88rem;color:var(--text-secondary);cursor:pointer;margin-bottom:0.75rem;">
+      <input type="checkbox" id="pushOptIn" style="margin-top:3px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;">
+      <span>Send me <strong>browser push notifications</strong> for due assignments and study sessions.</span>
+    </label>
+    <div class="form-group" style="margin-bottom:0.75rem;">
+      <label class="form-label" for="leadSelect">Remind me how far in advance?</label>
+      <select id="leadSelect" class="form-input" style="max-width:240px;">
+        <option value="15">15 minutes</option>
+        <option value="30">30 minutes</option>
+        <option value="60" selected>1 hour</option>
+        <option value="120">2 hours</option>
+        <option value="360">6 hours</option>
+        <option value="1440">1 day</option>
+        <option value="2880">2 days</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <button class="btn-primary" onclick="savePhone()" id="phoneSaveBtn" style="padding:9px 18px;border:none;cursor:pointer;">Save</button>
+      <button class="btn-secondary" onclick="testPhone()" id="phoneTestBtn" style="padding:9px 16px;cursor:pointer;font-size:0.84rem;">Test SMS</button>
+      <button class="btn-secondary" onclick="enablePushNotifications()" id="pushEnableBtn" style="padding:9px 16px;cursor:pointer;font-size:0.84rem;">Enable browser push</button>
+      <button class="btn-secondary" onclick="previewReminders()" id="previewBtn" style="padding:9px 16px;cursor:pointer;font-size:0.84rem;">Send me a sample reminder now</button>
+      <span id="phoneStatus" style="font-size:0.82rem;color:var(--text-muted);"></span>
+    </div>
+  </div>
+
+  <!-- ── Refer a friend ─────────────────────────────── -->
+  <div class="settings-section">
+    <div class="settings-section-title">Refer a friend</div>
+    <div id="refSub" style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.75rem;">
+      Share your link, both of you get IntelliPlan Pro time when they sign up.
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input type="text" id="refLink" class="form-input" readonly style="flex:1;min-width:240px;font-family:'DM Mono',monospace;font-size:0.84rem;" value="Loading...">
+      <button class="btn-primary" onclick="copyReferralLink()" id="refCopyBtn" style="padding:9px 18px;border:none;cursor:pointer;">Copy link</button>
+    </div>
+    <div id="refStats" style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:1rem;font-size:0.84rem;color:var(--text-secondary);"></div>
+  </div>
+
+  <!-- ── IntelliPlan Pro ────────────────────────────── -->
+  <div class="settings-section" id="proCard">
+    <div class="settings-section-title">IntelliPlan Pro</div>
+    <div id="proStatus" style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:1rem;">Loading...</div>
+    <ul style="font-size:0.86rem;color:var(--text-secondary);line-height:1.7;margin:0 0 1rem 0;padding-left:1.2rem;">
+      <li>Unlimited lesson recordings + auto-summary</li>
+      <li>Unlimited study groups + private rooms</li>
+      <li>Writing Assistant, Math Explainer, Task Extractor, no daily caps</li>
+      <li>Public REST API + MCP server access</li>
+      <li>Priority Plani replies</li>
+    </ul>
+    <div id="proAction"></div>
+  </div>
+
+  <!-- ── Account ──────────────────────────────────── -->
+  <div class="settings-section" id="accountCard">
+    <div class="settings-section-title">Account</div>
+    <div id="accountInfo" style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:1rem;"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <a href="/login/canvas"     class="btn-secondary" style="text-decoration:none;padding:10px 20px;font-size:0.88rem;">+ Canvas</a>
+      <a href="/login/studentvue" class="btn-secondary" style="text-decoration:none;padding:10px 20px;font-size:0.88rem;">+ StudentVue</a>
+      <a href="/login/schoology"  class="btn-secondary" style="text-decoration:none;padding:10px 20px;font-size:0.88rem;">+ Schoology</a>
+      <button id="deleteAccountBtn" onclick="deleteAccount()"
+        style="padding:10px 20px;border-radius:10px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:var(--font-ui);font-size:0.88rem;font-weight:600;">
+        Delete Account
+      </button>
+    </div>
+  </div>
+
+  <!-- ── App Tour ────────────────────────────────── -->
+  <div class="settings-section" style="border-left:3px solid #8b5cf6;">
+    <div class="settings-section-title">App Tour</div>
+    <p style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:1rem;">Replay the interactive tour of IntelliPlan's features.</p>
+    <button onclick="startAppTour()" class="btn-primary" style="padding:10px 22px;border:none;cursor:pointer;background:#8b5cf6;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Start Demo Tour
+    </button>
+  </div>
+
+  <!-- ── Integrations ─────────────────────────────── -->
+  <div class="settings-section">
+    <div class="settings-section-title">Integrations</div>
+    <div id="integrationsWrap">
+
+      <div class="integration-row">
+        <div>
+          <div class="integration-label">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>
+            Google Calendar
+          </div>
+          <div class="integration-sub">Sync your schedule automatically</div>
+        </div>
+        <span id="gcalStatus"></span>
+      </div>
+
+      <div class="integration-row">
+        <div>
+          <div class="integration-label">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-notion"/></svg>
+            Notion
+          </div>
+          <div class="integration-sub" id="notionSub">Sync tasks to your Notion workspace</div>
+        </div>
+        <span id="notionStatus"></span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Connected Schools ────────────────────────── -->
+  <div class="settings-section">
+    <div class="settings-section-title">Connected Schools</div>
+    <div id="linkedAccounts"></div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+/* ── Identity data injected from server ────────── */
+const IDENTITY = {{ identity | tojson }};
+
+/* ── Tab switching ──────────────────────────────── */
+document.querySelectorAll('.profile-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.profile-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.profile-pane').forEach(p => p.classList.remove('visible'));
+    tab.classList.add('active');
+    document.getElementById('pane-' + tab.dataset.pane).classList.add('visible');
+  });
+});
+
+/* ── Availability time-block UI ─────────────────── */
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const SLOTS = [
+  {id:'morning',  label:'Morning',   icon:'☀️', range:'6–12am'},
+  {id:'afternoon',label:'Afternoon', icon:'🌤', range:'12–5pm'},
+  {id:'evening',  label:'Evening',   icon:'🌙', range:'5–10pm'}
+];
+let availData = {};
+
+// Seed from server identity (keys may be full day names like "Monday" or short "Mon")
+(function seedAvailData() {
+  const raw = IDENTITY.availability || {};
+  Object.entries(raw).forEach(([day, slots]) => {
+    const short = day.slice(0,3);
+    const slotArr = typeof slots === 'string' ? slots.split(',').map(s=>s.trim()) : (Array.isArray(slots) ? slots : []);
+    if (slotArr.length) availData[short] = slotArr;
+  });
+})();
+
+function isAvail(day, slot) {
+  return (availData[day] || []).includes(slot);
+}
+function toggleAvail(day, slot, btn) {
+  if (!availData[day]) availData[day] = [];
+  const idx = availData[day].indexOf(slot);
+  if (idx >= 0) availData[day].splice(idx, 1);
+  else availData[day].push(slot);
+  btn.classList.toggle('on');
+  refreshSummary();
+}
+function renderAvailRows() {
+  const wrap = document.getElementById('availDays');
+  if (!wrap) return;
+  wrap.innerHTML = DAYS.map(day => `
+    <div class="avail-day-row" data-day="${day}">
+      <div class="avail-day-label">${day}</div>
+      <div class="avail-slots">
+        ${SLOTS.map(s => `
+          <button type="button" class="avail-slot-btn ${isAvail(day,s.id)?'on':''}"
+            data-day="${day}" data-slot="${s.id}"
+            onclick="toggleAvail('${day}','${s.id}',this)"
+            title="${s.range}">
+            ${s.icon} ${s.label}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+renderAvailRows();
+
+/* ── Profile summary chips ──────────────────────── */
+function refreshSummary() {
+  const wrap = document.getElementById('profileSummary');
+  const chips = [];
+  const grade = document.getElementById('idGrade').value;
+  if (grade) chips.push({ icon: '#i-backpack', text: grade });
+
+  const focusChecked = Array.from(document.querySelectorAll('input[name="focus_areas"]:checked')).map(i => i.value);
+  if (focusChecked.length) chips.push({ icon: '#i-pin', text: focusChecked.slice(0, 3).join(', ') + (focusChecked.length > 3 ? ` +${focusChecked.length - 3}` : '') });
+
+  const slotCount = Object.values(availData).reduce((n, arr) => n + arr.length, 0);
+  if (slotCount) chips.push({ icon: '#i-scheduler', text: `${slotCount} available slot${slotCount !== 1 ? 's' : ''}` });
+
+  const goals = (document.getElementById('idGoals').value || '').trim();
+  if (goals) chips.push({ icon: '#i-check-circle', text: goals.slice(0, 40) + (goals.length > 40 ? '…' : '') });
+
+  wrap.innerHTML = chips.map(c => `
+    <div class="summary-chip">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="${c.icon}"/></svg>
+      ${c.text}
+    </div>`).join('');
+}
+
+/* Run once on load, then on changes */
+refreshSummary();
+document.getElementById('identityForm').addEventListener('change', refreshSummary);
+document.getElementById('idGoals').addEventListener('input', refreshSummary);
+
+/* ── Show saved note ────────────────────────────── */
+function flashSaved(ok) {
+  const note = document.getElementById('identitySavedNote');
+  note.textContent = ok ? 'Saved' : 'Could not save';
+  note.style.color = ok ? 'var(--low)' : 'var(--high)';
+  note.style.opacity = '1';
+  setTimeout(() => { note.style.opacity = '0'; }, 2000);
+}
+
+/* ── Save basics (grade + focus) ────────────────── */
+function saveIdentity(ev) {
+  if (ev) ev.preventDefault();
+  const focus = Array.from(document.querySelectorAll('input[name="focus_areas"]:checked')).map(i => i.value);
+  const payload = {
+    grade_level: document.getElementById('idGrade').value,
+    focus_areas: focus,
+  };
+  fetch('/identity', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+    .then(r => r.json())
+    .then(d => { flashSaved(d && d.ok); refreshSummary(); })
+    .catch(() => flashSaved(false));
+}
+
+/* ── Save availability ──────────────────────────── */
+function saveAvailability() {
+  const avail = availData;
+  const commitments = document.getElementById('idCommitments').value.trim();
+  fetch('/identity', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ availability: avail, weekly_commitments: commitments }),
+  })
+    .then(r => r.json())
+    .then(d => { flashSaved(d && d.ok); refreshSummary(); })
+    .catch(() => flashSaved(false));
+}
+
+/* ── Save goals ─────────────────────────────────── */
+function saveGoals() {
+  const goals = document.getElementById('idGoals').value.trim();
+  fetch('/identity', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ goals }),
+  })
+    .then(r => r.json())
+    .then(d => { flashSaved(d && d.ok); refreshSummary(); })
+    .catch(() => flashSaved(false));
+}
+
+/* ── Account & school profiles ──────────────────── */
+fetch('/profiles/list')
+  .then(r => r.json())
+  .then(data => {
+    const deleteBtn = document.getElementById('deleteAccountBtn');
+    const accountInfo = document.getElementById('accountInfo');
+    const wrap = document.getElementById('linkedAccounts');
+
+    if (data.is_guest) {
+      accountInfo.innerHTML = 'You are using IntelliPlan as a <strong>guest</strong>. <a href="/register" class="login-link">Create a free account</a> to save your data.';
+      if (deleteBtn) deleteBtn.style.display = 'none';
+    } else {
+      accountInfo.innerHTML = `Signed in as <strong>${data.email}</strong>`;
+    }
+
+    if (!data.profiles || !data.profiles.length) {
+      wrap.innerHTML = '<div style="color:var(--text-muted);font-size:0.88rem;">No schools connected yet.</div>';
+      return;
+    }
+
+    wrap.innerHTML = '';
+    data.profiles.forEach(p => {
+      const colorMap = { canvas: '#e53e3e', schoology: '#3182ce' };
+      const color = colorMap[p.login_type] || '#38a169';
+      const icon = `<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${color};"></span>`;
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);';
+      div.innerHTML = `
+        <span>${icon}</span>
+        <div style="flex:1;">
+          <div style="font-size:0.9rem;font-weight:600;">${p.name}</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);text-transform:capitalize;">${p.login_type}</div>
+        </div>
+        ${p.is_active
+          ? '<span style="font-size:0.72rem;background:var(--accent);color:white;padding:2px 8px;border-radius:10px;font-weight:600;">Active</span>'
+          : `<button onclick="switchProfile('${p.id}')" class="btn-primary" style="padding:6px 14px;border:none;cursor:pointer;font-size:0.8rem;">Switch</button>`
+        }
+        <button onclick="deleteProfile('${p.id}')" style="padding:6px 12px;border-radius:8px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:var(--font-ui);font-size:0.8rem;">Remove</button>
+      `;
+      wrap.appendChild(div);
+    });
+  });
+
+/* ── Google Calendar status (multi-account) ───────── */
+function renderGcalStatus(d) {
+  const el = document.getElementById('gcalStatus');
+  if (!el) return;
+  if (!d || !d.connected) {
+    el.innerHTML = '<button onclick="connectGoogle()" class="btn-primary" style="padding:6px 14px;font-size:0.8rem;">Connect</button>';
+    return;
+  }
+  const accounts = d.accounts || [];
+  // Wider layout when there are connected accounts to list.
+  const rows = accounts.map(a => {
+    const label = a.email || a.name || 'Google account';
+    const activeBadge = a.is_active
+      ? '<span style="font-size:0.7rem;background:var(--low);color:white;padding:2px 8px;border-radius:10px;font-weight:600;">Active</span>'
+      : `<button onclick="gcalActivate(${a.id})" class="btn-secondary" style="padding:4px 10px;font-size:0.74rem;cursor:pointer;">Use this</button>`;
+    return `<div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px;">
+      <span style="font-size:0.78rem;color:var(--text-secondary);font-family:'DM Mono',monospace;">${label}</span>
+      ${activeBadge}
+      <button onclick="gcalRemove(${a.id})" title="Disconnect this account" style="padding:3px 9px;border-radius:8px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:var(--font-ui);font-size:0.74rem;font-weight:600;">Remove</button>
+    </div>`;
+  }).join('');
+  el.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="connected-badge" style="opacity:0.6;cursor:not-allowed;" title="Already connected, use Add account for a second one">Connected</span>
+        <button onclick="connectGoogleAdd()" class="btn-secondary" style="padding:6px 12px;font-size:0.78rem;cursor:pointer;">+ Add account</button>
+      </div>
+      ${rows}
+    </div>`;
+}
+
+function refreshGcal() {
+  fetch('/gcal/status')
+    .then(r => r.json())
+    .then(renderGcalStatus)
+    .catch(() => renderGcalStatus({ connected: false }));
+}
+refreshGcal();
+
+function connectGoogle()    { window.location.href = "/oauth/google?return=settings"; }
+function connectGoogleAdd() { window.location.href = "/oauth/google?add=1&return=settings"; }
+
+function gcalActivate(id) {
+  fetch('/gcal/activate', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) })
+    .then(r => r.json()).then(() => refreshGcal());
+}
+function gcalRemove(id) {
+  if (!confirm('Disconnect this Google account from IntelliPlan?')) return;
+  fetch('/gcal/remove', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) })
+    .then(r => r.json()).then(() => refreshGcal());
+}
+
+function switchProfile(id) {
+  fetch('/profiles/switch', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) })
+    .then(() => window.location.reload());
+}
+
+function deleteProfile(id) {
+  if (!confirm('Remove this school account?')) return;
+  fetch('/profiles/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) })
+    .then(() => window.location.reload());
+}
+
+function deleteAccount() {
+  if (!confirm('Permanently delete your IntelliPlan account and all data? This cannot be undone.')) return;
+  fetch('/account/delete', { method:'POST', headers:{'Content-Type':'application/json'} })
+    .then(() => window.location.href = '/');
+}
+
+/* ── Animation settings ─────────────────────────── */
+function saveAnimSetting(key, value) {
+  localStorage.setItem(key, value ? 'true' : 'false');
+}
+
+(function initAnimToggles() {
+  const t = document.getElementById('animSessionToggle');
+  if (t) t.checked = localStorage.getItem('ip_anim_session') !== 'false';
+})();
+
+/* ── Settings theme toggle, delegates to window.setThemeMode in base.html ── */
+(function initThemeToggle() {
+  const t = document.getElementById('themeToggleSettings');
+  const label = document.getElementById('themeSettingsLabel');
+  if (!t) return;
+  const cur = document.documentElement.getAttribute('data-theme') || 'light';
+  t.checked = cur === 'dark';
+  if (label) label.textContent = cur === 'dark' ? 'Dark' : 'Light';
+  t.addEventListener('change', () => {
+    const next = t.checked ? 'dark' : 'light';
+    if (window.setThemeMode) window.setThemeMode(next);
+    else document.documentElement.setAttribute('data-theme', next); // graceful fallback
+    if (label) label.textContent = next === 'dark' ? 'Dark' : 'Light';
+  });
+  // If theme changes elsewhere (sidebar, palette switch, Cmd+K), keep this toggle in sync.
+  document.addEventListener('ip-theme-change', e => {
+    const mode = (e && e.detail && e.detail.mode) || document.documentElement.getAttribute('data-theme') || 'light';
+    t.checked = mode === 'dark';
+    if (label) label.textContent = mode === 'dark' ? 'Dark' : 'Light';
+  });
+})();
+
+/* ── Theme palette swatches ───────────────────────── */
+(function initThemeSwatches() {
+  const host = document.getElementById('themeSwatches');
+  if (!host) return;
+  const THEMES = [
+    { id:'default',  label:'Classic',  colors:['#2453d6','#6366f1'] },
+    { id:'ocean',    label:'Ocean',    colors:['#0277bd','#26c6da'] },
+    { id:'forest',   label:'Forest',   colors:['#1b5e20','#8bc34a'] },
+    { id:'sunset',   label:'Sunset',   colors:['#e65100','#ffab91'] },
+    { id:'rose',     label:'Rose',     colors:['#c2185b','#f8bbd0'] },
+    { id:'midnight', label:'Midnight', colors:['#4c1d95','#a78bfa'] },
+    { id:'mocha',    label:'Mocha',    colors:['#4e3724','#c4a380'] },
+  ];
+  const current = localStorage.getItem('ip_theme_palette') || 'default';
+  host.innerHTML = THEMES.map(t => `
+    <button type="button" class="theme-swatch ${current===t.id?'active':''}" data-palette="${t.id}"
+            style="display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:12px;border-radius:12px;
+                   border:2px solid ${current===t.id?'var(--accent)':'var(--border)'};
+                   background:var(--bg-card);cursor:pointer;text-align:left;font:inherit;color:var(--text-primary);
+                   transition:transform 0.16s, box-shadow 0.16s, border-color 0.16s;">
+      <div style="display:flex;gap:0;width:100%;height:36px;border-radius:8px;overflow:hidden;">
+        <div style="flex:1;background:${t.colors[0]};"></div>
+        <div style="flex:1;background:linear-gradient(135deg,${t.colors[0]},${t.colors[1]});"></div>
+        <div style="flex:1;background:${t.colors[1]};"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+        <span style="font-size:0.86rem;font-weight:600;">${t.label}</span>
+        ${current===t.id?'<span style="font-size:0.68rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em;">Active</span>':''}
+      </div>
+    </button>
+  `).join('');
+  host.querySelectorAll('.theme-swatch').forEach(btn => {
+    btn.addEventListener('mouseenter', () => { btn.style.transform='translateY(-2px)'; btn.style.boxShadow='var(--shadow-hover)'; });
+    btn.addEventListener('mouseleave', () => { btn.style.transform=''; btn.style.boxShadow=''; });
+    btn.addEventListener('click', () => {
+      const pal = btn.dataset.palette;
+      if (window.setThemePalette) window.setThemePalette(pal);
+      initThemeSwatches();
+    });
+  });
+})();
+
+/* ── Accessibility preferences ─────────────────────── */
+const A11Y_KEYS = {
+  a11yTts:           { storage: 'ip_a11y_tts',           cls: null,                  legacy: 'ip_tutor_tts' },
+  a11yLargeText:     { storage: 'ip_a11y_largeText',     cls: 'a11y-large-text',     legacy: null },
+  a11yHighContrast:  { storage: 'ip_a11y_highContrast',  cls: 'a11y-high-contrast',  legacy: null },
+  a11yReduceMotion:  { storage: 'ip_a11y_reduceMotion',  cls: 'a11y-reduce-motion',  legacy: null },
+  a11ySimpleReading: { storage: 'ip_a11y_simpleReading', cls: null,                  legacy: null },
+};
+function _a11yFlash(msg) {
+  const el = document.getElementById('a11yStatus');
+  if (!el) return;
+  el.textContent = msg;
+  setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 1800);
+}
+function _applyA11yClasses() {
+  const root = document.documentElement;
+  Object.entries(A11Y_KEYS).forEach(([_id, info]) => {
+    if (!info.cls) return;
+    const on = localStorage.getItem(info.storage) === '1';
+    root.classList.toggle(info.cls, on);
+  });
+}
+function initA11y() {
+  Object.entries(A11Y_KEYS).forEach(([id, info]) => {
+    const cb = document.getElementById(id);
+    if (!cb) return;
+    let on = localStorage.getItem(info.storage) === '1';
+    if (!on && info.legacy) on = localStorage.getItem(info.legacy) === '1';
+    cb.checked = on;
+    cb.addEventListener('change', () => {
+      localStorage.setItem(info.storage, cb.checked ? '1' : '0');
+      // Keep the tutor's separate TTS flag in sync if this is the read-aloud toggle.
+      if (info.legacy) localStorage.setItem(info.legacy, cb.checked ? '1' : '0');
+      _applyA11yClasses();
+      _a11yFlash('Saved ✓');
+    });
+  });
+  const langSel = document.getElementById('a11yLang');
+  if (langSel) {
+    langSel.value = localStorage.getItem('ip_a11y_lang') || 'en';
+    langSel.addEventListener('change', () => {
+      localStorage.setItem('ip_a11y_lang', langSel.value);
+      _a11yFlash('Saved ✓');
+    });
+  }
+  _applyA11yClasses();
+}
+initA11y();
+
+/* ── Sidebar customizer (drag-and-drop) ──────────── */
+/* Layout schema:
+   ip_navLayout = { pinned:[keys], plan:[keys], tools:[keys], hidden:[keys] }
+   The order of keys within a bucket determines order in the sidebar.
+   base.html reads ip_navLayout (falling back to ip_navPrefs for old users). */
+const NAV_ITEMS = [
+  // key, label, default bucket, icon-id (matches <symbol id="i-..."> in base.html)
+  ['dashboard',  'Dashboard',     'pinned', 'i-dashboard'],
+  ['scheduler',  'Scheduler',     'pinned', 'i-scheduler'],
+  ['study',      'Study',         'pinned', 'i-rocket'],
+  ['learn',      'Learn',         'pinned', 'i-study'],
+  ['streak',     'Streak',        'pinned', 'i-fire'],
+  ['tutor',      'Tutor',         'pinned', 'i-tutor'],
+  ['focus',      'Focus Timer',   'pinned', 'i-fire'],
+  ['library',    'AP Library',    'pinned', 'i-backpack'],
+  ['priority',   'Priority',      'plan',   'i-priority'],
+  ['classes',    'Classes',       'plan',   'i-classes'],
+  ['grades',     'Grades',        'plan',   'i-grades'],
+  ['gradebook',  'Grade Modeler', 'plan',   'i-modeler'],
+  ['tests',      'Tests',         'plan',   'i-test'],
+  ['dismissed',  'Done',          'plan',   'i-done'],
+  ['lessons',    'Lessons',       'tools',  'i-study'],
+  ['groups',     'Study Groups',  'tools',  'i-tutor'],
+  ['writing',    'Writing',       'tools',  'i-pencil'],
+  ['math',       'Math Explainer','tools',  'i-modeler'],
+  ['extractor',  'Task Extractor','tools',  'i-check-circle'],
+];
+const NAV_BUCKETS = ['pinned', 'plan', 'tools', 'hidden'];
+const NAV_META = Object.fromEntries(NAV_ITEMS.map(([k,l,b,i]) => [k, {label:l, defaultBucket:b, icon:i}]));
+
+function defaultNavLayout() {
+  const layout = { pinned:[], plan:[], tools:[], hidden:[] };
+  NAV_ITEMS.forEach(([k,_l,b]) => layout[b].push(k));
+  return layout;
+}
+
+function getNavLayout() {
+  // Prefer new ip_navLayout; migrate from legacy ip_navPrefs if needed.
+  try {
+    const raw = localStorage.getItem('ip_navLayout');
+    if (raw) {
+      const saved = JSON.parse(raw) || {};
+      const layout = defaultNavLayout();
+      // Wipe defaults and rebuild from saved, in order, then append any new keys.
+      NAV_BUCKETS.forEach(b => layout[b] = []);
+      const placed = new Set();
+      NAV_BUCKETS.forEach(b => {
+        (saved[b] || []).forEach(k => {
+          if (NAV_META[k] && !placed.has(k)) { layout[b].push(k); placed.add(k); }
+        });
+      });
+      // Any newly-added keys go to their default bucket.
+      NAV_ITEMS.forEach(([k,_l,b]) => { if (!placed.has(k)) layout[b].push(k); });
+      return layout;
+    }
+  } catch(e) {}
+  // Migrate from legacy ip_navPrefs.
+  try {
+    const legacy = JSON.parse(localStorage.getItem('ip_navPrefs') || '{}') || {};
+    const layout = defaultNavLayout();
+    Object.entries(legacy).forEach(([k, v]) => {
+      if (!NAV_META[k]) return;
+      const target = v === 'pinned' ? 'pinned'
+                  : v === 'folder' ? 'plan'
+                  : v === 'hidden' ? 'hidden'
+                  : null;
+      if (!target) return;
+      NAV_BUCKETS.forEach(b => { layout[b] = layout[b].filter(x => x !== k); });
+      layout[target].push(k);
+    });
+    return layout;
+  } catch(e) { return defaultNavLayout(); }
+}
+
+function saveNavLayout(layout) {
+  localStorage.setItem('ip_navLayout', JSON.stringify(layout));
+  const note = document.getElementById('navCustomSaved');
+  if (note) {
+    note.textContent = 'Saved. Refresh or open another page to see the sidebar update.';
+    setTimeout(() => { note.textContent = ''; }, 2200);
+  }
+}
+
+function resetNavPrefs() {
+  localStorage.removeItem('ip_navLayout');
+  localStorage.removeItem('ip_navPrefs');
+  renderNavCustomizer();
+  const note = document.getElementById('navCustomSaved');
+  if (note) note.textContent = 'Sidebar reset to defaults.';
+}
+
+function renderNavCustomizer() {
+  const layout = getNavLayout();
+  NAV_BUCKETS.forEach(bucket => {
+    const el = document.getElementById('sbBucket' + bucket.charAt(0).toUpperCase() + bucket.slice(1));
+    if (!el) return;
+    el.innerHTML = layout[bucket].map(key => {
+      const meta = NAV_META[key];
+      if (!meta) return '';
+      return `<div class="sb-cust-item" draggable="true" data-key="${key}" data-bucket="${bucket}">
+        <span class="sb-cust-handle" aria-hidden="true">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><circle cx="2" cy="2" r="1"/><circle cx="2" cy="5" r="1"/><circle cx="2" cy="8" r="1"/><circle cx="6" cy="2" r="1"/><circle cx="6" cy="5" r="1"/><circle cx="6" cy="8" r="1"/></svg>
+        </span>
+        <span class="sb-cust-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#${meta.icon}"/></svg></span>
+        <span>${meta.label}</span>
+      </div>`;
+    }).join('');
+  });
+  wireNavDragHandlers();
+}
+
+let _navDragKey = null;
+let _navDragFromBucket = null;
+
+function wireNavDragHandlers() {
+  document.querySelectorAll('#sbCustPreview .sb-cust-item').forEach(item => {
+    item.addEventListener('dragstart', e => {
+      _navDragKey = item.dataset.key;
+      _navDragFromBucket = item.dataset.bucket;
+      item.classList.add('is-dragging');
+      try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', _navDragKey); } catch(_){}
+    });
+    item.addEventListener('dragend', () => {
+      item.classList.remove('is-dragging');
+      document.querySelectorAll('.sb-cust-item').forEach(el => el.classList.remove('drop-before','drop-after'));
+      document.querySelectorAll('.sb-cust-section').forEach(el => el.classList.remove('drop-target'));
+      _navDragKey = null; _navDragFromBucket = null;
+    });
+    item.addEventListener('dragover', e => {
+      if (!_navDragKey || item.dataset.key === _navDragKey) return;
+      e.preventDefault();
+      const rect = item.getBoundingClientRect();
+      const after = (e.clientY - rect.top) > rect.height / 2;
+      document.querySelectorAll('.sb-cust-item').forEach(el => el.classList.remove('drop-before','drop-after'));
+      item.classList.add(after ? 'drop-after' : 'drop-before');
+    });
+    item.addEventListener('drop', e => {
+      if (!_navDragKey || item.dataset.key === _navDragKey) return;
+      e.preventDefault(); e.stopPropagation();
+      const rect = item.getBoundingClientRect();
+      const after = (e.clientY - rect.top) > rect.height / 2;
+      const layout = getNavLayout();
+      // Remove from old bucket
+      NAV_BUCKETS.forEach(b => { layout[b] = layout[b].filter(k => k !== _navDragKey); });
+      // Insert relative to target item
+      const targetBucket = item.dataset.bucket;
+      const targetIdx = layout[targetBucket].indexOf(item.dataset.key);
+      const insertAt = after ? targetIdx + 1 : targetIdx;
+      layout[targetBucket].splice(insertAt, 0, _navDragKey);
+      saveNavLayout(layout);
+      renderNavCustomizer();
+    });
+  });
+  document.querySelectorAll('#sbCustPreview .sb-cust-section').forEach(section => {
+    section.addEventListener('dragover', e => {
+      if (!_navDragKey) return;
+      // Only trigger when dragging over an empty area of the section (not over an item)
+      if (e.target.closest('.sb-cust-item')) return;
+      e.preventDefault();
+      document.querySelectorAll('.sb-cust-section').forEach(el => el.classList.remove('drop-target'));
+      section.classList.add('drop-target');
+    });
+    section.addEventListener('dragleave', e => {
+      if (e.target === section) section.classList.remove('drop-target');
+    });
+    section.addEventListener('drop', e => {
+      if (!_navDragKey) return;
+      if (e.target.closest('.sb-cust-item')) return;
+      e.preventDefault();
+      const bucket = section.dataset.bucket;
+      const layout = getNavLayout();
+      NAV_BUCKETS.forEach(b => { layout[b] = layout[b].filter(k => k !== _navDragKey); });
+      layout[bucket].push(_navDragKey);
+      saveNavLayout(layout);
+      renderNavCustomizer();
+    });
+  });
+}
+
+renderNavCustomizer();
+
+function refreshReferral() {
+  fetch('/api/referral').then(r => r.json()).then(d => {
+    if (d.status !== 'ok') return;
+    const url = (location.origin + '/ref/' + d.code);
+    const el = document.getElementById('refLink');
+    if (el) el.value = url;
+    const stats = document.getElementById('refStats');
+    if (stats) {
+      stats.innerHTML = `
+        <div><strong style="color:var(--text-primary);">${d.invited_count || 0}</strong> friends joined</div>
+        <div><strong style="color:var(--text-primary);">${d.pro_days_earned || 0}</strong> Pro days earned</div>
+      `;
+    }
+  }).catch(() => {
+    const el = document.getElementById('refLink');
+    if (el) el.value = 'Sign in to get your referral link';
+  });
+}
+function copyReferralLink() {
+  const el = document.getElementById('refLink');
+  if (!el || !el.value) return;
+  el.select(); el.setSelectionRange(0, 999);
+  try {
+    navigator.clipboard.writeText(el.value);
+  } catch(e) {
+    document.execCommand && document.execCommand('copy');
+  }
+  const btn = document.getElementById('refCopyBtn');
+  if (btn) { const t = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(() => btn.textContent = t, 1400); }
+}
+refreshReferral();
+
+/* ── Phone & reminders (SMS + browser push + lead time) ──── */
+function _phoneStatus(msg, ok) {
+  const el = document.getElementById('phoneStatus');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = ok ? 'var(--low)' : (ok === false ? 'var(--high)' : 'var(--text-muted)');
+  if (msg) setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 3200);
+}
+function refreshPhone() {
+  fetch('/api/profile/phone').then(r => r.json()).then(d => {
+    if (d.status !== 'ok') return;
+    const i = document.getElementById('phoneInput');
+    const o = document.getElementById('smsOptIn');
+    const p = document.getElementById('pushOptIn');
+    const l = document.getElementById('leadSelect');
+    const c = document.getElementById('carrierSelect');
+    if (i) i.value = d.phone || '';
+    if (o) o.checked = !!d.sms_reminders_opt_in;
+    if (p) p.checked = !!d.push_reminders_opt_in;
+    if (l && d.reminder_lead_minutes) l.value = String(d.reminder_lead_minutes);
+    if (c && d.sms_carrier) c.value = d.sms_carrier;
+  }).catch(() => {});
+}
+function savePhone() {
+  const phone = document.getElementById('phoneInput').value.trim();
+  const sms = document.getElementById('smsOptIn').checked;
+  const push = document.getElementById('pushOptIn').checked;
+  const lead = parseInt(document.getElementById('leadSelect').value || '60', 10);
+  const carrier = (document.getElementById('carrierSelect') || {}).value || 'tmobile';
+  const btn = document.getElementById('phoneSaveBtn');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  fetch('/api/profile/phone', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      phone,
+      sms_reminders_opt_in: sms,
+      push_reminders_opt_in: push,
+      reminder_lead_minutes: lead,
+      sms_carrier: carrier,
+    }),
+  })
+    .then(r => r.json())
+    .then(d => {
+      btn.disabled = false; btn.textContent = 'Save';
+      if (d.status === 'ok') {
+        _phoneStatus('Saved ✓', true);
+        refreshPhone();
+      } else _phoneStatus(d.message || 'Failed', false);
+    })
+    .catch(() => { btn.disabled = false; btn.textContent = 'Save'; _phoneStatus('Network error', false); });
+}
+function testPhone() {
+  const btn = document.getElementById('phoneTestBtn');
+  btn.disabled = true; btn.textContent = 'Sending...';
+  fetch('/api/profile/phone/test', { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+      btn.disabled = false; btn.textContent = 'Test SMS';
+      _phoneStatus(d.message || (d.status === 'ok' ? 'Sent ✓' : 'Failed'), d.status === 'ok');
+    });
+}
+
+/* ── Browser push: ask permission + subscribe ──────────── */
+function _urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = window.atob(base64);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; ++i) out[i] = raw.charCodeAt(i);
+  return out;
+}
+async function enablePushNotifications() {
+  const btn = document.getElementById('pushEnableBtn');
+  const original = btn.textContent;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    _phoneStatus('This browser does not support push notifications.', false);
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Setting up…';
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      _phoneStatus('Notifications were blocked. Allow them in your browser settings.', false);
+      btn.disabled = false; btn.textContent = original;
+      return;
+    }
+    const reg = await navigator.serviceWorker.ready;
+    const keyResp = await fetch('/push/vapid-public').then(r => r.json());
+    if (!keyResp.key) {
+      _phoneStatus('Push notifications are not configured on the server yet.', false);
+      btn.disabled = false; btn.textContent = original;
+      return;
+    }
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: _urlBase64ToUint8Array(keyResp.key),
+    });
+    await fetch('/push/subscribe', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ subscription: sub }),
+    });
+    // Auto-tick the opt-in box and persist.
+    document.getElementById('pushOptIn').checked = true;
+    await fetch('/api/profile/phone', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ push_reminders_opt_in: true }),
+    });
+    _phoneStatus('Browser push enabled ✓', true);
+  } catch(e) {
+    console.error(e);
+    _phoneStatus('Could not enable push: ' + (e.message || e), false);
+  } finally {
+    btn.disabled = false; btn.textContent = original;
+  }
+}
+
+function previewReminders() {
+  const btn = document.getElementById('previewBtn');
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Sending…';
+  fetch('/api/reminders/preview', { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+      btn.disabled = false; btn.textContent = original;
+      _phoneStatus(d.message || 'Done', d.status === 'ok');
+    })
+    .catch(() => { btn.disabled = false; btn.textContent = original; _phoneStatus('Network error', false); });
+}
+
+refreshPhone();
+
+/* ── IntelliPlan Pro status ──────────────────────── */
+function refreshPro() {
+  fetch('/api/pro/status').then(r => r.json()).then(d => {
+    if (d.status !== 'ok') return;
+    const out = document.getElementById('proStatus');
+    const act = document.getElementById('proAction');
+    if (!out || !act) return;
+    if (d.tier === 'pro') {
+      const until = d.pro_until ? ' until ' + new Date(d.pro_until).toLocaleDateString() : '';
+      out.innerHTML = `<span style="color:var(--low);font-weight:700;">You're on Pro${until}.</span>`;
+      act.innerHTML = `<button onclick="manageBilling()" style="padding:9px 16px;border-radius:10px;border:1px solid var(--border-strong);background:transparent;color:var(--text-secondary);cursor:pointer;font-family:var(--font-ui);font-weight:600;">Manage subscription</button>`;
+    } else {
+      out.innerHTML = `Currently on the free tier. Upgrade any time.`;
+      act.innerHTML = `<button class="btn-primary" onclick="upgradePro()" style="padding:10px 22px;border:none;cursor:pointer;">Upgrade to Pro · $4.99/mo</button>`;
+    }
+  });
+}
+function upgradePro() {
+  // Try Stripe Checkout first. If Stripe isn't configured server-side
+  // the endpoint falls back to the 30-day trial grant automatically.
+  const btn = event && event.target;
+  if (btn) { btn.disabled = true; btn.textContent = 'Redirecting...'; }
+  fetch('/api/pro/checkout', { method:'POST' })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'ok' && d.url) {
+        window.location.href = d.url;
+      } else if (d.status === 'ok') {
+        refreshPro();
+        if (btn) { btn.disabled = false; btn.textContent = 'Upgrade to Pro · $4.99/mo'; }
+      } else {
+        alert(d.message || 'Upgrade failed');
+        if (btn) { btn.disabled = false; btn.textContent = 'Upgrade to Pro · $4.99/mo'; }
+      }
+    })
+    .catch(() => {
+      alert('Network error.');
+      if (btn) { btn.disabled = false; btn.textContent = 'Upgrade to Pro · $4.99/mo'; }
+    });
+}
+
+// Stripe Checkout returns to /settings?pro=success, auto-refresh the
+// Pro card when we see that query param.
+if (new URLSearchParams(location.search).get('pro') === 'success') {
+  setTimeout(refreshPro, 800);
+}
+function manageBilling() {
+  fetch('/api/pro/billing-portal', { method:'POST' })
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'ok' && d.url) window.location.href = d.url;
+      else alert(d.message || 'Billing portal is not available for this account yet.');
+    })
+    .catch(() => alert('Network error.'));
+}
+refreshPro();
+
+/* ── Notion connection (OAuth + token-paste fallback) ──── */
+function renderNotionStatus(s) {
+  const el = document.getElementById('notionStatus');
+  const sub = document.getElementById('notionSub');
+  if (!el) return;
+  if (!s.configured) {
+    el.innerHTML = '<span style="font-size:0.78rem;color:var(--text-muted);">Notion library unavailable</span>';
+    return;
+  }
+  if (s.connected) {
+    const ws = s.workspace || {};
+    const name = ws.name ? ('Workspace: ' + ws.name) : 'Connected';
+    const via = ws.auth_type === 'oauth' ? ' · via OAuth' : ' · via token';
+    if (sub) sub.textContent = name + via + (s.has_database ? '' : ' · choose a database below');
+    el.innerHTML = '<span style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;"><button onclick="chooseNotionDatabase()" style="padding:6px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-secondary);cursor:pointer;font-family:var(--font-ui);font-size:0.76rem;font-weight:600;">Choose database</button><button onclick="disconnectNotion()" style="padding:6px 14px;border-radius:10px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:var(--font-ui);font-size:0.78rem;font-weight:600;">Disconnect</button></span>';
+    return;
+  }
+  const oauthBtn = s.oauth_available
+    ? '<a href="/oauth/notion" class="btn-primary" style="padding:6px 14px;font-size:0.78rem;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">Connect with Notion</a>'
+    : '';
+  const tokenBtn = '<button onclick="connectNotionToken()" style="padding:6px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-secondary);cursor:pointer;font-family:var(--font-ui);font-size:0.76rem;font-weight:600;">Paste token</button>';
+  el.innerHTML = '<span style="display:inline-flex;gap:6px;align-items:center;">' + oauthBtn + tokenBtn + '</span>';
+}
+
+function refreshNotionStatus() {
+  fetch('/notion/status').then(r => r.json()).then(renderNotionStatus).catch(() => {});
+}
+refreshNotionStatus();
+
+function connectNotionToken() {
+  _notionModal(`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <h3 style="margin:0;font-family:var(--font-display);font-size:1.1rem;">Connect Notion with a token</h3>
+      <button onclick="document.getElementById('notionModal').remove()" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--text-muted);">✕</button>
+    </div>
+    <ol style="padding-left:1.2rem;font-size:0.86rem;color:var(--text-secondary);line-height:1.7;margin-bottom:0.75rem;">
+      <li>Open <a href="https://www.notion.so/profile/integrations" target="_blank" rel="noopener" style="color:var(--accent);">notion.so/profile/integrations</a> and click <strong>New integration</strong>.</li>
+      <li>Name it "IntelliPlan", pick your workspace, and submit.</li>
+      <li>Copy the <strong>Internal Integration Secret</strong> (starts with <code>secret_</code> or <code>ntn_</code>).</li>
+      <li>Paste it below, then in Notion share a database with the integration (<strong>•••</strong> → Connections → IntelliPlan).</li>
+    </ol>
+    <input id="ipNotionTokenInput" type="password" placeholder="secret_…" style="width:100%;padding:9px 11px;border:1px solid var(--border-strong);border-radius:10px;background:var(--bg);color:var(--text-primary);font-family:'DM Mono',monospace;font-size:0.85rem;">
+    <div id="ipNotionTokenErr" style="font-size:0.8rem;color:var(--high);min-height:1.1rem;margin-top:4px;"></div>
+    <button id="ipNotionTokenSubmit" class="btn-primary" style="margin-top:10px;width:100%;padding:10px 14px;border:none;cursor:pointer;font-size:0.88rem;">Connect</button>
+  `);
+  document.getElementById('ipNotionTokenSubmit').addEventListener('click', async () => {
+    const input = document.getElementById('ipNotionTokenInput');
+    const err = document.getElementById('ipNotionTokenErr');
+    const token = (input.value || '').trim();
+    if (!token) { err.textContent = 'Paste your integration secret first.'; return; }
+    err.textContent = 'Connecting…';
+    err.style.color = 'var(--text-muted)';
+    try {
+      const r = await fetch('/notion/connect', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ token })
+      });
+      const data = await r.json();
+      if (data.status === 'ok') {
+        const m = document.getElementById('notionModal'); if (m) m.remove();
+        refreshNotionStatus();
+        setTimeout(chooseNotionDatabase, 300);
+      } else {
+        err.style.color = 'var(--high)';
+        err.textContent = data.message || 'Notion rejected the token.';
+      }
+    } catch (e) {
+      err.style.color = 'var(--high)';
+      err.textContent = String(e);
+    }
+  });
+}
+
+function _notionModal(innerHTML) {
+  let m = document.getElementById('notionModal');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'notionModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(7,8,20,0.55);z-index:10000;display:flex;align-items:center;justify-content:center;padding:1rem;';
+    m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+    document.body.appendChild(m);
+  }
+  m.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.25rem 1.4rem;max-width:520px;width:100%;box-shadow:var(--shadow-lg);max-height:80vh;overflow-y:auto;">${innerHTML}</div>`;
+  return m;
+}
+
+async function chooseNotionDatabase() {
+  const modal = _notionModal('<div style="text-align:center;padding:1rem;color:var(--text-muted);">Loading databases…</div>');
+  try {
+    const [dbsRes, pagesRes] = await Promise.all([
+      fetch('/notion/databases').then(r => r.json()),
+      fetch('/notion/pages').then(r => r.json()).catch(() => ({pages: []})),
+    ]);
+    const dbs = (dbsRes.status === 'ok' ? dbsRes.databases : []) || [];
+    const pages = (pagesRes.status === 'ok' ? pagesRes.pages : []) || [];
+
+    const dbList = dbs.length
+      ? dbs.map(db => `
+          <button onclick="pickNotionDatabase('${db.id}')" style="display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);cursor:pointer;margin-bottom:6px;">
+            <span style="font-weight:600;">${(db.name || 'Untitled').replace(/</g,'&lt;')}</span>
+            <span style="font-size:0.74rem;color:var(--text-muted);">Use →</span>
+          </button>`).join('')
+      : `<div style="padding:10px 12px;border-radius:10px;background:var(--accent-soft);color:var(--text-secondary);font-size:0.86rem;">
+           No databases are shared with this integration yet. Open a database in Notion → <strong>•••</strong> → <strong>Connections</strong> → <strong>IntelliPlan</strong>, then come back and refresh.
+         </div>`;
+
+    const pageOpts = pages.length
+      ? `<select id="ipNotionParent" style="width:100%;padding:8px;border:1px solid var(--border-strong);border-radius:8px;background:var(--bg);color:var(--text-primary);">${pages.map(p => `<option value="${p.id}">${(p.name || 'Untitled').replace(/</g,'&lt;')}</option>`).join('')}</select>`
+      : `<div style="font-size:0.84rem;color:var(--text-muted);">Share a page with IntelliPlan in Notion first, then refresh, we'll list it here so you can pick where the new database lives.</div>`;
+
+    _notionModal(`
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <h3 style="margin:0;font-family:var(--font-display);font-size:1.1rem;">Pick a Notion database</h3>
+        <button onclick="document.getElementById('notionModal').remove()" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--text-muted);">✕</button>
+      </div>
+      <div style="margin-bottom:14px;">${dbList}</div>
+      <div style="border-top:1px solid var(--border);padding-top:12px;">
+        <div style="font-family:var(--font-ui);font-size:0.74rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:6px;">Or create a new one</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <input id="ipNotionName" type="text" value="IntelliPlan Tasks" placeholder="Database name" style="width:100%;padding:8px;border:1px solid var(--border-strong);border-radius:8px;background:var(--bg);color:var(--text-primary);">
+          ${pageOpts}
+          <button onclick="createNotionDatabase()" ${pages.length ? '' : 'disabled style="opacity:0.55;cursor:not-allowed;"'} class="btn-primary" style="padding:9px 14px;border:none;cursor:pointer;font-size:0.85rem;">Create database for me</button>
+        </div>
+        <div style="margin-top:10px;font-size:0.76rem;color:var(--text-muted);">
+          New here? In Notion, open any page → <strong>•••</strong> → <strong>Connections</strong> → <strong>IntelliPlan</strong> to share it with us.
+        </div>
+      </div>
+    `);
+  } catch (e) {
+    _notionModal(`<div style="color:var(--high);">Could not load Notion databases: ${String(e)}</div>`);
+  }
+}
+
+function pickNotionDatabase(id) {
+  fetch('/notion/set-database', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ database_id: id })
+  }).then(r => r.json()).then(() => {
+    const m = document.getElementById('notionModal'); if (m) m.remove();
+    refreshNotionStatus();
+  });
+}
+
+async function createNotionDatabase() {
+  const parent = document.getElementById('ipNotionParent');
+  const nameEl = document.getElementById('ipNotionName');
+  if (!parent || !parent.value) { alert('Pick a parent page first.'); return; }
+  const r = await fetch('/notion/create-database', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ parent_page_id: parent.value, name: (nameEl && nameEl.value) || 'IntelliPlan Tasks' })
+  }).then(r => r.json());
+  if (r.status === 'ok') {
+    const m = document.getElementById('notionModal'); if (m) m.remove();
+    refreshNotionStatus();
+  } else {
+    alert('Could not create: ' + (r.message || 'unknown error'));
+  }
+}
+
+function disconnectNotion() {
+  if (!confirm("Disconnect Notion?")) return;
+  fetch('/notion/disconnect', { method: 'POST' })
+    .then(() => refreshNotionStatus());
+}
+
+/* If the user just returned from the OAuth callback we get a flag in
+   the query string (?notion=connected). Refresh status to pick up the
+   newly-stored workspace metadata. */
+if (new URLSearchParams(location.search).get('notion') === 'connected') {
+  refreshNotionStatus();
+}
+
+/* ── App Demo Tour ──────────────────────────────── */
+function startAppTour() {
+  if (window.location.pathname !== '/dashboard') {
+    window.location.href = '/dashboard?tour=1';
+  } else {
+    window.dispatchEvent(new CustomEvent('start-tour'));
+  }
+}
+{% endblock %}

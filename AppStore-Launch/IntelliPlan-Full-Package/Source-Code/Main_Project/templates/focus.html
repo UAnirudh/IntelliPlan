@@ -1,0 +1,480 @@
+{% extends "base.html" %}
+{% block page_title %}Focus Timer, Pomodoro | IntelliPlan{% endblock %}
+{% block meta_description %}Stay focused with IntelliPlan's Pomodoro timer. 25-minute deep work sessions with short breaks to maximize your study efficiency.{% endblock %}
+
+{% block head_extra %}
+<style>
+.focus-shell {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem 1.5rem 3rem;
+}
+.focus-header {
+  margin-bottom: 1.5rem;
+}
+.focus-header h1 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+.focus-header p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── Mode tabs ── */
+.focus-modes {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+.focus-mode-btn {
+  padding: 6px 16px;
+  border-radius: var(--r-md);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.focus-mode-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.focus-mode-btn:hover:not(.active) {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+/* ── Timer ring ── */
+.focus-timer-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.focus-ring-svg {
+  transform: rotate(-90deg);
+}
+.focus-ring-track {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 8;
+}
+.focus-ring-fill {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s linear, stroke 0.4s;
+}
+.focus-ring-fill.break { stroke: #10b981; }
+.focus-time-display {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.focus-clock {
+  font-family: var(--font-display);
+  font-size: 3.2rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.focus-phase-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: 6px;
+}
+.focus-ring-container {
+  position: relative;
+  width: 220px;
+  height: 220px;
+}
+
+/* ── Controls ── */
+.focus-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.focus-btn-main {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.15s, background 0.15s;
+  box-shadow: 0 4px 16px var(--accent-mid);
+}
+.focus-btn-main:hover { transform: scale(1.07); background: var(--accent-hover); }
+.focus-btn-main:active { transform: scale(0.96); }
+.focus-btn-secondary {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.13s, color 0.13s;
+}
+.focus-btn-secondary:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+/* ── Task input ── */
+.focus-task-card {
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.focus-task-label {
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.focus-task-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  outline: none;
+  resize: none;
+  line-height: 1.5;
+}
+.focus-task-input::placeholder { color: var(--text-muted); }
+
+/* ── Session history ── */
+.focus-log-card {
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 1.25rem 1.5rem;
+}
+.focus-log-title {
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+.focus-log-list { display: flex; flex-direction: column; gap: 6px; }
+.focus-log-item {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 0.84rem; color: var(--text-primary);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.focus-log-item:last-child { border-bottom: none; }
+.focus-log-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.focus-log-dot.work  { background: var(--accent); }
+.focus-log-dot.brk   { background: #10b981; }
+.focus-log-time { font-size: 0.72rem; color: var(--text-muted); margin-left: auto; white-space: nowrap; }
+.focus-empty-log { font-size: 0.82rem; color: var(--text-muted); text-align: center; padding: 1rem 0; }
+
+/* ── Stats strip ── */
+.focus-stats {
+  display: flex; gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+}
+.focus-stat {
+  flex: 1; background: var(--bg-card);
+  padding: 0.6rem 0.75rem;
+  text-align: center;
+}
+.focus-stat-num {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.focus-stat-lbl { font-size: 0.66rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 3px; }
+.focus-task-card { padding: 1rem 1.25rem; margin-bottom: 1.25rem; }
+.focus-log-card  { padding: 1rem 1.25rem; }
+.focus-ring-container { width: 200px; height: 200px; }
+.focus-ring-svg { width: 200px; height: 200px; }
+.focus-clock { font-size: 2.8rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="focus-shell">
+  <div class="focus-header">
+    <h1>Focus Timer</h1>
+    <p>Deep work sessions with structured breaks, the Pomodoro technique.</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="focus-stats">
+    <div class="focus-stat">
+      <div class="focus-stat-num" id="statSessions">0</div>
+      <div class="focus-stat-lbl">Sessions today</div>
+    </div>
+    <div class="focus-stat">
+      <div class="focus-stat-num" id="statMinutes">0</div>
+      <div class="focus-stat-lbl">Minutes focused</div>
+    </div>
+    <div class="focus-stat">
+      <div class="focus-stat-num" id="statStreak">0</div>
+      <div class="focus-stat-lbl">Best streak</div>
+    </div>
+  </div>
+
+  <!-- Mode selector -->
+  <div class="focus-modes">
+    <button class="focus-mode-btn active" data-work="25" data-break="5" onclick="setMode(this)">Pomodoro <span style="opacity:0.6;font-weight:500;">25/5</span></button>
+    <button class="focus-mode-btn" data-work="50" data-break="10" onclick="setMode(this)">Deep Work <span style="opacity:0.6;font-weight:500;">50/10</span></button>
+    <button class="focus-mode-btn" data-work="15" data-break="3" onclick="setMode(this)">Quick <span style="opacity:0.6;font-weight:500;">15/3</span></button>
+  </div>
+
+  <!-- Task input -->
+  <div class="focus-task-card">
+    <div class="focus-task-label">What are you working on?</div>
+    <textarea class="focus-task-input" id="taskInput" rows="2" placeholder="e.g. Chapter 5 reading, calculus problem set, essay draft…" maxlength="200"></textarea>
+  </div>
+
+  <!-- Timer -->
+  <div class="focus-timer-wrap">
+    <div class="focus-ring-container">
+      <svg class="focus-ring-svg" width="220" height="220" viewBox="0 0 220 220">
+        <circle class="focus-ring-track" cx="110" cy="110" r="98"/>
+        <circle class="focus-ring-fill" id="timerRing" cx="110" cy="110" r="98"
+          stroke-dasharray="615.75"
+          stroke-dashoffset="0"/>
+      </svg>
+      <div class="focus-time-display">
+        <div class="focus-clock" id="timerDisplay">25:00</div>
+        <div class="focus-phase-label" id="phaseLabel">Focus</div>
+      </div>
+    </div>
+
+    <div class="focus-controls">
+      <button class="focus-btn-secondary" onclick="skipPhase()" title="Skip to next phase" aria-label="Skip">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+      </button>
+      <button class="focus-btn-main" id="startStopBtn" onclick="toggleTimer()" aria-label="Start timer">
+        <svg id="playIcon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <svg id="pauseIcon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:none;"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      </button>
+      <button class="focus-btn-secondary" onclick="resetTimer()" title="Reset" aria-label="Reset">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.04"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Session log -->
+  <div class="focus-log-card">
+    <div class="focus-log-title">Today's sessions</div>
+    <div class="focus-log-list" id="sessionLog">
+      <div class="focus-empty-log">No sessions yet, start the timer to begin.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CIRC = 2 * Math.PI * 98; // 615.75
+let workMins  = 25;
+let breakMins = 5;
+let totalSecs = workMins * 60;
+let remaining = totalSecs;
+let isRunning  = false;
+let isBreak    = false;
+let intervalId = null;
+let sessionLog = JSON.parse(localStorage.getItem('ip_focus_log') || '[]').filter(s => {
+  return new Date(s.ts).toDateString() === new Date().toDateString();
+});
+let statData = JSON.parse(localStorage.getItem('ip_focus_stats') || '{"sessions":0,"minutes":0,"streak":0}');
+
+function setMode(btn) {
+  if (isRunning) return;
+  document.querySelectorAll('.focus-mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  workMins  = parseInt(btn.dataset.work);
+  breakMins = parseInt(btn.dataset.break);
+  resetTimer();
+}
+
+function toggleTimer() {
+  if (isRunning) pauseTimer();
+  else startTimer();
+}
+
+function startTimer() {
+  isRunning = true;
+  document.getElementById('playIcon').style.display  = 'none';
+  document.getElementById('pauseIcon').style.display = '';
+  intervalId = setInterval(tick, 1000);
+}
+
+function pauseTimer() {
+  isRunning = false;
+  clearInterval(intervalId);
+  document.getElementById('playIcon').style.display  = '';
+  document.getElementById('pauseIcon').style.display = 'none';
+}
+
+function resetTimer() {
+  pauseTimer();
+  isBreak   = false;
+  totalSecs = workMins * 60;
+  remaining = totalSecs;
+  updateDisplay();
+  document.getElementById('timerRing').classList.remove('break');
+  document.getElementById('phaseLabel').textContent = 'Focus';
+}
+
+function skipPhase() {
+  pauseTimer();
+  completePhase();
+}
+
+function tick() {
+  remaining--;
+  updateDisplay();
+  if (remaining <= 0) completePhase();
+}
+
+function completePhase() {
+  clearInterval(intervalId);
+  isRunning = false;
+  document.getElementById('playIcon').style.display  = '';
+  document.getElementById('pauseIcon').style.display = 'none';
+
+  if (!isBreak) {
+    // Work phase done
+    const task = document.getElementById('taskInput').value.trim() || 'Focus session';
+    logSession(task, workMins);
+    notify('Focus session complete!', `Time for a ${breakMins}-min break.`);
+    isBreak   = true;
+    totalSecs = breakMins * 60;
+    remaining = totalSecs;
+    document.getElementById('timerRing').classList.add('break');
+    document.getElementById('phaseLabel').textContent = 'Break';
+  } else {
+    // Break done
+    notify('Break over!', 'Ready for another focus session?');
+    isBreak   = false;
+    totalSecs = workMins * 60;
+    remaining = totalSecs;
+    document.getElementById('timerRing').classList.remove('break');
+    document.getElementById('phaseLabel').textContent = 'Focus';
+  }
+  updateDisplay();
+}
+
+function updateDisplay() {
+  const m = String(Math.floor(remaining / 60)).padStart(2, '0');
+  const s = String(remaining % 60).padStart(2, '0');
+  document.getElementById('timerDisplay').textContent = `${m}:${s}`;
+  const pct = remaining / totalSecs;
+  document.getElementById('timerRing').style.strokeDashoffset = CIRC * pct;
+  document.title = `${m}:${s}, ${isBreak ? 'Break' : 'Focus'} | IntelliPlan`;
+}
+
+function logSession(task, mins) {
+  const entry = { task, mins, ts: new Date().toISOString(), type: 'work' };
+  sessionLog.unshift(entry);
+  sessionLog = sessionLog.slice(0, 20);
+  localStorage.setItem('ip_focus_log', JSON.stringify(sessionLog));
+
+  // Update stats
+  const today = new Date().toDateString();
+  let raw = JSON.parse(localStorage.getItem('ip_focus_stats_full') || '{"date":"","sessions":0,"minutes":0,"streak":0}');
+  if (raw.date !== today) { raw = { date: today, sessions: 0, minutes: 0, streak: (raw.streak || 0) + 1 }; }
+  raw.sessions++;
+  raw.minutes += mins;
+  if (raw.sessions > (raw.streak || 0)) raw.streak = raw.sessions;
+  localStorage.setItem('ip_focus_stats_full', JSON.stringify(raw));
+  renderStats(raw);
+  renderLog();
+}
+
+function renderStats(raw) {
+  document.getElementById('statSessions').textContent = raw.sessions || 0;
+  document.getElementById('statMinutes').textContent  = raw.minutes  || 0;
+  document.getElementById('statStreak').textContent   = raw.streak   || 0;
+}
+
+function renderLog() {
+  const list = document.getElementById('sessionLog');
+  if (!sessionLog.length) {
+    list.innerHTML = '<div class="focus-empty-log">No sessions yet, start the timer to begin.</div>';
+    return;
+  }
+  list.innerHTML = sessionLog.map(s => {
+    const t = new Date(s.ts);
+    const label = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+    return `<div class="focus-log-item">
+      <span class="focus-log-dot ${s.type === 'work' ? 'work' : 'brk'}"></span>
+      <span>${escHtml(s.task)}</span>
+      <span class="focus-log-time">${label} · ${s.mins} min</span>
+    </div>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function notify(title, body) {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    new Notification(title, { body, icon: '/static/icons/icon-192.png' });
+  } else if (Notification.permission !== 'denied') {
+    Notification.requestPermission().then(p => {
+      if (p === 'granted') new Notification(title, { body });
+    });
+  }
+}
+
+// Init
+(function init() {
+  updateDisplay();
+  const raw = JSON.parse(localStorage.getItem('ip_focus_stats_full') || 'null');
+  if (raw && raw.date === new Date().toDateString()) renderStats(raw);
+  renderLog();
+  // Ask for notification permission on load
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+})();
+</script>
+{% endblock %}

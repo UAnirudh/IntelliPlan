@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+
+{% block page_title %}IntelliPlan vs Shovel vs MyStudyLife, Best Study Planner for Canvas & StudentVue Students{% endblock %}
+
+{# Canonical, og:url, og:type emitted globally by base.html. #}
+{% block meta_description %}Compare IntelliPlan, Shovel, and MyStudyLife side by side. See which study planner supports Canvas, StudentVue, AI scheduling, and Grade Modeling, and which is free.{% endblock %}
+{% block og_title %}IntelliPlan vs Shovel vs MyStudyLife, Best Canvas & StudentVue Study Planner{% endblock %}
+{% block og_description %}Side-by-side comparison of the top student study planners. Only IntelliPlan supports StudentVue, AI scheduling, and Grade Modeling, all free to start.{% endblock %}
+{% block twitter_title %}IntelliPlan vs Shovel vs MyStudyLife, Best Canvas & StudentVue Study Planner{% endblock %}
+{% block twitter_description %}Side-by-side comparison of the top student study planners. Only IntelliPlan supports StudentVue, AI scheduling, and Grade Modeling, all free to start.{% endblock %}
+
+{% block content %}
+
+<style>
+  .compare-page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2.5rem 1rem 4rem;
+  }
+  .compare-kicker {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.45rem 0.8rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+  }
+  .compare-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.8rem, 3.5vw, 2.8rem);
+    line-height: 1.05;
+    color: var(--text-primary);
+    letter-spacing: -0.03em;
+    margin: 0 0 0.75rem;
+  }
+  .compare-subtitle {
+    font-family: var(--font-ui);
+    font-size: 1rem;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin: 0 0 2.5rem;
+    max-width: 60rem;
+  }
+  .compare-table-wrap {
+    overflow-x: auto;
+    border-radius: var(--r-xl);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    margin-bottom: 2.5rem;
+  }
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-ui);
+    font-size: 0.93rem;
+    background: var(--bg-card);
+  }
+  .compare-table th {
+    padding: 1rem 1.25rem;
+    text-align: left;
+    font-weight: 800;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--border-strong);
+    white-space: nowrap;
+  }
+  .compare-table th:first-child { width: 40%; }
+  .compare-table th.col-intelliplan {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .compare-table td {
+    padding: 0.85rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-secondary);
+    vertical-align: middle;
+  }
+  .compare-table tr:last-child td { border-bottom: none; }
+  .compare-table td:first-child {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .compare-table td.col-intelliplan { background: rgba(37,99,235,0.03); }
+  .check { color: #059669; display: inline-flex; align-items: center; }
+  .cross { color: #dc2626; display: inline-flex; align-items: center; }
+  .note { font-size: 0.82rem; color: var(--text-muted); }
+  .winner-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+  }
+  .compare-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+  }
+  .summary-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    padding: 1.25rem;
+    box-shadow: var(--shadow);
+  }
+  .summary-card.featured { border-color: var(--border-accent); box-shadow: var(--accent-glow); }
+  .summary-product {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem;
+  }
+  .summary-product.featured { color: var(--accent); }
+  .summary-desc {
+    font-family: var(--font-ui);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0 0 1rem;
+  }
+  .summary-verdict {
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    display: inline-block;
+  }
+  .verdict-best { background: var(--accent-soft); color: var(--accent); }
+  .verdict-paid { background: rgba(217,119,6,0.1); color: #d97706; }
+  .verdict-manual { background: rgba(148,163,184,0.15); color: var(--text-muted); }
+  .compare-cta {
+    text-align: center;
+    padding: 2rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-accent);
+    border-radius: var(--r-xl);
+    box-shadow: var(--accent-glow);
+  }
+  .compare-cta h2 {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem;
+  }
+  .compare-cta p {
+    font-family: var(--font-ui);
+    color: var(--text-secondary);
+    margin: 0 0 1.25rem;
+  }
+  @media (max-width: 640px) {
+    .compare-summary { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="compare-page">
+  <span class="compare-kicker">Comparison</span>
+  <h1 class="compare-title">IntelliPlan vs Shovel vs MyStudyLife</h1>
+  <p class="compare-subtitle">
+    Looking for the best study planner that actually connects to Canvas or StudentVue?
+    Here's a complete side-by-side breakdown so you can choose without guessing.
+  </p>
+
+  <div class="compare-summary">
+    <div class="summary-card featured">
+      <h2 class="summary-product featured">IntelliPlan <span class="winner-badge">Recommended</span></h2>
+      <p class="summary-desc">Free AI planner with Canvas, StudentVue, and Schoology integration. Includes AI scheduling, Grade Modeler, and flashcards.</p>
+      <span class="summary-verdict verdict-best">Free to start</span>
+    </div>
+    <div class="summary-card">
+      <h2 class="summary-product">Shovel</h2>
+      <p class="summary-desc">Canvas and Brightspace sync with time-blocking. No StudentVue. Requires paid plan for full scheduling features.</p>
+      <span class="summary-verdict verdict-paid">Paid subscription</span>
+    </div>
+    <div class="summary-card">
+      <h2 class="summary-product">MyStudyLife</h2>
+      <p class="summary-desc">Free cross-platform scheduler with manual entry. No LMS integration. No AI scheduling or Grade Modeler.</p>
+      <span class="summary-verdict verdict-manual">Manual entry only</span>
+    </div>
+  </div>
+
+  <div class="compare-table-wrap">
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th class="col-intelliplan">IntelliPlan</th>
+          <th>Shovel</th>
+          <th>MyStudyLife</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Canvas LMS integration</td>
+          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span> <span class="note">Free</span></td>
+          <td><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span> <span class="note">Paid</span></td>
+          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
+        </tr>
+        <tr>
+          <td>StudentVue integration</td>
+          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
+          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
+          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
+        </tr>
+        <tr>
+          <td>Schoology integration</td>
+          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
+          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
+          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
+        </tr>
+        <tr>
+          <td>AI-generated study schedule</td>
+          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
+          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
+          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
+        </tr>
+        <tr>
+          <td>Grade Modeler</td>
+          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
+          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
+          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
+        </tr>
+        <tr>
+          <td>Flashcard / quiz generator</td>
+          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
+          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
+          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
+        </tr>
+        <tr>
+          <td>Google Calendar export</td>
+          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
+          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
+          <td><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
+        </tr>
+        <tr>
+          <td>Free plan available</td>
+          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
+          <td><span class="note">Trial only</span></td>
+          <td><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
+        </tr>
+        <tr>
+          <td>Mobile app</td>
+          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span> <span class="note">PWA</span></td>
+          <td><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span> <span class="note">Native</span></td>
+          <td><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span> <span class="note">Native</span></td>
+        </tr>
+        <tr>
+          <td>Time estimation per task</td>
+          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
+          <td><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
+          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
+        </tr>
+        <tr>
+          <td>Automatic assignment sync</td>
+          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
+          <td><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span> <span class="note">Canvas/Brightspace</span></td>
+          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span> <span class="note">Manual only</span></td>
+        </tr>
+        <tr>
+          <td>Works for high school students</td>
+          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span> <span class="note">StudentVue support</span></td>
+          <td><span class="note">Partial</span></td>
+          <td><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="compare-cta">
+    <h2>IntelliPlan is free to start</h2>
+    <p>Connect Canvas or StudentVue and see your priorities in under 5 minutes. No credit card required.</p>
+    <a href="/login" class="btn-primary" style="text-decoration:none">Get Started Free →</a>
+    &nbsp;&nbsp;
+    <a href="/faq" class="btn-secondary" style="text-decoration:none">Read the FAQ</a>
+  </div>
+</div>
+
+{% endblock %}

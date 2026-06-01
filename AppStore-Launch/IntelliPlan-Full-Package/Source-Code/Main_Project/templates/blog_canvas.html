@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block page_title %}How to Connect Canvas to a Study Planner and Auto-Prioritize Your Assignments, IntelliPlan{% endblock %}
+
+{# Canonical + og:url emitted globally by base.html. #}
+{% block meta_description %}Learn how to connect Canvas LMS to IntelliPlan and automatically prioritize every assignment across all your classes. Step-by-step guide for high school and college students.{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block og_title %}How to Connect Canvas to a Study Planner and Auto-Prioritize Assignments{% endblock %}
+{% block og_description %}Connect Canvas LMS to IntelliPlan in minutes and stop manually tracking deadlines across multiple class pages. Step-by-step guide.{% endblock %}
+{% block twitter_title %}How to Connect Canvas to a Study Planner and Auto-Prioritize Assignments{% endblock %}
+{% block twitter_description %}Connect Canvas LMS to IntelliPlan in minutes and stop manually tracking deadlines across multiple class pages.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "How to Connect Canvas to a Study Planner and Auto-Prioritize Your Assignments",
+  "description": "Step-by-step guide to connecting Canvas LMS to IntelliPlan and automatically prioritizing every assignment.",
+  "url": "https://intelliplan.tech/blog/how-to-use-canvas-with-a-study-planner",
+  "author": { "@type": "Organization", "name": "IntelliPlan", "url": "https://intelliplan.tech" },
+  "publisher": { "@type": "Organization", "name": "IntelliPlan", "url": "https://intelliplan.tech" }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<style>
+  .blog-page {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 2.5rem 1rem 4rem;
+  }
+  .blog-kicker {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.45rem 0.8rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+  }
+  .blog-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+    line-height: 1.08;
+    color: var(--text-primary);
+    letter-spacing: -0.03em;
+    margin: 0 0 1rem;
+  }
+  .blog-body {
+    font-family: var(--font-ui);
+    font-size: 1rem;
+    color: var(--text-secondary);
+    line-height: 1.8;
+  }
+  .blog-body h2 {
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    color: var(--text-primary);
+    margin: 2rem 0 0.75rem;
+  }
+  .blog-body p { margin: 0 0 1.1rem; }
+  .blog-body ol, .blog-body ul {
+    padding-left: 1.4rem;
+    margin: 0 0 1.1rem;
+  }
+  .blog-body li { margin-bottom: 0.5rem; }
+  .blog-body a { color: var(--accent); }
+  .blog-cta {
+    margin-top: 2.5rem;
+    padding: 1.75rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-accent);
+    border-radius: var(--r-xl);
+    box-shadow: var(--accent-glow);
+    text-align: center;
+  }
+  .blog-cta h3 {
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem;
+  }
+  .blog-cta p {
+    font-family: var(--font-ui);
+    color: var(--text-secondary);
+    margin: 0 0 1rem;
+    font-size: 0.95rem;
+  }
+</style>
+
+<div class="blog-page">
+  <span class="blog-kicker">Guide</span>
+  <h1 class="blog-title">How to Connect Canvas to a Study Planner and Auto-Prioritize Your Assignments</h1>
+
+  <div class="blog-body">
+    <p>
+      If you're a student using Canvas, you already know the problem: your assignments are scattered across
+      dozens of course pages, sorted in ways that make sense to your professors but not to you. You have to
+      click into every class, mentally tally what's due when, and then somehow turn that into a plan, all
+      before you've done a single minute of actual work.
+    </p>
+    <p>
+      There's a better way. IntelliPlan connects directly to Canvas and does all that sorting for you automatically.
+    </p>
+
+    <h2>Why manual Canvas tracking doesn't work</h2>
+    <p>
+      Canvas shows you assignments by class. It doesn't tell you which assignment across all your classes is
+      most urgent right now. It doesn't estimate how long each one will take. And it definitely doesn't
+      build you a schedule. You're left doing all of that mental work yourself, which is exhausting and
+      easy to get wrong.
+    </p>
+    <p>
+      Most students end up with a mental list they can't quite trust, a due date they forgot about, or a
+      Sunday night surprise. IntelliPlan fixes this by pulling every assignment from every class and ranking
+      them by urgency, point value, and how much time you have left.
+    </p>
+
+    <h2>How to connect IntelliPlan to Canvas</h2>
+    <ol>
+      <li>Go to <a href="https://intelliplan.tech">intelliplan.tech</a> and create a free account.</li>
+      <li>During setup, choose <strong>Canvas LMS</strong> as your integration.</li>
+      <li>Enter your school's Canvas URL (e.g., <code>yourschool.instructure.com</code>) and your Canvas access token.</li>
+      <li>IntelliPlan will import all your current assignments automatically.</li>
+      <li>You'll see a prioritized list, High, Medium, Low, across every class at once.</li>
+    </ol>
+    <p>
+      The whole process takes about 3 minutes. No manual data entry. No copy-pasting. When your professor
+      updates a due date in Canvas, IntelliPlan picks it up on the next sync.
+    </p>
+
+    <h2>What you see after connecting</h2>
+    <p>
+      After connecting Canvas, IntelliPlan shows you a single ranked list of every assignment from every
+      class. Each item has a priority label (High / Medium / Low), a time estimate, and the due date.
+      You can also generate a full week's study schedule and export it directly to Google Calendar with
+      one click.
+    </p>
+    <p>
+      The Grade Modeler lets you simulate what score you need on your next assignment to maintain your
+      target grade, so you can decide where to spend your energy before you start.
+    </p>
+
+    <h2>Works alongside Canvas, not instead of it</h2>
+    <p>
+      IntelliPlan doesn't replace Canvas. You still submit work through Canvas like normal. IntelliPlan
+      just reads what's there and turns it into something actionable. Think of it as the layer between
+      "here are all your assignments" and "here's exactly what you should do next."
+    </p>
+    <p>
+      Questions? Visit the <a href="/faq">FAQ</a> or <a href="/compare">compare IntelliPlan to other study planners</a>.
+    </p>
+  </div>
+
+  <div class="blog-cta">
+    <h3>Connect Canvas in 3 minutes</h3>
+    <p>Free for students. No credit card. See every assignment ranked by priority immediately.</p>
+    <a href="/login" class="btn-primary" style="text-decoration:none">Get Started Free →</a>
+  </div>
+</div>
+
+{% endblock %}

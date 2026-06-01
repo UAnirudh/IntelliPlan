@@ -1,0 +1,2269 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  --si: #6366f1;
+  --si2: #8b5cf6;
+  --sg: #10b981;
+  --sr: #ef4444;
+  --so: #f59e0b;
+  --sb: #3b82f6;
+  --surf: var(--bg-card, #fff);
+  --bdr: var(--border, #e2eaf5);
+  --tx: var(--text-primary, #0f172a);
+  --txm: var(--text-muted, #94a3b8);
+  --txs: var(--text-secondary, #475569);
+}
+
+#studyApp *, #studyApp *::before, #studyApp *::after { box-sizing: border-box; }
+#studyApp { max-width: 820px; margin: 0 auto; padding: 0 0 6rem; font-family: 'DM Sans', sans-serif; }
+
+/* ── HEADER ── */
+.sh { display:flex; align-items:center; justify-content:space-between; margin-bottom:2rem; flex-wrap:wrap; gap:1rem; }
+.st { font-family:'DM Serif Display',serif; font-size:2rem; color:var(--tx); margin:0; }
+.st em { font-style:normal; background:linear-gradient(135deg,#6366f1,#8b5cf6); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+
+/* ── STREAK BAR ── */
+.streak-bar {
+  display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+}
+.s-chip {
+  display:flex; align-items:center; gap:6px; padding:7px 14px;
+  background:var(--surf); border:1px solid var(--bdr); border-radius:20px;
+  font-size:0.82rem; font-weight:700; color:var(--tx); cursor:default;
+  transition:transform 0.2s, box-shadow 0.2s;
+}
+.s-chip:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,0.08); }
+.s-chip.fire { border-color:rgba(239,68,68,0.3); background:rgba(239,68,68,0.06); color:#ef4444; }
+.s-chip.pts { border-color:rgba(99,102,241,0.3); background:rgba(99,102,241,0.06); color:#6366f1; }
+.s-chip.freeze { border-color:rgba(59,130,246,0.3); background:rgba(59,130,246,0.06); color:#3b82f6; }
+.s-chip.level { border-color:rgba(16,185,129,0.28); background:rgba(16,185,129,0.06); color:#059669; }
+.chip-pulse { animation:cPulse 0.5s ease; }
+@keyframes cPulse { 0%{transform:scale(1)} 50%{transform:scale(1.12)} 100%{transform:scale(1)} }
+
+/* ── NAV TABS ── */
+.study-nav {
+  display:flex; gap:4px; margin-bottom:1.5rem;
+  background:var(--surf); border:1px solid var(--bdr);
+  border-radius:16px; padding:5px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.04);
+}
+.snav-btn {
+  flex:1; padding:10px 8px; border:none; background:transparent;
+  border-radius:12px; font-size:0.78rem; font-weight:700; cursor:pointer;
+  color:var(--txm); transition:all 0.2s; font-family:'DM Sans',sans-serif;
+  white-space:nowrap;
+}
+.snav-btn.active { background:linear-gradient(135deg,#6366f1,#8b5cf6); color:white; box-shadow:0 2px 8px rgba(99,102,241,0.3); }
+.snav-btn:hover:not(.active) { background:rgba(99,102,241,0.06); color:var(--si); }
+
+/* ── PANELS ── */
+.sp {
+  background:var(--surf); border:1px solid var(--bdr); border-radius:20px;
+  padding:1.75rem; box-shadow:0 2px 16px rgba(15,23,42,0.05); margin-bottom:1.25rem;
+  animation:fadeUp 0.3s ease both;
+}
+@keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+.sp-label { font-size:0.68rem; font-weight:800; text-transform:uppercase; letter-spacing:0.1em; color:var(--txm); margin-bottom:1rem; }
+
+/* ── INPUT TABS ── */
+.itabs { display:flex; gap:3px; margin-bottom:1rem; background:#f1f5f9; border-radius:12px; padding:3px; }
+.itab { flex:1; padding:8px; border:none; background:transparent; border-radius:10px; font-size:0.78rem; font-weight:700; cursor:pointer; color:#64748b; transition:all 0.15s; font-family:'DM Sans',sans-serif; }
+.itab.active { background:white; color:var(--si); box-shadow:0 1px 4px rgba(0,0,0,0.07); }
+.ipanel { display:none; } .ipanel.active { display:block; }
+
+.study-ta {
+  width:100%; min-height:150px; padding:14px; border:1.5px solid var(--bdr);
+  border-radius:12px; font-size:0.88rem; font-family:'DM Sans',sans-serif;
+  color:var(--tx); background:var(--bg,#f8faff); resize:vertical; outline:none; transition:border-color 0.2s; line-height:1.6;
+}
+.study-ta:focus { border-color:var(--si); box-shadow:0 0 0 3px rgba(99,102,241,0.1); }
+
+.upload-z {
+  border:2px dashed var(--bdr); border-radius:12px; padding:2rem; text-align:center;
+  cursor:pointer; transition:all 0.2s; position:relative; overflow:hidden;
+}
+.upload-z:hover, .upload-z.dv { border-color:var(--si); background:rgba(99,102,241,0.04); }
+.upload-z input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+
+/* ── MODE CARDS ── */
+.mode-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+.mc {
+  border:2px solid var(--bdr); border-radius:16px; padding:1.25rem 1rem;
+  cursor:pointer; text-align:center; transition:all 0.2s; background:var(--bg,#f8faff);
+}
+.mc.sel { border-color:var(--mc); background:var(--surf); box-shadow:0 4px 16px rgba(0,0,0,0.07); }
+.mc-icon { font-size:1.8rem; margin-bottom:8px; }
+.mc-name { font-size:0.88rem; font-weight:700; color:var(--tx); margin-bottom:4px; }
+.mc-desc { font-size:0.72rem; color:#64748b; line-height:1.4; }
+.mc-badge { display:inline-block; font-size:0.6rem; font-weight:800; padding:2px 7px; border-radius:6px; margin-top:6px; text-transform:uppercase; letter-spacing:0.05em; }
+
+/* ── START BUTTON ── */
+.s-start {
+  width:100%; padding:16px; background:linear-gradient(135deg,#6366f1,#8b5cf6);
+  color:white; border:none; border-radius:14px; font-size:1rem; font-weight:700;
+  cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.2s;
+  box-shadow:0 4px 20px rgba(99,102,241,0.35); letter-spacing:0.02em;
+}
+.s-start:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(99,102,241,0.45); }
+.s-start:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+.btn-spin { display:inline-block; width:16px; height:16px; border:2px solid rgba(255,255,255,0.4); border-top-color:white; border-radius:50%; animation:spin 0.7s linear infinite; vertical-align:middle; margin-right:8px; }
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* ── CONFIDENCE ── */
+.conf-row { display:flex; gap:8px; margin-bottom:1.25rem; }
+.conf-btn {
+  flex:1; padding:10px 8px; border:1.5px solid var(--bdr); border-radius:12px;
+  font-size:0.8rem; font-weight:700; cursor:pointer; background:var(--surf);
+  color:var(--txs); transition:all 0.2s; font-family:'DM Sans',sans-serif;
+}
+.conf-btn:hover { border-color:var(--si); color:var(--si); background:rgba(99,102,241,0.04); }
+.conf-btn.sel-low { border-color:#ef4444; background:rgba(239,68,68,0.08); color:#ef4444; }
+.conf-btn.sel-med { border-color:#f59e0b; background:rgba(245,158,11,0.08); color:#f59e0b; }
+.conf-btn.sel-high { border-color:#10b981; background:rgba(16,185,129,0.08); color:#10b981; }
+.conf-label { font-size:0.72rem; font-weight:600; color:var(--txm); margin-bottom:8px; }
+
+/* ── ANSWER INPUT ── */
+.ans-input-wrap { margin:1.25rem 0; }
+.ans-ta {
+  width:100%; min-height:90px; padding:14px; border:1.5px solid var(--bdr);
+  border-radius:12px; font-size:0.9rem; font-family:'DM Sans',sans-serif;
+  color:var(--tx); background:var(--bg,#f8faff); resize:vertical; outline:none; transition:border-color 0.2s; line-height:1.6;
+}
+.ans-ta:focus { border-color:var(--si); box-shadow:0 0 0 3px rgba(99,102,241,0.1); }
+.submit-btn {
+  width:100%; padding:13px; background:var(--si); color:white; border:none;
+  border-radius:12px; font-size:0.9rem; font-weight:700; cursor:pointer;
+  font-family:'DM Sans',sans-serif; transition:all 0.2s;
+}
+.submit-btn:hover { background:var(--si2); transform:translateY(-1px); }
+.submit-btn:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+
+/* ── FEEDBACK PANEL ── */
+.fb-panel {
+  border-radius:16px; padding:1.5rem; margin-top:1rem; animation:fadeUp 0.3s ease both;
+  border:1.5px solid;
+}
+.fb-correct { border-color:rgba(16,185,129,0.3); background:rgba(16,185,129,0.05); }
+.fb-partial { border-color:rgba(245,158,11,0.3); background:rgba(245,158,11,0.05); }
+.fb-incorrect { border-color:rgba(239,68,68,0.3); background:rgba(239,68,68,0.05); }
+
+.verdict-badge {
+  display:inline-flex; align-items:center; gap:6px; padding:5px 14px;
+  border-radius:20px; font-size:0.8rem; font-weight:800; margin-bottom:1rem;
+  text-transform:uppercase; letter-spacing:0.05em;
+}
+.vb-correct { background:rgba(16,185,129,0.15); color:#059669; }
+.vb-partial { background:rgba(245,158,11,0.15); color:#d97706; }
+.vb-incorrect { background:rgba(239,68,68,0.15); color:#dc2626; }
+
+.fb-section { margin-bottom:1rem; }
+.fb-section-label { font-size:0.65rem; font-weight:800; text-transform:uppercase; letter-spacing:0.1em; color:var(--txm); margin-bottom:5px; }
+.fb-section-text { font-size:0.88rem; line-height:1.65; color:var(--txs); }
+
+.correct-ans-box {
+  background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.2);
+  border-radius:12px; padding:1rem 1.25rem; margin-bottom:1rem;
+}
+.memory-anchor-box {
+  background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.2);
+  border-radius:12px; padding:1rem 1.25rem; margin-bottom:1rem;
+}
+.better-ans-box {
+  background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.2);
+  border-radius:12px; padding:1rem 1.25rem; margin-bottom:1rem;
+}
+.fb-box-label { font-size:0.65rem; font-weight:800; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px; }
+.fb-box-text { font-size:0.88rem; line-height:1.65; }
+
+/* ── MASTERY INDICATOR ── */
+.mastery-bar { display:flex; align-items:center; gap:10px; margin-top:1rem; }
+.mastery-dots { display:flex; gap:4px; }
+.m-dot { width:10px; height:10px; border-radius:50%; background:#e2eaf5; transition:background 0.3s; }
+.m-dot.l0 { background:#e2eaf5; }
+.m-dot.l1 { background:#f59e0b; }
+.m-dot.l2 { background:#3b82f6; }
+.m-dot.l3 { background:#10b981; }
+.mastery-label { font-size:0.72rem; font-weight:700; color:var(--txm); }
+
+/* ── NEXT BUTTON ── */
+.next-btn {
+  width:100%; padding:14px; background:linear-gradient(135deg,#6366f1,#8b5cf6);
+  color:white; border:none; border-radius:12px; font-size:0.95rem; font-weight:700;
+  cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.2s;
+  margin-top:1rem; box-shadow:0 4px 16px rgba(99,102,241,0.3);
+}
+.next-btn:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(99,102,241,0.4); }
+
+/* ── Q CARD ── */
+.q-card {
+  background:linear-gradient(135deg,rgba(99,102,241,0.04),rgba(139,92,246,0.04));
+  border:1.5px solid rgba(99,102,241,0.18); border-radius:20px; padding:1.75rem;
+  margin-bottom:1.25rem; animation:fadeUp 0.3s ease both;
+}
+.q-type-badge { display:inline-block; font-size:0.62rem; font-weight:800; padding:3px 9px; border-radius:7px; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:1rem; }
+.qtb-recall { background:#dbeafe; color:#3b82f6; }
+.qtb-conceptual { background:#ede9fe; color:#7c3aed; }
+.qtb-short-answer { background:#d1fae5; color:#059669; }
+.q-text { font-size:1.1rem; font-weight:600; color:var(--tx); line-height:1.5; }
+.q-hint { font-size:0.78rem; color:var(--txm); margin-top:8px; font-style:italic; }
+
+/* ── PROGRESS ── */
+.prog-track { height:6px; background:#e2eaf5; border-radius:3px; overflow:hidden; margin-bottom:1.5rem; }
+.prog-fill { height:100%; background:linear-gradient(90deg,#6366f1,#8b5cf6); border-radius:3px; transition:width 0.4s ease; }
+.prog-info { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:0.75rem; color:var(--txm); }
+
+/* ── SESSION COMPLETE ── */
+.comp-card { text-align:center; padding:2.5rem 2rem; }
+.comp-emoji { font-size:4rem; display:block; margin-bottom:1rem; }
+.comp-title { font-family:'DM Serif Display',serif; font-size:2rem; color:var(--tx); margin-bottom:6px; }
+.comp-sub { font-size:0.9rem; color:#64748b; margin-bottom:2rem; }
+.comp-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:2rem; }
+.cstat { background:#f8faff; border:1px solid #e0e7ff; border-radius:14px; padding:1rem; }
+.cstat-num { font-size:1.6rem; font-weight:700; color:var(--si); font-family:'DM Serif Display',serif; }
+.cstat-lbl { font-size:0.65rem; color:#94a3b8; margin-top:2px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; }
+.comp-btns { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+.btn-outline { padding:11px 24px; background:transparent; border:1.5px solid var(--si); color:var(--si); border-radius:12px; font-size:0.88rem; font-weight:700; cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.2s; }
+.btn-outline:hover { background:var(--si); color:white; }
+.btn-solid { padding:11px 24px; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:white; border:none; border-radius:12px; font-size:0.88rem; font-weight:700; cursor:pointer; font-family:'DM Sans',sans-serif; }
+
+/* ── CONCEPTS ── */
+.concept-item { background:#f8faff; border:1px solid #e0e7ff; border-radius:12px; padding:1rem 1.25rem; margin-bottom:8px; }
+.concept-term { font-size:0.88rem; font-weight:700; color:var(--si); margin-bottom:4px; }
+.concept-def { font-size:0.82rem; color:#475569; line-height:1.5; }
+
+/* ── FLASHCARD ── */
+.fc-wrap { perspective:1000px; cursor:pointer; margin-bottom:1.25rem; }
+.fc { width:100%; min-height:220px; position:relative; transform-style:preserve-3d; transition:transform 0.5s ease; }
+.fc.flipped { transform:rotateY(180deg); }
+.fc-face {
+  position:absolute; inset:0; backface-visibility:hidden;
+  background:var(--surf); border:1.5px solid var(--bdr); border-radius:20px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:2rem; text-align:center; box-shadow:0 4px 20px rgba(0,0,0,0.06);
+}
+.fc-back { transform:rotateY(180deg); background:linear-gradient(135deg,rgba(99,102,241,0.06),rgba(139,92,246,0.06)); }
+.fc-label { font-size:0.65rem; font-weight:800; text-transform:uppercase; letter-spacing:0.1em; color:var(--txm); margin-bottom:12px; }
+.fc-text { font-size:1.05rem; font-weight:600; color:var(--tx); line-height:1.5; }
+.fc-hint { font-size:0.75rem; color:var(--txm); margin-top:12px; }
+.fc-controls { display:flex; justify-content:space-between; align-items:center; }
+.fc-nav { display:flex; gap:8px; }
+.fc-nav-btn { padding:8px 18px; border:1.5px solid var(--bdr); border-radius:10px; background:var(--surf); color:var(--txs); font-size:0.82rem; font-weight:700; cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.2s; }
+.fc-nav-btn:hover { border-color:var(--si); color:var(--si); }
+.fc-counter { font-size:0.78rem; color:var(--txm); font-weight:600; }
+
+/* ── MASTERY TRACKER ── */
+.mastery-table { width:100%; }
+.mt-row { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--bdr); }
+.mt-row:last-child { border-bottom:none; }
+.mt-q { flex:1; font-size:0.82rem; color:var(--tx); line-height:1.4; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mt-level { padding:3px 10px; border-radius:8px; font-size:0.65rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; white-space:nowrap; flex-shrink:0; }
+.mt-l0 { background:#f1f5f9; color:#64748b; }
+.mt-l1 { background:#fef3c7; color:#d97706; }
+.mt-l2 { background:#dbeafe; color:#2563eb; }
+.mt-l3 { background:#d1fae5; color:#059669; }
+.mt-acc { font-size:0.75rem; color:var(--txm); font-weight:600; white-space:nowrap; flex-shrink:0; }
+
+/* ── PROGRESS TAB ── */
+.perf-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:1.5rem; }
+.perf-card { background:var(--surf); border:1px solid var(--bdr); border-radius:14px; padding:1.25rem; text-align:center; }
+.perf-num { font-size:1.8rem; font-weight:700; color:var(--si); font-family:'DM Serif Display',serif; }
+.perf-lbl { font-size:0.68rem; color:var(--txm); font-weight:700; text-transform:uppercase; letter-spacing:0.05em; margin-top:3px; }
+.session-hist-item { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--bdr); }
+.shi-date { font-size:0.72rem; color:var(--txm); font-weight:600; white-space:nowrap; }
+.shi-mode { padding:2px 8px; border-radius:6px; font-size:0.62rem; font-weight:800; text-transform:uppercase; }
+.shi-m-casual { background:#d1fae5; color:#059669; }
+.shi-m-serious { background:#e0e7ff; color:#4f46e5; }
+.shi-m-extreme { background:#fee2e2; color:#dc2626; }
+.shi-stats { flex:1; font-size:0.78rem; color:var(--txs); }
+.shi-pts { font-size:0.78rem; font-weight:700; color:var(--si); }
+
+/* ── DUOLINGO STREAK ── */
+.streak-hero {
+  --tier:#ef4444;
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--tier) 24%, transparent), transparent 48%),
+    linear-gradient(135deg,rgba(255,247,237,0.92),rgba(255,255,255,0.98));
+  border:1.5px solid color-mix(in srgb, var(--tier) 32%, transparent);
+  border-radius:20px; padding:1.75rem;
+  margin-bottom:1.25rem; text-align:center; position:relative; overflow:hidden;
+}
+.streak-hero::before,
+.streak-hero::after {
+  content:""; position:absolute; inset:auto 10% -38px; height:78px;
+  background:radial-gradient(circle, color-mix(in srgb, var(--tier) 18%, transparent), transparent 64%);
+  filter:blur(8px); animation:emberDrift 4s ease-in-out infinite; pointer-events:none;
+}
+.streak-hero::after { animation-delay:-1.6s; transform:translateX(22%); }
+.streak-hero.frame-ember { box-shadow:0 16px 34px rgba(249,115,22,0.18); }
+.streak-hero.frame-aurora { box-shadow:0 16px 34px rgba(6,182,212,0.18), inset 0 0 0 1px rgba(139,92,246,0.18); }
+.streak-hero.frame-cosmic { box-shadow:0 16px 42px rgba(79,70,229,0.22), inset 0 0 0 1px rgba(34,197,94,0.18); }
+.fire-stage { height:90px; display:flex; align-items:flex-end; justify-content:center; margin-bottom:0.45rem; position:relative; }
+.streak-fire {
+  width:62px; height:76px; display:block; position:relative;
+  filter:drop-shadow(0 12px 18px color-mix(in srgb, var(--tier) 40%, transparent));
+  animation:fireBounce 1.28s cubic-bezier(.2,.8,.2,1) infinite;
+}
+.streak-fire::before,
+.streak-fire::after {
+  content:""; position:absolute; left:50%; bottom:0; transform:translateX(-50%) rotate(45deg);
+  border-radius:62% 38% 62% 38%; transform-origin:center bottom;
+}
+.streak-fire::before {
+  width:58px; height:58px;
+  background:linear-gradient(135deg,#ef4444 4%,#f97316 48%,#facc15 100%);
+  animation:flameFlicker 0.84s ease-in-out infinite alternate;
+}
+.streak-fire::after {
+  width:34px; height:34px; bottom:6px;
+  background:linear-gradient(135deg,#fff7ad 0%,#facc15 46%,#fb923c 100%);
+  animation:innerFlicker 0.72s ease-in-out infinite alternate;
+}
+.spark-particle { position:absolute; width:6px; height:6px; border-radius:999px; background:#facc15; opacity:0; animation:sparkRise 1.8s ease-out infinite; }
+.spark-particle.p1 { left:45%; bottom:16px; animation-delay:0s; }
+.spark-particle.p2 { left:54%; bottom:18px; animation-delay:.45s; background:#fb923c; }
+.spark-particle.p3 { left:49%; bottom:22px; animation-delay:.9s; width:4px; height:4px; }
+@keyframes fireBounce { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-5px) scale(1.05)} }
+@keyframes flameFlicker { from{transform:translateX(-50%) rotate(42deg) scaleX(.94)} to{transform:translateX(-50%) rotate(48deg) scaleX(1.06)} }
+@keyframes innerFlicker { from{transform:translateX(-50%) rotate(48deg) scale(.92)} to{transform:translateX(-50%) rotate(38deg) scale(1.08)} }
+@keyframes sparkRise { 0%{transform:translateY(0) scale(.6);opacity:0} 20%{opacity:.9} 100%{transform:translateY(-58px) translateX(18px) scale(.2);opacity:0} }
+@keyframes emberDrift { 0%,100%{opacity:.55; transform:translateY(0)} 50%{opacity:1; transform:translateY(-8px)} }
+.streak-num { font-family:'DM Serif Display',serif; font-size:3.5rem; font-weight:700; color:var(--tier); line-height:1; }
+.streak-word { font-size:1rem; font-weight:800; color:var(--tier); margin-bottom:0.5rem; }
+.streak-sub { font-size:0.82rem; color:var(--txm); }
+.streak-stats-row { display:flex; gap:10px; justify-content:center; margin-top:1rem; flex-wrap:wrap; }
+.ss-item { padding:6px 14px; background:color-mix(in srgb, var(--tier) 10%, transparent); border:1px solid color-mix(in srgb, var(--tier) 20%, transparent); border-radius:20px; font-size:0.78rem; font-weight:700; color:var(--tier); }
+.risk-banner { display:none; margin-bottom:1rem; padding:12px 14px; border-radius:14px; font-size:0.84rem; font-weight:700; border:1px solid; }
+.risk-banner.on { display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+.risk-warn { color:#dc2626; background:rgba(239,68,68,0.07); border-color:rgba(239,68,68,0.22); }
+.risk-repair { color:#7c2d12; background:rgba(251,146,60,0.13); border-color:rgba(251,146,60,0.32); }
+.tiny-action { padding:7px 12px; border:none; border-radius:10px; background:#0f172a; color:white; font-size:0.74rem; font-weight:800; cursor:pointer; font-family:'DM Sans',sans-serif; }
+
+.cal-month { margin-bottom:1rem; }
+.cal-month-label { font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:var(--txm); margin-bottom:8px; }
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+.cal-day-header { font-size:0.6rem; font-weight:700; text-transform:uppercase; color:var(--txm); text-align:center; padding-bottom:4px; }
+.c-day { aspect-ratio:1; border-radius:8px; background:var(--bg,#f1f5f9); position:relative; transition:all 0.2s; display:flex; align-items:center; justify-content:center; }
+.c-day.active { background:linear-gradient(135deg,#ef4444,#f97316); box-shadow:0 2px 8px rgba(239,68,68,0.3); }
+.c-day.today:not(.active) { border:2px solid var(--si); }
+.c-day.today.active { box-shadow:0 2px 8px rgba(239,68,68,0.4), 0 0 0 2px rgba(99,102,241,0.4); }
+.c-day-dot { width:4px; height:4px; border-radius:50%; background:rgba(255,255,255,0.8); position:absolute; bottom:3px; }
+
+.freeze-section { margin-top:1.25rem; padding:1rem; background:rgba(59,130,246,0.05); border:1px solid rgba(59,130,246,0.15); border-radius:12px; }
+.freeze-row { display:flex; align-items:center; gap:10px; }
+.freeze-icons { display:flex; gap:4px; }
+.freeze-icon { font-size:1.3rem; transition:transform 0.2s; }
+.freeze-icon.used { opacity:0.3; filter:grayscale(1); }
+.freeze-info { flex:1; }
+.freeze-title { font-size:0.82rem; font-weight:700; color:var(--tx); }
+.freeze-sub { font-size:0.72rem; color:var(--txm); }
+
+.milestone-row { display:flex; gap:8px; margin-top:1rem; flex-wrap:wrap; }
+.milestone { padding:6px 12px; border-radius:10px; font-size:0.72rem; font-weight:700; border:1px solid; transition:all 0.2s; }
+.m-reached { background:rgba(16,185,129,0.08); border-color:rgba(16,185,129,0.3); color:#059669; }
+.m-next { background:rgba(99,102,241,0.06); border-color:rgba(99,102,241,0.2); color:var(--si); }
+.m-locked { background:#f1f5f9; border-color:#e2eaf5; color:var(--txm); }
+
+.quest-list,.shop-grid,.badge-grid { display:grid; gap:10px; }
+.quest-card,.shop-item,.badge-item {
+  background:#f8faff; border:1px solid #e0e7ff; border-radius:14px; padding:1rem;
+}
+.quest-head,.shop-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+.quest-title,.shop-title,.badge-name { font-size:0.9rem; font-weight:800; color:var(--tx); }
+.quest-reward,.shop-price { font-size:0.78rem; font-weight:900; color:#6366f1; white-space:nowrap; }
+.quest-track { height:8px; background:#e2e8f0; border-radius:999px; overflow:hidden; margin-top:10px; }
+.quest-fill { height:100%; background:linear-gradient(90deg,#10b981,#6366f1); border-radius:999px; }
+.quest-meta,.shop-desc,.badge-kind { font-size:0.75rem; color:var(--txm); margin-top:6px; line-height:1.4; }
+.shop-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.shop-item.deal { border-color:rgba(245,158,11,0.35); background:rgba(245,158,11,0.06); }
+.shop-buy { margin-top:10px; width:100%; padding:9px 10px; border:none; border-radius:10px; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:white; font-size:0.78rem; font-weight:800; cursor:pointer; font-family:'DM Sans',sans-serif; }
+.shop-buy:disabled { opacity:.48; cursor:not-allowed; }
+.badge-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.badge-item { display:flex; align-items:center; gap:10px; }
+.badge-mark { width:34px; height:34px; display:grid; place-items:center; border-radius:10px; background:linear-gradient(135deg,#f97316,#facc15); color:white; font-weight:900; flex-shrink:0; }
+.celebration {
+  position:fixed; inset:0; z-index:100001; display:none; align-items:center; justify-content:center;
+  background:rgba(15,23,42,0.46); padding:1rem; backdrop-filter:blur(5px);
+}
+.celebration.on { display:flex; }
+.celebration-card { width:min(420px,100%); background:white; border-radius:20px; padding:2rem; text-align:center; box-shadow:0 24px 80px rgba(15,23,42,.28); position:relative; overflow:hidden; }
+.celebration-card::before { content:""; position:absolute; inset:-40% -20% auto; height:180px; background:radial-gradient(circle,#facc15,transparent 62%); opacity:.35; }
+.celebration-title { position:relative; font-family:'DM Serif Display',serif; font-size:2rem; color:#0f172a; margin-bottom:6px; }
+.celebration-sub { position:relative; color:#64748b; font-size:.9rem; line-height:1.5; margin-bottom:1.2rem; }
+.celebration-rewards { position:relative; display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin-bottom:1.3rem; }
+.reward-pill { padding:7px 12px; border-radius:999px; background:#f8fafc; border:1px solid #e2e8f0; font-weight:800; font-size:.78rem; color:#475569; }
+
+/* ── SESSION COMPLETE ANIMATION ── */
+#scAnim {
+  position:fixed; inset:0; z-index:100002;
+  display:none; align-items:center; justify-content:center;
+  background:rgba(7,8,20,0.72); backdrop-filter:blur(8px);
+  padding:1rem;
+}
+#scAnim.on { display:flex; }
+.sca-confetti { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+.sca-confetto {
+  position:absolute; top:-14px; width:9px; height:9px;
+  border-radius:2px; opacity:0;
+  animation:confettoFall linear infinite;
+}
+.sca-card {
+  position:relative; z-index:1;
+  width:min(400px,100%); background:var(--surf,#fff);
+  border-radius:24px; padding:2.25rem 2rem 1.75rem;
+  text-align:center; box-shadow:0 32px 96px rgba(7,8,20,.38);
+  animation:scCardIn 0.42s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+@keyframes scCardIn {
+  from { opacity:0; transform:scale(0.82) translateY(30px); }
+  to   { opacity:1; transform:scale(1)    translateY(0); }
+}
+/* Mini 🔥 flame for the session-complete overlay (matches the streak page) */
+.sca-flame-wrap {
+  position:relative; width:64px; height:68px;
+  margin:0 auto 0.5rem;
+  display:grid; place-items:center;
+}
+.sca-fl-emoji {
+  position:relative; z-index:2;
+  font-size:54px; line-height:1;
+  filter:drop-shadow(0 4px 8px rgba(249,115,22,.55)) drop-shadow(0 0 16px rgba(249,115,22,.45));
+  animation:scFlameLive 1.3s cubic-bezier(0.45,0.05,0.55,0.95) infinite;
+  font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;
+  user-select:none;
+}
+.sca-fl-aura {
+  position:absolute;
+  inset:auto 0 -4px 0;
+  height:18px;
+  margin:0 auto;
+  border-radius:50%;
+  background:radial-gradient(ellipse, rgba(249,115,22,.55) 0%, transparent 72%);
+  filter:blur(3px);
+  z-index:1;
+  animation:scFlameAura 1.5s ease-in-out infinite;
+}
+@keyframes scFlameLive {
+  0%   { transform:translateY(0)    rotate(-1deg)  scale(1); }
+  25%  { transform:translateY(-2px) rotate(1.5deg) scale(1.05); }
+  60%  { transform:translateY(-4px) rotate(-1deg)  scale(0.98); }
+  100% { transform:translateY(0)    rotate(-1deg)  scale(1); }
+}
+@keyframes scFlameAura {
+  0%,100% { transform:scaleX(1)    scaleY(1);    opacity:0.75; }
+  50%     { transform:scaleX(1.15) scaleY(0.85); opacity:1;    }
+}
+/* Plani clone area */
+.sca-plani { display:flex; justify-content:center; margin-bottom:0.5rem; }
+.sca-plani svg { width:72px; height:72px; animation:scPlaniFloat 2.4s ease-in-out infinite; filter:drop-shadow(0 8px 20px rgba(37,99,235,.42)); }
+@keyframes scPlaniFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+.sca-title {
+  font-family:'DM Serif Display',serif; font-size:1.9rem;
+  color:var(--tx,#0f172a); margin-bottom:4px;
+}
+.sca-sub { color:#64748b; font-size:.88rem; line-height:1.55; margin-bottom:1rem; }
+.sca-pills { display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin-bottom:1.25rem; }
+.sca-pill {
+  padding:6px 14px; border-radius:999px;
+  background:rgba(99,102,241,.08); border:1px solid rgba(99,102,241,.22);
+  font-weight:800; font-size:.8rem; color:#6366f1;
+}
+.sca-btn {
+  padding:11px 32px; border-radius:12px; border:none;
+  background:linear-gradient(135deg,#6366f1,#8b5cf6);
+  color:white; font-size:.92rem; font-weight:700;
+  cursor:pointer; font-family:'DM Sans',sans-serif;
+  box-shadow:0 4px 16px rgba(99,102,241,.35); transition:transform .16s;
+}
+.sca-btn:hover { transform:translateY(-1px); }
+@keyframes confettoFall {
+  0%   { transform:translateY(0) rotate(0deg); opacity:1; }
+  90%  { opacity:1; }
+  100% { transform:translateY(110vh) rotate(720deg); opacity:0; }
+}
+
+/* ── TIMER ── */
+.timer-ring { position:relative; width:72px; height:72px; flex-shrink:0; }
+.timer-ring svg { position:absolute; top:0; left:0; transform:rotate(-90deg); }
+.timer-txt { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:0.78rem; font-weight:700; color:var(--tx); font-family:'DM Mono',monospace; }
+
+/* ── TOAST ── */
+.pts-toast {
+  position:fixed; top:80px; right:20px;
+  background:linear-gradient(135deg,#6366f1,#8b5cf6);
+  color:white; padding:10px 18px; border-radius:14px; font-size:0.85rem;
+  font-weight:700; z-index:9999; pointer-events:none;
+  animation:tIn 0.3s ease, tOut 0.3s 1.7s ease both;
+  box-shadow:0 6px 20px rgba(99,102,241,0.4);
+}
+@keyframes tIn { from{transform:translateX(80px);opacity:0} to{transform:none;opacity:1} }
+@keyframes tOut { to{transform:translateX(80px);opacity:0} }
+
+/* ── EXTREME OVERLAY ── */
+#xOverlay {
+  display:none; position:fixed; inset:0; z-index:100000;
+  background:#070710; flex-direction:column; align-items:center; justify-content:center; padding:2rem;
+}
+#xOverlay.on { display:flex; }
+.xh { position:absolute; top:0; left:0; right:0; padding:1.25rem 2rem; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.07); }
+.xl { font-family:'DM Serif Display',serif; font-size:1rem; color:#6366f1; }
+.xtimer { font-family:'DM Mono',monospace; font-size:1.4rem; font-weight:700; color:white; }
+.xcontent { width:100%; max-width:700px; margin-top:80px; }
+.xprog { width:100%; height:4px; background:rgba(255,255,255,0.08); border-radius:2px; margin-bottom:2rem; overflow:hidden; }
+.xprog-fill { height:100%; background:linear-gradient(90deg,#6366f1,#8b5cf6); border-radius:2px; transition:width 0.4s; }
+.xq-card { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.09); border-radius:20px; padding:2rem; margin-bottom:1.25rem; }
+.xq-type { font-size:0.62rem; font-weight:800; text-transform:uppercase; letter-spacing:0.1em; color:#6366f1; margin-bottom:10px; }
+.xq-text { font-size:1.1rem; font-weight:600; color:white; line-height:1.55; }
+.xconf-label { font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:rgba(255,255,255,0.4); margin-bottom:8px; }
+.xconf-row { display:flex; gap:8px; margin-bottom:1rem; }
+.xconf-btn { flex:1; padding:9px; border:1.5px solid rgba(255,255,255,0.12); border-radius:10px; font-size:0.78rem; font-weight:700; cursor:pointer; background:transparent; color:rgba(255,255,255,0.5); font-family:'DM Sans',sans-serif; transition:all 0.2s; }
+.xconf-btn.xl2 { border-color:#ef4444; color:#ef4444; }
+.xconf-btn.xm2 { border-color:#f59e0b; color:#f59e0b; }
+.xconf-btn.xh2 { border-color:#10b981; color:#10b981; }
+.x-ans-ta { width:100%; min-height:80px; padding:12px; background:rgba(255,255,255,0.05); border:1.5px solid rgba(255,255,255,0.12); border-radius:12px; font-size:0.88rem; color:white; font-family:'DM Sans',sans-serif; resize:vertical; outline:none; margin-bottom:10px; }
+.x-ans-ta:focus { border-color:#6366f1; }
+.x-submit { width:100%; padding:13px; background:rgba(99,102,241,0.25); border:1.5px solid #6366f1; color:#a5b4fc; border-radius:12px; font-size:0.9rem; font-weight:700; cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.2s; }
+.x-submit:hover { background:#6366f1; color:white; }
+.x-fb { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.09); border-radius:14px; padding:1.25rem; margin:1rem 0; display:none; font-size:0.88rem; color:#e2e8f0; line-height:1.65; }
+.x-self-check { display:none; gap:10px; }
+.x-sc-btn { flex:1; padding:10px; border:1.5px solid; border-radius:12px; font-size:0.82rem; font-weight:700; cursor:pointer; font-family:'DM Sans',sans-serif; background:transparent; transition:all 0.2s; }
+.x-correct { border-color:#10b981; color:#10b981; }
+.x-correct:hover,.x-correct.xsel { background:#10b981; color:white; }
+.x-wrong { border-color:#ef4444; color:#ef4444; }
+.x-wrong:hover,.x-wrong.xsel { background:#ef4444; color:white; }
+.x-next { width:100%; padding:13px; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:white; border:none; border-radius:12px; font-size:0.92rem; font-weight:700; cursor:pointer; font-family:'DM Sans',sans-serif; margin-top:1rem; display:none; }
+.hold-exit { position:absolute; bottom:2rem; left:50%; transform:translateX(-50%); }
+.he-btn { padding:9px 22px; background:rgba(239,68,68,0.1); border:1.5px solid rgba(239,68,68,0.3); color:#fca5a5; border-radius:12px; font-size:0.78rem; font-weight:600; cursor:pointer; font-family:'DM Sans',sans-serif; position:relative; overflow:hidden; user-select:none; }
+.he-fill { position:absolute; left:0; top:0; height:100%; width:0; background:rgba(239,68,68,0.25); pointer-events:none; }
+
+/* ── REVIEW MISTAKES ── */
+.rm-item { background:var(--surf); border:1px solid var(--bdr); border-radius:14px; padding:1.25rem; margin-bottom:10px; }
+.rm-q { font-size:0.9rem; font-weight:600; color:var(--tx); margin-bottom:6px; }
+.rm-verdict { font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:7px; display:inline-block; margin-bottom:8px; }
+.rmv-partial { background:#fef3c7; color:#d97706; }
+.rmv-incorrect { background:#fee2e2; color:#dc2626; }
+.rm-ans { font-size:0.82rem; color:var(--txs); line-height:1.5; }
+
+body.serious-mode main header,
+body.serious-mode footer,
+body.serious-mode .nav-tabs { display:none !important; }
+
+@media(max-width:600px) {
+  .mode-grid { grid-template-columns:1fr; }
+  .comp-stats { grid-template-columns:repeat(2,1fr); }
+  .perf-grid { grid-template-columns:repeat(2,1fr); }
+  .shop-grid,.badge-grid { grid-template-columns:1fr; }
+  .st { font-size:1.5rem; }
+  .sp { padding:1.25rem; }
+  .streak-num { font-size:2.5rem; }
+}
+</style>
+
+<!-- Extreme Overlay -->
+<div id="xOverlay">
+  <div class="xh">
+    <div class="xl">IntelliPlan, Extreme Focus</div>
+    <div id="xTimerDisplay" class="xtimer">25:00</div>
+    <div id="xPtsDisplay" style="font-size:0.82rem;color:#a5b4fc;font-weight:700;display:flex;align-items:center;gap:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> 0 Sparks</div>
+  </div>
+  <div class="xcontent">
+    <div class="xprog"><div class="xprog-fill" id="xProgFill" style="width:0%"></div></div>
+    <div id="xQCard" class="xq-card">
+      <div class="xq-type" id="xQType">Recall</div>
+      <div class="xq-text" id="xQText">Loading...</div>
+    </div>
+    <div class="xconf-label">How confident are you?</div>
+    <div class="xconf-row" id="xConfRow">
+      <button class="xconf-btn" onclick="xSetConf('low',this)">Low</button>
+      <button class="xconf-btn" onclick="xSetConf('medium',this)">Medium</button>
+      <button class="xconf-btn" onclick="xSetConf('high',this)">High</button>
+    </div>
+    <textarea class="x-ans-ta" id="xAnsInput" placeholder="Type your answer here..."></textarea>
+    <button class="x-submit" id="xSubmitBtn" onclick="xSubmit()">Submit Answer</button>
+    <div class="x-fb" id="xFbBox"></div>
+    <div class="x-self-check" id="xSelfCheck">
+      <button class="x-sc-btn x-correct" onclick="xMark(true)">✓ Got it</button>
+      <button class="x-sc-btn x-wrong" onclick="xMark(false)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x"/></svg> Missed it</button>
+    </div>
+    <button class="x-next" id="xNextBtn" onclick="xNext()">Next Question →</button>
+  </div>
+  <div class="hold-exit">
+    <button class="he-btn" id="heBtn" onmousedown="hStart()" onmouseup="hStop()" onmouseleave="hStop()" ontouchstart="hStart(event)" ontouchend="hStop()">
+      <div class="he-fill" id="heFill"></div>
+      Hold 10s to Exit
+    </button>
+  </div>
+</div>
+
+<div class="celebration" id="celebrationOverlay">
+  <div class="celebration-card">
+    <div class="celebration-title" id="celebrationTitle">Milestone!</div>
+    <div class="celebration-sub" id="celebrationSub">Your work paid off.</div>
+    <div class="celebration-rewards" id="celebrationRewards"></div>
+    <button class="btn-solid" onclick="closeCelebration()">Keep going</button>
+  </div>
+</div>
+
+<!-- Session Complete Animation -->
+<div id="scAnim" aria-live="assertive">
+  <div class="sca-confetti" id="scaConfetti"></div>
+  <div class="sca-card" id="scaCard">
+    <div class="sca-flame-wrap" aria-hidden="true">
+      <span class="sca-fl-emoji">🔥</span>
+      <span class="sca-fl-aura"></span>
+    </div>
+    <div class="sca-plani" id="scaPlani"></div>
+    <div class="sca-title">Session Complete!</div>
+    <div class="sca-sub" id="scaSub">Great work keeping the momentum going.</div>
+    <div class="sca-pills" id="scaPills"></div>
+    <button class="sca-btn" onclick="closeScAnim()">Continue</button>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="studyApp">
+  <div class="sh">
+    <h1 class="st">Study <em>&amp; Learn</em></h1>
+  </div>
+
+  <!-- Navigation -->
+  <div class="study-nav">
+    <button class="snav-btn active" onclick="switchTab('learn')" id="tab-learn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg> Learn</button>
+    <button class="snav-btn" onclick="switchTab('flashcards')" id="tab-flashcards"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pencil"/></svg> Flashcards</button>
+    <button class="snav-btn" onclick="switchTab('review')" id="tab-review"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg> Review</button>
+    <button class="snav-btn" onclick="switchTab('mastery')" id="tab-mastery"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-chart-bar"/></svg> Mastery</button>
+    <button class="snav-btn" onclick="switchTab('progress')" id="tab-progress"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-chart-bar"/></svg> Progress</button>
+    <button class="snav-btn" onclick="switchTab('quests')" id="tab-quests">Quests</button>
+    <button class="snav-btn" onclick="switchTab('shop')" id="tab-shop">Shop</button>
+  </div>
+
+  <!-- ══ LEARN TAB ══ -->
+  <div id="tabLearn">
+    <!-- Setup -->
+    <div id="setupView">
+      <div class="sp">
+        <div class="sp-label">Step 1, Add Study Material</div>
+        <div class="itabs">
+          <button class="itab active" onclick="switchInputTab('paste')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pencil"/></svg> Paste Text</button>
+          <button class="itab" onclick="switchInputTab('upload')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-download"/></svg> Upload File</button>
+        </div>
+        <div class="ipanel active" id="pastePanel">
+          <textarea class="study-ta" id="pasteContent" placeholder="Paste notes, textbook text, articles, or any study material..."></textarea>
+        </div>
+        <div class="ipanel" id="uploadPanel">
+          <div class="upload-z" id="uploadZone">
+            <input type="file" id="fileUpload" accept=".txt,.pdf" onchange="handleUpload(this)"/>
+            <div style="margin-bottom:8px;color:var(--accent);"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-link"/></svg></div>
+            <div style="font-size:0.88rem;color:#64748b;">Drop a file or click to browse</div>
+            <div style="font-size:0.72rem;color:#94a3b8;margin-top:4px;">Supports .txt and .pdf</div>
+            <div id="uploadMsg" style="font-size:0.82rem;color:#10b981;margin-top:8px;display:none;"></div>
+          </div>
+          <textarea class="study-ta" id="uploadContent" style="margin-top:1rem;display:none;" placeholder="Extracted text (editable)..."></textarea>
+        </div>
+      </div>
+
+      <div class="sp">
+        <div class="sp-label">Step 2, Choose Mode</div>
+        <div class="mode-grid">
+          <div class="mc sel" style="--mc:#10b981" data-mode="casual" onclick="selMode('casual')">
+            <div class="mc-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></div>
+            <div class="mc-name">Casual</div>
+            <div class="mc-desc">Relaxed. No timer. Full AI evaluation.</div>
+            <span class="mc-badge" style="background:#d1fae5;color:#059669;">Chill</span>
+          </div>
+          <div class="mc" style="--mc:#6366f1" data-mode="serious" onclick="selMode('serious')">
+            <div class="mc-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg></div>
+            <div class="mc-name">Serious</div>
+            <div class="mc-desc">25-min Pomodoro. Hides nav. Focus mode.</div>
+            <span class="mc-badge" style="background:#e0e7ff;color:#4f46e5;">Focus</span>
+          </div>
+          <div class="mc" style="--mc:#ef4444" data-mode="extreme" onclick="selMode('extreme')">
+            <div class="mc-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-fire"/></svg></div>
+            <div class="mc-name">Extreme</div>
+            <div class="mc-desc">Fullscreen lock. 10s hold to exit.</div>
+            <span class="mc-badge" style="background:#fee2e2;color:#dc2626;">Locked</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="s-start" id="startBtn" onclick="startSession()" style="display:inline-flex;align-items:center;gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-rocket"/></svg> Generate Study Session</button>
+    </div>
+
+    <!-- Session View -->
+    <div id="sessionView" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:0.75rem;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span style="font-size:0.72rem;font-weight:700;padding:4px 12px;border-radius:10px;background:rgba(99,102,241,0.08);color:var(--si);" id="sesTopicPill">Topic</span>
+          <span style="font-size:0.68rem;font-weight:800;padding:4px 12px;border-radius:10px;text-transform:uppercase;" id="sesModePill">Casual</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div id="sesTimerWrap" style="display:none;">
+            <div class="timer-ring">
+              <svg width="72" height="72" viewBox="0 0 72 72">
+                <circle cx="36" cy="36" r="30" fill="none" stroke="#e0e7ff" stroke-width="5"/>
+                <circle cx="36" cy="36" r="30" fill="none" stroke="#6366f1" stroke-width="5" stroke-linecap="round" stroke-dasharray="188.5" id="timerCircle" stroke-dashoffset="0" style="transition:stroke-dashoffset 1s linear;"/>
+              </svg>
+              <div class="timer-txt" id="timerTxt">25:00</div>
+            </div>
+          </div>
+          <button onclick="exitSession()" style="background:none;border:none;cursor:pointer;font-size:0.78rem;color:#94a3b8;font-family:'DM Sans',sans-serif;display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x"/></svg> Exit</button>
+        </div>
+      </div>
+
+      <div class="prog-info">
+        <span id="progTxt" style="font-weight:600;color:var(--si);">Q 1 of 8</span>
+        <div style="display:flex;gap:10px;">
+          <span id="sesPtsDisp" style="font-weight:700;color:var(--si);display:inline-flex;align-items:center;gap:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> 0 Sparks</span>
+          <span id="sesAccDisp" style="color:var(--txm);">0/0 correct</span>
+        </div>
+      </div>
+      <div class="prog-track"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+
+      <div id="questionArea"></div>
+      <div id="completeCard" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- ══ FLASHCARDS TAB ══ -->
+  <div id="tabFlashcards" style="display:none;">
+    <!-- Saved sets, visible whenever the user has saved sets, regardless of current session -->
+    <div id="fcSetsWrap" class="sp" style="display:none;margin-bottom:1rem;">
+      <div class="sp-label" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>My Flashcard Sets</span>
+        <span style="font-size:0.7rem;font-weight:500;color:var(--txm);" id="fcSetsCount"></span>
+      </div>
+      <div id="fcSetsList" style="display:flex;flex-direction:column;gap:8px;margin-top:8px;"></div>
+    </div>
+
+    <div id="fcNoData" class="sp" style="text-align:center;padding:3rem;">
+      <div style="margin-bottom:1rem;color:var(--accent);"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightbulb"/></svg></div>
+      <div style="font-size:1rem;font-weight:600;color:var(--tx);margin-bottom:8px;">No flashcards yet</div>
+      <div style="font-size:0.85rem;color:var(--txm);">Complete a study session to generate flashcards from your material. Past sets will show up here.</div>
+    </div>
+    <div id="fcData" style="display:none;">
+      <div class="fc-wrap" onclick="flipCard()" id="fcWrap">
+        <div class="fc" id="fcCard">
+          <div class="fc-face">
+            <div class="fc-label">Question</div>
+            <div class="fc-text" id="fcFront">...</div>
+            <div class="fc-hint">Tap to reveal answer</div>
+          </div>
+          <div class="fc-face fc-back">
+            <div class="fc-label">Answer</div>
+            <div class="fc-text" id="fcBack">...</div>
+          </div>
+        </div>
+      </div>
+      <div class="fc-controls">
+        <div class="fc-nav">
+          <button class="fc-nav-btn" onclick="fcPrev()">← Prev</button>
+          <button class="fc-nav-btn" onclick="fcNext()">Next →</button>
+        </div>
+        <div class="fc-counter" id="fcCounter">1 / 8</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ REVIEW TAB ══ -->
+  <div id="tabReview" style="display:none;">
+    <div class="sp">
+      <div class="sp-label">Review Mistakes</div>
+      <div id="reviewList"><div style="text-align:center;padding:2rem;color:var(--txm);">No mistakes to review yet. Complete a session first!</div></div>
+    </div>
+    <div id="reviewDueWrap" style="display:none;">
+      <div class="sp">
+        <div class="sp-label" style="display:flex;align-items:center;gap:8px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>
+          Spaced Repetition Review
+          <span id="srsCountBadge" style="font-size:0.7rem;font-weight:700;background:var(--accent);color:#fff;padding:2px 8px;border-radius:20px;"></span>
+        </div>
+        <!-- SRS card session -->
+        <div id="srsSession" style="display:none;">
+          <div style="text-align:right;font-size:0.75rem;color:var(--txm);margin-bottom:10px;" id="srsProgress"></div>
+          <!-- Flip card -->
+          <div id="srsCardEl" style="perspective:900px;cursor:pointer;margin-bottom:1rem;" onclick="srsFlipped||srsShowAnswer()">
+            <div style="position:relative;min-height:140px;transform-style:preserve-3d;transition:transform 0.4s;border-radius:var(--r-lg);border:1.5px solid var(--border);" id="srsCardInner">
+              <div style="position:absolute;inset:0;backface-visibility:hidden;display:flex;align-items:center;justify-content:center;padding:1.5rem;background:var(--bg-card);border-radius:inherit;font-size:0.95rem;font-weight:600;text-align:center;line-height:1.5;" id="srsCardFront"></div>
+              <div style="position:absolute;inset:0;backface-visibility:hidden;transform:rotateY(180deg);display:flex;align-items:center;justify-content:center;padding:1.5rem;background:var(--bg-card);border-radius:inherit;font-size:0.9rem;line-height:1.55;text-align:center;color:var(--txs);" id="srsCardBack"></div>
+            </div>
+          </div>
+          <style>
+            #srsCardEl.flipped #srsCardInner { transform: rotateY(180deg); }
+          </style>
+          <div style="display:flex;justify-content:center;margin-bottom:0.75rem;">
+            <button id="srsShowAnswerBtn" onclick="srsShowAnswer()" style="padding:8px 22px;border-radius:var(--r-md);border:1.5px solid var(--border);background:var(--bg-card);font-family:var(--font-ui);font-size:0.82rem;font-weight:600;cursor:pointer;color:var(--text-primary);">Show Answer</button>
+          </div>
+          <!-- Rating buttons -->
+          <div id="srsRatings" style="display:none;flex-direction:column;gap:8px;align-items:center;">
+            <div style="font-size:0.73rem;color:var(--txm);margin-bottom:2px;">How well did you recall it?</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+              <button onclick="srsSubmitRating(1)" style="padding:7px 14px;border-radius:var(--r-sm);border:none;background:#fee2e2;color:#dc2626;font-weight:700;font-size:0.78rem;cursor:pointer;font-family:var(--font-ui);">Forgot</button>
+              <button onclick="srsSubmitRating(2)" style="padding:7px 14px;border-radius:var(--r-sm);border:none;background:#fef9c3;color:#a16207;font-weight:700;font-size:0.78rem;cursor:pointer;font-family:var(--font-ui);">Hard</button>
+              <button onclick="srsSubmitRating(3)" style="padding:7px 14px;border-radius:var(--r-sm);border:none;background:#dbeafe;color:#1d4ed8;font-weight:700;font-size:0.78rem;cursor:pointer;font-family:var(--font-ui);">Good</button>
+              <button onclick="srsSubmitRating(5)" style="padding:7px 14px;border-radius:var(--r-sm);border:none;background:#dcfce7;color:#15803d;font-weight:700;font-size:0.78rem;cursor:pointer;font-family:var(--font-ui);">Easy</button>
+            </div>
+          </div>
+        </div>
+        <div id="srsDoneMsg" style="display:none;text-align:center;padding:2rem 1rem;color:var(--txm);font-size:0.88rem;"></div>
+        <div id="dueList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ MASTERY TAB ══ -->
+  <div id="tabMastery" style="display:none;">
+    <div class="sp">
+      <div class="sp-label">Concept Mastery</div>
+      <div style="display:flex;gap:10px;margin-bottom:1.25rem;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:600;"><span style="width:10px;height:10px;border-radius:50%;background:#f1f5f9;border:1px solid #e2eaf5;display:inline-block;"></span>Not Learned</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:600;"><span style="width:10px;height:10px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>Learning</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:600;"><span style="width:10px;height:10px;border-radius:50%;background:#3b82f6;display:inline-block;"></span>Familiar</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:600;"><span style="width:10px;height:10px;border-radius:50%;background:#10b981;display:inline-block;"></span>Mastered</div>
+      </div>
+      <div id="masteryList"><div style="text-align:center;padding:2rem;color:var(--txm);">Complete sessions to track mastery.</div></div>
+    </div>
+  </div>
+
+  <!-- ══ PROGRESS TAB ══ -->
+  <div id="tabProgress" style="display:none;">
+    <div class="sp">
+      <div class="sp-label">Your Stats</div>
+      <div class="perf-grid">
+        <div class="perf-card"><div class="perf-num" id="pTotalPts">0</div><div class="perf-lbl">Lifetime Sparks</div></div>
+        <div class="perf-card"><div class="perf-num" id="pTotalSes">0</div><div class="perf-lbl">Sessions</div></div>
+        <div class="perf-card"><div class="perf-num" id="pAccuracy">-%</div><div class="perf-lbl">Accuracy</div></div>
+      </div>
+    </div>
+    <div class="sp">
+      <div class="sp-label">Session History</div>
+      <div id="sessionHistList"></div>
+    </div>
+  </div>
+
+  <!-- ══ QUESTS TAB ══ -->
+  <div id="tabQuests" style="display:none;">
+    <div class="sp">
+      <div class="sp-label">Weekly Quests</div>
+      <div id="questCompletionMsg" style="font-size:0.86rem;color:var(--txs);margin-bottom:1rem;">Three quests refresh every Monday.</div>
+      <div class="quest-list" id="questList"></div>
+    </div>
+  </div>
+
+  <!-- ══ SHOP TAB ══ -->
+  <div id="tabShop" style="display:none;">
+    <div class="sp">
+      <div class="sp-label">Spark Shop</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:1rem;">
+        <div style="font-size:0.9rem;font-weight:800;color:var(--tx);">Balance: <span id="shopBalance">0</span> Sparks</div>
+        <div style="font-size:0.76rem;color:var(--txm);" id="weeklyDealMsg">Weekly deal refreshes Monday.</div>
+      </div>
+      <div class="shop-grid" id="shopGrid"></div>
+    </div>
+  </div>
+
+  <!-- ══ STREAK TAB ══ -->
+  <div id="tabStreak" style="display:none;">
+    <div class="risk-banner risk-warn" id="riskBanner"></div>
+    <div class="risk-banner risk-repair" id="repairBanner"></div>
+    <div class="streak-hero">
+      <div class="fire-stage">
+        <span class="streak-fire"></span>
+        <span class="spark-particle p1"></span>
+        <span class="spark-particle p2"></span>
+        <span class="spark-particle p3"></span>
+      </div>
+      <div class="streak-num" id="streakBigNum">0</div>
+      <div class="streak-word" id="streakWordLabel">Day Streak</div>
+      <div class="streak-sub" id="streakSubMsg">Study today to start your streak!</div>
+      <div class="streak-stats-row">
+        <div class="ss-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg> Best: <span id="longestStreakDisp">0</span> days</div>
+        <div class="ss-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> Total sessions: <span id="totalSesDisp">0</span></div>
+        <div class="ss-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> <span id="totalPtsDisp2">0</span> Sparks</div>
+      </div>
+    </div>
+
+    <div class="sp">
+      <div class="sp-label">Study Calendar, Last 60 Days</div>
+      <div class="cal-grid" id="calDayHeaders"></div>
+      <div id="calGrid" style="margin-top:4px;"></div>
+    </div>
+
+    <div class="sp">
+      <div class="sp-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pin"/></svg> Streak Freezes</div>
+      <div class="freeze-section">
+        <div class="freeze-row">
+          <div class="freeze-icons" id="freezeIcons"></div>
+          <div class="freeze-info">
+            <div class="freeze-title">Streak Freezes</div>
+            <div class="freeze-sub" id="freezeSubMsg">Freezes prevent streak loss if you miss a day.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sp">
+      <div class="sp-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg> Milestones</div>
+      <div class="milestone-row" id="milestoneRow"></div>
+    </div>
+
+    <div class="sp">
+      <div class="sp-label">Badges</div>
+      <div class="badge-grid" id="badgeGrid"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══ STATE ══════════════════════════════════════════════════
+const G = {
+  mode: 'casual',
+  questions: [], keyConcepts: [], title: '',
+  curQ: 0, sesPts: 0, sesCorrect: 0, sesPartial: 0, sesAnswered: 0,
+  mistakes: [], // [{q, verdict, userAns, correctAns}]
+  totalPts: 0, sparkBalance: 0, sparksEarnedTotal: 0, level: 1, levelTitle: 'Learner',
+  streak: 0, freezes: 0, freezeCapacity: 2, lastActive: '',
+  streakTier: {name:'Spark', bonus:5, color:'#ef4444'}, atRisk: false,
+  repairAvailable: false, repairCost: 0, repairEligibleUntil: null,
+  badges: [], activeBooster: null, activeCosmetics: {}, weeklyQuests: null, shop: null,
+  streakHistory: [], sessionHistory: [], longestStreak: 0, totalSessions: 0,
+  timer: null, timerSecs: 1500, timerRem: 1500,
+  activeSecs: 0, activeTimer: null, sesStart: null,
+  inputTab: 'paste', generating: false, currentConf: 'medium',
+  // Extreme
+  xQ: 0, xConf: 'medium', xRevealed: false,
+  // Flashcards
+  fcIndex: 0, fcFlipped: false,
+  tabActive: 'learn'
+};
+
+// ══ INIT ══════════════════════════════════════════════════
+async function init() {
+  await loadProfile();
+  renderStreakTab();
+  renderMasteryTab();
+  renderProgressTab();
+  renderQuestsTab();
+  renderShopTab();
+  loadDueReviews();
+}
+
+async function loadProfile() {
+  try {
+    const r = await fetch('/study/points');
+    const d = await r.json();
+    if (d.status === 'ok') {
+      G.totalPts = d.total_points || 0;
+      G.sparkBalance = d.spark_balance ?? G.totalPts;
+      G.sparksEarnedTotal = d.sparks_earned_total || G.totalPts;
+      G.level = d.level || 1;
+      G.levelTitle = d.level_title || 'Learner';
+      G.streak = d.streak_count || 0;
+      G.freezes = d.streak_freeze_count || 0;
+      G.freezeCapacity = d.freeze_capacity || 2;
+      G.lastActive = d.last_active_date || '';
+      G.streakTier = d.streak_tier || G.streakTier;
+      G.atRisk = !!d.at_risk;
+      G.repairAvailable = !!d.repair_available;
+      G.repairCost = d.repair_cost || 0;
+      G.repairEligibleUntil = d.repair_eligible_until || null;
+      G.streakHistory = d.streak_history || [];
+      G.sessionHistory = d.session_history || [];
+      G.longestStreak = d.longest_streak || G.streak;
+      G.totalSessions = d.total_sessions || 0;
+      G.badges = d.badges || [];
+      G.activeBooster = d.active_booster || null;
+      G.activeCosmetics = d.active_cosmetics || {};
+      G.weeklyQuests = d.weekly_quests || null;
+      G.shop = d.shop || null;
+    }
+  } catch(e) {
+    const ls = JSON.parse(localStorage.getItem('ip_study') || '{}');
+    G.totalPts = ls.pts || 0; G.sparkBalance = ls.sparkBalance ?? G.totalPts;
+    G.sparksEarnedTotal = ls.sparksEarnedTotal || G.totalPts; G.level = ls.level || 1;
+    G.streak = ls.streak || 0; G.freezes = ls.freezes || 0; G.lastActive = ls.lastActive || '';
+    G.streakHistory = ls.history || []; G.longestStreak = ls.longest || 0;
+    G.totalSessions = ls.sessions || 0;
+    G.sessionHistory = ls.sessionHistory || [];
+  }
+  updateChips();
+}
+
+function saveLocal() {
+  localStorage.setItem('ip_study', JSON.stringify({
+    pts: G.totalPts, sparkBalance: G.sparkBalance, sparksEarnedTotal: G.sparksEarnedTotal,
+    level: G.level, streak: G.streak, freezes: G.freezes,
+    lastActive: G.lastActive, history: G.streakHistory,
+    longest: G.longestStreak, sessions: G.totalSessions,
+    sessionHistory: G.sessionHistory
+  }));
+}
+
+// ══ CHIPS ══════════════════════════════════════════════════
+function updateChips() {
+  document.getElementById('sStreakNum').textContent = G.streak + ' day' + (G.streak !== 1 ? 's' : '');
+  document.getElementById('sPtsNum').textContent = G.sparkBalance;
+  document.getElementById('sFreezeNum').textContent = G.freezes + '/' + G.freezeCapacity;
+  document.getElementById('sLevelNum').textContent = G.level;
+}
+
+function pulseChip(id) {
+  const el = document.getElementById(id);
+  el.classList.remove('chip-pulse'); void el.offsetWidth; el.classList.add('chip-pulse');
+}
+
+// ══ TABS ══════════════════════════════════════════════════
+function switchTab(tab) {
+  G.tabActive = tab;
+  ['learn','flashcards','review','mastery','progress','quests','shop','streak'].forEach(t => {
+    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+    document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = t === tab ? 'block' : 'none';
+  });
+  if (tab === 'streak') renderStreakTab();
+  if (tab === 'mastery') renderMasteryTab();
+  if (tab === 'progress') renderProgressTab();
+  if (tab === 'review') renderReviewTab();
+  if (tab === 'quests') renderQuestsTab();
+  if (tab === 'shop') renderShopTab();
+  if (tab === 'flashcards') fcRenderSets();
+}
+
+function switchInputTab(tab) {
+  G.inputTab = tab;
+  document.querySelectorAll('.itab').forEach((b,i) => b.classList.toggle('active', ['paste','upload'][i] === tab));
+  document.getElementById('pastePanel').classList.toggle('active', tab === 'paste');
+  document.getElementById('uploadPanel').classList.toggle('active', tab === 'upload');
+}
+
+function selMode(m) {
+  G.mode = m;
+  document.querySelectorAll('.mc').forEach(c => c.classList.toggle('sel', c.dataset.mode === m));
+}
+
+// ══ UPLOAD ════════════════════════════════════════════════
+async function handleUpload(input) {
+  const file = input.files[0]; if (!file) return;
+  const msg = document.getElementById('uploadMsg');
+  msg.style.display = 'block'; msg.textContent = 'Extracting...'; msg.style.color = '#94a3b8';
+  if (file.name.endsWith('.txt')) {
+    const t = await file.text();
+    document.getElementById('uploadContent').value = t;
+    document.getElementById('uploadContent').style.display = 'block';
+    msg.textContent = `Loaded (${t.length} chars)`; msg.style.color = '#10b981';
+  } else if (file.name.endsWith('.pdf')) {
+    const fd = new FormData(); fd.append('file', file);
+    try {
+      const r = await fetch('/study/extract-pdf', {method:'POST', body:fd});
+      const d = await r.json();
+      if (d.status === 'ok') {
+        document.getElementById('uploadContent').value = d.text;
+        document.getElementById('uploadContent').style.display = 'block';
+        msg.textContent = `${file.name} (${d.text.length} chars)`; msg.style.color = '#10b981';
+      } else { msg.textContent = (d.message || 'Extraction failed'); msg.style.color = '#ef4444'; }
+    } catch(e) { msg.textContent = 'Upload failed'; msg.style.color = '#ef4444'; }
+  }
+}
+
+const uz = document.getElementById('uploadZone');
+uz.addEventListener('dragover', e => { e.preventDefault(); uz.classList.add('dv'); });
+uz.addEventListener('dragleave', () => uz.classList.remove('dv'));
+uz.addEventListener('drop', e => {
+  e.preventDefault(); uz.classList.remove('dv');
+  const f = e.dataTransfer.files[0];
+  if (f) { const dt = new DataTransfer(); dt.items.add(f); document.getElementById('fileUpload').files = dt.files; handleUpload(document.getElementById('fileUpload')); }
+});
+
+// ══ SESSION START ═════════════════════════════════════════
+async function startSession() {
+  if (G.generating) return;
+  const content = G.inputTab === 'paste'
+    ? document.getElementById('pasteContent').value.trim()
+    : document.getElementById('uploadContent').value.trim();
+  if (!content || content.length < 50) { alert('Add at least 50 characters of study material.'); return; }
+
+  const btn = document.getElementById('startBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="btn-spin"></span>Generating questions...';
+  G.generating = true;
+
+  try {
+    const r = await fetch('/study/generate', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({content, mode: G.mode, num_questions: 8})
+    });
+    const d = await r.json();
+    if (d.status !== 'ok') throw new Error(d.message || 'Failed');
+
+    G.questions = d.data.questions || [];
+    G.keyConcepts = d.data.key_concepts || [];
+    G.title = d.data.title || 'Study Session';
+    G.curQ = 0; G.sesPts = 0; G.sesCorrect = 0; G.sesPartial = 0; G.sesAnswered = 0;
+    G.mistakes = []; G.sesStart = Date.now(); G.activeSecs = 0;
+    G.currentConf = 'medium';
+
+    if (G.mode === 'extreme') launchExtreme();
+    else launchNormal();
+
+    // Populate flashcards
+    populateFlashcards();
+  } catch(e) { alert('Could not generate: ' + e.message); }
+  finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-rocket"/></svg> Generate Study Session';
+    G.generating = false;
+  }
+}
+
+// ══ NORMAL SESSION ════════════════════════════════════════
+function launchNormal() {
+  document.getElementById('setupView').style.display = 'none';
+  document.getElementById('sessionView').style.display = 'block';
+
+  const modeMap = { casual:['#059669','#d1fae5'], serious:['#4f46e5','#e0e7ff'], extreme:['#dc2626','#fee2e2'] };
+  const [mc, mbg] = modeMap[G.mode];
+  const mp = document.getElementById('sesModePill');
+  mp.textContent = G.mode.charAt(0).toUpperCase() + G.mode.slice(1);
+  mp.style.background = mbg; mp.style.color = mc;
+  document.getElementById('sesTopicPill').textContent = G.title;
+
+  if (G.mode === 'serious') {
+    document.getElementById('sesTimerWrap').style.display = 'block';
+    document.body.classList.add('serious-mode');
+    startTimer();
+    G.activeTimer = setInterval(() => G.activeSecs++, 1000);
+  }
+  renderQ();
+}
+
+function renderQ() {
+  const q = G.questions[G.curQ];
+  const total = G.questions.length;
+  const pct = (G.curQ / total) * 100;
+  document.getElementById('progFill').style.width = pct + '%';
+  document.getElementById('progTxt').textContent = `Q ${G.curQ + 1} of ${total}`;
+  document.getElementById('sesPtsDisp').innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> ${G.sesPts} Sparks`;
+  document.getElementById('sesAccDisp').textContent = `${G.sesCorrect}/${G.sesAnswered} correct`;
+
+  const typeLabel = {recall:'Recall', conceptual:'Conceptual', 'short-answer':'Short Answer'}[q.type] || 'Recall';
+  const typeClass = {recall:'qtb-recall', conceptual:'qtb-conceptual', 'short-answer':'qtb-short-answer'}[q.type] || 'qtb-recall';
+
+  document.getElementById('questionArea').innerHTML = `
+    <div class="q-card">
+      <span class="q-type-badge ${typeClass}">${typeLabel}</span>
+      <div class="q-text">${escHtml(q.question)}</div>
+      ${q.hint ? `<div class="q-hint"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightbulb"/></svg> ${escHtml(q.hint)}</div>` : ''}
+    </div>
+
+    <div class="sp" style="margin-top:0;">
+      <div class="conf-label">How confident are you?</div>
+      <div class="conf-row" id="confRow">
+        <button class="conf-btn" onclick="setConf('low',this)">Low confidence</button>
+        <button class="conf-btn sel-med" onclick="setConf('medium',this)">Medium</button>
+        <button class="conf-btn" onclick="setConf('high',this)">High confidence</button>
+      </div>
+
+      <div class="ans-input-wrap">
+        <label style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--txm);display:block;margin-bottom:8px;">Your Answer</label>
+        <textarea class="ans-ta" id="ansInput" placeholder="Type your answer here, be as detailed as you can..."></textarea>
+      </div>
+
+      <button class="submit-btn" id="submitBtn" onclick="submitAnswer()">Submit Answer</button>
+
+      <div id="fbArea" style="display:none;margin-top:1rem;"></div>
+
+      <button class="next-btn" id="nextBtn" style="display:none;" onclick="nextQuestion()">
+        ${G.curQ + 1 < total ? 'Next Question →' : 'Finish Session'}
+      </button>
+    </div>
+  `;
+  G.currentConf = 'medium';
+}
+
+function setConf(c, btn) {
+  G.currentConf = c;
+  document.querySelectorAll('.conf-btn').forEach(b => { b.className = 'conf-btn'; });
+  btn.classList.add('sel-' + c.substring(0,3).toLowerCase() === 'low' ? 'low' : c.substring(0,3).toLowerCase() === 'med' ? 'med' : 'high');
+  btn.className = 'conf-btn sel-' + (c === 'low' ? 'low' : c === 'medium' ? 'med' : 'high');
+}
+
+async function submitAnswer() {
+  const ans = document.getElementById('ansInput').value.trim();
+  if (!ans) { alert('Please type an answer.'); return; }
+  const q = G.questions[G.curQ];
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="btn-spin"></span>Evaluating...';
+
+  try {
+    const r = await fetch('/study/evaluate', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        question: q.question,
+        correct_answer: q.answer,
+        user_answer: ans,
+        confidence: G.currentConf
+      })
+    });
+    const d = await r.json();
+    if (d.status !== 'ok') throw new Error(d.message);
+
+    const ev = d.evaluation;
+    displayFeedback(ev, q, ans);
+
+    // Points
+    const pts = ev.verdict === 'correct' ? 2 : ev.verdict === 'partial' ? 1 : 0;
+    if (pts > 0) await addPoints(pts, `+${pts} Sparks`);
+
+    // Track
+    G.sesAnswered++;
+    if (ev.verdict === 'correct') G.sesCorrect++;
+    else if (ev.verdict === 'partial') G.sesPartial++;
+    else {
+      G.mistakes.push({ q: q.question, verdict: ev.verdict, userAns: ans, correctAns: q.answer, topic: G.title });
+    }
+
+    // Mastery update
+    updateMastery(q, ev.verdict, ev.score);
+
+    document.getElementById('nextBtn').style.display = 'block';
+  } catch(e) {
+    // Fallback: show correct answer without AI eval
+    displayFallbackFeedback(q, ans);
+    G.sesAnswered++;
+    await addPoints(1, '+1 Sparks');
+    document.getElementById('nextBtn').style.display = 'block';
+  }
+
+  btn.style.display = 'none';
+}
+
+function displayFeedback(ev, q, userAns) {
+  const fbClass = { correct:'fb-correct', partial:'fb-partial', incorrect:'fb-incorrect' }[ev.verdict];
+  const vbClass = { correct:'vb-correct', partial:'vb-partial', incorrect:'vb-incorrect' }[ev.verdict];
+  const vbIcon = { correct:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg>', partial:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg>', incorrect:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg>' }[ev.verdict];
+  const vbText = { correct:'Correct', partial:'Partially Correct', incorrect:'Needs Work' }[ev.verdict];
+
+  document.getElementById('fbArea').style.display = 'block';
+  document.getElementById('fbArea').innerHTML = `
+    <div class="fb-panel ${fbClass}">
+      <span class="verdict-badge ${vbClass}">${vbIcon} ${vbText}</span>
+
+      <div class="correct-ans-box">
+        <div class="fb-box-label" style="color:#6366f1;">Correct Answer</div>
+        <div class="fb-box-text">${escHtml(q.answer)}</div>
+      </div>
+
+      ${ev.what_was_right ? `<div class="fb-section">
+        <div class="fb-section-label"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg> What You Got Right</div>
+        <div class="fb-section-text">${escHtml(ev.what_was_right)}</div>
+      </div>` : ''}
+
+      ${ev.what_was_missing ? `<div class="fb-section">
+        <div class="fb-section-label"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg> What Was Missing</div>
+        <div class="fb-section-text">${escHtml(ev.what_was_missing)}</div>
+      </div>` : ''}
+
+      ${ev.critique ? `<div class="fb-section">
+        <div class="fb-section-label"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pencil"/></svg> Critique</div>
+        <div class="fb-section-text">${escHtml(ev.critique)}</div>
+      </div>` : ''}
+
+      <div class="memory-anchor-box">
+        <div class="fb-box-label" style="color:#d97706;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightbulb"/></svg> Memory Anchor</div>
+        <div class="fb-box-text">${escHtml(ev.memory_anchor || q.memory_anchor || 'Think about the core concept and how it connects to what you already know.')}</div>
+      </div>
+
+      <div class="better-ans-box">
+        <div class="fb-box-label" style="color:#059669;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg> Ideal Answer</div>
+        <div class="fb-box-text">${escHtml(ev.better_answer || q.better_answer_example || q.answer)}</div>
+      </div>
+
+      <div class="mastery-bar">
+        <div class="mastery-dots" id="masteryDots"></div>
+        <div class="mastery-label" id="masteryLabelDisp">Updating mastery...</div>
+      </div>
+    </div>
+  `;
+}
+
+function displayFallbackFeedback(q, userAns) {
+  document.getElementById('fbArea').style.display = 'block';
+  document.getElementById('fbArea').innerHTML = `
+    <div class="fb-panel fb-partial">
+      <span class="verdict-badge vb-partial">Answer Revealed</span>
+      <div class="correct-ans-box">
+        <div class="fb-box-label" style="color:#6366f1;">Correct Answer</div>
+        <div class="fb-box-text">${escHtml(q.answer)}</div>
+      </div>
+      ${q.memory_anchor ? `<div class="memory-anchor-box">
+        <div class="fb-box-label" style="color:#d97706;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightbulb"/></svg> Memory Anchor</div>
+        <div class="fb-box-text">${escHtml(q.memory_anchor)}</div>
+      </div>` : ''}
+      ${q.better_answer_example ? `<div class="better-ans-box">
+        <div class="fb-box-label" style="color:#059669;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg> Ideal Answer</div>
+        <div class="fb-box-text">${escHtml(q.better_answer_example)}</div>
+      </div>` : ''}
+    </div>
+  `;
+}
+
+async function updateMastery(q, verdict, score) {
+  try {
+    const r = await fetch('/study/mastery/update', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        question_key: q.question.substring(0,500),
+        question_text: q.question,
+        answer_text: q.answer,
+        topic: G.title,
+        verdict, score: score || 0
+      })
+    });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      const dotsEl = document.getElementById('masteryDots');
+      const lblEl = document.getElementById('masteryLabelDisp');
+      if (dotsEl) {
+        const lvl = d.mastery_level;
+        const cols = ['l0','l1','l2','l3'];
+        dotsEl.innerHTML = [0,1,2,3].map(i => `<div class="m-dot ${i <= lvl ? cols[lvl] : 'l0'}"></div>`).join('');
+        if (lblEl) lblEl.textContent = d.mastery_label;
+      }
+    }
+  } catch(e) {}
+}
+
+function nextQuestion() {
+  G.curQ++;
+  if (G.curQ >= G.questions.length) completeSession();
+  else renderQ();
+}
+
+function exitSession() {
+  if (!confirm('Exit? Progress will be lost.')) return;
+  stopTimers();
+  document.body.classList.remove('serious-mode');
+  document.getElementById('sesTimerWrap').style.display = 'none';
+  document.getElementById('sessionView').style.display = 'none';
+  document.getElementById('setupView').style.display = 'block';
+}
+
+async function completeSession() {
+  const duration = Math.round((Date.now() - G.sesStart) / 1000);
+  stopTimers();
+  if (G.mode === 'serious') { document.body.classList.remove('serious-mode'); document.getElementById('sesTimerWrap').style.display = 'none'; }
+
+  const today = new Date().toISOString().split('T')[0];
+  if (!G.streakHistory.includes(today)) await addPoints(10, '+10 Sparks - first session today');
+  await addPoints(20, '+20 Sparks - session complete');
+  if (G.mode === 'serious') {
+    await addPoints(10, '+10 Sparks - Serious mode');
+    const minBonus = Math.floor(G.activeSecs / 60);
+    if (minBonus > 0) await addPoints(minBonus, `+${minBonus} Sparks - active time`);
+  }
+  if (G.mode === 'extreme') {
+    await addPoints(25, '+25 Sparks - Extreme mode');
+  }
+  if (G.questions.length > 0 && G.sesCorrect >= G.questions.length) await addPoints(30, '+30 Sparks - perfect session');
+
+  const streakRes = await updateStreak();
+  document.getElementById('progFill').style.width = '100%';
+  document.getElementById('progTxt').innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg> Complete`;
+  document.getElementById('questionArea').style.display = 'none';
+
+  const acc = G.questions.length > 0 ? Math.round(G.sesCorrect / G.questions.length * 100) : 0;
+  const emoji = acc >= 80 ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg>' : acc >= 60 ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg>' : '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-rocket"/></svg>';
+  const sub = acc >= 80 ? 'Exceptional work! Knowledge locked in.' : acc >= 60 ? 'Solid session. Keep building.' : 'Every rep counts. Come back stronger.';
+
+  showSessionCompleteAnim(G.sesPts, G.streak, acc);
+
+  document.getElementById('completeCard').style.display = 'block';
+  document.getElementById('completeCard').innerHTML = `
+    <div class="sp">
+      <div class="comp-card">
+        <span class="comp-emoji">${emoji}</span>
+        <div class="comp-title">Session Complete!</div>
+        <div class="comp-sub">${sub}</div>
+        <div class="comp-stats">
+          <div class="cstat"><div class="cstat-num">${G.sesCorrect}/${G.questions.length}</div><div class="cstat-lbl">Correct</div></div>
+          <div class="cstat"><div class="cstat-num">${G.sesPartial}</div><div class="cstat-lbl">Partial</div></div>
+          <div class="cstat"><div class="cstat-num">${G.sesPts}</div><div class="cstat-lbl">Sparks</div></div>
+          <div class="cstat"><div class="cstat-num">${Math.round(duration/60)}m</div><div class="cstat-lbl">Time</div></div>
+        </div>
+        ${streakRes && streakRes.bonus_points > 0 ? `<div style="padding:12px;background:rgba(239,68,68,0.08);border-radius:12px;font-size:0.88rem;font-weight:700;color:#ef4444;margin-bottom:1rem;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-fire"/></svg> ${streakRes.streak_count}-day ${escHtml(streakRes.streak_tier?.name || 'streak')}! +${streakRes.bonus_points} Sparks</div>` : ''}
+        <div class="comp-btns">
+          <button class="btn-solid" onclick="restartSetup()">Study Again</button>
+          <button class="btn-outline" onclick="switchTab('flashcards')">Flashcards</button>
+          <button class="btn-outline" onclick="switchTab('review')">Review</button>
+        </div>
+      </div>
+    </div>
+    ${G.keyConcepts.length ? `<div class="sp"><div class="sp-label">Key Concepts</div>${G.keyConcepts.map(c=>`<div class="concept-item"><div class="concept-term">${escHtml(c.term)}</div><div class="concept-def">${escHtml(c.definition)}</div></div>`).join('')}</div>` : ''}
+  `;
+
+  // Save session history
+  const rec = { date: today, mode: G.mode, questions: G.questions.length, correct: G.sesCorrect, partial: G.sesPartial, points: G.sesPts, duration };
+  G.sessionHistory.push(rec);
+  G.totalSessions++;
+  saveLocal();
+
+  try {
+    const r = await fetch('/study/session/complete', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ mode: G.mode, questions_total: G.questions.length, questions_correct: G.sesCorrect, questions_partial: G.sesPartial, points_earned: G.sesPts, duration_seconds: duration, already_awarded: true, local_date: today, local_hour: new Date().getHours() })
+    });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      G.totalPts = d.total_points ?? G.totalPts;
+      G.sparkBalance = d.spark_balance ?? G.sparkBalance;
+      G.totalSessions = d.total_sessions ?? G.totalSessions;
+      G.weeklyQuests = d.weekly_quests || G.weeklyQuests;
+      if (d.quest_rewards?.length) showCelebration('Quest Complete!', 'You finished a weekly goal.', d.quest_rewards.map(q => `+${q.sparks || 0} Sparks${q.freezes ? ' + Freeze' : ''}`));
+      if (d.badges_unlocked?.length) showCelebration('Badge Unlocked!', 'A new achievement is on your profile.', d.badges_unlocked.map(b => b.replaceAll('_',' ')));
+      updateChips();
+    }
+  } catch(e) {}
+}
+
+function restartSetup() {
+  document.getElementById('sessionView').style.display = 'none';
+  document.getElementById('setupView').style.display = 'block';
+  document.getElementById('completeCard').style.display = 'none';
+  document.getElementById('questionArea').style.display = 'block';
+}
+
+// ══ TIMER ════════════════════════════════════════════════
+function startTimer() {
+  G.timerRem = G.timerSecs; updateTimerUI();
+  G.timer = setInterval(() => {
+    G.timerRem--;
+    updateTimerUI();
+    if (G.timerRem <= 0) { clearInterval(G.timer); showToast('Time\'s up!'); }
+  }, 1000);
+}
+
+function stopTimers() {
+  if (G.timer) clearInterval(G.timer);
+  if (G.activeTimer) clearInterval(G.activeTimer);
+}
+
+function updateTimerUI() {
+  const m = Math.floor(G.timerRem / 60), s = G.timerRem % 60;
+  const txt = `${m}:${String(s).padStart(2,'0')}`;
+  const tEl = document.getElementById('timerTxt'); if (tEl) tEl.textContent = txt;
+  const xEl = document.getElementById('xTimerDisplay'); if (xEl) xEl.textContent = txt;
+  const pct = G.timerRem / G.timerSecs;
+  const ring = document.getElementById('timerCircle');
+  if (ring) ring.style.strokeDashoffset = 188.5 * (1 - pct);
+}
+
+// ══ POINTS ════════════════════════════════════════════════
+async function addPoints(delta, msg) {
+  try {
+    const r = await fetch('/study/sparks/update', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({delta, reason: msg})
+    });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      const awarded = d.awarded ?? delta;
+      G.sesPts += awarded;
+      G.totalPts = d.total_points ?? (G.totalPts + awarded);
+      G.sparkBalance = d.spark_balance ?? (G.sparkBalance + awarded);
+      G.sparksEarnedTotal = d.sparks_earned_total ?? G.totalPts;
+      G.level = d.level || G.level;
+      G.levelTitle = d.level_title || G.levelTitle;
+      G.activeBooster = d.active_booster || null;
+      updateChips(); pulseChip('sChipPts');
+      showToast((d.multiplier && d.multiplier > 1) ? `${msg} ×${d.multiplier} = +${awarded} Sparks` : msg.replace(/pts/g, 'Sparks'));
+      if (d.level_up) showCelebration(`Level ${d.level_up.to}!`, `You reached a new level and earned ${d.level_up.bonus} bonus Sparks.`, [`+${d.level_up.bonus} Sparks`, G.levelTitle]);
+      saveLocal();
+      return awarded;
+    }
+  } catch(e) {}
+  G.sesPts += delta; G.totalPts += delta; G.sparkBalance += delta; G.sparksEarnedTotal += delta;
+  updateChips(); pulseChip('sChipPts'); showToast(msg.replace(/pts/g, 'Sparks')); saveLocal();
+  return delta;
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'pts-toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2100);
+}
+
+// ══ STREAK ════════════════════════════════════════════════
+async function updateStreak() {
+  try {
+    const r = await fetch('/study/streak/update', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({questions_answered: G.sesAnswered, questions_total: G.questions.length, local_date: new Date().toISOString().split('T')[0]})
+    });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      G.streak = d.streak_count;
+      G.freezes = d.streak_freeze_count;
+      G.freezeCapacity = d.freeze_capacity || G.freezeCapacity;
+      G.totalPts = d.total_points;
+      G.sparkBalance = d.spark_balance ?? G.sparkBalance;
+      G.streakTier = d.streak_tier || G.streakTier;
+      if (d.streak_history) G.streakHistory = d.streak_history;
+      if (d.longest_streak) G.longestStreak = d.longest_streak;
+      if (d.milestone) showCelebration(`Day ${d.milestone.day}!`, 'That streak just leveled up.', [`+${d.milestone.sparks} Sparks`, d.milestone.freezes ? `+${d.milestone.freezes} Freeze` : 'Badge unlocked'].filter(Boolean));
+      if (d.streak_event) showToast(d.streak_event.message);
+      updateChips();
+      renderStreakTab();
+      saveLocal();
+      return d;
+    }
+  } catch(e) {
+    // Local fallback
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now()-86400000).toISOString().split('T')[0];
+    if (G.lastActive !== today) {
+      if (G.lastActive === yesterday) G.streak++;
+      else if (G.freezes > 0) { G.freezes--; G.streak++; }
+      else G.streak = 1;
+      if (G.streak > G.longestStreak) G.longestStreak = G.streak;
+      G.lastActive = today;
+      if (!G.streakHistory.includes(today)) G.streakHistory.push(today);
+    }
+    updateChips(); saveLocal();
+  }
+  return null;
+}
+
+// ══ STREAK TAB ════════════════════════════════════════════
+function renderStreakTab() {
+  const tier = G.streakTier || {name:'Spark', bonus:5, color:'#ef4444'};
+  const cosmetics = G.activeCosmetics || {};
+  const cosmeticColors = { gold:'#d97706', neon:'#06b6d4', forest:'#059669' };
+  const hero = document.querySelector('.streak-hero');
+  if (hero) {
+    hero.style.setProperty('--tier', cosmeticColors[cosmetics.streak_color] || tier.color || '#ef4444');
+    ['frame-ember','frame-aurora','frame-cosmic'].forEach(c => hero.classList.remove(c));
+    if (cosmetics.streak_frame) hero.classList.add('frame-' + cosmetics.streak_frame);
+  }
+  document.getElementById('riskBanner').classList.toggle('on', G.atRisk && !G.repairAvailable);
+  document.getElementById('riskBanner').innerHTML = G.atRisk ? `<span>Your streak ends in a few hours - study now to keep it.</span><button class="tiny-action" onclick="switchTab('learn')">Study now</button>` : '';
+  document.getElementById('repairBanner').classList.toggle('on', G.repairAvailable);
+  document.getElementById('repairBanner').innerHTML = G.repairAvailable ? `<span>Your streak broke - save it for ${G.repairCost} Sparks before the repair window closes.</span><button class="tiny-action" onclick="repairStreak()">Repair streak</button>` : '';
+  document.getElementById('streakBigNum').textContent = G.streak;
+  document.getElementById('streakWordLabel').textContent = cosmetics.title ? `${cosmetics.title} - ${tier.name} Streak` : `${tier.name} Streak`;
+  document.getElementById('longestStreakDisp').textContent = G.longestStreak;
+  document.getElementById('totalSesDisp').textContent = G.totalSessions;
+  document.getElementById('totalPtsDisp2').textContent = G.sparkBalance;
+
+  const today = new Date().toISOString().split('T')[0];
+  const sub = document.getElementById('streakSubMsg');
+  if (G.streak === 0) sub.textContent = 'Complete a session today to start your streak!';
+  else if (G.streakHistory.includes(today)) sub.textContent = `Day ${G.streak} - you're on fire. Keep it going.`;
+  else if (G.atRisk) sub.textContent = 'Your streak is at risk. One 5-question session protects it.';
+  else sub.textContent = `Daily ${tier.name} bonus: +${tier.bonus} Sparks when you finish a session.`;
+
+  // Calendar, last 60 days
+  const headers = ['S','M','T','W','T','F','S'];
+  document.getElementById('calDayHeaders').innerHTML = headers.map(h => `<div class="cal-day-header">${h}</div>`).join('');
+
+  const grid = document.getElementById('calGrid');
+  // Build 60 days
+  const days = [];
+  for (let i = 59; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+  // Pad start to align with week
+  const firstDay = new Date(days[0] + 'T00:00:00').getDay();
+  const padded = Array(firstDay).fill(null).concat(days);
+
+  grid.style.display = 'grid';
+  grid.style.gridTemplateColumns = 'repeat(7,1fr)';
+  grid.style.gap = '4px';
+  grid.innerHTML = padded.map(d => {
+    if (!d) return '<div></div>';
+    const act = G.streakHistory.includes(d);
+    const isT = d === today;
+    return `<div class="c-day ${act?'active':''} ${isT?'today':''}" title="${d}">${act?'<div class="c-day-dot"></div>':''}</div>`;
+  }).join('');
+
+  // Freezes
+  const fi = document.getElementById('freezeIcons');
+  fi.innerHTML = Array.from({length:G.freezeCapacity}, (_, i) => `<div class="freeze-icon ${i >= G.freezes ? 'used' : ''}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pin"/></svg></div>`).join('');
+  document.getElementById('freezeSubMsg').textContent = G.freezes > 0
+    ? `You have ${G.freezes}/${G.freezeCapacity} freezes. Long streaks earn passive weekly protection.`
+    : 'No freezes. Earn one at milestones or buy protection in the Spark Shop.';
+
+  // Milestones
+  const milestones = [3, 7, 14, 21, 30, 60, 100, 365];
+  document.getElementById('milestoneRow').innerHTML = milestones.map(m => {
+    const reached = G.longestStreak >= m;
+    const isNext = !reached && milestones.filter(x => G.longestStreak >= x).length === milestones.indexOf(m);
+    const cls = reached ? 'm-reached' : isNext ? 'm-next' : 'm-locked';
+    const icon = reached
+      ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;color:var(--low)"><use href="#i-check-circle"/></svg>'
+      : isNext
+        ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;color:var(--accent)"><use href="#i-sparkle"/></svg>'
+        : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;color:var(--text-muted)"><use href="#i-warning"/></svg>';
+    const reward = {3:25,7:75,14:100,21:150,30:250,60:500,100:1000,365:2000}[m];
+    return `<div class="milestone ${cls}">${icon} ${m} days (+${reward} Sparks)</div>`;
+  }).join('');
+
+  const bg = document.getElementById('badgeGrid');
+  if (!G.badges.length) {
+    bg.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:1rem;color:var(--txm);">No badges yet. Day 3 unlocks First Flame.</div>';
+  } else {
+    bg.innerHTML = G.badges.map(b => `
+      <div class="badge-item">
+        <div class="badge-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg></div>
+        <div><div class="badge-name">${escHtml(b.name || b.id)}</div><div class="badge-kind">${escHtml(b.kind || 'earned')}</div></div>
+      </div>
+    `).join('');
+  }
+}
+
+// ══ FLASHCARDS ════════════════════════════════════════════
+// ── Saved sets (localStorage) ─────────────────────────────
+const FC_SETS_KEY = 'intelliplan_card_sets_v1';
+
+function fcSetsLoad() {
+  try { return JSON.parse(localStorage.getItem(FC_SETS_KEY) || '[]'); } catch(e) { return []; }
+}
+function fcSetsSave(sets) {
+  try { localStorage.setItem(FC_SETS_KEY, JSON.stringify(sets.slice(0, 50))); } catch(e) {}
+}
+function fcSaveCurrentSet() {
+  if (!G.questions || !G.questions.length) return;
+  const sets = fcSetsLoad();
+  const title = G.title || 'Study Session';
+  // De-dupe by title, replace if same title already saved
+  const filtered = sets.filter(s => s.title !== title);
+  filtered.unshift({
+    id: 's_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    title,
+    saved_at: new Date().toISOString(),
+    count: G.questions.length,
+    questions: G.questions,
+  });
+  fcSetsSave(filtered);
+}
+
+function fcRenderSets() {
+  const sets = fcSetsLoad();
+  const wrap = document.getElementById('fcSetsWrap');
+  const list = document.getElementById('fcSetsList');
+  const counter = document.getElementById('fcSetsCount');
+  if (!sets.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  counter.textContent = sets.length + ' saved';
+  list.innerHTML = sets.map(s => {
+    const d = new Date(s.saved_at);
+    const dateLabel = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg);">
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:0.88rem;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(s.title)}</div>
+        <div style="font-size:0.72rem;color:var(--txm);margin-top:2px;">${s.count} cards · ${dateLabel}</div>
+      </div>
+      <button onclick="fcLoadSet('${s.id}')" style="padding:6px 12px;border-radius:var(--r-sm);border:none;background:var(--accent);color:#fff;font-family:var(--font-ui);font-size:0.74rem;font-weight:600;cursor:pointer;">Study</button>
+      <button onclick="fcDeleteSet('${s.id}')" title="Delete set" aria-label="Delete" style="width:30px;height:30px;border-radius:var(--r-sm);border:1px solid var(--border);background:transparent;color:var(--txm);cursor:pointer;display:flex;align-items:center;justify-content:center;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function fcLoadSet(setId) {
+  const sets = fcSetsLoad();
+  const s = sets.find(x => x.id === setId);
+  if (!s) return;
+  G.questions = s.questions || [];
+  G.title = s.title;
+  G.fcIndex = 0;
+  G.fcFlipped = false;
+  document.getElementById('fcNoData').style.display = 'none';
+  document.getElementById('fcData').style.display = 'block';
+  updateFC();
+  // Also register into SRS so they're reviewed later
+  if (typeof srsRegisterQuestions === 'function') srsRegisterQuestions(G.questions);
+}
+
+function fcDeleteSet(setId) {
+  if (!confirm('Delete this flashcard set?')) return;
+  const sets = fcSetsLoad().filter(s => s.id !== setId);
+  fcSetsSave(sets);
+  fcRenderSets();
+}
+
+function populateFlashcards() {
+  fcRenderSets();
+  if (!G.questions.length) return;
+  document.getElementById('fcNoData').style.display = 'none';
+  document.getElementById('fcData').style.display = 'block';
+  G.fcIndex = 0; G.fcFlipped = false;
+  fcSaveCurrentSet();
+  fcRenderSets();
+  updateFC();
+}
+
+function updateFC() {
+  const q = G.questions[G.fcIndex];
+  document.getElementById('fcFront').textContent = q.question;
+  document.getElementById('fcBack').textContent = q.answer;
+  document.getElementById('fcCounter').textContent = `${G.fcIndex + 1} / ${G.questions.length}`;
+  document.getElementById('fcCard').classList.remove('flipped');
+  G.fcFlipped = false;
+}
+
+function flipCard() { G.fcFlipped = !G.fcFlipped; document.getElementById('fcCard').classList.toggle('flipped', G.fcFlipped); }
+function fcNext() { G.fcIndex = (G.fcIndex + 1) % G.questions.length; updateFC(); }
+function fcPrev() { G.fcIndex = (G.fcIndex - 1 + G.questions.length) % G.questions.length; updateFC(); }
+
+// ══ SM-2 SPACED REPETITION ════════════════════════════════
+// Implements the SM-2 algorithm (SuperMemo 2) with localStorage persistence.
+// Each card: { q, a, interval, easeFactor, repetitions, nextReview (ISO date) }
+const SRS_KEY = 'intelliplan_srs_v1';
+
+function srsLoad() {
+  try { return JSON.parse(localStorage.getItem(SRS_KEY) || '{}'); } catch(e) { return {}; }
+}
+function srsSave(cards) {
+  try { localStorage.setItem(SRS_KEY, JSON.stringify(cards)); } catch(e) {}
+}
+
+function srsCardId(q) {
+  return btoa(encodeURIComponent(q)).replace(/[^a-zA-Z0-9]/g, '').slice(0, 48);
+}
+
+function srsGetOrCreate(q, a) {
+  const cards = srsLoad();
+  const id = srsCardId(q);
+  if (!cards[id]) {
+    cards[id] = { q, a, interval: 1, easeFactor: 2.5, repetitions: 0, nextReview: new Date().toISOString().slice(0,10) };
+    srsSave(cards);
+  }
+  return { id, ...cards[id] };
+}
+
+function srsRate(cardId, quality) {
+  // quality: 0=blackout, 1=incorrect, 2=incorrect but recalled, 3=correct with difficulty, 4=correct, 5=perfect
+  const cards = srsLoad();
+  const c = cards[cardId];
+  if (!c) return;
+  let { interval, easeFactor, repetitions } = c;
+  if (quality < 3) {
+    repetitions = 0;
+    interval = 1;
+  } else {
+    if (repetitions === 0) interval = 1;
+    else if (repetitions === 1) interval = 6;
+    else interval = Math.round(interval * easeFactor);
+    repetitions++;
+  }
+  easeFactor = Math.max(1.3, easeFactor + 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+  const next = new Date();
+  next.setDate(next.getDate() + interval);
+  cards[cardId] = { ...c, interval, easeFactor, repetitions, nextReview: next.toISOString().slice(0,10) };
+  srsSave(cards);
+}
+
+function srsDueCards() {
+  const cards = srsLoad();
+  const today = new Date().toISOString().slice(0,10);
+  return Object.entries(cards)
+    .filter(([,c]) => c.nextReview <= today)
+    .map(([id, c]) => ({ id, ...c }));
+}
+
+// ── Register flashcards into SRS when a session completes ──
+function srsRegisterQuestions(questions) {
+  const cards = srsLoad();
+  let changed = false;
+  questions.forEach(q => {
+    const id = srsCardId(q.question || q.q || '');
+    if (id && !cards[id]) {
+      cards[id] = { q: q.question || q.q, a: q.answer || q.a || '', interval: 1, easeFactor: 2.5, repetitions: 0, nextReview: new Date().toISOString().slice(0,10) };
+      changed = true;
+    }
+  });
+  if (changed) srsSave(cards);
+}
+
+// ── Active SRS review session ──────────────────────────────
+let srsQueue = [];
+let srsCurrentIdx = 0;
+let srsFlipped = false;
+
+function startSrsSession() {
+  srsQueue = srsDueCards();
+  if (!srsQueue.length) {
+    document.getElementById('srsSession').style.display = 'none';
+    document.getElementById('srsDoneMsg').style.display = 'block';
+    return;
+  }
+  srsCurrentIdx = 0;
+  srsFlipped = false;
+  document.getElementById('srsDoneMsg').style.display = 'none';
+  document.getElementById('srsSession').style.display = 'block';
+  renderSrsCard();
+}
+
+function renderSrsCard() {
+  const card = srsQueue[srsCurrentIdx];
+  if (!card) { endSrsSession(); return; }
+  document.getElementById('srsProgress').textContent = `${srsCurrentIdx + 1} / ${srsQueue.length}`;
+  document.getElementById('srsCardFront').textContent = card.q;
+  document.getElementById('srsCardBack').textContent = card.a;
+  document.getElementById('srsRatings').style.display = 'none';
+  document.getElementById('srsShowAnswerBtn').style.display = 'flex';
+  document.getElementById('srsCardEl').classList.remove('flipped');
+  srsFlipped = false;
+}
+
+function srsShowAnswer() {
+  document.getElementById('srsCardEl').classList.add('flipped');
+  document.getElementById('srsRatings').style.display = 'flex';
+  document.getElementById('srsShowAnswerBtn').style.display = 'none';
+  srsFlipped = true;
+}
+
+function srsSubmitRating(quality) {
+  const card = srsQueue[srsCurrentIdx];
+  if (card) srsRate(card.id, quality);
+  srsCurrentIdx++;
+  if (srsCurrentIdx >= srsQueue.length) endSrsSession();
+  else renderSrsCard();
+}
+
+function endSrsSession() {
+  document.getElementById('srsSession').style.display = 'none';
+  document.getElementById('srsDoneMsg').style.display = 'block';
+  document.getElementById('srsDoneMsg').innerHTML = `
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+    <div style="font-weight:700;font-size:1rem;margin-top:8px;">Review complete!</div>
+    <div style="font-size:0.82rem;color:var(--txm);margin-top:4px;">${srsQueue.length} card${srsQueue.length !== 1 ? 's' : ''} reviewed. Cards due tomorrow will appear in your next session.</div>
+  `;
+}
+
+// ══ REVIEW TAB ════════════════════════════════════════════
+function renderReviewTab() {
+  const rl = document.getElementById('reviewList');
+  if (!G.mistakes.length) {
+    rl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--txm);">No mistakes yet! Complete a session first.</div>';
+  } else {
+    rl.innerHTML = G.mistakes.map((m, i) => `
+      <div class="rm-item">
+        <div class="rm-q">${escHtml(m.q)}</div>
+        <span class="rm-verdict ${m.verdict === 'partial' ? 'rmv-partial' : 'rmv-incorrect'}">${m.verdict === 'partial' ? 'Partial' : 'Incorrect'}</span>
+        <div class="rm-ans"><strong>Your answer:</strong> ${escHtml(m.userAns)}</div>
+        <div class="rm-ans" style="margin-top:6px;"><strong>Correct:</strong> ${escHtml(m.correctAns)}</div>
+      </div>
+    `).join('');
+  }
+  // Register current flashcards into SRS
+  if (G.questions && G.questions.length) srsRegisterQuestions(G.questions);
+  loadDueReviews();
+}
+
+// Seed sample SRS cards on first visit so the feature is discoverable
+function srsSeedIfEmpty() {
+  const cards = srsLoad();
+  if (Object.keys(cards).length > 0) return;
+  const samples = [
+    { q: 'What is the derivative of sin(x)?',                          a: 'cos(x)' },
+    { q: 'In photosynthesis, what gas do plants release?',             a: 'Oxygen (O₂)' },
+    { q: 'Who wrote "The Great Gatsby"?',                              a: 'F. Scott Fitzgerald' },
+    { q: 'What is the time complexity of binary search?',              a: 'O(log n)' },
+    { q: 'What year did World War II end?',                            a: '1945' },
+  ];
+  srsRegisterQuestions(samples.map(s => ({ question: s.q, answer: s.a })));
+}
+
+async function loadDueReviews() {
+  srsSeedIfEmpty();
+  const due = srsDueCards();
+  document.getElementById('reviewDueWrap').style.display = 'block';
+  document.getElementById('srsCountBadge').textContent = due.length + ' due';
+  if (due.length) {
+    startSrsSession();
+  } else {
+    document.getElementById('srsSession').style.display = 'none';
+    document.getElementById('srsDoneMsg').style.display  = 'block';
+    document.getElementById('srsDoneMsg').innerHTML = `
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+      <div style="font-weight:700;font-size:1rem;margin-top:8px;">All caught up!</div>
+      <div style="font-size:0.82rem;color:var(--txm);margin-top:4px;">Your next cards are scheduled for future days.</div>
+    `;
+  }
+  // Also try server-side mastery endpoint (non-blocking)
+  try { await fetch('/study/mastery/due'); } catch(e) {}
+}
+
+// ══ MASTERY TAB ═══════════════════════════════════════════
+async function renderMasteryTab() {
+  try {
+    const r = await fetch('/study/mastery/all');
+    const d = await r.json();
+    const ml = document.getElementById('masteryList');
+    if (!d.length) {
+      ml.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--txm);">Complete sessions to track mastery.</div>';
+      return;
+    }
+    const lvlClass = ['mt-l0','mt-l1','mt-l2','mt-l3'];
+    ml.innerHTML = `<div class="mastery-table">${d.map(m => `
+      <div class="mt-row">
+        <div class="mt-q">${escHtml(m.question_text || m.question_key)}</div>
+        <div class="mt-acc">${m.accuracy}%</div>
+        <span class="mt-level ${lvlClass[m.mastery_level]}">${m.mastery_label}</span>
+      </div>
+    `).join('')}</div>`;
+  } catch(e) {
+    document.getElementById('masteryList').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--txm);">Could not load mastery data.</div>';
+  }
+}
+
+// ══ PROGRESS TAB ══════════════════════════════════════════
+function renderProgressTab() {
+  document.getElementById('pTotalPts').textContent = G.sparksEarnedTotal || G.totalPts;
+  document.getElementById('pTotalSes').textContent = G.totalSessions;
+
+  const allSessions = G.sessionHistory;
+  let totalCorrect = 0, totalQs = 0;
+  allSessions.forEach(s => { totalCorrect += s.correct || 0; totalQs += s.questions || 0; });
+  document.getElementById('pAccuracy').textContent = totalQs > 0 ? Math.round(totalCorrect/totalQs*100) + '%' : '-%';
+
+  const hl = document.getElementById('sessionHistList');
+  if (!allSessions.length) {
+    hl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--txm);">No sessions yet.</div>';
+    return;
+  }
+  const modeMap = { casual:'shi-m-casual', serious:'shi-m-serious', extreme:'shi-m-extreme' };
+  hl.innerHTML = [...allSessions].reverse().slice(0,20).map(s => `
+    <div class="session-hist-item">
+      <div class="shi-date">${s.date}</div>
+      <span class="shi-mode ${modeMap[s.mode] || 'shi-m-casual'}">${s.mode}</span>
+      <div class="shi-stats">${s.correct}/${s.questions} correct · ${Math.round((s.duration||0)/60)}m</div>
+      <div class="shi-pts">+${s.points} Sparks</div>
+    </div>
+  `).join('');
+}
+
+// ══ EXTREME MODE ══════════════════════════════════════════
+function launchExtreme() {
+  const ov = document.getElementById('xOverlay');
+  ov.classList.add('on');
+  if (document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+  G.xQ = 0; G.sesStart = Date.now(); G.activeSecs = 0;
+  startTimer();
+  G.activeTimer = setInterval(() => G.activeSecs++, 1000);
+  xRenderQ();
+
+  document.addEventListener('fullscreenchange', onFSChange);
+}
+
+function onFSChange() {
+  if (!document.fullscreenElement && document.getElementById('xOverlay').classList.contains('on')) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+}
+
+function xRenderQ() {
+  const q = G.questions[G.xQ];
+  const total = G.questions.length;
+  document.getElementById('xProgFill').style.width = ((G.xQ / total) * 100) + '%';
+  document.getElementById('xQType').textContent = {recall:'Recall', conceptual:'Conceptual', 'short-answer':'Short Answer'}[q.type] || 'Recall';
+  document.getElementById('xQText').textContent = q.question;
+  document.getElementById('xAnsInput').value = '';
+  document.getElementById('xFbBox').style.display = 'none';
+  document.getElementById('xFbBox').innerHTML = '';
+  document.getElementById('xSelfCheck').style.display = 'none';
+  document.getElementById('xNextBtn').style.display = 'none';
+  document.getElementById('xSubmitBtn').style.display = 'block';
+  document.getElementById('xSubmitBtn').disabled = false;
+  document.getElementById('xSubmitBtn').textContent = 'Submit Answer';
+  document.getElementById('xPtsDisplay').innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-lightning"/></svg> ${G.sesPts} Sparks`;
+  G.xConf = 'medium'; G.xRevealed = false;
+  document.querySelectorAll('.xconf-btn').forEach(b => b.className = 'xconf-btn');
+}
+
+function xSetConf(c, btn) {
+  G.xConf = c;
+  document.querySelectorAll('.xconf-btn').forEach(b => b.className = 'xconf-btn');
+  btn.classList.add(c === 'low' ? 'xl2' : c === 'medium' ? 'xm2' : 'xh2');
+}
+
+async function xSubmit() {
+  const ans = document.getElementById('xAnsInput').value.trim();
+  if (!ans) { alert('Type an answer first.'); return; }
+  const q = G.questions[G.xQ];
+  const btn = document.getElementById('xSubmitBtn');
+  btn.disabled = true; btn.textContent = 'Evaluating...';
+
+  try {
+    const r = await fetch('/study/evaluate', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ question: q.question, correct_answer: q.answer, user_answer: ans, confidence: G.xConf })
+    });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      const ev = d.evaluation;
+      const fb = document.getElementById('xFbBox');
+      fb.style.display = 'block';
+      fb.innerHTML = `<div style="font-weight:800;margin-bottom:8px;">${ev.verdict.charAt(0).toUpperCase()+ev.verdict.slice(1)}</div>
+        <div style="margin-bottom:8px;font-size:0.82rem;color:rgba(255,255,255,0.6);">Correct Answer:</div>
+        <div style="margin-bottom:10px;">${escHtml(q.answer)}</div>
+        ${ev.critique ? `<div style="font-size:0.82rem;color:rgba(255,255,255,0.7);">${escHtml(ev.critique)}</div>` : ''}
+        ${ev.memory_anchor ? `<div style="margin-top:8px;padding:8px;background:rgba(245,158,11,0.15);border-radius:8px;font-size:0.82rem;">${escHtml(ev.memory_anchor)}</div>` : ''}`;
+
+      const pts = ev.verdict === 'correct' ? 2 : ev.verdict === 'partial' ? 1 : 0;
+      if (pts > 0) await addPoints(pts, `+${pts} Sparks`);
+      G.sesAnswered++;
+      if (ev.verdict === 'correct') G.sesCorrect++;
+      else if (ev.verdict === 'partial') G.sesPartial++;
+      updateMastery(q, ev.verdict, ev.score);
+    }
+  } catch(e) {
+    document.getElementById('xFbBox').style.display = 'block';
+    document.getElementById('xFbBox').innerHTML = `<div style="margin-bottom:8px;font-weight:700;display:flex;align-items:center;gap:5px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg> Correct Answer:</div><div>${escHtml(q.answer)}</div>`;
+    await addPoints(1, '+1 Sparks');
+    G.sesAnswered++;
+  }
+
+  btn.style.display = 'none';
+  document.getElementById('xNextBtn').style.display = 'block';
+  document.getElementById('xNextBtn').textContent = G.xQ + 1 < G.questions.length ? 'Next Question →' : 'Finish';
+}
+
+function xNext() {
+  G.xQ++; G.curQ = G.xQ;
+  if (G.xQ >= G.questions.length) xComplete();
+  else xRenderQ();
+}
+
+async function xComplete() {
+  await exitExtreme(true);
+}
+
+async function exitExtreme(completed = false) {
+  document.getElementById('xOverlay').classList.remove('on');
+  document.removeEventListener('fullscreenchange', onFSChange);
+  if (document.exitFullscreen && document.fullscreenElement) await document.exitFullscreen().catch(() => {});
+  stopTimers();
+  if (completed) {
+    document.getElementById('setupView').style.display = 'none';
+    document.getElementById('sessionView').style.display = 'block';
+    document.getElementById('questionArea').style.display = 'none';
+    await completeSession();
+  } else {
+    document.getElementById('setupView').style.display = 'block';
+  }
+}
+
+// Hold to exit
+let hInt = null, hProg = 0;
+function hStart() {
+  hProg = 0;
+  hInt = setInterval(() => {
+    hProg++;
+    document.getElementById('heFill').style.width = (hProg * 10) + '%';
+    if (hProg >= 10) { hStop(); exitExtreme(false); }
+  }, 1000);
+}
+function hStop() {
+  if (hInt) clearInterval(hInt);
+  hInt = null; hProg = 0;
+  const f = document.getElementById('heFill'); if (f) f.style.width = '0%';
+}
+
+window.addEventListener('beforeunload', e => {
+  if (document.getElementById('xOverlay').classList.contains('on')) { e.preventDefault(); e.returnValue = ''; }
+});
+
+// ══ REWARDS UI ═════════════════════════════════════════════
+function renderQuestsTab() {
+  const qd = G.weeklyQuests;
+  const list = document.getElementById('questList');
+  if (!qd || !qd.quests?.length) {
+    list.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--txm);">Quests are loading. Finish a session to refresh them.</div>';
+    return;
+  }
+  const completed = new Set(qd.completed || []);
+  const progress = qd.progress || {};
+  document.getElementById('questCompletionMsg').textContent = completed.size >= 3
+    ? 'Weekly set complete. Nice work.'
+    : `${3 - completed.size} quest${3-completed.size === 1 ? '' : 's'} left for the weekly completion bonus.`;
+  list.innerHTML = qd.quests.map(q => {
+    const cur = Math.min(progress[q.id] || 0, q.target);
+    const pct = Math.min(100, Math.round(cur / q.target * 100));
+    const done = completed.has(q.id);
+    return `
+      <div class="quest-card">
+        <div class="quest-head">
+          <div class="quest-title">${done ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;color:var(--low)"><use href="#i-check-circle"/></svg> ' : ''}${escHtml(q.title)}</div>
+          <div class="quest-reward">+${q.reward} Sparks</div>
+        </div>
+        <div class="quest-track"><div class="quest-fill" style="width:${pct}%"></div></div>
+        <div class="quest-meta">${cur}/${q.target} complete</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderShopTab() {
+  const grid = document.getElementById('shopGrid');
+  document.getElementById('shopBalance').textContent = G.sparkBalance;
+  if (!G.shop?.items) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--txm);">Shop is loading.</div>';
+    return;
+  }
+  const deal = G.shop.weekly_deal || {};
+  const dealName = G.shop.items[deal.item_id]?.name || 'one item';
+  document.getElementById('weeklyDealMsg').textContent = `Weekly deal: ${dealName} is 30% off.`;
+  const order = ['streak_freeze','freeze_pack','weekend_shield','repair_token','booster_2x','booster_3x','daily_booster','focus_booster','skip_pack','hint_pack','color_gold','color_neon','color_forest','title_scholar','title_grinder','title_comeback','calendar_dark','frame_ember','frame_aurora','frame_cosmic'];
+  grid.innerHTML = order.filter(id => G.shop.items[id]).map(id => {
+    const item = G.shop.items[id];
+    const price = id === deal.item_id ? deal.price : item.price;
+    const canBuy = G.sparkBalance >= price;
+    return `
+      <div class="shop-item ${id === deal.item_id ? 'deal' : ''}">
+        <div class="shop-head">
+          <div class="shop-title">${escHtml(item.name)}</div>
+          <div class="shop-price">${price} Sparks</div>
+        </div>
+        <div class="shop-desc">${escHtml(item.description || '')}</div>
+        <button class="shop-buy" ${canBuy ? '' : 'disabled'} onclick="buyShopItem('${id}')">${canBuy ? 'Buy' : 'Need more Sparks'}</button>
+      </div>
+    `;
+  }).join('');
+}
+
+async function buyShopItem(itemId) {
+  try {
+    const r = await fetch('/study/shop/buy', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({item_id:itemId})
+    });
+    const d = await r.json();
+    if (d.status !== 'ok') throw new Error(d.message || 'Could not buy item.');
+    G.sparkBalance = d.spark_balance ?? G.sparkBalance;
+    G.freezes = d.streak_freeze_count ?? G.freezes;
+    G.freezeCapacity = d.freeze_capacity ?? G.freezeCapacity;
+    G.activeBooster = d.active_booster || null;
+    G.activeCosmetics = d.active_cosmetics || G.activeCosmetics;
+    updateChips();
+    renderShopTab();
+    renderStreakTab();
+    showToast(`Bought ${d.item?.name || 'item'}`);
+    if (d.badges_unlocked?.length) showCelebration('Badge Unlocked!', 'Your rewards profile is growing.', d.badges_unlocked.map(b => b.replaceAll('_',' ')));
+  } catch(e) {
+    alert(e.message);
+  }
+}
+
+async function repairStreak() {
+  try {
+    const r = await fetch('/study/repair', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+    const d = await r.json();
+    if (d.status !== 'ok') throw new Error(d.message || 'Repair failed.');
+    G.streak = d.streak_count || G.streak;
+    G.sparkBalance = d.spark_balance ?? G.sparkBalance;
+    G.repairAvailable = false;
+    if (d.badges_unlocked?.length || d.used_repair_credit) showCelebration('Comeback Kid', 'Your streak is alive again.', [`-${d.repair_cost ?? G.repairCost} Sparks`, d.used_repair_credit ? 'Repair Token used' : 'Badge unlocked']);
+    updateChips();
+    renderStreakTab();
+  } catch(e) {
+    alert(e.message);
+  }
+}
+
+function showCelebration(title, sub, rewards = []) {
+  document.getElementById('celebrationTitle').textContent = title;
+  document.getElementById('celebrationSub').textContent = sub;
+  document.getElementById('celebrationRewards').innerHTML = rewards.map(r => `<span class="reward-pill">${escHtml(r)}</span>`).join('');
+  document.getElementById('celebrationOverlay').classList.add('on');
+}
+
+function closeCelebration() {
+  document.getElementById('celebrationOverlay').classList.remove('on');
+}
+
+/* ── SESSION COMPLETE ANIMATION ─────────────────── */
+let _scAnimTimer = null;
+
+function showSessionCompleteAnim(sparks, streakDays, accuracy) {
+  if (localStorage.getItem('ip_anim_session') === 'false') return;
+  const overlay = document.getElementById('scAnim');
+  if (!overlay) return;
+
+  // Clone Plani robot SVG into overlay
+  const planiArea = document.getElementById('scaPlani');
+  planiArea.innerHTML = '';
+  const src = document.getElementById('planiRobot');
+  if (src) {
+    const clone = src.cloneNode(true);
+    clone.removeAttribute('id');
+    clone.style.animation = '';
+    planiArea.appendChild(clone);
+  }
+
+  // Sub text
+  const sub = accuracy >= 80
+    ? 'Exceptional work! Knowledge locked in.'
+    : accuracy >= 55
+    ? 'Solid effort. Keep building that streak.'
+    : 'Every session counts. Keep going!';
+  document.getElementById('scaSub').textContent = sub;
+
+  // Pills
+  const pills = [];
+  if (sparks > 0) pills.push(`+${sparks} Sparks`);
+  if (streakDays > 0) pills.push(`${streakDays}-day streak`);
+  if (accuracy > 0) pills.push(`${accuracy}% accuracy`);
+  document.getElementById('scaPills').innerHTML =
+    pills.map(p => `<span class="sca-pill">${p}</span>`).join('');
+
+  // Confetti
+  _buildConfetti();
+
+  overlay.classList.add('on');
+  clearTimeout(_scAnimTimer);
+  _scAnimTimer = setTimeout(closeScAnim, 5200);
+}
+
+function closeScAnim() {
+  clearTimeout(_scAnimTimer);
+  const overlay = document.getElementById('scAnim');
+  if (overlay) overlay.classList.remove('on');
+  document.getElementById('scaConfetti').innerHTML = '';
+}
+
+function _buildConfetti() {
+  const container = document.getElementById('scaConfetti');
+  container.innerHTML = '';
+  const colors = ['#6366f1','#f97316','#facc15','#10b981','#ec4899','#3b82f6','#a78bfa'];
+  for (let i = 0; i < 56; i++) {
+    const el = document.createElement('div');
+    el.className = 'sca-confetto';
+    el.style.cssText = `
+      left:${Math.random()*100}%;
+      width:${6 + Math.random()*7}px;
+      height:${6 + Math.random()*7}px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      border-radius:${Math.random() > 0.5 ? '50%' : '2px'};
+      animation-duration:${1.8 + Math.random()*2.4}s;
+      animation-delay:${Math.random()*1.2}s;
+    `;
+    container.appendChild(el);
+  }
+}
+
+// ══ UTILS ════════════════════════════════════════════════
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+// ══ BOOT ═════════════════════════════════════════════════
+init();
+</script>
+{% endblock %}
