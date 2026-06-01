@@ -749,6 +749,15 @@
       body.has-side { padding-left: var(--side-w); }
       body.has-side > header { display: none; }
     }
+    /* ── Fluid desktop scaling ───────────────────────────────────
+       Instead of locking content to a 960px column (which leaves big
+       empty margins on large monitors), grow the content width with the
+       viewport. Fixed breakpoints (not vw units) keep this safe against
+       the sidebar offset so nothing ever overflows horizontally. */
+    @media (min-width: 1280px) { main { max-width: 1120px; padding: 2.5rem 2rem; } }
+    @media (min-width: 1536px) { main { max-width: 1320px; padding: 3rem 2.5rem; } }
+    @media (min-width: 1920px) { main { max-width: 1560px; padding: 3rem 3rem; } }
+    @media (min-width: 2560px) { main { max-width: 1840px; } }
 
     /* ══════════════════════════════════════
        PAGE HEADER
