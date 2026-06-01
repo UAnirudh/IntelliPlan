@@ -106,18 +106,18 @@
   ],
   "screenshots": [
     {
-      "src": "/static/icons/icon-512.png",
-      "sizes": "512x512",
+      "src": "/static/screenshots/mobile-dashboard.png",
+      "sizes": "768x1376",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "IntelliPlan Dashboard"
+      "label": "IntelliPlan Dashboard — prioritized assignments with study stats"
     },
     {
-      "src": "/static/icons/icon-512.png",
-      "sizes": "512x512",
+      "src": "/static/screenshots/desktop-scheduler.png",
+      "sizes": "1376x768",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "IntelliPlan on desktop"
+      "label": "IntelliPlan Scheduler — AI-generated weekly study plan"
     }
   ]
 }
