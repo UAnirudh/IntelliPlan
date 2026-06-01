@@ -963,6 +963,16 @@
   :root {
     --page-max: 1180px;
   }
+  /* Widen the marketing canvas on large monitors so the hero and every
+     section fill the screen instead of floating in a narrow centered column. */
+  @media (min-width: 1536px) { :root { --page-max: 1300px; } }
+  @media (min-width: 1920px) { :root { --page-max: 1440px; } }
+
+  /* The landing manages its own width through the --page-max wrappers below,
+     so release base.html's global 960px <main> cap (which was squishing the
+     intended 1180px hero into 960px and throwing the layout off-center).
+     Scoped to this page only — app/marketing pages keep the reading cap. */
+  main { max-width: none; padding-left: 0; padding-right: 0; }
 
   /* ── Layout wrappers ──────────────────────────────────────── */
   .hero-wrap,
@@ -1258,6 +1268,10 @@
     position: absolute;
     right: -12px;
     bottom: -18px;
+    z-index: 2;                 /* was rendering BEHIND the z-index:1 card */
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
     background: var(--accent);
     color: white;
     font-family: var(--font-ui);
@@ -1265,7 +1279,51 @@
     font-weight: 700;
     padding: 0.55rem 1rem;
     border-radius: 999px;
-    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+    animation: badgeFloat 4.5s ease-in-out infinite;
+  }
+  @keyframes badgeFloat {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-5px); }
+  }
+
+  /* ── UI polish: tasteful entrance + interaction ───────────────
+     The H1 hero-title is intentionally left un-animated so it paints
+     instantly (it's the LCP element — keeps Core Web Vitals fast).
+     Everything around it eases in with a gentle stagger. The global
+     prefers-reduced-motion rule in base.html neutralizes all of this. */
+  @keyframes heroRise {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: none; }
+  }
+  .hero-badge        { animation: heroRise 0.6s 0.05s var(--ease-out) both; }
+  .hero-subtitle     { animation: heroRise 0.6s 0.16s var(--ease-out) both; }
+  .hero-actions      { animation: heroRise 0.6s 0.24s var(--ease-out) both; }
+  .hero-mini-actions { animation: heroRise 0.6s 0.30s var(--ease-out) both; }
+  .hero-trust-row    { animation: heroRise 0.6s 0.36s var(--ease-out) both; }
+  .hero-preview      { animation: heroRise 0.8s 0.18s var(--ease-out) both; }
+
+  /* Trust chips: subtle fill on hover (they already lift + recolor) */
+  .hero-trust-row span:hover { background: var(--accent-soft); }
+
+  /* Preview task rows get a tactile nudge + lift on hover */
+  .task {
+    transition: transform 0.2s var(--ease-out), box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .task:hover {
+    transform: translateX(4px);
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.07);
+  }
+
+  /* Hero primary CTA: soft brand glow that intensifies on hover */
+  .hero-actions .btn-primary {
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.28);
+    transition: transform 0.2s var(--ease-out), box-shadow 0.2s ease, background 0.2s ease;
+  }
+  .hero-actions .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(37, 99, 235, 0.4);
   }
 
   /* ── Live Stats Strip ─────────────────────────────────────── */
