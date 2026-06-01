@@ -60,10 +60,31 @@
   {
     "@context": "https://schema.org",
     "@type": "Organization",
+    "@id": "https://intelliplan.tech/#organization",
     "name": "IntelliPlan",
+    "alternateName": "IntelliPlan AI Study Planner",
     "url": "https://intelliplan.tech",
-    "logo": "https://intelliplan.tech/static/icons/icon-512.png",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://intelliplan.tech/static/icons/icon-512.png",
+      "width": 512,
+      "height": 512
+    },
     "description": "Free AI study planner for students, syncs Canvas, StudentVue, and Schoology, prioritizes assignments, builds study schedules, and includes the Plani AI tutor.",
+    "slogan": "The AI study planner built by a student, for students.",
+    "foundingDate": "2025",
+    "knowsAbout": [
+      "AI study planner",
+      "student planner",
+      "homework planner",
+      "Canvas LMS",
+      "StudentVue",
+      "Schoology",
+      "study schedule generator",
+      "assignment prioritization",
+      "AI tutoring",
+      "grade tracking"
+    ],
     "sameAs": [
       "https://github.com/UAnirudh/IntelliPlan"
     ]
@@ -73,10 +94,13 @@
   {
     "@context": "https://schema.org",
     "@type": "WebSite",
+    "@id": "https://intelliplan.tech/#website",
     "name": "IntelliPlan",
+    "alternateName": ["IntelliPlan AI Study Planner", "IntelliPlan Student Planner"],
     "url": "https://intelliplan.tech",
     "inLanguage": "en-US",
-    "description": "Free AI study planner for students."
+    "description": "Free AI study planner for students.",
+    "publisher": { "@id": "https://intelliplan.tech/#organization" }
   }
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,700&family=Inter:wght@400;500;600;700&family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
