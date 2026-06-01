@@ -446,7 +446,10 @@
     /* ══════════════════════════════════════
        APP SIDEBAR (desktop) ──────────────
     ══════════════════════════════════════ */
-    :root { --side-w: 232px; }
+    /* Sidebar width scales with the viewport: narrower on compact laptops,
+       wider on large monitors, clamped so it never gets cramped or bloated.
+       `main`'s left padding reads this var, so the content stays in sync. */
+    :root { --side-w: clamp(204px, 15vw, 272px); }
     .app-side {
       position: fixed; top: 0; left: 0; bottom: 0; width: var(--side-w);
       background: var(--bg-card); border-right: 1px solid var(--border);
@@ -1252,8 +1255,20 @@
       #themeLabel { display:none; }
     }
 
-    /* ── Tablet narrow (769–900px): icon-only nav tabs ── */
-    @media (min-width:769px) and (max-width:900px) {
+    /* ── Mid desktop (901–1100px): tighten nav spacing so the full
+       labels keep fitting instead of wrapping or overflowing ── */
+    @media (min-width:901px) and (max-width:1100px) {
+      .nav-tabs, .nav-group { gap:1px; }
+      .nav-tab { padding:6px 9px; font-size:0.78rem; gap:5px; }
+      .dropdown-toggle { padding:6px 9px; }
+      .nav-divider { margin:0 4px; }
+      .header-right { gap:0.85rem; }
+      header { padding:0 1.25rem; }
+    }
+
+    /* ── Tablet (721–900px): icon-only nav tabs (closes the old 721–768
+       dead zone so the nav never shows oversized labels at narrow widths) ── */
+    @media (min-width:721px) and (max-width:900px) {
       .nav-divider { display:none; }
       .nav-group   { gap:2px; }
       .nav-tab     { padding:8px; gap:0; border-radius:var(--r-sm); }
