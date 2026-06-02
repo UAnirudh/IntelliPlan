@@ -649,6 +649,7 @@ body.serious-mode .nav-tabs { display:none !important; }
           <button class="itab active" onclick="switchInputTab('paste')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pencil"/></svg> Paste Text</button>
           <button class="itab" onclick="switchInputTab('upload')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-download"/></svg> Upload File</button>
           <button class="itab" onclick="switchInputTab('youtube')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-video"/></svg> YouTube</button>
+          <button class="itab" onclick="switchInputTab('audio')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg> Record / Audio</button>
         </div>
         <div class="ipanel active" id="pastePanel">
           <textarea class="study-ta" id="pasteContent" placeholder="Paste notes, textbook text, articles, or any study material..."></textarea>
@@ -673,6 +674,23 @@ body.serious-mode .nav-tabs { display:none !important; }
           </div>
           <div id="youtubeMsg" style="font-size:0.82rem;color:#10b981;margin-top:8px;display:none;"></div>
           <textarea class="study-ta" id="youtubeContent" style="margin-top:1rem;display:none;" placeholder="Transcript (editable)..."></textarea>
+        </div>
+        <div class="ipanel" id="audioPanel">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+            <button type="button" id="recBtn" onclick="toggleRecord()"
+              style="display:inline-flex;align-items:center;gap:7px;padding:0.75rem 1.1rem;border:none;border-radius:10px;background:var(--accent,#2453d6);color:#fff;font-family:inherit;font-weight:700;font-size:0.85rem;cursor:pointer;">
+              <span id="recDot" style="width:9px;height:9px;border-radius:50%;background:#fff;"></span><span id="recLabel">Start recording</span>
+            </button>
+            <span id="recTimer" style="font-family:'DM Mono',monospace;font-size:0.9rem;font-weight:700;color:var(--tx,#0f172a);display:none;">00:00</span>
+            <span style="font-size:0.8rem;color:#94a3b8;">or</span>
+            <label style="display:inline-flex;align-items:center;gap:6px;padding:0.7rem 1rem;border:1px solid var(--border,#e2e8f0);border-radius:10px;font-size:0.85rem;font-weight:600;color:var(--tx,#0f172a);cursor:pointer;background:var(--bg-card,#fff);">
+              Upload audio
+              <input type="file" id="audioUpload" accept="audio/*,.mp3,.m4a,.wav,.webm,.ogg,.mp4,.flac" style="display:none;" onchange="handleAudioUpload(this)"/>
+            </label>
+          </div>
+          <div style="font-size:0.72rem;color:#94a3b8;margin-top:6px;">Record a lecture live or upload a recording (max 25 MB). Transcribed by AI.</div>
+          <div id="audioMsg" style="font-size:0.82rem;color:#10b981;margin-top:8px;display:none;"></div>
+          <textarea class="study-ta" id="audioContent" style="margin-top:1rem;display:none;" placeholder="Transcript (editable)..."></textarea>
         </div>
       </div>
 
@@ -1043,10 +1061,11 @@ function switchTab(tab) {
 
 function switchInputTab(tab) {
   G.inputTab = tab;
-  document.querySelectorAll('.itab').forEach((b,i) => b.classList.toggle('active', ['paste','upload','youtube'][i] === tab));
+  document.querySelectorAll('.itab').forEach((b,i) => b.classList.toggle('active', ['paste','upload','youtube','audio'][i] === tab));
   document.getElementById('pastePanel').classList.toggle('active', tab === 'paste');
   document.getElementById('uploadPanel').classList.toggle('active', tab === 'upload');
   document.getElementById('youtubePanel').classList.toggle('active', tab === 'youtube');
+  document.getElementById('audioPanel').classList.toggle('active', tab === 'audio');
 }
 
 function selMode(m) {
@@ -1117,6 +1136,98 @@ async function loadYoutube() {
   }
 }
 
+// ══ AUDIO: record or upload → Whisper transcription ═══════
+let _mediaRecorder = null, _recChunks = [], _recTimerInt = null, _recStart = 0;
+
+function _audioMsg(text, color) {
+  const m = document.getElementById('audioMsg');
+  m.style.display = 'block'; m.textContent = text; m.style.color = color || '#94a3b8';
+}
+
+function _extForMime(mime) {
+  mime = (mime || '').toLowerCase();
+  if (mime.includes('webm')) return 'webm';
+  if (mime.includes('mp4') || mime.includes('m4a') || mime.includes('aac')) return 'mp4';
+  if (mime.includes('ogg')) return 'ogg';
+  if (mime.includes('wav')) return 'wav';
+  return 'webm';
+}
+
+async function toggleRecord() {
+  // Currently recording → stop and transcribe.
+  if (_mediaRecorder && _mediaRecorder.state === 'recording') {
+    _mediaRecorder.stop();
+    return;
+  }
+  // Start a new recording.
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    _audioMsg('Recording is not supported in this browser. Use Upload audio instead.', '#ef4444');
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    _recChunks = [];
+    _mediaRecorder = new MediaRecorder(stream);
+    _mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) _recChunks.push(e.data); };
+    _mediaRecorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      clearInterval(_recTimerInt);
+      document.getElementById('recTimer').style.display = 'none';
+      const btn = document.getElementById('recBtn');
+      document.getElementById('recLabel').textContent = 'Start recording';
+      document.getElementById('recDot').style.background = '#fff';
+      btn.style.background = 'var(--accent,#2453d6)';
+      const type = _mediaRecorder.mimeType || 'audio/webm';
+      const blob = new Blob(_recChunks, { type });
+      if (blob.size < 1000) { _audioMsg('Recording was too short.', '#ef4444'); return; }
+      transcribeBlob(blob, 'recording.' + _extForMime(type));
+    };
+    _mediaRecorder.start();
+    _recStart = Date.now();
+    const tEl = document.getElementById('recTimer');
+    tEl.style.display = 'inline'; tEl.textContent = '00:00';
+    _recTimerInt = setInterval(() => {
+      const s = Math.floor((Date.now() - _recStart) / 1000);
+      tEl.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+    }, 500);
+    const btn = document.getElementById('recBtn');
+    document.getElementById('recLabel').textContent = 'Stop & transcribe';
+    document.getElementById('recDot').style.background = '#fca5a5';
+    btn.style.background = '#dc2626';
+    _audioMsg('Recording… click stop when done.', '#94a3b8');
+  } catch (e) {
+    _audioMsg('Microphone access was denied. Allow mic access or use Upload audio.', '#ef4444');
+  }
+}
+
+function handleAudioUpload(input) {
+  const file = input.files[0]; if (!file) return;
+  transcribeBlob(file, file.name);
+}
+
+async function transcribeBlob(blob, filename) {
+  if (blob.size > 25 * 1024 * 1024) {
+    _audioMsg('Audio is too large (max 25 MB). Record a shorter clip or compress it.', '#ef4444');
+    return;
+  }
+  _audioMsg('Transcribing… this can take a moment.', '#94a3b8');
+  try {
+    const fd = new FormData();
+    fd.append('file', blob, filename);
+    const r = await fetch('/study/transcribe', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      const ta = document.getElementById('audioContent');
+      ta.value = d.text; ta.style.display = 'block';
+      _audioMsg(`Transcribed (${d.text.length} chars). Edit if needed, then generate.`, '#10b981');
+    } else {
+      _audioMsg(d.message || 'Could not transcribe that audio.', '#ef4444');
+    }
+  } catch (e) {
+    _audioMsg('Could not transcribe that audio. Please try again.', '#ef4444');
+  }
+}
+
 // ══ SESSION START ═════════════════════════════════════════
 async function startSession() {
   if (G.generating) return;
@@ -1124,6 +1235,8 @@ async function startSession() {
     ? document.getElementById('pasteContent').value.trim()
     : G.inputTab === 'youtube'
     ? document.getElementById('youtubeContent').value.trim()
+    : G.inputTab === 'audio'
+    ? document.getElementById('audioContent').value.trim()
     : document.getElementById('uploadContent').value.trim();
   if (!content || content.length < 50) { alert('Add at least 50 characters of study material.'); return; }
 

@@ -6086,15 +6086,28 @@ def study_youtube():
         usage = _get_guest_usage()
         if usage["uploads"] >= GUEST_STUDY_LIMITS["uploads"]:
             return _guest_limit_response()
+    # YouTube blocks transcript requests from datacenter IPs (Railway etc.).
+    # Route through a proxy if YOUTUBE_PROXY is set (e.g. a Webshare residential
+    # endpoint: http://user:pass@host:port). Works with any HTTP/HTTPS proxy.
+    proxy = (os.getenv("YOUTUBE_PROXY") or "").strip()
+    proxies = {"http": proxy, "https": proxy} if proxy else None
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
         langs = ["en", "en-US", "en-GB"]
         # Support both the <1.0 classmethod API and the 1.x instance API.
         try:
-            segments = YouTubeTranscriptApi.get_transcript(vid, languages=langs)
+            if proxies:
+                segments = YouTubeTranscriptApi.get_transcript(vid, languages=langs, proxies=proxies)
+            else:
+                segments = YouTubeTranscriptApi.get_transcript(vid, languages=langs)
             text = " ".join((s.get("text") or "") for s in segments)
         except AttributeError:
-            fetched = YouTubeTranscriptApi().fetch(vid, languages=langs)
+            if proxies:
+                from youtube_transcript_api.proxies import GenericProxyConfig
+                api = YouTubeTranscriptApi(proxy_config=GenericProxyConfig(http_url=proxy, https_url=proxy))
+            else:
+                api = YouTubeTranscriptApi()
+            fetched = api.fetch(vid, languages=langs)
             text = " ".join(getattr(snip, "text", "") for snip in fetched)
         text = re.sub(r"\s+", " ", text).strip()
         if not text:
@@ -6110,6 +6123,52 @@ def study_youtube():
             "status": "error",
             "message": "Couldn't fetch this video's transcript. Make sure the video has captions, or paste the transcript into the Paste Text tab."
         }), 502
+
+_AUDIO_EXTS = (".mp3", ".m4a", ".wav", ".webm", ".ogg", ".oga", ".flac", ".mp4", ".mpeg", ".mpga")
+MAX_AUDIO_BYTES = 25 * 1024 * 1024  # Groq Whisper free-tier audio cap
+
+@app.route("/study/transcribe", methods=["POST"])
+def study_transcribe():
+    """Transcribe a recorded or uploaded lecture/audio file with Groq Whisper.
+    The existing /study/generate pipeline then turns the transcript into notes,
+    flashcards, and a quiz. Mirrors /study/extract-pdf (returns {status, text})
+    and counts against the same guest upload limit."""
+    if "file" not in request.files:
+        return flask.jsonify({"status": "error", "message": "No audio file"}), 400
+    f = request.files["file"]
+    fname = (f.filename or "audio.webm").lower()
+    if not fname.endswith(_AUDIO_EXTS):
+        return flask.jsonify({"status": "error", "message": "Unsupported audio format. Use mp3, m4a, wav, webm, ogg, or mp4."}), 400
+    if _is_guest():
+        usage = _get_guest_usage()
+        if usage["uploads"] >= GUEST_STUDY_LIMITS["uploads"]:
+            return _guest_limit_response()
+    try:
+        data = f.read()
+        if not data:
+            return flask.jsonify({"status": "error", "message": "Empty audio file."}), 400
+        if len(data) > MAX_AUDIO_BYTES:
+            return flask.jsonify({"status": "error", "message": "Audio is too large (max 25 MB). Record a shorter clip or upload a compressed file."}), 413
+        client = _groq_client()
+        result = client.audio.transcriptions.create(
+            file=(fname, data),
+            model="whisper-large-v3-turbo",
+            response_format="text",
+        )
+        # response_format="text" yields a plain string; "json" yields an object
+        # with .text. Handle both so an SDK change can't break this.
+        text = result if isinstance(result, str) else getattr(result, "text", "")
+        text = (text or "").strip()
+        if not text:
+            return flask.jsonify({"status": "error", "message": "Couldn't hear any speech in that audio."}), 422
+        if _is_guest():
+            usage = _get_guest_usage()
+            usage["uploads"] += 1
+            _save_guest_usage(usage)
+        return flask.jsonify({"status": "ok", "text": text[:15000]})
+    except Exception as e:
+        print(f"Transcription error: {e}")
+        return flask.jsonify({"status": "error", "message": "Transcription temporarily unavailable. Please try again."}), 500
 
 @app.route("/study/generate", methods=["POST"])
 def study_generate():
