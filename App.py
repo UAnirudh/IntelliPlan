@@ -6063,6 +6063,54 @@ def study_extract_pdf():
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route("/study/youtube", methods=["POST"])
+def study_youtube():
+    """Turn a YouTube link into study text by fetching its caption transcript.
+    The existing /study/generate pipeline then turns that text into notes,
+    flashcards, and a quiz. Mirrors /study/extract-pdf (returns {status, text})
+    and counts against the same guest upload limit."""
+    data = request.json or {}
+    url = (data.get("url") or "").strip()
+    if not url:
+        return flask.jsonify({"status": "error", "message": "No URL provided"}), 400
+    # Pull the 11-char video id out of any common YouTube URL shape.
+    vid = None
+    m = re.search(r"(?:v=|youtu\.be/|/shorts/|/embed/|/live/)([A-Za-z0-9_-]{11})", url)
+    if m:
+        vid = m.group(1)
+    elif re.fullmatch(r"[A-Za-z0-9_-]{11}", url):
+        vid = url
+    if not vid:
+        return flask.jsonify({"status": "error", "message": "That doesn't look like a valid YouTube link."}), 400
+    if _is_guest():
+        usage = _get_guest_usage()
+        if usage["uploads"] >= GUEST_STUDY_LIMITS["uploads"]:
+            return _guest_limit_response()
+    try:
+        from youtube_transcript_api import YouTubeTranscriptApi
+        langs = ["en", "en-US", "en-GB"]
+        # Support both the <1.0 classmethod API and the 1.x instance API.
+        try:
+            segments = YouTubeTranscriptApi.get_transcript(vid, languages=langs)
+            text = " ".join((s.get("text") or "") for s in segments)
+        except AttributeError:
+            fetched = YouTubeTranscriptApi().fetch(vid, languages=langs)
+            text = " ".join(getattr(snip, "text", "") for snip in fetched)
+        text = re.sub(r"\s+", " ", text).strip()
+        if not text:
+            raise ValueError("empty transcript")
+        if _is_guest():
+            usage = _get_guest_usage()
+            usage["uploads"] += 1
+            _save_guest_usage(usage)
+        return flask.jsonify({"status": "ok", "text": text[:15000], "video_id": vid})
+    except Exception as e:
+        print(f"YouTube transcript error for {vid}: {e}")
+        return flask.jsonify({
+            "status": "error",
+            "message": "Couldn't fetch this video's transcript. Make sure the video has captions, or paste the transcript into the Paste Text tab."
+        }), 502
+
 @app.route("/study/generate", methods=["POST"])
 def study_generate():
     data = request.json or {}

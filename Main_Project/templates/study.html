@@ -648,6 +648,7 @@ body.serious-mode .nav-tabs { display:none !important; }
         <div class="itabs">
           <button class="itab active" onclick="switchInputTab('paste')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pencil"/></svg> Paste Text</button>
           <button class="itab" onclick="switchInputTab('upload')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-download"/></svg> Upload File</button>
+          <button class="itab" onclick="switchInputTab('youtube')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-video"/></svg> YouTube</button>
         </div>
         <div class="ipanel active" id="pastePanel">
           <textarea class="study-ta" id="pasteContent" placeholder="Paste notes, textbook text, articles, or any study material..."></textarea>
@@ -661,6 +662,17 @@ body.serious-mode .nav-tabs { display:none !important; }
             <div id="uploadMsg" style="font-size:0.82rem;color:#10b981;margin-top:8px;display:none;"></div>
           </div>
           <textarea class="study-ta" id="uploadContent" style="margin-top:1rem;display:none;" placeholder="Extracted text (editable)..."></textarea>
+        </div>
+        <div class="ipanel" id="youtubePanel">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;">
+            <input type="text" id="youtubeUrl" inputmode="url" autocomplete="off"
+              style="flex:1;min-width:220px;padding:0.75rem 0.9rem;border:1px solid var(--border,#e2e8f0);border-radius:10px;font-family:inherit;font-size:0.9rem;background:var(--bg-card,#fff);color:var(--tx,#0f172a);"
+              placeholder="Paste a YouTube link (e.g. https://www.youtube.com/watch?v=...)"/>
+            <button type="button" id="ytBtn" onclick="loadYoutube()"
+              style="white-space:nowrap;padding:0.75rem 1.1rem;border:none;border-radius:10px;background:var(--accent,#2453d6);color:#fff;font-family:inherit;font-weight:700;font-size:0.85rem;cursor:pointer;">Load transcript</button>
+          </div>
+          <div id="youtubeMsg" style="font-size:0.82rem;color:#10b981;margin-top:8px;display:none;"></div>
+          <textarea class="study-ta" id="youtubeContent" style="margin-top:1rem;display:none;" placeholder="Transcript (editable)..."></textarea>
         </div>
       </div>
 
@@ -1031,9 +1043,10 @@ function switchTab(tab) {
 
 function switchInputTab(tab) {
   G.inputTab = tab;
-  document.querySelectorAll('.itab').forEach((b,i) => b.classList.toggle('active', ['paste','upload'][i] === tab));
+  document.querySelectorAll('.itab').forEach((b,i) => b.classList.toggle('active', ['paste','upload','youtube'][i] === tab));
   document.getElementById('pastePanel').classList.toggle('active', tab === 'paste');
   document.getElementById('uploadPanel').classList.toggle('active', tab === 'upload');
+  document.getElementById('youtubePanel').classList.toggle('active', tab === 'youtube');
 }
 
 function selMode(m) {
@@ -1074,11 +1087,43 @@ uz.addEventListener('drop', e => {
   if (f) { const dt = new DataTransfer(); dt.items.add(f); document.getElementById('fileUpload').files = dt.files; handleUpload(document.getElementById('fileUpload')); }
 });
 
+// ══ YOUTUBE ═══════════════════════════════════════════════
+async function loadYoutube() {
+  const url = (document.getElementById('youtubeUrl').value || '').trim();
+  const msg = document.getElementById('youtubeMsg');
+  const btn = document.getElementById('ytBtn');
+  msg.style.display = 'block';
+  if (!url) { msg.textContent = 'Paste a YouTube link first.'; msg.style.color = '#ef4444'; return; }
+  msg.textContent = 'Fetching transcript...'; msg.style.color = '#94a3b8';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/study/youtube', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({url})
+    });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      const ta = document.getElementById('youtubeContent');
+      ta.value = d.text; ta.style.display = 'block';
+      msg.textContent = `Transcript loaded (${d.text.length} chars). Edit if needed, then generate.`;
+      msg.style.color = '#10b981';
+    } else {
+      msg.textContent = d.message || 'Could not load transcript.'; msg.style.color = '#ef4444';
+    }
+  } catch (e) {
+    msg.textContent = 'Could not load transcript. Please try again.'; msg.style.color = '#ef4444';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 // ══ SESSION START ═════════════════════════════════════════
 async function startSession() {
   if (G.generating) return;
   const content = G.inputTab === 'paste'
     ? document.getElementById('pasteContent').value.trim()
+    : G.inputTab === 'youtube'
+    ? document.getElementById('youtubeContent').value.trim()
     : document.getElementById('uploadContent').value.trim();
   if (!content || content.length < 50) { alert('Add at least 50 characters of study material.'); return; }
 

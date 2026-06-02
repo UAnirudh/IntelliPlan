@@ -50,6 +50,8 @@ IntelliPlan helps students stop deciding what to work on from scratch every day.
 - Notion export
 - Grade Modeler for "what score do I need?" scenarios
 - Study tools for notes, flashcards, quizzes, and key concepts
+- Turn a YouTube video link into study material: IntelliPlan pulls the transcript and generates notes, flashcards, and a quiz from it
+- Turn pasted text or an uploaded PDF into notes, flashcards, and a quiz
 - Plani Tutor for step-by-step academic explanations
 - Streaks, Sparks, quests, badges, and study motivation tools
 - Meetings hub: one-click launch for Microsoft Teams, Zoom, Google Meet, Webex, Discord, and Slack, plus a personal directory of saved class meeting links
