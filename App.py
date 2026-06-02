@@ -1922,6 +1922,14 @@ def compare_notion():
 def compare_myhomework():
     return render_template("compare_myhomework.html", active_page="compare")
 
+@app.route("/compare/intelliplan-vs-turbo-ai")
+def compare_turbo():
+    return render_template("compare_turbo.html", active_page="compare")
+
+@app.route("/blog/ai-notetaker-for-students")
+def blog_ai_notetaker():
+    return render_template("blog_ai_notetaker.html", active_page="blog")
+
 @app.route("/about")
 def about():
     return render_template("about.html", active_page="about")

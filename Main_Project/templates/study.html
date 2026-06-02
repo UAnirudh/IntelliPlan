@@ -673,6 +673,7 @@ body.serious-mode .nav-tabs { display:none !important; }
               style="white-space:nowrap;padding:0.75rem 1.1rem;border:none;border-radius:10px;background:var(--accent,#2453d6);color:#fff;font-family:inherit;font-weight:700;font-size:0.85rem;cursor:pointer;">Load transcript</button>
           </div>
           <div id="youtubeMsg" style="font-size:0.82rem;color:#10b981;margin-top:8px;display:none;"></div>
+          <a id="ytOpenLink" href="#" target="_blank" rel="noopener" style="display:none;font-size:0.8rem;font-weight:600;color:var(--accent,#2453d6);margin-top:4px;text-decoration:none;">Open the video on YouTube → click "…more" → "Show transcript", then copy it into the Paste Text tab.</a>
           <textarea class="study-ta" id="youtubeContent" style="margin-top:1rem;display:none;" placeholder="Transcript (editable)..."></textarea>
         </div>
         <div class="ipanel" id="audioPanel">
@@ -1111,6 +1112,8 @@ async function loadYoutube() {
   const url = (document.getElementById('youtubeUrl').value || '').trim();
   const msg = document.getElementById('youtubeMsg');
   const btn = document.getElementById('ytBtn');
+  const openLink = document.getElementById('ytOpenLink');
+  openLink.style.display = 'none';
   msg.style.display = 'block';
   if (!url) { msg.textContent = 'Paste a YouTube link first.'; msg.style.color = '#ef4444'; return; }
   msg.textContent = 'Fetching transcript...'; msg.style.color = '#94a3b8';
@@ -1128,9 +1131,11 @@ async function loadYoutube() {
       msg.style.color = '#10b981';
     } else {
       msg.textContent = d.message || 'Could not load transcript.'; msg.style.color = '#ef4444';
+      if (/^https?:\/\//i.test(url)) { openLink.href = url; openLink.style.display = 'inline-block'; }
     }
   } catch (e) {
     msg.textContent = 'Could not load transcript. Please try again.'; msg.style.color = '#ef4444';
+    if (/^https?:\/\//i.test(url)) { openLink.href = url; openLink.style.display = 'inline-block'; }
   } finally {
     btn.disabled = false;
   }
