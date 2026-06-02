@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block page_title %}IntelliPlan vs Notion for Students: AI Study Planner Comparison{% endblock %}
+
+{% block meta_description %}IntelliPlan vs Notion for students. Notion is a flexible workspace you build yourself; IntelliPlan is a ready-made AI study planner that auto-imports Canvas, StudentVue, and Schoology assignments and schedules your week. See the full comparison.{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block og_title %}IntelliPlan vs Notion for Students{% endblock %}
+{% block og_description %}A fair comparison of IntelliPlan and Notion for student planning, automatic assignment import, AI scheduling, and tutoring versus a build-it-yourself workspace.{% endblock %}
+{% block twitter_title %}IntelliPlan vs Notion for Students{% endblock %}
+{% block twitter_description %}Notion is a blank canvas; IntelliPlan is a purpose-built AI study planner. Here is how they compare for students.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "IntelliPlan vs Notion for Students",
+  "description": "A comparison of IntelliPlan and Notion as study planners for students, covering assignment import, prioritization, scheduling, tutoring, and setup effort.",
+  "url": "https://intelliplan.tech/compare/intelliplan-vs-notion",
+  "about": ["AI study planner", "Notion for students", "student planner comparison"],
+  "author": { "@type": "Organization", "name": "IntelliPlan", "url": "https://intelliplan.tech" },
+  "publisher": { "@id": "https://intelliplan.tech/#organization" }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<style>
+  .blog-page { max-width: 720px; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
+  .blog-kicker {
+    display: inline-flex; align-items: center; padding: 0.45rem 0.8rem; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent); font-family: var(--font-ui);
+    font-size: 0.8rem; font-weight: 700; margin-bottom: 1rem;
+  }
+  .blog-title {
+    font-family: var(--font-display); font-size: clamp(1.8rem, 3.5vw, 2.6rem); line-height: 1.08;
+    color: var(--text-primary); letter-spacing: -0.03em; margin: 0 0 1rem;
+  }
+  .blog-lede { font-family: var(--font-ui); font-size: 1.08rem; color: var(--text-muted); line-height: 1.7; margin: 0 0 1.5rem; }
+  .blog-body { font-family: var(--font-ui); font-size: 1rem; color: var(--text-secondary); line-height: 1.8; }
+  .blog-body h2 { font-family: var(--font-display); font-size: 1.35rem; color: var(--text-primary); margin: 2rem 0 0.75rem; }
+  .blog-body p { margin: 0 0 1.1rem; }
+  .blog-body a { color: var(--accent); }
+  .blog-body strong { color: var(--text-primary); }
+  .cmp-table { width: 100%; border-collapse: collapse; margin: 1.25rem 0 1.5rem; font-family: var(--font-ui); font-size: 0.94rem; }
+  .cmp-table th, .cmp-table td { text-align: left; padding: 0.7rem 0.8rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .cmp-table thead th { color: var(--text-primary); font-weight: 700; border-bottom: 1px solid var(--border-strong); }
+  .cmp-table th.feat { color: var(--text-secondary); font-weight: 600; }
+  .cmp-yes { color: var(--low); font-weight: 700; }
+  .cmp-no { color: var(--text-muted); }
+  .blog-cta {
+    margin-top: 2.5rem; padding: 1.75rem; background: var(--bg-card);
+    border: 1px solid var(--border-accent); border-radius: var(--r-xl);
+    box-shadow: var(--accent-glow); text-align: center;
+  }
+  .blog-cta h3 { font-family: var(--font-display); font-size: 1.3rem; color: var(--text-primary); margin: 0 0 0.5rem; }
+  .blog-cta p { font-family: var(--font-ui); color: var(--text-secondary); margin: 0 0 1rem; font-size: 0.95rem; }
+</style>
+
+<div class="blog-page">
+  <span class="blog-kicker">Comparison</span>
+  <h1 class="blog-title">IntelliPlan vs Notion for Students</h1>
+  <p class="blog-lede">
+    Both can run your student life, but they start from opposite ends. Notion gives you a blank, flexible
+    workspace to build yourself. IntelliPlan is a ready-made AI study planner that connects to your classes
+    and plans your week for you.
+  </p>
+
+  <div class="blog-body">
+    <h2>The core difference</h2>
+    <p>
+      <strong>Notion</strong> is a general-purpose workspace. It is powerful and endlessly customizable, which
+      means you can build a study system with databases and templates, but you have to design it, maintain it,
+      and enter your assignments by hand. <strong>IntelliPlan</strong> is purpose-built for students: it imports
+      your real coursework from Canvas, StudentVue, and Schoology and turns it into a prioritized weekly schedule
+      automatically.
+    </p>
+
+    <h2>Feature comparison</h2>
+    <table class="cmp-table">
+      <thead>
+        <tr><th class="feat">Feature</th><th>IntelliPlan</th><th>Notion</th></tr>
+      </thead>
+      <tbody>
+        <tr><th class="feat">Auto-imports Canvas / StudentVue / Schoology</th><td class="cmp-yes">Yes</td><td class="cmp-no">Manual entry</td></tr>
+        <tr><th class="feat">AI assignment prioritization</th><td class="cmp-yes">Yes</td><td class="cmp-no">Build it yourself</td></tr>
+        <tr><th class="feat">AI weekly schedule generator</th><td class="cmp-yes">Yes</td><td class="cmp-no">No</td></tr>
+        <tr><th class="feat">Google Calendar export</th><td class="cmp-yes">Yes</td><td class="cmp-no">Via integrations</td></tr>
+        <tr><th class="feat">Grade tracking & what-if modeling</th><td class="cmp-yes">Yes</td><td class="cmp-no">Manual</td></tr>
+        <tr><th class="feat">Built-in AI tutor</th><td class="cmp-yes">Yes</td><td class="cmp-no">No</td></tr>
+        <tr><th class="feat">Setup time</th><td class="cmp-yes">Minutes</td><td class="cmp-no">Hours to build</td></tr>
+        <tr><th class="feat">Free for students</th><td class="cmp-yes">Yes</td><td class="cmp-yes">Free plan</td></tr>
+      </tbody>
+    </table>
+
+    <h2>When Notion is the better pick</h2>
+    <p>
+      If you love building your own systems and want one workspace for notes, projects, and personal life,
+      Notion is excellent. The trade-off is time: a good student setup takes real effort to design and a habit
+      to keep updated.
+    </p>
+
+    <h2>When IntelliPlan is the better pick</h2>
+    <p>
+      If you want your assignments tracked automatically and your week planned without the busywork, IntelliPlan
+      is built for exactly that. It connects to your school account, ranks your work, schedules it, and gives you
+      <a href="/tutor">Plani Tutor</a> when you are stuck, no setup project required.
+    </p>
+    <p>
+      See also: <a href="/compare/intelliplan-vs-myhomework">IntelliPlan vs myHomework</a> and the
+      <a href="/blog/best-ai-study-planner">best AI study planner guide</a>.
+    </p>
+  </div>
+
+  <div class="blog-cta">
+    <h3>Skip the setup. Get a plan in minutes.</h3>
+    <p>IntelliPlan connects to your classes and builds your week automatically. Free for students.</p>
+    <a href="/login" class="btn-primary" style="text-decoration:none">Try IntelliPlan Free →</a>
+  </div>
+</div>
+
+{% endblock %}

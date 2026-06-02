@@ -1906,6 +1906,22 @@ def blog_studentvue():
 def blog_prioritize():
     return render_template("blog_prioritize.html", active_page="blog")
 
+@app.route("/blog/best-ai-study-planner")
+def blog_best_ai_planner():
+    return render_template("blog_best_ai_planner.html", active_page="blog")
+
+@app.route("/blog/best-student-planner-app")
+def blog_student_planner_app():
+    return render_template("blog_student_planner_app.html", active_page="blog")
+
+@app.route("/compare/intelliplan-vs-notion")
+def compare_notion():
+    return render_template("compare_notion.html", active_page="compare")
+
+@app.route("/compare/intelliplan-vs-myhomework")
+def compare_myhomework():
+    return render_template("compare_myhomework.html", active_page="compare")
+
 @app.route("/about")
 def about():
     return render_template("about.html", active_page="about")
