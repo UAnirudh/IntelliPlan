@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block page_title %}GPA Calculator — Free Weighted & Unweighted | IntelliPlan{% endblock %}
+
+{% block meta_description %}Free GPA calculator for high school and college. Add your courses, grades, and credits to get your weighted or unweighted GPA on a 4.0 scale instantly. No sign-up.{% endblock %}
+{% block og_type %}website{% endblock %}
+{% block og_title %}GPA Calculator — Free Weighted & Unweighted{% endblock %}
+{% block og_description %}Calculate your weighted or unweighted GPA on a 4.0 scale in seconds. Free, no sign-up.{% endblock %}
+{% block twitter_title %}GPA Calculator — Free Weighted & Unweighted{% endblock %}
+{% block twitter_description %}Add courses, grades, and credits. Get your GPA instantly. Free.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "GPA Calculator",
+  "url": "https://intelliplan.tech/tools/gpa-calculator",
+  "applicationCategory": "EducationApplication",
+  "operatingSystem": "Web",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "description": "Free weighted and unweighted GPA calculator on a 4.0 scale for high school and college students.",
+  "publisher": { "@id": "https://intelliplan.tech/#organization" }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How is GPA calculated on a 4.0 scale?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Multiply each course's grade points (A = 4.0, B = 3.0, C = 2.0, D = 1.0, F = 0) by its credit hours, add those up, and divide by the total credit hours. The result is your grade point average."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between weighted and unweighted GPA?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Unweighted GPA uses a 4.0 maximum for every class. Weighted GPA adds bonus points for harder courses, typically +1.0 for AP or IB and +0.5 for Honors, so an A in an AP class can count as 5.0."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is this GPA calculator free?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. IntelliPlan's GPA calculator is free with no sign-up. For automatic grade tracking and what-if GPA modeling from your real Canvas, StudentVue, or Schoology scores, use IntelliPlan's Grade Modeler."
+      }
+    }
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<style>
+  .tool-page { max-width: 680px; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
+  .tool-kicker { display:inline-flex; align-items:center; padding:0.45rem 0.8rem; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-family:var(--font-ui); font-size:0.8rem; font-weight:700; margin-bottom:1rem; }
+  .tool-title { font-family:var(--font-display); font-size:clamp(1.8rem,3.5vw,2.6rem); line-height:1.08; color:var(--text-primary); letter-spacing:-0.03em; margin:0 0 0.75rem; }
+  .tool-sub { font-family:var(--font-ui); font-size:1.05rem; color:var(--text-muted); line-height:1.6; margin:0 0 1.75rem; }
+  .calc-card { background:var(--bg-card); border:1px solid var(--border-strong); border-radius:var(--r-xl); padding:1.6rem; box-shadow:var(--shadow); }
+  .scale-toggle { display:flex; align-items:center; gap:0.5rem; margin-bottom:1.1rem; font-family:var(--font-ui); font-size:0.9rem; color:var(--text-primary); flex-wrap:wrap; }
+  .gpa-row { display:grid; grid-template-columns: 1fr 92px 110px 34px; gap:8px; align-items:center; margin-bottom:8px; }
+  .gpa-row.wtd { grid-template-columns: 1fr 92px 92px 34px; }
+  .gpa-row input, .gpa-row select { padding:0.6rem 0.5rem; border:1px solid var(--border-strong); border-radius:9px; font-family:inherit; font-size:0.9rem; background:var(--bg-secondary); color:var(--text-primary); width:100%; }
+  .gpa-row .rm { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.2rem; line-height:1; }
+  .gpa-head { display:grid; grid-template-columns: 1fr 92px 110px 34px; gap:8px; font-family:var(--font-ui); font-size:0.74rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.03em; margin-bottom:6px; padding:0 2px; }
+  .gpa-head.wtd { grid-template-columns: 1fr 92px 92px 34px; }
+  .ctype { display:none; }
+  .calc-card.wtd .ctype { display:block; }
+  .calc-card.wtd .credits-only { }
+  .add-row { background:none; border:1px dashed var(--border-strong); color:var(--accent); border-radius:10px; padding:0.6rem; width:100%; font-family:var(--font-ui); font-weight:600; cursor:pointer; margin-top:6px; font-size:0.88rem; }
+  .gpa-result { margin-top:1.25rem; padding:1.25rem; border-radius:14px; background:var(--accent-soft); border:1px solid var(--border-accent); font-family:var(--font-ui); text-align:center; }
+  .gpa-result .big { font-size:2.4rem; font-weight:800; font-family:var(--font-display); color:var(--accent); }
+  .gpa-result .sub { font-size:0.85rem; color:var(--text-muted); }
+  .tool-body { font-family:var(--font-ui); font-size:1rem; color:var(--text-secondary); line-height:1.8; margin-top:2.5rem; }
+  .tool-body h2 { font-family:var(--font-display); font-size:1.35rem; color:var(--text-primary); margin:2rem 0 0.75rem; }
+  .tool-body a { color:var(--accent); }
+  .tool-cta { margin-top:2.5rem; padding:1.75rem; background:var(--bg-card); border:1px solid var(--border-accent); border-radius:var(--r-xl); box-shadow:var(--accent-glow); text-align:center; }
+  .tool-cta h3 { font-family:var(--font-display); font-size:1.3rem; color:var(--text-primary); margin:0 0 0.5rem; }
+  .tool-cta p { font-family:var(--font-ui); color:var(--text-secondary); margin:0 0 1rem; font-size:0.95rem; }
+</style>
+
+<div class="tool-page">
+  <span class="tool-kicker">Free Tool</span>
+  <h1 class="tool-title">GPA Calculator</h1>
+  <p class="tool-sub">Add your classes, grades, and credits to get your weighted or unweighted GPA on a 4.0 scale. No sign-up.</p>
+
+  <div class="calc-card" id="gpaCard">
+    <div class="scale-toggle">
+      <input type="checkbox" id="weightedToggle" onchange="toggleWeighted()"/>
+      <label for="weightedToggle">Use weighted scale (AP/IB +1.0, Honors +0.5)</label>
+    </div>
+    <div class="gpa-head" id="gpaHead">
+      <span>Class</span><span>Grade</span><span>Credits</span><span></span>
+    </div>
+    <div id="gpaRows"></div>
+    <button class="add-row" type="button" onclick="addRow()">+ Add class</button>
+    <div class="gpa-result" id="gpaResult">
+      <div class="big" id="gpaValue">—</div>
+      <div class="sub" id="gpaSub">Enter grades and credits to see your GPA</div>
+    </div>
+  </div>
+
+  <div class="tool-body">
+    <h2>How GPA is calculated</h2>
+    <p>
+      Each letter grade is worth points (A = 4.0, B = 3.0, C = 2.0, D = 1.0, F = 0). Multiply each class's
+      points by its credit hours, add them all up, and divide by the total credits. On a
+      <strong>weighted</strong> scale, harder classes get a bonus — usually +1.0 for AP/IB and +0.5 for Honors.
+    </p>
+
+    <h2>Track your real GPA automatically</h2>
+    <p>
+      This calculator is great for a quick estimate. <a href="/">IntelliPlan</a>'s Grade Modeler pulls your
+      actual scores and category weights from Canvas, StudentVue, and Schoology and updates your GPA as grades
+      come in, plus it simulates "what do I need to reach a 4.0?" scenarios.
+    </p>
+    <p>Related: <a href="/tools/final-grade-calculator">Final Grade Calculator</a> · <a href="/faq">FAQ</a></p>
+  </div>
+
+  <div class="tool-cta">
+    <h3>Want your GPA tracked automatically?</h3>
+    <p>IntelliPlan imports your real grades and models what-if scenarios. Free for students.</p>
+    <a href="/login" class="btn-primary" style="text-decoration:none">Try IntelliPlan Free →</a>
+  </div>
+</div>
+
+<script>
+var GRADE_POINTS = {
+  'A+':4.0,'A':4.0,'A-':3.7,'B+':3.3,'B':3.0,'B-':2.7,
+  'C+':2.3,'C':2.0,'C-':1.7,'D+':1.3,'D':1.0,'D-':0.7,'F':0.0
+};
+var TYPE_BONUS = { 'Regular':0, 'Honors':0.5, 'AP/IB':1.0 };
+
+function gradeOptions() {
+  return Object.keys(GRADE_POINTS).map(function(g){ return '<option value="'+g+'">'+g+'</option>'; }).join('');
+}
+function typeOptions() {
+  return Object.keys(TYPE_BONUS).map(function(t){ return '<option value="'+t+'">'+t+'</option>'; }).join('');
+}
+
+function addRow(grade, credits) {
+  var weighted = document.getElementById('weightedToggle').checked;
+  var row = document.createElement('div');
+  row.className = 'gpa-row' + (weighted ? ' wtd' : '');
+  row.innerHTML =
+    '<input type="text" class="cname" placeholder="Class name (optional)"/>' +
+    '<select class="cgrade" onchange="computeGPA()">' + gradeOptions() + '</select>' +
+    '<input type="number" class="ccredits ' + (weighted ? 'ctype-hide' : '') + '" inputmode="decimal" min="0" step="0.5" placeholder="Credits" value="' + (credits || '') + '" oninput="computeGPA()"/>' +
+    '<select class="ctype" onchange="computeGPA()">' + typeOptions() + '</select>' +
+    '<button class="rm" type="button" title="Remove" onclick="this.parentNode.remove(); computeGPA();">×</button>';
+  document.getElementById('gpaRows').appendChild(row);
+  if (grade) row.querySelector('.cgrade').value = grade;
+  computeGPA();
+}
+
+function toggleWeighted() {
+  var weighted = document.getElementById('weightedToggle').checked;
+  document.getElementById('gpaCard').classList.toggle('wtd', weighted);
+  document.getElementById('gpaHead').classList.toggle('wtd', weighted);
+  document.querySelectorAll('.gpa-row').forEach(function(r){ r.classList.toggle('wtd', weighted); });
+}
+
+function computeGPA() {
+  var weighted = document.getElementById('weightedToggle').checked;
+  var rows = document.querySelectorAll('#gpaRows .gpa-row');
+  var totalPoints = 0, totalCredits = 0;
+  rows.forEach(function(r){
+    var g = r.querySelector('.cgrade').value;
+    var c = parseFloat(r.querySelector('.ccredits').value);
+    if (isNaN(c) || c <= 0) return;
+    var pts = GRADE_POINTS[g];
+    if (weighted) {
+      var t = r.querySelector('.ctype').value;
+      pts += (TYPE_BONUS[t] || 0);
+    }
+    totalPoints += pts * c;
+    totalCredits += c;
+  });
+  var val = document.getElementById('gpaValue');
+  var sub = document.getElementById('gpaSub');
+  if (totalCredits <= 0) {
+    val.textContent = '—';
+    sub.textContent = 'Enter grades and credits to see your GPA';
+    return;
+  }
+  var gpa = totalPoints / totalCredits;
+  val.textContent = (Math.round(gpa * 1000) / 1000).toFixed(2);
+  sub.textContent = (weighted ? 'Weighted' : 'Unweighted') + ' GPA across ' + totalCredits + ' credits';
+}
+
+// Seed three blank rows
+addRow(); addRow(); addRow();
+</script>
+
+{% endblock %}

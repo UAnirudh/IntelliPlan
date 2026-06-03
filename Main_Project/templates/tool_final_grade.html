@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block page_title %}Final Grade Calculator — What Do I Need on My Final? | IntelliPlan{% endblock %}
+
+{% block meta_description %}Free final grade calculator. Enter your current grade, the grade you want, and your final exam's weight to find out exactly what you need to score on your final. Instant, no sign-up.{% endblock %}
+{% block og_type %}website{% endblock %}
+{% block og_title %}Final Grade Calculator — What Do I Need on My Final?{% endblock %}
+{% block og_description %}Find out the exact score you need on your final exam to hit your target grade. Free and instant.{% endblock %}
+{% block twitter_title %}Final Grade Calculator — What Do I Need on My Final?{% endblock %}
+{% block twitter_description %}Enter your current grade, target grade, and final weight. Get the score you need. Free.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Final Grade Calculator",
+  "url": "https://intelliplan.tech/tools/final-grade-calculator",
+  "applicationCategory": "EducationApplication",
+  "operatingSystem": "Web",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "description": "Free calculator that tells students the exact score they need on a final exam to reach a target grade, based on current grade and final exam weight.",
+  "publisher": { "@id": "https://intelliplan.tech/#organization" }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How do I calculate what I need on my final exam?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use the formula: required score = (target grade − current grade × (1 − final weight)) ÷ final weight, where the weights are decimals. For example, with a 88% current grade, a 90% target, and a final worth 20%, you need (0.90 − 0.88 × 0.80) ÷ 0.20 = 98% on the final."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What if the calculator says I need more than 100%?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It means your target grade is not reachable from your current grade with the final alone. You would need extra credit, or you should set a slightly lower target. The calculator shows the highest grade you can still reach."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is this final grade calculator free?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. IntelliPlan's final grade calculator is completely free with no sign-up. For automatic grade tracking and what-if modeling across all your classes, IntelliPlan's Grade Modeler imports your real scores from Canvas, StudentVue, and Schoology."
+      }
+    }
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<style>
+  .tool-page { max-width: 680px; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
+  .tool-kicker { display:inline-flex; align-items:center; padding:0.45rem 0.8rem; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-family:var(--font-ui); font-size:0.8rem; font-weight:700; margin-bottom:1rem; }
+  .tool-title { font-family:var(--font-display); font-size:clamp(1.8rem,3.5vw,2.6rem); line-height:1.08; color:var(--text-primary); letter-spacing:-0.03em; margin:0 0 0.75rem; }
+  .tool-sub { font-family:var(--font-ui); font-size:1.05rem; color:var(--text-muted); line-height:1.6; margin:0 0 1.75rem; }
+  .calc-card { background:var(--bg-card); border:1px solid var(--border-strong); border-radius:var(--r-xl); padding:1.6rem; box-shadow:var(--shadow); }
+  .calc-row { margin-bottom:1.1rem; }
+  .calc-row label { display:block; font-family:var(--font-ui); font-size:0.9rem; font-weight:600; color:var(--text-primary); margin-bottom:0.4rem; }
+  .calc-row .hint { font-weight:400; color:var(--text-muted); font-size:0.8rem; }
+  .calc-input { width:100%; padding:0.75rem 0.9rem; border:1px solid var(--border-strong); border-radius:10px; font-family:inherit; font-size:1rem; background:var(--bg-secondary); color:var(--text-primary); }
+  .calc-btn { width:100%; margin-top:0.4rem; padding:0.85rem; border:none; border-radius:12px; background:var(--accent); color:#fff; font-family:var(--font-ui); font-weight:700; font-size:0.95rem; cursor:pointer; }
+  .calc-result { margin-top:1.25rem; padding:1.25rem; border-radius:14px; font-family:var(--font-ui); display:none; }
+  .calc-result.show { display:block; }
+  .calc-result .big { font-size:2rem; font-weight:800; font-family:var(--font-display); }
+  .res-ok { background:var(--low-bg); color:var(--text-primary); border:1px solid var(--low); }
+  .res-warn { background:var(--medium-bg); color:var(--text-primary); border:1px solid var(--medium); }
+  .res-bad { background:var(--high-bg); color:var(--text-primary); border:1px solid var(--high); }
+  .tool-body { font-family:var(--font-ui); font-size:1rem; color:var(--text-secondary); line-height:1.8; margin-top:2.5rem; }
+  .tool-body h2 { font-family:var(--font-display); font-size:1.35rem; color:var(--text-primary); margin:2rem 0 0.75rem; }
+  .tool-body a { color:var(--accent); }
+  .tool-body code { background:var(--bg-elevated); padding:0.1rem 0.4rem; border-radius:6px; font-size:0.9rem; }
+  .tool-cta { margin-top:2.5rem; padding:1.75rem; background:var(--bg-card); border:1px solid var(--border-accent); border-radius:var(--r-xl); box-shadow:var(--accent-glow); text-align:center; }
+  .tool-cta h3 { font-family:var(--font-display); font-size:1.3rem; color:var(--text-primary); margin:0 0 0.5rem; }
+  .tool-cta p { font-family:var(--font-ui); color:var(--text-secondary); margin:0 0 1rem; font-size:0.95rem; }
+</style>
+
+<div class="tool-page">
+  <span class="tool-kicker">Free Tool</span>
+  <h1 class="tool-title">Final Grade Calculator</h1>
+  <p class="tool-sub">Find out exactly what you need to score on your final exam to hit the grade you want. No sign-up.</p>
+
+  <div class="calc-card">
+    <div class="calc-row">
+      <label for="curGrade">Your current grade <span class="hint">(% before the final)</span></label>
+      <input class="calc-input" type="number" id="curGrade" inputmode="decimal" placeholder="e.g. 88" min="0" max="200" step="0.1"/>
+    </div>
+    <div class="calc-row">
+      <label for="wantGrade">Grade you want <span class="hint">(% overall)</span></label>
+      <input class="calc-input" type="number" id="wantGrade" inputmode="decimal" placeholder="e.g. 90" min="0" max="100" step="0.1"/>
+    </div>
+    <div class="calc-row">
+      <label for="finalWeight">Final exam weight <span class="hint">(% of your total grade)</span></label>
+      <input class="calc-input" type="number" id="finalWeight" inputmode="decimal" placeholder="e.g. 20" min="0.1" max="100" step="0.1"/>
+    </div>
+    <button class="calc-btn" type="button" onclick="calcFinal()">Calculate what I need</button>
+    <div class="calc-result" id="fgResult" role="status" aria-live="polite"></div>
+  </div>
+
+  <div class="tool-body">
+    <h2>How to calculate what you need on your final</h2>
+    <p>
+      Your overall grade is your current grade for everything except the final, plus the final itself, each
+      weighted by how much it counts. To solve for the score you need:
+    </p>
+    <p><code>required = (target − current × (1 − final_weight)) ÷ final_weight</code></p>
+    <p>
+      where <code>final_weight</code> is a decimal (a 20% final is <code>0.20</code>). Example: with an 88%
+      current grade, a 90% target, and a 20% final, you need <code>(0.90 − 0.88 × 0.80) ÷ 0.20 = 98%</code>.
+    </p>
+
+    <h2>Stop doing this by hand for every class</h2>
+    <p>
+      This calculator handles one class. <a href="/">IntelliPlan</a>'s <strong>Grade Modeler</strong> imports
+      your real category weights and scores from Canvas, StudentVue, and Schoology and runs these what-if
+      scenarios across every class automatically, so you always know the grade you can still reach. It also
+      builds a <a href="/blog/best-ai-study-planner">study schedule</a> around your most important deadlines.
+    </p>
+    <p>Related: <a href="/tools/gpa-calculator">GPA Calculator</a> · <a href="/faq">FAQ</a></p>
+  </div>
+
+  <div class="tool-cta">
+    <h3>Want this automatic for every class?</h3>
+    <p>IntelliPlan tracks your real grades and tells you what you need, automatically. Free for students.</p>
+    <a href="/login" class="btn-primary" style="text-decoration:none">Try IntelliPlan Free →</a>
+  </div>
+</div>
+
+<script>
+function calcFinal() {
+  var cur = parseFloat(document.getElementById('curGrade').value);
+  var want = parseFloat(document.getElementById('wantGrade').value);
+  var w = parseFloat(document.getElementById('finalWeight').value);
+  var res = document.getElementById('fgResult');
+  res.className = 'calc-result show res-warn';
+  if (isNaN(cur) || isNaN(want) || isNaN(w)) {
+    res.innerHTML = 'Please fill in all three fields with numbers.';
+    return;
+  }
+  if (w <= 0 || w > 100) {
+    res.innerHTML = 'Final weight must be between 0 and 100%.';
+    return;
+  }
+  var wf = w / 100;
+  var needed = (want - cur * (1 - wf)) / wf;
+  var rounded = Math.round(needed * 10) / 10;
+  if (needed <= 0) {
+    res.className = 'calc-result show res-ok';
+    res.innerHTML = '<div class="big">You\'re set 🎉</div>Even a <strong>0%</strong> on the final keeps you at or above ' + want + '%. Your target is already locked in.';
+  } else if (needed > 100) {
+    res.className = 'calc-result show res-bad';
+    res.innerHTML = '<div class="big">' + rounded + '%</div>That\'s above 100%, so ' + want + '% isn\'t reachable from a ' + cur + '% with this final alone. You\'d need extra credit — or aim a little lower.';
+  } else {
+    res.className = 'calc-result show res-ok';
+    res.innerHTML = '<div class="big">' + rounded + '%</div>You need <strong>' + rounded + '%</strong> on your final to finish the class with ' + want + '%.';
+  }
+}
+</script>
+
+{% endblock %}
