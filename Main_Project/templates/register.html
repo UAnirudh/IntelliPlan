@@ -38,16 +38,16 @@
 
     <form class="login-form" method="POST" action="/register">
       <div class="form-group">
-        <label class="form-label">Email</label>
-        <input type="email" name="email" class="form-input" placeholder="you@school.edu" required />
+        <label class="form-label" for="regEmail">Email</label>
+        <input type="email" id="regEmail" name="email" class="form-input" autocomplete="email" placeholder="you@school.edu" required />
       </div>
       <div class="form-group">
-        <label class="form-label">Password</label>
-        <input type="password" name="password" class="form-input" placeholder="At least 8 characters" required />
+        <label class="form-label" for="regPassword">Password</label>
+        <input type="password" id="regPassword" name="password" class="form-input" autocomplete="new-password" placeholder="At least 8 characters" required />
       </div>
       <div class="form-group">
-        <label class="form-label">Confirm Password</label>
-        <input type="password" name="confirm_password" class="form-input" placeholder="••••••••" required />
+        <label class="form-label" for="regConfirm">Confirm Password</label>
+        <input type="password" id="regConfirm" name="confirm_password" class="form-input" autocomplete="new-password" placeholder="••••••••" required />
       </div>
       <div class="form-group">
         <label class="form-label" for="regBirthYear">Birth year <span style="font-weight:normal;color:var(--text-muted);font-size:0.78rem;">(required for COPPA compliance)</span></label>
@@ -56,7 +56,7 @@
       </div>
       <div class="form-group" id="regParentWrap" style="display:none;">
         <label class="form-label" for="regParentEmail">Parent or guardian email <span style="color:var(--high);">*</span></label>
-        <input type="email" id="regParentEmail" name="parent_email" class="form-input" placeholder="parent@example.com" />
+        <input type="email" id="regParentEmail" name="parent_email" class="form-input" autocomplete="email" placeholder="parent@example.com" />
         <span class="form-hint">We'll send a one-time link they click to approve the account. We never email them again.</span>
       </div>
       <div class="form-group">

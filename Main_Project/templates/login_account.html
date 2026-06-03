@@ -14,12 +14,12 @@
     {% endif %}
     <form class="login-form" method="POST" action="/login/account">
       <div class="form-group">
-        <label class="form-label">Email</label>
-        <input type="email" name="email" class="form-input" placeholder="you@school.edu" required />
+        <label class="form-label" for="loginEmail">Email</label>
+        <input type="email" id="loginEmail" name="email" class="form-input" autocomplete="email" placeholder="you@school.edu" required />
       </div>
       <div class="form-group">
-        <label class="form-label">Password</label>
-        <input type="password" name="password" class="form-input" placeholder="••••••••" required />
+        <label class="form-label" for="loginPassword">Password</label>
+        <input type="password" id="loginPassword" name="password" class="form-input" autocomplete="current-password" placeholder="••••••••" required />
       </div>
       <button type="submit" class="btn-primary" style="width:100%;padding:14px;border:none;cursor:pointer;font-size:0.95rem;">
         Sign In →
