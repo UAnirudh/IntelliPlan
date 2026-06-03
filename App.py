@@ -1938,6 +1938,10 @@ def blog_ai_notetaker():
 def blog_good_gpa():
     return render_template("blog_good_gpa.html", active_page="blog")
 
+@app.route("/blog/ap-study-planner")
+def blog_ap_study_planner():
+    return render_template("blog_ap_study_planner.html", active_page="blog")
+
 @app.route("/blog")
 def blog_index():
     return render_template("blog_index.html", active_page="blog")
