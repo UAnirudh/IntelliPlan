@@ -1437,6 +1437,17 @@ body {
 {% set _app_pages = ['dashboard','scheduler','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub'] %}
 <body class="{% if active_page in _app_pages %}has-side{% endif %}">
 
+<a href="#main-content" class="skip-to-content">Skip to main content</a>
+<style>
+  .skip-to-content {
+    position: fixed; top: -60px; left: 8px; z-index: 2147483647;
+    background: var(--accent, #2453d6); color: #fff; padding: 0.6rem 1rem;
+    border-radius: 8px; font-family: var(--font-ui, sans-serif); font-weight: 700;
+    font-size: 0.9rem; text-decoration: none; transition: top 0.15s ease;
+  }
+  .skip-to-content:focus { top: 8px; outline: 2px solid #fff; outline-offset: 2px; }
+</style>
+
 <!-- ══════════════════════════════════════
      SVG ICON SPRITES (used by sidebar + tabs)
 ══════════════════════════════════════ -->
@@ -1664,7 +1675,7 @@ body {
 <!-- ══════════════════════════════════════
      MAIN CONTENT
 ══════════════════════════════════════ -->
-<main style="flex:1;">
+<main id="main-content" style="flex:1;">
   {% block content %}{% endblock %}
 </main>
 
