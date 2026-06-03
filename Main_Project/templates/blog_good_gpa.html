@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block page_title %}What Is a Good GPA? High School & College (2026) | IntelliPlan{% endblock %}
+
+{% block meta_description %}What is a good GPA? A 4.0 is perfect, 3.5+ is strong, and 3.0 is solid. See what counts as a good GPA in high school and college, weighted vs unweighted, and how to raise yours.{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block og_title %}What Is a Good GPA? High School & College{% endblock %}
+{% block og_description %}What counts as a good GPA, weighted vs unweighted, and how to raise yours. Clear answers plus a free GPA calculator.{% endblock %}
+{% block twitter_title %}What Is a Good GPA?{% endblock %}
+{% block twitter_description %}What counts as a good GPA in high school and college, and how to raise it.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "What Is a Good GPA? High School and College",
+  "description": "A clear guide to what counts as a good GPA in high school and college, weighted versus unweighted, and how to improve it.",
+  "url": "https://intelliplan.tech/blog/what-is-a-good-gpa",
+  "about": ["good GPA", "GPA scale", "weighted GPA", "unweighted GPA"],
+  "author": { "@type": "Organization", "name": "IntelliPlan", "url": "https://intelliplan.tech" },
+  "publisher": { "@id": "https://intelliplan.tech/#organization" }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is a good GPA?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "On a 4.0 scale, a 4.0 is a perfect GPA, 3.5 and above is considered strong, 3.0 is solid (roughly a B average), and 2.0 is usually the minimum required to stay in good standing or graduate. What counts as 'good' also depends on your goals: competitive colleges often look for 3.7 or higher."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is a 3.5 GPA good?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. A 3.5 GPA is a strong, above-average result, roughly an A-/B+ average, and is competitive for most colleges and scholarships, though the most selective schools may look for 3.8 or higher."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between weighted and unweighted GPA?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Unweighted GPA caps at 4.0 for every class. Weighted GPA adds bonus points for harder courses, typically +1.0 for AP or IB and +0.5 for Honors, so a weighted GPA can exceed 4.0."
+      }
+    }
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<style>
+  .blog-page { max-width: 680px; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
+  .blog-kicker { display:inline-flex; align-items:center; padding:0.45rem 0.8rem; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-family:var(--font-ui); font-size:0.8rem; font-weight:700; margin-bottom:1rem; }
+  .blog-title { font-family:var(--font-display); font-size:clamp(1.8rem,3.5vw,2.6rem); line-height:1.08; color:var(--text-primary); letter-spacing:-0.03em; margin:0 0 1rem; }
+  .blog-lede { font-family:var(--font-ui); font-size:1.08rem; color:var(--text-muted); line-height:1.7; margin:0 0 1.5rem; }
+  .blog-body { font-family:var(--font-ui); font-size:1rem; color:var(--text-secondary); line-height:1.8; }
+  .blog-body h2 { font-family:var(--font-display); font-size:1.35rem; color:var(--text-primary); margin:2rem 0 0.75rem; }
+  .blog-body p { margin:0 0 1.1rem; }
+  .blog-body a { color:var(--accent); }
+  .blog-body strong { color:var(--text-primary); }
+  .g-table { width:100%; border-collapse:collapse; margin:1rem 0 1.5rem; font-family:var(--font-ui); font-size:0.94rem; }
+  .g-table th, .g-table td { text-align:left; padding:0.6rem 0.8rem; border-bottom:1px solid var(--border); }
+  .g-table thead th { color:var(--text-muted); font-size:0.74rem; text-transform:uppercase; letter-spacing:0.03em; }
+  .blog-cta { margin-top:2.5rem; padding:1.75rem; background:var(--bg-card); border:1px solid var(--border-accent); border-radius:var(--r-xl); box-shadow:var(--accent-glow); text-align:center; }
+  .blog-cta h3 { font-family:var(--font-display); font-size:1.3rem; color:var(--text-primary); margin:0 0 0.5rem; }
+  .blog-cta p { font-family:var(--font-ui); color:var(--text-secondary); margin:0 0 1rem; font-size:0.95rem; }
+</style>
+
+<div class="blog-page">
+  <span class="blog-kicker">Guide</span>
+  <h1 class="blog-title">What Is a Good GPA?</h1>
+  <p class="blog-lede">Short answer: on a 4.0 scale, 4.0 is perfect, 3.5+ is strong, 3.0 is solid, and 2.0 is usually the minimum to stay in good standing. But "good" depends on your goals — here's the full picture.</p>
+
+  <div class="blog-body">
+    <h2>GPA at a glance</h2>
+    <table class="g-table">
+      <thead><tr><th>GPA (4.0 scale)</th><th>Roughly</th><th>What it means</th></tr></thead>
+      <tbody>
+        <tr><td>4.0</td><td>A average</td><td>Perfect / top of the class</td></tr>
+        <tr><td>3.7–3.9</td><td>A−/A average</td><td>Excellent, competitive for selective colleges</td></tr>
+        <tr><td>3.5–3.6</td><td>A−/B+ average</td><td>Strong, above average</td></tr>
+        <tr><td>3.0–3.4</td><td>B average</td><td>Solid, meets most requirements</td></tr>
+        <tr><td>2.0–2.9</td><td>C average</td><td>Passing; aim to raise it</td></tr>
+        <tr><td>Below 2.0</td><td>D/F average</td><td>At-risk; usually below good standing</td></tr>
+      </tbody>
+    </table>
+
+    <h2>What counts as good depends on your goal</h2>
+    <p>
+      For <strong>graduating</strong>, most schools require around a 2.0. For <strong>most colleges</strong>, a
+      3.0+ keeps you in the running. For <strong>selective colleges and scholarships</strong>, aim for 3.7+.
+      Context matters too: a 3.6 with a tough AP/IB schedule can be more impressive than a 3.9 in easier classes.
+    </p>
+
+    <h2>Weighted vs unweighted</h2>
+    <p>
+      <strong>Unweighted</strong> GPA caps at 4.0 for every class. <strong>Weighted</strong> GPA adds bonus
+      points for harder courses (typically +1.0 for AP/IB, +0.5 for Honors), so it can go above 4.0. Many high
+      schools report both. Check yours with the free <a href="/tools/gpa-calculator">GPA Calculator</a>.
+    </p>
+
+    <h2>How to raise your GPA</h2>
+    <p>
+      The fastest gains come from not losing easy points: turn everything in on time, prioritize high-weight
+      assignments, and study before tests instead of cramming. That's exactly what
+      <a href="/">IntelliPlan</a> automates — it imports your assignments, ranks them by impact, schedules
+      study time, and models what each grade does to your GPA so you always know where to focus.
+    </p>
+    <p>Related: <a href="/tools/gpa-calculator">GPA Calculator</a> · <a href="/tools/final-grade-calculator">Final Grade Calculator</a> · <a href="/blog">All guides &amp; tools</a></p>
+  </div>
+
+  <div class="blog-cta">
+    <h3>Protect your GPA automatically</h3>
+    <p>IntelliPlan tracks your grades and tells you exactly what to focus on. Free for students.</p>
+    <a href="/login" class="btn-primary" style="text-decoration:none">Get Started Free →</a>
+  </div>
+</div>
+
+{% endblock %}

@@ -1934,6 +1934,10 @@ def compare_quizlet():
 def blog_ai_notetaker():
     return render_template("blog_ai_notetaker.html", active_page="blog")
 
+@app.route("/blog/what-is-a-good-gpa")
+def blog_good_gpa():
+    return render_template("blog_good_gpa.html", active_page="blog")
+
 @app.route("/blog")
 def blog_index():
     return render_template("blog_index.html", active_page="blog")
