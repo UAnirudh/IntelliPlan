@@ -1962,6 +1962,10 @@ def tool_countdown():
 def tool_test_grade():
     return render_template("tool_test_grade.html", active_page="tools")
 
+@app.route("/tools/study-schedule-maker")
+def tool_schedule_maker():
+    return render_template("tool_schedule_maker.html", active_page="tools")
+
 @app.route("/contact")
 def contact():
     return render_template("contact.html", active_page="contact")

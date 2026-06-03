@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block page_title %}Free Study Schedule Maker — Build a Weekly Study Plan | IntelliPlan{% endblock %}
+
+{% block meta_description %}Free study schedule maker. Add your subjects and the hours you want to study, set the days you're free, and get a balanced weekly study timetable you can print. No sign-up.{% endblock %}
+{% block og_type %}website{% endblock %}
+{% block og_title %}Free Study Schedule Maker{% endblock %}
+{% block og_description %}Add subjects and free time, get a balanced weekly study timetable you can print. Free.{% endblock %}
+{% block twitter_title %}Free Study Schedule Maker{% endblock %}
+{% block twitter_description %}Build a balanced weekly study timetable in seconds. Free, no sign-up.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Study Schedule Maker",
+  "url": "https://intelliplan.tech/tools/study-schedule-maker",
+  "applicationCategory": "EducationApplication",
+  "operatingSystem": "Web",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "description": "Free study schedule maker that builds a balanced weekly study timetable from your subjects and available time.",
+  "publisher": { "@id": "https://intelliplan.tech/#organization" }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<style>
+  .tool-page { max-width: 760px; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
+  .tool-kicker { display:inline-flex; align-items:center; padding:0.45rem 0.8rem; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-family:var(--font-ui); font-size:0.8rem; font-weight:700; margin-bottom:1rem; }
+  .tool-title { font-family:var(--font-display); font-size:clamp(1.8rem,3.5vw,2.6rem); line-height:1.08; color:var(--text-primary); letter-spacing:-0.03em; margin:0 0 0.75rem; }
+  .tool-sub { font-family:var(--font-ui); font-size:1.05rem; color:var(--text-muted); line-height:1.6; margin:0 0 1.75rem; }
+  .calc-card { background:var(--bg-card); border:1px solid var(--border-strong); border-radius:var(--r-xl); padding:1.6rem; box-shadow:var(--shadow); }
+  .sm-label { font-family:var(--font-ui); font-size:0.74rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.03em; margin:0 0 0.5rem; }
+  .subj-row { display:grid; grid-template-columns:1fr 110px 34px; gap:8px; margin-bottom:8px; align-items:center; }
+  .subj-row input { padding:0.6rem 0.6rem; border:1px solid var(--border-strong); border-radius:9px; font-family:inherit; font-size:0.9rem; background:var(--bg-secondary); color:var(--text-primary); width:100%; }
+  .subj-row .rm { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.2rem; }
+  .add-row { background:none; border:1px dashed var(--border-strong); color:var(--accent); border-radius:10px; padding:0.55rem; width:100%; font-family:var(--font-ui); font-weight:600; cursor:pointer; margin-top:4px; font-size:0.86rem; }
+  .days-grid { display:flex; flex-wrap:wrap; gap:8px; margin-top:0.5rem; }
+  .day-chip { display:flex; flex-direction:column; gap:4px; align-items:center; border:1px solid var(--border-strong); border-radius:10px; padding:0.5rem; min-width:70px; }
+  .day-chip label { font-family:var(--font-ui); font-size:0.78rem; font-weight:600; color:var(--text-primary); display:flex; align-items:center; gap:4px; }
+  .day-chip input[type=number] { width:54px; padding:0.35rem; border:1px solid var(--border-strong); border-radius:7px; font-family:inherit; font-size:0.82rem; text-align:center; background:var(--bg-secondary); color:var(--text-primary); }
+  .gen-btn { width:100%; margin-top:1.1rem; padding:0.85rem; border:none; border-radius:12px; background:var(--accent); color:#fff; font-family:var(--font-ui); font-weight:700; font-size:0.95rem; cursor:pointer; }
+  .sm-out { margin-top:1.5rem; }
+  .sm-note { font-family:var(--font-ui); font-size:0.88rem; margin-bottom:0.75rem; }
+  .sm-day { border:1px solid var(--border); border-radius:12px; padding:0.9rem 1rem; margin-bottom:0.6rem; background:var(--bg-secondary); }
+  .sm-day h3 { font-family:var(--font-display); font-size:0.98rem; color:var(--text-primary); margin:0 0 0.4rem; }
+  .sm-blocks { display:flex; flex-wrap:wrap; gap:6px; }
+  .sm-block { font-family:var(--font-ui); font-size:0.82rem; font-weight:600; padding:0.3rem 0.6rem; border-radius:8px; background:var(--accent-soft); color:var(--accent); }
+  .sm-block.free { background:var(--bg-elevated); color:var(--text-muted); }
+  .print-btn { background:none; border:1px solid var(--border-strong); color:var(--text-primary); border-radius:10px; padding:0.5rem 0.9rem; font-family:var(--font-ui); font-weight:600; cursor:pointer; font-size:0.85rem; }
+  .tool-body { font-family:var(--font-ui); font-size:1rem; color:var(--text-secondary); line-height:1.8; margin-top:2.5rem; }
+  .tool-body h2 { font-family:var(--font-display); font-size:1.35rem; color:var(--text-primary); margin:2rem 0 0.75rem; }
+  .tool-body a { color:var(--accent); }
+  .tool-cta { margin-top:2.5rem; padding:1.75rem; background:var(--bg-card); border:1px solid var(--border-accent); border-radius:var(--r-xl); box-shadow:var(--accent-glow); text-align:center; }
+  .tool-cta h3 { font-family:var(--font-display); font-size:1.3rem; color:var(--text-primary); margin:0 0 0.5rem; }
+  .tool-cta p { font-family:var(--font-ui); color:var(--text-secondary); margin:0 0 1rem; font-size:0.95rem; }
+  @media print { header, footer, .tool-cta, .tool-body, #scrollTopBtn, #readingProgress { display:none !important; } }
+</style>
+
+<div class="tool-page">
+  <span class="tool-kicker">Free Tool</span>
+  <h1 class="tool-title">Study Schedule Maker</h1>
+  <p class="tool-sub">Add your subjects and how long you want to study each, set the days you're free, and get a balanced weekly study timetable you can print.</p>
+
+  <div class="calc-card">
+    <p class="sm-label">1. Your subjects (and hours this week)</p>
+    <div id="subjRows"></div>
+    <button class="add-row" type="button" onclick="addSubj()">+ Add subject</button>
+
+    <p class="sm-label" style="margin-top:1.25rem;">2. Days you're free (hours available)</p>
+    <div class="days-grid" id="daysGrid"></div>
+
+    <button class="gen-btn" type="button" onclick="generate()">Generate my study schedule</button>
+  </div>
+
+  <div class="sm-out" id="smOut"></div>
+
+  <div class="tool-body">
+    <h2>How this study schedule maker works</h2>
+    <p>
+      It spreads each subject's hours across the days you're free, alternating subjects so you don't cram one
+      thing in a single sitting (spacing studying out is more effective than massing it). Any leftover time is
+      marked for review. Click <strong>Print</strong> to save or pin it up.
+    </p>
+    <h2>Want this from your real assignments?</h2>
+    <p>
+      This builds a plan from what you type in. <a href="/">IntelliPlan</a> does it from your <em>actual</em>
+      coursework — it imports assignments from Canvas, StudentVue, and Schoology, knows what's due and how much
+      it's worth, and builds (and updates) the schedule for you, then exports to Google Calendar.
+    </p>
+    <p>Related: <a href="/tools/finals-countdown">Finals Countdown</a> · <a href="/blog/best-ai-study-planner">Best AI study planner</a> · <a href="/blog">All free tools</a></p>
+  </div>
+
+  <div class="tool-cta">
+    <h3>Skip the manual setup</h3>
+    <p>IntelliPlan builds your study schedule from your real deadlines, automatically. Free for students.</p>
+    <a href="/login" class="btn-primary" style="text-decoration:none">Try IntelliPlan Free →</a>
+  </div>
+</div>
+
+<script>
+var DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+function addSubj(name, hours) {
+  var row = document.createElement('div');
+  row.className = 'subj-row';
+  row.innerHTML =
+    '<input type="text" class="s-name" aria-label="Subject name" placeholder="e.g. Biology"/>' +
+    '<input type="number" class="s-hours" aria-label="Hours this week" min="1" step="1" placeholder="Hours" value="' + (hours || '') + '"/>' +
+    '<button class="rm" type="button" aria-label="Remove subject" onclick="this.parentNode.remove()">×</button>';
+  document.getElementById('subjRows').appendChild(row);
+  if (name) row.querySelector('.s-name').value = name;
+}
+(function initDays() {
+  var grid = document.getElementById('daysGrid');
+  var defaults = { Mon:2, Tue:2, Wed:2, Thu:2, Fri:1, Sat:3, Sun:3 };
+  DAYS.forEach(function (d) {
+    var wrap = document.createElement('div');
+    wrap.className = 'day-chip';
+    wrap.innerHTML =
+      '<label><input type="checkbox" class="d-on" data-day="' + d + '" checked/> ' + d + '</label>' +
+      '<input type="number" class="d-hrs" data-day="' + d + '" min="0" step="0.5" value="' + defaults[d] + '" aria-label="' + d + ' hours available"/>';
+    grid.appendChild(wrap);
+  });
+})();
+addSubj('Math', 3); addSubj('Science', 3); addSubj('History', 2);
+
+function buildTokens(subjects) {
+  // Spread subjects: repeatedly take the subject with the most hours left.
+  var rem = subjects.map(function (s) { return { name: s.name, left: s.hours }; });
+  var tokens = [];
+  var guard = 0;
+  while (guard++ < 10000) {
+    rem.sort(function (a, b) { return b.left - a.left; });
+    if (!rem.length || rem[0].left <= 0) break;
+    tokens.push(rem[0].name);
+    rem[0].left -= 1;
+  }
+  return tokens;
+}
+
+function generate() {
+  var out = document.getElementById('smOut');
+  var subjects = [];
+  document.querySelectorAll('#subjRows .subj-row').forEach(function (r) {
+    var name = (r.querySelector('.s-name').value || '').trim();
+    var hours = parseInt(r.querySelector('.s-hours').value, 10);
+    if (name && !isNaN(hours) && hours > 0) subjects.push({ name: name, hours: hours });
+  });
+  var days = [];
+  document.querySelectorAll('#daysGrid .day-chip').forEach(function (c) {
+    var on = c.querySelector('.d-on').checked;
+    var hrs = parseFloat(c.querySelector('.d-hrs').value);
+    var day = c.querySelector('.d-on').getAttribute('data-day');
+    if (on && !isNaN(hrs) && hrs > 0) days.push({ name: day, slots: Math.round(hrs) });
+  });
+  if (!subjects.length) { out.innerHTML = '<div class="sm-note" style="color:#ef4444;">Add at least one subject with hours.</div>'; return; }
+  if (!days.length) { out.innerHTML = '<div class="sm-note" style="color:#ef4444;">Pick at least one day with available hours.</div>'; return; }
+
+  var tokens = buildTokens(subjects);
+  var totalNeeded = tokens.length;
+  var totalAvail = days.reduce(function (a, d) { return a + d.slots; }, 0);
+
+  // Round-robin tokens across days so subjects are spread day to day.
+  var perDay = days.map(function (d) { return { name: d.name, blocks: [], slots: d.slots }; });
+  var ti = 0;
+  // Fill slot-by-slot, cycling days for even spread.
+  var made = true;
+  while (made) {
+    made = false;
+    for (var i = 0; i < perDay.length; i++) {
+      if (perDay[i].blocks.length < perDay[i].slots) {
+        if (ti < tokens.length) { perDay[i].blocks.push(tokens[ti++]); made = true; }
+        else { perDay[i].blocks.push('__free__'); made = true; }
+      }
+    }
+    // stop when every day is full
+    var allFull = perDay.every(function (d) { return d.blocks.length >= d.slots; });
+    if (allFull) break;
+  }
+
+  var note;
+  if (totalNeeded > totalAvail) {
+    note = '<div class="sm-note" style="color:#b45309;">You asked for <strong>' + totalNeeded + 'h</strong> of study but only have <strong>' + totalAvail + 'h</strong> free. Here\'s the best fit — the extra ' + (totalNeeded - totalAvail) + 'h didn\'t fit, so trim a subject or free up more time.</div>';
+  } else {
+    note = '<div class="sm-note" style="color:#047857;">Balanced plan for <strong>' + totalNeeded + 'h</strong> of study across <strong>' + days.length + '</strong> days. The rest is review time.</div>';
+  }
+
+  var html = note + '<div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem;"><button class="print-btn" type="button" onclick="window.print()">🖨 Print</button></div>';
+  perDay.forEach(function (d) {
+    var blocks = d.blocks.map(function (b) {
+      return b === '__free__'
+        ? '<span class="sm-block free">Review / free</span>'
+        : '<span class="sm-block">' + b + '</span>';
+    }).join('');
+    html += '<div class="sm-day"><h3>' + d.name + ' · ' + d.slots + 'h</h3><div class="sm-blocks">' + (blocks || '<span class="sm-block free">Rest day</span>') + '</div></div>';
+  });
+  out.innerHTML = html;
+  out.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+</script>
+
+{% endblock %}
