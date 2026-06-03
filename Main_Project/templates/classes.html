@@ -111,7 +111,7 @@
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
               <button class="notes-chip-btn" type="button" onclick="showPreviewMode()">Preview</button>
               <button class="notes-chip-btn" type="button" onclick="closeNotesPreview()">Close</button>
-              <a id="notesDownloadLink" class="notes-chip-btn primary" href="#" style="text-decoration:none; display:none;" target="_blank">Download</a>
+              <a id="notesDownloadLink" class="notes-chip-btn primary" href="#" style="text-decoration:none; display:none;" target="_blank" rel="noopener">Download</a>
             </div>
           </div>
 
@@ -846,7 +846,7 @@ function renderNotesList(notes) {
           <button class="notes-chip-btn" type="button" onclick="summarizeNote(${note.id})">Summarize</button>
           <button class="notes-chip-btn" type="button" onclick="studyNote(${note.id})">Study</button>
           <button class="notes-chip-btn" type="button" onclick="deleteNote(${note.id})">Delete</button>
-          ${note.download_url ? `<a class="notes-chip-btn" href="${note.download_url}" target="_blank" style="text-decoration:none;">Download</a>` : ""}
+          ${note.download_url ? `<a class="notes-chip-btn" href="${note.download_url}" target="_blank" rel="noopener" style="text-decoration:none;">Download</a>` : ""}
         </div>
       </div>
     `).join("");

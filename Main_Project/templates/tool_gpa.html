@@ -105,8 +105,8 @@
     <button class="add-row" type="button" onclick="addRow()">+ Add class</button>
     <div style="margin-top:1rem;padding-top:1rem;border-top:1px dashed var(--border-strong);display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <span style="font-family:var(--font-ui);font-size:0.82rem;color:var(--text-muted);flex-basis:100%;">Cumulative GPA (optional): add your prior GPA and total prior credits.</span>
-      <input class="calc-input" style="flex:1;min-width:120px;" type="number" id="priorGpa" inputmode="decimal" min="0" max="6" step="0.01" placeholder="Prior GPA" oninput="computeGPA()"/>
-      <input class="calc-input" style="flex:1;min-width:120px;" type="number" id="priorCredits" inputmode="decimal" min="0" step="0.5" placeholder="Prior credits" oninput="computeGPA()"/>
+      <input class="calc-input" style="flex:1;min-width:120px;" type="number" id="priorGpa" aria-label="Prior cumulative GPA" inputmode="decimal" min="0" max="6" step="0.01" placeholder="Prior GPA" oninput="computeGPA()"/>
+      <input class="calc-input" style="flex:1;min-width:120px;" type="number" id="priorCredits" aria-label="Prior total credits" inputmode="decimal" min="0" step="0.5" placeholder="Prior credits" oninput="computeGPA()"/>
     </div>
     <div class="gpa-result" id="gpaResult">
       <div class="big" id="gpaValue">—</div>
@@ -157,11 +157,11 @@ function addRow(grade, credits) {
   var row = document.createElement('div');
   row.className = 'gpa-row' + (weighted ? ' wtd' : '');
   row.innerHTML =
-    '<input type="text" class="cname" placeholder="Class name (optional)"/>' +
-    '<select class="cgrade" onchange="computeGPA()">' + gradeOptions() + '</select>' +
-    '<input type="number" class="ccredits ' + (weighted ? 'ctype-hide' : '') + '" inputmode="decimal" min="0" step="0.5" placeholder="Credits" value="' + (credits || '') + '" oninput="computeGPA()"/>' +
-    '<select class="ctype" onchange="computeGPA()">' + typeOptions() + '</select>' +
-    '<button class="rm" type="button" title="Remove" onclick="this.parentNode.remove(); computeGPA();">×</button>';
+    '<input type="text" class="cname" aria-label="Class name" placeholder="Class name (optional)"/>' +
+    '<select class="cgrade" aria-label="Letter grade" onchange="computeGPA()">' + gradeOptions() + '</select>' +
+    '<input type="number" class="ccredits ' + (weighted ? 'ctype-hide' : '') + '" aria-label="Credit hours" inputmode="decimal" min="0" step="0.5" placeholder="Credits" value="' + (credits || '') + '" oninput="computeGPA()"/>' +
+    '<select class="ctype" aria-label="Course type" onchange="computeGPA()">' + typeOptions() + '</select>' +
+    '<button class="rm" type="button" title="Remove" aria-label="Remove class" onclick="this.parentNode.remove(); computeGPA();">×</button>';
   document.getElementById('gpaRows').appendChild(row);
   if (grade) row.querySelector('.cgrade').value = grade;
   computeGPA();

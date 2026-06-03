@@ -117,10 +117,10 @@ function addGRow(name, weight, avg) {
   var row = document.createElement('div');
   row.className = 'g-row';
   row.innerHTML =
-    '<input type="text" class="gname" placeholder="e.g. Homework"/>' +
-    '<input type="number" class="gweight" inputmode="decimal" min="0" step="1" placeholder="20" oninput="computeGrade()"/>' +
-    '<input type="number" class="gavg" inputmode="decimal" min="0" step="0.1" placeholder="95" oninput="computeGrade()"/>' +
-    '<button class="rm" type="button" title="Remove" onclick="this.parentNode.remove(); computeGrade();">×</button>';
+    '<input type="text" class="gname" aria-label="Category name" placeholder="e.g. Homework"/>' +
+    '<input type="number" class="gweight" aria-label="Category weight percent" inputmode="decimal" min="0" step="1" placeholder="20" oninput="computeGrade()"/>' +
+    '<input type="number" class="gavg" aria-label="Your average percent" inputmode="decimal" min="0" step="0.1" placeholder="95" oninput="computeGrade()"/>' +
+    '<button class="rm" type="button" title="Remove" aria-label="Remove category" onclick="this.parentNode.remove(); computeGrade();">×</button>';
   document.getElementById('gRows').appendChild(row);
   if (name) row.querySelector('.gname').value = name;
   if (weight != null) row.querySelector('.gweight').value = weight;
