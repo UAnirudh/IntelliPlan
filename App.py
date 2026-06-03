@@ -1926,6 +1926,10 @@ def compare_myhomework():
 def compare_turbo():
     return render_template("compare_turbo.html", active_page="compare")
 
+@app.route("/compare/intelliplan-vs-quizlet")
+def compare_quizlet():
+    return render_template("compare_quizlet.html", active_page="compare")
+
 @app.route("/blog/ai-notetaker-for-students")
 def blog_ai_notetaker():
     return render_template("blog_ai_notetaker.html", active_page="blog")

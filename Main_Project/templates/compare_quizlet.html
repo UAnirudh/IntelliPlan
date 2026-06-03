@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block page_title %}IntelliPlan vs Quizlet: Free Study Tool Compared | IntelliPlan{% endblock %}
+
+{% block meta_description %}IntelliPlan vs Quizlet. Quizlet is great for shared study sets and games; IntelliPlan turns your own lectures, PDFs, and notes into flashcards and quizzes and adds assignment planning, scheduling, grades, and a tutor. Full comparison.{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block og_title %}IntelliPlan vs Quizlet{% endblock %}
+{% block og_description %}A fair comparison: shared study sets and games vs. AI flashcards from your own material plus a full study planner.{% endblock %}
+{% block twitter_title %}IntelliPlan vs Quizlet{% endblock %}
+{% block twitter_description %}Quizlet for shared sets and games; IntelliPlan for your own material plus planning. Compared.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "IntelliPlan vs Quizlet",
+  "description": "A comparison of IntelliPlan and Quizlet as study tools for students, covering flashcards and quizzes, study sets, and the planning and tutoring IntelliPlan adds.",
+  "url": "https://intelliplan.tech/compare/intelliplan-vs-quizlet",
+  "about": ["Quizlet alternative", "free flashcard app", "AI study planner"],
+  "author": { "@type": "Organization", "name": "IntelliPlan", "url": "https://intelliplan.tech" },
+  "publisher": { "@id": "https://intelliplan.tech/#organization" }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<style>
+  .blog-page { max-width: 720px; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
+  .blog-kicker { display:inline-flex; align-items:center; padding:0.45rem 0.8rem; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-family:var(--font-ui); font-size:0.8rem; font-weight:700; margin-bottom:1rem; }
+  .blog-title { font-family:var(--font-display); font-size:clamp(1.8rem,3.5vw,2.6rem); line-height:1.08; color:var(--text-primary); letter-spacing:-0.03em; margin:0 0 1rem; }
+  .blog-lede { font-family:var(--font-ui); font-size:1.08rem; color:var(--text-muted); line-height:1.7; margin:0 0 1.5rem; }
+  .blog-body { font-family:var(--font-ui); font-size:1rem; color:var(--text-secondary); line-height:1.8; }
+  .blog-body h2 { font-family:var(--font-display); font-size:1.35rem; color:var(--text-primary); margin:2rem 0 0.75rem; }
+  .blog-body p { margin:0 0 1.1rem; }
+  .blog-body a { color:var(--accent); }
+  .blog-body strong { color:var(--text-primary); }
+  .cmp-table { width:100%; border-collapse:collapse; margin:1.25rem 0 1.5rem; font-family:var(--font-ui); font-size:0.94rem; }
+  .cmp-table th, .cmp-table td { text-align:left; padding:0.7rem 0.8rem; border-bottom:1px solid var(--border); vertical-align:top; }
+  .cmp-table thead th { color:var(--text-primary); font-weight:700; border-bottom:1px solid var(--border-strong); }
+  .cmp-table th.feat { color:var(--text-secondary); font-weight:600; }
+  .cmp-yes { color:var(--low); font-weight:700; }
+  .cmp-no { color:var(--text-muted); }
+  .blog-cta { margin-top:2.5rem; padding:1.75rem; background:var(--bg-card); border:1px solid var(--border-accent); border-radius:var(--r-xl); box-shadow:var(--accent-glow); text-align:center; }
+  .blog-cta h3 { font-family:var(--font-display); font-size:1.3rem; color:var(--text-primary); margin:0 0 0.5rem; }
+  .blog-cta p { font-family:var(--font-ui); color:var(--text-secondary); margin:0 0 1rem; font-size:0.95rem; }
+</style>
+
+<div class="blog-page">
+  <span class="blog-kicker">Comparison</span>
+  <h1 class="blog-title">IntelliPlan vs Quizlet</h1>
+  <p class="blog-lede">
+    Quizlet is a household name for flashcards and shared study sets. IntelliPlan takes a different angle:
+    it turns <em>your own</em> lectures, PDFs, and notes into flashcards and quizzes, and wraps it in a full
+    study planner. Here's how they compare.
+  </p>
+
+  <div class="blog-body">
+    <h2>The core difference</h2>
+    <p>
+      <strong>Quizlet</strong> shines when someone has already made a study set for your topic, and its games
+      (Match, Learn) make drilling fun. <strong>IntelliPlan</strong> is built around your actual coursework:
+      record a lecture, drop in a PDF, or paste notes and it generates flashcards and a quiz, then it imports
+      your assignments from Canvas, StudentVue, and Schoology and schedules your week.
+    </p>
+
+    <h2>Feature comparison</h2>
+    <table class="cmp-table">
+      <thead><tr><th class="feat">Feature</th><th>IntelliPlan</th><th>Quizlet</th></tr></thead>
+      <tbody>
+        <tr><th class="feat">Flashcards &amp; quizzes</th><td class="cmp-yes">Yes</td><td class="cmp-yes">Yes</td></tr>
+        <tr><th class="feat">Auto-generate cards from your lecture / PDF / notes</th><td class="cmp-yes">Yes (AI)</td><td class="cmp-no">Mostly manual</td></tr>
+        <tr><th class="feat">Huge library of shared study sets</th><td class="cmp-no">No</td><td class="cmp-yes">Yes</td></tr>
+        <tr><th class="feat">Study games</th><td class="cmp-no">No</td><td class="cmp-yes">Yes</td></tr>
+        <tr><th class="feat">Auto-imports Canvas / StudentVue / Schoology</th><td class="cmp-yes">Yes</td><td class="cmp-no">No</td></tr>
+        <tr><th class="feat">AI weekly study schedule</th><td class="cmp-yes">Yes</td><td class="cmp-no">No</td></tr>
+        <tr><th class="feat">Grade tracking &amp; what-if modeling</th><td class="cmp-yes">Yes</td><td class="cmp-no">No</td></tr>
+        <tr><th class="feat">Built-in AI tutor</th><td class="cmp-yes">Yes</td><td class="cmp-no">Limited / paid</td></tr>
+        <tr><th class="feat">Free for students</th><td class="cmp-yes">Yes</td><td class="cmp-yes">Free tier</td></tr>
+      </tbody>
+    </table>
+
+    <h2>When Quizlet is the better pick</h2>
+    <p>
+      If a quality study set already exists for your exact class or textbook, or you love the game-style drilling,
+      Quizlet is hard to beat and its library is enormous.
+    </p>
+
+    <h2>When IntelliPlan is the better pick</h2>
+    <p>
+      If you want study material made from <em>your</em> lectures and notes, and you want it tied into a real plan,
+      assignments imported, prioritized, scheduled, and graded, with an <a href="/tutor">AI tutor</a> on top,
+      IntelliPlan does all of that free. It's a flashcard maker and a full
+      <a href="/blog/best-ai-study-planner">study planner</a> in one.
+    </p>
+    <p>
+      See also: <a href="/compare/intelliplan-vs-turbo-ai">IntelliPlan vs Turbo AI</a> ·
+      <a href="/compare/intelliplan-vs-notion">IntelliPlan vs Notion</a> ·
+      <a href="/blog/ai-notetaker-for-students">AI notetaker guide</a>.
+    </p>
+  </div>
+
+  <div class="blog-cta">
+    <h3>Turn your own notes into study material</h3>
+    <p>Flashcards and quizzes from your lectures and PDFs, plus a plan to study them. Free for students.</p>
+    <a href="/login" class="btn-primary" style="text-decoration:none">Try IntelliPlan Free →</a>
+  </div>
+</div>
+
+{% endblock %}
