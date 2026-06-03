@@ -1930,6 +1930,10 @@ def compare_turbo():
 def blog_ai_notetaker():
     return render_template("blog_ai_notetaker.html", active_page="blog")
 
+@app.route("/blog")
+def blog_index():
+    return render_template("blog_index.html", active_page="blog")
+
 @app.route("/tools/final-grade-calculator")
 def tool_final_grade():
     return render_template("tool_final_grade.html", active_page="tools")

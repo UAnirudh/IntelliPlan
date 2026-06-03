@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block page_title %}Guides & Free Study Tools | IntelliPlan{% endblock %}
+
+{% block meta_description %}Free guides and tools for students: how to use Canvas and StudentVue with a study planner, how to prioritize assignments, GPA and final grade calculators, and honest app comparisons. All free from IntelliPlan.{% endblock %}
+{% block og_type %}website{% endblock %}
+{% block og_title %}IntelliPlan Guides & Free Study Tools{% endblock %}
+{% block og_description %}Study guides, app comparisons, and free calculators (GPA, final grade, weighted grade) for high school and college students.{% endblock %}
+{% block twitter_title %}IntelliPlan Guides & Free Study Tools{% endblock %}
+{% block twitter_description %}Guides, comparisons, and free calculators for students. All free.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": "IntelliPlan Guides & Free Study Tools",
+  "url": "https://intelliplan.tech/blog",
+  "description": "Study guides, app comparisons, and free calculators for high school and college students.",
+  "isPartOf": { "@id": "https://intelliplan.tech/#website" },
+  "publisher": { "@id": "https://intelliplan.tech/#organization" }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<style>
+  .hub-page { max-width: 940px; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
+  .hub-kicker { display:inline-flex; align-items:center; padding:0.45rem 0.8rem; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-family:var(--font-ui); font-size:0.8rem; font-weight:700; margin-bottom:1rem; }
+  .hub-title { font-family:var(--font-display); font-size:clamp(2rem,4vw,2.9rem); line-height:1.06; color:var(--text-primary); letter-spacing:-0.03em; margin:0 0 0.75rem; }
+  .hub-sub { font-family:var(--font-ui); font-size:1.08rem; color:var(--text-muted); line-height:1.6; margin:0 0 2.25rem; max-width:42rem; }
+  .hub-section-title { font-family:var(--font-display); font-size:1.4rem; color:var(--text-primary); margin:2.25rem 0 1rem; }
+  .hub-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:1rem; }
+  .hub-card {
+    display:flex; flex-direction:column; gap:0.4rem;
+    background:var(--bg-card); border:1px solid var(--border-strong); border-radius:var(--r-lg);
+    padding:1.25rem 1.3rem; text-decoration:none;
+    transition: transform 0.2s var(--ease-out), box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .hub-card:hover { transform:translateY(-3px); box-shadow:var(--shadow-hover); border-color:var(--border-accent); }
+  .hub-card .tag { font-family:var(--font-ui); font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--accent); }
+  .hub-card h3 { font-family:var(--font-display); font-size:1.08rem; color:var(--text-primary); margin:0.1rem 0 0; line-height:1.25; }
+  .hub-card p { font-family:var(--font-ui); font-size:0.88rem; color:var(--text-secondary); line-height:1.5; margin:0.2rem 0 0; }
+  .hub-card .go { margin-top:auto; padding-top:0.6rem; font-family:var(--font-ui); font-size:0.84rem; font-weight:700; color:var(--accent); }
+  .hub-cta { margin-top:2.75rem; padding:1.75rem; background:var(--bg-card); border:1px solid var(--border-accent); border-radius:var(--r-xl); box-shadow:var(--accent-glow); text-align:center; }
+  .hub-cta h3 { font-family:var(--font-display); font-size:1.3rem; color:var(--text-primary); margin:0 0 0.5rem; }
+  .hub-cta p { font-family:var(--font-ui); color:var(--text-secondary); margin:0 0 1rem; font-size:0.95rem; }
+</style>
+
+<div class="hub-page">
+  <span class="hub-kicker">Guides &amp; Tools</span>
+  <h1 class="hub-title">Everything to help you study smarter</h1>
+  <p class="hub-sub">Free guides, honest app comparisons, and instant calculators for high school and college students. No sign-up required to use any of them.</p>
+
+  <h2 class="hub-section-title">📘 Guides</h2>
+  <div class="hub-grid">
+    <a class="hub-card" href="/blog/best-ai-study-planner">
+      <span class="tag">Guide</span><h3>The Best AI Study Planner for Students</h3>
+      <p>What actually matters in an AI study planner, and how to pick one that saves real time.</p>
+      <span class="go">Read →</span>
+    </a>
+    <a class="hub-card" href="/blog/best-student-planner-app">
+      <span class="tag">Guide</span><h3>The Best Student Planner App</h3>
+      <p>How to choose a planner that imports your assignments and plans your week for you.</p>
+      <span class="go">Read →</span>
+    </a>
+    <a class="hub-card" href="/blog/ai-notetaker-for-students">
+      <span class="tag">Guide</span><h3>The Best AI Notetaker for Students</h3>
+      <p>Turn lectures, PDFs, and videos into notes, flashcards, and quizzes.</p>
+      <span class="go">Read →</span>
+    </a>
+    <a class="hub-card" href="/blog/how-to-use-canvas-with-a-study-planner">
+      <span class="tag">Guide</span><h3>How to Use Canvas with a Study Planner</h3>
+      <p>Get your Canvas assignments organized and scheduled automatically.</p>
+      <span class="go">Read →</span>
+    </a>
+    <a class="hub-card" href="/blog/studentvue-study-planner">
+      <span class="tag">Guide</span><h3>Using StudentVue with a Study Planner</h3>
+      <p>Import StudentVue assignments and turn them into a weekly plan.</p>
+      <span class="go">Read →</span>
+    </a>
+    <a class="hub-card" href="/blog/how-to-prioritize-assignments">
+      <span class="tag">Guide</span><h3>How to Prioritize Assignments</h3>
+      <p>A simple framework for deciding what to work on when everything feels urgent.</p>
+      <span class="go">Read →</span>
+    </a>
+  </div>
+
+  <h2 class="hub-section-title">⚖️ Comparisons</h2>
+  <div class="hub-grid">
+    <a class="hub-card" href="/compare/intelliplan-vs-turbo-ai">
+      <span class="tag">Compare</span><h3>IntelliPlan vs Turbo AI</h3>
+      <p>A free Turbo AI / TurboLearn alternative that also plans your week.</p>
+      <span class="go">Compare →</span>
+    </a>
+    <a class="hub-card" href="/compare/intelliplan-vs-notion">
+      <span class="tag">Compare</span><h3>IntelliPlan vs Notion</h3>
+      <p>A purpose-built student planner vs. a build-it-yourself workspace.</p>
+      <span class="go">Compare →</span>
+    </a>
+    <a class="hub-card" href="/compare/intelliplan-vs-myhomework">
+      <span class="tag">Compare</span><h3>IntelliPlan vs myHomework</h3>
+      <p>Automatic LMS import and AI scheduling vs. manual homework tracking.</p>
+      <span class="go">Compare →</span>
+    </a>
+  </div>
+
+  <h2 class="hub-section-title">🧮 Free Calculators</h2>
+  <div class="hub-grid">
+    <a class="hub-card" href="/tools/final-grade-calculator">
+      <span class="tag">Tool</span><h3>Final Grade Calculator</h3>
+      <p>Find the exact score you need on your final to hit your target grade.</p>
+      <span class="go">Open →</span>
+    </a>
+    <a class="hub-card" href="/tools/gpa-calculator">
+      <span class="tag">Tool</span><h3>GPA Calculator</h3>
+      <p>Weighted, unweighted, and cumulative GPA on a 4.0 scale.</p>
+      <span class="go">Open →</span>
+    </a>
+    <a class="hub-card" href="/tools/grade-calculator">
+      <span class="tag">Tool</span><h3>Weighted Grade Calculator</h3>
+      <p>Your overall class grade from weighted categories.</p>
+      <span class="go">Open →</span>
+    </a>
+    <a class="hub-card" href="/tools/finals-countdown">
+      <span class="tag">Tool</span><h3>Finals Countdown</h3>
+      <p>How many days until your exams, then a plan to be ready.</p>
+      <span class="go">Open →</span>
+    </a>
+  </div>
+
+  <div class="hub-cta">
+    <h3>Put it all together with IntelliPlan</h3>
+    <p>The free AI study planner that syncs your classes, plans your week, and helps you study. For students.</p>
+    <a href="/login" class="btn-primary" style="text-decoration:none">Get Started Free →</a>
+  </div>
+</div>
+
+{% endblock %}
