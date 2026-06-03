@@ -2919,6 +2919,32 @@ window.addEventListener('load',()=>{
 </script>
 {% endif %}
 
+{# ── Scroll-reveal utility (opt-in via data-reveal). No-JS and reduced-motion
+   safe: elements only start hidden once JS adds .reveal-on and motion is allowed,
+   so content is always visible if scripts fail. Inert on pages with no [data-reveal]. ── #}
+<style>
+  html.reveal-on [data-reveal] { opacity: 0; transform: translateY(18px); transition: opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out); }
+  html.reveal-on [data-reveal].in { opacity: 1; transform: none; }
+</style>
+<script>
+(function () {
+  try {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    document.documentElement.classList.add('reveal-on');
+    function run() {
+      var els = document.querySelectorAll('[data-reveal]:not(.in)');
+      if (!els.length) return;
+      if (!('IntersectionObserver' in window)) { els.forEach(function (e) { e.classList.add('in'); }); return; }
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
+      }, { rootMargin: '0px 0px -8% 0px', threshold: 0.06 });
+      els.forEach(function (e) { io.observe(e); });
+    }
+    if (document.readyState !== 'loading') run(); else document.addEventListener('DOMContentLoaded', run);
+  } catch (e) {}
+})();
+</script>
+
 {% include "footer.html" %}
 
 <!-- ═══ APP TOUR ═══ -->

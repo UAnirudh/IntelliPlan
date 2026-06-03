@@ -1950,6 +1950,10 @@ def tool_grade():
 def tool_countdown():
     return render_template("tool_countdown.html", active_page="tools")
 
+@app.route("/contact")
+def contact():
+    return render_template("contact.html", active_page="contact")
+
 @app.route("/about")
 def about():
     return render_template("about.html", active_page="about")

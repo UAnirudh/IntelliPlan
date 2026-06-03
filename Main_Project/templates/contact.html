@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block page_title %}Contact IntelliPlan — Support & Questions{% endblock %}
+
+{% block meta_description %}Get in touch with the IntelliPlan team. Email us for support, feedback, partnership questions, or help connecting Canvas, StudentVue, or Schoology. We reply within 1–2 business days.{% endblock %}
+{% block og_type %}website{% endblock %}
+{% block og_title %}Contact IntelliPlan{% endblock %}
+{% block og_description %}Questions, feedback, or support? Reach the IntelliPlan team. We reply within 1–2 business days.{% endblock %}
+{% block twitter_title %}Contact IntelliPlan{% endblock %}
+{% block twitter_description %}Reach the IntelliPlan team for support, feedback, or partnership questions.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ContactPage",
+  "name": "Contact IntelliPlan",
+  "url": "https://intelliplan.tech/contact",
+  "isPartOf": { "@id": "https://intelliplan.tech/#website" },
+  "about": { "@id": "https://intelliplan.tech/#organization" }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "@id": "https://intelliplan.tech/#organization",
+  "contactPoint": {
+    "@type": "ContactPoint",
+    "email": "uanirudh0811@gmail.com",
+    "contactType": "customer support",
+    "availableLanguage": "English"
+  }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<style>
+  .contact-page { max-width: 720px; margin: 0 auto; padding: 2.75rem 1rem 4rem; }
+  .contact-kicker { display:inline-flex; align-items:center; padding:0.45rem 0.8rem; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-family:var(--font-ui); font-size:0.8rem; font-weight:700; margin-bottom:1rem; }
+  .contact-title { font-family:var(--font-display); font-size:clamp(2rem,4vw,2.8rem); line-height:1.06; color:var(--text-primary); letter-spacing:-0.03em; margin:0 0 0.75rem; }
+  .contact-sub { font-family:var(--font-ui); font-size:1.08rem; color:var(--text-muted); line-height:1.6; margin:0 0 2rem; max-width:40rem; }
+  .contact-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:1rem; margin-bottom:2rem; }
+  .contact-card { background:var(--bg-card); border:1px solid var(--border-strong); border-radius:var(--r-lg); padding:1.4rem; }
+  .contact-card h2 { font-family:var(--font-display); font-size:1.1rem; color:var(--text-primary); margin:0 0 0.4rem; }
+  .contact-card p { font-family:var(--font-ui); font-size:0.92rem; color:var(--text-secondary); line-height:1.6; margin:0 0 0.6rem; }
+  .contact-card a.email { font-family:var(--font-ui); font-weight:700; color:var(--accent); text-decoration:none; word-break:break-all; }
+  .contact-card a.email:hover { text-decoration:underline; }
+  .contact-meta { font-family:var(--font-ui); font-size:0.84rem; color:var(--text-muted); }
+  .contact-links { display:flex; flex-wrap:wrap; gap:0.6rem; margin-top:0.5rem; }
+  .contact-links a { font-family:var(--font-ui); font-size:0.86rem; font-weight:600; color:var(--accent); text-decoration:none; padding:0.4rem 0.8rem; border:1px solid var(--border-strong); border-radius:999px; }
+  .contact-links a:hover { border-color:var(--border-accent); background:var(--accent-soft); }
+  .contact-cta { margin-top:1rem; padding:1.6rem; background:var(--bg-card); border:1px solid var(--border-accent); border-radius:var(--r-xl); box-shadow:var(--accent-glow); text-align:center; }
+  .contact-cta h2 { font-family:var(--font-display); font-size:1.25rem; color:var(--text-primary); margin:0 0 0.5rem; }
+  .contact-cta p { font-family:var(--font-ui); color:var(--text-secondary); margin:0 0 1rem; font-size:0.95rem; }
+</style>
+
+<div class="contact-page">
+  <span class="contact-kicker">Contact</span>
+  <h1 class="contact-title">Talk to the IntelliPlan team</h1>
+  <p class="contact-sub">Questions, feedback, a bug, or a partnership idea — we'd genuinely like to hear from you. IntelliPlan is built by a small team that reads every message.</p>
+
+  <div class="contact-grid">
+    <div class="contact-card" data-reveal>
+      <h2>Support &amp; feedback</h2>
+      <p>Trouble connecting Canvas, StudentVue, or Schoology? A feature request? Email us directly.</p>
+      <a class="email" href="mailto:uanirudh0811@gmail.com?subject=IntelliPlan%20Support">uanirudh0811@gmail.com</a>
+      <p class="contact-meta" style="margin-top:0.6rem;">Typical reply time: 1–2 business days.</p>
+    </div>
+    <div class="contact-card" data-reveal>
+      <h2>Partnerships &amp; schools</h2>
+      <p>Educator, school, or student org interested in IntelliPlan? Reach out about working together.</p>
+      <a class="email" href="mailto:uanirudh0811@gmail.com?subject=IntelliPlan%20Partnership">uanirudh0811@gmail.com</a>
+    </div>
+  </div>
+
+  <div class="contact-card" data-reveal>
+    <h2>Before you email — quick answers</h2>
+    <p>Many common questions are answered instantly in our help content:</p>
+    <div class="contact-links">
+      <a href="/faq">FAQ</a>
+      <a href="/blog">Guides &amp; tools</a>
+      <a href="/install">Install on your phone</a>
+      <a href="/legal">Privacy &amp; data</a>
+    </div>
+  </div>
+
+  <div class="contact-cta" data-reveal>
+    <h2>New to IntelliPlan?</h2>
+    <p>See what it does — connect your classes and get a study plan in minutes. Free for students.</p>
+    <a href="/login" class="btn-primary" style="text-decoration:none">Get Started Free →</a>
+  </div>
+</div>
+
+{% endblock %}
