@@ -181,6 +181,22 @@ def add_cors_headers(response):
     response.headers["X-Permitted-Cross-Domain-Policies"] = "all"
     return response
 
+@app.after_request
+def add_static_cache_headers(response):
+    """Cache static assets (icons, images, fonts, css/js) for repeat visits and
+    better Core Web Vitals. Never caches the service worker, which must
+    revalidate so updates ship. Only applied to successful /static/ responses
+    that don't already set their own Cache-Control."""
+    try:
+        p = request.path or ""
+        if (p.startswith("/static/") and p != "/static/sw.js"
+                and response.status_code == 200
+                and "Cache-Control" not in response.headers):
+            response.headers["Cache-Control"] = "public, max-age=604800"
+    except Exception:
+        pass
+    return response
+
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
