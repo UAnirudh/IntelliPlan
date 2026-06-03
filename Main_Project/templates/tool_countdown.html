@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block page_title %}Finals Countdown — Days Until Your Exams | IntelliPlan{% endblock %}
+
+{% block meta_description %}Free finals countdown timer. Set your exam date and see exactly how many days, hours, and minutes until finals. A simple motivator, plus a smarter way to back-plan your study time.{% endblock %}
+{% block og_type %}website{% endblock %}
+{% block og_title %}Finals Countdown — Days Until Your Exams{% endblock %}
+{% block og_description %}Set your finals date and watch the countdown. Then let IntelliPlan back-plan your study schedule. Free.{% endblock %}
+{% block twitter_title %}Finals Countdown — Days Until Your Exams{% endblock %}
+{% block twitter_description %}How many days until finals? Set your date and find out. Free.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Finals Countdown",
+  "url": "https://intelliplan.tech/tools/finals-countdown",
+  "applicationCategory": "EducationApplication",
+  "operatingSystem": "Web",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "description": "Free countdown timer showing the days, hours, and minutes until a student's final exams.",
+  "publisher": { "@id": "https://intelliplan.tech/#organization" }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<style>
+  .tool-page { max-width: 680px; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
+  .tool-kicker { display:inline-flex; align-items:center; padding:0.45rem 0.8rem; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-family:var(--font-ui); font-size:0.8rem; font-weight:700; margin-bottom:1rem; }
+  .tool-title { font-family:var(--font-display); font-size:clamp(1.8rem,3.5vw,2.6rem); line-height:1.08; color:var(--text-primary); letter-spacing:-0.03em; margin:0 0 0.75rem; }
+  .tool-sub { font-family:var(--font-ui); font-size:1.05rem; color:var(--text-muted); line-height:1.6; margin:0 0 1.75rem; }
+  .calc-card { background:var(--bg-card); border:1px solid var(--border-strong); border-radius:var(--r-xl); padding:1.6rem; box-shadow:var(--shadow); }
+  .cd-row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .cd-row label { font-family:var(--font-ui); font-size:0.9rem; font-weight:600; color:var(--text-primary); }
+  .cd-input { padding:0.7rem 0.9rem; border:1px solid var(--border-strong); border-radius:10px; font-family:inherit; font-size:1rem; background:var(--bg-secondary); color:var(--text-primary); }
+  .cd-display { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:1.5rem; }
+  .cd-unit { background:var(--bg-secondary); border:1px solid var(--border-strong); border-radius:14px; padding:1rem 0.5rem; min-width:78px; text-align:center; }
+  .cd-num { font-family:var(--font-display); font-size:2.1rem; font-weight:800; color:var(--accent); line-height:1; }
+  .cd-label { font-family:var(--font-ui); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); margin-top:6px; }
+  .cd-msg { text-align:center; margin-top:1.1rem; font-family:var(--font-ui); font-size:0.95rem; color:var(--text-secondary); }
+  .tool-body { font-family:var(--font-ui); font-size:1rem; color:var(--text-secondary); line-height:1.8; margin-top:2.5rem; }
+  .tool-body h2 { font-family:var(--font-display); font-size:1.35rem; color:var(--text-primary); margin:2rem 0 0.75rem; }
+  .tool-body a { color:var(--accent); }
+  .tool-cta { margin-top:2.5rem; padding:1.75rem; background:var(--bg-card); border:1px solid var(--border-accent); border-radius:var(--r-xl); box-shadow:var(--accent-glow); text-align:center; }
+  .tool-cta h3 { font-family:var(--font-display); font-size:1.3rem; color:var(--text-primary); margin:0 0 0.5rem; }
+  .tool-cta p { font-family:var(--font-ui); color:var(--text-secondary); margin:0 0 1rem; font-size:0.95rem; }
+</style>
+
+<div class="tool-page">
+  <span class="tool-kicker">Free Tool</span>
+  <h1 class="tool-title">Finals Countdown</h1>
+  <p class="tool-sub">Set your exam date and see exactly how long until finals. Then turn that countdown into a real study plan.</p>
+
+  <div class="calc-card">
+    <div class="cd-row">
+      <label for="examDate">Your finals / exam date:</label>
+      <input class="cd-input" type="date" id="examDate" onchange="startCountdown()"/>
+    </div>
+    <div class="cd-display" id="cdDisplay" style="display:none;">
+      <div class="cd-unit"><div class="cd-num" id="cdDays">0</div><div class="cd-label">Days</div></div>
+      <div class="cd-unit"><div class="cd-num" id="cdHours">0</div><div class="cd-label">Hours</div></div>
+      <div class="cd-unit"><div class="cd-num" id="cdMins">0</div><div class="cd-label">Minutes</div></div>
+      <div class="cd-unit"><div class="cd-num" id="cdSecs">0</div><div class="cd-label">Seconds</div></div>
+    </div>
+    <div class="cd-msg" id="cdMsg">Pick a date to start the countdown.</div>
+  </div>
+
+  <div class="tool-body">
+    <h2>A countdown is motivating. A plan is better.</h2>
+    <p>
+      Knowing finals are 18 days away helps, but knowing <em>what to study each of those days</em> is what
+      actually moves your grade. <a href="/">IntelliPlan</a> back-plans your study schedule from your exam
+      date, spreads the work across the days you have free, and exports it to Google Calendar so you just
+      follow the plan.
+    </p>
+    <p>Related: <a href="/tools/final-grade-calculator">Final Grade Calculator</a> · <a href="/tools/gpa-calculator">GPA Calculator</a> · <a href="/blog/best-ai-study-planner">Best AI study planner</a></p>
+  </div>
+
+  <div class="tool-cta">
+    <h3>Turn your countdown into a study plan</h3>
+    <p>IntelliPlan back-plans your finals prep automatically. Free for students.</p>
+    <a href="/login" class="btn-primary" style="text-decoration:none">Try IntelliPlan Free →</a>
+  </div>
+</div>
+
+<script>
+var _cdInterval = null;
+function startCountdown() {
+  var val = document.getElementById('examDate').value;
+  var disp = document.getElementById('cdDisplay');
+  var msg = document.getElementById('cdMsg');
+  if (_cdInterval) clearInterval(_cdInterval);
+  if (!val) { disp.style.display = 'none'; msg.textContent = 'Pick a date to start the countdown.'; return; }
+  var target = new Date(val + 'T09:00:00');
+  function tick() {
+    var diff = target.getTime() - Date.now();
+    if (diff <= 0) {
+      disp.style.display = 'none';
+      msg.innerHTML = 'It\'s here — good luck on your finals! 💪';
+      if (_cdInterval) clearInterval(_cdInterval);
+      return;
+    }
+    var d = Math.floor(diff / 86400000);
+    var h = Math.floor((diff % 86400000) / 3600000);
+    var m = Math.floor((diff % 3600000) / 60000);
+    var s = Math.floor((diff % 60000) / 1000);
+    document.getElementById('cdDays').textContent = d;
+    document.getElementById('cdHours').textContent = h;
+    document.getElementById('cdMins').textContent = m;
+    document.getElementById('cdSecs').textContent = s;
+    disp.style.display = 'flex';
+    msg.innerHTML = d + ' day' + (d === 1 ? '' : 's') + ' until your exams. <a href="/login" style="color:var(--accent);font-weight:600;">Make a study plan →</a>';
+  }
+  tick();
+  _cdInterval = setInterval(tick, 1000);
+}
+</script>
+
+{% endblock %}

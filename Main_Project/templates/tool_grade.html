@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block page_title %}Weighted Grade Calculator — Free Category Grade Calculator | IntelliPlan{% endblock %}
+
+{% block meta_description %}Free weighted grade calculator. Enter each category's weight and your average to find your overall class grade. Works for any syllabus with weighted categories. No sign-up.{% endblock %}
+{% block og_type %}website{% endblock %}
+{% block og_title %}Weighted Grade Calculator{% endblock %}
+{% block og_description %}Add your categories, their weights, and your averages to get your overall grade instantly. Free.{% endblock %}
+{% block twitter_title %}Weighted Grade Calculator{% endblock %}
+{% block twitter_description %}Find your overall class grade from weighted categories. Free, no sign-up.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Weighted Grade Calculator",
+  "url": "https://intelliplan.tech/tools/grade-calculator",
+  "applicationCategory": "EducationApplication",
+  "operatingSystem": "Web",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "description": "Free weighted grade calculator that finds a student's overall class grade from category weights and averages.",
+  "publisher": { "@id": "https://intelliplan.tech/#organization" }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How do I calculate a weighted grade?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Multiply each category's average by its weight, add those products together, and divide by the total weight. For example, Homework (20% weight, 95% average) and Tests (80% weight, 85% average) give (0.20 x 95 + 0.80 x 85) = 87% overall."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What if my category weights do not add up to 100%?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "This calculator normalizes by the total weight you enter, so it still gives an accurate overall grade for the categories you have so far, which is useful mid-semester before every category is complete."
+      }
+    }
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<style>
+  .tool-page { max-width: 680px; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
+  .tool-kicker { display:inline-flex; align-items:center; padding:0.45rem 0.8rem; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-family:var(--font-ui); font-size:0.8rem; font-weight:700; margin-bottom:1rem; }
+  .tool-title { font-family:var(--font-display); font-size:clamp(1.8rem,3.5vw,2.6rem); line-height:1.08; color:var(--text-primary); letter-spacing:-0.03em; margin:0 0 0.75rem; }
+  .tool-sub { font-family:var(--font-ui); font-size:1.05rem; color:var(--text-muted); line-height:1.6; margin:0 0 1.75rem; }
+  .calc-card { background:var(--bg-card); border:1px solid var(--border-strong); border-radius:var(--r-xl); padding:1.6rem; box-shadow:var(--shadow); }
+  .g-head { display:grid; grid-template-columns: 1fr 92px 92px 34px; gap:8px; font-family:var(--font-ui); font-size:0.74rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.03em; margin-bottom:6px; padding:0 2px; }
+  .g-row { display:grid; grid-template-columns: 1fr 92px 92px 34px; gap:8px; align-items:center; margin-bottom:8px; }
+  .g-row input { padding:0.6rem 0.5rem; border:1px solid var(--border-strong); border-radius:9px; font-family:inherit; font-size:0.9rem; background:var(--bg-secondary); color:var(--text-primary); width:100%; }
+  .g-row .rm { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.2rem; line-height:1; }
+  .add-row { background:none; border:1px dashed var(--border-strong); color:var(--accent); border-radius:10px; padding:0.6rem; width:100%; font-family:var(--font-ui); font-weight:600; cursor:pointer; margin-top:6px; font-size:0.88rem; }
+  .g-result { margin-top:1.25rem; padding:1.25rem; border-radius:14px; background:var(--accent-soft); border:1px solid var(--border-accent); font-family:var(--font-ui); text-align:center; }
+  .g-result .big { font-size:2.4rem; font-weight:800; font-family:var(--font-display); color:var(--accent); }
+  .g-result .sub { font-size:0.85rem; color:var(--text-muted); }
+  .tool-body { font-family:var(--font-ui); font-size:1rem; color:var(--text-secondary); line-height:1.8; margin-top:2.5rem; }
+  .tool-body h2 { font-family:var(--font-display); font-size:1.35rem; color:var(--text-primary); margin:2rem 0 0.75rem; }
+  .tool-body a { color:var(--accent); }
+  .tool-cta { margin-top:2.5rem; padding:1.75rem; background:var(--bg-card); border:1px solid var(--border-accent); border-radius:var(--r-xl); box-shadow:var(--accent-glow); text-align:center; }
+  .tool-cta h3 { font-family:var(--font-display); font-size:1.3rem; color:var(--text-primary); margin:0 0 0.5rem; }
+  .tool-cta p { font-family:var(--font-ui); color:var(--text-secondary); margin:0 0 1rem; font-size:0.95rem; }
+</style>
+
+<div class="tool-page">
+  <span class="tool-kicker">Free Tool</span>
+  <h1 class="tool-title">Weighted Grade Calculator</h1>
+  <p class="tool-sub">Enter each category's weight and your average to find your overall class grade. No sign-up.</p>
+
+  <div class="calc-card">
+    <div class="g-head"><span>Category</span><span>Weight %</span><span>Your avg %</span><span></span></div>
+    <div id="gRows"></div>
+    <button class="add-row" type="button" onclick="addGRow()">+ Add category</button>
+    <div class="g-result" id="gResult">
+      <div class="big" id="gValue">—</div>
+      <div class="sub" id="gSub">Enter your categories to see your overall grade</div>
+    </div>
+  </div>
+
+  <div class="tool-body">
+    <h2>How to calculate your weighted grade</h2>
+    <p>
+      Multiply each category's average by its weight, add the results, and divide by the total weight.
+      Example: Homework (20%, 95% avg) and Tests (80%, 85% avg) give an 87% overall. If your weights don't
+      total 100% yet, this calculator normalizes by the total so far, handy mid-semester.
+    </p>
+
+    <h2>Know your grade before grades are posted</h2>
+    <p>
+      <a href="/">IntelliPlan</a>'s Grade Modeler does this automatically from your real Canvas, StudentVue,
+      and Schoology scores and category weights, then lets you simulate what you need on what's left.
+    </p>
+    <p>Related: <a href="/tools/final-grade-calculator">Final Grade Calculator</a> · <a href="/tools/gpa-calculator">GPA Calculator</a></p>
+  </div>
+
+  <div class="tool-cta">
+    <h3>Tired of doing this every week?</h3>
+    <p>IntelliPlan tracks your real grade automatically and tells you what you need. Free for students.</p>
+    <a href="/login" class="btn-primary" style="text-decoration:none">Try IntelliPlan Free →</a>
+  </div>
+</div>
+
+<script>
+function addGRow(name, weight, avg) {
+  var row = document.createElement('div');
+  row.className = 'g-row';
+  row.innerHTML =
+    '<input type="text" class="gname" placeholder="e.g. Homework"/>' +
+    '<input type="number" class="gweight" inputmode="decimal" min="0" step="1" placeholder="20" oninput="computeGrade()"/>' +
+    '<input type="number" class="gavg" inputmode="decimal" min="0" step="0.1" placeholder="95" oninput="computeGrade()"/>' +
+    '<button class="rm" type="button" title="Remove" onclick="this.parentNode.remove(); computeGrade();">×</button>';
+  document.getElementById('gRows').appendChild(row);
+  if (name) row.querySelector('.gname').value = name;
+  if (weight != null) row.querySelector('.gweight').value = weight;
+  if (avg != null) row.querySelector('.gavg').value = avg;
+  computeGrade();
+}
+
+function computeGrade() {
+  var rows = document.querySelectorAll('#gRows .g-row');
+  var sumWA = 0, sumW = 0;
+  rows.forEach(function(r){
+    var w = parseFloat(r.querySelector('.gweight').value);
+    var a = parseFloat(r.querySelector('.gavg').value);
+    if (isNaN(w) || isNaN(a) || w <= 0) return;
+    sumWA += w * a; sumW += w;
+  });
+  var val = document.getElementById('gValue');
+  var sub = document.getElementById('gSub');
+  if (sumW <= 0) {
+    val.textContent = '—';
+    sub.textContent = 'Enter your categories to see your overall grade';
+    return;
+  }
+  var overall = sumWA / sumW;
+  val.textContent = (Math.round(overall * 100) / 100).toFixed(2) + '%';
+  var note = (Math.abs(sumW - 100) < 0.01) ? 'Overall class grade' : ('Overall grade across ' + sumW + '% of weight entered');
+  sub.textContent = note;
+}
+
+addGRow('Homework'); addGRow('Quizzes'); addGRow('Tests');
+</script>
+
+{% endblock %}

@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 
-{% block page_title %}GPA Calculator — Free Weighted & Unweighted | IntelliPlan{% endblock %}
+{% block page_title %}GPA Calculator — Weighted, Unweighted & Cumulative | IntelliPlan{% endblock %}
 
-{% block meta_description %}Free GPA calculator for high school and college. Add your courses, grades, and credits to get your weighted or unweighted GPA on a 4.0 scale instantly. No sign-up.{% endblock %}
+{% block meta_description %}Free GPA calculator for high school and college. Add your courses, grades, and credits to get your weighted, unweighted, semester, or cumulative GPA on a 4.0 scale instantly. No sign-up.{% endblock %}
 {% block og_type %}website{% endblock %}
 {% block og_title %}GPA Calculator — Free Weighted & Unweighted{% endblock %}
 {% block og_description %}Calculate your weighted or unweighted GPA on a 4.0 scale in seconds. Free, no sign-up.{% endblock %}
@@ -103,6 +103,11 @@
     </div>
     <div id="gpaRows"></div>
     <button class="add-row" type="button" onclick="addRow()">+ Add class</button>
+    <div style="margin-top:1rem;padding-top:1rem;border-top:1px dashed var(--border-strong);display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <span style="font-family:var(--font-ui);font-size:0.82rem;color:var(--text-muted);flex-basis:100%;">Cumulative GPA (optional): add your prior GPA and total prior credits.</span>
+      <input class="calc-input" style="flex:1;min-width:120px;" type="number" id="priorGpa" inputmode="decimal" min="0" max="6" step="0.01" placeholder="Prior GPA" oninput="computeGPA()"/>
+      <input class="calc-input" style="flex:1;min-width:120px;" type="number" id="priorCredits" inputmode="decimal" min="0" step="0.5" placeholder="Prior credits" oninput="computeGPA()"/>
+    </div>
     <div class="gpa-result" id="gpaResult">
       <div class="big" id="gpaValue">—</div>
       <div class="sub" id="gpaSub">Enter grades and credits to see your GPA</div>
@@ -185,6 +190,10 @@ function computeGPA() {
     totalPoints += pts * c;
     totalCredits += c;
   });
+  var priorG = parseFloat(document.getElementById('priorGpa').value);
+  var priorC = parseFloat(document.getElementById('priorCredits').value);
+  var hasPrior = !isNaN(priorG) && !isNaN(priorC) && priorC > 0;
+  if (hasPrior) { totalPoints += priorG * priorC; totalCredits += priorC; }
   var val = document.getElementById('gpaValue');
   var sub = document.getElementById('gpaSub');
   if (totalCredits <= 0) {
@@ -194,7 +203,8 @@ function computeGPA() {
   }
   var gpa = totalPoints / totalCredits;
   val.textContent = (Math.round(gpa * 1000) / 1000).toFixed(2);
-  sub.textContent = (weighted ? 'Weighted' : 'Unweighted') + ' GPA across ' + totalCredits + ' credits';
+  var kind = hasPrior ? 'Cumulative' : (weighted ? 'Weighted' : 'Unweighted');
+  sub.textContent = kind + ' GPA across ' + totalCredits + ' credits';
 }
 
 // Seed three blank rows

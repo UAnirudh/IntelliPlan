@@ -1938,6 +1938,14 @@ def tool_final_grade():
 def tool_gpa():
     return render_template("tool_gpa.html", active_page="tools")
 
+@app.route("/tools/grade-calculator")
+def tool_grade():
+    return render_template("tool_grade.html", active_page="tools")
+
+@app.route("/tools/finals-countdown")
+def tool_countdown():
+    return render_template("tool_countdown.html", active_page="tools")
+
 @app.route("/about")
 def about():
     return render_template("about.html", active_page="about")
