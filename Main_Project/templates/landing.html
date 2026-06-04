@@ -1440,11 +1440,14 @@
 
   .stat-number {
     font-family: var(--font-display);
-    font-size: 2.6rem;
+    font-size: 3.4rem;
     font-weight: 800;
-    color: var(--text-primary);
+    background: var(--grad-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
     line-height: 1;
-    letter-spacing: -0.04em;
+    letter-spacing: -0.05em;
     font-variant-numeric: tabular-nums;
   }
 
@@ -1512,9 +1515,18 @@
   .faq-item,
   .comparison-card {
     background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--r-xl);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-2xl);
     box-shadow: var(--shadow-sm);
+    transition: transform 0.25s var(--ease-out), box-shadow 0.25s ease, border-color 0.25s ease;
+  }
+  .step-card:hover,
+  .feature-card:hover,
+  .integration-card:hover,
+  .comparison-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+    border-color: var(--border-accent);
   }
 
   .step-card { padding: 1.2rem; }
