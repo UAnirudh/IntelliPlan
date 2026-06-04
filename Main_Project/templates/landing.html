@@ -1129,6 +1129,26 @@
     color: #ffffff;
   }
 
+  /* Premium editorial eyebrow: short leading accent line before the label */
+  .section-kicker::before {
+    content: "";
+    width: 22px;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.45;
+    align-self: center;
+  }
+  /* More substantial, premium primary CTAs */
+  .hero-actions .btn-primary,
+  .cta-section .btn-primary,
+  .cta-btn.btn-primary {
+    padding: 1rem 1.7rem;
+    font-size: 1rem;
+    border-radius: 12px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
   .hero {
     display: grid;
     grid-template-columns: 1.05fr 0.95fr;
