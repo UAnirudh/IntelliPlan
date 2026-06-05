@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% from "partials/lms_logo.html" import lms_logo %}
 {% block content %}
 <div class="login-wrap">
   <div class="login-card">
@@ -35,7 +34,7 @@
     <!-- Guest options, real <button> elements, not links, so they match Create Account / Sign In -->
     <div class="guest-options">
       <button type="button" class="btn-guest canvas" onclick="window.location.href='/login/canvas'">
-        {{ lms_logo('canvas', 32) }}
+        <img src="/static/logos/canvas.svg" alt="Canvas LMS" width="32" height="32" style="width:32px;height:32px;border-radius:8px;flex-shrink:0;object-fit:cover;">
         <span class="text">
           <span class="title">Canvas LMS</span>
           <span class="subtitle">Guest, connect with access token</span>
@@ -44,7 +43,7 @@
       </button>
 
       <button type="button" class="btn-guest studentvue" onclick="window.location.href='/login/studentvue'">
-        {{ lms_logo('studentvue', 32) }}
+        <img src="/static/logos/studentvue.svg" alt="StudentVue" width="32" height="32" style="width:32px;height:32px;border-radius:8px;flex-shrink:0;object-fit:cover;">
         <span class="text">
           <span class="title">StudentVue</span>
           <span class="subtitle">Guest, connect with district credentials</span>
@@ -53,7 +52,7 @@
       </button>
 
       <button type="button" class="btn-guest schoology" onclick="window.location.href='/login/schoology'">
-        {{ lms_logo('schoology', 32) }}
+        <img src="/static/logos/schoology.svg" alt="Schoology" width="32" height="32" style="width:32px;height:32px;border-radius:8px;flex-shrink:0;object-fit:cover;">
         <span class="text">
           <span class="title">Schoology</span>
           <span class="subtitle">API key required · <span class="highlight">not recommended</span></span>
@@ -62,7 +61,7 @@
       </button>
 
       <button type="button" class="btn-guest" onclick="window.location.href='/connect'" style="border-color:color-mix(in srgb, var(--accent) 25%, var(--border));">
-        {{ lms_logo('google-classroom', 32) }}
+        <img src="/static/logos/google-classroom.svg" alt="More school platforms" width="32" height="32" style="width:32px;height:32px;border-radius:8px;flex-shrink:0;object-fit:cover;">
         <span class="text">
           <span class="title">More school platforms</span>
           <span class="subtitle">Google Classroom, Blackboard, Moodle &amp; more</span>

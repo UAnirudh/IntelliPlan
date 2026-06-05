@@ -124,7 +124,7 @@ class TestLoginPage:
     def test_login_shows_lms_logos(self, page: Page):
         go(page, "/login")
         for logo in ("canvas", "studentvue", "schoology"):
-            assert page.locator(f"img[src*='/static/logos/{logo}.svg']").count() >= 1
+            expect(page.locator(f'img[src*="/static/logos/{logo}.svg"]')).to_have_count(1)
 
     def test_google_signin_button_visible(self, page: Page):
         go(page, "/login")
@@ -417,7 +417,9 @@ class TestAPIEndpoints:
 
     def test_generate_schedule_requires_post(self, page: Page):
         response = page.request.get(f"{BASE_URL}/generate_schedule")
-        assert response.status in (405, 302, 401)
+        assert response.status == 405
+        data = response.json()
+        assert data.get("status") == "error"
 
     def test_api_v1_docs_reachable(self, page: Page):
         response = page.request.get(f"{BASE_URL}/api/v1/docs")

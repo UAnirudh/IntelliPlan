@@ -5052,9 +5052,11 @@ def api_save_assignment_due_date():
     save_custom_description(title, json.dumps(existing))
     return flask.jsonify({"status": "ok"})
 
-@app.route("/generate_schedule", methods=["POST"])
-@limiter.limit("10 per hour")
+@app.route("/generate_schedule", methods=["GET", "POST"])
+@limiter.limit("10 per hour", methods=["POST"])
 def generate_schedule():
+    if request.method != "POST":
+        return flask.jsonify({"status": "error", "message": "POST required"}), 405
     data = request.json or {}
     assignments = data.get("assignments", [])
     hours_per_day = data.get("hours_per_day", 2)
