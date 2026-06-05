@@ -201,6 +201,11 @@ BLACKBOARD_CLIENT_SECRET=
 # Moodle web services (optional; enabled by default)
 MOODLE_ENABLED=1
 
+# IndexNow (optional; defaults are already set for intelliplan.tech)
+INDEXNOW_KEY=15d38c49db0d48efa4ec2ad2635b43c9
+INDEXNOW_KEY_LOCATION=https://intelliplan.tech/15d38c49db0d48efa4ec2ad2635b43c9.txt
+INDEXNOW_ENDPOINT=https://api.indexnow.org/indexnow
+
 # Push Notifications (optional)
 VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
@@ -254,6 +259,8 @@ APP_BASE_URL=http://localhost:3000
 | `/api/lms/connect/moodle/manual` | POST | Connect Moodle with site URL + web-services token |
 | `/api/lms/status/<provider>` | GET | Check Google Classroom, Blackboard, or Moodle connection status |
 | `/api/lms/disconnect/<provider>` | POST | Disconnect Google Classroom, Blackboard, or Moodle |
+| `/<INDEXNOW_KEY>.txt` | GET | Host the IndexNow verification key at the site root |
+| `/api/admin/indexnow/submit` | POST | Admin-only IndexNow submitter; accepts `{"urls":[...]}` or submits sitemap URLs by default |
 | `/calendar/export` | POST | Export schedule to Google Calendar |
 | `/notion/connect` | POST | Connect Notion integration |
 | `/notion/tasks` | GET | Fetch Notion tasks |

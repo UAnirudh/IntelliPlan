@@ -42,20 +42,52 @@ select {
     width: 100%;
     max-width: 100%;
     overflow-x: hidden;
+    min-height: 100%;
+    height: auto;
   }
 
   body {
     /* Clear the fixed header AND the iOS notch / Dynamic Island. On devices
        with no inset, env() resolves to 0 so this equals 62px. */
     padding-top: calc(62px + env(safe-area-inset-top)) !important;
+    padding-left: 0 !important;
     overflow-x: hidden;
+    overflow-y: auto;
     /* Stop the rubber-band overscroll from revealing a blank bar behind the
        page on iOS, and stop scroll chaining out of the document. */
-    overscroll-behavior-y: none;
+    overscroll-behavior-y: contain;
   }
 
   body.mobile-nav-open {
     overflow: hidden;
+  }
+
+  body.has-side {
+    padding-left: 0 !important;
+  }
+
+  body.has-side > header {
+    display: grid !important;
+  }
+
+  .app-side {
+    display: none !important;
+  }
+
+  main {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: clip;
+    padding-left: max(0.875rem, env(safe-area-inset-left)) !important;
+    padding-right: max(0.875rem, env(safe-area-inset-right)) !important;
+  }
+
+  img,
+  svg,
+  video,
+  canvas {
+    max-width: 100%;
   }
 
   /* ════════════════════════════════════════════════════════
@@ -79,12 +111,30 @@ select {
     padding-top: calc(10px + env(safe-area-inset-top)) !important;
     padding-left: calc(14px + env(safe-area-inset-left)) !important;
     padding-right: calc(14px + env(safe-area-inset-right)) !important;
-    display: flex !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
     align-items: center !important;
+    justify-content: stretch !important;
     gap: 10px;
     z-index: 99999 !important;
     box-shadow: 0 1px 0 var(--border);
     isolation: isolate;
+  }
+
+  header .logo,
+  .top-bar .logo {
+    min-width: 0;
+  }
+
+  header .logo-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .header-actions {
+    grid-column: 2 !important;
+    min-width: 0;
+    gap: 8px !important;
   }
 
   #mainNav {
@@ -138,7 +188,8 @@ select {
     left: 0 !important;
     bottom: 0 !important;
     right: auto !important;
-    width: min(82vw, 320px) !important;
+    width: min(86vw, 320px) !important;
+    max-width: calc(100vw - 18px) !important;
     height: 100dvh !important;
     max-height: none !important;
     /* Top pad clears the notch; bottom pad clears the home indicator. */

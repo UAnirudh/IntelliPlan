@@ -1822,6 +1822,87 @@ def sitemap_xml():
 def llms_txt():
     return send_from_directory(app.static_folder, "llms.txt", mimetype="text/plain")
 
+INDEXNOW_KEY = os.getenv("INDEXNOW_KEY", "15d38c49db0d48efa4ec2ad2635b43c9").strip()
+INDEXNOW_ENDPOINT = os.getenv("INDEXNOW_ENDPOINT", "https://api.indexnow.org/indexnow").strip()
+
+
+def _indexnow_key_location():
+    return os.getenv("INDEXNOW_KEY_LOCATION") or f"{APP_BASE_URL}/{INDEXNOW_KEY}.txt"
+
+
+def _indexnow_host():
+    parsed = urllib.parse.urlparse(APP_BASE_URL)
+    return parsed.netloc or APP_DOMAIN
+
+
+def _indexnow_sitemap_urls(limit=10000):
+    path = os.path.join(app.static_folder, "sitemap.xml")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            xml = f.read()
+    except Exception as e:
+        print(f"[indexnow] could not read sitemap: {e}")
+        return []
+    urls = re.findall(r"<loc>\s*([^<\s]+)\s*</loc>", xml, flags=re.I)
+    return urls[:limit]
+
+
+def _indexnow_normalize_urls(urls):
+    host = _indexnow_host().lower()
+    out = []
+    seen = set()
+    for raw in urls or []:
+        url = str(raw or "").strip()
+        if not url:
+            continue
+        if url.startswith("/"):
+            url = APP_BASE_URL.rstrip("/") + url
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in {"http", "https"} or parsed.netloc.lower() != host:
+            continue
+        clean = urllib.parse.urlunparse((parsed.scheme, parsed.netloc, parsed.path or "/", "", parsed.query, ""))
+        if clean not in seen:
+            seen.add(clean)
+            out.append(clean)
+    return out[:10000]
+
+
+def _submit_indexnow_urls(urls):
+    urls = _indexnow_normalize_urls(urls)
+    if not INDEXNOW_KEY:
+        return {"status": "error", "message": "IndexNow key is not configured.", "submitted": 0}
+    if not urls:
+        return {"status": "error", "message": "No valid URLs for this host.", "submitted": 0}
+    payload = {
+        "host": _indexnow_host(),
+        "key": INDEXNOW_KEY,
+        "keyLocation": _indexnow_key_location(),
+        "urlList": urls,
+    }
+    try:
+        r = requests.post(
+            INDEXNOW_ENDPOINT,
+            json=payload,
+            headers={"Content-Type": "application/json; charset=utf-8"},
+            timeout=20,
+        )
+        ok = 200 <= r.status_code < 300
+        return {
+            "status": "ok" if ok else "error",
+            "http_status": r.status_code,
+            "submitted": len(urls),
+            "endpoint": INDEXNOW_ENDPOINT,
+            "keyLocation": payload["keyLocation"],
+            "message": "URLs submitted to IndexNow." if ok else (r.text[:300] or "IndexNow rejected the request."),
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e), "submitted": 0, "endpoint": INDEXNOW_ENDPOINT}
+
+
+@app.route(f"/{INDEXNOW_KEY}.txt")
+def indexnow_key_file():
+    return flask.Response(INDEXNOW_KEY + "\n", mimetype="text/plain; charset=utf-8")
+
 
 # ── SEO: /schedule is a permanent alias for /scheduler ──────────
 # Google's Search Console previously flagged /schedule as "Page with
@@ -7258,6 +7339,20 @@ def admin_set_flag():
         row.enabled = enabled
     db.session.commit()
     return flask.jsonify({"status": "ok", "key": key, "enabled": enabled})
+
+
+@app.route("/api/admin/indexnow/submit", methods=["POST"])
+@require_admin
+def admin_indexnow_submit():
+    body = request.get_json(silent=True) or {}
+    urls = body.get("urls")
+    if not urls:
+        urls = _indexnow_sitemap_urls()
+    elif isinstance(urls, str):
+        urls = [urls]
+    result = _submit_indexnow_urls(urls)
+    code = 200 if result.get("status") == "ok" else 400
+    return flask.jsonify(result), code
 
 
 @app.route("/api/admin/grant-pro", methods=["POST"])
