@@ -67,11 +67,12 @@
         <div style="width:42px;height:42px;border-radius:10px;background:#F98012;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-weight:800;font-size:1rem;font-family:var(--font-ui);">M</div>
         <div>
           <div style="font-size:0.95rem;font-weight:600;margin-bottom:2px;">Moodle</div>
-          <div style="font-size:0.78rem;color:var(--text-muted);">Open-source LMS used worldwide, join the waitlist</div>
+          <div style="font-size:0.78rem;color:var(--text-muted);">Open-source LMS used worldwide, connect with URL + token</div>
         </div>
         <div style="margin-left:auto;color:var(--text-muted);">→</div>
       </button>
     </div>
+    <div id="lmsInlineForms" style="display:flex;flex-direction:column;gap:12px;margin-bottom:1rem;"></div>
     <script>
       function lmsBanner(text) {
         const banner = document.createElement('div');
@@ -89,21 +90,64 @@
           if (data.status === 'ok' && data.url) { window.location.href = data.url; }
           else if (data.status === 'pending') { lmsBanner('✓ ' + data.message); }
           else if (data.status === 'manual' && provider === 'moodle') { showMoodleForm(); }
-          else if (data.status === 'need_institution' && provider === 'blackboard') { promptBlackboardInstitution(); }
+          else if (data.status === 'need_institution' && provider === 'blackboard') { showBlackboardForm(); }
           else { alert(data.message || 'Could not start connection.'); }
         } catch (e) { alert('Network error, please try again.'); }
       }
-      async function connectBlackboard() { connectLms('blackboard'); }
-      function promptBlackboardInstitution() {
-        const url = prompt("Enter your school's Blackboard URL\n(e.g. https://learn.myschool.edu):", '');
-        if (!url) return;
-        connectLms('blackboard', { institution_url: url.trim() });
+      function formHost() {
+        return document.getElementById('lmsInlineForms') || document.querySelector('.login-card');
+      }
+      async function connectBlackboard() { showBlackboardForm(); }
+      function showBlackboardForm() {
+        if (document.getElementById('blackboardForm')) { document.getElementById('blackboardForm').scrollIntoView({behavior:'smooth'}); return; }
+        const wrap = document.createElement('div');
+        wrap.id = 'blackboardForm';
+        wrap.style.cssText = 'padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--bg-card);';
+        wrap.innerHTML = `
+          <div style="font-weight:600;margin-bottom:8px;font-size:0.95rem;">Connect Blackboard Learn</div>
+          <p style="font-size:0.78rem;color:var(--text-muted);line-height:1.5;margin:0 0 12px;">
+            Paste your school's Blackboard Learn URL. IntelliPlan will send you to that institution's OAuth sign-in page.
+          </p>
+          <label style="display:block;font-size:0.78rem;font-weight:600;margin-bottom:4px;" for="bbUrl">Blackboard URL</label>
+          <input id="bbUrl" type="url" placeholder="https://learn.myschool.edu" autocomplete="off"
+            style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-secondary);color:var(--text-primary);font-family:inherit;font-size:0.9rem;margin-bottom:12px;"/>
+          <button type="button" id="bbBtn" onclick="submitBlackboard()"
+            style="width:100%;padding:11px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-family:inherit;font-weight:700;cursor:pointer;font-size:0.9rem;">Continue to Blackboard</button>
+          <div id="bbMsg" style="margin-top:8px;font-size:0.8rem;display:none;"></div>
+        `;
+        formHost().appendChild(wrap);
+        wrap.scrollIntoView({behavior:'smooth'});
+      }
+      async function submitBlackboard() {
+        const url = (document.getElementById('bbUrl').value || '').trim();
+        const msg = document.getElementById('bbMsg');
+        const btn = document.getElementById('bbBtn');
+        if (!url) { msg.style.display='block'; msg.style.color='#ef4444'; msg.textContent='Paste your Blackboard URL first.'; return; }
+        btn.disabled = true; btn.textContent = 'Starting...';
+        try {
+          const r = await fetch('/api/lms/connect/blackboard', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ institution_url: url })
+          });
+          const d = await r.json();
+          if (d.status === 'ok' && d.url) {
+            window.location.href = d.url;
+          } else {
+            msg.style.display='block'; msg.style.color='#ef4444';
+            msg.textContent = d.message || 'Could not start Blackboard sign-in.';
+            btn.disabled = false; btn.textContent = 'Continue to Blackboard';
+          }
+        } catch (e) {
+          msg.style.display='block'; msg.style.color='#ef4444';
+          msg.textContent = 'Network error, please try again.';
+          btn.disabled = false; btn.textContent = 'Continue to Blackboard';
+        }
       }
       function showMoodleForm() {
         if (document.getElementById('moodleForm')) { document.getElementById('moodleForm').scrollIntoView({behavior:'smooth'}); return; }
         const wrap = document.createElement('div');
         wrap.id = 'moodleForm';
-        wrap.style.cssText = 'margin-top:14px;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--bg-card);';
+        wrap.style.cssText = 'padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--bg-card);';
         wrap.innerHTML = `
           <div style="font-weight:600;margin-bottom:8px;font-size:0.95rem;">Connect Moodle</div>
           <p style="font-size:0.78rem;color:var(--text-muted);line-height:1.5;margin:0 0 12px;">
@@ -119,7 +163,7 @@
             style="width:100%;padding:11px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-family:inherit;font-weight:700;cursor:pointer;font-size:0.9rem;">Connect Moodle</button>
           <div id="mMsg" style="margin-top:8px;font-size:0.8rem;display:none;"></div>
         `;
-        document.querySelector('.login-card > div').appendChild(wrap);
+        formHost().appendChild(wrap);
         wrap.scrollIntoView({behavior:'smooth'});
       }
       async function submitMoodle() {

@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block page_title %}IntelliPlan Campus Ambassador Program — Free Pro + Rewards{% endblock %}
+
+{% block meta_description %}Join the IntelliPlan Campus Ambassador program. Share IntelliPlan with students at your school, earn free Pro forever, and unlock gift card rewards as your referrals grow. Free to join.{% endblock %}
+{% block og_type %}website{% endblock %}
+{% block og_title %}IntelliPlan Campus Ambassador Program{% endblock %}
+{% block og_description %}Help fellow students study smarter. Get lifetime Pro, gift cards, and exclusive perks for spreading the word.{% endblock %}
+{% block twitter_title %}IntelliPlan Campus Ambassadors{% endblock %}
+{% block twitter_description %}Lifetime Pro + gift card rewards for representing IntelliPlan at your school.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "IntelliPlan Campus Ambassador Program",
+  "url": "https://intelliplan.tech/ambassador",
+  "isPartOf": { "@id": "https://intelliplan.tech/#website" },
+  "about": { "@id": "https://intelliplan.tech/#organization" },
+  "description": "Student ambassador program offering lifetime Pro access and gift card rewards in exchange for sharing IntelliPlan with classmates."
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<style>
+  .amb-page { max-width: 900px; margin: 0 auto; padding: 3rem 1rem 4rem; }
+  .amb-kicker { display:inline-flex; align-items:center; padding:0.45rem 0.85rem; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-family:var(--font-ui); font-size:0.78rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; margin-bottom:1.1rem; }
+  .amb-title { font-family:var(--font-display); font-size:clamp(2.2rem,4.6vw,3.6rem); line-height:1.02; color:var(--text-primary); letter-spacing:-0.04em; margin:0 0 1rem; text-wrap:balance; }
+  .amb-lede { font-family:var(--font-ui); font-size:1.15rem; color:var(--text-secondary); line-height:1.6; margin:0 0 2rem; max-width:42rem; }
+  .amb-cta-row { display:flex; flex-wrap:wrap; gap:0.75rem; margin-bottom:3rem; }
+  .amb-section { margin: 2.5rem 0; }
+  .amb-section h2 { font-family:var(--font-display); font-size:clamp(1.5rem,2.6vw,2rem); color:var(--text-primary); margin:0 0 1rem; letter-spacing:-0.03em; }
+  .amb-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem; }
+  .amb-card { background:var(--bg-card); border:1px solid var(--border-strong); border-radius:var(--r-xl); padding:1.4rem; transition:transform 0.2s var(--ease-out), border-color 0.2s; }
+  .amb-card:hover { transform:translateY(-3px); border-color:var(--border-accent); }
+  .amb-card .num { font-family:var(--font-display); font-size:1.5rem; font-weight:800; color:var(--accent); margin-bottom:0.35rem; }
+  .amb-card h3 { font-family:var(--font-ui); font-size:0.95rem; color:var(--text-primary); margin:0 0 0.3rem; }
+  .amb-card p { font-family:var(--font-ui); font-size:0.86rem; color:var(--text-secondary); line-height:1.55; margin:0; }
+  .tier-table { width:100%; border-collapse:collapse; margin-top:0.5rem; font-family:var(--font-ui); font-size:0.92rem; }
+  .tier-table th, .tier-table td { padding:0.8rem 0.85rem; border-bottom:1px solid var(--border); text-align:left; vertical-align:top; }
+  .tier-table thead th { color:var(--text-muted); font-size:0.74rem; text-transform:uppercase; letter-spacing:0.04em; }
+  .tier-badge { display:inline-block; padding:0.18rem 0.55rem; border-radius:999px; font-weight:700; font-size:0.78rem; }
+  .t-b { background:#fef3c7; color:#92400e; }
+  .t-s { background:#e0e7ff; color:#3730a3; }
+  .t-g { background:#fef9c3; color:#854d0e; }
+  .t-p { background:#cffafe; color:#155e75; }
+  .step-list { counter-reset:step; padding:0; margin:0; list-style:none; }
+  .step-list li { counter-increment:step; padding:1rem 1.2rem 1rem 3.2rem; position:relative; background:var(--bg-card); border:1px solid var(--border-strong); border-radius:var(--r-lg); margin-bottom:0.75rem; font-family:var(--font-ui); color:var(--text-secondary); line-height:1.6; }
+  .step-list li::before { content:counter(step); position:absolute; left:1rem; top:1rem; width:1.85rem; height:1.85rem; border-radius:50%; background:var(--accent); color:#fff; font-family:var(--font-display); font-weight:800; display:flex; align-items:center; justify-content:center; font-size:0.95rem; }
+  .step-list li strong { color:var(--text-primary); }
+  .amb-faq summary { padding:0.85rem 0; font-family:var(--font-ui); font-weight:600; color:var(--text-primary); cursor:pointer; border-bottom:1px solid var(--border); }
+  .amb-faq p { padding:0.5rem 0 1rem; font-family:var(--font-ui); color:var(--text-secondary); line-height:1.6; margin:0; }
+  .amb-cta { margin-top:3rem; padding:2rem; background:var(--bg-card); border:1px solid var(--border-accent); border-radius:var(--r-xl); box-shadow:var(--accent-glow); text-align:center; }
+  .amb-cta h3 { font-family:var(--font-display); font-size:1.4rem; color:var(--text-primary); margin:0 0 0.5rem; }
+  .amb-cta p { font-family:var(--font-ui); color:var(--text-secondary); margin:0 0 1rem; }
+</style>
+
+<div class="amb-page">
+  <span class="amb-kicker" data-reveal>Campus Ambassador Program</span>
+  <h1 class="amb-title" data-reveal>Help your classmates study smarter. Get rewarded for it.</h1>
+  <p class="amb-lede" data-reveal>
+    Become an IntelliPlan Campus Ambassador at your school. Share what you already love with your friends, classmates, and study group — and earn free Pro forever plus monthly gift cards as your referrals grow.
+  </p>
+  <div class="amb-cta-row" data-reveal>
+    {% if current_user.is_authenticated %}
+      <a class="btn-primary" style="padding:1rem 1.5rem;font-weight:700;text-decoration:none;border-radius:12px;" href="/ambassador/dashboard">Open my ambassador dashboard →</a>
+      <a class="btn-secondary" style="padding:1rem 1.5rem;font-weight:600;text-decoration:none;border-radius:12px;" href="#how">How it works</a>
+    {% else %}
+      <a class="btn-primary" style="padding:1rem 1.5rem;font-weight:700;text-decoration:none;border-radius:12px;" href="/register?ambassador=1">Sign up & become an ambassador →</a>
+      <a class="btn-secondary" style="padding:1rem 1.5rem;font-weight:600;text-decoration:none;border-radius:12px;" href="/login">I already have an account</a>
+    {% endif %}
+  </div>
+
+  <section class="amb-section">
+    <h2 data-reveal>What you get</h2>
+    <div class="amb-grid">
+      <div class="amb-card" data-reveal>
+        <div class="num">Lifetime Pro</div>
+        <h3>Free, forever</h3>
+        <p>Every ambassador gets IntelliPlan Pro free for as long as the program runs — full AI tutor, unlimited generations, every premium feature.</p>
+      </div>
+      <div class="amb-card" data-reveal>
+        <div class="num">+14 days</div>
+        <h3>Per referral</h3>
+        <p>Each friend who signs up with your link earns you 14 free days of Pro automatically — stackable, with no limit.</p>
+      </div>
+      <div class="amb-card" data-reveal>
+        <div class="num">$25–$50/mo</div>
+        <h3>Gift cards</h3>
+        <p>Hit 10+ active referrals in a month and we'll send you an Amazon / Visa gift card. Bigger ambassadors, bigger rewards.</p>
+      </div>
+      <div class="amb-card" data-reveal>
+        <div class="num">Exclusive</div>
+        <h3>Swag &amp; recognition</h3>
+        <p>IntelliPlan stickers, t-shirts, and a feature spot on our site for top ambassadors each semester.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="amb-section" id="how">
+    <h2 data-reveal>How it works</h2>
+    <ol class="step-list">
+      <li data-reveal><strong>Create your account</strong> at intelliplan.tech and grab your unique referral link from the ambassador dashboard. It looks like <code>intelliplan.tech/ref/your-code</code>.</li>
+      <li data-reveal><strong>Share it with students at your school.</strong> Drop it in your school Discord, GroupMe, Reddit, class chats, or your study-content TikTok bio — wherever students actually hang out.</li>
+      <li data-reveal><strong>Track your referrals</strong> in real time from your dashboard. We show you who signed up, your tier, and how close you are to the next reward.</li>
+      <li data-reveal><strong>Get paid &amp; perks.</strong> Pro days accrue automatically; gift cards and swag ship at the end of each month for ambassadors who hit the thresholds.</li>
+    </ol>
+  </section>
+
+  <section class="amb-section">
+    <h2 data-reveal>Reward tiers</h2>
+    <p style="font-family:var(--font-ui);color:var(--text-secondary);margin:0 0 0.75rem;" data-reveal>The more students you bring on, the more you unlock. Tiers reset monthly so every month is a fresh shot.</p>
+    <table class="tier-table" data-reveal>
+      <thead><tr><th>Tier</th><th>Monthly referrals</th><th>Rewards</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tier-badge t-b">Bronze</span></td><td>1+ active referral</td><td>Free Pro extension (+14 days per referral)</td></tr>
+        <tr><td><span class="tier-badge t-s">Silver</span></td><td>5+ in a month</td><td>Above + IntelliPlan sticker pack</td></tr>
+        <tr><td><span class="tier-badge t-g">Gold</span></td><td>10+ in a month</td><td>Above + $25 Amazon gift card</td></tr>
+        <tr><td><span class="tier-badge t-p">Platinum</span></td><td>25+ in a month</td><td>Above + $50 gift card + IntelliPlan tee + featured on /ambassador</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="amb-section">
+    <h2 data-reveal>Frequently asked</h2>
+    <div class="amb-faq">
+      <details data-reveal><summary>Who can become an ambassador?</summary>
+      <p>Any current high school or college student in good standing. You don't need a big social following — most ambassadors grow through their class chats, study groups, and school Discord servers.</p></details>
+      <details data-reveal><summary>Does it cost anything?</summary>
+      <p>No. The program is free to join. We give you Pro and rewards because student-to-student recommendations are the most effective way to grow.</p></details>
+      <details data-reveal><summary>What counts as an "active referral"?</summary>
+      <p>A signup that comes through your unique link and connects at least one LMS (Canvas, StudentVue, Schoology, or Google Classroom) or generates a study schedule in their first 7 days.</p></details>
+      <details data-reveal><summary>When do gift cards ship?</summary>
+      <p>End of each calendar month, by email to the address on your IntelliPlan account, within 5 business days of month-end.</p></details>
+      <details data-reveal><summary>Can I represent more than one school?</summary>
+      <p>Yes — but most ambassadors focus on one campus. We'll feature you in multi-school spotlights if you grow IntelliPlan at more than one institution.</p></details>
+    </div>
+  </section>
+
+  <div class="amb-cta" data-reveal>
+    <h3>Ready to start?</h3>
+    <p>Sign up, grab your link from the dashboard, and share IntelliPlan with the students who'd actually use it.</p>
+    {% if current_user.is_authenticated %}
+      <a class="btn-primary" style="padding:1rem 1.5rem;text-decoration:none;border-radius:12px;font-weight:700;" href="/ambassador/dashboard">Open my dashboard →</a>
+    {% else %}
+      <a class="btn-primary" style="padding:1rem 1.5rem;text-decoration:none;border-radius:12px;font-weight:700;" href="/register?ambassador=1">Become an ambassador — free</a>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

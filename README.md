@@ -20,7 +20,7 @@ Students are left manually juggling deadlines across apps, guessing what to work
 
 ## The Solution
 
-IntelliPlan pulls your assignments directly from Canvas, StudentVue, or Schoology, scores them by priority, and uses AI to generate a full weekly study schedule tailored to your workload and available hours. It syncs to Google Calendar, integrates with Notion, and includes a built-in AI tutor — all free.
+IntelliPlan pulls your assignments directly from Canvas, Google Classroom, StudentVue, Schoology, Blackboard, or Moodle, scores them by priority, and uses AI to generate a full weekly study schedule tailored to your workload and available hours. It syncs to Google Calendar, integrates with Notion, and includes a built-in AI tutor — all free.
 
 ---
 
@@ -45,7 +45,7 @@ Includes a full spaced repetition system (SRS) that tracks mastery level per que
 Smart priority scoring (High / Medium / Low) with estimated time per assignment based on points possible, due date proximity, and course weight. See everything ranked so you always know what to tackle first.
 
 ### 🏫 Classes View
-Browse and filter all assignments by course. Works across Canvas, StudentVue, and Schoology simultaneously if multiple accounts are linked.
+Browse and filter all assignments by course. Works across Canvas, Google Classroom, StudentVue, Schoology, Blackboard, and Moodle simultaneously if multiple accounts are linked.
 
 ### 📊 Grades & Grade Modeler
 GPA overview pulled live from your school platform. The **Grade Modeler** lets you simulate "what if I get X% on my next test?" and shows you exactly how it affects your course grade and GPA.
@@ -66,8 +66,11 @@ Full light/dark theme support with preference saved across sessions.
 | Integration | What It Does |
 |---|---|
 | **Canvas LMS** | Auto-imports assignments, due dates, points, and course names via REST API |
+| **Google Classroom** | Auto-imports active courses and coursework via Google OAuth |
 | **StudentVue** | Auto-imports assignments and missing work via the StudentVue API |
 | **Schoology** | Auto-imports assignments via API key + secret |
+| **Blackboard Learn** | Connects to an institution's Learn URL with OAuth 2.0 and imports gradebook due dates |
+| **Moodle** | Connects to a Moodle URL plus web-services token and imports assignments/events |
 | **Google Calendar** | One-click export of AI-generated study schedules; OAuth 2.0 with PKCE |
 | **Notion** | Two-way task sync with your Notion databases via integration token |
 | **Chrome Extension** | Badge count showing pending assignments; injects into Canvas and StudentVue pages |
@@ -88,7 +91,7 @@ Full light/dark theme support with preference saved across sessions.
 | **AI — Scheduling & Study** | Groq API (Llama 3.3 70B Versatile) |
 | **AI — Vision / Image Notes** | Groq API (Llama 3.2 11B Vision) |
 | **AI — Tutor & Chatbot** | Groq API (Llama 3.3 70B Versatile) |
-| **School APIs** | Canvas LMS REST API, StudentVue API, Schoology API |
+| **School APIs** | Canvas LMS REST API, Google Classroom API, StudentVue API, Schoology API, Blackboard Learn REST API, Moodle Web Services |
 | **Calendar** | Google Calendar API v3 |
 | **Notes** | Notion API |
 | **Push Notifications** | Web Push / VAPID (pywebpush) |
@@ -153,7 +156,7 @@ IntelliPlan/
 ### Prerequisites
 - Python 3.11+
 - A Groq API key (free at [console.groq.com](https://console.groq.com))
-- Canvas API token, StudentVue credentials, or Schoology API key (at least one)
+- Canvas API token, Google Classroom OAuth, StudentVue credentials, Schoology API key, Blackboard OAuth, or Moodle web-services token (at least one)
 
 ### Installation
 
@@ -186,6 +189,17 @@ DATABASE_URL=sqlite:///intelliplan.db
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=http://localhost:3000/oauth2callback
+
+# Google Classroom OAuth (optional)
+GOOGLE_CLASSROOM_CLIENT_ID=
+GOOGLE_CLASSROOM_CLIENT_SECRET=
+
+# Blackboard Learn OAuth (optional)
+BLACKBOARD_CLIENT_ID=
+BLACKBOARD_CLIENT_SECRET=
+
+# Moodle web services (optional; enabled by default)
+MOODLE_ENABLED=1
 
 # Push Notifications (optional)
 VAPID_PUBLIC_KEY=
@@ -236,6 +250,10 @@ APP_BASE_URL=http://localhost:3000
 | Endpoint | Method | Description |
 |---|---|---|
 | `/oauth/google` | GET | Start Google OAuth flow |
+| `/api/lms/connect/<provider>` | POST | Start Google Classroom/Blackboard OAuth or return Moodle manual-connect metadata |
+| `/api/lms/connect/moodle/manual` | POST | Connect Moodle with site URL + web-services token |
+| `/api/lms/status/<provider>` | GET | Check Google Classroom, Blackboard, or Moodle connection status |
+| `/api/lms/disconnect/<provider>` | POST | Disconnect Google Classroom, Blackboard, or Moodle |
 | `/calendar/export` | POST | Export schedule to Google Calendar |
 | `/notion/connect` | POST | Connect Notion integration |
 | `/notion/tasks` | GET | Fetch Notion tasks |
@@ -280,11 +298,11 @@ For bugs or ideas, open an [Issue](https://github.com/UAnirudh/IntelliPlan/issue
 ## Roadmap
 
 - [ ] AI-powered grade predictions based on historical performance
-- [ ] Schoology full assignment sync
+- [x] Google Classroom, Blackboard, and Moodle assignment sync
 - [ ] Mobile app (React Native)
 - [ ] Collaborative study groups
 - [ ] Teacher/parent dashboard view
-- [ ] More LMS integrations (Blackboard, Google Classroom, Powerschool)
+- [ ] More SIS integrations (PowerSchool)
 
 ---
 

@@ -2534,7 +2534,7 @@ def api_lms_connect(provider):
     # token the user pastes in. Tell the UI to show the manual-connect form
     # instead of starting an OAuth redirect.
     if provider == "moodle":
-        if not os.getenv("MOODLE_ENABLED", "1"):  # allow ops to hide it via env
+        if os.getenv("MOODLE_ENABLED", "1").strip().lower() in {"0", "false", "no", "off"}:
             return jsonify({"status": "pending", "provider": provider,
                             "message": "Moodle support is launching soon."})
         return jsonify({"status": "manual", "provider": "moodle",
@@ -2546,7 +2546,8 @@ def api_lms_connect(provider):
     # the UI to prompt for it instead of failing silently.
     if provider == "blackboard":
         client_id = os.getenv("BLACKBOARD_CLIENT_ID")
-        if not client_id:
+        client_secret = os.getenv("BLACKBOARD_CLIENT_SECRET")
+        if not client_id or not client_secret:
             print(f"[lms waitlist] {current_user.email} → blackboard")
             return jsonify({"status": "pending", "provider": "blackboard",
                             "message": "Blackboard support is launching soon. We'll email you when it's ready."})
@@ -2576,11 +2577,11 @@ def api_lms_connect(provider):
         scope = "read"
         auth_url = (
             f"{institution}/learn/api/public/v1/oauth2/authorizationcode"
-            f"?client_id={urllib.parse.quote(client_id)}"
-            f"&redirect_uri={urllib.parse.quote(redirect_uri)}"
+            f"?client_id={urllib.parse.quote(client_id, safe='')}"
+            f"&redirect_uri={urllib.parse.quote(redirect_uri, safe='')}"
             f"&response_type=code"
-            f"&scope={urllib.parse.quote(scope)}"
-            f"&state={urllib.parse.quote(state)}"
+            f"&scope={urllib.parse.quote(scope, safe='')}"
+            f"&state={urllib.parse.quote(state, safe='')}"
         )
         return jsonify({"status": "ok", "url": auth_url})
 
@@ -2612,11 +2613,11 @@ def api_lms_connect(provider):
     session["lms_oauth_state"] = state
     session["lms_oauth_provider"] = provider
     auth_url = (
-        f"{config['auth_base']}?client_id={urllib.parse.quote(client_id)}"
-        f"&redirect_uri={urllib.parse.quote(redirect_uri)}"
+        f"{config['auth_base']}?client_id={urllib.parse.quote(client_id, safe='')}"
+        f"&redirect_uri={urllib.parse.quote(redirect_uri, safe='')}"
         f"&response_type=code&access_type=offline&prompt=consent"
-        f"&scope={urllib.parse.quote(config['scope'])}"
-        f"&state={urllib.parse.quote(state)}"
+        f"&scope={urllib.parse.quote(config['scope'], safe='')}"
+        f"&state={urllib.parse.quote(state, safe='')}"
     )
     return jsonify({"status": "ok", "url": auth_url})
 
@@ -2855,9 +2856,19 @@ def _blackboard_fetch_assignments(institution_url, access_token, bb_user_id=None
             pass
         try:
             gr = requests.get(
-                f"{institution_url}/learn/api/public/v1/courses/{cid}/gradebook/columns",
-                headers=headers, timeout=20,
+                f"{institution_url}/learn/api/public/v2/courses/{cid}/gradebook/columns",
+                headers=headers,
+                params={
+                    "fields": "id,name,displayName,score.possible,grading.due,availability.available",
+                    "limit": 100,
+                },
+                timeout=20,
             )
+            if gr.status_code == 404:
+                gr = requests.get(
+                    f"{institution_url}/learn/api/public/v1/courses/{cid}/gradebook/columns",
+                    headers=headers, timeout=20,
+                )
             if gr.status_code != 200:
                 continue
             cols = gr.json().get("results", []) or []
@@ -2865,9 +2876,12 @@ def _blackboard_fetch_assignments(institution_url, access_token, bb_user_id=None
             print(f"[blackboard] gradebook error for {cid}: {e}")
             continue
         for col in cols:
-            name = (col.get("name") or "").strip()
+            availability = col.get("availability") or {}
+            if str(availability.get("available") or "").lower() in {"no", "false", "disabled"}:
+                continue
+            name = (col.get("displayName") or col.get("name") or "").strip()
             grading = col.get("grading") or {}
-            due_iso = grading.get("due")
+            due_iso = grading.get("due") or col.get("due")
             if not name or not due_iso:
                 continue
             try:

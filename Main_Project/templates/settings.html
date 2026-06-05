@@ -582,6 +582,39 @@
         <span id="notionStatus"></span>
       </div>
 
+      <div class="integration-row">
+        <div>
+          <div class="integration-label">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg>
+            Google Classroom
+          </div>
+          <div class="integration-sub" id="classroomSub">Import courses and coursework from Google Classroom</div>
+        </div>
+        <span id="classroomStatus"></span>
+      </div>
+
+      <div class="integration-row">
+        <div>
+          <div class="integration-label">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-classes"/></svg>
+            Blackboard Learn
+          </div>
+          <div class="integration-sub" id="blackboardSub">Import higher-ed coursework from your school's Blackboard</div>
+        </div>
+        <span id="blackboardStatus"></span>
+      </div>
+
+      <div class="integration-row">
+        <div>
+          <div class="integration-label">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-link"/></svg>
+            Moodle
+          </div>
+          <div class="integration-sub" id="moodleSub">Import assignments from a Moodle URL and web-services token</div>
+        </div>
+        <span id="moodleStatus"></span>
+      </div>
+
     </div>
   </div>
 
@@ -1405,6 +1438,69 @@ function refreshNotionStatus() {
   fetch('/notion/status').then(r => r.json()).then(renderNotionStatus).catch(() => {});
 }
 refreshNotionStatus();
+
+const LMS_STATUS_META = {
+  google_classroom: {
+    statusId: 'classroomStatus',
+    subId: 'classroomSub',
+    label: 'Google Classroom',
+    endpoint: '/api/lms/status/google_classroom',
+    disconnect: '/api/lms/disconnect/google_classroom',
+    connectedText: d => d.account_email || d.account_name || 'Connected',
+  },
+  blackboard: {
+    statusId: 'blackboardStatus',
+    subId: 'blackboardSub',
+    label: 'Blackboard Learn',
+    endpoint: '/api/lms/status/blackboard',
+    disconnect: '/api/lms/disconnect/blackboard',
+    connectedText: d => d.institution_url || d.username || 'Connected',
+  },
+  moodle: {
+    statusId: 'moodleStatus',
+    subId: 'moodleSub',
+    label: 'Moodle',
+    endpoint: '/api/lms/status/moodle',
+    disconnect: '/api/lms/disconnect/moodle',
+    connectedText: d => d.fullname || d.moodle_url || 'Connected',
+  },
+};
+
+function renderLmsStatus(provider, data) {
+  const meta = LMS_STATUS_META[provider];
+  if (!meta) return;
+  const el = document.getElementById(meta.statusId);
+  const sub = document.getElementById(meta.subId);
+  if (!el) return;
+  if (data && data.connected) {
+    if (sub) sub.textContent = meta.connectedText(data);
+    el.innerHTML = `<span style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;">
+      <span class="connected-badge">Connected</span>
+      <button onclick="disconnectLms('${provider}')" style="padding:6px 14px;border-radius:10px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:var(--font-ui);font-size:0.78rem;font-weight:600;">Disconnect</button>
+    </span>`;
+    return;
+  }
+  el.innerHTML = `<a href="/connect" class="btn-primary" style="padding:6px 14px;font-size:0.78rem;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">Connect</a>`;
+}
+
+function refreshLmsStatuses() {
+  Object.entries(LMS_STATUS_META).forEach(([provider, meta]) => {
+    fetch(meta.endpoint)
+      .then(r => r.json())
+      .then(d => renderLmsStatus(provider, d))
+      .catch(() => renderLmsStatus(provider, { connected: false }));
+  });
+}
+
+function disconnectLms(provider) {
+  const meta = LMS_STATUS_META[provider];
+  if (!meta || !confirm('Disconnect ' + meta.label + '?')) return;
+  fetch(meta.disconnect, { method: 'POST' })
+    .then(() => refreshLmsStatuses())
+    .catch(() => alert('Network error.'));
+}
+
+refreshLmsStatuses();
 
 function connectNotionToken() {
   _notionModal(`

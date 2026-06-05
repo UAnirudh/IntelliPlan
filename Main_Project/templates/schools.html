@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block page_title %}IntelliPlan for Schools & Districts — Free AI Study Planner for Every Student{% endblock %}
+{% block meta_description %}IntelliPlan for schools and districts: a free AI study planner that connects to Canvas, Google Classroom, StudentVue, Schoology, Blackboard, and Moodle. No IT setup, no per-seat cost — every student gets organized in 90 seconds.{% endblock %}
+{% block og_type %}website{% endblock %}
+{% block og_title %}IntelliPlan for Schools{% endblock %}
+{% block og_description %}A free AI study planner for your students. Works with every major LMS. No IT lift.{% endblock %}
+{% block twitter_title %}IntelliPlan for Schools{% endblock %}
+{% block twitter_description %}Free AI study planner for the whole student body. No IT setup.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "IntelliPlan for Schools and Districts",
+  "url": "https://intelliplan.tech/schools",
+  "isPartOf": { "@id": "https://intelliplan.tech/#website" },
+  "about": { "@id": "https://intelliplan.tech/#organization" }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<style>
+  .sch-page { max-width: 900px; margin: 0 auto; padding: 3rem 1rem 4rem; }
+  .sch-kicker { display:inline-flex; align-items:center; padding:0.45rem 0.85rem; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-family:var(--font-ui); font-size:0.76rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; margin-bottom:1.1rem; }
+  .sch-title { font-family:var(--font-display); font-size:clamp(2.2rem,4.4vw,3.4rem); line-height:1.04; color:var(--text-primary); letter-spacing:-0.04em; margin:0 0 1rem; text-wrap:balance; }
+  .sch-lede { font-family:var(--font-ui); font-size:1.15rem; color:var(--text-secondary); line-height:1.65; margin:0 0 2rem; max-width:42rem; }
+  .sch-section { margin: 2.5rem 0; }
+  .sch-section h2 { font-family:var(--font-display); font-size:clamp(1.5rem,2.6vw,2rem); color:var(--text-primary); margin:0 0 1rem; letter-spacing:-0.03em; }
+  .sch-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem; }
+  .sch-card { background:var(--bg-card); border:1px solid var(--border-strong); border-radius:var(--r-xl); padding:1.4rem; transition:transform 0.2s var(--ease-out), border-color 0.2s; }
+  .sch-card:hover { transform:translateY(-3px); border-color:var(--border-accent); }
+  .sch-card h3 { font-family:var(--font-display); font-size:1.1rem; color:var(--text-primary); margin:0 0 0.4rem; letter-spacing:-0.02em; }
+  .sch-card p { font-family:var(--font-ui); font-size:0.92rem; color:var(--text-secondary); line-height:1.55; margin:0; }
+  .lms-row { display:flex; flex-wrap:wrap; gap:0.5rem; }
+  .lms-row span { padding:0.5rem 0.85rem; border:1px solid var(--border-strong); border-radius:999px; font-family:var(--font-ui); font-size:0.86rem; color:var(--text-primary); background:var(--bg-card); }
+  .sch-cta-card { margin-top:2.5rem; padding:2rem; background:var(--bg-card); border:1px solid var(--border-accent); border-radius:var(--r-xl); box-shadow:var(--accent-glow); }
+  .sch-cta-card h3 { font-family:var(--font-display); font-size:1.35rem; color:var(--text-primary); margin:0 0 0.6rem; }
+  .sch-cta-card p { font-family:var(--font-ui); color:var(--text-secondary); margin:0 0 1rem; font-size:0.98rem; }
+  .sch-cta-row { display:flex; flex-wrap:wrap; gap:0.6rem; }
+  .sch-faq summary { padding:0.85rem 0; font-family:var(--font-ui); font-weight:600; color:var(--text-primary); cursor:pointer; border-bottom:1px solid var(--border); }
+  .sch-faq p { padding:0.5rem 0 1rem; font-family:var(--font-ui); color:var(--text-secondary); line-height:1.6; margin:0; }
+</style>
+
+<div class="sch-page">
+  <span class="sch-kicker" data-reveal>For schools &amp; districts</span>
+  <h1 class="sch-title" data-reveal>Every student organized, in 90 seconds.</h1>
+  <p class="sch-lede" data-reveal>
+    IntelliPlan is a free AI study planner built for high school and college students. It connects directly to your school's LMS, pulls every assignment automatically, prioritizes the workload, and builds a weekly study schedule. No app install required, no IT configuration, no per-seat cost.
+  </p>
+
+  <section class="sch-section">
+    <h2 data-reveal>Works with every LMS your students use</h2>
+    <div class="lms-row" data-reveal>
+      <span>Canvas LMS</span>
+      <span>Google Classroom</span>
+      <span>StudentVue</span>
+      <span>Schoology</span>
+      <span>Blackboard Learn</span>
+      <span>Moodle</span>
+    </div>
+  </section>
+
+  <section class="sch-section">
+    <h2 data-reveal>What students actually get</h2>
+    <div class="sch-grid">
+      <div class="sch-card" data-reveal>
+        <h3>Automatic assignment import</h3>
+        <p>Students connect their LMS once. Every assignment, due date, and grade-weight flows in automatically and updates as teachers change things.</p>
+      </div>
+      <div class="sch-card" data-reveal>
+        <h3>AI priority + scheduling</h3>
+        <p>Assignments are ranked by deadline, point value, and effort across every class — one unified list. A weekly study schedule is generated around each student's free time.</p>
+      </div>
+      <div class="sch-card" data-reveal>
+        <h3>Plani Tutor</h3>
+        <p>A built-in AI tutor that explains math, science, history, English, coding, languages, and test prep step by step. Always free for students.</p>
+      </div>
+      <div class="sch-card" data-reveal>
+        <h3>Grade Modeler</h3>
+        <p>"What do I need on my final to keep an A?" — IntelliPlan answers it with the student's real category weights and current scores, automatically.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="sch-section">
+    <h2 data-reveal>Why schools choose IntelliPlan</h2>
+    <div class="sch-grid">
+      <div class="sch-card" data-reveal>
+        <h3>Zero IT lift</h3>
+        <p>Students authenticate with their existing LMS — no admin SSO setup, no rostering imports, no software to deploy.</p>
+      </div>
+      <div class="sch-card" data-reveal>
+        <h3>Free for every student</h3>
+        <p>The full planner, AI tutor, and grade tools are free. Optional Pro ($4.99/mo) raises generation limits and is never required.</p>
+      </div>
+      <div class="sch-card" data-reveal>
+        <h3>Privacy you can defend</h3>
+        <p>COPPA-compliant. We never sell student data. Read-only access to assignments — IntelliPlan can't modify a student's LMS account.</p>
+      </div>
+      <div class="sch-card" data-reveal>
+        <h3>Built by a student</h3>
+        <p>IntelliPlan was built by a high-school student to solve the exact problem your students have. We move fast and listen to schools.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="sch-cta-card" data-reveal>
+    <h3>Bring IntelliPlan to your school or district</h3>
+    <p>Reach out and we'll set up a featured partnership: every student at your school gets free Pro access for the year, and we'll join an advisory period or academic-skills workshop if it's useful.</p>
+    <div class="sch-cta-row">
+      <a class="btn-primary" style="padding:1rem 1.4rem;font-weight:700;text-decoration:none;border-radius:12px;" href="mailto:uanirudh0811@gmail.com?subject=IntelliPlan%20for%20schools%20%E2%80%94%20interest%20from%20[School%20Name]">Contact our team →</a>
+      <a class="btn-secondary" style="padding:1rem 1.4rem;font-weight:600;text-decoration:none;border-radius:12px;" href="/legal">Privacy &amp; data</a>
+    </div>
+  </div>
+
+  <section class="sch-section">
+    <h2 data-reveal>Frequently asked</h2>
+    <div class="sch-faq">
+      <details data-reveal><summary>Does this cost the school anything?</summary>
+      <p>No. IntelliPlan is free for every student at no cost to the school or district. The featured-partnership tier adds free Pro for the year for your students — also at no cost.</p></details>
+      <details data-reveal><summary>What student data does IntelliPlan access?</summary>
+      <p>Only the assignment metadata the student explicitly authorizes through their LMS (titles, due dates, point values, course names). We don't read submissions, grades that haven't posted, or messages. Read-only access — IntelliPlan can't modify the LMS account. Full policy at <a href="/legal">/legal</a>.</p></details>
+      <details data-reveal><summary>Do we need IT to set anything up?</summary>
+      <p>No. Students authenticate through their existing LMS account, just like signing into any other service. No SSO config, no admin approvals, no rostering imports.</p></details>
+      <details data-reveal><summary>Is IntelliPlan COPPA compliant for K-12?</summary>
+      <p>Yes — we comply with COPPA. Students under 13 require parental approval at signup. No student data is sold, ever.</p></details>
+    </div>
+  </section>
+</div>
+
+{% endblock %}

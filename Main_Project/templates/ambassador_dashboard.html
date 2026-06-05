@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block page_title %}Ambassador Dashboard — IntelliPlan{% endblock %}
+{% block meta_description %}Your IntelliPlan Campus Ambassador dashboard. Track your referrals, copy your unique link, and see how close you are to the next reward tier.{% endblock %}
+
+{% block content %}
+
+<style>
+  .ad-page { max-width: 860px; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
+  .ad-kicker { display:inline-flex; align-items:center; padding:0.45rem 0.85rem; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-family:var(--font-ui); font-size:0.76rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; margin-bottom:1rem; }
+  .ad-title { font-family:var(--font-display); font-size:clamp(1.9rem,3.6vw,2.6rem); line-height:1.06; color:var(--text-primary); letter-spacing:-0.03em; margin:0 0 0.6rem; }
+  .ad-sub { font-family:var(--font-ui); color:var(--text-muted); margin:0 0 2rem; font-size:1rem; }
+  .ad-card { background:var(--bg-card); border:1px solid var(--border-strong); border-radius:var(--r-xl); padding:1.6rem; margin-bottom:1.1rem; }
+  .ad-link-row { display:flex; gap:8px; flex-wrap:wrap; align-items:stretch; margin-top:0.5rem; }
+  .ad-link-row input { flex:1; min-width:200px; padding:0.85rem 0.95rem; border:1px solid var(--border-strong); border-radius:10px; font-family:var(--font-ui); font-size:0.95rem; background:var(--bg-secondary); color:var(--text-primary); }
+  .ad-btn { padding:0.85rem 1.2rem; border:none; border-radius:10px; background:var(--accent); color:#fff; font-family:var(--font-ui); font-weight:700; cursor:pointer; font-size:0.92rem; }
+  .ad-btn.copied { background:#16a34a; }
+  .ad-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:0.85rem; }
+  .ad-stat { background:var(--bg-card); border:1px solid var(--border-strong); border-radius:var(--r-lg); padding:1.1rem 1.2rem; }
+  .ad-stat .label { font-family:var(--font-ui); font-size:0.74rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; font-weight:700; }
+  .ad-stat .val { font-family:var(--font-display); font-size:2rem; font-weight:800; color:var(--text-primary); line-height:1; margin-top:0.4rem; letter-spacing:-0.03em; }
+  .ad-tier-badge { display:inline-block; padding:0.3rem 0.7rem; border-radius:999px; font-weight:700; font-size:0.82rem; font-family:var(--font-ui); margin-top:0.4rem; }
+  .tier-none { background:var(--bg-elevated); color:var(--text-muted); }
+  .tier-bronze { background:#fef3c7; color:#92400e; }
+  .tier-silver { background:#e0e7ff; color:#3730a3; }
+  .tier-gold { background:#fef9c3; color:#854d0e; }
+  .tier-platinum { background:#cffafe; color:#155e75; }
+  .ad-progress { margin-top:1rem; }
+  .ad-progress .bar-wrap { height:8px; background:var(--bg-elevated); border-radius:999px; overflow:hidden; }
+  .ad-progress .bar { height:100%; background:var(--grad-brand); transition:width 0.5s ease; }
+  .ad-progress .lbl { font-family:var(--font-ui); font-size:0.82rem; color:var(--text-muted); margin-top:0.4rem; }
+  .ad-share { display:flex; flex-wrap:wrap; gap:0.5rem; margin-top:0.75rem; }
+  .ad-share a { padding:0.55rem 0.95rem; border:1px solid var(--border-strong); border-radius:10px; font-family:var(--font-ui); font-size:0.84rem; font-weight:600; color:var(--text-primary); text-decoration:none; }
+  .ad-share a:hover { border-color:var(--border-accent); background:var(--accent-soft); }
+  .ad-actions { display:flex; gap:0.6rem; flex-wrap:wrap; }
+  .ad-actions a { font-family:var(--font-ui); font-size:0.86rem; font-weight:600; color:var(--accent); text-decoration:none; padding:0.5rem 0.85rem; border:1px solid var(--border-strong); border-radius:999px; }
+  .ad-actions a:hover { border-color:var(--border-accent); background:var(--accent-soft); }
+</style>
+
+<div class="ad-page">
+  <span class="ad-kicker">Ambassador Dashboard</span>
+  <h1 class="ad-title">Your campus ambassador hub</h1>
+  <p class="ad-sub">Share your link, watch the referrals roll in, and earn Pro days + rewards as you climb the tiers.</p>
+
+  <div class="ad-card">
+    <div style="font-family:var(--font-ui);font-weight:700;font-size:0.95rem;margin-bottom:0.35rem;">Your unique referral link</div>
+    <div style="font-family:var(--font-ui);font-size:0.85rem;color:var(--text-muted);">Anyone who signs up through this link will count toward your tier — and they get a head start on Pro too.</div>
+    <div class="ad-link-row">
+      <input type="text" id="refLink" readonly value="Loading…" aria-label="Your referral link"/>
+      <button class="ad-btn" id="copyBtn" type="button" onclick="copyRef()">Copy link</button>
+    </div>
+    <div class="ad-share">
+      <a id="shareSms" href="#" target="_blank" rel="noopener">Share by text</a>
+      <a id="shareMail" href="#" target="_blank" rel="noopener">Share by email</a>
+      <a id="shareWa" href="#" target="_blank" rel="noopener">Share on WhatsApp</a>
+    </div>
+  </div>
+
+  <div class="ad-stats" style="margin-bottom:1.1rem;">
+    <div class="ad-stat">
+      <div class="label">Total referrals</div>
+      <div class="val" id="cntTotal">—</div>
+    </div>
+    <div class="ad-stat">
+      <div class="label">Pro days earned</div>
+      <div class="val" id="cntDays">—</div>
+    </div>
+    <div class="ad-stat">
+      <div class="label">Current tier</div>
+      <div class="val" style="font-size:1rem;line-height:1.2;"><span id="tierBadge" class="ad-tier-badge tier-none">—</span></div>
+    </div>
+  </div>
+
+  <div class="ad-card">
+    <div style="font-family:var(--font-display);font-size:1.1rem;font-weight:700;color:var(--text-primary);margin-bottom:0.4rem;">Next tier</div>
+    <div style="font-family:var(--font-ui);font-size:0.92rem;color:var(--text-secondary);" id="tierNote">Loading your progress…</div>
+    <div class="ad-progress">
+      <div class="bar-wrap"><div class="bar" id="tierBar" style="width:0%"></div></div>
+      <div class="lbl" id="tierLbl">—</div>
+    </div>
+  </div>
+
+  <div class="ad-card">
+    <div style="font-family:var(--font-display);font-size:1.05rem;font-weight:700;color:var(--text-primary);margin-bottom:0.5rem;">Need ideas where to share?</div>
+    <ul style="font-family:var(--font-ui);font-size:0.94rem;color:var(--text-secondary);line-height:1.7;margin:0 0 0.75rem;padding-left:1.1rem;">
+      <li>Your school's Discord, GroupMe, or class group chat</li>
+      <li>The school subreddit (e.g. r/<em>yourschool</em>) — share authentically, not as a drop</li>
+      <li>Your TikTok / Instagram bio if you post study content</li>
+      <li>Reply to friends asking "how do you stay on top of Canvas?"</li>
+    </ul>
+    <div class="ad-actions">
+      <a href="/ambassador">Program details</a>
+      <a href="/faq">FAQ</a>
+      <a href="/contact">Support</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(async function () {
+  function tierFor(n) {
+    if (n >= 25) return { name: "Platinum", cls: "tier-platinum", next: null,    needed: 0 };
+    if (n >= 10) return { name: "Gold",     cls: "tier-gold",     next: "Platinum", needed: 25 };
+    if (n >= 5)  return { name: "Silver",   cls: "tier-silver",   next: "Gold",     needed: 10 };
+    if (n >= 1)  return { name: "Bronze",   cls: "tier-bronze",   next: "Silver",   needed: 5  };
+    return       { name: "Not yet",         cls: "tier-none",     next: "Bronze",   needed: 1  };
+  }
+  try {
+    const r = await fetch('/api/referral');
+    const d = await r.json();
+    if (d.status !== 'ok') throw new Error(d.message || 'Could not load referral data');
+    const code = d.code; const total = d.invited_count || 0; const days = d.pro_days_earned || 0;
+    const link = `${location.origin}/ref/${code}`;
+    document.getElementById('refLink').value = link;
+    document.getElementById('cntTotal').textContent = total;
+    document.getElementById('cntDays').textContent = days;
+    const t = tierFor(total);
+    const badge = document.getElementById('tierBadge');
+    badge.textContent = t.name; badge.className = 'ad-tier-badge ' + t.cls;
+    const noteEl = document.getElementById('tierNote');
+    const barEl = document.getElementById('tierBar');
+    const lblEl = document.getElementById('tierLbl');
+    if (t.next) {
+      const pct = Math.min(100, Math.round((total / t.needed) * 100));
+      noteEl.innerHTML = `<strong>${t.needed - total}</strong> more referral${(t.needed - total) === 1 ? '' : 's'} to reach <strong>${t.next}</strong>.`;
+      barEl.style.width = pct + '%';
+      lblEl.textContent = total + ' / ' + t.needed + ' referrals';
+    } else {
+      noteEl.innerHTML = `You're at the top tier. 🎉 Top ambassadors get featured on the program page each semester.`;
+      barEl.style.width = '100%';
+      lblEl.textContent = total + ' / 25+ referrals';
+    }
+    // Wire share links
+    const shareText = encodeURIComponent("I've been using IntelliPlan — free AI study planner that syncs Canvas/StudentVue/Schoology and builds your week. Try it: " + link);
+    document.getElementById('shareSms').href = "sms:?body=" + shareText;
+    document.getElementById('shareMail').href = "mailto:?subject=" + encodeURIComponent("Try IntelliPlan") + "&body=" + shareText;
+    document.getElementById('shareWa').href = "https://wa.me/?text=" + shareText;
+  } catch (e) {
+    document.getElementById('refLink').value = 'Unable to load — please refresh.';
+    document.getElementById('tierNote').textContent = 'Could not load your stats. Please refresh the page.';
+  }
+})();
+function copyRef() {
+  const inp = document.getElementById('refLink'); const btn = document.getElementById('copyBtn');
+  inp.select(); inp.setSelectionRange(0, 99999);
+  try { navigator.clipboard.writeText(inp.value); } catch (e) { document.execCommand && document.execCommand('copy'); }
+  btn.textContent = 'Copied ✓'; btn.classList.add('copied');
+  setTimeout(() => { btn.textContent = 'Copy link'; btn.classList.remove('copied'); }, 1800);
+}
+</script>
+
+{% endblock %}

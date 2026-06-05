@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block page_title %}IntelliPlan UK — Free AI Study Planner for UK Students{% endblock %}
+{% block meta_description %}IntelliPlan is the free AI study planner for UK students. Sync Moodle, Blackboard, or your university portal, prioritise your deadlines, and build a weekly study schedule. Built for A-Level, undergraduate, and postgraduate students.{% endblock %}
+{% block og_type %}website{% endblock %}
+{% block og_title %}IntelliPlan UK — AI Study Planner{% endblock %}
+{% block og_description %}Sync Moodle or Blackboard, prioritise revision, schedule your week. Free for UK students.{% endblock %}
+{% block twitter_title %}IntelliPlan UK{% endblock %}
+{% block twitter_description %}Free AI study planner for UK A-Level and university students. Moodle and Blackboard supported.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "IntelliPlan UK",
+  "url": "https://intelliplan.tech/uk",
+  "isPartOf": { "@id": "https://intelliplan.tech/#website" },
+  "about": { "@id": "https://intelliplan.tech/#organization" },
+  "inLanguage": "en-GB"
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<style>
+  .uk-page { max-width: 880px; margin: 0 auto; padding: 3rem 1rem 4rem; }
+  .uk-kicker { display:inline-flex; align-items:center; padding:0.45rem 0.85rem; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-family:var(--font-ui); font-size:0.76rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; margin-bottom:1.1rem; }
+  .uk-title { font-family:var(--font-display); font-size:clamp(2.2rem,4.4vw,3.4rem); line-height:1.04; color:var(--text-primary); letter-spacing:-0.04em; margin:0 0 1rem; text-wrap:balance; }
+  .uk-lede { font-family:var(--font-ui); font-size:1.15rem; color:var(--text-secondary); line-height:1.65; margin:0 0 1.75rem; max-width:40rem; }
+  .uk-cta-row { display:flex; flex-wrap:wrap; gap:0.7rem; margin-bottom:2.5rem; }
+  .uk-section { margin: 2.5rem 0; }
+  .uk-section h2 { font-family:var(--font-display); font-size:clamp(1.5rem,2.6vw,2rem); color:var(--text-primary); margin:0 0 1rem; letter-spacing:-0.03em; }
+  .uk-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem; }
+  .uk-card { background:var(--bg-card); border:1px solid var(--border-strong); border-radius:var(--r-xl); padding:1.4rem; transition:transform 0.2s var(--ease-out), border-color 0.2s; }
+  .uk-card:hover { transform:translateY(-3px); border-color:var(--border-accent); }
+  .uk-card h3 { font-family:var(--font-display); font-size:1.08rem; color:var(--text-primary); margin:0 0 0.4rem; letter-spacing:-0.02em; }
+  .uk-card p { font-family:var(--font-ui); font-size:0.92rem; color:var(--text-secondary); line-height:1.55; margin:0; }
+  .uk-uni-row { display:flex; flex-wrap:wrap; gap:0.45rem; }
+  .uk-uni-row span { padding:0.5rem 0.85rem; border:1px solid var(--border-strong); border-radius:999px; font-family:var(--font-ui); font-size:0.86rem; color:var(--text-primary); background:var(--bg-card); }
+</style>
+
+<div class="uk-page">
+  <span class="uk-kicker" data-reveal>For UK students</span>
+  <h1 class="uk-title" data-reveal>The free AI study planner for UK students.</h1>
+  <p class="uk-lede" data-reveal>
+    Sync your Moodle or Blackboard assignments, prioritise your deadlines, and build your weekly study schedule automatically. Built for A-Level, undergraduate, and postgraduate students who want to study smarter, not just longer.
+  </p>
+  <div class="uk-cta-row" data-reveal>
+    <a class="btn-primary" style="padding:1rem 1.5rem;font-weight:700;text-decoration:none;border-radius:12px;" href="/register">Get started free →</a>
+    <a class="btn-secondary" style="padding:1rem 1.5rem;font-weight:600;text-decoration:none;border-radius:12px;" href="/connect">Connect your university</a>
+  </div>
+
+  <section class="uk-section">
+    <h2 data-reveal>Works with the platforms UK universities actually use</h2>
+    <div class="uk-uni-row" data-reveal>
+      <span>Moodle</span><span>Blackboard Learn</span><span>Google Classroom</span><span>Google Calendar</span><span>Notion</span>
+    </div>
+    <p style="font-family:var(--font-ui);color:var(--text-muted);font-size:0.92rem;margin-top:0.85rem;" data-reveal>
+      Connect your university Moodle or Blackboard once. Every coursework deadline, lecture-week to-do, and revision task flows in automatically.
+    </p>
+  </section>
+
+  <section class="uk-section">
+    <h2 data-reveal>Built for A-Level, university, and postgraduate students</h2>
+    <div class="uk-grid">
+      <div class="uk-card" data-reveal>
+        <h3>Automatic deadline import</h3>
+        <p>Connect your university portal and IntelliPlan pulls every coursework, lab report, and revision deadline. No retyping, no spreadsheets.</p>
+      </div>
+      <div class="uk-card" data-reveal>
+        <h3>Revision schedule, sorted</h3>
+        <p>IntelliPlan back-plans your week around your real availability and exam dates — perfect for end-of-term revision and dissertation crunches.</p>
+      </div>
+      <div class="uk-card" data-reveal>
+        <h3>Plani Tutor</h3>
+        <p>A built-in AI tutor that walks through maths, physics, chemistry, biology, economics, English literature, computer science, and exam practice step by step.</p>
+      </div>
+      <div class="uk-card" data-reveal>
+        <h3>Grade modeller</h3>
+        <p>"What do I need on my final to get a 2:1?" — answered, with your real module weightings.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="uk-section">
+    <h2 data-reveal>Universities &amp; sixth-forms supported</h2>
+    <p style="font-family:var(--font-ui);color:var(--text-secondary);margin:0 0 0.6rem;" data-reveal>
+      If your school or university uses Moodle, Blackboard Learn, or Google Classroom, IntelliPlan works for you. That covers the vast majority of UK higher education and a growing number of sixth-form colleges.
+    </p>
+    <p style="font-family:var(--font-ui);color:var(--text-muted);font-size:0.92rem;" data-reveal>
+      Not sure? Open <a href="/connect" style="color:var(--accent);">Connect</a> and pick your platform — it'll either link straight away or tell you exactly what to do.
+    </p>
+  </section>
+
+  <div style="margin-top:2.5rem;padding:2rem;background:var(--bg-card);border:1px solid var(--border-accent);border-radius:var(--r-xl);box-shadow:var(--accent-glow);text-align:center;" data-reveal>
+    <h3 style="font-family:var(--font-display);font-size:1.4rem;color:var(--text-primary);margin:0 0 0.5rem;">Start in 90 seconds</h3>
+    <p style="font-family:var(--font-ui);color:var(--text-secondary);margin:0 0 1rem;">Free, no card required. Connect your university portal and let IntelliPlan plan your week.</p>
+    <a class="btn-primary" style="padding:1rem 1.5rem;text-decoration:none;border-radius:12px;font-weight:700;" href="/register">Get started free →</a>
+  </div>
+</div>
+
+{% endblock %}
