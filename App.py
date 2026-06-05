@@ -385,6 +385,36 @@ class ClassroomIntegration(db.Model):
     account_name = db.Column(db.String(255), nullable=True)
     connected_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class BlackboardIntegration(db.Model):
+    """Blackboard Learn OAuth tokens. Blackboard is per-institution: each row
+    stores the institution's Learn URL (e.g. https://learn.school.edu) along
+    with the access/refresh tokens and user identity from that institution."""
+    __tablename__ = "blackboard_integrations"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    institution_url = db.Column(db.String(512), nullable=False)
+    access_token = db.Column(db.String(2048), nullable=False)
+    refresh_token = db.Column(db.String(2048), nullable=True)
+    token_expires_at = db.Column(db.DateTime, nullable=True)
+    bb_user_id = db.Column(db.String(64), nullable=True)
+    bb_username = db.Column(db.String(255), nullable=True)
+    connected_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class MoodleIntegration(db.Model):
+    """Moodle web-services token. No OAuth: each Moodle instance is self-hosted
+    and authenticates via a per-user web-service token the user generates in
+    their Moodle preferences. We store the institution's Moodle URL plus that
+    token, plus the user identity returned by core_webservice_get_site_info."""
+    __tablename__ = "moodle_integrations"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    moodle_url = db.Column(db.String(512), nullable=False)
+    ws_token = db.Column(db.String(512), nullable=False)
+    moodle_user_id = db.Column(db.String(64), nullable=True)
+    moodle_username = db.Column(db.String(255), nullable=True)
+    moodle_fullname = db.Column(db.String(255), nullable=True)
+    connected_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 class ManualTask(db.Model):
     __tablename__ = "manual_tasks"
     id = db.Column(db.Integer, primary_key=True)
@@ -2497,12 +2527,64 @@ def api_lms_connect(provider):
         return jsonify({"status": "error", "message": "login required"}), 401
 
     provider = (provider or "").strip().lower()
-    if provider not in ("google_classroom", "brightspace", "moodle"):
+    if provider not in ("google_classroom", "blackboard", "brightspace", "moodle"):
         return jsonify({"status": "error", "message": f"Unknown LMS provider: {provider}"}), 400
 
-    # Provider config — only Google Classroom has a hosted OAuth flow today.
-    # The remaining providers return a `pending` status so the UI can show
-    # a waitlist signup instead of a broken connect button.
+    # Moodle does not use OAuth: each institution issues a per-user web-services
+    # token the user pastes in. Tell the UI to show the manual-connect form
+    # instead of starting an OAuth redirect.
+    if provider == "moodle":
+        if not os.getenv("MOODLE_ENABLED", "1"):  # allow ops to hide it via env
+            return jsonify({"status": "pending", "provider": provider,
+                            "message": "Moodle support is launching soon."})
+        return jsonify({"status": "manual", "provider": "moodle",
+                        "form_endpoint": "/api/lms/connect/moodle/manual"})
+
+    # Blackboard Learn is per-institution: each school has its own OAuth host.
+    # The UI must POST {"institution_url": "https://learn.school.edu"} so we
+    # know where to redirect the user. If the institution URL is missing, ask
+    # the UI to prompt for it instead of failing silently.
+    if provider == "blackboard":
+        client_id = os.getenv("BLACKBOARD_CLIENT_ID")
+        if not client_id:
+            print(f"[lms waitlist] {current_user.email} → blackboard")
+            return jsonify({"status": "pending", "provider": "blackboard",
+                            "message": "Blackboard support is launching soon. We'll email you when it's ready."})
+        body = request.get_json(silent=True) or {}
+        institution = (body.get("institution_url") or "").strip()
+        if not institution:
+            return jsonify({"status": "need_institution", "provider": "blackboard",
+                            "message": "Enter your school's Blackboard URL (e.g. https://learn.myschool.edu)."})
+        # Normalize and validate the institution URL.
+        if not institution.startswith(("http://", "https://")):
+            institution = "https://" + institution
+        institution = institution.rstrip("/")
+        try:
+            parsed = urllib.parse.urlparse(institution)
+            if not parsed.netloc or "." not in parsed.netloc:
+                raise ValueError("bad host")
+        except Exception:
+            return jsonify({"status": "error",
+                            "message": "That doesn't look like a valid Blackboard URL."}), 400
+        redirect_uri = APP_BASE_URL + "/api/lms/callback/blackboard"
+        state = secrets_module.token_urlsafe(24)
+        session["lms_oauth_state"] = state
+        session["lms_oauth_provider"] = "blackboard"
+        session["blackboard_institution_url"] = institution
+        # Blackboard's standard scope grants read access to the user's courses
+        # and gradebook columns (assignments).
+        scope = "read"
+        auth_url = (
+            f"{institution}/learn/api/public/v1/oauth2/authorizationcode"
+            f"?client_id={urllib.parse.quote(client_id)}"
+            f"&redirect_uri={urllib.parse.quote(redirect_uri)}"
+            f"&response_type=code"
+            f"&scope={urllib.parse.quote(scope)}"
+            f"&state={urllib.parse.quote(state)}"
+        )
+        return jsonify({"status": "ok", "url": auth_url})
+
+    # Remaining provider: google_classroom (already implemented above).
     config = {
         "google_classroom": {
             "client_id_env": "GOOGLE_CLASSROOM_CLIENT_ID",
@@ -2511,7 +2593,6 @@ def api_lms_connect(provider):
             "auth_base": "https://accounts.google.com/o/oauth2/v2/auth",
         },
         "brightspace": {"client_id_env": "BRIGHTSPACE_CLIENT_ID", "auth_base": None},
-        "moodle":      {"client_id_env": "MOODLE_CLIENT_ID",      "auth_base": None},
     }[provider]
 
     client_id = os.getenv(config["client_id_env"])
@@ -2674,6 +2755,355 @@ def _classroom_fetch_assignments(access_token):
     return out
 
 
+# ── BLACKBOARD LEARN HELPERS ──────────────────────────────────
+def _blackboard_basic_auth_header():
+    cid = os.getenv("BLACKBOARD_CLIENT_ID", "")
+    sec = os.getenv("BLACKBOARD_CLIENT_SECRET", "")
+    raw = f"{cid}:{sec}".encode("utf-8")
+    return "Basic " + base64.b64encode(raw).decode("ascii")
+
+def _blackboard_exchange_code(institution_url, code):
+    """Exchange an auth code for a Blackboard access + refresh token. Blackboard
+    uses Basic auth with the client credentials and form-encoded body."""
+    redirect_uri = APP_BASE_URL + "/api/lms/callback/blackboard"
+    r = requests.post(
+        f"{institution_url}/learn/api/public/v1/oauth2/token",
+        headers={"Authorization": _blackboard_basic_auth_header(),
+                 "Content-Type": "application/x-www-form-urlencoded"},
+        data={"code": code, "redirect_uri": redirect_uri, "grant_type": "authorization_code"},
+        timeout=20,
+    )
+    r.raise_for_status()
+    return r.json()
+
+def _blackboard_refresh_token(institution_url, refresh_token):
+    r = requests.post(
+        f"{institution_url}/learn/api/public/v1/oauth2/token",
+        headers={"Authorization": _blackboard_basic_auth_header(),
+                 "Content-Type": "application/x-www-form-urlencoded"},
+        data={"refresh_token": refresh_token, "grant_type": "refresh_token"},
+        timeout=20,
+    )
+    r.raise_for_status()
+    return r.json()
+
+def _blackboard_access_token_for(user_id):
+    row = BlackboardIntegration.query.filter_by(user_id=user_id).order_by(BlackboardIntegration.id.desc()).first()
+    if not row:
+        return None, None
+    now = datetime.utcnow()
+    needs_refresh = (not row.token_expires_at) or (row.token_expires_at <= now + timedelta(seconds=60))
+    if needs_refresh and row.refresh_token and row.institution_url:
+        try:
+            data = _blackboard_refresh_token(row.institution_url, row.refresh_token)
+            row.access_token = data.get("access_token", row.access_token)
+            ttl = int(data.get("expires_in", 3600))
+            row.token_expires_at = now + timedelta(seconds=ttl)
+            db.session.commit()
+        except Exception as e:
+            print(f"[blackboard] refresh failed for user {user_id}: {e}")
+            return None, row
+    return row.access_token, row
+
+def _blackboard_get_userinfo(institution_url, access_token):
+    try:
+        r = requests.get(
+            f"{institution_url}/learn/api/public/v1/users/me",
+            headers={"Authorization": f"Bearer {access_token}"}, timeout=15,
+        )
+        if r.status_code == 200:
+            return r.json()
+    except Exception as e:
+        print(f"[blackboard] userinfo error: {e}")
+    return {}
+
+def _blackboard_fetch_assignments(institution_url, access_token, bb_user_id=None):
+    """Fetch active courses and their gradebook assignment columns for the user."""
+    out = []
+    headers = {"Authorization": f"Bearer {access_token}"}
+    today = date.today()
+    # Get the user's courses (Blackboard returns memberships).
+    user_path = f"users/{bb_user_id}" if bb_user_id else "users/me"
+    try:
+        cr = requests.get(
+            f"{institution_url}/learn/api/public/v1/{user_path}/courses",
+            headers=headers, timeout=20,
+        )
+        if cr.status_code != 200:
+            print(f"[blackboard] courses HTTP {cr.status_code}: {cr.text[:200]}")
+            return out
+        memberships = cr.json().get("results", []) or []
+    except Exception as e:
+        print(f"[blackboard] courses fetch failed: {e}")
+        return out
+
+    for m in memberships:
+        cid = m.get("courseId") or m.get("course", {}).get("id")
+        if not cid:
+            continue
+        # Fetch the course name (best effort) and gradebook columns.
+        cname = "Course"
+        try:
+            cdetails = requests.get(
+                f"{institution_url}/learn/api/public/v3/courses/{cid}",
+                headers=headers, timeout=15,
+            )
+            if cdetails.status_code == 200:
+                j = cdetails.json()
+                cname = j.get("name") or j.get("displayName") or cname
+        except Exception:
+            pass
+        try:
+            gr = requests.get(
+                f"{institution_url}/learn/api/public/v1/courses/{cid}/gradebook/columns",
+                headers=headers, timeout=20,
+            )
+            if gr.status_code != 200:
+                continue
+            cols = gr.json().get("results", []) or []
+        except Exception as e:
+            print(f"[blackboard] gradebook error for {cid}: {e}")
+            continue
+        for col in cols:
+            name = (col.get("name") or "").strip()
+            grading = col.get("grading") or {}
+            due_iso = grading.get("due")
+            if not name or not due_iso:
+                continue
+            try:
+                due = datetime.fromisoformat(due_iso.replace("Z", "+00:00")).date()
+            except Exception:
+                continue
+            days = (due - today).days
+            if days < -14:
+                continue
+            score = col.get("score") or {}
+            possible = score.get("possible") or 0
+            priority = compute_priority(days, possible, name)
+            out.append({
+                "id": f"bb-{cid}-{col.get('id', '')}",
+                "course_id": str(cid),
+                "title": name,
+                "course": cname,
+                "due_date": due.strftime("%Y-%m-%d"),
+                "priority": priority,
+                "source": "blackboard",
+                "estimated_time": max(30, round((float(possible) or 60) * 1.5 / 30) * 30),
+                "difficulty": "Medium",
+                "color": PRIORITY_COLORS.get(priority, "#f59e0b"),
+            })
+    return out
+
+
+# ── MOODLE HELPERS ────────────────────────────────────────────
+def _moodle_call(moodle_url, ws_token, function, **params):
+    """Call a Moodle web service function and return parsed JSON.
+    Moodle returns a 200 OK with an "exception" field on errors, so we treat
+    that as a failure too."""
+    base = (moodle_url or "").rstrip("/") + "/webservice/rest/server.php"
+    data = {"wstoken": ws_token, "wsfunction": function, "moodlewsrestformat": "json"}
+    data.update(params)
+    r = requests.post(base, data=data, timeout=20)
+    r.raise_for_status()
+    j = r.json()
+    if isinstance(j, dict) and j.get("exception"):
+        raise RuntimeError(f"Moodle error: {j.get('message') or j.get('errorcode')}")
+    return j
+
+def _moodle_fetch_assignments(moodle_url, ws_token, moodle_user_id=None):
+    """Fetch upcoming Moodle assignments. Tries mod_assign_get_assignments first
+    (per-course assignment list); falls back to core_calendar_get_action_events
+    if not allowed. Both functions are normally exposed by the default Moodle
+    mobile/web service, but each site can restrict them."""
+    out = []
+    today = date.today()
+    # Step 1: list the user's courses so we can fetch their assignments.
+    try:
+        if moodle_user_id:
+            courses = _moodle_call(moodle_url, ws_token,
+                                   "core_enrol_get_users_courses", userid=int(moodle_user_id))
+        else:
+            site = _moodle_call(moodle_url, ws_token, "core_webservice_get_site_info")
+            uid = site.get("userid")
+            courses = _moodle_call(moodle_url, ws_token,
+                                   "core_enrol_get_users_courses", userid=int(uid)) if uid else []
+    except Exception as e:
+        print(f"[moodle] courses fetch failed: {e}")
+        courses = []
+    if not isinstance(courses, list) or not courses:
+        # Fallback to action events if courses can't be listed.
+        try:
+            evs = _moodle_call(moodle_url, ws_token,
+                               "core_calendar_get_action_events_by_timesort",
+                               timesortfrom=int(datetime.utcnow().timestamp()) - 14 * 86400,
+                               limitnum=100)
+            for e in (evs.get("events", []) or []) if isinstance(evs, dict) else []:
+                ts = e.get("timesort") or e.get("timestart")
+                if not ts:
+                    continue
+                due = datetime.utcfromtimestamp(int(ts)).date()
+                days = (due - today).days
+                if days < -14:
+                    continue
+                title = (e.get("name") or "").strip()
+                if not title:
+                    continue
+                priority = compute_priority(days, 0, title)
+                out.append({
+                    "id": f"mdl-{e.get('id', '')}",
+                    "course_id": str(e.get("course", {}).get("id") or ""),
+                    "title": title,
+                    "course": (e.get("course") or {}).get("fullname") or "Moodle",
+                    "due_date": due.strftime("%Y-%m-%d"),
+                    "priority": priority,
+                    "source": "moodle",
+                    "estimated_time": 60,
+                    "difficulty": "Medium",
+                    "color": PRIORITY_COLORS.get(priority, "#f59e0b"),
+                })
+        except Exception as e:
+            print(f"[moodle] events fetch failed: {e}")
+        return out
+
+    # Step 2: fetch assignments for the courses we found.
+    course_ids = []
+    course_names = {}
+    for c in courses:
+        cid = c.get("id")
+        if cid:
+            course_ids.append(int(cid))
+            course_names[int(cid)] = c.get("fullname") or c.get("shortname") or "Moodle"
+    try:
+        params = {}
+        for i, cid in enumerate(course_ids[:50]):
+            params[f"courseids[{i}]"] = cid
+        result = _moodle_call(moodle_url, ws_token, "mod_assign_get_assignments", **params)
+    except Exception as e:
+        print(f"[moodle] assignments fetch failed: {e}")
+        return out
+    if not isinstance(result, dict):
+        return out
+    for course in result.get("courses", []) or []:
+        cid = course.get("id")
+        cname = course.get("fullname") or course_names.get(cid) or "Moodle"
+        for a in course.get("assignments", []) or []:
+            duedate = a.get("duedate") or 0
+            if not duedate:
+                continue
+            try:
+                due = datetime.utcfromtimestamp(int(duedate)).date()
+            except Exception:
+                continue
+            days = (due - today).days
+            if days < -14:
+                continue
+            title = (a.get("name") or "").strip()
+            if not title:
+                continue
+            grade = a.get("grade") or 0
+            priority = compute_priority(days, grade, title)
+            out.append({
+                "id": f"mdl-{a.get('id', '')}",
+                "course_id": str(cid or ""),
+                "title": title,
+                "course": cname,
+                "due_date": due.strftime("%Y-%m-%d"),
+                "priority": priority,
+                "source": "moodle",
+                "estimated_time": max(30, round((float(grade) or 60) * 1.5 / 30) * 30),
+                "difficulty": "Medium",
+                "color": PRIORITY_COLORS.get(priority, "#f59e0b"),
+            })
+    return out
+
+
+@app.route("/api/lms/connect/moodle/manual", methods=["POST"])
+def api_lms_connect_moodle_manual():
+    """Manual Moodle connect: user pastes their institution URL + web-service
+    token. We validate by calling core_webservice_get_site_info, which both
+    confirms the token is valid and returns the user identity."""
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "login required"}), 401
+    body = request.get_json(silent=True) or {}
+    moodle_url = (body.get("moodle_url") or "").strip()
+    ws_token = (body.get("ws_token") or "").strip()
+    if not moodle_url or not ws_token:
+        return jsonify({"status": "error", "message": "Both Moodle URL and token are required."}), 400
+    if not moodle_url.startswith(("http://", "https://")):
+        moodle_url = "https://" + moodle_url
+    moodle_url = moodle_url.rstrip("/")
+    try:
+        info = _moodle_call(moodle_url, ws_token, "core_webservice_get_site_info")
+    except Exception as e:
+        return jsonify({"status": "error",
+                        "message": f"Could not verify with Moodle: {e}"}), 400
+    row = MoodleIntegration.query.filter_by(user_id=current_user.id).order_by(MoodleIntegration.id.desc()).first()
+    now = datetime.utcnow()
+    if not row:
+        row = MoodleIntegration(user_id=current_user.id, moodle_url=moodle_url, ws_token=ws_token)
+        db.session.add(row)
+    row.moodle_url = moodle_url
+    row.ws_token = ws_token
+    row.moodle_user_id = str(info.get("userid") or "") or None
+    row.moodle_username = info.get("username") or None
+    row.moodle_fullname = info.get("fullname") or None
+    row.connected_at = now
+    db.session.commit()
+    return jsonify({"status": "ok",
+                    "fullname": row.moodle_fullname,
+                    "username": row.moodle_username,
+                    "site": info.get("sitename")})
+
+
+@app.route("/api/lms/disconnect/blackboard", methods=["POST"])
+def api_blackboard_disconnect():
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "login required"}), 401
+    try:
+        BlackboardIntegration.query.filter_by(user_id=current_user.id).delete()
+        db.session.commit()
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/api/lms/status/blackboard", methods=["GET"])
+def api_blackboard_status():
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "login required"}), 401
+    row = BlackboardIntegration.query.filter_by(user_id=current_user.id).order_by(BlackboardIntegration.id.desc()).first()
+    if not row:
+        return jsonify({"status": "ok", "connected": False})
+    return jsonify({"status": "ok", "connected": True,
+                    "institution_url": row.institution_url,
+                    "username": row.bb_username,
+                    "connected_at": row.connected_at.isoformat() if row.connected_at else None})
+
+@app.route("/api/lms/disconnect/moodle", methods=["POST"])
+def api_moodle_disconnect():
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "login required"}), 401
+    try:
+        MoodleIntegration.query.filter_by(user_id=current_user.id).delete()
+        db.session.commit()
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/api/lms/status/moodle", methods=["GET"])
+def api_moodle_status():
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "login required"}), 401
+    row = MoodleIntegration.query.filter_by(user_id=current_user.id).order_by(MoodleIntegration.id.desc()).first()
+    if not row:
+        return jsonify({"status": "ok", "connected": False})
+    return jsonify({"status": "ok", "connected": True,
+                    "moodle_url": row.moodle_url,
+                    "fullname": row.moodle_fullname,
+                    "connected_at": row.connected_at.isoformat() if row.connected_at else None})
+
+
 @app.route("/api/lms/callback/<provider>")
 def api_lms_callback(provider):
     """OAuth callback for LMS providers. Stores the access token on the user
@@ -2689,6 +3119,40 @@ def api_lms_callback(provider):
     code = request.args.get("code", "")
     if not code:
         return redirect("/connect?lms_error=1")
+
+    if provider == "blackboard":
+        institution = session.pop("blackboard_institution_url", None)
+        if not institution:
+            print("[blackboard callback] missing institution_url in session")
+            return redirect("/connect?lms_error=1")
+        try:
+            tok = _blackboard_exchange_code(institution, code)
+            access = tok.get("access_token")
+            refresh = tok.get("refresh_token")
+            ttl = int(tok.get("expires_in", 3600))
+            if not access:
+                print(f"[blackboard callback] no access_token: {tok}")
+                return redirect("/connect?lms_error=1")
+            info = _blackboard_get_userinfo(institution, access)
+            row = BlackboardIntegration.query.filter_by(user_id=current_user.id).order_by(BlackboardIntegration.id.desc()).first()
+            now = datetime.utcnow()
+            if not row:
+                row = BlackboardIntegration(user_id=current_user.id, institution_url=institution, access_token=access)
+                db.session.add(row)
+            row.institution_url = institution
+            row.access_token = access
+            if refresh:
+                row.refresh_token = refresh
+            row.token_expires_at = now + timedelta(seconds=ttl)
+            row.bb_user_id = (info.get("id") or info.get("userId") or "") or row.bb_user_id
+            row.bb_username = info.get("userName") or info.get("username") or row.bb_username
+            row.connected_at = now
+            db.session.commit()
+            print(f"[blackboard callback] connected {row.bb_username or current_user.email}")
+        except Exception as e:
+            print(f"[blackboard callback] FAILED: {e}")
+            return redirect("/connect?lms_error=1")
+        return redirect("/connect?lms_connected=blackboard")
 
     if provider == "google_classroom":
         try:
@@ -4909,6 +5373,30 @@ def unified_tasks():
                     tasks.append(a)
     except Exception as e:
         print(f"Classroom unified error: {e}")
+
+    # ── Blackboard Learn (independent of active LMS account) ──
+    try:
+        if current_user.is_authenticated:
+            btok, brow = _blackboard_access_token_for(current_user.id)
+            if btok and brow and brow.institution_url:
+                for a in _blackboard_fetch_assignments(brow.institution_url, btok, brow.bb_user_id):
+                    if a.get("title") in dismissed:
+                        continue
+                    tasks.append(a)
+    except Exception as e:
+        print(f"Blackboard unified error: {e}")
+
+    # ── Moodle (independent of active LMS account) ──
+    try:
+        if current_user.is_authenticated:
+            mrow = MoodleIntegration.query.filter_by(user_id=current_user.id).order_by(MoodleIntegration.id.desc()).first()
+            if mrow and mrow.moodle_url and mrow.ws_token:
+                for a in _moodle_fetch_assignments(mrow.moodle_url, mrow.ws_token, mrow.moodle_user_id):
+                    if a.get("title") in dismissed:
+                        continue
+                    tasks.append(a)
+    except Exception as e:
+        print(f"Moodle unified error: {e}")
 
     if NOTION_AVAILABLE:
         try:
