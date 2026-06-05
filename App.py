@@ -2117,7 +2117,8 @@ _NOINDEX_EXACT = {
     "/classes", "/grades", "/gradebook", "/grademodel", "/tests",
     "/dismissed", "/study", "/learn", "/focus", "/streak", "/lessons",
     "/writing", "/math", "/extractor", "/groups", "/meetings",
-    "/connect", "/profiles",
+    "/connect", "/profiles", "/login", "/register", "/login/account",
+    "/study-and-learn",
 }
 
 
@@ -2253,6 +2254,22 @@ def blog_ap_study_planner():
 @app.route("/blog")
 def blog_index():
     return render_template("blog_index.html", active_page="blog")
+
+@app.route("/uk")
+def uk_landing():
+    return render_template("uk.html", active_page="uk")
+
+@app.route("/schools")
+def schools_landing():
+    return render_template("schools.html", active_page="schools")
+
+@app.route("/compare/intelliplan-vs-mystudylife")
+def compare_mystudylife():
+    return render_template("compare_mystudylife.html", active_page="compare")
+
+@app.route("/olympiad")
+def olympiad_page():
+    return render_template("olympiad.html", active_page="olympiad")
 
 @app.route("/tools/final-grade-calculator")
 def tool_final_grade():
@@ -2469,6 +2486,7 @@ def study_hub_recommend():
         ("learn",     "/learn",     "Learn",           ["learn","flashcards","quiz me","review","mastery","memorize","practice","cards"]),
         ("focus",     "/focus",     "Focus Timer",     ["timer","pomodoro","focus time","25 minutes","countdown","stopwatch"]),
         ("library",   "/library",   "AP Library",      ["library","ap","resources","textbook","notes","reference"]),
+        ("olympiad",  "/olympiad",  "Olympiad Preparer", ["olympiad","amc","aime","usamo","science olympiad","usaco","math contest","competition prep"]),
         ("streak",    "/streak",    "Streak",          ["streak","daily","habit","reward","points","consistency"]),
         ("lessons",   "/lessons",   "Lessons",         ["lessons","tutorial","walkthrough","recording","video lesson"]),
         ("writing",   "/writing",   "Writing",         ["writing","essay","paper","grammar","draft","proofread","editor"]),
@@ -8778,12 +8796,25 @@ def api_daily_claim():
 
 
 # ── LIVE STUDY SESSIONS (audio/video + materials) ─────────────────
+def _jitsi_embed_url(room_url, audio_only=False):
+    """Same minimal embed pattern as study groups — prejoin lets the first
+    joiner start the room without the meet.jit.si moderator cold-start."""
+    video_muted = "true" if audio_only else "false"
+    return (
+        f"{room_url}#config.prejoinPageEnabled=true"
+        f"&config.startWithAudioMuted=true"
+        f"&config.startWithVideoMuted={video_muted}"
+    )
+
+
 def _live_session_to_dict(s):
+    room_url = f"https://meet.jit.si/intelliplan-{s.room_slug}"
     return {
         "id": s.id,
         "title": s.title,
         "topic": s.topic or "",
-        "room_url": f"https://meet.jit.si/intelliplan-live-{s.room_slug}",
+        "room_url": room_url,
+        "embed_url": _jitsi_embed_url(room_url, bool(s.audio_only)),
         "room_slug": s.room_slug,
         "audio_only": bool(s.audio_only),
         "video_enabled": bool(s.video_enabled),
@@ -8812,8 +8843,6 @@ def live_session_page(session_id):
 
 @app.route("/api/live", methods=["POST"])
 def api_create_live_session():
-    if not current_user.is_authenticated:
-        return flask.jsonify({"status": "error", "message": "login required"}), 401
     if not feature_enabled("live_sessions"):
         return flask.jsonify({"status": "error", "message": "feature disabled"}), 503
     body = request.get_json(silent=True) or {}
@@ -8821,8 +8850,9 @@ def api_create_live_session():
     topic = (body.get("topic") or "").strip()[:160]
     audio_only = bool(body.get("audio_only"))
     slug = secrets_module.token_urlsafe(8).replace("-", "").replace("_", "")[:12]
+    owner_id = current_user.id if current_user.is_authenticated else None
     s = LiveSession(
-        owner_id=current_user.id, title=title, topic=topic,
+        owner_id=owner_id, title=title, topic=topic,
         audio_only=audio_only, video_enabled=not audio_only, audio_enabled=True,
         room_slug=slug, materials=(body.get("materials") or "")[:8000],
     )
@@ -8843,8 +8873,11 @@ def api_update_live_session(session_id):
     s = LiveSession.query.get(session_id)
     if not s:
         return flask.jsonify({"status": "error"}), 404
-    if not current_user.is_authenticated or s.owner_id != current_user.id:
-        return flask.jsonify({"status": "error", "message": "not the owner"}), 403
+    if s.owner_id is not None:
+        if not current_user.is_authenticated or s.owner_id != current_user.id:
+            return flask.jsonify({"status": "error", "message": "not the owner"}), 403
+    elif not current_user.is_authenticated:
+        return flask.jsonify({"status": "error", "message": "login required to edit"}), 401
     body = request.get_json(silent=True) or {}
     if "materials" in body:        s.materials = str(body["materials"])[:8000]
     if "title" in body:            s.title = str(body["title"]).strip()[:160] or s.title

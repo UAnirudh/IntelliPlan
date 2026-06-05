@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block page_title %}Olympiad Preparer — Math, Science &amp; Computing | IntelliPlan{% endblock %}
+{% block meta_description %}Free olympiad prep with native lessons for AMC, AIME, Science Olympiad, and computing contests. Strategies, formulas, practice frameworks, and AI tutor support.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LearningResource",
+  "name": "IntelliPlan Olympiad Preparer",
+  "description": "Native lessons and resources for math olympiads, Science Olympiad, and computing contests.",
+  "url": "https://intelliplan.tech/olympiad",
+  "isPartOf": { "@id": "https://intelliplan.tech/#website" },
+  "provider": { "@id": "https://intelliplan.tech/#organization" },
+  "educationalLevel": "High school and undergraduate",
+  "inLanguage": "en",
+  "datePublished": "2026-06-04",
+  "dateModified": "2026-06-04"
+}
+</script>
+<style>
+  .oly-hero {
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 55%, #60a5fa 100%);
+    border-radius: var(--r-xl);
+    padding: 2rem 2rem 2.25rem;
+    color: #fff;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow-lg);
+  }
+  .oly-hero h1 { font-family: var(--font-display); font-size: clamp(1.8rem, 4vw, 2.4rem); margin: 0 0 0.5rem; letter-spacing: -0.03em; }
+  .oly-hero p { opacity: 0.92; font-size: 0.95rem; max-width: 560px; line-height: 1.55; margin: 0 0 1.25rem; }
+  .oly-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 1.25rem; }
+  .oly-tab {
+    padding: 8px 16px; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--bg-card); font-family: var(--font-ui); font-size: 0.82rem; font-weight: 600;
+    cursor: pointer; color: var(--text-secondary); transition: all 0.15s;
+  }
+  .oly-tab.active { background: var(--accent); color: #fff; border-color: transparent; }
+  .oly-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-bottom: 2rem; }
+  .oly-lesson {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-lg);
+    padding: 1.15rem 1.2rem; box-shadow: var(--shadow);
+  }
+  .oly-lesson h3 { font-family: var(--font-display); font-size: 1.05rem; margin: 0 0 6px; color: var(--text-primary); }
+  .oly-lesson .oly-tag { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); margin-bottom: 8px; display: block; }
+  .oly-lesson p, .oly-lesson li { font-size: 0.86rem; color: var(--text-secondary); line-height: 1.55; }
+  .oly-lesson ul { margin: 8px 0 0; padding-left: 1.2rem; }
+  .oly-lesson .oly-formula { font-family: 'DM Mono', monospace; font-size: 0.82rem; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
+  .oly-panel { display: none; }
+  .oly-panel.active { display: block; }
+  .oly-cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 1rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="oly-hero">
+  <h1>Olympiad Preparer</h1>
+  <p>Native lessons, formulas, and contest strategies for math olympiads, Science Olympiad, and computing competitions — built into IntelliPlan so you can study, schedule, and ask Plani for help in one place.</p>
+  <div class="oly-cta">
+    <a href="/tutor" class="btn-primary" style="padding:10px 20px;text-decoration:none;background:#fff;color:#1e40af;">Ask Plani Tutor</a>
+    <a href="/learn" class="btn-secondary" style="padding:10px 20px;text-decoration:none;border-color:rgba(255,255,255,0.4);color:#fff;background:rgba(255,255,255,0.12);">Make flashcards</a>
+    <a href="/register" class="btn-secondary" style="padding:10px 20px;text-decoration:none;border-color:rgba(255,255,255,0.4);color:#fff;background:rgba(255,255,255,0.12);">Save your progress</a>
+  </div>
+</section>
+
+<div class="oly-tabs" role="tablist">
+  <button class="oly-tab active" data-track="math" type="button">Math Olympiad</button>
+  <button class="oly-tab" data-track="science" type="button">Science Olympiad</button>
+  <button class="oly-tab" data-track="computing" type="button">Computing</button>
+  <button class="oly-tab" data-track="strategy" type="button">Contest strategy</button>
+</div>
+
+<div id="track-math" class="oly-panel active">
+  <div class="oly-grid">
+    <article class="oly-lesson">
+      <span class="oly-tag">Lesson 1 · Number theory</span>
+      <h3>Modular arithmetic essentials</h3>
+      <p>For olympiad problems, reduce early and track remainders.</p>
+      <ul>
+        <li><strong>Fermat's little theorem:</strong> if p is prime and gcd(a,p)=1, then a^(p−1) ≡ 1 (mod p).</li>
+        <li><strong>Chinese remainder:</strong> combine congruences when moduli are coprime.</li>
+        <li><strong>Euclid's lemma:</strong> if p|ab and p is prime, then p|a or p|b.</li>
+      </ul>
+      <div class="oly-formula">Example: Find 7^100 mod 11 → 7^10 ≡ 1, so 7^100 ≡ 1 (mod 11).</div>
+    </article>
+    <article class="oly-lesson">
+      <span class="oly-tag">Lesson 2 · Combinatorics</span>
+      <h3>Counting without double-counting</h3>
+      <ul>
+        <li><strong>PIE:</strong> |A ∪ B| = |A| + |B| − |A ∩ B| — extend to 3+ sets for derangements.</li>
+        <li><strong>Stars and bars:</strong> non-negative integer solutions to x₁+…+x_k = n is C(n+k−1, k−1).</li>
+        <li><strong>Bijection trick:</strong> map hard counts to a simpler set (paths, binary strings).</li>
+      </ul>
+    </article>
+    <article class="oly-lesson">
+      <span class="oly-tag">Lesson 3 · Geometry</span>
+      <h3>Power of a point &amp; similar triangles</h3>
+      <p>On circles: if chords AB and CD meet at P inside, PA·PB = PC·PD. Look for cyclic quads and angle chasing before coordinates.</p>
+      <ul>
+        <li>Mass points for cevians and ratios.</li>
+        <li>Homothety for tangent circles.</li>
+        <li>Complex numbers / coordinates when synthetic stalls.</li>
+      </ul>
+    </article>
+    <article class="oly-lesson">
+      <span class="oly-tag">Lesson 4 · Algebra</span>
+      <h3>Inequalities &amp; polynomials</h3>
+      <ul>
+        <li>AM-GM for positive reals: (a+b)/2 ≥ √(ab).</li>
+        <li>Vieta's: sum/product of roots without solving.</li>
+        <li>Telescoping sums and functional equations (injectivity tests).</li>
+      </ul>
+    </article>
+    <article class="oly-lesson">
+      <span class="oly-tag">Resources</span>
+      <h3>AMC → AIME → USAMO path</h3>
+      <ul>
+        <li><strong>AMC 10/12:</strong> speed + pattern recognition (25 problems, 75 min).</li>
+        <li><strong>AIME:</strong> integer answers 000–999; no guessing penalty — write clean solutions.</li>
+        <li><strong>USAMO/USA(J)MO:</strong> 6 proof problems; clarity and lemmas beat cleverness.</li>
+      </ul>
+      <p style="margin-top:8px;">Use IntelliPlan to block weekly mock time and log which topics you miss.</p>
+    </article>
+  </div>
+</div>
+
+<div id="track-science" class="oly-panel">
+  <div class="oly-grid">
+    <article class="oly-lesson">
+      <span class="oly-tag">Lesson 1 · Framework</span>
+      <h3>SciOly event map</h3>
+      <p>Split events into <strong>study</strong> (Anatomy, Astronomy), <strong>build</strong> (Bridges, Wright Stuff), and <strong>lab</strong> (Chem Lab, Circuit Lab). Assign 1–2 lead partners per event.</p>
+    </article>
+    <article class="oly-lesson">
+      <span class="oly-tag">Lesson 2 · Study events</span>
+      <h3>Active recall binders</h3>
+      <ul>
+        <li>One binder per event with official rules highlighted.</li>
+        <li>Turn each section into Q→A flashcards in <a href="/learn">Learn</a>.</li>
+        <li>Weekly 25-min practice tests under time pressure.</li>
+      </ul>
+    </article>
+    <article class="oly-lesson">
+      <span class="oly-tag">Lesson 3 · Build events</span>
+      <h3>Iterate with a log</h3>
+      <p>Record mass, score, and failure mode every build. Small changes → measurable deltas. Photo each version for tournament appeal docs.</p>
+    </article>
+    <article class="oly-lesson">
+      <span class="oly-tag">Lesson 4 · Lab events</span>
+      <h3>Procedure fluency</h3>
+      <ul>
+        <li>Memorize sig fig rules and unit conversions.</li>
+        <li>Practice titration / multimeter workflows until muscle memory.</li>
+        <li>Pair a "reader" and "doer" during invitational runs.</li>
+      </ul>
+    </article>
+  </div>
+</div>
+
+<div id="track-computing" class="oly-panel">
+  <div class="oly-grid">
+    <article class="oly-lesson">
+      <span class="oly-tag">Lesson 1 · USACO / IOI</span>
+      <h3>Complexity first</h3>
+      <p>Before coding, name target complexity (O(n log n) sorts, O(n) two-pointer, O(n²) only when n ≤ 5000).</p>
+    </article>
+    <article class="oly-lesson">
+      <span class="oly-tag">Lesson 2 · Patterns</span>
+      <h3>Core algorithm kit</h3>
+      <ul>
+        <li>Prefix sums &amp; difference arrays</li>
+        <li>Binary search on answer</li>
+        <li>DFS/BFS, DSU, shortest paths</li>
+        <li>DP: knapsack, LIS, interval DP</li>
+      </ul>
+    </article>
+    <article class="oly-lesson">
+      <span class="oly-tag">Lesson 3 · Practice</span>
+      <h3>Contest simulation</h3>
+      <p>3-hour blocks, no IDE autocomplete, read all problems first, attack the median-difficulty problem second.</p>
+    </article>
+  </div>
+</div>
+
+<div id="track-strategy" class="oly-panel">
+  <div class="oly-grid">
+    <article class="oly-lesson">
+      <span class="oly-tag">Universal</span>
+      <h3>12-week olympiad block</h3>
+      <ol style="margin:8px 0 0;padding-left:1.2rem;font-size:0.86rem;color:var(--text-secondary);line-height:1.6;">
+        <li><strong>Weeks 1–4:</strong> topic sprints (one domain per week).</li>
+        <li><strong>Weeks 5–8:</strong> mixed mocks + error log.</li>
+        <li><strong>Weeks 9–11:</strong> timed sets only.</li>
+        <li><strong>Week 12:</strong> light review, sleep, logistics.</li>
+      </ol>
+    </article>
+    <article class="oly-lesson">
+      <span class="oly-tag">During the contest</span>
+      <h3>Time boxing</h3>
+      <ul>
+        <li>Skim all problems in 5–10 minutes.</li>
+        <li>Mark easy / medium / hard.</li>
+        <li>Never spend &gt;½ the time on one problem until others are attempted.</li>
+        <li>Write partial credit — a lemma or special case often scores.</li>
+      </ul>
+    </article>
+    <article class="oly-lesson">
+      <span class="oly-tag">With IntelliPlan</span>
+      <h3>Integrate prep into your week</h3>
+      <ul>
+        <li>Import school deadlines so olympiad blocks don't collide with exams.</li>
+        <li>Use <a href="/scheduler">Scheduler</a> for 45-min daily drills.</li>
+        <li>Ask <a href="/tutor">Plani</a> to explain a solution you missed on a mock.</li>
+        <li>Save chat notes to your <a href="/library">AP Library</a>.</li>
+      </ul>
+    </article>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.oly-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.oly-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.oly-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    const panel = document.getElementById('track-' + tab.dataset.track);
+    if (panel) panel.classList.add('active');
+  });
+});
+</script>
+{% endblock %}

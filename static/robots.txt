@@ -45,6 +45,8 @@ Disallow: /meetings
 Disallow: /connect
 Disallow: /live/
 Disallow: /profiles
+Disallow: /login
+Disallow: /register
 
 User-agent: Googlebot
 Allow: /
@@ -209,5 +211,10 @@ Disallow: /logout
 Disallow: /dashboard
 Disallow: /scheduler
 Disallow: /settings
+Disallow: /login
+Disallow: /register
+Disallow: /login/
+
+# AI citation file (AEO): https://intelliplan.tech/llms.txt
 
 Sitemap: https://intelliplan.tech/sitemap.xml

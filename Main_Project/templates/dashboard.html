@@ -1951,18 +1951,27 @@ function startLiveSession() {
   const title = prompt('Session title?', 'Quick study session');
   if (!title) return;
   const audio_only = !confirm('Use video? (Cancel = audio only)');
+  const btn = document.querySelector('.dash-live-card');
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.7'; }
   fetch('/api/live', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ title, audio_only }),
   })
-    .then(r => r.json())
-    .then(d => {
-      if (d.status === 'ok' && d.session) {
+    .then(r => r.json().then(d => ({ ok: r.ok, d })))
+    .then(({ ok, d }) => {
+      if (ok && d.status === 'ok' && d.session) {
+        if (d.session.room_url) {
+          window.open(d.session.room_url, '_blank', 'noopener,noreferrer');
+        }
         window.location.href = '/live/' + d.session.id;
-      } else {
-        alert(d.message || 'Could not start session');
+        return;
       }
+      alert(d.message || 'Could not start session. Try again or use Study Groups.');
+    })
+    .catch(() => alert('Network error — check your connection and try again.'))
+    .finally(() => {
+      if (btn) { btn.disabled = false; btn.style.opacity = ''; }
     });
 }
 

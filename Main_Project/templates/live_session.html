@@ -26,29 +26,15 @@
     width:100%; min-height:72dvh; aspect-ratio:16/9; border-radius:14px;
     border:1px solid var(--border); background:#000;
   }
-  .live-toggle-row {
-    display:flex; gap:8px; align-items:center; flex-wrap:wrap;
-    margin-top:1rem;
-  }
-  .live-toggle-btn {
-    padding:8px 14px; border-radius:999px; border:1.5px solid var(--border-strong);
-    background:var(--bg-card); color:var(--text-secondary);
-    font-family:var(--font-ui); font-size:0.82rem; font-weight:600; cursor:pointer;
-    display:inline-flex; align-items:center; gap:6px;
-    transition:all 0.14s;
-  }
-  .live-toggle-btn.on { background:var(--accent); color:#fff; border-color:var(--accent); }
-  .live-toggle-btn.off-mic { background:var(--high-bg); color:var(--high); border-color:var(--high); }
+  @media (max-width:768px){ .live-frame{ min-height:62dvh; } }
   .materials-textarea {
-    width:100%; min-height:260px; padding:14px;
+    width:100%; min-height:140px; padding:14px;
     border:1.5px solid var(--border-strong); border-radius:12px;
     background:var(--bg); color:var(--text-primary);
     font-family:var(--font-body); font-size:0.9rem; line-height:1.55; resize:vertical;
   }
   .materials-textarea:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
-  .copy-link-row {
-    display:flex; gap:8px; align-items:center; margin-top:0.75rem;
-  }
+  .copy-link-row { display:flex; gap:8px; align-items:center; margin-top:0.75rem; }
   .copy-link-input {
     flex:1; padding:8px 12px; border:1px solid var(--border-strong);
     border-radius:10px; background:var(--bg); color:var(--text-primary);
@@ -65,6 +51,7 @@
     letter-spacing:0.06em; text-transform:uppercase;
   }
   .live-pill.audio { background:rgba(217,119,6,0.12); color:#d97706; }
+  .live-hint { font-size:0.78rem; color:var(--text-muted); margin-top:0.65rem; line-height:1.45; }
 </style>
 
 <div class="live-header">
@@ -75,7 +62,6 @@
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
     <a href="/dashboard" class="btn-secondary" style="padding:9px 16px;text-decoration:none;font-size:0.84rem;">← Dashboard</a>
     <a href="/groups" class="btn-secondary" style="padding:9px 16px;text-decoration:none;font-size:0.84rem;">Study Groups</a>
-    <button onclick="popoutMeeting()" type="button" class="btn-secondary" style="padding:9px 14px;font-size:0.84rem;cursor:pointer;" title="Open meeting in its own window">⧉ Pop out</button>
     <a href="{{ session.room_url }}" target="_blank" rel="noopener" class="btn-primary" style="padding:9px 16px;text-decoration:none;font-size:0.84rem;">Open full meeting</a>
   </div>
 </div>
@@ -83,51 +69,32 @@
 <div class="live-wrap" id="liveWrap" data-id="{{ session.id }}" data-audio-only="{{ '1' if session.audio_only else '0' }}">
 
   <div class="live-card">
-    <div class="live-card-title">Room</div>
-    <div style="position:relative;">
-      <iframe
-        id="liveFrame"
-        class="live-frame"
-        src=""
-        allow="camera; microphone; display-capture; fullscreen; speaker; autoplay"
-        allowfullscreen></iframe>
-      <div id="meetingWaitOverlay" style="display:none;position:absolute;inset:0;background:rgba(7,8,20,0.78);border-radius:14px;color:#fff;align-items:center;justify-content:center;text-align:center;padding:1.5rem;">
-        <div style="max-width:420px;">
-          <div style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;">Waiting for the meeting to start</div>
-          <div style="font-size:0.92rem;opacity:0.85;margin-bottom:1rem;">If you're seeing a "no moderators have arrived" message, that's a Jitsi cold-start. Pop out, retry, or have the owner sign in once to start the room.</div>
-          <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-            <button onclick="retryMeeting()" class="btn-primary" style="padding:8px 16px;border:none;cursor:pointer;font-size:0.86rem;">Retry</button>
-            <button onclick="popoutMeeting()" class="btn-secondary" style="padding:8px 16px;cursor:pointer;font-size:0.86rem;">⧉ Open in new window</button>
-            <button onclick="document.getElementById('meetingWaitOverlay').style.display='none'" style="padding:8px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.3);background:transparent;color:#fff;cursor:pointer;font-size:0.86rem;">Dismiss</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="live-toggle-row">
-      <button id="micBtn"   class="live-toggle-btn on" onclick="toggleMic()">🎤 Mic on</button>
-      <button id="camBtn"   class="live-toggle-btn {% if session.audio_only %}off-mic{% else %}on{% endif %}" onclick="toggleCam()">📷 {% if session.audio_only %}Camera off{% else %}Camera on{% endif %}</button>
-      <button id="audioOnlyBtn" class="live-toggle-btn {% if session.audio_only %}on{% endif %}" onclick="toggleAudioOnly()">🎧 Audio-only mode</button>
-      <span style="font-size:0.78rem;color:var(--text-muted);">Owner toggles persist for everyone who joins.</span>
-    </div>
+    <div class="live-card-title">Study room</div>
+    <iframe
+      id="liveFrame"
+      class="live-frame"
+      src="{{ session.embed_url }}"
+      allow="camera; microphone; display-capture; fullscreen; speaker; autoplay"
+      allowfullscreen></iframe>
+    <p class="live-hint">Click <strong>Join meeting</strong> in the frame below, then allow camera/mic. If the room is empty, the first person to join starts it.</p>
 
     <div class="copy-link-row">
       <input id="copyLinkIn" class="copy-link-input" readonly value="{{ session.invite_url or session.room_url }}">
-      <button onclick="copyInvite()" class="btn-primary" style="padding:8px 16px;border:none;cursor:pointer;font-size:0.84rem;">Copy invite link</button>
+      <button onclick="copyInvite()" class="btn-primary" style="padding:8px 16px;border:none;cursor:pointer;font-size:0.84rem;">Copy invite</button>
     </div>
   </div>
 
   <div class="live-side">
     <div class="live-card">
-      <div class="live-card-title">Room chat &amp; materials</div>
+      <div class="live-card-title">Room chat</div>
       <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:0.65rem;">
-        Chat with everyone in the session. Save any message to your notes library.
+        Share links, formulas, or notes. Save anything useful to your library.
       </p>
       <div id="sessionChatHost"></div>
     </div>
     <div class="live-card">
       <div class="live-card-title">Pinned materials</div>
-      <textarea id="materialsBox" class="materials-textarea" style="min-height:140px;" placeholder="Paste notes, links, formulas for the room…"{% if not session.is_owner %} readonly{% endif %}>{{ session.materials }}</textarea>
+      <textarea id="materialsBox" class="materials-textarea" placeholder="Paste notes, links, formulas for the room…"{% if not session.is_owner %} readonly{% endif %}>{{ session.materials }}</textarea>
       {% if session.is_owner %}
       <button onclick="saveMaterials()" class="btn-primary" style="margin-top:10px;padding:9px 18px;border:none;cursor:pointer;font-size:0.86rem;">Save materials</button>
       <span id="matStatus" style="margin-left:10px;font-size:0.8rem;color:var(--text-muted);"></span>
@@ -139,103 +106,15 @@
 </div>
 
 <script src="/static/js/session-chat.js"></script>
-
 <script>
 const SESS_ID = {{ session.id }};
 const ROOM_URL = {{ session.room_url|tojson }};
 let _audioOnly = {{ 'true' if session.audio_only else 'false' }};
 const _isOwner = {{ 'true' if session.is_owner else 'false' }};
 
-function buildRoomUrl(audioOnly) {
-  // Use Jitsi config hash to set defaults, joiners get the same state.
-  // The extra flags below stop meet.jit.si from showing the "conference has
-  // not yet started because no moderators have arrived" blocking screen for
-  // attendees, and skip lobby/auth flows so the meeting UI is always reachable.
-  const params = [
-    'config.prejoinPageEnabled=true',
-    'config.startWithAudioMuted=false',
-    'config.startWithVideoMuted=' + (audioOnly ? 'true' : 'false'),
-    audioOnly ? 'config.startAudioOnly=true' : 'config.startAudioOnly=false',
-    'config.requireDisplayName=false',
-    'config.enableLobbyChat=false',
-    'config.lobby.enableChat=false',
-    'config.lobby.autoKnock=true',
-    'config.disableModeratorIndicator=true',
-    'config.startWithModeratorMuted=false',
-    'config.disableProfile=true',
-    'interfaceConfig.MOBILE_APP_PROMO=false',
-  ];
-  return ROOM_URL + '#' + params.join('&');
-}
-
-function popoutMeeting() {
-  // Minimal meeting-only popout. We pass the same config hash so audio/video
-  // permissions are preserved, the user shouldn't need to re-grant them.
-  const url = buildRoomUrl(_audioOnly);
-  const features = 'noopener,noreferrer,width=1100,height=720,menubar=no,toolbar=no,location=no,status=no';
-  const w = window.open(url, 'intelliplan_meet_' + SESS_ID, features);
-  if (!w) { alert('Pop-up blocked. Please allow pop-ups for this site to open the meeting in a new window.'); return; }
-  try { w.focus(); } catch (e) {}
-}
-
-function refreshFrame() {
-  document.getElementById('liveFrame').src = buildRoomUrl(_audioOnly);
-  // Show waiting-room overlay after 12s if the iframe hasn't fully loaded -
-  // this typically catches the meet.jit.si "no moderators" cold-start screen,
-  // since that view leaves the iframe in a non-interactive state.
-  clearTimeout(window._meetWaitTimer);
-  window._meetWaitTimer = setTimeout(() => {
-    const ov = document.getElementById('meetingWaitOverlay');
-    if (ov) ov.style.display = 'flex';
-  }, 12000);
-}
-function retryMeeting() {
-  document.getElementById('meetingWaitOverlay').style.display = 'none';
-  refreshFrame();
-}
-refreshFrame();
-document.getElementById('liveFrame').addEventListener('load', () => {
-  // Frame finished initial load, hide the auto wait overlay. The user can
-  // still trigger it manually via Retry if Jitsi later shows the moderator screen.
-  setTimeout(() => {
-    const ov = document.getElementById('meetingWaitOverlay');
-    if (ov && ov.dataset.userOpened !== '1') ov.style.display = 'none';
-    clearTimeout(window._meetWaitTimer);
-  }, 1500);
-});
-
-function toggleMic() {
-  // Jitsi exposes mic/cam toggles via its API; the simplest cross-browser
-  // path is to flip the iframe's URL hash & reload, that asks Jitsi to
-  // start with the new state. Users can still toggle individually
-  // inside the meeting itself.
-  const btn = document.getElementById('micBtn');
-  const on = !btn.classList.contains('on');
-  btn.classList.toggle('on', on);
-  btn.classList.toggle('off-mic', !on);
-  btn.textContent = on ? '🎤 Mic on' : '🎤 Mic off';
-  // No reload, user controls live mic from inside the iframe. This
-  // button is a UI affordance + UX cue.
-}
-
-function toggleCam() {
-  const btn = document.getElementById('camBtn');
-  const on = !btn.classList.contains('on');
-  btn.classList.toggle('on', on);
-  btn.classList.toggle('off-mic', !on);
-  btn.textContent = on ? '📷 Camera on' : '📷 Camera off';
-}
-
-function toggleAudioOnly() {
-  if (!_isOwner) { alert("Only the owner can switch audio-only mode for everyone."); return; }
-  _audioOnly = !_audioOnly;
-  const btn = document.getElementById('audioOnlyBtn');
-  btn.classList.toggle('on', _audioOnly);
-  fetch('/api/live/' + SESS_ID, {
-    method: 'PATCH',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ audio_only: _audioOnly, video_enabled: !_audioOnly }),
-  }).then(() => refreshFrame());
+function buildEmbedUrl(audioOnly) {
+  const videoMuted = audioOnly ? 'true' : 'false';
+  return ROOM_URL + '#config.prejoinPageEnabled=true&config.startWithAudioMuted=true&config.startWithVideoMuted=' + videoMuted;
 }
 
 function saveMaterials() {
@@ -253,7 +132,8 @@ function saveMaterials() {
       status.textContent = d.status === 'ok' ? '✓ Saved' : 'Failed to save';
       status.style.color = d.status === 'ok' ? 'var(--low)' : 'var(--high)';
       setTimeout(() => { status.textContent = ''; }, 1500);
-    });
+    })
+    .catch(() => { status.textContent = 'Network error'; });
 }
 
 function copyInvite() {
@@ -263,7 +143,6 @@ function copyInvite() {
   el.blur();
 }
 
-// Non-owners: poll for materials updates so they stay in sync.
 {% if not session.is_owner %}
 setInterval(() => {
   fetch('/api/live/' + SESS_ID).then(r => r.json()).then(d => {
@@ -272,7 +151,7 @@ setInterval(() => {
       if (ta && document.activeElement !== ta) ta.value = d.session.materials || '';
       if (d.session.audio_only !== _audioOnly) {
         _audioOnly = !!d.session.audio_only;
-        refreshFrame();
+        document.getElementById('liveFrame').src = buildEmbedUrl(_audioOnly);
       }
     }
   }).catch(() => {});
