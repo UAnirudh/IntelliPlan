@@ -40,7 +40,7 @@ from werkzeug.utils import secure_filename
 import secrets as secrets_module
 import urllib.parse
 from flask import jsonify, send_from_directory
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import inspect, text
 from flask_login import (
@@ -369,6 +369,20 @@ class CanvasIntegration(db.Model):
     token_expires_at = db.Column(db.DateTime, nullable=True)
     canvas_user_id = db.Column(db.String(64), nullable=True)
     canvas_user_name = db.Column(db.String(256), nullable=True)
+    connected_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class ClassroomIntegration(db.Model):
+    """Google Classroom OAuth tokens. Separate from GoogleIntegration (which is
+    for Calendar) because Classroom uses its own client credentials and scope
+    set, and a user may connect Classroom independently of Calendar."""
+    __tablename__ = "classroom_integrations"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    access_token = db.Column(db.String(2048), nullable=False)
+    refresh_token = db.Column(db.String(2048), nullable=True)
+    token_expires_at = db.Column(db.DateTime, nullable=True)
+    account_email = db.Column(db.String(255), nullable=True)
+    account_name = db.Column(db.String(255), nullable=True)
     connected_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class ManualTask(db.Model):
@@ -2526,6 +2540,140 @@ def api_lms_connect(provider):
     return jsonify({"status": "ok", "url": auth_url})
 
 
+# ── GOOGLE CLASSROOM HELPERS ──────────────────────────────────
+def _classroom_token_endpoint():
+    return "https://oauth2.googleapis.com/token"
+
+def _classroom_exchange_code(code):
+    """Exchange an auth code for a Google Classroom access + refresh token.
+    Returns the parsed JSON response or raises."""
+    client_id = os.getenv("GOOGLE_CLASSROOM_CLIENT_ID", "")
+    client_secret = os.getenv("GOOGLE_CLASSROOM_CLIENT_SECRET", "")
+    redirect_uri = APP_BASE_URL + "/api/lms/callback/google_classroom"
+    r = requests.post(_classroom_token_endpoint(), data={
+        "code": code,
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "redirect_uri": redirect_uri,
+        "grant_type": "authorization_code",
+    }, timeout=20)
+    r.raise_for_status()
+    return r.json()
+
+def _classroom_refresh_token(refresh_token):
+    """Refresh a Google Classroom access token using a stored refresh token."""
+    client_id = os.getenv("GOOGLE_CLASSROOM_CLIENT_ID", "")
+    client_secret = os.getenv("GOOGLE_CLASSROOM_CLIENT_SECRET", "")
+    r = requests.post(_classroom_token_endpoint(), data={
+        "refresh_token": refresh_token,
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "grant_type": "refresh_token",
+    }, timeout=20)
+    r.raise_for_status()
+    return r.json()
+
+def _classroom_access_token_for(user_id):
+    """Return a valid access token for the given user, refreshing if needed.
+    Returns None if no Classroom integration exists or refresh fails."""
+    row = ClassroomIntegration.query.filter_by(user_id=user_id).order_by(ClassroomIntegration.id.desc()).first()
+    if not row:
+        return None, None
+    now = datetime.utcnow()
+    # Refresh if missing expiry or already expired (with 60s safety margin).
+    needs_refresh = (not row.token_expires_at) or (row.token_expires_at <= now + timedelta(seconds=60))
+    if needs_refresh and row.refresh_token:
+        try:
+            data = _classroom_refresh_token(row.refresh_token)
+            row.access_token = data.get("access_token", row.access_token)
+            ttl = int(data.get("expires_in", 3600))
+            row.token_expires_at = now + timedelta(seconds=ttl)
+            db.session.commit()
+        except Exception as e:
+            print(f"[classroom] refresh failed for user {user_id}: {e}")
+            return None, row
+    return row.access_token, row
+
+def _classroom_get_userinfo(access_token):
+    """Fetch the connected Google account's email + name."""
+    try:
+        r = requests.get(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"}, timeout=15,
+        )
+        if r.status_code == 200:
+            return r.json()
+    except Exception as e:
+        print(f"[classroom] userinfo error: {e}")
+    return {}
+
+def _classroom_fetch_assignments(access_token):
+    """Fetch active courses and their pending (or overdue) coursework for the
+    connected user. Returns a list of dicts shaped to match the unified-tasks
+    format used by the rest of IntelliPlan."""
+    out = []
+    headers = {"Authorization": f"Bearer {access_token}"}
+    try:
+        cr = requests.get(
+            "https://classroom.googleapis.com/v1/courses",
+            headers=headers, params={"courseStates": "ACTIVE", "pageSize": 50}, timeout=20,
+        )
+        if cr.status_code != 200:
+            print(f"[classroom] courses HTTP {cr.status_code}: {cr.text[:200]}")
+            return out
+        courses = cr.json().get("courses", []) or []
+    except Exception as e:
+        print(f"[classroom] courses fetch failed: {e}")
+        return out
+
+    today = date.today() if 'date' in globals() else datetime.utcnow().date()
+    for c in courses:
+        cid = c.get("id"); cname = c.get("name") or "Google Classroom"
+        if not cid:
+            continue
+        try:
+            wr = requests.get(
+                f"https://classroom.googleapis.com/v1/courses/{cid}/courseWork",
+                headers=headers, params={"pageSize": 50}, timeout=20,
+            )
+            if wr.status_code != 200:
+                continue
+            items = wr.json().get("courseWork", []) or []
+        except Exception as e:
+            print(f"[classroom] coursework error for {cid}: {e}")
+            continue
+        for w in items:
+            title = (w.get("title") or "").strip()
+            if not title:
+                continue
+            dd = w.get("dueDate") or {}
+            y, m, d = dd.get("year"), dd.get("month"), dd.get("day")
+            if not (y and m and d):
+                continue
+            try:
+                due = date(int(y), int(m), int(d))
+            except Exception:
+                continue
+            days = (due - today).days
+            if days < -14:
+                continue
+            pts = w.get("maxPoints") or 0
+            priority = compute_priority(days, pts, title)
+            out.append({
+                "id": f"gc-{w.get('id', '')}",
+                "course_id": str(cid),
+                "title": title,
+                "course": cname,
+                "due_date": due.strftime("%Y-%m-%d"),
+                "priority": priority,
+                "source": "google_classroom",
+                "estimated_time": max(30, round((float(pts) or 60) * 1.5 / 30) * 30),
+                "difficulty": "Medium",
+                "color": PRIORITY_COLORS.get(priority, "#f59e0b"),
+            })
+    return out
+
+
 @app.route("/api/lms/callback/<provider>")
 def api_lms_callback(provider):
     """OAuth callback for LMS providers. Stores the access token on the user
@@ -2542,11 +2690,69 @@ def api_lms_callback(provider):
     if not code:
         return redirect("/connect?lms_error=1")
 
-    # Token exchange happens here; for now we redirect back to /connect with success
-    # since the storage schema for LMS tokens (separate table per provider) will be
-    # added with the full integration rollout.
-    print(f"[lms callback] {current_user.email} authorized {provider} with code length {len(code)}")
+    if provider == "google_classroom":
+        try:
+            tok = _classroom_exchange_code(code)
+            access = tok.get("access_token")
+            refresh = tok.get("refresh_token")
+            ttl = int(tok.get("expires_in", 3600))
+            if not access:
+                print(f"[classroom callback] no access_token in response: {tok}")
+                return redirect("/connect?lms_error=1")
+            info = _classroom_get_userinfo(access)
+            row = ClassroomIntegration.query.filter_by(user_id=current_user.id).order_by(ClassroomIntegration.id.desc()).first()
+            now = datetime.utcnow()
+            if not row:
+                row = ClassroomIntegration(user_id=current_user.id, access_token=access)
+                db.session.add(row)
+            row.access_token = access
+            if refresh:  # Google only returns refresh on first consent
+                row.refresh_token = refresh
+            row.token_expires_at = now + timedelta(seconds=ttl)
+            row.account_email = info.get("email") or row.account_email
+            row.account_name = info.get("name") or row.account_name
+            row.connected_at = now
+            db.session.commit()
+            print(f"[classroom callback] connected {row.account_email or current_user.email}")
+        except Exception as e:
+            print(f"[classroom callback] FAILED: {e}")
+            return redirect("/connect?lms_error=1")
+        return redirect("/connect?lms_connected=google_classroom")
+
+    # Brightspace / Moodle still pending full backend.
+    print(f"[lms callback] {current_user.email} authorized {provider} (storage pending)")
     return redirect(f"/connect?lms_connected={provider}")
+
+
+@app.route("/api/lms/disconnect/google_classroom", methods=["POST"])
+def api_classroom_disconnect():
+    """Disconnect Google Classroom — deletes the stored token row."""
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "login required"}), 401
+    try:
+        ClassroomIntegration.query.filter_by(user_id=current_user.id).delete()
+        db.session.commit()
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/lms/status/google_classroom", methods=["GET"])
+def api_classroom_status():
+    """Lightweight status check so the UI can render Connected / Not connected."""
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "login required"}), 401
+    row = ClassroomIntegration.query.filter_by(user_id=current_user.id).order_by(ClassroomIntegration.id.desc()).first()
+    if not row:
+        return jsonify({"status": "ok", "connected": False})
+    return jsonify({
+        "status": "ok",
+        "connected": True,
+        "account_email": row.account_email,
+        "account_name": row.account_name,
+        "connected_at": row.connected_at.isoformat() if row.connected_at else None,
+    })
 
 @app.route("/legal")
 def legal():
@@ -4689,6 +4895,21 @@ def unified_tasks():
                         })
             except Exception as e:
                 print(f"Canvas unified error: {e}")
+
+    # ── Google Classroom (independent of active LMS account) ──
+    # A user may have Classroom connected alongside Canvas or StudentVue, so
+    # we always check for stored Classroom tokens, not just the active account.
+    try:
+        if current_user.is_authenticated:
+            ctok, _crow = _classroom_access_token_for(current_user.id)
+            if ctok:
+                for a in _classroom_fetch_assignments(ctok):
+                    if a.get("title") in dismissed:
+                        continue
+                    tasks.append(a)
+    except Exception as e:
+        print(f"Classroom unified error: {e}")
+
     if NOTION_AVAILABLE:
         try:
             notion_token, notion_db_id = get_notion_token_and_db()
