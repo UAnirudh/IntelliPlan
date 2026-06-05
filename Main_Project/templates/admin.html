@@ -140,6 +140,22 @@
   </div>
 
   <div class="admin-section">
+    <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:0.75rem;">IndexNow (search indexing)</div>
+    <p style="font-size:0.84rem;color:var(--text-secondary);margin-bottom:0.75rem;">
+      Notify Bing, Yandex, and other IndexNow engines when public pages change.
+      <a href="/indexnow" target="_blank" rel="noopener" style="color:var(--accent);">Full docs →</a>
+    </p>
+    <div style="display:grid;gap:10px;max-width:640px;">
+      <input id="indexnowUrl" type="url" class="admin-input" placeholder="Leave blank to submit entire sitemap, or paste one URL">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="indexnowSubmit()" class="btn-primary" style="padding:9px 16px;border:none;cursor:pointer;">Submit URLs</button>
+        <button onclick="indexnowStatus()" class="btn-secondary" style="padding:9px 16px;border:none;cursor:pointer;">Check config</button>
+      </div>
+      <pre id="indexnowOut" style="display:none;font-size:0.78rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;overflow-x:auto;color:var(--text-secondary);margin:0;"></pre>
+    </div>
+  </div>
+
+  <div class="admin-section">
     <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:0.75rem;">Diagnostics</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <a href="/health" target="_blank" rel="noopener" class="btn-secondary" style="padding:9px 14px;text-decoration:none;font-size:0.84rem;">DB schema /health</a>
@@ -222,6 +238,33 @@ function smsBlastSend() {
       out.style.color = 'var(--high)';
       out.textContent = 'Network error';
     });
+}
+
+function indexnowOut(data) {
+  const out = document.getElementById('indexnowOut');
+  out.style.display = 'block';
+  out.textContent = JSON.stringify(data, null, 2);
+}
+
+function indexnowStatus() {
+  fetch('/api/admin/indexnow/status')
+    .then(r => r.json())
+    .then(indexnowOut)
+    .catch(e => indexnowOut({ status: 'error', message: String(e) }));
+}
+
+function indexnowSubmit() {
+  const url = document.getElementById('indexnowUrl').value.trim();
+  const opts = url
+    ? { method: 'GET' }
+    : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' };
+  const path = url
+    ? '/api/admin/indexnow/submit?url=' + encodeURIComponent(url)
+    : '/api/admin/indexnow/submit';
+  fetch(path, opts)
+    .then(r => r.json())
+    .then(indexnowOut)
+    .catch(e => indexnowOut({ status: 'error', message: String(e) }));
 }
 
 function checkSmtp() {

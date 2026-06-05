@@ -22,7 +22,7 @@ from studentvue_helper import (
     normalize_district_url,
     _compute_priority as compute_priority,
 )
-from groq import Groq
+from ai_provider import ai_available, chat as ai_chat, vision as ai_vision, transcribe_audio, chat_json as ai_chat_json
 import re
 import json
 import uuid
@@ -1067,6 +1067,7 @@ WORKLOAD_COLORS = {
 }
 
 API_ERROR_MESSAGES = {
+    "ai": "AI scheduling is temporarily unavailable. Please try again in a moment.",
     "groq": "AI scheduling is temporarily unavailable. Please try again in a moment.",
     "canvas": "Canvas connection failed. Check your API token in Settings.",
     "studentvue": "StudentVue connection failed. Check your credentials in Settings.",
@@ -1867,7 +1868,50 @@ def _indexnow_normalize_urls(urls):
     return out[:10000]
 
 
+def _indexnow_response(ok, http_status, submitted, message, method="POST", urls=None):
+    return {
+        "status": "ok" if ok else "error",
+        "http_status": http_status,
+        "submitted": submitted,
+        "method": method,
+        "endpoint": INDEXNOW_ENDPOINT,
+        "keyLocation": _indexnow_key_location(),
+        "host": _indexnow_host(),
+        "urls": (urls or [])[:5],
+        "message": message,
+    }
+
+
+def _submit_indexnow_single_url(url):
+    """Submit one URL via IndexNow GET (?url=&key=&keyLocation=)."""
+    urls = _indexnow_normalize_urls([url])
+    if not INDEXNOW_KEY:
+        return {"status": "error", "message": "IndexNow key is not configured.", "submitted": 0}
+    if not urls:
+        return {"status": "error", "message": "No valid URL for this host.", "submitted": 0}
+    target = urls[0]
+    params = {
+        "url": target,
+        "key": INDEXNOW_KEY,
+        "keyLocation": _indexnow_key_location(),
+    }
+    try:
+        r = requests.get(INDEXNOW_ENDPOINT, params=params, timeout=20)
+        ok = 200 <= r.status_code < 300
+        return _indexnow_response(
+            ok,
+            r.status_code,
+            1 if ok else 0,
+            "URL submitted to IndexNow." if ok else (r.text[:300] or "IndexNow rejected the request."),
+            method="GET",
+            urls=[target],
+        )
+    except Exception as e:
+        return {"status": "error", "message": str(e), "submitted": 0, "endpoint": INDEXNOW_ENDPOINT}
+
+
 def _submit_indexnow_urls(urls):
+    """Submit up to 10,000 URLs via IndexNow POST JSON bulk API."""
     urls = _indexnow_normalize_urls(urls)
     if not INDEXNOW_KEY:
         return {"status": "error", "message": "IndexNow key is not configured.", "submitted": 0}
@@ -1887,21 +1931,45 @@ def _submit_indexnow_urls(urls):
             timeout=20,
         )
         ok = 200 <= r.status_code < 300
-        return {
-            "status": "ok" if ok else "error",
-            "http_status": r.status_code,
-            "submitted": len(urls),
-            "endpoint": INDEXNOW_ENDPOINT,
-            "keyLocation": payload["keyLocation"],
-            "message": "URLs submitted to IndexNow." if ok else (r.text[:300] or "IndexNow rejected the request."),
-        }
+        return _indexnow_response(
+            ok,
+            r.status_code,
+            len(urls) if ok else 0,
+            "URLs submitted to IndexNow." if ok else (r.text[:300] or "IndexNow rejected the request."),
+            method="POST",
+            urls=urls,
+        )
     except Exception as e:
         return {"status": "error", "message": str(e), "submitted": 0, "endpoint": INDEXNOW_ENDPOINT}
+
+
+def notify_indexnow(urls):
+    """Notify search engines about changed URLs (single GET, bulk POST)."""
+    if not urls:
+        return {"status": "error", "message": "No URLs provided.", "submitted": 0}
+    if isinstance(urls, str):
+        urls = [urls]
+    if len(urls) == 1:
+        return _submit_indexnow_single_url(urls[0])
+    return _submit_indexnow_urls(urls)
 
 
 @app.route(f"/{INDEXNOW_KEY}.txt")
 def indexnow_key_file():
     return flask.Response(INDEXNOW_KEY + "\n", mimetype="text/plain; charset=utf-8")
+
+
+@app.route("/indexnow")
+def indexnow_docs_page():
+    return render_template(
+        "indexnow.html",
+        active_page="indexnow",
+        indexnow_key=INDEXNOW_KEY,
+        indexnow_key_location=_indexnow_key_location(),
+        indexnow_host=_indexnow_host(),
+        indexnow_endpoint=INDEXNOW_ENDPOINT,
+        app_base_url=APP_BASE_URL,
+    )
 
 
 # ── SEO: /schedule is a permanent alias for /scheduler ──────────
@@ -2388,7 +2456,7 @@ def meetings():
 # ════════════════════════════════════════════════════════════════
 # DEEP STUDY PIPELINE — Step 0 (ingest) / Step 2 (voice coach feedback) /
 # Step 3 (fact → active-recall card transform). All three endpoints share
-# the Groq Llama backend used by the rest of the AI surface.
+# the Gemini/Groq AI backend used by the rest of the AI surface.
 # ════════════════════════════════════════════════════════════════
 def _deepstudy_extract_text_from_file(f):
     """Best-effort text extraction for the ingest endpoint. PDF/DOCX use
@@ -2424,7 +2492,7 @@ def api_deepstudy_ingest():
     """Step 0: extract source text and produce a topic + factual outline.
 
     Accepts multipart with optional `file` and `text` fields. Runs the
-    extracted material through Groq to produce a short topic label plus
+    extracted material through Gemini to produce a short topic label plus
     a list of atomic factual statements that drive Steps 1-3."""
     if not current_user.is_authenticated:
         return jsonify({"status": "error", "message": "login required"}), 401
@@ -2440,8 +2508,7 @@ def api_deepstudy_ingest():
         return jsonify({"status": "error", "message": "Provide a file or describe your topic."}), 400
 
     truncated = source_text[:8000]
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
+    if not ai_available():
         # Graceful fallback: split on sentences so the pipeline keeps working.
         sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", truncated) if 12 < len(s.strip()) < 280][:12]
         return jsonify({
@@ -2458,22 +2525,19 @@ def api_deepstudy_ingest():
         f"MATERIAL:\n---\n{truncated}\n---\nJSON:"
     )
     try:
-        client = Groq(api_key=api_key)
-        resp = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[{"role": "user", "content": prompt}],
+        parsed = ai_chat_json(
+            [{"role": "user", "content": prompt}],
+            tier="fast",
             temperature=0.2,
             max_tokens=1400,
-            response_format={"type": "json_object"},
         )
-        parsed = json.loads(resp.choices[0].message.content)
         topic = (parsed.get("topic") or text_in or "Study Session")[:80]
         facts = parsed.get("facts") or []
         if not isinstance(facts, list):
             facts = []
         facts = [str(f).strip() for f in facts if str(f).strip()][:14]
     except Exception as e:
-        print(f"[deepstudy ingest] groq error: {e}")
+        print(f"[deepstudy ingest] AI error: {e}")
         topic = (text_in or "Study Session")[:60]
         facts = [s.strip() for s in re.split(r"(?<=[.!?])\s+", truncated) if 12 < len(s.strip()) < 280][:12]
 
@@ -2501,8 +2565,7 @@ def api_deepstudy_feedback():
     if not user_text:
         return jsonify({"reply": "Keep going — I'm listening."})
 
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
+    if not ai_available():
         return jsonify({"reply": "Got it — keep explaining. Try to simplify any jargon."})
 
     if mode == "feynman":
@@ -2524,19 +2587,17 @@ def api_deepstudy_feedback():
         )
 
     try:
-        client = Groq(api_key=api_key)
-        resp = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[
+        reply = ai_chat(
+            [
                 {"role": "system", "content": system_msg},
-                {"role": "user",   "content": user_text},
+                {"role": "user", "content": user_text},
             ],
+            tier="fast",
             temperature=0.6,
             max_tokens=180,
         )
-        reply = resp.choices[0].message.content.strip()
     except Exception as e:
-        print(f"[deepstudy feedback] groq error: {e}")
+        print(f"[deepstudy feedback] AI error: {e}")
         reply = "Good — keep going. Try to put that in your own words."
 
     return jsonify({"reply": reply})
@@ -2555,8 +2616,7 @@ def api_deepstudy_transform():
         return jsonify({"status": "error", "message": "No facts to transform."}), 400
 
     facts_clean = [str(f).strip() for f in facts if str(f).strip()][:14]
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
+    if not ai_available():
         # Fallback: heuristic question for each fact
         cards = [{
             "question": f"In your own words, explain: {f[:120]}",
@@ -2574,15 +2634,12 @@ def api_deepstudy_transform():
         f"FACTS:\n{numbered}\n\nJSON:"
     )
     try:
-        client = Groq(api_key=api_key)
-        resp = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[{"role": "user", "content": prompt}],
+        parsed = ai_chat_json(
+            [{"role": "user", "content": prompt}],
+            tier="fast",
             temperature=0.3,
             max_tokens=2000,
-            response_format={"type": "json_object"},
         )
-        parsed = json.loads(resp.choices[0].message.content)
         cards = parsed.get("cards") or []
         if not isinstance(cards, list):
             cards = []
@@ -2591,7 +2648,7 @@ def api_deepstudy_transform():
             "answer":   str(c.get("answer",   "")).strip(),
         } for c in cards if c.get("question")][:14]
     except Exception as e:
-        print(f"[deepstudy transform] groq error: {e}")
+        print(f"[deepstudy transform] AI error: {e}")
         cards = [{"question": f"Explain in your own words: {f[:120]}", "answer": f} for f in facts_clean]
 
     return jsonify({"status": "ok", "cards": cards})
@@ -4631,14 +4688,12 @@ def summarize_note(note_id):
         return flask.jsonify({"status": "error", "message": "Note not found"}), 404
     if not (note.text_content or "").strip():
         return flask.jsonify({"status": "error", "message": "No extracted text is available for this note."}), 400
-    if not os.getenv("GROQ_API_KEY"):
-        return flask.jsonify({"status": "error", "message": "GROQ_API_KEY is not set."}), 500
-    client = _groq_client()
+    if not ai_available():
+        return flask.jsonify({"status": "error", "message": "AI summarization is not configured."}), 500
     text = (note.text_content or "")[:12000]
     prompt = f"""Summarize these class notes for a student.\n\nReturn:\n- 5 to 8 bullet points\n- a short "Key takeaways" section\n- keep it clear, practical, and concise\n\nNotes:\n{text}"""
     try:
-        response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}], temperature=0.2, max_tokens=900)
-        summary = response.choices[0].message.content.strip()
+        summary = ai_chat([{"role": "user", "content": prompt}], tier="standard", temperature=0.2, max_tokens=900)
         note.summary_cache = summary
         db.session.commit()
         return flask.jsonify({"status": "ok", "summary": summary})
@@ -4652,12 +4707,10 @@ def study_note_route(note_id):
         return flask.jsonify({"status": "error", "message": "Note not found"}), 404
     if not (note.text_content or "").strip():
         return flask.jsonify({"status": "error", "message": "No extracted text is available for this note."}), 400
-    client = _groq_client()
     text = (note.text_content or "")[:12000]
     prompt = f"""Turn these notes into study material.\n\nReturn ONLY valid JSON:\n{{\n  "title": "Study Guide",\n  "summary": "short summary",\n  "cards": [{{"question": "Q1", "answer": "A1"}}],\n  "quiz": [{{"question": "Q1", "answer": "A1"}}]\n}}\n\nNotes:\n{text}"""
     try:
-        response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}], temperature=0.2, max_tokens=1200)
-        raw = response.choices[0].message.content.strip()
+        raw = ai_chat([{"role": "user", "content": prompt}], tier="standard", temperature=0.2, max_tokens=1200)
         raw = re.sub(r"```json\s*", "", raw)
         raw = re.sub(r"```", "", raw).strip()
         try:
@@ -4699,11 +4752,9 @@ def notes_quiz(note_id):
         return flask.jsonify({"status": "error", "message": "No note text available"}), 400
     history = (request.json or {}).get("history", []) if request.is_json else []
     history_text = json.dumps(history[-8:], ensure_ascii=False)
-    client = _groq_client()
     prompt = f"""Generate one study question from the note below.\n\nPrior questions:\n{history_text}\n\nNote:\n{note_text[:12000]}\n\nReturn JSON:\n{{\n  "question": "one question",\n  "answer": "one correct answer",\n  "key_points": ["point 1", "point 2"]\n}}"""
     try:
-        response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}], temperature=0.5, max_tokens=900)
-        raw = response.choices[0].message.content.strip()
+        raw = ai_chat([{"role": "user", "content": prompt}], tier="standard", temperature=0.5, max_tokens=900)
         raw = re.sub(r"```json\s*", "", raw)
         raw = re.sub(r"```", "", raw)
         quiz = json.loads(raw)
@@ -4894,10 +4945,8 @@ def generate_schedule():
     overdue = [a for a in normalized_assignments if a.get("due_date", "9999") < today_str]
     upcoming = [a for a in normalized_assignments if a.get("due_date", "9999") >= today_str]
     upcoming.sort(key=lambda x: x.get("due_date", "9999"))
-    try:
-        client = _groq_client()
-    except Exception:
-        return flask.jsonify({"status": "error", "message": API_ERROR_MESSAGES["groq"], "retryable": True}), 503
+    if not ai_available():
+        return flask.jsonify({"status": "error", "message": API_ERROR_MESSAGES["ai"], "retryable": True}), 503
     overdue_text = ""
     if overdue:
         overdue_text = f"\nOVERDUE — MUST BE SCHEDULED TODAY ({len(overdue)} assignments):\n" + "\n".join([
@@ -4981,13 +5030,12 @@ Return ONLY valid JSON:
   "total_study_time": "X hours Y minutes"
 }}"""
     try:
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
+        result = ai_chat(
+            [{"role": "user", "content": prompt}],
+            tier="standard",
             temperature=0.4,
             max_tokens=4000,
         )
-        result = response.choices[0].message.content.strip()
         result = re.sub(r"```json\n?", "", result)
         result = re.sub(r"```\n?", "", result)
         schedule_data = json.loads(result)
@@ -5008,7 +5056,7 @@ Return ONLY valid JSON:
         if "timeout" in err_str:
             return flask.jsonify({"status": "error", "message": "The AI took too long to respond. Please try again.", "retryable": True}), 504
         print(f"Schedule generation error: {e}")
-        return flask.jsonify({"status": "error", "message": API_ERROR_MESSAGES["groq"], "retryable": True}), 503
+        return flask.jsonify({"status": "error", "message": API_ERROR_MESSAGES["ai"], "retryable": True}), 503
 
 @app.route("/static/sw.js")
 def service_worker():
@@ -6283,14 +6331,12 @@ Scoring guide:
 - incorrect: 0-39 (core idea missing or wrong)
 '''
     try:
-        client = _groq_client()
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
+        raw = ai_chat(
+            [{"role": "user", "content": prompt}],
+            tier="standard",
             temperature=0.4,
-            max_tokens=800
+            max_tokens=800,
         )
-        raw = response.choices[0].message.content.strip()
         raw = re.sub(r"```json\n?", "", raw)
         raw = re.sub(r"```\n?", "", raw)
         result = json.loads(raw)
@@ -6334,20 +6380,14 @@ def study_analyze_image():
             return flask.jsonify({"status": "error", "message": "Image too large. Max 10MB."})
         b64 = base64.b64encode(raw).decode("utf-8")
         media_type = img_file.content_type
-        client = _groq_client()
-        response = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{b64}"}},
-                    {"type": "text", "text": "Extract ALL text, formulas, diagrams, tables, and key information from this educational image. Format as clean, readable study material. Preserve all text exactly, describe visual elements, preserve mathematical formulas, and note labels and captions. Output the extracted content directly without any preamble."}
-                ]
-            }],
+        extracted = ai_vision(
+            system_prompt="You extract educational content from images for students.",
+            user_text="Extract ALL text, formulas, diagrams, tables, and key information from this educational image. Format as clean, readable study material. Preserve all text exactly, describe visual elements, preserve mathematical formulas, and note labels and captions. Output the extracted content directly without any preamble.",
+            image_b64=b64,
+            image_mime=media_type,
+            temperature=0.1,
             max_tokens=2000,
-            temperature=0.1
         )
-        extracted = response.choices[0].message.content.strip()
         if not extracted:
             return flask.jsonify({"status": "error", "message": "No content could be extracted from this image"})
         return flask.jsonify({"status": "ok", "text": extracted, "char_count": len(extracted)})
@@ -6367,14 +6407,15 @@ def analyze_image_general():
             return flask.jsonify({"status": "error", "message": "Image too large. Max 10MB."})
         b64 = base64.b64encode(raw).decode("utf-8")
         media_type = img_file.content_type or "image/jpeg"
-        client = _groq_client()
-        response = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            messages=[{"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{b64}"}}, {"type": "text", "text": question}]}],
+        answer = ai_vision(
+            system_prompt="You are a helpful educational assistant that analyzes images for students.",
+            user_text=question,
+            image_b64=b64,
+            image_mime=media_type,
+            temperature=0.3,
             max_tokens=1500,
-            temperature=0.3
         )
-        return flask.jsonify({"status": "ok", "response": response.choices[0].message.content.strip()})
+        return flask.jsonify({"status": "ok", "response": answer})
     except Exception as e:
         print(f"General image analysis error: {e}")
         return flask.jsonify({"status": "error", "message": "Service temporarily unavailable. Please try again later."})
@@ -6997,11 +7038,11 @@ def study_youtube():
         }), 502
 
 _AUDIO_EXTS = (".mp3", ".m4a", ".wav", ".webm", ".ogg", ".oga", ".flac", ".mp4", ".mpeg", ".mpga")
-MAX_AUDIO_BYTES = 25 * 1024 * 1024  # Groq Whisper free-tier audio cap
+MAX_AUDIO_BYTES = 25 * 1024 * 1024  # Audio upload cap (Gemini / Groq Whisper)
 
 @app.route("/study/transcribe", methods=["POST"])
 def study_transcribe():
-    """Transcribe a recorded or uploaded lecture/audio file with Groq Whisper.
+    """Transcribe a recorded or uploaded lecture/audio file with Gemini (Groq fallback).
     The existing /study/generate pipeline then turns the transcript into notes,
     flashcards, and a quiz. Mirrors /study/extract-pdf (returns {status, text})
     and counts against the same guest upload limit."""
@@ -7021,16 +7062,7 @@ def study_transcribe():
             return flask.jsonify({"status": "error", "message": "Empty audio file."}), 400
         if len(data) > MAX_AUDIO_BYTES:
             return flask.jsonify({"status": "error", "message": "Audio is too large (max 25 MB). Record a shorter clip or upload a compressed file."}), 413
-        client = _groq_client()
-        result = client.audio.transcriptions.create(
-            file=(fname, data),
-            model="whisper-large-v3-turbo",
-            response_format="text",
-        )
-        # response_format="text" yields a plain string; "json" yields an object
-        # with .text. Handle both so an SDK change can't break this.
-        text = result if isinstance(result, str) else getattr(result, "text", "")
-        text = (text or "").strip()
+        text = transcribe_audio(fname, data)
         if not text:
             return flask.jsonify({"status": "error", "message": "Couldn't hear any speech in that audio."}), 422
         if _is_guest():
@@ -7093,14 +7125,12 @@ Question types: "recall", "conceptual", "short-answer"
 Make answers comprehensive (2-4 sentences). Make questions specific to the content.
 Be accurate, but keep the tone supportive and student-friendly.'''
     try:
-        client = _groq_client()
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
+        raw = ai_chat(
+            [{"role": "user", "content": prompt}],
+            tier="standard",
             temperature=0.5,
-            max_tokens=1200 if _is_guest() else 3000
+            max_tokens=1200 if _is_guest() else 3000,
         )
-        raw = response.choices[0].message.content.strip()
         raw = re.sub(r"```json\s*", "", raw)
         raw = re.sub(r"```", "", raw).strip()
         result = json.loads(raw)
@@ -7187,34 +7217,11 @@ def error_403(e):
 # NEW FEATURE MODULES
 # (Grade simulator, Lesson Recorder, Study Groups, Writing Assistant,
 #  Math Explainer, Task Extractor)
-# Each block is self-contained: lazy Groq client, light DB use, JSON
+# Each block is self-contained: routes through ai_provider, light DB use, JSON
 # responses. The web pages each new module needs sit in /Main_Project/
 # templates/ — see lessons.html, groups.html, writing.html, math.html,
 # extractor.html. The upgraded grade modeller lives in grademodel.html.
 # ═════════════════════════════════════════════════════════════════════
-
-GROQ_MODEL = "llama-3.3-70b-versatile"
-# Fast/small model for short classification tasks (priority assignment,
-# task extraction, simple suggestions) — ~10x faster + cheaper than the
-# 70b model with comparable quality for short prompts.
-GROQ_FAST_MODEL = os.getenv("GROQ_FAST_MODEL", "llama-3.1-8b-instant")
-# Vision-capable model. The old meta-llama/llama-4-scout-17b-16e-instruct was retired
-# by Groq; meta-llama/llama-4-scout-17b-16e-instruct is the current
-# multimodal model on Groq with image input support.
-GROQ_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
-GROQ_WHISPER_MODEL = os.getenv("GROQ_WHISPER_MODEL", "whisper-large-v3-turbo")
-
-# Singleton Groq client. The previous code created a new client on every
-# request, which re-allocated httpx connection pools and added 50-200ms
-# of overhead per call. The client is thread-safe so one global is fine
-# under gunicorn workers.
-_groq_client_cache = None
-def _groq_client():
-    global _groq_client_cache
-    if _groq_client_cache is None:
-        _groq_client_cache = Groq(api_key=os.getenv("GROQ_API_KEY"))
-    return _groq_client_cache
-
 
 # ── ADMIN / FEATURE FLAGS ───────────────────────────────────────────
 # Hidden admin surface for the project owner. Email-gated so even if
@@ -7341,16 +7348,39 @@ def admin_set_flag():
     return flask.jsonify({"status": "ok", "key": key, "enabled": enabled})
 
 
-@app.route("/api/admin/indexnow/submit", methods=["POST"])
+@app.route("/api/admin/indexnow/status", methods=["GET"])
+@require_admin
+def admin_indexnow_status():
+    return flask.jsonify({
+        "status": "ok",
+        "key": INDEXNOW_KEY,
+        "key_file_url": f"{APP_BASE_URL.rstrip('/')}/{INDEXNOW_KEY}.txt",
+        "keyLocation": _indexnow_key_location(),
+        "host": _indexnow_host(),
+        "endpoint": INDEXNOW_ENDPOINT,
+        "sitemap_url_count": len(_indexnow_sitemap_urls()),
+    })
+
+
+@app.route("/api/admin/indexnow/submit", methods=["POST", "GET"])
 @require_admin
 def admin_indexnow_submit():
+    if request.method == "GET":
+        url = (request.args.get("url") or "").strip()
+        if url:
+            result = notify_indexnow([url])
+        else:
+            result = notify_indexnow(_indexnow_sitemap_urls())
+        code = 200 if result.get("status") == "ok" else 400
+        return flask.jsonify(result), code
+
     body = request.get_json(silent=True) or {}
     urls = body.get("urls")
     if not urls:
         urls = _indexnow_sitemap_urls()
     elif isinstance(urls, str):
         urls = [urls]
-    result = _submit_indexnow_urls(urls)
+    result = notify_indexnow(urls)
     code = 200 if result.get("status") == "ok" else 400
     return flask.jsonify(result), code
 
@@ -8750,10 +8780,6 @@ def _apply_pending_group_join():
 
 
 
-def _groq():
-    return _groq_client()
-
-
 def _owner_filter(model):
     """Build a SQLAlchemy filter that scopes a model query to the current
     user or guest session."""
@@ -8894,31 +8920,16 @@ LESSON_ALLOWED_EXT = {".mp3", ".m4a", ".wav", ".ogg", ".mp4", ".webm", ".mov", "
 LESSON_AUDIO_EXT = {".mp3", ".m4a", ".wav", ".ogg"}
 
 
-GROQ_WHISPER_MODEL = "whisper-large-v3-turbo"
-
-
 def _transcribe_lesson(lesson):
-    """Real audio/video → text transcription via Groq's Whisper endpoint.
-
-    Groq's audio.transcriptions.create accepts mp3/m4a/wav/ogg/flac and
-    will also pull audio off mp4/webm containers. Free-tier accounts have
-    a per-minute audio quota, so we cap to ~25 MB which matches our
-    Flask MAX_CONTENT_LENGTH.
-    """
+    """Real audio/video → text transcription via Gemini (Groq Whisper fallback)."""
     if not lesson.stored_filename:
         return ""
     path = os.path.join(LESSON_UPLOAD_FOLDER, lesson.stored_filename)
     if not os.path.exists(path):
         return ""
     try:
-        client = _groq()
         with open(path, "rb") as fh:
-            resp = client.audio.transcriptions.create(
-                model=GROQ_WHISPER_MODEL,
-                file=(lesson.original_filename or lesson.stored_filename, fh.read()),
-                response_format="text",
-            )
-        text = resp if isinstance(resp, str) else getattr(resp, "text", "") or ""
+            text = transcribe_audio(lesson.original_filename or lesson.stored_filename, fh.read())
         return (text or "").strip()
     except Exception as e:
         print(f"[lesson {lesson.id}] transcription failed: {e}")
@@ -8928,8 +8939,7 @@ def _transcribe_lesson(lesson):
 def _summarize_lesson_async(lesson_id):
     """Two-stage pipeline:
 
-    1. If we don't already have a transcript, run the audio through Groq
-       Whisper and persist the text.
+    1. If we don't already have a transcript, transcribe the audio and persist.
     2. Ask the chat model for a clear, detailed study-style summary.
     """
     lesson = Lesson.query.get(lesson_id)
@@ -8951,17 +8961,15 @@ def _summarize_lesson_async(lesson_id):
             "covers, and list 5 likely sub-topics."
         )
     try:
-        client = _groq()
-        resp = client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[
+        summary = ai_chat(
+            [
                 {"role": "system", "content": "You write simple, clear, detailed study summaries for student-uploaded lesson recordings. Output plain markdown with sections: TL;DR (1 sentence), Key Points (bullets), Examples / Vocabulary (bullets), Suggested Practice (bullets)."},
                 {"role": "user", "content": seed[:14000]},
             ],
+            tier="standard",
             temperature=0.4,
             max_tokens=900,
         )
-        summary = resp.choices[0].message.content.strip()
         lesson.summary = summary
         lesson.summary_status = "ready"
     except Exception as e:
@@ -9180,12 +9188,12 @@ def api_create_group():
             f"Level: {group.level}. Study style: {group.style}.\n"
             "Output plain markdown: Week 1 / Week 2 / Week 3 / Week 4 with 3 bullets each."
         )
-        resp = _groq().chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.5, max_tokens=700,
+        group.suggested_plan = ai_chat(
+            [{"role": "user", "content": prompt}],
+            tier="standard",
+            temperature=0.5,
+            max_tokens=700,
         )
-        group.suggested_plan = resp.choices[0].message.content.strip()
         db.session.commit()
     except Exception:
         pass
@@ -9352,18 +9360,15 @@ def api_writing_analyze():
         "Return at most 8 suggestions, prioritised by impact. Be specific."
     )
     try:
-        resp = _groq().chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[
+        data = ai_chat_json(
+            [
                 {"role": "system", "content": system},
                 {"role": "user", "content": f"Purpose: {purpose}\nTarget tone: {tone}\n\nText:\n{text}"},
             ],
+            tier="standard",
             temperature=0.3,
             max_tokens=1400,
-            response_format={"type": "json_object"},
         )
-        raw = resp.choices[0].message.content.strip()
-        data = json.loads(raw)
         return flask.jsonify({"status": "ok", **data})
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)}), 500
@@ -9398,18 +9403,15 @@ def api_math_explain():
         f"Adjust depth for level={level}. Keep each step short and self-contained. Use plain text for math (e.g. x^2 not LaTeX)."
     )
     try:
-        resp = _groq().chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[
+        data = ai_chat_json(
+            [
                 {"role": "system", "content": system},
                 {"role": "user", "content": problem[:8000]},
             ],
+            tier="standard",
             temperature=0.2,
             max_tokens=1400,
-            response_format={"type": "json_object"},
         )
-        raw = resp.choices[0].message.content.strip()
-        data = json.loads(raw)
         return flask.jsonify({"status": "ok", **data})
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)}), 500
@@ -9427,17 +9429,15 @@ def api_math_similar():
         "{\"problem\": string, \"answer\": string}"
     )
     try:
-        resp = _groq().chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[
+        data = ai_chat_json(
+            [
                 {"role": "system", "content": system},
                 {"role": "user", "content": problem[:6000]},
             ],
+            tier="standard",
             temperature=0.7,
             max_tokens=600,
-            response_format={"type": "json_object"},
         )
-        data = json.loads(resp.choices[0].message.content.strip())
         return flask.jsonify({"status": "ok", **data})
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)}), 500
@@ -9469,17 +9469,15 @@ def api_task_extract():
         "Use null for due_date when no date is implied. Use High for urgent or graded items, Low for nice-to-have."
     )
     try:
-        resp = _groq().chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[
+        data = ai_chat_json(
+            [
                 {"role": "system", "content": system},
                 {"role": "user", "content": text[:12000]},
             ],
+            tier="standard",
             temperature=0.2,
             max_tokens=1200,
-            response_format={"type": "json_object"},
         )
-        data = json.loads(resp.choices[0].message.content.strip())
         tasks = data.get("tasks") or []
         # Optionally persist as ManualTask when ?save=1
         saved_ids = []
@@ -9785,20 +9783,15 @@ Syllabus text:
 JSON array:"""
 
     try:
-        groq_key = os.getenv("GROQ_API_KEY")
-        if not groq_key:
+        if not ai_available():
             return jsonify({"status": "error", "message": "AI extraction not configured"}), 503
-        client = Groq(api_key=groq_key)
-        resp = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[{"role": "user", "content": prompt}],
+        parsed = ai_chat_json(
+            [{"role": "user", "content": prompt}],
+            tier="fast",
             temperature=0.1,
             max_tokens=2000,
-            response_format={"type": "json_object"},
         )
-        raw_json = resp.choices[0].message.content.strip()
         # Model sometimes wraps in {"assignments": [...]}
-        parsed = json.loads(raw_json)
         if isinstance(parsed, dict):
             for key in ("assignments", "items", "tasks", "deadlines", "data"):
                 if isinstance(parsed.get(key), list):

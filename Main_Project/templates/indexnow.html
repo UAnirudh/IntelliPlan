@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block page_title %}IndexNow · IntelliPlan{% endblock %}
+
+{% block head_extra %}
+<style>
+  .inx-wrap { max-width: 860px; margin: 0 auto; }
+  .inx-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--r-xl); padding: 1.5rem 1.75rem;
+    box-shadow: var(--shadow); margin-bottom: 1.25rem;
+  }
+  .inx-card h2 {
+    font-family: var(--font-display); font-size: 1.25rem;
+    color: var(--text-primary); margin: 0 0 0.35rem; letter-spacing: -0.02em;
+  }
+  .inx-card h3 {
+    font-family: var(--font-ui); font-size: 0.95rem; font-weight: 700;
+    color: var(--text-primary); margin: 1.25rem 0 0.5rem;
+  }
+  .inx-meta { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 1rem; }
+  .inx-body { font-size: 0.92rem; color: var(--text-secondary); line-height: 1.65; }
+  .inx-body p { margin-bottom: 0.75rem; }
+  .inx-body ul, .inx-body ol { margin: 0.5rem 0 0.75rem 1.25rem; }
+  .inx-body li { margin-bottom: 0.4rem; }
+  .inx-body code {
+    font-family: var(--font-mono); font-size: 0.84rem;
+    background: var(--bg-elevated); padding: 2px 6px; border-radius: 4px;
+    color: var(--accent);
+  }
+  pre {
+    overflow: auto; background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--r-md); padding: 1rem; margin: 0.75rem 0;
+    font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.55;
+    color: var(--text-primary);
+  }
+  .inx-callout {
+    background: var(--accent-soft); border-left: 3px solid var(--accent);
+    border-radius: var(--r-md); padding: 12px 16px; margin: 0.75rem 0;
+    font-size: 0.9rem;
+  }
+  .inx-table {
+    width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem;
+    font-size: 0.86rem; background: var(--bg);
+    border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden;
+  }
+  .inx-table th, .inx-table td {
+    padding: 9px 12px; text-align: left; vertical-align: top;
+    border-bottom: 1px solid var(--border);
+  }
+  .inx-table th { background: var(--bg-elevated); font-weight: 700; color: var(--text-primary); }
+  .inx-table tr:last-child td { border-bottom: 0; }
+  .inx-kv { display: grid; gap: 8px; margin: 0.75rem 0; }
+  .inx-kv-row {
+    display: grid; grid-template-columns: 140px 1fr; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.88rem;
+  }
+  .inx-kv-row:last-child { border-bottom: 0; }
+  .inx-kv-label { font-weight: 700; color: var(--text-muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="inx-wrap">
+  <div class="page-header">
+    <h1 class="page-title">IndexNow</h1>
+    <p class="page-subtitle">How IntelliPlan notifies Bing, Yandex, and other participating search engines when public pages change.</p>
+  </div>
+
+  <div class="inx-card">
+    <h2>IntelliPlan setup</h2>
+    <p class="inx-meta">Ownership verified via Option 1 — key file hosted at site root.</p>
+    <div class="inx-kv">
+      <div class="inx-kv-row">
+        <div class="inx-kv-label">Host</div>
+        <div><code>{{ indexnow_host }}</code></div>
+      </div>
+      <div class="inx-kv-row">
+        <div class="inx-kv-label">Key</div>
+        <div><code>{{ indexnow_key }}</code></div>
+      </div>
+      <div class="inx-kv-row">
+        <div class="inx-kv-label">Key file</div>
+        <div><a href="/{{ indexnow_key }}.txt">{{ app_base_url }}/{{ indexnow_key }}.txt</a></div>
+      </div>
+      <div class="inx-kv-row">
+        <div class="inx-kv-label">keyLocation</div>
+        <div><code>{{ indexnow_key_location }}</code></div>
+      </div>
+      <div class="inx-kv-row">
+        <div class="inx-kv-label">Endpoint</div>
+        <div><code>{{ indexnow_endpoint }}</code></div>
+      </div>
+    </div>
+    <div class="inx-callout">
+      <strong>Recommended:</strong> Automate submissions when content is added, updated, or deleted. IntelliPlan admins can submit from the <a href="{{ admin_path }}">admin panel</a> or via the API below.
+    </div>
+  </div>
+
+  <div class="inx-card">
+    <h2>Submitting one URL</h2>
+    <div class="inx-body">
+      <p>Issue an HTTP GET request to the search engine endpoint. <code>url</code> must be URL-escaped (RFC-3986). <code>key</code> is 8–128 hex characters (a–z, A–Z, 0–9, dashes).</p>
+      <pre>GET {{ indexnow_endpoint }}?url=url-changed&amp;key={{ indexnow_key }}&amp;keyLocation={{ indexnow_key_location | urlencode }}</pre>
+      <p>Example — notify that the landing page was updated:</p>
+      <pre>curl "{{ indexnow_endpoint }}?url={{ app_base_url | urlencode }}&amp;key={{ indexnow_key }}&amp;keyLocation={{ indexnow_key_location | urlencode }}"</pre>
+      <p>A successful request returns HTTP <strong>200</strong>. HTTP 200 only means the search engine received the URL.</p>
+    </div>
+  </div>
+
+  <div class="inx-card">
+    <h2>Submitting a set of URLs</h2>
+    <div class="inx-body">
+      <p>POST a JSON body to the search engine. You can submit up to <strong>10,000 URLs</strong> per request.</p>
+      <pre>POST /indexnow HTTP/1.1
+Content-Type: application/json; charset=utf-8
+Host: api.indexnow.org
+
+{
+  "host": "{{ indexnow_host }}",
+  "key": "{{ indexnow_key }}",
+  "keyLocation": "{{ indexnow_key_location }}",
+  "urlList": [
+    "{{ app_base_url }}/",
+    "{{ app_base_url }}/scheduler",
+    "{{ app_base_url }}/tutor"
+  ]
+}</pre>
+      <p>IntelliPlan admin API (requires admin session):</p>
+      <pre>POST /api/admin/indexnow/submit
+Content-Type: application/json
+
+{ "urls": ["{{ app_base_url }}/blog/canvas-study-planner"] }</pre>
+      <p>Submit all sitemap URLs (default when <code>urls</code> is omitted):</p>
+      <pre>POST /api/admin/indexnow/submit</pre>
+      <p>Single URL via admin GET (mirrors IndexNow GET format):</p>
+      <pre>GET /api/admin/indexnow/submit?url={{ app_base_url | urlencode }}</pre>
+    </div>
+  </div>
+
+  <div class="inx-card">
+    <h2>Verifying ownership via the key</h2>
+    <div class="inx-body">
+      <h3>Option 1 (used by IntelliPlan)</h3>
+      <p>Host a UTF-8 text key file at the root of your site. The file name is <code>{your-key}.txt</code> and the file content is the key itself.</p>
+      <pre>{{ app_base_url }}/{{ indexnow_key }}.txt
+
+{{ indexnow_key }}</pre>
+
+      <h3>Option 2</h3>
+      <p>Host the key file elsewhere on the same host and pass <code>keyLocation</code> on every notification. IntelliPlan already sends <code>keyLocation</code> in both GET and POST submissions.</p>
+    </div>
+  </div>
+
+  <div class="inx-card">
+    <h2>Response format</h2>
+    <table class="inx-table">
+      <thead><tr><th>HTTP</th><th>Response</th><th>Reason</th></tr></thead>
+      <tbody>
+        <tr><td>200</td><td>OK</td><td>URL submitted successfully</td></tr>
+        <tr><td>202</td><td>Accepted</td><td>URL received; key validation pending</td></tr>
+        <tr><td>400</td><td>Bad request</td><td>Invalid format</td></tr>
+        <tr><td>403</td><td>Forbidden</td><td>Key not valid (missing, or not in key file)</td></tr>
+        <tr><td>422</td><td>Unprocessable</td><td>URL doesn't belong to host, or key format invalid</td></tr>
+        <tr><td>429</td><td>Too Many Requests</td><td>Rate limited — wait and retry</td></tr>
+      </tbody>
+    </table>
+    <p class="inx-body">Participating search engines share submitted URLs with each other automatically.</p>
+  </div>
+</div>
+{% endblock %}

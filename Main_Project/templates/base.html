@@ -119,78 +119,81 @@
       --ease-spring: cubic-bezier(0.34,1.56,0.64,1);
       --ease-out:    cubic-bezier(0.16,1,0.3,1);
       --ease-in-out: cubic-bezier(0.65,0,0.35,1);
-      --grad-brand:      linear-gradient(135deg,#6d28d9 0%,#7c3aed 45%,#a855f7 100%);
-      --grad-brand-soft: linear-gradient(135deg,rgba(109,40,217,0.10) 0%,rgba(168,85,247,0.06) 100%);
+      --grad-brand:      linear-gradient(135deg,#1d4ed8 0%,#2563eb 45%,#3b82f6 100%);
+      --grad-brand-soft: linear-gradient(135deg,rgba(37,99,235,0.10) 0%,rgba(59,130,246,0.06) 100%);
+      --accent-shadow:   37,99,235;
     }
 
     :root[data-theme="light"] {
-      --bg:            #faf9f6;
+      --bg:            #f8fafc;
       --bg-secondary:  #ffffff;
       --bg-card:       #ffffff;
-      --bg-elevated:   #f3f2ee;
-      --bg-dot:        rgba(15,10,40,0.022);
-      --accent:        #6d28d9;
-      --accent-hover:  #5b21b6;
-      --accent-soft:   rgba(109,40,217,0.07);
-      --accent-mid:    rgba(109,40,217,0.20);
-      --accent-glow:   0 0 60px rgba(109,40,217,0.18);
-      --text-primary:  #1a1a2e;
-      --text-secondary:#4a4a68;
-      --text-muted:    #6b6b8a;
-      --border:        rgba(15,10,40,0.06);
-      --border-strong: rgba(15,10,40,0.12);
-      --border-accent: rgba(109,40,217,0.28);
-      --shadow-sm:  0 1px 2px rgba(15,10,40,0.04);
-      --shadow:     0 1px 3px rgba(15,10,40,0.04),0 8px 20px rgba(15,10,40,0.05);
-      --shadow-hover:0 2px 6px rgba(15,10,40,0.06),0 18px 42px rgba(15,10,40,0.10);
-      --shadow-lg:  0 10px 22px rgba(15,10,40,0.08),0 32px 72px rgba(15,10,40,0.13);
-      --nav-bg:     rgba(250,249,246,0.82);
-      --nav-border: rgba(15,10,40,0.06);
+      --bg-elevated:   #f1f5f9;
+      --bg-dot:        rgba(15,23,42,0.022);
+      --accent:        #2563eb;
+      --accent-hover:  #1d4ed8;
+      --accent-soft:   rgba(37,99,235,0.07);
+      --accent-mid:    rgba(37,99,235,0.20);
+      --accent-glow:   0 0 60px rgba(37,99,235,0.18);
+      --text-primary:  #0f172a;
+      --text-secondary:#475569;
+      --text-muted:    #64748b;
+      --border:        rgba(15,23,42,0.06);
+      --border-strong: rgba(15,23,42,0.12);
+      --border-accent: rgba(37,99,235,0.28);
+      --shadow-sm:  0 1px 2px rgba(15,23,42,0.04);
+      --shadow:     0 1px 3px rgba(15,23,42,0.04),0 8px 20px rgba(15,23,42,0.05);
+      --shadow-hover:0 2px 6px rgba(15,23,42,0.06),0 18px 42px rgba(15,23,42,0.10);
+      --shadow-lg:  0 10px 22px rgba(15,23,42,0.08),0 32px 72px rgba(15,23,42,0.13);
+      --nav-bg:     rgba(248,250,252,0.82);
+      --nav-border: rgba(15,23,42,0.06);
       --high:        #be123c; --high-bg:    rgba(190,18,60,0.07);
       --medium:      #b45309; --medium-bg:  rgba(180,83,9,0.07);
       --low:         #047857; --low-bg:     rgba(4,120,87,0.07);
-      --toggle-bg:   rgba(109,40,217,0.1);
-      --toggle-knob: #6d28d9;
+      --toggle-bg:   rgba(37,99,235,0.1);
+      --toggle-knob: #2563eb;
       --nav-divider: rgba(0,0,0,0.08);
-      --footer-bg:   #f0efe9;
-      --footer-text: #6b6b8a;
+      --footer-bg:   #eef2f7;
+      --footer-text: #64748b;
       --footer-border:rgba(0,0,0,0.06);
-      --footer-link: #6d28d9;
+      --footer-link: #2563eb;
+      --accent-shadow: 37,99,235;
     }
 
     :root[data-theme="dark"] {
-      --bg:            #0a0a1a;
-      --bg-secondary:  #0f0f24;
-      --bg-card:       #14142b;
-      --bg-elevated:   #1c1c38;
+      --bg:            #080c18;
+      --bg-secondary:  #0c1224;
+      --bg-card:       #10182a;
+      --bg-elevated:   #162036;
       --bg-dot:        rgba(255,255,255,0.020);
-      --accent:        #a78bfa;
-      --accent-hover:  #c4b5fd;
-      --accent-soft:   rgba(167,139,250,0.12);
-      --accent-mid:    rgba(167,139,250,0.28);
-      --accent-glow:   0 0 80px rgba(167,139,250,0.22);
-      --text-primary:  #f0eef8;
-      --text-secondary:#a8a6be;
-      --text-muted:    #6e6c88;
+      --accent:        #60a5fa;
+      --accent-hover:  #93c5fd;
+      --accent-soft:   rgba(96,165,250,0.12);
+      --accent-mid:    rgba(96,165,250,0.28);
+      --accent-glow:   0 0 80px rgba(96,165,250,0.22);
+      --text-primary:  #f1f5f9;
+      --text-secondary:#94a3b8;
+      --text-muted:    #64748b;
       --border:        rgba(255,255,255,0.06);
       --border-strong: rgba(255,255,255,0.12);
-      --border-accent: rgba(167,139,250,0.34);
+      --border-accent: rgba(96,165,250,0.34);
       --shadow-sm:  0 1px 2px rgba(0,0,0,0.5);
       --shadow:     0 1px 4px rgba(0,0,0,0.5),0 8px 22px rgba(0,0,0,0.55);
       --shadow-hover:0 4px 10px rgba(0,0,0,0.55),0 18px 42px rgba(0,0,0,0.65);
       --shadow-lg:  0 12px 28px rgba(0,0,0,0.65),0 32px 80px rgba(0,0,0,0.75);
-      --nav-bg:     rgba(10,10,26,0.82);
+      --nav-bg:     rgba(8,12,24,0.82);
       --nav-border: rgba(255,255,255,0.06);
       --high:        #fb7185; --high-bg:   rgba(251,113,133,0.1);
       --medium:      #fbbf24; --medium-bg: rgba(251,191,36,0.1);
       --low:         #34d399; --low-bg:    rgba(52,211,153,0.1);
-      --toggle-bg:   rgba(167,139,250,0.15);
-      --toggle-knob: #a78bfa;
+      --toggle-bg:   rgba(96,165,250,0.15);
+      --toggle-knob: #60a5fa;
       --nav-divider: rgba(255,255,255,0.08);
-      --footer-bg:   #0d0d1f;
-      --footer-text: #6e6c88;
+      --footer-bg:   #0a0f1c;
+      --footer-text: #64748b;
       --footer-border:rgba(255,255,255,0.06);
-      --footer-link: #a78bfa;
+      --footer-link: #60a5fa;
+      --accent-shadow: 96,165,250;
     }
 
     /* ───── Extra themes ──────────────────────────────────────
@@ -371,7 +374,7 @@
       width:34px; height:34px;
       background: var(--grad-brand);
       border-radius:10px; display:flex; align-items:center; justify-content:center;
-      overflow:hidden; flex-shrink:0; box-shadow:0 2px 10px rgba(109,40,217,0.3);
+      overflow:hidden; flex-shrink:0; box-shadow:0 2px 10px rgba(var(--accent-shadow),0.3);
     }
     .logo-icon img { width:100%; height:100%; object-fit:cover; border-radius:10px; }
     .logo-text { font-family:var(--font-ui); font-size:1.12rem; font-weight:700; color:var(--text-primary); letter-spacing:-0.02em; }
@@ -621,7 +624,7 @@
       position: relative; border: 1px solid transparent;
     }
     .side-link:hover { background: var(--accent-soft); color: var(--accent); }
-    .side-link.active { background: var(--accent); color: white; box-shadow: 0 2px 8px rgba(109,40,217,0.22); }
+    .side-link.active { background: var(--accent); color: white; box-shadow: 0 2px 8px rgba(var(--accent-shadow),0.22); }
     .side-link.active .side-icon { color: white; }
     .side-link.tutor { color: var(--accent); font-weight: 600; }
     .side-link.tutor:hover { background: var(--accent); color: white; }
@@ -899,8 +902,8 @@
       transition:transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), filter 0.18s ease;
       box-shadow:
         inset 0 1px 0 rgba(255,255,255,0.18),
-        0 1px 2px rgba(109,40,217,0.30),
-        0 8px 22px -4px rgba(109,40,217,0.40);
+        0 1px 2px rgba(var(--accent-shadow),0.30),
+        0 8px 22px -4px rgba(var(--accent-shadow),0.40);
       white-space:nowrap;
       letter-spacing:-0.01em;
       overflow:hidden;
@@ -915,8 +918,8 @@
       filter:saturate(1.08);
       box-shadow:
         inset 0 1px 0 rgba(255,255,255,0.22),
-        0 2px 4px rgba(109,40,217,0.35),
-        0 14px 32px -6px rgba(109,40,217,0.55);
+        0 2px 4px rgba(var(--accent-shadow),0.35),
+        0 14px 32px -6px rgba(var(--accent-shadow),0.55);
     }
     .btn-primary:active { transform:scale(0.98) translateY(0); }
     .btn-secondary {
@@ -1148,11 +1151,11 @@
     #installBanner {
       position:fixed; left:18px; bottom:18px; z-index:998;
       display:flex; align-items:center; gap:10px; padding:8px 10px;
-      border-radius:var(--r-lg); background:rgba(109,40,217,0.96);
-      box-shadow:0 12px 40px rgba(109,40,217,0.4); backdrop-filter:blur(10px);
+      border-radius:var(--r-lg); background:rgba(var(--accent-shadow),0.96);
+      box-shadow:0 12px 40px rgba(var(--accent-shadow),0.4); backdrop-filter:blur(10px);
       transition:transform 0.2s ease, box-shadow 0.2s ease;
     }
-    #installBanner:hover { transform:translateY(-2px); box-shadow:0 18px 50px rgba(109,40,217,0.5); }
+    #installBanner:hover { transform:translateY(-2px); box-shadow:0 18px 50px rgba(var(--accent-shadow),0.5); }
     .install-pill { display:flex; align-items:center; gap:8px; color:white; text-decoration:none; white-space:nowrap; }
     .install-icon { width:32px; height:32px; border-radius:9px; overflow:hidden; flex-shrink:0; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; }
     .install-icon img { width:100%; height:100%; object-fit:cover; }
@@ -1219,7 +1222,7 @@
     #planiChat.open { opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
 
     #planiChatHeader {
-      background:#0f172a;
+      background:var(--grad-brand);
       padding:13px 15px; display:flex; align-items:center; gap:10px; flex-shrink:0;
     }
     .plani-hdr-avatar { width:30px; height:30px; background:rgba(255,255,255,0.2); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
@@ -1272,11 +1275,11 @@
     #planiRobot {
       width:70px; height:70px;
       animation:planiFloat 3.2s ease-in-out infinite;
-      filter:drop-shadow(0 8px 22px rgba(109,40,217,0.38));
+      filter:drop-shadow(0 8px 22px rgba(var(--accent-shadow),0.38));
       transition:transform 0.2s ease, filter 0.2s ease;
       display:block;
     }
-    #planiAvatar:hover #planiRobot { transform:scale(1.1); filter:drop-shadow(0 12px 30px rgba(109,40,217,0.55)); }
+    #planiAvatar:hover #planiRobot { transform:scale(1.1); filter:drop-shadow(0 12px 30px rgba(var(--accent-shadow),0.55)); }
 
     #planiBubble {
       position:absolute; bottom:calc(100% + 10px); right:0;
@@ -1807,7 +1810,7 @@ body {
         <div class="plani-hdr-name">Plani</div>
         <div class="plani-hdr-status">
           <div class="plani-status-dot"></div>
-          IntelliPlan Assistant
+          Powered by Google Gemini
         </div>
       </div>
       <button id="planiCloseBtn" onclick="closePlani()" aria-label="Close chat"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>

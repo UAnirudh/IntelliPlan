@@ -88,9 +88,9 @@ Full light/dark theme support with preference saved across sessions.
 | **ORM** | Flask-SQLAlchemy |
 | **Auth** | Flask-Login, Flask-Bcrypt, Google OAuth 2.0 (PKCE), JWT tokens |
 | **Sessions** | Flask-Session (SQLAlchemy-backed for persistence across Railway container restarts) |
-| **AI — Scheduling & Study** | Groq API (Llama 3.3 70B Versatile) |
-| **AI — Vision / Image Notes** | Groq API (Llama 3.2 11B Vision) |
-| **AI — Tutor & Chatbot** | Groq API (Llama 3.3 70B Versatile) |
+| **AI — Scheduling & Study** | Google Gemini 2.5 Flash (Groq Llama fallback) |
+| **AI — Vision / Image Notes** | Google Gemini 2.5 Flash (Groq Llama 4 Scout fallback) |
+| **AI — Tutor & Chatbot** | Google Gemini 2.5 Flash (Groq Llama fallback) |
 | **School APIs** | Canvas LMS REST API, Google Classroom API, StudentVue API, Schoology API, Blackboard Learn REST API, Moodle Web Services |
 | **Calendar** | Google Calendar API v3 |
 | **Notes** | Notion API |
@@ -108,6 +108,7 @@ Full light/dark theme support with preference saved across sessions.
 IntelliPlan/
 │
 ├── App.py                      # Main Flask app — all routes, models, config
+├── ai_provider.py              # Unified AI layer — Gemini primary, Groq fallback
 ├── auth_api.py                 # Auth blueprint — JWT token endpoints
 ├── chatbot_api.py              # Plani chatbot + tutor API blueprint
 ├── google_calendar_helper.py   # Google OAuth + Calendar API helpers
@@ -155,7 +156,8 @@ IntelliPlan/
 
 ### Prerequisites
 - Python 3.11+
-- A Groq API key (free at [console.groq.com](https://console.groq.com))
+- A Google Gemini API key (free at [aistudio.google.com/apikey](https://aistudio.google.com/apikey))
+- Optional: Groq API key as fallback ([console.groq.com](https://console.groq.com))
 - Canvas API token, Google Classroom OAuth, StudentVue credentials, Schoology API key, Blackboard OAuth, or Moodle web-services token (at least one)
 
 ### Installation
@@ -182,7 +184,8 @@ The app runs on `http://localhost:3000` by default.
 
 ```env
 SECRET_KEY=your-flask-secret-key
-GROQ_API_KEY=your-groq-api-key
+GEMINI_API_KEY=your-gemini-api-key
+GROQ_API_KEY=your-groq-api-key-optional-fallback
 DATABASE_URL=sqlite:///intelliplan.db
 
 # Google OAuth (optional — needed for Google Calendar)
@@ -260,7 +263,9 @@ APP_BASE_URL=http://localhost:3000
 | `/api/lms/status/<provider>` | GET | Check Google Classroom, Blackboard, or Moodle connection status |
 | `/api/lms/disconnect/<provider>` | POST | Disconnect Google Classroom, Blackboard, or Moodle |
 | `/<INDEXNOW_KEY>.txt` | GET | Host the IndexNow verification key at the site root |
-| `/api/admin/indexnow/submit` | POST | Admin-only IndexNow submitter; accepts `{"urls":[...]}` or submits sitemap URLs by default |
+| `/indexnow` | GET | IndexNow protocol documentation and IntelliPlan setup |
+| `/api/admin/indexnow/status` | GET | Admin-only — show key, host, endpoint, sitemap count |
+| `/api/admin/indexnow/submit` | POST/GET | Admin-only — bulk POST `{"urls":[...]}`, GET `?url=...`, or full sitemap |
 | `/calendar/export` | POST | Export schedule to Google Calendar |
 | `/notion/connect` | POST | Connect Notion integration |
 | `/notion/tasks` | GET | Fetch Notion tasks |

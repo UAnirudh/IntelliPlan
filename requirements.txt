@@ -11,7 +11,8 @@ werkzeug>=2.3.0
 sqlalchemy>=2.0.0
 psycopg2-binary>=2.9.0
 
-# AI & ML
+# AI & ML — Gemini primary, Groq fallback
+google-genai>=1.0.0
 groq>=0.4.0
 
 # YouTube transcript import (turn a video link into study material)

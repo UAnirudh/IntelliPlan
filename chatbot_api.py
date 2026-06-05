@@ -1,6 +1,5 @@
 from flask import Blueprint, current_app, request, jsonify, session
 from flask_login import current_user
-from groq import Groq
 from sqlalchemy import Column, DateTime, Integer, MetaData, String, Table, Text, select
 import os
 import re
@@ -10,13 +9,15 @@ import urllib.request
 import urllib.error
 from datetime import datetime
 
+from ai_provider import ai_available, chat as ai_chat, vision as ai_vision
+
 
 # ── LLM client routing ─────────────────────────────────────────────
-# IntelliPlan defaults to Groq's hosted Llama. When OLLAMA_BASE_URL is set
-# (e.g. http://localhost:11434), all chat completions are routed to the local
-# Ollama daemon's OpenAI-compatible /v1 endpoint instead. This lets a developer
-# run the tutor, the moderation pipeline, and Plani entirely off-cloud while
-# the rest of the codebase stays untouched.
+# IntelliPlan defaults to Google Gemini (Groq fallback). When OLLAMA_BASE_URL
+# is set (e.g. http://localhost:11434), all chat completions are routed to
+# the local Ollama daemon's OpenAI-compatible /v1 endpoint instead. This lets
+# a developer run the tutor, the moderation pipeline, and Plani entirely
+# off-cloud while the rest of the codebase stays untouched.
 #
 # Env vars:
 #   OLLAMA_BASE_URL     — e.g. http://localhost:11434 (presence flips the switch)
@@ -80,8 +81,15 @@ def _ollama_chat(model, messages, temperature, max_tokens, response_format=None)
     return content
 
 
+def _model_tier(model: str) -> str:
+    """Map legacy Groq model names to ai_provider tiers."""
+    if '8b' in model or 'instant' in model:
+        return 'fast'
+    return 'standard'
+
+
 def _llm_chat(model, messages, temperature=0.7, max_tokens=512, response_format=None):
-    """Route a chat completion to Ollama (if configured) or Groq.
+    """Route a chat completion to Ollama (if configured) or Gemini/Groq.
 
     Returns the plain string reply. Raises if the backing call fails so callers
     can decide how to recover (the moderation path catches and falls back; the
@@ -90,15 +98,15 @@ def _llm_chat(model, messages, temperature=0.7, max_tokens=512, response_format=
     if _use_ollama():
         return _ollama_chat(model, messages, temperature, max_tokens, response_format)
 
-    api_key = os.getenv('GROQ_API_KEY')
-    if not api_key:
-        raise RuntimeError('No LLM backend available: set GROQ_API_KEY or OLLAMA_BASE_URL.')
-    client = Groq(api_key=api_key)
-    kwargs = dict(model=model, messages=messages, temperature=temperature, max_tokens=max_tokens)
-    if response_format:
-        kwargs['response_format'] = response_format
-    resp = client.chat.completions.create(**kwargs)
-    return resp.choices[0].message.content
+    if not ai_available():
+        raise RuntimeError('No LLM backend available: set GEMINI_API_KEY, GROQ_API_KEY, or OLLAMA_BASE_URL.')
+    return ai_chat(
+        messages,
+        tier=_model_tier(model),
+        temperature=temperature,
+        max_tokens=max_tokens,
+        response_format=response_format,
+    )
 
 chatbot_bp = Blueprint('chatbot', __name__)
 _TUTOR_MEMORY_READY = False
@@ -318,7 +326,7 @@ def _llm_moderate(text: str, mode: str = 'input'):
     text = (text or '').strip()
     if not text:
         return {'safe': True, 'category': 'safe', 'language': 'und', 'reason': 'empty'}
-    if not (_use_ollama() or os.getenv('GROQ_API_KEY')):
+    if not (_use_ollama() or ai_available()):
         return None  # No backend available — fall back to keyword filter only.
 
     system_prompt = _OUTPUT_MODERATION_PROMPT if mode == 'output' else _INPUT_MODERATION_PROMPT
@@ -1081,9 +1089,8 @@ def tutor_vision():
         if not image_b64:
             return jsonify({'error': 'No image provided'}), 400
 
-        api_key = os.getenv('GROQ_API_KEY')
-        if not api_key:
-            return jsonify({'reply': 'Vision analysis requires a Groq API key with vision support.'}), 503
+        if not ai_available():
+            return jsonify({'reply': 'Vision analysis is temporarily unavailable. Please try again later.'}), 503
 
         if mode == 'multi':
             system_prompt = (
@@ -1115,24 +1122,14 @@ def tutor_vision():
             user_text = question
             max_tok = 1200
 
-        client = Groq(api_key=api_key)
-        vision_messages = [
-            {'role': 'system', 'content': system_prompt},
-            {
-                'role': 'user',
-                'content': [
-                    {'type': 'text', 'text': user_text},
-                    {'type': 'image_url', 'image_url': {'url': f'data:{image_mime};base64,{image_b64}'}},
-                ],
-            }
-        ]
-        resp = client.chat.completions.create(
-            model='meta-llama/llama-4-scout-17b-16e-instruct',
-            messages=vision_messages,
+        reply = ai_vision(
+            system_prompt=system_prompt,
+            user_text=user_text,
+            image_b64=image_b64,
+            image_mime=image_mime,
             temperature=0.4 if mode == 'multi' else 0.5,
             max_tokens=max_tok,
         )
-        reply = resp.choices[0].message.content.strip()
 
         # Persist to conversation history so context carries forward
         convo_row = _get_conversation(int(convo_id)) if convo_id else None

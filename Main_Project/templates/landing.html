@@ -254,6 +254,10 @@
   <div class="hero">
     <div class="hero-copy">
       <div class="hero-badge"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px"><use href="#i-sparkle"/></svg> Built for students who are done guessing</div>
+      <div class="hero-badge" style="margin-top:8px;background:linear-gradient(135deg,rgba(66,133,244,.12),rgba(52,168,83,.10));border-color:rgba(66,133,244,.25);">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px"><use href="#i-sparkle"/></svg>
+        Powered by Google Gemini AI
+      </div>
       <h1 class="hero-title">Stop missing assignments and build your study plan automatically</h1>
       <p class="hero-subtitle">
         The free AI study planner that syncs Canvas, StudentVue, and Schoology, ranks every assignment by what is due first, and builds a weekly study schedule you can actually follow.
@@ -324,7 +328,7 @@
         </div>
       </div>
 
-      <div class="floating-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-robot"/></svg> AI-generated schedule</div>
+      <div class="floating-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-robot"/></svg> Gemini-powered schedule</div>
     </div>
   </div>
 </section>
@@ -864,13 +868,13 @@
   function initTestimonialsGrid() {
     var testimonials = [
       { name: "Jack",   role: "AP student",    color: "#2563eb", text: "I used to spend 20 minutes every morning figuring out what to do first. IntelliPlan just tells me. That alone is worth it." },
-      { name: "Max",    role: "College student",           color: "#7c3aed", text: "Canvas dumps everything on you with zero order. IntelliPlan sorts it by what's actually urgent. I haven't missed a deadline since." },
+      { name: "Max",    role: "College student",           color: "#2563eb", text: "Canvas dumps everything on you with zero order. IntelliPlan sorts it by what's actually urgent. I haven't missed a deadline since." },
       { name: "Sai",    role: "IB student",    color: "#0891b2", text: "The grade modeler is insane. I can simulate what score I need on my next test to keep my GPA exactly where I want it." },
       { name: "Ram",    role: "High school student",         color: "#059669", text: "My study sessions used to be random. Now IntelliPlan builds the whole week and exports it to Google Calendar. I just follow the plan." },
       { name: "Suhrit", role: "AP & dual enrollment",      color: "#dc2626", text: "I'm in 6 APs and dual enrollment. Before IntelliPlan I was constantly anxious about what I was forgetting. Now I feel in control." },
       { name: "Rachel", role: "Honors student", color: "#db2777", text: "The flashcard generator from my own notes is a game changer. Upload after class, get quiz questions automatically. Saves an hour a night." },
       { name: "Aayush", role: "College student",         color: "#d97706", text: "I recommended this to my entire study group. We all use it now. Having the same priority system made group studying actually productive." },
-      { name: "Trish",  role: "High school student",        color: "#7c3aed", text: "The AI scheduler feels like having a personal planner who knows exactly how much time you have and what needs to get done first." }
+      { name: "Trish",  role: "High school student",        color: "#3b82f6", text: "The AI scheduler feels like having a personal planner who knows exactly how much time you have and what needs to get done first." }
     ];
 
     var track = document.getElementById('reviewsTrack');
@@ -1061,17 +1065,17 @@
     z-index: -1;
     pointer-events: none;
     background:
-      radial-gradient(45% 55% at 15% 25%, rgba(109,40,217,0.16) 0%, transparent 60%),
-      radial-gradient(40% 50% at 80% 15%, rgba(168,85,247,0.14) 0%, transparent 65%),
-      radial-gradient(38% 60% at 55% 75%, rgba(139,92,246,0.10) 0%, transparent 65%);
+      radial-gradient(45% 55% at 15% 25%, rgba(37,99,235,0.16) 0%, transparent 60%),
+      radial-gradient(40% 50% at 80% 15%, rgba(59,130,246,0.14) 0%, transparent 65%),
+      radial-gradient(38% 60% at 55% 75%, rgba(29,78,216,0.10) 0%, transparent 65%);
     filter: blur(10px);
     opacity: 0.95;
   }
   :root[data-theme="dark"] .hero-wrap::before {
     background:
-      radial-gradient(45% 55% at 15% 25%, rgba(167,139,250,0.22) 0%, transparent 60%),
-      radial-gradient(40% 50% at 80% 15%, rgba(168,85,247,0.18) 0%, transparent 65%),
-      radial-gradient(38% 60% at 55% 75%, rgba(139,92,246,0.12) 0%, transparent 65%);
+      radial-gradient(45% 55% at 15% 25%, rgba(96,165,250,0.22) 0%, transparent 60%),
+      radial-gradient(40% 50% at 80% 15%, rgba(59,130,246,0.18) 0%, transparent 65%),
+      radial-gradient(38% 60% at 55% 75%, rgba(37,99,235,0.12) 0%, transparent 65%);
     opacity: 0.7;
   }
   .hero {
@@ -1187,7 +1191,7 @@
     content: '';
     position: absolute;
     inset: -40px;
-    background: radial-gradient(ellipse at 60% 50%, rgba(109,40,217,0.12) 0%, transparent 70%);
+    background: radial-gradient(ellipse at 60% 50%, rgba(37,99,235,0.12) 0%, transparent 70%);
     pointer-events: none;
     z-index: 0;
   }

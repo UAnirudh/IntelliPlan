@@ -63,6 +63,15 @@ Content-Type: application/json
   </section>
 
   <section class="docs-card">
+    <h2>IndexNow (search engine notifications)</h2>
+    <p>IntelliPlan hosts an IndexNow verification key and can notify participating search engines when public URLs change. See the full protocol guide at <a href="/indexnow">/indexnow</a>.</p>
+    <div class="endpoint"><code>GET /&lt;INDEXNOW_KEY&gt;.txt</code><span>Ownership verification key file (hosted at site root).</span></div>
+    <div class="endpoint"><code>POST /api/admin/indexnow/submit</code><span>Admin only — bulk submit URLs from JSON <code>{"urls":[...]}</code> or entire sitemap when omitted.</span></div>
+    <div class="endpoint"><code>GET /api/admin/indexnow/submit?url=...</code><span>Admin only — submit a single URL (IndexNow GET format).</span></div>
+    <div class="endpoint"><code>GET /api/admin/indexnow/status</code><span>Admin only — show key, host, endpoint, and sitemap URL count.</span></div>
+  </section>
+
+  <section class="docs-card">
     <h2>Example</h2>
     <pre><code>curl -H "Authorization: Bearer $INTELLIPLAN_TOKEN" \
   https://intelliplan.tech/api/v1/assignments</code></pre>
