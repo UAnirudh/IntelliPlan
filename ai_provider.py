@@ -162,7 +162,11 @@ def _groq_chat(
     if response_format:
         kwargs["response_format"] = response_format
     resp = client.chat.completions.create(**kwargs)
-    return resp.choices[0].message.content.strip()
+    content = resp.choices[0].message.content or ""
+    content = content.strip()
+    if not content:
+        raise RuntimeError("Groq returned an empty response.")
+    return content
 
 
 def chat(

@@ -5168,12 +5168,22 @@ Return ONLY valid JSON:
         result = ai_chat(
             [{"role": "user", "content": prompt}],
             tier="standard",
-            temperature=0.4,
-            max_tokens=4000,
+            temperature=0.3,
+            max_tokens=8000,
+            response_format={"type": "json_object"},
         )
         result = re.sub(r"```json\n?", "", result)
         result = re.sub(r"```\n?", "", result)
-        schedule_data = json.loads(result)
+        result = result.strip()
+        try:
+            schedule_data = json.loads(result)
+        except json.JSONDecodeError:
+            # Extract first JSON object substring as a fallback for models that
+            # prepend a "Here is your schedule:" preamble despite JSON mode.
+            m = re.search(r"\{[\s\S]*\}", result)
+            if not m:
+                raise
+            schedule_data = json.loads(m.group(0))
         schedule_data = enrich_schedule_data(schedule_data, normalized_assignments, preferred_time, hours_per_day)
         # Adaptive humanization pass — fix spacing, anti-cluster, attach
         # checklist + redirect data the Interactive View needs.
