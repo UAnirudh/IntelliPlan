@@ -46,6 +46,15 @@
 .member-row:last-child { border-bottom:none; }
 .member-avatar { width:30px; height:30px; border-radius:50%; background:var(--accent); color:white; font-family:var(--font-ui); font-weight:800; display:flex; align-items:center; justify-content:center; font-size:0.78rem; flex-shrink:0; }
 .plan-md { font-size:0.86rem; color:var(--text-secondary); line-height:1.55; white-space:pre-wrap; max-height:280px; overflow:auto; }
+.sess-chat-log { max-height:200px; overflow-y:auto; border:1px solid var(--border); border-radius:12px; padding:10px; background:var(--bg); margin-bottom:8px; }
+.sess-chat-msg { padding:8px 0; border-bottom:1px solid var(--border); font-size:0.84rem; }
+.sess-chat-msg:last-child { border-bottom:0; }
+.sess-chat-meta { font-size:0.72rem; color:var(--text-muted); margin-bottom:3px; }
+.sess-chat-body { color:var(--text-primary); line-height:1.45; word-break:break-word; }
+.sess-chat-save { margin-top:6px; padding:4px 10px; font-size:0.72rem; border-radius:8px; border:1px solid var(--border); background:var(--bg-card); cursor:pointer; color:var(--accent); }
+.sess-chat-compose textarea { width:100%; min-height:64px; padding:10px; border:1px solid var(--border-strong); border-radius:10px; background:var(--bg); color:var(--text-primary); font-family:var(--font-body); font-size:0.86rem; resize:vertical; }
+.sess-chat-actions { display:flex; align-items:center; gap:10px; margin-top:8px; }
+.sess-chat-empty { font-size:0.82rem; color:var(--text-muted); text-align:center; padding:1rem 0; }
 
 /* Modal */
 .cg-modal { position:fixed; inset:0; z-index:1500; background:rgba(7,8,20,0.62); backdrop-filter:blur(6px); display:none; align-items:center; justify-content:center; padding:1rem; }
@@ -257,6 +266,13 @@ function renderDetail(g) {
       </div>
 
       <div style="display:flex;flex-direction:column;gap:1.25rem;">
+        ${g.is_member ? `
+        <div class="gr-panel">
+          <div class="gr-panel-title">Group chat &amp; materials</div>
+          <p style="font-size:0.78rem;color:var(--text-secondary);margin:0 0 8px 0;">Share links, formulas, or notes. Save anything useful to your library.</p>
+          <div id="groupChatHost"></div>
+        </div>` : ''}
+
         <div class="gr-panel">
           <div class="gr-panel-title">Shared Notes</div>
           <textarea id="grNotes" class="notes-area" ${g.is_member?'':'disabled'} placeholder="${g.is_member?'Take notes together, saved when you click Save':'Join this group to take shared notes.'}">${esc(g.shared_notes||'')}</textarea>
@@ -274,6 +290,15 @@ function renderDetail(g) {
         </div>
       </div>
     </div>`;
+
+  if (g.is_member && typeof initSessionChat === 'function') {
+    setTimeout(() => initSessionChat({
+      hostId: 'groupChatHost',
+      contextType: 'group',
+      contextId: g.id,
+      canSave: true,
+    }), 0);
+  }
 }
 
 function joinGroup(id) { fetch('/api/groups/'+id+'/join',{method:'POST'}).then(()=>openGroup(id)); }
@@ -337,4 +362,5 @@ function submitCreate(e) {
 
 loadGroups();
 </script>
+<script src="/static/js/session-chat.js"></script>
 {% endblock %}

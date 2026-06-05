@@ -627,7 +627,7 @@ main {
       <div style="margin-top:1.5rem;display:flex;gap:14px;flex-wrap:wrap;justify-content:center;max-width:520px;width:100%;">
         <div style="flex:1;min-width:140px;display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--accent-soft);border-radius:12px;font-size:0.78rem;color:var(--text-primary);">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          <div><div style="font-weight:700;">Snap &amp; Solve</div><div style="font-size:0.72rem;color:var(--text-muted);">Tap the camera to upload a problem.</div></div>
+          <div><div style="font-weight:700;">Snap &amp; Solve</div><div style="font-size:0.72rem;color:var(--text-muted);">Use your camera or upload a photo of any problem.</div></div>
         </div>
         <div style="flex:1;min-width:140px;display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--accent-soft);border-radius:12px;font-size:0.78rem;color:var(--text-primary);">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
@@ -673,8 +673,8 @@ main {
           aria-label="Your question"
           onkeydown="handleTutorKey(event)"
           oninput="autoResizeTutor(this)"></textarea>
-        <input type="file" id="snapFileInput" accept="image/*" style="display:none;" onchange="handleSnapFile(this)">
-        <button class="tutor-icon-btn" id="snapBtn" onclick="document.getElementById('snapFileInput').click()" aria-label="Snap and Solve">
+        <input type="file" id="snapFileInput" accept="image/*" capture="environment" style="display:none;" onchange="handleSnapFile(this)">
+        <button class="tutor-icon-btn" id="snapBtn" onclick="openSnapMenu(event)" aria-label="Snap and Solve" aria-haspopup="true">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
           <span class="ib-tip">Snap &amp; Solve</span>
         </button>
@@ -696,6 +696,23 @@ main {
 
   </div><!-- /tutor-main -->
 </div><!-- /tutor-shell -->
+
+<!-- Camera capture modal -->
+<div id="snapCameraModal" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:1.25rem;max-width:520px;width:100%;box-shadow:var(--shadow-lg);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h3 style="margin:0;font-family:var(--font-display);font-size:1.1rem;">Snap a problem</h3>
+      <button type="button" onclick="closeSnapCamera()" style="background:none;border:none;font-size:1.3rem;color:var(--text-muted);cursor:pointer;">×</button>
+    </div>
+    <video id="snapVideo" autoplay playsinline muted style="width:100%;border-radius:12px;background:#000;aspect-ratio:4/3;object-fit:cover;"></video>
+    <canvas id="snapCanvas" style="display:none;"></canvas>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+      <button type="button" class="btn-primary" onclick="captureSnapPhoto()" style="flex:1;padding:11px;border:none;cursor:pointer;">Capture photo</button>
+      <button type="button" class="btn-secondary" onclick="document.getElementById('snapFileInput').click();closeSnapCamera();" style="flex:1;padding:11px;cursor:pointer;">Upload instead</button>
+    </div>
+    <p id="snapCameraErr" style="font-size:0.78rem;color:var(--high);margin:8px 0 0;min-height:1.1em;"></p>
+  </div>
+</div>
 
 <script>
 const SUGGESTIONS = {
@@ -913,6 +930,80 @@ function autoResizeTutor(el) {
 // ── Snap & Solve state ────────────────────────────────────────
 let pendingImageB64 = null;
 let pendingImageMime = 'image/jpeg';
+let snapStream = null;
+
+function openSnapMenu(e) {
+  if (e && e.shiftKey) {
+    document.getElementById('snapFileInput').click();
+    return;
+  }
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    openSnapCamera();
+  } else {
+    document.getElementById('snapFileInput').click();
+  }
+}
+
+async function openSnapCamera() {
+  const modal = document.getElementById('snapCameraModal');
+  const video = document.getElementById('snapVideo');
+  const errEl = document.getElementById('snapCameraErr');
+  errEl.textContent = '';
+  modal.style.display = 'flex';
+  try {
+    if (snapStream) snapStream.getTracks().forEach(t => t.stop());
+    snapStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } },
+      audio: false,
+    });
+    video.srcObject = snapStream;
+  } catch (err) {
+    errEl.textContent = 'Camera unavailable — try uploading a photo instead.';
+    console.warn('Camera error:', err);
+  }
+}
+
+function closeSnapCamera() {
+  const modal = document.getElementById('snapCameraModal');
+  if (modal) modal.style.display = 'none';
+  if (snapStream) {
+    snapStream.getTracks().forEach(t => t.stop());
+    snapStream = null;
+  }
+}
+
+function captureSnapPhoto() {
+  const video = document.getElementById('snapVideo');
+  const canvas = document.getElementById('snapCanvas');
+  if (!video.videoWidth) {
+    document.getElementById('snapCameraErr').textContent = 'Camera not ready yet — wait a moment.';
+    return;
+  }
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+  pendingImageMime = 'image/jpeg';
+  pendingImageB64 = dataUrl.split(',')[1];
+  document.getElementById('tutorImgThumb').src = dataUrl;
+  document.getElementById('tutorImgName').textContent = 'Camera capture';
+  document.getElementById('tutorImgPreview').style.display = 'flex';
+  document.getElementById('snapBtn').classList.add('active');
+  document.getElementById('tutorInput').placeholder = 'Ask about this image…';
+  closeSnapCamera();
+  document.getElementById('tutorInput').focus();
+}
+
+function applySnapImage(dataUrl, label) {
+  pendingImageMime = 'image/jpeg';
+  pendingImageB64 = dataUrl.split(',')[1];
+  document.getElementById('tutorImgThumb').src = dataUrl;
+  document.getElementById('tutorImgName').textContent = label || 'Photo';
+  document.getElementById('tutorImgPreview').style.display = 'flex';
+  document.getElementById('snapBtn').classList.add('active');
+  document.getElementById('tutorInput').placeholder = 'Ask about this image…';
+}
 
 function handleSnapFile(fileInput) {
   const file = fileInput.files[0];
@@ -921,13 +1012,7 @@ function handleSnapFile(fileInput) {
   pendingImageMime = file.type || 'image/jpeg';
   const reader = new FileReader();
   reader.onload = e => {
-    const dataUrl = e.target.result;
-    pendingImageB64 = dataUrl.split(',')[1];
-    document.getElementById('tutorImgThumb').src = dataUrl;
-    document.getElementById('tutorImgName').textContent = file.name;
-    document.getElementById('tutorImgPreview').style.display = 'flex';
-    document.getElementById('snapBtn').classList.add('active');
-    document.getElementById('tutorInput').placeholder = 'Ask about this image…';
+    applySnapImage(e.target.result, file.name);
     document.getElementById('tutorInput').focus();
   };
   reader.readAsDataURL(file);
@@ -1002,11 +1087,39 @@ function toggleTts() {
 document.addEventListener('DOMContentLoaded', _renderTtsState);
 _renderTtsState();
 
+let _ttsVoice = null;
+function _pickNaturalVoice() {
+  const voices = window.speechSynthesis ? speechSynthesis.getVoices() : [];
+  if (!voices.length) return null;
+  const prefer = [
+    /google.*english.*female/i, /microsoft.*aria/i, /microsoft.*jenny/i,
+    /samantha/i, /karen/i, /victoria/i, /zira/i, /natural/i, /neural/i,
+    /en-us/i, /en_us/i,
+  ];
+  for (const pat of prefer) {
+    const v = voices.find(v => pat.test(v.name) && v.lang && v.lang.startsWith('en'));
+    if (v) return v;
+  }
+  return voices.find(v => v.lang && v.lang.startsWith('en')) || voices[0];
+}
+if (window.speechSynthesis) {
+  speechSynthesis.onvoiceschanged = () => { _ttsVoice = _pickNaturalVoice(); };
+  _ttsVoice = _pickNaturalVoice();
+}
+
 function speakReply(text) {
   if (!ttsEnabled || !window.speechSynthesis) return;
-  const clean = text.replace(/[#*`_~\[\]]/g, '').trim();
+  const clean = text
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/[#*`_~\[\]]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 1200);
+  if (!clean) return;
   const utt = new SpeechSynthesisUtterance(clean);
-  utt.rate = 1.05;
+  utt.rate = 0.98;
+  utt.pitch = 1.02;
+  if (_ttsVoice) utt.voice = _ttsVoice;
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(utt);
 }

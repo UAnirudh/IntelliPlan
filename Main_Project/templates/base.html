@@ -1571,6 +1571,9 @@ body {
     <a href="/study-and-learn" data-nav-item="study_hub" class="side-link {% if active_page in _study_sub %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-study"/></svg></span>Study &amp; Learn
     </a>
+    <a href="/streak" data-nav-item="streak" class="side-link {% if active_page == 'streak' %}active{% endif %}">
+      <span class="side-icon"><svg><use href="#i-fire"/></svg></span>Streak
+    </a>
 
   </div>
 
@@ -1623,6 +1626,9 @@ body {
       <div class="nav-group">
         <a href="/dashboard" class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-dashboard"/></svg></span><span class="nav-label">Home</span></a>
         <a href="/tutor"     class="nav-tab nav-tab-tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-tutor"/></svg></span><span class="nav-label">Tutor</span></a>
+        <a href="/gradebook" class="nav-tab {% if active_page in ['gradebook','grademodel'] %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-modeler"/></svg></span><span class="nav-label">Grades</span></a>
+        <a href="/study-and-learn" class="nav-tab {% if active_page in _study_sub %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-study"/></svg></span><span class="nav-label">Study</span></a>
+        <a href="/streak"    class="nav-tab {% if active_page == 'streak' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-fire"/></svg></span><span class="nav-label">Streak</span></a>
         <div class="nav-dropdown">
           <button class="dropdown-toggle" aria-haspopup="true"><span class="nav-tab-icon"><svg><use href="#i-priority"/></svg></span><span class="nav-label">Plan</span> <span class="chevron" aria-hidden="true">▾</span></button>
           <div class="dropdown-panel" role="menu">
@@ -2327,7 +2333,7 @@ if (mobileMenuBtn) {
 
   // Section labels and the items inside each (must match data-nav-item attrs)
   const SECTIONS = [
-    { key:'top', label:'Main', items:['dashboard','scheduler','gradebook','study_hub'] },
+    { key:'top', label:'Main', items:['dashboard','scheduler','gradebook','study_hub','streak'] },
   ];
   const NEVER_HIDE = new Set(['dashboard']); // always keep Dashboard reachable
 

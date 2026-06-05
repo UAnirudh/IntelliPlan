@@ -1,8 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
 <style>
-  .live-wrap { display:grid; grid-template-columns: minmax(0, 1fr) 320px; gap:1.25rem; align-items:start; }
-  @media (max-width:1000px){ .live-wrap{ grid-template-columns: 1fr; } }
+  .live-wrap { display:grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, 360px); gap:1.25rem; align-items:start; }
+  @media (max-width:1100px){ .live-wrap{ grid-template-columns: 1fr; } }
+  .live-side { display:flex; flex-direction:column; gap:1rem; }
+  .sess-chat-log { max-height:220px; overflow-y:auto; border:1px solid var(--border); border-radius:12px; padding:10px; background:var(--bg); margin-bottom:8px; }
+  .sess-chat-msg { padding:8px 0; border-bottom:1px solid var(--border); font-size:0.84rem; }
+  .sess-chat-msg:last-child { border-bottom:0; }
+  .sess-chat-meta { font-size:0.72rem; color:var(--text-muted); margin-bottom:3px; }
+  .sess-chat-body { color:var(--text-primary); line-height:1.45; word-break:break-word; }
+  .sess-chat-save { margin-top:6px; padding:4px 10px; font-size:0.72rem; border-radius:8px; border:1px solid var(--border); background:var(--bg-card); cursor:pointer; color:var(--accent); }
+  .sess-chat-compose textarea { width:100%; min-height:72px; padding:10px; border:1px solid var(--border-strong); border-radius:10px; background:var(--bg); color:var(--text-primary); font-family:var(--font-body); font-size:0.86rem; resize:vertical; }
+  .sess-chat-actions { display:flex; align-items:center; gap:10px; margin-top:8px; }
+  .sess-chat-empty { font-size:0.82rem; color:var(--text-muted); text-align:center; padding:1rem 0; }
   .live-card {
     background:var(--bg-card); border:1px solid var(--border);
     border-radius:18px; padding:1.25rem 1.4rem; box-shadow:var(--shadow);
@@ -63,7 +73,8 @@
     {% if session.topic %}<p class="page-subtitle">Topic: {{ session.topic }}</p>{% endif %}
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-    <a href="/groups" class="btn-secondary" style="padding:9px 16px;text-decoration:none;font-size:0.84rem;">← Back to groups</a>
+    <a href="/dashboard" class="btn-secondary" style="padding:9px 16px;text-decoration:none;font-size:0.84rem;">← Dashboard</a>
+    <a href="/groups" class="btn-secondary" style="padding:9px 16px;text-decoration:none;font-size:0.84rem;">Study Groups</a>
     <button onclick="popoutMeeting()" type="button" class="btn-secondary" style="padding:9px 14px;font-size:0.84rem;cursor:pointer;" title="Open meeting in its own window">⧉ Pop out</button>
     <a href="{{ session.room_url }}" target="_blank" rel="noopener" class="btn-primary" style="padding:9px 16px;text-decoration:none;font-size:0.84rem;">Open full meeting</a>
   </div>
@@ -106,20 +117,28 @@
     </div>
   </div>
 
-  <div class="live-card">
-    <div class="live-card-title">Materials</div>
-    <p style="font-size:0.84rem;color:var(--text-secondary);margin-bottom:0.75rem;">
-      Drop in notes, links, or formulas you want everyone in the room to see. Saves for anyone who joins this session.
-    </p>
-    <textarea id="materialsBox" class="materials-textarea" placeholder="Paste notes, links, formulas, anything you want to share with the room..."{% if not session.is_owner %} readonly{% endif %}>{{ session.materials }}</textarea>
-    {% if session.is_owner %}
-    <button onclick="saveMaterials()" class="btn-primary" style="margin-top:10px;padding:9px 18px;border:none;cursor:pointer;font-size:0.86rem;">Save materials</button>
-    <span id="matStatus" style="margin-left:10px;font-size:0.8rem;color:var(--text-muted);"></span>
-    {% else %}
-    <div style="margin-top:8px;font-size:0.78rem;color:var(--text-muted);">Only the session owner can edit materials. Materials refresh every 30s.</div>
-    {% endif %}
+  <div class="live-side">
+    <div class="live-card">
+      <div class="live-card-title">Room chat &amp; materials</div>
+      <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:0.65rem;">
+        Chat with everyone in the session. Save any message to your notes library.
+      </p>
+      <div id="sessionChatHost"></div>
+    </div>
+    <div class="live-card">
+      <div class="live-card-title">Pinned materials</div>
+      <textarea id="materialsBox" class="materials-textarea" style="min-height:140px;" placeholder="Paste notes, links, formulas for the room…"{% if not session.is_owner %} readonly{% endif %}>{{ session.materials }}</textarea>
+      {% if session.is_owner %}
+      <button onclick="saveMaterials()" class="btn-primary" style="margin-top:10px;padding:9px 18px;border:none;cursor:pointer;font-size:0.86rem;">Save materials</button>
+      <span id="matStatus" style="margin-left:10px;font-size:0.8rem;color:var(--text-muted);"></span>
+      {% else %}
+      <div style="margin-top:8px;font-size:0.78rem;color:var(--text-muted);">Owner edits materials · refreshes every 30s</div>
+      {% endif %}
+    </div>
   </div>
 </div>
+
+<script src="/static/js/session-chat.js"></script>
 
 <script>
 const SESS_ID = {{ session.id }};
@@ -259,5 +278,12 @@ setInterval(() => {
   }).catch(() => {});
 }, 30000);
 {% endif %}
+
+initSessionChat({
+  hostId: 'sessionChatHost',
+  contextType: 'live',
+  contextId: SESS_ID,
+  canSave: true,
+});
 </script>
 {% endblock %}

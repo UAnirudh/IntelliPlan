@@ -590,7 +590,17 @@
       <h2 style="font-family:var(--font-display); font-size:1.15rem; font-weight:800; color:var(--text-primary); margin:0;">Import Syllabus</h2>
       <button onclick="closeSyllabusModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
-    <p style="font-size:0.84rem; color:var(--text-muted); margin:0 0 1.25rem;">Upload your course syllabus PDF and Plani will extract all assignments and deadlines automatically.</p>
+    <p style="font-size:0.84rem; color:var(--text-muted); margin:0 0 1rem;">Upload syllabi for different classes — each import is saved so you can re-use assignments later.</p>
+
+    <div class="form-group" style="margin-bottom:1rem;">
+      <label class="form-label" for="syllabusCourseName">Course name</label>
+      <input type="text" id="syllabusCourseName" class="form-input" placeholder="e.g. AP Biology, Algebra II" maxlength="160">
+    </div>
+
+    <div id="savedSyllabiWrap" style="display:none; margin-bottom:1rem;">
+      <div style="font-family:var(--font-ui); font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); margin-bottom:6px;">Saved syllabi</div>
+      <div id="savedSyllabiList" style="display:flex; flex-direction:column; gap:6px; max-height:140px; overflow-y:auto;"></div>
+    </div>
 
     <!-- Upload area -->
     <div id="syllabusDropZone" style="border:2px dashed var(--border); border-radius:14px; padding:2rem; text-align:center; cursor:pointer; transition:border-color 0.15s, background 0.15s;" onclick="document.getElementById('syllabusFileInput').click()" ondragover="event.preventDefault();this.style.borderColor='var(--accent)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="handleSyllabusDrop(event)">
@@ -1357,19 +1367,41 @@ function renderColumn(listId, countId, tasks) {
 // ── ACTIONS ───────────────────────────────────────────────────
 const DASH_TEST_RE = /\btest(s|ing)?\b/i;
 
+function _dashToast(msg, link) {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0d0d0d;color:#fff;padding:10px 18px;border-radius:10px;font-size:0.84rem;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);display:flex;align-items:center;gap:12px;';
+  el.innerHTML = `<span>${msg}</span>` + (link ? `<a href="${link}" style="color:#93c5fd;text-decoration:none;font-weight:700;">View →</a>` : '');
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
 function dashMarkAsTest(e, title, taskObj, btn) {
   e.stopPropagation();
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
   fetch('/test/mark', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(taskObj)
   }).then(r => r.json()).then(d => {
     if (d.status === 'ok') {
-      btn.textContent = 'In Tests';
+      btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><use href="#i-check-circle"/></svg> In Tests';
       btn.disabled = true;
-      btn.style.opacity = '0.55';
+      btn.style.opacity = '0.7';
+      btn.title = 'Open Tests page';
+      btn.onclick = (ev) => { ev.stopPropagation(); window.location.href = '/tests'; };
+      _dashToast(d.already_marked ? 'Already in Tests' : 'Added to Tests', '/tests');
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = orig;
+      alert(d.message || 'Could not mark as test');
     }
-  }).catch(() => {});
+  }).catch(() => {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+    alert('Network error — try again.');
+  });
 }
 
 function autoDashMarkTests(tasks) {
@@ -1474,6 +1506,39 @@ function openSyllabusModal() {
   document.getElementById('syllabusDropLabel').innerHTML = 'Drop your PDF here or <span style="color:var(--accent);font-weight:600;">browse</span>';
   document.getElementById('syllabusFileInput').value = '';
   _syllabusAssignments = [];
+  loadSavedSyllabi();
+}
+
+async function loadSavedSyllabi() {
+  const wrap = document.getElementById('savedSyllabiWrap');
+  const list = document.getElementById('savedSyllabiList');
+  if (!wrap || !list) return;
+  try {
+    const res = await fetch('/api/syllabus/records');
+    const data = await res.json();
+    const rows = (data.records || []);
+    if (!rows.length) { wrap.style.display = 'none'; return; }
+    wrap.style.display = 'block';
+    list.innerHTML = rows.map(r => `
+      <button type="button" onclick="openSavedSyllabus(${r.id})" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg);cursor:pointer;text-align:left;width:100%;">
+        <span style="font-size:0.84rem;font-weight:600;color:var(--text-primary);">${_sEsc(r.course_name || r.filename || 'Syllabus')}</span>
+        <span style="font-size:0.72rem;color:var(--text-muted);white-space:nowrap;">${r.count || 0} items</span>
+      </button>`).join('');
+  } catch (e) { wrap.style.display = 'none'; }
+}
+
+async function openSavedSyllabus(id) {
+  try {
+    const res = await fetch('/api/syllabus/records/' + id);
+    const data = await res.json();
+    if (data.status !== 'ok') throw new Error(data.message || 'Could not load');
+    _syllabusAssignments = data.assignments || [];
+    if (data.course_name) document.getElementById('syllabusCourseName').value = data.course_name;
+    document.getElementById('syllabusStatus').style.display = 'none';
+    renderSyllabusResults(_syllabusAssignments);
+  } catch (err) {
+    alert(err.message || 'Could not load syllabus');
+  }
 }
 function closeSyllabusModal() {
   document.getElementById('syllabusModal').style.display = 'none';
@@ -1503,6 +1568,8 @@ async function processSyllabusFile(file) {
 
   const fd = new FormData();
   fd.append('file', file);
+  const courseName = (document.getElementById('syllabusCourseName')?.value || '').trim();
+  if (courseName) fd.append('course_name', courseName);
   try {
     const res = await fetch('/api/syllabus/import', { method: 'POST', body: fd });
     const data = await res.json();
@@ -1541,6 +1608,7 @@ async function importSelectedSyllabus() {
 
   const btn = document.querySelector('#syllabusResults .btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = 'Adding…'; }
+  const defaultCourse = (document.getElementById('syllabusCourseName')?.value || '').trim() || 'Personal';
 
   let added = 0;
   for (const item of selected) {
@@ -1551,7 +1619,7 @@ async function importSelectedSyllabus() {
         body: JSON.stringify({
           title: item.title || 'Untitled',
           due_date: item.due_date || '',
-          course: item.course || 'Personal',
+          course: item.course || defaultCourse,
           notes: item.description || '',
           priority: 'Medium',
           estimated_time: 60,

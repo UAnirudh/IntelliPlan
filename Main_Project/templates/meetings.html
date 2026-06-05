@@ -249,8 +249,12 @@
       <option value="slack">Slack</option>
       <option value="other">Other</option>
     </select>
-    <label for="m-when">When (optional)</label>
+    <label for="m-when">Schedule (optional)</label>
     <input type="text" id="m-when" placeholder="e.g. Mon/Wed/Fri 10:30 AM">
+    <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:0.86rem;color:var(--text-secondary);cursor:pointer;">
+      <input type="checkbox" id="m-recurring" style="accent-color:var(--accent);width:16px;height:16px;">
+      Recurring meeting (saved to your account)
+    </label>
     <div class="modal-actions">
       <button class="btn-secondary" type="button" onclick="closeSaveModal()" style="padding:9px 14px;">Cancel</button>
       <button class="btn-primary"   type="button" onclick="saveMeeting()"   style="padding:9px 14px;">Save</button>
@@ -260,6 +264,7 @@
 
 <script>
 const STORAGE_KEY = 'ip_meeting_links';
+let _meetingsCache = [];
 const PLATFORM_META = {
   teams:   { label:'Teams',   cls:'teams',   short:'T' },
   zoom:    { label:'Zoom',    cls:'zoom',    short:'Z' },
@@ -270,12 +275,47 @@ const PLATFORM_META = {
   other:   { label:'Link',    cls:'teams',   short:'•' },
 };
 
-function loadLinks() {
+function loadLinksLocal() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
   catch(e) { return []; }
 }
-function saveLinks(arr) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); } catch(e){}
+async function loadLinks() {
+  try {
+    const res = await fetch('/api/meetings/saved');
+    const data = await res.json();
+    if (data.status === 'ok' && Array.isArray(data.meetings)) {
+      _meetingsCache = data.meetings.map(m => ({
+        id: m.id,
+        name: m.name,
+        url: m.url,
+        when: m.schedule_text || '',
+        platform: m.platform || 'other',
+        is_recurring: !!m.is_recurring,
+      }));
+      return _meetingsCache;
+    }
+  } catch (e) { /* fall through */ }
+  return _meetingsCache;
+}
+async function migrateLocalMeetings() {
+  const local = loadLinksLocal();
+  if (!local.length) return;
+  for (const m of local) {
+    try {
+      await fetch('/api/meetings/saved', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: m.name,
+          url: m.url,
+          platform: m.platform || detectPlatform(m.url),
+          schedule_text: m.when || '',
+          is_recurring: /mon|tue|wed|thu|fri|sat|sun|daily|weekly|recur/i.test(m.when || ''),
+        }),
+      });
+    } catch (e) { /* skip */ }
+  }
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
 }
 function detectPlatform(url) {
   const u = (url || '').toLowerCase();
@@ -288,8 +328,8 @@ function detectPlatform(url) {
   return 'other';
 }
 
-function renderLinks() {
-  const arr = loadLinks();
+async function renderLinks() {
+  const arr = await loadLinks();
   const host = document.getElementById('linksGrid');
   const empty = document.getElementById('emptyState');
   if (!arr.length) {
@@ -298,7 +338,7 @@ function renderLinks() {
     return;
   }
   empty.style.display = 'none';
-  host.innerHTML = arr.map((m, i) => {
+  host.innerHTML = arr.map((m) => {
     const meta = PLATFORM_META[m.platform] || PLATFORM_META.other;
     const url  = safeUrl(m.url);
     const joinBtn = url
@@ -311,16 +351,16 @@ function renderLinks() {
           <div class="lc-title">${escapeHtml(m.name)}</div>
           <span class="lc-badge">${meta.label}</span>
         </div>
-        ${m.when ? `<div class="lc-sub">⏰ ${escapeHtml(m.when)}</div>` : ''}
+        ${m.when ? `<div class="lc-sub">⏰ ${escapeHtml(m.when)}${m.is_recurring ? ' · Recurring' : ''}</div>` : (m.is_recurring ? '<div class="lc-sub">🔁 Recurring</div>' : '')}
         <div class="lc-sub">${escapeHtml(m.url)}</div>
         <div class="lc-row">
           ${joinBtn}
-          <button class="lc-del" type="button" data-del-idx="${i}" aria-label="Delete"><svg width="14" height="14"><use href="#i-trash"/></svg></button>
+          <button class="lc-del" type="button" data-del-id="${m.id}" aria-label="Delete"><svg width="14" height="14"><use href="#i-trash"/></svg></button>
         </div>
       </div>`;
   }).join('');
-  host.querySelectorAll('[data-del-idx]').forEach(btn => {
-    btn.addEventListener('click', () => deleteLink(parseInt(btn.dataset.delIdx, 10)));
+  host.querySelectorAll('[data-del-id]').forEach(btn => {
+    btn.addEventListener('click', () => deleteLink(parseInt(btn.dataset.delId, 10)));
   });
 }
 
@@ -347,10 +387,11 @@ function openSaveModal(prefillPlatform) {
 }
 function closeSaveModal() { document.getElementById('saveModal').classList.remove('open'); }
 
-function saveMeeting() {
+async function saveMeeting() {
   const name = document.getElementById('m-name').value.trim().slice(0, 120);
   const rawUrl = document.getElementById('m-url').value.trim();
   const when = document.getElementById('m-when').value.trim().slice(0, 120);
+  const recurring = document.getElementById('m-recurring').checked;
   let platform = document.getElementById('m-platform').value;
   if (!name || !rawUrl) {
     alert('Please enter both a name and a URL.');
@@ -362,18 +403,34 @@ function saveMeeting() {
     return;
   }
   if (platform === 'other') platform = detectPlatform(url);
-  const arr = loadLinks();
-  arr.push({ name, url, when, platform, created: Date.now() });
-  saveLinks(arr);
-  closeSaveModal();
-  renderLinks();
+  try {
+    const res = await fetch('/api/meetings/saved', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name, url, platform,
+        schedule_text: when,
+        is_recurring: recurring || /mon|tue|wed|thu|fri|sat|sun|daily|weekly/i.test(when),
+      }),
+    });
+    const data = await res.json();
+    if (data.status !== 'ok') throw new Error(data.message || 'Save failed');
+    closeSaveModal();
+    await renderLinks();
+  } catch (e) {
+    alert(e.message || 'Could not save meeting');
+  }
 }
 
-function deleteLink(idx) {
-  const arr = loadLinks();
-  arr.splice(idx, 1);
-  saveLinks(arr);
-  renderLinks();
+async function deleteLink(id) {
+  if (!confirm('Remove this saved meeting?')) return;
+  try {
+    await fetch('/api/meetings/saved/' + id, { method: 'DELETE' });
+    _meetingsCache = _meetingsCache.filter(m => m.id !== id);
+    await renderLinks();
+  } catch (e) {
+    alert('Could not delete meeting');
+  }
 }
 
 function quickJoin(e) {
@@ -396,6 +453,9 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeSaveModal();
 });
 
-renderLinks();
+(async function initMeetings() {
+  await migrateLocalMeetings();
+  await renderLinks();
+})();
 </script>
 {% endblock %}

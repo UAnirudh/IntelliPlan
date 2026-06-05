@@ -618,10 +618,41 @@
     </div>
   </div>
 
+  <!-- ── LMS data sources ─────────────────────────── -->
+  <div class="settings-section">
+    <div class="settings-section-title">Grades &amp; assignment sources</div>
+    <p style="font-size:0.86rem;color:var(--text-secondary);margin:0 0 1rem;line-height:1.55;">
+      Many schools use different platforms for grades vs assignments. Choose which connected accounts IntelliPlan should use.
+    </p>
+    <div id="lmsSourcesPanel" style="display:flex;flex-direction:column;gap:1rem;">
+      <div class="form-group">
+        <label class="form-label" for="gradeSourceSelect">Grades displayed from</label>
+        <select id="gradeSourceSelect" class="form-input">
+          <option value="active">Active connected school</option>
+          <option value="canvas">Canvas</option>
+          <option value="studentvue">StudentVue</option>
+          <option value="schoology">Schoology</option>
+        </select>
+      </div>
+      <div>
+        <div class="form-label" style="margin-bottom:8px;">Assignments pulled from</div>
+        <div id="assignmentSourcesList" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+      <button type="button" id="saveLmsSourcesBtn" class="btn-primary" style="align-self:flex-start;padding:10px 20px;border:none;cursor:pointer;font-size:0.86rem;">Save preferences</button>
+      <span id="lmsSourcesStatus" style="font-size:0.8rem;color:var(--text-muted);min-height:1.1em;"></span>
+    </div>
+  </div>
+
   <!-- ── Connected Schools ────────────────────────── -->
   <div class="settings-section">
     <div class="settings-section-title">Connected Schools</div>
     <div id="linkedAccounts"></div>
+    <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;">
+      <a href="/connect" class="btn-primary" style="text-decoration:none;padding:8px 16px;font-size:0.84rem;">+ Connect LMS</a>
+      <a href="/oauth/canvas" class="btn-secondary" style="text-decoration:none;padding:8px 16px;font-size:0.84rem;">Canvas</a>
+      <a href="/login/studentvue" class="btn-secondary" style="text-decoration:none;padding:8px 16px;font-size:0.84rem;">StudentVue</a>
+      <a href="/login/schoology" class="btn-secondary" style="text-decoration:none;padding:8px 16px;font-size:0.84rem;">Schoology</a>
+    </div>
   </div>
 
 </div>
@@ -1501,6 +1532,76 @@ function disconnectLms(provider) {
 }
 
 refreshLmsStatuses();
+
+const ASSIGNMENT_SOURCE_OPTS = [
+  { id: 'active', label: 'Active connected school (Canvas / StudentVue / Schoology)' },
+  { id: 'google_classroom', label: 'Google Classroom' },
+  { id: 'blackboard', label: 'Blackboard Learn' },
+  { id: 'moodle', label: 'Moodle' },
+  { id: 'notion', label: 'Notion tasks' },
+  { id: 'manual', label: 'Manual tasks you create' },
+];
+
+function renderAssignmentSources(selected) {
+  const host = document.getElementById('assignmentSourcesList');
+  if (!host) return;
+  const set = new Set(selected || []);
+  host.innerHTML = ASSIGNMENT_SOURCE_OPTS.map(opt => `
+    <label style="display:flex;align-items:center;gap:10px;font-size:0.86rem;color:var(--text-secondary);cursor:pointer;">
+      <input type="checkbox" data-src="${opt.id}" ${set.has(opt.id) ? 'checked' : ''} style="accent-color:var(--accent);width:16px;height:16px;">
+      ${opt.label}
+    </label>`).join('');
+}
+
+async function loadLmsSources() {
+  const panel = document.getElementById('lmsSourcesPanel');
+  if (!panel) return;
+  try {
+    const res = await fetch('/api/settings/lms-sources');
+    if (res.status === 401) {
+      panel.innerHTML = '<p style="font-size:0.86rem;color:var(--text-muted);">Sign in to customize grade and assignment sources.</p>';
+      return;
+    }
+    const data = await res.json();
+    if (data.status !== 'ok') return;
+    const prefs = data.preferences || {};
+    const sel = document.getElementById('gradeSourceSelect');
+    if (sel) sel.value = prefs.grade_source || 'active';
+    renderAssignmentSources(prefs.assignment_sources || []);
+  } catch (e) { /* ignore */ }
+}
+
+document.getElementById('saveLmsSourcesBtn')?.addEventListener('click', async () => {
+  const status = document.getElementById('lmsSourcesStatus');
+  const btn = document.getElementById('saveLmsSourcesBtn');
+  const gradeSource = document.getElementById('gradeSourceSelect')?.value || 'active';
+  const assignmentSources = Array.from(document.querySelectorAll('#assignmentSourcesList input[data-src]:checked'))
+    .map(el => el.dataset.src);
+  if (!assignmentSources.length) {
+    if (status) status.textContent = 'Select at least one assignment source.';
+    return;
+  }
+  if (btn) btn.disabled = true;
+  if (status) status.textContent = 'Saving…';
+  try {
+    const res = await fetch('/api/settings/lms-sources', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ grade_source: gradeSource, assignment_sources: assignmentSources }),
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      if (status) status.textContent = 'Saved ✓';
+    } else {
+      if (status) status.textContent = data.message || 'Save failed';
+    }
+  } catch (e) {
+    if (status) status.textContent = 'Network error';
+  }
+  if (btn) btn.disabled = false;
+});
+
+loadLmsSources();
 
 function connectNotionToken() {
   _notionModal(`

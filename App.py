@@ -230,6 +230,8 @@ class User(UserMixin, db.Model):
     parent_consent_token = db.Column(db.String(64), nullable=True)  # signed verification token
     # ── Stripe customer linkage ──
     stripe_customer_id = db.Column(db.String(64), nullable=True)
+    # JSON: {"grade_source":"active|canvas|...", "assignment_sources":["active","google_classroom",...]}
+    lms_preferences = db.Column(db.Text, default="{}")
     linked_accounts = db.relationship("LinkedAccount", backref="user", lazy=True, cascade="all, delete-orphan")
     dismissed = db.relationship("DismissedAssignment", backref="user", lazy=True, cascade="all, delete-orphan")
     descriptions = db.relationship("CustomDescription", backref="user", lazy=True, cascade="all, delete-orphan")
@@ -602,7 +604,49 @@ class LiveSession(db.Model):
     audio_enabled = db.Column(db.Boolean, default=True)
     materials = db.Column(db.Text, default="")
     is_open = db.Column(db.Boolean, default=True)
+    group_id = db.Column(db.Integer, db.ForeignKey("study_groups.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class SavedMeeting(db.Model):
+    """User-saved recurring or one-off class meeting links (Teams, Zoom, Meet, etc.)."""
+    __tablename__ = "saved_meetings"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    guest_session_id = db.Column(db.String(64), nullable=True)
+    name = db.Column(db.String(120), nullable=False)
+    url = db.Column(db.String(512), nullable=False)
+    platform = db.Column(db.String(32), default="other")
+    schedule_text = db.Column(db.String(200), default="")
+    is_recurring = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class SyllabusRecord(db.Model):
+    """Stored syllabus imports — one row per course PDF."""
+    __tablename__ = "syllabus_records"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    guest_session_id = db.Column(db.String(64), nullable=True)
+    course_name = db.Column(db.String(160), default="")
+    filename = db.Column(db.String(255), default="")
+    assignments_json = db.Column(db.Text, default="[]")
+    imported_count = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class SessionMessage(db.Model):
+    """Chat messages for live study sessions and study groups."""
+    __tablename__ = "session_messages"
+    id = db.Column(db.Integer, primary_key=True)
+    context_type = db.Column(db.String(16), nullable=False)  # live | group
+    context_id = db.Column(db.Integer, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    author_name = db.Column(db.String(120), default="Guest")
+    body = db.Column(db.Text, nullable=False)
+    saved_to_library = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 
 class StudySession(db.Model):
     __tablename__ = "study_sessions"
@@ -1091,6 +1135,55 @@ def is_logged_in():
         return True
     return "login_type" in session
 
+def _default_lms_prefs():
+    return {
+        "grade_source": "active",
+        "assignment_sources": [
+            "active", "google_classroom", "blackboard", "moodle", "notion", "manual",
+        ],
+    }
+
+
+def get_user_lms_prefs():
+    if not current_user.is_authenticated:
+        return _default_lms_prefs()
+    raw = getattr(current_user, "lms_preferences", None) or "{}"
+    try:
+        prefs = json.loads(raw) if isinstance(raw, str) else (raw or {})
+    except Exception:
+        prefs = {}
+    out = _default_lms_prefs()
+    if prefs.get("grade_source"):
+        out["grade_source"] = prefs["grade_source"]
+    if isinstance(prefs.get("assignment_sources"), list) and prefs["assignment_sources"]:
+        out["assignment_sources"] = prefs["assignment_sources"]
+    return out
+
+
+def _linked_account_by_type(login_type):
+    if not current_user.is_authenticated or not login_type:
+        return None
+    acct = LinkedAccount.query.filter_by(
+        user_id=current_user.id, login_type=login_type
+    ).order_by(LinkedAccount.is_active.desc(), LinkedAccount.id.desc()).first()
+    if not acct:
+        return None
+    creds = acct.get_credentials()
+    creds["login_type"] = acct.login_type
+    return creds
+
+
+def get_grade_account():
+    """Account used for grades/gradebook — respects user LMS preference."""
+    prefs = get_user_lms_prefs()
+    src = (prefs.get("grade_source") or "active").strip().lower()
+    if src == "active":
+        return get_active_account()
+    if src in ("canvas", "studentvue", "schoology"):
+        return _linked_account_by_type(src) or get_active_account()
+    return get_active_account()
+
+
 def get_active_account():
     if current_user.is_authenticated:
         acct = LinkedAccount.query.filter_by(user_id=current_user.id, is_active=True).first()
@@ -1114,6 +1207,12 @@ def get_active_account():
             "sv_username": session.get("sv_username"),
             "sv_password": session.get("sv_password"),
             "sv_district_url": session.get("sv_district_url"),
+        }
+    if login_type == "schoology":
+        return {
+            "login_type": "schoology",
+            "schoology_key": session.get("schoology_key"),
+            "schoology_secret": session.get("schoology_secret"),
         }
     return None
 
@@ -4550,7 +4649,7 @@ def get_courses():
 
 @app.route("/grades/data")
 def grades_data():
-    acct = get_active_account()
+    acct = get_grade_account()
     if not acct:
         return flask.jsonify([])
     login_type = acct["login_type"]
@@ -4577,7 +4676,7 @@ def grades_data():
 
 @app.route("/gradebook/detail")
 def gradebook_detail():
-    acct = get_active_account()
+    acct = get_grade_account()
     if not acct:
         return flask.jsonify([])
     if acct["login_type"] == "studentvue":
@@ -4823,8 +4922,11 @@ def mark_as_test():
     if not title:
         return flask.jsonify({"status": "error", "message": "Missing title"}), 400
     try:
+        existing_titles = get_test_titles()
+        if title in existing_titles:
+            return flask.jsonify({"status": "ok", "already_marked": True})
         save_test_mark(title, data)
-        return flask.jsonify({"status": "ok"})
+        return flask.jsonify({"status": "ok", "already_marked": False})
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)}), 500
 
@@ -5502,12 +5604,28 @@ def unified_tasks():
                         })
             except Exception as e:
                 print(f"Canvas unified error: {e}")
+        elif login_type == "schoology":
+            try:
+                from schoology_helper import get_schoology_assignments
+                raw = get_schoology_assignments(acct["schoology_key"], acct["schoology_secret"])
+                if isinstance(raw, list):
+                    for a in raw:
+                        if isinstance(a, dict) and a.get("title") not in dismissed:
+                            a["source"] = "schoology"
+                            a.setdefault("priority", "Medium")
+                            a.setdefault("color", PRIORITY_COLORS.get(a.get("priority", "Medium"), "#f59e0b"))
+                            tasks.append(a)
+            except Exception as e:
+                print(f"Schoology unified error: {e}")
+
+    lms_prefs = get_user_lms_prefs()
+    assignment_sources = set(lms_prefs.get("assignment_sources") or _default_lms_prefs()["assignment_sources"])
 
     # ── Google Classroom (independent of active LMS account) ──
     # A user may have Classroom connected alongside Canvas or StudentVue, so
     # we always check for stored Classroom tokens, not just the active account.
     try:
-        if current_user.is_authenticated:
+        if current_user.is_authenticated and "google_classroom" in assignment_sources:
             ctok, _crow = _classroom_access_token_for(current_user.id)
             if ctok:
                 for a in _classroom_fetch_assignments(ctok):
@@ -5519,7 +5637,7 @@ def unified_tasks():
 
     # ── Blackboard Learn (independent of active LMS account) ──
     try:
-        if current_user.is_authenticated:
+        if current_user.is_authenticated and "blackboard" in assignment_sources:
             btok, brow = _blackboard_access_token_for(current_user.id)
             if btok and brow and brow.institution_url:
                 for a in _blackboard_fetch_assignments(brow.institution_url, btok, brow.bb_user_id):
@@ -5531,7 +5649,7 @@ def unified_tasks():
 
     # ── Moodle (independent of active LMS account) ──
     try:
-        if current_user.is_authenticated:
+        if current_user.is_authenticated and "moodle" in assignment_sources:
             mrow = MoodleIntegration.query.filter_by(user_id=current_user.id).order_by(MoodleIntegration.id.desc()).first()
             if mrow and mrow.moodle_url and mrow.ws_token:
                 for a in _moodle_fetch_assignments(mrow.moodle_url, mrow.ws_token, mrow.moodle_user_id):
@@ -5541,7 +5659,7 @@ def unified_tasks():
     except Exception as e:
         print(f"Moodle unified error: {e}")
 
-    if NOTION_AVAILABLE:
+    if NOTION_AVAILABLE and "notion" in assignment_sources:
         try:
             notion_token, notion_db_id = get_notion_token_and_db()
             if notion_token and notion_db_id:
@@ -5552,11 +5670,14 @@ def unified_tasks():
         except Exception as e:
             print(f"Notion tasks error: {e}")
     try:
-        if current_user.is_authenticated:
-            manual = ManualTask.query.filter_by(user_id=current_user.id, done=False).all()
+        if "manual" in assignment_sources:
+            if current_user.is_authenticated:
+                manual = ManualTask.query.filter_by(user_id=current_user.id, done=False).all()
+            else:
+                gid = get_guest_session_id()
+                manual = ManualTask.query.filter_by(guest_session_id=gid, done=False).all()
         else:
-            gid = get_guest_session_id()
-            manual = ManualTask.query.filter_by(guest_session_id=gid, done=False).all()
+            manual = []
         for t in manual:
             if t.title not in dismissed:
                 tasks.append({
@@ -9303,8 +9424,8 @@ def api_start_group_meeting(group_id):
         return flask.jsonify({"status": "error", "message": "not a member"}), 403
     if g.meeting_url:
         return flask.jsonify({"status": "ok", "meeting_url": g.meeting_url})
-    room_name = f"vpaas-magic-cookie-a0f824ad588d472db70a0847bffc500e/{g.name.replace(' ', '').replace(',', '')[:20]}{g.id}{secrets_module.token_hex(4).upper()}"
-    g.meeting_url = f"https://8x8.vc/{room_name}"
+    room_slug = secrets_module.token_urlsafe(8).replace("-", "").replace("_", "")
+    g.meeting_url = f"https://meet.jit.si/intelliplan-{room_slug}"
     db.session.commit()
     return flask.jsonify({"status": "ok", "meeting_url": g.meeting_url})
 
@@ -9618,6 +9739,7 @@ def _migrate_user_columns():
         ("users", "parent_consent_granted", "BOOLEAN DEFAULT FALSE"),
         ("users", "parent_consent_token", "VARCHAR(64)"),
         ("users", "stripe_customer_id", "VARCHAR(64)"),
+        ("users", "lms_preferences", "TEXT DEFAULT '{}'"),
         # user_identities — earlier migration's columns. Without these,
         # _get_or_create_identity() blows up and registration redirects
         # to /onboarding which then 500s.
@@ -9803,7 +9925,222 @@ JSON array:"""
         print(f"[syllabus import] AI parse error: {e}")
         return jsonify({"status": "error", "message": "AI could not parse the syllabus"}), 500
 
-    return jsonify({"status": "ok", "assignments": parsed, "count": len(parsed)})
+    course_name = (request.form.get("course_name") or "").strip()[:160]
+    record_id = None
+    try:
+        if current_user.is_authenticated or get_guest_session_id():
+            rec = SyllabusRecord(
+                user_id=current_user.id if current_user.is_authenticated else None,
+                guest_session_id=None if current_user.is_authenticated else get_guest_session_id(),
+                course_name=course_name,
+                filename=f.filename if f else "",
+                assignments_json=json.dumps(parsed),
+                imported_count=0,
+            )
+            db.session.add(rec)
+            db.session.commit()
+            record_id = rec.id
+    except Exception as e:
+        print(f"[syllabus] save record error: {e}")
+
+    return jsonify({
+        "status": "ok",
+        "assignments": parsed,
+        "count": len(parsed),
+        "record_id": record_id,
+        "course_name": course_name,
+    })
+
+
+@app.route("/api/syllabus/records", methods=["GET"])
+def api_syllabus_records():
+    if current_user.is_authenticated:
+        rows = SyllabusRecord.query.filter_by(user_id=current_user.id).order_by(SyllabusRecord.created_at.desc()).limit(50).all()
+    else:
+        gid = get_guest_session_id()
+        rows = SyllabusRecord.query.filter_by(guest_session_id=gid).order_by(SyllabusRecord.created_at.desc()).limit(50).all()
+    out = []
+    for r in rows:
+        try:
+            items = json.loads(r.assignments_json or "[]")
+        except Exception:
+            items = []
+        out.append({
+            "id": r.id,
+            "course_name": r.course_name or "",
+            "filename": r.filename or "",
+            "count": len(items) if isinstance(items, list) else 0,
+            "imported_count": r.imported_count or 0,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        })
+    return jsonify({"status": "ok", "records": out})
+
+
+@app.route("/api/syllabus/records/<int:record_id>", methods=["GET"])
+def api_syllabus_record_detail(record_id):
+    r = SyllabusRecord.query.get(record_id)
+    if not r:
+        return jsonify({"status": "error", "message": "Not found"}), 404
+    if current_user.is_authenticated:
+        if r.user_id != current_user.id:
+            return jsonify({"status": "error", "message": "Forbidden"}), 403
+    elif r.guest_session_id != get_guest_session_id():
+        return jsonify({"status": "error", "message": "Forbidden"}), 403
+    try:
+        assignments = json.loads(r.assignments_json or "[]")
+    except Exception:
+        assignments = []
+    return jsonify({
+        "status": "ok",
+        "id": r.id,
+        "course_name": r.course_name,
+        "filename": r.filename,
+        "assignments": assignments,
+        "imported_count": r.imported_count,
+    })
+
+
+@app.route("/api/settings/lms-sources", methods=["GET", "PATCH"])
+def api_lms_sources():
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "login required"}), 401
+    if request.method == "GET":
+        prefs = get_user_lms_prefs()
+        accounts = LinkedAccount.query.filter_by(user_id=current_user.id).all()
+        return jsonify({
+            "status": "ok",
+            "preferences": prefs,
+            "linked_accounts": [
+                {"login_type": a.login_type, "name": a.name, "is_active": bool(a.is_active)}
+                for a in accounts
+            ],
+            "integrations": {
+                "google_classroom": bool(ClassroomIntegration.query.filter_by(user_id=current_user.id).first()),
+                "blackboard": bool(BlackboardIntegration.query.filter_by(user_id=current_user.id).first()),
+                "moodle": bool(MoodleIntegration.query.filter_by(user_id=current_user.id).first()),
+            },
+        })
+    body = request.get_json(silent=True) or {}
+    prefs = get_user_lms_prefs()
+    if body.get("grade_source"):
+        prefs["grade_source"] = str(body["grade_source"])[:32]
+    if isinstance(body.get("assignment_sources"), list):
+        prefs["assignment_sources"] = [str(s)[:32] for s in body["assignment_sources"]][:12]
+    current_user.lms_preferences = json.dumps(prefs)
+    db.session.commit()
+    return jsonify({"status": "ok", "preferences": prefs})
+
+
+@app.route("/api/meetings/saved", methods=["GET", "POST"])
+def api_saved_meetings():
+    if request.method == "GET":
+        if current_user.is_authenticated:
+            rows = SavedMeeting.query.filter_by(user_id=current_user.id).order_by(SavedMeeting.created_at.desc()).all()
+        else:
+            gid = get_guest_session_id()
+            rows = SavedMeeting.query.filter_by(guest_session_id=gid).order_by(SavedMeeting.created_at.desc()).all()
+        return jsonify({"status": "ok", "meetings": [{
+            "id": m.id, "name": m.name, "url": m.url, "platform": m.platform,
+            "schedule_text": m.schedule_text or "", "is_recurring": bool(m.is_recurring),
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+        } for m in rows]})
+    body = request.get_json(silent=True) or {}
+    name = (body.get("name") or "").strip()[:120]
+    url = (body.get("url") or "").strip()[:512]
+    if not name or not url:
+        return jsonify({"status": "error", "message": "name and url required"}), 400
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        return jsonify({"status": "error", "message": "Invalid URL"}), 400
+    m = SavedMeeting(
+        user_id=current_user.id if current_user.is_authenticated else None,
+        guest_session_id=None if current_user.is_authenticated else get_guest_session_id(),
+        name=name,
+        url=url,
+        platform=(body.get("platform") or "other")[:32],
+        schedule_text=(body.get("schedule_text") or body.get("when") or "")[:200],
+        is_recurring=bool(body.get("is_recurring")),
+    )
+    db.session.add(m)
+    db.session.commit()
+    return jsonify({"status": "ok", "id": m.id})
+
+
+@app.route("/api/meetings/saved/<int:meeting_id>", methods=["DELETE"])
+def api_delete_saved_meeting(meeting_id):
+    m = SavedMeeting.query.get(meeting_id)
+    if not m:
+        return jsonify({"status": "error"}), 404
+    if current_user.is_authenticated:
+        if m.user_id != current_user.id:
+            return jsonify({"status": "error", "message": "Forbidden"}), 403
+    elif m.guest_session_id != get_guest_session_id():
+        return jsonify({"status": "error", "message": "Forbidden"}), 403
+    db.session.delete(m)
+    db.session.commit()
+    return jsonify({"status": "ok"})
+
+
+def _session_msg_owner_filter(context_type, context_id):
+    q = SessionMessage.query.filter_by(context_type=context_type, context_id=context_id)
+    return q.order_by(SessionMessage.created_at.asc()).limit(500)
+
+
+@app.route("/api/sessions/<context_type>/<int:context_id>/messages", methods=["GET", "POST"])
+def api_session_messages(context_type, context_id):
+    if context_type not in ("live", "group"):
+        return jsonify({"status": "error", "message": "Invalid context"}), 400
+    if request.method == "GET":
+        rows = _session_msg_owner_filter(context_type, context_id).all()
+        return jsonify({"status": "ok", "messages": [{
+            "id": m.id,
+            "author_name": m.author_name,
+            "body": m.body,
+            "saved_to_library": bool(m.saved_to_library),
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+        } for m in rows]})
+    body = request.get_json(silent=True) or {}
+    text = (body.get("body") or body.get("message") or "").strip()
+    if not text:
+        return jsonify({"status": "error", "message": "Empty message"}), 400
+    if len(text) > 8000:
+        text = text[:8000]
+    author = (current_user.name or current_user.email or "Student") if current_user.is_authenticated else "Guest"
+    msg = SessionMessage(
+        context_type=context_type,
+        context_id=context_id,
+        user_id=current_user.id if current_user.is_authenticated else None,
+        author_name=author[:120],
+        body=text,
+    )
+    db.session.add(msg)
+    db.session.commit()
+    return jsonify({"status": "ok", "message": {
+        "id": msg.id,
+        "author_name": msg.author_name,
+        "body": msg.body,
+        "created_at": msg.created_at.isoformat() if msg.created_at else None,
+    }})
+
+
+@app.route("/api/sessions/messages/<int:msg_id>/save", methods=["POST"])
+def api_save_session_message(msg_id):
+    msg = SessionMessage.query.get(msg_id)
+    if not msg:
+        return jsonify({"status": "error", "message": "Not found"}), 404
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "login required"}), 401
+    msg.saved_to_library = True
+    note = CourseNote(
+        user_id=current_user.id,
+        course_name="Study Session",
+        note_date=datetime.utcnow().strftime("%Y-%m-%d"),
+        title=f"Chat — {msg.author_name}"[:255],
+        text_content=msg.body,
+    )
+    db.session.add(note)
+    db.session.commit()
+    return jsonify({"status": "ok", "note_id": note.id})
 
 
 if __name__ == "__main__":
