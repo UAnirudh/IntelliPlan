@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Google Calendar">
+  <rect width="48" height="48" rx="10" fill="#fff"/>
+  <path fill="#4285F4" d="M8 12h32v28H8z"/>
+  <path fill="#fff" d="M8 18h32v22H8z"/>
+  <rect x="14" y="24" width="6" height="6" rx="1" fill="#4285F4"/>
+  <rect x="22" y="24" width="6" height="6" rx="1" fill="#34A853"/>
+  <rect x="30" y="24" width="6" height="6" rx="1" fill="#FBBC05"/>
+  <rect x="14" y="32" width="6" height="6" rx="1" fill="#EA4335"/>
+  <rect x="22" y="32" width="6" height="6" rx="1" fill="#4285F4"/>
+  <path fill="#EA4335" d="M16 8h4v8h-4zM28 8h4v8h-4z"/>
+</svg>

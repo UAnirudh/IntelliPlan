@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "partials/lms_logo.html" import lms_logo %}
 {% block content %}
 <div class="login-wrap">
   <div class="login-card">
@@ -34,7 +35,7 @@
     <!-- Guest options, real <button> elements, not links, so they match Create Account / Sign In -->
     <div class="guest-options">
       <button type="button" class="btn-guest canvas" onclick="window.location.href='/login/canvas'">
-        <span class="icon" aria-hidden="true" style="width:32px;height:32px;border-radius:8px;background:#e66000;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:0.9rem;font-family:'DM Sans',sans-serif;flex-shrink:0;">C</span>
+        {{ lms_logo('canvas', 32) }}
         <span class="text">
           <span class="title">Canvas LMS</span>
           <span class="subtitle">Guest, connect with access token</span>
@@ -43,7 +44,7 @@
       </button>
 
       <button type="button" class="btn-guest studentvue" onclick="window.location.href='/login/studentvue'">
-        <span class="icon" aria-hidden="true" style="width:32px;height:32px;border-radius:8px;background:#16a34a;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:0.9rem;font-family:'DM Sans',sans-serif;flex-shrink:0;">S</span>
+        {{ lms_logo('studentvue', 32) }}
         <span class="text">
           <span class="title">StudentVue</span>
           <span class="subtitle">Guest, connect with district credentials</span>
@@ -52,7 +53,7 @@
       </button>
 
       <button type="button" class="btn-guest schoology" onclick="window.location.href='/login/schoology'">
-        <span class="icon" aria-hidden="true" style="width:32px;height:32px;border-radius:8px;background:#5865F2;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:0.9rem;font-family:'DM Sans',sans-serif;flex-shrink:0;">S</span>
+        {{ lms_logo('schoology', 32) }}
         <span class="text">
           <span class="title">Schoology</span>
           <span class="subtitle">API key required · <span class="highlight">not recommended</span></span>
@@ -61,7 +62,7 @@
       </button>
 
       <button type="button" class="btn-guest" onclick="window.location.href='/connect'" style="border-color:color-mix(in srgb, var(--accent) 25%, var(--border));">
-        <span class="icon" aria-hidden="true" style="width:32px;height:32px;border-radius:8px;background:#0F9D58;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:0.9rem;font-family:'DM Sans',sans-serif;flex-shrink:0;">+</span>
+        {{ lms_logo('google-classroom', 32) }}
         <span class="text">
           <span class="title">More school platforms</span>
           <span class="subtitle">Google Classroom, Blackboard, Moodle &amp; more</span>

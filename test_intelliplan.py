@@ -11,10 +11,11 @@ Run:
   pytest test_intelliplan.py -v -k "mobile"           # only responsive tests
 
 Coverage:
-  - Frontend: landing, login, register, legal, install, study hub, extension API
+  - Frontend: landing, login, register, legal, install, study hub, extension API, memories
   - Responsive: mobile (375), tablet (768), desktop (1280), wide (1920)
   - Backend: /live, /push/vapid-public, /study/access, /api/study-hub/recommend,
-    /tasks/unified, /calendar/events, /extension/* CORS preflight
+    /tasks/unified, /calendar/events, /archive/*, /schedule/save, /api/v1/docs,
+    /extension/* CORS preflight
   - Auth: every protected route redirects to /login when unauthenticated
   - Compliance: no Discord links, no ads, COPPA + password policy on /legal
   - Accessibility: page <title>, meta viewport, og:image, lang=en
@@ -79,7 +80,9 @@ class TestLandingPage:
 
     def test_get_started_button_redirects_to_login(self, page: Page):
         go(page, "/")
-        page.get_by_text("Get Started Free").first.click()
+        cta = page.get_by_role("link", name=re.compile(r"Get Started Free", re.I)).first
+        expect(cta).to_be_visible()
+        cta.click()
         assert_url_matches(page, "/login")
 
     def test_logo_links_to_home(self, page: Page):
@@ -117,6 +120,11 @@ class TestLoginPage:
     def test_login_page_loads(self, page: Page):
         go(page, "/login")
         expect(page.get_by_text("Sign in to IntelliPlan")).to_be_visible()
+
+    def test_login_shows_lms_logos(self, page: Page):
+        go(page, "/login")
+        for logo in ("canvas", "studentvue", "schoology"):
+            assert page.locator(f"img[src*='/static/logos/{logo}.svg']").count() >= 1
 
     def test_google_signin_button_visible(self, page: Page):
         go(page, "/login")
@@ -285,6 +293,7 @@ class TestAuthRedirects:
         "/dismissed",
         "/settings",
         "/profiles",
+        "/memories",
     ])
     def test_protected_page_redirects_to_login(self, page: Page, path: str):
         go(page, path)
@@ -367,6 +376,58 @@ class TestAPIEndpoints:
     def test_sitemap_xml_present(self, page: Page):
         response = page.request.get(f"{BASE_URL}/sitemap.xml")
         assert response.status in (200, 304)
+
+    def test_archive_days_requires_auth(self, page: Page):
+        response = page.request.get(f"{BASE_URL}/archive/days")
+        assert response.status == 401
+        data = response.json()
+        assert data.get("status") == "error"
+
+    def test_archive_save_requires_auth(self, page: Page):
+        response = page.request.post(
+            f"{BASE_URL}/archive/save",
+            data='{"payload":{"test":true}}',
+            headers={"Content-Type": "application/json"},
+        )
+        assert response.status == 401
+
+    def test_archive_snapshot_requires_auth(self, page: Page):
+        response = page.request.post(
+            f"{BASE_URL}/archive/snapshot",
+            data="{}",
+            headers={"Content-Type": "application/json"},
+        )
+        assert response.status == 401
+
+    def test_archive_export_redirects_to_login(self, page: Page):
+        response = page.request.get(f"{BASE_URL}/archive/export", max_redirects=0)
+        assert response.status in (302, 303, 307, 401)
+
+    def test_schedule_save_accepts_json(self, page: Page):
+        """Guest schedule save should accept well-formed JSON (200) or redirect to login."""
+        response = page.request.post(
+            f"{BASE_URL}/schedule/save",
+            data='{"schedule_data":{"schedule":[]},"name":"Test"}',
+            headers={"Content-Type": "application/json"},
+        )
+        assert response.status in (200, 302, 401)
+        if response.status == 200:
+            data = response.json()
+            assert data.get("status") in ("ok", "error")
+
+    def test_generate_schedule_requires_post(self, page: Page):
+        response = page.request.get(f"{BASE_URL}/generate_schedule")
+        assert response.status in (405, 302, 401)
+
+    def test_api_v1_docs_reachable(self, page: Page):
+        response = page.request.get(f"{BASE_URL}/api/v1/docs")
+        assert response.status in (200, 302, 401)
+
+    def test_api_stats_public(self, page: Page):
+        response = page.request.get(f"{BASE_URL}/api/stats")
+        assert response.status == 200
+        data = response.json()
+        assert isinstance(data, dict)
 
 
 class TestExtensionEndpoints:
@@ -538,9 +599,11 @@ class TestAccessibility:
 
     def test_landing_links_have_text(self, page: Page):
         go(page, "/")
-        # Every link should have either accessible text or an aria-label/title
+        # Every link should have either accessible text or an aria-label/title.
+        # Third-party widgets (Trustpilot etc.) inject icon-only links we cannot control.
         bad_links = page.locator("a").evaluate_all("""(els) => {
           return els.filter(a => {
+            if (a.closest('.trustpilot-widget, [data-tp-widget], iframe, [class*="trustpilot"]')) return false;
             const txt = (a.innerText || '').trim();
             const al  = (a.getAttribute('aria-label') || '').trim();
             const tt  = (a.getAttribute('title') || '').trim();
@@ -548,6 +611,17 @@ class TestAccessibility:
           }).length;
         }""")
         assert bad_links == 0, f"{bad_links} link(s) lack accessible text"
+
+    def test_landing_has_get_started_in_hero(self, page: Page):
+        go(page, "/")
+        hero = page.locator(".hero-actions")
+        expect(hero.get_by_role("link", name=re.compile(r"Get Started Free", re.I))).to_be_visible()
+
+    def test_landing_integration_logos_present(self, page: Page):
+        go(page, "/")
+        for logo in ("canvas", "studentvue", "schoology", "google-calendar", "notion"):
+            img = page.locator(f"img[src*='/static/logos/{logo}.svg']")
+            assert img.count() >= 1, f"Missing {logo} logo on landing page"
 
     def test_landing_images_have_alt(self, page: Page):
         go(page, "/")

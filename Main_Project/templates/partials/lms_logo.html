@@ -1,0 +1,3 @@
+{% macro lms_logo(name, size=32) %}
+<img src="/static/logos/{{ name }}.svg" alt="" width="{{ size }}" height="{{ size }}" style="width:{{ size }}px;height:{{ size }}px;border-radius:8px;flex-shrink:0;object-fit:cover;" aria-hidden="true">
+{% endmacro %}

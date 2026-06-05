@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "partials/lms_logo.html" import lms_logo %}
 {% block content %}
 <div class="login-wrap">
   <div class="login-card" style="max-width:480px;">
@@ -10,7 +11,7 @@
     <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:1.5rem;">
       <a href="/oauth/canvas" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;border:1px solid var(--border);background:var(--bg-card);text-decoration:none;color:var(--text-primary);box-shadow:var(--shadow);transition:all 0.2s;"
         onmouseover="this.style.borderColor='#e66000'" onmouseout="this.style.borderColor='var(--border)'">
-        <div style="width:42px;height:42px;border-radius:10px;background:#e66000;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-weight:800;font-size:1rem;font-family:'DM Sans',sans-serif;">C</div>
+        {{ lms_logo('canvas', 42) }}
         <div>
           <div style="font-size:0.95rem;font-weight:600;margin-bottom:2px;">Canvas LMS</div>
           <div style="font-size:0.78rem;color:var(--text-muted);">One-click OAuth, no token needed</div>
@@ -19,7 +20,7 @@
       </a>
       <a href="/login/studentvue" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;border:1px solid var(--border);background:var(--bg-card);text-decoration:none;color:var(--text-primary);box-shadow:var(--shadow);transition:all 0.2s;"
         onmouseover="this.style.borderColor='#22c55e'" onmouseout="this.style.borderColor='var(--border)'">
-        <div style="width:42px;height:42px;border-radius:10px;background:#16a34a;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-weight:800;font-size:1rem;font-family:'DM Sans',sans-serif;">S</div>
+        {{ lms_logo('studentvue', 42) }}
         <div>
           <div style="font-size:0.95rem;font-weight:600;margin-bottom:2px;">StudentVue</div>
           <div style="font-size:0.78rem;color:var(--text-muted);">Connect with district credentials</div>
@@ -28,7 +29,7 @@
       </a>
       <a href="/login/schoology" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;border:1px solid var(--border);background:var(--bg-card);text-decoration:none;color:var(--text-primary);box-shadow:var(--shadow);transition:all 0.2s;"
         onmouseover="this.style.borderColor='#5865F2'" onmouseout="this.style.borderColor='var(--border)'">
-        <div style="width:42px;height:42px;border-radius:10px;background:#5865F2;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-weight:800;font-size:1rem;font-family:'DM Sans',sans-serif;">S</div>
+        {{ lms_logo('schoology', 42) }}
         <div>
           <div style="font-size:0.95rem;font-weight:600;margin-bottom:2px;">Schoology</div>
           <div style="font-size:0.78rem;color:var(--text-muted);">API key required · <span style="color:var(--high);font-weight:600;">not recommended</span></div>
@@ -37,7 +38,7 @@
       </a>
       <button onclick="connectLms('google_classroom')" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);box-shadow:var(--shadow);transition:all 0.2s;cursor:pointer;width:100%;text-align:left;font-family:inherit;"
         onmouseover="this.style.borderColor='#0F9D58'" onmouseout="this.style.borderColor='var(--border)'">
-        <div style="width:42px;height:42px;border-radius:10px;background:#0F9D58;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-weight:800;font-size:1rem;font-family:var(--font-ui);">G</div>
+        {{ lms_logo('google-classroom', 42) }}
         <div>
           <div style="font-size:0.95rem;font-weight:600;margin-bottom:2px;">Google Classroom</div>
           <div style="font-size:0.78rem;color:var(--text-muted);">K-12 standard, sign in with your Google account</div>
@@ -46,7 +47,7 @@
       </button>
       <button onclick="connectBlackboard()" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);box-shadow:var(--shadow);transition:all 0.2s;cursor:pointer;width:100%;text-align:left;font-family:inherit;"
         onmouseover="this.style.borderColor='#000000'" onmouseout="this.style.borderColor='var(--border)'">
-        <div style="width:42px;height:42px;border-radius:10px;background:#000000;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-weight:800;font-size:1rem;font-family:var(--font-ui);">B</div>
+        {{ lms_logo('blackboard', 42) }}
         <div>
           <div style="font-size:0.95rem;font-weight:600;margin-bottom:2px;">Blackboard Learn</div>
           <div style="font-size:0.78rem;color:var(--text-muted);">North American higher ed, sign in with your school's Blackboard</div>
@@ -64,7 +65,7 @@
       </button>
       <button onclick="connectLms('moodle')" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);box-shadow:var(--shadow);transition:all 0.2s;cursor:pointer;width:100%;text-align:left;font-family:inherit;"
         onmouseover="this.style.borderColor='#F98012'" onmouseout="this.style.borderColor='var(--border)'">
-        <div style="width:42px;height:42px;border-radius:10px;background:#F98012;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-weight:800;font-size:1rem;font-family:var(--font-ui);">M</div>
+        {{ lms_logo('moodle', 42) }}
         <div>
           <div style="font-size:0.95rem;font-weight:600;margin-bottom:2px;">Moodle</div>
           <div style="font-size:0.78rem;color:var(--text-muted);">Open-source LMS used worldwide, connect with URL + token</div>

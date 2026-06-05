@@ -1452,9 +1452,6 @@ body {
 }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 </style>
-<!-- TrustBox script (Trustpilot) -->
-<script type="text/javascript" src="//widget.trustpilot.com/bootstrap/v5/tp.widget.bootstrap.min.js" async></script>
-<!-- End TrustBox script -->
 <style id="android-ux-v2">
 @media (max-width: 768px) {
   .feature-card:hover, .step-card:hover, .integration-card:hover, .review-card:hover,
@@ -1471,7 +1468,7 @@ body {
 </style>
 </head>
 
-{% set _app_pages = ['dashboard','scheduler','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','olympiad'] %}
+{% set _app_pages = ['dashboard','scheduler','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','olympiad','memories'] %}
 <body class="{% if active_page in _app_pages %}has-side{% endif %}">
 
 <a href="#main-content" class="skip-to-content">Skip to main content</a>
@@ -1565,6 +1562,9 @@ body {
     <a href="/scheduler" data-nav-item="scheduler" class="side-link {% if active_page == 'scheduler' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-scheduler"/></svg></span>Scheduler
     </a>
+    <a href="/memories" data-nav-item="memories" class="side-link {% if active_page == 'memories' %}active{% endif %}">
+      <span class="side-icon"><svg><use href="#i-save"/></svg></span>Memories
+    </a>
     <a href="/gradebook" data-nav-item="gradebook" class="side-link {% if active_page in ['gradebook','grademodel'] %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Grade Modeler
     </a>
@@ -1633,6 +1633,7 @@ body {
           <button class="dropdown-toggle" aria-haspopup="true"><span class="nav-tab-icon"><svg><use href="#i-priority"/></svg></span><span class="nav-label">Plan</span> <span class="chevron" aria-hidden="true">▾</span></button>
           <div class="dropdown-panel" role="menu">
             <a href="/scheduler" class="dropdown-item">Scheduler</a>
+            <a href="/memories" class="dropdown-item">Memories</a>
             <a href="/priority"  class="dropdown-item">Priority</a>
             <a href="/classes"   class="dropdown-item">Classes</a>
             <a href="/grades"    class="dropdown-item">Grades</a>

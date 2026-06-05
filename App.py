@@ -442,6 +442,19 @@ class SavedSchedule(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
 
+class DayArchive(db.Model):
+    """Day-by-day snapshots — schedules, resources, notes, and anything else."""
+    __tablename__ = "day_archives"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    guest_session_id = db.Column(db.String(64), nullable=True)
+    archive_date = db.Column(db.Date, nullable=False, index=True)
+    item_type = db.Column(db.String(64), nullable=False)
+    title = db.Column(db.String(256), default="")
+    payload = db.Column(db.Text, nullable=False)
+    meta_json = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 class Task:
     def __init__(self, name, deadline, duration, priority_weight=1, difficulty=1):
         self.name = name
@@ -5885,6 +5898,416 @@ def delete_saved_schedule():
         SavedSchedule.query.filter_by(guest_session_id=get_guest_session_id()).delete()
     db.session.commit()
     return flask.jsonify({"status": "ok"})
+
+# ── DAY ARCHIVE / MEMORIES ────────────────────────────────────
+ARCHIVE_TYPE_LABELS = {
+    "schedule": "Full schedule",
+    "schedule_day": "Single day",
+    "resources": "Resources",
+    "notes": "Notes",
+    "assignments": "Assignments",
+    "custom_tasks": "Custom tasks",
+    "identity": "Profile & availability",
+    "snapshot": "Full day snapshot",
+    "manual_tasks": "Manual tasks",
+    "library": "Library items",
+}
+
+def _archive_owner():
+    uid = current_user.id if current_user.is_authenticated else None
+    gid = None if current_user.is_authenticated else get_guest_session_id()
+    return uid, gid
+
+def _archive_query():
+    uid, gid = _archive_owner()
+    if uid:
+        return DayArchive.query.filter_by(user_id=uid)
+    return DayArchive.query.filter_by(guest_session_id=gid)
+
+def _parse_archive_date(value):
+    if not value:
+        return datetime.utcnow().date()
+    try:
+        return datetime.strptime(str(value)[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return datetime.utcnow().date()
+
+def _archive_row_dict(row):
+    meta = {}
+    if row.meta_json:
+        try:
+            meta = json.loads(row.meta_json)
+        except Exception:
+            meta = {}
+    return {
+        "id": row.id,
+        "date": row.archive_date.isoformat(),
+        "item_type": row.item_type,
+        "type_label": ARCHIVE_TYPE_LABELS.get(row.item_type, row.item_type.replace("_", " ").title()),
+        "title": row.title or ARCHIVE_TYPE_LABELS.get(row.item_type, "Saved item"),
+        "meta": meta,
+        "created_at": row.created_at.strftime("%b %d, %Y %I:%M %p"),
+    }
+
+def _apply_schedule_payload(payload, name=None):
+    uid, gid = _archive_owner()
+    if uid:
+        SavedSchedule.query.filter_by(user_id=uid).update({"is_active": False})
+    else:
+        SavedSchedule.query.filter_by(guest_session_id=gid).update({"is_active": False})
+    s = SavedSchedule(
+        user_id=uid,
+        guest_session_id=gid,
+        name=name or "Restored schedule",
+        schedule_data=json.dumps(payload),
+        is_active=True,
+    )
+    db.session.add(s)
+    return s
+
+def _apply_archive_item(row):
+    """Restore one archived item into the live app. Returns a short label."""
+    try:
+        payload = json.loads(row.payload)
+    except Exception:
+        return None
+    if row.item_type in ("schedule", "snapshot"):
+        sched = payload.get("schedule_data") if row.item_type == "snapshot" else payload
+        if sched:
+            _apply_schedule_payload(sched, row.title or "Restored schedule")
+            return "schedule"
+    elif row.item_type == "schedule_day":
+        day_data = payload
+        uid, gid = _archive_owner()
+        active = None
+        if uid:
+            active = SavedSchedule.query.filter_by(user_id=uid, is_active=True).order_by(SavedSchedule.created_at.desc()).first()
+        else:
+            active = SavedSchedule.query.filter_by(guest_session_id=gid, is_active=True).order_by(SavedSchedule.created_at.desc()).first()
+        if active:
+            data = json.loads(active.schedule_data)
+            days = data.get("schedule") or []
+            target_date = day_data.get("date") or row.archive_date.isoformat()
+            replaced = False
+            for i, d in enumerate(days):
+                if d.get("date") == target_date:
+                    days[i] = day_data
+                    replaced = True
+                    break
+            if not replaced:
+                days.append(day_data)
+            data["schedule"] = sorted(days, key=lambda x: x.get("date") or "")
+            active.schedule_data = json.dumps(data)
+        else:
+            _apply_schedule_payload({"schedule": [day_data]}, row.title or "Restored day")
+        return "schedule_day"
+    elif row.item_type == "custom_tasks":
+        session["archived_custom_tasks"] = payload
+        return "custom_tasks"
+    elif row.item_type == "manual_tasks":
+        if current_user.is_authenticated:
+            for t in payload if isinstance(payload, list) else []:
+                if not isinstance(t, dict):
+                    continue
+                db.session.add(ManualTask(
+                    user_id=current_user.id,
+                    title=t.get("title") or "Task",
+                    due_date=t.get("due_date") or "",
+                    priority=t.get("priority") or "medium",
+                    course=t.get("course") or "",
+                    estimated_time=t.get("estimated_time") or 60,
+                    notes=t.get("notes") or "",
+                ))
+        return "manual_tasks"
+    elif row.item_type == "identity" and current_user.is_authenticated:
+        ident = _get_or_create_identity(current_user.id)
+        for key in ("grade_level", "focus_areas", "goals", "availability", "weekly_commitments", "class_schedule"):
+            if key in payload:
+                val = payload[key]
+                if key == "focus_areas" and isinstance(val, list):
+                    ident.focus_areas = json.dumps(val)
+                elif key == "class_schedule" and isinstance(val, list):
+                    ident.class_schedule = json.dumps(val)
+                elif key == "availability" and isinstance(val, dict):
+                    ident.availability = json.dumps(val)
+                elif hasattr(ident, key):
+                    setattr(ident, key, val)
+        return "identity"
+    elif row.item_type == "resources":
+        session["archived_resources"] = payload
+        return "resources"
+    elif row.item_type == "notes":
+        session["archived_notes"] = payload
+        return "notes"
+    return row.item_type
+
+@app.route("/archive/context")
+def archive_context():
+    """Return one-shot restored context after loading a memory (custom tasks, resources)."""
+    if not is_logged_in():
+        return flask.jsonify({})
+    ctx = {}
+    for key in ("archived_custom_tasks", "archived_resources", "archived_notes"):
+        val = session.pop(key, None)
+        if val is not None:
+            ctx[key.replace("archived_", "")] = val
+    return flask.jsonify(ctx)
+
+@app.route("/memories")
+def memories_page():
+    if not is_logged_in():
+        return redirect(url_for("login"))
+    return render_template("memories.html", active_page="memories")
+
+@app.route("/archive/save", methods=["POST"])
+def archive_save():
+    if not is_logged_in():
+        return flask.jsonify({"status": "error", "message": "Login required"}), 401
+    data = request.json or {}
+    payload = data.get("payload")
+    if payload is None:
+        return flask.jsonify({"status": "error", "message": "No payload"})
+    uid, gid = _archive_owner()
+    archive_date = _parse_archive_date(data.get("date"))
+    item_type = (data.get("item_type") or "snapshot").strip()[:64]
+    title = (data.get("title") or ARCHIVE_TYPE_LABELS.get(item_type, "Saved item"))[:256]
+    meta = data.get("meta")
+    row = DayArchive(
+        user_id=uid,
+        guest_session_id=gid,
+        archive_date=archive_date,
+        item_type=item_type,
+        title=title,
+        payload=json.dumps(payload),
+        meta_json=json.dumps(meta) if meta is not None else None,
+    )
+    db.session.add(row)
+    db.session.commit()
+    return flask.jsonify({"status": "ok", "id": row.id, "date": archive_date.isoformat()})
+
+@app.route("/archive/snapshot", methods=["POST"])
+def archive_snapshot():
+    """Save everything available right now for a given day."""
+    if not is_logged_in():
+        return flask.jsonify({"status": "error", "message": "Login required"}), 401
+    data = request.json or {}
+    archive_date = _parse_archive_date(data.get("date"))
+    uid, gid = _archive_owner()
+    saved_ids = []
+    client_payload = data.get("client") or {}
+
+    if client_payload.get("schedule_data"):
+        row = DayArchive(
+            user_id=uid, guest_session_id=gid, archive_date=archive_date,
+            item_type="schedule", title=client_payload.get("schedule_name") or f"Schedule {archive_date.strftime('%b %d')}",
+            payload=json.dumps(client_payload["schedule_data"]),
+        )
+        db.session.add(row)
+        db.session.flush()
+        saved_ids.append(row.id)
+
+    if client_payload.get("custom_tasks"):
+        row = DayArchive(
+            user_id=uid, guest_session_id=gid, archive_date=archive_date,
+            item_type="custom_tasks", title="Custom tasks",
+            payload=json.dumps(client_payload["custom_tasks"]),
+        )
+        db.session.add(row)
+        db.session.flush()
+        saved_ids.append(row.id)
+
+    if client_payload.get("resources"):
+        row = DayArchive(
+            user_id=uid, guest_session_id=gid, archive_date=archive_date,
+            item_type="resources", title=client_payload.get("resources_title") or "Resources",
+            payload=json.dumps(client_payload["resources"]),
+        )
+        db.session.add(row)
+        db.session.flush()
+        saved_ids.append(row.id)
+
+    active = None
+    if uid:
+        active = SavedSchedule.query.filter_by(user_id=uid, is_active=True).order_by(SavedSchedule.created_at.desc()).first()
+    else:
+        active = SavedSchedule.query.filter_by(guest_session_id=gid, is_active=True).order_by(SavedSchedule.created_at.desc()).first()
+    if active and not client_payload.get("schedule_data"):
+        row = DayArchive(
+            user_id=uid, guest_session_id=gid, archive_date=archive_date,
+            item_type="schedule", title=active.name or "Active schedule",
+            payload=active.schedule_data,
+        )
+        db.session.add(row)
+        db.session.flush()
+        saved_ids.append(row.id)
+
+    if uid:
+        manual = ManualTask.query.filter_by(user_id=uid, done=False).all()
+        if manual:
+            row = DayArchive(
+                user_id=uid, guest_session_id=gid, archive_date=archive_date,
+                item_type="manual_tasks", title="Manual tasks",
+                payload=json.dumps([{
+                    "title": t.title, "due_date": t.due_date, "priority": t.priority,
+                    "course": t.course, "estimated_time": t.estimated_time, "notes": t.notes,
+                } for t in manual]),
+            )
+            db.session.add(row)
+            db.session.flush()
+            saved_ids.append(row.id)
+        try:
+            ident = _get_or_create_identity(uid)
+            ident_payload = ident.to_dict()
+            row = DayArchive(
+                user_id=uid, guest_session_id=gid, archive_date=archive_date,
+                item_type="identity", title="Profile & availability",
+                payload=json.dumps(ident_payload),
+            )
+            db.session.add(row)
+            db.session.flush()
+            saved_ids.append(row.id)
+        except Exception:
+            pass
+
+    if not saved_ids:
+        return flask.jsonify({"status": "error", "message": "Nothing to save"})
+    db.session.commit()
+    return flask.jsonify({"status": "ok", "ids": saved_ids, "date": archive_date.isoformat(), "count": len(saved_ids)})
+
+@app.route("/archive/days")
+def archive_days():
+    if not is_logged_in():
+        return flask.jsonify({"status": "error", "message": "Login required"}), 401
+    rows = _archive_query().order_by(DayArchive.archive_date.desc(), DayArchive.created_at.desc()).all()
+    by_date = {}
+    for row in rows:
+        key = row.archive_date.isoformat()
+        if key not in by_date:
+            by_date[key] = {"date": key, "label": row.archive_date.strftime("%A, %B %d, %Y"), "items": [], "count": 0}
+        by_date[key]["items"].append(_archive_row_dict(row))
+        by_date[key]["count"] += 1
+    days = sorted(by_date.values(), key=lambda d: d["date"], reverse=True)
+    return flask.jsonify({"status": "ok", "days": days, "total": len(rows)})
+
+@app.route("/archive/day/<date_str>")
+def archive_day(date_str):
+    if not is_logged_in():
+        return flask.jsonify({"status": "error", "message": "Login required"}), 401
+    try:
+        target = datetime.strptime(date_str[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return flask.jsonify({"status": "error", "message": "Invalid date"}), 400
+    rows = _archive_query().filter_by(archive_date=target).order_by(DayArchive.created_at.desc()).all()
+    return flask.jsonify({
+        "status": "ok",
+        "date": target.isoformat(),
+        "label": target.strftime("%A, %B %d, %Y"),
+        "items": [_archive_row_dict(r) for r in rows],
+    })
+
+@app.route("/archive/load/<int:item_id>", methods=["POST"])
+def archive_load_item(item_id):
+    if not is_logged_in():
+        return flask.jsonify({"status": "error", "message": "Login required"}), 401
+    row = _archive_query().filter_by(id=item_id).first()
+    if not row:
+        return flask.jsonify({"status": "error", "message": "Not found"}), 404
+    loaded = _apply_archive_item(row)
+    db.session.commit()
+    redirect_to = "/scheduler/saved" if loaded in ("schedule", "schedule_day", "snapshot") else "/dashboard"
+    return flask.jsonify({"status": "ok", "loaded": loaded, "redirect": redirect_to})
+
+@app.route("/archive/load-day/<date_str>", methods=["POST"])
+def archive_load_day(date_str):
+    if not is_logged_in():
+        return flask.jsonify({"status": "error", "message": "Login required"}), 401
+    try:
+        target = datetime.strptime(date_str[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return flask.jsonify({"status": "error", "message": "Invalid date"}), 400
+    rows = _archive_query().filter_by(archive_date=target).order_by(DayArchive.created_at.asc()).all()
+    if not rows:
+        return flask.jsonify({"status": "error", "message": "No items for this day"}), 404
+    loaded = []
+    for row in rows:
+        label = _apply_archive_item(row)
+        if label:
+            loaded.append(label)
+    db.session.commit()
+    redirect_to = "/scheduler/saved" if any(x in loaded for x in ("schedule", "schedule_day", "snapshot")) else "/dashboard"
+    return flask.jsonify({"status": "ok", "loaded": loaded, "redirect": redirect_to, "count": len(loaded)})
+
+@app.route("/archive/delete/<int:item_id>", methods=["POST"])
+def archive_delete_item(item_id):
+    if not is_logged_in():
+        return flask.jsonify({"status": "error", "message": "Login required"}), 401
+    row = _archive_query().filter_by(id=item_id).first()
+    if not row:
+        return flask.jsonify({"status": "error", "message": "Not found"}), 404
+    db.session.delete(row)
+    db.session.commit()
+    return flask.jsonify({"status": "ok"})
+
+def _archive_csv_rows(rows):
+    import csv
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Date", "Type", "Title", "Created", "Summary"])
+    for row in rows:
+        summary = ""
+        try:
+            payload = json.loads(row.payload)
+            if row.item_type in ("schedule", "schedule_day"):
+                blocks = payload.get("blocks") if row.item_type == "schedule_day" else None
+                if blocks is None and isinstance(payload.get("schedule"), list):
+                    blocks = []
+                    for d in payload["schedule"]:
+                        blocks.extend(d.get("blocks") or [])
+                summary = f"{len(blocks or [])} blocks"
+            elif isinstance(payload, list):
+                summary = f"{len(payload)} items"
+            elif isinstance(payload, dict):
+                summary = ", ".join(list(payload.keys())[:5])
+        except Exception:
+            summary = ""
+        writer.writerow([
+            row.archive_date.isoformat(),
+            ARCHIVE_TYPE_LABELS.get(row.item_type, row.item_type),
+            row.title,
+            row.created_at.strftime("%Y-%m-%d %H:%M"),
+            summary,
+        ])
+    output.seek(0)
+    return output.getvalue()
+
+@app.route("/archive/export")
+def archive_export_all():
+    if not is_logged_in():
+        return redirect(url_for("login"))
+    rows = _archive_query().order_by(DayArchive.archive_date.desc(), DayArchive.created_at.desc()).all()
+    csv_data = _archive_csv_rows(rows)
+    return flask.Response(
+        csv_data,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment;filename=intelliplan_memories.csv"},
+    )
+
+@app.route("/archive/export/<date_str>")
+def archive_export_day(date_str):
+    if not is_logged_in():
+        return redirect(url_for("login"))
+    try:
+        target = datetime.strptime(date_str[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return flask.jsonify({"status": "error", "message": "Invalid date"}), 400
+    rows = _archive_query().filter_by(archive_date=target).order_by(DayArchive.created_at.asc()).all()
+    csv_data = _archive_csv_rows(rows)
+    fname = f"intelliplan_memories_{date_str[:10]}.csv"
+    return flask.Response(
+        csv_data,
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment;filename={fname}"},
+    )
 
 # ── FEEDBACK ──────────────────────────────────────────────────
 @app.route("/feedback/predict-time", methods=["GET"])

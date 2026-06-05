@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+  <div>
+    <h1 class="page-title">Memories</h1>
+    <p class="page-subtitle">Everything you saved, organized day by day — schedules, resources, notes, and more.</p>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <button type="button" class="btn-primary" id="saveTodayBtn" style="padding:10px 18px;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+      <svg width="14" height="14"><use href="#i-save"/></svg> Save today
+    </button>
+    <a href="/archive/export" class="btn-secondary" style="padding:10px 18px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
+      <svg width="14" height="14"><use href="#i-download"/></svg> Export all CSV
+    </a>
+  </div>
+</div>
+
+<div id="memoriesLoading" class="loading">
+  <div class="spinner"></div>
+  <p>Loading your memories…</p>
+</div>
+
+<div id="memoriesEmpty" class="empty-state" style="display:none;">
+  <div class="empty-icon"><svg width="32" height="32"><use href="#i-save"/></svg></div>
+  <div class="empty-title">No memories yet</div>
+  <p>Save a schedule, resources, or a full day snapshot from the Scheduler or tap <strong>Save today</strong> above.</p>
+  <a href="/scheduler" class="btn-primary" style="margin-top:1rem;padding:10px 22px;text-decoration:none;display:inline-block;">Go to Scheduler</a>
+</div>
+
+<div id="memoriesTimeline" style="display:none;"></div>
+
+<style>
+  .mem-day {
+    margin-bottom: 2rem;
+    animation: fadeUp 0.35s var(--ease-out) both;
+  }
+  .mem-day-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.85rem;
+    padding-bottom: 0.65rem;
+    border-bottom: 2px solid var(--border-strong);
+  }
+  .mem-day-date {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+  }
+  .mem-day-count {
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  .mem-day-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .mem-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 0.85rem;
+  }
+  .mem-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: 1rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  }
+  .mem-card:hover {
+    border-color: var(--border-accent);
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-2px);
+  }
+  .mem-type {
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+  }
+  .mem-title {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    color: var(--text-primary);
+    line-height: 1.35;
+  }
+  .mem-meta {
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    color: var(--text-muted);
+  }
+  .mem-card-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: auto;
+    padding-top: 0.35rem;
+    flex-wrap: wrap;
+  }
+  .mem-btn {
+    padding: 7px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg);
+    color: var(--text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .mem-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .mem-btn-primary {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .mem-btn-danger:hover { border-color: var(--high); color: var(--high); }
+</style>
+{% endblock %}
+
+{% block scripts %}
+const TYPE_ICONS = {
+  schedule: '📅', schedule_day: '🗓️', resources: '📚', notes: '📝',
+  custom_tasks: '✅', identity: '👤', snapshot: '💾', manual_tasks: '📋', library: '📖'
+};
+
+function toast(msg) {
+  const el = document.createElement('div');
+  el.textContent = msg;
+  el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0d0d0d;color:#fff;padding:11px 22px;border-radius:10px;font-size:0.84rem;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2800);
+}
+
+async function loadMemories() {
+  const loading = document.getElementById('memoriesLoading');
+  const empty = document.getElementById('memoriesEmpty');
+  const timeline = document.getElementById('memoriesTimeline');
+  try {
+    const res = await fetch('/archive/days').then(r => r.json());
+    loading.style.display = 'none';
+    if (!res.days || !res.days.length) {
+      empty.style.display = 'block';
+      return;
+    }
+    timeline.style.display = 'block';
+    timeline.innerHTML = '';
+    res.days.forEach((day, idx) => {
+      const section = document.createElement('section');
+      section.className = 'mem-day';
+      section.style.animationDelay = `${idx * 0.05}s`;
+      section.innerHTML = `
+        <div class="mem-day-head">
+          <div>
+            <div class="mem-day-date">${day.label}</div>
+            <div class="mem-day-count">${day.count} saved item${day.count === 1 ? '' : 's'}</div>
+          </div>
+          <div class="mem-day-actions">
+            <button type="button" class="mem-btn mem-btn-primary" data-load-day="${day.date}">Load entire day</button>
+            <a class="mem-btn" href="/archive/export/${day.date}" style="text-decoration:none;display:inline-flex;align-items:center;">Export CSV</a>
+          </div>
+        </div>
+        <div class="mem-grid" id="grid-${day.date}"></div>`;
+      timeline.appendChild(section);
+      const grid = section.querySelector(`#grid-${day.date}`);
+      day.items.forEach(item => {
+        const card = document.createElement('article');
+        card.className = 'mem-card';
+        const icon = TYPE_ICONS[item.item_type] || '💾';
+        card.innerHTML = `
+          <div class="mem-type">${icon} ${item.type_label}</div>
+          <div class="mem-title">${item.title}</div>
+          <div class="mem-meta">Saved ${item.created_at}</div>
+          <div class="mem-card-actions">
+            <button type="button" class="mem-btn mem-btn-primary" data-load="${item.id}">Load</button>
+            <button type="button" class="mem-btn mem-btn-danger" data-delete="${item.id}">Delete</button>
+          </div>`;
+        grid.appendChild(card);
+      });
+    });
+    timeline.querySelectorAll('[data-load]').forEach(btn => {
+      btn.addEventListener('click', () => loadItem(btn.dataset.load));
+    });
+    timeline.querySelectorAll('[data-delete]').forEach(btn => {
+      btn.addEventListener('click', () => deleteItem(btn.dataset.delete));
+    });
+    timeline.querySelectorAll('[data-load-day]').forEach(btn => {
+      btn.addEventListener('click', () => loadDay(btn.dataset.loadDay));
+    });
+  } catch (e) {
+    loading.innerHTML = '<p style="color:var(--high);">Could not load memories. Please refresh.</p>';
+  }
+}
+
+async function loadItem(id) {
+  const res = await fetch(`/archive/load/${id}`, { method: 'POST' }).then(r => r.json()).catch(() => ({}));
+  if (res.status === 'ok') {
+    toast('Loaded — opening your workspace…');
+    setTimeout(() => { window.location.href = res.redirect || '/dashboard'; }, 600);
+  } else {
+    toast(res.message || 'Could not load item');
+  }
+}
+
+async function loadDay(date) {
+  const res = await fetch(`/archive/load-day/${date}`, { method: 'POST' }).then(r => r.json()).catch(() => ({}));
+  if (res.status === 'ok') {
+    toast(`Loaded ${res.count} item${res.count === 1 ? '' : 's'} — everything is prepped!`);
+    setTimeout(() => { window.location.href = res.redirect || '/scheduler/saved'; }, 800);
+  } else {
+    toast(res.message || 'Could not load day');
+  }
+}
+
+async function deleteItem(id) {
+  if (!confirm('Delete this saved item?')) return;
+  await fetch(`/archive/delete/${id}`, { method: 'POST' });
+  loadMemories();
+}
+
+document.getElementById('saveTodayBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('saveTodayBtn');
+  btn.disabled = true;
+  const res = await fetch('/archive/snapshot', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ date: new Date().toISOString().slice(0, 10) })
+  }).then(r => r.json()).catch(() => ({}));
+  btn.disabled = false;
+  if (res.status === 'ok') {
+    toast(`Saved ${res.count} item${res.count === 1 ? '' : 's'} for today`);
+    loadMemories();
+  } else {
+    toast(res.message || 'Nothing new to save — try generating a schedule first');
+  }
+});
+
+loadMemories();
+{% endblock %}
