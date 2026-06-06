@@ -13,9 +13,9 @@
   <style>
     *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
     body {
-      font-family:'DM Sans', system-ui, -apple-system, sans-serif;
-      background:#f3f5fb;
-      color:#0b0f1c;
+      font-family:'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      background:#fafaf9;
+      color:#1c1917;
       min-height:100vh;
       display:flex;
       align-items:center;
@@ -47,7 +47,7 @@
       filter:drop-shadow(0 6px 14px rgba(99,102,241,.25));
     }
     .err-code {
-      font-family:'DM Serif Display', serif;
+      font-family:var(--font-display);
       font-size:3.6rem;
       line-height:1;
       letter-spacing:-0.03em;
@@ -58,7 +58,7 @@
       margin-bottom:0.5rem;
     }
     .err-title {
-      font-family:'DM Serif Display', serif;
+      font-family:var(--font-display);
       font-size:1.35rem;
       margin-bottom:0.5rem;
     }
@@ -87,7 +87,7 @@
       color:#fff;
       box-shadow:0 4px 14px rgba(99,102,241,0.32);
     }
-    .err-btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(99,102,241,0.4); }
+    .err-btn-primary:hover { box-shadow:0 8px 24px rgba(99,102,241,0.4); }
     .err-btn-secondary {
       background:#f8fafc;
       color:#475569;
@@ -106,7 +106,7 @@
       text-align:left;
     }
     .err-meta-label {
-      font-family:'DM Sans', sans-serif;
+      font-family:var(--font-ui);
       font-size:0.66rem;
       font-weight:800;
       text-transform:uppercase;

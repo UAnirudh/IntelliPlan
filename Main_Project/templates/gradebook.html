@@ -27,13 +27,13 @@
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-bottom:1.5rem;">
 
       <!-- Current vs Modeled Grade -->
-      <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:1.5rem; box-shadow:var(--shadow);">
+      <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:1.5rem; ">
         <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1rem;">Grade Overview</div>
         <div style="display:flex; gap:2rem; align-items:center;">
           <div>
             <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:4px;">Current</div>
             <div style="display:flex; align-items:baseline; gap:8px;">
-              <span id="currentPct" style="font-family:'DM Serif Display',serif; font-size:2.2rem; color:var(--text-primary);"></span>
+              <span id="currentPct" style="font-family:var(--font-display); font-size:2.2rem; color:var(--text-primary);"></span>
               <span id="currentLetter" class="priority-badge"></span>
             </div>
           </div>
@@ -41,7 +41,7 @@
           <div>
             <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:4px;">Modeled</div>
             <div style="display:flex; align-items:baseline; gap:8px;">
-              <span id="modeledPct" style="font-family:'DM Serif Display',serif; font-size:2.2rem; color:var(--accent);">-</span>
+              <span id="modeledPct" style="font-family:var(--font-display); font-size:2.2rem; color:var(--accent);">-</span>
               <span id="modeledLetter" class="priority-badge" style="background:var(--accent-soft); color:var(--accent);">-</span>
             </div>
           </div>
@@ -49,16 +49,16 @@
       </div>
 
       <!-- Target Input -->
-      <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:1.5rem; box-shadow:var(--shadow);">
+      <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:1.5rem; ">
         <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1rem;">Target Grade</div>
         <div style="display:flex; gap:8px; align-items:center; margin-bottom:1rem;">
           <input type="number" id="targetInput" class="form-input" min="0" max="100" step="0.1" placeholder="e.g. 97" style="max-width:110px;" />
           <button class="btn-primary" onclick="runModel()" style="padding:10px 20px; border:none; cursor:pointer; font-size:0.88rem;">Model It</button>
-          <button onclick="forecastRealistic()" title="Predict remaining scores using your historical category averages" style="display:inline-flex; align-items:center; gap:6px; padding:10px 16px; background:var(--accent-soft); border:1px solid var(--border-accent); border-radius:10px; cursor:pointer; font-size:0.82rem; color:var(--accent); font-family:'DM Sans',sans-serif; font-weight:600;">
+          <button onclick="forecastRealistic()" title="Predict remaining scores using your historical category averages" style="display:inline-flex; align-items:center; gap:6px; padding:10px 16px; background:var(--accent-soft); border:1px solid var(--border-accent); border-radius:10px; cursor:pointer; font-size:0.82rem; color:var(--accent); font-family:var(--font-ui); font-weight:600;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
             Realistic Forecast
           </button>
-          <button onclick="resetAll()" style="display:inline-flex; align-items:center; gap:6px; padding:10px 16px; background:var(--bg); border:1px solid var(--border); border-radius:10px; cursor:pointer; font-size:0.82rem; color:var(--text-muted); font-family:'DM Sans',sans-serif;">
+          <button onclick="resetAll()" style="display:inline-flex; align-items:center; gap:6px; padding:10px 16px; background:var(--bg); border:1px solid var(--border); border-radius:10px; cursor:pointer; font-size:0.82rem; color:var(--text-muted); font-family:var(--font-ui);">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
             Reset
           </button>
@@ -68,7 +68,7 @@
     </div>
 
     <!-- Category Weights -->
-    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:1.5rem; box-shadow:var(--shadow); margin-bottom:1.5rem;">
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:1.5rem;  margin-bottom:1.5rem;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
         <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">Category Weights</div>
         <span style="font-size:0.75rem; color:var(--text-muted);">Edit weights to model different scenarios</span>
@@ -77,15 +77,15 @@
     </div>
 
     <!-- Grade Trend Chart -->
-    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:1.5rem; box-shadow:var(--shadow); margin-bottom:1.5rem;">
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:1.5rem;  margin-bottom:1.5rem;">
       <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1rem;">Grade Trend</div>
       <canvas id="trendChart" height="120"></canvas>
     </div>
 
     <!-- Assignment Breakdown -->
-    <div style="font-family:'DM Serif Display',serif; font-size:1.1rem; color:var(--text-primary); margin-bottom:1rem;">
+    <div style="font-family:var(--font-display); font-size:1.1rem; color:var(--text-primary); margin-bottom:1rem;">
       Assignment Breakdown
-      <span style="font-family:'DM Sans',sans-serif; font-size:0.78rem; font-weight:500; color:var(--text-muted); margin-left:8px;">Click any graded assignment to adjust its score or points worth</span>
+      <span style="font-family:var(--font-ui); font-size:0.78rem; font-weight:500; color:var(--text-muted); margin-left:8px;">Click any graded assignment to adjust its score or points worth</span>
     </div>
 
     <!-- Category filter tabs -->
@@ -273,7 +273,7 @@ function renderCategoryWeights(categories) {
           oninput="updateCategoryWeight('${cat.type}', this.value, this)"
           id="wSlider_${key}" />
         <input type="number" min="0" max="100" step="1" value="${currentWeight}"
-          style="width:60px; padding:4px 8px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text-primary); font-family:'DM Sans',sans-serif; font-size:0.85rem; text-align:center;"
+          style="width:60px; padding:4px 8px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text-primary); font-family:var(--font-ui); font-size:0.85rem; text-align:center;"
           oninput="updateCategoryWeight('${cat.type}', this.value, this)"
           id="wInput_${key}" />
         <span style="font-size:0.78rem; color:var(--text-muted); min-width:20px;">%</span>
@@ -373,7 +373,7 @@ function renderBreakdown(assignments) {
             value="${earned !== null ? earned : ''}"
             placeholder="Earned"
             style="width:72px; padding:4px 8px; border-radius:8px; border:1px solid var(--border);
-              background:var(--bg); color:var(--text-primary); font-family:'DM Sans',sans-serif;
+              background:var(--bg); color:var(--text-primary); font-family:var(--font-ui);
               font-size:0.85rem; text-align:center;"
             oninput="updateScore('${key}', this.value);" />
 
@@ -383,7 +383,7 @@ function renderBreakdown(assignments) {
             value="${possible !== null ? possible : ''}"
             placeholder="Possible"
             style="width:82px; padding:4px 8px; border-radius:8px; border:1px solid var(--border);
-              background:var(--bg); color:var(--text-primary); font-family:'DM Sans',sans-serif;
+              background:var(--bg); color:var(--text-primary); font-family:var(--font-ui);
               font-size:0.85rem; text-align:center;"
             oninput="updatePossible('${key}', this.value);" />
 
@@ -897,9 +897,9 @@ function renderTrendChart(assignments) {
         {
           label: 'Score %',
           data: scores,
-          borderColor: '#3b82f6',
+          borderColor: '#6366f1',
           backgroundColor: 'rgba(59,130,246,0.08)',
-          pointBackgroundColor: '#3b82f6',
+          pointBackgroundColor: '#6366f1',
           tension: 0.3,
           fill: true,
           pointRadius: 4,
@@ -918,7 +918,7 @@ function renderTrendChart(assignments) {
     options: {
       responsive: true,
       plugins: {
-        legend: { labels: { color: textColor, font: { family: 'DM Sans' } } },
+        legend: { labels: { color: textColor, font: { family: 'Plus Jakarta Sans' } } },
         tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}%` } }
       },
       scales: {

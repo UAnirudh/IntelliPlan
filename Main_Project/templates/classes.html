@@ -16,7 +16,7 @@
 
 <div class="stats-bar" id="statsBar">
   <div class="stat-card">
-    <div class="stat-icon" style="background:#dbeafe;color:var(--accent);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg></div>
+    <div class="stat-icon" style="background:#e0e7ff;color:var(--accent);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg></div>
     <div class="stat-info">
       <div class="stat-value" id="statCourses">-</div>
       <div class="stat-label">Total Courses</div>
@@ -139,19 +139,15 @@
     border: 1px solid var(--border);
     background: var(--bg-card);
     color: var(--text-primary);
-    box-shadow: var(--shadow);
     cursor: pointer;
-    font-family: 'DM Sans', sans-serif;
+    font-family:var(--font-ui);
     font-size: 0.88rem;
     font-weight: 600;
     transition: all 0.2s ease;
   }
 
   .notes-action-btn:hover:not(:disabled) {
-    border-color: var(--accent);
-    box-shadow: var(--shadow-hover);
-    transform: translateY(-1px);
-  }
+    border-color: var(--accent); }
 
   .notes-action-btn:disabled {
     opacity: 0.55;
@@ -177,9 +173,7 @@
     overflow: hidden;
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 24px;
-    box-shadow: var(--shadow-hover);
-    animation: fadeUp 0.25s ease both;
+    border-radius: 24px; animation: fadeUp 0.25s ease both;
     display: grid;
     grid-template-columns: 1.05fr 0.95fr;
     transition: grid-template-columns 0.22s ease;
@@ -209,7 +203,7 @@
   }
 
   .notes-title {
-    font-family: 'DM Serif Display', serif;
+    font-family:var(--font-display);
     font-size: 1.45rem;
     color: var(--text-primary);
     letter-spacing: -0.02em;
@@ -296,14 +290,10 @@
     border-left: 3px solid var(--accent);
     border-radius: 14px;
     padding: 0.9rem;
-    box-shadow: var(--shadow);
     transition: transform 0.18s ease, box-shadow 0.18s ease;
   }
 
-  .notes-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-hover);
-  }
+  .notes-card:hover { }
 
   .notes-card-title {
     font-size: 0.92rem;
@@ -405,7 +395,6 @@
     border: 1px solid var(--border);
     background: var(--bg-card);
     color: var(--text-primary);
-    box-shadow: var(--shadow);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -440,7 +429,7 @@
     border: 1px solid var(--border);
     background: var(--bg);
     color: var(--text-primary);
-    font-family: 'DM Sans', sans-serif;
+    font-family:var(--font-ui);
     font-size: 0.92rem;
     outline: none;
   }
@@ -901,7 +890,7 @@ function renderFilePreview(note) {
     renderPreviewContent(
       title,
       meta,
-      `<img src="${fileUrl}" alt="Notes file" style="max-width:100%; border-radius:14px; border:1px solid var(--border); box-shadow:var(--shadow);">`,
+      `<img src="${fileUrl}" alt="Notes file" style="max-width:100%; border-radius:14px; border:1px solid var(--border); ">`,
       fileUrl
     );
     return;
@@ -910,7 +899,7 @@ function renderFilePreview(note) {
   renderPreviewContent(
     title,
     meta,
-    `<pre style="white-space:pre-wrap; font-family:'DM Sans',sans-serif; margin:0;">${escapeHtml(note.text_content || "No extracted text is available for this note.")}</pre>`,
+    `<pre style="white-space:pre-wrap; font-family:var(--font-ui); margin:0;">${escapeHtml(note.text_content || "No extracted text is available for this note.")}</pre>`,
     fileUrl || null
   );
 }

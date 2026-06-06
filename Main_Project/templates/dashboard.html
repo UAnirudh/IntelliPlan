@@ -4,7 +4,7 @@
 <style>
 .mobile-top-nav { display:none; align-items:center; justify-content:space-between; padding:0 1rem; height:52px; background:var(--bg-card); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:90; margin:-2.5rem -1.5rem 1.5rem; }
 .mobile-nav-ham { background:none; border:1px solid var(--border); border-radius:8px; padding:6px 8px; cursor:pointer; color:var(--text-secondary); display:flex; align-items:center; }
-.mobile-nav-drawer { position:fixed; top:0; left:-280px; bottom:0; width:270px; background:var(--bg-card); border-right:1px solid var(--border); z-index:900; transition:left 0.28s var(--ease-out); box-shadow:var(--shadow-lg); overflow-y:auto; }
+.mobile-nav-drawer { position:fixed; top:0; left:-280px; bottom:0; width:270px; background:var(--bg-card); border-right:1px solid var(--border); z-index:900; transition:left 0.28s var(--ease-out); overflow-y:auto; }
 .mobile-nav-drawer.open { left:0; }
 .mobile-nav-inner { display:flex; flex-direction:column; height:100%; }
 .mobile-nav-link { display:flex; align-items:center; gap:12px; padding:12px 1.25rem; font-size:0.92rem; font-weight:500; color:var(--text-secondary); text-decoration:none; transition:background 0.13s, color 0.13s; }
@@ -47,7 +47,7 @@
    so the student is ready to use the planner in two clicks. ──────── #}
 {% if needs_onboarding %}
 <div id="onbModal" style="position:fixed;inset:0;z-index:1400;background:rgba(7,8,20,0.72);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:1rem;">
-  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:22px;padding:2rem;width:min(620px,100%);max-height:92vh;overflow:auto;box-shadow:var(--shadow-lg);animation:fadeUp 0.32s var(--ease-out) both;">
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:22px;padding:2rem;width:min(620px,100%);max-height:92vh;overflow:auto;animation:fadeUp 0.32s var(--ease-out) both;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1.25rem;">
       <div>
         <div style="font-family:var(--font-ui);font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);margin-bottom:6px;">Welcome to IntelliPlan</div>
@@ -166,9 +166,9 @@
     display:flex; align-items:center; gap:12px; padding:12px 14px;
     border-radius:14px; border:1px solid var(--border);
     background:var(--bg-card); text-decoration:none; color:var(--text-primary);
-    transition:transform 0.16s, box-shadow 0.16s, border-color 0.16s;
+    transition:border-color 0.16s;
   }
-  .onb-svc:hover { transform:translateY(-1px); box-shadow:var(--shadow-hover); border-color:var(--border-accent); }
+  .onb-svc:hover { border-color:var(--border-accent); }
   .onb-svc-dot {
     width:36px; height:36px; border-radius:10px;
     display:flex; align-items:center; justify-content:center;
@@ -221,9 +221,9 @@
 
 <!-- Feedback Modal -->
 <div id="feedbackModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
-  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:420px; width:90%; box-shadow:var(--shadow-hover); animation:fadeUp 0.25s ease both;">
+  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:420px; width:90%; animation:fadeUp 0.25s ease both;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
-      <h2 style="font-family:'DM Serif Display',serif; font-size:1.1rem; color:var(--text-primary); display:flex; align-items:center; gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg>Task Complete!</h2>
+      <h2 style="font-family:var(--font-display); font-size:1.1rem; color:var(--text-primary); display:flex; align-items:center; gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg>Task Complete!</h2>
       <button onclick="closeFeedbackModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <input type="hidden" id="feedbackTaskTitle" />
@@ -236,7 +236,7 @@
     </div>
     <div style="display:flex; gap:8px;">
       <button onclick="submitFeedback(true)" class="btn-primary" style="flex:1; padding:12px; border:none; cursor:pointer;">Save & Done</button>
-      <button onclick="submitFeedback(false)" style="padding:12px 16px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text-muted); cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.88rem;">Skip</button>
+      <button onclick="submitFeedback(false)" style="padding:12px 16px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text-muted); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem;">Skip</button>
     </div>
   </div>
 </div>
@@ -269,9 +269,9 @@
     </label>
     <button onclick="exportScheduleToCal()" id="exportCalBtn" style="
       padding:8px 18px; background:#ea4335; color:white; border:none;
-      border-radius:10px; cursor:pointer; font-family:'DM Sans',sans-serif;
+      border-radius:10px; cursor:pointer; font-family:var(--font-ui);
       font-size:0.85rem; font-weight:600; transition:all 0.2s;
-      box-shadow:0 2px 8px rgba(234,67,53,0.3);">
+">
       Export Schedule
     </button>
   </div>
@@ -280,12 +280,12 @@
 <div id="savedScheduleBanner" style="display:none; background:var(--accent-soft); border:1px solid var(--accent-mid); border-radius:16px; padding:1.25rem 1.5rem; margin-bottom:1.5rem; display:none; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
   <div>
     <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent); margin-bottom:4px; display:flex; align-items:center; gap:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>Active Study Plan</div>
-    <div id="savedScheduleName" style="font-family:'DM Serif Display',serif; font-size:1.1rem; color:var(--text-primary);"></div>
+    <div id="savedScheduleName" style="font-family:var(--font-display); font-size:1.1rem; color:var(--text-primary);"></div>
     <div id="savedScheduleDate" style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;"></div>
   </div>
   <div style="display:flex; gap:8px;">
     <button onclick="viewSavedSchedule()" class="btn-primary" style="padding:8px 18px; border:none; cursor:pointer; font-size:0.85rem;">View Plan</button>
-    <button onclick="clearSavedSchedule()" style="padding:8px 14px; border-radius:10px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-muted); cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.82rem;">Clear</button>
+    <button onclick="clearSavedSchedule()" style="padding:8px 14px; border-radius:10px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-muted); cursor:pointer; font-family:var(--font-ui); font-size:0.82rem;">Clear</button>
   </div>
 </div>
 
@@ -319,14 +319,13 @@
   background:linear-gradient(135deg, color-mix(in srgb, #d97706 12%, var(--bg-card)), var(--bg-card) 60%);
   border:1px solid color-mix(in srgb, #d97706 25%, var(--border));
   text-align:left; font:inherit; cursor:pointer;
-  transition:transform 0.18s ease, box-shadow 0.18s ease;
-  box-shadow:var(--shadow);
+  transition:border-color 0.18s ease;
 }
 .dash-live-card {
   background:linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, var(--bg-card)), var(--bg-card) 60%);
   border-color:color-mix(in srgb, var(--accent) 25%, var(--border));
 }
-.dash-chest-card:hover, .dash-live-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-hover); }
+.dash-chest-card:hover, .dash-live-card:hover { border-color:var(--border-accent); }
 .dash-chest-card[disabled] { opacity:0.55; cursor:not-allowed; transform:none !important; }
 .chest-emoji {
   font-size:42px; line-height:1;
@@ -404,22 +403,15 @@
     border:1px solid color-mix(in srgb, #f97316 25%, var(--border));
     border-radius:18px;
     padding:1.1rem 1.25rem;
-    box-shadow:var(--shadow);
     display:grid;
     grid-template-columns: auto 1fr auto;
     align-items:center;
     gap:1rem;
     position:relative;
     overflow:hidden;
-    transition:transform 0.18s ease, box-shadow 0.18s ease;
+    transition:border-color 0.18s ease;
   }
-  .dash-streak::before {
-    content:""; position:absolute; inset:auto -40px -40px auto;
-    width:160px; height:160px; border-radius:50%;
-    background:radial-gradient(circle, rgba(249,115,22,0.18), transparent 70%);
-    pointer-events:none;
-  }
-  .dash-streak:hover { transform:translateY(-2px); box-shadow:var(--shadow-hover); }
+  .dash-streak:hover { border-color:var(--border-accent); }
   .dash-streak-left { display:flex; align-items:center; gap:14px; min-width:0; }
 
   .dash-flame-stage { position:relative; width:64px; height:72px; display:grid; place-items:center; flex-shrink:0; }
@@ -443,7 +435,7 @@
   .dash-flame-spark.s3 { width:3px; height:3px; left:30px; bottom:38px; background:#fde68a; animation-delay:1.4s; }
 
   .dash-streak-count {
-    font-family:'DM Serif Display',serif; font-size:2.6rem; line-height:1;
+    font-family:var(--font-display); font-size:2.6rem; line-height:1;
     color:#ea580c; letter-spacing:-0.02em;
   }
   .dash-streak-label { font-family:var(--font-ui); font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin-top:4px; }
@@ -536,9 +528,9 @@
 
 <!-- New Task Modal -->
 <div id="newTaskModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
-  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:500px; width:90%; box-shadow:var(--shadow-hover); animation:fadeUp 0.25s ease both; max-height:90vh; overflow-y:auto;">
+  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:500px; width:90%; animation:fadeUp 0.25s ease both; max-height:90vh; overflow-y:auto;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-      <h2 style="font-family:'DM Serif Display',serif; font-size:1.2rem; color:var(--text-primary);">New Task</h2>
+      <h2 style="font-family:var(--font-display); font-size:1.2rem; color:var(--text-primary);">New Task</h2>
       <button onclick="closeNewTaskModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div style="display:flex; flex-direction:column; gap:1rem;">
@@ -585,7 +577,7 @@
 
 <!-- Syllabus Import Modal -->
 <div id="syllabusModal" style="display:none; position:fixed; inset:0; z-index:1010; background:rgba(0,0,0,0.45); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
-  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:520px; width:90%; box-shadow:var(--shadow-hover); animation:fadeUp 0.25s ease both; max-height:80vh; overflow-y:auto;">
+  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:520px; width:90%; animation:fadeUp 0.25s ease both; max-height:80vh; overflow-y:auto;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
       <h2 style="font-family:var(--font-display); font-size:1.15rem; font-weight:800; color:var(--text-primary); margin:0;">Import Syllabus</h2>
       <button onclick="closeSyllabusModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
@@ -624,9 +616,9 @@
 
 <!-- Edit Task Modal -->
 <div id="editTaskModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
-  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:500px; width:90%; box-shadow:var(--shadow-hover); animation:fadeUp 0.25s ease both;">
+  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:500px; width:90%; animation:fadeUp 0.25s ease both;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-      <h2 style="font-family:'DM Serif Display',serif; font-size:1.2rem; color:var(--text-primary);">Edit Task</h2>
+      <h2 style="font-family:var(--font-display); font-size:1.2rem; color:var(--text-primary);">Edit Task</h2>
       <button onclick="closeEditModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div style="display:flex; flex-direction:column; gap:1rem;">
@@ -667,7 +659,7 @@
       </div>
       <div style="display:flex; gap:8px;">
         <button onclick="saveEditTask()" class="btn-primary" style="flex:1; padding:12px; border:none; cursor:pointer;">Save Changes</button>
-        <button onclick="deleteManualTask()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--high); background:var(--high-bg); color:var(--high); cursor:pointer; font-family:'DM Sans',sans-serif; font-weight:600;">Delete</button>
+        <button onclick="deleteManualTask()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--high); background:var(--high-bg); color:var(--high); cursor:pointer; font-family:var(--font-ui); font-weight:600;">Delete</button>
       </div>
     </div>
   </div>
@@ -675,9 +667,9 @@
 
 <!-- Integrations Modal -->
 <div id="integrationsModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
-  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:520px; width:90%; box-shadow:var(--shadow-hover); animation:fadeUp 0.25s ease both; max-height:85vh; overflow-y:auto;">
+  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:520px; width:90%; animation:fadeUp 0.25s ease both; max-height:85vh; overflow-y:auto;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-      <h2 style="font-family:'DM Serif Display',serif; font-size:1.2rem; color:var(--text-primary);">Integrations</h2>
+      <h2 style="font-family:var(--font-display); font-size:1.2rem; color:var(--text-primary);">Integrations</h2>
       <button onclick="closeIntegrationsModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
 
@@ -727,10 +719,10 @@
 
   <div style="background:var(--bg-card); border:1px solid var(--border);
     border-radius:20px; padding:2rem; max-width:420px; width:90%;
-    box-shadow:var(--shadow-hover); animation:fadeUp 0.25s ease both;">
+    animation:fadeUp 0.25s ease both;">
 
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-      <h2 style="font-family:'DM Serif Display',serif;">Silence Notifications</h2>
+      <h2 style="font-family:var(--font-display);">Silence Notifications</h2>
       <button onclick="closeSilenceModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
 
@@ -756,7 +748,6 @@
   border: 1px solid color-mix(in srgb, var(--tier) 26%, var(--border));
   border-radius: 18px;
   padding: 1.25rem 1.4rem;
-  box-shadow: var(--shadow);
   display: flex;
   align-items: center;
   gap: 1.25rem;
@@ -851,9 +842,9 @@
   border-width: 2.5px;
 }
 .streak-day-dot.frozen {
-  background: #dbeafe;
+  background: #e0e7ff;
   border-color: #93c5fd;
-  color: #3b82f6;
+  color: #6366f1;
 }
 .streak-day-label {
   font-family: var(--font-ui);
@@ -944,7 +935,7 @@
   animation:fadeUp 0.3s ease both;
   border-left:3px solid var(--border);
 }
-.notion-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-hover); }
+.notion-card:hover { }
 .notion-card-title { font-size:0.88rem; font-weight:600; color:var(--text-primary); margin-bottom:6px; line-height:1.3; }
 .notion-card-meta { display:flex; flex-wrap:wrap; gap:5px; align-items:center; }
 .notion-pill { font-size:0.68rem; font-weight:600; padding:2px 7px; border-radius:7px; }
@@ -952,7 +943,7 @@
 .notion-action-btn {
   font-size:0.7rem; font-weight:600; padding:3px 9px; border-radius:7px;
   cursor:pointer; border:1px solid var(--border); background:var(--bg);
-  color:var(--text-secondary); font-family:'DM Sans',sans-serif; transition:all 0.15s;
+  color:var(--text-secondary); font-family:var(--font-ui); transition:all 0.15s;
 }
 .notion-action-btn:hover { background:var(--accent-soft); color:var(--accent); border-color:var(--accent); }
 .notion-action-btn.done-btn { background:var(--low-bg); color:var(--low); border-color:var(--low); }
@@ -1738,7 +1729,7 @@ async function checkGCalStatus() {
   const actions = document.getElementById('gcalActions');
   if (res.connected) {
     status.innerHTML = '<span style="color:var(--low);">Connected ✓</span>';
-    actions.innerHTML = `<button onclick="disconnectGCal()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text-muted);cursor:pointer;font-size:0.75rem;font-family:'DM Sans',sans-serif;">Disconnect</button>`;
+    actions.innerHTML = `<button onclick="disconnectGCal()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text-muted);cursor:pointer;font-size:0.75rem;font-family:var(--font-ui);">Disconnect</button>`;
   } else {
     status.textContent = 'Not connected';
     actions.innerHTML = `<a href="/oauth/google" class="btn-primary" style="text-decoration:none;padding:8px 16px;font-size:0.82rem;">Connect</a>`;
@@ -1762,7 +1753,7 @@ async function checkNotionStatus() {
     status.innerHTML = `<span style="color:var(--low);">Connected · ${res.tasks.length} tasks ✓</span>`;
     setup.style.display = 'none';
     dbSelect.style.display = 'none';
-    actions.innerHTML = `<button onclick="disconnectNotion()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text-muted);cursor:pointer;font-size:0.75rem;font-family:'DM Sans',sans-serif;">Disconnect</button>`;
+    actions.innerHTML = `<button onclick="disconnectNotion()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text-muted);cursor:pointer;font-size:0.75rem;font-family:var(--font-ui);">Disconnect</button>`;
   } else {
     status.textContent = 'Not connected';
     setup.style.display = 'block';

@@ -52,7 +52,7 @@
   .iv-day-card {
     background: var(--bg-card); border: 1px solid var(--border);
     border-radius: var(--r-lg); padding: 1.25rem;
-    margin-bottom: 1rem; box-shadow: var(--shadow);
+    margin-bottom: 1rem;
   }
   .iv-day-head {
     display: flex; align-items: center; justify-content: space-between;
@@ -86,7 +86,7 @@
     cursor: pointer;
     transition: transform 0.16s var(--ease-out), box-shadow 0.16s var(--ease-out), border-color 0.16s;
   }
-  .iv-block:hover { transform: translateY(-1px); box-shadow: var(--shadow-hover); border-color: var(--border-accent); }
+  .iv-block:hover { border-color: var(--border-accent); }
   .iv-block.is-break { opacity: 0.7; cursor: default; }
   .iv-block.is-break:hover { transform: none; border-color: var(--border); box-shadow: none; }
   .iv-block.done { opacity: 0.55; }
@@ -496,7 +496,7 @@ function escapeText(s) {
 async function autoDetectTime() {
   const btn = document.getElementById('autoTimeBtn');
   const hint = document.getElementById('autoTimeHint');
-  btn.innerHTML = '<span class="btn-spin" style="display:inline-block;width:13px;height:13px;border:2px solid rgba(37,99,235,0.3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:4px;"></span> Scanning...';
+  btn.innerHTML = '<span class="btn-spin" style="display:inline-block;width:13px;height:13px;border:2px solid rgba(79,70,229,0.3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:4px;"></span> Scanning...';
   btn.disabled = true;
   hint.textContent = '';
   try {

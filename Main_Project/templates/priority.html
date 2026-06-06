@@ -204,7 +204,7 @@ function showToast(msg, type) {
   t.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
     background:var(--accent);color:white;padding:9px 20px;border-radius:999px;
     font-family:var(--font-ui);font-size:0.82rem;font-weight:600;
-    box-shadow:0 4px 18px rgba(37,99,235,0.35);z-index:9999;
+    box-shadow:0 4px 18px rgba(79,70,229,0.35);z-index:9999;
     animation:fadeUp 0.2s var(--ease-out) both;`;
   document.body.appendChild(t);
   setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity 0.3s'; setTimeout(() => t.remove(), 300); }, 2000);
