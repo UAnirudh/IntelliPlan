@@ -2440,11 +2440,13 @@ def settings():
 def dashboard():
     if not is_logged_in():
         return redirect(url_for("login"))
-    # First-run questionnaire: open the modal if the student hasn't
-    # completed their profile yet. Guests skip this (no identity row).
-    needs_onboarding = False
-    grade_choices = []
-    focus_choices = []
+    # First-run questionnaire: send the student to the dedicated /onboarding
+    # page when their identity row hasn't been marked completed. Doing the
+    # redirect here (rather than rendering an inline modal) is what makes
+    # "Quick vs Customized" work cleanly and lets the AI-assisted flow have
+    # a full page to work with. Guests skip — no identity row.
+    grade_choices = GRADE_LEVEL_CHOICES if current_user.is_authenticated else []
+    focus_choices = FOCUS_AREA_CHOICES if current_user.is_authenticated else []
     identity_dict = None
     if current_user.is_authenticated:
         identity = None
@@ -2461,17 +2463,18 @@ def dashboard():
                 print(f"[dashboard] identity retry failed: {_e2}")
                 identity = None
         if identity is not None:
-            needs_onboarding = not bool(identity.completed)
+            if not bool(identity.completed):
+                # Hand off to the dedicated onboarding page. Pass ?from=signup
+                # so the page can show a richer welcome on the first hop.
+                return redirect(url_for("onboarding"))
             try:
                 identity_dict = identity.to_dict()
             except Exception:
                 identity_dict = None
-        grade_choices = GRADE_LEVEL_CHOICES
-        focus_choices = FOCUS_AREA_CHOICES
     return render_template(
         "dashboard.html",
         active_page="dashboard",
-        needs_onboarding=needs_onboarding,
+        needs_onboarding=False,  # legacy modal stays inert; gating is at the redirect now
         identity=identity_dict,
         grade_choices=grade_choices,
         focus_choices=focus_choices,
@@ -3873,6 +3876,9 @@ def onboarding():
             print(f"[onboarding] retry failed: {_e2}")
             return redirect(url_for("dashboard"))
     if request.method == "POST":
+        # Legacy form path — preserved so old browsers/users with cached JS
+        # still complete onboarding even when the new SPA-style flow can't
+        # run (e.g. JS disabled). Mirrors the new quick path.
         grade = (request.form.get("grade_level") or "").strip()[:32]
         focus = request.form.getlist("focus_areas")
         focus = [f.strip()[:48] for f in focus if f.strip()][:12]
@@ -3882,10 +3888,15 @@ def onboarding():
         identity.goals = goals
         identity.completed = True
         db.session.commit()
+        # Clear the resume-state so we don't bounce them back into the chat
+        # next time they hit /onboarding (a real bug in the prior flow).
+        for k in ("onb_mode", "onb_step", "onb_messages"):
+            session.pop(k, None)
+        session.modified = True
         next_url = request.args.get("next")
         if next_url and next_url.startswith("/"):
             return redirect(next_url)
-        return redirect(url_for("connect_account"))
+        return redirect(url_for("dashboard"))
     return render_template(
         "onboarding.html",
         active_page="onboarding",
@@ -3924,6 +3935,13 @@ def update_identity():
     else:
         identity.completed = True
     db.session.commit()
+    # When the client signals completion, wipe the resume-state so a future
+    # visit to /onboarding starts fresh at "Quick or Custom" rather than
+    # silently dumping the user back into the chat they already finished.
+    if payload.get("completed"):
+        for k in ("onb_mode", "onb_step", "onb_messages"):
+            session.pop(k, None)
+        session.modified = True
     return jsonify({"ok": True, "identity": identity.to_dict()})
 
 
@@ -3933,6 +3951,137 @@ def get_identity():
         return jsonify({"error": "auth required"}), 401
     identity = _get_or_create_identity(current_user.id)
     return jsonify({"identity": identity.to_dict()})
+
+
+# ── Onboarding state (resume-from-where-you-left-off) ──────────
+@app.route("/api/onboarding/state", methods=["GET", "POST"])
+def api_onboarding_state():
+    """Get or update onboarding step state. Stored in the session so the user
+    can refresh mid-flow and land back on the same step.
+    """
+    if not current_user.is_authenticated:
+        return jsonify({"error": "auth required"}), 401
+    if request.method == "GET":
+        return jsonify({
+            "mode": session.get("onb_mode", ""),       # "quick" | "custom"
+            "step": session.get("onb_step", "intro"),  # intro|chat|import|done
+            "messages": session.get("onb_messages", []),
+        })
+    body = request.get_json(silent=True) or {}
+    if "mode" in body:
+        session["onb_mode"] = (body.get("mode") or "")[:16]
+    if "step" in body:
+        session["onb_step"] = (body.get("step") or "intro")[:16]
+    if "messages" in body and isinstance(body["messages"], list):
+        # Keep the last 30 turns to bound session size.
+        session["onb_messages"] = body["messages"][-30:]
+    session.modified = True
+    return jsonify({"ok": True})
+
+
+@app.route("/api/onboarding/chat", methods=["POST"])
+@limiter.limit("30 per hour")
+def api_onboarding_chat():
+    """AI-assisted onboarding conversation.
+
+    Body: {"messages": [{"role":"user|assistant","content":"..."}, ...]}
+    Returns the next assistant reply AND any profile fields it could
+    confidently extract from the conversation so far. The caller posts
+    those back to /identity so they persist immediately.
+    """
+    if not current_user.is_authenticated:
+        return jsonify({"error": "auth required"}), 401
+    if not ai_available():
+        return jsonify({"error": "ai unavailable",
+                        "reply": "The AI is offline — switch to Quick onboarding for now and refine later in Settings.",
+                        "extracted": {}}), 503
+    body = request.get_json(silent=True) or {}
+    msgs = body.get("messages") or []
+    if not isinstance(msgs, list):
+        msgs = []
+    # Take only the last 20 turns to control prompt size.
+    msgs = msgs[-20:]
+    identity = _get_or_create_identity(current_user.id)
+    so_far = identity.to_dict()
+    system = (
+        "You are Plani, IntelliPlan's onboarding assistant. Your goal is to learn "
+        "enough about the student in under 2 minutes to personalize their study plan.\n\n"
+        "ASK FOR (one or two at a time, in this order):\n"
+        "  1. Grade level (e.g. '10th grade', 'sophomore in college').\n"
+        "  2. Subjects/courses they're currently taking and which feel hardest.\n"
+        "  3. Their main goal this semester (raise a grade, prep for a test, build a habit).\n"
+        "  4. Their typical free time on weekdays vs weekends.\n"
+        "  5. Any weekly commitments (sports, work, family).\n\n"
+        "VOICE: warm, concise (1–3 sentences), one focused question per turn. "
+        "Never ask all five at once. Acknowledge what they just said before asking the next thing. "
+        "If they've covered everything, say so and recommend they tap 'Done'.\n\n"
+        "OUTPUT FORMAT: return ONLY valid JSON shaped exactly like:\n"
+        '{"reply":"...your message to the student...",'
+        '"extracted":{"grade_level":"","focus_areas":[],"goals":"","weekly_commitments":"","availability":{}},'
+        '"complete":false}\n'
+        "Only include extracted fields you're confident about — leave others empty. "
+        "Set complete=true only when you have enough to personalize (at minimum grade_level + focus_areas + goals).\n\n"
+        f"PROFILE SO FAR: {json.dumps(so_far)}"
+    )
+    chat_messages = [{"role": "system", "content": system}]
+    for m in msgs:
+        if not isinstance(m, dict): continue
+        role = m.get("role")
+        content = (m.get("content") or "").strip()
+        if role in ("user", "assistant") and content:
+            chat_messages.append({"role": role, "content": content[:2000]})
+    # Bootstrap with an opener if the conversation is empty.
+    if len(chat_messages) == 1:
+        chat_messages.append({"role": "user", "content": "Start onboarding."})
+    try:
+        result = ai_chat(
+            chat_messages, tier="standard", temperature=0.5, max_tokens=600,
+            response_format={"type": "json_object"},
+        )
+        result = re.sub(r"```json\n?", "", result)
+        result = re.sub(r"```\n?", "", result).strip()
+        try:
+            parsed = json.loads(result)
+        except json.JSONDecodeError:
+            m = re.search(r"\{[\s\S]*\}", result)
+            if not m:
+                raise
+            parsed = json.loads(m.group(0))
+    except Exception as _e:
+        print(f"[onboarding-chat] AI failed: {_e}")
+        return jsonify({
+            "reply": "Hmm, I lost the thread for a second. Try once more — or skip to Quick onboarding if you're in a rush.",
+            "extracted": {}, "complete": False,
+        })
+    reply = str(parsed.get("reply") or "").strip()[:1200]
+    extracted = parsed.get("extracted") or {}
+    if not isinstance(extracted, dict):
+        extracted = {}
+    # Auto-persist any extracted fields immediately so refresh-mid-flow is safe.
+    try:
+        if extracted.get("grade_level"):
+            identity.grade_level = str(extracted["grade_level"])[:32]
+        if isinstance(extracted.get("focus_areas"), list) and extracted["focus_areas"]:
+            cur = identity.focus_list()
+            merged = list(dict.fromkeys(cur + [str(x)[:48] for x in extracted["focus_areas"] if str(x).strip()]))[:12]
+            identity.focus_areas = json.dumps(merged)
+        if extracted.get("goals"):
+            identity.goals = str(extracted["goals"])[:1000]
+        if extracted.get("weekly_commitments"):
+            identity.weekly_commitments = str(extracted["weekly_commitments"])[:500]
+        if isinstance(extracted.get("availability"), dict) and extracted["availability"]:
+            identity.availability = json.dumps(extracted["availability"])
+        db.session.commit()
+    except Exception as _pe:
+        print(f"[onboarding-chat] persist failed: {_pe}")
+        try: db.session.rollback()
+        except Exception: pass
+    return jsonify({
+        "reply": reply,
+        "extracted": extracted,
+        "complete": bool(parsed.get("complete")),
+        "identity": identity.to_dict(),
+    })
 
 _RETURN_TO_ALLOWLIST = (
     ".web.app", ".firebaseapp.com", ".replit.dev", "intelliplan.tech", "localhost",

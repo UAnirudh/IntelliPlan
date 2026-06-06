@@ -3,400 +3,533 @@
 
 {% block head_extra %}
 <style>
-.onboard-wrap {
-  max-width: 660px; margin: 2rem auto; padding: 0 1rem;
-  animation: fadeUp 0.45s var(--ease-out) both;
+.onb-wrap {
+  max-width: 700px; margin: 1.75rem auto 2.5rem; padding: 0 1rem;
+  animation: fadeUp 0.4s var(--ease-out) both;
 }
-.onboard-progress {
-  display: flex; align-items: center; gap: 0; margin-bottom: 1.5rem;
-}
-.onboard-step-dot {
-  width: 28px; height: 28px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-ui); font-size: 0.72rem; font-weight: 700;
-  border: 2px solid var(--border-strong);
-  background: var(--bg-card); color: var(--text-muted);
-  transition: all 0.22s var(--ease-out); flex-shrink: 0;
-}
-.onboard-step-dot.active { border-color: var(--accent); background: var(--accent); color: white; }
-.onboard-step-dot.done   { border-color: var(--low); background: var(--low-bg); color: var(--low); }
-.onboard-step-line { flex: 1; height: 2px; background: var(--border); transition: background 0.22s; }
-.onboard-step-line.done { background: var(--low); }
-.onboard-step-label {
-  font-family: var(--font-ui); font-size: 0.64rem; font-weight: 700;
-  color: var(--text-muted); text-align: center; margin-top: 4px;
-  text-transform: uppercase; letter-spacing: 0.06em;
-}
-.onboard-card {
+.onb-card {
   background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: 20px; padding: 1.75rem 1.75rem 1.5rem;
+  border-radius: 22px; padding: 2rem;
 }
-.onboard-eyebrow {
-  font-family: var(--font-ui); font-size: 0.72rem; font-weight: 700;
-  color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;
+.onb-eyebrow {
+  font-family: var(--font-ui); font-size: 0.72rem; font-weight: 800;
+  color: var(--accent); text-transform: uppercase; letter-spacing: 0.09em;
+  margin-bottom: 8px;
 }
-.onboard-title {
-  font-family: var(--font-display); font-size: 1.75rem; color: var(--text-primary);
-  margin: 0 0 8px; letter-spacing: -0.02em; line-height: 1.2;
+.onb-title {
+  font-family: var(--font-display); font-size: 1.85rem; line-height: 1.15;
+  letter-spacing: -0.02em; color: var(--text-primary); margin: 0 0 10px;
 }
-.onboard-sub { font-size: 0.93rem; color: var(--text-secondary); margin: 0 0 1.5rem; line-height: 1.6; }
-.onboard-section { margin-bottom: 1.2rem; }
-.onboard-label {
+.onb-sub {
+  font-size: 0.95rem; color: var(--text-secondary); margin: 0 0 1.5rem;
+  line-height: 1.6;
+}
+.onb-mode-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+@media (max-width: 580px) { .onb-mode-grid { grid-template-columns: 1fr; } }
+.onb-mode {
+  display: flex; flex-direction: column; gap: 8px; text-align: left;
+  padding: 1.25rem; border: 1.5px solid var(--border-strong);
+  border-radius: 16px; background: var(--bg-card); cursor: pointer;
+  transition: border-color 0.16s; font-family: inherit; color: var(--text-primary);
+}
+.onb-mode:hover { border-color: var(--border-accent); }
+.onb-mode-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-ui); font-size: 0.68rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent); align-self: flex-start;
+}
+.onb-mode h3 {
+  font-family: var(--font-display); font-size: 1.15rem; margin: 0;
+  color: var(--text-primary);
+}
+.onb-mode p { font-size: 0.86rem; color: var(--text-secondary); margin: 0; line-height: 1.5; }
+.onb-mode-meta { font-size: 0.74rem; color: var(--text-muted); margin-top: 4px; }
+
+/* Chat */
+.onb-chat {
+  display: flex; flex-direction: column; gap: 12px;
+  max-height: 380px; overflow-y: auto; padding: 6px 4px;
+  margin-bottom: 1rem;
+}
+.onb-msg { display: flex; gap: 10px; align-items: flex-start; }
+.onb-msg.user { flex-direction: row-reverse; }
+.onb-msg-bubble {
+  padding: 10px 14px; border-radius: 14px; max-width: 78%;
+  font-size: 0.92rem; line-height: 1.55;
+  background: var(--bg-elevated); color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+.onb-msg.user .onb-msg-bubble {
+  background: var(--accent); color: white; border-color: var(--accent);
+}
+.onb-msg-avatar {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent-soft); color: var(--accent);
+  font-family: var(--font-ui); font-weight: 800; font-size: 0.78rem;
+}
+.onb-msg.user .onb-msg-avatar { background: var(--text-primary); color: var(--bg-card); }
+
+.onb-input-row { display: flex; gap: 8px; }
+.onb-textinput {
+  flex: 1; padding: 11px 14px; border-radius: 12px;
+  border: 1px solid var(--border-strong); background: var(--bg);
+  color: var(--text-primary); font-family: inherit; font-size: 0.92rem;
+}
+.onb-textinput:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Quick form */
+.onb-quick-grid { display: grid; gap: 1rem; }
+.onb-label {
   font-family: var(--font-ui); font-size: 0.74rem; font-weight: 700;
   color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.07em;
   margin-bottom: 8px; display: block;
 }
-.onboard-pillgrid { display: flex; flex-wrap: wrap; gap: 8px; }
-.onboard-pill {
-  display: inline-flex; align-items: center; gap: 7px;
+.onb-input, .onb-select {
+  width: 100%; padding: 11px 14px; border-radius: 12px;
+  border: 1px solid var(--border-strong); background: var(--bg);
+  color: var(--text-primary); font-family: var(--font-body); font-size: 0.92rem;
+}
+.onb-pillgrid { display: flex; flex-wrap: wrap; gap: 8px; }
+.onb-pill {
+  display: inline-flex; align-items: center; gap: 6px;
   padding: 7px 14px; border-radius: 999px;
   border: 1px solid var(--border-strong); background: var(--bg-card);
-  color: var(--text-secondary); font-family: var(--font-body); font-size: 0.84rem;
-  cursor: pointer; transition: all 0.13s; user-select: none;
+  color: var(--text-secondary); font-size: 0.84rem; cursor: pointer;
+  transition: all 0.13s; user-select: none;
 }
-.onboard-pill input { display: none; }
-.onboard-pill:hover { border-color: var(--border-accent); color: var(--accent); }
-.onboard-pill.is-on { background: var(--accent); color: white; border-color: var(--accent); }
-.onboard-input, .onboard-textarea, .onboard-select {
-  width: 100%; padding: 11px 14px; border-radius: 12px;
-  border: 1px solid var(--border-strong); background: var(--bg); color: var(--text-primary);
-  font-family: var(--font-body); font-size: 0.92rem; outline: none;
-  transition: border-color 0.16s, box-shadow 0.16s;
+.onb-pill input { display: none; }
+.onb-pill:hover { border-color: var(--border-accent); color: var(--accent); }
+.onb-pill.on { background: var(--accent); color: white; border-color: var(--accent); }
+
+/* Import step */
+.onb-import-grid { display: grid; gap: 10px; }
+.onb-import-card {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 14px; border: 1px solid var(--border-strong);
+  border-radius: 14px; background: var(--bg-card); cursor: pointer;
+  transition: border-color 0.16s; text-align: left;
+  color: var(--text-primary); font-family: inherit;
 }
-.onboard-input:focus, .onboard-textarea:focus, .onboard-select:focus {
-  border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
-}
-.onboard-textarea { resize: vertical; min-height: 70px; line-height: 1.55; }
-.onboard-actions {
+.onb-import-card:hover { border-color: var(--border-accent); }
+.onb-import-card.on { border-color: var(--accent); background: var(--accent-soft); }
+.onb-import-icon { font-size: 1.4rem; }
+
+/* Footer */
+.onb-actions {
   display: flex; justify-content: space-between; align-items: center;
-  gap: 10px; flex-wrap: wrap; margin-top: 1.25rem; padding-top: 1.1rem;
+  gap: 10px; flex-wrap: wrap; margin-top: 1.5rem; padding-top: 1.1rem;
   border-top: 1px solid var(--border);
 }
-.onboard-skip {
-  background: none; border: none; color: var(--text-muted); font-size: 0.86rem;
-  cursor: pointer; text-decoration: underline; text-decoration-color: var(--border);
-  text-underline-offset: 3px; font-family: var(--font-body);
+.onb-skip {
+  background: none; border: 0; color: var(--text-muted);
+  font-size: 0.86rem; cursor: pointer; text-decoration: underline;
+  text-decoration-color: var(--border); text-underline-offset: 3px;
+  font-family: inherit;
 }
-.onboard-skip:hover { color: var(--accent); }
-
-.connect-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-@media (max-width: 600px) { .connect-grid { grid-template-columns: 1fr; } }
-.connect-card {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 14px; border-radius: 14px;
-  border: 1px solid var(--border-strong); background: var(--bg-card);
-  text-decoration: none; cursor: pointer;
-  transition: all 0.15s;
+.onb-skip:hover { color: var(--accent); }
+.onb-progress {
+  display: flex; gap: 6px; margin-bottom: 1.5rem;
 }
-.connect-card:hover { border-color: var(--border-accent); }
-.connect-card .cc-icon {
-  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--bg-elevated);
+.onb-pip {
+  flex: 1; height: 5px; border-radius: 999px;
+  background: var(--border); transition: background 0.22s;
 }
-.connect-card .cc-title { font-family: var(--font-ui); font-size: 0.86rem; font-weight: 700; color: var(--text-primary); }
-
-.avail-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-.avail-day { display: flex; flex-direction: column; align-items: center; gap: 5px; }
-.avail-day-name {
-  font-family: var(--font-ui); font-size: 0.65rem; font-weight: 700;
-  color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em;
-}
-.avail-slot {
-  width: 100%; padding: 5px 0; border-radius: 8px;
-  border: 1px solid var(--border); background: var(--bg-card);
-  font-family: var(--font-ui); font-size: 0.64rem; font-weight: 600; color: var(--text-muted);
-  cursor: pointer; transition: all 0.13s; text-align: center;
-}
-.avail-slot:hover { border-color: var(--border-accent); color: var(--accent); }
-.avail-slot.on { background: var(--accent); color: white; border-color: var(--accent); }
-
-.onboard-step { display: none; }
-.onboard-step.active { display: block; animation: fadeUp 0.3s var(--ease-out) both; }
-
-.quickstart-banner {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 10px 14px; border-radius: 12px; margin-bottom: 1.25rem;
-  background: var(--accent-soft); border: 1px solid var(--border-accent);
-  flex-wrap: wrap;
-}
-.quickstart-banner .qb-text { font-size: 0.84rem; color: var(--text-primary); }
-.quickstart-banner .qb-text b { color: var(--accent); }
-
-@media (max-width: 600px) {
-  .onboard-card { padding: 1.25rem 1.1rem; }
-  .onboard-title { font-size: 1.4rem; }
-  .avail-grid { grid-template-columns: repeat(4, 1fr); }
+.onb-pip.on { background: var(--accent); }
+.onb-msg-meta {
+  font-size: 0.74rem; color: var(--text-muted); margin: 4px 4px 0;
 }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="onboard-wrap">
-
-  <div style="margin-bottom: 1.25rem;">
-    <div class="onboard-progress" id="progressBar">
-      <div class="onboard-step-dot active" id="dot1">1</div>
-      <div class="onboard-step-line" id="line1"></div>
-      <div class="onboard-step-dot" id="dot2">2</div>
-      <div class="onboard-step-line" id="line2"></div>
-      <div class="onboard-step-dot" id="dot3">3</div>
-    </div>
-    <div style="display:flex;justify-content:space-between;padding:0 6px;margin-top:5px;">
-      <span class="onboard-step-label">Quick start</span>
-      <span class="onboard-step-label">Optional details</span>
-      <span class="onboard-step-label">Done</span>
-    </div>
+<div class="onb-wrap">
+  <div class="onb-progress" id="onbProgress">
+    <span class="onb-pip on"></span>
+    <span class="onb-pip"></span>
+    <span class="onb-pip"></span>
   </div>
 
-  <div class="onboard-card">
-
-    <!-- ── STEP 1: Quick start (≤30s) ── -->
-    <div class="onboard-step active" id="step1">
-      <div class="onboard-eyebrow">Welcome</div>
-      <h1 class="onboard-title">Let's get you started in 30 seconds.</h1>
-      <p class="onboard-sub">Pick your grade and the subjects you're focused on. Everything else is optional — you can add more later from Settings.</p>
-
-      <div class="onboard-section">
-        <label class="onboard-label" for="gradeSelect">Grade level <span style="color:var(--text-muted);font-weight:500;text-transform:none;letter-spacing:0;">(optional)</span></label>
-        <select id="gradeSelect" class="onboard-select">
-          <option value="">Choose one</option>
-          {% for g in grade_choices %}
-            <option value="{{ g }}" {% if identity.grade_level == g %}selected{% endif %}>{{ g }}</option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <div class="onboard-section">
-        <span class="onboard-label">Subjects you're studying <span style="color:var(--text-muted);font-weight:500;text-transform:none;letter-spacing:0;">(optional)</span></span>
-        <div class="onboard-pillgrid" id="focusGrid">
-          {% for f in focus_choices %}
-            <label class="onboard-pill {% if f in identity.focus_areas %}is-on{% endif %}">
-              <input type="checkbox" name="focus_areas" value="{{ f }}" {% if f in identity.focus_areas %}checked{% endif %}>
-              {{ f }}
-            </label>
-          {% endfor %}
-        </div>
-      </div>
-
-      <div class="onboard-actions">
-        <button class="onboard-skip" onclick="finishNow()">Skip everything &amp; explore</button>
-        <div style="display:flex;gap:8px;">
-          <button class="btn-secondary" onclick="finishNow()">Start now</button>
-          <button class="btn-primary" onclick="nextStep()">
-            Add details
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:6px"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── STEP 2: Optional details (accounts + goals + availability merged) ── -->
-    <div class="onboard-step" id="step2">
-      <div class="onboard-eyebrow">Optional</div>
-      <h1 class="onboard-title">Make Plani even smarter.</h1>
-      <p class="onboard-sub">Connect a school account so your real assignments sync, or tell Plani your goals and free time. All optional.</p>
-
-      <div class="onboard-section">
-        <span class="onboard-label">Connect a school account</span>
-        <div class="connect-grid">
-          <a href="/login/canvas" class="connect-card">
-            <div class="cc-icon" style="color:#e66000;background:#fff3eb;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-backpack"/></svg>
-            </div>
-            <div class="cc-title">Canvas</div>
-          </a>
-          <a href="/login/studentvue" class="connect-card">
-            <div class="cc-icon" style="color:#059669;background:#edfff4;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-study"/></svg>
-            </div>
-            <div class="cc-title">StudentVue</div>
-          </a>
-          <a href="/login/schoology" class="connect-card">
-            <div class="cc-icon" style="color:#5865F2;background:#eef0ff;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-classes"/></svg>
-            </div>
-            <div class="cc-title">Schoology</div>
-          </a>
-        </div>
-      </div>
-
-      <div class="onboard-section">
-        <label class="onboard-label" for="goalsInput">Your goals</label>
-        <textarea id="goalsInput" class="onboard-textarea"
-          placeholder="e.g. raise my AP Calc grade, prep for the SAT">{{ identity.goals }}</textarea>
-      </div>
-
-      <div class="onboard-section">
-        <span class="onboard-label">When are you typically free?</span>
-        <div class="avail-grid" id="availGrid"></div>
-      </div>
-
-      <div class="onboard-section">
-        <label class="onboard-label" for="commitmentsInput">Weekly commitments</label>
-        <input type="text" id="commitmentsInput" class="onboard-input"
-          placeholder="e.g. sports Mon/Wed 3-5pm"
-          value="{{ identity.weekly_commitments }}" />
-      </div>
-
-      <div class="onboard-actions">
-        <button class="onboard-skip" onclick="prevStep()">Back</button>
-        <button class="btn-primary" onclick="saveAndFinish()">
-          Save &amp; finish
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:6px"><use href="#i-check-circle"/></svg>
+  <div class="onb-card">
+    <!-- ── STEP: INTRO (choose mode) ── -->
+    <section id="onbIntro" class="onb-section">
+      <div class="onb-eyebrow">Welcome to IntelliPlan</div>
+      <h1 class="onb-title">How do you want to set up?</h1>
+      <p class="onb-sub">Pick the path that fits your mood. Both unlock the same features — Customized just tunes Plani to you faster.</p>
+      <div class="onb-mode-grid">
+        <button type="button" class="onb-mode" onclick="onbPickMode('quick')">
+          <span class="onb-mode-badge">⚡ 30 seconds</span>
+          <h3>Quick start</h3>
+          <p>Just sign me in. I'll customize later from Settings if I want to.</p>
+          <span class="onb-mode-meta">Skips the questionnaire, jumps straight to your dashboard.</span>
+        </button>
+        <button type="button" class="onb-mode" onclick="onbPickMode('custom')">
+          <span class="onb-mode-badge">✨ Recommended</span>
+          <h3>Customized with AI</h3>
+          <p>Have a quick back-and-forth with Plani so the scheduler and tutor are tuned to your courses, goals, and free time.</p>
+          <span class="onb-mode-meta">~2 minutes. Includes an option to import grades from your school.</span>
         </button>
       </div>
-    </div>
+    </section>
 
-    <!-- ── STEP 3: Done ── -->
-    <div class="onboard-step" id="step3">
-      <div style="text-align:center;padding:2rem 1rem;">
-        <div style="width:64px;height:64px;background:var(--low-bg);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;color:var(--low);">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check-circle"/></svg>
+    <!-- ── STEP: QUICK confirmation ── -->
+    <section id="onbQuick" class="onb-section" style="display:none;">
+      <div class="onb-eyebrow">Quick start</div>
+      <h1 class="onb-title">All set in 10 seconds.</h1>
+      <p class="onb-sub">Pick your grade (optional) and the subjects you're working on. Everything else lives in <a href="/settings" style="color:var(--accent);font-weight:600;">Settings</a> when you're ready for more customization.</p>
+      <div class="onb-quick-grid">
+        <div>
+          <label class="onb-label" for="qGrade">Grade level (optional)</label>
+          <select id="qGrade" class="onb-select">
+            <option value="">Prefer not to say</option>
+            {% for g in grade_choices %}
+              <option value="{{ g }}" {% if identity.grade_level == g %}selected{% endif %}>{{ g }}</option>
+            {% endfor %}
+          </select>
         </div>
-        <h1 class="onboard-title" style="text-align:center;">You're all set!</h1>
-        <p class="onboard-sub" style="text-align:center;">Jump in — you can fine-tune anything from Settings later.</p>
-        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:1.25rem;">
-          <a href="/dashboard" class="btn-primary">Go to Dashboard</a>
-          <a href="/scheduler" class="btn-secondary">Build my schedule</a>
+        <div>
+          <span class="onb-label">Subjects (optional)</span>
+          <div id="qFocus" class="onb-pillgrid">
+            {% for f in focus_choices %}
+              <label class="onb-pill {% if f in identity.focus_areas %}on{% endif %}">
+                <input type="checkbox" value="{{ f }}" {% if f in identity.focus_areas %}checked{% endif %}>
+                {{ f }}
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+        <div style="padding:12px 14px;border-radius:12px;background:var(--accent-soft);border:1px solid var(--border-accent);font-size:0.84rem;color:var(--text-primary);line-height:1.5;">
+          💡 <strong>Heads up:</strong> AI features will be generic until you add more in
+          <a href="/settings" style="color:var(--accent);font-weight:600;">Settings</a>
+          (goals, availability, grade history opt-in).
         </div>
       </div>
-    </div>
+      <div class="onb-actions">
+        <button class="onb-skip" onclick="onbShow('intro')">← Back</button>
+        <button class="btn-primary" onclick="onbFinishQuick(event)" id="onbQuickBtn"
+          style="padding:11px 24px;border:none;cursor:pointer;font-size:0.92rem;">Finish &amp; go to dashboard</button>
+      </div>
+    </section>
 
+    <!-- ── STEP: CUSTOM (AI chat) ── -->
+    <section id="onbCustom" class="onb-section" style="display:none;">
+      <div class="onb-eyebrow">Customized · Step 1 of 2</div>
+      <h1 class="onb-title">Tell Plani about you.</h1>
+      <p class="onb-sub">A quick back-and-forth — Plani will ask the right questions and save your answers as you go.</p>
+      <div class="onb-chat" id="onbChat"></div>
+      <div class="onb-input-row">
+        <input id="onbInput" class="onb-textinput" type="text" autocomplete="off"
+          placeholder="Reply to Plani..." onkeydown="if(event.key==='Enter')onbSendChat()">
+        <button class="btn-primary" onclick="onbSendChat()" id="onbSendBtn"
+          style="padding:11px 18px;border:none;cursor:pointer;font-size:0.9rem;">Send</button>
+      </div>
+      <div class="onb-msg-meta" id="onbChatMeta">Plani saves what it learns automatically. Click "Continue" when you're done chatting.</div>
+      <div class="onb-actions">
+        <button class="onb-skip" onclick="onbShow('intro')">← Back</button>
+        <div style="display:flex;gap:8px;">
+          <button class="onb-skip" onclick="onbShow('import')">Skip chat →</button>
+          <button class="btn-primary" onclick="onbShow('import')" id="onbChatNextBtn"
+            style="padding:11px 22px;border:none;cursor:pointer;font-size:0.9rem;">Continue</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── STEP: IMPORT (grades + assignments) ── -->
+    <section id="onbImport" class="onb-section" style="display:none;">
+      <div class="onb-eyebrow">Customized · Step 2 of 2</div>
+      <h1 class="onb-title">Pull in your assignments &amp; grades.</h1>
+      <p class="onb-sub">If your school supports a one-click connection, use that. Otherwise IntelliPlan can import from a CSV, a copy-paste of your gradebook, or via our browser extension.</p>
+
+      <div class="onb-import-grid">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <a class="onb-import-card" href="/oauth/canvas">
+            <span class="onb-import-icon">🎓</span>
+            <span><strong>Canvas</strong><br><small style="color:var(--text-muted);">One-click OAuth</small></span>
+          </a>
+          <a class="onb-import-card" href="/login/studentvue">
+            <span class="onb-import-icon">📘</span>
+            <span><strong>StudentVue</strong><br><small style="color:var(--text-muted);">District login</small></span>
+          </a>
+        </div>
+        <button type="button" class="onb-import-card" onclick="onbImport('paste')">
+          <span class="onb-import-icon">⚡</span>
+          <span><strong>Smart paste (recommended)</strong><br>
+            <small style="color:var(--text-muted);">Copy your gradebook → paste → AI extracts the data.</small></span>
+        </button>
+        <button type="button" class="onb-import-card" onclick="onbImport('csv')">
+          <span class="onb-import-icon">📄</span>
+          <span><strong>CSV template</strong><br>
+            <small style="color:var(--text-muted);">Download a template, fill in Excel, re-upload.</small></span>
+        </button>
+        <a class="onb-import-card" href="/extension" target="_blank" rel="noopener">
+          <span class="onb-import-icon">🧩</span>
+          <span><strong>Browser extension</strong><br>
+            <small style="color:var(--text-muted);">PowerSchool, Aeries, Infinite Campus, Skyward — auto-syncs every 4 hours.</small></span>
+        </a>
+      </div>
+
+      <!-- Inline panels for the chosen import method -->
+      <div id="onbImportHost" style="margin-top:14px;"></div>
+
+      <div class="onb-actions">
+        <button class="onb-skip" onclick="onbShow('custom')">← Back to chat</button>
+        <div style="display:flex;gap:8px;">
+          <button class="onb-skip" onclick="onbFinishCustom(event)">Skip &amp; finish</button>
+          <button class="btn-primary" onclick="onbFinishCustom(event)" id="onbCustomBtn"
+            style="padding:11px 24px;border:none;cursor:pointer;font-size:0.92rem;">Finish &amp; go to dashboard</button>
+        </div>
+      </div>
+    </section>
   </div>
 </div>
 
 <script>
-let currentStep = 1;
-const totalSteps = 3;
+const ONB = {
+  step: 'intro',
+  mode: '',
+  messages: [],
+};
 
-const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-const SLOTS = ['Morning','Afternoon','Evening'];
-const savedAvail = {{ identity.availability | tojson }};
-const avail = {};
-
-DAYS.forEach(d => { avail[d] = {}; SLOTS.forEach(s => { avail[d][s] = false; }); });
-Object.entries(savedAvail).forEach(([d, val]) => {
-  if (typeof val === 'string') {
-    SLOTS.forEach(s => { if (val.toLowerCase().includes(s.toLowerCase())) avail[d][s] = true; });
-  }
-});
-
-function renderAvailGrid() {
-  const grid = document.getElementById('availGrid');
-  if (!grid) return;
-  grid.innerHTML = DAYS.map(day => `
-    <div class="avail-day">
-      <span class="avail-day-name">${day}</span>
-      ${SLOTS.map(slot => `
-        <button type="button" class="avail-slot ${avail[day][slot] ? 'on' : ''}"
-          data-day="${day}" data-slot="${slot}"
-          onclick="toggleSlot(this,'${day}','${slot}')">${slot[0]}</button>
-      `).join('')}
-    </div>
-  `).join('');
-}
-
-function toggleSlot(btn, day, slot) {
-  avail[day][slot] = !avail[day][slot];
-  btn.classList.toggle('on', avail[day][slot]);
-}
-
-function buildAvailDict() {
-  const result = {};
-  DAYS.forEach(d => {
-    const on = SLOTS.filter(s => avail[d][s]);
-    if (on.length) result[d] = on.join(', ');
+function onbProgressFor(step) {
+  const order = { intro: 1, quick: 3, custom: 2, import: 3 };
+  const n = order[step] || 1;
+  document.querySelectorAll('#onbProgress .onb-pip').forEach((el, i) => {
+    el.classList.toggle('on', i < n);
   });
-  return result;
 }
 
-function updateProgress(step) {
-  for (let i = 1; i <= totalSteps; i++) {
-    const dot = document.getElementById(`dot${i}`);
-    if (!dot) continue;
-    if (i < step)       { dot.className = 'onboard-step-dot done'; dot.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'; }
-    else if (i === step) { dot.className = 'onboard-step-dot active'; dot.textContent = i; }
-    else                 { dot.className = 'onboard-step-dot'; dot.textContent = i; }
-    const line = document.getElementById(`line${i}`);
-    if (line) line.className = `onboard-step-line ${i < step ? 'done' : ''}`;
+function onbShow(step) {
+  ONB.step = step;
+  document.querySelectorAll('.onb-section').forEach((s) => { s.style.display = 'none'; });
+  const map = { intro: 'onbIntro', quick: 'onbQuick', custom: 'onbCustom', import: 'onbImport' };
+  const el = document.getElementById(map[step]);
+  if (el) el.style.display = '';
+  onbProgressFor(step);
+  // Save current step server-side so a refresh resumes here.
+  fetch('/api/onboarding/state', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ step, mode: ONB.mode, messages: ONB.messages })
+  }).catch(() => {});
+  if (step === 'custom' && !ONB.messages.length) {
+    onbBootstrapChat();
   }
 }
 
-function showStep(n) {
-  document.querySelectorAll('.onboard-step').forEach(el => el.classList.remove('active'));
-  document.getElementById(`step${n}`).classList.add('active');
-  updateProgress(n);
-  currentStep = n;
+function onbPickMode(mode) {
+  ONB.mode = mode;
+  if (mode === 'quick') onbShow('quick');
+  else onbShow('custom');
 }
 
-function nextStep() { if (currentStep < totalSteps) showStep(currentStep + 1); }
-function prevStep() { if (currentStep > 1) showStep(currentStep - 1); }
-
-function readQuickFields() {
-  const grade = document.getElementById('gradeSelect').value;
-  const focusEls = document.querySelectorAll('#focusGrid input[type="checkbox"]:checked');
-  const focus = Array.from(focusEls).map(el => el.value);
+// ── Quick path ──────────────────────────────────────
+function _onbQuickFields() {
+  const grade = (document.getElementById('qGrade') || {}).value || '';
+  const focusEls = document.querySelectorAll('#qFocus input[type="checkbox"]:checked');
+  const focus = Array.from(focusEls).map((el) => el.value);
   return { grade_level: grade, focus_areas: focus };
 }
 
-async function finishNow(ev) {
-  const btn = ev && ev.currentTarget;
-  if (btn) { btn.disabled = true; btn.dataset.orig = btn.textContent; btn.textContent = 'Saving…'; }
+async function onbFinishQuick(ev) {
+  const btn = document.getElementById('onbQuickBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
   try {
     await fetch('/identity', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...readQuickFields(), completed: true })
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ ..._onbQuickFields(), completed: true }),
     });
-    window.location.href = '/dashboard';
-  } catch (e) {
-    if (btn) { btn.disabled = false; btn.textContent = btn.dataset.orig || 'Start now'; }
-    // Still let them in — onboarding is non-blocking.
-    window.location.href = '/dashboard';
-  }
+  } catch (e) { /* still proceed */ }
+  window.location.href = '/dashboard';
 }
 
-async function saveAndFinish(ev) {
-  const quick = readQuickFields();
-  const goals = document.getElementById('goalsInput').value.trim();
-  const commitments = document.getElementById('commitmentsInput').value.trim();
-  const availability = buildAvailDict();
+// ── Custom path ─────────────────────────────────────
+function onbRenderChat() {
+  const wrap = document.getElementById('onbChat');
+  if (!wrap) return;
+  wrap.innerHTML = ONB.messages.map((m) => {
+    const role = m.role === 'user' ? 'user' : 'assistant';
+    const avatar = role === 'user' ? 'You' : 'P';
+    const text = (m.content || '').replace(/[<>&]/g, (c) => ({'<':'&lt;','>':'&gt;','&':'&amp;'})[c]);
+    return `
+      <div class="onb-msg ${role}">
+        <div class="onb-msg-avatar">${avatar}</div>
+        <div class="onb-msg-bubble">${text}</div>
+      </div>`;
+  }).join('');
+  wrap.scrollTop = wrap.scrollHeight;
+}
 
-  const btn = ev && ev.currentTarget;
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
-
+async function onbBootstrapChat() {
+  // First-turn message from Plani.
+  if (ONB.messages.length) { onbRenderChat(); return; }
+  const meta = document.getElementById('onbChatMeta');
+  meta.textContent = 'Plani is warming up...';
   try {
-    await fetch('/identity', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...quick, goals, weekly_commitments: commitments, availability, completed: true })
+    const r = await fetch('/api/onboarding/chat', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ messages: [] }),
     });
-    showStep(3);
-  } catch (e) {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = 'Save &amp; finish <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:6px"><use href="#i-check-circle"/></svg>';
+    const d = await r.json();
+    if (d.reply) {
+      ONB.messages.push({ role: 'assistant', content: d.reply });
+      onbRenderChat();
     }
-    alert('Something went wrong, please try again.');
+    meta.textContent = 'Plani saves what it learns as you reply. Tap "Continue" when ready.';
+  } catch (_e) {
+    meta.style.color = 'var(--high)';
+    meta.textContent = 'Could not reach the AI — try again or skip to Quick.';
   }
 }
 
-document.querySelectorAll('#focusGrid input[type="checkbox"]').forEach(cb => {
-  cb.addEventListener('change', () => cb.closest('.onboard-pill').classList.toggle('is-on', cb.checked));
-});
+async function onbSendChat() {
+  const input = document.getElementById('onbInput');
+  const btn = document.getElementById('onbSendBtn');
+  const text = (input.value || '').trim();
+  if (!text) return;
+  ONB.messages.push({ role: 'user', content: text });
+  input.value = '';
+  onbRenderChat();
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const r = await fetch('/api/onboarding/chat', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ messages: ONB.messages }),
+    });
+    const d = await r.json();
+    if (d.reply) {
+      ONB.messages.push({ role: 'assistant', content: d.reply });
+      onbRenderChat();
+    }
+    if (d.complete) {
+      document.getElementById('onbChatNextBtn').classList.add('pulse');
+      const meta = document.getElementById('onbChatMeta');
+      meta.style.color = 'var(--low)';
+      meta.textContent = 'Plani has what it needs — tap Continue when you\'re ready.';
+    }
+    // Persist messages in the session for refresh-safety.
+    fetch('/api/onboarding/state', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ messages: ONB.messages, step: 'custom', mode: 'custom' })
+    }).catch(() => {});
+  } catch (_e) {
+    ONB.messages.push({ role: 'assistant', content: 'Lost connection — try again?' });
+    onbRenderChat();
+  }
+  btn.disabled = false; btn.textContent = 'Send';
+}
 
-// Wire up onclick handlers that need `event` reference
-document.addEventListener('DOMContentLoaded', () => {
-  renderAvailGrid();
-  document.querySelectorAll('[onclick="finishNow()"]').forEach(b => {
-    b.removeAttribute('onclick');
-    b.addEventListener('click', finishNow);
+// ── Import step ─────────────────────────────────────
+function onbImport(kind) {
+  const host = document.getElementById('onbImportHost');
+  if (kind === 'csv') {
+    host.innerHTML = `
+      <div style="padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--bg);">
+        <div style="font-weight:600;font-size:0.9rem;margin-bottom:8px;">CSV import</div>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin:0 0 10px;line-height:1.5;">
+          Download → fill in Excel → re-upload. The same template handles assignments and grades.
+        </p>
+        <a href="/api/import/csv/template" class="btn-secondary"
+          style="padding:8px 14px;font-size:0.82rem;text-decoration:none;border-radius:10px;margin-bottom:10px;display:inline-block;">Download template</a>
+        <div style="margin-top:10px;">
+          <input type="file" id="onbCsvFile" accept=".csv,text/csv" style="font-size:0.82rem;margin-bottom:10px;">
+          <button class="btn-primary" onclick="onbDoCsv()" id="onbCsvBtn"
+            style="padding:9px 18px;border:none;border-radius:10px;cursor:pointer;font-size:0.85rem;">Upload</button>
+          <div id="onbCsvMsg" style="margin-top:8px;font-size:0.8rem;"></div>
+        </div>
+      </div>`;
+  } else if (kind === 'paste') {
+    host.innerHTML = `
+      <div style="padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--bg);">
+        <div style="font-weight:600;font-size:0.9rem;margin-bottom:6px;">Smart paste</div>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin:0 0 10px;line-height:1.5;">
+          Copy your gradebook or assignment list (any format) and paste below. AI will extract it.
+        </p>
+        <input type="text" id="onbPasteHint" placeholder="Source? e.g. 'PowerSchool Q3'"
+          style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-primary);font-family:inherit;font-size:0.85rem;margin-bottom:8px;">
+        <textarea id="onbPasteText" rows="6" placeholder="Paste here..."
+          style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-primary);font-family:inherit;font-size:0.85rem;margin-bottom:10px;resize:vertical;"></textarea>
+        <button class="btn-primary" onclick="onbDoPaste()" id="onbPasteBtn"
+          style="padding:9px 18px;border:none;border-radius:10px;cursor:pointer;font-size:0.85rem;">Import with AI</button>
+        <div id="onbPasteMsg" style="margin-top:8px;font-size:0.8rem;"></div>
+      </div>`;
+  }
+}
+
+async function onbDoCsv() {
+  const file = document.getElementById('onbCsvFile').files[0];
+  const msg = document.getElementById('onbCsvMsg');
+  const btn = document.getElementById('onbCsvBtn');
+  if (!file) { msg.style.color='var(--high)'; msg.textContent='Pick a CSV first.'; return; }
+  btn.disabled = true; btn.textContent = 'Uploading...';
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const r = await fetch('/api/import/csv', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      msg.style.color = 'var(--low)';
+      msg.textContent = `Imported ${d.assignments_imported} assignments + ${d.grades_imported} grades.`;
+    } else {
+      msg.style.color = 'var(--high)'; msg.textContent = d.message || 'Import failed.';
+    }
+  } catch (_e) { msg.style.color = 'var(--high)'; msg.textContent = 'Network error.'; }
+  btn.disabled = false; btn.textContent = 'Upload';
+}
+
+async function onbDoPaste() {
+  const text = (document.getElementById('onbPasteText').value || '').trim();
+  const hint = (document.getElementById('onbPasteHint').value || '').trim();
+  const msg = document.getElementById('onbPasteMsg');
+  const btn = document.getElementById('onbPasteBtn');
+  if (!text) { msg.style.color = 'var(--high)'; msg.textContent = 'Paste something first.'; return; }
+  btn.disabled = true; btn.textContent = 'AI parsing...';
+  try {
+    const r = await fetch('/api/import/smart_paste', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ text, hint })
+    });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      msg.style.color = 'var(--low)';
+      msg.textContent = `Imported ${d.assignments_imported} assignments + ${d.grades_imported} grades.`;
+    } else {
+      msg.style.color = 'var(--high)'; msg.textContent = d.message || 'Import failed.';
+    }
+  } catch (_e) { msg.style.color = 'var(--high)'; msg.textContent = 'Network error.'; }
+  btn.disabled = false; btn.textContent = 'Import with AI';
+}
+
+async function onbFinishCustom(ev) {
+  const btn = document.getElementById('onbCustomBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Finishing...'; }
+  try {
+    await fetch('/identity', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ completed: true })
+    });
+  } catch (_e) { /* proceed anyway */ }
+  window.location.href = '/dashboard';
+}
+
+// ── Chip toggling for the quick pills ──────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  document.querySelectorAll('#qFocus input[type="checkbox"]').forEach((cb) => {
+    cb.addEventListener('change', () => cb.closest('.onb-pill').classList.toggle('on', cb.checked));
   });
-  document.querySelectorAll('[onclick="saveAndFinish()"]').forEach(b => {
-    b.removeAttribute('onclick');
-    b.addEventListener('click', saveAndFinish);
-  });
+  // Resume the last step the user was on (server-side state).
+  try {
+    const r = await fetch('/api/onboarding/state');
+    const d = await r.json();
+    if (d.messages && Array.isArray(d.messages)) ONB.messages = d.messages;
+    if (d.mode) ONB.mode = d.mode;
+    if (d.step && d.step !== 'intro') onbShow(d.step);
+  } catch (_e) { /* default to intro */ }
 });
 </script>
 {% endblock %}
