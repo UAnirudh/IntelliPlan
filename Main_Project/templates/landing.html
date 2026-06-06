@@ -610,12 +610,11 @@
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--r-xl);
-    box-shadow: var(--shadow-lg);
     overflow: hidden;
     animation: fadeUp 0.6s 0.15s var(--ease-out) both;
   }
   .tp-preview-header {
-    background: #0f172a;
+    background: #1c1917;
     padding: 12px 16px;
     display: flex; align-items: center; gap: 10px;
   }
@@ -823,11 +822,9 @@
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
+    transition: border-color 0.2s;
   }
   .review-card:hover {
-    box-shadow: var(--shadow-hover);
-    transform: translateY(-2px);
     border-color: var(--border-strong);
   }
   .testimonial-label { display: none; }
@@ -865,14 +862,14 @@
   /* ── Testimonials grid, runs after DOM is fully parsed ── */
   function initTestimonialsGrid() {
     var testimonials = [
-      { name: "Jack",   role: "AP student",    color: "#2563eb", text: "I used to spend 20 minutes every morning figuring out what to do first. IntelliPlan just tells me. That alone is worth it." },
-      { name: "Max",    role: "College student",           color: "#2563eb", text: "Canvas dumps everything on you with zero order. IntelliPlan sorts it by what's actually urgent. I haven't missed a deadline since." },
+      { name: "Jack",   role: "AP student",    color: "#4f46e5", text: "I used to spend 20 minutes every morning figuring out what to do first. IntelliPlan just tells me. That alone is worth it." },
+      { name: "Max",    role: "College student",           color: "#4f46e5", text: "Canvas dumps everything on you with zero order. IntelliPlan sorts it by what's actually urgent. I haven't missed a deadline since." },
       { name: "Sai",    role: "IB student",    color: "#0891b2", text: "The grade modeler is insane. I can simulate what score I need on my next test to keep my GPA exactly where I want it." },
       { name: "Ram",    role: "High school student",         color: "#059669", text: "My study sessions used to be random. Now IntelliPlan builds the whole week and exports it to Google Calendar. I just follow the plan." },
       { name: "Suhrit", role: "AP & dual enrollment",      color: "#dc2626", text: "I'm in 6 APs and dual enrollment. Before IntelliPlan I was constantly anxious about what I was forgetting. Now I feel in control." },
       { name: "Rachel", role: "Honors student", color: "#db2777", text: "The flashcard generator from my own notes is a game changer. Upload after class, get quiz questions automatically. Saves an hour a night." },
       { name: "Aayush", role: "College student",         color: "#d97706", text: "I recommended this to my entire study group. We all use it now. Having the same priority system made group studying actually productive." },
-      { name: "Trish",  role: "High school student",        color: "#3b82f6", text: "The AI scheduler feels like having a personal planner who knows exactly how much time you have and what needs to get done first." }
+      { name: "Trish",  role: "High school student",        color: "#6366f1", text: "The AI scheduler feels like having a personal planner who knows exactly how much time you have and what needs to get done first." }
     ];
 
     var track = document.getElementById('reviewsTrack');
@@ -938,7 +935,7 @@
   <style>
     .lp-tools-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:0.8rem; }
     .lp-tool-card { display:flex; flex-direction:column; gap:0.2rem; text-decoration:none; background:var(--bg-card); border:1px solid var(--border-strong); border-radius:var(--r-lg); padding:1rem 1.1rem; transition:transform 0.2s var(--ease-out), box-shadow 0.2s ease, border-color 0.2s ease; }
-    .lp-tool-card:hover { transform:translateY(-3px); box-shadow:var(--shadow-hover); border-color:var(--border-accent); }
+    .lp-tool-card:hover { border-color:var(--border-accent); }
     .lp-tool-card .t { font-family:var(--font-display); font-size:0.98rem; color:var(--text-primary); }
     .lp-tool-card .d { font-family:var(--font-ui); font-size:0.8rem; color:var(--text-muted); line-height:1.45; }
   </style>
@@ -1023,7 +1020,6 @@
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 12px;
-    box-shadow: var(--shadow-sm);
     padding: 1.15rem;
   }
 
@@ -1063,18 +1059,18 @@
     z-index: -1;
     pointer-events: none;
     background:
-      radial-gradient(45% 55% at 15% 25%, rgba(37,99,235,0.16) 0%, transparent 60%),
-      radial-gradient(40% 50% at 80% 15%, rgba(59,130,246,0.14) 0%, transparent 65%),
-      radial-gradient(38% 60% at 55% 75%, rgba(29,78,216,0.10) 0%, transparent 65%);
-    filter: blur(10px);
-    opacity: 0.95;
+      radial-gradient(45% 55% at 15% 25%, rgba(67,56,202,0.10) 0%, transparent 60%),
+      radial-gradient(40% 50% at 80% 15%, rgba(79,70,229,0.08) 0%, transparent 65%),
+      radial-gradient(38% 60% at 55% 75%, rgba(99,102,241,0.06) 0%, transparent 65%);
+    filter: blur(14px);
+    opacity: 0.85;
   }
   :root[data-theme="dark"] .hero-wrap::before {
     background:
-      radial-gradient(45% 55% at 15% 25%, rgba(96,165,250,0.22) 0%, transparent 60%),
-      radial-gradient(40% 50% at 80% 15%, rgba(59,130,246,0.18) 0%, transparent 65%),
-      radial-gradient(38% 60% at 55% 75%, rgba(37,99,235,0.12) 0%, transparent 65%);
-    opacity: 0.7;
+      radial-gradient(45% 55% at 15% 25%, rgba(129,140,248,0.14) 0%, transparent 60%),
+      radial-gradient(40% 50% at 80% 15%, rgba(99,102,241,0.10) 0%, transparent 65%),
+      radial-gradient(38% 60% at 55% 75%, rgba(67,56,202,0.08) 0%, transparent 65%);
+    opacity: 0.6;
   }
   .hero {
     display: grid;
@@ -1134,9 +1130,7 @@
   }
   .hero-trust-row span:hover {
     border-color: var(--border-accent);
-    color: var(--accent);
-    transform: translateY(-1px);
-  }
+    color: var(--accent); }
 
   .hero-subtitle {
     font-family: var(--font-ui);
@@ -1184,12 +1178,11 @@
     position: relative;
     min-width: 0;
   }
-  /* Ambient glow behind the preview card */
   .hero-preview::before {
     content: '';
     position: absolute;
     inset: -40px;
-    background: radial-gradient(ellipse at 60% 50%, rgba(37,99,235,0.12) 0%, transparent 70%);
+    background: radial-gradient(ellipse at 60% 50%, rgba(79,70,229,0.07) 0%, transparent 70%);
     pointer-events: none;
     z-index: 0;
   }
@@ -1200,22 +1193,11 @@
     border: 1px solid var(--border-strong);
     border-radius: var(--r-xl);
     padding: 1.6rem;
-    box-shadow:
-      inset 0 1px 0 rgba(255,255,255,0.5),
-      0 1px 2px rgba(15,23,42,0.04),
-      0 12px 28px rgba(15,23,42,0.08),
-      0 42px 90px rgba(15,23,42,0.12);
-    transition: transform 0.4s var(--ease-out), box-shadow 0.4s var(--ease-out);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    transition: border-color 0.2s ease;
   }
   :root[data-theme="dark"] .preview-card {
-    box-shadow:
-      inset 0 1px 0 rgba(255,255,255,0.04),
-      0 1px 2px rgba(0,0,0,0.5),
-      0 18px 40px rgba(0,0,0,0.55),
-      0 60px 120px rgba(0,0,0,0.65);
-  }
-  .preview-card:hover {
-    transform: translateY(-4px);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
   }
 
   .preview-header {
@@ -1305,7 +1287,7 @@
     padding: 0.55rem 1rem;
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, 0.18);
-    box-shadow: 0 6px 20px rgba(109, 40, 217, 0.4);
+    box-shadow: 0 4px 12px rgba(79,70,229,0.25);
     animation: badgeFloat 4.5s ease-in-out infinite;
   }
   @keyframes badgeFloat {
@@ -1334,21 +1316,12 @@
 
   /* Preview task rows get a tactile nudge + lift on hover */
   .task {
-    transition: transform 0.2s var(--ease-out), box-shadow 0.2s ease, border-color 0.2s ease;
-  }
-  .task:hover {
-    transform: translateX(4px);
-    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.07);
+    transition: border-color 0.2s ease;
   }
 
-  /* Hero primary CTA: soft brand glow that intensifies on hover */
   .hero-actions .btn-primary {
-    box-shadow: 0 8px 24px rgba(109, 40, 217, 0.28);
-    transition: transform 0.2s var(--ease-out), box-shadow 0.2s ease, background 0.2s ease;
-  }
-  .hero-actions .btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 32px rgba(109, 40, 217, 0.4);
+    box-shadow: 0 1px 2px rgba(79,70,229,0.15);
+    transition: background 0.15s ease;
   }
 
   /* ── Live Stats Strip ─────────────────────────────────────── */
@@ -1457,7 +1430,6 @@
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--r-xl);
-    box-shadow: var(--shadow-sm);
   }
 
   .step-card { padding: 1.2rem; }
@@ -1500,7 +1472,6 @@
     border: 1px solid var(--border);
     border-radius: var(--r-xl);
     background: var(--bg-card);
-    box-shadow: var(--shadow-lg);
     overflow: hidden;
   }
 
@@ -1537,7 +1508,7 @@
     height: 0;
     border-radius: var(--r-xl);
     overflow: hidden;
-    background: #0f172a;
+    background: #1c1917;
   }
 
   .demo-iframe,
@@ -1556,17 +1527,17 @@
     justify-content: center;
     gap: 1rem;
     cursor: pointer;
-    background: linear-gradient(160deg, #1e293b 0%, #0f172a 100%);
+    background: linear-gradient(160deg, #1c1917 0%, #0c0a09 100%);
     transition: background 0.2s;
   }
 
-  .demo-video-placeholder:hover { background: linear-gradient(160deg, #263248 0%, #111827 100%); }
+  .demo-video-placeholder:hover { background: linear-gradient(160deg, #292524 0%, #1c1917 100%); }
 
   .demo-play-ring {
     width: 72px;
     height: 72px;
     border-radius: 50%;
-    background: var(--accent, #2563eb);
+    background: var(--accent, #4f46e5);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1576,7 +1547,7 @@
 
   .demo-video-placeholder:hover .demo-play-ring {
     transform: scale(1.09);
-    background: #1d4ed8;
+    background: #4338ca;
   }
 
   .demo-placeholder-label {
@@ -1745,9 +1716,9 @@
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(50% 60% at 30% 10%, rgba(36,83,214,0.30) 0%, transparent 70%),
-      radial-gradient(45% 55% at 75% 20%, rgba(99,102,241,0.24) 0%, transparent 70%),
-      radial-gradient(60% 60% at 50% 95%, rgba(56,189,248,0.10) 0%, transparent 75%);
+      radial-gradient(50% 60% at 30% 10%, rgba(67,56,202,0.22) 0%, transparent 70%),
+      radial-gradient(45% 55% at 75% 20%, rgba(79,70,229,0.16) 0%, transparent 70%),
+      radial-gradient(60% 60% at 50% 95%, rgba(99,102,241,0.08) 0%, transparent 75%);
     pointer-events: none;
   }
   [data-theme="dark"] .cta-outer { background: #080808; }
@@ -1881,7 +1852,7 @@
     .mobile-cta-minimize:hover { background: var(--accent-soft); color: var(--accent); }
     .mobile-cta-bar.minimized .mobile-cta-minimize {
       border-radius: 999px; padding: 7px 18px;
-      background: var(--bg-card); box-shadow: var(--shadow);
+      background: var(--bg-card);
     }
     .mobile-cta-buttons {
       display: grid;

@@ -8,7 +8,6 @@
   border-left: 3px solid var(--accent);
   border-radius: 16px;
   padding: 1.5rem;
-  box-shadow: var(--shadow);
   margin-bottom: 1.5rem;
 }
 .settings-section-title {
@@ -56,7 +55,6 @@
   width:248px; flex-shrink:0;
   background:var(--bg-card); border:1px solid var(--border); border-radius:14px;
   padding:12px 10px; display:flex; flex-direction:column; gap:4px;
-  box-shadow: var(--shadow);
 }
 .sb-cust-section {
   display:flex; flex-direction:column; gap:3px; padding:6px 4px;
@@ -954,7 +952,7 @@ function saveAnimSetting(key, value) {
   const host = document.getElementById('themeSwatches');
   if (!host) return;
   const THEMES = [
-    { id:'default',  label:'Classic',  colors:['#1d4ed8','#3b82f6'] },
+    { id:'default',  label:'Classic',  colors:['#4338ca','#6366f1'] },
     { id:'ocean',    label:'Ocean',    colors:['#0277bd','#26c6da'] },
     { id:'forest',   label:'Forest',   colors:['#1b5e20','#8bc34a'] },
     { id:'sunset',   label:'Sunset',   colors:['#e65100','#ffab91'] },
@@ -981,8 +979,8 @@ function saveAnimSetting(key, value) {
     </button>
   `).join('');
   host.querySelectorAll('.theme-swatch').forEach(btn => {
-    btn.addEventListener('mouseenter', () => { btn.style.transform='translateY(-2px)'; btn.style.boxShadow='var(--shadow-hover)'; });
-    btn.addEventListener('mouseleave', () => { btn.style.transform=''; btn.style.boxShadow=''; });
+    btn.addEventListener('mouseenter', () => { btn.style.borderColor='var(--border-accent)'; });
+    btn.addEventListener('mouseleave', () => { btn.style.borderColor=''; });
     btn.addEventListener('click', () => {
       const pal = btn.dataset.palette;
       if (window.setThemePalette) window.setThemePalette(pal);

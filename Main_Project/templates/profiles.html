@@ -38,7 +38,7 @@ fetch('/profiles/list')
       card.style.cssText = `
         background:var(--bg-card); border:${isActive ? '2px solid var(--accent)' : '1px solid var(--border)'};
         border-radius:16px; padding:1.25rem 1.5rem; display:flex; align-items:center;
-        gap:1rem; box-shadow:var(--shadow); transition:box-shadow 0.2s;
+        gap:1rem;  transition:box-shadow 0.2s;
       `;
       card.innerHTML = `
         <div style="font-size:1.8rem;">${icon}</div>
@@ -51,8 +51,8 @@ fetch('/profiles/list')
         </div>
         <div style="display:flex; gap:8px; flex-shrink:0;">
           ${!isActive ? `<button onclick="switchProfile('${p.id}')" class="btn-primary" style="padding:8px 16px; border:none; cursor:pointer; font-size:0.82rem;">Switch</button>` : ''}
-          <button onclick="renameProfile('${p.id}')" style="padding:8px 14px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text-secondary); cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.82rem;">Rename</button>
-          ${!isActive ? `<button onclick="deleteProfile('${p.id}')" style="padding:8px 14px; border-radius:10px; border:1px solid var(--high); background:var(--high-bg); color:var(--high); cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.82rem;">Remove</button>` : ''}
+          <button onclick="renameProfile('${p.id}')" style="padding:8px 14px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text-secondary); cursor:pointer; font-family:var(--font-ui); font-size:0.82rem;">Rename</button>
+          ${!isActive ? `<button onclick="deleteProfile('${p.id}')" style="padding:8px 14px; border-radius:10px; border:1px solid var(--high); background:var(--high-bg); color:var(--high); cursor:pointer; font-family:var(--font-ui); font-size:0.82rem;">Remove</button>` : ''}
         </div>
       `;
       wrap.appendChild(card);

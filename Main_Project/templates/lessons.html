@@ -19,7 +19,7 @@
 
 <style>
 .lesson-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:1.25rem; }
-.lesson-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); padding:0; box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:hidden; animation:fadeUp 0.3s var(--ease-out) both; }
+.lesson-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); padding:0;  display:flex; flex-direction:column; overflow:hidden; animation:fadeUp 0.3s var(--ease-out) both; }
 .lesson-media { width:100%; aspect-ratio:16/9; background:#000; display:flex; align-items:center; justify-content:center; }
 .lesson-media video, .lesson-media audio { width:100%; height:100%; object-fit:cover; }
 .lesson-body { padding:1rem 1.1rem; display:flex; flex-direction:column; gap:8px; flex:1; }
@@ -95,7 +95,7 @@ function loadLessons() {
     list.innerHTML = ls.map(l => {
       const tagsHtml = (l.tags || []).map(t => `<span class="lesson-tag">${esc(t)}</span>`).join('');
       const media = l.media_kind === 'audio'
-        ? `<div class="lesson-media" style="background:linear-gradient(135deg,#1e40af,#6366f1);"><audio controls src="${esc(l.stream_url)}" preload="metadata" style="width:90%;"></audio></div>`
+        ? `<div class="lesson-media" style="background:linear-gradient(135deg,#4338ca,#6366f1);"><audio controls src="${esc(l.stream_url)}" preload="metadata" style="width:90%;"></audio></div>`
         : `<div class="lesson-media"><video controls src="${esc(l.stream_url)}" preload="metadata"></video></div>`;
       return `
         <div class="lesson-card">

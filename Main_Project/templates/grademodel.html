@@ -28,12 +28,12 @@
     <div style="
       background:var(--bg-card); border:1px solid var(--border);
       border-radius:16px; padding:1.5rem; margin-bottom:1.5rem;
-      box-shadow:var(--shadow); display:flex; gap:2rem; flex-wrap:wrap; align-items:center;
+       display:flex; gap:2rem; flex-wrap:wrap; align-items:center;
     ">
       <div>
         <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px;">Current Grade</div>
         <div style="display:flex; align-items:baseline; gap:8px;">
-          <span id="currentPct" style="font-family:'DM Serif Display',serif; font-size:2.5rem; color:var(--text-primary);"></span>
+          <span id="currentPct" style="font-family:var(--font-display); font-size:2.5rem; color:var(--text-primary);"></span>
           <span id="currentLetter" class="priority-badge" style="font-size:0.9rem;"></span>
         </div>
       </div>
@@ -64,7 +64,7 @@
     </div>
 
     <!-- Assignment breakdown -->
-    <div style="font-family:'DM Serif Display',serif; font-size:1.1rem; color:var(--text-primary); margin-bottom:1rem;">
+    <div style="font-family:var(--font-display); font-size:1.1rem; color:var(--text-primary); margin-bottom:1rem;">
       Assignment Breakdown
     </div>
     <div id="assignmentBreakdown" class="assignments-list"></div>
