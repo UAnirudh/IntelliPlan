@@ -196,7 +196,151 @@
         }
       }
     </script>
-    <div style="text-align:center;">
+
+    <!-- ── Unsupported LMS fallback ───────────────────── -->
+    <div style="margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border);">
+      <div style="font-size:0.86rem;font-weight:700;color:var(--text-primary);margin-bottom:6px;">School not listed?</div>
+      <p style="font-size:0.8rem;color:var(--text-muted);line-height:1.55;margin:0 0 12px;">
+        IntelliPlan can still pull your assignments and grades through any of these three options.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button type="button" onclick="ipShowImport('paste')"
+          style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);text-align:left;cursor:pointer;font-family:inherit;width:100%;">
+          <span style="font-size:1.2rem;">⚡</span>
+          <span style="flex:1;">
+            <span style="display:block;font-size:0.88rem;font-weight:600;">Smart paste</span>
+            <span style="display:block;font-size:0.74rem;color:var(--text-muted);margin-top:1px;">
+              Copy your gradebook → paste here → AI extracts everything
+            </span>
+          </span>
+        </button>
+        <button type="button" onclick="ipShowImport('csv')"
+          style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);text-align:left;cursor:pointer;font-family:inherit;width:100%;">
+          <span style="font-size:1.2rem;">📄</span>
+          <span style="flex:1;">
+            <span style="display:block;font-size:0.88rem;font-weight:600;">CSV template</span>
+            <span style="display:block;font-size:0.74rem;color:var(--text-muted);margin-top:1px;">
+              Download the template, fill in Excel, re-upload
+            </span>
+          </span>
+        </button>
+        <button type="button" onclick="ipShowImport('extension')"
+          style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);text-align:left;cursor:pointer;font-family:inherit;width:100%;">
+          <span style="font-size:1.2rem;">🧩</span>
+          <span style="flex:1;">
+            <span style="display:block;font-size:0.88rem;font-weight:600;">Browser extension auto-sync</span>
+            <span style="display:block;font-size:0.74rem;color:var(--text-muted);margin-top:1px;">
+              Install once — scrapes PowerSchool, Aeries, Infinite Campus, and more on a schedule
+            </span>
+          </span>
+        </button>
+      </div>
+      <div id="ipImportHost" style="margin-top:14px;"></div>
+    </div>
+
+    <script>
+      function ipShowImport(kind) {
+        const host = document.getElementById('ipImportHost');
+        if (kind === 'csv') {
+          host.innerHTML = `
+            <div style="padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--bg-card);">
+              <div style="font-weight:600;font-size:0.9rem;margin-bottom:8px;">CSV import</div>
+              <p style="font-size:0.78rem;color:var(--text-muted);line-height:1.5;margin:0 0 10px;">
+                1. Download the template. 2. Fill in your assignments and grades. 3. Re-upload.
+              </p>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+                <a href="/api/import/csv/template" class="btn-secondary"
+                  style="padding:9px 14px;font-size:0.82rem;text-decoration:none;border-radius:10px;">Download template</a>
+              </div>
+              <input type="file" id="ipCsvFile" accept=".csv,text/csv" style="font-size:0.82rem;margin-bottom:10px;">
+              <button type="button" onclick="ipUploadCsv()" id="ipCsvBtn"
+                style="padding:9px 18px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;font-size:0.85rem;">Upload</button>
+              <div id="ipCsvMsg" style="margin-top:8px;font-size:0.8rem;"></div>
+            </div>`;
+        } else if (kind === 'paste') {
+          host.innerHTML = `
+            <div style="padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--bg-card);">
+              <div style="font-weight:600;font-size:0.9rem;margin-bottom:6px;">Smart paste</div>
+              <p style="font-size:0.78rem;color:var(--text-muted);line-height:1.5;margin:0 0 10px;">
+                Copy any list of assignments or your gradebook from your school portal and paste below.
+                IntelliPlan's AI will extract the structured data.
+              </p>
+              <input type="text" id="ipPasteHint" placeholder="Where is this from? e.g. 'PowerSchool Q3'"
+                style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--border-strong);background:var(--bg-secondary);color:var(--text-primary);font-family:inherit;font-size:0.85rem;margin-bottom:8px;">
+              <textarea id="ipPasteText" rows="8" placeholder="Paste your gradebook or assignment list here..."
+                style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-secondary);color:var(--text-primary);font-family:inherit;font-size:0.85rem;margin-bottom:10px;resize:vertical;"></textarea>
+              <button type="button" onclick="ipUploadPaste()" id="ipPasteBtn"
+                style="padding:9px 18px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;font-size:0.85rem;">Import with AI</button>
+              <div id="ipPasteMsg" style="margin-top:8px;font-size:0.8rem;"></div>
+            </div>`;
+        } else if (kind === 'extension') {
+          host.innerHTML = `
+            <div style="padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--bg-card);">
+              <div style="font-weight:600;font-size:0.9rem;margin-bottom:6px;">Browser extension auto-sync</div>
+              <p style="font-size:0.78rem;color:var(--text-muted);line-height:1.55;margin:0 0 10px;">
+                Install the IntelliPlan extension. When you visit your school portal and stay signed in,
+                the extension scrapes your assignments and grades and posts them to IntelliPlan automatically
+                every few hours.
+              </p>
+              <ul style="font-size:0.78rem;color:var(--text-muted);line-height:1.6;margin:0 0 10px 1.1rem;padding:0;">
+                <li>PowerSchool — supported</li>
+                <li>Aeries, Infinite Campus, Skyward, eSchoolPlus — supported</li>
+                <li>Anything else — falls back to smart-paste of the visible page</li>
+              </ul>
+              <a href="/extension" class="btn-primary"
+                style="display:inline-block;padding:9px 18px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.85rem;">Get the extension</a>
+            </div>`;
+        }
+      }
+      async function ipUploadCsv() {
+        const file = document.getElementById('ipCsvFile').files[0];
+        const msg = document.getElementById('ipCsvMsg');
+        const btn = document.getElementById('ipCsvBtn');
+        if (!file) { msg.style.color='#ef4444'; msg.textContent='Pick a CSV first.'; return; }
+        btn.disabled = true; btn.textContent = 'Uploading...';
+        const fd = new FormData();
+        fd.append('file', file);
+        try {
+          const r = await fetch('/api/import/csv', { method: 'POST', body: fd });
+          const d = await r.json();
+          if (d.status === 'ok') {
+            msg.style.color='#10b981';
+            msg.textContent = `Imported ${d.assignments_imported} assignments + ${d.grades_imported} grades.`;
+          } else {
+            msg.style.color='#ef4444'; msg.textContent = d.message || 'Import failed.';
+          }
+        } catch (e) {
+          msg.style.color='#ef4444'; msg.textContent = 'Network error.';
+        }
+        btn.disabled = false; btn.textContent = 'Upload';
+      }
+      async function ipUploadPaste() {
+        const text = (document.getElementById('ipPasteText').value || '').trim();
+        const hint = (document.getElementById('ipPasteHint').value || '').trim();
+        const msg = document.getElementById('ipPasteMsg');
+        const btn = document.getElementById('ipPasteBtn');
+        if (!text) { msg.style.color='#ef4444'; msg.textContent='Paste something first.'; return; }
+        btn.disabled = true; btn.textContent = 'AI parsing...';
+        try {
+          const r = await fetch('/api/import/smart_paste', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ text, hint })
+          });
+          const d = await r.json();
+          if (d.status === 'ok') {
+            msg.style.color='#10b981';
+            msg.textContent = `Imported ${d.assignments_imported} assignments + ${d.grades_imported} grades.`;
+          } else {
+            msg.style.color='#ef4444'; msg.textContent = d.message || 'Import failed.';
+          }
+        } catch (e) {
+          msg.style.color='#ef4444'; msg.textContent = 'Network error.';
+        }
+        btn.disabled = false; btn.textContent = 'Import with AI';
+      }
+    </script>
+
+    <div style="text-align:center;margin-top:1.25rem;">
       <a href="/schedule" style="font-size:0.82rem;color:var(--text-muted);text-decoration:none;">Skip for now →</a>
     </div>
   </div>

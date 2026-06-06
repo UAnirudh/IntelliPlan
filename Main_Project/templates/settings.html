@@ -501,6 +501,28 @@
     </div>
   </div>
 
+  <!-- ── Privacy / AI personalization ─────────────────── -->
+  <div class="settings-section" id="privacyCard">
+    <div class="settings-section-title">AI personalization</div>
+    <div style="font-size:0.86rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.55;">
+      When on, IntelliPlan shares your grades, strong and weak subjects, availability, and stated goals
+      with the AI behind the Scheduler, Tutor, and other AI features. It uses this to weight harder
+      subjects with more study time, calibrate tutor explanations to your level, and tailor advice to
+      what you're actually trying to achieve. Off by default.
+    </div>
+    <label style="display:flex;align-items:flex-start;gap:10px;font-size:0.9rem;color:var(--text-primary);cursor:pointer;margin:0;">
+      <input type="checkbox" id="aiPersonalizationOptIn"
+             style="margin-top:3px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;"
+             onchange="saveAiPersonalization()">
+      <span><strong>Use my grades and history to personalize AI features.</strong>
+        <span style="display:block;font-size:0.78rem;color:var(--text-muted);margin-top:2px;">
+          Your data never leaves your account. You can turn this off anytime — the AI will fall back to generic help.
+        </span>
+      </span>
+    </label>
+    <div id="aiPersonalizationStatus" style="font-size:0.8rem;color:var(--text-muted);margin-top:10px;"></div>
+  </div>
+
   <!-- ── Refer a friend ─────────────────────────────── -->
   <div class="settings-section">
     <div class="settings-section-title">Refer a friend</div>
@@ -1267,12 +1289,43 @@ function refreshPhone() {
     const p = document.getElementById('pushOptIn');
     const l = document.getElementById('leadSelect');
     const c = document.getElementById('carrierSelect');
+    const ai = document.getElementById('aiPersonalizationOptIn');
     if (i) i.value = d.phone || '';
     if (o) o.checked = !!d.sms_reminders_opt_in;
     if (p) p.checked = !!d.push_reminders_opt_in;
     if (l && d.reminder_lead_minutes) l.value = String(d.reminder_lead_minutes);
     if (c && d.sms_carrier) c.value = d.sms_carrier;
+    if (ai) ai.checked = !!d.ai_personalization_opt_in;
   }).catch(() => {});
+}
+
+function saveAiPersonalization() {
+  const cb = document.getElementById('aiPersonalizationOptIn');
+  const status = document.getElementById('aiPersonalizationStatus');
+  if (!cb) return;
+  const enabled = !!cb.checked;
+  if (status) { status.textContent = 'Saving...'; status.style.color = 'var(--text-muted)'; }
+  fetch('/api/profile/ai_personalization', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ enabled }),
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (!status) return;
+      if (d.status === 'ok') {
+        status.textContent = enabled ? 'On — AI features will use your grades and history.' : 'Off — AI features run in generic mode.';
+        status.style.color = 'var(--low)';
+        setTimeout(() => { if (status) status.style.color = 'var(--text-muted)'; }, 3200);
+      } else {
+        status.textContent = 'Could not save. Try again.';
+        status.style.color = 'var(--high)';
+        cb.checked = !enabled;
+      }
+    })
+    .catch(() => {
+      if (status) { status.textContent = 'Network error.'; status.style.color = 'var(--high)'; }
+      cb.checked = !enabled;
+    });
 }
 function savePhone() {
   const phone = document.getElementById('phoneInput').value.trim();

@@ -82,3 +82,82 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.notifications.onClicked.addListener(() => {
   chrome.tabs.create({ url: BASE_URL + "/dashboard" });
 });
+
+// ── Unsupported-LMS auto-sync state ──────────────────────────
+// Per-host throttle: by default we won't scrape the same host more than
+// once every 4 hours. The user can force-sync any time from the floating
+// button injected by content.js.
+const SYNC_INTERVAL_MS = 4 * 60 * 60 * 1000;
+const LAST_SYNC_KEY = "intelliplan_last_sync_by_host";
+
+async function _getLastSyncMap() {
+  const obj = await getStorage([LAST_SYNC_KEY]);
+  return obj[LAST_SYNC_KEY] || {};
+}
+
+async function _setLastSyncMap(map) {
+  return new Promise((res) => chrome.storage.local.set({ [LAST_SYNC_KEY]: map }, res));
+}
+
+async function pushScrapedData(payload) {
+  const token = await getToken();
+  // We try authenticated first (token), then fall back to cookie auth if
+  // the user is logged in via the same browser. Cookie auth fails CORS
+  // on cross-origin POSTs, so token is the primary path.
+  const useSmartPaste = !!(payload && payload._useSmartPaste);
+  const endpoint = useSmartPaste ? "/api/import/smart_paste" : "/api/import/scraper";
+  const body = useSmartPaste
+    ? { text: payload._pastedText || "", hint: payload.label || "" }
+    : {
+        lms: payload.lms || "other",
+        label: payload.label || "",
+        assignments: payload.assignments || [],
+        grades: payload.grades || [],
+      };
+  try {
+    const res = await fetch(BASE_URL + endpoint, {
+      method: "POST",
+      credentials: "omit",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+    return res.ok;
+  } catch (_e) {
+    console.warn("[IntelliPlan] sync push failed", _e);
+    return false;
+  }
+}
+
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (!msg || !msg.type) return;
+  if (msg.type === "intelliplan_sync_check") {
+    (async () => {
+      try {
+        const map = await _getLastSyncMap();
+        const last = map[msg.host] || 0;
+        const due = Date.now() - last > SYNC_INTERVAL_MS;
+        sendResponse({ shouldSync: due });
+      } catch (_e) { sendResponse({ shouldSync: false }); }
+    })();
+    return true;
+  }
+  if (msg.type === "intelliplan_sync_push") {
+    (async () => {
+      try {
+        const ok = await pushScrapedData(msg.payload);
+        if (ok) {
+          const map = await _getLastSyncMap();
+          map[msg.host] = Date.now();
+          await _setLastSyncMap(map);
+        }
+        sendResponse({ ok });
+      } catch (_e) {
+        sendResponse({ ok: false });
+      }
+    })();
+    return true;
+  }
+});

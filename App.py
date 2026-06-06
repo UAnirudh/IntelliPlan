@@ -232,6 +232,11 @@ class User(UserMixin, db.Model):
     stripe_customer_id = db.Column(db.String(64), nullable=True)
     # JSON: {"grade_source":"active|canvas|...", "assignment_sources":["active","google_classroom",...]}
     lms_preferences = db.Column(db.Text, default="{}")
+    # ── AI personalization opt-in. When True, IntelliPlan injects the
+    # student's grades, performance patterns, and history into AI prompts
+    # for the scheduler, tutor, and other AI features. Default OFF to
+    # respect privacy — the toggle lives in Settings → Privacy.
+    ai_personalization_opt_in = db.Column(db.Boolean, default=False)
     linked_accounts = db.relationship("LinkedAccount", backref="user", lazy=True, cascade="all, delete-orphan")
     dismissed = db.relationship("DismissedAssignment", backref="user", lazy=True, cascade="all, delete-orphan")
     descriptions = db.relationship("CustomDescription", backref="user", lazy=True, cascade="all, delete-orphan")
@@ -430,6 +435,34 @@ class ManualTask(db.Model):
     notes = db.Column(db.Text, default="")
     done = db.Column(db.Boolean, default=False)
     notion_page_id = db.Column(db.String(256), nullable=True)
+    # Provenance tags — populated when this task was created by the CSV
+    # importer, smart-paste, or the unsupported-LMS extension scraper so we
+    # can refresh-replace cleanly instead of duplicating on every sync.
+    import_source = db.Column(db.String(32), default="")   # "csv"|"paste"|"scraper:<lms>"|""
+    import_batch_id = db.Column(db.String(64), default="") # uuid for the import session
+    external_id = db.Column(db.String(128), default="")    # LMS-side id when scraper provides one
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class ImportedGrade(db.Model):
+    """Course grades imported from CSV, smart-paste, or extension scraper.
+
+    Exists so users on unsupported LMSes can still see their grades on the
+    /grades page and have them feed into AI personalization. Refreshed
+    in-place by the extension auto-sync via import_batch_id matching.
+    """
+    __tablename__ = "imported_grades"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    guest_session_id = db.Column(db.String(64), nullable=True)
+    course = db.Column(db.String(256), nullable=False)
+    percentage = db.Column(db.Float, nullable=True)
+    letter = db.Column(db.String(4), default="")
+    teacher = db.Column(db.String(256), default="")
+    period = db.Column(db.String(64), default="")
+    source = db.Column(db.String(32), default="csv")       # "csv"|"paste"|"scraper:<lms>"
+    source_label = db.Column(db.String(64), default="")    # human-friendly e.g. "Aeries (Riverside)"
+    last_synced = db.Column(db.DateTime, default=datetime.utcnow)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class SavedSchedule(db.Model):
@@ -3677,6 +3710,148 @@ def _get_or_create_identity(user_id):
     return identity
 
 
+def _ai_personalization_enabled(user=None):
+    """True when the user has opted into AI personalization. Default: False.
+
+    Guests and users who haven't toggled it on in Settings never get their
+    grade history shipped to the AI provider. This is the privacy gate that
+    governs build_student_context().
+    """
+    u = user if user is not None else (current_user if current_user.is_authenticated else None)
+    if not u:
+        return False
+    return bool(getattr(u, "ai_personalization_opt_in", False))
+
+
+def _summarize_grade_signals(grades_list, max_courses=12):
+    """Distill a grades payload into the signals that actually help an LLM.
+
+    Returns a dict: {"course_grades": [...], "strong": [...], "weak": [...],
+    "average": float|None}. Designed to be cheap (no extra API calls) — the
+    caller supplies the grades they already fetched, we just compress them
+    into something a prompt can reference without leaking PII.
+    """
+    if not isinstance(grades_list, (list, tuple)) or not grades_list:
+        return None
+    rows = []
+    for g in grades_list[:max_courses]:
+        if not isinstance(g, dict):
+            continue
+        course = (g.get("course") or g.get("class_name") or g.get("name") or "").strip()
+        if not course:
+            continue
+        pct = g.get("percentage")
+        if pct is None:
+            pct = g.get("grade_percent") or g.get("score")
+        try:
+            pct_val = float(str(pct).rstrip("%")) if pct is not None else None
+        except (TypeError, ValueError):
+            pct_val = None
+        rows.append({"course": course[:60], "percent": pct_val,
+                     "letter": (g.get("letter") or g.get("grade") or "")[:4]})
+    if not rows:
+        return None
+    scored = [r for r in rows if r["percent"] is not None]
+    avg = round(sum(r["percent"] for r in scored) / len(scored), 1) if scored else None
+    strong = [r["course"] for r in sorted(scored, key=lambda r: -r["percent"])[:3] if r["percent"] >= 88]
+    weak = [r["course"] for r in sorted(scored, key=lambda r: r["percent"])[:3] if r["percent"] < 78]
+    return {"course_grades": rows, "strong": strong, "weak": weak, "average": avg}
+
+
+def build_student_context(user_id=None, grades_summary=None, depth="full"):
+    """Build the personalization prompt block for AI features.
+
+    Returns an empty string if the user is a guest, hasn't opted in, or has
+    no useful signal. Otherwise returns a compact section suitable for
+    embedding in a system or user prompt.
+
+    depth:
+      - "full"  → identity + grades + class schedule (for scheduler)
+      - "tutor" → identity + grades only (for chatbot/tutor)
+      - "thin"  → identity only (for low-stakes features like writing tone)
+    """
+    try:
+        uid = user_id if user_id is not None else (current_user.id if current_user.is_authenticated else None)
+        if not uid:
+            return ""
+        u = db.session.get(User, uid)
+        if not u or not _ai_personalization_enabled(u):
+            return ""
+        identity = _get_or_create_identity(uid)
+        ident = identity.to_dict()
+        bits = []
+        if ident.get("grade_level"):
+            bits.append(f"Grade level: {ident['grade_level']}")
+        if ident.get("focus_areas"):
+            bits.append(f"Academic focus: {', '.join(ident['focus_areas'][:6])}")
+        if ident.get("goals"):
+            bits.append(f"Stated goals: {ident['goals'][:240]}")
+        if depth == "full" and ident.get("weekly_commitments"):
+            bits.append(f"Weekly commitments: {ident['weekly_commitments'][:200]}")
+        if depth == "full" and ident.get("availability"):
+            av = "; ".join(f"{d}: {t}" for d, t in ident["availability"].items() if t)
+            if av:
+                bits.append(f"Availability: {av[:300]}")
+        # Grade signals — only if the caller already gathered them, so we
+        # never make an extra LMS request inside the prompt path.
+        if grades_summary and isinstance(grades_summary, dict):
+            if grades_summary.get("average") is not None:
+                bits.append(f"Current overall average: {grades_summary['average']}%")
+            if grades_summary.get("strong"):
+                bits.append(f"Strongest subjects (>= 88%): {', '.join(grades_summary['strong'][:3])}")
+            if grades_summary.get("weak"):
+                bits.append(f"Subjects needing more time (< 78%): {', '.join(grades_summary['weak'][:3])}")
+            cg = grades_summary.get("course_grades") or []
+            if cg and depth == "full":
+                line = ", ".join(
+                    f"{r['course']} {int(r['percent'])}%" if r.get("percent") is not None else r["course"]
+                    for r in cg[:8]
+                )
+                if line:
+                    bits.append(f"Course grades: {line}")
+        if not bits:
+            return ""
+        header = (
+            "\n=== STUDENT CONTEXT (use to personalize, do NOT echo verbatim) ===\n"
+            + "\n".join(f"  - {b}" for b in bits)
+            + "\nGuidance: lean on strong subjects to build confidence; allocate more careful "
+              "explanation and study time to weaker subjects; align tone to the student's stated goals."
+            + "\n=== END STUDENT CONTEXT ===\n"
+        )
+        return header
+    except Exception as _e:
+        # Personalization is non-essential — never let it break an AI call.
+        print(f"[personalization] build_student_context failed: {_e}")
+        return ""
+
+
+def _fetch_grades_for_personalization():
+    """Best-effort grades fetch used by AI endpoints that don't already have them.
+
+    Returns the same shape as /grades/data, or an empty list on any failure.
+    Wrapped so caller code can stay one-line: `_summarize_grade_signals(_fetch_grades_for_personalization())`.
+    """
+    try:
+        acct = get_grade_account()
+        if acct:
+            lt = acct.get("login_type")
+            if lt == "studentvue":
+                from studentvue_helper import get_grades as _sv
+                return _sv(acct["sv_district_url"], acct["sv_username"], acct["sv_password"]) or []
+            if lt == "schoology":
+                from schoology_helper import get_schoology_grades as _sc
+                return _sc(acct["schoology_key"], acct["schoology_secret"]) or []
+            if lt == "canvas":
+                from canvas_helper import get_grades as _cv
+                return _cv(acct.get("canvas_url", "https://canvas.instructure.com"), acct["canvas_token"]) or []
+        # No LMS — fall back to imported CSV / paste / scraper grades so AI
+        # personalization still works for unsupported-LMS students.
+        return _imported_grades_payload()
+    except Exception as _e:
+        print(f"[personalization] grades fetch failed: {_e}")
+    return []
+
+
 @app.route("/onboarding", methods=["GET", "POST"])
 def onboarding():
     if not is_logged_in():
@@ -4678,11 +4853,41 @@ def get_courses():
     courses = course_response.json()
     return flask.jsonify([{"name": c.get("name", "Unknown")} for c in courses if isinstance(c, dict) and "id" in c])
 
+def _imported_grades_payload():
+    """Read ImportedGrade rows (CSV / smart-paste / extension scraper) and
+    return them in the same shape /grades/data normally produces."""
+    q = ImportedGrade.query
+    if current_user.is_authenticated:
+        q = q.filter_by(user_id=current_user.id)
+    else:
+        q = q.filter_by(guest_session_id=session.get("guest_id"))
+    rows = q.order_by(ImportedGrade.last_synced.desc()).all()
+    if not rows:
+        return []
+    # De-dupe by course — keep the most-recently-synced row per course.
+    seen, out = set(), []
+    for r in rows:
+        key = (r.course or "").lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append({
+            "course": r.course, "class_name": r.course,
+            "percentage": r.percentage, "grade": r.letter or "",
+            "letter": r.letter or "", "teacher": r.teacher or "",
+            "period": r.period or "",
+            "source": r.source_label or r.source,
+        })
+    return out
+
+
 @app.route("/grades/data")
 def grades_data():
     acct = get_grade_account()
     if not acct:
-        return flask.jsonify([])
+        # No connected LMS — fall back to imported grades from CSV / paste /
+        # extension scraper. This is how unsupported-LMS users see grades.
+        return flask.jsonify(_imported_grades_payload())
     login_type = acct["login_type"]
     if login_type == "studentvue":
         from studentvue_helper import get_grades as get_sv_grades
@@ -4692,7 +4897,7 @@ def grades_data():
             from schoology_helper import get_schoology_grades
             return flask.jsonify(get_schoology_grades(acct["schoology_key"], acct["schoology_secret"]))
         except Exception:
-            return flask.jsonify([])
+            return flask.jsonify(_imported_grades_payload())
     if login_type == "canvas":
         try:
             from canvas_helper import get_grades as get_canvas_grades
@@ -4702,8 +4907,8 @@ def grades_data():
             ))
         except Exception as e:
             print(f"Canvas grades error: {e}")
-            return flask.jsonify([])
-    return flask.jsonify([])
+            return flask.jsonify(_imported_grades_payload())
+    return flask.jsonify(_imported_grades_payload())
 
 @app.route("/gradebook/detail")
 def gradebook_detail():
@@ -5099,29 +5304,22 @@ def generate_schedule():
         custom_text = f"\nCUSTOM TASKS ADDED BY STUDENT — use EXACT names as written ({len(custom_tasks)}):\n" + "\n".join([f"  - {t}" for t in custom_tasks])
     today = datetime.now().strftime("%Y-%m-%d")
     total = len(normalized_assignments) + len(custom_tasks)
-    # Build study profile context if user is logged in
-    profile_context = ""
-    if is_logged_in():
+    # Build personalized student context. When the user has opted in
+    # (Settings → Privacy), we layer in grade signals so the AI can weight
+    # weaker subjects more carefully and play to strengths. When opted-out,
+    # build_student_context() returns "" and the scheduler behaves
+    # exactly as it did before personalization existed.
+    grades_summary = None
+    if current_user.is_authenticated and _ai_personalization_enabled():
         try:
-            identity = _get_or_create_identity(current_user.id)
-            p = identity.to_dict()
-            parts = []
-            if p.get("grade_level"):
-                parts.append(f"Grade: {p['grade_level']}")
-            if p.get("focus_areas"):
-                parts.append(f"Subjects: {', '.join(p['focus_areas'])}")
-            if p.get("goals"):
-                parts.append(f"Goals: {p['goals'][:200]}")
-            if p.get("weekly_commitments"):
-                parts.append(f"Weekly commitments: {p['weekly_commitments'][:150]}")
-            if p.get("availability"):
-                av_str = "; ".join(f"{d}: {t}" for d, t in p["availability"].items())
-                if av_str:
-                    parts.append(f"Availability: {av_str}")
-            if parts:
-                profile_context = "\nSTUDENT PROFILE:\n" + "\n".join(f"  - {x}" for x in parts) + "\n"
-        except Exception:
-            pass
+            grades_summary = _summarize_grade_signals(_fetch_grades_for_personalization())
+        except Exception as _ge:
+            print(f"[scheduler] grade summary failed: {_ge}")
+    profile_context = build_student_context(
+        user_id=current_user.id if current_user.is_authenticated else None,
+        grades_summary=grades_summary,
+        depth="full",
+    )
     prompt = f"""You are IntelliPlan — an adaptive academic study-planning system. Today is {today}.
 
 You must schedule ALL {total} items below. Every single one must appear in the schedule.
@@ -5140,6 +5338,16 @@ RULES:
 6. Add a 10min break after every 45min work block
 7. Never put the same assignment twice in one day
 8. Schedule must end before the latest due date
+
+PERSONALIZATION (only if STUDENT CONTEXT is present above):
+- Allocate ~30% more study time to assignments in subjects listed under "needing more time".
+- For weak-subject blocks, use the notes field to suggest a concrete starting tactic
+  (e.g. "review the last quiz error first", "redo example problems before starting").
+- For strong-subject blocks, keep blocks shorter and frame notes around polish/depth,
+  not foundations.
+- Match block placement to availability and weekly commitments when stated.
+- Never reference specific past grades back to the student in the notes — the context
+  is for YOUR planning only, the student does not need to read their own GPA back.
 
 Return ONLY valid JSON:
 {{
@@ -5856,6 +6064,383 @@ def manual_list_tasks():
         "estimated_time": t.estimated_time, "notes": t.notes,
         "source": "manual", "color": PRIORITY_COLORS.get(t.priority, "#f59e0b")
     } for t in tasks])
+
+
+# ── UNSUPPORTED-LMS IMPORT (CSV / smart-paste / extension scraper) ──
+# These endpoints exist so students whose districts aren't supported
+# (or whose LMS we don't have a connector for yet) can still get
+# their assignments + grades into IntelliPlan. Three tiers:
+#   1. /api/import/csv          — generic CSV template
+#   2. /api/import/smart_paste  — paste a gradebook table, AI parses it
+#   3. /api/import/scraper      — extension posts structured JSON
+
+CSV_TEMPLATE_ROWS = [
+    ["type", "title", "course", "due_date", "priority", "estimated_minutes", "grade_percent", "letter_grade", "teacher", "notes"],
+    ["assignment", "Chapter 4 Reading", "Honors Bio", "2026-06-12", "Medium", "45", "", "", "Ms. Patel", "Pages 88-104"],
+    ["assignment", "Lab Report 3", "Chemistry", "2026-06-15", "High", "120", "", "", "Mr. Chen", "Include data table"],
+    ["grade", "", "Honors Bio", "", "", "", "92", "A-", "Ms. Patel", "Current overall"],
+    ["grade", "", "Chemistry", "", "", "", "78", "C+", "Mr. Chen", "Current overall"],
+]
+
+
+def _import_owner_filter(query, model):
+    """Apply the right ownership filter to an Imported* query depending on auth."""
+    if current_user.is_authenticated:
+        return query.filter(model.user_id == current_user.id)
+    return query.filter(model.guest_session_id == get_guest_session_id())
+
+
+def _import_owner_kwargs():
+    if current_user.is_authenticated:
+        return {"user_id": current_user.id, "guest_session_id": None}
+    return {"user_id": None, "guest_session_id": get_guest_session_id()}
+
+
+def _parse_csv_rows(text):
+    """Parse the IntelliPlan CSV format. Returns (assignments, grades, errors)."""
+    import csv as _csv
+    from io import StringIO as _SIO
+    assignments, grades, errors = [], [], []
+    reader = _csv.reader(_SIO(text))
+    rows = list(reader)
+    if not rows:
+        return [], [], ["Empty file"]
+    header = [h.strip().lower() for h in rows[0]]
+    expected = {"type", "title", "course", "due_date", "priority",
+                "estimated_minutes", "grade_percent", "letter_grade", "teacher", "notes"}
+    if not expected.issubset(set(header)):
+        missing = expected - set(header)
+        errors.append(f"CSV is missing required columns: {', '.join(sorted(missing))}. "
+                      f"Download the template and fill it in.")
+        return [], [], errors
+    idx = {col: header.index(col) for col in header}
+
+    def _g(row, col):
+        i = idx.get(col)
+        return (row[i].strip() if i is not None and i < len(row) else "")
+
+    for line_no, row in enumerate(rows[1:], start=2):
+        if not any(cell.strip() for cell in row):
+            continue
+        kind = _g(row, "type").lower()
+        title = _g(row, "title")
+        course = _g(row, "course") or "Imported"
+        if kind == "assignment":
+            if not title:
+                errors.append(f"Line {line_no}: assignment missing title")
+                continue
+            try:
+                est = int(_g(row, "estimated_minutes") or "60")
+            except ValueError:
+                est = 60
+            assignments.append({
+                "title": title[:500],
+                "course": course[:255],
+                "due_date": _g(row, "due_date"),
+                "priority": (_g(row, "priority") or "Medium").title(),
+                "estimated_time": max(15, min(est, 600)),
+                "notes": _g(row, "notes")[:800],
+            })
+        elif kind == "grade":
+            try:
+                pct = float(_g(row, "grade_percent").rstrip("%") or "nan")
+                if pct != pct:  # NaN
+                    pct = None
+            except ValueError:
+                pct = None
+            grades.append({
+                "course": course[:255],
+                "percentage": pct,
+                "letter": _g(row, "letter_grade")[:4],
+                "teacher": _g(row, "teacher")[:255],
+                "notes": _g(row, "notes")[:800],
+            })
+        else:
+            errors.append(f"Line {line_no}: unknown type '{kind}' (expected 'assignment' or 'grade')")
+    return assignments, grades, errors
+
+
+def _persist_import(assignments, grades, source="csv", source_label="", batch_id=None, replace_batch=True):
+    """Write parsed assignments/grades to the DB, optionally replacing a prior
+    batch with the same source (for auto-sync from the extension)."""
+    import uuid as _uuid
+    batch_id = batch_id or str(_uuid.uuid4())
+    own = _import_owner_kwargs()
+    # Refresh-replace: when the same scraper pushes a new sync, drop the old
+    # rows for that source so we don't accumulate duplicates.
+    if replace_batch and source.startswith("scraper:"):
+        q = ManualTask.query.filter_by(**own).filter(ManualTask.import_source == source)
+        q.delete(synchronize_session=False)
+        gq = ImportedGrade.query.filter_by(**own).filter(ImportedGrade.source == source)
+        gq.delete(synchronize_session=False)
+    created_assignments = 0
+    for a in assignments:
+        db.session.add(ManualTask(
+            **own,
+            title=a["title"], course=a.get("course", "Imported"),
+            due_date=a.get("due_date", ""), priority=a.get("priority", "Medium"),
+            estimated_time=a.get("estimated_time", 60), notes=a.get("notes", ""),
+            import_source=source, import_batch_id=batch_id,
+            external_id=a.get("external_id", ""),
+        ))
+        created_assignments += 1
+    created_grades = 0
+    for g in grades:
+        db.session.add(ImportedGrade(
+            **own,
+            course=g["course"], percentage=g.get("percentage"),
+            letter=g.get("letter", ""), teacher=g.get("teacher", ""),
+            period=g.get("period", ""), source=source,
+            source_label=source_label or source,
+        ))
+        created_grades += 1
+    db.session.commit()
+    return batch_id, created_assignments, created_grades
+
+
+@app.route("/api/import/csv/template")
+def api_import_csv_template():
+    """Download the blank IntelliPlan import template."""
+    import csv as _csv
+    from io import StringIO as _SIO
+    buf = _SIO()
+    writer = _csv.writer(buf)
+    for row in CSV_TEMPLATE_ROWS:
+        writer.writerow(row)
+    response = flask.make_response(buf.getvalue())
+    response.headers["Content-Type"] = "text/csv; charset=utf-8"
+    response.headers["Content-Disposition"] = 'attachment; filename="intelliplan-import-template.csv"'
+    return response
+
+
+@app.route("/api/import/csv", methods=["POST"])
+@limiter.limit("20 per hour")
+def api_import_csv():
+    """Accept an uploaded CSV (or raw `text` field) and import its rows."""
+    text = ""
+    if "file" in request.files:
+        try:
+            text = request.files["file"].read().decode("utf-8", errors="replace")
+        except Exception as e:
+            return flask.jsonify({"status": "error", "message": f"Could not read file: {e}"}), 400
+    else:
+        body = request.get_json(silent=True) or {}
+        text = body.get("text", "") or ""
+    if not text.strip():
+        return flask.jsonify({"status": "error", "message": "No CSV content provided."}), 400
+    assignments, grades, errors = _parse_csv_rows(text)
+    if errors and not assignments and not grades:
+        return flask.jsonify({"status": "error", "message": errors[0], "errors": errors}), 400
+    source_label = (request.form.get("source_label") if "file" in request.files
+                    else (request.get_json(silent=True) or {}).get("source_label", "")) or "CSV import"
+    batch_id, a_count, g_count = _persist_import(
+        assignments, grades, source="csv", source_label=source_label, replace_batch=False
+    )
+    return flask.jsonify({
+        "status": "ok", "batch_id": batch_id,
+        "assignments_imported": a_count, "grades_imported": g_count,
+        "warnings": errors,
+    })
+
+
+@app.route("/api/import/smart_paste", methods=["POST"])
+@limiter.limit("15 per hour")
+def api_import_smart_paste():
+    """Paste a gradebook or assignment list as raw text; AI parses it.
+
+    Body: {"text": "...pasted content...", "hint": "optional context"}.
+    Returns the parsed assignments+grades AND persists them. The user can
+    later delete any row that came out wrong from the unified task list.
+    """
+    if not ai_available():
+        return flask.jsonify({"status": "error",
+                              "message": "Smart paste needs the AI service, which is unavailable right now."}), 503
+    body = request.get_json(silent=True) or {}
+    text = (body.get("text") or "").strip()
+    hint = (body.get("hint") or "").strip()
+    if not text:
+        return flask.jsonify({"status": "error", "message": "Paste some text first."}), 400
+    if len(text) > 24000:
+        text = text[:24000]
+    today = datetime.now().strftime("%Y-%m-%d")
+    prompt = f"""You convert pasted gradebook/assignment text into IntelliPlan JSON. Today is {today}.
+
+The student pasted this from an unsupported LMS{(' — ' + hint) if hint else ''}:
+---
+{text}
+---
+
+Extract every assignment and every course grade you can identify. Return ONLY valid JSON in this exact shape:
+
+{{
+  "assignments": [
+    {{"title": "...", "course": "...", "due_date": "YYYY-MM-DD or empty", "priority": "High|Medium|Low",
+      "estimated_time": 45, "notes": "..."}}
+  ],
+  "grades": [
+    {{"course": "...", "percentage": 92.5, "letter": "A-", "teacher": ""}}
+  ]
+}}
+
+Rules:
+- If a row is clearly a course summary (no due date, has a percent or letter grade), put it in `grades`.
+- If a row is an individual task with a due date or work to do, put it in `assignments`.
+- When the year is missing from a date, assume the current academic year.
+- Priority: assignments due within 3 days = High, within 14 days = Medium, beyond = Low.
+- estimated_time should be a reasonable minute estimate based on the assignment type (reading 30, problem set 60, project 120, essay 90).
+- If you cannot determine a field, leave it as an empty string. Never invent course names.
+- Strip HTML, table pipes, and column letters. Return clean text only."""
+    try:
+        result = ai_chat(
+            [{"role": "user", "content": prompt}],
+            tier="standard", temperature=0.2, max_tokens=4000,
+            response_format={"type": "json_object"},
+        )
+        result = re.sub(r"```json\n?", "", result)
+        result = re.sub(r"```\n?", "", result).strip()
+        try:
+            parsed = json.loads(result)
+        except json.JSONDecodeError:
+            m = re.search(r"\{[\s\S]*\}", result)
+            if not m:
+                raise
+            parsed = json.loads(m.group(0))
+    except Exception as e:
+        print(f"[smart_paste] AI parse failed: {e}")
+        return flask.jsonify({"status": "error",
+                              "message": "Couldn't read that paste. Try shorter text or use the CSV template."}), 502
+
+    assignments = parsed.get("assignments") or []
+    grades = parsed.get("grades") or []
+    # Sanitize before persisting — the LLM occasionally returns numbers as strings.
+    clean_assignments = []
+    for a in assignments[:200]:
+        if not isinstance(a, dict) or not a.get("title"):
+            continue
+        try:
+            est = int(a.get("estimated_time") or 60)
+        except (TypeError, ValueError):
+            est = 60
+        clean_assignments.append({
+            "title": str(a["title"])[:500],
+            "course": str(a.get("course") or "Imported")[:255],
+            "due_date": str(a.get("due_date") or ""),
+            "priority": str(a.get("priority") or "Medium").title(),
+            "estimated_time": max(15, min(est, 600)),
+            "notes": str(a.get("notes") or "")[:800],
+        })
+    clean_grades = []
+    for g in grades[:50]:
+        if not isinstance(g, dict) or not g.get("course"):
+            continue
+        try:
+            pct = float(str(g.get("percentage")).rstrip("%")) if g.get("percentage") is not None else None
+        except (TypeError, ValueError):
+            pct = None
+        clean_grades.append({
+            "course": str(g["course"])[:255],
+            "percentage": pct,
+            "letter": str(g.get("letter") or "")[:4],
+            "teacher": str(g.get("teacher") or "")[:255],
+        })
+    batch_id, a_count, g_count = _persist_import(
+        clean_assignments, clean_grades, source="paste",
+        source_label=hint[:60] or "Smart paste", replace_batch=False,
+    )
+    return flask.jsonify({
+        "status": "ok", "batch_id": batch_id,
+        "assignments_imported": a_count, "grades_imported": g_count,
+        "preview": {"assignments": clean_assignments[:5], "grades": clean_grades[:5]},
+    })
+
+
+@app.route("/api/import/scraper", methods=["POST"])
+@limiter.limit("60 per hour")
+def api_import_scraper():
+    """Endpoint the IntelliPlan browser extension posts structured data to.
+
+    Body shape:
+      {"lms": "powerschool|aeries|infinitecampus|other",
+       "label": "PowerSchool (West HS)",
+       "assignments": [{"title", "course", "due_date", "priority",
+                        "estimated_time", "notes", "external_id"}, ...],
+       "grades": [{"course", "percentage", "letter", "teacher", "period"}, ...]}
+
+    Each subsequent post for the same `lms` replaces the prior batch so
+    auto-sync stays idempotent.
+    """
+    if not (current_user.is_authenticated or session.get("guest_id")):
+        return flask.jsonify({"status": "error", "message": "Sign in first"}), 401
+    body = request.get_json(silent=True) or {}
+    lms = (body.get("lms") or "").strip().lower() or "other"
+    label = (body.get("label") or lms.title())[:60]
+    assignments = body.get("assignments") or []
+    grades = body.get("grades") or []
+    if not isinstance(assignments, list) or not isinstance(grades, list):
+        return flask.jsonify({"status": "error", "message": "Bad payload"}), 400
+    if not assignments and not grades:
+        return flask.jsonify({"status": "ok", "assignments_imported": 0, "grades_imported": 0})
+    # Same sanitization as smart_paste — never trust the extension blindly.
+    clean_a = []
+    for a in assignments[:500]:
+        if not isinstance(a, dict) or not a.get("title"):
+            continue
+        try:
+            est = int(a.get("estimated_time") or 60)
+        except (TypeError, ValueError):
+            est = 60
+        clean_a.append({
+            "title": str(a["title"])[:500],
+            "course": str(a.get("course") or "Imported")[:255],
+            "due_date": str(a.get("due_date") or ""),
+            "priority": str(a.get("priority") or "Medium").title(),
+            "estimated_time": max(15, min(est, 600)),
+            "notes": str(a.get("notes") or "")[:800],
+            "external_id": str(a.get("external_id") or "")[:128],
+        })
+    clean_g = []
+    for g in grades[:100]:
+        if not isinstance(g, dict) or not g.get("course"):
+            continue
+        try:
+            pct = float(str(g.get("percentage")).rstrip("%")) if g.get("percentage") is not None else None
+        except (TypeError, ValueError):
+            pct = None
+        clean_g.append({
+            "course": str(g["course"])[:255], "percentage": pct,
+            "letter": str(g.get("letter") or "")[:4],
+            "teacher": str(g.get("teacher") or "")[:255],
+            "period": str(g.get("period") or "")[:64],
+        })
+    batch_id, a_count, g_count = _persist_import(
+        clean_a, clean_g, source=f"scraper:{lms}",
+        source_label=label, replace_batch=True,
+    )
+    return flask.jsonify({
+        "status": "ok", "batch_id": batch_id,
+        "assignments_imported": a_count, "grades_imported": g_count,
+    })
+
+
+@app.route("/api/import/status")
+def api_import_status():
+    """Summary of what's been imported (used by the connect page + extension)."""
+    own_q_a = _import_owner_filter(ManualTask.query, ManualTask).filter(
+        ManualTask.import_source != ""
+    )
+    own_q_g = _import_owner_filter(ImportedGrade.query, ImportedGrade)
+    by_source = {}
+    for t in own_q_a.all():
+        by_source.setdefault(t.import_source, {"assignments": 0, "grades": 0})["assignments"] += 1
+    for g in own_q_g.all():
+        by_source.setdefault(g.source, {"assignments": 0, "grades": 0})["grades"] += 1
+    last_grade = own_q_g.order_by(ImportedGrade.last_synced.desc()).first()
+    return flask.jsonify({
+        "status": "ok",
+        "sources": by_source,
+        "last_synced": last_grade.last_synced.isoformat() if last_grade else None,
+    })
+
 
 # ── SAVED SCHEDULE ────────────────────────────────────────────
 @app.route("/schedule/save", methods=["POST"])
@@ -8687,7 +9272,27 @@ def _profile_payload(u):
         "reminder_lead_minutes": int(getattr(u, "reminder_lead_minutes", 60) or 60),
         "sms_carrier": (getattr(u, "sms_carrier", "tmobile") or "tmobile"),
         "sms_carrier_choices": list(SMS_CARRIER_GATEWAYS.keys()),
+        "ai_personalization_opt_in": bool(getattr(u, "ai_personalization_opt_in", False)),
     }
+
+
+@app.route("/api/profile/ai_personalization", methods=["POST"])
+def api_profile_ai_personalization():
+    """Toggle the AI personalization opt-in. Body: {"enabled": true|false}.
+
+    When enabled, the scheduler/tutor/etc inject the student's grade history
+    and identity into AI prompts. When disabled (the default), none of that
+    leaves the database.
+    """
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error"}), 401
+    body = request.get_json(silent=True) or {}
+    current_user.ai_personalization_opt_in = bool(body.get("enabled"))
+    db.session.commit()
+    return flask.jsonify({
+        "status": "ok",
+        "ai_personalization_opt_in": current_user.ai_personalization_opt_in,
+    })
 
 
 @app.route("/api/profile/phone", methods=["GET", "POST"])
@@ -10208,6 +10813,11 @@ def _migrate_user_columns():
         ("users", "parent_consent_token", "VARCHAR(64)"),
         ("users", "stripe_customer_id", "VARCHAR(64)"),
         ("users", "lms_preferences", "TEXT DEFAULT '{}'"),
+        ("users", "ai_personalization_opt_in", "BOOLEAN DEFAULT FALSE"),
+        # manual_tasks provenance for CSV importer / extension scraper
+        ("manual_tasks", "import_source", "VARCHAR(32) DEFAULT ''"),
+        ("manual_tasks", "import_batch_id", "VARCHAR(64) DEFAULT ''"),
+        ("manual_tasks", "external_id", "VARCHAR(128) DEFAULT ''"),
         # user_identities — earlier migration's columns. Without these,
         # _get_or_create_identity() blows up and registration redirects
         # to /onboarding which then 500s.

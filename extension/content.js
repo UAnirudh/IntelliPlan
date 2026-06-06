@@ -48,3 +48,71 @@ if (document.readyState === "loading") {
 } else {
   addIntelliPlanButton();
 }
+
+// ── Unsupported-LMS auto-sync ──────────────────────────────────
+// When this page matches a registered scraper (PowerSchool / Aeries /
+// Infinite Campus / Skyward / eSchoolPlus / generic portal), we ask the
+// background script whether enough time has elapsed since the last sync
+// for this host. If so, we scrape and POST to IntelliPlan.
+
+(async function ipMaybeSync() {
+  try {
+    if (!window.IntelliPlanScrapers) return;
+    const picked = window.IntelliPlanScrapers.pickForLocation();
+    if (!picked) return;
+    // Ask background.js if a sync is due for this host.
+    chrome.runtime.sendMessage(
+      { type: "intelliplan_sync_check", host: location.host },
+      async (resp) => {
+        if (!resp || !resp.shouldSync) return;
+        const data = await window.IntelliPlanScrapers.scrapeCurrent();
+        if (!data) return;
+        chrome.runtime.sendMessage({
+          type: "intelliplan_sync_push",
+          host: location.host,
+          payload: data,
+        });
+      }
+    );
+  } catch (_e) { /* never crash the host page */ }
+})();
+
+// Surface a small button to manually trigger a sync, alongside the existing
+// IntelliPlan button. Helpful for first-run + testing.
+(function ipAddSyncButton() {
+  if (document.getElementById("intelliplan-sync-btn")) return;
+  if (!window.IntelliPlanScrapers || !window.IntelliPlanScrapers.pickForLocation()) return;
+  const wait = () => {
+    if (!document.body) { setTimeout(wait, 300); return; }
+    const btn = document.createElement("button");
+    btn.id = "intelliplan-sync-btn";
+    btn.type = "button";
+    btn.style.cssText = `
+      position: fixed; bottom: 24px; right: 160px; z-index: 99999;
+      background: #4f46e5; color: white; padding: 10px 14px;
+      border-radius: 12px; font-family: -apple-system, sans-serif;
+      font-size: 12px; font-weight: 600; border: 0; cursor: pointer;
+      box-shadow: 0 4px 16px rgba(79,70,229,0.25);
+    `;
+    btn.textContent = "Sync to IntelliPlan";
+    btn.onclick = async () => {
+      btn.disabled = true; btn.textContent = "Syncing...";
+      try {
+        const data = await window.IntelliPlanScrapers.scrapeCurrent();
+        if (!data) { btn.textContent = "Nothing found"; return; }
+        const ok = await new Promise((resolve) => {
+          chrome.runtime.sendMessage(
+            { type: "intelliplan_sync_push", host: location.host, payload: data, force: true },
+            (r) => resolve(r && r.ok),
+          );
+        });
+        btn.textContent = ok ? "Synced ✓" : "Sync failed";
+      } catch (_e) {
+        btn.textContent = "Sync failed";
+      }
+      setTimeout(() => { btn.disabled = false; btn.textContent = "Sync to IntelliPlan"; }, 2400);
+    };
+    document.body.appendChild(btn);
+  };
+  wait();
+})();

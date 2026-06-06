@@ -817,6 +817,34 @@ def _build_identity_prompt(identity):
     return '\n'.join(parts)
 
 
+def _build_personalization_prompt(depth='tutor'):
+    """Pull the opt-in grade+identity context from App.build_student_context.
+
+    Returns None for guests, opted-out users, or any failure. Lazy-imports to
+    avoid circular dependency with App.py. Safe to call on every chatbot turn
+    — the helper itself short-circuits when the opt-in flag is off, so no
+    LMS request runs for the typical user.
+    """
+    if not current_user.is_authenticated:
+        return None
+    try:
+        from App import (
+            _ai_personalization_enabled,
+            build_student_context,
+            _summarize_grade_signals,
+            _fetch_grades_for_personalization,
+        )
+        if not _ai_personalization_enabled():
+            return None
+        grades = _fetch_grades_for_personalization()
+        summary = _summarize_grade_signals(grades) if grades else None
+        ctx = build_student_context(grades_summary=summary, depth=depth)
+        return ctx.strip() if ctx else None
+    except Exception as _e:
+        print(f'[personalization] chatbot context failed: {_e}')
+        return None
+
+
 def _build_tutor_memory_prompt(profile):
     profile = profile or _default_tutor_profile()
     style = dict(profile.get('style') or {})
@@ -1015,6 +1043,7 @@ def tutor():
         recent = messages[-16:]
         memory_prompt = _build_tutor_memory_prompt(profile)
         identity_prompt = _build_identity_prompt(_load_user_identity())
+        personalization_prompt = _build_personalization_prompt(depth='tutor')
 
         system_messages = [
             {'role': 'system', 'content': TUTOR_SYSTEM_PROMPT},
@@ -1022,6 +1051,8 @@ def tutor():
         ]
         if identity_prompt:
             system_messages.append({'role': 'system', 'content': identity_prompt})
+        if personalization_prompt:
+            system_messages.append({'role': 'system', 'content': personalization_prompt})
 
         reply = _llm_chat(
             model='llama-3.3-70b-versatile',
@@ -1165,9 +1196,12 @@ def chatbot():
 
         recent = messages[-10:]
         identity_prompt = _build_identity_prompt(_load_user_identity())
+        personalization_prompt = _build_personalization_prompt(depth='thin')
         system_messages = [{'role': 'system', 'content': PLANI_SYSTEM_PROMPT}]
         if identity_prompt:
             system_messages.append({'role': 'system', 'content': identity_prompt})
+        if personalization_prompt:
+            system_messages.append({'role': 'system', 'content': personalization_prompt})
 
         reply = _llm_chat(
             model='llama-3.3-70b-versatile',
