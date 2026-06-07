@@ -110,53 +110,60 @@
        DESIGN TOKENS
     ══════════════════════════════════════ */
     :root {
-      --font-display: 'Plus Jakarta Sans', sans-serif;
+      /* LottieFiles-inspired type system: DM Sans for display,
+         Inter for everything else. Tight tracking + warm light canvas. */
+      --font-display: 'DM Sans', 'Plus Jakarta Sans', sans-serif;
       --font-body:    'Inter', sans-serif;
-      --font-ui:      'Plus Jakarta Sans', sans-serif;
+      --font-ui:      'Inter', 'DM Sans', sans-serif;
       --r-xs:   4px; --r-sm: 8px; --r-md: 12px;
-      --r-lg:  16px; --r-xl: 20px; --r-2xl: 28px; --r-full: 9999px;
+      --r-lg:  16px; --r-xl: 20px; --r-2xl: 24px; --r-full: 9999px;
       --ease-spring: cubic-bezier(0.34,1.56,0.64,1);
       --ease-out:    cubic-bezier(0.16,1,0.3,1);
       --ease-in-out: cubic-bezier(0.65,0,0.35,1);
-      /* Premium gradient accents (Fortune-500 palette).
-         Used for hero, CTAs, and elevated surfaces. */
-      --grad-brand:      linear-gradient(135deg,#2453d6 0%,#3b5fe0 40%,#6366f1 100%);
-      --grad-brand-soft: linear-gradient(135deg,rgba(36,83,214,0.10) 0%,rgba(99,102,241,0.06) 100%);
+      /* Brand accents: a single saturated teal carries chrome.
+         Soft mint wash for hero/card glows. */
+      --grad-brand:      linear-gradient(135deg,#019d91 0%,#02b3a5 50%,#61f7cf 100%);
+      --grad-brand-soft: linear-gradient(135deg,rgba(1,157,145,0.10) 0%,rgba(97,247,207,0.06) 100%);
     }
 
     :root[data-theme="light"] {
-      --bg:            #fafaf7;
-      --bg-secondary:  #ffffff;
+      /* LottieFiles palette: pearl canvas, white cards, hairline mist border,
+         brand teal as the only saturated chrome color. Elevation is
+         expressed by 1px borders, not drop shadows. */
+      --bg:            #f4f4f5;
+      --bg-secondary:  #fafafa;
       --bg-card:       #ffffff;
-      --bg-elevated:   #f5f5f1;
-      --bg-dot:        rgba(15,23,42,0.025);
-      --accent:        #2453d6;
-      --accent-hover:  #1a43c0;
-      --accent-soft:   rgba(36,83,214,0.07);
-      --accent-mid:    rgba(36,83,214,0.22);
-      --accent-glow:   0 0 60px rgba(36,83,214,0.18);
-      --text-primary:  #0a0a0a;
-      --text-secondary:#4b5563;
-      --text-muted:    #6b7280;
-      --border:        rgba(15,23,42,0.06);
-      --border-strong: rgba(15,23,42,0.11);
-      --border-accent: rgba(36,83,214,0.28);
-      --shadow-sm:  0 1px 2px rgba(15,23,42,0.04);
-      --shadow:     0 1px 3px rgba(15,23,42,0.04),0 8px 20px rgba(15,23,42,0.05);
-      --shadow-hover:0 2px 6px rgba(15,23,42,0.06),0 18px 42px rgba(15,23,42,0.10);
-      --shadow-lg:  0 10px 22px rgba(15,23,42,0.08),0 32px 72px rgba(15,23,42,0.13);
-      --nav-bg:     rgba(255,255,255,0.78);
-      --nav-border: rgba(15,23,42,0.06);
+      --bg-elevated:   #fafafa;
+      --bg-dot:        transparent;
+      --accent:        #019d91;
+      --accent-hover:  #017d74;
+      --accent-soft:   rgba(1,157,145,0.08);
+      --accent-mid:    rgba(1,157,145,0.18);
+      --accent-glow:   0 0 48px rgba(1,157,145,0.12);
+      --text-primary:  #09090b;
+      --text-secondary:#27272a;
+      --text-muted:    #71717b;
+      --border:        #e4e4e7;
+      --border-strong: #d4d4d8;
+      --border-accent: rgba(1,157,145,0.32);
+      /* Near-flat by design — borders carry the structure. */
+      --shadow-sm:  0 1px 2px rgba(0,0,0,0.04);
+      --shadow:     0 1px 2px rgba(0,0,0,0.05);
+      --shadow-hover:0 1px 2px rgba(0,0,0,0.06),0 8px 24px rgba(0,0,0,0.04);
+      --shadow-lg:  0 1px 2px rgba(0,0,0,0.05),0 16px 48px rgba(0,0,0,0.06);
+      --nav-bg:     rgba(255,255,255,0.92);
+      --nav-border: #e4e4e7;
       --high:        #c53030; --high-bg:    rgba(197,48,48,0.07);
       --medium:      #b45309; --medium-bg:  rgba(180,83,9,0.07);
       --low:         #047857; --low-bg:     rgba(4,120,87,0.07);
-      --toggle-bg:   rgba(36,83,214,0.1);
-      --toggle-knob: #2453d6;
-      --nav-divider: rgba(0,0,0,0.1);
-      --footer-bg:   #f0efec;
-      --footer-text: #737373;
-      --footer-border:rgba(0,0,0,0.07);
-      --footer-link: #2453d6;
+      --toggle-bg:   rgba(1,157,145,0.12);
+      --toggle-knob: #019d91;
+      --nav-divider: #e4e4e7;
+      --footer-bg:   #fafafa;
+      --footer-text: #71717b;
+      --footer-border:#e4e4e7;
+      --footer-link: #019d91;
+      --accent-shadow: 1,157,145;
     }
 
     :root[data-theme="dark"] {
@@ -369,9 +376,9 @@
     .logo { display:flex; align-items:center; gap:10px; text-decoration:none; flex-shrink:0; }
     .logo-icon {
       width:34px; height:34px;
-      background: linear-gradient(135deg,#2563eb,#1d4ed8);
+      background: var(--accent);
       border-radius:10px; display:flex; align-items:center; justify-content:center;
-      overflow:hidden; flex-shrink:0; box-shadow:0 2px 10px rgba(37,99,235,0.3);
+      overflow:hidden; flex-shrink:0;
     }
     .logo-icon img { width:100%; height:100%; object-fit:cover; border-radius:10px; }
     .logo-text { font-family:var(--font-ui); font-size:1.12rem; font-weight:700; color:var(--text-primary); letter-spacing:-0.02em; }
@@ -392,8 +399,8 @@
     }
     .nav-tab-icon { width:14px; height:14px; display:inline-flex; align-items:center; justify-content:center; color:currentColor; }
     .nav-tab-icon svg { width:100%; height:100%; }
-    .nav-tab:hover  { background:var(--accent-soft); color:var(--accent); }
-    .nav-tab.active { background:var(--accent); color:#fff; border-color:transparent; }
+    .nav-tab:hover  { background:var(--bg); color:var(--text-primary); }
+    .nav-tab.active { background:var(--accent-soft); color:var(--accent); border-color:transparent; font-weight:600; }
     .nav-tab:active { transform:scale(0.97); }
     .nav-tab.logout-btn { background:transparent; border:none; font:inherit; cursor:pointer; }
     .nav-tab.logout-btn:hover { background:var(--high-bg); color:var(--high); }
@@ -790,7 +797,7 @@
        PAGE HEADER
     ══════════════════════════════════════ */
     .page-header { margin-bottom:2rem; animation:fadeUp 0.5s var(--ease-out) both; }
-    .page-title { font-family:var(--font-display); font-size:2rem; color:var(--text-primary); letter-spacing:-0.03em; margin-bottom:4px; line-height:1.2; }
+    .page-title { font-family:var(--font-display); font-size:2rem; font-weight:600; color:var(--text-primary); letter-spacing:-0.04em; margin-bottom:4px; line-height:1.12; }
     .page-subtitle { font-size:0.875rem; color:var(--text-muted); font-weight:400; }
 
     /* ══════════════════════════════════════
@@ -1091,7 +1098,7 @@
     ══════════════════════════════════════ */
     .hero { animation:fadeUp 0.6s var(--ease-out) both; }
     .hero-badge { display:inline-flex; align-items:center; gap:6px; background:var(--accent-soft); color:var(--accent); font-family:var(--font-ui); font-size:0.75rem; font-weight:700; padding:5px 14px; border-radius:var(--r-full); margin-bottom:1.5rem; letter-spacing:0.04em; border:1px solid var(--border-accent); }
-    .hero-title { font-family:var(--font-display); font-size:3.6rem; color:var(--text-primary); letter-spacing:-0.04em; line-height:1.08; margin-bottom:1.25rem; }
+    .hero-title { font-family:var(--font-display); font-size:4rem; font-weight:600; color:var(--text-primary); letter-spacing:-0.05em; line-height:1.04; margin-bottom:1.25rem; }
     .hero-title em { font-style:italic; color:var(--accent); }
     .hero-subtitle { font-size:1.05rem; color:var(--text-secondary); line-height:1.7; font-weight:400; margin-bottom:2.25rem; }
     .hero-actions { display:flex; gap:10px; flex-wrap:wrap; }
@@ -1582,49 +1589,16 @@ body {
   <div class="header-right">
     <nav class="nav-tabs" id="mainNav" aria-label="Main navigation">
       {% if logged_in %}
-      {# ── FULL APP NAV (authenticated users only) ──────────────── #}
+      {# ── APP NAV (authenticated users), mirrors the sidebar so the top
+           bar never gets clumped on the default page. Anything not in
+           the sidebar lives in the sidebar's customizer or command palette. #}
       <div class="nav-group">
-        <a href="/dashboard" class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-dashboard"/></svg></span><span class="nav-label">Home</span></a>
-        <a href="/tutor"     class="nav-tab nav-tab-tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-tutor"/></svg></span><span class="nav-label">Tutor</span></a>
-        <div class="nav-dropdown">
-          <button class="dropdown-toggle" aria-haspopup="true"><span class="nav-tab-icon"><svg><use href="#i-priority"/></svg></span><span class="nav-label">Plan</span> <span class="chevron" aria-hidden="true">▾</span></button>
-          <div class="dropdown-panel" role="menu">
-            <a href="/scheduler" class="dropdown-item">Scheduler</a>
-            <a href="/priority"  class="dropdown-item">Priority</a>
-            <a href="/classes"   class="dropdown-item">Classes</a>
-            <a href="/grades"    class="dropdown-item">Grades</a>
-            <a href="/gradebook" class="dropdown-item">Grade Modeler</a>
-            <a href="/tests"     class="dropdown-item">Tests</a>
-            <a href="/dismissed" class="dropdown-item">Done</a>
-          </div>
-        </div>
-        <div class="nav-dropdown">
-          <button class="dropdown-toggle" aria-haspopup="true"><span class="nav-tab-icon"><svg><use href="#i-rocket"/></svg></span><span class="nav-label">Study</span> <span class="chevron" aria-hidden="true">▾</span></button>
-          <div class="dropdown-panel" role="menu">
-            <a href="/study"   class="dropdown-item">Deep Study</a>
-            <a href="/learn"   class="dropdown-item">Learn</a>
-            <a href="/focus"   class="dropdown-item">Focus Timer</a>
-            <a href="/library" class="dropdown-item">AP Library</a>
-            <a href="/streak"  class="dropdown-item">Streak</a>
-          </div>
-        </div>
-        <div class="nav-dropdown">
-          <button class="dropdown-toggle" aria-haspopup="true"><span class="nav-tab-icon"><svg><use href="#i-lightbulb"/></svg></span><span class="nav-label">Tools</span> <span class="chevron" aria-hidden="true">▾</span></button>
-          <div class="dropdown-panel" role="menu">
-            <a href="/lessons"   class="dropdown-item">Lessons</a>
-            <a href="/writing"   class="dropdown-item">Writing</a>
-            <a href="/math"      class="dropdown-item">Math</a>
-            <a href="/extractor" class="dropdown-item">Extractor</a>
-          </div>
-        </div>
-        <div class="nav-dropdown">
-          <button class="dropdown-toggle" aria-haspopup="true"><span class="nav-tab-icon"><svg><use href="#i-video"/></svg></span><span class="nav-label">Connect</span> <span class="chevron" aria-hidden="true">▾</span></button>
-          <div class="dropdown-panel" role="menu">
-            <a href="/meetings" class="dropdown-item">Meetings (Teams · Zoom · Meet)</a>
-            <a href="/groups"   class="dropdown-item">Study Groups</a>
-          </div>
-        </div>
-        <button type="button" class="nav-tab" id="topSearchTrigger" aria-label="Search"><span class="nav-tab-icon"><svg><use href="#i-search"/></svg></span><span class="nav-label">Search</span></button>
+        <a href="/dashboard"       class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-dashboard"/></svg></span><span class="nav-label">Dashboard</span></a>
+        <a href="/scheduler"       class="nav-tab {% if active_page == 'scheduler' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-scheduler"/></svg></span><span class="nav-label">Scheduler</span></a>
+        <a href="/memories"        class="nav-tab {% if active_page == 'memories' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-save"/></svg></span><span class="nav-label">Memories</span></a>
+        <a href="/gradebook"       class="nav-tab {% if active_page in ['gradebook','grademodel'] %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-modeler"/></svg></span><span class="nav-label">Grades</span></a>
+        <a href="/study-and-learn" class="nav-tab {% if active_page in _study_sub %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-study"/></svg></span><span class="nav-label">Study &amp; Learn</span></a>
+        <a href="/streak"          class="nav-tab {% if active_page == 'streak' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-fire"/></svg></span><span class="nav-label">Streak</span></a>
       </div>
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
