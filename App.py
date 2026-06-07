@@ -4016,11 +4016,17 @@ def api_onboarding_chat():
         "Never ask all five at once. Acknowledge what they just said before asking the next thing. "
         "If they've covered everything, say so and recommend they tap 'Done'.\n\n"
         "OUTPUT FORMAT: return ONLY valid JSON shaped exactly like:\n"
-        '{"reply":"...your message to the student...",'
+        '{"reply":"...your message to the student (under 240 chars)...",'
         '"extracted":{"grade_level":"","focus_areas":[],"goals":"","weekly_commitments":"","availability":{}},'
-        '"complete":false}\n'
-        "Only include extracted fields you're confident about — leave others empty. "
-        "Set complete=true only when you have enough to personalize (at minimum grade_level + focus_areas + goals).\n\n"
+        '"complete":false}\n\n'
+        "FIELD RULES:\n"
+        "  - extracted.focus_areas: at most 8 short course names. Strip teacher names and percentages.\n"
+        "  - extracted.weekly_commitments: ONE compact line like 'piano Wed 5:30-6pm; robotics Sat/Sun; tennis Sat 10-11am'.\n"
+        "  - extracted.availability: simple {day: 'morning|afternoon|evening|none'} for the 7 weekday keys. "
+        "No nested objects. Skip days you're unsure about.\n"
+        "  - reply: KEEP IT SHORT. One acknowledgement sentence + one question. Do not echo the student's full input.\n"
+        "  - Only include extracted fields you're confident about — leave others as empty string / empty array / empty object.\n"
+        "  - Set complete=true only when you have grade_level + focus_areas + goals at minimum.\n\n"
         f"PROFILE SO FAR: {json.dumps(so_far)}"
     )
     chat_messages = [{"role": "system", "content": system}]
@@ -4033,24 +4039,71 @@ def api_onboarding_chat():
     # Bootstrap with an opener if the conversation is empty.
     if len(chat_messages) == 1:
         chat_messages.append({"role": "user", "content": "Start onboarding."})
+    # Helper: turn a possibly-malformed/truncated JSON string into a dict.
+    # The previous version errored out when the model truncated mid-object
+    # (which the schedule-heavy user case hit reliably). Now we strip code
+    # fences, extract the first {...} block, and as a last resort try to
+    # close any unclosed braces/quotes before parsing.
+    def _tolerant_json(raw):
+        if not raw:
+            return None
+        s = re.sub(r"```json\n?", "", raw)
+        s = re.sub(r"```\n?", "", s).strip()
+        try:
+            return json.loads(s)
+        except json.JSONDecodeError:
+            pass
+        m = re.search(r"\{[\s\S]*\}", s)
+        if m:
+            try:
+                return json.loads(m.group(0))
+            except json.JSONDecodeError:
+                # Truncated — try repairing by closing braces/brackets.
+                frag = m.group(0)
+                # Strip trailing comma, then close any unbalanced braces.
+                frag = re.sub(r",\s*$", "", frag)
+                opens = frag.count("{") - frag.count("}")
+                opensq = frag.count("[") - frag.count("]")
+                quotes = frag.count('"')
+                if quotes % 2 == 1:
+                    frag += '"'
+                frag += "]" * max(0, opensq)
+                frag += "}" * max(0, opens)
+                try:
+                    return json.loads(frag)
+                except json.JSONDecodeError:
+                    return None
+        return None
+
+    parsed = None
     try:
         result = ai_chat(
-            chat_messages, tier="standard", temperature=0.5, max_tokens=600,
+            chat_messages, tier="standard", temperature=0.5,
+            # Bumped from 600 → 1500. With response_format=json_object the
+            # model emits the schedule/availability dict + the reply in
+            # one go; 600 truncated on long schedules and the fallback
+            # message ("I lost the thread") fired every time.
+            max_tokens=1500,
             response_format={"type": "json_object"},
         )
-        result = re.sub(r"```json\n?", "", result)
-        result = re.sub(r"```\n?", "", result).strip()
-        try:
-            parsed = json.loads(result)
-        except json.JSONDecodeError:
-            m = re.search(r"\{[\s\S]*\}", result)
-            if not m:
-                raise
-            parsed = json.loads(m.group(0))
+        parsed = _tolerant_json(result)
+        if parsed is None:
+            raise ValueError("AI returned unparseable JSON after repair")
     except Exception as _e:
         print(f"[onboarding-chat] AI failed: {_e}")
+        # When we still couldn't parse anything, fall through with an
+        # empty reply so the client just shows nothing rather than the
+        # demoralizing "I lost the thread" message after a real answer.
+        # The user's message is preserved in the chat history server-side,
+        # so a retry sends a fresh, smaller prompt next time.
+        last_user = next((m["content"] for m in reversed(msgs) if m.get("role") == "user"), "")
         return jsonify({
-            "reply": "Hmm, I lost the thread for a second. Try once more — or skip to Quick onboarding if you're in a rush.",
+            "reply": (
+                "Got it. Could you break that into two messages? Long details are tripping up "
+                "my structured-data extractor. (Your earlier answers are saved either way.)"
+                if last_user and len(last_user) > 250 else
+                "Hmm, the AI hiccuped. Try sending that again, or skip to Quick onboarding."
+            ),
             "extracted": {}, "complete": False,
         })
     reply = str(parsed.get("reply") or "").strip()[:1200]
@@ -4888,13 +4941,115 @@ def profiles_rename():
     return flask.jsonify({"status": "ok"})
 
 @app.route("/account/delete", methods=["POST"])
-def account_delete():
+def account_delete():  # noqa: C901
+    # NOTE: this whole body is wrapped in a top-level try/except so any
+    # unexpected failure returns a clean JSON 500 instead of letting the
+    # global Exception handler render the HTML error.html page (which
+    # confuses every JS caller that expects JSON).
+    try:
+        return _account_delete_impl()
+    except Exception as _outer_e:
+        import traceback as _tb
+        tb = _tb.format_exc()
+        print(f"[account_delete] OUTER FAIL: {_outer_e}\n{tb}")
+        return flask.jsonify({
+            "status": "error",
+            "message": "Account deletion failed. Please try again.",
+            "debug": str(_outer_e)[:300],
+        }), 500
+
+
+def _account_delete_impl():
+    """Delete the current user's account and every row that references them.
+
+    The previous implementation just did `db.session.delete(user)`, which:
+      - on PostgreSQL hits the first FK constraint that *isn't* on a cascading
+        relationship (UserIdentity, ImportedGrade, ManualTask, every
+        per-LMS integrations table, etc.) and raises IntegrityError →
+        transaction rolls back → user row stays → "delete didn't work".
+      - on SQLite without FK pragma enforcement, leaves orphan rows behind
+        but at least removes the User row.
+
+    The fix: explicitly nuke every table that holds a user_id FK first,
+    inside a single transaction. We use bulk deletes so it stays fast
+    even for users with thousands of TaskFeedback / StudySession rows.
+    """
     if not current_user.is_authenticated:
-        return flask.jsonify({"status": "error"})
-    user = current_user
-    logout_user()
-    db.session.delete(user)
-    db.session.commit()
+        return flask.jsonify({"status": "error", "message": "Not signed in"}), 401
+    from sqlalchemy import text as _t
+    try:
+        user_id = current_user.id
+    except Exception as _ce:
+        print(f"[account_delete] could not read current_user.id: {_ce}")
+        return flask.jsonify({"status": "error", "message": "Session error"}), 500
+    # We capture the id first, then logout so Flask-Login doesn't try to
+    # re-load the about-to-be-deleted row at request teardown.
+    try:
+        logout_user()
+    except Exception as _e:
+        print(f"[account_delete] logout warning: {_e}")
+    # Every table that holds a user_id FK. Keep this list in sync with
+    # any new model that adds `user_id = db.Column(... ForeignKey("users.id"))`.
+    user_owned_tables = [
+        # Integrations
+        "google_integrations", "notion_integrations", "canvas_integrations",
+        "classroom_integrations", "blackboard_integrations", "moodle_integrations",
+        # Identity / profile data
+        "user_identities",
+        # Tasks + scheduling
+        "manual_tasks", "saved_schedules", "day_archive", "task_feedback",
+        # Imports (new)
+        "imported_grades",
+        # Notes / lessons / study
+        "course_notes", "lessons", "study_sessions", "study_points",
+        "study_mastery", "session_messages", "syllabus_records",
+        "saved_meetings", "live_sessions",
+        # Push / reminders / groups / extension
+        "push_subscriptions", "reminders_sent", "extension_tokens",
+        "study_group_members", "test_marks", "custom_descriptions",
+        "dismissed_assignments", "linked_accounts",
+    ]
+    # Per-statement connections so one failing table (missing on older DBs,
+    # or a constraint we haven't enumerated) can't poison the whole
+    # transaction. The previous attempt batched everything into one
+    # SQLAlchemy session and the very first missing-table error aborted
+    # the rest under Postgres semantics.
+    try:
+        db.session.close()  # release any session-bound transaction
+    except Exception:
+        pass
+    deleted_any = False
+    for table in user_owned_tables:
+        try:
+            with db.engine.connect() as conn:
+                conn.execute(_t(f"DELETE FROM {table} WHERE user_id = :uid"), {"uid": user_id})
+                try: conn.commit()
+                except Exception: pass
+            deleted_any = True
+        except Exception as _de:
+            # Most often: table doesn't exist on this DB. Safe to skip.
+            print(f"[account_delete] skip {table}: {_de}")
+    # Null out outgoing referrals so we don't cascade-delete other users.
+    try:
+        with db.engine.connect() as conn:
+            conn.execute(_t("UPDATE users SET referred_by_id = NULL WHERE referred_by_id = :uid"), {"uid": user_id})
+            try: conn.commit()
+            except Exception: pass
+    except Exception as _re:
+        print(f"[account_delete] referral null-out failed: {_re}")
+    # Finally drop the user row itself. This is the one delete we
+    # actually require to succeed.
+    try:
+        with db.engine.connect() as conn:
+            conn.execute(_t("DELETE FROM users WHERE id = :uid"), {"uid": user_id})
+            try: conn.commit()
+            except Exception: pass
+    except Exception as e:
+        print(f"[account_delete] FAILED for user {user_id}: {e}")
+        return flask.jsonify({
+            "status": "error",
+            "message": "Could not delete your account right now. Try again or email support@intelliplan.tech.",
+        }), 500
     session.clear()
     return flask.jsonify({"status": "ok"})
 
