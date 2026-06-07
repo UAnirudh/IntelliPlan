@@ -1587,53 +1587,16 @@ body {
   <div class="header-right">
     <nav class="nav-tabs" id="mainNav" aria-label="Main navigation">
       {% if logged_in %}
-      {# ── FULL APP NAV (authenticated users only) ──────────────── #}
+      {# ── APP NAV (authenticated users), mirrors the sidebar so the top
+           bar never gets clumped on the default page. Anything not in
+           the sidebar lives in the sidebar's customizer or command palette. #}
       <div class="nav-group">
-        <a href="/dashboard" class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-dashboard"/></svg></span><span class="nav-label">Home</span></a>
-        <a href="/tutor"     class="nav-tab nav-tab-tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-tutor"/></svg></span><span class="nav-label">Tutor</span></a>
-        <a href="/gradebook" class="nav-tab {% if active_page in ['gradebook','grademodel'] %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-modeler"/></svg></span><span class="nav-label">Grades</span></a>
-        <a href="/study-and-learn" class="nav-tab {% if active_page in _study_sub %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-study"/></svg></span><span class="nav-label">Study</span></a>
-        <a href="/streak"    class="nav-tab {% if active_page == 'streak' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-fire"/></svg></span><span class="nav-label">Streak</span></a>
-        <div class="nav-dropdown">
-          <button class="dropdown-toggle" aria-haspopup="true"><span class="nav-tab-icon"><svg><use href="#i-priority"/></svg></span><span class="nav-label">Plan</span> <span class="chevron" aria-hidden="true">▾</span></button>
-          <div class="dropdown-panel" role="menu">
-            <a href="/scheduler" class="dropdown-item">Scheduler</a>
-            <a href="/memories" class="dropdown-item">Memories</a>
-            <a href="/priority"  class="dropdown-item">Priority</a>
-            <a href="/classes"   class="dropdown-item">Classes</a>
-            <a href="/grades"    class="dropdown-item">Grades</a>
-            <a href="/gradebook" class="dropdown-item">Grade Modeler</a>
-            <a href="/tests"     class="dropdown-item">Tests</a>
-            <a href="/dismissed" class="dropdown-item">Done</a>
-          </div>
-        </div>
-        <div class="nav-dropdown">
-          <button class="dropdown-toggle" aria-haspopup="true"><span class="nav-tab-icon"><svg><use href="#i-rocket"/></svg></span><span class="nav-label">Study</span> <span class="chevron" aria-hidden="true">▾</span></button>
-          <div class="dropdown-panel" role="menu">
-            <a href="/study"   class="dropdown-item">Deep Study</a>
-            <a href="/learn"   class="dropdown-item">Learn</a>
-            <a href="/focus"   class="dropdown-item">Focus Timer</a>
-            <a href="/library" class="dropdown-item">AP Library</a>
-            <a href="/streak"  class="dropdown-item">Streak</a>
-          </div>
-        </div>
-        <div class="nav-dropdown">
-          <button class="dropdown-toggle" aria-haspopup="true"><span class="nav-tab-icon"><svg><use href="#i-lightbulb"/></svg></span><span class="nav-label">Tools</span> <span class="chevron" aria-hidden="true">▾</span></button>
-          <div class="dropdown-panel" role="menu">
-            <a href="/lessons"   class="dropdown-item">Lessons</a>
-            <a href="/writing"   class="dropdown-item">Writing</a>
-            <a href="/math"      class="dropdown-item">Math</a>
-            <a href="/extractor" class="dropdown-item">Extractor</a>
-          </div>
-        </div>
-        <div class="nav-dropdown">
-          <button class="dropdown-toggle" aria-haspopup="true"><span class="nav-tab-icon"><svg><use href="#i-video"/></svg></span><span class="nav-label">Connect</span> <span class="chevron" aria-hidden="true">▾</span></button>
-          <div class="dropdown-panel" role="menu">
-            <a href="/meetings" class="dropdown-item">Meetings (Teams · Zoom · Meet)</a>
-            <a href="/groups"   class="dropdown-item">Study Groups</a>
-          </div>
-        </div>
-        <button type="button" class="nav-tab" id="topSearchTrigger" aria-label="Search"><span class="nav-tab-icon"><svg><use href="#i-search"/></svg></span><span class="nav-label">Search</span></button>
+        <a href="/dashboard"       class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-dashboard"/></svg></span><span class="nav-label">Dashboard</span></a>
+        <a href="/scheduler"       class="nav-tab {% if active_page == 'scheduler' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-scheduler"/></svg></span><span class="nav-label">Scheduler</span></a>
+        <a href="/memories"        class="nav-tab {% if active_page == 'memories' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-save"/></svg></span><span class="nav-label">Memories</span></a>
+        <a href="/gradebook"       class="nav-tab {% if active_page in ['gradebook','grademodel'] %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-modeler"/></svg></span><span class="nav-label">Grades</span></a>
+        <a href="/study-and-learn" class="nav-tab {% if active_page in _study_sub %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-study"/></svg></span><span class="nav-label">Study &amp; Learn</span></a>
+        <a href="/streak"          class="nav-tab {% if active_page == 'streak' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-fire"/></svg></span><span class="nav-label">Streak</span></a>
       </div>
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
