@@ -64,9 +64,45 @@
     </div>
 
     <!-- Assignment breakdown -->
-    <div style="font-family:var(--font-display); font-size:1.1rem; color:var(--text-primary); margin-bottom:1rem;">
-      Assignment Breakdown
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;margin-bottom:1rem;">
+      <div style="font-family:var(--font-display); font-size:1.1rem; color:var(--text-primary);">
+        Assignment Breakdown
+      </div>
+      <button type="button" id="addAsgnBtn" onclick="toggleAddAssignment()"
+        style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-primary);border-radius:10px;cursor:pointer;font-family:var(--font-ui);font-size:0.84rem;font-weight:600;">
+        <span style="font-size:1rem;line-height:1;">+</span> Add assignment
+      </button>
     </div>
+
+    <!-- Manual add-assignment form (hidden until "Add assignment" is clicked). -->
+    <div id="addAsgnForm" style="display:none;background:var(--bg-card);border:1px solid var(--border-accent);border-radius:14px;padding:1rem 1.1rem;margin-bottom:1rem;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.6rem;align-items:end;">
+        <div>
+          <label for="newAsgnTitle" style="display:block;font-family:var(--font-ui);font-size:0.74rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Title</label>
+          <input id="newAsgnTitle" type="text" placeholder="e.g. Unit 3 Test" autocomplete="off"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border-strong);border-radius:9px;font-family:inherit;font-size:0.92rem;background:var(--bg-secondary);color:var(--text-primary);"/>
+        </div>
+        <div>
+          <label for="newAsgnPoss" style="display:block;font-family:var(--font-ui);font-size:0.74rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Points possible</label>
+          <input id="newAsgnPoss" type="number" min="0.1" step="0.1" placeholder="100" inputmode="decimal"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border-strong);border-radius:9px;font-family:inherit;font-size:0.92rem;background:var(--bg-secondary);color:var(--text-primary);"/>
+        </div>
+        <div>
+          <label for="newAsgnEarned" style="display:block;font-family:var(--font-ui);font-size:0.74rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Score (optional)</label>
+          <input id="newAsgnEarned" type="number" min="0" step="0.1" placeholder="Leave blank if pending" inputmode="decimal"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border-strong);border-radius:9px;font-family:inherit;font-size:0.92rem;background:var(--bg-secondary);color:var(--text-primary);"/>
+        </div>
+      </div>
+      <div id="newAsgnMsg" style="font-family:var(--font-ui);font-size:0.8rem;color:#ef4444;margin-top:6px;display:none;"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:0.85rem;flex-wrap:wrap;">
+        <button type="button" onclick="toggleAddAssignment()" style="padding:7px 13px;border:1px solid var(--border-strong);background:transparent;color:var(--text-secondary);border-radius:9px;cursor:pointer;font-family:var(--font-ui);font-size:0.85rem;font-weight:600;">Cancel</button>
+        <button type="button" onclick="submitAddAssignment()" style="padding:7px 14px;border:none;background:var(--accent);color:#fff;border-radius:9px;cursor:pointer;font-family:var(--font-ui);font-size:0.85rem;font-weight:700;">Add</button>
+      </div>
+      <div style="font-family:var(--font-ui);font-size:0.74rem;color:var(--text-muted);margin-top:0.6rem;line-height:1.5;">
+        Leave the score blank to add a future/pending assignment — you can simulate it below like any other pending work. Manual assignments stay until you remove them.
+      </div>
+    </div>
+
     <div id="assignmentBreakdown" class="assignments-list"></div>
   </div>
 
@@ -395,10 +431,21 @@ function renderBreakdown(assignments) {
       </div>
     ` : '';
 
+    // Manual rows get a small "Manual" tag in the meta line + a × remove
+    // button in the corner so they can be deleted individually without
+    // wiping the rest of the simulation state.
+    const manualTag = a.manual
+      ? '<span style="font-family:var(--font-ui);font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;background:rgba(245,158,11,0.14);color:#b45309;padding:2px 7px;border-radius:999px;margin-left:6px;">manual</span>'
+      : '';
+    const removeBtnHtml = a.manual
+      ? `<button type="button" onclick="removeManualAssignment('${String(a.id).replace(/'/g, "\\'")}')" title="Remove this manual assignment" aria-label="Remove ${a.title.replace(/"/g, '&quot;')}" style="position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:1rem;line-height:1;display:flex;align-items:center;justify-content:center;">×</button>`
+      : '';
+    card.style.position = 'relative';
     card.innerHTML = `
-      <div class="rank-bubble" style="font-size:0.7rem;${a.simulated?'background:rgba(99,102,241,0.12);color:#6366f1;':''}">${a.simulated ? '~' : a.graded ? '✓' : '–'}</div>
+      ${removeBtnHtml}
+      <div class="rank-bubble" style="font-size:0.7rem;${a.simulated?'background:rgba(99,102,241,0.12);color:#6366f1;':''}${a.manual && !a.simulated && !a.graded?'background:rgba(245,158,11,0.14);color:#b45309;':''}">${a.simulated ? '~' : a.graded ? '✓' : a.manual ? '+' : '–'}</div>
       <div class="card-main">
-        <div class="card-title">${a.title}</div>
+        <div class="card-title">${a.title}${manualTag}</div>
         <div class="card-meta">
           ${a.due_date ? `<span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> ${a.due_date}</span>` : ''}
           <span class="meta-item">${statusLabel}</span>
@@ -412,6 +459,123 @@ function renderBreakdown(assignments) {
     `;
     wrap.appendChild(card);
   });
+}
+
+/* ── Manual add-assignment ─────────────────────────────────
+   Lets students add hypothetical/future work to the breakdown
+   (e.g. a test their teacher hasn't put in the LMS yet) so the
+   model and simulator factor it in. The new assignment is
+   marked manual=true and gets a stable id so the simulator's
+   per-assignment input still works on it. Manually-added rows
+   persist through Reset (Reset only clears simulated scores). */
+function toggleAddAssignment() {
+  if (!selectedCourse) {
+    alert('Select a course first.');
+    return;
+  }
+  const form = document.getElementById('addAsgnForm');
+  const open = form.style.display !== 'none';
+  form.style.display = open ? 'none' : 'block';
+  if (!open) {
+    document.getElementById('newAsgnTitle').value = '';
+    document.getElementById('newAsgnPoss').value = '';
+    document.getElementById('newAsgnEarned').value = '';
+    document.getElementById('newAsgnMsg').style.display = 'none';
+    setTimeout(() => document.getElementById('newAsgnTitle').focus(), 30);
+  }
+}
+
+function _newAsgnError(text) {
+  const m = document.getElementById('newAsgnMsg');
+  m.textContent = text;
+  m.style.display = 'block';
+}
+
+function submitAddAssignment() {
+  if (!selectedCourse || !originalAssignments) {
+    _newAsgnError('Select a course first.');
+    return;
+  }
+  const title = (document.getElementById('newAsgnTitle').value || '').trim();
+  const possRaw = (document.getElementById('newAsgnPoss').value || '').trim();
+  const earnedRaw = (document.getElementById('newAsgnEarned').value || '').trim();
+  if (!title) { _newAsgnError('Give the assignment a title.'); return; }
+  const poss = parseFloat(possRaw);
+  if (!isFinite(poss) || poss <= 0) {
+    _newAsgnError('Enter the points possible (must be greater than 0).');
+    return;
+  }
+  let earned = null;
+  let graded = false;
+  if (earnedRaw !== '') {
+    earned = parseFloat(earnedRaw);
+    if (!isFinite(earned) || earned < 0) {
+      _newAsgnError('Score must be 0 or greater (or leave blank for pending).');
+      return;
+    }
+    if (earned > poss) {
+      _newAsgnError(`Score can't exceed points possible (${poss}).`);
+      return;
+    }
+    graded = true;
+  }
+  const newAsgn = {
+    id: 'manual-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
+    title: title,
+    due_date: '',
+    points_possible: poss,
+    points_earned: graded ? earned : 0,
+    graded: graded,
+    manual: true,
+  };
+  // Append to BOTH the immutable original (so Reset keeps it) and the live
+  // working list (so the breakdown re-renders with the new card immediately).
+  originalAssignments.push(JSON.parse(JSON.stringify(newAsgn)));
+  selectedCourse.assignments.push(newAsgn);
+  // Recompute the course percentage from the new graded set.
+  const graded2 = originalAssignments.filter(a => a.graded && a.points_possible);
+  const gradedPoss = graded2.reduce((s, a) => s + (a.points_possible || 0), 0);
+  const earnedTot = graded2.reduce((s, a) => s + (a.points_earned || 0), 0);
+  const realPct = gradedPoss > 0 ? (earnedTot / gradedPoss * 100) : 0;
+  selectedCourse.percentage = realPct.toFixed(2);
+  selectedCourse.letter = pctToLetter(realPct);
+  document.getElementById('currentPct').textContent = `${realPct.toFixed(1)}%`;
+  const lb = document.getElementById('currentLetter');
+  lb.textContent = selectedCourse.letter;
+  lb.className = 'priority-badge ' + letterToClass(selectedCourse.letter);
+  renderMaxBadge();
+  // Re-apply any active simulations so manual + simulated state coexist.
+  if (Object.keys(simulatedScores).length > 0) {
+    applySimulation();
+  } else {
+    renderBreakdown(selectedCourse.assignments);
+  }
+  // Close the form and clear inputs.
+  document.getElementById('addAsgnForm').style.display = 'none';
+}
+
+/* Remove a manually-added assignment. The breakdown card injects a tiny
+   × button on rows where a.manual === true, which calls this. */
+function removeManualAssignment(id) {
+  if (!selectedCourse || !originalAssignments) return;
+  const key = String(id);
+  originalAssignments = originalAssignments.filter(a => String(a.id) !== key);
+  selectedCourse.assignments = selectedCourse.assignments.filter(a => String(a.id) !== key);
+  if (simulatedScores[key]) delete simulatedScores[key];
+  // Recompute and re-render exactly like submitAddAssignment.
+  const graded = originalAssignments.filter(a => a.graded && a.points_possible);
+  const gradedPoss = graded.reduce((s, a) => s + (a.points_possible || 0), 0);
+  const earnedTot = graded.reduce((s, a) => s + (a.points_earned || 0), 0);
+  const realPct = gradedPoss > 0 ? (earnedTot / gradedPoss * 100) : 0;
+  selectedCourse.percentage = realPct.toFixed(2);
+  selectedCourse.letter = pctToLetter(realPct);
+  document.getElementById('currentPct').textContent = `${realPct.toFixed(1)}%`;
+  const lb = document.getElementById('currentLetter');
+  lb.textContent = selectedCourse.letter;
+  lb.className = 'priority-badge ' + letterToClass(selectedCourse.letter);
+  renderMaxBadge();
+  if (Object.keys(simulatedScores).length > 0) applySimulation();
+  else renderBreakdown(selectedCourse.assignments);
 }
 
 function runModel() {
