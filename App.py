@@ -2323,18 +2323,6 @@ def blog_ap_study_planner():
 def blog_index():
     return render_template("blog_index.html", active_page="blog")
 
-@app.route("/uk")
-def uk_landing():
-    return render_template("uk.html", active_page="uk")
-
-@app.route("/schools")
-def schools_landing():
-    return render_template("schools.html", active_page="schools")
-
-@app.route("/compare/intelliplan-vs-mystudylife")
-def compare_mystudylife():
-    return render_template("compare_mystudylife.html", active_page="compare")
-
 @app.route("/olympiad")
 def olympiad_page():
     return render_template("olympiad.html", active_page="olympiad")
