@@ -2285,6 +2285,28 @@ def compare_turbo():
 def compare_quizlet():
     return render_template("compare_quizlet.html", active_page="compare")
 
+@app.route("/compare/intelliplan-vs-mystudylife")
+def compare_mystudylife():
+    return render_template("compare_mystudylife.html", active_page="compare")
+
+@app.route("/ambassador")
+def ambassador():
+    return render_template("ambassador.html", active_page="ambassador")
+
+@app.route("/ambassador/dashboard")
+def ambassador_dashboard():
+    if not current_user.is_authenticated:
+        return redirect(url_for("login"))
+    return render_template("ambassador_dashboard.html", active_page="ambassador")
+
+@app.route("/schools")
+def schools():
+    return render_template("schools.html", active_page="schools")
+
+@app.route("/uk")
+def uk_landing():
+    return render_template("uk.html", active_page="uk")
+
 @app.route("/blog/ai-notetaker-for-students")
 def blog_ai_notetaker():
     return render_template("blog_ai_notetaker.html", active_page="blog")
