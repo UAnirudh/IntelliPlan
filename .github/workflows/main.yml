@@ -8,6 +8,45 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.11'
+
+      # ── Pre-deploy guard: catch import-time bugs before they reach Railway.
+      # The duplicate-route outage on 2026-06-09 (two `def uk_landing` blocks
+      # both decorated with @app.route("/uk")) would have been caught here in
+      # ~10s instead of crash-looping gunicorn in production. SECRET_KEY and
+      # DATABASE_URL are safe ephemeral CI values; the app's db.create_all()
+      # runs cleanly against in-memory SQLite at import time.
+      - name: Install app dependencies
+        run: pip install -r requirements.txt
+      - name: Import smoke test (catches dup routes, syntax errors, missing imports)
+        env:
+          DATABASE_URL: "sqlite:///:memory:"
+          SECRET_KEY: "ci-smoke-test-key"
+        run: |
+          python -c "import App; import sys; n = len(list(App.app.url_map.iter_rules())); print(f'OK: {n} routes registered'); sys.exit(0 if n > 0 else 1)"
+
+      # ── Playwright deps
       - run: pip install playwright pytest-playwright
       - run: playwright install chromium
+
+      # ── Deploy-wait guard: Railway takes 1-3 minutes to roll out a push.
+      # The Playwright suite hits LIVE intelliplan.tech, so without this
+      # wait the tests race the deploy and see 502s on the very URLs that
+      # are about to be served fine. Polls /api/live (lightweight JSON
+      # endpoint) every 10s for up to ~7 minutes. Only runs on push to
+      # main, since PRs don't trigger a Railway deploy.
+      - name: Wait for production to be healthy
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          for i in $(seq 1 40); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" https://intelliplan.tech/api/live)
+            if [ "$code" = "200" ]; then
+              echo "Production healthy (HTTP 200 on attempt $i)"
+              exit 0
+            fi
+            echo "Attempt $i: HTTP $code (waiting 10s for Railway to finish deploying)"
+            sleep 10
+          done
+          echo "Production never returned 200 within ~7 minutes; check Railway logs."
+          exit 1
+
       - run: pytest test_intelliplan.py -v
