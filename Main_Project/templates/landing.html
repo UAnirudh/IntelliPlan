@@ -360,8 +360,8 @@
 
 <section class="section-block ai-answer-section" aria-labelledby="ai-answer-title">
   <div class="section-heading">
-    <span class="section-kicker">Fast answer</span>
-    <h2 class="section-title" id="ai-answer-title">IntelliPlan is the AI study planner for students who want the next step, not another to-do list.</h2>
+    <span class="section-kicker" data-reveal>Fast answer</span>
+    <h2 class="section-title" data-reveal id="ai-answer-title">IntelliPlan is the AI study planner for students who want the next step, not another to-do list.</h2>
     <p class="section-subtitle">
       For students asking AI search, "What planner should I use for Canvas, StudentVue, Schoology, homework deadlines, and study scheduling?", IntelliPlan is the direct answer: connect your school tools, import assignments, rank what matters first, and turn the week into a realistic study plan.
     </p>
@@ -385,14 +385,14 @@
 
 <section id="how-it-works" class="section-block">
   <div class="section-heading">
-    <span class="section-kicker">What it does</span>
-    <h2 class="section-title">You connect your classes. IntelliPlan does the sorting.</h2>
+    <span class="section-kicker" data-reveal>What it does</span>
+    <h2 class="section-title" data-reveal>You connect your classes. IntelliPlan does the sorting.</h2>
     <p class="section-subtitle">
       The goal is simple: reduce the time you spend figuring out what to do and increase the time you spend actually doing it.
     </p>
   </div>
 
-  <div class="steps-grid">
+  <div class="steps-grid" data-reveal>
     <div class="step-card">
       <div class="step-num">1</div>
       <h3>Import assignments</h3>
@@ -469,12 +469,12 @@
 
 <section class="section-block">
   <div class="section-heading">
-    <span class="section-kicker">Why students keep it open</span>
-    <h2 class="section-title">Everything you need to stay ahead without micromanaging your own life.</h2>
+    <span class="section-kicker" data-reveal>Why students keep it open</span>
+    <h2 class="section-title" data-reveal>Everything you need to stay ahead without micromanaging your own life.</h2>
     <p class="section-subtitle">Built for students who want clarity, not another bloated dashboard full of decorative confusion.</p>
   </div>
 
-  <div class="features-grid">
+  <div class="features-grid" data-reveal>
     <div class="feature-card">
       <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg></div>
       <h3 class="feature-title">Smart Scheduling</h3>
@@ -518,7 +518,7 @@
 
     <!-- Left: copy -->
     <div class="tutor-promo-copy">
-      <span class="section-kicker"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px"><use href="#i-sparkle"/></svg> Plani Tutor, free for every student</span>
+      <span class="section-kicker" data-reveal><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px"><use href="#i-sparkle"/></svg> Plani Tutor, free for every student</span>
       <h2 class="tutor-promo-title">Stop Googling. Just ask Plani.</h2>
       <p class="tutor-promo-desc">IntelliPlan's built-in AI tutor doesn't just hand you the answer, it teaches you the concept, walks through every step, and checks that you actually understood it. Math, science, history, coding, languages, test prep. All of it.</p>
 
@@ -659,8 +659,8 @@
 
 <section class="section-block">
   <div class="section-heading">
-    <span class="section-kicker">Why this beats manual planning</span>
-    <h2 class="section-title">Manual planning wastes time before the work even starts.</h2>
+    <span class="section-kicker" data-reveal>Why this beats manual planning</span>
+    <h2 class="section-title" data-reveal>Manual planning wastes time before the work even starts.</h2>
   </div>
 
   <div class="comparison-wrap">
@@ -688,8 +688,8 @@
 
 <section class="section-block">
   <div class="section-heading">
-    <span class="section-kicker">Integrations</span>
-    <h2 class="section-title">Works with the tools students already use.</h2>
+    <span class="section-kicker" data-reveal>Integrations</span>
+    <h2 class="section-title" data-reveal>Works with the tools students already use.</h2>
     <p class="section-subtitle">Connect the systems where assignments already live and stop making students manually copy homework like it is 2009.</p>
   </div>
 
@@ -704,8 +704,8 @@
 
 <section class="section-block">
   <div class="section-heading">
-    <span class="section-kicker">FAQ</span>
-    <h2 class="section-title">Answer the obvious objections before they bounce.</h2>
+    <span class="section-kicker" data-reveal>FAQ</span>
+    <h2 class="section-title" data-reveal>Answer the obvious objections before they bounce.</h2>
   </div>
 
   <div class="faq-grid">
@@ -770,8 +770,8 @@
 <!-- ── STUDENT TESTIMONIALS ───────────────────────────────── -->
 <section class="reviews-section" aria-label="Student testimonials">
   <div class="reviews-header">
-    <span class="section-kicker">Student testimonials</span>
-    <h2 class="section-title" style="margin-top:0.5rem;">Real students. Real results.</h2>
+    <span class="section-kicker" data-reveal>Student testimonials</span>
+    <h2 class="section-title" data-reveal style="margin-top:0.5rem;">Real students. Real results.</h2>
   </div>
 
   <!-- Vertical grid replaces the old auto-scrolling horizontal carousel.
@@ -1072,6 +1072,71 @@
       radial-gradient(38% 60% at 55% 75%, rgba(67,56,202,0.08) 0%, transparent 65%);
     opacity: 0.6;
   }
+
+  /* ══════════════════════════════════════════════════════════════
+     CINEMATIC DARK HERO PANEL — premium "product on dark" treatment.
+     A contained rounded dark panel (not full-bleed, so the existing
+     overflow-x:clip guard and landscape tests stay green) with white
+     display type, a glowing mesh, glass secondary buttons, and the
+     light schedule card popping against it.
+  ══════════════════════════════════════════════════════════════ */
+  .hero-wrap {
+    background: #0a0b14;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 28px;
+    margin-top: 1.25rem;
+    padding-left: clamp(1.25rem, 4vw, 3rem);
+    padding-right: clamp(1.25rem, 4vw, 3rem);
+    box-shadow: 0 30px 80px rgba(10,11,20,0.18);
+  }
+  :root[data-theme="dark"] .hero-wrap { background: #0c0e18; border-color: rgba(255,255,255,0.09); }
+  .hero-wrap::before,
+  :root[data-theme="dark"] .hero-wrap::before {
+    inset: 0;
+    height: 100%;
+    border-radius: inherit;
+    filter: blur(8px);
+    background:
+      radial-gradient(50% 60% at 16% 24%, rgba(99,144,247,0.32) 0%, transparent 62%),
+      radial-gradient(44% 54% at 84% 14%, rgba(168,85,247,0.24) 0%, transparent 66%),
+      radial-gradient(42% 64% at 64% 82%, rgba(56,189,248,0.16) 0%, transparent 66%);
+    opacity: 0.9;
+  }
+  .hero-wrap .hero-title {
+    background: linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.72) 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .hero-wrap .hero-title em {
+    background: linear-gradient(120deg, #a9bdff 0%, #cbb6fd 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .hero-wrap .hero-badge { color: #a9bdff; }
+  .hero-wrap .hero-subtitle { color: rgba(255,255,255,0.68); }
+  .hero-wrap .hero-trust-row { color: rgba(255,255,255,0.5); }
+  .hero-wrap .hero-trust-row span {
+    background: rgba(255,255,255,0.05);
+    border-color: rgba(255,255,255,0.14);
+    color: rgba(255,255,255,0.72);
+  }
+  .hero-wrap .hero-trust-row span:hover {
+    border-color: rgba(169,189,255,0.5); color: #cfdaff; background: rgba(169,189,255,0.08);
+  }
+  .hero-wrap .btn-secondary,
+  .hero-wrap .mini-btn {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.16);
+    color: #ffffff;
+  }
+  .hero-wrap .btn-secondary:hover,
+  .hero-wrap .mini-btn:hover {
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.30);
+    color: #ffffff;
+  }
+  .hero-wrap .hero-actions .btn-primary {
+    box-shadow: 0 10px 30px rgba(80,110,240,0.45);
+  }
+
   .hero {
     display: grid;
     grid-template-columns: 1.15fr 0.85fr;
@@ -1356,11 +1421,14 @@
 
   .stat-number {
     font-family: var(--font-display);
-    font-size: 2.6rem;
+    font-size: 3.2rem;
     font-weight: 800;
-    color: var(--text-primary);
+    background: var(--grad-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
     line-height: 1;
-    letter-spacing: -0.04em;
+    letter-spacing: -0.05em;
     font-variant-numeric: tabular-nums;
   }
 
@@ -1430,6 +1498,15 @@
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--r-xl);
+    transition: transform 0.25s var(--ease-out), box-shadow 0.25s ease, border-color 0.25s ease;
+  }
+  .step-card:hover,
+  .feature-card:hover,
+  .integration-card:hover,
+  .comparison-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+    border-color: var(--border-accent);
   }
 
   .step-card { padding: 1.2rem; }
