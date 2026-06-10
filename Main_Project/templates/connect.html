@@ -1,6 +1,47 @@
 {% extends "base.html" %}
 {% from "partials/lms_logo.html" import lms_logo %}
 {% block content %}
+<style>
+  /* Page-scoped premium polish matching the auth pages. CSS only —
+     structure and the connectLms()/Blackboard/Moodle JS untouched. */
+  .login-wrap .login-card {
+    border: 1px solid var(--border-strong);
+    border-radius: 24px;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.06),
+      0 1px 2px rgba(15,23,42,0.05),
+      0 24px 60px rgba(15,23,42,0.12);
+    position: relative;
+    overflow: hidden;
+  }
+  .login-wrap .login-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--grad-brand);
+  }
+  /* The LMS option rows share the gap:14px inline signature. */
+  .login-wrap .login-card a[style*="gap:14px"],
+  .login-wrap .login-card button[style*="gap:14px"] {
+    transition: transform 0.22s var(--ease-out), box-shadow 0.22s ease !important;
+  }
+  .login-wrap .login-card a[style*="gap:14px"]:hover,
+  .login-wrap .login-card button[style*="gap:14px"]:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
+  }
+  .login-wrap a:focus-visible,
+  .login-wrap button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 12px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .login-wrap .login-card a[style*="gap:14px"],
+    .login-wrap .login-card button[style*="gap:14px"] { transition: none !important; }
+  }
+</style>
 <div class="login-wrap">
   <div class="login-card" style="max-width:480px;">
     <div class="login-header">
