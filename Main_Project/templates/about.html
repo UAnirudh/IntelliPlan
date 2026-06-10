@@ -3,6 +3,29 @@
 {% block meta_description %}IntelliPlan is a free AI study planner built for students. Connect Canvas, StudentVue, or Schoology, prioritize homework, schedule study time, and get step-by-step help from Plani Tutor.{% endblock %}
 {% block content %}
 <style>
+  /* Premium polish pass — matches the revamped landing/auth language. */
+  .about-title {
+    letter-spacing: -0.045em !important;
+    background: linear-gradient(180deg, var(--text-primary) 0%, color-mix(in srgb, var(--text-primary) 72%, transparent) 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .about-card, .about-hero {
+    transition: transform 0.25s var(--ease-out), box-shadow 0.25s ease, border-color 0.25s ease;
+  }
+  .about-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+    border-color: var(--border-accent);
+  }
+  .about-wrap a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .about-card, .about-hero { transition: none; }
+  }
+
   .about-wrap { max-width: 900px; margin: 0 auto; }
   .about-hero {
     padding: 2.25rem;
