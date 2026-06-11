@@ -175,11 +175,35 @@ def add_cors_headers(response):
         response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Extension-Token"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    # Allow embedding in iframes on any domain
-    response.headers.pop("X-Frame-Options", None)
-    response.headers["Content-Security-Policy"] = "frame-ancestors * https://lotus-72e3e.web.app https://intelliplan.tech http://localhost:5000"
+    # Sensitive auth/account pages must NEVER be embeddable — an attacker who
+    # can iframe the login or settings page can clickjack credentials and
+    # account changes. These pages are never part of the embed product, so
+    # locking them down doesn't affect Lotus/other embedders, which only embed
+    # the study tools.
+    try:
+        path = (request.path or "").rstrip("/")
+    except Exception:
+        path = ""
+    if _is_frame_sensitive(path):
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
+    else:
+        # Allow embedding in iframes on any domain for the embeddable surface.
+        response.headers.pop("X-Frame-Options", None)
+        response.headers["Content-Security-Policy"] = "frame-ancestors * https://lotus-72e3e.web.app https://intelliplan.tech http://localhost:5000"
     response.headers["X-Permitted-Cross-Domain-Policies"] = "all"
     return response
+
+# Paths that must never be iframed (clickjacking protection). Matched as a
+# prefix against the request path so sub-routes (e.g. /login/account) are
+# covered too.
+_FRAME_SENSITIVE_PREFIXES = (
+    "/login", "/register", "/settings", "/connect", "/account",
+)
+
+def _is_frame_sensitive(path):
+    p = (path or "").rstrip("/")
+    return any(p == pre or p.startswith(pre + "/") for pre in _FRAME_SENSITIVE_PREFIXES)
 
 @app.after_request
 def add_static_cache_headers(response):
@@ -197,10 +221,20 @@ def add_static_cache_headers(response):
         pass
     return response
 
+def _default_limit_exempt():
+    """Exempt safe, idempotent GET/HEAD/OPTIONS requests from the global
+    default limits. Public pages (landing, /login, /register, legal, blog,
+    etc.) are read-only and shouldn't be throttled by the per-IP default —
+    that wrongly blocks shared-NAT users and CI runners. Sensitive
+    state-changing endpoints keep their explicit @limiter.limit decorators,
+    which still apply regardless of this exemption."""
+    return request.method in ("GET", "HEAD", "OPTIONS")
+
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"]
+    default_limits=["200 per day", "50 per hour"],
+    default_limits_exempt_when=_default_limit_exempt,
 )
 
 # ── MODELS ────────────────────────────────────────────────────
@@ -4151,14 +4185,27 @@ _RETURN_TO_ALLOWLIST = (
 )
 
 def _safe_return_to(url):
-    """Return url if it's on the allowlist, else None."""
+    """Return url if its host is on the allowlist, else None.
+
+    Allowlist entries are matched on a dot/exact boundary so a lookalike
+    domain (e.g. evilintelliplan.tech, notlocalhost) can't pass: an entry
+    "intelliplan.tech" matches only that host or a "*.intelliplan.tech"
+    subdomain, never a domain that merely ends with that string. Only http(s)
+    URLs are accepted."""
     if not url:
         return None
     import urllib.parse as _up
     try:
-        host = _up.urlparse(url).netloc.lower()
-        if any(host == a.lstrip(".") or host.endswith(a) for a in _RETURN_TO_ALLOWLIST):
-            return url
+        parsed = _up.urlparse(url)
+        if parsed.scheme and parsed.scheme.lower() not in ("http", "https"):
+            return None
+        host = (parsed.hostname or "").lower()
+        if not host:
+            return None
+        for a in _RETURN_TO_ALLOWLIST:
+            domain = a.lstrip(".").lower()
+            if host == domain or host.endswith("." + domain):
+                return url
     except Exception:
         pass
     return None
@@ -4185,6 +4232,7 @@ def login_google():
     return redirect(auth_url)
 
 @app.route("/login/account", methods=["GET", "POST"])
+@limiter.limit("10 per minute;60 per hour", methods=["POST"])
 def login_account():
     if current_user.is_authenticated:
         return redirect(url_for("dashboard"))
