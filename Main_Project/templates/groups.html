@@ -2,20 +2,12 @@
 {% block content %}
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
   <div>
-    <h1 class="page-title">Study Groups {% if not is_pro %}<span style="display:inline-block;margin-left:6px;font-family:var(--font-ui);font-size:0.62rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:999px;vertical-align:middle;">Free · 1 owned</span>{% endif %}</h1>
+    <h1 class="page-title">Study Groups</h1>
     <p class="page-subtitle">Find a group by topic, level, and study style, or start your own. Anyone can join via your invite link.</p>
   </div>
   <button class="btn-primary" onclick="openCreate()" style="padding:10px 22px;border:none;cursor:pointer;">+ Create Study Group</button>
 </div>
 
-{% if not is_pro %}
-<div style="background:linear-gradient(135deg, var(--accent-soft), color-mix(in srgb, var(--accent) 6%, var(--bg-card)));border:1px solid var(--border);border-radius:14px;padding:0.85rem 1.1rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-  <div style="flex:1;min-width:200px;font-size:0.88rem;color:var(--text-secondary);">
-    Free tier can own <strong>1</strong> study group. Pro lets you create unlimited groups with private rooms.
-  </div>
-  <a href="/settings#proCard" class="btn-primary" style="padding:8px 16px;text-decoration:none;font-size:0.84rem;">Upgrade to Pro</a>
-</div>
-{% endif %}
 
 <style>
 .gr-filters { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-bottom:1.25rem; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); padding:1rem;  }

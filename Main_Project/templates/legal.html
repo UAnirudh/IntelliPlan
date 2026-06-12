@@ -64,22 +64,21 @@
   </div>
 
   <!-- ──────────────────── PRIVACY POLICY ──────────────────── -->
-  <div id="privacy" class="legal-card anchor-target" data-password-policy="do not store passwords">
+  <div id="privacy" class="legal-card anchor-target">
     <h2>Privacy Policy</h2>
-    <p class="legal-meta"><strong>Effective:</strong> May 25, 2026 &nbsp;·&nbsp; <strong>Last reviewed:</strong> May 25, 2026</p>
+    <p class="legal-meta"><strong>Last Updated:</strong> June 11, 2026</p>
 
     <div class="legal-callout">
-      <strong>Short version:</strong> IntelliPlan is built for students. We never sell student
-      data, never use it for advertising or behavioral profiling, and never share it with
-      third parties beyond the integrations you explicitly enable. You can disconnect
-      anything or delete your account at any time from Settings.
+      <strong>Short version:</strong> IntelliPlan is free, built for students, and we never sell your data.
+      We only collect what we need to run the planner. You can disconnect
+      any integration or delete your account at any time from Settings.
     </div>
 
     <div class="legal-callout" style="background:var(--bg-elevated);border-left-color:var(--text-secondary);">
       <strong>For school districts (incl. Northshore SD):</strong> IntelliPlan is built to satisfy
       the <em>Northshore School District Digital Resource Review Guidelines</em>, specifically
       Guideline #6 (Accessibility) and Guideline #7 (COPPA / FERPA assurance).
-      See <a href="#nsd">§12, Northshore SD Compliance</a> for the point-by-point checklist response.
+      See <a href="#nsd">&sect;11, Northshore SD Compliance</a> for the point-by-point checklist response.
     </div>
 
     <div class="legal-toc">
@@ -88,14 +87,13 @@
         <li><a href="#p-info">Information we collect</a></li>
         <li><a href="#p-use">How we use information</a></li>
         <li><a href="#p-sharing">Data sharing &amp; disclosure</a></li>
-        <li><a href="#p-coppa">COPPA, students under 13</a></li>
+        <li><a href="#p-coppa">COPPA &mdash; students under 13</a></li>
         <li><a href="#p-ferpa">FERPA &amp; school-supplied data</a></li>
         <li><a href="#p-security">Data security</a></li>
-        <li><a href="#p-third">Third-party integrations</a></li>
+        <li><a href="#p-third">Third-party services</a></li>
         <li><a href="#p-rights">Your rights &amp; controls</a></li>
         <li><a href="#p-retention">Data retention &amp; deletion</a></li>
         <li><a href="#p-accessibility">Accessibility</a></li>
-        <li><a href="#p-subscriptions">Subscriptions &amp; cancellation</a></li>
         <li><a href="#nsd">Northshore SD Digital Resource Review compliance</a></li>
         <li><a href="#p-changes">Changes to this policy</a></li>
         <li><a href="#p-contact">Contact</a></li>
@@ -105,52 +103,54 @@
     <div class="legal-body">
 
       <h3 id="p-info" class="anchor-target">1. Information we collect</h3>
-      <p>We collect only what's needed to run the planner:</p>
+      <p>We collect only what we need to run the planner:</p>
       <ul>
-        <li><strong>Account info</strong>, email address and password hash, or a Google identifier if you sign in with Google. Optionally a display name.</li>
-        <li><strong>Academic data you provide or sync</strong>, assignment titles, due dates, class names, grades, test scores, and notes you save.</li>
-        <li><strong>Integration tokens</strong>, OAuth tokens for Google Calendar, Notion, Canvas, Schoology, and StudentVue so we can read/write the resources you connect. Tokens are stored encrypted at rest and used only for actions you initiate.</li>
-        <li><strong>Optional reminders data</strong>, phone number, carrier (for the SMS-gateway delivery method), and browser push-notification subscription, only if you opt in. You can revoke either at any time.</li>
-        <li><strong>Usage telemetry</strong>, anonymous error logs and basic event counts (e.g. &ldquo;schedule generated&rdquo;). We do <em>not</em> use session-replay, screen recording, keystroke loggers, or third-party advertising trackers.</li>
+        <li><strong>Account info</strong> &mdash; email address and password hash, or a Google identifier if you sign in with Google. Optionally a display name and school name.</li>
+        <li><strong>Academic data you provide or sync</strong> &mdash; assignment titles, due dates, class names, grades, test scores, course names, and notes you save.</li>
+        <li><strong>Integration tokens</strong> &mdash; OAuth tokens for Google Calendar, Notion, Canvas, Schoology, and StudentVue so we can read and write the resources you connect. Tokens are stored encrypted at rest and are never shared or exposed to any third party. They are used only for actions you initiate.</li>
+        <li><strong>Optional reminders data</strong> &mdash; phone number, carrier (for SMS-gateway delivery), and browser push-notification subscription, only if you opt in. You can revoke either at any time.</li>
+        <li><strong>Usage telemetry</strong> &mdash; anonymous error logs and basic event counts (e.g. &ldquo;schedule generated&rdquo;). We do <em>not</em> use session-replay, screen recording, keystroke loggers, or third-party advertising trackers.</li>
       </ul>
 
       <h3 id="p-use" class="anchor-target">2. How we use information</h3>
       <p>We use the data above strictly to:</p>
       <ul>
-        <li>Show your assignments and generate study schedules.</li>
+        <li>Show your assignments and generate personalized study schedules.</li>
+        <li>Power AI Tutor responses based on your courses and workload.</li>
         <li>Sync the calendars, task lists, and gradebooks you ask us to.</li>
         <li>Send reminders by SMS or browser push, only when you opt in.</li>
         <li>Diagnose bugs and improve reliability.</li>
       </ul>
-      <p><strong>We do not use student data to train advertising models, target ads, run retargeting pixels, or build behavioral profiles.</strong> Ever.</p>
+      <p><strong>We do not sell student data. Ever.</strong> We do not use student data to train advertising models, target ads, run retargeting pixels, build behavioral profiles, or resell analytics. Your data is used only inside IntelliPlan to help you plan your academics.</p>
 
       <h3 id="p-sharing" class="anchor-target">3. Data sharing &amp; disclosure</h3>
       <p>We do not sell or rent your data. We share it only in these limited cases:</p>
       <ul>
-        <li><strong>Services you connect</strong>, when you link Google Calendar, Notion, or an LMS, IntelliPlan acts as a client of those services on your behalf, using only the scopes you authorize.</li>
-        <li><strong>Service providers (sub-processors)</strong>, Railway (hosting), Resend (email + SMS-gateway delivery), Google (Gemini AI inference), and Stripe (subscriptions, only if you upgrade). Each is contractually bound to use data only to provide that service and is prohibited from using student data for advertising or profiling.</li>
-        <li><strong>Legal compliance</strong>, when required by law, valid legal process, or to prevent fraud or imminent harm.</li>
-        <li><strong>Schools (FERPA)</strong>, see §5.</li>
+        <li><strong>Services you connect</strong> &mdash; when you link Google Calendar, Notion, or an LMS, IntelliPlan acts as a client of those services on your behalf, using only the scopes you authorize.</li>
+        <li><strong>Service providers (sub-processors)</strong> &mdash; Railway (hosting), Resend (email and SMS-gateway delivery), Google Gemini and Anthropic Claude (AI inference). Each is contractually bound to use data only to provide that service and is prohibited from using student data for advertising or profiling.</li>
+        <li><strong>Legal compliance</strong> &mdash; when required by law, valid legal process, or to prevent fraud or imminent harm.</li>
+        <li><strong>Schools (FERPA)</strong> &mdash; see &sect;5.</li>
       </ul>
-      <p>Where IntelliPlan is used in a school context, <strong>student data will not be shared, transferred, or disclosed to any other entity without the explicit written permission of the school district</strong>, except as required by the user's own connected integrations or by law. This satisfies the NSD &ldquo;Assurance of compliance with COPPA and FERPA&rdquo; standard.</p>
-      <p>We will <strong>never</strong> share, sell, transfer, or otherwise disclose student data to a third party for marketing, advertising, behavioral-profiling, or any commercial purpose unrelated to providing IntelliPlan to that student.</p>
+      <p>Where IntelliPlan is used in a school context, <strong>student data will not be shared, transferred, or disclosed to any other entity without the explicit written permission of the school district</strong>, except as required by the user's own connected integrations or by law.</p>
+      <p>We will <strong>never</strong> share, sell, transfer, or otherwise disclose student data to a third party for marketing, advertising, behavioral profiling, or any commercial purpose unrelated to providing IntelliPlan to that student.</p>
 
-      <h3 id="p-coppa" class="anchor-target">Students under 13 (COPPA)</h3>
+      <h3 id="p-coppa" class="anchor-target">4. Students under 13 (COPPA)</h3>
+      <p>IntelliPlan is not directed at children under 13. Users under 13 should not create an account without parental or school authorization.</p>
       <ul>
         <li>If you are <strong>under 13</strong>, we require verifiable parental or guardian consent before you can create an account. During sign-up we ask for your birth date. If it indicates you are under 13, the account is held pending until a parent provides their email and confirms by clicking a verification link.</li>
-        <li>For students under 13 accessing IntelliPlan through a school, the school may act as the parent's agent for COPPA notice and consent, as permitted by the FTC's COPPA guidance and as referenced in the Northshore Digital Resource Review additional notes.</li>
+        <li>For students under 13 accessing IntelliPlan through a school, the school may act as the parent's agent for COPPA notice and consent, as permitted by the FTC's COPPA guidance.</li>
         <li>We collect only the minimum information needed to deliver the service and do not condition participation on disclosure of more than is reasonably necessary.</li>
-        <li>Parents may at any time review the personal information collected from their child, have it deleted, or refuse to allow further collection. Contact the address in §14; we respond within 10 business days.</li>
+        <li>Parents may at any time review the personal information collected from their child, have it deleted, or refuse to allow further collection. Contact the address in &sect;13; we respond within 10 business days.</li>
         <li>If IntelliPlan is used with students 13 or younger through a school, <strong>each student gets their own individual account</strong>. We do not allow shared or class accounts for under-13 students.</li>
       </ul>
 
       <h3 id="p-ferpa" class="anchor-target">5. FERPA &amp; school-supplied data</h3>
-      <p>When IntelliPlan is used in a school context, data you import from an LMS (Canvas, Schoology, StudentVue) may include records covered by the Family Educational Rights and Privacy Act. IntelliPlan acts as a &ldquo;school official&rdquo; under FERPA's school-official exception:</p>
+      <p>When IntelliPlan is used in a school context, data you import from an LMS (Canvas, Schoology, StudentVue) may include records covered by the Family Educational Rights and Privacy Act (FERPA). IntelliPlan acts as a &ldquo;school official&rdquo; with a legitimate educational interest under FERPA:</p>
       <ul>
         <li>We use educational records <strong>solely</strong> to provide the planning and study tools the student requested.</li>
         <li>We do not redisclose those records to anyone except the student or the school district that authorized access.</li>
-        <li>We honor district or institutional requests to delete student records promptly, typically within 7 days, never more than 30.</li>
-        <li>Districts may request a full data export of records pertaining to their students by emailing the address in §14.</li>
+        <li>We honor district or institutional requests to delete student records promptly &mdash; typically within 7 days, never more than 30.</li>
+        <li>Districts may request a full data export of records pertaining to their students by emailing the address in &sect;13.</li>
       </ul>
 
       <h3 id="p-security" class="anchor-target">6. Data security</h3>
@@ -162,85 +162,72 @@
         <li>We follow industry best practices but no system is completely secure, and we cannot guarantee absolute security.</li>
       </ul>
 
-      <h3 id="p-third" class="anchor-target">7. Third-party integrations</h3>
-      <p>You decide which services to connect. Each has its own privacy policy:</p>
+      <h3 id="p-third" class="anchor-target">7. Third-party services</h3>
+      <p>IntelliPlan relies on a small number of third-party services to operate. Each has its own privacy policy:</p>
       <ul>
-        <li>Google (Calendar, sign-in), <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">policies.google.com/privacy</a></li>
-        <li>Notion, <a href="https://www.notion.so/Privacy-Policy" target="_blank" rel="noopener noreferrer">notion.so/Privacy-Policy</a></li>
-        <li>Canvas (Instructure), <a href="https://www.instructure.com/policies/privacy" target="_blank" rel="noopener noreferrer">instructure.com/policies/privacy</a></li>
-        <li>Resend (email + SMS gateway), <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer">resend.com/legal/privacy-policy</a></li>
-        <li>Stripe (subscriptions), <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer">stripe.com/privacy</a></li>
+        <li><strong>Google</strong> (Calendar, sign-in, Gemini AI) &mdash; <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">policies.google.com/privacy</a></li>
+        <li><strong>Anthropic</strong> (Claude AI inference) &mdash; <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener noreferrer">anthropic.com/privacy</a></li>
+        <li><strong>Notion</strong> &mdash; <a href="https://www.notion.so/Privacy-Policy" target="_blank" rel="noopener noreferrer">notion.so/Privacy-Policy</a></li>
+        <li><strong>Canvas</strong> (Instructure) &mdash; <a href="https://www.instructure.com/policies/privacy" target="_blank" rel="noopener noreferrer">instructure.com/policies/privacy</a></li>
+        <li><strong>Resend</strong> (email and SMS gateway) &mdash; <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer">resend.com/legal/privacy-policy</a></li>
+        <li><strong>Railway</strong> (hosting) &mdash; <a href="https://railway.com/legal/privacy" target="_blank" rel="noopener noreferrer">railway.com/legal/privacy</a></li>
       </ul>
-      <p>Disconnecting an integration in Settings → Integrations revokes its token locally. We recommend you also revoke access in the provider's own security settings for completeness.</p>
+      <p>You decide which integrations to connect. Disconnecting an integration in Settings revokes its token locally. We recommend you also revoke access in the provider's own security settings for completeness.</p>
       <p><strong>Google Workspace API limited-use disclosure:</strong> Our use of any raw or derived user data received from Google Workspace APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements.</p>
 
       <h3 id="p-rights" class="anchor-target">8. Your rights &amp; controls</h3>
       <ul>
-        <li><strong>Export your data</strong>, Settings → Export Data downloads a CSV of your assignments and tasks.</li>
-        <li><strong>Disconnect integrations</strong>, Settings → Integrations.</li>
-        <li><strong>Delete your account</strong>, Settings → Account → Delete Account. All associated records are removed within 30 days; backups age out within 90.</li>
-        <li><strong>Opt out of reminders</strong>, reply STOP to any SMS, or use Settings → Phone &amp; reminders to clear both opt-ins.</li>
-        <li><strong>Request a copy</strong> of all personal information we hold about you by emailing the address in §14.</li>
-        <li><strong>Schools / parents</strong> may request deletion or export of student records on behalf of their student; we respond within 10 business days.</li>
+        <li><strong>Export your data</strong> &mdash; Settings &rarr; Export Data downloads a CSV of your assignments and tasks.</li>
+        <li><strong>Disconnect integrations</strong> &mdash; Settings &rarr; Integrations.</li>
+        <li><strong>Delete your account</strong> &mdash; Settings &rarr; Account &rarr; Delete Account. All associated records are removed within 30 days; backups age out within 90.</li>
+        <li><strong>Opt out of reminders</strong> &mdash; reply STOP to any SMS, or use Settings &rarr; Phone &amp; reminders to clear both opt-ins.</li>
+        <li><strong>Request a copy</strong> of all personal information we hold about you by emailing the address in &sect;13.</li>
+        <li><strong>Schools and parents</strong> may request deletion or export of student records on behalf of their student; we respond within 10 business days.</li>
       </ul>
 
       <h3 id="p-retention" class="anchor-target">9. Data retention &amp; deletion</h3>
-      <p>We retain personal data only as long as you have an active account, plus a short grace period for backups. Deleting your account removes your profile, assignments, tasks, integration tokens, and reminder preferences. Aggregated, de-identified usage statistics may be retained indefinitely for service-improvement purposes; these contain no identifiers and cannot be linked back to a specific student.</p>
+      <p>We retain personal data only as long as you have an active account, plus a short grace period for backups. Deleting your account removes your profile, assignments, tasks, integration tokens, and reminder preferences. Aggregated, de-identified usage statistics may be retained indefinitely for service improvement; these contain no identifiers and cannot be linked back to a specific student.</p>
+      <p>You can request deletion of your data at any time by emailing the address in &sect;13 or by using the delete account option in Settings.</p>
 
       <h3 id="p-accessibility" class="anchor-target">10. Accessibility</h3>
-      <p>IntelliPlan meets the NSD Digital Resource Review &ldquo;Assurance of Accessibility&rdquo; standard:</p>
       <ul>
-        <li><strong>Text-to-speech</strong>, the AI Tutor and lesson views include a &ldquo;Read aloud&rdquo; toggle that uses the browser's built-in speech synthesis, controllable from Settings → Accessibility.</li>
-        <li><strong>Visual supports</strong>, high-contrast mode and large-text mode are available from Settings → Accessibility and persist across sessions; seven color themes are available.</li>
-        <li><strong>Reduced motion</strong>, &ldquo;Reduce motion&rdquo; toggle disables animations; we also honor the <code>prefers-reduced-motion</code> media query automatically.</li>
-        <li><strong>Reading-level adjustment</strong>, the Tutor and lessons module accept a &ldquo;Simpler reading level&rdquo; preference that rewrites explanations at a lower grade level.</li>
-        <li><strong>Multilingual support</strong>, the Tutor accepts and replies in multiple languages, including Spanish, French, Mandarin, Hindi, and Arabic.</li>
-        <li><strong>Keyboard navigation</strong>, all primary navigation, the command palette (⌘K), the scheduler checklist, and modal dialogs are reachable and operable by keyboard alone.</li>
-        <li><strong>Screen-reader compatibility</strong>, UI elements use semantic HTML and ARIA labels where appropriate.</li>
+        <li><strong>Text-to-speech</strong> &mdash; the AI Tutor and lesson views include a &ldquo;Read aloud&rdquo; toggle that uses the browser's built-in speech synthesis, controllable from Settings &rarr; Accessibility.</li>
+        <li><strong>Visual supports</strong> &mdash; high-contrast mode and large-text mode are available from Settings &rarr; Accessibility and persist across sessions; seven color themes are available.</li>
+        <li><strong>Reduced motion</strong> &mdash; &ldquo;Reduce motion&rdquo; toggle disables animations; we also honor the <code>prefers-reduced-motion</code> media query automatically.</li>
+        <li><strong>Reading-level adjustment</strong> &mdash; the Tutor and lessons module accept a &ldquo;Simpler reading level&rdquo; preference that rewrites explanations at a lower grade level.</li>
+        <li><strong>Multilingual support</strong> &mdash; the Tutor accepts and replies in multiple languages, including Spanish, French, Mandarin, Hindi, and Arabic.</li>
+        <li><strong>Keyboard navigation</strong> &mdash; all primary navigation, the command palette, the scheduler checklist, and modal dialogs are reachable and operable by keyboard alone.</li>
+        <li><strong>Screen-reader compatibility</strong> &mdash; UI elements use semantic HTML and ARIA labels where appropriate.</li>
       </ul>
 
-      <h3 id="p-subscriptions" class="anchor-target">11. Subscriptions &amp; cancellation</h3>
-      <p>IntelliPlan's core features, assignments, scheduler, Tutor, focus timer, reminders, accessibility tools, are <strong>free</strong>. An optional &ldquo;Pro&rdquo; subscription unlocks higher AI-generation limits and is the only paid tier.</p>
-      <ul>
-        <li><strong>Auto-renewal:</strong> Pro subscriptions auto-renew on a monthly cadence through Stripe. You receive an email receipt at every renewal.</li>
-        <li><strong>Cancellation:</strong> Cancel anytime from Settings → Account → Manage subscription. Cancellation is effective at the end of the current billing period; you keep Pro until that date and are not charged again.</li>
-        <li><strong>Notice before changes:</strong> If we plan to change pricing or end the Pro tier, we notify subscribers at least 30 days in advance by email.</li>
-        <li><strong>Billing &amp; payment monitoring:</strong> Card data is handled exclusively by Stripe; IntelliPlan never sees full card numbers. Refund and dispute requests are handled by emailing the address in §14.</li>
-        <li><strong>Account management:</strong> Accounts created by students are managed by the student. Accounts provisioned through a school district are managed jointly by the student and the district's designated administrator.</li>
-      </ul>
-
-      <h3 id="nsd" class="anchor-target">12. Northshore SD Digital Resource Review compliance</h3>
+      <h3 id="nsd" class="anchor-target">11. Northshore SD Digital Resource Review compliance</h3>
       <p>This section maps IntelliPlan's behavior directly to the NSD Digital Resource Review checklist so reviewers can verify each requirement quickly.</p>
 
-      <p><strong>Guideline 6, Accessibility</strong></p>
+      <p><strong>Guideline 6 &mdash; Accessibility</strong></p>
       <table class="legal-table">
         <thead><tr><th>NSD checklist item</th><th>Status</th><th>How</th></tr></thead>
         <tbody>
           <tr><td>Options for other languages</td><td class="yes">Yes</td><td>Tutor &amp; lessons reply in the language the student writes in.</td></tr>
-          <tr><td>Text-to-speech option</td><td class="yes">Yes</td><td>Settings → Accessibility → &ldquo;Read aloud&rdquo;. Uses native browser speech synthesis.</td></tr>
+          <tr><td>Text-to-speech option</td><td class="yes">Yes</td><td>Settings &rarr; Accessibility &rarr; &ldquo;Read aloud&rdquo;. Uses native browser speech synthesis.</td></tr>
           <tr><td>Visual supports</td><td class="yes">Yes</td><td>High-contrast mode, large-text mode, reduced motion, seven color themes.</td></tr>
           <tr><td>Adjustability for reading level / differentiation</td><td class="yes">Yes</td><td>&ldquo;Simpler reading level&rdquo; preference; AI generations adapt to it.</td></tr>
         </tbody>
       </table>
 
-      <p><strong>Guideline 7, Assurance of compliance with COPPA &amp; FERPA</strong></p>
+      <p><strong>Guideline 7 &mdash; Assurance of compliance with COPPA &amp; FERPA</strong></p>
       <table class="legal-table">
         <thead><tr><th>NSD checklist item</th><th>Response</th></tr></thead>
         <tbody>
           <tr><td>Do the terms indicate that no student data is shared with any other entity without explicit permission from Northshore?</td>
-              <td class="yes">Yes, see §3 above. Student data is shared only with sub-processors strictly necessary to deliver the service, and never for marketing or profiling. No third-party transfer without explicit district permission.</td></tr>
+              <td class="yes">Yes &mdash; see &sect;3 above. Student data is shared only with sub-processors strictly necessary to deliver the service, and never for marketing or profiling. No third-party transfer without explicit district permission.</td></tr>
           <tr><td>If students communicate with each other or with people outside Northshore, are the communications moderated?</td>
-              <td class="yes">Study Groups posts are visible only to the group members the owning student invites. Any group owner, which may be the sponsoring NSD staff member if they create the group, can delete, edit, or moderate any post. There is no public chat surface and no DM with external users.</td></tr>
+              <td class="yes">Study Groups posts are visible only to the group members the owning student invites. Any group owner can delete, edit, or moderate any post. There is no public chat surface and no DM with external users.</td></tr>
           <tr><td>Used with students 13 or younger? Does it require an account for each student?</td>
-              <td class="yes">Yes, every student gets their own individual account. Shared or class accounts are not permitted for under-13 students.</td></tr>
-          <tr><td>If paid: does the agreement auto-renew? Is there notification before removal?</td>
-              <td class="yes">Free tier never expires. Optional Pro tier auto-renews monthly through Stripe with an email receipt every cycle; we notify users at least 30 days before any change to pricing or removal of the tier.</td></tr>
-          <tr><td>What steps must be taken to cancel?</td>
-              <td class="yes">Settings → Account → Manage subscription → Cancel. Takes effect at the end of the billing period. For institutional accounts, email the address in §14.</td></tr>
+              <td class="yes">Yes &mdash; every student gets their own individual account. Shared or class accounts are not permitted for under-13 students.</td></tr>
+          <tr><td>Is the service free or paid?</td>
+              <td class="yes">IntelliPlan is completely free. There are no paid tiers, subscriptions, or in-app purchases.</td></tr>
           <tr><td>Who manages accounts in the system?</td>
-              <td class="yes">For self-signup users, the student. For school-provisioned access, the district's designated administrator, in coordination with the student.</td></tr>
-          <tr><td>If paid: who monitors terms-of-use, billing, payment?</td>
-              <td class="yes">IntelliPlan handles its end; Stripe handles card processing. Both are bound by their own terms; neither uses payment metadata for marketing.</td></tr>
+              <td class="yes">For self-signup users, the student. For school-provisioned access, the district's designated administrator in coordination with the student.</td></tr>
           <tr><td>Is any collected student data used for marketing purposes?</td>
               <td class="yes"><strong>No.</strong> Student data is never used for marketing, advertising, retargeting, behavioral profiling, ad-network training, or sold under any circumstance.</td></tr>
         </tbody>
@@ -248,16 +235,16 @@
 
       <p><strong>Additional NSD compliance notes</strong></p>
       <ul>
-        <li>IntelliPlan supports COPPA as a federal law applicable to U.S. students under 13, regardless of whether the service is free or paid.</li>
+        <li>IntelliPlan supports COPPA as a federal law applicable to U.S. students under 13.</li>
         <li>For Northshore students, IntelliPlan recognizes Northshore SD as acting as the parent's agent for COPPA notice and consent when parents have provided permission for student internet use, consistent with the FTC's COPPA guidance.</li>
-        <li>IntelliPlan's use and sharing of student data is solely for educational purposes, planning, study, tutoring, and reminders the student requested.</li>
-        <li>Inquiries from NSD staff or any district reviewer may be sent to the address in §14; we respond within 10 business days. Submit the formal review through <a href="http://go.nsd.org/digreview" target="_blank" rel="noopener noreferrer">go.nsd.org/digreview</a>.</li>
+        <li>IntelliPlan's use and sharing of student data is solely for educational purposes &mdash; planning, study, tutoring, and reminders the student requested.</li>
+        <li>Inquiries from NSD staff or any district reviewer may be sent to the address in &sect;13; we respond within 10 business days.</li>
       </ul>
 
-      <h3 id="p-changes" class="anchor-target">13. Changes to this policy</h3>
+      <h3 id="p-changes" class="anchor-target">12. Changes to this policy</h3>
       <p>We will update this policy when our practices change. Material changes will be highlighted on the sign-in page and emailed to active users at least 14 days before they take effect, except where a change is required for legal compliance.</p>
 
-      <h3 id="p-contact" class="anchor-target">14. Contact</h3>
+      <h3 id="p-contact" class="anchor-target">13. Contact</h3>
       <p>Email: <a href="mailto:uanirudh0811@gmail.com">uanirudh0811@gmail.com</a><br>
       Parents, school officials, and district reviewers may use the same address for COPPA, FERPA, NSD Digital Resource Review, data-export, and data-deletion requests. We respond within 10 business days.</p>
     </div>
@@ -266,62 +253,60 @@
   <!-- ──────────────────── TERMS OF SERVICE ──────────────────── -->
   <div id="terms" class="legal-card anchor-target">
     <h2>Terms of Service</h2>
-    <p class="legal-meta"><strong>Effective:</strong> May 25, 2026 &nbsp;·&nbsp; <strong>Last reviewed:</strong> May 25, 2026</p>
+    <p class="legal-meta"><strong>Last Updated:</strong> June 11, 2026</p>
 
     <div class="legal-body">
 
-      <h3 id="t-use">1. Use of service</h3>
-      <p>IntelliPlan is a study-planning service for students. Core features are free; an optional Pro tier exists. By using IntelliPlan you agree to provide accurate information, not misuse the platform, and follow these terms. Students under 13 may use IntelliPlan only with verifiable parental or guardian consent, or through their school acting as the parent's agent (see Privacy Policy §4).</p>
+      <h3 id="t-service">1. What IntelliPlan is</h3>
+      <p>IntelliPlan is a free AI-powered academic planning tool for students. It connects to your school's learning management system (Canvas, Schoology, StudentVue) and Google Calendar to pull your assignments, then uses AI to generate personalized study schedules and provide tutoring help. There are no paid tiers, subscriptions, or premium features. Every feature is available to every user at no cost.</p>
 
-      <h3 id="t-account">2. Your account &amp; credentials</h3>
-      <p>You are responsible for maintaining the security of your account. IntelliPlan supports Google OAuth sign-in; we never see or store your Google password. School credentials for Canvas, Schoology, or StudentVue may be stored encrypted, solely so we can fetch your assignments. You may disconnect any integration at any time from Settings → Integrations.</p>
+      <h3 id="t-account">2. Your account</h3>
+      <p>You are responsible for keeping your account secure. IntelliPlan supports Google OAuth sign-in; we never see or store your Google password. School credentials for Canvas, Schoology, or StudentVue may be stored encrypted, solely so we can fetch your assignments. You may disconnect any integration at any time from Settings.</p>
+      <p>Students under 13 may use IntelliPlan only with verifiable parental or guardian consent, or through their school acting as the parent's agent (see Privacy Policy &sect;4).</p>
 
       <h3 id="t-acceptable">3. Acceptable use</h3>
       <p>You agree not to:</p>
       <ul>
-        <li>Use IntelliPlan for any activity that violates law or your school's acceptable-use policy.</li>
+        <li>Use IntelliPlan to submit AI-generated work as your own in violation of your school's academic integrity policy. IntelliPlan is a study aid, not a shortcut around honest work.</li>
+        <li>Bypass school academic integrity policies using AI-generated content from IntelliPlan.</li>
         <li>Attempt to access another user's account, data, or sessions.</li>
         <li>Probe, scan, or attack our infrastructure, or attempt to bypass rate limits or authentication.</li>
         <li>Upload content you do not have the right to share, or that is harassing, defamatory, or otherwise harmful.</li>
-        <li>Use the AI Tutor to attempt academic dishonesty in ways that violate your institution's honor code. IntelliPlan is a learning aid; how you use it is your responsibility.</li>
         <li>Resell, white-label, or commercially redistribute IntelliPlan without written permission.</li>
       </ul>
-      <p>We may suspend or terminate accounts that violate these rules. Where possible we'll warn first; for clear violations we may act immediately.</p>
+      <p>We may suspend or terminate accounts that violate these rules. Where possible we will warn first; for clear violations we may act immediately.</p>
 
       <h3 id="t-content">4. Your content</h3>
       <p>You retain ownership of the notes, assignments, schedules, and other content you create or import. You grant IntelliPlan a limited license to store, process, transmit, and display that content solely to operate the service for you. We do not claim any other rights to your content and we do not use it to train third-party AI models.</p>
 
       <h3 id="t-ai">5. AI-generated output</h3>
-      <p>The AI Tutor, scheduler, Math Explainer, Writing assistant, and other AI features are <strong>tools, not authorities</strong>. AI output can be inaccurate or incomplete. Always verify deadlines against your official school systems and verify factual answers against authoritative sources. IntelliPlan is not responsible for academic, financial, or other decisions made based on AI output.</p>
+      <p>The AI Tutor, scheduler, Math Explainer, Writing assistant, and other AI features are <strong>tools, not authorities</strong>. AI output can be inaccurate or incomplete. Always verify deadlines against your official school systems and verify factual answers against authoritative sources. <strong>You are responsible for verifying your own academic plans with your teachers and counselors.</strong> IntelliPlan is not responsible for academic, financial, or other decisions made based on AI output.</p>
 
-      <h3 id="t-paid">6. Subscriptions &amp; refunds</h3>
-      <p>The Pro tier is billed through Stripe and auto-renews until cancelled. You may cancel anytime from Settings → Account → Manage subscription; cancellation is effective at the end of the current billing period. We don't pro-rate refunds mid-period, but if you experience a billing error or a sustained service outage, email the address in Privacy §14 and we'll work with you.</p>
-
-      <h3 id="t-third">7. Third-party services</h3>
+      <h3 id="t-third">6. Third-party services</h3>
       <p>When you connect Google Calendar, Notion, Canvas, Schoology, StudentVue, or any other third-party service, that service's own terms and privacy policy also apply. IntelliPlan is not responsible for the availability, accuracy, or content of third-party services.</p>
 
-      <h3 id="t-availability">8. Availability &amp; warranty disclaimer</h3>
-      <p>IntelliPlan is provided <strong>as-is and as-available</strong>, without warranties of any kind, express or implied, including merchantability, fitness for a particular purpose, and non-infringement. We don't guarantee uptime, error-free operation, or the accuracy of AI-generated content. We strive for high reliability but plan for the AI scheduler to be a planning tool, not a single source of truth for your deadlines.</p>
+      <h3 id="t-availability">7. Availability &amp; warranty disclaimer</h3>
+      <p>IntelliPlan is provided <strong>as-is and as-available</strong>, without warranties of any kind, express or implied, including merchantability, fitness for a particular purpose, and non-infringement. We do not guarantee uptime, error-free operation, or the accuracy of AI-generated content. We strive for high reliability, but treat IntelliPlan as a planning aid, not a single source of truth for your deadlines.</p>
 
-      <h3 id="t-liability">9. Limitation of liability</h3>
-      <p>To the maximum extent permitted by law, IntelliPlan and its operators are not liable for any indirect, incidental, consequential, or punitive damages, including loss of grades, missed deadlines, lost data, or lost opportunities, arising out of or related to your use of the service. Our total liability for any direct damages is limited to the amount you paid us, if any, in the 12 months before the claim.</p>
+      <h3 id="t-liability">8. Limitation of liability</h3>
+      <p>To the maximum extent permitted by law, IntelliPlan and its operators are not liable for any indirect, incidental, consequential, or punitive damages &mdash; including loss of grades, missed deadlines, lost data, or lost opportunities &mdash; arising out of or related to your use of the service.</p>
 
-      <h3 id="t-termination">10. Termination</h3>
-      <p>You may stop using IntelliPlan at any time and delete your account from Settings. We may suspend or terminate accounts that violate these terms, with notice where reasonably possible.</p>
+      <h3 id="t-termination">9. Account termination</h3>
+      <p>You may stop using IntelliPlan at any time and delete your account from Settings. IntelliPlan reserves the right to suspend or terminate accounts that violate these terms. Where reasonably possible, we will notify you before taking action.</p>
 
-      <h3 id="t-changes">11. Changes to these terms</h3>
+      <h3 id="t-changes">10. Changes to these terms</h3>
       <p>We may update these terms. Material changes will be highlighted on the sign-in page and sent to active users by email. Continued use of IntelliPlan after a change takes effect constitutes acceptance.</p>
 
-      <h3 id="t-law">12. Governing law</h3>
+      <h3 id="t-law">11. Governing law</h3>
       <p>These terms are governed by the laws of the State of Washington, USA, without regard to its conflict-of-laws rules. Any disputes will be resolved in the state or federal courts located in King County, Washington.</p>
 
-      <h3 id="t-contact">13. Contact</h3>
+      <h3 id="t-contact">12. Contact</h3>
       <p>Questions about these terms: <a href="mailto:uanirudh0811@gmail.com">uanirudh0811@gmail.com</a></p>
     </div>
   </div>
 
   <p style="text-align:center;font-size:0.85rem;color:var(--text-muted);">
-    <a href="/" style="color:var(--accent);">← Back to home</a>
+    <a href="/" style="color:var(--accent);">&larr; Back to home</a>
   </p>
 </div>
 {% endblock %}

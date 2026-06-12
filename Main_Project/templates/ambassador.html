@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block page_title %}IntelliPlan Campus Ambassador Program — Free Pro + Rewards{% endblock %}
+{% block page_title %}IntelliPlan Campus Ambassador Program — Rewards for Sharing{% endblock %}
 
-{% block meta_description %}Join the IntelliPlan Campus Ambassador program. Share IntelliPlan with students at your school, earn free Pro forever, and unlock gift card rewards as your referrals grow. Free to join.{% endblock %}
+{% block meta_description %}Join the IntelliPlan Campus Ambassador program. Share IntelliPlan with students at your school and unlock gift card rewards as your referrals grow. Free to join.{% endblock %}
 {% block og_type %}website{% endblock %}
 {% block og_title %}IntelliPlan Campus Ambassador Program{% endblock %}
-{% block og_description %}Help fellow students study smarter. Get lifetime Pro, gift cards, and exclusive perks for spreading the word.{% endblock %}
+{% block og_description %}Help fellow students study smarter. Get gift cards, swag, and exclusive perks for spreading the word.{% endblock %}
 {% block twitter_title %}IntelliPlan Campus Ambassadors{% endblock %}
-{% block twitter_description %}Lifetime Pro + gift card rewards for representing IntelliPlan at your school.{% endblock %}
+{% block twitter_description %}Gift card rewards and exclusive perks for representing IntelliPlan at your school.{% endblock %}
 
 {% block head_extra %}
 <script type="application/ld+json">
@@ -18,7 +18,7 @@
   "url": "https://intelliplan.tech/ambassador",
   "isPartOf": { "@id": "https://intelliplan.tech/#website" },
   "about": { "@id": "https://intelliplan.tech/#organization" },
-  "description": "Student ambassador program offering lifetime Pro access and gift card rewards in exchange for sharing IntelliPlan with classmates."
+  "description": "Student ambassador program offering gift card rewards and exclusive perks in exchange for sharing IntelliPlan with classmates."
 }
 </script>
 {% endblock %}
@@ -62,7 +62,7 @@
   <span class="amb-kicker" data-reveal>Campus Ambassador Program</span>
   <h1 class="amb-title" data-reveal>Help your classmates study smarter. Get rewarded for it.</h1>
   <p class="amb-lede" data-reveal>
-    Become an IntelliPlan Campus Ambassador at your school. Share what you already love with your friends, classmates, and study group — and earn free Pro forever plus monthly gift cards as your referrals grow.
+    Become an IntelliPlan Campus Ambassador at your school. Share what you already love with your friends, classmates, and study group — and earn monthly gift cards and exclusive perks as your referrals grow.
   </p>
   <div class="amb-cta-row" data-reveal>
     {% if current_user.is_authenticated %}
@@ -78,14 +78,14 @@
     <h2 data-reveal>What you get</h2>
     <div class="amb-grid">
       <div class="amb-card" data-reveal>
-        <div class="num">Lifetime Pro</div>
-        <h3>Free, forever</h3>
-        <p>Every ambassador gets IntelliPlan Pro free for as long as the program runs — full AI tutor, unlimited generations, every premium feature.</p>
+        <div class="num">Full access</div>
+        <h3>Every feature</h3>
+        <p>IntelliPlan is completely free — full AI tutor, unlimited generations, every feature, no restrictions.</p>
       </div>
       <div class="amb-card" data-reveal>
-        <div class="num">+14 days</div>
-        <h3>Per referral</h3>
-        <p>Each friend who signs up with your link earns you 14 free days of Pro automatically — stackable, with no limit.</p>
+        <div class="num">Share</div>
+        <h3>Help friends</h3>
+        <p>Each friend who signs up with your link gets instant access to every IntelliPlan feature — no limits, no catches.</p>
       </div>
       <div class="amb-card" data-reveal>
         <div class="num">$25–$50/mo</div>
@@ -106,7 +106,7 @@
       <li data-reveal><strong>Create your account</strong> at intelliplan.tech and grab your unique referral link from the ambassador dashboard. It looks like <code>intelliplan.tech/ref/your-code</code>.</li>
       <li data-reveal><strong>Share it with students at your school.</strong> Drop it in your school Discord, GroupMe, Reddit, class chats, or your study-content TikTok bio — wherever students actually hang out.</li>
       <li data-reveal><strong>Track your referrals</strong> in real time from your dashboard. We show you who signed up, your tier, and how close you are to the next reward.</li>
-      <li data-reveal><strong>Get paid &amp; perks.</strong> Pro days accrue automatically; gift cards and swag ship at the end of each month for ambassadors who hit the thresholds.</li>
+      <li data-reveal><strong>Get perks.</strong> Gift cards and swag ship at the end of each month for ambassadors who hit the thresholds.</li>
     </ol>
   </section>
 
@@ -116,7 +116,7 @@
     <table class="tier-table" data-reveal>
       <thead><tr><th>Tier</th><th>Monthly referrals</th><th>Rewards</th></tr></thead>
       <tbody>
-        <tr><td><span class="tier-badge t-b">Bronze</span></td><td>1+ active referral</td><td>Free Pro extension (+14 days per referral)</td></tr>
+        <tr><td><span class="tier-badge t-b">Bronze</span></td><td>1+ active referral</td><td>Ambassador recognition on your profile</td></tr>
         <tr><td><span class="tier-badge t-s">Silver</span></td><td>5+ in a month</td><td>Above + IntelliPlan sticker pack</td></tr>
         <tr><td><span class="tier-badge t-g">Gold</span></td><td>10+ in a month</td><td>Above + $25 Amazon gift card</td></tr>
         <tr><td><span class="tier-badge t-p">Platinum</span></td><td>25+ in a month</td><td>Above + $50 gift card + IntelliPlan tee + featured on /ambassador</td></tr>
@@ -130,7 +130,7 @@
       <details data-reveal><summary>Who can become an ambassador?</summary>
       <p>Any current high school or college student in good standing. You don't need a big social following — most ambassadors grow through their class chats, study groups, and school Discord servers.</p></details>
       <details data-reveal><summary>Does it cost anything?</summary>
-      <p>No. The program is free to join. We give you Pro and rewards because student-to-student recommendations are the most effective way to grow.</p></details>
+      <p>No. The program is free to join. We give you rewards because student-to-student recommendations are the most effective way to grow.</p></details>
       <details data-reveal><summary>What counts as an "active referral"?</summary>
       <p>A signup that comes through your unique link and connects at least one LMS (Canvas, StudentVue, Schoology, or Google Classroom) or generates a study schedule in their first 7 days.</p></details>
       <details data-reveal><summary>When do gift cards ship?</summary>

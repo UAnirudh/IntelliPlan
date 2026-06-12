@@ -62,7 +62,6 @@
 <div class="admin-grid" style="margin-top:1.25rem;">
   <div class="admin-stat-row">
     <div class="admin-stat"><div class="admin-stat-num">{{ user_count }}</div><div class="admin-stat-label">Total users</div></div>
-    <div class="admin-stat"><div class="admin-stat-num">{{ pro_count }}</div><div class="admin-stat-label">Pro subscribers</div></div>
     <div class="admin-stat"><div class="admin-stat-num">{{ flags|length }}</div><div class="admin-stat-label">Feature flags</div></div>
   </div>
 
@@ -88,18 +87,6 @@
     </div>
   </div>
 
-  <div class="admin-section">
-    <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:0.75rem;">Grant Pro tier</div>
-    <p style="font-size:0.84rem;color:var(--text-secondary);margin-bottom:0.75rem;">
-      Add Pro days to any account by email, useful for testing or comping early supporters.
-    </p>
-    <div style="display:grid;grid-template-columns:1fr 100px auto;gap:8px;align-items:center;max-width:560px;">
-      <input id="grantEmail" type="email" class="admin-input" placeholder="user@example.com">
-      <input id="grantDays" type="number" class="admin-input" value="30" min="1" max="3650">
-      <button onclick="grantPro()" class="btn-primary" style="padding:9px 16px;border:none;cursor:pointer;">Grant</button>
-    </div>
-    <div id="grantResult" style="margin-top:8px;font-size:0.82rem;color:var(--text-muted);"></div>
-  </div>
 
   <div class="admin-section">
     <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:0.75rem;">SMS Blast</div>
@@ -112,8 +99,6 @@
         <label style="font-size:0.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Audience</label>
         <select id="smsAudience" class="admin-input" style="margin-top:4px;" onchange="smsAudienceChanged()">
           <option value="sms_opted_in">SMS opted-in users (recommended)</option>
-          <option value="pro">Pro subscribers, SMS opted in</option>
-          <option value="free">Free tier, SMS opted in</option>
           <option value="all_with_phone">Everyone with a phone (ignores opt-in)</option>
           <option value="specific">Specific emails (comma-separated)</option>
         </select>
@@ -295,27 +280,5 @@ function setFlag(key, enabled, el) {
     .catch(() => { el.disabled = false; el.checked = !enabled; alert('Network error'); });
 }
 
-function grantPro() {
-  const email = document.getElementById('grantEmail').value.trim();
-  const days = parseInt(document.getElementById('grantDays').value, 10) || 30;
-  const out = document.getElementById('grantResult');
-  if (!email) { out.textContent = 'Enter an email first.'; return; }
-  out.textContent = 'Granting...';
-  fetch('/api/admin/grant-pro', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ email, days }),
-  })
-    .then(r => r.json())
-    .then(d => {
-      if (d.status === 'ok') {
-        out.style.color = 'var(--low)';
-        out.textContent = `✓ ${d.user} → Pro until ${new Date(d.pro_until).toLocaleDateString()}`;
-      } else {
-        out.style.color = 'var(--high)';
-        out.textContent = d.message || 'Failed';
-      }
-    });
-}
 </script>
 {% endblock %}

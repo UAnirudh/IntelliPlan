@@ -40,11 +40,11 @@
 <div class="ad-page">
   <span class="ad-kicker">Ambassador Dashboard</span>
   <h1 class="ad-title">Your campus ambassador hub</h1>
-  <p class="ad-sub">Share your link, watch the referrals roll in, and earn Pro days + rewards as you climb the tiers.</p>
+  <p class="ad-sub">Share your link, watch the referrals roll in, and earn rewards as you climb the tiers.</p>
 
   <div class="ad-card">
     <div style="font-family:var(--font-ui);font-weight:700;font-size:0.95rem;margin-bottom:0.35rem;">Your unique referral link</div>
-    <div style="font-family:var(--font-ui);font-size:0.85rem;color:var(--text-muted);">Anyone who signs up through this link will count toward your tier — and they get a head start on Pro too.</div>
+    <div style="font-family:var(--font-ui);font-size:0.85rem;color:var(--text-muted);">Anyone who signs up through this link will count toward your tier.</div>
     <div class="ad-link-row">
       <input type="text" id="refLink" readonly value="Loading…" aria-label="Your referral link"/>
       <button class="ad-btn" id="copyBtn" type="button" onclick="copyRef()">Copy link</button>
@@ -60,10 +60,6 @@
     <div class="ad-stat">
       <div class="label">Total referrals</div>
       <div class="val" id="cntTotal">—</div>
-    </div>
-    <div class="ad-stat">
-      <div class="label">Pro days earned</div>
-      <div class="val" id="cntDays">—</div>
     </div>
     <div class="ad-stat">
       <div class="label">Current tier</div>
@@ -109,11 +105,10 @@
     const r = await fetch('/api/referral');
     const d = await r.json();
     if (d.status !== 'ok') throw new Error(d.message || 'Could not load referral data');
-    const code = d.code; const total = d.invited_count || 0; const days = d.pro_days_earned || 0;
+    const code = d.code; const total = d.invited_count || 0;
     const link = `${location.origin}/ref/${code}`;
     document.getElementById('refLink').value = link;
     document.getElementById('cntTotal').textContent = total;
-    document.getElementById('cntDays').textContent = days;
     const t = tierFor(total);
     const badge = document.getElementById('tierBadge');
     badge.textContent = t.name; badge.className = 'ad-tier-badge ' + t.cls;

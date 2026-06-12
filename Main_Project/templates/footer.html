@@ -1,7 +1,7 @@
 {# Show extended SEO links + trust badges only on public marketing pages #}
 {% set _p = request.path or '/' %}
-{% set _marketing = _p in ['/', '/faq', '/pricing', '/compare', '/about', '/contact', '/legal', '/install', '/blog', '/uk', '/schools', '/olympiad', '/tutor', '/api-docs', '/developers'] or _p.startswith('/blog/') or _p.startswith('/compare/') or _p.startswith('/tools/') %}
-{% set _trust = _p in ['/', '/pricing', '/about'] %}
+{% set _marketing = _p in ['/', '/faq', '/compare', '/about', '/contact', '/legal', '/install', '/blog', '/uk', '/schools', '/olympiad', '/tutor', '/api-docs', '/developers'] or _p.startswith('/blog/') or _p.startswith('/compare/') or _p.startswith('/tools/') %}
+{% set _trust = _p in ['/', '/about'] %}
 
 <footer style="
   margin-top: auto;
@@ -24,7 +24,7 @@
       <a href="/faq" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">FAQ</a>
       <a href="/blog" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Guides</a>
       <a href="/olympiad" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Olympiad Prep</a>
-      <a href="/pricing" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Pricing</a>
+      <a href="/compare" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Compare</a>
       <a href="/contact" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Contact</a>
       {% if logged_in %}
       <a href="/dashboard" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Dashboard</a>

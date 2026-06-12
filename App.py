@@ -246,11 +246,9 @@ class User(UserMixin, db.Model):
     google_id = db.Column(db.String(255), unique=True, nullable=True)
     name = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    # ── Referral + tier columns (added together so we only schema-migrate once) ──
+    # ── Referral columns ──
     referral_code = db.Column(db.String(16), unique=True, nullable=True)
     referred_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    tier = db.Column(db.String(16), default="free")            # "free" | "pro"
-    pro_until = db.Column(db.DateTime, nullable=True)          # Pro expiry timestamp
     # ── Phone + reminder opt-in ──
     phone = db.Column(db.String(32), nullable=True)            # E.164 (+15551234567) or blank
     sms_reminders_opt_in = db.Column(db.Boolean, default=False)
@@ -262,8 +260,6 @@ class User(UserMixin, db.Model):
     parent_email = db.Column(db.String(255), nullable=True)    # for under-13 accounts
     parent_consent_granted = db.Column(db.Boolean, default=False)
     parent_consent_token = db.Column(db.String(64), nullable=True)  # signed verification token
-    # ── Stripe customer linkage ──
-    stripe_customer_id = db.Column(db.String(64), nullable=True)
     # JSON: {"grade_source":"active|canvas|...", "assignment_sources":["active","google_classroom",...]}
     lms_preferences = db.Column(db.Text, default="{}")
     # ── AI personalization opt-in. When True, IntelliPlan injects the
@@ -1451,7 +1447,7 @@ def get_study_profile(user_id=None, guest_id=None):
 
 @app.context_processor
 def inject_auth():
-    # Defensive: same reasoning as inject_pro. If load_user blows up
+    # Defensive: if load_user blows up
     # (e.g. mid-migration DB schema), we still need every template
     # render — including error.html — to succeed.
     try:
@@ -2280,7 +2276,7 @@ def compare():
 
 @app.route("/pricing")
 def pricing():
-    return render_template("pricing.html", active_page="pricing")
+    return redirect(url_for("faq"))
 
 # ── Blog / guides ──────────────────────────────────────────────
 @app.route("/blog/how-to-use-canvas-with-a-study-planner")
@@ -3694,8 +3690,7 @@ def register():
                         print(f"[coppa] consent link emailed to {parent_email_raw}: {consent_url}")
                     except Exception as _e:
                         print(f"[coppa] consent email failed: {_e}")
-                # Apply any pending referral bonus (sets referred_by_id and
-                # grants both accounts Pro days). Safe no-op if there's none.
+                # Apply any pending referral (sets referred_by_id). Safe no-op if there's none.
                 try:
                     _grant_referral_bonus(user)
                 except Exception as _ref_e:
@@ -8451,7 +8446,6 @@ def _guest_limit_response():
         "status": "error",
         "code": "login_required",
         "message": "Create an account to continue using Study & Learn.",
-        "upgrade_required": True
     }), 403
 
 def _is_guest():
@@ -8788,7 +8782,6 @@ DEFAULT_FLAGS = {
     "writing":       "Writing Assistant",
     "math":          "Math Explainer",
     "extractor":     "Task Extractor",
-    "stripe":        "Stripe Checkout for Pro upgrades",
     "referral":      "Referral program",
     "onboarding":    "First-run onboarding modal",
     "ai_chat":       "Plani chat assistant",
@@ -8835,10 +8828,8 @@ def admin_panel():
     _seed_default_flags()
     flags = FeatureFlag.query.order_by(FeatureFlag.key.asc()).all()
     user_count = 0
-    pro_count = 0
     try:
         user_count = User.query.count()
-        pro_count = User.query.filter_by(tier="pro").count()
     except Exception:
         pass
     return render_template(
@@ -8846,7 +8837,6 @@ def admin_panel():
         active_page="admin",
         flags=flags,
         user_count=user_count,
-        pro_count=pro_count,
         admin_email=(current_user.email if current_user.is_authenticated else ""),
     )
 
@@ -8905,22 +8895,6 @@ def admin_indexnow_submit():
     code = 200 if result.get("status") == "ok" else 400
     return flask.jsonify(result), code
 
-
-@app.route("/api/admin/grant-pro", methods=["POST"])
-@require_admin
-def admin_grant_pro():
-    """Admin testing helper — grant N days of Pro to any user by email."""
-    body = request.get_json(silent=True) or {}
-    email = (body.get("email") or "").strip().lower()
-    days = int(body.get("days") or 30)
-    user = User.query.filter_by(email=email).first()
-    if not user:
-        return flask.jsonify({"status": "error", "message": "user not found"}), 404
-    base = user.pro_until if (user.pro_until and user.pro_until > datetime.utcnow()) else datetime.utcnow()
-    user.pro_until = base + timedelta(days=days)
-    user.tier = "pro"
-    db.session.commit()
-    return flask.jsonify({"status": "ok", "user": user.email, "pro_until": user.pro_until.isoformat()})
 
 
 @app.route("/api/admin/smtp-status", methods=["GET"])
@@ -9022,24 +8996,16 @@ def _admin_sms_audience_query(audience, specific_emails=None):
         return base.filter(User.email.in_(specific_emails))
     elif audience == "all_with_phone":
         return base
-    elif audience == "pro":
-        return base.filter(User.sms_reminders_opt_in.is_(True), User.tier == "pro")
-    elif audience == "free":
-        return base.filter(User.sms_reminders_opt_in.is_(True), User.tier == "free")
     else:
-        # default: sms_opted_in — only users who consented
         return base.filter(User.sms_reminders_opt_in.is_(True))
 
 
-# ── REFERRAL + PRO TIER ─────────────────────────────────────────────
-PRO_TRIAL_DAYS = 30
-PRO_REFERRAL_BONUS_DAYS = 14
+# ── REFERRAL TRACKING ──────────────────────────────────────────────
 
 
 def _ensure_referral_code(user):
     if user.referral_code:
         return user.referral_code
-    # 8-char URL-safe code; retry on the unlikely collision.
     for _ in range(5):
         code = secrets_module.token_urlsafe(6).replace("-", "").replace("_", "")[:8].lower()
         if not User.query.filter_by(referral_code=code).first():
@@ -9049,56 +9015,8 @@ def _ensure_referral_code(user):
     return None
 
 
-def is_pro(user):
-    """True if the user has an active Pro subscription right now."""
-    if not user or not getattr(user, "is_authenticated", False):
-        return False
-    if (user.tier or "free") != "pro":
-        return False
-    if user.pro_until and user.pro_until < datetime.utcnow():
-        return False
-    return True
-
-
-@app.context_processor
-def inject_pro():
-    """Templates can read `is_pro` directly: {% if is_pro %} ... {% endif %}.
-
-    Defensive — if the `tier`/`pro_until` columns are missing (e.g. an
-    older DB the migration hasn't reached yet) we MUST swallow the
-    error here, otherwise every Jinja2 render (including the error
-    page itself) blows up and the user sees a raw "Server Error" page
-    with a Home link that loops back to the same broken state.
-    """
-    try:
-        if current_user and current_user.is_authenticated:
-            return {"is_pro": is_pro(current_user)}
-    except Exception:
-        pass
-    return {"is_pro": False}
-
-
-def require_pro(fn):
-    """Decorator for endpoints that should fall behind the paywall."""
-    from functools import wraps as _wraps
-    @_wraps(fn)
-    def w(*a, **kw):
-        if not current_user.is_authenticated:
-            return flask.jsonify({"status": "error", "code": "auth_required"}), 401
-        if not is_pro(current_user):
-            return flask.jsonify({"status": "error", "code": "pro_required",
-                                  "message": "IntelliPlan Pro is required for this feature."}), 402
-        return fn(*a, **kw)
-    return w
-
-
 @app.route("/ref/<code>")
 def referral_landing(code):
-    """Public landing — stash the code in session, then redirect to register.
-
-    A new account created during this session gets `referred_by_id` set,
-    bumping both accounts' Pro day balance on signup.
-    """
     code = (code or "").strip().lower()[:16]
     if code:
         ref_user = User.query.filter_by(referral_code=code).first()
@@ -9120,212 +9038,7 @@ def api_referral():
         "status": "ok",
         "code": code,
         "invited_count": invited,
-        "pro_days_earned": invited * PRO_REFERRAL_BONUS_DAYS,
     })
-
-
-@app.route("/api/pro/status", methods=["GET"])
-def api_pro_status():
-    if not current_user.is_authenticated:
-        return flask.jsonify({"status": "ok", "tier": "free", "pro_until": None})
-    return flask.jsonify({
-        "status": "ok",
-        "tier": "pro" if is_pro(current_user) else "free",
-        "pro_until": current_user.pro_until.isoformat() if current_user.pro_until else None,
-    })
-
-
-@app.route("/api/pro/upgrade", methods=["POST"])
-def api_pro_upgrade():
-    """Lightweight trial-start endpoint. Production deployments would put
-    a real Stripe Checkout in front of this; we still record the tier so
-    the rest of the gating works end-to-end."""
-    if not current_user.is_authenticated:
-        return flask.jsonify({"status": "error", "message": "login required"}), 401
-    current_user.tier = "pro"
-    base = current_user.pro_until if (current_user.pro_until and current_user.pro_until > datetime.utcnow()) else datetime.utcnow()
-    current_user.pro_until = base + timedelta(days=PRO_TRIAL_DAYS)
-    db.session.commit()
-    return flask.jsonify({"status": "ok", "pro_until": current_user.pro_until.isoformat()})
-
-
-@app.route("/api/pro/cancel", methods=["POST"])
-def api_pro_cancel():
-    if not current_user.is_authenticated:
-        return flask.jsonify({"status": "error"}), 401
-    # Keep Pro until the end of the current period.
-    if not current_user.pro_until:
-        current_user.tier = "free"
-        db.session.commit()
-    return flask.jsonify({"status": "ok"})
-
-
-# ── STRIPE CHECKOUT ────────────────────────────────────────────────
-# Live billing path: /api/pro/checkout creates a Stripe Checkout session
-# and returns the redirect URL. After payment, Stripe POSTs to
-# /api/stripe/webhook and we flip the user to Pro.
-#
-# Required env vars on the deployment:
-#   STRIPE_SECRET_KEY        (sk_live_… or sk_test_…)
-#   STRIPE_PRICE_ID          (price_… of the Pro recurring product)
-#   STRIPE_WEBHOOK_SECRET    (whsec_… from the Stripe dashboard)
-def _stripe():
-    if not feature_enabled("stripe"):
-        return None
-    try:
-        import stripe as _stripe_lib
-    except ImportError:
-        print("[stripe] stripe library not installed — `pip install stripe`")
-        return None
-    sk = os.getenv("STRIPE_SECRET_KEY")
-    if not sk:
-        return None
-    _stripe_lib.api_key = sk
-    _stripe_lib.api_version = "2026-04-22.dahlia"
-    return _stripe_lib
-
-
-# Live recurring Pro price created in the IntelliPlan Stripe account
-# (acct_1TXoIJDEIZ8BeiXx). Used as a fallback when STRIPE_PRICE_ID env
-# var isn't set, so the live deploy can take payments out of the box.
-STRIPE_DEFAULT_PRICE_ID = "price_1TXoQtDEIZ8BeiXx5l4kmfJ6"
-STRIPE_DEFAULT_PRODUCT_ID = "prod_UWsBXvOf2LiKRR"
-
-
-@app.route("/api/pro/checkout", methods=["POST"])
-def api_pro_checkout():
-    if not current_user.is_authenticated:
-        return flask.jsonify({"status": "error", "message": "login required"}), 401
-    stripe = _stripe()
-    if not stripe:
-        # Graceful fallback: dev / unconfigured deploys still get a trial.
-        return api_pro_upgrade()
-    price_id = os.getenv("STRIPE_PRICE_ID") or STRIPE_DEFAULT_PRICE_ID
-    base = APP_BASE_URL.rstrip("/") if APP_BASE_URL else (request.url_root.rstrip("/"))
-    try:
-        # Reuse the Stripe Customer if we already have one for this user
-        # so repeat purchases / cancellations land on the same record.
-        customer_id = current_user.stripe_customer_id
-        if not customer_id:
-            try:
-                cust = stripe.Customer.create(
-                    email=current_user.email,
-                    name=current_user.name or current_user.email.split("@")[0],
-                    metadata={"user_id": str(current_user.id)},
-                )
-                customer_id = cust.id
-                current_user.stripe_customer_id = customer_id
-                db.session.commit()
-            except Exception as _ce:
-                print(f"[stripe] customer create failed: {_ce}")
-                customer_id = None
-
-        kwargs = dict(
-            mode="subscription",
-            line_items=[{"price": price_id, "quantity": 1}],
-            client_reference_id=str(current_user.id),
-            metadata={"user_id": str(current_user.id), "email": current_user.email},
-            success_url=base + "/settings?pro=success",
-            cancel_url=base + "/settings?pro=canceled",
-            allow_promotion_codes=True,
-        )
-        if customer_id:
-            kwargs["customer"] = customer_id
-        else:
-            kwargs["customer_email"] = current_user.email
-        sess = stripe.checkout.Session.create(**kwargs)
-    except Exception as e:
-        print(f"[stripe] checkout create failed: {e}")
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
-    return flask.jsonify({"status": "ok", "url": sess.url})
-
-
-@app.route("/api/pro/billing-portal", methods=["POST"])
-def api_pro_billing_portal():
-    if not current_user.is_authenticated:
-        return flask.jsonify({"status": "error", "message": "login required"}), 401
-    stripe = _stripe()
-    if not stripe or not current_user.stripe_customer_id:
-        return flask.jsonify({
-            "status": "error",
-            "message": "No Stripe customer is attached to this account yet."
-        }), 400
-    base = APP_BASE_URL.rstrip("/") if APP_BASE_URL else request.url_root.rstrip("/")
-    try:
-        portal = stripe.billing_portal.Session.create(
-            customer=current_user.stripe_customer_id,
-            return_url=base + "/settings#proCard",
-        )
-        return flask.jsonify({"status": "ok", "url": portal.url})
-    except Exception as e:
-        print(f"[stripe] billing portal failed: {e}")
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
-
-
-@app.route("/api/stripe/status", methods=["GET"])
-def api_stripe_status():
-    return flask.jsonify({
-        "status": "ok",
-        "enabled": feature_enabled("stripe"),
-        "library_available": _stripe() is not None,
-        "secret_configured": bool(os.getenv("STRIPE_SECRET_KEY")),
-        "price_id": os.getenv("STRIPE_PRICE_ID") or STRIPE_DEFAULT_PRICE_ID,
-        "webhook_configured": bool(os.getenv("STRIPE_WEBHOOK_SECRET")),
-        "portal_available": current_user.is_authenticated and bool(getattr(current_user, "stripe_customer_id", None)),
-    })
-
-
-@app.route("/api/stripe/webhook", methods=["POST"])
-def stripe_webhook():
-    """Stripe → IntelliPlan webhook. Promotes a user to Pro on
-    `checkout.session.completed` and downgrades on subscription
-    cancellation. Webhook signature is verified with STRIPE_WEBHOOK_SECRET."""
-    stripe = _stripe()
-    if not stripe:
-        return ("stripe disabled", 200)
-    payload = request.get_data(as_text=False)
-    sig = request.headers.get("Stripe-Signature", "")
-    secret = os.getenv("STRIPE_WEBHOOK_SECRET")
-    try:
-        if secret:
-            event = stripe.Webhook.construct_event(payload, sig, secret)
-        else:
-            event = json.loads(payload.decode("utf-8"))
-    except Exception as e:
-        print(f"[stripe webhook] bad payload/signature: {e}")
-        return ("invalid", 400)
-    etype = event.get("type") if isinstance(event, dict) else event["type"]
-    data = (event.get("data") if isinstance(event, dict) else event["data"]).get("object", {})
-    try:
-        if etype == "checkout.session.completed":
-            uid = data.get("client_reference_id") or (data.get("metadata") or {}).get("user_id")
-            email = data.get("customer_email") or (data.get("metadata") or {}).get("email")
-            user = (User.query.get(int(uid)) if uid and str(uid).isdigit() else None) \
-                or (User.query.filter_by(email=(email or "").lower()).first() if email else None)
-            if user:
-                base_until = user.pro_until if (user.pro_until and user.pro_until > datetime.utcnow()) else datetime.utcnow()
-                user.pro_until = base_until + timedelta(days=31)
-                user.tier = "pro"
-                db.session.commit()
-                print(f"[stripe webhook] {user.email} → pro until {user.pro_until}")
-        elif etype in ("customer.subscription.deleted", "invoice.payment_failed"):
-            customer_id = data.get("customer")
-            email = (data.get("customer_email") or "").lower()
-            user = None
-            if customer_id:
-                user = User.query.filter_by(stripe_customer_id=customer_id).first()
-            if not user and email:
-                user = User.query.filter_by(email=email).first()
-            if user:
-                # Leave them with whatever pro_until they already had — they
-                # get the period they paid for. After expiry is_pro() flips
-                # them to free automatically.
-                print(f"[stripe webhook] subscription ended for {user.email}")
-    except Exception as e:
-        print(f"[stripe webhook] handler failure: {e}")
-        try: db.session.rollback()
-        except Exception: pass
-    return ("ok", 200)
 
 
 # ── PHONE + SMS REMINDERS ─────────────────────────────────────────
@@ -9923,7 +9636,6 @@ def api_snapshot():
         "email": getattr(u, "email", None),
         "name": getattr(u, "name", None) or getattr(u, "display_name", None),
         "created_at": u.created_at.isoformat() if getattr(u, "created_at", None) else None,
-        "is_pro": bool(getattr(u, "is_pro", False)),
     }
 
     try:
@@ -10303,7 +10015,7 @@ def api_list_live_sessions():
 
 
 def _grant_referral_bonus(new_user):
-    """Apply Pro day bonuses to both the inviter and the new signup."""
+    """Record the referral link between inviter and new signup."""
     ref_id = session.pop("pending_referral", None) if session else None
     if not ref_id:
         return
@@ -10311,10 +10023,6 @@ def _grant_referral_bonus(new_user):
     if not inviter or inviter.id == new_user.id:
         return
     new_user.referred_by_id = inviter.id
-    for u in (inviter, new_user):
-        base = u.pro_until if (u.pro_until and u.pro_until > datetime.utcnow()) else datetime.utcnow()
-        u.pro_until = base + timedelta(days=PRO_REFERRAL_BONUS_DAYS)
-        u.tier = "pro"
     db.session.commit()
 
 
@@ -10550,8 +10258,6 @@ def api_list_lessons():
     return flask.jsonify({"lessons": [l.to_dict() for l in rows]})
 
 
-FREE_LESSON_LIMIT = 3
-FREE_GROUP_OWNED_LIMIT = 1
 
 
 @app.route("/api/lessons", methods=["POST"])
@@ -10566,15 +10272,6 @@ def api_upload_lesson():
         return flask.jsonify({"status": "error", "message": "title required"}), 400
     if not upload or not upload.filename:
         return flask.jsonify({"status": "error", "message": "file required"}), 400
-    # Free-tier cap: 3 lessons total. Pro = unlimited.
-    if current_user.is_authenticated and not is_pro(current_user):
-        existing = Lesson.query.filter_by(user_id=current_user.id).count()
-        if existing >= FREE_LESSON_LIMIT:
-            return flask.jsonify({
-                "status": "error",
-                "code": "pro_required",
-                "message": f"Free tier is capped at {FREE_LESSON_LIMIT} lessons. Upgrade to Pro for unlimited uploads."
-            }), 402
     ext = os.path.splitext(upload.filename)[1].lower()
     if ext not in LESSON_ALLOWED_EXT:
         return flask.jsonify({"status": "error", "message": f"unsupported type {ext}"}), 400
@@ -10713,15 +10410,6 @@ def api_create_group():
     name = (body.get("name") or "").strip()[:120]
     if not name:
         return flask.jsonify({"status": "error", "message": "name required"}), 400
-    # Free-tier cap: at most 1 owned group. Pro can create unlimited.
-    if not is_pro(current_user):
-        owned = StudyGroup.query.filter_by(owner_id=current_user.id).count()
-        if owned >= FREE_GROUP_OWNED_LIMIT:
-            return flask.jsonify({
-                "status": "error",
-                "code": "pro_required",
-                "message": "Free tier can own one study group. Upgrade to Pro to create more."
-            }), 402
     room_slug = secrets_module.token_urlsafe(8).replace("-", "").replace("_", "")
     group = StudyGroup(
         name=name,
@@ -11159,11 +10847,9 @@ def _migrate_user_columns():
     from sqlalchemy import text as _t
 
     targets = [
-        # users — referral / tier / phone / reminder prefs
+        # users — referral / phone / reminder prefs
         ("users", "referral_code", "VARCHAR(16)"),
         ("users", "referred_by_id", "INTEGER"),
-        ("users", "tier", "VARCHAR(16) DEFAULT 'free'"),
-        ("users", "pro_until", "TIMESTAMP"),
         ("users", "phone", "VARCHAR(32)"),
         ("users", "sms_reminders_opt_in", "BOOLEAN DEFAULT FALSE"),
         ("users", "push_reminders_opt_in", "BOOLEAN DEFAULT FALSE"),
@@ -11173,7 +10859,6 @@ def _migrate_user_columns():
         ("users", "parent_email", "VARCHAR(255)"),
         ("users", "parent_consent_granted", "BOOLEAN DEFAULT FALSE"),
         ("users", "parent_consent_token", "VARCHAR(64)"),
-        ("users", "stripe_customer_id", "VARCHAR(64)"),
         ("users", "lms_preferences", "TEXT DEFAULT '{}'"),
         ("users", "ai_personalization_opt_in", "BOOLEAN DEFAULT FALSE"),
         # manual_tasks provenance for CSV importer / extension scraper
@@ -11231,7 +10916,7 @@ def _migrate_user_columns():
 
     # Verify result so production logs make the state obvious.
     users_cols = _existing_columns("users")
-    have_new = {"referral_code", "referred_by_id", "tier", "pro_until"}.issubset(users_cols)
+    have_new = {"referral_code", "referred_by_id"}.issubset(users_cols)
     print(f"[migrate] users new columns present: {have_new}  (got: {sorted(users_cols)})")
 
 
@@ -11239,9 +10924,8 @@ def _migrate_user_columns():
 # WSGI servers (gunicorn etc.) see the new columns. Previously this was
 # gated on __name__=="__main__", which caused every request to surface
 # the raw "<h1>Server Error</h1><a href='/'>Home</a>" fallback in prod
-# because the new user.tier / pro_until columns didn't exist yet and
-# inject_pro's lookup blew up the whole Jinja render — including the
-# error page.
+# because new columns didn't exist yet and lookups blew up the whole
+# Jinja render — including the error page.
 _MIGRATION_DONE = False
 
 def _run_boot_migration_once():
@@ -11273,7 +10957,7 @@ def health_check():
         "users_columns": sorted(_existing_columns("users")),
         "notion_columns": sorted(_existing_columns("notion_integrations")),
     }
-    expected = {"id", "email", "password_hash", "referral_code", "referred_by_id", "tier", "pro_until"}
+    expected = {"id", "email", "password_hash", "referral_code", "referred_by_id"}
     out["users_schema_ok"] = expected.issubset(set(out["users_columns"]))
     return flask.jsonify(out)
 
@@ -11283,7 +10967,7 @@ def _ensure_migration_ran():
     """Belt-and-braces: if for any reason the import-time migration
     didn't complete (e.g. the DB wasn't ready yet during gunicorn cold
     start on Railway), retry it on the very first request. This is the
-    only way to guarantee the new user.tier / pro_until / referral_code
+    only way to guarantee the new user.referral_code
     columns exist before any User SELECT hits them."""
     if _MIGRATION_DONE:
         return
