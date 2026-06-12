@@ -156,7 +156,7 @@
       <h3 id="p-security" class="anchor-target">6. Data security</h3>
       <ul>
         <li>All traffic is encrypted in transit using TLS 1.2+.</li>
-        <li>Passwords are hashed with bcrypt; OAuth tokens are stored in an encrypted database column.</li>
+        <li><strong>We do not store passwords</strong> in readable form &mdash; only salted bcrypt hashes, which cannot be reversed back into your password. OAuth tokens are stored in an encrypted database column.</li>
         <li>Access to production databases is restricted to a small number of maintainers and is logged.</li>
         <li>Sensitive endpoints are protected against brute force with per-IP rate limits.</li>
         <li>We follow industry best practices but no system is completely secure, and we cannot guarantee absolute security.</li>

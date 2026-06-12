@@ -217,7 +217,7 @@ class TestLegalPage:
 
     def test_coppa_section_visible(self, page: Page):
         go(page, "/legal")
-        expect(page.get_by_text("Students under 13 (COPPA)", exact=True)).to_be_visible()
+        expect(page.get_by_role("heading", name=re.compile(r"Students under 13 \(COPPA\)"))).to_be_visible()
 
     def test_no_passwords_stored_statement(self, page: Page):
         go(page, "/legal")
