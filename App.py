@@ -1124,9 +1124,20 @@ def apply_study_schema_migrations():
     db.session.execute(text("UPDATE study_points SET badges = COALESCE(badges, '[]'), active_booster = COALESCE(active_booster, 'null'), active_cosmetics = COALESCE(active_cosmetics, '{}'), weekly_quests = COALESCE(weekly_quests, '{}'), shop_purchases = COALESCE(shop_purchases, '[]')"))
     db.session.commit()
 
+# ── Command Center models (additive — see docs/command-center/) ────
+# Register the three new tables (briefing_cache, health_snapshots,
+# student_signals) against the existing ``db`` instance. The
+# ``register(db)`` callback pattern avoids any circular import with the
+# ``intelliplan`` package while keeping the model classes accessible on
+# the App.py namespace for the upcoming /api/today handler.
+from intelliplan.models import command_center as _cc_models
+from intelliplan.migrations import apply_command_center_migrations
+BriefingCache, HealthSnapshot, StudentSignal = _cc_models.register(db)
+
 with app.app_context():
     db.create_all()
     apply_study_schema_migrations()
+    apply_command_center_migrations(db)
 
 print([str(r) for r in app.url_map.iter_rules() if 'tutor' in str(r)])
 
