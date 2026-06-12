@@ -10177,6 +10177,236 @@ def grademodel_simulate():
     return flask.jsonify({"status": "ok", "result": result, "applied": safe_sim})
 
 
+# ── AI GRADE PREDICTIONS ────────────────────────────────────
+# Predicts where each course grade is heading based on historical
+# performance. The NUMBERS are always computed deterministically from
+# the student's real graded work (category averages + recent trend);
+# the AI layer only adds narrative insight and study recommendations
+# on top, so a flaky model can never invent a grade.
+
+def _grade_prediction_stats(course):
+    """Compute prediction stats for one course from its graded history.
+
+    Returns None when the course has no usable graded data.
+    """
+    assignments = course.get("assignments") or []
+    categories = course.get("categories") or []
+
+    def _f(v):
+        try:
+            n = float(v)
+            return n if n == n else None  # filter NaN
+        except (TypeError, ValueError):
+            return None
+
+    graded = []
+    for a in assignments:
+        earned = _f(a.get("points_earned"))
+        possible = _f(a.get("points_possible"))
+        label = str(a.get("display_score") or "").strip().lower()
+        pending_labels = {"", "not graded", "not due", "missing", "pending", "-"}
+        is_graded = a.get("graded") is True or (
+            earned is not None and label not in pending_labels
+        )
+        if is_graded and earned is not None and possible and possible > 0:
+            graded.append({
+                "pct": earned / possible,
+                "earned": earned,
+                "possible": possible,
+                "category": str(a.get("category") or "").strip().lower(),
+                "due_date": a.get("due_date") or "",
+            })
+    if not graded:
+        return None
+
+    # Per-category averages from real graded work.
+    cat_totals = {}
+    for g in graded:
+        t = cat_totals.setdefault(g["category"], {"earned": 0.0, "possible": 0.0})
+        t["earned"] += g["earned"]
+        t["possible"] += g["possible"]
+    cat_avg = {
+        k: (t["earned"] / t["possible"]) for k, t in cat_totals.items() if t["possible"] > 0
+    }
+    overall_avg = (
+        sum(t["earned"] for t in cat_totals.values())
+        / max(sum(t["possible"] for t in cat_totals.values()), 1e-9)
+    )
+
+    # Recent trend: date-sorted scores, recent third vs earlier portion.
+    dated = sorted((g for g in graded if g["due_date"]), key=lambda g: g["due_date"])
+    series = dated if len(dated) >= 4 else graded
+    trend_delta = 0.0
+    if len(series) >= 4:
+        split = max(len(series) // 3, 2)
+        recent = series[-split:]
+        earlier = series[:-split]
+        recent_avg = sum(g["pct"] for g in recent) / len(recent)
+        earlier_avg = sum(g["pct"] for g in earlier) / len(earlier)
+        trend_delta = (recent_avg - earlier_avg) * 100  # percentage points
+
+    # Score variance → confidence.
+    pcts = [g["pct"] * 100 for g in graded]
+    mean_pct = sum(pcts) / len(pcts)
+    variance = sum((p - mean_pct) ** 2 for p in pcts) / len(pcts)
+    stddev = variance ** 0.5
+    if len(graded) >= 10 and stddev < 10:
+        confidence = "high"
+    elif len(graded) >= 5:
+        confidence = "medium"
+    else:
+        confidence = "low"
+
+    # Project the final grade: pending work scored at the category's
+    # historical average (clamped to 100%), weight-normalised. Same math
+    # as the in-page Realistic Forecast, plus a trend adjustment.
+    def project(bias_pts=0.0):
+        weighted_sum, weight_used = 0.0, 0.0
+        for cat in categories:
+            ctype = str(cat.get("type") or "").strip().lower()
+            w = _f(cat.get("weight")) or 0
+            if w <= 0:
+                continue
+            earned = cat_totals.get(ctype, {}).get("earned", 0.0)
+            possible = cat_totals.get(ctype, {}).get("possible", 0.0)
+            pend_possible = 0.0
+            for a in assignments:
+                if str(a.get("category") or "").strip().lower() != ctype:
+                    continue
+                a_possible = _f(a.get("points_possible"))
+                a_earned = _f(a.get("points_earned"))
+                label = str(a.get("display_score") or "").strip().lower()
+                pending_labels = {"", "not graded", "not due", "missing", "pending", "-"}
+                is_graded = a.get("graded") is True or (
+                    a_earned is not None and label not in pending_labels
+                )
+                if not is_graded and a_possible and a_possible > 0:
+                    pend_possible += a_possible
+            base_pct = cat_avg.get(ctype, overall_avg)
+            pend_pct = min(max(base_pct + bias_pts / 100.0, 0.0), 1.0)
+            total = possible + pend_possible
+            if total <= 0:
+                continue
+            cat_final = (earned + pend_possible * pend_pct) / total
+            weighted_sum += cat_final * w
+            weight_used += w
+        if weight_used <= 0:
+            return None
+        return round((weighted_sum / weight_used) * 100, 2)
+
+    current = _f(course.get("percentage"))
+    predicted = project()
+    if predicted is None:
+        predicted = round(overall_avg * 100, 2)
+    # Trend-adjusted: assume the recent trajectory partially continues.
+    trend_adjusted = project(bias_pts=max(min(trend_delta * 0.5, 8), -8)) or predicted
+    band = max(2.0, round(stddev / 2, 1))
+
+    return {
+        "course": course.get("course") or course.get("name") or "Course",
+        "current": current,
+        "predicted": predicted,
+        "trend_adjusted": trend_adjusted,
+        "band_low": round(max(min(predicted, trend_adjusted) - band, 0), 1),
+        "band_high": round(min(max(predicted, trend_adjusted) + band, 100), 1),
+        "trend_delta": round(trend_delta, 1),
+        "trend": "improving" if trend_delta > 1.5 else "declining" if trend_delta < -1.5 else "steady",
+        "confidence": confidence,
+        "graded_count": len(graded),
+        "stddev": round(stddev, 1),
+        "category_averages": {k: round(v * 100, 1) for k, v in cat_avg.items()},
+    }
+
+
+@app.route("/api/grades/predict", methods=["POST"])
+@limiter.limit("10 per minute")
+def api_grades_predict():
+    if not is_logged_in():
+        return flask.jsonify({"status": "error", "message": "login required"}), 401
+
+    body = request.get_json(silent=True) or {}
+    courses = body.get("courses") or []
+    if not isinstance(courses, list) or not courses:
+        return flask.jsonify({"status": "error", "message": "no gradebook data"}), 400
+
+    predictions = []
+    for course in courses[:12]:
+        stats = _grade_prediction_stats(course)
+        if stats:
+            predictions.append(stats)
+    if not predictions:
+        return flask.jsonify({
+            "status": "error",
+            "message": "No graded work found yet — predictions need at least one graded assignment.",
+        }), 422
+
+    # AI layer: narrative insight per course + overall recommendations.
+    # Numbers come from the deterministic stats above; the model is told
+    # to explain, not to compute.
+    insights = {}
+    summary = ""
+    recommendations = []
+    if ai_available():
+        compact = [
+            {
+                "course": p["course"],
+                "current_pct": p["current"],
+                "predicted_pct": p["predicted"],
+                "trend": p["trend"],
+                "trend_delta_pts": p["trend_delta"],
+                "confidence": p["confidence"],
+                "graded_assignments": p["graded_count"],
+                "score_stddev": p["stddev"],
+                "category_averages": p["category_averages"],
+            }
+            for p in predictions
+        ]
+        prompt = (
+            "You are an academic coach inside IntelliPlan, a student study planner. "
+            "Below are grade predictions computed from a student's real graded work. "
+            "Do NOT change or invent any numbers. For each course write one specific, "
+            "encouraging-but-honest sentence explaining the prediction (mention the "
+            "weakest category or the trend when relevant). Then write a 1-2 sentence "
+            "overall summary and up to 3 concrete study recommendations targeting the "
+            "courses or categories with the most room to improve.\n\n"
+            f"DATA:\n{json.dumps(compact, indent=1)}\n\n"
+            'Reply with JSON only: {"courses": [{"course": "<name>", "insight": "<sentence>"}], '
+            '"summary": "<text>", "recommendations": ["<tip>", ...]}'
+        )
+        try:
+            ai = ai_chat_json(
+                [{"role": "user", "content": prompt}],
+                tier="standard", temperature=0.4, max_tokens=1200,
+            )
+            for row in ai.get("courses") or []:
+                name = str(row.get("course") or "").strip()
+                text = str(row.get("insight") or "").strip()
+                if name and text:
+                    insights[name.lower()] = text[:400]
+            summary = str(ai.get("summary") or "").strip()[:600]
+            recommendations = [
+                str(r).strip()[:300] for r in (ai.get("recommendations") or [])[:3] if str(r).strip()
+            ]
+        except Exception as e:
+            print(f"[grade-predict] AI insight layer failed, using fallback: {e}")
+
+    for p in predictions:
+        fallback = (
+            f"Your scores are {p['trend']}"
+            + (f" ({p['trend_delta']:+.1f} pts recently)" if p["trend"] != "steady" else "")
+            + f" — projected to land near {p['predicted']}% if you keep performing at your averages."
+        )
+        p["insight"] = insights.get(p["course"].lower(), fallback)
+
+    return flask.jsonify({
+        "status": "ok",
+        "predictions": predictions,
+        "summary": summary,
+        "recommendations": recommendations,
+        "ai_enhanced": bool(insights),
+    })
+
+
 # ── LESSON RECORDER ─────────────────────────────────────────
 LESSON_UPLOAD_FOLDER = os.path.join(app.root_path, "uploads", "lessons")
 os.makedirs(LESSON_UPLOAD_FOLDER, exist_ok=True)
