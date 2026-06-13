@@ -2189,12 +2189,7 @@ _NOINDEX_PREFIXES = (
     "/admin", "/logout",
 )
 _NOINDEX_EXACT = {
-    "/dashboard", "/scheduler", "/schedule", "/settings", "/priority",
-    "/classes", "/grades", "/gradebook", "/grademodel", "/tests",
-    "/dismissed", "/study", "/learn", "/focus", "/streak", "/lessons",
-    "/writing", "/math", "/extractor", "/groups", "/meetings",
-    "/connect", "/profiles", "/login", "/register", "/login/account",
-    "/study-and-learn",
+    "/login", "/register", "/login/account",
 }
 
 
@@ -2206,8 +2201,6 @@ def _should_noindex(path):
     for pref in _NOINDEX_PREFIXES:
         if path.startswith(pref):
             return True
-    if path.startswith("/live/"):
-        return True
     return False
 
 
@@ -2396,78 +2389,57 @@ def api_docs_page():
 
 @app.route("/schedule")
 def home():
-    if not is_logged_in():
-        return redirect(url_for("login"))
     return redirect(url_for("dashboard"))
 
 @app.route("/priority")
 def priority():
-    if not is_logged_in():
-        return redirect(url_for("login"))
     return render_template("priority.html", active_page="priority")
 
 @app.route("/classes")
 def classes():
-    if not is_logged_in():
-        return redirect(url_for("login"))
     return render_template("classes.html", active_page="classes")
 
 @app.route("/grades")
 def grades():
-    if not is_logged_in():
-        return redirect(url_for("login"))
     return render_template("grades.html", active_page="grades")
 
 @app.route("/scheduler")
 def scheduler():
-    if not is_logged_in():
-        return redirect(url_for("login"))
     return render_template("scheduler.html", active_page="scheduler", load_saved=False)
 
 @app.route("/scheduler/saved")
 def scheduler_saved():
-    if not is_logged_in():
-        return redirect(url_for("login"))
     return render_template("scheduler.html", active_page="scheduler", load_saved=True)
 
 @app.route("/grademodel")
 def grademodel():
-    if not is_logged_in():
-        return redirect(url_for("login"))
     return render_template("grademodel.html", active_page="grademodel")
 
 @app.route("/gradebook")
 def gradebook():
-    if not is_logged_in():
-        return redirect(url_for("login"))
     return render_template("gradebook.html", active_page="gradebook")
 
 @app.route("/dismissed")
 def dismissed_page():
-    if not is_logged_in():
-        return redirect(url_for("login"))
     return render_template("dismissed.html", active_page="dismissed")
 
 @app.route("/profiles")
 def profiles():
-    if not is_logged_in():
-        return redirect(url_for("login"))
     return render_template("profiles.html", active_page="profiles")
 
 @app.route("/settings")
 def settings():
-    if not current_user.is_authenticated:
-        return redirect(url_for("login"))
-    try:
-        identity = _get_or_create_identity(current_user.id)
-        identity_dict = identity.to_dict()
-    except Exception as e:
-        print(f"Settings identity error: {e}")
-        identity_dict = {
-            "grade_level": "", "focus_areas": [], "goals": "",
-            "completed": False, "availability": {},
-            "weekly_commitments": "", "class_schedule": [],
-        }
+    identity_dict = {
+        "grade_level": "", "focus_areas": [], "goals": "",
+        "completed": False, "availability": {},
+        "weekly_commitments": "", "class_schedule": [],
+    }
+    if current_user.is_authenticated:
+        try:
+            identity = _get_or_create_identity(current_user.id)
+            identity_dict = identity.to_dict()
+        except Exception as e:
+            print(f"Settings identity error: {e}")
     return render_template(
         "settings.html",
         active_page="settings",
@@ -2478,8 +2450,6 @@ def settings():
 
 @app.route("/dashboard")
 def dashboard():
-    if not is_logged_in():
-        return redirect(url_for("login"))
     # First-run questionnaire: send the student to the dedicated /onboarding
     # page when their identity row hasn't been marked completed. Doing the
     # redirect here (rather than rendering an inline modal) is what makes
@@ -2525,16 +2495,12 @@ def dashboard():
 @app.route("/study")
 def study():
     """New Deep Study Pipeline — the 3-step setup → encoding → database workflow."""
-    if not is_logged_in():
-        return redirect(url_for("login"))
     return render_template("deep_study.html", active_page="study")
 
 
 @app.route("/learn")
 def learn():
     """Classic Study & Learn experience — quiz generation, flashcards, mastery, etc."""
-    if not is_logged_in():
-        return redirect(url_for("login"))
     return render_template("study.html", active_page="learn")
 
 
@@ -2544,8 +2510,6 @@ def study_and_learn_hub():
     Renders a grid of cards with descriptions for every study/learn surface,
     plus an AI chat bar at the top that recommends the best page for the
     user's current need (and can redirect them to it)."""
-    if not is_logged_in():
-        return redirect(url_for("login"))
     return render_template("study_hub.html", active_page="study_hub")
 
 
@@ -2636,14 +2600,10 @@ def study_hub_recommend():
 
 @app.route("/streak")
 def streak():
-    if not is_logged_in():
-        return redirect(url_for("login"))
     return render_template("streak.html", active_page="streak")
 
 @app.route("/focus")
 def focus():
-    if not is_logged_in():
-        return redirect(url_for("login"))
     return render_template("focus.html", active_page="focus")
 
 
@@ -4279,8 +4239,6 @@ def login_account():
 
 @app.route("/connect", methods=["GET"])
 def connect_account():
-    if not is_logged_in():
-        return redirect(url_for("login"))
     return render_template("connect.html", active_page="login")
 
 @app.route("/login/canvas", methods=["GET", "POST"])
@@ -7009,8 +6967,6 @@ def archive_context():
 
 @app.route("/memories")
 def memories_page():
-    if not is_logged_in():
-        return redirect(url_for("login"))
     return render_template("memories.html", active_page="memories")
 
 @app.route("/archive/save", methods=["POST"])
@@ -10474,8 +10430,6 @@ def _summarize_lesson_async(lesson_id):
 
 @app.route("/lessons")
 def lessons_page():
-    if not is_logged_in():
-        return redirect(url_for("login"))
     if not feature_enabled("lessons"):
         return render_template("error.html", error_code=503, error_id="LESSONS-DISABLED",
                                message="Lesson Library is temporarily disabled."), 503
@@ -10587,8 +10541,6 @@ def _group_match_score(group, prefs):
 
 @app.route("/groups")
 def groups_page():
-    if not is_logged_in():
-        return redirect(url_for("login"))
     if not feature_enabled("groups"):
         return render_template("error.html", error_code=503, error_id="GROUPS-DISABLED",
                                message="Study Groups is temporarily disabled."), 503
