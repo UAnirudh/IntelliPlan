@@ -8796,6 +8796,7 @@ DEFAULT_FLAGS = {
     "referral":      "Referral program",
     "onboarding":    "First-run onboarding modal",
     "ai_chat":       "Plani chat assistant",
+    "command_center": "AI Daily Command Center (kill switch — default page)",
 }
 
 
@@ -11050,6 +11051,15 @@ app.intelliplan_user_model = User
 app.intelliplan_get_identity = _get_or_create_identity
 from intelliplan_api import api_bp as intelliplan_api_bp
 app.register_blueprint(intelliplan_api_bp)
+
+# ── AI Daily Command Center (docs/command-center/). Registered last so
+# the glue module's lazy `from App import ...` calls always resolve.
+# The `command_center` feature flag is a KILL SWITCH (default on).
+from command_center_glue import command_center_bp
+app.register_blueprint(command_center_bp)
+limiter.limit("30 per minute")(app.view_functions["command_center.api_today"])
+limiter.limit("6 per hour")(app.view_functions["command_center.api_today_refresh"])
+limiter.exempt(app.view_functions["command_center.cron_refresh_briefings"])
 
 
 def _existing_columns(table_name):
