@@ -3921,7 +3921,7 @@ def onboarding():
             identity = _get_or_create_identity(current_user.id)
         except Exception as _e2:
             print(f"[onboarding] retry failed: {_e2}")
-            return redirect(url_for("dashboard"))
+            return redirect("/command-center")
     if request.method == "POST":
         # Legacy form path — preserved so old browsers/users with cached JS
         # still complete onboarding even when the new SPA-style flow can't
@@ -3943,7 +3943,7 @@ def onboarding():
         next_url = request.args.get("next")
         if next_url and next_url.startswith("/"):
             return redirect(next_url)
-        return redirect(url_for("dashboard"))
+        return redirect("/command-center")
     return render_template(
         "onboarding.html",
         active_page="onboarding",
@@ -4504,7 +4504,7 @@ def login_studentvue():
                     session["sv_password"] = password
                     session["sv_district_url"] = district_url
                     session["login_type"] = "studentvue"
-                return redirect(url_for("dashboard"))
+                return redirect("/command-center")
             else:
                 error = "Invalid StudentVUE credentials or district URL. Try your district's StudentVUE web address, like https://district-psv.edupoint.com."
     return render_template("login_studentvue.html", active_page="login", error=error)
@@ -4538,7 +4538,7 @@ def login_schoology():
                         session["schoology_key"] = key
                         session["schoology_secret"] = secret
                         session["login_type"] = "schoology"
-                    return redirect(url_for("dashboard"))
+                    return redirect("/command-center")
                 else:
                     error = "Invalid Schoology credentials."
             except Exception as e:
@@ -4672,7 +4672,7 @@ def _handle_google_callback():
             session["google_token"] = token_dict
             session.permanent = True
             session.modified = True
-        return redirect(url_for("settings") if session.pop("oauth_return_to_settings", False) else url_for("dashboard"))
+        return redirect(url_for("settings") if session.pop("oauth_return_to_settings", False) else "/command-center")
 
     # ── Find or create User (defensive — see login_account for rationale) ──
     try:
@@ -4750,8 +4750,8 @@ def _handle_google_callback():
         if return_to:
             print(f"[GOOGLE CALLBACK] redirecting to partner return_to={return_to!r}")
             return redirect(return_to)
-        return redirect(url_for("dashboard"))
-    return redirect(url_for("dashboard"))
+        return redirect("/command-center")
+    return redirect("/command-center")
 
 
 @app.route("/oauth/google")

@@ -104,6 +104,7 @@ class TestApiToday:
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["student"]["name"] == "Anirudh"
+        assert data["student"]["greeting"] == "Good evening"
         assert data["plan"][0]["priority"]["score"] == 92
         assert data["meta"]["schema_version"] == 1
         assert service.calls == [{"uid": 1, "force": False}]

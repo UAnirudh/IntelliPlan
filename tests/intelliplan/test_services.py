@@ -186,6 +186,7 @@ class TestTodayService:
         assert set(data) == {"generated_at", "student", "briefing", "plan",
                              "forecast", "health", "meta"}
         assert data["meta"]["schema_version"] == 1
+        assert data["student"]["greeting"] == "Good evening"
         assert data["plan"][0]["priority"]["score"] >= data["plan"][1]["priority"]["score"]
         assert all(c["reason"] for c in data["plan"][0]["priority"]["rationale"])
 
