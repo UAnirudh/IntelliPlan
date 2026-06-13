@@ -241,6 +241,67 @@
   </div>
 </div>
 
+<!-- ── Task Streak Pill ─────────────────────────────────────── -->
+<div id="streakPillWrap" style="display:none; margin-bottom:0.75rem;">
+  <button id="streakPill" onclick="openStreakSheet()" style="
+    display:inline-flex; align-items:center; gap:6px;
+    padding:6px 14px 6px 10px; border-radius:999px;
+    border:1.5px solid #E07A2A; background:rgba(224,122,42,0.08);
+    cursor:pointer; font-family:var(--font-ui); font-weight:800;
+    font-size:0.88rem; color:#E07A2A; transition:all 0.16s;
+  ">
+    <span style="font-size:1.1rem;">🔥</span>
+    <span id="streakPillText">0</span>
+  </button>
+</div>
+
+<!-- ── Streak Detail Sheet ────────────────────────────────── -->
+<div id="streakSheet" style="display:none; position:fixed; inset:0; z-index:1200; background:rgba(7,8,20,0.55); backdrop-filter:blur(6px); align-items:flex-end; justify-content:center;" onclick="if(event.target===this)closeStreakSheet()">
+  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:22px 22px 0 0; padding:1.75rem; width:min(480px,100%); max-height:80vh; overflow:auto; animation:fadeUp 0.25s ease both;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+      <h2 style="font-family:var(--font-display); font-size:1.3rem; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
+        <span style="font-size:1.6rem;">🔥</span>
+        <span id="sheetStreakNum">0</span> day streak
+      </h2>
+      <button onclick="closeStreakSheet()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.3rem;">×</button>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:1.25rem;">
+      <div style="background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:0.75rem;">
+        <div style="font-family:var(--font-ui); font-size:1.1rem; font-weight:800; color:var(--text-primary);" id="sheetLongest">0</div>
+        <div style="font-size:0.72rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:0.05em; margin-top:2px;">Longest streak</div>
+      </div>
+      <div style="background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:0.75rem;">
+        <div style="font-family:var(--font-ui); font-size:1.1rem; font-weight:800; color:var(--text-primary);" id="sheetFreezes">0 / 3</div>
+        <div style="font-size:0.72rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:0.05em; margin-top:2px;">Freezes available</div>
+      </div>
+    </div>
+    <p style="font-size:0.82rem; color:var(--text-muted); line-height:1.5; margin-bottom:1rem;">Freezes save your streak when life happens.</p>
+    <div style="font-family:var(--font-ui); font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin-bottom:0.5rem;">This week</div>
+    <div id="sheetWeekDots" style="display:grid; grid-template-columns:repeat(7,1fr); gap:0.4rem; margin-bottom:0.75rem;"></div>
+  </div>
+</div>
+
+<!-- ── Streak Nudge Card ─────────────────────────────────── -->
+<div id="streakNudge" style="display:none; background:rgba(224,122,42,0.06); border:1px solid rgba(224,122,42,0.25); border-radius:14px; padding:0.85rem 1rem; margin-bottom:1rem; cursor:pointer;" onclick="nudgeTapped()">
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:0.75rem;">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span style="font-size:1.1rem;">🔥</span>
+      <span style="font-family:var(--font-ui); font-weight:700; font-size:0.88rem; color:#E07A2A;">One task to keep your streak alive.</span>
+    </div>
+    <button onclick="event.stopPropagation(); document.getElementById('streakNudge').style.display='none';" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.1rem; padding:2px 4px;">×</button>
+  </div>
+</div>
+
+<!-- ── Streak Toast ──────────────────────────────────────── -->
+<div id="streakToast" style="
+  display:none; position:fixed; bottom:1.5rem; right:1.5rem; z-index:1300;
+  padding:0.75rem 1.1rem; border-radius:12px;
+  background:var(--text-primary); color:var(--bg-card);
+  font-family:var(--font-ui); font-weight:700; font-size:0.88rem;
+  box-shadow:0 8px 30px rgba(0,0,0,0.25);
+  animation:fadeUp 0.22s ease both;
+"></div>
+
 <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
   <div>
     <h1 class="page-title">Dashboard</h1>
@@ -993,6 +1054,109 @@ let _feedbackCard = null;
 let _feedbackTask = null;
 let _silencedUntil = null;
 
+// ── Task-completion streak ──────────────────────────────────────
+let _streakData = null;
+
+async function loadStreak() {
+  try {
+    const res = await fetch('/api/streak/status').then(r => r.json());
+    if (res.status !== 'ok' || !res.enabled) return;
+    _streakData = res;
+    renderStreakPill();
+    renderStreakNudge();
+    // Send timezone on first load
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz && res.timezone === 'UTC') {
+      fetch('/api/streak/set-timezone', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ timezone: tz })
+      });
+    }
+    // Plan review qualifying action (viewing the dashboard)
+    fetch('/api/streak/plan-review', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ timezone: tz })
+    }).then(r => r.json()).then(d => {
+      if (d.toast && d.event) showStreakToast(d.toast);
+      if (d.current_streak !== undefined) {
+        _streakData.current_streak = d.current_streak;
+        _streakData.longest_streak = d.longest_streak;
+        _streakData.freezes_available = d.freezes_available;
+        renderStreakPill();
+      }
+    }).catch(() => {});
+  } catch (e) {
+    console.log('[streak] load error:', e);
+  }
+}
+
+function renderStreakPill() {
+  if (!_streakData) return;
+  const wrap = document.getElementById('streakPillWrap');
+  const pill = document.getElementById('streakPill');
+  const text = document.getElementById('streakPillText');
+  wrap.style.display = 'block';
+  if (_streakData.current_streak === 0) {
+    pill.style.borderColor = '#D1D5DB';
+    pill.style.background = 'transparent';
+    pill.style.color = 'var(--text-muted)';
+    text.textContent = 'Start today';
+  } else {
+    pill.style.borderColor = '#E07A2A';
+    pill.style.background = 'rgba(224,122,42,0.08)';
+    pill.style.color = '#E07A2A';
+    text.textContent = _streakData.current_streak;
+  }
+}
+
+function renderStreakNudge() {
+  if (!_streakData || !_streakData.show_nudge) return;
+  document.getElementById('streakNudge').style.display = 'block';
+  fetch('/api/streak/nudge-shown', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
+}
+
+function nudgeTapped() {
+  fetch('/api/streak/nudge-tapped', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
+  document.getElementById('streakNudge').style.display = 'none';
+  const firstTask = document.querySelector('.notion-card');
+  if (firstTask) firstTask.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function openStreakSheet() {
+  if (!_streakData) return;
+  fetch('/api/streak/pill-tapped', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' }).catch(() => {});
+  document.getElementById('sheetStreakNum').textContent = _streakData.current_streak;
+  document.getElementById('sheetLongest').textContent = _streakData.longest_streak + ' days';
+  document.getElementById('sheetFreezes').textContent = _streakData.freezes_available + ' / ' + _streakData.freezes_max;
+  // Week dots
+  const dots = _streakData.week_dots || [];
+  document.getElementById('sheetWeekDots').innerHTML = dots.map(d => {
+    const filled = d.qualified;
+    const today = d.is_today;
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+      <div style="
+        width:32px;height:32px;border-radius:999px;display:grid;place-items:center;
+        border:2px solid ${filled ? '#E07A2A' : today ? 'var(--accent)' : '#D1D5DB'};
+        background:${filled ? 'linear-gradient(135deg,#fb923c,#E07A2A)' : 'var(--bg)'};
+        color:${filled ? '#fff' : 'var(--text-muted)'};
+      ">${filled ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}</div>
+      <span style="font-size:0.68rem;font-weight:700;color:var(--text-muted);">${d.label}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('streakSheet').style.display = 'flex';
+}
+
+function closeStreakSheet() {
+  document.getElementById('streakSheet').style.display = 'none';
+}
+
+function showStreakToast(msg) {
+  const el = document.getElementById('streakToast');
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 2500);
+}
+
 function openSilenceModal() {
   document.getElementById('silenceModal').style.display = 'flex';
 }
@@ -1084,7 +1248,8 @@ function closeFeedbackModal() {
 async function submitFeedback(save) {
   const task = _feedbackTask;
   const card = _feedbackCard;
-  
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
   if (save && task) {
     const actualTime = document.getElementById('feedbackActualTime').value;
     await fetch('/feedback/complete', {
@@ -1098,6 +1263,7 @@ async function submitFeedback(save) {
         difficulty: task.difficulty || 'Medium',
         priority: task.priority || 'Medium',
         dismiss: true,
+        timezone: tz,
         ...task
       })
     });
@@ -1106,7 +1272,7 @@ async function submitFeedback(save) {
     await fetch('/dismiss', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ title: task.title, ...task })
+      body: JSON.stringify({ title: task.title, timezone: tz, ...task })
     });
   }
   if (notificationsSilenced()) {
@@ -1120,6 +1286,8 @@ async function submitFeedback(save) {
     card.style.transition = 'all 0.2s';
     setTimeout(() => { card.remove(); }, 200);
   }
+  // Refresh streak after task completion
+  loadStreak();
   loadDashboard();
 }
 

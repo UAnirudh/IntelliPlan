@@ -46,3 +46,6 @@ flask-session>=0.8.0
 
 # Payments
 stripe>=8.0.0
+
+# Analytics
+posthog>=3.0.0

@@ -109,6 +109,8 @@ IntelliPlan/
 │
 ├── App.py                      # Main Flask app — all routes, models, config
 ├── ai_provider.py              # Unified AI layer — Gemini primary, Groq fallback
+├── analytics.py                # PostHog analytics wrapper (no-ops when unconfigured)
+├── streak_engine.py            # Pure streak logic — no Flask/DB dependencies
 ├── auth_api.py                 # Auth blueprint — JWT token endpoints
 ├── chatbot_api.py              # Plani chatbot + tutor API blueprint
 ├── google_calendar_helper.py   # Google OAuth + Calendar API helpers
@@ -290,6 +292,57 @@ The IntelliPlan Chrome Extension:
 - **Injects directly into Canvas and StudentVue pages** for quick access
 - Supports login with your IntelliPlan account
 - Available as a `.zip` in the repo — load via Chrome's `chrome://extensions` in Developer Mode
+
+---
+
+## Task-Completion Streaks (Experiment)
+
+IntelliPlan includes an optional Duolingo-style streak system behind the `streak_v1` feature flag. It is **off by default** in production.
+
+### Enabling for testing
+
+1. Log in as an admin and visit the admin panel, or
+2. Set the flag directly in the database:
+   ```sql
+   UPDATE feature_flags SET enabled = true, rollout_percentage = 100 WHERE key = 'streak_v1';
+   ```
+3. Or set the environment-level override before starting the app:
+   ```bash
+   # .env
+   STREAK_V1_ENABLED=1
+   ```
+
+### How it works
+
+- **Qualifying actions:** completing a task or viewing the dashboard (plan review).
+- **Streak freezes:** users start with 2 freezes (cap of 3). One freeze covers one missed day. A new freeze is earned every 7-day milestone.
+- **Timezone-aware:** streaks are tracked in the user's local timezone (detected from the browser).
+- **Rollout:** the flag supports percentage-based rollout via a deterministic SHA-256 hash on `streak_v1:{user_id}`.
+
+### Streak API endpoints
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/streak/status` | GET | Current streak, week dots, nudge eligibility |
+| `/api/streak/plan-review` | POST | Record a dashboard view as a qualifying action |
+| `/api/streak/set-timezone` | POST | Persist the user's IANA timezone |
+| `/api/streak/nudge-shown` | POST | Mark today's nudge as shown |
+| `/api/streak/nudge-tapped` | POST | Track nudge tap |
+| `/api/streak/pill-tapped` | POST | Track streak pill tap |
+
+### Running streak tests
+
+```bash
+# Unit tests (pure logic, no DB)
+pytest test_streak_engine.py -v
+
+# E2E tests (Flask test client + SQLite in-memory)
+pytest test_streak_e2e.py -v
+```
+
+### Analytics events (PostHog)
+
+When `POSTHOG_API_KEY` is set, the following events fire server-side: `streak_started`, `streak_continued`, `streak_broken`, `streak_freeze_consumed`, `streak_freeze_earned`, `nudge_shown`, `nudge_tapped`, `streak_pill_tapped`. The user property `streak_v1_cohort` (`treatment` or `control`) is set on each streak status fetch.
 
 ---
 

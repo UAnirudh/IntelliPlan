@@ -49,6 +49,8 @@ from flask_login import (
 )
 from flask_bcrypt import Bcrypt
 from werkzeug.middleware.proxy_fix import ProxyFix
+import streak_engine
+import analytics as app_analytics
 
 # ── FIX: Use database-backed sessions so Railway container restarts
 #         don't wipe the OAuth state between redirect hops.
@@ -655,13 +657,19 @@ class StudyGroupMember(db.Model):
 
 
 class FeatureFlag(db.Model):
-    """Admin-controlled kill switches. Default behaviour for an unknown
-    flag is "enabled" — so apps still work if a flag row is missing or
-    the table fails to load. Set `enabled=False` to disable a feature."""
+    """Admin-controlled kill switches with optional percentage rollout.
+
+    Default behaviour for an unknown flag is "enabled" — so apps still
+    work if a flag row is missing or the table fails to load.
+
+    When ``rollout_percentage`` is set (0-100), the flag uses a
+    deterministic hash on user_id so assignment is stable and doesn't
+    shift as other users sign up. 100 = everyone, 0 = nobody."""
     __tablename__ = "feature_flags"
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(64), unique=True, nullable=False)
     enabled = db.Column(db.Boolean, default=True)
+    rollout_percentage = db.Column(db.Integer, default=100)
     description = db.Column(db.String(255), default="")
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -782,6 +790,27 @@ class StudyMastery(db.Model):
     easiness_factor = db.Column(db.Float, default=2.5)
     interval_days = db.Column(db.Integer, default=1)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class UserStreak(db.Model):
+    """Task-completion streak — separate from the study-session streak in
+    StudyPoints. Qualifying actions: completing a task OR viewing the
+    dashboard (plan review). All date logic uses the user's local timezone."""
+    __tablename__ = "user_streaks"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), unique=True, nullable=False)
+    current_streak = db.Column(db.Integer, default=0)
+    longest_streak = db.Column(db.Integer, default=0)
+    last_qualifying_action_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    last_qualifying_local_date = db.Column(db.String(16), default="")
+    freezes_available = db.Column(db.Integer, default=2)
+    freezes_used_total = db.Column(db.Integer, default=0)
+    timezone = db.Column(db.String(64), default="")
+    nudge_shown_date = db.Column(db.String(16), default="")
+    qualified_dates_json = db.Column(db.Text, default="[]")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
 
 STREAK_TIERS = [
     {"id": "spark", "name": "Spark", "min": 1, "max": 6, "bonus": 5, "freeze_cap": 2, "color": "#ef4444"},
@@ -5431,6 +5460,12 @@ def dismiss():
         return flask.jsonify({"status": "error", "message": "Missing title"}), 400
     try:
         save_dismissed(title, data)
+        # Streak: dismissing a task = completing it
+        if current_user.is_authenticated:
+            try:
+                _record_streak_qualifying_action(current_user.id, data.get("timezone"))
+            except Exception as e:
+                print(f"[streak] error on dismiss: {e}")
         return flask.jsonify({"status": "ok"})
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)}), 500
@@ -6346,6 +6381,7 @@ def manual_update_task():
     if "course" in data: task.course = data["course"]
     if "estimated_time" in data: task.estimated_time = int(data["estimated_time"])
     if "notes" in data: task.notes = data["notes"]
+    was_done_before = task.done
     if "done" in data: task.done = data["done"]
     db.session.commit()
     if NOTION_AVAILABLE and task.notion_page_id:
@@ -6355,6 +6391,12 @@ def manual_update_task():
                 update_notion_task(notion_token, task.notion_page_id, data)
             except Exception:
                 pass
+    # Streak: trigger on task completion (done flipped False → True)
+    if data.get("done") and not was_done_before and current_user.is_authenticated:
+        try:
+            _record_streak_qualifying_action(current_user.id, data.get("timezone"))
+        except Exception as e:
+            print(f"[streak] error on task complete: {e}")
     return flask.jsonify({"status": "ok"})
 
 @app.route("/tasks/manual/delete", methods=["POST"])
@@ -6365,6 +6407,209 @@ def manual_delete_task():
         db.session.delete(task)
         db.session.commit()
     return flask.jsonify({"status": "ok"})
+
+
+# ── Task-completion streak engine ────────────────────────────────────
+
+def _is_streak_enabled_for_user(user_id: int) -> bool:
+    """Check if streak_v1 flag is enabled for this user."""
+    try:
+        flag = FeatureFlag.query.filter_by(key="streak_v1").first()
+        if not flag:
+            return False
+        if not flag.enabled:
+            return False
+        pct = flag.rollout_percentage if flag.rollout_percentage is not None else 100
+        return streak_engine.is_user_in_rollout(user_id, "streak_v1", pct)
+    except Exception:
+        return False
+
+
+def _get_or_create_streak(user_id: int) -> UserStreak:
+    row = UserStreak.query.filter_by(user_id=user_id).first()
+    if not row:
+        row = UserStreak(user_id=user_id)
+        db.session.add(row)
+        db.session.commit()
+    return row
+
+
+def _record_streak_qualifying_action(user_id: int, browser_tz: str | None = None) -> dict | None:
+    """Core streak update path. Called from task-complete and plan-review."""
+    if not _is_streak_enabled_for_user(user_id):
+        return None
+
+    row = _get_or_create_streak(user_id)
+
+    # Resolve timezone: prefer stored, fall back to browser-sent, then UTC
+    tz_name = row.timezone or browser_tz or "UTC"
+    if not row.timezone and browser_tz:
+        row.timezone = browser_tz
+
+    last_date = None
+    if row.last_qualifying_local_date:
+        try:
+            last_date = date.fromisoformat(row.last_qualifying_local_date)
+        except (ValueError, TypeError):
+            last_date = None
+
+    result = streak_engine.compute_streak_update(
+        current_streak=row.current_streak,
+        longest_streak=row.longest_streak,
+        last_qualifying_local_date=last_date,
+        freezes_available=row.freezes_available,
+        freezes_used_total=row.freezes_used_total,
+        user_tz=tz_name,
+    )
+
+    today_local = streak_engine.resolve_local_date(tz_name)
+
+    # Persist
+    row.current_streak = result.current_streak
+    row.longest_streak = result.longest_streak
+    row.freezes_available = result.freezes_available
+    row.last_qualifying_action_at = datetime.now(timezone.utc)
+    row.last_qualifying_local_date = today_local.isoformat()
+
+    # Track qualified dates for the week dots
+    try:
+        qualified = set(json.loads(row.qualified_dates_json or "[]"))
+    except (json.JSONDecodeError, TypeError):
+        qualified = set()
+    qualified.add(today_local.isoformat())
+    # Keep only last 30 days to avoid unbounded growth
+    cutoff = (today_local - timedelta(days=30)).isoformat()
+    qualified = {d for d in qualified if d >= cutoff}
+    row.qualified_dates_json = json.dumps(sorted(qualified))
+
+    if result.event == "streak_freeze_consumed":
+        row.freezes_used_total += result.event_props.get("days_covered", 0)
+
+    db.session.commit()
+
+    # Analytics
+    if result.event:
+        app_analytics.track(user_id, result.event, result.event_props)
+    if result.freeze_earned:
+        app_analytics.track(user_id, "streak_freeze_earned", {
+            "milestone_day": result.current_streak,
+        })
+
+    return {
+        "current_streak": result.current_streak,
+        "longest_streak": result.longest_streak,
+        "freezes_available": result.freezes_available,
+        "toast": result.toast_message,
+        "event": result.event,
+    }
+
+
+@app.route("/api/streak/status")
+def streak_status():
+    """Return the task-completion streak state for the current user."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error", "message": "Not logged in"}), 401
+    if not _is_streak_enabled_for_user(current_user.id):
+        return flask.jsonify({"status": "ok", "enabled": False})
+    row = _get_or_create_streak(current_user.id)
+    tz_name = row.timezone or "UTC"
+    try:
+        qualified = set()
+        for d in json.loads(row.qualified_dates_json or "[]"):
+            try:
+                qualified.add(date.fromisoformat(d))
+            except (ValueError, TypeError):
+                pass
+    except (json.JSONDecodeError, TypeError):
+        qualified = set()
+    dots = streak_engine.week_dots(tz_name, qualified)
+    last_date = None
+    if row.last_qualifying_local_date:
+        try:
+            last_date = date.fromisoformat(row.last_qualifying_local_date)
+        except (ValueError, TypeError):
+            pass
+    show_nudge = streak_engine.should_show_nudge(
+        current_streak=row.current_streak,
+        last_qualifying_local_date=last_date,
+        user_tz=tz_name,
+        nudge_shown_today=(row.nudge_shown_date == streak_engine.resolve_local_date(tz_name).isoformat()),
+    )
+    cohort = streak_engine.user_cohort(current_user.id, "streak_v1",
+        getattr(FeatureFlag.query.filter_by(key="streak_v1").first(), "rollout_percentage", 100) or 100)
+    app_analytics.identify(current_user.id, {"streak_v1_cohort": cohort})
+    return flask.jsonify({
+        "status": "ok",
+        "enabled": True,
+        "current_streak": row.current_streak,
+        "longest_streak": row.longest_streak,
+        "freezes_available": row.freezes_available,
+        "freezes_max": 3,
+        "week_dots": dots,
+        "show_nudge": show_nudge,
+        "timezone": tz_name,
+        "cohort": cohort,
+    })
+
+
+@app.route("/api/streak/nudge-shown", methods=["POST"])
+def streak_nudge_shown():
+    """Mark the nudge as shown for today so it doesn't repeat."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error"}), 401
+    row = _get_or_create_streak(current_user.id)
+    tz_name = row.timezone or "UTC"
+    row.nudge_shown_date = streak_engine.resolve_local_date(tz_name).isoformat()
+    db.session.commit()
+    app_analytics.track(current_user.id, "nudge_shown")
+    return flask.jsonify({"status": "ok"})
+
+
+@app.route("/api/streak/nudge-tapped", methods=["POST"])
+def streak_nudge_tapped():
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error"}), 401
+    app_analytics.track(current_user.id, "nudge_tapped")
+    return flask.jsonify({"status": "ok"})
+
+
+@app.route("/api/streak/pill-tapped", methods=["POST"])
+def streak_pill_tapped():
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error"}), 401
+    row = _get_or_create_streak(current_user.id)
+    app_analytics.track(current_user.id, "streak_pill_tapped", {
+        "current_streak": row.current_streak,
+    })
+    return flask.jsonify({"status": "ok"})
+
+
+@app.route("/api/streak/plan-review", methods=["POST"])
+def streak_plan_review():
+    """Triggered when the user views the Today/dashboard page.
+    Counts as a qualifying streak action (plan review)."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error"}), 401
+    browser_tz = (request.json or {}).get("timezone")
+    result = _record_streak_qualifying_action(current_user.id, browser_tz)
+    if result is None:
+        return flask.jsonify({"status": "ok", "enabled": False})
+    return flask.jsonify({"status": "ok", **result})
+
+
+@app.route("/api/streak/set-timezone", methods=["POST"])
+def streak_set_timezone():
+    """Persist the user's IANA timezone from the browser."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error"}), 401
+    tz = (request.json or {}).get("timezone", "")
+    if not tz:
+        return flask.jsonify({"status": "error", "message": "timezone required"}), 400
+    row = _get_or_create_streak(current_user.id)
+    row.timezone = tz
+    db.session.commit()
+    return flask.jsonify({"status": "ok"})
+
 
 @app.route("/tasks/manual/list")
 def manual_list_tasks():
@@ -7319,6 +7564,12 @@ def feedback_complete():
     if data.get("dismiss"):
         save_dismissed(title, data)
     db.session.commit()
+    # Streak: feedback-complete = task done
+    if current_user.is_authenticated:
+        try:
+            _record_streak_qualifying_action(current_user.id, data.get("timezone"))
+        except Exception as e:
+            print(f"[streak] error on feedback complete: {e}")
     return flask.jsonify({"status": "ok"})
 
 @app.route("/feedback/export")
@@ -8741,6 +8992,7 @@ DEFAULT_FLAGS = {
     "referral":      "Referral program",
     "onboarding":    "First-run onboarding modal",
     "ai_chat":       "Plani chat assistant",
+    "streak_v1":     "Task-completion streak (retention experiment)",
 }
 
 
@@ -8766,12 +9018,20 @@ def inject_admin():
         return {"is_admin": False, "feature_enabled": lambda k: True, "admin_path": ADMIN_PATH}
 
 
+_FLAG_OVERRIDES = {
+    "streak_v1": {"enabled": False, "rollout_percentage": 0},
+}
+
 def _seed_default_flags():
     try:
         for k, desc in DEFAULT_FLAGS.items():
             row = FeatureFlag.query.filter_by(key=k).first()
             if not row:
-                db.session.add(FeatureFlag(key=k, enabled=True, description=desc))
+                overrides = _FLAG_OVERRIDES.get(k, {})
+                flag = FeatureFlag(key=k, enabled=overrides.get("enabled", True), description=desc)
+                if "rollout_percentage" in overrides:
+                    flag.rollout_percentage = overrides["rollout_percentage"]
+                db.session.add(flag)
         db.session.commit()
     except Exception:
         try: db.session.rollback()
@@ -8811,8 +9071,13 @@ def admin_set_flag():
         db.session.add(row)
     else:
         row.enabled = enabled
+    if "rollout_percentage" in body:
+        row.rollout_percentage = max(0, min(100, int(body["rollout_percentage"])))
     db.session.commit()
-    return flask.jsonify({"status": "ok", "key": key, "enabled": enabled})
+    return flask.jsonify({
+        "status": "ok", "key": key, "enabled": enabled,
+        "rollout_percentage": row.rollout_percentage,
+    })
 
 
 @app.route("/api/admin/indexnow/status", methods=["GET"])
@@ -11067,6 +11332,12 @@ def _migrate_user_columns():
         ("google_integrations", "account_name", "VARCHAR(255)"),
         ("google_integrations", "is_active", "BOOLEAN DEFAULT TRUE"),
         ("google_integrations", "connected_at", "TIMESTAMP"),
+        # feature_flags — percentage rollout support
+        ("feature_flags", "rollout_percentage", "INTEGER DEFAULT 100"),
+        # user_streaks — task-completion streak (created by db.create_all,
+        # entries here are for columns that may be added after initial deploy)
+        ("user_streaks", "nudge_shown_date", "VARCHAR(16) DEFAULT ''"),
+        ("user_streaks", "qualified_dates_json", "TEXT DEFAULT '[]'"),
     ]
 
     # Group targets by table so we only inspect each table once.
