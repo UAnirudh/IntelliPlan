@@ -58,7 +58,7 @@
     </time>
   </header>
 
-  {# ── Briefing card ────────────────────────────────────────────── #}
+  {# ── Briefing card (hero-style gradient) ──────────────────────── #}
   <section class="cc-briefing" aria-label="Daily briefing"
            id="ccBriefing"
            x-transition:enter="cc-fade-in"
@@ -86,7 +86,7 @@
     </div>
   </section>
 
-  {# ── Grid: Plan + Sidebar ─────────────────────────────────────── #}
+  {# ── Grid: Plan + Sidebar + Chat ─────────────────────────────── #}
   <div class="cc-grid">
 
     {# ── Today's plan ───────────────────────────────────────────── #}
@@ -244,6 +244,47 @@
       </nav>
 
     </aside>
+
+    {# ── Plani Agent Chat Panel ─────────────────────────────────── #}
+    <section class="cc-chat" id="planiChat" aria-label="Plani assistant">
+      <div class="cc-chat-header">
+        <div class="cc-chat-avatar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+        </div>
+        <div class="cc-chat-header-text">
+          <div class="cc-chat-header-title">Plani</div>
+          <div class="cc-chat-header-sub">your agentic assistant</div>
+        </div>
+        <div class="cc-chat-status" title="Online"></div>
+      </div>
+
+      <div class="cc-chat-messages" id="planiMessages">
+        <div class="cc-chat-welcome" id="planiWelcome">
+          <div class="cc-chat-welcome-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+          </div>
+          <h3>Hey, I'm Plani</h3>
+          <p>I can manage your tasks, build schedules, check grades, and more. Just ask.</p>
+          <div class="cc-chat-suggestions">
+            <button class="cc-chat-suggestion" onclick="planiSuggest('What are my tasks for this week?')">My tasks</button>
+            <button class="cc-chat-suggestion" onclick="planiSuggest('Create a study schedule')">Make a schedule</button>
+            <button class="cc-chat-suggestion" onclick="planiSuggest('How are my grades looking?')">Check grades</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="cc-chat-input-wrap">
+        <textarea class="cc-chat-input" id="planiInput"
+                  placeholder="Ask Plani anything..."
+                  rows="1"
+                  onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();planiSend()}"
+                  oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
+        <button class="cc-chat-send" id="planiSendBtn" onclick="planiSend()" aria-label="Send message">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </section>
+
   </div>
 
   {# ── Schema version (hidden, useful for debugging) ──────────── #}
@@ -261,6 +302,12 @@
 
 </div>
 
+{# ── Mobile chat FAB + overlay ──────────────────────────────── #}
+<button class="cc-chat-fab" id="planiFab" onclick="togglePlaniChat()" aria-label="Open Plani chat">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+</button>
+<div class="cc-chat-overlay" id="planiOverlay" onclick="togglePlaniChat()"></div>
+
 <script>
 function commandCenter() {
   return {
@@ -271,6 +318,7 @@ function commandCenter() {
   };
 }
 
+/* ── Mobile nav ──────────────────────────────────────────────── */
 function openMobileNav() {
   var d = document.getElementById('mobileNavDrawer');
   var b = document.getElementById('mobileNavBackdrop');
@@ -282,6 +330,121 @@ function closeMobileNav() {
   var b = document.getElementById('mobileNavBackdrop');
   if (d) { d.classList.remove('open'); d.setAttribute('aria-hidden','true'); }
   if (b) b.style.display = 'none';
+}
+
+/* ── Plani Agent Chat ─────────────────────────────────────────── */
+var planiHistory = [];
+var planiSending = false;
+
+function togglePlaniChat() {
+  var chat = document.getElementById('planiChat');
+  var overlay = document.getElementById('planiOverlay');
+  if (!chat) return;
+  var isOpen = chat.classList.contains('cc-chat-open');
+  chat.classList.toggle('cc-chat-open', !isOpen);
+  overlay.classList.toggle('cc-chat-overlay-open', !isOpen);
+  if (!isOpen) {
+    var input = document.getElementById('planiInput');
+    if (input) setTimeout(function() { input.focus(); }, 100);
+  }
+}
+
+function planiSuggest(text) {
+  var input = document.getElementById('planiInput');
+  if (input) input.value = text;
+  planiSend();
+}
+
+function planiAddMsg(role, text) {
+  var container = document.getElementById('planiMessages');
+  var welcome = document.getElementById('planiWelcome');
+  if (welcome) welcome.style.display = 'none';
+
+  var div = document.createElement('div');
+  div.className = 'cc-msg ' + (role === 'user' ? 'cc-msg-user' : role === 'action' ? 'cc-msg-action' : 'cc-msg-bot');
+
+  if (role === 'bot') {
+    div.innerHTML = planiFormatReply(text);
+  } else {
+    div.textContent = text;
+  }
+
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+function planiFormatReply(text) {
+  var escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  escaped = escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
+  escaped = escaped.replace(/\n/g, '<br>');
+  return escaped;
+}
+
+function planiShowTyping() {
+  var container = document.getElementById('planiMessages');
+  var div = document.createElement('div');
+  div.className = 'cc-typing';
+  div.id = 'planiTyping';
+  div.innerHTML = '<div class="cc-typing-dot"></div><div class="cc-typing-dot"></div><div class="cc-typing-dot"></div>';
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function planiHideTyping() {
+  var el = document.getElementById('planiTyping');
+  if (el) el.remove();
+}
+
+function planiSend() {
+  if (planiSending) return;
+  var input = document.getElementById('planiInput');
+  var text = (input.value || '').trim();
+  if (!text) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+  planiAddMsg('user', text);
+  planiHistory.push({ role: 'user', content: text });
+
+  planiSending = true;
+  var btn = document.getElementById('planiSendBtn');
+  if (btn) btn.disabled = true;
+  planiShowTyping();
+
+  fetch('/api/plani/agent', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages: planiHistory.slice(-12) })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    planiHideTyping();
+    if (data.tool_log && data.tool_log.length > 0) {
+      data.tool_log.forEach(function(t) {
+        var msg = t.result && t.result.message ? t.result.message : (t.result && t.result.error ? t.result.error : '');
+        if (msg) planiAddMsg('action', msg);
+      });
+    }
+    var reply = data.reply || data.error || 'Something went wrong.';
+    planiAddMsg('bot', reply);
+    planiHistory.push({ role: 'assistant', content: reply });
+  })
+  .catch(function(err) {
+    planiHideTyping();
+    planiAddMsg('bot', 'Connection error. Please try again.');
+  })
+  .finally(function() {
+    planiSending = false;
+    var btn = document.getElementById('planiSendBtn');
+    if (btn) btn.disabled = false;
+    var input = document.getElementById('planiInput');
+    if (input) input.focus();
+  });
 }
 </script>
 

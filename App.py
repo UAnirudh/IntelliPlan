@@ -36,6 +36,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from auth_api import auth_bp, verify_token
 from chatbot_api import chatbot_bp
+from plani_agent import plani_agent_bp
 from werkzeug.utils import secure_filename
 import secrets as secrets_module
 import urllib.parse
@@ -162,6 +163,7 @@ Session(app)
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(chatbot_bp)
+app.register_blueprint(plani_agent_bp)
 
 @app.after_request
 def add_cors_headers(response):
@@ -11274,6 +11276,7 @@ app.register_blueprint(command_center_bp)
 limiter.limit("30 per minute")(app.view_functions["command_center.api_today"])
 limiter.limit("6 per hour")(app.view_functions["command_center.api_today_refresh"])
 limiter.exempt(app.view_functions["command_center.cron_refresh_briefings"])
+limiter.limit("20 per minute")(app.view_functions["plani_agent.plani_agent"])
 
 
 def _existing_columns(table_name):
