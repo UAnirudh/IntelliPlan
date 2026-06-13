@@ -1521,6 +1521,9 @@ body {
   {%- set _study_sub = ['tutor','priority','classes','grades','dismissed','tests','study','learn','focus','library','streak','lessons','writing','math','extractor','meetings','groups','study_hub'] -%}
   <div class="side-nav-list" id="sideNavList">
 
+    <a href="/command-center" data-nav-item="command_center" class="side-link {% if active_page == 'command_center' %}active{% endif %}">
+      <span class="side-icon"><svg><use href="#i-lightning"/></svg></span>Command Center
+    </a>
     <a href="/dashboard" data-nav-item="dashboard" class="side-link {% if active_page == 'dashboard' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard
     </a>

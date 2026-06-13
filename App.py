@@ -1153,9 +1153,20 @@ def apply_study_schema_migrations():
     db.session.execute(text("UPDATE study_points SET badges = COALESCE(badges, '[]'), active_booster = COALESCE(active_booster, 'null'), active_cosmetics = COALESCE(active_cosmetics, '{}'), weekly_quests = COALESCE(weekly_quests, '{}'), shop_purchases = COALESCE(shop_purchases, '[]')"))
     db.session.commit()
 
+# ── Command Center models (additive — see docs/command-center/) ────
+# Register the three new tables (briefing_cache, health_snapshots,
+# student_signals) against the existing ``db`` instance. The
+# ``register(db)`` callback pattern avoids any circular import with the
+# ``intelliplan`` package while keeping the model classes accessible on
+# the App.py namespace for the upcoming /api/today handler.
+from intelliplan.models import command_center as _cc_models
+from intelliplan.migrations import apply_command_center_migrations
+BriefingCache, HealthSnapshot, StudentSignal = _cc_models.register(db)
+
 with app.app_context():
     db.create_all()
     apply_study_schema_migrations()
+    apply_command_center_migrations(db)
 
 print([str(r) for r in app.url_map.iter_rules() if 'tutor' in str(r)])
 
@@ -3583,13 +3594,13 @@ def login():
     if request.method == "POST":
         return redirect(url_for("login_account"), 307)
     if is_logged_in():
-        return redirect(url_for("dashboard"))
+        return redirect("/command-center")
     return render_template("login.html", active_page="login")
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if current_user.is_authenticated:
-        return redirect(url_for("dashboard"))
+        return redirect("/command-center")
     error = None
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
@@ -3706,10 +3717,7 @@ def register():
                             carrier=(user.sms_carrier or "tmobile"),
                         )  # return value intentionally ignored here
                     except Exception: pass
-                # Skip the legacy /onboarding page entirely — the dashboard's
-                # built-in modal handles the questionnaire and never 500s on
-                # a partial migration.
-                return redirect(url_for("dashboard"))
+                return redirect("/command-center")
             except Exception as _e:
                 print(f"[register] user create failed: {_e}")
                 try: db.session.rollback()
@@ -3902,7 +3910,7 @@ def onboarding():
             identity = _get_or_create_identity(current_user.id)
         except Exception as _e2:
             print(f"[onboarding] retry failed: {_e2}")
-            return redirect(url_for("dashboard"))
+            return redirect("/command-center")
     if request.method == "POST":
         # Legacy form path — preserved so old browsers/users with cached JS
         # still complete onboarding even when the new SPA-style flow can't
@@ -3924,7 +3932,7 @@ def onboarding():
         next_url = request.args.get("next")
         if next_url and next_url.startswith("/"):
             return redirect(next_url)
-        return redirect(url_for("dashboard"))
+        return redirect("/command-center")
     return render_template(
         "onboarding.html",
         active_page="onboarding",
@@ -4219,7 +4227,7 @@ def login_google():
 @limiter.limit("10 per minute;60 per hour", methods=["POST"])
 def login_account():
     if current_user.is_authenticated:
-        return redirect(url_for("dashboard"))
+        return redirect("/command-center")
     error = None
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
@@ -4261,7 +4269,7 @@ def login_account():
                     acct = None
                 if not acct:
                     return redirect(url_for("connect_account"))
-                return redirect(url_for("dashboard"))
+                return redirect("/command-center")
             else:
                 error = "Invalid email or password."
     return render_template("login_account.html", active_page="login", error=error)
@@ -4296,7 +4304,7 @@ def login_canvas():
                     session["canvas_token"] = token
                     session["canvas_url"] = canvas_url
                     session["login_type"] = "canvas"
-                return redirect(url_for("dashboard"))
+                return redirect("/command-center")
             else:
                 error = "Invalid token or Canvas URL."
     return render_template(
@@ -4437,7 +4445,7 @@ def oauth_canvas_callback():
         session["canvas_refresh_token"] = refresh_token
         session["canvas_oauth"] = True
         session["login_type"] = "canvas"
-    return redirect(url_for("dashboard"))
+    return redirect("/command-center")
 
 
 @app.route("/oauth/canvas/disconnect", methods=["POST"])
@@ -4483,7 +4491,7 @@ def login_studentvue():
                     session["sv_password"] = password
                     session["sv_district_url"] = district_url
                     session["login_type"] = "studentvue"
-                return redirect(url_for("dashboard"))
+                return redirect("/command-center")
             else:
                 error = "Invalid StudentVUE credentials or district URL. Try your district's StudentVUE web address, like https://district-psv.edupoint.com."
     return render_template("login_studentvue.html", active_page="login", error=error)
@@ -4517,7 +4525,7 @@ def login_schoology():
                         session["schoology_key"] = key
                         session["schoology_secret"] = secret
                         session["login_type"] = "schoology"
-                    return redirect(url_for("dashboard"))
+                    return redirect("/command-center")
                 else:
                     error = "Invalid Schoology credentials."
             except Exception as e:
@@ -4651,7 +4659,7 @@ def _handle_google_callback():
             session["google_token"] = token_dict
             session.permanent = True
             session.modified = True
-        return redirect(url_for("settings") if session.pop("oauth_return_to_settings", False) else url_for("dashboard"))
+        return redirect(url_for("settings") if session.pop("oauth_return_to_settings", False) else "/command-center")
 
     # ── Find or create User (defensive — see login_account for rationale) ──
     try:
@@ -4729,8 +4737,8 @@ def _handle_google_callback():
         if return_to:
             print(f"[GOOGLE CALLBACK] redirecting to partner return_to={return_to!r}")
             return redirect(return_to)
-        return redirect(url_for("dashboard"))
-    return redirect(url_for("dashboard"))
+        return redirect("/command-center")
+    return redirect("/command-center")
 
 
 @app.route("/oauth/google")
@@ -8993,6 +9001,7 @@ DEFAULT_FLAGS = {
     "onboarding":    "First-run onboarding modal",
     "ai_chat":       "Plani chat assistant",
     "streak_v1":     "Task-completion streak (retention experiment)",
+    "command_center": "AI Daily Command Center (kill switch — default page)",
 }
 
 
@@ -11256,6 +11265,15 @@ app.intelliplan_user_model = User
 app.intelliplan_get_identity = _get_or_create_identity
 from intelliplan_api import api_bp as intelliplan_api_bp
 app.register_blueprint(intelliplan_api_bp)
+
+# ── AI Daily Command Center (docs/command-center/). Registered last so
+# the glue module's lazy `from App import ...` calls always resolve.
+# The `command_center` feature flag is a KILL SWITCH (default on).
+from command_center_glue import command_center_bp
+app.register_blueprint(command_center_bp)
+limiter.limit("30 per minute")(app.view_functions["command_center.api_today"])
+limiter.limit("6 per hour")(app.view_functions["command_center.api_today_refresh"])
+limiter.exempt(app.view_functions["command_center.cron_refresh_briefings"])
 
 
 def _existing_columns(table_name):

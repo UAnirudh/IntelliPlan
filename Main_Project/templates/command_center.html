@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block page_title %}Command Center | IntelliPlan{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="/static/css/command_center.css">
+
+{# ── Mobile top nav (same pattern as dashboard.html) ──────────── #}
+<div class="cc-mobile-top">
+  <button onclick="openMobileNav()" class="mobile-nav-ham" aria-label="Open navigation">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+  <span class="cc-mobile-logo">IntelliPlan</span>
+  <div style="width:36px;"></div>
+</div>
+
+{# ── Mobile nav drawer (reuse dashboard's) ────────────────────── #}
+<div id="mobileNavDrawer" class="mobile-nav-drawer" aria-hidden="true">
+  <div class="mobile-nav-inner">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
+      <span style="font-family:var(--font-ui);font-weight:800;font-size:1.05rem;color:var(--text-primary);">IntelliPlan</span>
+      <button onclick="closeMobileNav()" style="background:none;border:none;font-size:1.5rem;color:var(--text-muted);cursor:pointer;">&#215;</button>
+    </div>
+    <nav style="padding:0.75rem 0;">
+      <a href="/command-center" class="mobile-nav-link active">Command Center</a>
+      <a href="/dashboard" class="mobile-nav-link">Dashboard</a>
+      <a href="/tutor" class="mobile-nav-link">Plani Tutor</a>
+      <a href="/scheduler" class="mobile-nav-link">Scheduler</a>
+      <a href="/study" class="mobile-nav-link">Study &amp; Learn</a>
+      <a href="/grademodel" class="mobile-nav-link">Grade Modeler</a>
+      <a href="/streak" class="mobile-nav-link">Streak</a>
+      <a href="/settings" class="mobile-nav-link">Settings</a>
+    </nav>
+  </div>
+</div>
+<div id="mobileNavBackdrop" onclick="closeMobileNav()" style="display:none;position:fixed;inset:0;z-index:899;background:rgba(7,8,20,0.5);backdrop-filter:blur(4px);"></div>
+
+<div class="cc-page" x-data="commandCenter()" x-init="init()">
+
+  {# ── Error state ──────────────────────────────────────────────── #}
+  {% if load_error %}
+  <div class="cc-error-banner" role="alert">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-warning"/></svg>
+    <span>{{ load_error }}</span>
+    <button onclick="location.reload()" class="cc-error-retry">Try again</button>
+  </div>
+  {% endif %}
+
+  {% if today %}
+  {# ── Greeting ─────────────────────────────────────────────────── #}
+  <header class="cc-greeting">
+    <div>
+      <p class="cc-greeting-label">{{ today.student.greeting }}</p>
+      <h1 class="cc-greeting-name">{{ today.student.name }}</h1>
+    </div>
+    <time class="cc-date-chip" datetime="{{ today.generated_at }}">
+      {{ today.generated_at[:10] }}
+    </time>
+  </header>
+
+  {# ── Briefing card ────────────────────────────────────────────── #}
+  <section class="cc-briefing" aria-label="Daily briefing"
+           id="ccBriefing"
+           x-transition:enter="cc-fade-in"
+           x-transition:enter-start="cc-fade-start"
+           x-transition:enter-end="cc-fade-end">
+    <div class="cc-briefing-inner">
+      <h2 class="cc-briefing-headline">{{ today.briefing.headline }}</h2>
+      <p class="cc-briefing-body">{{ today.briefing.body }}</p>
+      <div class="cc-briefing-meta">
+        <button class="cc-refresh-btn" id="ccRefreshBtn"
+                hx-post="/api/today/refresh"
+                hx-target="#ccBriefing"
+                hx-swap="innerHTML"
+                hx-indicator="#ccRefreshSpinner"
+                @click="refreshing = true"
+                aria-label="Refresh briefing">
+          <svg class="cc-refresh-icon" id="ccRefreshSpinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+          Refresh
+        </button>
+        <span class="cc-briefing-gen">
+          {{ today.briefing.generated_by }} &middot; {{ today.briefing.tone }}
+          {% if today.briefing.cached %}<span class="cc-cached-badge">cached</span>{% endif %}
+        </span>
+      </div>
+    </div>
+  </section>
+
+  {# ── Grid: Plan + Sidebar ─────────────────────────────────────── #}
+  <div class="cc-grid">
+
+    {# ── Today's plan ───────────────────────────────────────────── #}
+    <section class="cc-plan" aria-label="Today's action plan">
+      <div class="cc-section-head">
+        <h2 class="cc-section-title">Today's Plan</h2>
+        <span class="cc-task-count">{{ today.plan|length }} task{{ 's' if today.plan|length != 1 }}</span>
+      </div>
+
+      {% if today.plan %}
+      <ol class="cc-task-list">
+        {% for task in today.plan %}
+        <li class="cc-task-card"
+            x-data="{ showWhy: false }"
+            x-transition:enter="cc-slide-up"
+            style="--delay: {{ loop.index0 * 60 }}ms">
+          <div class="cc-task-main">
+            <div class="cc-score-chip cc-tier-{{ task.priority.tier }}">
+              <span class="cc-score-num" aria-label="Priority {{ task.priority.score }} of 100, {{ task.priority.tier }}">{{ task.priority.score }}</span>
+              <span class="cc-tier-label">{{ task.priority.tier }}</span>
+            </div>
+            <div class="cc-task-info">
+              <h3 class="cc-task-title">{{ task.title }}</h3>
+              <div class="cc-task-details">
+                <span class="cc-task-course">{{ task.course }}</span>
+                <span class="cc-task-sep">&middot;</span>
+                <span class="cc-task-due">{{ task.due_date }}</span>
+                {% if task.est_minutes %}
+                <span class="cc-task-sep">&middot;</span>
+                <span class="cc-task-time">~{{ task.est_minutes }}min</span>
+                {% endif %}
+              </div>
+              <p class="cc-task-why-now">{{ task.why_now }}</p>
+            </div>
+            <button class="cc-why-btn"
+                    @click="showWhy = !showWhy"
+                    :aria-expanded="showWhy"
+                    aria-label="Show priority explanation">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <span x-text="showWhy ? 'hide' : 'why?'">why?</span>
+            </button>
+          </div>
+
+          {# ── Rationale popover ──────────────────────────────────── #}
+          <div class="cc-rationale" x-show="showWhy" x-collapse>
+            <div class="cc-rationale-chips">
+              {% for chip in task.priority.rationale %}
+              <div class="cc-reason-chip">
+                <span class="cc-reason-key">{{ chip.key }}</span>
+                <span class="cc-reason-weight">+{{ chip.weight }}</span>
+                <span class="cc-reason-text">{{ chip.reason }}</span>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      <div class="cc-empty-state">
+        <div class="cc-empty-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><use href="#i-done"/></svg>
+        </div>
+        <h3 class="cc-empty-title">All clear today</h3>
+        <p class="cc-empty-body">No upcoming assignments. Enjoy your day, or head to the <a href="/dashboard">Dashboard</a> to add a task.</p>
+      </div>
+      {% endif %}
+    </section>
+
+    {# ── Sidebar: Forecast + Health ─────────────────────────────── #}
+    <aside class="cc-sidebar">
+
+      {# ── Workload forecast ──────────────────────────────────── #}
+      <section class="cc-forecast-card" aria-label="7-day workload forecast">
+        <h2 class="cc-section-title">Workload</h2>
+        <div class="cc-forecast-bars" role="img" aria-label="7-day workload bar chart">
+          {% for day in today.forecast.days %}
+          <div class="cc-bar-col">
+            <div class="cc-bar-track">
+              <div class="cc-bar-fill {% if day.stress >= 0.8 %}cc-bar-hot{% elif day.stress >= 0.5 %}cc-bar-warm{% endif %}"
+                   style="height:{{ (day.stress * 100)|round }}%;"
+                   title="{{ day.committed_min }}min / {{ day.available_min }}min available">
+              </div>
+            </div>
+            <span class="cc-bar-label">{{ day.date[-5:] }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        <p class="cc-forecast-summary">{{ today.forecast.summary }}</p>
+
+        <table class="visually-hidden" aria-label="Workload data">
+          <thead><tr><th>Day</th><th>Committed</th><th>Available</th><th>Stress</th></tr></thead>
+          <tbody>
+            {% for day in today.forecast.days %}
+            <tr><td>{{ day.date }}</td><td>{{ day.committed_min }}min</td><td>{{ day.available_min }}min</td><td>{{ (day.stress * 100)|round }}%</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+
+      {# ── Academic health ────────────────────────────────────── #}
+      <section class="cc-health-card" aria-label="Academic health score">
+        <h2 class="cc-section-title">Academic Health</h2>
+        <div class="cc-health-top">
+          <div class="cc-health-score-wrap">
+            <span class="cc-health-num cc-health-{{ today.health.tier }}">{{ today.health.score }}</span>
+            <span class="cc-health-max">/100</span>
+          </div>
+          {% if today.health.delta_vs_yesterday is not none %}
+          <span class="cc-health-delta {% if today.health.delta_vs_yesterday > 0 %}cc-delta-up{% elif today.health.delta_vs_yesterday < 0 %}cc-delta-down{% endif %}">
+            {{ '%+d'|format(today.health.delta_vs_yesterday) }} today
+          </span>
+          {% endif %}
+        </div>
+        <span class="cc-health-tier cc-health-{{ today.health.tier }}">{{ today.health.tier }}</span>
+        <p class="cc-health-summary">{{ today.health.summary }}</p>
+
+        {% if today.health.components %}
+        <div class="cc-health-components" x-data="{ showBreakdown: false }">
+          <button class="cc-breakdown-btn"
+                  @click="showBreakdown = !showBreakdown"
+                  :aria-expanded="showBreakdown">
+            <span x-text="showBreakdown ? 'Hide breakdown' : 'View breakdown'">View breakdown</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" :style="showBreakdown && 'transform:rotate(180deg)'"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div x-show="showBreakdown" x-collapse class="cc-component-list">
+            {% for comp in today.health.components %}
+            <div class="cc-component-row">
+              <span class="cc-component-label">{{ comp.key }}</span>
+              <span class="cc-component-delta {% if comp.impact > 0 %}cc-delta-up{% elif comp.impact < 0 %}cc-delta-down{% endif %}">
+                {{ '%+d'|format(comp.impact) }}
+              </span>
+              <span class="cc-component-note">{{ comp.reason }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </section>
+
+      {# ── Quick links ────────────────────────────────────────── #}
+      <nav class="cc-quick-links" aria-label="Quick actions">
+        <a href="/tutor" class="cc-quick-link">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-tutor"/></svg>
+          Ask Plani
+        </a>
+        <a href="/scheduler" class="cc-quick-link">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-scheduler"/></svg>
+          Build Schedule
+        </a>
+        <a href="/dashboard" class="cc-quick-link">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-dashboard"/></svg>
+          All Tasks
+        </a>
+      </nav>
+
+    </aside>
+  </div>
+
+  {# ── Schema version (hidden, useful for debugging) ──────────── #}
+  <div hidden data-schema-version="{{ today.meta.schema_version }}"></div>
+
+  {% else %}
+  {# ── Full error fallback (no data at all) ───────────────────── #}
+  <div class="cc-fatal">
+    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><use href="#i-coffee"/></svg>
+    <h2>Your Command Center is loading</h2>
+    <p>We couldn't build your daily plan right now. This usually means your assignments are still syncing.</p>
+    <a href="/dashboard" class="cc-fallback-link">Go to Dashboard</a>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+function commandCenter() {
+  return {
+    refreshing: false,
+    init() {
+      document.body.classList.add('has-side');
+    }
+  };
+}
+
+function openMobileNav() {
+  var d = document.getElementById('mobileNavDrawer');
+  var b = document.getElementById('mobileNavBackdrop');
+  if (d) { d.classList.add('open'); d.setAttribute('aria-hidden','false'); }
+  if (b) b.style.display = 'block';
+}
+function closeMobileNav() {
+  var d = document.getElementById('mobileNavDrawer');
+  var b = document.getElementById('mobileNavBackdrop');
+  if (d) { d.classList.remove('open'); d.setAttribute('aria-hidden','true'); }
+  if (b) b.style.display = 'none';
+}
+</script>
+
+{% endblock %}
