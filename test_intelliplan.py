@@ -271,29 +271,15 @@ class TestStudentVueLoginPage:
 class TestAuthRedirects:
     """Unauthenticated users must redirect to /login for every gated route.
 
-    Note: only routes that strictly gate at the URL level are listed here.
-    Pages like /tutor, /library, /writing, /math, /extractor, /meetings, and
-    /tests render a guest-friendly view instead of redirecting (this is an
-    intentional product choice — marketing surface for those features)."""
+    As of d2a41c7 ("enable guest browsing + unblock all app pages for search
+    engine indexing"), all major app pages render a guest-friendly view instead
+    of redirecting. The routes below are the remaining ones that still require
+    authentication at the URL level. If a route moves to guest-friendly, move
+    it to TestPublicGuestRoutes below."""
 
     @pytest.mark.parametrize("path", [
-        "/dashboard",
-        "/scheduler",
-        "/priority",
-        "/classes",
-        "/grades",
-        "/gradebook",
-        "/study",
-        "/study-and-learn",
-        "/learn",
-        "/focus",
-        "/streak",
-        "/lessons",
-        "/groups",
-        "/dismissed",
-        "/settings",
-        "/profiles",
-        "/memories",
+        # Currently empty — all former protected routes now render as guest.
+        # Keep this class as a placeholder for any future auth-gated routes.
     ])
     def test_protected_page_redirects_to_login(self, page: Page, path: str):
         go(page, path)
@@ -315,6 +301,23 @@ class TestPublicGuestRoutes:
         "/extractor",
         "/meetings",
         "/tests",
+        "/dashboard",
+        "/scheduler",
+        "/priority",
+        "/classes",
+        "/grades",
+        "/gradebook",
+        "/study",
+        "/study-and-learn",
+        "/learn",
+        "/focus",
+        "/streak",
+        "/lessons",
+        "/groups",
+        "/dismissed",
+        "/settings",
+        "/profiles",
+        "/memories",
     ])
     def test_guest_route_renders(self, page: Page, path: str):
         response = page.request.get(f"{BASE_URL}{path}")
