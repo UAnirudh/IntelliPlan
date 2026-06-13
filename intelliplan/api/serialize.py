@@ -70,6 +70,18 @@ def health_to_dict(h: HealthScore) -> dict[str, Any]:
     }
 
 
+def _greeting(dt: Any) -> str:
+    try:
+        h = dt.hour if hasattr(dt, "hour") else 12
+    except Exception:
+        h = 12
+    if h < 12:
+        return "Good morning"
+    if h < 17:
+        return "Good afternoon"
+    return "Good evening"
+
+
 def today_to_dict(p: TodayPayload, *, cache_age_seconds: int = 0) -> dict[str, Any]:
     return {
         "generated_at": p.generated_at.replace(microsecond=0).isoformat() + "Z",
@@ -77,6 +89,7 @@ def today_to_dict(p: TodayPayload, *, cache_age_seconds: int = 0) -> dict[str, A
             "name": p.student_name,
             "grade_level": p.student_grade_level,
             "personalization_enabled": p.personalization_enabled,
+            "greeting": _greeting(p.generated_at),
         },
         "briefing": {
             "headline": p.briefing.headline,

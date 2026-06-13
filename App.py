@@ -3605,13 +3605,13 @@ def login():
     if request.method == "POST":
         return redirect(url_for("login_account"), 307)
     if is_logged_in():
-        return redirect(url_for("dashboard"))
+        return redirect("/command-center")
     return render_template("login.html", active_page="login")
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if current_user.is_authenticated:
-        return redirect(url_for("dashboard"))
+        return redirect("/command-center")
     error = None
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
@@ -3728,10 +3728,7 @@ def register():
                             carrier=(user.sms_carrier or "tmobile"),
                         )  # return value intentionally ignored here
                     except Exception: pass
-                # Skip the legacy /onboarding page entirely — the dashboard's
-                # built-in modal handles the questionnaire and never 500s on
-                # a partial migration.
-                return redirect(url_for("dashboard"))
+                return redirect("/command-center")
             except Exception as _e:
                 print(f"[register] user create failed: {_e}")
                 try: db.session.rollback()
@@ -4241,7 +4238,7 @@ def login_google():
 @limiter.limit("10 per minute;60 per hour", methods=["POST"])
 def login_account():
     if current_user.is_authenticated:
-        return redirect(url_for("dashboard"))
+        return redirect("/command-center")
     error = None
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
@@ -4283,7 +4280,7 @@ def login_account():
                     acct = None
                 if not acct:
                     return redirect(url_for("connect_account"))
-                return redirect(url_for("dashboard"))
+                return redirect("/command-center")
             else:
                 error = "Invalid email or password."
     return render_template("login_account.html", active_page="login", error=error)
@@ -4320,7 +4317,7 @@ def login_canvas():
                     session["canvas_token"] = token
                     session["canvas_url"] = canvas_url
                     session["login_type"] = "canvas"
-                return redirect(url_for("dashboard"))
+                return redirect("/command-center")
             else:
                 error = "Invalid token or Canvas URL."
     return render_template(
@@ -4461,7 +4458,7 @@ def oauth_canvas_callback():
         session["canvas_refresh_token"] = refresh_token
         session["canvas_oauth"] = True
         session["login_type"] = "canvas"
-    return redirect(url_for("dashboard"))
+    return redirect("/command-center")
 
 
 @app.route("/oauth/canvas/disconnect", methods=["POST"])
