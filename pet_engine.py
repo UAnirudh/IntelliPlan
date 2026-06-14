@@ -151,3 +151,124 @@ def streak_milestone_event(streak_days: int) -> Optional[str]:
     if streak_days in milestones:
         return f"streak_milestone_{streak_days}"
     return None
+
+
+# ── Care actions (Tamagotchi mechanic) ───────────────────────────────
+# Each action has a cooldown so users can't grind. Cooldowns are tracked
+# by the App.py persistence layer; the engine just defines the rules.
+
+CARE_ACTIONS = {
+    "feed": {
+        "xp": 8,
+        "cooldown_hours": 6,
+        "mood_boost": "happy",
+        "label": "Feed",
+        "emoji": "🍎",
+        "copy": "Yum! +8 XP",
+    },
+    "play": {
+        "xp": 12,
+        "cooldown_hours": 8,
+        "mood_boost": "happy",
+        "label": "Play",
+        "emoji": "🎾",
+        "copy": "So fun! +12 XP",
+    },
+    "pet": {
+        "xp": 4,
+        "cooldown_hours": 2,
+        "mood_boost": "happy",
+        "label": "Pet",
+        "emoji": "💕",
+        "copy": "Purr! +4 XP",
+    },
+    "study_with": {
+        "xp": 20,
+        "cooldown_hours": 12,
+        "mood_boost": "happy",
+        "label": "Study together",
+        "emoji": "📚",
+        "copy": "Plani learned! +20 XP",
+    },
+}
+
+
+def can_perform_care_action(action: str, last_performed_at: Optional[datetime]) -> tuple[bool, int]:
+    """Return (allowed, seconds_until_next_use)."""
+    if action not in CARE_ACTIONS:
+        return (False, 0)
+    cooldown_h = CARE_ACTIONS[action]["cooldown_hours"]
+    if last_performed_at is None:
+        return (True, 0)
+    elapsed = (datetime.now() - last_performed_at).total_seconds()
+    cooldown_s = cooldown_h * 3600
+    if elapsed >= cooldown_s:
+        return (True, 0)
+    return (False, int(cooldown_s - elapsed))
+
+
+# ── Daily check-in chest ─────────────────────────────────────────────
+# Reward escalates the longer the user comes back consecutively. The
+# App.py layer tracks `chest_streak_days` separately so we don't conflate
+# pet visits with task-completion streaks.
+
+def daily_chest_reward(chest_streak_days: int) -> dict:
+    """Return the reward for opening today's chest given chest-streak length."""
+    chest_streak_days = max(1, chest_streak_days)
+    # Day 1: +10 XP. Day 7: +50 XP. Cap at 100.
+    xp = min(100, 10 + (chest_streak_days - 1) * 6)
+    tier = "common"
+    if chest_streak_days >= 7:
+        tier = "epic"
+    elif chest_streak_days >= 3:
+        tier = "rare"
+    return {
+        "xp": xp,
+        "tier": tier,
+        "day": chest_streak_days,
+        "next_day_xp": min(100, 10 + chest_streak_days * 6),
+    }
+
+
+# ── Accessories unlocked at stage milestones ─────────────────────────
+
+ACCESSORIES = [
+    {"id": "scholar_glasses", "name": "Scholar glasses", "unlock_stage": "scholar", "emoji": "👓"},
+    {"id": "sage_hat", "name": "Sage's hat", "unlock_stage": "sage", "emoji": "🎩"},
+    {"id": "guardian_cape", "name": "Guardian cape", "unlock_stage": "guardian", "emoji": "🦸"},
+    {"id": "mythic_horn", "name": "Mythic horn", "unlock_stage": "mythic", "emoji": "🦄"},
+    {"id": "cosmic_halo", "name": "Cosmic halo", "unlock_stage": "cosmic", "emoji": "✨"},
+]
+
+
+def accessories_for(stage_id: str) -> list[dict]:
+    """Return all accessories unlocked at or before the given stage."""
+    stage_order = [s["id"] for s in STAGES]
+    if stage_id not in stage_order:
+        return []
+    idx = stage_order.index(stage_id)
+    unlocked = []
+    for acc in ACCESSORIES:
+        unlock_idx = stage_order.index(acc["unlock_stage"]) if acc["unlock_stage"] in stage_order else -1
+        if unlock_idx >= 0 and idx >= unlock_idx:
+            unlocked.append(acc)
+    return unlocked
+
+
+def evolution_payload(before_stage: str, after_stage: str) -> Optional[dict]:
+    """If an evolution happened, return the celebration payload for the UI."""
+    if before_stage == after_stage:
+        return None
+    new_stage = next((s for s in STAGES if s["id"] == after_stage), None)
+    if not new_stage:
+        return None
+    return {
+        "evolved": True,
+        "from": before_stage,
+        "to": after_stage,
+        "stage_name": new_stage["name"],
+        "stage_title": new_stage["title"],
+        "stage_color": new_stage["color"],
+        "headline": f"Your Plani evolved into a {new_stage['name']}!",
+        "copy": new_stage["title"],
+    }

@@ -823,6 +823,10 @@ class PlaniPet(db.Model):
     XP is awarded for: daily visits, task completion, schedule generation,
     streak milestones, study sessions, tutor chats, and grade imports.
     Stage is derived from cumulative XP via pet_engine.stage_for_xp().
+
+    Care actions (feed/play/pet/study_with) are cooldown-gated. We track
+    last-action timestamps and a chest-streak so a perfect-week chest
+    pays more than a one-off check-in.
     """
     __tablename__ = "plani_pets"
     id = db.Column(db.Integer, primary_key=True)
@@ -831,6 +835,16 @@ class PlaniPet(db.Model):
     xp = db.Column(db.Integer, default=0)
     last_visit_local_date = db.Column(db.String(16), default="")
     hatched_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # Care actions cooldowns
+    last_fed_at = db.Column(db.DateTime, nullable=True)
+    last_played_at = db.Column(db.DateTime, nullable=True)
+    last_petted_at = db.Column(db.DateTime, nullable=True)
+    last_studied_at = db.Column(db.DateTime, nullable=True)
+    # Daily chest (separate from streak)
+    last_chest_local_date = db.Column(db.String(16), default="")
+    chest_streak_days = db.Column(db.Integer, default=0)
+    # Perfect-week tracking — week iso "YYYY-Www" we already paid out
+    perfect_week_paid = db.Column(db.String(16), default="")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -6928,6 +6942,33 @@ def pet_status():
     )
     # Also surface streak info so the pet UI can show the combo
     streak_row = UserStreak.query.filter_by(user_id=current_user.id).first()
+
+    # Care action availability (drives the feed/play/pet/study buttons)
+    last_at_map = {
+        "feed": pet.last_fed_at,
+        "play": pet.last_played_at,
+        "pet": pet.last_petted_at,
+        "study_with": pet.last_studied_at,
+    }
+    care = {}
+    for action, cfg in pet_engine.CARE_ACTIONS.items():
+        allowed, wait_s = pet_engine.can_perform_care_action(action, last_at_map.get(action))
+        care[action] = {
+            "label": cfg["label"],
+            "emoji": cfg["emoji"],
+            "xp": cfg["xp"],
+            "ready": allowed,
+            "wait_seconds": wait_s,
+            "cooldown_hours": cfg["cooldown_hours"],
+        }
+
+    # Chest availability
+    today_iso = pet_engine.datetime.now(pet_engine.ZoneInfo(tz_name)).date().isoformat()
+    chest_ready = pet.last_chest_local_date != today_iso
+    chest_reward = pet_engine.daily_chest_reward(
+        (pet.chest_streak_days or 0) + (1 if chest_ready else 0)
+    )
+
     return flask.jsonify({
         "status": "ok",
         "name": pet.name or "Plani",
@@ -6948,6 +6989,13 @@ def pet_status():
         "hatched_at": (pet.hatched_at.isoformat() if pet.hatched_at else None),
         "streak": (streak_row.current_streak if streak_row else 0),
         "longest_streak": (streak_row.longest_streak if streak_row else 0),
+        "care": care,
+        "chest": {
+            "ready": chest_ready,
+            "current_streak_days": pet.chest_streak_days or 0,
+            "next_reward": chest_reward,
+        },
+        "accessories": pet_engine.accessories_for(state.stage_id),
     })
 
 
@@ -6985,6 +7033,174 @@ def pet_page():
         active_page="pet",
         logged_in=True,
     )
+
+
+@app.route("/api/pet/care", methods=["POST"])
+def pet_care():
+    """Perform a care action (feed/play/pet/study_with) on the user's Plani.
+
+    Cooldown-gated by pet_engine.CARE_ACTIONS. Awards XP and bumps mood.
+    """
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error"}), 401
+    action = ((request.json or {}).get("action") or "").strip()
+    if action not in pet_engine.CARE_ACTIONS:
+        return flask.jsonify({"status": "error", "message": "Unknown action"}), 400
+
+    pet = _get_or_create_pet(current_user.id)
+    last_at_map = {
+        "feed": pet.last_fed_at,
+        "play": pet.last_played_at,
+        "pet": pet.last_petted_at,
+        "study_with": pet.last_studied_at,
+    }
+    allowed, wait_s = pet_engine.can_perform_care_action(action, last_at_map[action])
+    if not allowed:
+        return flask.jsonify({
+            "status": "cooldown",
+            "message": f"{pet_engine.CARE_ACTIONS[action]['label']} on cooldown",
+            "wait_seconds": wait_s,
+        }), 429
+
+    cfg = pet_engine.CARE_ACTIONS[action]
+    before_stage = pet_engine.stage_for_xp(pet.xp or 0)["id"]
+    pet.xp = (pet.xp or 0) + cfg["xp"]
+    after_stage = pet_engine.stage_for_xp(pet.xp)["id"]
+    now = datetime.utcnow()
+    if action == "feed":
+        pet.last_fed_at = now
+    elif action == "play":
+        pet.last_played_at = now
+    elif action == "pet":
+        pet.last_petted_at = now
+    elif action == "study_with":
+        pet.last_studied_at = now
+    db.session.commit()
+
+    try:
+        app_analytics.track(current_user.id, "pet_care_action", {
+            "action": action, "xp": cfg["xp"], "total_xp": pet.xp,
+        })
+    except Exception:
+        pass
+
+    return flask.jsonify({
+        "status": "ok",
+        "action": action,
+        "xp_awarded": cfg["xp"],
+        "total_xp": pet.xp,
+        "copy": cfg["copy"],
+        "evolution": pet_engine.evolution_payload(before_stage, after_stage),
+        "cooldown_hours": cfg["cooldown_hours"],
+    })
+
+
+@app.route("/api/pet/chest", methods=["POST"])
+def pet_chest():
+    """Open the daily check-in chest. Idempotent per local day."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error"}), 401
+    pet = _get_or_create_pet(current_user.id)
+    tz_name = _user_tz_for_pet(current_user.id) or "UTC"
+    today = pet_engine.datetime.now(pet_engine.ZoneInfo(tz_name)).date()
+
+    # Already claimed today?
+    if pet.last_chest_local_date == today.isoformat():
+        reward = pet_engine.daily_chest_reward(pet.chest_streak_days or 1)
+        return flask.jsonify({
+            "status": "already_claimed",
+            "chest": reward,
+            "chest_streak_days": pet.chest_streak_days,
+        })
+
+    # Continuation check
+    yesterday = (today - timedelta(days=1)).isoformat()
+    if pet.last_chest_local_date == yesterday:
+        pet.chest_streak_days = (pet.chest_streak_days or 0) + 1
+    else:
+        pet.chest_streak_days = 1
+
+    reward = pet_engine.daily_chest_reward(pet.chest_streak_days)
+    before_stage = pet_engine.stage_for_xp(pet.xp or 0)["id"]
+    pet.xp = (pet.xp or 0) + reward["xp"]
+    after_stage = pet_engine.stage_for_xp(pet.xp)["id"]
+    pet.last_chest_local_date = today.isoformat()
+    db.session.commit()
+
+    try:
+        app_analytics.track(current_user.id, "pet_chest_opened", {
+            "xp": reward["xp"], "streak_days": pet.chest_streak_days, "tier": reward["tier"],
+        })
+    except Exception:
+        pass
+
+    return flask.jsonify({
+        "status": "ok",
+        "chest": reward,
+        "chest_streak_days": pet.chest_streak_days,
+        "total_xp": pet.xp,
+        "evolution": pet_engine.evolution_payload(before_stage, after_stage),
+    })
+
+
+@app.route("/api/streak/risk")
+def streak_risk():
+    """Real-time risk assessment for the at-risk banner / push toast."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error"}), 401
+    row = _get_or_create_streak(current_user.id)
+    tz_name = row.timezone or "UTC"
+    last_date = None
+    if row.last_qualifying_local_date:
+        try:
+            last_date = date.fromisoformat(row.last_qualifying_local_date)
+        except (ValueError, TypeError):
+            last_date = None
+    risk = streak_engine.assess_streak_risk(
+        current_streak=row.current_streak,
+        last_qualifying_local_date=last_date,
+        user_tz=tz_name,
+    )
+    # Compute the week dots for the perfect-week badge
+    try:
+        qualified = set()
+        for d in json.loads(row.qualified_dates_json or "[]"):
+            try:
+                qualified.add(date.fromisoformat(d))
+            except (ValueError, TypeError):
+                pass
+    except (json.JSONDecodeError, TypeError):
+        qualified = set()
+    dots = streak_engine.week_dots(tz_name, qualified)
+    perfect = streak_engine.perfect_week_bonus(dots)
+
+    # Pay out the perfect-week bonus exactly once per ISO week
+    iso_year, iso_week, _ = pet_engine.datetime.now(pet_engine.ZoneInfo(tz_name)).date().isocalendar()
+    week_key = f"{iso_year}-W{iso_week:02d}"
+    paid_bonus = None
+    if perfect.get("perfect"):
+        pet = _get_or_create_pet(current_user.id)
+        if pet.perfect_week_paid != week_key:
+            pet.xp = (pet.xp or 0) + perfect["bonus_xp"]
+            pet.perfect_week_paid = week_key
+            db.session.commit()
+            paid_bonus = perfect["bonus_xp"]
+
+    return flask.jsonify({
+        "status": "ok",
+        "level": risk.level,
+        "hours_until_break": risk.hours_until_break,
+        "message": risk.message,
+        "urgency_score": risk.urgency_score,
+        "perfect_week": perfect,
+        "perfect_week_paid": paid_bonus,
+        "freeze_offer": streak_engine.streak_freeze_offer(
+            current_streak=row.current_streak,
+            last_qualifying_local_date=last_date,
+            freezes_available=row.freezes_available,
+            user_tz=tz_name,
+        ),
+    })
 
 
 @app.route("/tasks/manual/list")
@@ -11733,6 +11949,13 @@ def _migrate_user_columns():
         ("plani_pets", "xp", "INTEGER DEFAULT 0"),
         ("plani_pets", "last_visit_local_date", "VARCHAR(16) DEFAULT ''"),
         ("plani_pets", "hatched_at", "TIMESTAMP"),
+        ("plani_pets", "last_fed_at", "TIMESTAMP"),
+        ("plani_pets", "last_played_at", "TIMESTAMP"),
+        ("plani_pets", "last_petted_at", "TIMESTAMP"),
+        ("plani_pets", "last_studied_at", "TIMESTAMP"),
+        ("plani_pets", "last_chest_local_date", "VARCHAR(16) DEFAULT ''"),
+        ("plani_pets", "chest_streak_days", "INTEGER DEFAULT 0"),
+        ("plani_pets", "perfect_week_paid", "VARCHAR(16) DEFAULT ''"),
     ]
 
     # Group targets by table so we only inspect each table once.

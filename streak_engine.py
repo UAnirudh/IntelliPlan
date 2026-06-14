@@ -217,3 +217,133 @@ def recap_headline(week_number: int, user_id: int, tasks_done: int, busiest_day:
     idx = int(digest[:8], 16) % len(_RECAP_HEADLINES)
     template = _RECAP_HEADLINES[idx]
     return template.format(busiest_day=busiest_day, tasks_done=tasks_done)
+
+
+# ── Retention helpers ────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class StreakRisk:
+    """Risk assessment for the current streak — drives the at-risk banner."""
+
+    level: str          # "safe" | "due_today" | "danger" | "broken"
+    hours_until_break: int  # full local hours remaining today to act
+    message: str        # short, actionable
+    urgency_score: int  # 0-100 for picking colors / push priority
+
+
+def assess_streak_risk(
+    *,
+    current_streak: int,
+    last_qualifying_local_date: date | None,
+    user_tz: str,
+    now_local: datetime | None = None,
+) -> StreakRisk:
+    """Return a StreakRisk describing the user's current standing.
+
+    "safe"        — already done today
+    "due_today"   — hasn't acted yet, plenty of time
+    "danger"      — < 4 hours of day remaining and still un-qualified
+    "broken"      — last action was 2+ days ago (engine resets next call)
+    """
+    tz = ZoneInfo(user_tz) if user_tz else ZoneInfo("UTC")
+    now = now_local or datetime.now(tz)
+    today = now.date()
+
+    # No streak yet
+    if current_streak <= 0:
+        return StreakRisk(
+            level="due_today",
+            hours_until_break=max(0, 24 - now.hour),
+            message="Start your first streak today!",
+            urgency_score=40,
+        )
+
+    if last_qualifying_local_date == today:
+        return StreakRisk(
+            level="safe",
+            hours_until_break=24,
+            message=f"{current_streak}-day streak locked for today.",
+            urgency_score=0,
+        )
+
+    yesterday = today - timedelta(days=1)
+    if last_qualifying_local_date and last_qualifying_local_date < yesterday:
+        return StreakRisk(
+            level="broken",
+            hours_until_break=0,
+            message=f"Your {current_streak}-day streak is broken.",
+            urgency_score=100,
+        )
+
+    hours_left = max(0, 24 - now.hour)
+    if hours_left <= 4:
+        return StreakRisk(
+            level="danger",
+            hours_until_break=hours_left,
+            message=(
+                f"⚠ {current_streak}-day streak ends in {hours_left}h. "
+                "Complete one task to save it."
+            ),
+            urgency_score=90,
+        )
+    return StreakRisk(
+        level="due_today",
+        hours_until_break=hours_left,
+        message=f"Keep your {current_streak}-day streak alive — finish one task today.",
+        urgency_score=60,
+    )
+
+
+def perfect_week_bonus(week_dots: list[dict]) -> dict:
+    """Detect a Mon-Sun perfect week (every weekday qualified through today).
+
+    Returns dict with ``perfect`` (bool), ``progress`` (qualified-day count),
+    ``message`` (short copy for the UI), and ``bonus_xp`` (awarded amount when
+    perfect). The caller is responsible for paying out and idempotency.
+    """
+    qualified_days = sum(1 for d in week_dots if d.get("qualified"))
+    past_or_today = sum(1 for d in week_dots if not d.get("is_future", False))
+    perfect = qualified_days == past_or_today and past_or_today >= 7
+
+    if perfect:
+        return {
+            "perfect": True,
+            "progress": qualified_days,
+            "total_days": 7,
+            "message": "Perfect week — +200 XP bonus!",
+            "bonus_xp": 200,
+        }
+    return {
+        "perfect": False,
+        "progress": qualified_days,
+        "total_days": past_or_today,
+        "message": f"{qualified_days}/{past_or_today} days this week. {7 - qualified_days} to lock the perfect-week bonus.",
+        "bonus_xp": 0,
+    }
+
+
+def streak_freeze_offer(
+    *,
+    current_streak: int,
+    last_qualifying_local_date: date | None,
+    freezes_available: int,
+    user_tz: str,
+    now_local: datetime | None = None,
+) -> dict | None:
+    """When the streak is in real danger, return an offer dict so the UI can
+    pop a 'Save your streak' modal. ``None`` means no offer needed."""
+    risk = assess_streak_risk(
+        current_streak=current_streak,
+        last_qualifying_local_date=last_qualifying_local_date,
+        user_tz=user_tz,
+        now_local=now_local,
+    )
+    if risk.level == "danger" and freezes_available > 0:
+        return {
+            "show": True,
+            "message": f"Use 1 freeze to lock your {current_streak}-day streak overnight?",
+            "freezes_after": freezes_available - 1,
+            "expires_in_hours": risk.hours_until_break,
+        }
+    return None
