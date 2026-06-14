@@ -105,11 +105,24 @@ def _get_completion_rate_7d(user_id: int) -> float:
         return 0.0
 
 
+def _lms_fetcher(user_id: int) -> list[dict]:
+    """Pull live LMS assignments — Canvas, StudentVue, Schoology, Classroom,
+    Blackboard, Moodle — for the given user. Safe to call outside a request
+    context (the underlying helper handles that)."""
+    from App import collect_lms_assignments_for_user
+
+    try:
+        return collect_lms_assignments_for_user(user_id)
+    except Exception as e:
+        print(f"[command_center] lms fetch failed: {e}")
+        return []
+
+
 def _build_service() -> TodayService:
     from App import BriefingCache, HealthSnapshot, ManualTask, db
 
     briefing = BriefingService(BriefingCache, db.session)
-    repo = AssignmentRepository(ManualTask, db.session)
+    repo = AssignmentRepository(ManualTask, db.session, lms_fetcher=_lms_fetcher)
     return TodayService(
         assignments_repo=repo,
         briefing_service=briefing,

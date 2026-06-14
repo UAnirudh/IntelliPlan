@@ -37,6 +37,7 @@ from flask_limiter.util import get_remote_address
 from auth_api import auth_bp, verify_token
 from chatbot_api import chatbot_bp
 from plani_agent import plani_agent_bp
+from aeo_analyzer import aeo_bp
 from werkzeug.utils import secure_filename
 import secrets as secrets_module
 import urllib.parse
@@ -165,6 +166,7 @@ Session(app)
 app.register_blueprint(auth_bp)
 app.register_blueprint(chatbot_bp)
 app.register_blueprint(plani_agent_bp)
+app.register_blueprint(aeo_bp)
 
 @app.after_request
 def add_cors_headers(response):
@@ -6141,6 +6143,168 @@ def notion_complete_task():
         return flask.jsonify({"status": "error", "message": str(e)})
 
 # ── UNIFIED TASKS ─────────────────────────────────────────────
+def collect_lms_assignments_for_user(user_id: int) -> list[dict]:
+    """Return canonical LMS-source task dicts for the given user.
+
+    Pulls live data from Canvas / StudentVue / Schoology / Classroom /
+    Blackboard / Moodle / Notion based on the user's active account and
+    LMS preferences. Used by:
+      - /tasks/unified (legacy route)
+      - the Command Center repository (real data, not mocks)
+      - the agentic Plani chatbot
+
+    Failures from any single source are isolated — one broken provider
+    must not blank out the entire feed.
+    """
+    from datetime import date as date_type
+
+    if not user_id:
+        return []
+
+    tasks: list[dict] = []
+    today = date_type.today()
+    try:
+        dismissed = set(d.title for d in DismissedAssignment.query.filter_by(user_id=user_id).all())
+    except Exception:
+        dismissed = set()
+
+    # Active LMS account (resolves through the LinkedAccount table)
+    acct_dict = None
+    try:
+        acct = LinkedAccount.query.filter_by(user_id=user_id, is_active=True).first()
+        if acct:
+            creds = acct.get_credentials() or {}
+            creds["login_type"] = acct.login_type
+            if not creds.get("canvas_url"):
+                creds["canvas_url"] = "https://canvas.instructure.com"
+            acct_dict = creds
+    except Exception:
+        acct_dict = None
+
+    if acct_dict:
+        login_type = acct_dict["login_type"]
+        if login_type == "studentvue":
+            try:
+                raw = get_sv_assignments(acct_dict["sv_district_url"], acct_dict["sv_username"], acct_dict["sv_password"])
+                if isinstance(raw, list):
+                    for a in raw:
+                        if isinstance(a, dict) and a.get("title") not in dismissed:
+                            a["source"] = "studentvue"
+                            a.setdefault("priority", "Medium")
+                            tasks.append(a)
+            except Exception as e:
+                print(f"[lms-collect] SV err: {e}")
+            try:
+                missing_raw = get_missing_assignments(acct_dict["sv_district_url"], acct_dict["sv_username"], acct_dict["sv_password"])
+                if isinstance(missing_raw, list):
+                    for a in missing_raw:
+                        if isinstance(a, dict) and a.get("title") not in dismissed:
+                            a["source"] = "studentvue_missing"
+                            a.setdefault("priority", "High")
+                            tasks.append(a)
+            except Exception as e:
+                print(f"[lms-collect] SV missing err: {e}")
+        elif login_type == "canvas":
+            try:
+                token = acct_dict["canvas_token"]
+                base = f"{acct_dict['canvas_url']}/api/v1"
+                headers = {"Authorization": f"Bearer {token}"}
+                course_response = requests.get(f"{base}/courses", headers=headers, timeout=15)
+                courses = course_response.json()
+                course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
+                for course_id in course_map:
+                    try:
+                        resp = requests.get(f"{base}/courses/{course_id}/assignments", headers=headers, timeout=15)
+                        data = resp.json()
+                    except Exception:
+                        continue
+                    if not isinstance(data, list):
+                        continue
+                    for a in data:
+                        if not isinstance(a, dict) or not a.get("due_at"):
+                            continue
+                        due_str = a["due_at"][:10]
+                        try:
+                            due = datetime.strptime(due_str, "%Y-%m-%d").date()
+                        except Exception:
+                            continue
+                        days = (due - today).days
+                        if days < -14:
+                            continue
+                        title = a.get("name") or ""
+                        if not title or title in dismissed:
+                            continue
+                        priority = compute_priority(days, a.get("points_possible") or 0, title)
+                        tasks.append({
+                            "id": str(a["id"]),
+                            "title": title,
+                            "course": course_map.get(a.get("course_id"), "Unknown"),
+                            "due_date": due_str,
+                            "priority": priority,
+                            "source": "canvas",
+                            "estimated_time": max(30, round(float(a.get("points_possible", 60) or 60) * 1.5 / 30) * 30),
+                            "difficulty": "Medium",
+                        })
+            except Exception as e:
+                print(f"[lms-collect] canvas err: {e}")
+        elif login_type == "schoology":
+            try:
+                from schoology_helper import get_schoology_assignments
+                raw = get_schoology_assignments(acct_dict["schoology_key"], acct_dict["schoology_secret"])
+                if isinstance(raw, list):
+                    for a in raw:
+                        if isinstance(a, dict) and a.get("title") not in dismissed:
+                            a["source"] = "schoology"
+                            a.setdefault("priority", "Medium")
+                            tasks.append(a)
+            except Exception as e:
+                print(f"[lms-collect] schoology err: {e}")
+
+    # Google Classroom (independent of active account)
+    try:
+        ctok, _crow = _classroom_access_token_for(user_id)
+        if ctok:
+            for a in _classroom_fetch_assignments(ctok):
+                if a.get("title") and a["title"] not in dismissed:
+                    tasks.append(a)
+    except Exception as e:
+        print(f"[lms-collect] classroom err: {e}")
+
+    # Blackboard
+    try:
+        btok, brow = _blackboard_access_token_for(user_id)
+        if btok and brow and brow.institution_url:
+            for a in _blackboard_fetch_assignments(brow.institution_url, btok, brow.bb_user_id):
+                if a.get("title") and a["title"] not in dismissed:
+                    tasks.append(a)
+    except Exception as e:
+        print(f"[lms-collect] blackboard err: {e}")
+
+    # Moodle
+    try:
+        mrow = MoodleIntegration.query.filter_by(user_id=user_id).order_by(MoodleIntegration.id.desc()).first()
+        if mrow and mrow.moodle_url and mrow.ws_token:
+            for a in _moodle_fetch_assignments(mrow.moodle_url, mrow.ws_token, mrow.moodle_user_id):
+                if a.get("title") and a["title"] not in dismissed:
+                    tasks.append(a)
+    except Exception as e:
+        print(f"[lms-collect] moodle err: {e}")
+
+    # Deduplicate (title + course + due_date)
+    seen = set()
+    deduped = []
+    for t in tasks:
+        title = (t.get("title") or "").strip().lower()
+        course = (t.get("course") or "").strip().lower()
+        due_date = (t.get("due_date") or "").strip()
+        key = (title, course, due_date)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(t)
+    return deduped
+
+
 @app.route("/tasks/unified")
 def unified_tasks():
     from datetime import date as date_type
@@ -11479,6 +11643,9 @@ limiter.limit("30 per minute")(app.view_functions["command_center.api_today"])
 limiter.limit("6 per hour")(app.view_functions["command_center.api_today_refresh"])
 limiter.exempt(app.view_functions["command_center.cron_refresh_briefings"])
 limiter.limit("20 per minute")(app.view_functions["plani_agent.plani_agent"])
+# Public AEO analyzer — generous for guests, but capped so the Apify token
+# can't be drained by a single IP.
+limiter.limit("10 per minute; 60 per hour")(app.view_functions["aeo_analyzer.aeo_analyze"])
 
 
 def _existing_columns(table_name):
