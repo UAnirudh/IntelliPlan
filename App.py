@@ -5511,6 +5511,15 @@ def dismiss():
                 _record_streak_qualifying_action(current_user.id, data.get("timezone"))
             except Exception as e:
                 print(f"[streak] error on dismiss: {e}")
+            try:
+                _award_pet_xp(current_user.id, "task_completed", browser_tz=data.get("timezone"))
+            except Exception as e:
+                print(f"[pet] error on dismiss: {e}")
+            # Bust the LMS cache so the dismissed task vanishes immediately
+            try:
+                invalidate_lms_cache_for_user(current_user.id)
+            except Exception:
+                pass
         return flask.jsonify({"status": "ok"})
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)}), 500
@@ -6157,7 +6166,45 @@ def notion_complete_task():
         return flask.jsonify({"status": "error", "message": str(e)})
 
 # ── UNIFIED TASKS ─────────────────────────────────────────────
-def collect_lms_assignments_for_user(user_id: int) -> list[dict]:
+# ── LMS aggregation cache ────────────────────────────────────────────
+# The command center renders on every page load. Without this cache,
+# each render does N+1 HTTP calls against Canvas (1 for courses + 1 per
+# course) plus full StudentVue/Schoology pulls — easily 8–30s wall-clock.
+# 5-minute TTL keeps the surface fresh while making the page feel instant.
+#
+# In-memory only on purpose: a single Railway/Gunicorn worker pinned to
+# one user serves them most of the time. For multi-worker fan-out we can
+# move this to Redis later.
+
+_LMS_CACHE: dict[int, tuple[float, list[dict]]] = {}
+_LMS_CACHE_TTL_SECONDS = 300  # 5 minutes
+
+
+def _lms_cache_get(user_id: int) -> list[dict] | None:
+    """Return cached LMS data if it's still fresh, else None."""
+    import time as _time
+    entry = _LMS_CACHE.get(user_id)
+    if not entry:
+        return None
+    ts, data = entry
+    if _time.time() - ts > _LMS_CACHE_TTL_SECONDS:
+        _LMS_CACHE.pop(user_id, None)
+        return None
+    return data
+
+
+def _lms_cache_put(user_id: int, data: list[dict]) -> None:
+    import time as _time
+    _LMS_CACHE[user_id] = (_time.time(), data)
+
+
+def invalidate_lms_cache_for_user(user_id: int) -> None:
+    """Force the next render to re-fetch from upstream. Called when the
+    user creates/dismisses/edits a manual task or finishes an LMS connect."""
+    _LMS_CACHE.pop(user_id, None)
+
+
+def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) -> list[dict]:
     """Return canonical LMS-source task dicts for the given user.
 
     Pulls live data from Canvas / StudentVue / Schoology / Classroom /
@@ -6167,6 +6214,9 @@ def collect_lms_assignments_for_user(user_id: int) -> list[dict]:
       - the Command Center repository (real data, not mocks)
       - the agentic Plani chatbot
 
+    Cached per user for ``_LMS_CACHE_TTL_SECONDS`` to make repeat
+    page loads instant. Pass ``use_cache=False`` to bypass.
+
     Failures from any single source are isolated — one broken provider
     must not blank out the entire feed.
     """
@@ -6174,6 +6224,10 @@ def collect_lms_assignments_for_user(user_id: int) -> list[dict]:
 
     if not user_id:
         return []
+    if use_cache:
+        cached = _lms_cache_get(user_id)
+        if cached is not None:
+            return cached
 
     tasks: list[dict] = []
     today = date_type.today()
@@ -6220,45 +6274,62 @@ def collect_lms_assignments_for_user(user_id: int) -> list[dict]:
                 print(f"[lms-collect] SV missing err: {e}")
         elif login_type == "canvas":
             try:
+                from concurrent.futures import ThreadPoolExecutor, as_completed
                 token = acct_dict["canvas_token"]
                 base = f"{acct_dict['canvas_url']}/api/v1"
                 headers = {"Authorization": f"Bearer {token}"}
-                course_response = requests.get(f"{base}/courses", headers=headers, timeout=15)
+                # Single 6s budget for the courses list — anything slower
+                # means Canvas is degraded and we'd rather show stale data
+                course_response = requests.get(f"{base}/courses", headers=headers, timeout=6)
                 courses = course_response.json()
                 course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
-                for course_id in course_map:
+
+                # Fan out per-course requests in parallel — 8 concurrent
+                # cuts a 10-course pull from ~50s sequential to ~6s.
+                def _fetch_course(course_id):
                     try:
-                        resp = requests.get(f"{base}/courses/{course_id}/assignments", headers=headers, timeout=15)
-                        data = resp.json()
+                        r = requests.get(
+                            f"{base}/courses/{course_id}/assignments",
+                            headers=headers, timeout=6,
+                        )
+                        return course_id, r.json()
                     except Exception:
-                        continue
-                    if not isinstance(data, list):
-                        continue
-                    for a in data:
-                        if not isinstance(a, dict) or not a.get("due_at"):
-                            continue
-                        due_str = a["due_at"][:10]
+                        return course_id, []
+
+                with ThreadPoolExecutor(max_workers=8) as pool:
+                    futures = [pool.submit(_fetch_course, cid) for cid in course_map]
+                    for fut in as_completed(futures, timeout=15):
                         try:
-                            due = datetime.strptime(due_str, "%Y-%m-%d").date()
+                            course_id, data = fut.result()
                         except Exception:
                             continue
-                        days = (due - today).days
-                        if days < -14:
+                        if not isinstance(data, list):
                             continue
-                        title = a.get("name") or ""
-                        if not title or title in dismissed:
-                            continue
-                        priority = compute_priority(days, a.get("points_possible") or 0, title)
-                        tasks.append({
-                            "id": str(a["id"]),
-                            "title": title,
-                            "course": course_map.get(a.get("course_id"), "Unknown"),
-                            "due_date": due_str,
-                            "priority": priority,
-                            "source": "canvas",
-                            "estimated_time": max(30, round(float(a.get("points_possible", 60) or 60) * 1.5 / 30) * 30),
-                            "difficulty": "Medium",
-                        })
+                        for a in data:
+                            if not isinstance(a, dict) or not a.get("due_at"):
+                                continue
+                            due_str = a["due_at"][:10]
+                            try:
+                                due = datetime.strptime(due_str, "%Y-%m-%d").date()
+                            except Exception:
+                                continue
+                            days = (due - today).days
+                            if days < -14:
+                                continue
+                            title = a.get("name") or ""
+                            if not title or title in dismissed:
+                                continue
+                            priority = compute_priority(days, a.get("points_possible") or 0, title)
+                            tasks.append({
+                                "id": str(a["id"]),
+                                "title": title,
+                                "course": course_map.get(a.get("course_id"), course_map.get(course_id, "Unknown")),
+                                "due_date": due_str,
+                                "priority": priority,
+                                "source": "canvas",
+                                "estimated_time": max(30, round(float(a.get("points_possible", 60) or 60) * 1.5 / 30) * 30),
+                                "difficulty": "Medium",
+                            })
             except Exception as e:
                 print(f"[lms-collect] canvas err: {e}")
         elif login_type == "schoology":
@@ -6316,6 +6387,9 @@ def collect_lms_assignments_for_user(user_id: int) -> list[dict]:
             continue
         seen.add(key)
         deduped.append(t)
+    # Cache so the next render is instant
+    if use_cache:
+        _lms_cache_put(user_id, deduped)
     return deduped
 
 
@@ -6573,6 +6647,9 @@ def manual_create_task():
                 db.session.commit()
             except Exception:
                 pass
+    if current_user.is_authenticated:
+        try: invalidate_lms_cache_for_user(current_user.id)
+        except Exception: pass
     return flask.jsonify({"status": "ok", "id": task.id})
 
 @app.route("/tasks/manual/update", methods=["POST"])
@@ -6608,6 +6685,9 @@ def manual_update_task():
             _award_pet_xp(current_user.id, "task_completed", browser_tz=data.get("timezone"))
         except Exception as e:
             print(f"[pet] error on task complete: {e}")
+    if current_user.is_authenticated:
+        try: invalidate_lms_cache_for_user(current_user.id)
+        except Exception: pass
     return flask.jsonify({"status": "ok"})
 
 @app.route("/tasks/manual/delete", methods=["POST"])
@@ -6617,6 +6697,9 @@ def manual_delete_task():
     if task:
         db.session.delete(task)
         db.session.commit()
+    if current_user.is_authenticated:
+        try: invalidate_lms_cache_for_user(current_user.id)
+        except Exception: pass
     return flask.jsonify({"status": "ok"})
 
 
