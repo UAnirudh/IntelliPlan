@@ -989,8 +989,27 @@
   position: fixed; inset: 0;
   background: radial-gradient(circle at 50% 50%, rgba(139,92,246,0.4), rgba(0,0,0,0.85));
   z-index: 9999;
-  display: flex; align-items: center; justify-content: center;
+  align-items: center; justify-content: center;
   animation: ccEvolveIn 0.5s ease both;
+}
+/* Display flex only when not [hidden] — keeps the Continue button reliable */
+.cc-evolve-overlay:not([hidden]) { display: flex; }
+.cc-evolve-overlay[hidden] { display: none !important; }
+.cc-evolve-btn { cursor: pointer; }
+.cc-evolve-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+/* ── Re-scan spinner ── */
+.cc-spin { animation: ccSpin 0.9s linear infinite; transform-origin: 50% 50%; }
+@keyframes ccSpin { to { transform: rotate(360deg); } }
+
+/* ── Rationale collapse ── */
+.cc-rationale[hidden] { display: none !important; }
+.cc-rationale:not([hidden]) {
+  animation: ccRationaleIn 0.25s ease both;
+}
+@keyframes ccRationaleIn {
+  from { opacity: 0; transform: translateY(-4px); max-height: 0; }
+  to   { opacity: 1; transform: translateY(0);    max-height: 600px; }
 }
 @keyframes ccEvolveIn { from { opacity: 0; backdrop-filter: blur(0); } to { opacity: 1; backdrop-filter: blur(8px); } }
 .cc-evolve-card {

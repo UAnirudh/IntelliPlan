@@ -35,7 +35,7 @@
 </div>
 <div id="mobileNavBackdrop" onclick="closeMobileNav()" style="display:none;position:fixed;inset:0;z-index:899;background:rgba(7,8,20,0.5);backdrop-filter:blur(4px);"></div>
 
-<div class="cc-page" x-data="commandCenter()" x-init="init()">
+<div class="cc-page" id="ccPage">
 
   {% if load_error %}
   <div class="cc-error-banner" role="alert">
@@ -77,14 +77,9 @@
         <p class="cc-hero-body">{{ today.briefing.body }}</p>
 
         <div class="cc-hero-actions">
-          <button class="cc-hero-cta"
-                  hx-post="/api/today/refresh"
-                  hx-target="#ccHero"
-                  hx-swap="outerHTML"
-                  hx-indicator="#ccRefreshSpinner"
-                  @click="refreshing = true">
+          <button class="cc-hero-cta" type="button" id="ccRescanBtn" onclick="ccRescanDay()">
             <svg id="ccRefreshSpinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-            Re-scan day
+            <span id="ccRescanLabel">Re-scan day</span>
           </button>
           <a href="/scheduler" class="cc-hero-cta cc-hero-cta-secondary">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-scheduler"/></svg>
@@ -145,9 +140,7 @@
       {% if today.plan %}
       <ol class="cc-task-list">
         {% for task in today.plan %}
-        <li class="cc-task-card"
-            x-data="{ showWhy: false }"
-            style="--delay: {{ loop.index0 * 60 }}ms">
+        <li class="cc-task-card" style="--delay: {{ loop.index0 * 60 }}ms">
           <div class="cc-task-rail cc-tier-{{ task.priority.tier }}"></div>
           <div class="cc-task-main">
             <div class="cc-score-chip cc-tier-{{ task.priority.tier }}">
@@ -168,11 +161,11 @@
               </div>
               <p class="cc-task-why-now">{{ task.why_now }}</p>
             </div>
-            <button class="cc-why-btn" @click="showWhy = !showWhy" :aria-expanded="showWhy">
-              <span x-text="showWhy ? '−' : '?'">?</span>
+            <button type="button" class="cc-why-btn" aria-expanded="false" onclick="ccToggleWhy(this)">
+              <span>?</span>
             </button>
           </div>
-          <div class="cc-rationale" x-show="showWhy" x-collapse>
+          <div class="cc-rationale" hidden>
             <div class="cc-rationale-chips">
               {% for chip in task.priority.rationale %}
               <div class="cc-reason-chip">
@@ -366,39 +359,114 @@
 <div class="cc-chat-overlay" id="planiOverlay" onclick="togglePlaniChat()"></div>
 
 {# ── Evolution celebration overlay ── #}
-<div id="ccEvolveOverlay" class="cc-evolve-overlay" hidden>
+<div id="ccEvolveOverlay" class="cc-evolve-overlay" hidden style="display:none;">
   <div class="cc-evolve-card">
     <div class="cc-evolve-burst"></div>
     <div class="cc-evolve-emoji" id="ccEvolveEmoji">✨</div>
     <h2 id="ccEvolveHeadline">Plani evolved!</h2>
     <p id="ccEvolveCopy">Something amazing happened.</p>
-    <button class="cc-evolve-btn" onclick="document.getElementById('ccEvolveOverlay').hidden=true">Continue</button>
+    <button type="button" class="cc-evolve-btn" onclick="closeEvolveOverlay()">Continue</button>
   </div>
 </div>
 
 <script>
 const STAGE_EMOJI = { egg:'🥚', hatchling:'🐣', sprout:'🌱', cub:'🐱', scholar:'🦊', sage:'🦉', guardian:'🐉', mythic:'🦄', cosmic:'🌟' };
 
-function commandCenter() {
-  return {
-    refreshing: false,
-    init() {
-      document.body.classList.add('has-side');
-      // Tick the live time once a minute
-      setInterval(updateLiveTime, 60_000);
-      updateLiveTime();
-      // Hydrate the orbital pet/streak data
-      hydrateMomentum();
-      // Check streak risk + perfect week
-      checkStreakRisk();
-      // Wire care buttons
-      document.querySelectorAll('.cc-care-btn[data-action]').forEach(btn => {
-        btn.addEventListener('click', () => doCareAction(btn.dataset.action));
-      });
-      const chest = document.getElementById('ccChestBtn');
-      if (chest) chest.addEventListener('click', openChest);
+document.addEventListener('DOMContentLoaded', function() {
+  document.body.classList.add('has-side');
+
+  // Live time, ticks every minute
+  setInterval(updateLiveTime, 60_000);
+  updateLiveTime();
+
+  // Hydrate pet/streak orbs
+  hydrateMomentum();
+
+  // At-risk banner / perfect-week celebration
+  checkStreakRisk();
+
+  // Care action buttons (feed/play/pet)
+  document.querySelectorAll('.cc-care-btn[data-action]').forEach(function(btn) {
+    btn.addEventListener('click', function() { doCareAction(btn.dataset.action); });
+  });
+
+  // Daily chest
+  const chest = document.getElementById('ccChestBtn');
+  if (chest) chest.addEventListener('click', openChest);
+
+  // Evolution overlay — Continue button + click outside to dismiss
+  const evolveOverlay = document.getElementById('ccEvolveOverlay');
+  if (evolveOverlay) {
+    evolveOverlay.addEventListener('click', function(e) {
+      if (e.target === evolveOverlay) closeEvolveOverlay();
+    });
+  }
+
+  // ESC key closes overlays
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      closeEvolveOverlay();
+      const chatOpen = document.getElementById('planiChat');
+      if (chatOpen && chatOpen.classList.contains('cc-chat-open') && window.innerWidth < 1200) {
+        togglePlaniChat();
+      }
     }
-  };
+  });
+
+  // Auto-clear hero-CTA spinner if HTMX no-op'd it
+  const spinner = document.getElementById('ccRefreshSpinner');
+  if (spinner) spinner.classList.remove('cc-spin');
+});
+
+/* ── Hero re-scan button ──────────────────────────────────────── */
+function ccRescanDay() {
+  const btn = document.getElementById('ccRescanBtn');
+  const label = document.getElementById('ccRescanLabel');
+  const spinner = document.getElementById('ccRefreshSpinner');
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
+  if (label) label.textContent = 'Re-scanning…';
+  if (spinner) spinner.classList.add('cc-spin');
+  fetch('/api/today/refresh', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: '{}'
+  }).then(function(r) {
+    if (r.ok) {
+      // Reload so the new briefing + plan render server-side
+      window.location.reload();
+    } else {
+      btn.disabled = false;
+      if (label) label.textContent = 'Try again';
+      if (spinner) spinner.classList.remove('cc-spin');
+    }
+  }).catch(function() {
+    btn.disabled = false;
+    if (label) label.textContent = 'Try again';
+    if (spinner) spinner.classList.remove('cc-spin');
+  });
+}
+
+/* ── Task "why?" toggle ──────────────────────────────────────── */
+function ccToggleWhy(btn) {
+  const card = btn.closest('.cc-task-card');
+  if (!card) return;
+  const rationale = card.querySelector('.cc-rationale');
+  const isOpen = btn.getAttribute('aria-expanded') === 'true';
+  if (rationale) rationale.hidden = isOpen;
+  btn.setAttribute('aria-expanded', String(!isOpen));
+  const sym = btn.querySelector('span');
+  if (sym) sym.textContent = isOpen ? '?' : '−';
+}
+
+/* ── Evolution overlay ───────────────────────────────────────── */
+function closeEvolveOverlay() {
+  const ov = document.getElementById('ccEvolveOverlay');
+  if (ov) {
+    ov.hidden = true;
+    ov.style.display = 'none';   // beat any CSS display:flex
+  }
 }
 
 function updateLiveTime() {
@@ -529,7 +597,9 @@ function showEvolution(evo) {
   document.getElementById('ccEvolveEmoji').textContent = STAGE_EMOJI[evo.to] || '✨';
   document.getElementById('ccEvolveHeadline').textContent = evo.headline || 'Plani evolved!';
   document.getElementById('ccEvolveCopy').textContent = evo.copy || '';
-  document.getElementById('ccEvolveOverlay').hidden = false;
+  const ov = document.getElementById('ccEvolveOverlay');
+  ov.hidden = false;
+  ov.style.display = 'flex';   // explicit so it always shows
 }
 
 /* ── Mobile nav ──────────────────────────────────────────────── */
