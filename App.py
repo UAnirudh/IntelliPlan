@@ -51,6 +51,7 @@ from flask_login import (
 from flask_bcrypt import Bcrypt
 from werkzeug.middleware.proxy_fix import ProxyFix
 import streak_engine
+import pet_engine
 import analytics as app_analytics
 
 # ── FIX: Use database-backed sessions so Railway container restarts
@@ -810,6 +811,24 @@ class UserStreak(db.Model):
     timezone = db.Column(db.String(64), default="")
     nudge_shown_date = db.Column(db.String(16), default="")
     qualified_dates_json = db.Column(db.Text, default="[]")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class PlaniPet(db.Model):
+    """Virtual creature that grows with site usage. Duolingo-style mascot.
+
+    XP is awarded for: daily visits, task completion, schedule generation,
+    streak milestones, study sessions, tutor chats, and grade imports.
+    Stage is derived from cumulative XP via pet_engine.stage_for_xp().
+    """
+    __tablename__ = "plani_pets"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), unique=True, nullable=False)
+    name = db.Column(db.String(40), default="Plani")
+    xp = db.Column(db.Integer, default=0)
+    last_visit_local_date = db.Column(db.String(16), default="")
+    hatched_at = db.Column(db.DateTime, default=datetime.utcnow)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -6407,6 +6426,10 @@ def manual_update_task():
             _record_streak_qualifying_action(current_user.id, data.get("timezone"))
         except Exception as e:
             print(f"[streak] error on task complete: {e}")
+        try:
+            _award_pet_xp(current_user.id, "task_completed", browser_tz=data.get("timezone"))
+        except Exception as e:
+            print(f"[pet] error on task complete: {e}")
     return flask.jsonify({"status": "ok"})
 
 @app.route("/tasks/manual/delete", methods=["POST"])
@@ -6505,6 +6528,14 @@ def _record_streak_qualifying_action(user_id: int, browser_tz: str | None = None
             "milestone_day": result.current_streak,
         })
 
+    # ── Plani Pet: feed XP for streak milestones (3, 7, 14, 30, 60, 100)
+    try:
+        milestone_event = pet_engine.streak_milestone_event(result.current_streak)
+        if milestone_event:
+            _award_pet_xp(user_id, milestone_event, browser_tz=browser_tz)
+    except Exception as e:
+        print(f"[pet] streak-milestone error: {e}")
+
     return {
         "current_streak": result.current_streak,
         "longest_streak": result.longest_streak,
@@ -6602,9 +6633,15 @@ def streak_plan_review():
         return flask.jsonify({"status": "error"}), 401
     browser_tz = (request.json or {}).get("timezone")
     result = _record_streak_qualifying_action(current_user.id, browser_tz)
+    # Also grant the once-per-day pet visit XP
+    try:
+        pet_award = _maybe_award_daily_visit(current_user.id, browser_tz)
+    except Exception as e:
+        print(f"[pet] error on plan-review visit: {e}")
+        pet_award = None
     if result is None:
-        return flask.jsonify({"status": "ok", "enabled": False})
-    return flask.jsonify({"status": "ok", **result})
+        return flask.jsonify({"status": "ok", "enabled": False, "pet": pet_award})
+    return flask.jsonify({"status": "ok", "pet": pet_award, **result})
 
 
 @app.route("/api/streak/set-timezone", methods=["POST"])
@@ -6619,6 +6656,171 @@ def streak_set_timezone():
     row.timezone = tz
     db.session.commit()
     return flask.jsonify({"status": "ok"})
+
+
+# ── Plani Pet (creature that grows with site usage) ─────────────────
+
+def _get_or_create_pet(user_id: int) -> PlaniPet:
+    row = PlaniPet.query.filter_by(user_id=user_id).first()
+    if not row:
+        row = PlaniPet(user_id=user_id, name="Plani", xp=0)
+        db.session.add(row)
+        db.session.commit()
+    return row
+
+
+def _user_tz_for_pet(user_id: int) -> str:
+    """Use the same timezone the streak engine has stored, fall back to UTC."""
+    sr = UserStreak.query.filter_by(user_id=user_id).first()
+    return (sr.timezone if sr and sr.timezone else "UTC")
+
+
+def _award_pet_xp(user_id: int, event_key: str, *, browser_tz: str | None = None) -> dict | None:
+    """Award XP for a pet event. Returns delta info for client feedback.
+
+    `event_key` must be a key in pet_engine.XP_REWARDS. Safe to call from
+    anywhere — silently no-ops for unauthenticated callers or unknown events.
+    """
+    if not user_id:
+        return None
+    delta = pet_engine.XP_REWARDS.get(event_key)
+    if not delta:
+        return None
+    pet = _get_or_create_pet(user_id)
+    tz_name = _user_tz_for_pet(user_id) or browser_tz or "UTC"
+
+    before_stage = pet_engine.stage_for_xp(pet.xp)["id"]
+    pet.xp = (pet.xp or 0) + delta
+    after_stage = pet_engine.stage_for_xp(pet.xp)["id"]
+
+    # daily_visit also stamps the visit date so we don't double-grant
+    if event_key == "daily_visit":
+        today_local = pet_engine.datetime.now(pet_engine.ZoneInfo(tz_name)).date()
+        pet.last_visit_local_date = today_local.isoformat()
+
+    db.session.commit()
+
+    evolved = after_stage != before_stage
+    try:
+        app_analytics.track(user_id, "pet_xp_earned", {
+            "event": event_key,
+            "delta": delta,
+            "total_xp": pet.xp,
+            "evolved": evolved,
+        })
+        if evolved:
+            app_analytics.track(user_id, "pet_evolved", {
+                "from": before_stage,
+                "to": after_stage,
+                "xp": pet.xp,
+            })
+    except Exception:
+        pass
+
+    return {
+        "delta": delta,
+        "event": event_key,
+        "evolved": evolved,
+        "before_stage": before_stage,
+        "after_stage": after_stage,
+        "xp": pet.xp,
+    }
+
+
+def _maybe_award_daily_visit(user_id: int, browser_tz: str | None = None) -> dict | None:
+    """Grant the per-day visit XP exactly once per local day."""
+    if not user_id:
+        return None
+    pet = _get_or_create_pet(user_id)
+    tz_name = _user_tz_for_pet(user_id) or browser_tz or "UTC"
+    last_date = None
+    if pet.last_visit_local_date:
+        try:
+            last_date = date.fromisoformat(pet.last_visit_local_date)
+        except (ValueError, TypeError):
+            last_date = None
+    if not pet_engine.should_grant_daily_visit(last_date, tz_name):
+        return None
+    return _award_pet_xp(user_id, "daily_visit", browser_tz=browser_tz)
+
+
+@app.route("/api/pet/status")
+def pet_status():
+    """Return the user's pet state (xp, stage, level, mood, progress)."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error", "message": "Not logged in"}), 401
+    pet = _get_or_create_pet(current_user.id)
+    tz_name = _user_tz_for_pet(current_user.id) or "UTC"
+    last_date = None
+    if pet.last_visit_local_date:
+        try:
+            last_date = date.fromisoformat(pet.last_visit_local_date)
+        except (ValueError, TypeError):
+            last_date = None
+    state = pet_engine.resolve_pet_state(
+        xp=pet.xp or 0,
+        last_visit_local=last_date,
+        user_tz=tz_name,
+    )
+    # Also surface streak info so the pet UI can show the combo
+    streak_row = UserStreak.query.filter_by(user_id=current_user.id).first()
+    return flask.jsonify({
+        "status": "ok",
+        "name": pet.name or "Plani",
+        "xp": state.xp,
+        "level": state.level,
+        "stage_id": state.stage_id,
+        "stage_name": state.stage_name,
+        "stage_title": state.stage_title,
+        "stage_color": state.stage_color,
+        "progress_to_next": state.progress_to_next,
+        "xp_into_stage": state.xp_into_stage,
+        "xp_for_next_stage": state.xp_for_next_stage,
+        "next_stage_id": state.next_stage_id,
+        "next_stage_name": state.next_stage_name,
+        "mood": state.mood,
+        "days_since_visit": state.days_since_visit,
+        "stages": pet_engine.STAGES,
+        "hatched_at": (pet.hatched_at.isoformat() if pet.hatched_at else None),
+        "streak": (streak_row.current_streak if streak_row else 0),
+        "longest_streak": (streak_row.longest_streak if streak_row else 0),
+    })
+
+
+@app.route("/api/pet/visit", methods=["POST"])
+def pet_visit():
+    """Mark today's visit. Grants daily_visit XP once per local day."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error"}), 401
+    browser_tz = (request.json or {}).get("timezone")
+    result = _maybe_award_daily_visit(current_user.id, browser_tz)
+    return flask.jsonify({"status": "ok", "awarded": result})
+
+
+@app.route("/api/pet/rename", methods=["POST"])
+def pet_rename():
+    """Let the user name their pet."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error"}), 401
+    name = ((request.json or {}).get("name") or "").strip()[:40]
+    if not name:
+        return flask.jsonify({"status": "error", "message": "Name required"}), 400
+    pet = _get_or_create_pet(current_user.id)
+    pet.name = name
+    db.session.commit()
+    return flask.jsonify({"status": "ok", "name": name})
+
+
+@app.route("/pet")
+def pet_page():
+    """Full pet page — like a Tamagotchi dashboard."""
+    if not current_user.is_authenticated:
+        return flask.redirect("/login")
+    return flask.render_template(
+        "pet.html",
+        active_page="pet",
+        logged_in=True,
+    )
 
 
 @app.route("/tasks/manual/list")
@@ -11359,6 +11561,11 @@ def _migrate_user_columns():
         # entries here are for columns that may be added after initial deploy)
         ("user_streaks", "nudge_shown_date", "VARCHAR(16) DEFAULT ''"),
         ("user_streaks", "qualified_dates_json", "TEXT DEFAULT '[]'"),
+        # plani_pets — virtual creature that grows with site usage
+        ("plani_pets", "name", "VARCHAR(40) DEFAULT 'Plani'"),
+        ("plani_pets", "xp", "INTEGER DEFAULT 0"),
+        ("plani_pets", "last_visit_local_date", "VARCHAR(16) DEFAULT ''"),
+        ("plani_pets", "hatched_at", "TIMESTAMP"),
     ]
 
     # Group targets by table so we only inspect each table once.

@@ -1433,7 +1433,7 @@ body {
 </style>
 </head>
 
-{% set _app_pages = ['dashboard','scheduler','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','olympiad','memories'] %}
+{% set _app_pages = ['dashboard','scheduler','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','olympiad','memories','pet','command_center'] %}
 <body class="{% if active_page in _app_pages %}has-side{% endif %}">
 
 <a href="#main-content" class="skip-to-content">Skip to main content</a>
@@ -1541,6 +1541,11 @@ body {
     </a>
     <a href="/streak" data-nav-item="streak" class="side-link {% if active_page == 'streak' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-fire"/></svg></span>Streak
+      <span class="side-streak-badge" id="sideStreakBadge" hidden></span>
+    </a>
+    <a href="/pet" data-nav-item="pet" class="side-link {% if active_page == 'pet' %}active{% endif %}">
+      <span class="side-icon"><svg><use href="#i-sparkle"/></svg></span>My Plani
+      <span class="side-pet-badge" id="sidePetBadge" hidden></span>
     </a>
 
   </div>
@@ -1600,6 +1605,17 @@ body {
         <a href="/gradebook"       class="nav-tab {% if active_page in ['gradebook','grademodel'] %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-modeler"/></svg></span><span class="nav-label">Grades</span></a>
         <a href="/study-and-learn" class="nav-tab {% if active_page in _study_sub %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-study"/></svg></span><span class="nav-label">Study &amp; Learn</span></a>
         <a href="/streak"          class="nav-tab {% if active_page == 'streak' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-fire"/></svg></span><span class="nav-label">Streak</span></a>
+      </div>
+      {# ── Streak flame + Plani Pet badge — Duolingo-style nav widgets ── #}
+      <div class="nav-group nav-rewards" id="navRewards" hidden>
+        <a href="/streak" class="nav-streak-badge" id="navStreakBadge" title="Your daily streak">
+          <span class="nav-streak-flame">🔥</span>
+          <span class="nav-streak-count" id="navStreakCount">0</span>
+        </a>
+        <a href="/pet" class="nav-pet-badge" id="navPetBadge" title="My Plani">
+          <span class="nav-pet-emoji" id="navPetEmoji">🥚</span>
+          <span class="nav-pet-level" id="navPetLevel">1</span>
+        </a>
       </div>
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
@@ -3257,5 +3273,283 @@ window.addEventListener('load',()=>{
   }
 })();
 </script>
+
+{# ══════════════════════════════════════════════════════════════
+   GLOBAL STREAK + PET WIDGET — Duolingo-style nav badges
+   Visible on every authenticated page. Loads on idle, polls /api/pet/status
+   (which also surfaces the streak count) and renders the flame + pet badge.
+   Also grants the once-per-day visit XP automatically.
+══════════════════════════════════════════════════════════════ #}
+{% if logged_in %}
+<style>
+  /* Nav rewards group — flame + pet badge */
+  .nav-rewards {
+    display: flex !important;
+    gap: 8px;
+    align-items: center;
+    margin-left: 4px;
+  }
+  .nav-streak-badge,
+  .nav-pet-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    text-decoration: none;
+    font-family: var(--font-ui, sans-serif);
+    font-weight: 800;
+    font-size: 0.88rem;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    position: relative;
+  }
+  .nav-streak-badge {
+    background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
+    color: #c2410c;
+    border: 1.5px solid #fb923c;
+    box-shadow: 0 2px 6px rgba(251, 146, 60, 0.25);
+  }
+  .nav-streak-badge:hover {
+    transform: translateY(-1px) scale(1.04);
+    box-shadow: 0 4px 12px rgba(251, 146, 60, 0.45);
+  }
+  .nav-streak-badge .nav-streak-flame {
+    font-size: 1.05rem;
+    line-height: 1;
+    display: inline-block;
+    animation: navFlameFlicker 1.6s ease-in-out infinite;
+    transform-origin: 50% 80%;
+  }
+  .nav-streak-badge.cold .nav-streak-flame {
+    filter: grayscale(0.7);
+    animation: none;
+    opacity: 0.55;
+  }
+  .nav-streak-badge .nav-streak-count {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .nav-pet-badge {
+    background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+    color: #6d28d9;
+    border: 1.5px solid #a78bfa;
+    box-shadow: 0 2px 6px rgba(167, 139, 250, 0.25);
+  }
+  .nav-pet-badge:hover {
+    transform: translateY(-1px) scale(1.04);
+    box-shadow: 0 4px 12px rgba(167, 139, 250, 0.45);
+  }
+  .nav-pet-emoji {
+    font-size: 1.1rem;
+    line-height: 1;
+    display: inline-block;
+    animation: navPetBob 2.4s ease-in-out infinite;
+  }
+  .nav-pet-level {
+    font-variant-numeric: tabular-nums;
+    font-size: 0.74rem;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.75);
+    color: #6d28d9;
+    line-height: 1;
+  }
+  /* Sidebar streak/pet little badge bubbles */
+  .side-streak-badge,
+  .side-pet-badge {
+    margin-left: auto;
+    background: linear-gradient(135deg, #fb923c, #f97316);
+    color: #fff;
+    font-family: var(--font-ui, sans-serif);
+    font-weight: 800;
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    line-height: 1.3;
+    box-shadow: 0 2px 5px rgba(249, 115, 22, 0.35);
+  }
+  .side-pet-badge {
+    background: linear-gradient(135deg, #a78bfa, #8b5cf6);
+    box-shadow: 0 2px 5px rgba(139, 92, 246, 0.35);
+  }
+  /* Dark theme adjustments */
+  [data-theme="dark"] .nav-streak-badge {
+    background: linear-gradient(135deg, rgba(251, 146, 60, 0.18), rgba(249, 115, 22, 0.22));
+    color: #fed7aa;
+    border-color: rgba(251, 146, 60, 0.55);
+  }
+  [data-theme="dark"] .nav-pet-badge {
+    background: linear-gradient(135deg, rgba(167, 139, 250, 0.18), rgba(139, 92, 246, 0.22));
+    color: #ddd6fe;
+    border-color: rgba(167, 139, 250, 0.55);
+  }
+  [data-theme="dark"] .nav-pet-level {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ddd6fe;
+  }
+  @keyframes navFlameFlicker {
+    0%, 100% { transform: translateY(0) rotate(-2deg) scale(1); }
+    25% { transform: translateY(-1px) rotate(2deg) scale(1.08); }
+    50% { transform: translateY(-2px) rotate(-1deg) scale(0.96); }
+    75% { transform: translateY(-1px) rotate(1.5deg) scale(1.05); }
+  }
+  @keyframes navPetBob {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-2px) scale(1.07); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .nav-streak-flame, .nav-pet-emoji { animation: none !important; }
+  }
+  /* Hide on small screens — they get the mobile streak fab instead */
+  @media (max-width: 760px) {
+    .nav-rewards { display: none !important; }
+  }
+  /* XP earned floating toast */
+  .pet-xp-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 999px;
+    font-family: var(--font-ui, sans-serif);
+    font-weight: 800;
+    font-size: 0.9rem;
+    box-shadow: 0 8px 24px rgba(139, 92, 246, 0.45);
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .pet-xp-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .pet-evolve-flash {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle at 50% 50%, rgba(139,92,246,0.7), transparent 60%);
+    z-index: 9998;
+    pointer-events: none;
+    opacity: 0;
+    animation: petEvolveFlash 1.8s ease-out;
+  }
+  @keyframes petEvolveFlash {
+    0% { opacity: 0; transform: scale(0.4); }
+    30% { opacity: 1; transform: scale(1.1); }
+    100% { opacity: 0; transform: scale(1.5); }
+  }
+</style>
+
+<div id="petXpToast" class="pet-xp-toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  // ── Stage → emoji map (mirrors pet_engine.STAGES) ──────────
+  const STAGE_EMOJI = {
+    egg: '🥚', hatchling: '🐣', sprout: '🌱', cub: '🐱',
+    scholar: '🦊', sage: '🦉', guardian: '🐉', mythic: '🦄', cosmic: '🌟'
+  };
+
+  const tz = (typeof Intl !== 'undefined') ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
+
+  function showXpToast(text){
+    const el = document.getElementById('petXpToast');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2400);
+  }
+
+  function flashEvolve(){
+    const f = document.createElement('div');
+    f.className = 'pet-evolve-flash';
+    document.body.appendChild(f);
+    setTimeout(() => f.remove(), 1800);
+  }
+
+  function renderRewards(data){
+    if (!data || data.status !== 'ok') return;
+    const wrap = document.getElementById('navRewards');
+    if (wrap) wrap.hidden = false;
+
+    // Streak flame
+    const streak = data.streak || 0;
+    const sBadge = document.getElementById('navStreakBadge');
+    const sCount = document.getElementById('navStreakCount');
+    if (sCount) sCount.textContent = streak;
+    if (sBadge) sBadge.classList.toggle('cold', streak === 0);
+
+    // Pet
+    const petLvl = document.getElementById('navPetLevel');
+    const petEmoji = document.getElementById('navPetEmoji');
+    if (petLvl) petLvl.textContent = 'L' + (data.level || 1);
+    if (petEmoji) petEmoji.textContent = STAGE_EMOJI[data.stage_id] || '🥚';
+
+    // Sidebar badges
+    const sideStreak = document.getElementById('sideStreakBadge');
+    if (sideStreak) {
+      sideStreak.hidden = streak === 0;
+      sideStreak.textContent = streak + 'd';
+    }
+    const sidePet = document.getElementById('sidePetBadge');
+    if (sidePet) {
+      sidePet.hidden = false;
+      sidePet.textContent = 'L' + (data.level || 1);
+    }
+  }
+
+  async function loadStatus(){
+    try {
+      const r = await fetch('/api/pet/status', { headers: { 'X-Requested-With': 'XHR' }, credentials: 'same-origin' });
+      if (!r.ok) return null;
+      const data = await r.json();
+      renderRewards(data);
+      return data;
+    } catch (e) { return null; }
+  }
+
+  async function pingDailyVisit(){
+    try {
+      const r = await fetch('/api/pet/visit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ timezone: tz })
+      });
+      if (!r.ok) return;
+      const data = await r.json();
+      if (data && data.awarded) {
+        const a = data.awarded;
+        showXpToast('+' + a.delta + ' XP — daily visit');
+        if (a.evolved) {
+          flashEvolve();
+          setTimeout(() => showXpToast('✨ Your Plani evolved!'), 1100);
+        }
+        // Refresh after a beat so the badge ticks up
+        setTimeout(loadStatus, 600);
+      }
+    } catch (e) { /* silent */ }
+  }
+
+  // Expose for child pages to use after task-complete / schedule-gen
+  window.intelliplanRefreshPet = loadStatus;
+  window.intelliplanShowPetToast = showXpToast;
+
+  // Boot
+  function boot(){
+    loadStatus().then(() => pingDailyVisit());
+  }
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    setTimeout(boot, 200);
+  } else {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(boot, 200));
+  }
+})();
+</script>
+{% endif %}
+
 </body>
 </html>

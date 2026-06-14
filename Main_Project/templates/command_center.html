@@ -159,6 +159,102 @@
     {# ── Sidebar: Forecast + Health ─────────────────────────────── #}
     <aside class="cc-sidebar">
 
+      {# ── Momentum (streak + pet) ──────────────────────────── #}
+      <section class="cc-momentum" aria-label="Your streak and Plani pet">
+        <a href="/streak" class="cc-momentum-streak" id="ccMomentumStreak">
+          <span class="cc-momentum-flame">🔥</span>
+          <div class="cc-momentum-streak-text">
+            <span class="cc-momentum-streak-num" id="ccMomentumStreakNum">0</span>
+            <span class="cc-momentum-streak-lbl">day streak</span>
+          </div>
+        </a>
+        <a href="/pet" class="cc-momentum-pet" id="ccMomentumPet">
+          <span class="cc-momentum-pet-emoji" id="ccMomentumPetEmoji">🥚</span>
+          <div class="cc-momentum-pet-info">
+            <span class="cc-momentum-pet-name"><span id="ccMomentumPetName">Plani</span> · L<span id="ccMomentumPetLvl">1</span></span>
+            <div class="cc-momentum-pet-bar"><div class="cc-momentum-pet-fill" id="ccMomentumPetFill" style="width:0%"></div></div>
+          </div>
+        </a>
+      </section>
+      <style>
+      .cc-momentum {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        margin-bottom: 1rem;
+      }
+      .cc-momentum-streak,
+      .cc-momentum-pet {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 14px;
+        text-decoration: none;
+        color: inherit;
+        transition: transform 0.15s ease;
+      }
+      .cc-momentum-streak {
+        background: linear-gradient(135deg, rgba(251,146,60,0.15), rgba(249,115,22,0.10));
+        border: 1px solid rgba(251,146,60,0.35);
+      }
+      .cc-momentum-pet {
+        background: linear-gradient(135deg, rgba(167,139,250,0.15), rgba(139,92,246,0.10));
+        border: 1px solid rgba(167,139,250,0.35);
+      }
+      .cc-momentum-streak:hover, .cc-momentum-pet:hover { transform: translateY(-1px); }
+      .cc-momentum-flame {
+        font-size: 1.8rem;
+        animation: ccFlameLive 1.5s ease-in-out infinite;
+        line-height: 1;
+        filter: drop-shadow(0 2px 5px rgba(249,115,22,0.45));
+      }
+      @keyframes ccFlameLive {
+        0%, 100% { transform: translateY(0) rotate(-2deg); }
+        50% { transform: translateY(-2px) rotate(2deg) scale(1.08); }
+      }
+      .cc-momentum-pet-emoji {
+        font-size: 1.8rem;
+        line-height: 1;
+        animation: ccPetBob 2.4s ease-in-out infinite;
+      }
+      @keyframes ccPetBob {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-3px) scale(1.05); }
+      }
+      .cc-momentum-streak-text, .cc-momentum-pet-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+      .cc-momentum-streak-num { font-family: var(--font-ui); font-weight: 800; font-size: 1.2rem; color: var(--text-primary); line-height: 1; }
+      .cc-momentum-streak-lbl { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+      .cc-momentum-pet-name { font-family: var(--font-ui); font-weight: 700; font-size: 0.85rem; color: var(--text-primary); }
+      .cc-momentum-pet-bar { width: 100%; height: 5px; background: rgba(0,0,0,0.08); border-radius: 999px; overflow: hidden; margin-top: 4px; }
+      [data-theme="dark"] .cc-momentum-pet-bar { background: rgba(255,255,255,0.1); }
+      .cc-momentum-pet-fill { height: 100%; background: linear-gradient(90deg, #a78bfa, #8b5cf6); border-radius: 999px; transition: width 0.4s ease; }
+      @media (prefers-reduced-motion: reduce) {
+        .cc-momentum-flame, .cc-momentum-pet-emoji { animation: none !important; }
+      }
+      </style>
+      <script>
+      (function(){
+        const EMOJI = { egg:'🥚', hatchling:'🐣', sprout:'🌱', cub:'🐱', scholar:'🦊', sage:'🦉', guardian:'🐉', mythic:'🦄', cosmic:'🌟' };
+        async function load(){
+          try {
+            const r = await fetch('/api/pet/status', { credentials:'same-origin' });
+            if (!r.ok) return;
+            const d = await r.json();
+            if (d.status !== 'ok') return;
+            document.getElementById('ccMomentumStreakNum').textContent = d.streak || 0;
+            document.getElementById('ccMomentumPetEmoji').textContent = EMOJI[d.stage_id] || '🥚';
+            document.getElementById('ccMomentumPetName').textContent = d.name || 'Plani';
+            document.getElementById('ccMomentumPetLvl').textContent = d.level || 1;
+            document.getElementById('ccMomentumPetFill').style.width = Math.round((d.progress_to_next || 0) * 100) + '%';
+          } catch(e){}
+        }
+        const old = window.intelliplanRefreshPet;
+        window.intelliplanRefreshPet = function(){ if (old) old(); load(); };
+        load();
+      })();
+      </script>
+
       {# ── Workload forecast ──────────────────────────────────── #}
       <section class="cc-forecast-card" aria-label="7-day workload forecast">
         <h2 class="cc-section-title">Workload</h2>
