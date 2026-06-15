@@ -129,6 +129,6 @@ Disallow: /assignment/
 Disallow: /admin
 Disallow: /logout
 
-# AI citation file (AEO): https://intelliplan.tech/llms.txt
+# AI citation file: https://intelliplan.tech/llms.txt
 
 Sitemap: https://intelliplan.tech/sitemap.xml

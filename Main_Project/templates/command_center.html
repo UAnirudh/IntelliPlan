@@ -3,22 +3,21 @@
 {% block page_title %}Command Center | IntelliPlan{% endblock %}
 
 {% block content %}
-<link rel="stylesheet" href="/static/css/command_center.css">
+<link rel="stylesheet" href="/static/css/command_center.css?v=20260614">
 
-{# ── Mobile top nav ──────────────────────────────────────────── #}
+{# ── Mobile top bar (<720px) ────────────────────────────────── #}
 <div class="cc-mobile-top">
-  <button onclick="openMobileNav()" class="cc-mobile-ham" aria-label="Open navigation">
+  <button type="button" onclick="openMobileNav()" class="cc-mobile-ham" aria-label="Open navigation">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
   </button>
   <span class="cc-mobile-logo">Command Center</span>
   <div style="width:36px;"></div>
 </div>
-
 <div id="mobileNavDrawer" class="cc-mobile-drawer" aria-hidden="true">
   <div class="cc-mobile-drawer-inner">
     <div class="cc-mobile-drawer-head">
       <span class="cc-mobile-drawer-logo">IntelliPlan</span>
-      <button onclick="closeMobileNav()" class="cc-mobile-drawer-close" aria-label="Close">&#215;</button>
+      <button type="button" onclick="closeMobileNav()" class="cc-mobile-drawer-close" aria-label="Close">&#215;</button>
     </div>
     <nav class="cc-mobile-drawer-nav">
       <a href="/command-center" class="cc-mobile-link cc-mobile-link-active">Command Center</a>
@@ -47,31 +46,21 @@
 
   {% if today %}
 
-  {# ── HERO console ── #}
+  {# ───────────────────────────── HERO ───────────────────────────── #}
   <header class="cc-hero" id="ccHero">
-    <div class="cc-hero-bg" aria-hidden="true">
-      <div class="cc-hero-grid"></div>
-      <div class="cc-hero-orb cc-hero-orb-1"></div>
-      <div class="cc-hero-orb cc-hero-orb-2"></div>
-    </div>
-    <div class="cc-hero-bracket cc-hero-bracket-tl" aria-hidden="true"></div>
-    <div class="cc-hero-bracket cc-hero-bracket-tr" aria-hidden="true"></div>
-    <div class="cc-hero-bracket cc-hero-bracket-bl" aria-hidden="true"></div>
-    <div class="cc-hero-bracket cc-hero-bracket-br" aria-hidden="true"></div>
-
     <div class="cc-hero-inner">
       <div class="cc-hero-left">
         <div class="cc-hero-line">
           <span class="cc-hero-dot"></span>
-          <span class="cc-hero-status">LIVE · {{ today.briefing.tone or 'optimal' }}</span>
+          <span class="cc-hero-status">{{ today.briefing.tone or 'focused' }}</span>
           <time class="cc-hero-time" id="ccLiveTime">{{ today.generated_at[:10] }}</time>
         </div>
-        <p class="cc-hero-greeting">{{ today.student.greeting }}, <strong>{{ today.student.name or 'Commander' }}</strong>.</p>
-        <h1 class="cc-hero-headline">{{ today.briefing.headline }}</h1>
+        <h1 class="cc-hero-headline">
+          {{ today.student.greeting or 'Hello' }}, {{ today.student.name or 'Commander' }}.
+        </h1>
         <p class="cc-hero-body">{{ today.briefing.body }}</p>
-
         <div class="cc-hero-actions">
-          <button class="cc-hero-cta" type="button" id="ccRescanBtn" onclick="ccRescanDay()">
+          <button type="button" class="cc-hero-cta" id="ccRescanBtn" onclick="ccRescanDay()">
             <svg id="ccRefreshSpinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
             <span id="ccRescanLabel">Re-scan day</span>
           </button>
@@ -110,23 +99,17 @@
         </a>
       </div>
     </div>
-
     <div class="cc-risk-banner" id="ccRiskBanner" hidden></div>
   </header>
 
-  {# ══════════════════════════════════════════════════════════════
-     MAIN GRID — left rail (plan) | center (chat) | right rail (telemetry)
-  ══════════════════════════════════════════════════════════════ #}
+  {# ─────────────────────────── MAIN GRID ─────────────────────────── #}
   <div class="cc-grid">
 
-    {# ─── LEFT: Plan ─── #}
+    {# ── LEFT: Today's Plan ── #}
     <section class="cc-rail cc-rail-left" aria-label="Today's plan">
       <header class="cc-rail-head">
-        <h2 class="cc-rail-title">
-          <span class="cc-rail-num">01</span>
-          <span>Today's Plan</span>
-        </h2>
-        <span class="cc-rail-meta">{{ today.plan|length }} task{{ 's' if today.plan|length != 1 }}</span>
+        <h2 class="cc-rail-title">Today's Plan</h2>
+        <span class="cc-rail-meta" id="ccPlanMeta">{{ today.plan|length }} task{{ 's' if today.plan|length != 1 }}</span>
       </header>
 
       {% if today.plan %}
@@ -137,12 +120,11 @@
             data-task-title="{{ task.title|e }}"
             data-task-source="{{ task.assignment.source if task.assignment else 'manual' }}"
             data-task-ref="{{ task.assignment.source_ref if task.assignment else '' }}"
-            style="--delay: {{ loop.index0 * 50 }}ms">
+            style="--delay: {{ loop.index0 * 40 }}ms">
           <div class="cc-task-rail cc-tier-{{ task.priority.tier }}"></div>
           <div class="cc-task-main">
             <div class="cc-score-chip cc-tier-{{ task.priority.tier }}">
               <span class="cc-score-num">{{ task.priority.score }}</span>
-              <span class="cc-tier-label">{{ task.priority.tier }}</span>
             </div>
             <div class="cc-task-info">
               <h3 class="cc-task-title">{{ task.title }}</h3>
@@ -150,7 +132,7 @@
                 <span class="cc-task-pill">{{ task.course }}</span>
                 <span class="cc-task-pill cc-task-pill-due">{{ task.due_date or 'no due date' }}</span>
                 {% if task.est_minutes %}
-                <span class="cc-task-pill">~{{ task.est_minutes }}min</span>
+                <span class="cc-task-pill">{{ task.est_minutes }}min</span>
                 {% endif %}
                 {% if task.assignment and task.assignment.source != 'manual' %}
                 <span class="cc-task-pill cc-task-pill-src">{{ task.assignment.source }}</span>
@@ -159,14 +141,14 @@
               <p class="cc-task-why-now">{{ task.why_now }}</p>
             </div>
             <div class="cc-task-actions">
-              <button type="button" class="cc-task-btn cc-task-btn-why" aria-expanded="false" onclick="ccToggleWhy(this)" title="Why this priority?">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              </button>
               <button type="button" class="cc-task-btn cc-task-btn-ask" onclick="ccAskAboutTask(this)" title="Ask Plani about this">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               </button>
-              <button type="button" class="cc-task-btn cc-task-btn-dismiss" onclick="ccDismissTask(this)" title="Mark done / dismiss">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <button type="button" class="cc-task-btn cc-task-btn-why" aria-expanded="false" onclick="ccToggleWhy(this)" title="Why this priority?">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </button>
+              <button type="button" class="cc-task-btn cc-task-btn-dismiss" onclick="ccDismissTask(this)" title="Mark done">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               </button>
             </div>
           </div>
@@ -186,63 +168,83 @@
       </ol>
       {% else %}
       <div class="cc-empty-state">
-        <div class="cc-empty-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><use href="#i-done"/></svg></div>
+        <div class="cc-empty-icon">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-done"/></svg>
+        </div>
         <h3 class="cc-empty-title">All clear today</h3>
-        <p class="cc-empty-body">No upcoming assignments. Add one on the <a class="cc-link" href="/dashboard">Dashboard</a>.</p>
+        <p class="cc-empty-body">No upcoming assignments. <a class="cc-link" href="/dashboard">Add one</a>.</p>
       </div>
       {% endif %}
     </section>
 
-    {# ─── CENTER: Plani Agent (the main thing) ─── #}
-    <section class="cc-center cc-chat" id="planiChat" aria-label="Plani agent">
-      <header class="cc-rail-head cc-chat-header">
+    {# ─── CENTER: PLANI — the main interaction ─── #}
+    <section class="cc-center" id="planiChat" aria-label="Plani assistant">
+      <header class="cc-chat-header">
         <div class="cc-chat-avatar">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
         </div>
         <div class="cc-chat-header-text">
-          <div class="cc-chat-header-title">Plani · Agentic Assistant</div>
-          <div class="cc-chat-header-sub">connected to your tasks, schedule, grades</div>
+          <div class="cc-chat-header-title">Plani</div>
+          <div class="cc-chat-header-sub"><span class="cc-chat-status-dot"></span>connected · {{ today.plan|length }} tasks · health {{ today.health.score }}</div>
         </div>
-        <div class="cc-chat-status" title="Online"></div>
+        <button type="button" class="cc-chat-newbtn" onclick="planiNew()" title="New conversation">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
       </header>
 
       <div class="cc-chat-messages" id="planiMessages">
         <div class="cc-chat-welcome" id="planiWelcome">
           <div class="cc-chat-welcome-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
           </div>
-          <h3>What's the move?</h3>
-          <p>I can read your assignments, build schedules, manage tasks, check grades. Just ask.</p>
-          <div class="cc-chat-suggestions">
-            <button type="button" class="cc-chat-suggestion" onclick="planiSuggest('What should I focus on tonight?')">🎯 What should I focus on tonight?</button>
-            <button type="button" class="cc-chat-suggestion" onclick="planiSuggest('Build a study schedule for the rest of the week')">📅 Build my week schedule</button>
-            <button type="button" class="cc-chat-suggestion" onclick="planiSuggest('Which class needs the most attention?')">📚 Which class needs attention?</button>
-            <button type="button" class="cc-chat-suggestion" onclick="planiSuggest('Summarize my upcoming deadlines')">⏰ Summarize my deadlines</button>
-            <button type="button" class="cc-chat-suggestion" onclick="planiSuggest('Add a task: review chemistry notes tonight at 8pm')">➕ Add a quick task</button>
-            <button type="button" class="cc-chat-suggestion" onclick="planiSuggest('Make a 2 hour study block for tomorrow')">🧱 Block 2 hours tomorrow</button>
+          <h3>How can I help, {{ today.student.name.split(' ')[0] if today.student.name else 'Commander' }}?</h3>
+          <p>I'm connected to your tasks, schedule, and grades. I can plan, edit, complete, or navigate — just ask.</p>
+          <div class="cc-chat-suggestions" id="planiSuggestions">
+            <button type="button" class="cc-chat-suggestion" onclick="planiSuggest('What should I focus on right now?')">
+              <span class="cc-sugg-icon">🎯</span>
+              <span class="cc-sugg-text"><strong>Focus me</strong><span>What should I work on right now?</span></span>
+            </button>
+            <button type="button" class="cc-chat-suggestion" onclick="planiSuggest('Build a study schedule for this week, 2 hours per day, evenings')">
+              <span class="cc-sugg-icon">📅</span>
+              <span class="cc-sugg-text"><strong>Plan my week</strong><span>Build a study schedule</span></span>
+            </button>
+            <button type="button" class="cc-chat-suggestion" onclick="planiSuggest('Show me everything that is overdue')">
+              <span class="cc-sugg-icon">⏰</span>
+              <span class="cc-sugg-text"><strong>What's overdue?</strong><span>Surface everything I'm behind on</span></span>
+            </button>
+            <button type="button" class="cc-chat-suggestion" onclick="planiSuggest('How are my grades looking?')">
+              <span class="cc-sugg-icon">📊</span>
+              <span class="cc-sugg-text"><strong>Grade check</strong><span>Summarize my current standing</span></span>
+            </button>
           </div>
         </div>
       </div>
 
-      <div class="cc-chat-input-wrap">
-        <textarea class="cc-chat-input" id="planiInput"
-                  placeholder="Ask Plani anything…"
-                  rows="1"
-                  onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();planiSend()}"
-                  oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,140)+'px'"></textarea>
-        <button type="button" class="cc-chat-send" id="planiSendBtn" onclick="planiSend()" aria-label="Send">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        </button>
-      </div>
+      <form class="cc-chat-composer" id="planiComposer" onsubmit="event.preventDefault(); planiSend();">
+        <div class="cc-chat-input-row">
+          <textarea
+            class="cc-chat-input"
+            id="planiInput"
+            rows="1"
+            placeholder="Ask Plani anything…"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();planiSend()}"
+            oninput="planiAutosize(this); planiUpdateSend();"></textarea>
+          <button type="submit" class="cc-chat-send" id="planiSendBtn" aria-label="Send" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><polyline points="13 6 19 12 13 18"/></svg>
+          </button>
+        </div>
+        <div class="cc-chat-hints">
+          <span class="cc-chat-hint">Plani can edit, complete, plan — anything you can do manually</span>
+          <span class="cc-chat-shortcut"><kbd>⏎</kbd> send · <kbd>⇧⏎</kbd> newline · <kbd>⌘K</kbd> focus</span>
+        </div>
+      </form>
     </section>
 
     {# ─── RIGHT: Telemetry ─── #}
-    <aside class="cc-rail cc-rail-right" aria-label="Telemetry">
+    <aside class="cc-rail-right" aria-label="Telemetry">
 
       <section class="cc-card cc-momentum">
-        <header class="cc-card-head">
-          <h3 class="cc-card-title"><span class="cc-card-num">02</span>Momentum</h3>
-        </header>
+        <header class="cc-card-head"><h3 class="cc-card-title">Momentum</h3></header>
         <div class="cc-momentum-grid">
           <a href="/streak" class="cc-momentum-streak">
             <span class="cc-momentum-flame">🔥</span>
@@ -259,18 +261,16 @@
             </div>
           </a>
         </div>
-        <div class="cc-care-row" id="ccCareRow">
+        <div class="cc-care-row">
           <button type="button" class="cc-care-btn" data-action="feed" title="Feed Plani">🍎<span class="cc-care-xp">+8</span></button>
-          <button type="button" class="cc-care-btn" data-action="play" title="Play with Plani">🎾<span class="cc-care-xp">+12</span></button>
-          <button type="button" class="cc-care-btn" data-action="pet" title="Pet Plani">💕<span class="cc-care-xp">+4</span></button>
-          <button type="button" class="cc-care-btn cc-care-chest" id="ccChestBtn" title="Open daily chest">🎁<span class="cc-care-xp">claim</span></button>
+          <button type="button" class="cc-care-btn" data-action="play" title="Play">🎾<span class="cc-care-xp">+12</span></button>
+          <button type="button" class="cc-care-btn" data-action="pet" title="Pet">💕<span class="cc-care-xp">+4</span></button>
+          <button type="button" class="cc-care-btn cc-care-chest" id="ccChestBtn" title="Daily chest">🎁<span class="cc-care-xp">claim</span></button>
         </div>
       </section>
 
       <section class="cc-card cc-forecast" aria-label="Workload">
-        <header class="cc-card-head">
-          <h3 class="cc-card-title"><span class="cc-card-num">03</span>Workload · 7d</h3>
-        </header>
+        <header class="cc-card-head"><h3 class="cc-card-title">Workload · 7d</h3></header>
         <div class="cc-forecast-bars">
           {% for day in today.forecast.days %}
           <div class="cc-bar-col" title="{{ day.committed_min }}min / {{ day.available_min }}min">
@@ -286,9 +286,7 @@
       </section>
 
       <section class="cc-card cc-health" aria-label="Academic health">
-        <header class="cc-card-head">
-          <h3 class="cc-card-title"><span class="cc-card-num">04</span>Academic Health</h3>
-        </header>
+        <header class="cc-card-head"><h3 class="cc-card-title">Academic Health</h3></header>
         <div class="cc-health-row">
           <div class="cc-health-ring" style="--health-pct:{{ today.health.score }}">
             <span class="cc-health-num cc-health-{{ today.health.tier }}">{{ today.health.score }}</span>
@@ -296,9 +294,7 @@
           </div>
           <div class="cc-health-meta">
             {% if today.health.delta_vs_yesterday is not none %}
-            <span class="cc-health-delta {% if today.health.delta_vs_yesterday > 0 %}cc-delta-up{% elif today.health.delta_vs_yesterday < 0 %}cc-delta-down{% endif %}">
-              {{ '%+d'|format(today.health.delta_vs_yesterday) }} today
-            </span>
+            <span class="cc-health-delta {% if today.health.delta_vs_yesterday > 0 %}cc-delta-up{% elif today.health.delta_vs_yesterday < 0 %}cc-delta-down{% endif %}">{{ '%+d'|format(today.health.delta_vs_yesterday) }} today</span>
             {% endif %}
             <p class="cc-health-summary">{{ today.health.summary }}</p>
           </div>
@@ -320,22 +316,10 @@
       </section>
 
       <nav class="cc-card cc-quick-links" aria-label="Quick actions">
-        <a href="/tutor" class="cc-quick-link">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-tutor"/></svg>
-          Tutor
-        </a>
-        <a href="/scheduler" class="cc-quick-link">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-scheduler"/></svg>
-          Schedule
-        </a>
-        <a href="/gradebook" class="cc-quick-link">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-modeler"/></svg>
-          Grades
-        </a>
-        <a href="/dashboard" class="cc-quick-link">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-dashboard"/></svg>
-          All tasks
-        </a>
+        <a href="/tutor" class="cc-quick-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-tutor"/></svg>Tutor</a>
+        <a href="/scheduler" class="cc-quick-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-scheduler"/></svg>Schedule</a>
+        <a href="/gradebook" class="cc-quick-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-modeler"/></svg>Grades</a>
+        <a href="/dashboard" class="cc-quick-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-dashboard"/></svg>All tasks</a>
       </nav>
     </aside>
 
@@ -347,16 +331,19 @@
   <div class="cc-fatal">
     <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><use href="#i-coffee"/></svg>
     <h2>Command Center initialising</h2>
-    <p>We couldn't build your daily plan right now. Usually this means assignments are still syncing.</p>
+    <p>We couldn't build your daily plan. Usually means assignments are still syncing.</p>
     <a href="/dashboard" class="cc-fallback-link">Go to Dashboard</a>
   </div>
   {% endif %}
 </div>
 
-{# ── Toast ── #}
-<div id="ccToast" class="cc-toast" role="status" aria-live="polite" hidden></div>
+{# Mobile chat sheet FAB (only <900px) #}
+<button type="button" class="cc-chat-fab" id="planiFab" onclick="toggleChatSheet()" aria-label="Open Plani">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+</button>
 
-{# ── Evolution overlay ── #}
+{# Toast + evolution overlay #}
+<div id="ccToast" class="cc-toast" role="status" aria-live="polite" hidden></div>
 <div id="ccEvolveOverlay" class="cc-evolve-overlay" hidden style="display:none;">
   <div class="cc-evolve-card">
     <div class="cc-evolve-burst"></div>
@@ -373,7 +360,6 @@ const TZ = (typeof Intl !== 'undefined') ? Intl.DateTimeFormat().resolvedOptions
 
 document.addEventListener('DOMContentLoaded', function() {
   document.body.classList.add('has-side');
-
   setInterval(updateLiveTime, 60_000);
   updateLiveTime();
   hydrateMomentum();
@@ -382,41 +368,36 @@ document.addEventListener('DOMContentLoaded', function() {
   document.querySelectorAll('.cc-care-btn[data-action]').forEach(function(btn) {
     btn.addEventListener('click', function() { doCareAction(btn.dataset.action); });
   });
-
   const chest = document.getElementById('ccChestBtn');
   if (chest) chest.addEventListener('click', openChest);
 
   const evolveOverlay = document.getElementById('ccEvolveOverlay');
-  if (evolveOverlay) {
-    evolveOverlay.addEventListener('click', function(e) {
-      if (e.target === evolveOverlay) closeEvolveOverlay();
-    });
-  }
+  if (evolveOverlay) evolveOverlay.addEventListener('click', function(e) {
+    if (e.target === evolveOverlay) closeEvolveOverlay();
+  });
 
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-      closeEvolveOverlay();
-    }
-    // Cmd/Ctrl+K → focus chat
+    if (e.key === 'Escape') closeEvolveOverlay();
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
       const input = document.getElementById('planiInput');
-      if (input) input.focus();
+      if (input) { input.focus(); }
     }
   });
 
-  // Auto-focus chat input on desktop so you can just start typing
+  // Desktop: focus chat input immediately
   if (window.innerWidth >= 1100) {
     const input = document.getElementById('planiInput');
-    if (input) setTimeout(function(){ input.focus(); }, 250);
+    if (input) setTimeout(function(){ input.focus(); }, 200);
   }
 
-  // Click outside the mobile drawer closes it
   const backdrop = document.getElementById('mobileNavBackdrop');
   if (backdrop) backdrop.addEventListener('click', closeMobileNav);
+
+  planiUpdateSend();
 });
 
-/* ── Toast utility ─────────────────────────────────────────── */
+/* ── Toast ── */
 let _toastTimer = null;
 function ccToast(msg, kind) {
   const el = document.getElementById('ccToast');
@@ -427,18 +408,17 @@ function ccToast(msg, kind) {
   el.style.display = 'flex';
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(function() {
-    el.hidden = true;
-    el.style.display = 'none';
-  }, 2400);
+    el.hidden = true; el.style.display = 'none';
+  }, 2600);
 }
-window.intelliplanShowPetToast = function(msg) { ccToast(msg, 'pet'); };
+window.intelliplanShowPetToast = function(m) { ccToast(m, 'pet'); };
 
 /* ── Live time ── */
 function updateLiveTime() {
   const el = document.getElementById('ccLiveTime');
   if (!el) return;
   const now = new Date();
-  el.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  el.textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
     + ' · ' + now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
@@ -462,7 +442,7 @@ function ccRescanDay() {
     });
 }
 
-/* ── Task: expand "why?" ── */
+/* ── Task: expand rationale ── */
 function ccToggleWhy(btn) {
   const card = btn.closest('.cc-task-card');
   if (!card) return;
@@ -480,64 +460,86 @@ function ccAskAboutTask(btn) {
   const title = card.dataset.taskTitle || 'this task';
   const input = document.getElementById('planiInput');
   if (input) {
-    input.value = 'Help me plan: ' + title;
+    input.value = 'Help me with: ' + title;
+    planiAutosize(input);
+    planiUpdateSend();
     input.focus();
   }
   planiSend();
 }
 
-/* ── Task: dismiss (mark done) ── */
+/* ── Task: dismiss / mark done — source-aware, PERSISTS ── */
 async function ccDismissTask(btn) {
   const card = btn.closest('.cc-task-card');
   if (!card) return;
   const title = card.dataset.taskTitle;
+  const source = card.dataset.taskSource;
+  const ref = card.dataset.taskRef;
   if (!title) return;
   card.classList.add('cc-task-leaving');
+
   try {
-    const r = await fetch('/dismiss', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      credentials:'same-origin',
-      body: JSON.stringify({ title: title, timezone: TZ })
-    });
-    const d = await r.json();
-    if (d.status === 'ok') {
-      ccToast('Marked done — nice work', 'success');
+    let r, ok = false;
+    // Manual tasks: actually mark done in the manual_tasks table
+    if (source === 'manual' && ref) {
+      r = await fetch('/tasks/manual/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ id: parseInt(ref, 10), done: true, timezone: TZ })
+      });
+      const d = await r.json();
+      ok = d.status === 'ok';
+    } else {
+      // LMS task: file a DismissedAssignment so it stays gone
+      r = await fetch('/dismiss', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ title: title, timezone: TZ })
+      });
+      const d = await r.json();
+      ok = d.status === 'ok';
+    }
+    if (ok) {
+      ccToast('Marked done', 'success');
       setTimeout(function() {
         card.remove();
         const list = document.getElementById('ccTaskList');
-        if (list && list.children.length === 0) {
-          const empty = document.createElement('div');
-          empty.className = 'cc-empty-state';
-          empty.innerHTML = '<div class="cc-empty-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.25"><use href="#i-done"/></svg></div><h3 class="cc-empty-title">All clear today</h3><p class="cc-empty-body">Every task handled. Nice.</p>';
-          list.replaceWith(empty);
+        if (list) {
+          const remaining = list.children.length;
+          const meta = document.getElementById('ccPlanMeta');
+          if (meta) meta.textContent = remaining + (remaining === 1 ? ' task' : ' tasks');
+          if (remaining === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'cc-empty-state';
+            empty.innerHTML = '<div class="cc-empty-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5"><use href="#i-done"/></svg></div><h3 class="cc-empty-title">All clear today</h3><p class="cc-empty-body">Every task handled. Take the win.</p>';
+            list.replaceWith(empty);
+          }
         }
-        // Refresh pet/streak orbs
         hydrateMomentum();
-      }, 320);
+      }, 280);
     } else {
       card.classList.remove('cc-task-leaving');
-      ccToast(d.message || 'Could not dismiss', 'error');
+      ccToast('Could not save — try again', 'error');
     }
-  } catch(e) {
+  } catch (e) {
     card.classList.remove('cc-task-leaving');
     ccToast('Network error', 'error');
   }
 }
 
-/* ── Hydrate orbs + pet ── */
+/* ── Orbs + pet hydration ── */
 async function hydrateMomentum() {
   try {
     const r = await fetch('/api/pet/status', { credentials:'same-origin' });
     if (!r.ok) return;
     const d = await r.json();
     if (d.status !== 'ok') return;
-
     setText('ccOrbStreakNum', d.streak || 0);
     setText('ccOrbPetIcon', STAGE_EMOJI[d.stage_id] || '🥚');
     setText('ccOrbPetLvl', d.level || 1);
     setText('ccOrbPetLbl', d.name || 'Plani');
-
     setText('ccMomentumStreakNum', d.streak || 0);
     setText('ccMomentumPetEmoji', STAGE_EMOJI[d.stage_id] || '🥚');
     setText('ccMomentumPetName', d.name || 'Plani');
@@ -545,17 +547,14 @@ async function hydrateMomentum() {
     const fill = document.getElementById('ccMomentumPetFill');
     if (fill) fill.style.width = Math.round((d.progress_to_next || 0) * 100) + '%';
 
-    if (d.care) {
-      Object.entries(d.care).forEach(function(e) {
-        const action = e[0], info = e[1];
-        const btn = document.querySelector('.cc-care-btn[data-action="'+action+'"]');
-        if (!btn) return;
-        btn.classList.toggle('cc-care-cooldown', !info.ready);
-        btn.title = info.ready
-          ? info.label + ' (+' + info.xp + ' XP)'
-          : info.label + ' on cooldown · ' + Math.ceil(info.wait_seconds/60) + 'm';
-      });
-    }
+    if (d.care) Object.entries(d.care).forEach(function(e) {
+      const action = e[0], info = e[1];
+      const btn = document.querySelector('.cc-care-btn[data-action="'+action+'"]');
+      if (!btn) return;
+      btn.classList.toggle('cc-care-cooldown', !info.ready);
+      btn.title = info.ready ? info.label + ' (+' + info.xp + ' XP)'
+        : info.label + ' on cooldown · ' + Math.ceil(info.wait_seconds/60) + 'm';
+    });
     if (d.chest) {
       const chest = document.getElementById('ccChestBtn');
       if (chest) {
@@ -567,12 +566,9 @@ async function hydrateMomentum() {
     }
   } catch(e) {}
 }
-function setText(id, val) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = String(val);
-}
+function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = String(val); }
 
-/* ── Streak risk banner ── */
+/* ── Streak risk ── */
 async function checkStreakRisk() {
   try {
     const r = await fetch('/api/streak/risk', { credentials:'same-origin' });
@@ -582,24 +578,19 @@ async function checkStreakRisk() {
     const banner = document.getElementById('ccRiskBanner');
     if (!banner) return;
     if (d.level === 'danger' || d.level === 'broken') {
-      banner.hidden = false;
-      banner.style.display = 'flex';
+      banner.hidden = false; banner.style.display = 'flex';
       banner.className = 'cc-risk-banner cc-risk-' + d.level;
-      banner.innerHTML = '<span class="cc-risk-icon">' + (d.level === 'broken' ? '💔' : '⚠️') + '</span>'
-        + '<span>' + d.message + '</span>'
-        + '<a href="/dashboard" class="cc-risk-cta">Save it</a>';
+      banner.innerHTML = '<span class="cc-risk-icon">' + (d.level === 'broken' ? '💔' : '⚠️') + '</span><span>' + d.message + '</span><a href="/dashboard" class="cc-risk-cta">Save it</a>';
     } else if (d.perfect_week && d.perfect_week.perfect && d.perfect_week_paid) {
-      banner.hidden = false;
-      banner.style.display = 'flex';
+      banner.hidden = false; banner.style.display = 'flex';
       banner.className = 'cc-risk-banner cc-risk-celebrate';
-      banner.innerHTML = '<span class="cc-risk-icon">🏆</span><span>Perfect week · +'
-        + d.perfect_week_paid + ' XP</span>';
+      banner.innerHTML = '<span class="cc-risk-icon">🏆</span><span>Perfect week · +' + d.perfect_week_paid + ' XP</span>';
       setTimeout(function() { banner.hidden = true; banner.style.display = 'none'; }, 8000);
     }
   } catch(e) {}
 }
 
-/* ── Care action ── */
+/* ── Care actions ── */
 async function doCareAction(action) {
   const btn = document.querySelector('.cc-care-btn[data-action="'+action+'"]');
   if (!btn || btn.classList.contains('cc-care-cooldown')) return;
@@ -625,15 +616,11 @@ async function doCareAction(action) {
 async function openChest() {
   const btn = document.getElementById('ccChestBtn');
   if (!btn || btn.classList.contains('cc-care-cooldown')) {
-    ccToast('Come back tomorrow for the next chest', 'info');
-    return;
+    ccToast('Come back tomorrow for the next chest', 'info'); return;
   }
   btn.classList.add('cc-chest-open');
   try {
-    const r = await fetch('/api/pet/chest', {
-      method:'POST', credentials:'same-origin',
-      headers:{'Content-Type':'application/json'}, body:'{}'
-    });
+    const r = await fetch('/api/pet/chest', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:'{}' });
     const d = await r.json();
     if (d.status === 'ok') {
       ccToast('+' + d.chest.xp + ' XP · ' + d.chest.tier + ' chest · day ' + d.chest.day, 'pet');
@@ -650,8 +637,7 @@ function showEvolution(evo) {
   setText('ccEvolveHeadline', evo.headline || 'Plani evolved!');
   setText('ccEvolveCopy', evo.copy || '');
   const ov = document.getElementById('ccEvolveOverlay');
-  ov.hidden = false;
-  ov.style.display = 'flex';
+  ov.hidden = false; ov.style.display = 'flex';
 }
 function closeEvolveOverlay() {
   const ov = document.getElementById('ccEvolveOverlay');
@@ -671,14 +657,46 @@ function closeMobileNav() {
   if (d) { d.classList.remove('cc-mobile-drawer-open'); d.setAttribute('aria-hidden','true'); }
   if (b) { b.hidden = true; b.style.display = 'none'; }
 }
+function toggleChatSheet() {
+  const chat = document.getElementById('planiChat');
+  if (!chat) return;
+  chat.classList.toggle('cc-chat-sheet-open');
+}
 
-/* ── Plani chat ── */
+/* ════════════════════════════════════════════════════════════════
+   PLANI CHAT
+═════════════════════════════════════════════════════════════════ */
 let planiHistory = [];
 let planiSending = false;
 
+function planiAutosize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+}
+function planiUpdateSend() {
+  const input = document.getElementById('planiInput');
+  const btn = document.getElementById('planiSendBtn');
+  if (!input || !btn) return;
+  btn.disabled = !input.value.trim() || planiSending;
+}
+
+function planiNew() {
+  planiHistory = [];
+  const container = document.getElementById('planiMessages');
+  if (container) container.innerHTML = '';
+  // Re-mount the welcome
+  const welcome = document.createElement('div');
+  welcome.className = 'cc-chat-welcome';
+  welcome.id = 'planiWelcome';
+  welcome.innerHTML = document.querySelector('.cc-chat-welcome')
+    ? document.querySelector('.cc-chat-welcome').innerHTML
+    : '';
+  ccToast('New conversation', 'info');
+}
+
 function planiSuggest(text) {
   const input = document.getElementById('planiInput');
-  if (input) input.value = text;
+  if (input) { input.value = text; planiAutosize(input); planiUpdateSend(); }
   planiSend();
 }
 
@@ -687,18 +705,41 @@ function planiAddMsg(role, text) {
   const welcome = document.getElementById('planiWelcome');
   if (welcome) welcome.style.display = 'none';
   const div = document.createElement('div');
-  div.className = 'cc-msg ' + (role === 'user' ? 'cc-msg-user' : role === 'action' ? 'cc-msg-action' : 'cc-msg-bot');
-  if (role === 'bot') div.innerHTML = planiFormatReply(text); else div.textContent = text;
+  div.className = 'cc-msg cc-msg-' + role;
+  if (role === 'bot') div.innerHTML = planiFormatReply(text);
+  else if (role === 'action') {
+    div.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>' + escapeHtml(text.replace(/^[✓→] ?/, '')) + '</span>';
+  } else {
+    div.textContent = text;
+  }
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
   return div;
 }
 
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
 function planiFormatReply(text) {
-  let escaped = String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  let escaped = escapeHtml(text);
   escaped = escaped.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
   escaped = escaped.replace(/`([^`]+)`/g,'<code>$1</code>');
-  return escaped.split('\n').map(function(l){return l.trim();}).filter(Boolean).map(function(l){return '<p>'+l+'</p>';}).join('');
+  // line-based paragraphs but preserve bullet lists
+  const lines = escaped.split('\n').map(function(l){return l.trim();}).filter(Boolean);
+  let html = '';
+  let inList = false;
+  lines.forEach(function(l){
+    if (/^[-*•]\s+/.test(l)) {
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += '<li>' + l.replace(/^[-*•]\s+/, '') + '</li>';
+    } else {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += '<p>' + l + '</p>';
+    }
+  });
+  if (inList) html += '</ul>';
+  return html;
 }
 
 function planiShowTyping() {
@@ -722,40 +763,46 @@ async function planiSend() {
   const input = document.getElementById('planiInput');
   const msg = (input.value || '').trim();
   if (!msg) return;
-  input.value = '';
-  input.style.height = 'auto';
+  input.value = ''; planiAutosize(input);
   planiSending = true;
-  const sendBtn = document.getElementById('planiSendBtn');
-  if (sendBtn) sendBtn.disabled = true;
+  planiUpdateSend();
 
   planiAddMsg('user', msg);
-  planiHistory.push({ role:'user', content: msg });
+  planiHistory.push({ role: 'user', content: msg });
   planiShowTyping();
 
   try {
     const r = await fetch('/api/plani/agent', {
-      method:'POST', credentials:'same-origin',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ message: msg, history: planiHistory.slice(-10) })
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: planiHistory.slice(-10) })
     });
     const data = await r.json();
     planiHideTyping();
     if (data.status === 'ok') {
-      (data.actions || []).forEach(function(a){ planiAddMsg('action', a); });
-      planiAddMsg('bot', data.reply || '');
-      planiHistory.push({ role:'assistant', content: data.reply });
+      (data.actions || []).forEach(function(a) { planiAddMsg('action', a); });
+      planiAddMsg('bot', data.reply || 'Done.');
+      planiHistory.push({ role: 'assistant', content: data.reply || '' });
+      if (data.refresh) {
+        ccToast('Updated · refreshing data…', 'success');
+        setTimeout(function() { window.location.reload(); }, 1400);
+      }
+      if (data.navigate) {
+        ccToast('Opening ' + data.navigate, 'info');
+        setTimeout(function() { window.location.href = data.navigate; }, 700);
+      }
       hydrateMomentum();
     } else if (r.status === 401) {
       planiAddMsg('bot', 'Please log in first.');
     } else {
-      planiAddMsg('bot', data.message || 'Something went wrong. Try again.');
+      planiAddMsg('bot', data.reply || data.message || 'Something went wrong. Try again.');
     }
-  } catch(e) {
+  } catch (e) {
     planiHideTyping();
     planiAddMsg('bot', 'Network error. Try again.');
   } finally {
     planiSending = false;
-    if (sendBtn) sendBtn.disabled = false;
+    planiUpdateSend();
   }
 }
 </script>
