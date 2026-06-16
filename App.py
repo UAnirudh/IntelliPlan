@@ -165,6 +165,8 @@ Session(app)
 app.register_blueprint(auth_bp)
 app.register_blueprint(chatbot_bp)
 app.register_blueprint(plani_agent_bp)
+from extra_features import extras_bp
+app.register_blueprint(extras_bp)
 
 @app.after_request
 def add_cors_headers(response):
@@ -844,6 +846,59 @@ class PlaniPet(db.Model):
     # Perfect-week tracking — week iso "YYYY-Www" we already paid out
     perfect_week_paid = db.Column(db.String(16), default="")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class FeatureRequest(db.Model):
+    """User-submitted feature ideas surfaced on /features.
+
+    Vote count is materialized for cheap list rendering and recomputed
+    whenever a vote is toggled. Status: open / planned / in_progress /
+    shipped / declined — admin only updates this.
+    """
+    __tablename__ = "feature_requests"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    title = db.Column(db.String(140), nullable=False)
+    body = db.Column(db.Text, default="")
+    category = db.Column(db.String(40), default="general")
+    status = db.Column(db.String(20), default="open")
+    vote_count = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class FeatureRequestVote(db.Model):
+    __tablename__ = "feature_request_votes"
+    id = db.Column(db.Integer, primary_key=True)
+    request_id = db.Column(db.Integer, db.ForeignKey("feature_requests.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint("request_id", "user_id", name="uq_feature_vote"),)
+
+
+class MediaBalanceSession(db.Model):
+    """Lightweight digital-wellbeing log. Records the *minutes* a user
+    spent in IntelliPlan per local date — no per-event tracking, no
+    restrictions, no lockouts. Used to surface gentle insights on /balance.
+    """
+    __tablename__ = "media_balance_sessions"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    local_date = db.Column(db.String(16), nullable=False)  # YYYY-MM-DD
+    minutes = db.Column(db.Integer, default=0)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint("user_id", "local_date", name="uq_balance_day"),)
+
+
+class MediaBalancePrefs(db.Model):
+    """Per-user opt-in awareness reminders. Awareness only — never blocks."""
+    __tablename__ = "media_balance_prefs"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), unique=True, nullable=False)
+    reminders_enabled = db.Column(db.Boolean, default=False)
+    reminder_minutes = db.Column(db.Integer, default=45)   # gentle nudge cadence
+    daily_goal_minutes = db.Column(db.Integer, default=60) # awareness target
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 

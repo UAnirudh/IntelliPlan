@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block page_title %}Digital Wellbeing — Awareness, not limits | IntelliPlan{% endblock %}
+{% block meta_description %}Track your screen time on IntelliPlan, get gentle reminders, and see healthy-usage suggestions. No lockouts. No forced limits. Just awareness.{% endblock %}
+
+{% block content %}
+<style>
+  .bal-shell{max-width:920px;margin:0 auto;padding:32px 20px 80px;}
+  .bal-hero{margin-bottom:24px;}
+  .bal-hero h1{font-family:var(--font-display);font-size:clamp(1.8rem,3vw,2.4rem);letter-spacing:-0.02em;margin:0 0 6px;color:var(--text-primary);}
+  .bal-hero p{color:var(--text-secondary);margin:0;line-height:1.55;max-width:62ch;}
+  .bal-badge{display:inline-block;padding:4px 10px;background:var(--low-bg);color:var(--low);border-radius:var(--r-full);font-size:0.72rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:10px;}
+  .bal-grid{display:grid;grid-template-columns:1fr;gap:16px;margin-top:18px;}
+  @media (min-width:760px){.bal-grid{grid-template-columns:1fr 1fr;}}
+  .bal-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-xl);padding:20px;box-shadow:var(--shadow-sm);}
+  .bal-card h2{font-family:var(--font-display);font-size:0.78rem;margin:0 0 12px;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted);}
+  .bal-stat{font-family:var(--font-display);font-size:2.6rem;font-weight:700;letter-spacing:-0.03em;color:var(--text-primary);line-height:1;}
+  .bal-stat-unit{font-size:1rem;color:var(--text-muted);margin-left:4px;font-weight:500;}
+  .bal-sub{color:var(--text-secondary);font-size:0.88rem;margin-top:6px;}
+  .bal-bar{height:8px;background:var(--bg-elevated);border-radius:var(--r-full);overflow:hidden;margin-top:14px;}
+  .bal-bar-fill{height:100%;background:var(--grad-brand);border-radius:var(--r-full);transition:width .35s var(--ease-out);}
+  .bal-week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:end;height:120px;margin-top:8px;}
+  .bal-week-bar{background:var(--accent-soft);border:1px solid var(--accent-mid);border-radius:var(--r-xs) var(--r-xs) 0 0;position:relative;min-height:4px;transition:height .35s var(--ease-out);}
+  .bal-week-bar.today{background:var(--grad-brand);border-color:transparent;}
+  .bal-week-labels{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:6px;}
+  .bal-week-labels span{text-align:center;font-size:0.7rem;color:var(--text-muted);}
+  .bal-tips{display:flex;flex-direction:column;gap:10px;}
+  .bal-tip{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--r-md);font-size:0.9rem;line-height:1.5;color:var(--text-primary);}
+  .bal-tip::before{content:"";display:block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:7px;flex-shrink:0;}
+  .bal-prefs{display:flex;flex-direction:column;gap:14px;margin-top:10px;}
+  .bal-row{display:flex;justify-content:space-between;align-items:center;gap:12px;}
+  .bal-row label{font-size:0.9rem;color:var(--text-primary);font-weight:500;}
+  .bal-row small{display:block;color:var(--text-muted);font-size:0.78rem;margin-top:2px;font-weight:400;}
+  .bal-toggle{position:relative;display:inline-block;width:42px;height:24px;}
+  .bal-toggle input{opacity:0;width:0;height:0;}
+  .bal-slide{position:absolute;cursor:pointer;inset:0;background:var(--bg-elevated);border-radius:24px;transition:.2s;}
+  .bal-slide::before{content:"";position:absolute;height:18px;width:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+  .bal-toggle input:checked + .bal-slide{background:var(--accent);}
+  .bal-toggle input:checked + .bal-slide::before{transform:translateX(18px);}
+  .bal-num{width:74px;padding:7px 10px;border:1px solid var(--border-strong);border-radius:var(--r-sm);background:var(--bg-secondary);color:var(--text-primary);font:inherit;text-align:center;}
+  .bal-num:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-mid);}
+  .bal-promise{margin-top:24px;padding:18px;background:var(--low-bg);border:1px solid rgba(5,150,105,0.18);border-radius:var(--r-md);}
+  .bal-promise strong{color:var(--low);}
+  .bal-promise p{margin:0;color:var(--text-secondary);font-size:0.88rem;line-height:1.55;}
+</style>
+
+<div class="bal-shell">
+  <header class="bal-hero">
+    <span class="bal-badge">Awareness · No lockouts</span>
+    <h1>Your IntelliPlan balance</h1>
+    <p>This page shows how long you've been on IntelliPlan today and across the week. It's here to help you notice your patterns — not to lock you out, force breaks, or restrict you. You stay in control.</p>
+  </header>
+
+  <div class="bal-grid">
+    <article class="bal-card">
+      <h2>Today</h2>
+      <div><span class="bal-stat" id="balToday">0</span><span class="bal-stat-unit">min</span></div>
+      <div class="bal-sub">Awareness goal: <span id="balGoal">60</span> min</div>
+      <div class="bal-bar"><div class="bal-bar-fill" id="balBarFill" style="width:0%"></div></div>
+    </article>
+
+    <article class="bal-card">
+      <h2>This week</h2>
+      <div><span class="bal-stat" id="balWeek">0</span><span class="bal-stat-unit">min</span></div>
+      <div class="bal-week" id="balWeekChart" aria-label="Week chart"></div>
+      <div class="bal-week-labels" id="balWeekLabels"></div>
+    </article>
+  </div>
+
+  <article class="bal-card" style="margin-top:16px;">
+    <h2>Gentle suggestions</h2>
+    <div class="bal-tips" id="balTips"><div class="bal-tip">Loading insights…</div></div>
+  </article>
+
+  <article class="bal-card" style="margin-top:16px;">
+    <h2>Your preferences</h2>
+    <div class="bal-prefs">
+      <div class="bal-row">
+        <div>
+          <label for="balRemindersToggle">Optional reminders</label>
+          <small>A quiet nudge after a long stretch. Off by default. Never blocks you.</small>
+        </div>
+        <label class="bal-toggle">
+          <input type="checkbox" id="balRemindersToggle">
+          <span class="bal-slide"></span>
+        </label>
+      </div>
+      <div class="bal-row">
+        <div>
+          <label for="balReminderMinutes">Remind me after</label>
+          <small>Minutes of continuous use before a gentle nudge.</small>
+        </div>
+        <div><input type="number" id="balReminderMinutes" class="bal-num" min="10" max="240" step="5" value="45"> min</div>
+      </div>
+      <div class="bal-row">
+        <div>
+          <label for="balDailyGoal">Daily awareness goal</label>
+          <small>A target you set for yourself. Crossing it doesn't stop you.</small>
+        </div>
+        <div><input type="number" id="balDailyGoal" class="bal-num" min="0" max="600" step="5" value="60"> min</div>
+      </div>
+    </div>
+  </article>
+
+  <div class="bal-promise">
+    <p><strong>Our promise:</strong> IntelliPlan will never force you off, lock you out, or hide features when you cross a threshold. This page is awareness, not a wall. Healthy use is your call.</p>
+  </div>
+</div>
+
+<script>
+  const tzOffset = new Date().getTimezoneOffset();
+  let reminderTimer = null;
+  let lastReminderShown = 0;
+
+  function pingHeartbeat(){
+    fetch('/api/balance/ping', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({minutes: 1, tz_offset: tzOffset}),
+    }).catch(()=>{});
+  }
+
+  async function loadInsights(){
+    try {
+      const r = await fetch(`/api/balance/insights?tz_offset=${tzOffset}`);
+      const d = await r.json();
+      if (d.status !== 'ok') return;
+      document.getElementById('balToday').textContent = d.today_minutes;
+      document.getElementById('balWeek').textContent = d.week_minutes;
+      document.getElementById('balGoal').textContent = d.daily_goal_minutes;
+      const pct = d.daily_goal_minutes > 0 ? Math.min(100, (d.today_minutes / d.daily_goal_minutes) * 100) : 0;
+      document.getElementById('balBarFill').style.width = pct + '%';
+
+      const chart = document.getElementById('balWeekChart');
+      const labels = document.getElementById('balWeekLabels');
+      const maxMin = Math.max(1, ...d.week_series.map(p => p.minutes));
+      const todayDate = new Date().toISOString().slice(0,10);
+      chart.innerHTML = d.week_series.map(p => {
+        const h = Math.max(4, (p.minutes / maxMin) * 100);
+        const isToday = p.date === todayDate;
+        return `<div class="bal-week-bar ${isToday?'today':''}" style="height:${h}%" title="${p.date}: ${p.minutes} min"></div>`;
+      }).join('');
+      labels.innerHTML = d.week_series.map(p => {
+        const day = new Date(p.date + 'T00:00:00').toLocaleDateString(undefined, {weekday:'short'});
+        return `<span>${day}</span>`;
+      }).join('');
+
+      const tipsEl = document.getElementById('balTips');
+      tipsEl.innerHTML = (d.suggestions || []).map(t => `<div class="bal-tip">${t.replace(/[<>]/g,'')}</div>`).join('');
+
+      document.getElementById('balRemindersToggle').checked = !!d.reminders_enabled;
+      document.getElementById('balReminderMinutes').value = d.reminder_minutes;
+      document.getElementById('balDailyGoal').value = d.daily_goal_minutes;
+
+      setupReminderTimer(d.reminders_enabled, d.reminder_minutes);
+    } catch (e) { /* silent */ }
+  }
+
+  function setupReminderTimer(enabled, minutes){
+    if (reminderTimer){ clearInterval(reminderTimer); reminderTimer = null; }
+    if (!enabled) return;
+    const ms = Math.max(10, minutes) * 60 * 1000;
+    reminderTimer = setInterval(() => {
+      const now = Date.now();
+      if (now - lastReminderShown < ms) return;
+      lastReminderShown = now;
+      try {
+        const banner = document.createElement('div');
+        banner.textContent = `You've been studying for ${minutes} minutes — a short break can sharpen your focus. (You can dismiss and keep going.)`;
+        banner.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg-card);color:var(--text-primary);padding:14px 18px;border:1px solid var(--accent-mid);border-radius:12px;box-shadow:var(--shadow-lg);z-index:9999;max-width:420px;font-size:0.9rem;cursor:pointer;';
+        banner.addEventListener('click', () => banner.remove());
+        document.body.appendChild(banner);
+        setTimeout(() => banner.remove(), 12000);
+      } catch (e) { /* ignore */ }
+    }, 30000);
+  }
+
+  async function savePrefs(){
+    const body = {
+      reminders_enabled: document.getElementById('balRemindersToggle').checked,
+      reminder_minutes: Number(document.getElementById('balReminderMinutes').value) || 45,
+      daily_goal_minutes: Number(document.getElementById('balDailyGoal').value) || 60,
+    };
+    await fetch('/api/balance/prefs', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body),
+    });
+    loadInsights();
+  }
+
+  document.getElementById('balRemindersToggle').addEventListener('change', savePrefs);
+  document.getElementById('balReminderMinutes').addEventListener('change', savePrefs);
+  document.getElementById('balDailyGoal').addEventListener('change', savePrefs);
+
+  loadInsights();
+  setInterval(pingHeartbeat, 60 * 1000);
+  setInterval(loadInsights, 90 * 1000);
+</script>
+{% endblock %}

@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block page_title %}Text Dissector — Free AI Reading Breakdown & Summarizer | IntelliPlan{% endblock %}
+{% block meta_description %}Paste any passage and instantly get a plain-English summary, the key points, hard-word definitions, and comprehension questions. Free reading helper from IntelliPlan.{% endblock %}
+{% block og_title %}Text Dissector — Free AI Reading Breakdown{% endblock %}
+{% block og_description %}Summary, key points, vocabulary, and questions for any passage. Free, no sign-up.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Text Dissector",
+  "url": "https://intelliplan.tech/tools/text-dissector",
+  "applicationCategory": "EducationApplication",
+  "operatingSystem": "Web",
+  "isAccessibleForFree": true,
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "description": "Free AI reading helper. Summarize, extract key points, define hard terms, and generate comprehension questions for any passage.",
+  "publisher": {"@id": "https://intelliplan.tech/#organization"}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<style>
+  .td-shell{max-width:1040px;margin:0 auto;padding:32px 20px 80px;}
+  .td-hero{text-align:center;margin-bottom:28px;}
+  .td-kicker{display:inline-block;padding:5px 12px;background:var(--accent-soft);color:var(--accent);border-radius:var(--r-full);font-size:0.75rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:12px;}
+  .td-hero h1{font-family:var(--font-display);font-size:clamp(2rem,4vw,3rem);letter-spacing:-0.025em;margin:0 0 10px;color:var(--text-primary);line-height:1.1;}
+  .td-hero h1 .td-grad{background:var(--grad-brand);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .td-hero p{color:var(--text-secondary);max-width:60ch;margin:0 auto;line-height:1.55;}
+  .td-board{display:grid;grid-template-columns:1fr;gap:18px;}
+  @media (min-width:880px){.td-board{grid-template-columns:1fr 1fr;}}
+  .td-panel{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-xl);padding:18px;box-shadow:var(--shadow-sm);}
+  .td-panel h2{font-family:var(--font-display);font-size:0.95rem;margin:0 0 12px;letter-spacing:0.02em;text-transform:uppercase;color:var(--text-muted);}
+  .td-textarea{width:100%;min-height:280px;padding:14px 16px;border:1px solid var(--border-strong);border-radius:var(--r-md);background:var(--bg-secondary);color:var(--text-primary);font:inherit;font-size:0.95rem;line-height:1.55;resize:vertical;}
+  .td-textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-mid);}
+  .td-toolbar{display:flex;align-items:center;justify-content:space-between;margin-top:12px;gap:10px;flex-wrap:wrap;}
+  .td-count{font-size:0.78rem;color:var(--text-muted);}
+  .td-btn{display:inline-flex;align-items:center;gap:6px;padding:11px 18px;background:var(--grad-brand);color:#fff;border:0;border-radius:var(--r-sm);font:inherit;font-weight:600;cursor:pointer;transition:transform .12s var(--ease-out),filter .12s;}
+  .td-btn:hover{filter:brightness(1.05);transform:translateY(-1px);}
+  .td-btn:disabled{opacity:.55;cursor:not-allowed;transform:none;}
+  .td-btn-ghost{background:transparent;color:var(--text-secondary);border:1px solid var(--border-strong);}
+  .td-btn-ghost:hover{color:var(--accent);border-color:var(--accent);background:var(--accent-soft);}
+  .td-result{display:flex;flex-direction:column;gap:14px;}
+  .td-block{padding:14px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg-secondary);}
+  .td-block h3{font-family:var(--font-display);font-size:0.78rem;margin:0 0 8px;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted);}
+  .td-block p,.td-block li{color:var(--text-primary);font-size:0.93rem;line-height:1.55;margin:0;}
+  .td-block ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;}
+  .td-vocab{display:grid;grid-template-columns:max-content 1fr;gap:6px 12px;}
+  .td-vocab dt{font-weight:600;color:var(--accent);}
+  .td-vocab dd{margin:0;color:var(--text-secondary);font-size:0.9rem;line-height:1.5;}
+  .td-empty{color:var(--text-muted);font-size:0.88rem;text-align:center;padding:24px;}
+  .td-note{margin-top:14px;font-size:0.78rem;color:var(--text-muted);text-align:center;}
+  .td-status{font-size:0.8rem;color:var(--text-muted);}
+</style>
+
+<div class="td-shell">
+  <header class="td-hero">
+    <span class="td-kicker">Free tool · No sign-up</span>
+    <h1>Break down any <span class="td-grad">passage</span>, instantly</h1>
+    <p>Paste a paragraph, an article, or a chunk of your textbook. Get a plain-English summary, the key points, definitions for hard words, and three comprehension questions in seconds.</p>
+  </header>
+
+  <div class="td-board">
+    <section class="td-panel" aria-label="Input">
+      <h2>Your text</h2>
+      <textarea id="tdInput" class="td-textarea" maxlength="12000" placeholder="Paste up to 12,000 characters of text…"></textarea>
+      <div class="td-toolbar">
+        <span class="td-count"><span id="tdCount">0</span> / 12,000</span>
+        <div style="display:flex;gap:8px;">
+          <button class="td-btn td-btn-ghost" onclick="clearText()">Clear</button>
+          <button id="tdAnalyze" class="td-btn" onclick="analyze()">Analyze</button>
+        </div>
+      </div>
+      <p class="td-note">Works on essays, articles, textbook excerpts, and lab readings. Long texts auto-truncate at the limit.</p>
+    </section>
+
+    <section class="td-panel" aria-label="Analysis">
+      <h2>Breakdown</h2>
+      <div id="tdStatus" class="td-status" hidden>Reading…</div>
+      <div id="tdResult" class="td-result">
+        <div class="td-empty">Your breakdown will appear here.</div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+  const input = document.getElementById('tdInput');
+  const counter = document.getElementById('tdCount');
+  input.addEventListener('input', () => counter.textContent = input.value.length);
+
+  function escapeHtml(s){return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+  function clearText(){
+    input.value = '';
+    counter.textContent = '0';
+    document.getElementById('tdResult').innerHTML = '<div class="td-empty">Your breakdown will appear here.</div>';
+  }
+
+  function render(a){
+    const out = document.getElementById('tdResult');
+    const summary = `
+      <div class="td-block">
+        <h3>Summary</h3>
+        <p>${escapeHtml(a.summary || '—')}</p>
+      </div>`;
+    const kp = (a.key_points || []).map(p => `<li>${escapeHtml(p)}</li>`).join('');
+    const keyPoints = kp ? `
+      <div class="td-block">
+        <h3>Key points</h3>
+        <ul>${kp}</ul>
+      </div>` : '';
+    const vocabRows = (a.vocabulary || []).map(v => `
+      <dt>${escapeHtml(v.term || '')}</dt>
+      <dd>${escapeHtml(v.meaning || '')}</dd>`).join('');
+    const vocab = vocabRows ? `
+      <div class="td-block">
+        <h3>Vocabulary</h3>
+        <dl class="td-vocab">${vocabRows}</dl>
+      </div>` : '';
+    const qs = (a.questions || []).map(q => `<li>${escapeHtml(q)}</li>`).join('');
+    const questions = qs ? `
+      <div class="td-block">
+        <h3>Check your understanding</h3>
+        <ul>${qs}</ul>
+      </div>` : '';
+    out.innerHTML = summary + keyPoints + vocab + questions;
+  }
+
+  async function analyze(){
+    const text = input.value.trim();
+    const btn = document.getElementById('tdAnalyze');
+    const status = document.getElementById('tdStatus');
+    if (!text){
+      document.getElementById('tdResult').innerHTML = '<div class="td-empty">Paste some text first.</div>';
+      return;
+    }
+    btn.disabled = true; btn.textContent = 'Analyzing…';
+    status.hidden = false;
+    try {
+      const r = await fetch('/api/text-dissector', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({text}),
+      });
+      const d = await r.json();
+      if (d.status === 'ok' && d.analysis){
+        render(d.analysis);
+      } else {
+        document.getElementById('tdResult').innerHTML = `<div class="td-empty">${escapeHtml(d.message || 'Could not analyze.')}</div>`;
+      }
+    } catch (e) {
+      document.getElementById('tdResult').innerHTML = '<div class="td-empty">Network error. Try again.</div>';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Analyze';
+      status.hidden = true;
+    }
+  }
+</script>
+{% endblock %}

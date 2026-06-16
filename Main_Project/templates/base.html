@@ -31,6 +31,23 @@
   <meta name="keywords" content="AI study planner, free study planner, Canvas study planner, StudentVue planner, assignment prioritizer, AI tutor for students, study schedule generator, grade calculator, homework planner, AP study tools">
   <meta name="application-name" content="IntelliPlan">
 
+  {# ── Service categorization signals ─────────────────────────────
+     These tags are read by URL/category classifiers (FortiGuard,
+     Cisco Talos, Symantec, Bluecoat, OpenDNS/Umbrella) when they
+     reclassify a previously-uncategorized domain. Pairs with the
+     EducationalOrganization JSON-LD below and the manual category
+     submissions linked in docs/fortiguard-category.md. ── #}
+  <meta name="rating" content="general">
+  <meta name="audience" content="students, teachers, parents, schools">
+  <meta name="category" content="Education">
+  <meta name="classification" content="Education, Reference, Study Tools, Educational Institutions">
+  <meta name="page-topic" content="Education and study tools for K-12 and college students">
+  <meta name="subject" content="Education">
+  <meta name="coverage" content="Worldwide">
+  <meta name="distribution" content="Global">
+  <meta name="target" content="all">
+  <meta name="content-language" content="en">
+
   {# Open Graph (Facebook, LinkedIn, iMessage, Slack, Discord previews) #}
   <meta property="og:type" content="{% block og_type %}website{% endblock %}">
   <meta property="og:site_name" content="IntelliPlan">
@@ -59,7 +76,7 @@
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "Organization",
+    "@type": ["EducationalOrganization", "Organization"],
     "@id": "https://intelliplan.tech/#organization",
     "name": "IntelliPlan",
     "alternateName": "IntelliPlan AI Study Planner",
@@ -1619,6 +1636,8 @@ body {
       </div>
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
+        <a href="/balance"  class="nav-tab {% if active_page == 'balance' %}active{% endif %}" title="Digital wellbeing"><span class="nav-label">Balance</span></a>
+        <a href="/features" class="nav-tab {% if active_page == 'features' %}active{% endif %}" title="Feature requests"><span class="nav-label">Ideas</span></a>
         <a href="/settings" class="nav-tab {% if active_page == 'settings' %}active{% endif %}" aria-label="Settings"><span class="nav-tab-icon"><svg><use href="#i-settings"/></svg></span><span class="nav-label">Settings</span></a>
         <form action="/logout" method="POST" style="display:inline;">
           <button type="submit" class="nav-tab logout-btn"><span class="nav-tab-icon"><svg><use href="#i-logout"/></svg></span><span class="nav-label">Logout</span></button>
@@ -1632,6 +1651,7 @@ body {
            Only public, indexable destinations live here. ── #}
       <div class="nav-group">
         <a href="/tutor"   class="nav-tab nav-tab-tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-tutor"/></svg></span><span class="nav-label">AI Tutor</span></a>
+        <a href="/tools/text-dissector" class="nav-tab {% if active_page == 'text_dissector' %}active{% endif %}"><span class="nav-label">Text Dissector</span></a>
         <a href="/about" class="nav-tab {% if active_page == 'about' %}active{% endif %}"><span class="nav-label">About</span></a>
         <a href="/compare" class="nav-tab {% if active_page == 'compare' %}active{% endif %}"><span class="nav-label">Compare</span></a>
         <a href="/faq"     class="nav-tab {% if active_page == 'faq' %}active{% endif %}"><span class="nav-label">FAQ</span></a>
@@ -3547,6 +3567,34 @@ window.addEventListener('load',()=>{
   } else {
     document.addEventListener('DOMContentLoaded', () => setTimeout(boot, 200));
   }
+})();
+</script>
+
+{# ── Digital Balance heartbeat (awareness only, never blocks) ──
+     Pings the server every 60s while the tab is visible. Records
+     1 minute of usage per ping into MediaBalanceSession so /balance
+     can show insights. Skips when hidden so background tabs don't
+     inflate counts. No popups, no enforcement. ── #}
+<script>
+(function(){
+  const TZ = new Date().getTimezoneOffset();
+  let last = 0;
+  function tick(){
+    if (document.hidden) return;
+    const now = Date.now();
+    if (now - last < 55000) return;
+    last = now;
+    try {
+      fetch('/api/balance/ping', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({minutes: 1, tz_offset: TZ}),
+        keepalive: true,
+      }).catch(()=>{});
+    } catch (e) { /* ignore */ }
+  }
+  setInterval(tick, 60000);
+  setTimeout(tick, 5000);
 })();
 </script>
 {% endif %}
