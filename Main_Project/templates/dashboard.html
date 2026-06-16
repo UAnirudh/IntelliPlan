@@ -1550,10 +1550,10 @@ async function submitFeedback(save) {
       body: JSON.stringify({ title: task.title, timezone: tz, ...task })
     });
   }
-  if (notificationsSilenced()) {
-    console.log("Notifications suppressed");
-    return;
-  }
+  // Always update the UI after a successful save. (Previously a
+  // notificationsSilenced() early-return here skipped the card removal
+  // and dashboard refresh, so a completed task appeared to "not save"
+  // until a manual reload, even though the DB write above succeeded.)
   closeFeedbackModal();
   if (card) {
     card.style.opacity = '0';

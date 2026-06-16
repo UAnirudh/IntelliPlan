@@ -396,7 +396,11 @@
     /* ══════════════════════════════════════
        HEADER
     ══════════════════════════════════════ */
-    header {
+    /* Scoped to the top-level nav header only. A bare `header {}` here
+       used to style EVERY nested <header> (62px sticky grid bar),
+       silently breaking any page that used <header> for a hero/section.
+       `body > header` keeps the nav styled and frees inner headers. */
+    body > header {
       background: var(--nav-bg);
       border-bottom: 1px solid var(--nav-border);
       backdrop-filter: blur(18px) saturate(180%);
@@ -1343,7 +1347,7 @@
       .dropdown-toggle { padding:6px 9px; }
       .nav-divider { margin:0 4px; }
       .header-actions { gap:0.7rem; }
-      header { padding:0 1.25rem; }
+      body > header { padding:0 1.25rem; }
     }
 
     /* ── Tablet (721–900px): icon-only nav tabs (closes the old 721–768
@@ -1390,7 +1394,7 @@
     @media (max-width:600px) {
       .stats-bar     { grid-template-columns:1fr 1fr; }
       .time-pill     { display:none; }
-      header         { padding:0 1rem; }
+      body > header  { padding:0 1rem; }
       .header-actions { gap:0.55rem; }
       main           { padding:1.5rem 1rem; }
       .features-grid { grid-template-columns:1fr; }

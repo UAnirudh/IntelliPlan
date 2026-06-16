@@ -24,6 +24,8 @@ from studentvue_helper import (
 )
 from ai_provider import ai_available, chat as ai_chat, vision as ai_vision, transcribe_audio, chat_json as ai_chat_json
 import re
+import html as _html_mod
+import unicodedata as _unicodedata
 import json
 import uuid
 import base64
@@ -1442,13 +1444,71 @@ def get_active_account():
         }
     return None
 
+def _norm_title(title):
+    """Normalize an assignment title into a stable matching key.
+
+    Completion state is persisted keyed by the assignment's *display
+    title*. Those strings drift between an LMS sync and a later render —
+    HTML entities (``&amp;`` vs ``&``), smart quotes, NBSPs, trailing
+    whitespace, and casing all vary — and any drift made a previously
+    completed assignment reappear ("it resets when I revisit the page").
+
+    Collapsing to a normalized key (unescape entities → NFKC →
+    collapse whitespace → casefold) makes the match survive that drift
+    without needing a stable per-assignment id from every provider.
+    """
+    if not title:
+        return ""
+    s = _html_mod.unescape(str(title))
+    s = _unicodedata.normalize("NFKC", s)
+    # Fold typographic variants NFKC leaves alone — curly quotes and
+    # dashes routinely differ between an LMS feed and a later render.
+    s = s.translate(_TYPO_FOLD)
+    s = re.sub(r"\s+", " ", s).strip().casefold()
+    return s
+
+
+# Smart quotes / dashes → ASCII equivalents (NFKC doesn't fold these).
+_TYPO_FOLD = {
+    0x2018: "'", 0x2019: "'", 0x201A: "'", 0x201B: "'",
+    0x201C: '"', 0x201D: '"', 0x201E: '"', 0x201F: '"',
+    0x2013: "-", 0x2014: "-", 0x2015: "-", 0x2212: "-",
+}
+
+
+class _DismissedSet:
+    """Set-like view over completed-assignment titles that compares by
+    normalized key (see :func:`_norm_title`).
+
+    Drop-in for the old ``{r.title for r in rows}`` set: every existing
+    ``title in dismissed`` / ``title not in dismissed`` call site keeps
+    working unchanged but now matches robustly across title drift.
+    """
+    __slots__ = ("_keys",)
+
+    def __init__(self, titles):
+        self._keys = {_norm_title(t) for t in titles}
+
+    def __contains__(self, title):
+        return _norm_title(title) in self._keys
+
+    def __iter__(self):
+        return iter(self._keys)
+
+    def __len__(self):
+        return len(self._keys)
+
+    def __bool__(self):
+        return bool(self._keys)
+
+
 def get_dismissed_titles():
     if current_user.is_authenticated:
         rows = DismissedAssignment.query.filter_by(user_id=current_user.id).all()
     else:
         gid = get_guest_session_id()
         rows = DismissedAssignment.query.filter_by(guest_session_id=gid).all()
-    return {r.title for r in rows}
+    return _DismissedSet(r.title for r in rows)
 
 def get_dismissed_rows():
     if current_user.is_authenticated:
@@ -1457,23 +1517,34 @@ def get_dismissed_rows():
     return DismissedAssignment.query.filter_by(guest_session_id=gid).all()
 
 def save_dismissed(title, data_dict):
+    # Dedupe on the normalized key (not the raw string) so the same
+    # assignment dismissed under a slightly-drifted title doesn't create
+    # a second row. The original title is still stored for display.
+    key = _norm_title(title)
     if current_user.is_authenticated:
-        existing = DismissedAssignment.query.filter_by(user_id=current_user.id, title=title).first()
-        if not existing:
+        rows = DismissedAssignment.query.filter_by(user_id=current_user.id).all()
+        if not any(_norm_title(r.title) == key for r in rows):
             db.session.add(DismissedAssignment(user_id=current_user.id, title=title, data=json.dumps(data_dict)))
     else:
         gid = get_guest_session_id()
-        existing = DismissedAssignment.query.filter_by(guest_session_id=gid, title=title).first()
-        if not existing:
+        rows = DismissedAssignment.query.filter_by(guest_session_id=gid).all()
+        if not any(_norm_title(r.title) == key for r in rows):
             db.session.add(DismissedAssignment(guest_session_id=gid, title=title, data=json.dumps(data_dict)))
     db.session.commit()
 
 def delete_dismissed(title):
+    # Match on the normalized key so un-completing works even when the
+    # title sent now differs from the stored one by entity/whitespace/
+    # case drift. Also sweeps up any historical duplicate rows.
+    key = _norm_title(title)
     if current_user.is_authenticated:
-        DismissedAssignment.query.filter_by(user_id=current_user.id, title=title).delete()
+        rows = DismissedAssignment.query.filter_by(user_id=current_user.id).all()
     else:
         gid = get_guest_session_id()
-        DismissedAssignment.query.filter_by(guest_session_id=gid, title=title).delete()
+        rows = DismissedAssignment.query.filter_by(guest_session_id=gid).all()
+    for r in rows:
+        if _norm_title(r.title) == key:
+            db.session.delete(r)
     db.session.commit()
 
 def get_test_titles():
@@ -8589,7 +8660,7 @@ def extension_tasks():
         priority_order = {"High": 0, "Medium": 1, "Low": 2}
         tasks = []
         dismissed_rows = DismissedAssignment.query.filter_by(user_id=user.id).all()
-        dismissed = {r.title for r in dismissed_rows}
+        dismissed = _DismissedSet(r.title for r in dismissed_rows)
         acct = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
         if acct:
             creds = acct.get_credentials()
