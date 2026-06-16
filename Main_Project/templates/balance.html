@@ -295,13 +295,9 @@
 
   function $(id){ return document.getElementById(id); }
 
-  function pingHeartbeat(){
-    fetch('/api/balance/ping', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({minutes: 1, tz_offset: TZ}),
-    }).catch(()=>{});
-  }
+  // NOTE: usage minutes are pinged by the global heartbeat in base.html
+  // on every authenticated page — we deliberately do NOT ping again here,
+  // which previously double-counted time on this page.
 
   async function loadInsights(){
     try {
@@ -383,8 +379,14 @@
   });
 
   loadInsights();
-  setInterval(pingHeartbeat, 60 * 1000);
-  setInterval(loadInsights, 90 * 1000);
+  // Refresh insights only while the tab is visible, and clean the timer
+  // up on navigation so it never lingers as a background poll.
+  let insightsTimer = setInterval(() => {
+    if (!document.hidden) loadInsights();
+  }, 90 * 1000);
+  window.addEventListener('pagehide', () => {
+    if (insightsTimer) { clearInterval(insightsTimer); insightsTimer = null; }
+  });
 })();
 </script>
 {% endblock %}
