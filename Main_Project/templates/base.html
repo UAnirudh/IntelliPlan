@@ -1568,7 +1568,7 @@ body {
 </style>
 </head>
 
-{% set _app_pages = ['dashboard','scheduler','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','olympiad','memories','pet','command_center'] %}
+{% set _app_pages = ['dashboard','scheduler','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','olympiad','memories','pet','command_center','balance','features','accessibility','text_dissector'] %}
 <body class="{% if active_page in _app_pages %}has-side{% endif %}">
 <a href="#main" class="a11y-skip">Skip to main content</a>
 
@@ -1683,6 +1683,12 @@ body {
       <span class="side-icon"><svg><use href="#i-sparkle"/></svg></span>My Plani
       <span class="side-pet-badge" id="sidePetBadge" hidden></span>
     </a>
+    <a href="/balance" data-nav-item="balance" class="side-link {% if active_page == 'balance' %}active{% endif %}">
+      <span class="side-icon"><svg><use href="#i-sparkle"/></svg></span>Balance
+    </a>
+    <a href="/features" data-nav-item="features" class="side-link {% if active_page == 'features' %}active{% endif %}">
+      <span class="side-icon"><svg><use href="#i-lightning"/></svg></span>Ideas
+    </a>
 
   </div>
 
@@ -1740,7 +1746,6 @@ body {
         <a href="/memories"        class="nav-tab {% if active_page == 'memories' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-save"/></svg></span><span class="nav-label">Memories</span></a>
         <a href="/gradebook"       class="nav-tab {% if active_page in ['gradebook','grademodel'] %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-modeler"/></svg></span><span class="nav-label">Grades</span></a>
         <a href="/study-and-learn" class="nav-tab {% if active_page in _study_sub %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-study"/></svg></span><span class="nav-label">Study &amp; Learn</span></a>
-        <a href="/streak"          class="nav-tab {% if active_page == 'streak' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-fire"/></svg></span><span class="nav-label">Streak</span></a>
       </div>
       {# ── Streak flame + Plani Pet badge — Duolingo-style nav widgets ── #}
       <div class="nav-group nav-rewards" id="navRewards" hidden>
@@ -1755,9 +1760,6 @@ body {
       </div>
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
-        <a href="/balance"  class="nav-tab {% if active_page == 'balance' %}active{% endif %}" title="Digital wellbeing"><span class="nav-label">Balance</span></a>
-        <a href="/accessibility" class="nav-tab {% if active_page == 'accessibility' %}active{% endif %}" title="Accessibility settings"><span class="nav-label">A11y</span></a>
-        <a href="/features" class="nav-tab {% if active_page == 'features' %}active{% endif %}" title="Feature requests"><span class="nav-label">Ideas</span></a>
         <a href="/settings" class="nav-tab {% if active_page == 'settings' %}active{% endif %}" aria-label="Settings"><span class="nav-tab-icon"><svg><use href="#i-settings"/></svg></span><span class="nav-label">Settings</span></a>
         <form action="/logout" method="POST" style="display:inline;">
           <button type="submit" class="nav-tab logout-btn"><span class="nav-tab-icon"><svg><use href="#i-logout"/></svg></span><span class="nav-label">Logout</span></button>
