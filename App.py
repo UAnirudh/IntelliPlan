@@ -899,6 +899,26 @@ class MediaBalancePrefs(db.Model):
     reminders_enabled = db.Column(db.Boolean, default=False)
     reminder_minutes = db.Column(db.Integer, default=45)   # gentle nudge cadence
     daily_goal_minutes = db.Column(db.Integer, default=60) # awareness target
+    night_nudges_enabled = db.Column(db.Boolean, default=True)  # sleep reminders after night_start_hour
+    night_start_hour = db.Column(db.Integer, default=22)        # local hour (0-23) when sleep mode begins
+    night_cadence_minutes = db.Column(db.Integer, default=10)   # night reminder repeat cadence
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AccessibilityPrefs(db.Model):
+    """Per-user accessibility settings, server-stored so they follow the
+    user across devices. The same set is also mirrored to localStorage on
+    the client so the page can apply them before first paint."""
+    __tablename__ = "accessibility_prefs"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), unique=True, nullable=False)
+    dyslexia_font = db.Column(db.Boolean, default=False)
+    text_scale = db.Column(db.Integer, default=100)       # 90 / 100 / 115 / 130 / 150
+    line_spacing = db.Column(db.Integer, default=100)     # 100 / 130 / 160 / 200
+    high_contrast = db.Column(db.Boolean, default=False)
+    reduced_motion = db.Column(db.Boolean, default=False)
+    underline_links = db.Column(db.Boolean, default=False)
+    focus_ring_bold = db.Column(db.Boolean, default=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
@@ -3767,12 +3787,20 @@ def register():
                 if under_13 and parent_email_raw:
                     try:
                         consent_url = f"{APP_BASE_URL}/parent/consent?token={consent_token}"
+                        deny_url = f"{APP_BASE_URL}/parent/deny?token={consent_token}"
                         body = (
                             f"Hi,\n\nYour child ({email}) signed up for IntelliPlan, a free study "
                             f"planner. Because they're under 13, COPPA requires your consent before "
-                            f"their account becomes active.\n\nApprove the account:\n{consent_url}\n\n"
-                            f"If you didn't expect this email, you can safely ignore it — the account "
-                            f"stays locked until you click the link.\n\n— IntelliPlan"
+                            f"their account becomes active.\n\n"
+                            f"What IntelliPlan does: helps students plan homework, prioritize "
+                            f"assignments, and study with an AI tutor. No ads. No data sold. We collect "
+                            f"only what's needed to run the planner (email, grade level, assignments) "
+                            f"and you can request deletion at any time.\n\n"
+                            f"✅ Approve the account:\n{consent_url}\n\n"
+                            f"❌ Deny / delete this signup:\n{deny_url}\n\n"
+                            f"If you didn't expect this email, you can either click the deny link "
+                            f"above to remove the account, or simply ignore this message — the account "
+                            f"stays locked and inactive until you approve it.\n\n— IntelliPlan"
                         )
                         # Send via SMTP if SMTP_HOST is set; otherwise log
                         # the link so it can still be delivered manually.
@@ -10093,6 +10121,58 @@ def parent_consent():
         "They can now sign in and start using the app. You can revoke consent any time by emailing "
         "<a href='mailto:uanirudh0811@gmail.com'>uanirudh0811@gmail.com</a> — we'll delete the "
         "account and all associated data within 30 days.</p>"
+        "<p><a href='/'>← Back to IntelliPlan</a></p>"
+    )
+
+
+@app.route("/parent/deny")
+def parent_deny():
+    """COPPA deny path. Hard-deletes the pending under-13 account so a
+    rejected child can't sign in and we hold no PII on them. One-shot:
+    the consent token is the only handle to the row, so once the
+    account is deleted the link can't be replayed.
+    """
+    token = request.args.get("token", "").strip()
+    if not token:
+        return "Missing consent token.", 400
+    user = User.query.filter_by(parent_consent_token=token).first()
+    if not user:
+        return (
+            "<!doctype html><meta charset='utf-8'><title>Link not valid</title>"
+            "<style>body{font-family:Arial,sans-serif;max-width:560px;margin:60px auto;padding:24px;"
+            "background:#f9fafb;color:#111827;line-height:1.6;}</style>"
+            "<h1>Link not valid</h1><p>This link is no longer valid. The account may already have been "
+            "approved or removed.</p><p><a href='/'>← Back to IntelliPlan</a></p>"
+        ), 404
+    # Refuse to delete an account that's already been activated — at that
+    # point consent has been granted and removal needs to go through the
+    # account-deletion flow under the child's logged-in session.
+    if user.parent_consent_granted:
+        return (
+            "<!doctype html><meta charset='utf-8'><title>Already approved</title>"
+            "<style>body{font-family:Arial,sans-serif;max-width:560px;margin:60px auto;padding:24px;"
+            "background:#f9fafb;color:#111827;line-height:1.6;}a{color:#2563eb;}</style>"
+            f"<h1>Already approved</h1><p>This account has already been approved. To remove "
+            f"<strong>{user.email}</strong>, please email "
+            "<a href='mailto:uanirudh0811@gmail.com'>uanirudh0811@gmail.com</a> and we'll delete "
+            "the account and all associated data within 30 days, as required by COPPA.</p>"
+        ), 409
+    child_email = user.email
+    try:
+        db.session.delete(user)
+        db.session.commit()
+        print(f"[coppa] denied + deleted pending account: {child_email}")
+    except Exception as _e:
+        db.session.rollback()
+        print(f"[coppa] deny delete failed for {child_email}: {_e}")
+        return "Could not remove the account right now. Please try again later.", 500
+    return (
+        "<!doctype html><meta charset='utf-8'><title>Account removed</title>"
+        "<style>body{font-family:Arial,sans-serif;max-width:560px;margin:60px auto;padding:24px;"
+        "background:#f9fafb;color:#111827;line-height:1.6;}a{color:#2563eb;}</style>"
+        f"<h1>Account removed</h1><p>The pending IntelliPlan account for <strong>{child_email}</strong> "
+        "has been deleted. No data is kept. If this was a mistake, your child can sign up again at any "
+        "time and you'll receive a new consent email.</p>"
         "<p><a href='/'>← Back to IntelliPlan</a></p>"
     )
 

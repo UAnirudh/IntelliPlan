@@ -122,6 +122,44 @@
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
+  {# OpenDyslexic — loaded but only applied when the user opts in via
+     <html data-a11y-dyslexia="1">. Self-hosting via jsDelivr CDN keeps it
+     out of the critical path; the @font-face below scopes it to the opt-in. #}
+  <style>
+    @font-face{
+      font-family:'OpenDyslexic';
+      src:url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Regular.woff') format('woff');
+      font-weight:400;font-style:normal;font-display:swap;
+    }
+    @font-face{
+      font-family:'OpenDyslexic';
+      src:url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Bold.woff') format('woff');
+      font-weight:700;font-style:normal;font-display:swap;
+    }
+  </style>
+
+  {# Pre-paint a11y bootstrap. Runs before first style application by
+     mirroring server prefs into localStorage on every page-load and
+     applying them as data-attributes on <html>. Prevents a flash of
+     unstyled-for-a11y content. ── #}
+  <script>
+    (function(){
+      try {
+        var raw = localStorage.getItem('ip_a11y');
+        if (!raw) return;
+        var p = JSON.parse(raw);
+        var h = document.documentElement;
+        if (p.dyslexia_font) h.setAttribute('data-a11y-dyslexia','1');
+        if (p.high_contrast) h.setAttribute('data-a11y-contrast','1');
+        if (p.reduced_motion) h.setAttribute('data-a11y-motion','reduce');
+        if (p.underline_links) h.setAttribute('data-a11y-underline','1');
+        if (p.focus_ring_bold) h.setAttribute('data-a11y-focus','bold');
+        if (p.text_scale && p.text_scale !== 100) h.setAttribute('data-a11y-scale', String(p.text_scale));
+        if (p.line_spacing && p.line_spacing !== 100) h.setAttribute('data-a11y-spacing', String(p.line_spacing));
+      } catch (e) { /* fail-quiet */ }
+    })();
+  </script>
+
   <style>
     /* ══════════════════════════════════════
        DESIGN TOKENS
@@ -1367,6 +1405,86 @@
       #installBanner { left:12px; bottom:12px; right:12px; justify-content:space-between; }
       /* planiBot mobile override handled above */
     }
+
+    /* ══════════════════════════════════════
+       ACCESSIBILITY OVERRIDES
+       Activated by data-a11y-* attributes on <html>. Applied before
+       first paint by the bootstrap script at the top of <head>.
+    ══════════════════════════════════════ */
+    html[data-a11y-dyslexia="1"], html[data-a11y-dyslexia="1"] body,
+    html[data-a11y-dyslexia="1"] *:not(code):not(pre):not(.mono):not([class*="mono"]) {
+      font-family: 'OpenDyslexic', 'Comic Sans MS', sans-serif !important;
+      letter-spacing: 0.01em;
+    }
+    html[data-a11y-scale="90"]  { font-size: 90%; }
+    html[data-a11y-scale="115"] { font-size: 115%; }
+    html[data-a11y-scale="130"] { font-size: 130%; }
+    html[data-a11y-scale="150"] { font-size: 150%; }
+
+    html[data-a11y-spacing="130"] body * { line-height: 1.55 !important; }
+    html[data-a11y-spacing="160"] body * { line-height: 1.8 !important; }
+    html[data-a11y-spacing="200"] body * { line-height: 2.0 !important; }
+
+    /* High-contrast: black-on-white (or white-on-black for dark theme)
+       with stronger borders, no faint translucent surfaces. */
+    html[data-a11y-contrast="1"][data-theme="light"] {
+      --text-primary:#000000; --text-secondary:#1a1a1a; --text-muted:#3a3a3a;
+      --bg:#ffffff; --bg-secondary:#ffffff; --bg-card:#ffffff; --bg-elevated:#f4f4f4;
+      --border:#000000; --border-strong:#000000; --border-accent:#000000;
+      --accent:#0000ee; --accent-hover:#0000aa;
+    }
+    html[data-a11y-contrast="1"][data-theme="dark"] {
+      --text-primary:#ffffff; --text-secondary:#f4f4f4; --text-muted:#cccccc;
+      --bg:#000000; --bg-secondary:#000000; --bg-card:#0a0a0a; --bg-elevated:#1a1a1a;
+      --border:#ffffff; --border-strong:#ffffff; --border-accent:#ffffff;
+      --accent:#ffeb3b; --accent-hover:#ffd600;
+    }
+    html[data-a11y-contrast="1"] * { text-shadow: none !important; }
+
+    /* Reduced motion: kill animations and transitions globally. Respects
+       the OS-level pref too via the standard media query. */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+    html[data-a11y-motion="reduce"] *,
+    html[data-a11y-motion="reduce"] *::before,
+    html[data-a11y-motion="reduce"] *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+
+    /* Underline all in-content links — helps users who can't reliably
+       distinguish links from body text by color alone. */
+    html[data-a11y-underline="1"] a:not(.nav-tab):not(.nav-cta):not(.btn):not([role="button"]) {
+      text-decoration: underline !important;
+      text-underline-offset: 2px;
+    }
+
+    /* Bold focus rings — never *replaces* the existing :focus, just
+       reinforces it with a high-contrast outline. */
+    html[data-a11y-focus="bold"] *:focus-visible {
+      outline: 3px solid var(--accent) !important;
+      outline-offset: 3px !important;
+      box-shadow: 0 0 0 6px rgba(var(--accent-shadow), 0.25) !important;
+    }
+
+    /* Skip link — visible on focus, lets keyboard users jump past nav. */
+    .a11y-skip {
+      position: absolute; top: -100px; left: 8px; z-index: 9999;
+      background: var(--accent); color: #fff;
+      padding: 10px 16px; border-radius: 8px;
+      font: 600 0.92rem var(--font-display);
+      text-decoration: none;
+      transition: top 0.18s var(--ease-out);
+    }
+    .a11y-skip:focus { top: 8px; }
   </style>
 
   <link rel="manifest" href="/static/manifest.json">
@@ -1452,6 +1570,7 @@ body {
 
 {% set _app_pages = ['dashboard','scheduler','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','olympiad','memories','pet','command_center'] %}
 <body class="{% if active_page in _app_pages %}has-side{% endif %}">
+<a href="#main" class="a11y-skip">Skip to main content</a>
 
 <a href="#main-content" class="skip-to-content">Skip to main content</a>
 <style>
@@ -1637,6 +1756,7 @@ body {
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
         <a href="/balance"  class="nav-tab {% if active_page == 'balance' %}active{% endif %}" title="Digital wellbeing"><span class="nav-label">Balance</span></a>
+        <a href="/accessibility" class="nav-tab {% if active_page == 'accessibility' %}active{% endif %}" title="Accessibility settings"><span class="nav-label">A11y</span></a>
         <a href="/features" class="nav-tab {% if active_page == 'features' %}active{% endif %}" title="Feature requests"><span class="nav-label">Ideas</span></a>
         <a href="/settings" class="nav-tab {% if active_page == 'settings' %}active{% endif %}" aria-label="Settings"><span class="nav-tab-icon"><svg><use href="#i-settings"/></svg></span><span class="nav-label">Settings</span></a>
         <form action="/logout" method="POST" style="display:inline;">
@@ -3570,20 +3690,26 @@ window.addEventListener('load',()=>{
 })();
 </script>
 
-{# ── Digital Balance heartbeat (awareness only, never blocks) ──
-     Pings the server every 60s while the tab is visible. Records
-     1 minute of usage per ping into MediaBalanceSession so /balance
-     can show insights. Skips when hidden so background tabs don't
-     inflate counts. No popups, no enforcement. ── #}
+{# ── Digital Balance heartbeat + time-aware wellness nudger ──
+     Pings the server every 60s while the tab is visible, then asks the
+     server for a time-of-day-appropriate nudge at the user's chosen
+     cadence (off by default; user toggles in /balance). Night nudges
+     respect a separate cadence so late-night users get gentle pulls
+     toward sleep without being hammered. No popups, no enforcement.
+     Also syncs a11y prefs to localStorage so the next page load
+     applies them before first paint. ── #}
 <script>
 (function(){
   const TZ = new Date().getTimezoneOffset();
-  let last = 0;
-  function tick(){
+  let lastPing = 0;
+  let lastNudge = 0;
+  let nudgeShownAt = 0;
+
+  function ping(){
     if (document.hidden) return;
     const now = Date.now();
-    if (now - last < 55000) return;
-    last = now;
+    if (now - lastPing < 55000) return;
+    lastPing = now;
     try {
       fetch('/api/balance/ping', {
         method:'POST',
@@ -3593,8 +3719,61 @@ window.addEventListener('load',()=>{
       }).catch(()=>{});
     } catch (e) { /* ignore */ }
   }
-  setInterval(tick, 60000);
-  setTimeout(tick, 5000);
+
+  function showBanner(text, isNight){
+    const existing = document.getElementById('ipWellnessBanner');
+    if (existing) existing.remove();
+    const banner = document.createElement('div');
+    banner.id = 'ipWellnessBanner';
+    banner.setAttribute('role','status');
+    banner.setAttribute('aria-live','polite');
+    const accent = isNight ? '#6366f1' : '#0ea5e9';
+    banner.innerHTML = `
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <div style="flex:1;font-size:0.92rem;line-height:1.5;">${text.replace(/[<>]/g,'')}</div>
+        <button aria-label="Dismiss" style="background:transparent;border:0;color:inherit;cursor:pointer;font-size:1.1rem;line-height:1;opacity:.7;">×</button>
+      </div>`;
+    banner.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+      max-width:440px;background:var(--bg-card);color:var(--text-primary);
+      padding:14px 16px;border:1px solid ${accent}44;border-left:3px solid ${accent};
+      border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:9999;
+      font-family:var(--font-body);`;
+    banner.querySelector('button').addEventListener('click', () => banner.remove());
+    document.body.appendChild(banner);
+    setTimeout(() => { try { banner.remove(); } catch(e){} }, 14000);
+  }
+
+  async function maybeNudge(){
+    if (document.hidden) return;
+    const now = Date.now();
+    if (now - lastNudge < 60000) return;  // throttle server hits
+    lastNudge = now;
+    try {
+      const r = await fetch(`/api/balance/nudge?tz_offset=${TZ}`);
+      const d = await r.json();
+      if (d.status !== 'ok' || !d.show) return;
+      const cadenceMs = Math.max(5, d.cadence_minutes) * 60 * 1000;
+      if (nudgeShownAt && (now - nudgeShownAt) < cadenceMs) return;
+      nudgeShownAt = now;
+      showBanner(d.message, !!d.is_night);
+    } catch (e) { /* fail-quiet */ }
+  }
+
+  async function syncA11y(){
+    try {
+      const r = await fetch('/api/a11y/prefs');
+      const d = await r.json();
+      if (d.status === 'ok' && d.prefs){
+        localStorage.setItem('ip_a11y', JSON.stringify(d.prefs));
+      }
+    } catch(e){}
+  }
+
+  setInterval(ping, 60000);
+  setInterval(maybeNudge, 90000);
+  setTimeout(ping, 5000);
+  setTimeout(maybeNudge, 45000);
+  syncA11y();
 })();
 </script>
 {% endif %}

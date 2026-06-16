@@ -233,6 +233,59 @@ def _today_local(offset_minutes: int) -> str:
     return now.strftime("%Y-%m-%d")
 
 
+def _local_hour(offset_minutes: int) -> int:
+    """Return the user's current local hour (0-23)."""
+    now = datetime.utcnow() - timedelta(minutes=offset_minutes)
+    return now.hour
+
+
+# Daytime nudges: short, energizing, never pushy. Rotation prevents repetition.
+DAY_MESSAGES = [
+    "You've been working for a while. Stand up, stretch, drink some water.",
+    "Quick eye break — look at something 20 feet away for 20 seconds. Your focus will thank you.",
+    "Long session. A 2-minute walk now can make the next hour sharper.",
+    "Refill the water bottle. Hydration > willpower.",
+    "Shake your hands out. Roll your shoulders. You're doing great.",
+]
+
+# Evening nudges: bridge between focused work and winding down.
+EVENING_MESSAGES = [
+    "Sun's down. Try to wrap the hardest task first so the rest is downhill.",
+    "Long study night ahead? Save the easy stuff for last — fatigue hits everyone.",
+    "Good time for a real meal. Brains run on glucose, not vibes.",
+]
+
+# Night nudges: progressively stronger pull toward sleep.
+NIGHT_MESSAGES = [
+    "Sleep is when memory consolidates. What you studied today sticks better after rest.",
+    "It's late. Consider wrapping up — diminishing returns kick in fast at this hour.",
+    "Your brain is asking for sleep. Tomorrow-you will be much sharper.",
+    "Late-night cramming has the worst return on effort. Try a fresh start in the morning.",
+    "Long-term recall doubles when you sleep 7+ hours after studying. Worth it.",
+]
+
+
+def _nudge_for_hour(hour: int) -> dict:
+    """Pick a wellness message bucket based on the user's local hour.
+
+    Day window: 9:00–18:59. Evening: 19:00–21:59. Night: 22:00–08:59.
+    The exact bucket boundaries are intentionally fuzzy — students study
+    on weird schedules and we don't want to be wrong loudly.
+    """
+    if 9 <= hour <= 18:
+        bucket = "day"
+        pool = DAY_MESSAGES
+    elif 19 <= hour <= 21:
+        bucket = "evening"
+        pool = EVENING_MESSAGES
+    else:
+        bucket = "night"
+        pool = NIGHT_MESSAGES
+    # Rotate by current minute so consecutive pings don't repeat the same line.
+    idx = datetime.utcnow().minute % len(pool)
+    return {"bucket": bucket, "message": pool[idx]}
+
+
 def _suggestions(today_minutes: int, week_minutes: int, goal: int) -> list[str]:
     """Awareness-only suggestions. Never restrictive."""
     tips: list[str] = []
@@ -348,10 +401,154 @@ def api_balance_prefs():
             prefs.daily_goal_minutes = max(0, min(int(data["daily_goal_minutes"]), 600))
         except (TypeError, ValueError):
             pass
+    if "night_nudges_enabled" in data:
+        prefs.night_nudges_enabled = bool(data["night_nudges_enabled"])
+    if "night_start_hour" in data:
+        try:
+            prefs.night_start_hour = max(18, min(int(data["night_start_hour"]), 26)) % 24
+        except (TypeError, ValueError):
+            pass
+    if "night_cadence_minutes" in data:
+        try:
+            prefs.night_cadence_minutes = max(5, min(int(data["night_cadence_minutes"]), 60))
+        except (TypeError, ValueError):
+            pass
     db.session.commit()
     return jsonify({
         "status": "ok",
         "reminders_enabled": bool(prefs.reminders_enabled),
         "reminder_minutes": int(prefs.reminder_minutes or 45),
         "daily_goal_minutes": int(prefs.daily_goal_minutes or 60),
+        "night_nudges_enabled": bool(prefs.night_nudges_enabled),
+        "night_start_hour": int(prefs.night_start_hour if prefs.night_start_hour is not None else 22),
+        "night_cadence_minutes": int(prefs.night_cadence_minutes or 10),
     })
+
+
+@extras_bp.route("/api/balance/nudge", methods=["GET"])
+@login_required
+def api_balance_nudge():
+    """Return a time-of-day-appropriate wellness message and the
+    cadence at which the client should next ask. Used by the global
+    in-app nudger to throttle itself without hammering the server.
+    """
+    from App import MediaBalancePrefs
+
+    try:
+        tz_offset = int(request.args.get("tz_offset", 0))
+    except (TypeError, ValueError):
+        tz_offset = 0
+    hour = _local_hour(tz_offset)
+
+    prefs = MediaBalancePrefs.query.filter_by(user_id=current_user.id).first()
+    day_enabled = bool(prefs.reminders_enabled) if prefs else False
+    night_enabled = bool(prefs.night_nudges_enabled) if prefs is None or prefs.night_nudges_enabled is None else bool(prefs.night_nudges_enabled)
+    if prefs is None:
+        night_enabled = True
+    day_cadence = int(prefs.reminder_minutes) if prefs and prefs.reminder_minutes else 45
+    night_cadence = int(prefs.night_cadence_minutes) if prefs and prefs.night_cadence_minutes else 10
+    night_start = int(prefs.night_start_hour) if prefs and prefs.night_start_hour is not None else 22
+
+    is_night = hour >= night_start or hour < 6
+    nudge = _nudge_for_hour(hour)
+
+    show = False
+    cadence = day_cadence
+    if is_night and night_enabled:
+        show = True
+        cadence = night_cadence
+    elif not is_night and day_enabled:
+        show = True
+        cadence = day_cadence
+
+    return jsonify({
+        "status": "ok",
+        "show": show,
+        "bucket": nudge["bucket"],
+        "message": nudge["message"],
+        "cadence_minutes": cadence,
+        "local_hour": hour,
+        "is_night": is_night,
+    })
+
+
+# ── Accessibility prefs ────────────────────────────────────────────
+
+ALLOWED_SCALES = {90, 100, 115, 130, 150}
+ALLOWED_LINE_SPACING = {100, 130, 160, 200}
+
+
+def _a11y_payload(prefs) -> dict:
+    if prefs is None:
+        return {
+            "dyslexia_font": False,
+            "text_scale": 100,
+            "line_spacing": 100,
+            "high_contrast": False,
+            "reduced_motion": False,
+            "underline_links": False,
+            "focus_ring_bold": False,
+        }
+    return {
+        "dyslexia_font": bool(prefs.dyslexia_font),
+        "text_scale": int(prefs.text_scale or 100),
+        "line_spacing": int(prefs.line_spacing or 100),
+        "high_contrast": bool(prefs.high_contrast),
+        "reduced_motion": bool(prefs.reduced_motion),
+        "underline_links": bool(prefs.underline_links),
+        "focus_ring_bold": bool(prefs.focus_ring_bold),
+    }
+
+
+@extras_bp.route("/api/a11y/prefs", methods=["GET"])
+@login_required
+def api_a11y_get():
+    from App import AccessibilityPrefs
+
+    prefs = AccessibilityPrefs.query.filter_by(user_id=current_user.id).first()
+    return jsonify({"status": "ok", "prefs": _a11y_payload(prefs)})
+
+
+@extras_bp.route("/api/a11y/prefs", methods=["POST"])
+@login_required
+def api_a11y_set():
+    from App import AccessibilityPrefs, db
+
+    data = request.get_json(silent=True) or {}
+    prefs = AccessibilityPrefs.query.filter_by(user_id=current_user.id).first()
+    if prefs is None:
+        prefs = AccessibilityPrefs(user_id=current_user.id)
+        db.session.add(prefs)
+
+    if "dyslexia_font" in data:
+        prefs.dyslexia_font = bool(data["dyslexia_font"])
+    if "text_scale" in data:
+        try:
+            v = int(data["text_scale"])
+            if v in ALLOWED_SCALES:
+                prefs.text_scale = v
+        except (TypeError, ValueError):
+            pass
+    if "line_spacing" in data:
+        try:
+            v = int(data["line_spacing"])
+            if v in ALLOWED_LINE_SPACING:
+                prefs.line_spacing = v
+        except (TypeError, ValueError):
+            pass
+    if "high_contrast" in data:
+        prefs.high_contrast = bool(data["high_contrast"])
+    if "reduced_motion" in data:
+        prefs.reduced_motion = bool(data["reduced_motion"])
+    if "underline_links" in data:
+        prefs.underline_links = bool(data["underline_links"])
+    if "focus_ring_bold" in data:
+        prefs.focus_ring_bold = bool(data["focus_ring_bold"])
+    db.session.commit()
+    return jsonify({"status": "ok", "prefs": _a11y_payload(prefs)})
+
+
+@extras_bp.route("/accessibility")
+@login_required
+def accessibility_page():
+    return render_template("accessibility.html", active_page="accessibility")
