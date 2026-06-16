@@ -353,16 +353,17 @@ class LinkedAccount(db.Model):
 class DismissedAssignment(db.Model):
     __tablename__ = "dismissed_assignments"
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    guest_session_id = db.Column(db.String(64), nullable=True)
+    # Indexed: looked up by owner on every dashboard / command-center load.
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    guest_session_id = db.Column(db.String(64), nullable=True, index=True)
     title = db.Column(db.String(512), nullable=False)
     data = db.Column(db.Text, default="{}")
 
 class TestMark(db.Model):
     __tablename__ = "test_marks"
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    guest_session_id = db.Column(db.String(64), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    guest_session_id = db.Column(db.String(64), nullable=True, index=True)
     title = db.Column(db.String(512), nullable=False)
     data = db.Column(db.Text, default="{}")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -12283,6 +12284,31 @@ def _migrate_user_columns():
 # Jinja render — including the error page.
 _MIGRATION_DONE = False
 
+def _ensure_indexes():
+    """Create hot-path indexes on existing tables.
+
+    `db.create_all()` only adds indexes when it creates a table, so an
+    already-existing prod table never gets the `index=True` columns we
+    added later. These `CREATE INDEX IF NOT EXISTS` statements are
+    idempotent and valid on both SQLite and Postgres. They back the
+    per-owner lookups that run on every dashboard / command-center load
+    (completed-assignment and test-mark filtering)."""
+    from sqlalchemy import text as _t
+    statements = [
+        "CREATE INDEX IF NOT EXISTS ix_dismissed_user ON dismissed_assignments (user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_dismissed_guest ON dismissed_assignments (guest_session_id)",
+        "CREATE INDEX IF NOT EXISTS ix_testmarks_user ON test_marks (user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_testmarks_guest ON test_marks (guest_session_id)",
+    ]
+    for stmt in statements:
+        try:
+            db.session.execute(_t(stmt))
+        except Exception as _idx_e:
+            db.session.rollback()
+            print(f"[boot] index create skipped: {_idx_e}")
+    db.session.commit()
+
+
 def _run_boot_migration_once():
     """Idempotent migration helper — safe to call repeatedly."""
     global _MIGRATION_DONE
@@ -12291,6 +12317,7 @@ def _run_boot_migration_once():
     try:
         db.create_all()
         _migrate_user_columns()
+        _ensure_indexes()
         _MIGRATION_DONE = True
     except Exception as _boot_e:
         print(f"[boot] DB bootstrap failed: {_boot_e}")
