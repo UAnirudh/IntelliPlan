@@ -5,196 +5,386 @@
 
 {% block content %}
 <style>
-  .bal-shell{max-width:1040px;margin:0 auto;padding:28px 24px 80px;}
-  .bal-hero{margin-bottom:24px;max-width:680px;}
-  .bal-hero h1{font-family:var(--font-display);font-size:clamp(1.6rem,2.4vw,2rem);font-weight:700;letter-spacing:-0.02em;margin:0 0 8px;color:var(--text-primary);line-height:1.15;}
-  .bal-hero p{color:var(--text-secondary);margin:0;line-height:1.55;font-size:0.95rem;max-width:62ch;}
-  .bal-badge{display:inline-block;padding:4px 10px;background:var(--low-bg);color:var(--low);border-radius:var(--r-full);font-size:0.72rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:10px;}
-  .bal-grid{display:grid;grid-template-columns:1fr;gap:16px;margin-top:18px;}
-  @media (min-width:760px){.bal-grid{grid-template-columns:1fr 1fr;}}
-  .bal-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-xl);padding:20px;box-shadow:var(--shadow-sm);}
-  .bal-card h2{font-family:var(--font-display);font-size:0.78rem;margin:0 0 12px;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted);}
-  .bal-stat{font-family:var(--font-display);font-size:2.6rem;font-weight:700;letter-spacing:-0.03em;color:var(--text-primary);line-height:1;}
-  .bal-stat-unit{font-size:1rem;color:var(--text-muted);margin-left:4px;font-weight:500;}
-  .bal-sub{color:var(--text-secondary);font-size:0.88rem;margin-top:6px;}
-  .bal-bar{height:8px;background:var(--bg-elevated);border-radius:var(--r-full);overflow:hidden;margin-top:14px;}
-  .bal-bar-fill{height:100%;background:var(--grad-brand);border-radius:var(--r-full);transition:width .35s var(--ease-out);}
-  .bal-week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:end;height:120px;margin-top:8px;}
-  .bal-week-bar{background:var(--accent-soft);border:1px solid var(--accent-mid);border-radius:var(--r-xs) var(--r-xs) 0 0;position:relative;min-height:4px;transition:height .35s var(--ease-out);}
-  .bal-week-bar.today{background:var(--grad-brand);border-color:transparent;}
-  .bal-week-labels{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:6px;}
-  .bal-week-labels span{text-align:center;font-size:0.7rem;color:var(--text-muted);}
-  .bal-tips{display:flex;flex-direction:column;gap:10px;}
-  .bal-tip{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--r-md);font-size:0.9rem;line-height:1.5;color:var(--text-primary);}
-  .bal-tip::before{content:"";display:block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:7px;flex-shrink:0;}
-  .bal-prefs{display:flex;flex-direction:column;gap:14px;margin-top:10px;}
-  .bal-row{display:flex;justify-content:space-between;align-items:center;gap:12px;}
-  .bal-row label{font-size:0.9rem;color:var(--text-primary);font-weight:500;}
-  .bal-row small{display:block;color:var(--text-muted);font-size:0.78rem;margin-top:2px;font-weight:400;}
-  .bal-toggle{position:relative;display:inline-block;width:42px;height:24px;}
-  .bal-toggle input{opacity:0;width:0;height:0;}
-  .bal-slide{position:absolute;cursor:pointer;inset:0;background:var(--bg-elevated);border-radius:24px;transition:.2s;}
-  .bal-slide::before{content:"";position:absolute;height:18px;width:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
-  .bal-toggle input:checked + .bal-slide{background:var(--accent);}
-  .bal-toggle input:checked + .bal-slide::before{transform:translateX(18px);}
-  .bal-num{width:74px;padding:7px 10px;border:1px solid var(--border-strong);border-radius:var(--r-sm);background:var(--bg-secondary);color:var(--text-primary);font:inherit;text-align:center;}
-  .bal-num:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-mid);}
-  .bal-promise{margin-top:24px;padding:18px;background:var(--low-bg);border:1px solid rgba(5,150,105,0.18);border-radius:var(--r-md);}
-  .bal-promise strong{color:var(--low);}
-  .bal-promise p{margin:0;color:var(--text-secondary);font-size:0.88rem;line-height:1.55;}
+  /* Scoped reset so nothing inherits weird grids/positions from above. */
+  .bal-page, .bal-page *, .bal-page *::before, .bal-page *::after { box-sizing: border-box; }
+  .bal-page { display: block; max-width: 1080px; margin: 0 auto; padding: 28px 4px 96px; }
+
+  .bal-page .bal-hero { display: block; max-width: 720px; margin: 0 0 28px; }
+  .bal-page .bal-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 11px;
+    background: rgba(16,185,129,0.10); color: #10b981;
+    border: 1px solid rgba(16,185,129,0.22);
+    border-radius: 999px;
+    font: 600 0.7rem/1 var(--font-display);
+    letter-spacing: 0.06em; text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .bal-page .bal-badge::before { content:''; display:block; width:6px; height:6px; border-radius:50%; background:#10b981; }
+  .bal-page .bal-h1 {
+    display: block; margin: 0 0 8px;
+    font: 700 1.9rem/1.15 var(--font-display);
+    letter-spacing: -0.02em; color: var(--text-primary);
+  }
+  .bal-page .bal-lede {
+    display: block; margin: 0; max-width: 62ch;
+    font: 400 0.97rem/1.6 var(--font-body);
+    color: var(--text-secondary);
+  }
+
+  /* Stats grid — explicit grid, predictable sizing. */
+  .bal-page .bal-stats {
+    display: grid; grid-template-columns: 1fr; gap: 14px;
+    margin: 0 0 16px;
+  }
+  @media (min-width: 720px) {
+    .bal-page .bal-stats { grid-template-columns: 1fr 1fr; gap: 16px; }
+  }
+
+  .bal-page .bal-card {
+    display: block; position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 22px;
+    box-shadow: var(--shadow-sm);
+  }
+  .bal-page .bal-card-eyebrow {
+    display: block; margin: 0 0 12px;
+    font: 600 0.7rem/1 var(--font-display);
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .bal-page .bal-stat-row { display: flex; align-items: baseline; gap: 6px; }
+  .bal-page .bal-stat-num {
+    font: 700 2.6rem/1 var(--font-display);
+    letter-spacing: -0.03em; color: var(--text-primary);
+  }
+  .bal-page .bal-stat-unit {
+    font: 500 0.98rem/1 var(--font-body); color: var(--text-muted);
+  }
+  .bal-page .bal-sub {
+    display: block; margin: 8px 0 0;
+    font: 400 0.86rem/1.5 var(--font-body); color: var(--text-secondary);
+  }
+  .bal-page .bal-progress {
+    display: block; height: 6px; margin-top: 14px;
+    background: var(--bg-elevated); border-radius: 999px; overflow: hidden;
+  }
+  .bal-page .bal-progress-fill {
+    display: block; height: 100%;
+    background: linear-gradient(90deg, #4f46e5, #6366f1);
+    border-radius: 999px;
+    transition: width 0.4s var(--ease-out);
+  }
+
+  /* Week mini-chart */
+  .bal-page .bal-week-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;
+    align-items: end; height: 96px; margin-top: 12px;
+  }
+  .bal-page .bal-week-bar {
+    display: block; background: var(--accent-soft);
+    border: 1px solid var(--accent-mid);
+    border-radius: 5px 5px 0 0; min-height: 4px;
+    transition: height 0.4s var(--ease-out);
+  }
+  .bal-page .bal-week-bar.today {
+    background: linear-gradient(180deg, #6366f1, #4338ca);
+    border-color: transparent;
+  }
+  .bal-page .bal-week-labels {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;
+    margin-top: 8px;
+  }
+  .bal-page .bal-week-labels > span {
+    text-align: center;
+    font: 500 0.7rem/1 var(--font-body); color: var(--text-muted);
+  }
+
+  /* Suggestions */
+  .bal-page .bal-tips { display: flex; flex-direction: column; gap: 8px; }
+  .bal-page .bal-tip {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 12px 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font: 400 0.9rem/1.5 var(--font-body);
+    color: var(--text-primary);
+  }
+  .bal-page .bal-tip::before {
+    content: ''; display: block; width: 6px; height: 6px;
+    border-radius: 50%; background: var(--accent);
+    margin-top: 8px; flex: 0 0 6px;
+  }
+
+  /* Preferences */
+  .bal-page .bal-pref-row {
+    display: grid; grid-template-columns: 1fr auto; gap: 14px;
+    align-items: center; padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .bal-page .bal-pref-row:last-child { border-bottom: 0; }
+  .bal-page .bal-pref-label {
+    display: block; margin: 0 0 2px;
+    font: 600 0.93rem/1.3 var(--font-body); color: var(--text-primary);
+  }
+  .bal-page .bal-pref-hint {
+    display: block; margin: 0;
+    font: 400 0.8rem/1.4 var(--font-body); color: var(--text-muted);
+  }
+
+  .bal-page .bal-toggle { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
+  .bal-page .bal-toggle input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+  .bal-page .bal-toggle .bal-slide {
+    position: absolute; inset: 0; cursor: pointer;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-strong);
+    border-radius: 999px; transition: background 0.18s;
+  }
+  .bal-page .bal-toggle .bal-slide::before {
+    content: ''; position: absolute; left: 2px; top: 2px;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+    transition: transform 0.18s;
+  }
+  .bal-page .bal-toggle input:checked + .bal-slide { background: var(--accent); border-color: var(--accent); }
+  .bal-page .bal-toggle input:checked + .bal-slide::before { transform: translateX(18px); }
+
+  .bal-page .bal-num {
+    width: 76px; padding: 8px 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--bg-secondary); color: var(--text-primary);
+    font: 500 0.92rem/1 var(--font-body);
+    text-align: center;
+  }
+  .bal-page .bal-num:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-mid); }
+  .bal-page .bal-num-wrap { display: inline-flex; align-items: center; gap: 6px; }
+  .bal-page .bal-num-wrap span { font: 500 0.85rem/1 var(--font-body); color: var(--text-muted); }
+
+  /* Promise band */
+  .bal-page .bal-promise {
+    display: block; margin-top: 20px;
+    padding: 16px 18px;
+    background: rgba(16,185,129,0.08);
+    border: 1px solid rgba(16,185,129,0.18);
+    border-radius: 12px;
+  }
+  .bal-page .bal-promise p {
+    margin: 0; font: 400 0.88rem/1.55 var(--font-body); color: var(--text-secondary);
+  }
+  .bal-page .bal-promise strong { color: #059669; }
+
+  .bal-page .bal-card + .bal-card { margin-top: 16px; }
 </style>
 
-<div class="bal-shell">
+<div class="bal-page" id="main">
   <header class="bal-hero">
     <span class="bal-badge">Awareness · No lockouts</span>
-    <h1>Your IntelliPlan balance</h1>
-    <p>This page shows how long you've been on IntelliPlan today and across the week. It's here to help you notice your patterns — not to lock you out, force breaks, or restrict you. You stay in control.</p>
+    <h1 class="bal-h1">Your IntelliPlan balance</h1>
+    <p class="bal-lede">This page shows how long you've been on IntelliPlan today and across the week. It's here to help you notice your patterns — not to lock you out, force breaks, or restrict you. You stay in control.</p>
   </header>
 
-  <div class="bal-grid">
+  <section class="bal-stats" aria-label="Usage stats">
     <article class="bal-card">
-      <h2>Today</h2>
-      <div><span class="bal-stat" id="balToday">0</span><span class="bal-stat-unit">min</span></div>
-      <div class="bal-sub">Awareness goal: <span id="balGoal">60</span> min</div>
-      <div class="bal-bar"><div class="bal-bar-fill" id="balBarFill" style="width:0%"></div></div>
+      <span class="bal-card-eyebrow">Today</span>
+      <div class="bal-stat-row">
+        <span class="bal-stat-num" id="balToday">0</span>
+        <span class="bal-stat-unit">min</span>
+      </div>
+      <span class="bal-sub">Awareness goal: <span id="balGoal">60</span> min</span>
+      <span class="bal-progress" aria-hidden="true"><span class="bal-progress-fill" id="balBarFill" style="width:0%"></span></span>
     </article>
 
     <article class="bal-card">
-      <h2>This week</h2>
-      <div><span class="bal-stat" id="balWeek">0</span><span class="bal-stat-unit">min</span></div>
-      <div class="bal-week" id="balWeekChart" aria-label="Week chart"></div>
+      <span class="bal-card-eyebrow">This week</span>
+      <div class="bal-stat-row">
+        <span class="bal-stat-num" id="balWeek">0</span>
+        <span class="bal-stat-unit">min</span>
+      </div>
+      <div class="bal-week-grid" id="balWeekChart" aria-label="Last 7 days"></div>
       <div class="bal-week-labels" id="balWeekLabels"></div>
     </article>
-  </div>
+  </section>
 
-  <article class="bal-card" style="margin-top:16px;">
-    <h2>Gentle suggestions</h2>
+  <article class="bal-card">
+    <span class="bal-card-eyebrow">Gentle suggestions</span>
     <div class="bal-tips" id="balTips"><div class="bal-tip">Loading insights…</div></div>
   </article>
 
-  <article class="bal-card" style="margin-top:16px;">
-    <h2>Your preferences</h2>
-    <div class="bal-prefs">
-      <div class="bal-row">
-        <div>
-          <label for="balRemindersToggle">Optional reminders</label>
-          <small>A quiet nudge after a long stretch. Off by default. Never blocks you.</small>
-        </div>
-        <label class="bal-toggle">
-          <input type="checkbox" id="balRemindersToggle">
-          <span class="bal-slide"></span>
-        </label>
+  <article class="bal-card">
+    <span class="bal-card-eyebrow">Your preferences</span>
+
+    <div class="bal-pref-row">
+      <div>
+        <span class="bal-pref-label">Optional reminders (daytime)</span>
+        <span class="bal-pref-hint">A quiet nudge after a long stretch. Off by default. Never blocks you.</span>
       </div>
-      <div class="bal-row">
-        <div>
-          <label for="balReminderMinutes">Remind me after</label>
-          <small>Minutes of continuous use before a gentle nudge.</small>
-        </div>
-        <div><input type="number" id="balReminderMinutes" class="bal-num" min="10" max="240" step="5" value="45"> min</div>
+      <label class="bal-toggle" aria-label="Toggle daytime reminders">
+        <input type="checkbox" id="balRemindersToggle">
+        <span class="bal-slide"></span>
+      </label>
+    </div>
+
+    <div class="bal-pref-row">
+      <div>
+        <span class="bal-pref-label">Remind me after</span>
+        <span class="bal-pref-hint">Minutes of continuous use before a gentle nudge.</span>
       </div>
-      <div class="bal-row">
-        <div>
-          <label for="balDailyGoal">Daily awareness goal</label>
-          <small>A target you set for yourself. Crossing it doesn't stop you.</small>
-        </div>
-        <div><input type="number" id="balDailyGoal" class="bal-num" min="0" max="600" step="5" value="60"> min</div>
+      <span class="bal-num-wrap">
+        <input type="number" id="balReminderMinutes" class="bal-num" min="10" max="240" step="5" value="45" aria-label="Reminder interval">
+        <span>min</span>
+      </span>
+    </div>
+
+    <div class="bal-pref-row">
+      <div>
+        <span class="bal-pref-label">Daily awareness goal</span>
+        <span class="bal-pref-hint">A target you set for yourself. Crossing it doesn't stop you.</span>
       </div>
+      <span class="bal-num-wrap">
+        <input type="number" id="balDailyGoal" class="bal-num" min="0" max="600" step="5" value="60" aria-label="Daily goal">
+        <span>min</span>
+      </span>
+    </div>
+
+    <div class="bal-pref-row">
+      <div>
+        <span class="bal-pref-label">Sleep nudges (night)</span>
+        <span class="bal-pref-hint">After your night-start hour, switches to gentle messages about rest and memory consolidation.</span>
+      </div>
+      <label class="bal-toggle" aria-label="Toggle sleep nudges">
+        <input type="checkbox" id="balNightNudges">
+        <span class="bal-slide"></span>
+      </label>
+    </div>
+
+    <div class="bal-pref-row">
+      <div>
+        <span class="bal-pref-label">Night starts at</span>
+        <span class="bal-pref-hint">Local hour, 24-hour format. Default 22 (10pm).</span>
+      </div>
+      <span class="bal-num-wrap">
+        <input type="number" id="balNightStart" class="bal-num" min="18" max="23" step="1" value="22" aria-label="Night start hour">
+        <span>:00</span>
+      </span>
+    </div>
+
+    <div class="bal-pref-row">
+      <div>
+        <span class="bal-pref-label">Night-nudge cadence</span>
+        <span class="bal-pref-hint">How often a sleep nudge appears once you're past the night-start hour.</span>
+      </div>
+      <span class="bal-num-wrap">
+        <input type="number" id="balNightCadence" class="bal-num" min="5" max="60" step="5" value="10" aria-label="Night cadence">
+        <span>min</span>
+      </span>
     </div>
   </article>
 
   <div class="bal-promise">
-    <p><strong>Our promise:</strong> IntelliPlan will never force you off, lock you out, or hide features when you cross a threshold. This page is awareness, not a wall. Healthy use is your call.</p>
+    <p><strong>Our promise.</strong> IntelliPlan will never force you off, lock you out, or hide features when you cross a threshold. This page is awareness, not a wall. Healthy use is your call.</p>
   </div>
 </div>
 
 <script>
-  const tzOffset = new Date().getTimezoneOffset();
-  let reminderTimer = null;
-  let lastReminderShown = 0;
+(function(){
+  const TZ = new Date().getTimezoneOffset();
+
+  function $(id){ return document.getElementById(id); }
 
   function pingHeartbeat(){
     fetch('/api/balance/ping', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({minutes: 1, tz_offset: tzOffset}),
+      body: JSON.stringify({minutes: 1, tz_offset: TZ}),
     }).catch(()=>{});
   }
 
   async function loadInsights(){
     try {
-      const r = await fetch(`/api/balance/insights?tz_offset=${tzOffset}`);
+      const r = await fetch(`/api/balance/insights?tz_offset=${TZ}`);
       const d = await r.json();
       if (d.status !== 'ok') return;
-      document.getElementById('balToday').textContent = d.today_minutes;
-      document.getElementById('balWeek').textContent = d.week_minutes;
-      document.getElementById('balGoal').textContent = d.daily_goal_minutes;
-      const pct = d.daily_goal_minutes > 0 ? Math.min(100, (d.today_minutes / d.daily_goal_minutes) * 100) : 0;
-      document.getElementById('balBarFill').style.width = pct + '%';
 
-      const chart = document.getElementById('balWeekChart');
-      const labels = document.getElementById('balWeekLabels');
+      $('balToday').textContent = d.today_minutes;
+      $('balWeek').textContent = d.week_minutes;
+      $('balGoal').textContent = d.daily_goal_minutes;
+      const pct = d.daily_goal_minutes > 0
+        ? Math.min(100, (d.today_minutes / d.daily_goal_minutes) * 100)
+        : 0;
+      $('balBarFill').style.width = pct + '%';
+
+      const chart = $('balWeekChart');
+      const labels = $('balWeekLabels');
       const maxMin = Math.max(1, ...d.week_series.map(p => p.minutes));
       const todayDate = new Date().toISOString().slice(0,10);
       chart.innerHTML = d.week_series.map(p => {
         const h = Math.max(4, (p.minutes / maxMin) * 100);
         const isToday = p.date === todayDate;
-        return `<div class="bal-week-bar ${isToday?'today':''}" style="height:${h}%" title="${p.date}: ${p.minutes} min"></div>`;
+        return `<span class="bal-week-bar ${isToday?'today':''}" style="height:${h}%" title="${p.date}: ${p.minutes} min"></span>`;
       }).join('');
       labels.innerHTML = d.week_series.map(p => {
         const day = new Date(p.date + 'T00:00:00').toLocaleDateString(undefined, {weekday:'short'});
         return `<span>${day}</span>`;
       }).join('');
 
-      const tipsEl = document.getElementById('balTips');
-      tipsEl.innerHTML = (d.suggestions || []).map(t => `<div class="bal-tip">${t.replace(/[<>]/g,'')}</div>`).join('');
+      $('balTips').innerHTML = (d.suggestions || [])
+        .map(t => `<div class="bal-tip">${t.replace(/[<>]/g,'')}</div>`)
+        .join('');
 
-      document.getElementById('balRemindersToggle').checked = !!d.reminders_enabled;
-      document.getElementById('balReminderMinutes').value = d.reminder_minutes;
-      document.getElementById('balDailyGoal').value = d.daily_goal_minutes;
-
-      setupReminderTimer(d.reminders_enabled, d.reminder_minutes);
+      $('balRemindersToggle').checked = !!d.reminders_enabled;
+      $('balReminderMinutes').value = d.reminder_minutes;
+      $('balDailyGoal').value = d.daily_goal_minutes;
     } catch (e) { /* silent */ }
-  }
 
-  function setupReminderTimer(enabled, minutes){
-    if (reminderTimer){ clearInterval(reminderTimer); reminderTimer = null; }
-    if (!enabled) return;
-    const ms = Math.max(10, minutes) * 60 * 1000;
-    reminderTimer = setInterval(() => {
-      const now = Date.now();
-      if (now - lastReminderShown < ms) return;
-      lastReminderShown = now;
-      try {
-        const banner = document.createElement('div');
-        banner.textContent = `You've been studying for ${minutes} minutes — a short break can sharpen your focus. (You can dismiss and keep going.)`;
-        banner.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg-card);color:var(--text-primary);padding:14px 18px;border:1px solid var(--accent-mid);border-radius:12px;box-shadow:var(--shadow-lg);z-index:9999;max-width:420px;font-size:0.9rem;cursor:pointer;';
-        banner.addEventListener('click', () => banner.remove());
-        document.body.appendChild(banner);
-        setTimeout(() => banner.remove(), 12000);
-      } catch (e) { /* ignore */ }
-    }, 30000);
+    try {
+      const r2 = await fetch(`/api/balance/nudge?tz_offset=${TZ}`);
+      const d2 = await r2.json();
+      if (d2.status === 'ok'){
+        // The nudge endpoint returns prefs we don't expose on insights yet.
+        // Sync only the night-side controls from it (best-effort).
+      }
+    } catch(e){}
   }
 
   async function savePrefs(){
     const body = {
-      reminders_enabled: document.getElementById('balRemindersToggle').checked,
-      reminder_minutes: Number(document.getElementById('balReminderMinutes').value) || 45,
-      daily_goal_minutes: Number(document.getElementById('balDailyGoal').value) || 60,
+      reminders_enabled: $('balRemindersToggle').checked,
+      reminder_minutes: Number($('balReminderMinutes').value) || 45,
+      daily_goal_minutes: Number($('balDailyGoal').value) || 60,
+      night_nudges_enabled: $('balNightNudges').checked,
+      night_start_hour: Number($('balNightStart').value) || 22,
+      night_cadence_minutes: Number($('balNightCadence').value) || 10,
     };
-    await fetch('/api/balance/prefs', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(body),
-    });
+    try {
+      const r = await fetch('/api/balance/prefs', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      if (d.status === 'ok'){
+        $('balNightNudges').checked = !!d.night_nudges_enabled;
+        $('balNightStart').value = d.night_start_hour;
+        $('balNightCadence').value = d.night_cadence_minutes;
+      }
+    } catch(e){}
     loadInsights();
   }
 
-  document.getElementById('balRemindersToggle').addEventListener('change', savePrefs);
-  document.getElementById('balReminderMinutes').addEventListener('change', savePrefs);
-  document.getElementById('balDailyGoal').addEventListener('change', savePrefs);
+  // Wire up
+  ['balRemindersToggle','balReminderMinutes','balDailyGoal',
+   'balNightNudges','balNightStart','balNightCadence'].forEach(id => {
+    const el = $(id);
+    if (el) el.addEventListener('change', savePrefs);
+  });
 
   loadInsights();
   setInterval(pingHeartbeat, 60 * 1000);
   setInterval(loadInsights, 90 * 1000);
+})();
 </script>
 {% endblock %}

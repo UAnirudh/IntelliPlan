@@ -24,93 +24,222 @@
 
 {% block content %}
 <style>
-  .td-shell{max-width:1100px;margin:0 auto;padding:28px 24px 80px;}
-  .td-hero{text-align:center;margin:0 auto 24px;max-width:760px;}
-  .td-kicker{display:inline-block;padding:5px 12px;background:var(--accent-soft);color:var(--accent);border-radius:var(--r-full);font-size:0.72rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:14px;}
-  .td-hero h1{font-family:var(--font-display);font-size:clamp(1.8rem,3vw,2.4rem);font-weight:700;letter-spacing:-0.02em;margin:0 0 10px;color:var(--text-primary);line-height:1.15;}
-  .td-hero h1 .td-grad{background:var(--grad-brand);-webkit-background-clip:text;background-clip:text;color:transparent;}
-  .td-hero p{color:var(--text-secondary);max-width:60ch;margin:0 auto;line-height:1.55;}
-  .td-board{display:grid;grid-template-columns:1fr;gap:18px;}
-  @media (min-width:880px){.td-board{grid-template-columns:1fr 1fr;}}
-  .td-panel{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-xl);padding:18px;box-shadow:var(--shadow-sm);}
-  .td-panel h2{font-family:var(--font-display);font-size:0.95rem;margin:0 0 12px;letter-spacing:0.02em;text-transform:uppercase;color:var(--text-muted);}
-  .td-textarea{width:100%;min-height:280px;padding:14px 16px;border:1px solid var(--border-strong);border-radius:var(--r-md);background:var(--bg-secondary);color:var(--text-primary);font:inherit;font-size:0.95rem;line-height:1.55;resize:vertical;}
-  .td-textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-mid);}
-  .td-toolbar{display:flex;align-items:center;justify-content:space-between;margin-top:12px;gap:10px;flex-wrap:wrap;}
-  .td-count{font-size:0.78rem;color:var(--text-muted);}
-  .td-btn{display:inline-flex;align-items:center;gap:6px;padding:11px 18px;background:var(--grad-brand);color:#fff;border:0;border-radius:var(--r-sm);font:inherit;font-weight:600;cursor:pointer;transition:transform .12s var(--ease-out),filter .12s;}
-  .td-btn:hover{filter:brightness(1.05);transform:translateY(-1px);}
-  .td-btn:disabled{opacity:.55;cursor:not-allowed;transform:none;}
-  .td-btn-ghost{background:transparent;color:var(--text-secondary);border:1px solid var(--border-strong);}
-  .td-btn-ghost:hover{color:var(--accent);border-color:var(--accent);background:var(--accent-soft);}
-  .td-result{display:flex;flex-direction:column;gap:14px;}
-  .td-block{padding:14px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg-secondary);}
-  .td-block h3{font-family:var(--font-display);font-size:0.78rem;margin:0 0 8px;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted);}
-  .td-block p,.td-block li{color:var(--text-primary);font-size:0.93rem;line-height:1.55;margin:0;}
-  .td-block ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;}
-  .td-vocab{display:grid;grid-template-columns:max-content 1fr;gap:6px 12px;}
-  .td-vocab dt{font-weight:600;color:var(--accent);}
-  .td-vocab dd{margin:0;color:var(--text-secondary);font-size:0.9rem;line-height:1.5;}
-  .td-empty{color:var(--text-muted);font-size:0.88rem;text-align:center;padding:24px;}
-  .td-note{margin-top:14px;font-size:0.78rem;color:var(--text-muted);text-align:center;}
-  .td-status{font-size:0.8rem;color:var(--text-muted);}
+  .td-page, .td-page *, .td-page *::before, .td-page *::after { box-sizing: border-box; }
+  .td-page { display: block; max-width: 1100px; margin: 0 auto; padding: 28px 4px 96px; }
+
+  .td-page .td-hero { display: block; text-align: center; max-width: 760px; margin: 0 auto 26px; }
+  .td-page .td-eyebrow {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 11px;
+    background: var(--accent-soft); color: var(--accent);
+    border: 1px solid var(--accent-mid);
+    border-radius: 999px;
+    font: 600 0.7rem/1 var(--font-display);
+    letter-spacing: 0.06em; text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .td-page .td-h1 {
+    display: block; margin: 0 0 10px;
+    font: 700 2.1rem/1.1 var(--font-display);
+    letter-spacing: -0.025em; color: var(--text-primary);
+  }
+  @media (min-width: 720px) {
+    .td-page .td-h1 { font-size: 2.5rem; }
+  }
+  .td-page .td-h1 .td-grad {
+    background: var(--grad-brand);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+  }
+  .td-page .td-lede {
+    display: block; margin: 0 auto;
+    font: 400 1rem/1.6 var(--font-body);
+    color: var(--text-secondary);
+    max-width: 60ch;
+  }
+
+  /* Two-column board: input left, output right. */
+  .td-page .td-board {
+    display: grid; grid-template-columns: 1fr; gap: 18px;
+  }
+  @media (min-width: 920px) {
+    .td-page .td-board { grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
+  }
+
+  .td-page .td-panel {
+    display: block;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 22px;
+    box-shadow: var(--shadow-sm);
+  }
+  .td-page .td-panel-title {
+    display: block; margin: 0 0 12px;
+    font: 600 0.78rem/1 var(--font-display);
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .td-page .td-textarea {
+    width: 100%; display: block;
+    min-height: 300px;
+    padding: 14px 16px;
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    background: var(--bg-secondary); color: var(--text-primary);
+    font: 400 0.95rem/1.6 var(--font-body);
+    resize: vertical;
+  }
+  .td-page .td-textarea:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-mid);
+  }
+
+  .td-page .td-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; flex-wrap: wrap;
+    margin-top: 14px;
+  }
+  .td-page .td-count {
+    font: 500 0.78rem/1 var(--font-body); color: var(--text-muted);
+  }
+  .td-page .td-btn-row { display: flex; gap: 8px; }
+  .td-page .td-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 11px 18px;
+    background: var(--grad-brand); color: #fff;
+    border: 0; border-radius: 10px;
+    font: 600 0.92rem/1 var(--font-display);
+    cursor: pointer;
+    transition: transform 0.12s var(--ease-out), filter 0.12s;
+  }
+  .td-page .td-btn:hover { filter: brightness(1.05); transform: translateY(-1px); }
+  .td-page .td-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+  .td-page .td-btn-ghost {
+    background: transparent; color: var(--text-secondary);
+    border: 1px solid var(--border-strong);
+  }
+  .td-page .td-btn-ghost:hover {
+    color: var(--accent); border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .td-page .td-note {
+    display: block; margin-top: 14px;
+    font: 400 0.78rem/1.5 var(--font-body);
+    color: var(--text-muted);
+  }
+
+  /* Output side */
+  .td-page .td-result { display: flex; flex-direction: column; gap: 12px; }
+  .td-page .td-block {
+    display: block;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-secondary);
+  }
+  .td-page .td-block-title {
+    display: block; margin: 0 0 8px;
+    font: 600 0.72rem/1 var(--font-display);
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .td-page .td-block p {
+    margin: 0;
+    font: 400 0.93rem/1.6 var(--font-body); color: var(--text-primary);
+  }
+  .td-page .td-block ul {
+    margin: 0; padding-left: 18px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .td-page .td-block li {
+    font: 400 0.93rem/1.55 var(--font-body); color: var(--text-primary);
+  }
+  .td-page .td-vocab {
+    display: grid; grid-template-columns: max-content 1fr;
+    gap: 6px 14px; margin: 0;
+  }
+  .td-page .td-vocab dt {
+    font: 700 0.92rem/1.4 var(--font-body); color: var(--accent);
+  }
+  .td-page .td-vocab dd {
+    margin: 0; font: 400 0.9rem/1.5 var(--font-body); color: var(--text-secondary);
+  }
+
+  .td-page .td-empty {
+    display: block; padding: 36px 24px;
+    text-align: center;
+    border: 1px dashed var(--border-strong);
+    border-radius: 12px;
+    color: var(--text-muted);
+    font: 400 0.92rem/1.5 var(--font-body);
+  }
+  .td-page .td-status {
+    display: block; margin-bottom: 10px;
+    font: 500 0.82rem/1.4 var(--font-body); color: var(--text-muted);
+  }
 </style>
 
-<div class="td-shell">
+<main class="td-page" id="main">
   <header class="td-hero">
-    <span class="td-kicker">Free tool · No sign-up</span>
-    <h1>Break down any <span class="td-grad">passage</span>, instantly</h1>
-    <p>Paste a paragraph, an article, or a chunk of your textbook. Get a plain-English summary, the key points, definitions for hard words, and three comprehension questions in seconds.</p>
+    <span class="td-eyebrow">Free tool · No sign-up</span>
+    <h1 class="td-h1">Break down any <span class="td-grad">passage</span>, instantly</h1>
+    <p class="td-lede">Paste a paragraph, an article, or a chunk of your textbook. Get a plain-English summary, the key points, definitions for hard words, and three comprehension questions in seconds.</p>
   </header>
 
   <div class="td-board">
     <section class="td-panel" aria-label="Input">
-      <h2>Your text</h2>
-      <textarea id="tdInput" class="td-textarea" maxlength="12000" placeholder="Paste up to 12,000 characters of text…"></textarea>
+      <span class="td-panel-title">Your text</span>
+      <textarea id="tdInput" class="td-textarea" maxlength="12000" placeholder="Paste up to 12,000 characters of text…" aria-label="Text to analyze"></textarea>
       <div class="td-toolbar">
         <span class="td-count"><span id="tdCount">0</span> / 12,000</span>
-        <div style="display:flex;gap:8px;">
-          <button class="td-btn td-btn-ghost" onclick="clearText()">Clear</button>
-          <button id="tdAnalyze" class="td-btn" onclick="analyze()">Analyze</button>
+        <div class="td-btn-row">
+          <button type="button" class="td-btn td-btn-ghost" onclick="window.tdClear()">Clear</button>
+          <button type="button" id="tdAnalyze" class="td-btn" onclick="window.tdAnalyze()">Analyze</button>
         </div>
       </div>
-      <p class="td-note">Works on essays, articles, textbook excerpts, and lab readings. Long texts auto-truncate at the limit.</p>
+      <span class="td-note">Works on essays, articles, textbook excerpts, and lab readings. Long texts auto-truncate at the limit.</span>
     </section>
 
     <section class="td-panel" aria-label="Analysis">
-      <h2>Breakdown</h2>
+      <span class="td-panel-title">Breakdown</span>
       <div id="tdStatus" class="td-status" hidden>Reading…</div>
       <div id="tdResult" class="td-result">
         <div class="td-empty">Your breakdown will appear here.</div>
       </div>
     </section>
   </div>
-</div>
+</main>
 
 <script>
+(function(){
   const input = document.getElementById('tdInput');
   const counter = document.getElementById('tdCount');
   input.addEventListener('input', () => counter.textContent = input.value.length);
 
-  function escapeHtml(s){return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  function escapeHtml(s){
+    return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
 
-  function clearText(){
+  window.tdClear = function(){
     input.value = '';
     counter.textContent = '0';
-    document.getElementById('tdResult').innerHTML = '<div class="td-empty">Your breakdown will appear here.</div>';
-  }
+    document.getElementById('tdResult').innerHTML =
+      '<div class="td-empty">Your breakdown will appear here.</div>';
+  };
 
   function render(a){
     const out = document.getElementById('tdResult');
-    const summary = `
+    const summary = a.summary ? `
       <div class="td-block">
-        <h3>Summary</h3>
-        <p>${escapeHtml(a.summary || '—')}</p>
-      </div>`;
+        <span class="td-block-title">Summary</span>
+        <p>${escapeHtml(a.summary)}</p>
+      </div>` : '';
     const kp = (a.key_points || []).map(p => `<li>${escapeHtml(p)}</li>`).join('');
     const keyPoints = kp ? `
       <div class="td-block">
-        <h3>Key points</h3>
+        <span class="td-block-title">Key points</span>
         <ul>${kp}</ul>
       </div>` : '';
     const vocabRows = (a.vocabulary || []).map(v => `
@@ -118,24 +247,26 @@
       <dd>${escapeHtml(v.meaning || '')}</dd>`).join('');
     const vocab = vocabRows ? `
       <div class="td-block">
-        <h3>Vocabulary</h3>
+        <span class="td-block-title">Vocabulary</span>
         <dl class="td-vocab">${vocabRows}</dl>
       </div>` : '';
     const qs = (a.questions || []).map(q => `<li>${escapeHtml(q)}</li>`).join('');
     const questions = qs ? `
       <div class="td-block">
-        <h3>Check your understanding</h3>
+        <span class="td-block-title">Check your understanding</span>
         <ul>${qs}</ul>
       </div>` : '';
-    out.innerHTML = summary + keyPoints + vocab + questions;
+    out.innerHTML = summary + keyPoints + vocab + questions ||
+      '<div class="td-empty">Nothing to break down. Try a longer passage.</div>';
   }
 
-  async function analyze(){
+  window.tdAnalyze = async function(){
     const text = input.value.trim();
     const btn = document.getElementById('tdAnalyze');
     const status = document.getElementById('tdStatus');
     if (!text){
-      document.getElementById('tdResult').innerHTML = '<div class="td-empty">Paste some text first.</div>';
+      document.getElementById('tdResult').innerHTML =
+        '<div class="td-empty">Paste some text first.</div>';
       return;
     }
     btn.disabled = true; btn.textContent = 'Analyzing…';
@@ -150,14 +281,17 @@
       if (d.status === 'ok' && d.analysis){
         render(d.analysis);
       } else {
-        document.getElementById('tdResult').innerHTML = `<div class="td-empty">${escapeHtml(d.message || 'Could not analyze.')}</div>`;
+        document.getElementById('tdResult').innerHTML =
+          `<div class="td-empty">${escapeHtml(d.message || 'Could not analyze.')}</div>`;
       }
     } catch (e) {
-      document.getElementById('tdResult').innerHTML = '<div class="td-empty">Network error. Try again.</div>';
+      document.getElementById('tdResult').innerHTML =
+        '<div class="td-empty">Network error. Try again.</div>';
     } finally {
       btn.disabled = false; btn.textContent = 'Analyze';
       status.hidden = true;
     }
-  }
+  };
+})();
 </script>
 {% endblock %}

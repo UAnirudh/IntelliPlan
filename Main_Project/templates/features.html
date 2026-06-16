@@ -2,73 +2,206 @@
 
 {% block page_title %}Feature Requests — Vote on what to build next | IntelliPlan{% endblock %}
 {% block meta_description %}Submit ideas, vote on what to build next, and track shipped features. Feedback loop for IntelliPlan, the AI study planner.{% endblock %}
-{% block og_title %}IntelliPlan Feature Requests{% endblock %}
-{% block og_description %}Submit ideas and vote on what we build next.{% endblock %}
 
 {% block content %}
 <style>
-  .fr-shell{max-width:1080px;margin:0 auto;padding:28px 24px 80px;}
-  .fr-head{margin-bottom:24px;max-width:680px;}
-  .fr-head h1{font-family:var(--font-display);font-size:clamp(1.6rem,2.4vw,2rem);font-weight:700;letter-spacing:-0.02em;margin:0 0 8px;color:var(--text-primary);line-height:1.15;}
-  .fr-head p{color:var(--text-secondary);margin:0;line-height:1.55;font-size:0.95rem;max-width:60ch;}
-  .fr-grid{display:grid;grid-template-columns:1fr;gap:18px;}
-  @media (min-width:880px){.fr-grid{grid-template-columns:340px 1fr;align-items:start;}}
-  .fr-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px;box-shadow:var(--shadow-sm);}
-  .fr-card h2{font-family:var(--font-display);font-size:1.05rem;margin:0 0 12px;letter-spacing:-0.01em;color:var(--text-primary);}
-  .fr-field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;}
-  .fr-field label{font-size:0.78rem;font-weight:600;color:var(--text-secondary);letter-spacing:0.02em;text-transform:uppercase;}
-  .fr-input,.fr-textarea,.fr-select{width:100%;padding:10px 12px;border:1px solid var(--border-strong);border-radius:var(--r-sm);background:var(--bg-secondary);color:var(--text-primary);font:inherit;font-size:0.93rem;}
-  .fr-textarea{min-height:84px;resize:vertical;line-height:1.45;}
-  .fr-input:focus,.fr-textarea:focus,.fr-select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-mid);}
-  .fr-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:11px 14px;background:var(--grad-brand);color:#fff;border:0;border-radius:var(--r-sm);font:inherit;font-weight:600;cursor:pointer;transition:transform .12s var(--ease-out),filter .12s;}
-  .fr-btn:hover{filter:brightness(1.05);transform:translateY(-1px);}
-  .fr-btn:disabled{opacity:.55;cursor:not-allowed;transform:none;}
-  .fr-filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
-  .fr-chip{padding:6px 11px;border:1px solid var(--border-strong);border-radius:var(--r-full);background:var(--bg-card);color:var(--text-secondary);font-size:0.78rem;cursor:pointer;font-weight:500;transition:all .15s;}
-  .fr-chip:hover{border-color:var(--accent);color:var(--accent);}
-  .fr-chip.active{background:var(--accent);color:#fff;border-color:var(--accent);}
-  .fr-list{display:flex;flex-direction:column;gap:10px;}
-  .fr-item{display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:start;padding:14px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);transition:border-color .15s,box-shadow .15s;}
-  .fr-item:hover{border-color:var(--border-strong);box-shadow:var(--shadow);}
-  .fr-vote{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 8px;border:1px solid var(--border-strong);border-radius:var(--r-sm);background:var(--bg-secondary);cursor:pointer;font:inherit;color:var(--text-primary);transition:all .12s;min-width:52px;}
-  .fr-vote:hover{border-color:var(--accent);color:var(--accent);}
-  .fr-vote.voted{background:var(--accent);color:#fff;border-color:var(--accent);}
-  .fr-vote-arrow{font-size:0.95rem;line-height:1;}
-  .fr-vote-count{font-weight:700;font-size:0.95rem;}
-  .fr-item-body h3{margin:0 0 4px;font-size:1rem;font-family:var(--font-display);font-weight:600;letter-spacing:-0.01em;color:var(--text-primary);line-height:1.35;}
-  .fr-item-body p{margin:0;color:var(--text-secondary);font-size:0.88rem;line-height:1.5;}
-  .fr-meta{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;}
-  .fr-tag{font-size:0.7rem;padding:2px 8px;border-radius:var(--r-full);background:var(--accent-soft);color:var(--accent);font-weight:600;letter-spacing:0.02em;text-transform:uppercase;}
-  .fr-status{font-size:0.7rem;padding:2px 8px;border-radius:var(--r-full);font-weight:600;letter-spacing:0.02em;text-transform:uppercase;}
-  .fr-status.open{background:var(--low-bg);color:var(--low);}
-  .fr-status.planned{background:var(--medium-bg);color:var(--medium);}
-  .fr-status.in_progress{background:var(--accent-soft);color:var(--accent);}
-  .fr-status.shipped{background:rgba(16,185,129,.12);color:#059669;}
-  .fr-status.declined{background:var(--high-bg);color:var(--high);}
-  .fr-empty{padding:28px;text-align:center;color:var(--text-muted);font-size:0.9rem;}
-  .fr-err{margin-top:8px;color:var(--high);font-size:0.83rem;}
+  .fr-page, .fr-page *, .fr-page *::before, .fr-page *::after { box-sizing: border-box; }
+  .fr-page { display: block; max-width: 1100px; margin: 0 auto; padding: 28px 4px 96px; }
+
+  .fr-page .fr-hero { display: block; max-width: 720px; margin: 0 0 24px; }
+  .fr-page .fr-eyebrow {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 11px;
+    background: var(--accent-soft); color: var(--accent);
+    border: 1px solid var(--accent-mid);
+    border-radius: 999px;
+    font: 600 0.7rem/1 var(--font-display);
+    letter-spacing: 0.06em; text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .fr-page .fr-h1 {
+    display: block; margin: 0 0 8px;
+    font: 700 1.9rem/1.15 var(--font-display);
+    letter-spacing: -0.02em; color: var(--text-primary);
+  }
+  .fr-page .fr-lede {
+    display: block; margin: 0; max-width: 62ch;
+    font: 400 0.97rem/1.6 var(--font-body);
+    color: var(--text-secondary);
+  }
+
+  /* Two-column board: composer on the left, list on the right. */
+  .fr-page .fr-board {
+    display: grid; grid-template-columns: 1fr; gap: 18px;
+  }
+  @media (min-width: 920px) {
+    .fr-page .fr-board { grid-template-columns: 340px 1fr; align-items: start; gap: 22px; }
+  }
+
+  .fr-page .fr-panel {
+    display: block;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 22px;
+    box-shadow: var(--shadow-sm);
+  }
+  .fr-page .fr-panel-title {
+    display: block; margin: 0 0 14px;
+    font: 600 0.78rem/1 var(--font-display);
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  /* Form */
+  .fr-page .fr-field { display: block; margin-bottom: 12px; }
+  .fr-page .fr-field-label {
+    display: block; margin: 0 0 6px;
+    font: 600 0.78rem/1 var(--font-display);
+    letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+  .fr-page .fr-input, .fr-page .fr-textarea, .fr-page .fr-select {
+    width: 100%; display: block;
+    padding: 10px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    background: var(--bg-secondary); color: var(--text-primary);
+    font: 400 0.93rem/1.4 var(--font-body);
+  }
+  .fr-page .fr-textarea { min-height: 92px; resize: vertical; line-height: 1.5; }
+  .fr-page .fr-input:focus, .fr-page .fr-textarea:focus, .fr-page .fr-select:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-mid);
+  }
+  .fr-page .fr-btn {
+    display: block; width: 100%;
+    padding: 11px 14px;
+    background: var(--grad-brand); color: #fff;
+    border: 0; border-radius: 10px;
+    font: 600 0.95rem/1 var(--font-display);
+    cursor: pointer;
+    transition: transform 0.12s var(--ease-out), filter 0.12s;
+  }
+  .fr-page .fr-btn:hover { filter: brightness(1.05); transform: translateY(-1px); }
+  .fr-page .fr-btn:active { transform: translateY(0); }
+  .fr-page .fr-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+  .fr-page .fr-err {
+    display: block; margin-top: 10px;
+    font: 500 0.83rem/1.4 var(--font-body);
+    color: var(--high);
+  }
+
+  /* Filters + list */
+  .fr-page .fr-filters {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin: 0 0 14px;
+  }
+  .fr-page .fr-filters .fr-spacer { flex: 1 1 12px; }
+  .fr-page .fr-chip {
+    display: inline-flex; align-items: center;
+    padding: 6px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    background: var(--bg-card); color: var(--text-secondary);
+    font: 500 0.78rem/1 var(--font-body);
+    cursor: pointer;
+    transition: all 0.14s;
+  }
+  .fr-page .fr-chip:hover { border-color: var(--accent); color: var(--accent); }
+  .fr-page .fr-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .fr-page .fr-list { display: flex; flex-direction: column; gap: 10px; }
+  .fr-page .fr-item {
+    display: grid; grid-template-columns: 60px 1fr;
+    gap: 14px; align-items: start;
+    padding: 14px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    transition: border-color 0.14s, box-shadow 0.14s;
+  }
+  .fr-page .fr-item:hover { border-color: var(--border-strong); box-shadow: var(--shadow); }
+
+  .fr-page .fr-vote {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 8px 6px;
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    background: var(--bg-secondary); color: var(--text-primary);
+    font: 700 0.95rem/1 var(--font-body);
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .fr-page .fr-vote:hover { border-color: var(--accent); color: var(--accent); }
+  .fr-page .fr-vote.voted {
+    background: var(--accent); color: #fff; border-color: var(--accent);
+  }
+  .fr-page .fr-vote-arrow { font-size: 0.9rem; line-height: 1; }
+  .fr-page .fr-vote-count { font-weight: 700; }
+
+  .fr-page .fr-item-body { display: block; min-width: 0; }
+  .fr-page .fr-item-title {
+    display: block; margin: 0 0 4px;
+    font: 600 1rem/1.35 var(--font-display);
+    letter-spacing: -0.01em; color: var(--text-primary);
+    word-break: break-word;
+  }
+  .fr-page .fr-item-body p {
+    display: block; margin: 0;
+    font: 400 0.88rem/1.5 var(--font-body); color: var(--text-secondary);
+    word-break: break-word;
+  }
+  .fr-page .fr-meta {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-top: 8px;
+  }
+  .fr-page .fr-tag, .fr-page .fr-status {
+    display: inline-flex; align-items: center;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font: 600 0.68rem/1.4 var(--font-display);
+    letter-spacing: 0.05em; text-transform: uppercase;
+  }
+  .fr-page .fr-tag { background: var(--accent-soft); color: var(--accent); }
+  .fr-page .fr-status.open       { background: rgba(16,185,129,0.10); color: #059669; }
+  .fr-page .fr-status.planned    { background: rgba(217,119,6,0.10); color: #d97706; }
+  .fr-page .fr-status.in_progress{ background: var(--accent-soft); color: var(--accent); }
+  .fr-page .fr-status.shipped    { background: rgba(16,185,129,0.18); color: #047857; }
+  .fr-page .fr-status.declined   { background: rgba(220,38,38,0.10); color: #dc2626; }
+
+  .fr-page .fr-empty {
+    display: block; padding: 28px;
+    text-align: center;
+    background: var(--bg-card);
+    border: 1px dashed var(--border-strong);
+    border-radius: 12px;
+    color: var(--text-muted);
+    font: 400 0.9rem/1.5 var(--font-body);
+  }
 </style>
 
-<div class="fr-shell">
-  <header class="fr-head">
-    <h1>What should we build next?</h1>
-    <p>Share an idea, vote on what matters to you, and follow it as it moves from open → planned → shipped. We read every submission.</p>
+<div class="fr-page" id="main">
+  <header class="fr-hero">
+    <span class="fr-eyebrow">Public roadmap · Vote-driven</span>
+    <h1 class="fr-h1">What should we build next?</h1>
+    <p class="fr-lede">Share an idea, vote on what matters to you, and follow it as it moves from open → planned → shipped. We read every submission.</p>
   </header>
 
-  <div class="fr-grid">
-    <aside class="fr-card" aria-label="Submit an idea">
-      <h2>Submit an idea</h2>
-      <form id="frForm" onsubmit="event.preventDefault();submitIdea();">
+  <div class="fr-board">
+    <aside class="fr-panel" aria-label="Submit an idea">
+      <span class="fr-panel-title">Submit an idea</span>
+      <form id="frForm" onsubmit="event.preventDefault();window.frSubmitIdea();">
         <div class="fr-field">
-          <label for="frTitle">Title</label>
+          <label class="fr-field-label" for="frTitle">Title</label>
           <input id="frTitle" class="fr-input" maxlength="140" required placeholder="One-line summary">
         </div>
         <div class="fr-field">
-          <label for="frBody">Details (optional)</label>
+          <label class="fr-field-label" for="frBody">Details (optional)</label>
           <textarea id="frBody" class="fr-textarea" maxlength="4000" placeholder="What problem would this solve?"></textarea>
         </div>
         <div class="fr-field">
-          <label for="frCat">Category</label>
+          <label class="fr-field-label" for="frCat">Category</label>
           <select id="frCat" class="fr-select">
             <option value="general">General</option>
             <option value="tutor">Tutor</option>
@@ -88,7 +221,7 @@
       <div class="fr-filters" role="tablist">
         <button class="fr-chip active" data-sort="top">Top voted</button>
         <button class="fr-chip" data-sort="new">Newest</button>
-        <span style="flex:1"></span>
+        <span class="fr-spacer"></span>
         <button class="fr-chip" data-status="all">All</button>
         <button class="fr-chip active" data-status="open">Open</button>
         <button class="fr-chip" data-status="planned">Planned</button>
@@ -101,10 +234,15 @@
 </div>
 
 <script>
+(function(){
   const state = {sort:'top', status:'open'};
 
-  function statusLabel(s){return ({open:'Open',planned:'Planned',in_progress:'In progress',shipped:'Shipped',declined:'Declined'})[s] || s;}
-  function escapeHtml(s){return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  function statusLabel(s){
+    return ({open:'Open', planned:'Planned', in_progress:'In progress', shipped:'Shipped', declined:'Declined'})[s] || s;
+  }
+  function escapeHtml(s){
+    return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
 
   async function load(){
     const r = await fetch(`/api/features?sort=${state.sort}&status=${state.status}`);
@@ -121,7 +259,7 @@
           <span class="fr-vote-count">${it.vote_count}</span>
         </button>
         <div class="fr-item-body">
-          <h3>${escapeHtml(it.title)}</h3>
+          <span class="fr-item-title">${escapeHtml(it.title)}</span>
           ${it.body ? `<p>${escapeHtml(it.body)}</p>` : ''}
           <div class="fr-meta">
             <span class="fr-tag">${escapeHtml(it.category)}</span>
@@ -130,13 +268,18 @@
         </div>
       </article>
     `).join('');
-    list.querySelectorAll('.fr-vote').forEach(btn => btn.addEventListener('click', () => vote(btn.dataset.id, btn)));
+    list.querySelectorAll('.fr-vote').forEach(btn =>
+      btn.addEventListener('click', () => vote(btn.dataset.id, btn))
+    );
   }
 
   async function vote(id, btn){
     btn.disabled = true;
     try {
-      const r = await fetch(`/api/features/${id}/vote`, {method:'POST', headers:{'Content-Type':'application/json'}});
+      const r = await fetch(`/api/features/${id}/vote`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+      });
       const d = await r.json();
       if (d.status === 'ok'){
         btn.classList.toggle('voted', d.voted);
@@ -145,7 +288,7 @@
     } finally { btn.disabled = false; }
   }
 
-  async function submitIdea(){
+  window.frSubmitIdea = async function(){
     const title = document.getElementById('frTitle').value.trim();
     const body = document.getElementById('frBody').value.trim();
     const category = document.getElementById('frCat').value;
@@ -168,7 +311,9 @@
       document.getElementById('frTitle').value = '';
       document.getElementById('frBody').value = '';
       state.sort = 'new';
-      document.querySelectorAll('[data-sort]').forEach(c => c.classList.toggle('active', c.dataset.sort === 'new'));
+      document.querySelectorAll('[data-sort]').forEach(c =>
+        c.classList.toggle('active', c.dataset.sort === 'new')
+      );
       await load();
     } catch (e) {
       err.textContent = 'Network error. Try again.';
@@ -176,7 +321,7 @@
     } finally {
       sub.disabled = false; sub.textContent = 'Submit idea';
     }
-  }
+  };
 
   document.querySelectorAll('[data-sort]').forEach(c => c.addEventListener('click', () => {
     state.sort = c.dataset.sort;
@@ -190,5 +335,6 @@
   }));
 
   load();
+})();
 </script>
 {% endblock %}
