@@ -27,6 +27,7 @@ def planned_task_to_dict(t: PlannedTask) -> dict[str, Any]:
         "status": a.status.value,
         "kind": a.kind.value,
         "source": a.source,
+        "source_ref": a.source_ref,
         "priority": {
             "score": t.priority.score,
             "tier": t.priority.tier.value,

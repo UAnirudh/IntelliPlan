@@ -118,8 +118,8 @@
         <li class="cc-task-card"
             id="cc-task-{{ loop.index0 }}"
             data-task-title="{{ task.title|e }}"
-            data-task-source="{{ task.assignment.source if task.assignment else 'manual' }}"
-            data-task-ref="{{ task.assignment.source_ref if task.assignment else '' }}"
+            data-task-source="{{ task.source or 'manual' }}"
+            data-task-ref="{{ task.source_ref or '' }}"
             style="--delay: {{ loop.index0 * 40 }}ms">
           <div class="cc-task-rail cc-tier-{{ task.priority.tier }}"></div>
           <div class="cc-task-main">
@@ -134,8 +134,8 @@
                 {% if task.est_minutes %}
                 <span class="cc-task-pill">{{ task.est_minutes }}min</span>
                 {% endif %}
-                {% if task.assignment and task.assignment.source != 'manual' %}
-                <span class="cc-task-pill cc-task-pill-src">{{ task.assignment.source }}</span>
+                {% if task.source and task.source != 'manual' %}
+                <span class="cc-task-pill cc-task-pill-src">{{ task.source }}</span>
                 {% endif %}
               </div>
               <p class="cc-task-why-now">{{ task.why_now }}</p>
@@ -336,11 +336,6 @@
   </div>
   {% endif %}
 </div>
-
-{# Mobile chat sheet FAB (only <900px) #}
-<button type="button" class="cc-chat-fab" id="planiFab" onclick="toggleChatSheet()" aria-label="Open Plani">
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
-</button>
 
 {# Toast + evolution overlay #}
 <div id="ccToast" class="cc-toast" role="status" aria-live="polite" hidden></div>
@@ -657,12 +652,6 @@ function closeMobileNav() {
   if (d) { d.classList.remove('cc-mobile-drawer-open'); d.setAttribute('aria-hidden','true'); }
   if (b) { b.hidden = true; b.style.display = 'none'; }
 }
-function toggleChatSheet() {
-  const chat = document.getElementById('ccChatPanel');
-  if (!chat) return;
-  chat.classList.toggle('cc-chat-sheet-open');
-}
-
 /* ════════════════════════════════════════════════════════════════
    PLANI CHAT
 ═════════════════════════════════════════════════════════════════ */
