@@ -6385,9 +6385,9 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
     tasks: list[dict] = []
     today = date_type.today()
     try:
-        dismissed = set(d.title for d in DismissedAssignment.query.filter_by(user_id=user_id).all())
+        dismissed = _DismissedSet(d.title for d in DismissedAssignment.query.filter_by(user_id=user_id).all())
     except Exception:
-        dismissed = set()
+        dismissed = _DismissedSet([])
 
     # Active LMS account (resolves through the LinkedAccount table)
     acct_dict = None
@@ -6968,6 +6968,16 @@ def streak_status():
         return flask.jsonify({"status": "ok", "enabled": False})
     row = _get_or_create_streak(current_user.id)
     tz_name = row.timezone or "UTC"
+    # Visiting the app counts as a qualifying action — but only the first
+    # status fetch of each local day actually advances the streak, so the
+    # nav badge polling this endpoint doesn't write on every call.
+    try:
+        _today_iso = streak_engine.resolve_local_date(tz_name).isoformat()
+        if row.last_qualifying_local_date != _today_iso:
+            _record_streak_qualifying_action(current_user.id)
+            row = _get_or_create_streak(current_user.id)
+    except Exception as _streak_e:
+        print(f"[streak] visit-record skipped: {_streak_e}")
     try:
         qualified = set()
         for d in json.loads(row.qualified_dates_json or "[]"):
