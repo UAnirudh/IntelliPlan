@@ -178,7 +178,7 @@
     </section>
 
     {# ─── CENTER: PLANI — the main interaction ─── #}
-    <section class="cc-center" id="planiChat" aria-label="Plani assistant">
+    <section class="cc-center" id="ccChatPanel" aria-label="Plani assistant">
       <header class="cc-chat-header">
         <div class="cc-chat-avatar">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
@@ -192,7 +192,7 @@
         </button>
       </header>
 
-      <div class="cc-chat-messages" id="planiMessages">
+      <div class="cc-chat-messages" id="ccChatMessages">
         <div class="cc-chat-welcome" id="planiWelcome">
           <div class="cc-chat-welcome-icon">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
@@ -224,12 +224,12 @@
         <div class="cc-chat-input-row">
           <textarea
             class="cc-chat-input"
-            id="planiInput"
+            id="ccChatInput"
             rows="1"
             placeholder="Ask Plani anything…"
             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();planiSend()}"
             oninput="planiAutosize(this); planiUpdateSend();"></textarea>
-          <button type="submit" class="cc-chat-send" id="planiSendBtn" aria-label="Send" disabled>
+          <button type="submit" class="cc-chat-send" id="ccChatSendBtn" aria-label="Send" disabled>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><polyline points="13 6 19 12 13 18"/></svg>
           </button>
         </div>
@@ -380,14 +380,14 @@ document.addEventListener('DOMContentLoaded', function() {
     if (e.key === 'Escape') closeEvolveOverlay();
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
-      const input = document.getElementById('planiInput');
+      const input = document.getElementById('ccChatInput');
       if (input) { input.focus(); }
     }
   });
 
   // Desktop: focus chat input immediately
   if (window.innerWidth >= 1100) {
-    const input = document.getElementById('planiInput');
+    const input = document.getElementById('ccChatInput');
     if (input) setTimeout(function(){ input.focus(); }, 200);
   }
 
@@ -458,7 +458,7 @@ function ccAskAboutTask(btn) {
   const card = btn.closest('.cc-task-card');
   if (!card) return;
   const title = card.dataset.taskTitle || 'this task';
-  const input = document.getElementById('planiInput');
+  const input = document.getElementById('ccChatInput');
   if (input) {
     input.value = 'Help me with: ' + title;
     planiAutosize(input);
@@ -658,7 +658,7 @@ function closeMobileNav() {
   if (b) { b.hidden = true; b.style.display = 'none'; }
 }
 function toggleChatSheet() {
-  const chat = document.getElementById('planiChat');
+  const chat = document.getElementById('ccChatPanel');
   if (!chat) return;
   chat.classList.toggle('cc-chat-sheet-open');
 }
@@ -666,7 +666,7 @@ function toggleChatSheet() {
 /* ════════════════════════════════════════════════════════════════
    PLANI CHAT
 ═════════════════════════════════════════════════════════════════ */
-let planiHistory = [];
+let ccChatHistory = [];
 let planiSending = false;
 
 function planiAutosize(el) {
@@ -674,15 +674,15 @@ function planiAutosize(el) {
   el.style.height = Math.min(el.scrollHeight, 160) + 'px';
 }
 function planiUpdateSend() {
-  const input = document.getElementById('planiInput');
-  const btn = document.getElementById('planiSendBtn');
+  const input = document.getElementById('ccChatInput');
+  const btn = document.getElementById('ccChatSendBtn');
   if (!input || !btn) return;
   btn.disabled = !input.value.trim() || planiSending;
 }
 
 function planiNew() {
-  planiHistory = [];
-  const container = document.getElementById('planiMessages');
+  ccChatHistory = [];
+  const container = document.getElementById('ccChatMessages');
   if (container) container.innerHTML = '';
   // Re-mount the welcome
   const welcome = document.createElement('div');
@@ -695,13 +695,13 @@ function planiNew() {
 }
 
 function planiSuggest(text) {
-  const input = document.getElementById('planiInput');
+  const input = document.getElementById('ccChatInput');
   if (input) { input.value = text; planiAutosize(input); planiUpdateSend(); }
   planiSend();
 }
 
 function planiAddMsg(role, text) {
-  const container = document.getElementById('planiMessages');
+  const container = document.getElementById('ccChatMessages');
   const welcome = document.getElementById('planiWelcome');
   if (welcome) welcome.style.display = 'none';
   const div = document.createElement('div');
@@ -743,24 +743,24 @@ function planiFormatReply(text) {
 }
 
 function planiShowTyping() {
-  const container = document.getElementById('planiMessages');
+  const container = document.getElementById('ccChatMessages');
   const welcome = document.getElementById('planiWelcome');
   if (welcome) welcome.style.display = 'none';
   const div = document.createElement('div');
   div.className = 'cc-msg cc-msg-bot cc-typing';
-  div.id = 'planiTyping';
+  div.id = 'ccChatTyping';
   div.innerHTML = '<span></span><span></span><span></span>';
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
 }
 function planiHideTyping() {
-  const el = document.getElementById('planiTyping');
+  const el = document.getElementById('ccChatTyping');
   if (el) el.remove();
 }
 
 async function planiSend() {
   if (planiSending) return;
-  const input = document.getElementById('planiInput');
+  const input = document.getElementById('ccChatInput');
   const msg = (input.value || '').trim();
   if (!msg) return;
   input.value = ''; planiAutosize(input);
@@ -768,21 +768,21 @@ async function planiSend() {
   planiUpdateSend();
 
   planiAddMsg('user', msg);
-  planiHistory.push({ role: 'user', content: msg });
+  ccChatHistory.push({ role: 'user', content: msg });
   planiShowTyping();
 
   try {
     const r = await fetch('/api/plani/agent', {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: planiHistory.slice(-10) })
+      body: JSON.stringify({ messages: ccChatHistory.slice(-10) })
     });
     const data = await r.json();
     planiHideTyping();
     if (data.status === 'ok') {
       (data.actions || []).forEach(function(a) { planiAddMsg('action', a); });
       planiAddMsg('bot', data.reply || 'Done.');
-      planiHistory.push({ role: 'assistant', content: data.reply || '' });
+      ccChatHistory.push({ role: 'assistant', content: data.reply || '' });
       if (data.refresh) {
         ccToast('Updated · refreshing data…', 'success');
         setTimeout(function() { window.location.reload(); }, 1400);
