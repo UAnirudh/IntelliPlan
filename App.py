@@ -6805,13 +6805,28 @@ def manual_create_task():
         except Exception: pass
     return flask.jsonify({"status": "ok", "id": task.id})
 
+def _owns_manual_task(task) -> bool:
+    """True if the current session owns this ManualTask.
+
+    Works for both authenticated users (user_id) and guests
+    (guest_session_id) so we close the IDOR without breaking guest task
+    editing. Prevents mutating another user's task by guessing its id.
+    """
+    if task is None:
+        return False
+    if current_user.is_authenticated:
+        return task.user_id == current_user.id
+    gid = get_guest_session_id()
+    return bool(task.guest_session_id) and task.guest_session_id == gid
+
+
 @app.route("/tasks/manual/update", methods=["POST"])
 def manual_update_task():
     data = request.json or {}
     task_id = data.get("id")
     task = db.session.get(ManualTask, task_id)
-    if not task:
-        return flask.jsonify({"status": "error", "message": "Not found"})
+    if not _owns_manual_task(task):
+        return flask.jsonify({"status": "error", "message": "Not found"}), 404
     if "title" in data: task.title = data["title"]
     if "due_date" in data: task.due_date = data["due_date"]
     if "priority" in data: task.priority = data["priority"]
@@ -6847,6 +6862,8 @@ def manual_update_task():
 def manual_delete_task():
     task_id = (request.json or {}).get("id")
     task = db.session.get(ManualTask, task_id)
+    if task and not _owns_manual_task(task):
+        return flask.jsonify({"status": "error", "message": "Not found"}), 404
     if task:
         db.session.delete(task)
         db.session.commit()
