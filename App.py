@@ -1273,13 +1273,16 @@ def apply_study_schema_migrations():
 # ``intelliplan`` package while keeping the model classes accessible on
 # the App.py namespace for the upcoming /api/today handler.
 from intelliplan.models import command_center as _cc_models
-from intelliplan.migrations import apply_command_center_migrations
+from intelliplan.models import learning_graph as _lg_models
+from intelliplan.migrations import apply_command_center_migrations, apply_learning_graph_migrations
 BriefingCache, HealthSnapshot, StudentSignal = _cc_models.register(db)
+StudentProfile, ConceptMastery, LearningEvent = _lg_models.register(db)
 
 with app.app_context():
     db.create_all()
     apply_study_schema_migrations()
     apply_command_center_migrations(db)
+    apply_learning_graph_migrations(db)
 
 print([str(r) for r in app.url_map.iter_rules() if 'tutor' in str(r)])
 
@@ -7610,6 +7613,20 @@ def _persist_import(assignments, grades, source="csv", source_label="", batch_id
         ))
         created_grades += 1
     db.session.commit()
+    # Learning Graph: grade import event
+    try:
+        uid = None
+        if current_user.is_authenticated:
+            uid = current_user.id
+        if uid and grades:
+            from learning_graph_glue import _learning_graph_on_grade_changed
+            for g in grades:
+                course = g.get("course", "")
+                new_pct = g.get("percentage")
+                if course and new_pct is not None:
+                    _learning_graph_on_grade_changed(uid, course, None, float(new_pct))
+    except Exception:
+        pass
     return batch_id, created_assignments, created_grades
 
 
@@ -8425,6 +8442,17 @@ def feedback_complete():
             _record_streak_qualifying_action(current_user.id, data.get("timezone"))
         except Exception as e:
             print(f"[streak] error on feedback complete: {e}")
+        # Learning Graph: record task completion event
+        try:
+            from learning_graph_glue import _learning_graph_on_task_completed
+            _learning_graph_on_task_completed(current_user.id, {
+                "title": title, "course": data.get("course", ""),
+                "estimated_time": data.get("estimated_time", 60),
+                "actual_time": int(actual_time) if actual_time else None,
+                "difficulty": data.get("difficulty", "Medium"),
+            })
+        except Exception:
+            pass
     return flask.jsonify({"status": "ok"})
 
 @app.route("/feedback/export")
@@ -9241,6 +9269,16 @@ def study_mastery_update():
             q.mastery_level = max(0, q.mastery_level - 1)
         q.next_review = (datetime.now() + timedelta(days=q.interval_days)).strftime("%Y-%m-%d")
         db.session.commit()
+        # Learning Graph: concept reviewed
+        if uid:
+            try:
+                from learning_graph_glue import _learning_graph_on_concept_reviewed
+                _learning_graph_on_concept_reviewed(uid, {
+                    "question_key": question_key, "verdict": verdict,
+                    "topic": data.get("topic", ""),
+                })
+            except Exception:
+                pass
         mastery_labels = ["Not Learned", "Learning", "Familiar", "Mastered"]
         return flask.jsonify({"status": "ok", "mastery_level": q.mastery_level, "mastery_label": mastery_labels[q.mastery_level], "next_review": q.next_review, "interval_days": q.interval_days})
     except Exception as e:
@@ -9343,6 +9381,18 @@ def study_session_complete():
             "mastered_concepts": int(data.get("mastered_concepts", 0) or 0)
         })
         db.session.commit()
+        # Learning Graph: study session ended
+        if uid:
+            try:
+                from learning_graph_glue import _learning_graph_on_study_session_ended
+                _learning_graph_on_study_session_ended(uid, {
+                    "questions_total": questions_total,
+                    "questions_correct": questions_correct,
+                    "duration_seconds": duration_seconds,
+                    "mode": data.get("mode", "casual"),
+                })
+            except Exception:
+                pass
         return flask.jsonify({
             "status": "ok",
             "total_points": p.total_points,
@@ -12170,6 +12220,8 @@ app.register_blueprint(intelliplan_api_bp)
 # The `command_center` feature flag is a KILL SWITCH (default on).
 from command_center_glue import command_center_bp
 app.register_blueprint(command_center_bp)
+from learning_graph_glue import learning_graph_bp
+app.register_blueprint(learning_graph_bp)
 limiter.limit("30 per minute")(app.view_functions["command_center.api_today"])
 limiter.limit("6 per hour")(app.view_functions["command_center.api_today_refresh"])
 limiter.exempt(app.view_functions["command_center.cron_refresh_briefings"])

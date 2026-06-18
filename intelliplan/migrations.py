@@ -1,4 +1,4 @@
-"""Boot-time, idempotent DDL for Command Center tables.
+"""Boot-time, idempotent DDL for Command Center and Learning Graph tables.
 
 Mirrors the existing ``apply_study_schema_migrations`` pattern used by
 ``App.py``. This will be replaced by Alembic before the next destructive
@@ -26,5 +26,18 @@ def apply_command_center_migrations(db: Any) -> list[str]:
     inspector = inspect(db.engine)
     existing = set(inspector.get_table_names())
     target = {"briefing_cache", "health_snapshots", "student_signals"}
+    db.create_all()
+    return sorted(target & existing)
+
+
+def apply_learning_graph_migrations(db: Any) -> list[str]:
+    """Ensure Learning Graph tables exist.
+
+    Same idempotent pattern as ``apply_command_center_migrations``.
+    """
+
+    inspector = inspect(db.engine)
+    existing = set(inspector.get_table_names())
+    target = {"student_profiles", "concept_mastery", "learning_events"}
     db.create_all()
     return sorted(target & existing)

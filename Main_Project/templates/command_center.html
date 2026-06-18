@@ -3,7 +3,7 @@
 {% block page_title %}Command Center | IntelliPlan{% endblock %}
 
 {% block content %}
-<link rel="stylesheet" href="/static/css/command_center.css?v=20260614">
+<link rel="stylesheet" href="/static/css/command_center.css?v=20260617">
 
 {# ── Mobile top bar (<720px) ────────────────────────────────── #}
 <div class="cc-mobile-top">
@@ -200,13 +200,13 @@
           <h3>How can I help, {{ today.student.name.split(' ')[0] if today.student.name else 'Commander' }}?</h3>
           <p>I'm connected to your tasks, schedule, and grades. I can plan, edit, complete, or navigate — just ask.</p>
           <div class="cc-chat-suggestions" id="planiSuggestions">
+            <button type="button" class="cc-chat-suggestion cc-sugg-primary" onclick="planiSuggest('Build a study schedule for this week, 2 hours per day, evenings. Save it to my memories and dashboard.')">
+              <span class="cc-sugg-icon">📅</span>
+              <span class="cc-sugg-text"><strong>Schedule my week</strong><span>Auto-build a plan, save to scheduler + memories</span></span>
+            </button>
             <button type="button" class="cc-chat-suggestion" onclick="planiSuggest('What should I focus on right now?')">
               <span class="cc-sugg-icon">🎯</span>
               <span class="cc-sugg-text"><strong>Focus me</strong><span>What should I work on right now?</span></span>
-            </button>
-            <button type="button" class="cc-chat-suggestion" onclick="planiSuggest('Build a study schedule for this week, 2 hours per day, evenings')">
-              <span class="cc-sugg-icon">📅</span>
-              <span class="cc-sugg-text"><strong>Plan my week</strong><span>Build a study schedule</span></span>
             </button>
             <button type="button" class="cc-chat-suggestion" onclick="planiSuggest('Show me everything that is overdue')">
               <span class="cc-sugg-icon">⏰</span>
@@ -324,6 +324,75 @@
     </aside>
 
   </div>
+
+  {# ─────────────────── LEARNING INTELLIGENCE ─────────────────── #}
+  <section class="cc-learning" id="ccLearning" aria-label="Learning Intelligence">
+    <header class="cc-learning-header">
+      <h2 class="cc-learning-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        Learning Intelligence
+      </h2>
+      <button type="button" class="cc-learning-sync" id="ccLearningSyncBtn" onclick="lgSync()" title="Sync concept mastery">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/></svg>
+        <span>Sync</span>
+      </button>
+    </header>
+
+    <div class="cc-learning-skeleton" id="ccLearningSkeleton">
+      <div class="cc-skel-row"><div class="cc-skel-block" style="width:60%"></div><div class="cc-skel-block" style="width:35%"></div></div>
+      <div class="cc-skel-row"><div class="cc-skel-block cc-skel-tall"></div><div class="cc-skel-block cc-skel-tall"></div><div class="cc-skel-block cc-skel-tall"></div></div>
+    </div>
+
+    <div class="cc-learning-body" id="ccLearningBody" hidden>
+
+      {# ── Alerts: Forgetting Soon ── #}
+      <div class="cc-lg-alerts" id="ccLgAlerts" hidden>
+        <h3 class="cc-lg-section-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Forgetting Soon
+        </h3>
+        <div class="cc-lg-alert-list" id="ccLgAlertList"></div>
+      </div>
+
+      {# ── Predictions ── #}
+      <div class="cc-lg-predictions" id="ccLgPredictions">
+        <h3 class="cc-lg-section-label">Predictions</h3>
+        <div class="cc-lg-pred-grid" id="ccLgPredGrid"></div>
+      </div>
+
+      {# ── Concept Mastery: Strongest + Weakest ── #}
+      <div class="cc-lg-concepts">
+        <div class="cc-lg-concepts-col">
+          <h3 class="cc-lg-section-label cc-lg-label-strong">Strongest Concepts</h3>
+          <div class="cc-lg-concept-list" id="ccLgStrongest"></div>
+        </div>
+        <div class="cc-lg-concepts-col">
+          <h3 class="cc-lg-section-label cc-lg-label-weak">Weakest Concepts</h3>
+          <div class="cc-lg-concept-list" id="ccLgWeakest"></div>
+        </div>
+      </div>
+
+      {# ── Mastery Heatmap ── #}
+      <div class="cc-lg-heatmap-section">
+        <h3 class="cc-lg-section-label">Mastery by Subject</h3>
+        <div class="cc-lg-heatmap" id="ccLgHeatmap"></div>
+      </div>
+
+      {# ── Trends ── #}
+      <div class="cc-lg-trends">
+        <div class="cc-lg-trend-card">
+          <h3 class="cc-lg-section-label">Study Trend · 30d</h3>
+          <div class="cc-lg-sparkline" id="ccLgStudyTrend"></div>
+        </div>
+        <div class="cc-lg-trend-card">
+          <h3 class="cc-lg-section-label">Retention Trend · 7d</h3>
+          <div class="cc-lg-sparkline" id="ccLgRetentionTrend"></div>
+        </div>
+      </div>
+
+      <p class="cc-lg-empty" id="ccLgEmpty" hidden>No learning data yet. Complete tasks, study, or chat with the tutor to build your Learning Graph.</p>
+    </div>
+  </section>
 
   <div hidden data-schema-version="{{ today.meta.schema_version }}"></div>
 
@@ -745,6 +814,160 @@ function planiShowTyping() {
 function planiHideTyping() {
   const el = document.getElementById('ccChatTyping');
   if (el) el.remove();
+}
+
+/* ════════════════════════════════════════════════════════════════
+   LEARNING INTELLIGENCE
+═════════════════════════════════════════════════════════════════ */
+(function lgInit() {
+  document.addEventListener('DOMContentLoaded', function() { lgLoad(); });
+})();
+
+async function lgLoad() {
+  try {
+    const r = await fetch('/api/learning/dashboard', { credentials: 'same-origin' });
+    if (!r.ok) { lgShowEmpty(); return; }
+    const d = await r.json();
+    if (d.error) { lgShowEmpty(); return; }
+    lgRender(d);
+  } catch(e) { lgShowEmpty(); }
+}
+
+function lgShowEmpty() {
+  const skel = document.getElementById('ccLearningSkeleton');
+  const body = document.getElementById('ccLearningBody');
+  const empty = document.getElementById('ccLgEmpty');
+  if (skel) skel.hidden = true;
+  if (body) body.hidden = false;
+  if (empty) empty.hidden = false;
+}
+
+function lgRender(d) {
+  const skel = document.getElementById('ccLearningSkeleton');
+  const body = document.getElementById('ccLearningBody');
+  if (skel) skel.hidden = true;
+  if (body) body.hidden = false;
+
+  var hasData = (d.strongest_concepts && d.strongest_concepts.length)
+    || (d.weakest_concepts && d.weakest_concepts.length)
+    || (d.predictions && d.predictions.length);
+  if (!hasData) { lgShowEmpty(); return; }
+
+  lgRenderAlerts(d.forgetting_soon || []);
+  lgRenderPredictions(d.predictions || []);
+  lgRenderConcepts('ccLgStrongest', d.strongest_concepts || []);
+  lgRenderConcepts('ccLgWeakest', d.weakest_concepts || []);
+  lgRenderHeatmap(d.mastery_by_subject || []);
+  lgRenderSparkline('ccLgStudyTrend', d.study_trend || [], 'min');
+  lgRenderSparkline('ccLgRetentionTrend', d.retention_trend || [], '%');
+}
+
+function lgRenderAlerts(items) {
+  var wrap = document.getElementById('ccLgAlerts');
+  var list = document.getElementById('ccLgAlertList');
+  if (!wrap || !list || !items.length) return;
+  wrap.hidden = false;
+  list.innerHTML = items.map(function(c) {
+    var risk = Math.round(c.forgetting_risk * 100);
+    return '<div class="cc-lg-alert-chip">'
+      + '<span class="cc-lg-alert-concept">' + escapeHtml(c.concept) + '</span>'
+      + '<span class="cc-lg-alert-subject">' + escapeHtml(c.subject) + '</span>'
+      + '<span class="cc-lg-alert-risk">' + risk + '% risk</span>'
+      + '<span class="cc-lg-alert-days">' + c.days_since_review + 'd ago</span>'
+      + '</div>';
+  }).join('');
+}
+
+function lgRenderPredictions(preds) {
+  var grid = document.getElementById('ccLgPredGrid');
+  if (!grid || !preds.length) {
+    var sec = document.getElementById('ccLgPredictions');
+    if (sec) sec.hidden = true;
+    return;
+  }
+  grid.innerHTML = preds.map(function(p) {
+    var pct = typeof p.value === 'number' ? Math.round(p.value * 100) : '—';
+    var tier = p.value >= 0.7 ? 'good' : p.value >= 0.4 ? 'mid' : 'risk';
+    var conf = p.confidence_level || 'low';
+    return '<div class="cc-lg-pred-card cc-lg-pred-' + tier + '">'
+      + '<div class="cc-lg-pred-value">' + pct + '<small>%</small></div>'
+      + '<div class="cc-lg-pred-label">' + escapeHtml(p.label) + '</div>'
+      + '<div class="cc-lg-pred-conf">confidence: ' + conf + '</div>'
+      + '<div class="cc-lg-pred-range">' + Math.round((p.confidence_low||0)*100) + '–' + Math.round((p.confidence_high||0)*100) + '%</div>'
+      + (p.narrative ? '<p class="cc-lg-pred-narrative">' + escapeHtml(p.narrative) + '</p>' : '')
+      + '</div>';
+  }).join('');
+}
+
+function lgRenderConcepts(containerId, concepts) {
+  var el = document.getElementById(containerId);
+  if (!el) return;
+  if (!concepts.length) { el.innerHTML = '<p class="cc-lg-no-data">No data yet</p>'; return; }
+  el.innerHTML = concepts.map(function(c) {
+    var pct = Math.round(c.mastery_score * 100);
+    var hue = Math.round(c.mastery_score * 120);
+    return '<div class="cc-lg-concept-row">'
+      + '<div class="cc-lg-concept-bar-track"><div class="cc-lg-concept-bar-fill" style="width:' + pct + '%;background:hsl(' + hue + ',65%,48%)"></div></div>'
+      + '<div class="cc-lg-concept-info">'
+      + '<span class="cc-lg-concept-name">' + escapeHtml(c.concept) + '</span>'
+      + '<span class="cc-lg-concept-subject">' + escapeHtml(c.subject) + '</span>'
+      + '</div>'
+      + '<span class="cc-lg-concept-pct">' + pct + '%</span>'
+      + '</div>';
+  }).join('');
+}
+
+function lgRenderHeatmap(subjects) {
+  var el = document.getElementById('ccLgHeatmap');
+  if (!el || !subjects.length) {
+    var sec = el ? el.closest('.cc-lg-heatmap-section') : null;
+    if (sec) sec.hidden = true;
+    return;
+  }
+  el.innerHTML = subjects.map(function(s) {
+    var pct = Math.round((s.avg_mastery || 0) * 100);
+    var hue = Math.round((s.avg_mastery || 0) * 120);
+    return '<div class="cc-lg-heatmap-row">'
+      + '<span class="cc-lg-heatmap-subject">' + escapeHtml(s.subject) + '</span>'
+      + '<div class="cc-lg-heatmap-bar-track"><div class="cc-lg-heatmap-bar-fill" style="width:' + pct + '%;background:hsl(' + hue + ',65%,48%)"></div></div>'
+      + '<span class="cc-lg-heatmap-pct">' + pct + '%</span>'
+      + '<span class="cc-lg-heatmap-count">' + (s.concept_count || 0) + ' concepts</span>'
+      + '</div>';
+  }).join('');
+}
+
+function lgRenderSparkline(containerId, data, unit) {
+  var el = document.getElementById(containerId);
+  if (!el) return;
+  if (!data.length) { el.innerHTML = '<p class="cc-lg-no-data">No data yet</p>'; return; }
+  var max = Math.max.apply(null, data.map(function(v){ return v || 0; }));
+  if (max === 0) max = 1;
+  var w = 100 / data.length;
+  var bars = data.map(function(v, i) {
+    var h = Math.max(((v || 0) / max) * 100, 2);
+    var val = unit === '%' ? Math.round((v||0)*100) + '%' : Math.round(v||0) + unit;
+    return '<div class="cc-lg-spark-col" style="width:' + w + '%" title="' + val + '">'
+      + '<div class="cc-lg-spark-bar" style="height:' + h + '%"></div>'
+      + '</div>';
+  }).join('');
+  el.innerHTML = '<div class="cc-lg-spark-chart">' + bars + '</div>';
+}
+
+async function lgSync() {
+  var btn = document.getElementById('ccLearningSyncBtn');
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
+  btn.classList.add('cc-spin-child');
+  try {
+    var r = await fetch('/api/learning/sync', { method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    if (r.ok) {
+      ccToast('Synced learning data', 'success');
+      lgLoad();
+    } else { ccToast('Sync failed', 'error'); }
+  } catch(e) { ccToast('Network error', 'error'); }
+  btn.disabled = false;
+  btn.classList.remove('cc-spin-child');
 }
 
 async function planiSend() {

@@ -8,6 +8,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from intelliplan.domain.learning import (
+    ConceptSnapshot,
+    LearningDashboardPayload,
+    PredictionResult,
+    SubjectMastery,
+)
 from intelliplan.domain.plan import (
     HealthScore,
     PlannedTask,
@@ -106,4 +112,70 @@ def today_to_dict(p: TodayPayload, *, cache_age_seconds: int = 0) -> dict[str, A
             "schema_version": p.schema_version,
             "cache_age_seconds": cache_age_seconds,
         },
+    }
+
+
+# ── Learning Intelligence Layer serializers ──────────────────────────
+
+
+def concept_snapshot_to_dict(c: ConceptSnapshot) -> dict[str, Any]:
+    return {
+        "subject": c.subject,
+        "topic": c.topic,
+        "concept": c.concept,
+        "mastery_score": round(c.mastery_score, 3),
+        "confidence_score": round(c.confidence_score, 3),
+        "times_seen": c.times_seen,
+        "accuracy": round(c.accuracy, 3),
+        "days_since_review": c.days_since_review,
+        "forgetting_risk": round(c.forgetting_risk, 3),
+    }
+
+
+def prediction_to_dict(p: PredictionResult) -> dict[str, Any]:
+    return {
+        "label": p.label,
+        "value": p.value,
+        "confidence_low": p.confidence_low,
+        "confidence_high": p.confidence_high,
+        "confidence_level": p.confidence_level,
+        "factors": [
+            {"key": f.key, "description": f.description, "impact": f.impact}
+            for f in p.factors
+        ],
+        "narrative": p.narrative,
+    }
+
+
+def subject_mastery_to_dict(s: SubjectMastery) -> dict[str, Any]:
+    return {
+        "subject": s.subject,
+        "avg_mastery": s.avg_mastery,
+        "concept_count": s.concept_count,
+        "weakest_concept": s.weakest_concept,
+        "strongest_concept": s.strongest_concept,
+    }
+
+
+def learning_dashboard_to_dict(d: LearningDashboardPayload) -> dict[str, Any]:
+    return {
+        "profile": {
+            "user_id": d.profile.user_id,
+            "learning_pace": d.profile.learning_pace,
+            "strongest_subjects": list(d.profile.strongest_subjects),
+            "weakest_subjects": list(d.profile.weakest_subjects),
+            "preferred_methods": list(d.profile.preferred_methods),
+            "retention_score": d.profile.retention_score,
+            "avg_estimate_ratio": d.profile.avg_estimate_ratio,
+            "engagement_score": d.profile.engagement_score,
+            "gpa_snapshot": d.profile.gpa_snapshot,
+        },
+        "strongest_concepts": [concept_snapshot_to_dict(c) for c in d.strongest_concepts],
+        "weakest_concepts": [concept_snapshot_to_dict(c) for c in d.weakest_concepts],
+        "forgetting_soon": [concept_snapshot_to_dict(c) for c in d.forgetting_soon],
+        "mastery_by_subject": [subject_mastery_to_dict(s) for s in d.mastery_by_subject],
+        "predictions": [prediction_to_dict(p) for p in d.predictions],
+        "study_trend": d.study_trend,
+        "retention_trend": d.retention_trend,
+        "event_count_7d": d.event_count_7d,
     }

@@ -153,8 +153,17 @@ AGENT_TOOLS = [
             "section": {
                 "type": "string",
                 "required": True,
-                "description": "One of: dashboard | scheduler | tutor | grades | streak | pet | command-center | gradebook | settings",
+                "description": "One of: dashboard | scheduler | tutor | grades | streak | pet | command-center | gradebook | settings | memories",
             },
+        },
+    },
+    {
+        "name": "save_note",
+        "description": "Save a note to the user's memories. Use this to persist schedules, study plans, reminders, or important info the user wants to remember.",
+        "parameters": {
+            "course": {"type": "string", "required": True, "description": "Course name or 'General' for non-course notes"},
+            "title": {"type": "string", "required": True, "description": "Note title"},
+            "content": {"type": "string", "required": True, "description": "Full note content (markdown ok)"},
         },
     },
 ]
@@ -170,6 +179,7 @@ SECTION_URLS = {
     "command-center": "/command-center",
     "command_center": "/command-center",
     "settings": "/settings",
+    "memories": "/memories",
 }
 
 
@@ -185,6 +195,14 @@ INTELLIGENT BEHAVIOR:
 - If they ask "what should I focus on", call get_today_plan and summarize the top 2-3.
 - If they ask "take me to the scheduler", call navigate_to with section="scheduler".
 - Chain multiple tools when needed: e.g. list_tasks → identify the target → complete_task.
+
+SCHEDULING — VERY IMPORTANT:
+When the user asks you to schedule, plan, or organize their study time:
+1. First, create any new tasks they mentioned using create_task (one per assignment/item).
+2. Then call generate_schedule to build a full study plan from ALL pending tasks.
+3. After generating, save a summary note using save_note (course="General", title="Study Schedule — [date]") so it persists in their memories.
+4. Tell the user the schedule is saved and visible on both the Scheduler page and Dashboard.
+Always be proactive: if a user says "I have a math test Friday and an essay due Monday", create BOTH tasks first, THEN generate the schedule. Don't ask — just do it.
 
 TOOL CALLING FORMAT — emit a JSON block exactly like this (no extra text before the block):
 ```tool_call
@@ -273,7 +291,8 @@ def _find_manual_task(args: dict, user_id: int):
 
 def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
     from App import (
-        ManualTask, SavedSchedule, ImportedGrade, DismissedAssignment, db,
+        ManualTask, SavedSchedule, ImportedGrade, DismissedAssignment,
+        CourseNote, db,
         infer_task_difficulty, PRIORITY_COLORS, enrich_schedule_data,
         humanize_schedule, build_student_context,
         _ai_personalization_enabled, _summarize_grade_signals,
@@ -600,6 +619,24 @@ Return ONLY valid JSON:
             logger.error("schedule gen failed: %s", e)
             return {"error": "Schedule generation failed. Try again."}
 
+    if name == "save_note":
+        course = (args.get("course") or "General").strip()
+        title = (args.get("title") or "").strip()
+        content = (args.get("content") or "").strip()
+        if not title or not content:
+            return {"error": "title and content are required."}
+        note = CourseNote(
+            user_id=user_id,
+            course_name=course,
+            note_date=today_str,
+            title=title,
+            text_content=content,
+        )
+        db.session.add(note)
+        db.session.commit()
+        return {"status": "ok", "title": title, "course": course,
+                "message": f"Saved note '{title}' to memories."}
+
     if name == "navigate_to":
         section = (args.get("section") or "").lower().strip()
         url = SECTION_URLS.get(section)
@@ -661,6 +698,8 @@ def _humanize_action(tool: str, args: dict, result: dict) -> str | None:
         return result.get("message", "✓ Deleted task")
     if tool == "generate_schedule":
         return f"✓ Generated schedule — {result.get('days', '?')} days"
+    if tool == "save_note":
+        return f"✓ Saved to memories: {result.get('title', '')}"
     if tool == "navigate_to":
         return f"→ Opening {result.get('section', '')}"
     return None
@@ -745,7 +784,7 @@ def plani_agent():
                 navigate_url = result["navigate"]
             # mutations should trigger UI refresh
             if name in ("create_task", "update_task", "complete_task",
-                        "delete_task", "generate_schedule"):
+                        "delete_task", "generate_schedule", "save_note"):
                 refresh_ui = True
             results_text.append(f"[{name}] → {json.dumps(result, default=str)}")
 

@@ -1080,6 +1080,17 @@ def tutor():
         profile = _update_tutor_profile(profile, latest_user, reply)
         _save_tutor_profile(memory_row['id'], profile)
 
+        # Learning Graph: tutor interaction
+        try:
+            from flask_login import current_user as _cu
+            if _cu.is_authenticated:
+                from learning_graph_glue import _learning_graph_on_tutor_interaction
+                _subject = profile.get('last_subject', 'General')
+                _concepts = [{"topic": _subject, "concept": _subject, "understood": True}]
+                _learning_graph_on_tutor_interaction(int(_cu.id), _subject, _concepts)
+        except Exception:
+            pass
+
         # Auto-title from the first user message if still "New chat"
         convo_row = _ensure_conversation(convo_row, messages)
         new_title = None
