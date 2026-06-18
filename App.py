@@ -880,6 +880,22 @@ class FeatureRequestVote(db.Model):
     __table_args__ = (db.UniqueConstraint("request_id", "user_id", name="uq_feature_vote"),)
 
 
+class SiteFeedback(db.Model):
+    """User-submitted feedback: bug reports, feature ideas, praise, or
+    general comments. Powers the floating feedback widget available on
+    every authenticated page."""
+    __tablename__ = "site_feedback"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    category = db.Column(db.String(24), nullable=False, default="general")
+    mood = db.Column(db.Integer, nullable=True)
+    message = db.Column(db.Text, nullable=False)
+    page_url = db.Column(db.String(512), default="")
+    status = db.Column(db.String(16), default="new")
+    admin_note = db.Column(db.Text, default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class MediaBalanceSession(db.Model):
     """Lightweight digital-wellbeing log. Records the *minutes* a user
     spent in IntelliPlan per local date — no per-event tracking, no
@@ -7466,6 +7482,194 @@ def streak_risk():
             freezes_available=row.freezes_available,
             user_tz=tz_name,
         ),
+    })
+
+
+# ── Feedback collector ──────────────────────────────────────────
+
+@app.route("/api/feedback/submit", methods=["POST"])
+@limiter.limit("10 per hour")
+def feedback_submit():
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "Login required"}), 401
+    data = request.get_json(silent=True) or {}
+    message = (data.get("message") or "").strip()
+    if not message or len(message) < 3:
+        return jsonify({"status": "error", "message": "Message too short"}), 400
+    if len(message) > 5000:
+        return jsonify({"status": "error", "message": "Message too long"}), 400
+    category = data.get("category", "general")
+    if category not in ("bug", "feature", "praise", "general"):
+        category = "general"
+    mood = data.get("mood")
+    if isinstance(mood, int) and 1 <= mood <= 5:
+        pass
+    else:
+        mood = None
+    try:
+        fb = SiteFeedback(
+            user_id=current_user.id,
+            category=category,
+            mood=mood,
+            message=message[:5000],
+            page_url=(data.get("page_url") or "")[:512],
+        )
+        db.session.add(fb)
+        db.session.commit()
+        return jsonify({"status": "ok", "id": fb.id})
+    except Exception as e:
+        db.session.rollback()
+        print(f"[feedback] submit failed: {e}")
+        return jsonify({"status": "error", "message": "Could not save"}), 500
+
+
+@app.route("/api/feedback/mine")
+def feedback_mine():
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error"}), 401
+    rows = SiteFeedback.query.filter_by(user_id=current_user.id)\
+        .order_by(SiteFeedback.created_at.desc()).limit(50).all()
+    return jsonify({"status": "ok", "items": [{
+        "id": r.id,
+        "category": r.category,
+        "mood": r.mood,
+        "message": r.message,
+        "page_url": r.page_url,
+        "status": r.status,
+        "admin_note": r.admin_note or "",
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+    } for r in rows]})
+
+
+# ── My Stats page ──────────────────────────────────────────────
+
+@app.route("/my-stats")
+def my_stats_page():
+    if not current_user.is_authenticated:
+        return flask.redirect("/login")
+    return flask.render_template("my_stats.html", active_page="my_stats", logged_in=True)
+
+
+@app.route("/api/my-stats")
+def api_my_stats():
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error"}), 401
+    uid = current_user.id
+
+    # Tasks completed
+    tasks_done = DismissedAssignment.query.filter_by(user_id=uid).count()
+    manual_done = ManualTask.query.filter_by(user_id=uid, done=True).count()
+
+    # Task feedback stats
+    fb_rows = TaskFeedback.query.filter_by(user_id=uid).all()
+    total_actual_min = sum((r.actual_time or 0) for r in fb_rows)
+    total_estimated_min = sum((r.estimated_time or 0) for r in fb_rows)
+    avg_difficulty = None
+    diff_map = {"Easy": 1, "Medium": 2, "Hard": 3}
+    if fb_rows:
+        diffs = [diff_map.get(r.difficulty, 2) for r in fb_rows]
+        avg_difficulty = round(sum(diffs) / len(diffs), 1)
+    courses_worked = list(set(r.course for r in fb_rows if r.course))
+
+    # Study sessions
+    sessions = StudySession.query.filter_by(user_id=uid, completed=True).all()
+    total_study_min = sum((s.duration_seconds or 0) for s in sessions) // 60
+    total_questions = sum((s.questions_total or 0) for s in sessions)
+    total_correct = sum((s.questions_correct or 0) for s in sessions)
+    session_count = len(sessions)
+
+    # Streak
+    streak_row = UserStreak.query.filter_by(user_id=uid).first()
+    current_streak = streak_row.current_streak if streak_row else 0
+    longest_streak = streak_row.longest_streak if streak_row else 0
+
+    # Pet
+    pet = PlaniPet.query.filter_by(user_id=uid).first()
+    pet_data = None
+    if pet:
+        pet_data = {
+            "name": pet.name,
+            "xp": pet.xp or 0,
+            "level": pet_engine.level_for_xp(pet.xp or 0),
+            "stage": pet_engine.stage_for_xp(pet.xp or 0),
+        }
+
+    # Grades
+    grades = ImportedGrade.query.filter_by(user_id=uid).all()
+    grade_list = [{"course": g.course, "percentage": g.percentage, "letter": g.letter}
+                  for g in grades if g.percentage is not None]
+    gpa = None
+    if grade_list:
+        gpa = round(sum(g["percentage"] for g in grade_list) / len(grade_list), 1)
+
+    # Mastery
+    mastery_rows = StudyMastery.query.filter_by(user_id=uid).all()
+    mastery_count = len(mastery_rows)
+    mastered = sum(1 for m in mastery_rows if m.mastery_level >= 4)
+
+    # Study points
+    sp = StudyPoints.query.filter_by(user_id=uid).first()
+    points_data = None
+    if sp:
+        points_data = {
+            "total_points": sp.total_points,
+            "level": sp.level,
+            "sparks": sp.spark_balance,
+            "badges": json.loads(sp.badges or "[]"),
+        }
+
+    # Daily activity (last 30 days)
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    recent_feedback = TaskFeedback.query.filter(
+        TaskFeedback.user_id == uid,
+        TaskFeedback.completed_at >= thirty_days_ago,
+    ).all()
+    daily_completions = {}
+    for r in recent_feedback:
+        day = r.completed_at.strftime("%Y-%m-%d") if r.completed_at else None
+        if day:
+            daily_completions[day] = daily_completions.get(day, 0) + 1
+
+    recent_sessions = StudySession.query.filter(
+        StudySession.user_id == uid,
+        StudySession.completed == True,
+        StudySession.created_at >= thirty_days_ago,
+    ).all()
+    daily_study_min = {}
+    for s in recent_sessions:
+        day = s.created_at.strftime("%Y-%m-%d") if s.created_at else None
+        if day:
+            daily_study_min[day] = daily_study_min.get(day, 0) + (s.duration_seconds or 0) // 60
+
+    # Account age
+    account_days = (datetime.utcnow() - current_user.created_at).days if current_user.created_at else 0
+
+    return jsonify({
+        "status": "ok",
+        "account_days": account_days,
+        "tasks_completed": tasks_done + manual_done,
+        "tasks_lms": tasks_done,
+        "tasks_manual": manual_done,
+        "feedback_count": len(fb_rows),
+        "total_actual_minutes": total_actual_min,
+        "total_estimated_minutes": total_estimated_min,
+        "avg_difficulty": avg_difficulty,
+        "courses_worked": courses_worked,
+        "study_sessions": session_count,
+        "study_minutes": total_study_min,
+        "questions_answered": total_questions,
+        "questions_correct": total_correct,
+        "accuracy": round(total_correct / total_questions * 100, 1) if total_questions else None,
+        "current_streak": current_streak,
+        "longest_streak": longest_streak,
+        "pet": pet_data,
+        "grades": grade_list,
+        "gpa_avg": gpa,
+        "mastery_concepts": mastery_count,
+        "mastery_mastered": mastered,
+        "points": points_data,
+        "daily_completions": daily_completions,
+        "daily_study_minutes": daily_study_min,
     })
 
 

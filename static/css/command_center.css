@@ -1365,7 +1365,7 @@
   .cc-hero-orb-1, .cc-hero-orb-2, .cc-hero-dot, .cc-orb::before,
   .cc-momentum-flame, .cc-momentum-pet-emoji, .cc-chat-status-dot, .cc-chat-welcome-icon,
   .cc-evolve-burst, .cc-evolve-emoji, .cc-task-card,
-  .cc-spin { animation: none !important; }
+  .cc-spin, .cc-skel-block { animation: none !important; }
 }
 
 /* ── Fatal fallback ── */

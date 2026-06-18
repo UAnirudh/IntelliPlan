@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+{% block page_title %}My Stats — IntelliPlan{% endblock %}
+
+{% block content %}
+<div class="ms-page" id="msPage">
+  <header class="ms-header">
+    <h1 class="ms-title">My Stats</h1>
+    <p class="ms-subtitle" id="msAccountAge"></p>
+  </header>
+
+  <div class="ms-skeleton" id="msSkeleton">
+    <div class="ms-skel-row"><div class="ms-skel-block" style="width:22%"></div><div class="ms-skel-block" style="width:22%"></div><div class="ms-skel-block" style="width:22%"></div><div class="ms-skel-block" style="width:22%"></div></div>
+    <div class="ms-skel-row"><div class="ms-skel-block ms-skel-tall"></div><div class="ms-skel-block ms-skel-tall"></div></div>
+  </div>
+
+  <div class="ms-body" id="msBody" hidden>
+
+    {# ── Top-line KPIs ── #}
+    <div class="ms-kpi-grid" id="msKpis"></div>
+
+    {# ── Activity heatmap ── #}
+    <section class="ms-section">
+      <h2 class="ms-section-title">Activity · Last 30 Days</h2>
+      <div class="ms-activity-grid">
+        <div class="ms-activity-card">
+          <h3 class="ms-activity-label">Tasks Completed</h3>
+          <div class="ms-spark" id="msCompletionSpark"></div>
+        </div>
+        <div class="ms-activity-card">
+          <h3 class="ms-activity-label">Study Minutes</h3>
+          <div class="ms-spark" id="msStudySpark"></div>
+        </div>
+      </div>
+    </section>
+
+    {# ── Grades ── #}
+    <section class="ms-section" id="msGradesSection" hidden>
+      <h2 class="ms-section-title">Grades</h2>
+      <div class="ms-grades" id="msGrades"></div>
+    </section>
+
+    {# ── Study performance ── #}
+    <section class="ms-section" id="msStudySection" hidden>
+      <h2 class="ms-section-title">Study Performance</h2>
+      <div class="ms-study-stats" id="msStudyStats"></div>
+    </section>
+
+    {# ── Time management ── #}
+    <section class="ms-section" id="msTimeSection" hidden>
+      <h2 class="ms-section-title">Time Management</h2>
+      <div class="ms-time-stats" id="msTimeStats"></div>
+    </section>
+
+    {# ── Plani Pet ── #}
+    <section class="ms-section" id="msPetSection" hidden>
+      <h2 class="ms-section-title">My Plani</h2>
+      <div class="ms-pet-card" id="msPetCard"></div>
+    </section>
+
+    {# ── My Feedback ── #}
+    <section class="ms-section">
+      <h2 class="ms-section-title">My Feedback</h2>
+      <div class="ms-feedback-list" id="msFeedbackList">
+        <p class="ms-empty">No feedback submitted yet.</p>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<style>
+.ms-page{max-width:960px;margin:0 auto;padding:1.5rem}
+.ms-header{margin-bottom:1.5rem}
+.ms-title{margin:0;font-family:var(--font-display,var(--font-ui));font-size:1.8rem;font-weight:800;color:var(--text-primary)}
+.ms-subtitle{margin:4px 0 0;font-size:.82rem;color:var(--text-muted)}
+
+.ms-skeleton{display:flex;flex-direction:column;gap:12px}
+.ms-skel-row{display:flex;gap:12px}
+.ms-skel-block{height:20px;border-radius:8px;background:linear-gradient(90deg,var(--border) 25%,transparent 50%,var(--border) 75%);background-size:200% 100%;animation:msSkelShimmer 1.4s ease infinite;flex:1}
+.ms-skel-tall{height:120px}
+@keyframes msSkelShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* KPIs */
+.ms-kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:1.5rem}
+.ms-kpi{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.1rem;display:flex;flex-direction:column;gap:2px;transition:border-color .15s,box-shadow .15s}
+.ms-kpi:hover{border-color:var(--accent);box-shadow:0 2px 12px color-mix(in srgb,var(--accent) 10%,transparent)}
+.ms-kpi-value{font-family:var(--font-display,var(--font-ui));font-size:1.7rem;font-weight:800;line-height:1;color:var(--text-primary)}
+.ms-kpi-value small{font-size:.5em;font-weight:600;opacity:.5}
+.ms-kpi-label{font-size:.78rem;font-weight:600;color:var(--text-secondary)}
+.ms-kpi-sub{font-size:.7rem;color:var(--text-muted)}
+
+/* Sections */
+.ms-section{margin-bottom:1.5rem}
+.ms-section-title{margin:0 0 .75rem;font-family:var(--font-display,var(--font-ui));font-size:1rem;font-weight:800;color:var(--text-primary)}
+
+/* Activity sparks */
+.ms-activity-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ms-activity-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1rem}
+.ms-activity-label{margin:0 0 8px;font-size:.78rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em}
+.ms-spark{display:flex;align-items:flex-end;height:60px;gap:2px}
+.ms-spark-col{display:flex;align-items:flex-end;height:100%}
+.ms-spark-bar{width:100%;min-width:3px;border-radius:2px 2px 0 0;transition:opacity .15s}
+.ms-spark-col:hover .ms-spark-bar{opacity:1!important}
+
+/* Grades */
+.ms-grades{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.ms-grade-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1rem;display:flex;align-items:center;gap:12px}
+.ms-grade-pct{font-family:var(--font-display,var(--font-ui));font-size:1.5rem;font-weight:800;line-height:1}
+.ms-grade-pct small{font-size:.5em;opacity:.5}
+.ms-grade-info{flex:1;min-width:0}
+.ms-grade-course{font-size:.82rem;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ms-grade-letter{font-size:.72rem;color:var(--text-muted)}
+
+/* Study stats */
+.ms-study-stats,.ms-time-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.ms-stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1rem;text-align:center}
+.ms-stat-num{font-family:var(--font-display,var(--font-ui));font-size:1.4rem;font-weight:800;color:var(--text-primary)}
+.ms-stat-num small{font-size:.5em;opacity:.5}
+.ms-stat-label{font-size:.75rem;font-weight:600;color:var(--text-secondary);margin-top:2px}
+
+/* Pet */
+.ms-pet-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.25rem;display:flex;align-items:center;gap:16px;max-width:400px}
+.ms-pet-emoji{font-size:2.5rem}
+.ms-pet-info{flex:1}
+.ms-pet-name{font-weight:800;font-size:1rem;color:var(--text-primary)}
+.ms-pet-detail{font-size:.78rem;color:var(--text-secondary)}
+
+/* Feedback list */
+.ms-feedback-list{display:flex;flex-direction:column;gap:8px}
+.ms-fb-row{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:12px 16px;display:grid;grid-template-columns:auto 1fr auto;align-items:start;gap:10px}
+.ms-fb-cat{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:3px 8px;border-radius:6px;white-space:nowrap}
+.ms-fb-cat-bug{background:hsl(0,70%,95%);color:hsl(0,60%,45%)}
+.ms-fb-cat-feature{background:hsl(210,70%,95%);color:hsl(210,60%,40%)}
+.ms-fb-cat-praise{background:hsl(330,70%,95%);color:hsl(330,50%,40%)}
+.ms-fb-cat-general{background:color-mix(in srgb,var(--border) 50%,transparent);color:var(--text-secondary)}
+.ms-fb-msg{font-size:.82rem;color:var(--text-primary);line-height:1.4}
+.ms-fb-meta{font-size:.7rem;color:var(--text-muted);white-space:nowrap}
+.ms-fb-status{font-size:.65rem;font-weight:700;text-transform:uppercase;padding:2px 6px;border-radius:4px;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent)}
+.ms-empty{font-size:.82rem;color:var(--text-muted);margin:0}
+
+@media(max-width:640px){
+  .ms-page{padding:1rem}
+  .ms-kpi-grid{grid-template-columns:1fr 1fr}
+  .ms-activity-grid{grid-template-columns:1fr}
+  .ms-grades{grid-template-columns:1fr}
+}
+</style>
+
+<script>
+const STAGE_EMOJI_MS = {egg:'🥚',hatchling:'🐣',sprout:'🌱',cub:'🐱',scholar:'🦊',sage:'🦉',guardian:'🐉',mythic:'🦄',cosmic:'🌟'};
+
+document.addEventListener('DOMContentLoaded', function() {
+  Promise.all([
+    fetch('/api/my-stats', {credentials:'same-origin'}).then(function(r){return r.json();}),
+    fetch('/api/feedback/mine', {credentials:'same-origin'}).then(function(r){return r.json();})
+  ]).then(function(results) {
+    var stats = results[0];
+    var fb = results[1];
+    if (stats.status !== 'ok') return;
+    document.getElementById('msSkeleton').hidden = true;
+    document.getElementById('msBody').hidden = false;
+    renderStats(stats);
+    renderFeedback(fb.status === 'ok' ? fb.items : []);
+  }).catch(function() {
+    document.getElementById('msSkeleton').innerHTML = '<p class="ms-empty">Could not load stats.</p>';
+  });
+});
+
+function renderStats(d) {
+  // Account age
+  var age = document.getElementById('msAccountAge');
+  if (age && d.account_days != null) {
+    age.textContent = 'Member for ' + d.account_days + ' day' + (d.account_days !== 1 ? 's' : '');
+  }
+
+  // KPIs
+  var kpis = [];
+  kpis.push({value: d.tasks_completed, label: 'Tasks Completed', sub: d.tasks_lms + ' LMS · ' + d.tasks_manual + ' manual'});
+  kpis.push({value: d.current_streak, label: 'Current Streak', sub: 'Longest: ' + d.longest_streak + ' days'});
+  if (d.study_minutes != null) kpis.push({value: d.study_minutes, label: 'Study Minutes', sub: d.study_sessions + ' sessions'});
+  if (d.gpa_avg != null) kpis.push({value: d.gpa_avg + '%', label: 'Grade Average', sub: d.grades.length + ' courses'});
+  if (d.accuracy != null) kpis.push({value: d.accuracy + '%', label: 'Quiz Accuracy', sub: d.questions_answered + ' questions'});
+  if (d.mastery_concepts) kpis.push({value: d.mastery_mastered + '/' + d.mastery_concepts, label: 'Concepts Mastered'});
+  if (d.points) kpis.push({value: d.points.total_points, label: 'Total Points', sub: 'Level ' + d.points.level + ' · ' + d.points.sparks + ' sparks'});
+
+  var kpiEl = document.getElementById('msKpis');
+  kpiEl.innerHTML = kpis.map(function(k) {
+    return '<div class="ms-kpi">'
+      + '<div class="ms-kpi-value">' + k.value + '</div>'
+      + '<div class="ms-kpi-label">' + k.label + '</div>'
+      + (k.sub ? '<div class="ms-kpi-sub">' + k.sub + '</div>' : '')
+      + '</div>';
+  }).join('');
+
+  // Activity sparks
+  renderActivitySpark('msCompletionSpark', d.daily_completions || {}, 'hsl(262,60%,55%)');
+  renderActivitySpark('msStudySpark', d.daily_study_minutes || {}, 'hsl(142,55%,42%)');
+
+  // Grades
+  if (d.grades && d.grades.length) {
+    document.getElementById('msGradesSection').hidden = false;
+    var gEl = document.getElementById('msGrades');
+    gEl.innerHTML = d.grades.map(function(g) {
+      var pct = g.percentage != null ? Math.round(g.percentage) : '—';
+      var hue = g.percentage != null ? Math.round(Math.max(0, Math.min(g.percentage, 100)) * 1.2) : 0;
+      return '<div class="ms-grade-card">'
+        + '<div class="ms-grade-pct" style="color:hsl(' + hue + ',60%,42%)">' + pct + '<small>%</small></div>'
+        + '<div class="ms-grade-info"><div class="ms-grade-course">' + escHtml(g.course) + '</div>'
+        + '<div class="ms-grade-letter">' + (g.letter || '') + '</div></div>'
+        + '</div>';
+    }).join('');
+  }
+
+  // Study stats
+  if (d.study_sessions > 0) {
+    document.getElementById('msStudySection').hidden = false;
+    document.getElementById('msStudyStats').innerHTML =
+      statCard(d.study_sessions, 'Sessions') +
+      statCard(d.study_minutes, 'Total Minutes') +
+      statCard(d.questions_answered, 'Questions') +
+      statCard(d.questions_correct, 'Correct') +
+      statCard((d.accuracy || 0) + '%', 'Accuracy');
+  }
+
+  // Time management
+  if (d.feedback_count > 0) {
+    document.getElementById('msTimeSection').hidden = false;
+    var ratio = d.total_estimated_minutes > 0 ? (d.total_actual_minutes / d.total_estimated_minutes * 100).toFixed(0) + '%' : '—';
+    document.getElementById('msTimeStats').innerHTML =
+      statCard(d.feedback_count, 'Tasks Tracked') +
+      statCard(Math.round(d.total_actual_minutes / 60) + 'h', 'Actual Time') +
+      statCard(Math.round(d.total_estimated_minutes / 60) + 'h', 'Estimated Time') +
+      statCard(ratio, 'Accuracy Ratio') +
+      statCard(d.courses_worked.length, 'Courses');
+  }
+
+  // Pet
+  if (d.pet) {
+    document.getElementById('msPetSection').hidden = false;
+    document.getElementById('msPetCard').innerHTML =
+      '<span class="ms-pet-emoji">' + (STAGE_EMOJI_MS[d.pet.stage] || '🥚') + '</span>'
+      + '<div class="ms-pet-info">'
+      + '<div class="ms-pet-name">' + escHtml(d.pet.name) + '</div>'
+      + '<div class="ms-pet-detail">Level ' + d.pet.level + ' · ' + d.pet.xp + ' XP · ' + d.pet.stage + '</div>'
+      + '</div>';
+  }
+}
+
+function renderActivitySpark(id, dataObj, color) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  var days = [];
+  var now = new Date();
+  for (var i = 29; i >= 0; i--) {
+    var d = new Date(now); d.setDate(d.getDate() - i);
+    var key = d.toISOString().slice(0, 10);
+    days.push({key: key, val: dataObj[key] || 0});
+  }
+  var max = Math.max.apply(null, days.map(function(d){return d.val;}));
+  if (max === 0) max = 1;
+  var w = 100 / days.length;
+  el.innerHTML = days.map(function(d) {
+    var h = Math.max((d.val / max) * 100, d.val > 0 ? 8 : 2);
+    return '<div class="ms-spark-col" style="width:' + w + '%" title="' + d.key + ': ' + d.val + '">'
+      + '<div class="ms-spark-bar" style="height:' + h + '%;background:' + color + ';opacity:' + (d.val > 0 ? 0.75 : 0.15) + '"></div></div>';
+  }).join('');
+}
+
+function statCard(val, label) {
+  return '<div class="ms-stat-card"><div class="ms-stat-num">' + val + '</div><div class="ms-stat-label">' + label + '</div></div>';
+}
+
+function renderFeedback(items) {
+  var el = document.getElementById('msFeedbackList');
+  if (!items.length) return;
+  el.innerHTML = items.map(function(f) {
+    var catClass = 'ms-fb-cat-' + f.category;
+    var dateStr = f.created_at ? new Date(f.created_at).toLocaleDateString() : '';
+    return '<div class="ms-fb-row">'
+      + '<span class="ms-fb-cat ' + catClass + '">' + f.category + '</span>'
+      + '<div class="ms-fb-msg">' + escHtml(f.message) + (f.admin_note ? '<br><em style="color:var(--accent);font-size:.75rem">Admin: ' + escHtml(f.admin_note) + '</em>' : '') + '</div>'
+      + '<div style="text-align:right"><div class="ms-fb-meta">' + dateStr + '</div><span class="ms-fb-status">' + f.status + '</span></div>'
+      + '</div>';
+  }).join('');
+}
+
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+{% endblock %}
