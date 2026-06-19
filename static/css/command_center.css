@@ -1620,6 +1620,26 @@
 }
 .cc-lg-spark-col:hover .cc-lg-spark-bar { opacity: 1; }
 
+/* ── Skeleton: inline text placeholders ── */
+.cc-skel-inline {
+  display: inline-block;
+  height: 1em;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--border) 25%, transparent 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: ccSkelShimmer 1.4s ease infinite;
+  vertical-align: middle;
+}
+/* ── Skeleton: plan card placeholders ── */
+.cc-plan-skeleton { display: flex; flex-direction: column; gap: 10px; }
+.cc-skel-card {
+  height: 72px;
+  border-radius: 14px;
+  background: linear-gradient(90deg, var(--border) 25%, transparent 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: ccSkelShimmer 1.4s ease infinite;
+}
+
 .cc-lg-no-data { font-size: 0.78rem; color: var(--text-muted); margin: 0; }
 .cc-lg-empty { font-size: 0.85rem; color: var(--text-secondary); text-align: center; padding: 2rem 1rem; margin: 0; }
 

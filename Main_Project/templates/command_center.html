@@ -3,7 +3,9 @@
 {% block page_title %}Command Center | IntelliPlan{% endblock %}
 
 {% block content %}
-<link rel="stylesheet" href="/static/css/command_center.css?v=20260617">
+<link rel="preload" href="/static/css/command_center.css?v=20260618b" as="style">
+<link rel="stylesheet" href="/static/css/command_center.css?v=20260618b">
+<link rel="preload" href="/static/js/command_center.js?v=20260618b" as="script">
 
 {# ── Mobile top bar (<720px) ────────────────────────────────── #}
 <div class="cc-mobile-top">
@@ -36,15 +38,11 @@
 
 <div class="cc-page" id="ccPage">
 
-  {% if load_error %}
-  <div class="cc-error-banner" role="alert">
+  <div class="cc-error-banner" id="ccErrorBanner" role="alert" hidden>
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-warning"/></svg>
-    <span>{{ load_error }}</span>
+    <span id="ccErrorMsg"></span>
     <button type="button" onclick="location.reload()" class="cc-error-retry">Try again</button>
   </div>
-  {% endif %}
-
-  {% if today %}
 
   {# ───────────────────────────── HERO ───────────────────────────── #}
   <header class="cc-hero" id="ccHero">
@@ -52,13 +50,16 @@
       <div class="cc-hero-left">
         <div class="cc-hero-line">
           <span class="cc-hero-dot"></span>
-          <span class="cc-hero-status">{{ today.briefing.tone or 'focused' }}</span>
-          <time class="cc-hero-time" id="ccLiveTime">{{ today.generated_at[:10] }}</time>
+          <span class="cc-hero-status" id="ccHeroStatus">loading</span>
+          <time class="cc-hero-time" id="ccLiveTime"></time>
         </div>
-        <h1 class="cc-hero-headline">
-          {{ today.student.greeting or 'Hello' }}, {{ today.student.name or 'Commander' }}.
+        <h1 class="cc-hero-headline" id="ccHeroHeadline">
+          <span class="cc-skel-inline" style="width:60%"></span>
         </h1>
-        <p class="cc-hero-body">{{ today.briefing.body }}</p>
+        <p class="cc-hero-body" id="ccHeroBody">
+          <span class="cc-skel-inline" style="width:90%"></span>
+          <span class="cc-skel-inline" style="width:70%"></span>
+        </p>
         <div class="cc-hero-actions">
           <button type="button" class="cc-hero-cta" id="ccRescanBtn" onclick="ccRescanDay()">
             <svg id="ccRefreshSpinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
@@ -68,18 +69,18 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-scheduler"/></svg>
             Plan week
           </a>
-          <span class="cc-hero-meta">{{ today.briefing.generated_by }}{% if today.briefing.cached %} · cached{% endif %}</span>
+          <span class="cc-hero-meta" id="ccHeroMeta"></span>
         </div>
       </div>
 
       <div class="cc-hero-right">
         <a href="/streak" class="cc-orb cc-orb-streak" title="Daily streak">
-          <span class="cc-orb-icon">🔥</span>
-          <span class="cc-orb-num" id="ccOrbStreakNum">—</span>
+          <span class="cc-orb-icon">&#128293;</span>
+          <span class="cc-orb-num" id="ccOrbStreakNum">&mdash;</span>
           <span class="cc-orb-lbl">streak</span>
         </a>
         <a href="/pet" class="cc-orb cc-orb-pet" title="Plani pet">
-          <span class="cc-orb-icon" id="ccOrbPetIcon">🥚</span>
+          <span class="cc-orb-icon" id="ccOrbPetIcon">&#129370;</span>
           <span class="cc-orb-num">L<span id="ccOrbPetLvl">1</span></span>
           <span class="cc-orb-lbl" id="ccOrbPetLbl">Plani</span>
         </a>
@@ -87,14 +88,14 @@
           <span class="cc-orb-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
           </span>
-          <span class="cc-orb-num cc-health-{{ today.health.tier }}">{{ today.health.score }}</span>
+          <span class="cc-orb-num" id="ccOrbHealthNum">&mdash;</span>
           <span class="cc-orb-lbl">health</span>
         </a>
         <a href="/dashboard" class="cc-orb cc-orb-load" title="Today's load">
           <span class="cc-orb-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-clock"/></svg>
           </span>
-          <span class="cc-orb-num">{{ today.plan|length }}</span>
+          <span class="cc-orb-num" id="ccOrbTaskNum">&mdash;</span>
           <span class="cc-orb-lbl">tasks</span>
         </a>
       </div>
@@ -109,72 +110,15 @@
     <section class="cc-rail cc-rail-left" aria-label="Today's plan">
       <header class="cc-rail-head">
         <h2 class="cc-rail-title">Today's Plan</h2>
-        <span class="cc-rail-meta" id="ccPlanMeta">{{ today.plan|length }} task{{ 's' if today.plan|length != 1 }}</span>
+        <span class="cc-rail-meta" id="ccPlanMeta"></span>
       </header>
-
-      {% if today.plan %}
-      <ol class="cc-task-list" id="ccTaskList">
-        {% for task in today.plan %}
-        <li class="cc-task-card"
-            id="cc-task-{{ loop.index0 }}"
-            data-task-title="{{ task.title|e }}"
-            data-task-source="{{ task.source or 'manual' }}"
-            data-task-ref="{{ task.source_ref or '' }}"
-            style="--delay: {{ loop.index0 * 40 }}ms">
-          <div class="cc-task-rail cc-tier-{{ task.priority.tier }}"></div>
-          <div class="cc-task-main">
-            <div class="cc-score-chip cc-tier-{{ task.priority.tier }}">
-              <span class="cc-score-num">{{ task.priority.score }}</span>
-            </div>
-            <div class="cc-task-info">
-              <h3 class="cc-task-title">{{ task.title }}</h3>
-              <div class="cc-task-details">
-                <span class="cc-task-pill">{{ task.course }}</span>
-                <span class="cc-task-pill cc-task-pill-due">{{ task.due_date or 'no due date' }}</span>
-                {% if task.est_minutes %}
-                <span class="cc-task-pill">{{ task.est_minutes }}min</span>
-                {% endif %}
-                {% if task.source and task.source != 'manual' %}
-                <span class="cc-task-pill cc-task-pill-src">{{ task.source }}</span>
-                {% endif %}
-              </div>
-              <p class="cc-task-why-now">{{ task.why_now }}</p>
-            </div>
-            <div class="cc-task-actions">
-              <button type="button" class="cc-task-btn cc-task-btn-ask" onclick="ccAskAboutTask(this)" title="Ask Plani about this">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-              </button>
-              <button type="button" class="cc-task-btn cc-task-btn-why" aria-expanded="false" onclick="ccToggleWhy(this)" title="Why this priority?">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              </button>
-              <button type="button" class="cc-task-btn cc-task-btn-dismiss" onclick="ccDismissTask(this)" title="Mark done">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              </button>
-            </div>
-          </div>
-          <div class="cc-rationale" hidden>
-            <div class="cc-rationale-chips">
-              {% for chip in task.priority.rationale %}
-              <div class="cc-reason-chip">
-                <span class="cc-reason-key">{{ chip.key }}</span>
-                <span class="cc-reason-weight">+{{ chip.weight }}</span>
-                <span class="cc-reason-text">{{ chip.reason }}</span>
-              </div>
-              {% endfor %}
-            </div>
-          </div>
-        </li>
-        {% endfor %}
-      </ol>
-      {% else %}
-      <div class="cc-empty-state">
-        <div class="cc-empty-icon">
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-done"/></svg>
+      <div id="ccPlanContainer">
+        <div class="cc-plan-skeleton">
+          <div class="cc-skel-card"></div>
+          <div class="cc-skel-card"></div>
+          <div class="cc-skel-card"></div>
         </div>
-        <h3 class="cc-empty-title">All clear today</h3>
-        <p class="cc-empty-body">No upcoming assignments. <a class="cc-link" href="/dashboard">Add one</a>.</p>
       </div>
-      {% endif %}
     </section>
 
     {# ─── CENTER: PLANI — the main interaction ─── #}
@@ -185,7 +129,7 @@
         </div>
         <div class="cc-chat-header-text">
           <div class="cc-chat-header-title">Plani</div>
-          <div class="cc-chat-header-sub"><span class="cc-chat-status-dot"></span>connected · {{ today.plan|length }} tasks · health {{ today.health.score }}</div>
+          <div class="cc-chat-header-sub" id="ccChatSub"><span class="cc-chat-status-dot"></span>connecting&hellip;</div>
         </div>
         <button type="button" class="cc-chat-newbtn" onclick="planiNew()" title="New conversation">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -197,23 +141,23 @@
           <div class="cc-chat-welcome-icon">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
           </div>
-          <h3>How can I help, {{ today.student.name.split(' ')[0] if today.student.name else 'Commander' }}?</h3>
-          <p>I'm connected to your tasks, schedule, and grades. I can plan, edit, complete, or navigate — just ask.</p>
+          <h3 id="planiWelcomeGreeting">How can I help?</h3>
+          <p>I'm connected to your tasks, schedule, and grades. I can plan, edit, complete, or navigate &mdash; just ask.</p>
           <div class="cc-chat-suggestions" id="planiSuggestions">
             <button type="button" class="cc-chat-suggestion cc-sugg-primary" onclick="planiSuggest('Build a study schedule for this week, 2 hours per day, evenings. Save it to my memories and dashboard.')">
-              <span class="cc-sugg-icon">📅</span>
+              <span class="cc-sugg-icon">&#128197;</span>
               <span class="cc-sugg-text"><strong>Schedule my week</strong><span>Auto-build a plan, save to scheduler + memories</span></span>
             </button>
             <button type="button" class="cc-chat-suggestion" onclick="planiSuggest('What should I focus on right now?')">
-              <span class="cc-sugg-icon">🎯</span>
+              <span class="cc-sugg-icon">&#127919;</span>
               <span class="cc-sugg-text"><strong>Focus me</strong><span>What should I work on right now?</span></span>
             </button>
             <button type="button" class="cc-chat-suggestion" onclick="planiSuggest('Show me everything that is overdue')">
-              <span class="cc-sugg-icon">⏰</span>
+              <span class="cc-sugg-icon">&#9200;</span>
               <span class="cc-sugg-text"><strong>What's overdue?</strong><span>Surface everything I'm behind on</span></span>
             </button>
             <button type="button" class="cc-chat-suggestion" onclick="planiSuggest('How are my grades looking?')">
-              <span class="cc-sugg-icon">📊</span>
+              <span class="cc-sugg-icon">&#128202;</span>
               <span class="cc-sugg-text"><strong>Grade check</strong><span>Summarize my current standing</span></span>
             </button>
           </div>
@@ -226,7 +170,7 @@
             class="cc-chat-input"
             id="ccChatInput"
             rows="1"
-            placeholder="Ask Plani anything…"
+            placeholder="Ask Plani anything&hellip;"
             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();planiSend()}"
             oninput="planiAutosize(this); planiUpdateSend();"></textarea>
           <button type="submit" class="cc-chat-send" id="ccChatSendBtn" aria-label="Send" disabled>
@@ -234,8 +178,8 @@
           </button>
         </div>
         <div class="cc-chat-hints">
-          <span class="cc-chat-hint">Plani can edit, complete, plan — anything you can do manually</span>
-          <span class="cc-chat-shortcut"><kbd>⏎</kbd> send · <kbd>⇧⏎</kbd> newline · <kbd>⌘K</kbd> focus</span>
+          <span class="cc-chat-hint">Plani can edit, complete, plan &mdash; anything you can do manually</span>
+          <span class="cc-chat-shortcut"><kbd>&#9166;</kbd> send &middot; <kbd>&#8679;&#9166;</kbd> newline &middot; <kbd>&#8984;K</kbd> focus</span>
         </div>
       </form>
     </section>
@@ -247,72 +191,52 @@
         <header class="cc-card-head"><h3 class="cc-card-title">Momentum</h3></header>
         <div class="cc-momentum-grid">
           <a href="/streak" class="cc-momentum-streak">
-            <span class="cc-momentum-flame">🔥</span>
+            <span class="cc-momentum-flame">&#128293;</span>
             <div>
               <span class="cc-momentum-streak-num" id="ccMomentumStreakNum">0</span>
               <span class="cc-momentum-streak-lbl">day streak</span>
             </div>
           </a>
           <a href="/pet" class="cc-momentum-pet">
-            <span class="cc-momentum-pet-emoji" id="ccMomentumPetEmoji">🥚</span>
+            <span class="cc-momentum-pet-emoji" id="ccMomentumPetEmoji">&#129370;</span>
             <div>
-              <span class="cc-momentum-pet-name"><span id="ccMomentumPetName">Plani</span> · L<span id="ccMomentumPetLvl">1</span></span>
+              <span class="cc-momentum-pet-name"><span id="ccMomentumPetName">Plani</span> &middot; L<span id="ccMomentumPetLvl">1</span></span>
               <div class="cc-momentum-pet-bar"><div class="cc-momentum-pet-fill" id="ccMomentumPetFill" style="width:0%"></div></div>
             </div>
           </a>
         </div>
         <div class="cc-care-row">
-          <button type="button" class="cc-care-btn" data-action="feed" title="Feed Plani">🍎<span class="cc-care-xp">+8</span></button>
-          <button type="button" class="cc-care-btn" data-action="play" title="Play">🎾<span class="cc-care-xp">+12</span></button>
-          <button type="button" class="cc-care-btn" data-action="pet" title="Pet">💕<span class="cc-care-xp">+4</span></button>
-          <button type="button" class="cc-care-btn cc-care-chest" id="ccChestBtn" title="Daily chest">🎁<span class="cc-care-xp">claim</span></button>
+          <button type="button" class="cc-care-btn" data-action="feed" title="Feed Plani">&#127822;<span class="cc-care-xp">+8</span></button>
+          <button type="button" class="cc-care-btn" data-action="play" title="Play">&#127934;<span class="cc-care-xp">+12</span></button>
+          <button type="button" class="cc-care-btn" data-action="pet" title="Pet">&#128149;<span class="cc-care-xp">+4</span></button>
+          <button type="button" class="cc-care-btn cc-care-chest" id="ccChestBtn" title="Daily chest">&#127873;<span class="cc-care-xp">claim</span></button>
         </div>
       </section>
 
       <section class="cc-card cc-forecast" aria-label="Workload">
-        <header class="cc-card-head"><h3 class="cc-card-title">Workload · 7d</h3></header>
-        <div class="cc-forecast-bars">
-          {% for day in today.forecast.days %}
-          <div class="cc-bar-col" title="{{ day.committed_min }}min / {{ day.available_min }}min">
-            <div class="cc-bar-track">
-              <div class="cc-bar-fill {% if day.stress >= 0.8 %}cc-bar-hot{% elif day.stress >= 0.5 %}cc-bar-warm{% endif %}"
-                   style="height:{{ (day.stress * 100)|round }}%;"></div>
-            </div>
-            <span class="cc-bar-label">{{ day.date[-5:] }}</span>
-          </div>
-          {% endfor %}
+        <header class="cc-card-head"><h3 class="cc-card-title">Workload &middot; 7d</h3></header>
+        <div class="cc-forecast-bars" id="ccForecastBars">
+          <div class="cc-skel-row"><div class="cc-skel-block cc-skel-tall"></div><div class="cc-skel-block cc-skel-tall"></div><div class="cc-skel-block cc-skel-tall"></div><div class="cc-skel-block cc-skel-tall"></div><div class="cc-skel-block cc-skel-tall"></div><div class="cc-skel-block cc-skel-tall"></div><div class="cc-skel-block cc-skel-tall"></div></div>
         </div>
-        <p class="cc-forecast-summary">{{ today.forecast.summary }}</p>
+        <p class="cc-forecast-summary" id="ccForecastSummary"></p>
       </section>
 
       <section class="cc-card cc-health" aria-label="Academic health">
         <header class="cc-card-head"><h3 class="cc-card-title">Academic Health</h3></header>
-        <div class="cc-health-row">
-          <div class="cc-health-ring" style="--health-pct:{{ today.health.score }}">
-            <span class="cc-health-num cc-health-{{ today.health.tier }}">{{ today.health.score }}</span>
-            <span class="cc-health-tier">{{ today.health.tier }}</span>
+        <div class="cc-health-row" id="ccHealthRow">
+          <div class="cc-health-ring" id="ccHealthRing" style="--health-pct:0">
+            <span class="cc-health-num" id="ccHealthNum">&mdash;</span>
+            <span class="cc-health-tier" id="ccHealthTier"></span>
           </div>
           <div class="cc-health-meta">
-            {% if today.health.delta_vs_yesterday is not none %}
-            <span class="cc-health-delta {% if today.health.delta_vs_yesterday > 0 %}cc-delta-up{% elif today.health.delta_vs_yesterday < 0 %}cc-delta-down{% endif %}">{{ '%+d'|format(today.health.delta_vs_yesterday) }} today</span>
-            {% endif %}
-            <p class="cc-health-summary">{{ today.health.summary }}</p>
+            <span class="cc-health-delta" id="ccHealthDelta"></span>
+            <p class="cc-health-summary" id="ccHealthSummary"></p>
           </div>
         </div>
-        {% if today.health.components %}
-        <details class="cc-health-details">
+        <details class="cc-health-details" id="ccHealthDetails" hidden>
           <summary>Breakdown</summary>
-          <div class="cc-component-list">
-            {% for comp in today.health.components %}
-            <div class="cc-component-row">
-              <span class="cc-component-label">{{ comp.key }}</span>
-              <span class="cc-component-delta {% if comp.impact > 0 %}cc-delta-up{% elif comp.impact < 0 %}cc-delta-down{% endif %}">{{ '%+d'|format(comp.impact) }}</span>
-              <span class="cc-component-note">{{ comp.reason }}</span>
-            </div>
-            {% endfor %}
-          </div>
+          <div class="cc-component-list" id="ccComponentList"></div>
         </details>
-        {% endif %}
       </section>
 
       <nav class="cc-card cc-quick-links" aria-label="Quick actions">
@@ -344,8 +268,6 @@
     </div>
 
     <div class="cc-learning-body" id="ccLearningBody" hidden>
-
-      {# ── Alerts: Forgetting Soon ── #}
       <div class="cc-lg-alerts" id="ccLgAlerts" hidden>
         <h3 class="cc-lg-section-label">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -353,14 +275,10 @@
         </h3>
         <div class="cc-lg-alert-list" id="ccLgAlertList"></div>
       </div>
-
-      {# ── Predictions ── #}
       <div class="cc-lg-predictions" id="ccLgPredictions">
         <h3 class="cc-lg-section-label">Predictions</h3>
         <div class="cc-lg-pred-grid" id="ccLgPredGrid"></div>
       </div>
-
-      {# ── Concept Mastery: Strongest + Weakest ── #}
       <div class="cc-lg-concepts">
         <div class="cc-lg-concepts-col">
           <h3 class="cc-lg-section-label cc-lg-label-strong">Strongest Concepts</h3>
@@ -371,39 +289,23 @@
           <div class="cc-lg-concept-list" id="ccLgWeakest"></div>
         </div>
       </div>
-
-      {# ── Mastery Heatmap ── #}
       <div class="cc-lg-heatmap-section">
         <h3 class="cc-lg-section-label">Mastery by Subject</h3>
         <div class="cc-lg-heatmap" id="ccLgHeatmap"></div>
       </div>
-
-      {# ── Trends ── #}
       <div class="cc-lg-trends">
         <div class="cc-lg-trend-card">
-          <h3 class="cc-lg-section-label">Study Trend · 30d</h3>
+          <h3 class="cc-lg-section-label">Study Trend &middot; 30d</h3>
           <div class="cc-lg-sparkline" id="ccLgStudyTrend"></div>
         </div>
         <div class="cc-lg-trend-card">
-          <h3 class="cc-lg-section-label">Retention Trend · 7d</h3>
+          <h3 class="cc-lg-section-label">Retention Trend &middot; 7d</h3>
           <div class="cc-lg-sparkline" id="ccLgRetentionTrend"></div>
         </div>
       </div>
-
       <p class="cc-lg-empty" id="ccLgEmpty" hidden>No learning data yet. Complete tasks, study, or chat with the tutor to build your Learning Graph.</p>
     </div>
   </section>
-
-  <div hidden data-schema-version="{{ today.meta.schema_version }}"></div>
-
-  {% else %}
-  <div class="cc-fatal">
-    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><use href="#i-coffee"/></svg>
-    <h2>Command Center initialising</h2>
-    <p>We couldn't build your daily plan. Usually means assignments are still syncing.</p>
-    <a href="/dashboard" class="cc-fallback-link">Go to Dashboard</a>
-  </div>
-  {% endif %}
 </div>
 
 {# Toast + evolution overlay #}
@@ -411,612 +313,12 @@
 <div id="ccEvolveOverlay" class="cc-evolve-overlay" hidden style="display:none;">
   <div class="cc-evolve-card">
     <div class="cc-evolve-burst"></div>
-    <div class="cc-evolve-emoji" id="ccEvolveEmoji">✨</div>
+    <div class="cc-evolve-emoji" id="ccEvolveEmoji">&#10024;</div>
     <h2 id="ccEvolveHeadline">Plani evolved!</h2>
     <p id="ccEvolveCopy">Something amazing happened.</p>
     <button type="button" class="cc-evolve-btn" onclick="closeEvolveOverlay()">Continue</button>
   </div>
 </div>
 
-<script>
-const STAGE_EMOJI = { egg:'🥚', hatchling:'🐣', sprout:'🌱', cub:'🐱', scholar:'🦊', sage:'🦉', guardian:'🐉', mythic:'🦄', cosmic:'🌟' };
-const TZ = (typeof Intl !== 'undefined') ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
-
-document.addEventListener('DOMContentLoaded', function() {
-  document.body.classList.add('has-side');
-  setInterval(updateLiveTime, 60_000);
-  updateLiveTime();
-  hydrateMomentum();
-  checkStreakRisk();
-
-  document.querySelectorAll('.cc-care-btn[data-action]').forEach(function(btn) {
-    btn.addEventListener('click', function() { doCareAction(btn.dataset.action); });
-  });
-  const chest = document.getElementById('ccChestBtn');
-  if (chest) chest.addEventListener('click', openChest);
-
-  const evolveOverlay = document.getElementById('ccEvolveOverlay');
-  if (evolveOverlay) evolveOverlay.addEventListener('click', function(e) {
-    if (e.target === evolveOverlay) closeEvolveOverlay();
-  });
-
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeEvolveOverlay();
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-      e.preventDefault();
-      const input = document.getElementById('ccChatInput');
-      if (input) { input.focus(); }
-    }
-  });
-
-  // Desktop: focus chat input immediately
-  if (window.innerWidth >= 1100) {
-    const input = document.getElementById('ccChatInput');
-    if (input) setTimeout(function(){ input.focus(); }, 200);
-  }
-
-  const backdrop = document.getElementById('mobileNavBackdrop');
-  if (backdrop) backdrop.addEventListener('click', closeMobileNav);
-
-  planiUpdateSend();
-});
-
-/* ── Toast ── */
-let _toastTimer = null;
-function ccToast(msg, kind) {
-  const el = document.getElementById('ccToast');
-  if (!el) return;
-  el.textContent = msg;
-  el.className = 'cc-toast cc-toast-' + (kind || 'info');
-  el.hidden = false;
-  el.style.display = 'flex';
-  clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(function() {
-    el.hidden = true; el.style.display = 'none';
-  }, 2600);
-}
-window.intelliplanShowPetToast = function(m) { ccToast(m, 'pet'); };
-
-/* ── Live time ── */
-function updateLiveTime() {
-  const el = document.getElementById('ccLiveTime');
-  if (!el) return;
-  const now = new Date();
-  el.textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-    + ' · ' + now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
-}
-
-/* ── Hero re-scan ── */
-function ccRescanDay() {
-  const btn = document.getElementById('ccRescanBtn');
-  const label = document.getElementById('ccRescanLabel');
-  const spinner = document.getElementById('ccRefreshSpinner');
-  if (!btn || btn.disabled) return;
-  btn.disabled = true;
-  if (label) label.textContent = 'Re-scanning…';
-  if (spinner) spinner.classList.add('cc-spin');
-  fetch('/api/today/refresh', { method:'POST', credentials:'same-origin',
-    headers: { 'Content-Type':'application/json' }, body: '{}' })
-    .then(function(r){ if (r.ok) window.location.reload(); else throw r; })
-    .catch(function(){
-      btn.disabled = false;
-      if (label) label.textContent = 'Try again';
-      if (spinner) spinner.classList.remove('cc-spin');
-      ccToast('Re-scan failed — try again', 'error');
-    });
-}
-
-/* ── Task: expand rationale ── */
-function ccToggleWhy(btn) {
-  const card = btn.closest('.cc-task-card');
-  if (!card) return;
-  const rationale = card.querySelector('.cc-rationale');
-  const isOpen = btn.getAttribute('aria-expanded') === 'true';
-  if (rationale) rationale.hidden = isOpen;
-  btn.setAttribute('aria-expanded', String(!isOpen));
-  card.classList.toggle('cc-task-card-open', !isOpen);
-}
-
-/* ── Task: ask Plani about it ── */
-function ccAskAboutTask(btn) {
-  const card = btn.closest('.cc-task-card');
-  if (!card) return;
-  const title = card.dataset.taskTitle || 'this task';
-  const input = document.getElementById('ccChatInput');
-  if (input) {
-    input.value = 'Help me with: ' + title;
-    planiAutosize(input);
-    planiUpdateSend();
-    input.focus();
-  }
-  planiSend();
-}
-
-/* ── Task: dismiss / mark done — source-aware, PERSISTS ── */
-async function ccDismissTask(btn) {
-  const card = btn.closest('.cc-task-card');
-  if (!card) return;
-  const title = card.dataset.taskTitle;
-  const source = card.dataset.taskSource;
-  const ref = card.dataset.taskRef;
-  if (!title) return;
-  card.classList.add('cc-task-leaving');
-
-  try {
-    let r, ok = false;
-    // Manual tasks: actually mark done in the manual_tasks table
-    if (source === 'manual' && ref) {
-      r = await fetch('/tasks/manual/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ id: parseInt(ref, 10), done: true, timezone: TZ })
-      });
-      const d = await r.json();
-      ok = d.status === 'ok';
-    } else {
-      // LMS task: file a DismissedAssignment so it stays gone
-      r = await fetch('/dismiss', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ title: title, timezone: TZ })
-      });
-      const d = await r.json();
-      ok = d.status === 'ok';
-    }
-    if (ok) {
-      ccToast('Marked done', 'success');
-      setTimeout(function() {
-        card.remove();
-        const list = document.getElementById('ccTaskList');
-        if (list) {
-          const remaining = list.children.length;
-          const meta = document.getElementById('ccPlanMeta');
-          if (meta) meta.textContent = remaining + (remaining === 1 ? ' task' : ' tasks');
-          if (remaining === 0) {
-            const empty = document.createElement('div');
-            empty.className = 'cc-empty-state';
-            empty.innerHTML = '<div class="cc-empty-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5"><use href="#i-done"/></svg></div><h3 class="cc-empty-title">All clear today</h3><p class="cc-empty-body">Every task handled. Take the win.</p>';
-            list.replaceWith(empty);
-          }
-        }
-        hydrateMomentum();
-      }, 280);
-    } else {
-      card.classList.remove('cc-task-leaving');
-      ccToast('Could not save — try again', 'error');
-    }
-  } catch (e) {
-    card.classList.remove('cc-task-leaving');
-    ccToast('Network error', 'error');
-  }
-}
-
-/* ── Orbs + pet hydration ── */
-async function hydrateMomentum() {
-  try {
-    const r = await fetch('/api/pet/status', { credentials:'same-origin' });
-    if (!r.ok) return;
-    const d = await r.json();
-    if (d.status !== 'ok') return;
-    setText('ccOrbStreakNum', d.streak || 0);
-    setText('ccOrbPetIcon', STAGE_EMOJI[d.stage_id] || '🥚');
-    setText('ccOrbPetLvl', d.level || 1);
-    setText('ccOrbPetLbl', d.name || 'Plani');
-    setText('ccMomentumStreakNum', d.streak || 0);
-    setText('ccMomentumPetEmoji', STAGE_EMOJI[d.stage_id] || '🥚');
-    setText('ccMomentumPetName', d.name || 'Plani');
-    setText('ccMomentumPetLvl', d.level || 1);
-    const fill = document.getElementById('ccMomentumPetFill');
-    if (fill) fill.style.width = Math.round((d.progress_to_next || 0) * 100) + '%';
-
-    if (d.care) Object.entries(d.care).forEach(function(e) {
-      const action = e[0], info = e[1];
-      const btn = document.querySelector('.cc-care-btn[data-action="'+action+'"]');
-      if (!btn) return;
-      btn.classList.toggle('cc-care-cooldown', !info.ready);
-      btn.title = info.ready ? info.label + ' (+' + info.xp + ' XP)'
-        : info.label + ' on cooldown · ' + Math.ceil(info.wait_seconds/60) + 'm';
-    });
-    if (d.chest) {
-      const chest = document.getElementById('ccChestBtn');
-      if (chest) {
-        chest.classList.toggle('cc-care-cooldown', !d.chest.ready);
-        chest.title = d.chest.ready
-          ? 'Daily chest · +' + d.chest.next_reward.xp + ' XP (day ' + d.chest.next_reward.day + ')'
-          : 'Chest already claimed today';
-      }
-    }
-  } catch(e) {}
-}
-function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = String(val); }
-
-/* ── Streak risk ── */
-async function checkStreakRisk() {
-  try {
-    const r = await fetch('/api/streak/risk', { credentials:'same-origin' });
-    if (!r.ok) return;
-    const d = await r.json();
-    if (d.status !== 'ok') return;
-    const banner = document.getElementById('ccRiskBanner');
-    if (!banner) return;
-    if (d.level === 'danger' || d.level === 'broken') {
-      banner.hidden = false; banner.style.display = 'flex';
-      banner.className = 'cc-risk-banner cc-risk-' + d.level;
-      banner.innerHTML = '<span class="cc-risk-icon">' + (d.level === 'broken' ? '💔' : '⚠️') + '</span><span>' + d.message + '</span><a href="/dashboard" class="cc-risk-cta">Save it</a>';
-    } else if (d.perfect_week && d.perfect_week.perfect && d.perfect_week_paid) {
-      banner.hidden = false; banner.style.display = 'flex';
-      banner.className = 'cc-risk-banner cc-risk-celebrate';
-      banner.innerHTML = '<span class="cc-risk-icon">🏆</span><span>Perfect week · +' + d.perfect_week_paid + ' XP</span>';
-      setTimeout(function() { banner.hidden = true; banner.style.display = 'none'; }, 8000);
-    }
-  } catch(e) {}
-}
-
-/* ── Care actions ── */
-async function doCareAction(action) {
-  const btn = document.querySelector('.cc-care-btn[data-action="'+action+'"]');
-  if (!btn || btn.classList.contains('cc-care-cooldown')) return;
-  btn.classList.add('cc-care-pulse');
-  try {
-    const r = await fetch('/api/pet/care', {
-      method:'POST', credentials:'same-origin',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ action: action })
-    });
-    const d = await r.json();
-    if (d.status === 'ok') {
-      ccToast(d.copy, 'pet');
-      if (d.evolution) showEvolution(d.evolution);
-      hydrateMomentum();
-    } else if (d.status === 'cooldown') {
-      ccToast('On cooldown · ' + Math.ceil(d.wait_seconds/60) + 'm', 'info');
-    }
-  } catch(e) {}
-  setTimeout(function(){ btn.classList.remove('cc-care-pulse'); }, 600);
-}
-
-async function openChest() {
-  const btn = document.getElementById('ccChestBtn');
-  if (!btn || btn.classList.contains('cc-care-cooldown')) {
-    ccToast('Come back tomorrow for the next chest', 'info'); return;
-  }
-  btn.classList.add('cc-chest-open');
-  try {
-    const r = await fetch('/api/pet/chest', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:'{}' });
-    const d = await r.json();
-    if (d.status === 'ok') {
-      ccToast('+' + d.chest.xp + ' XP · ' + d.chest.tier + ' chest · day ' + d.chest.day, 'pet');
-      if (d.evolution) showEvolution(d.evolution);
-      hydrateMomentum();
-    }
-  } catch(e) {}
-  setTimeout(function(){ btn.classList.remove('cc-chest-open'); }, 800);
-}
-
-function showEvolution(evo) {
-  if (!evo) return;
-  setText('ccEvolveEmoji', STAGE_EMOJI[evo.to] || '✨');
-  setText('ccEvolveHeadline', evo.headline || 'Plani evolved!');
-  setText('ccEvolveCopy', evo.copy || '');
-  const ov = document.getElementById('ccEvolveOverlay');
-  ov.hidden = false; ov.style.display = 'flex';
-}
-function closeEvolveOverlay() {
-  const ov = document.getElementById('ccEvolveOverlay');
-  if (ov) { ov.hidden = true; ov.style.display = 'none'; }
-}
-
-/* ── Mobile nav ── */
-function openMobileNav() {
-  const d = document.getElementById('mobileNavDrawer');
-  const b = document.getElementById('mobileNavBackdrop');
-  if (d) { d.classList.add('cc-mobile-drawer-open'); d.setAttribute('aria-hidden','false'); }
-  if (b) { b.hidden = false; b.style.display = 'block'; }
-}
-function closeMobileNav() {
-  const d = document.getElementById('mobileNavDrawer');
-  const b = document.getElementById('mobileNavBackdrop');
-  if (d) { d.classList.remove('cc-mobile-drawer-open'); d.setAttribute('aria-hidden','true'); }
-  if (b) { b.hidden = true; b.style.display = 'none'; }
-}
-/* ════════════════════════════════════════════════════════════════
-   PLANI CHAT
-═════════════════════════════════════════════════════════════════ */
-let ccChatHistory = [];
-let planiSending = false;
-
-function planiAutosize(el) {
-  el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 160) + 'px';
-}
-function planiUpdateSend() {
-  const input = document.getElementById('ccChatInput');
-  const btn = document.getElementById('ccChatSendBtn');
-  if (!input || !btn) return;
-  btn.disabled = !input.value.trim() || planiSending;
-}
-
-function planiNew() {
-  ccChatHistory = [];
-  const container = document.getElementById('ccChatMessages');
-  if (container) container.innerHTML = '';
-  // Re-mount the welcome
-  const welcome = document.createElement('div');
-  welcome.className = 'cc-chat-welcome';
-  welcome.id = 'planiWelcome';
-  welcome.innerHTML = document.querySelector('.cc-chat-welcome')
-    ? document.querySelector('.cc-chat-welcome').innerHTML
-    : '';
-  ccToast('New conversation', 'info');
-}
-
-function planiSuggest(text) {
-  const input = document.getElementById('ccChatInput');
-  if (input) { input.value = text; planiAutosize(input); planiUpdateSend(); }
-  planiSend();
-}
-
-function planiAddMsg(role, text) {
-  const container = document.getElementById('ccChatMessages');
-  const welcome = document.getElementById('planiWelcome');
-  if (welcome) welcome.style.display = 'none';
-  const div = document.createElement('div');
-  div.className = 'cc-msg cc-msg-' + role;
-  if (role === 'bot') div.innerHTML = planiFormatReply(text);
-  else if (role === 'action') {
-    div.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>' + escapeHtml(text.replace(/^[✓→] ?/, '')) + '</span>';
-  } else {
-    div.textContent = text;
-  }
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
-  return div;
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-function planiFormatReply(text) {
-  let escaped = escapeHtml(text);
-  escaped = escaped.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
-  escaped = escaped.replace(/`([^`]+)`/g,'<code>$1</code>');
-  // line-based paragraphs but preserve bullet lists
-  const lines = escaped.split('\n').map(function(l){return l.trim();}).filter(Boolean);
-  let html = '';
-  let inList = false;
-  lines.forEach(function(l){
-    if (/^[-*•]\s+/.test(l)) {
-      if (!inList) { html += '<ul>'; inList = true; }
-      html += '<li>' + l.replace(/^[-*•]\s+/, '') + '</li>';
-    } else {
-      if (inList) { html += '</ul>'; inList = false; }
-      html += '<p>' + l + '</p>';
-    }
-  });
-  if (inList) html += '</ul>';
-  return html;
-}
-
-function planiShowTyping() {
-  const container = document.getElementById('ccChatMessages');
-  const welcome = document.getElementById('planiWelcome');
-  if (welcome) welcome.style.display = 'none';
-  const div = document.createElement('div');
-  div.className = 'cc-msg cc-msg-bot cc-typing';
-  div.id = 'ccChatTyping';
-  div.innerHTML = '<span></span><span></span><span></span>';
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
-}
-function planiHideTyping() {
-  const el = document.getElementById('ccChatTyping');
-  if (el) el.remove();
-}
-
-/* ════════════════════════════════════════════════════════════════
-   LEARNING INTELLIGENCE
-═════════════════════════════════════════════════════════════════ */
-(function lgInit() {
-  document.addEventListener('DOMContentLoaded', function() { lgLoad(); });
-})();
-
-async function lgLoad() {
-  try {
-    const r = await fetch('/api/learning/dashboard', { credentials: 'same-origin' });
-    if (!r.ok) { lgShowEmpty(); return; }
-    const d = await r.json();
-    if (d.error) { lgShowEmpty(); return; }
-    lgRender(d);
-  } catch(e) { lgShowEmpty(); }
-}
-
-function lgShowEmpty() {
-  const skel = document.getElementById('ccLearningSkeleton');
-  const body = document.getElementById('ccLearningBody');
-  const empty = document.getElementById('ccLgEmpty');
-  if (skel) skel.hidden = true;
-  if (body) body.hidden = false;
-  if (empty) empty.hidden = false;
-}
-
-function lgRender(d) {
-  const skel = document.getElementById('ccLearningSkeleton');
-  const body = document.getElementById('ccLearningBody');
-  if (skel) skel.hidden = true;
-  if (body) body.hidden = false;
-
-  var hasData = (d.strongest_concepts && d.strongest_concepts.length)
-    || (d.weakest_concepts && d.weakest_concepts.length)
-    || (d.predictions && d.predictions.length);
-  if (!hasData) { lgShowEmpty(); return; }
-
-  lgRenderAlerts(d.forgetting_soon || []);
-  lgRenderPredictions(d.predictions || []);
-  lgRenderConcepts('ccLgStrongest', d.strongest_concepts || []);
-  lgRenderConcepts('ccLgWeakest', d.weakest_concepts || []);
-  lgRenderHeatmap(d.mastery_by_subject || []);
-  lgRenderSparkline('ccLgStudyTrend', d.study_trend || [], 'min');
-  lgRenderSparkline('ccLgRetentionTrend', d.retention_trend || [], '%');
-}
-
-function lgRenderAlerts(items) {
-  var wrap = document.getElementById('ccLgAlerts');
-  var list = document.getElementById('ccLgAlertList');
-  if (!wrap || !list || !items.length) return;
-  wrap.hidden = false;
-  list.innerHTML = items.map(function(c) {
-    var risk = Math.round(c.forgetting_risk * 100);
-    return '<div class="cc-lg-alert-chip">'
-      + '<span class="cc-lg-alert-concept">' + escapeHtml(c.concept) + '</span>'
-      + '<span class="cc-lg-alert-subject">' + escapeHtml(c.subject) + '</span>'
-      + '<span class="cc-lg-alert-risk">' + risk + '% risk</span>'
-      + '<span class="cc-lg-alert-days">' + c.days_since_review + 'd ago</span>'
-      + '</div>';
-  }).join('');
-}
-
-function lgRenderPredictions(preds) {
-  var grid = document.getElementById('ccLgPredGrid');
-  if (!grid || !preds.length) {
-    var sec = document.getElementById('ccLgPredictions');
-    if (sec) sec.hidden = true;
-    return;
-  }
-  grid.innerHTML = preds.map(function(p) {
-    var pct = typeof p.value === 'number' ? Math.round(p.value * 100) : '—';
-    var tier = p.value >= 0.7 ? 'good' : p.value >= 0.4 ? 'mid' : 'risk';
-    var conf = p.confidence_level || 'low';
-    return '<div class="cc-lg-pred-card cc-lg-pred-' + tier + '">'
-      + '<div class="cc-lg-pred-value">' + pct + '<small>%</small></div>'
-      + '<div class="cc-lg-pred-label">' + escapeHtml(p.label) + '</div>'
-      + '<div class="cc-lg-pred-conf">confidence: ' + conf + '</div>'
-      + '<div class="cc-lg-pred-range">' + Math.round((p.confidence_low||0)*100) + '–' + Math.round((p.confidence_high||0)*100) + '%</div>'
-      + (p.narrative ? '<p class="cc-lg-pred-narrative">' + escapeHtml(p.narrative) + '</p>' : '')
-      + '</div>';
-  }).join('');
-}
-
-function lgRenderConcepts(containerId, concepts) {
-  var el = document.getElementById(containerId);
-  if (!el) return;
-  if (!concepts.length) { el.innerHTML = '<p class="cc-lg-no-data">No data yet</p>'; return; }
-  el.innerHTML = concepts.map(function(c) {
-    var pct = Math.round(c.mastery_score * 100);
-    var hue = Math.round(c.mastery_score * 120);
-    return '<div class="cc-lg-concept-row">'
-      + '<div class="cc-lg-concept-bar-track"><div class="cc-lg-concept-bar-fill" style="width:' + pct + '%;background:hsl(' + hue + ',65%,48%)"></div></div>'
-      + '<div class="cc-lg-concept-info">'
-      + '<span class="cc-lg-concept-name">' + escapeHtml(c.concept) + '</span>'
-      + '<span class="cc-lg-concept-subject">' + escapeHtml(c.subject) + '</span>'
-      + '</div>'
-      + '<span class="cc-lg-concept-pct">' + pct + '%</span>'
-      + '</div>';
-  }).join('');
-}
-
-function lgRenderHeatmap(subjects) {
-  var el = document.getElementById('ccLgHeatmap');
-  if (!el || !subjects.length) {
-    var sec = el ? el.closest('.cc-lg-heatmap-section') : null;
-    if (sec) sec.hidden = true;
-    return;
-  }
-  el.innerHTML = subjects.map(function(s) {
-    var pct = Math.round((s.avg_mastery || 0) * 100);
-    var hue = Math.round((s.avg_mastery || 0) * 120);
-    return '<div class="cc-lg-heatmap-row">'
-      + '<span class="cc-lg-heatmap-subject">' + escapeHtml(s.subject) + '</span>'
-      + '<div class="cc-lg-heatmap-bar-track"><div class="cc-lg-heatmap-bar-fill" style="width:' + pct + '%;background:hsl(' + hue + ',65%,48%)"></div></div>'
-      + '<span class="cc-lg-heatmap-pct">' + pct + '%</span>'
-      + '<span class="cc-lg-heatmap-count">' + (s.concept_count || 0) + ' concepts</span>'
-      + '</div>';
-  }).join('');
-}
-
-function lgRenderSparkline(containerId, data, unit) {
-  var el = document.getElementById(containerId);
-  if (!el) return;
-  if (!data.length) { el.innerHTML = '<p class="cc-lg-no-data">No data yet</p>'; return; }
-  var max = Math.max.apply(null, data.map(function(v){ return v || 0; }));
-  if (max === 0) max = 1;
-  var w = 100 / data.length;
-  var bars = data.map(function(v, i) {
-    var h = Math.max(((v || 0) / max) * 100, 2);
-    var val = unit === '%' ? Math.round((v||0)*100) + '%' : Math.round(v||0) + unit;
-    return '<div class="cc-lg-spark-col" style="width:' + w + '%" title="' + val + '">'
-      + '<div class="cc-lg-spark-bar" style="height:' + h + '%"></div>'
-      + '</div>';
-  }).join('');
-  el.innerHTML = '<div class="cc-lg-spark-chart">' + bars + '</div>';
-}
-
-async function lgSync() {
-  var btn = document.getElementById('ccLearningSyncBtn');
-  if (!btn || btn.disabled) return;
-  btn.disabled = true;
-  btn.classList.add('cc-spin-child');
-  try {
-    var r = await fetch('/api/learning/sync', { method: 'POST', credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    if (r.ok) {
-      ccToast('Synced learning data', 'success');
-      lgLoad();
-    } else { ccToast('Sync failed', 'error'); }
-  } catch(e) { ccToast('Network error', 'error'); }
-  btn.disabled = false;
-  btn.classList.remove('cc-spin-child');
-}
-
-async function planiSend() {
-  if (planiSending) return;
-  const input = document.getElementById('ccChatInput');
-  const msg = (input.value || '').trim();
-  if (!msg) return;
-  input.value = ''; planiAutosize(input);
-  planiSending = true;
-  planiUpdateSend();
-
-  planiAddMsg('user', msg);
-  ccChatHistory.push({ role: 'user', content: msg });
-  planiShowTyping();
-
-  try {
-    const r = await fetch('/api/plani/agent', {
-      method: 'POST', credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: ccChatHistory.slice(-10) })
-    });
-    const data = await r.json();
-    planiHideTyping();
-    if (data.status === 'ok') {
-      (data.actions || []).forEach(function(a) { planiAddMsg('action', a); });
-      planiAddMsg('bot', data.reply || 'Done.');
-      ccChatHistory.push({ role: 'assistant', content: data.reply || '' });
-      if (data.refresh) {
-        ccToast('Updated · refreshing data…', 'success');
-        setTimeout(function() { window.location.reload(); }, 1400);
-      }
-      if (data.navigate) {
-        ccToast('Opening ' + data.navigate, 'info');
-        setTimeout(function() { window.location.href = data.navigate; }, 700);
-      }
-      hydrateMomentum();
-    } else if (r.status === 401) {
-      planiAddMsg('bot', 'Please log in first.');
-    } else {
-      planiAddMsg('bot', data.reply || data.message || 'Something went wrong. Try again.');
-    }
-  } catch (e) {
-    planiHideTyping();
-    planiAddMsg('bot', 'Network error. Try again.');
-  } finally {
-    planiSending = false;
-    planiUpdateSend();
-  }
-}
-</script>
-
+<script src="/static/js/command_center.js?v=20260618b" defer></script>
 {% endblock %}

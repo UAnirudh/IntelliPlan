@@ -2427,10 +2427,13 @@ CANONICAL_HOST = "https://intelliplan.tech"
 _NOINDEX_PREFIXES = (
     "/api/", "/push/", "/notifications/", "/cron/", "/oauth/",
     "/calendar/", "/debug/", "/feedback/", "/assignment/",
-    "/admin", "/logout",
+    "/admin", "/logout", "/live/", "/archive/",
 )
 _NOINDEX_EXACT = {
     "/login", "/register", "/login/account",
+    "/login/canvas", "/login/studentvue", "/login/schoology",
+    "/onboarding", "/connect", "/settings", "/dismissed", "/profiles",
+    "/features", "/accessibility",
 }
 
 

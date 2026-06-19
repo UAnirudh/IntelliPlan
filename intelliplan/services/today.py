@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, Callable
@@ -79,9 +80,14 @@ class TodayService:
         today = now.date()
         student = self._get_student(user_id)
 
-        assignments = tuple(self._assignments.for_user(user_id, today))
-        grades = tuple(self._get_grades(user_id))
-        completion = float(self._get_completion(user_id))
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            f_assignments = pool.submit(self._assignments.for_user, user_id, today)
+            f_grades = pool.submit(self._get_grades, user_id)
+            f_completion = pool.submit(self._get_completion, user_id)
+
+        assignments = tuple(f_assignments.result())
+        grades = tuple(f_grades.result())
+        completion = float(f_completion.result())
 
         # ── deterministic engines ────────────────────────────────────
         ctx = priority_engine.PriorityContext.from_assignments(today, assignments)

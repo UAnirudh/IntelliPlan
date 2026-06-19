@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -51,6 +52,10 @@ class CommandCenterDeps:
     cron_token: Callable[[], str] = field(default=lambda: os.getenv("CRON_TOKEN", ""))
 
 
+_TODAY_CACHE: dict[int, tuple[float, dict]] = {}
+_TODAY_CACHE_TTL = 90  # seconds
+
+
 def create_command_center_blueprint(deps: CommandCenterDeps) -> Blueprint:
     bp = Blueprint("command_center", __name__)
 
@@ -75,16 +80,9 @@ def create_command_center_blueprint(deps: CommandCenterDeps) -> Blueprint:
         uid = deps.current_user_id()
         if uid is None:
             return redirect("/login")
-        try:
-            payload = deps.get_service().build(uid)
-            data = today_to_dict(payload)
-            error = None
-        except Exception as exc:
-            logger.exception("command-center build failed: %s", exc)
-            data, error = None, "We couldn't load your day. Pull to refresh or try again."
         deps.emit_signal(uid, "command_center_opened", subject_type="briefing")
-        return render_template("command_center.html", today=data,
-                               load_error=error, active_page="command_center")
+        return render_template("command_center.html",
+                               active_page="command_center")
 
     # ── API ──────────────────────────────────────────────────────────
 
@@ -92,16 +90,25 @@ def create_command_center_blueprint(deps: CommandCenterDeps) -> Blueprint:
     def api_today():
         _require_flag()
         uid = _require_user()
+        now = time.monotonic()
+        cached = _TODAY_CACHE.get(uid)
+        if cached and (now - cached[0]) < _TODAY_CACHE_TTL:
+            return jsonify(cached[1])
         payload = deps.get_service().build(uid)
-        return jsonify(today_to_dict(payload))
+        result = today_to_dict(payload)
+        _TODAY_CACHE[uid] = (now, result)
+        return jsonify(result)
 
     @bp.route("/api/today/refresh", methods=["POST"])
     def api_today_refresh():
         _require_flag()
         uid = _require_user()
+        _TODAY_CACHE.pop(uid, None)
         payload = deps.get_service().build(uid, force_brief=True)
+        result = today_to_dict(payload)
+        _TODAY_CACHE[uid] = (time.monotonic(), result)
         deps.emit_signal(uid, "briefing_refreshed", subject_type="briefing")
-        return jsonify(today_to_dict(payload))
+        return jsonify(result)
 
     @bp.route("/api/today/explain", methods=["GET"])
     def api_today_explain():
