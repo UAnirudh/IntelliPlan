@@ -25,7 +25,7 @@
      SaaS brands ship on every page; it drives click-through from
      search and renders a rich preview when the link is shared.
   ══════════════════════════════════════════════════════════════ #}
-  {%- set _default_desc = "Free AI study planner. Sync Canvas, StudentVue & Schoology, auto-prioritize assignments, build study schedules, and learn with the Plani AI tutor." -%}
+  {%- set _default_desc = "Free AI study planner. Sync Canvas, StudentVue & Schoology, auto-prioritize assignments, build study schedules, and learn with the built-in AI tutor." -%}
   <meta name="description" content="{% block meta_description %}{{ _default_desc }}{% endblock %}">
   <meta name="author" content="IntelliPlan">
   <meta name="keywords" content="AI study planner, free study planner, Canvas study planner, StudentVue planner, assignment prioritizer, AI tutor for students, study schedule generator, grade calculator, homework planner, AP study tools">
@@ -87,7 +87,7 @@
       "width": 512,
       "height": 512
     },
-    "description": "Free AI study planner for students, syncs Canvas, StudentVue, and Schoology, prioritizes assignments, builds study schedules, and includes the Plani AI tutor.",
+    "description": "Free AI study planner for students, syncs Canvas, StudentVue, and Schoology, prioritizes assignments, builds study schedules, and includes a built-in AI tutor.",
     "slogan": "The AI study planner built by a student, for students.",
     "foundingDate": "2025",
     "knowsAbout": [
@@ -184,72 +184,74 @@
     }
 
     :root[data-theme="light"] {
-      --bg:            #f3f5fb;
+      --bg:            #f7f6f3;
       --bg-secondary:  #ffffff;
       --bg-card:       #ffffff;
-      --bg-elevated:   #fafbff;
-      --bg-dot:        rgba(37,99,235,0.045);
+      --bg-elevated:   #f0efec;
+      --bg-dot:        transparent;
       --accent:        #2563eb;
       --accent-hover:  #1d4ed8;
-      --accent-soft:   rgba(37,99,235,0.08);
-      --accent-mid:    rgba(37,99,235,0.25);
-      --accent-glow:   0 0 40px rgba(37,99,235,0.15);
-      --text-primary:  #0b0f1c;
-      --text-secondary:#4a5568;
-      --text-muted:    #94a3b8;
-      --border:        rgba(15,23,60,0.08);
-      --border-strong: rgba(15,23,60,0.14);
+      --accent-soft:   rgba(37,99,235,0.07);
+      --accent-mid:    rgba(37,99,235,0.22);
+      --accent-glow:   0 0 40px rgba(37,99,235,0.12);
+      --ink:           #161616;
+      --text-primary:  #161616;
+      --text-secondary:#52524e;
+      --text-muted:    #8a8a86;
+      --border:        rgba(0,0,0,0.08);
+      --border-strong: rgba(0,0,0,0.14);
       --border-accent: rgba(37,99,235,0.28);
-      --shadow-sm:  0 1px 4px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.06);
-      --shadow:     0 1px 4px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.06);
-      --shadow-hover:0 4px 8px rgba(0,0,0,0.07), 0 12px 36px rgba(0,0,0,0.10);
-      --shadow-lg:  0 8px 16px rgba(0,0,0,0.08), 0 24px 64px rgba(0,0,0,0.13);
-      --nav-bg:     rgba(255,255,255,0.84);
-      --nav-border: rgba(15,23,60,0.07);
-      --high:        #dc2626; --high-bg:    rgba(220,38,38,0.07);
-      --medium:      #d97706; --medium-bg:  rgba(217,119,6,0.07);
-      --low:         #059669; --low-bg:     rgba(5,150,105,0.07);
-      --toggle-bg:   rgba(37,99,235,0.12);
-      --toggle-knob: #2563eb;
-      --nav-divider: rgba(15,23,60,0.12);
-      --footer-bg:   #eef1f9;
-      --footer-text: #6b7280;
-      --footer-border:rgba(15,23,60,0.07);
+      --shadow-sm:  0 1px 2px rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.04);
+      --shadow:     0 1px 3px rgba(0,0,0,0.05), 0 4px 14px rgba(0,0,0,0.06);
+      --shadow-hover:0 4px 8px rgba(0,0,0,0.06), 0 12px 32px rgba(0,0,0,0.10);
+      --shadow-lg:  0 8px 16px rgba(0,0,0,0.07), 0 24px 56px rgba(0,0,0,0.12);
+      --nav-bg:     rgba(255,255,255,0.88);
+      --nav-border: rgba(0,0,0,0.06);
+      --high:        #dc2626; --high-bg:    rgba(220,38,38,0.06);
+      --medium:      #d97706; --medium-bg:  rgba(217,119,6,0.06);
+      --low:         #059669; --low-bg:     rgba(5,150,105,0.06);
+      --toggle-bg:   rgba(0,0,0,0.08);
+      --toggle-knob: #161616;
+      --nav-divider: rgba(0,0,0,0.10);
+      --footer-bg:   #eeedea;
+      --footer-text: #6b6b68;
+      --footer-border:rgba(0,0,0,0.06);
       --footer-link: #2563eb;
       --accent-shadow: 37,99,235;
     }
 
     :root[data-theme="dark"] {
-      --bg:            #07080d;
-      --bg-secondary:  #0c0f18;
-      --bg-card:       #111520;
-      --bg-elevated:   #161c2c;
-      --bg-dot:        rgba(79,142,247,0.04);
+      --bg:            #0e0e0e;
+      --bg-secondary:  #161616;
+      --bg-card:       #1a1a1a;
+      --bg-elevated:   #222222;
+      --bg-dot:        transparent;
       --accent:        #4f8ef7;
       --accent-hover:  #6aa0f9;
-      --accent-soft:   rgba(79,142,247,0.1);
-      --accent-mid:    rgba(79,142,247,0.28);
-      --accent-glow:   0 0 40px rgba(79,142,247,0.2);
-      --text-primary:  #e2e8f4;
-      --text-secondary:#8892a8;
-      --text-muted:    #4a5568;
-      --border:        rgba(255,255,255,0.065);
-      --border-strong: rgba(255,255,255,0.10);
+      --accent-soft:   rgba(79,142,247,0.10);
+      --accent-mid:    rgba(79,142,247,0.25);
+      --accent-glow:   0 0 40px rgba(79,142,247,0.18);
+      --ink:           #e8e8e4;
+      --text-primary:  #e8e8e4;
+      --text-secondary:#9a9a96;
+      --text-muted:    #5a5a56;
+      --border:        rgba(255,255,255,0.07);
+      --border-strong: rgba(255,255,255,0.12);
       --border-accent: rgba(79,142,247,0.30);
-      --shadow-sm:  0 1px 4px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.35);
-      --shadow:     0 1px 4px rgba(0,0,0,0.3), 0 4px 16px rgba(0,0,0,0.35);
-      --shadow-hover:0 4px 8px rgba(0,0,0,0.35), 0 12px 36px rgba(0,0,0,0.45);
-      --shadow-lg:  0 8px 16px rgba(0,0,0,0.5), 0 24px 64px rgba(0,0,0,0.6);
-      --nav-bg:     rgba(7,8,13,0.9);
+      --shadow-sm:  0 1px 3px rgba(0,0,0,0.4), 0 2px 10px rgba(0,0,0,0.3);
+      --shadow:     0 1px 4px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.3);
+      --shadow-hover:0 4px 8px rgba(0,0,0,0.35), 0 12px 32px rgba(0,0,0,0.4);
+      --shadow-lg:  0 8px 16px rgba(0,0,0,0.45), 0 24px 56px rgba(0,0,0,0.5);
+      --nav-bg:     rgba(14,14,14,0.92);
       --nav-border: rgba(255,255,255,0.06);
       --high:        #f87171; --high-bg:   rgba(248,113,113,0.10);
       --medium:      #fbbf24; --medium-bg: rgba(251,191,36,0.10);
       --low:         #34d399; --low-bg:    rgba(52,211,153,0.10);
-      --toggle-bg:   rgba(79,142,247,0.15);
-      --toggle-knob: #4f8ef7;
+      --toggle-bg:   rgba(255,255,255,0.08);
+      --toggle-knob: #e8e8e4;
       --nav-divider: rgba(255,255,255,0.10);
-      --footer-bg:   #0c0f18;
-      --footer-text: #6b7280;
+      --footer-bg:   #161616;
+      --footer-text: #6b6b68;
       --footer-border:rgba(255,255,255,0.06);
       --footer-link: #4f8ef7;
       --accent-shadow: 79,142,247;
@@ -388,8 +390,6 @@
     body {
       font-family: var(--font-body);
       background: var(--bg);
-      background-image: radial-gradient(var(--bg-dot) 1px, transparent 1px);
-      background-size: 24px 24px;
       color: var(--text-primary);
       min-height: 100dvh;
       display: flex;
@@ -397,6 +397,20 @@
       transition: background 0.25s ease, color 0.25s ease;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
+      line-height: 1.65;
+    }
+
+    h1, h2, h3 {
+      font-family: var(--font-display);
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      color: var(--text-primary);
+    }
+    h1 { letter-spacing: -0.04em; line-height: 0.98; }
+    h4, h5, h6 {
+      font-family: var(--font-ui);
+      letter-spacing: -0.02em;
+      line-height: 1.2;
     }
 
     /* ══════════════════════════════════════
@@ -424,13 +438,13 @@
     .logo { display:flex; align-items:center; gap:10px; text-decoration:none; flex-shrink:0; }
     .logo-icon {
       width:30px; height:30px;
-      background: var(--accent);
+      background: var(--ink, #161616);
       border-radius:var(--r-sm); display:flex; align-items:center; justify-content:center;
       overflow:hidden; flex-shrink:0;
     }
     .logo-icon img { width:100%; height:100%; object-fit:cover; border-radius:var(--r-sm); }
-    .logo-text { font-family:var(--font-ui); font-size:1rem; font-weight:600; color:var(--text-primary); letter-spacing:-0.015em; }
-    .logo-text span { color:var(--accent); }
+    .logo-text { font-family:var(--font-ui); font-size:1rem; font-weight:600; color:var(--text-primary); letter-spacing:-0.025em; }
+    .logo-text span { color:var(--text-primary); }
     .header-right { display:contents; }
     .header-actions {
       grid-column: 3;
@@ -465,18 +479,22 @@
     }
     .nav-tab-icon { width:14px; height:14px; display:inline-flex; align-items:center; justify-content:center; color:currentColor; }
     .nav-tab-icon svg { width:100%; height:100%; }
-    .nav-tab:hover  { background:var(--accent-soft); color:var(--accent); }
-    .nav-tab.active { background:var(--accent); color:white; font-weight:500; }
+    .nav-tab:hover  { background:var(--bg-elevated); color:var(--text-primary); }
+    .nav-tab.active { background:var(--ink, #161616); color:white; font-weight:500; }
     .nav-tab:active { transform:scale(0.97); }
     .nav-tab.logout-btn { background:transparent; border:none; font:inherit; cursor:pointer; }
     .nav-tab.logout-btn:hover { background:var(--high-bg); color:var(--high); }
-    .nav-tab-tutor { background:var(--accent-soft); color:var(--accent) !important; font-weight:600; }
-    .nav-tab-tutor:hover { background:var(--accent) !important; color:#fff !important; }
-    .nav-tab-tutor.active { background:var(--accent) !important; color:#fff !important; }
+    .nav-tab-tutor { background:rgba(22,22,22,0.07); color:var(--ink, #161616) !important; font-weight:600; }
+    .nav-tab-tutor:hover { background:var(--ink, #161616) !important; color:#fff !important; }
+    .nav-tab-tutor.active { background:var(--ink, #161616) !important; color:#fff !important; }
+    [data-theme="dark"] .nav-tab-tutor { background:rgba(232,232,228,0.1); color:var(--ink, #e8e8e4) !important; }
+    [data-theme="dark"] .nav-tab-tutor:hover { background:var(--ink, #e8e8e4) !important; color:#161616 !important; }
     /* Marketing "Get started" CTA, filled accent button, the conversion
        anchor every leading SaaS marketing nav ends with. */
-    .nav-cta { background:var(--accent); color:#fff !important; font-weight:700; padding:7px 16px; border-radius:var(--r-md); box-shadow:0 2px 12px rgba(var(--accent-shadow),0.25); }
-    .nav-cta:hover { background:var(--accent-hover); color:#fff !important; }
+    .nav-cta { background:var(--ink, #161616); color:#fff !important; font-weight:600; padding:7px 18px; border-radius:var(--r-full); box-shadow:var(--shadow); letter-spacing:-0.01em; }
+    .nav-cta:hover { background:#2a2a2a; color:#fff !important; box-shadow:var(--shadow-hover); }
+    :root[data-theme="dark"] .nav-cta { background:#e8e8e4; color:#161616 !important; }
+    :root[data-theme="dark"] .nav-cta:hover { background:#ffffff; }
 
     .nav-dropdown { position:relative; }
     .dropdown-toggle {
@@ -484,7 +502,7 @@
       cursor:pointer; color:var(--text-secondary); padding:7px 13px; border-radius:var(--r-full);
       transition:all 0.16s; display:flex; align-items:center; gap:5px;
     }
-    .dropdown-toggle:hover { background:var(--accent-soft); color:var(--accent); }
+    .dropdown-toggle:hover { background:var(--bg-elevated); color:var(--text-primary); }
     .chevron { font-size:0.62rem; color:var(--text-muted); transition:transform 0.2s ease; }
     .nav-dropdown:hover .chevron,
     .nav-dropdown.is-open .chevron { transform:rotate(180deg); }
@@ -675,17 +693,17 @@
       transition: background 0.15s, color 0.15s;
       position: relative; border: none;
     }
-    .side-link:hover { background: var(--accent-soft); color: var(--accent); }
-    .side-link.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
-    .side-link.active .side-icon { color: var(--accent); }
-    .side-link.tutor { color: var(--accent); font-weight: 600; }
-    .side-link.tutor:hover { background: var(--accent); color: white; }
+    .side-link:hover { background: var(--bg-elevated); color: var(--text-primary); }
+    .side-link.active { background: var(--bg-elevated); color: var(--text-primary); font-weight: 500; }
+    .side-link.active .side-icon { color: var(--text-primary); }
+    .side-link.tutor { color: var(--ink, #161616); font-weight: 600; }
+    .side-link.tutor:hover { background: var(--ink, #161616); color: white; }
     /* "side-pop", soft accent background to draw eye (used for Meetings). */
     .side-link.side-pop {
       background: var(--accent-soft); color: var(--accent); font-weight: 600;
     }
-    .side-link.side-pop:hover { background: var(--accent); color: white; }
-    .side-link.side-pop.active { background: var(--accent); color: white; }
+    .side-link.side-pop:hover { background: var(--ink, #161616); color: white; }
+    .side-link.side-pop.active { background: var(--ink, #161616); color: white; }
     .side-icon {
       width: 18px; height: 18px; flex-shrink: 0;
       display: inline-flex; align-items: center; justify-content: center;
@@ -719,7 +737,7 @@
       padding: 7px 10px; font-size: 0.84rem; font-weight: 500;
       color: var(--text-secondary);
     }
-    .side-link.side-sub.active { background: var(--accent-soft); color: var(--accent); }
+    .side-link.side-sub.active { background: var(--bg-elevated); color: var(--text-primary); }
     .side-link.nav-hidden, .side-group.nav-empty { display: none !important; }
 
     /* Sidebar search trigger (opens command palette) */
@@ -892,8 +910,9 @@
       font-family:var(--font-body); font-size:0.82rem; font-weight:500;
       cursor:pointer; transition:all 0.16s ease;
     }
-    .filter-btn:hover { background:var(--accent-soft); color:var(--accent); border-color:var(--border-accent); }
-    .filter-btn.active { background:var(--accent); color:white; border-color:transparent; }
+    .filter-btn:hover { background:var(--bg-elevated); color:var(--text-primary); border-color:var(--border-strong); }
+    .filter-btn.active { background:var(--ink, #161616); color:white; border-color:transparent; }
+    :root[data-theme="dark"] .filter-btn.active { background:#e8e8e4; color:#161616; }
 
     /* ══════════════════════════════════════
        ASSIGNMENT CARDS
@@ -946,33 +965,39 @@
     ══════════════════════════════════════ */
     .btn-primary {
       display:inline-flex; align-items:center; justify-content:center;
-      padding:10px 20px;
-      background:var(--accent); color:white;
+      padding:10px 22px;
+      background:var(--ink, #161616); color:#ffffff;
       border:none;
-      border-radius:var(--r-md);
-      font-family:var(--font-ui); font-size:0.88rem; font-weight:700;
+      border-radius:var(--r-full);
+      font-family:var(--font-ui); font-size:0.88rem; font-weight:600;
       text-decoration:none; cursor:pointer;
-      transition:background 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+      transition:background 0.18s var(--ease-out), transform 0.16s ease, box-shadow 0.18s var(--ease-out);
       white-space:nowrap;
-      letter-spacing:0.01em;
-      box-shadow:0 2px 12px rgba(var(--accent-shadow),0.25);
+      letter-spacing:-0.01em;
+      box-shadow:var(--shadow);
     }
     .btn-primary:hover {
-      background:var(--accent-hover);
-      box-shadow:0 4px 18px rgba(var(--accent-shadow),0.35);
+      background:#2a2a2a;
+      box-shadow:var(--shadow-hover);
+    }
+    :root[data-theme="dark"] .btn-primary {
+      background:#e8e8e4; color:#161616;
+    }
+    :root[data-theme="dark"] .btn-primary:hover {
+      background:#ffffff;
     }
     .btn-primary:active { transform:scale(0.97); }
     .btn-secondary {
       display:inline-flex; align-items:center; justify-content:center;
-      padding:10px 20px; background:var(--bg-card); color:var(--text-primary);
-      border:1px solid var(--border-strong); border-radius:var(--r-md);
+      padding:10px 22px; background:transparent; color:var(--text-primary);
+      border:1px solid var(--border-strong); border-radius:var(--r-full);
       font-family:var(--font-ui); font-size:0.88rem; font-weight:600;
       text-decoration:none; cursor:pointer;
-      transition:border-color 0.16s ease, color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+      transition:border-color 0.18s var(--ease-out), color 0.18s ease, background 0.18s ease, transform 0.16s ease;
       white-space:nowrap;
-      letter-spacing:0.01em;
+      letter-spacing:-0.01em;
     }
-    .btn-secondary:hover { border-color:var(--border-accent); color:var(--accent); background:var(--accent-soft); }
+    .btn-secondary:hover { border-color:var(--text-primary); color:var(--text-primary); background:var(--bg-elevated); }
     .btn-secondary:active { transform:scale(0.97); }
 
     /* ══════════════════════════════════════
@@ -1254,10 +1279,11 @@
     #planiChat.open { opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
 
     #planiChatHeader {
-      background:var(--accent);
+      background:var(--ink, #161616);
       padding:13px 15px; display:flex; align-items:center; gap:10px; flex-shrink:0;
     }
-    .plani-hdr-avatar { width:30px; height:30px; background:rgba(255,255,255,0.2); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+    :root[data-theme="dark"] #planiChatHeader { background:#222222; }
+    .plani-hdr-avatar { width:30px; height:30px; background:rgba(255,255,255,0.15); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:11px; font-family:var(--font-ui); font-weight:700; color:white; letter-spacing:0.02em; flex-shrink:0; }
     .plani-hdr-info { flex:1; }
     .plani-hdr-name { font-family:var(--font-ui); font-size:0.88rem; font-weight:700; color:white; line-height:1; margin-bottom:2px; }
     .plani-hdr-status { font-size:0.68rem; color:rgba(255,255,255,0.75); display:flex; align-items:center; gap:4px; }
@@ -1275,10 +1301,12 @@
 
     .plani-msg { display:flex; gap:8px; animation:fadeUp 0.22s var(--ease-out) both; }
     .plani-msg.user { flex-direction:row-reverse; }
-    .plani-msg-avatar { width:25px; height:25px; border-radius:50%; background:var(--grad-brand); display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; margin-top:2px; }
-    .plani-msg.user .plani-msg-avatar { background:var(--accent-soft); }
+    .plani-msg-avatar { width:25px; height:25px; border-radius:7px; background:var(--ink, #161616); display:flex; align-items:center; justify-content:center; font-size:9px; font-family:var(--font-ui); font-weight:700; color:#fff; letter-spacing:0.02em; flex-shrink:0; margin-top:2px; }
+    :root[data-theme="dark"] .plani-msg-avatar { background:#e8e8e4; color:#161616; }
+    .plani-msg.user .plani-msg-avatar { background:var(--accent-soft); color:var(--accent); }
     .plani-msg-bubble { max-width:76%; padding:8px 12px; border-radius:15px; font-size:0.84rem; line-height:1.55; color:var(--text-primary); background:var(--bg-elevated); border:1px solid var(--border); }
-    .plani-msg.user .plani-msg-bubble { background:var(--accent); color:white; border-color:transparent; border-radius:15px 15px 3px 15px; }
+    .plani-msg.user .plani-msg-bubble { background:var(--ink, #161616); color:white; border-color:transparent; border-radius:15px 15px 3px 15px; }
+    :root[data-theme="dark"] .plani-msg.user .plani-msg-bubble { background:#e8e8e4; color:#161616; }
     .plani-msg.bot  .plani-msg-bubble { border-radius:3px 15px 15px 15px; }
 
     #planiTyping { display:none; align-items:center; gap:8px; padding:0 0 3px; }
@@ -1298,20 +1326,25 @@
     }
     #planiInput:focus { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft); }
     #planiInput::placeholder { color:var(--text-muted); }
-    #planiSendBtn { width:35px; height:35px; background:var(--accent); border:none; border-radius:var(--r-sm); color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; transition:all 0.16s; flex-shrink:0; }
-    #planiSendBtn:hover { background:var(--accent-hover); transform:scale(1.06); }
+    #planiSendBtn { width:35px; height:35px; background:var(--ink, #161616); border:none; border-radius:var(--r-sm); color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; transition:all 0.16s; flex-shrink:0; }
+    #planiSendBtn:hover { background:#2a2a2a; transform:scale(1.06); }
+    :root[data-theme="dark"] #planiSendBtn { background:#e8e8e4; color:#161616; }
+    :root[data-theme="dark"] #planiSendBtn:hover { background:#ffffff; }
     #planiSendBtn:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
 
-    /* Robot avatar */
+    /* Assistant avatar */
     #planiAvatar { position:relative; cursor:pointer; user-select:none; }
     #planiRobot {
-      width:70px; height:70px;
-      animation:planiFloat 3.2s ease-in-out infinite;
-      filter:drop-shadow(0 8px 22px rgba(var(--accent-shadow),0.38));
-      transition:transform 0.2s ease, filter 0.2s ease;
-      display:block;
+      width:54px; height:54px;
+      background:var(--ink, #161616); border-radius:14px;
+      display:flex; align-items:center; justify-content:center;
+      font-family:var(--font-ui); font-weight:700; font-size:18px;
+      color:#ffffff; letter-spacing:0.02em;
+      box-shadow:var(--shadow-hover);
+      transition:transform 0.2s var(--ease-out), box-shadow 0.2s ease;
     }
-    #planiAvatar:hover #planiRobot { transform:scale(1.1); filter:drop-shadow(0 12px 30px rgba(var(--accent-shadow),0.55)); }
+    :root[data-theme="dark"] #planiRobot { background:#e8e8e4; color:#161616; }
+    #planiAvatar:hover #planiRobot { transform:scale(1.08); box-shadow:var(--shadow-lg); }
 
     #planiBubble {
       position:absolute; bottom:calc(100% + 10px); right:0;
@@ -1692,7 +1725,7 @@ body {
       <span class="side-streak-badge" id="sideStreakBadge" hidden></span>
     </a>
     <a href="/pet" data-nav-item="pet" class="side-link {% if active_page == 'pet' %}active{% endif %}">
-      <span class="side-icon"><svg><use href="#i-sparkle"/></svg></span>My Plani
+      <span class="side-icon"><svg><use href="#i-sparkle"/></svg></span>My Pet
       <span class="side-pet-badge" id="sidePetBadge" hidden></span>
     </a>
     <a href="/balance" data-nav-item="balance" class="side-link {% if active_page == 'balance' %}active{% endif %}">
@@ -1765,11 +1798,11 @@ body {
       {# ── Streak flame + Plani Pet badge — Duolingo-style nav widgets ── #}
       <div class="nav-group nav-rewards" id="navRewards" hidden>
         <a href="/streak" class="nav-streak-badge" id="navStreakBadge" title="Your daily streak">
-          <span class="nav-streak-flame">🔥</span>
+          <span class="nav-streak-flame"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-fire"/></svg></span>
           <span class="nav-streak-count" id="navStreakCount">0</span>
         </a>
-        <a href="/pet" class="nav-pet-badge" id="navPetBadge" title="My Plani">
-          <span class="nav-pet-emoji" id="navPetEmoji">🥚</span>
+        <a href="/pet" class="nav-pet-badge" id="navPetBadge" title="My Pet">
+          <span class="nav-pet-emoji" id="navPetEmoji"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg></span>
           <span class="nav-pet-level" id="navPetLevel">1</span>
         </a>
       </div>
@@ -1911,14 +1944,14 @@ body {
 <!-- ══════════════════════════════════════
      PLANI ROBOT CHATBOT
 ══════════════════════════════════════ -->
-<div id="planiBot" role="complementary" aria-label="Plani AI Assistant">
+<div id="planiBot" role="complementary" aria-label="IntelliPlan AI Assistant">
 
   <!-- Chat window -->
-  <div id="planiChat" role="dialog" aria-label="Chat with Plani">
+  <div id="planiChat" role="dialog" aria-label="Chat with IntelliPlan">
     <div id="planiChatHeader">
-      <div class="plani-hdr-avatar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-robot"/></svg></div>
+      <div class="plani-hdr-avatar">IP</div>
       <div class="plani-hdr-info">
-        <div class="plani-hdr-name">Plani</div>
+        <div class="plani-hdr-name">IntelliPlan</div>
         <div class="plani-hdr-status">
           <div class="plani-status-dot"></div>
           Powered by Google Gemini
@@ -1929,8 +1962,8 @@ body {
 
     <div id="planiMessages" role="log" aria-live="polite"></div>
 
-    <div id="planiTyping" aria-label="Plani is typing">
-      <div class="plani-msg-avatar" style="background:linear-gradient(135deg,#1d4ed8,#2563eb);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-robot"/></svg></div>
+    <div id="planiTyping" aria-label="Assistant is typing">
+      <div class="plani-msg-avatar" style="background:var(--ink, #161616); font-size:9px; font-family:var(--font-ui); font-weight:700; color:#fff; letter-spacing:0.02em;">IP</div>
       <div class="plani-dots">
         <div class="plani-dot"></div><div class="plani-dot"></div><div class="plani-dot"></div>
       </div>
@@ -1938,7 +1971,7 @@ body {
 
     <div id="planiInputArea">
       <textarea id="planiInput" placeholder="Ask me anything about IntelliPlan…" rows="1"
-        aria-label="Message to Plani"
+        aria-label="Message to IntelliPlan"
         onkeydown="handlePlaniKey(event)"
         oninput="autoResizePlani(this)"></textarea>
       <button id="planiSendBtn" onclick="sendPlaniMessage()" aria-label="Send message">
@@ -1947,103 +1980,14 @@ body {
     </div>
   </div>
 
-  <!-- Robot avatar -->
+  <!-- Assistant avatar -->
   <div id="planiAvatar" onclick="togglePlani()" role="button" tabindex="0"
-    aria-label="Chat with Plani"
+    aria-label="Chat with IntelliPlan assistant"
     onkeydown="if(event.key==='Enter'||event.key===' ')togglePlani()">
 
     <div id="planiBubble" role="status"></div>
 
-    <!-- Animated SVG Robot -->
-    <svg id="planiRobot" viewBox="0 0 80 92" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs>
-        <linearGradient id="pgHead" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#1d4ed8"/>
-          <stop offset="100%" stop-color="#2563eb"/>
-        </linearGradient>
-        <linearGradient id="pgBody" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#1e3a8a"/>
-          <stop offset="100%" stop-color="#1d4ed8"/>
-        </linearGradient>
-        <radialGradient id="pgGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#60a5fa" stop-opacity="0.8"/>
-          <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
-        </radialGradient>
-        <filter id="pgBlur">
-          <feGaussianBlur stdDeviation="1.2"/>
-        </filter>
-      </defs>
-
-      <!-- Antenna shadow/glow -->
-      <ellipse cx="40" cy="3.5" rx="5" ry="5" fill="url(#pgGlow)" filter="url(#pgBlur)" opacity="0.7">
-        <animate attributeName="opacity" values="0.7;0.3;0.7" dur="1.8s" repeatCount="indefinite"/>
-        <animate attributeName="rx" values="5;7;5" dur="1.8s" repeatCount="indefinite"/>
-      </ellipse>
-      <!-- Antenna rod -->
-      <line x1="40" y1="14" x2="40" y2="5" stroke="#93c5fd" stroke-width="2" stroke-linecap="round"/>
-      <!-- Antenna tip -->
-      <circle cx="40" cy="3.5" r="3" fill="#60a5fa">
-        <animate attributeName="r"       values="3;4;3"     dur="1.8s" repeatCount="indefinite"/>
-        <animate attributeName="fill"    values="#60a5fa;#93c5fd;#60a5fa" dur="1.8s" repeatCount="indefinite"/>
-      </circle>
-
-      <!-- HEAD -->
-      <rect x="13" y="14" width="54" height="42" rx="15" fill="url(#pgHead)"/>
-
-      <!-- Face plate (inner screen) -->
-      <rect x="19" y="19" width="42" height="32" rx="10" fill="rgba(255,255,255,0.07)"/>
-
-      <!-- LEFT EYE  – blinks every ~4s -->
-      <g transform="translate(26,27)">
-        <rect x="0" y="0" width="12" height="9" rx="4" fill="#7dd3fc">
-          <animateTransform attributeName="transform" type="scale" additive="sum"
-            values="1,1; 1,0.05; 1,1" keyTimes="0;0.93;1"
-            dur="4.5s" begin="0s" repeatCount="indefinite"
-            calcMode="spline" keySplines="0.5 0 0.5 1;0.5 0 0.5 1"/>
-        </rect>
-        <circle cx="3" cy="2" r="2" fill="rgba(255,255,255,0.65)"/>
-      </g>
-
-      <!-- RIGHT EYE – slightly offset blink -->
-      <g transform="translate(42,27)">
-        <rect x="0" y="0" width="12" height="9" rx="4" fill="#7dd3fc">
-          <animateTransform attributeName="transform" type="scale" additive="sum"
-            values="1,1; 1,0.05; 1,1" keyTimes="0;0.93;1"
-            dur="4.5s" begin="0.7s" repeatCount="indefinite"
-            calcMode="spline" keySplines="0.5 0 0.5 1;0.5 0 0.5 1"/>
-        </rect>
-        <circle cx="3" cy="2" r="2" fill="rgba(255,255,255,0.65)"/>
-      </g>
-
-      <!-- Smile -->
-      <path d="M 26 42 Q 40 52 54 42" stroke="#93c5fd" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-
-      <!-- Blush -->
-      <ellipse cx="18" cy="40" rx="4.5" ry="2.5" fill="rgba(251,113,133,0.3)"/>
-      <ellipse cx="62" cy="40" rx="4.5" ry="2.5" fill="rgba(251,113,133,0.3)"/>
-
-      <!-- BODY -->
-      <rect x="19" y="59" width="42" height="29" rx="11" fill="url(#pgBody)"/>
-      <!-- Body detail -->
-      <line x1="27" y1="68" x2="53" y2="68" stroke="rgba(255,255,255,0.14)" stroke-width="1.5" stroke-linecap="round"/>
-      <line x1="27" y1="75" x2="53" y2="75" stroke="rgba(255,255,255,0.10)" stroke-width="1.5" stroke-linecap="round"/>
-      <!-- Chest light -->
-      <circle cx="40" cy="63.5" r="3" fill="#2563eb">
-        <animate attributeName="opacity" values="1;0.2;1" dur="1.4s" repeatCount="indefinite"/>
-      </circle>
-
-      <!-- LEFT ARM -->
-      <rect x="4"  y="61" width="13" height="11" rx="5.5" fill="url(#pgBody)"/>
-      <circle cx="4.5" cy="66.5" r="4" fill="#1d4ed8"/>
-
-      <!-- RIGHT ARM -->
-      <rect x="63" y="61" width="13" height="11" rx="5.5" fill="url(#pgBody)"/>
-      <circle cx="75.5" cy="66.5" r="4" fill="#1d4ed8"/>
-
-      <!-- FEET -->
-      <rect x="23" y="85" width="14" height="7" rx="3.5" fill="#1e3a8a"/>
-      <rect x="43" y="85" width="14" height="7" rx="3.5" fill="#1e3a8a"/>
-    </svg>
+    <div id="planiRobot" aria-hidden="true">IP</div>
   </div>
 </div>
 
@@ -2714,7 +2658,7 @@ let planiHistory = [];
 let planiBubbleTimer = null;
 
 const BUBBLES = [
-  "Hi! I'm Plani, ask me anything.",
+  "Have a question? Ask away.",
   "Need help getting started?",
   "Tip: Connect Canvas for auto-sync.",
   "Check your Dashboard for today's tasks.",
@@ -2731,7 +2675,7 @@ function openPlani() {
   hideBubble();
   document.getElementById('planiChat').classList.add('open');
   if (planiHistory.length === 0) {
-    addMsg('bot', "Hey there! I'm Plani, your IntelliPlan assistant. I can help you navigate the platform, explain features, or answer study questions. What can I help you with?");
+    addMsg('bot', "Hey there! I'm your IntelliPlan assistant. I can help you navigate the platform, explain features, or answer study questions. What can I help you with?");
   }
   setTimeout(() => document.getElementById('planiInput').focus(), 220);
 }
@@ -2764,7 +2708,7 @@ function scheduleBubble() {
 }
 
 window.addEventListener('load', () => {
-  setTimeout(() => { if (!planiOpen) showBubble("Hi! I'm Plani, ask me anything."); }, 2600);
+  setTimeout(() => { if (!planiOpen) showBubble("Have a question? Ask away."); }, 2600);
   setInterval(() => { if (!planiOpen) scheduleBubble(); }, 50000);
 });
 
@@ -3130,7 +3074,7 @@ window.addEventListener('load',()=>{
   const STEPS = [
     { selector: '.side-logo, .logo', text: 'Welcome to IntelliPlan, your AI-powered study planner. Let\'s take a quick tour!', title: 'Welcome 👋' },
     { selector: 'a[href="/dashboard"].side-link, a[href="/dashboard"].nav-tab', text: 'Your Dashboard shows all your assignments, prioritized by urgency and due date.', title: 'Dashboard' },
-    { selector: 'a[href="/tutor"].side-link, a[href="/tutor"].nav-tab', text: 'Plani AI Tutor answers any question step by step, math, science, history, and more.', title: 'AI Tutor' },
+    { selector: 'a[href="/tutor"].side-link, a[href="/tutor"].nav-tab', text: 'The AI Tutor answers any question step by step — math, science, history, and more.', title: 'AI Tutor' },
     { selector: 'a[href="/scheduler"].side-link, a[href="/schedule"].side-link, a[href="/scheduler"].nav-tab', text: 'The Scheduler builds a personalized study plan around your free time and deadlines.', title: 'Scheduler' },
     { selector: 'a[href="/study"].side-link, a[href="/study"].nav-tab', text: 'Study & Learn uses spaced repetition and AI quizzes to help you actually retain material.', title: 'Study & Learn' },
     { selector: 'a[href="/gradebook"].side-link, a[href="/grademodel"].side-link, a[href="/gradebook"].nav-tab', text: 'The Grade Modeler shows exactly what scores you need on upcoming assignments to hit your target grade.', title: 'Grade Modeler' },
@@ -3605,9 +3549,9 @@ window.addEventListener('load',()=>{
 <script>
 (function(){
   // ── Stage → emoji map (mirrors pet_engine.STAGES) ──────────
-  const STAGE_EMOJI = {
-    egg: '🥚', hatchling: '🐣', sprout: '🌱', cub: '🐱',
-    scholar: '🦊', sage: '🦉', guardian: '🐉', mythic: '🦄', cosmic: '🌟'
+  const STAGE_LABEL = {
+    egg: 'E', hatchling: 'H', sprout: 'S', cub: 'C',
+    scholar: 'Sc', sage: 'Sa', guardian: 'G', mythic: 'M', cosmic: 'Co'
   };
 
   const tz = (typeof Intl !== 'undefined') ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
@@ -3643,7 +3587,7 @@ window.addEventListener('load',()=>{
     const petLvl = document.getElementById('navPetLevel');
     const petEmoji = document.getElementById('navPetEmoji');
     if (petLvl) petLvl.textContent = 'L' + (data.level || 1);
-    if (petEmoji) petEmoji.textContent = STAGE_EMOJI[data.stage_id] || '🥚';
+    if (petEmoji) petEmoji.textContent = STAGE_LABEL[data.stage_id] || 'E';
 
     // Sidebar badges
     const sideStreak = document.getElementById('sideStreakBadge');
@@ -3683,7 +3627,7 @@ window.addEventListener('load',()=>{
         showXpToast('+' + a.delta + ' XP — daily visit');
         if (a.evolved) {
           flashEvolve();
-          setTimeout(() => showXpToast('✨ Your Plani evolved!'), 1100);
+          setTimeout(() => showXpToast('Your pet evolved!'), 1100);
         }
         // Refresh after a beat so the badge ticks up
         setTimeout(loadStatus, 600);
@@ -3808,10 +3752,10 @@ window.addEventListener('load',()=>{
     </div>
     <form id="ipFbForm" onsubmit="event.preventDefault();ipFbSend();">
       <div class="ip-fb-cats">
-        <label class="ip-fb-cat"><input type="radio" name="ipFbCat" value="general" checked><span>💬 General</span></label>
-        <label class="ip-fb-cat"><input type="radio" name="ipFbCat" value="bug"><span>🐛 Bug</span></label>
-        <label class="ip-fb-cat"><input type="radio" name="ipFbCat" value="feature"><span>💡 Idea</span></label>
-        <label class="ip-fb-cat"><input type="radio" name="ipFbCat" value="praise"><span>❤️ Praise</span></label>
+        <label class="ip-fb-cat"><input type="radio" name="ipFbCat" value="general" checked><span>General</span></label>
+        <label class="ip-fb-cat"><input type="radio" name="ipFbCat" value="bug"><span>Bug</span></label>
+        <label class="ip-fb-cat"><input type="radio" name="ipFbCat" value="feature"><span>Idea</span></label>
+        <label class="ip-fb-cat"><input type="radio" name="ipFbCat" value="praise"><span>Praise</span></label>
       </div>
       <div class="ip-fb-mood-row">
         <span class="ip-fb-mood-label">How do you feel?</span>
