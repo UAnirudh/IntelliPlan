@@ -252,7 +252,7 @@ main {
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0; margin-top: 18px; overflow: hidden;
 }
-.tutor-avatar.bot { background: linear-gradient(135deg,#4338ca,#6366f1); }
+.tutor-avatar.bot { background: linear-gradient(135deg,#005bb5,#2997ff); }
 .tutor-avatar.user {
   background: var(--accent-soft);
   font-family: var(--font-ui); font-size: 0.6rem; font-weight: 700; color: var(--accent);
@@ -572,9 +572,9 @@ main {
       <div id="tutorPlaniWrap">
         <svg id="tutorPlaniSvg" viewBox="0 0 80 92" xmlns="http://www.w3.org/2000/svg" aria-label="Plani, your AI tutor">
           <defs>
-            <linearGradient id="tpH" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#4338ca"/><stop offset="100%" stop-color="#4f46e5"/></linearGradient>
-            <linearGradient id="tpB" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1e3a8a"/><stop offset="100%" stop-color="#4338ca"/></linearGradient>
-            <radialGradient id="tpG" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#60a5fa" stop-opacity="0.8"/><stop offset="100%" stop-color="#6366f1" stop-opacity="0"/></radialGradient>
+            <linearGradient id="tpH" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#005bb5"/><stop offset="100%" stop-color="#0071e3"/></linearGradient>
+            <linearGradient id="tpB" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1e3a8a"/><stop offset="100%" stop-color="#005bb5"/></linearGradient>
+            <radialGradient id="tpG" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#60a5fa" stop-opacity="0.8"/><stop offset="100%" stop-color="#2997ff" stop-opacity="0"/></radialGradient>
           </defs>
           <!-- Antenna -->
           <ellipse cx="40" cy="3.5" rx="5" ry="5" fill="url(#tpG)" opacity="0.7"><animate attributeName="opacity" values="0.7;0.3;0.7" dur="1.8s" repeatCount="indefinite"/></ellipse>
@@ -595,10 +595,10 @@ main {
           <rect x="19" y="59" width="42" height="29" rx="11" fill="url(#tpB)"/>
           <line x1="27" y1="68" x2="53" y2="68" stroke="rgba(255,255,255,0.14)" stroke-width="1.5" stroke-linecap="round"/>
           <line x1="27" y1="75" x2="53" y2="75" stroke="rgba(255,255,255,0.10)" stroke-width="1.5" stroke-linecap="round"/>
-          <circle cx="40" cy="63.5" r="3" fill="#6366f1"><animate attributeName="opacity" values="1;0.2;1" dur="1.4s" repeatCount="indefinite"/></circle>
+          <circle cx="40" cy="63.5" r="3" fill="#2997ff"><animate attributeName="opacity" values="1;0.2;1" dur="1.4s" repeatCount="indefinite"/></circle>
           <!-- Arms -->
-          <rect x="4"  y="61" width="13" height="11" rx="5.5" fill="url(#tpB)"/><circle cx="4.5"  cy="66.5" r="4" fill="#4338ca"/>
-          <rect x="63" y="61" width="13" height="11" rx="5.5" fill="url(#tpB)"/><circle cx="75.5" cy="66.5" r="4" fill="#4338ca"/>
+          <rect x="4"  y="61" width="13" height="11" rx="5.5" fill="url(#tpB)"/><circle cx="4.5"  cy="66.5" r="4" fill="#005bb5"/>
+          <rect x="63" y="61" width="13" height="11" rx="5.5" fill="url(#tpB)"/><circle cx="75.5" cy="66.5" r="4" fill="#005bb5"/>
           <!-- Feet -->
           <rect x="23" y="85" width="14" height="7" rx="3.5" fill="#1e3a8a"/>
           <rect x="43" y="85" width="14" height="7" rx="3.5" fill="#1e3a8a"/>
@@ -641,7 +641,7 @@ main {
     <!-- Thinking dots -->
     <div class="tutor-thinking-row" id="tutorThinking" aria-label="Plani is thinking">
       <div class="tutor-avatar bot" aria-hidden="true">
-        <svg width="16" height="18" viewBox="0 0 80 92"><defs><linearGradient id="ta" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#4338ca"/><stop offset="100%" stop-color="#6366f1"/></linearGradient></defs><rect x="13" y="14" width="54" height="42" rx="15" fill="url(#ta)"/><g transform="translate(26,27)"><rect width="12" height="9" rx="4" fill="#7dd3fc"/></g><g transform="translate(42,27)"><rect width="12" height="9" rx="4" fill="#7dd3fc"/></g><path d="M26 42 Q40 52 54 42" stroke="#93c5fd" stroke-width="2.2" fill="none" stroke-linecap="round"/><rect x="19" y="59" width="42" height="29" rx="11" fill="#1e3a8a"/></svg>
+        <svg width="16" height="18" viewBox="0 0 80 92"><defs><linearGradient id="ta" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#005bb5"/><stop offset="100%" stop-color="#2997ff"/></linearGradient></defs><rect x="13" y="14" width="54" height="42" rx="15" fill="url(#ta)"/><g transform="translate(26,27)"><rect width="12" height="9" rx="4" fill="#7dd3fc"/></g><g transform="translate(42,27)"><rect width="12" height="9" rx="4" fill="#7dd3fc"/></g><path d="M26 42 Q40 52 54 42" stroke="#93c5fd" stroke-width="2.2" fill="none" stroke-linecap="round"/><rect x="19" y="59" width="42" height="29" rx="11" fill="#1e3a8a"/></svg>
       </div>
       <div class="tutor-thinking-dots">
         <div class="tutor-dot"></div><div class="tutor-dot"></div><div class="tutor-dot"></div>
@@ -1266,8 +1266,8 @@ function addTutorMsg(role, text, refusal) {
     av.innerHTML = `<svg width="17" height="19" viewBox="0 0 80 92" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#4338ca"/>
-          <stop offset="100%" stop-color="#6366f1"/>
+          <stop offset="0%" stop-color="#005bb5"/>
+          <stop offset="100%" stop-color="#2997ff"/>
         </linearGradient>
       </defs>
       <rect x="13" y="14" width="54" height="42" rx="15" fill="url(#${gid})"/>

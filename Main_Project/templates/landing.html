@@ -850,7 +850,7 @@
     align-items: center;
     justify-content: center;
     font-size: 0.78rem;
-    font-weight: 800;
+    font-weight: 700;
     color: white;
     flex-shrink: 0;
   }
@@ -862,14 +862,14 @@
   /* ── Testimonials grid, runs after DOM is fully parsed ── */
   function initTestimonialsGrid() {
     var testimonials = [
-      { name: "Jack",   role: "AP student",    color: "#4f46e5", text: "I used to spend 20 minutes every morning figuring out what to do first. IntelliPlan just tells me. That alone is worth it." },
-      { name: "Max",    role: "College student",           color: "#4f46e5", text: "Canvas dumps everything on you with zero order. IntelliPlan sorts it by what's actually urgent. I haven't missed a deadline since." },
+      { name: "Jack",   role: "AP student",    color: "#0071e3", text: "I used to spend 20 minutes every morning figuring out what to do first. IntelliPlan just tells me. That alone is worth it." },
+      { name: "Max",    role: "College student",           color: "#0071e3", text: "Canvas dumps everything on you with zero order. IntelliPlan sorts it by what's actually urgent. I haven't missed a deadline since." },
       { name: "Sai",    role: "IB student",    color: "#0891b2", text: "The grade modeler is insane. I can simulate what score I need on my next test to keep my GPA exactly where I want it." },
       { name: "Ram",    role: "High school student",         color: "#059669", text: "My study sessions used to be random. Now IntelliPlan builds the whole week and exports it to Google Calendar. I just follow the plan." },
       { name: "Suhrit", role: "AP & dual enrollment",      color: "#dc2626", text: "I'm in 6 APs and dual enrollment. Before IntelliPlan I was constantly anxious about what I was forgetting. Now I feel in control." },
       { name: "Rachel", role: "Honors student", color: "#db2777", text: "The flashcard generator from my own notes is a game changer. Upload after class, get quiz questions automatically. Saves an hour a night." },
       { name: "Aayush", role: "College student",         color: "#d97706", text: "I recommended this to my entire study group. We all use it now. Having the same priority system made group studying actually productive." },
-      { name: "Trish",  role: "High school student",        color: "#6366f1", text: "The AI scheduler feels like having a personal planner who knows exactly how much time you have and what needs to get done first." }
+      { name: "Trish",  role: "High school student",        color: "#0071e3", text: "The AI scheduler feels like having a personal planner who knows exactly how much time you have and what needs to get done first." }
     ];
 
     var track = document.getElementById('reviewsTrack');
@@ -1058,7 +1058,7 @@
     pointer-events: none;
     background:
       radial-gradient(45% 55% at 15% 25%, rgba(67,56,202,0.10) 0%, transparent 60%),
-      radial-gradient(40% 50% at 80% 15%, rgba(79,70,229,0.08) 0%, transparent 65%),
+      radial-gradient(40% 50% at 80% 15%, rgba(0,113,227,0.08) 0%, transparent 65%),
       radial-gradient(38% 60% at 55% 75%, rgba(99,102,241,0.06) 0%, transparent 65%);
     filter: blur(14px);
     opacity: 0.85;
@@ -1085,7 +1085,7 @@
     margin-top: 1.25rem;
     padding-left: clamp(1.25rem, 4vw, 3rem);
     padding-right: clamp(1.25rem, 4vw, 3rem);
-    box-shadow: 0 30px 80px rgba(10,11,20,0.18);
+    box-shadow: none;
   }
   :root[data-theme="dark"] .hero-wrap { background: #0c0e18; border-color: rgba(255,255,255,0.09); }
   .hero-wrap::before,
@@ -1132,7 +1132,7 @@
     color: #ffffff;
   }
   .hero-wrap .hero-actions .btn-primary {
-    box-shadow: 0 10px 30px rgba(80,110,240,0.45);
+    box-shadow: none;
   }
 
   .hero {
@@ -1245,7 +1245,7 @@
     content: '';
     position: absolute;
     inset: -40px;
-    background: radial-gradient(ellipse at 60% 50%, rgba(79,70,229,0.07) 0%, transparent 70%);
+    background: radial-gradient(ellipse at 60% 50%, rgba(0,113,227,0.07) 0%, transparent 70%);
     pointer-events: none;
     z-index: 0;
   }
@@ -1350,7 +1350,7 @@
     padding: 0.55rem 1rem;
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, 0.18);
-    box-shadow: 0 4px 12px rgba(79,70,229,0.25);
+    box-shadow: none;
     animation: badgeFloat 4.5s ease-in-out infinite;
   }
   @keyframes badgeFloat {
@@ -1383,7 +1383,7 @@
   }
 
   .hero-actions .btn-primary {
-    box-shadow: 0 1px 2px rgba(79,70,229,0.15);
+    box-shadow: none;
     transition: background 0.15s ease;
   }
 
@@ -1420,7 +1420,7 @@
   .stat-number {
     font-family: var(--font-display);
     font-size: 3.2rem;
-    font-weight: 800;
+    font-weight: 700;
     background: var(--grad-brand);
     -webkit-background-clip: text;
     background-clip: text;
@@ -1513,7 +1513,7 @@
     display: block;
     font-family: var(--font-display);
     font-size: 3rem;
-    font-weight: 800;
+    font-weight: 700;
     color: var(--border-strong);
     line-height: 1;
     letter-spacing: -0.04em;
@@ -1612,7 +1612,7 @@
     width: 72px;
     height: 72px;
     border-radius: 50%;
-    background: var(--accent, #4f46e5);
+    background: var(--accent, #0071e3);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1622,7 +1622,7 @@
 
   .demo-video-placeholder:hover .demo-play-ring {
     transform: scale(1.09);
-    background: #4338ca;
+    background: #005bb5;
   }
 
   .demo-placeholder-label {
@@ -1792,7 +1792,7 @@
     inset: 0;
     background:
       radial-gradient(50% 60% at 30% 10%, rgba(67,56,202,0.22) 0%, transparent 70%),
-      radial-gradient(45% 55% at 75% 20%, rgba(79,70,229,0.16) 0%, transparent 70%),
+      radial-gradient(45% 55% at 75% 20%, rgba(0,113,227,0.16) 0%, transparent 70%),
       radial-gradient(60% 60% at 50% 95%, rgba(99,102,241,0.08) 0%, transparent 75%);
     pointer-events: none;
   }
@@ -1816,7 +1816,7 @@
     color: #ffffff;
     margin: 0 0 0.9rem;
     letter-spacing: -0.04em;
-    font-weight: 800;
+    font-weight: 700;
   }
 
   .cta-subtitle {
@@ -1940,7 +1940,7 @@
       border-radius: 999px;
       padding: 0.9rem 1rem;
       font-family: var(--font-ui);
-      font-weight: 800;
+      font-weight: 700;
       font-size: 0.92rem;
       box-shadow: var(--shadow-lg);
     }

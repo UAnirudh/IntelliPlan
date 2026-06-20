@@ -12,12 +12,12 @@
 .math-textarea { width:100%; min-height:200px; padding:14px; border:1.5px solid var(--border-strong); border-radius:12px; background:var(--bg); color:var(--text-primary); font-family:'DM Mono',monospace; font-size:0.92rem; resize:vertical; line-height:1.55; }
 .math-textarea:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
 .step-row { display:flex; gap:12px; padding:12px 14px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:12px; margin-bottom:10px; }
-.step-num { width:28px; height:28px; flex-shrink:0; border-radius:50%; background:var(--accent); color:white; font-family:var(--font-ui); font-weight:800; font-size:0.84rem; display:flex; align-items:center; justify-content:center; }
+.step-num { width:28px; height:28px; flex-shrink:0; border-radius:50%; background:var(--accent); color:white; font-family:var(--font-ui); font-weight: 700; font-size:0.84rem; display:flex; align-items:center; justify-content:center; }
 .step-body { flex:1; min-width:0; }
 .step-text { font-size:0.9rem; color:var(--text-primary); margin-bottom:6px; line-height:1.5; }
 .step-math { font-family:'DM Mono',monospace; font-size:0.95rem; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--text-primary); white-space:pre-wrap; overflow-x:auto; }
 .answer-card { background:linear-gradient(135deg,rgba(5,150,105,0.08),rgba(5,150,105,0.02)); border:1.5px solid color-mix(in srgb, var(--low) 35%, var(--border)); border-radius:14px; padding:1rem 1.2rem; margin-top:1rem; }
-.answer-label { font-family:var(--font-ui); font-size:0.7rem; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:var(--low); margin-bottom:4px; }
+.answer-label { font-family:var(--font-ui); font-size:0.7rem; font-weight: 700; text-transform:uppercase; letter-spacing:0.08em; color:var(--low); margin-bottom:4px; }
 .answer-value { font-family:'DM Mono',monospace; font-size:1.15rem; font-weight:700; color:var(--text-primary); word-break:break-word; }
 .notes-box { background:rgba(217,119,6,0.06); border:1px solid rgba(217,119,6,0.25); border-radius:10px; padding:10px 12px; margin-top:0.8rem; font-size:0.84rem; color:var(--text-secondary); line-height:1.5; }
 .similar-card { background:var(--bg-elevated); border:1px dashed var(--border-strong); border-radius:12px; padding:1rem; margin-top:1rem; }
@@ -114,7 +114,7 @@ function similar() {
     if (d.status !== 'ok') return;
     document.getElementById('mSim').innerHTML = `
       <div class="similar-card">
-        <div style="font-family:var(--font-ui);font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:6px;">Try this</div>
+        <div style="font-family:var(--font-ui);font-size:0.7rem;font-weight: 700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:6px;">Try this</div>
         <div style="font-family:'DM Mono',monospace;font-size:0.95rem;margin-bottom:8px;">${esc(d.problem || '')}</div>
         <details><summary style="cursor:pointer;font-size:0.82rem;color:var(--text-secondary);">Reveal answer</summary><div style="margin-top:6px;font-family:'DM Mono',monospace;font-size:0.92rem;color:var(--low);">${esc(d.answer || '')}</div></details>
         <div style="margin-top:8px;"><button class="btn-secondary" onclick="loadSimilarIntoInput(${JSON.stringify(d.problem||'').replace(/"/g,'&quot;')})" style="padding:6px 12px;font-size:0.78rem;cursor:pointer;">Solve this</button></div>

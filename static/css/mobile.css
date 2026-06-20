@@ -576,7 +576,7 @@ select {
     border-radius: 999px;
     padding: 0.85rem 1rem;
     font-family: var(--font-ui);
-    font-weight: 800;
+    font-weight: 700;
     font-size: 0.9rem;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
   }
