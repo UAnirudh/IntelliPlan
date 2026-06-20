@@ -816,7 +816,7 @@
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--r-lg);
-    box-shadow: none;
+    box-shadow: var(--shadow);
     padding: 1.5rem;
     width: 100%;
     display: flex;
@@ -862,14 +862,14 @@
   /* ── Testimonials grid, runs after DOM is fully parsed ── */
   function initTestimonialsGrid() {
     var testimonials = [
-      { name: "Jack",   role: "AP student",    color: "#0071e3", text: "I used to spend 20 minutes every morning figuring out what to do first. IntelliPlan just tells me. That alone is worth it." },
-      { name: "Max",    role: "College student",           color: "#0071e3", text: "Canvas dumps everything on you with zero order. IntelliPlan sorts it by what's actually urgent. I haven't missed a deadline since." },
+      { name: "Jack",   role: "AP student",    color: "#2563eb", text: "I used to spend 20 minutes every morning figuring out what to do first. IntelliPlan just tells me. That alone is worth it." },
+      { name: "Max",    role: "College student",           color: "#2563eb", text: "Canvas dumps everything on you with zero order. IntelliPlan sorts it by what's actually urgent. I haven't missed a deadline since." },
       { name: "Sai",    role: "IB student",    color: "#0891b2", text: "The grade modeler is insane. I can simulate what score I need on my next test to keep my GPA exactly where I want it." },
       { name: "Ram",    role: "High school student",         color: "#059669", text: "My study sessions used to be random. Now IntelliPlan builds the whole week and exports it to Google Calendar. I just follow the plan." },
       { name: "Suhrit", role: "AP & dual enrollment",      color: "#dc2626", text: "I'm in 6 APs and dual enrollment. Before IntelliPlan I was constantly anxious about what I was forgetting. Now I feel in control." },
       { name: "Rachel", role: "Honors student", color: "#db2777", text: "The flashcard generator from my own notes is a game changer. Upload after class, get quiz questions automatically. Saves an hour a night." },
       { name: "Aayush", role: "College student",         color: "#d97706", text: "I recommended this to my entire study group. We all use it now. Having the same priority system made group studying actually productive." },
-      { name: "Trish",  role: "High school student",        color: "#0071e3", text: "The AI scheduler feels like having a personal planner who knows exactly how much time you have and what needs to get done first." }
+      { name: "Trish",  role: "High school student",        color: "#2563eb", text: "The AI scheduler feels like having a personal planner who knows exactly how much time you have and what needs to get done first." }
     ];
 
     var track = document.getElementById('reviewsTrack');
@@ -1081,11 +1081,11 @@
   .hero-wrap {
     background: #0a0b14;
     border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 28px;
+    border-radius: 24px;
     margin-top: 1.25rem;
     padding-left: clamp(1.25rem, 4vw, 3rem);
     padding-right: clamp(1.25rem, 4vw, 3rem);
-    box-shadow: none;
+    box-shadow: var(--shadow);
   }
   :root[data-theme="dark"] .hero-wrap { background: #0c0e18; border-color: rgba(255,255,255,0.09); }
   .hero-wrap::before,
@@ -1132,7 +1132,7 @@
     color: #ffffff;
   }
   .hero-wrap .hero-actions .btn-primary {
-    box-shadow: none;
+    box-shadow: var(--shadow);
   }
 
   .hero {
@@ -1350,7 +1350,7 @@
     padding: 0.55rem 1rem;
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, 0.18);
-    box-shadow: none;
+    box-shadow: var(--shadow);
     animation: badgeFloat 4.5s ease-in-out infinite;
   }
   @keyframes badgeFloat {
@@ -1383,7 +1383,7 @@
   }
 
   .hero-actions .btn-primary {
-    box-shadow: none;
+    box-shadow: var(--shadow);
     transition: background 0.15s ease;
   }
 
@@ -1404,7 +1404,7 @@
     border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
     border-radius: 0;
-    box-shadow: none;
+    box-shadow: var(--shadow);
     padding: 2rem 0;
   }
 
@@ -1612,7 +1612,7 @@
     width: 72px;
     height: 72px;
     border-radius: 50%;
-    background: var(--accent, #0071e3);
+    background: var(--accent, #2563eb);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1622,7 +1622,7 @@
 
   .demo-video-placeholder:hover .demo-play-ring {
     transform: scale(1.09);
-    background: #005bb5;
+    background: #1d4ed8;
   }
 
   .demo-placeholder-label {
@@ -1655,7 +1655,7 @@
     background: var(--bg-card);
     border: none;
     border-radius: 0;
-    box-shadow: none;
+    box-shadow: var(--shadow);
     padding: 1.75rem 1.5rem;
     display: grid;
     grid-template-columns: 44px 1fr;
@@ -1731,7 +1731,7 @@
     background: var(--bg-card);
     border: none;
     border-radius: 0;
-    box-shadow: none;
+    box-shadow: var(--shadow);
     padding: 1.75rem 1rem;
     text-align: center;
     transition: background 0.15s;
@@ -1926,7 +1926,7 @@
     }
     .mobile-cta-minimize:hover { background: var(--accent-soft); color: var(--accent); }
     .mobile-cta-bar.minimized .mobile-cta-minimize {
-      border-radius: 999px; padding: 7px 18px;
+      border-radius: 14px; padding: 7px 18px;
       background: var(--bg-card);
     }
     .mobile-cta-buttons {
@@ -1937,7 +1937,7 @@
     .mobile-cta-primary, .mobile-cta-secondary {
       text-decoration: none;
       text-align: center;
-      border-radius: 999px;
+      border-radius: 14px;
       padding: 0.9rem 1rem;
       font-family: var(--font-ui);
       font-weight: 700;

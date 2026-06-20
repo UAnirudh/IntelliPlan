@@ -87,7 +87,7 @@ function loadLessons() {
     list.innerHTML = ls.map(l => {
       const tagsHtml = (l.tags || []).map(t => `<span class="lesson-tag">${esc(t)}</span>`).join('');
       const media = l.media_kind === 'audio'
-        ? `<div class="lesson-media" style="background:linear-gradient(135deg,#005bb5,#2997ff);"><audio controls src="${esc(l.stream_url)}" preload="metadata" style="width:90%;"></audio></div>`
+        ? `<div class="lesson-media" style="background:linear-gradient(135deg,#1d4ed8,#3b82f6);"><audio controls src="${esc(l.stream_url)}" preload="metadata" style="width:90%;"></audio></div>`
         : `<div class="lesson-media"><video controls src="${esc(l.stream_url)}" preload="metadata"></video></div>`;
       return `
         <div class="lesson-card">
