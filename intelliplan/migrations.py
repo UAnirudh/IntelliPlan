@@ -9,7 +9,33 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
+
+
+def apply_media_balance_migrations(db: Any) -> None:
+    """Add missing columns to media_balance_prefs if they were created
+    before the model gained night-nudge fields.  Idempotent."""
+
+    inspector = inspect(db.engine)
+    if "media_balance_prefs" not in inspector.get_table_names():
+        return
+
+    existing = {col["name"] for col in inspector.get_columns("media_balance_prefs")}
+    dialect = db.engine.dialect.name
+    dt_type = "TIMESTAMP" if dialect != "sqlite" else "DATETIME"
+
+    new_columns = {
+        "night_nudges_enabled": "BOOLEAN DEFAULT TRUE",
+        "night_start_hour": "INTEGER DEFAULT 22",
+        "night_cadence_minutes": "INTEGER DEFAULT 10",
+        "updated_at": dt_type,
+    }
+    for name, ddl in new_columns.items():
+        if name not in existing:
+            db.session.execute(
+                text(f"ALTER TABLE media_balance_prefs ADD COLUMN {name} {ddl}")
+            )
+    db.session.commit()
 
 
 def apply_command_center_migrations(db: Any) -> list[str]:

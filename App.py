@@ -164,6 +164,12 @@ login_manager.login_view = "login"
 app.config["SESSION_SQLALCHEMY"] = db
 Session(app)
 
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    if exception:
+        db.session.rollback()
+    db.session.remove()
+
 app.register_blueprint(auth_bp)
 app.register_blueprint(chatbot_bp)
 app.register_blueprint(plani_agent_bp)
@@ -1290,13 +1296,14 @@ def apply_study_schema_migrations():
 # the App.py namespace for the upcoming /api/today handler.
 from intelliplan.models import command_center as _cc_models
 from intelliplan.models import learning_graph as _lg_models
-from intelliplan.migrations import apply_command_center_migrations, apply_learning_graph_migrations
+from intelliplan.migrations import apply_command_center_migrations, apply_learning_graph_migrations, apply_media_balance_migrations
 BriefingCache, HealthSnapshot, StudentSignal = _cc_models.register(db)
 StudentProfile, ConceptMastery, LearningEvent = _lg_models.register(db)
 
 with app.app_context():
     db.create_all()
     apply_study_schema_migrations()
+    apply_media_balance_migrations(db)
     apply_command_center_migrations(db)
     apply_learning_graph_migrations(db)
 

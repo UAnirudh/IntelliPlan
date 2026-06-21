@@ -169,6 +169,11 @@ def _groq_chat(
     return content
 
 
+def _is_quota_error(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return "quota" in msg or "rate" in msg or "resource exhausted" in msg
+
+
 def chat(
     messages: list[dict],
     *,
@@ -185,7 +190,10 @@ def chat(
             return _gemini_chat(messages, tier, temperature, max_tokens, response_format)
         except Exception as exc:
             errors.append(f"Gemini: {exc}")
-            logger.warning("Gemini chat failed (%s), trying Groq fallback", exc)
+            if _is_quota_error(exc):
+                logger.info("Gemini quota/rate limit hit, falling back to Groq")
+            else:
+                logger.warning("Gemini chat failed (%s), trying Groq fallback", exc)
 
     if groq_api_key():
         try:
@@ -242,7 +250,10 @@ def vision(
             raise RuntimeError("Gemini vision returned empty text.")
         except Exception as exc:
             errors.append(f"Gemini: {exc}")
-            logger.warning("Gemini vision failed (%s), trying Groq fallback", exc)
+            if _is_quota_error(exc):
+                logger.info("Gemini quota/rate limit hit for vision, falling back to Groq")
+            else:
+                logger.warning("Gemini vision failed (%s), trying Groq fallback", exc)
 
     if groq_api_key():
         try:
@@ -323,7 +334,10 @@ def transcribe_audio(filename: str, audio_bytes: bytes) -> str:
             raise RuntimeError("Gemini transcription returned empty text.")
         except Exception as exc:
             errors.append(f"Gemini: {exc}")
-            logger.warning("Gemini transcription failed (%s), trying Groq Whisper", exc)
+            if _is_quota_error(exc):
+                logger.info("Gemini quota/rate limit hit for transcription, falling back to Groq Whisper")
+            else:
+                logger.warning("Gemini transcription failed (%s), trying Groq Whisper", exc)
 
     if groq_api_key():
         try:
