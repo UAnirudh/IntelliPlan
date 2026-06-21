@@ -417,7 +417,7 @@
   <!-- ════════ STEP 0, INGESTION ════════ -->
   <section class="ds-pane" id="dsStep0">
     <h2>What are you studying today?</h2>
-    <p class="ds-pane-sub">Drop a PDF, DOCX or TXT, paste your notes, or describe the topic. Plani extracts the source material for every step that follows.</p>
+    <p class="ds-pane-sub">Drop a PDF, DOCX or TXT, paste your notes, or describe the topic. IntelliPlan extracts the source material for every step that follows.</p>
 
     <div class="ds-ingest-grid">
       <div class="ds-drop" id="dsDrop" onclick="document.getElementById('dsFile').click()"
@@ -488,7 +488,7 @@
   <!-- ════════ STEP 2, ENCODING ENGINE ════════ -->
   <section class="ds-pane hidden" id="dsStep2">
     <h2>Encoding engine, voice AI coach</h2>
-    <p class="ds-pane-sub">Pick a mode. Plani listens to your explanation and pushes back when you drift from the technique.</p>
+    <p class="ds-pane-sub">Pick a mode. The AI listens to your explanation and pushes back when you drift from the technique.</p>
 
     <div style="text-align:center;">
       <div class="ds-mode-toggle">
@@ -507,7 +507,7 @@
           <rect x="19" y="59" width="42" height="29" rx="11" fill="rgba(255,255,255,0.85)"/>
         </svg>
       </div>
-      <div class="ds-call-name">Plani Voice Coach</div>
+      <div class="ds-call-name">Voice Coach</div>
       <div class="ds-call-status" id="dsCallStatus">Tap the mic to start the call</div>
 
       <div class="ds-wave" id="dsWave">
@@ -807,7 +807,7 @@ async function dsAIReply(userUtterance) {
 
 function dsAIspeak(text) {
   dsAddLine('ai', text);
-  document.getElementById('dsCallStatus').textContent = 'Plani speaking…';
+  document.getElementById('dsCallStatus').textContent = 'AI speaking…';
   if (window.speechSynthesis) {
     const utt = new SpeechSynthesisUtterance(text.replace(/[*_`#]/g, ''));
     utt.rate = 1.04;
@@ -824,7 +824,7 @@ function dsAddLine(role, text) {
   if (t.querySelector('.ds-empty')) t.innerHTML = '';
   const line = document.createElement('div');
   line.className = 'ds-tr-line ' + role;
-  line.innerHTML = `<strong>${role === 'ai' ? 'Plani' : 'You'}</strong>${escHtml(text)}`;
+  line.innerHTML = `<strong>${role === 'ai' ? 'IntelliPlan' : 'You'}</strong>${escHtml(text)}`;
   t.appendChild(line);
   t.scrollTop = t.scrollHeight;
   DS.transcript.push({ role, text });

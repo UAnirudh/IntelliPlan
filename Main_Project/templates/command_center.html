@@ -24,12 +24,12 @@
     <nav class="cc-mobile-drawer-nav">
       <a href="/command-center" class="cc-mobile-link cc-mobile-link-active">Command Center</a>
       <a href="/dashboard" class="cc-mobile-link">Dashboard</a>
-      <a href="/tutor" class="cc-mobile-link">Plani Tutor</a>
+      <a href="/tutor" class="cc-mobile-link">AI Tutor</a>
       <a href="/scheduler" class="cc-mobile-link">Scheduler</a>
       <a href="/study" class="cc-mobile-link">Study &amp; Learn</a>
       <a href="/grademodel" class="cc-mobile-link">Grade Modeler</a>
       <a href="/streak" class="cc-mobile-link">Streak</a>
-      <a href="/pet" class="cc-mobile-link">My Plani</a>
+      <a href="/pet" class="cc-mobile-link">My Pet</a>
       <a href="/settings" class="cc-mobile-link">Settings</a>
     </nav>
   </div>
@@ -79,10 +79,10 @@
           <span class="cc-orb-num" id="ccOrbStreakNum">&mdash;</span>
           <span class="cc-orb-lbl">streak</span>
         </a>
-        <a href="/pet" class="cc-orb cc-orb-pet" title="Plani pet">
+        <a href="/pet" class="cc-orb cc-orb-pet" title="Study pet">
           <span class="cc-orb-icon" id="ccOrbPetIcon">&#129370;</span>
           <span class="cc-orb-num">L<span id="ccOrbPetLvl">1</span></span>
-          <span class="cc-orb-lbl" id="ccOrbPetLbl">Plani</span>
+          <span class="cc-orb-lbl" id="ccOrbPetLbl">Pet</span>
         </a>
         <a href="/gradebook" class="cc-orb cc-orb-health" title="Academic health">
           <span class="cc-orb-icon">
@@ -122,13 +122,13 @@
     </section>
 
     {# ─── CENTER: PLANI — the main interaction ─── #}
-    <section class="cc-center" id="ccChatPanel" aria-label="Plani assistant">
+    <section class="cc-center" id="ccChatPanel" aria-label="AI assistant">
       <header class="cc-chat-header">
         <div class="cc-chat-avatar">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
         </div>
         <div class="cc-chat-header-text">
-          <div class="cc-chat-header-title">Plani</div>
+          <div class="cc-chat-header-title">IntelliPlan</div>
           <div class="cc-chat-header-sub" id="ccChatSub"><span class="cc-chat-status-dot"></span>connecting&hellip;</div>
         </div>
         <button type="button" class="cc-chat-newbtn" onclick="planiNew()" title="New conversation">
@@ -170,7 +170,7 @@
             class="cc-chat-input"
             id="ccChatInput"
             rows="1"
-            placeholder="Ask Plani anything&hellip;"
+            placeholder="Ask anything&hellip;"
             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();planiSend()}"
             oninput="planiAutosize(this); planiUpdateSend();"></textarea>
           <button type="submit" class="cc-chat-send" id="ccChatSendBtn" aria-label="Send" disabled>
@@ -178,7 +178,7 @@
           </button>
         </div>
         <div class="cc-chat-hints">
-          <span class="cc-chat-hint">Plani can edit, complete, plan &mdash; anything you can do manually</span>
+          <span class="cc-chat-hint">AI can edit, complete, plan &mdash; anything you can do manually</span>
           <span class="cc-chat-shortcut"><kbd>&#9166;</kbd> send &middot; <kbd>&#8679;&#9166;</kbd> newline &middot; <kbd>&#8984;K</kbd> focus</span>
         </div>
       </form>
@@ -200,13 +200,13 @@
           <a href="/pet" class="cc-momentum-pet">
             <span class="cc-momentum-pet-emoji" id="ccMomentumPetEmoji">&#129370;</span>
             <div>
-              <span class="cc-momentum-pet-name"><span id="ccMomentumPetName">Plani</span> &middot; L<span id="ccMomentumPetLvl">1</span></span>
+              <span class="cc-momentum-pet-name"><span id="ccMomentumPetName">Pet</span> &middot; L<span id="ccMomentumPetLvl">1</span></span>
               <div class="cc-momentum-pet-bar"><div class="cc-momentum-pet-fill" id="ccMomentumPetFill" style="width:0%"></div></div>
             </div>
           </a>
         </div>
         <div class="cc-care-row">
-          <button type="button" class="cc-care-btn" data-action="feed" title="Feed Plani">&#127822;<span class="cc-care-xp">+8</span></button>
+          <button type="button" class="cc-care-btn" data-action="feed" title="Feed pet">&#127822;<span class="cc-care-xp">+8</span></button>
           <button type="button" class="cc-care-btn" data-action="play" title="Play">&#127934;<span class="cc-care-xp">+12</span></button>
           <button type="button" class="cc-care-btn" data-action="pet" title="Pet">&#128149;<span class="cc-care-xp">+4</span></button>
           <button type="button" class="cc-care-btn cc-care-chest" id="ccChestBtn" title="Daily chest">&#127873;<span class="cc-care-xp">claim</span></button>
@@ -314,7 +314,7 @@
   <div class="cc-evolve-card">
     <div class="cc-evolve-burst"></div>
     <div class="cc-evolve-emoji" id="ccEvolveEmoji">&#10024;</div>
-    <h2 id="ccEvolveHeadline">Plani evolved!</h2>
+    <h2 id="ccEvolveHeadline">Your pet evolved!</h2>
     <p id="ccEvolveCopy">Something amazing happened.</p>
     <button type="button" class="cc-evolve-btn" onclick="closeEvolveOverlay()">Continue</button>
   </div>

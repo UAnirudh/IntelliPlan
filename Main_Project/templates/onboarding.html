@@ -162,7 +162,7 @@
     <section id="onbIntro" class="onb-section">
       <div class="onb-eyebrow">Welcome to IntelliPlan</div>
       <h1 class="onb-title">How do you want to set up?</h1>
-      <p class="onb-sub">Pick the path that fits your mood. Both unlock the same features — Customized just tunes Plani to you faster.</p>
+      <p class="onb-sub">Pick the path that fits your mood. Both unlock the same features — Customized just tunes IntelliPlan to you faster.</p>
       <div class="onb-mode-grid">
         <button type="button" class="onb-mode" onclick="onbPickMode('quick')">
           <span class="onb-mode-badge">⚡ 30 seconds</span>
@@ -173,7 +173,7 @@
         <button type="button" class="onb-mode" onclick="onbPickMode('custom')">
           <span class="onb-mode-badge">✨ Recommended</span>
           <h3>Customized with AI</h3>
-          <p>Have a quick back-and-forth with Plani so the scheduler and tutor are tuned to your courses, goals, and free time.</p>
+          <p>Have a quick back-and-forth with IntelliPlan so the scheduler and tutor are tuned to your courses, goals, and free time.</p>
           <span class="onb-mode-meta">~2 minutes. Includes an option to import grades from your school.</span>
         </button>
       </div>
@@ -221,16 +221,16 @@
     <!-- ── STEP: CUSTOM (AI chat) ── -->
     <section id="onbCustom" class="onb-section" style="display:none;">
       <div class="onb-eyebrow">Customized · Step 1 of 2</div>
-      <h1 class="onb-title">Tell Plani about you.</h1>
-      <p class="onb-sub">A quick back-and-forth — Plani will ask the right questions and save your answers as you go.</p>
+      <h1 class="onb-title">Tell IntelliPlan about you.</h1>
+      <p class="onb-sub">A quick back-and-forth — IntelliPlan will ask the right questions and save your answers as you go.</p>
       <div class="onb-chat" id="onbChat"></div>
       <div class="onb-input-row">
         <input id="onbInput" class="onb-textinput" type="text" autocomplete="off"
-          placeholder="Reply to Plani..." onkeydown="if(event.key==='Enter')onbSendChat()">
+          placeholder="Reply to IntelliPlan..." onkeydown="if(event.key==='Enter')onbSendChat()">
         <button class="btn-primary" onclick="onbSendChat()" id="onbSendBtn"
           style="padding:11px 18px;border:none;cursor:pointer;font-size:0.9rem;">Send</button>
       </div>
-      <div class="onb-msg-meta" id="onbChatMeta">Plani saves what it learns automatically. Click "Continue" when you're done chatting.</div>
+      <div class="onb-msg-meta" id="onbChatMeta">IntelliPlan saves what it learns automatically. Click "Continue" when you're done chatting.</div>
       <div class="onb-actions">
         <button class="onb-skip" onclick="onbShow('intro')">← Back</button>
         <div style="display:flex;gap:8px;">
@@ -366,10 +366,10 @@ function onbRenderChat() {
 }
 
 async function onbBootstrapChat() {
-  // First-turn message from Plani.
+  // First-turn message from IntelliPlan.
   if (ONB.messages.length) { onbRenderChat(); return; }
   const meta = document.getElementById('onbChatMeta');
-  meta.textContent = 'Plani is warming up...';
+  meta.textContent = 'IntelliPlan is warming up...';
   try {
     const r = await fetch('/api/onboarding/chat', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -380,7 +380,7 @@ async function onbBootstrapChat() {
       ONB.messages.push({ role: 'assistant', content: d.reply });
       onbRenderChat();
     }
-    meta.textContent = 'Plani saves what it learns as you reply. Tap "Continue" when ready.';
+    meta.textContent = 'IntelliPlan saves what it learns as you reply. Tap "Continue" when ready.';
   } catch (_e) {
     meta.style.color = 'var(--high)';
     meta.textContent = 'Could not reach the AI — try again or skip to Quick.';
@@ -410,7 +410,7 @@ async function onbSendChat() {
       document.getElementById('onbChatNextBtn').classList.add('pulse');
       const meta = document.getElementById('onbChatMeta');
       meta.style.color = 'var(--low)';
-      meta.textContent = 'Plani has what it needs — tap Continue when you\'re ready.';
+      meta.textContent = 'IntelliPlan has what it needs — tap Continue when you\'re ready.';
     }
     // Persist messages in the session for refresh-safety.
     fetch('/api/onboarding/state', {

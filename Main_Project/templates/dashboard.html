@@ -8,7 +8,8 @@
 .mobile-nav-drawer.open { left:0; }
 .mobile-nav-inner { display:flex; flex-direction:column; height:100%; }
 .mobile-nav-link { display:flex; align-items:center; gap:12px; padding:12px 1.25rem; font-size:0.92rem; font-weight:500; color:var(--text-secondary); text-decoration:none; transition:background 0.13s, color 0.13s; }
-.mobile-nav-link:hover, .mobile-nav-link.active { background:var(--accent-soft); color:var(--accent); }
+.mobile-nav-link:hover, .mobile-nav-link.active { background:rgba(22,22,22,0.07); color:var(--ink, #161616); }
+[data-theme="dark"] .mobile-nav-link:hover, [data-theme="dark"] .mobile-nav-link.active { background:rgba(232,232,228,0.1); color:var(--ink, #e8e8e4); }
 @media (max-width: 720px) { .mobile-top-nav { display:flex; } }
 </style>
 
@@ -27,15 +28,15 @@
       <button onclick="closeMobileNav()" style="background:none;border:none;font-size:1.5rem;color:var(--text-muted);cursor:pointer;">×</button>
     </div>
     <nav style="padding:0.75rem 0;">
-      <a href="/dashboard" class="mobile-nav-link active">📋 Dashboard</a>
-      <a href="/tutor" class="mobile-nav-link">🤖 Plani Tutor</a>
-      <a href="/scheduler" class="mobile-nav-link">📅 Scheduler</a>
-      <a href="/study" class="mobile-nav-link">📚 Study & Learn</a>
-      <a href="/grademodel" class="mobile-nav-link">📊 Grade Modeler</a>
-      <a href="/streak" class="mobile-nav-link">🔥 Streak</a>
-      <a href="/groups" class="mobile-nav-link">👥 Study Groups</a>
-      <a href="/lessons" class="mobile-nav-link">🎥 Lessons</a>
-      <a href="/settings" class="mobile-nav-link">⚙️ Settings</a>
+      <a href="/dashboard" class="mobile-nav-link active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-dashboard"/></svg> Dashboard</a>
+      <a href="/tutor" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg> AI Tutor</a>
+      <a href="/scheduler" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-scheduler"/></svg> Scheduler</a>
+      <a href="/study" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-study"/></svg> Study & Learn</a>
+      <a href="/grademodel" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chart"/></svg> Grade Modeler</a>
+      <a href="/streak" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-fire"/></svg> Streak</a>
+      <a href="/groups" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-users"/></svg> Study Groups</a>
+      <a href="/lessons" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-play"/></svg> Lessons</a>
+      <a href="/settings" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-settings"/></svg> Settings</a>
     </nav>
   </div>
 </div>
@@ -57,21 +58,10 @@
   padding: 1.6rem 1.8rem;
   margin-bottom: 1.5rem;
   border-radius: 24px;
-  background:
-    radial-gradient(circle at 88% 12%, rgba(167,139,250,0.22), transparent 42%),
-    radial-gradient(circle at 12% 88%, rgba(251,146,60,0.20), transparent 45%),
-    linear-gradient(135deg, var(--bg-card) 0%, var(--bg-elevated) 100%);
+  background: var(--bg-card);
   border: 1px solid var(--border);
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--shadow);
   overflow: hidden;
-}
-.momentum-hero::before {
-  content: "";
-  position: absolute;
-  top: -40px; right: -40px;
-  width: 220px; height: 220px;
-  background: radial-gradient(circle, rgba(139,92,246,0.10), transparent 70%);
-  pointer-events: none;
 }
 .momentum-streak {
   display: flex;
@@ -113,8 +103,9 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.09em;
-  color: #ea580c;
+  color: var(--ink, #161616);
 }
+[data-theme="dark"] .momentum-kicker { color: var(--ink, #e8e8e4); }
 .momentum-big {
   font-family: var(--font-display, var(--font-ui, sans-serif));
   font-size: 3.2rem;
@@ -142,18 +133,19 @@
   gap: 6px;
   margin-top: 10px;
   padding: 8px 16px;
-  background: linear-gradient(135deg, #fb923c, #f97316);
-  color: white;
+  background: var(--ink, #161616);
+  color: #fff;
   border-radius: 999px;
   font-family: var(--font-ui, sans-serif);
   font-weight: 700;
   font-size: 0.86rem;
   text-decoration: none;
   width: fit-content;
-  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.35);
+  box-shadow: var(--shadow-sm);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
-.momentum-cta:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(249, 115, 22, 0.5); }
+.momentum-cta:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+[data-theme="dark"] .momentum-cta { background: var(--ink, #e8e8e4); color: #161616; }
 .momentum-pet {
   position: relative;
   z-index: 1;
@@ -162,24 +154,19 @@
   align-items: center;
   gap: 8px;
   padding: 14px;
-  background: rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(167, 139, 250, 0.3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
   border-radius: 18px;
   text-decoration: none;
   color: inherit;
   transition: transform 0.18s ease;
-}
-[data-theme="dark"] .momentum-pet {
-  background: rgba(30, 27, 60, 0.45);
-  border-color: rgba(167, 139, 250, 0.4);
 }
 .momentum-pet:hover { transform: translateY(-2px) scale(1.02); }
 .momentum-pet-emoji {
   font-size: 3.4rem;
   line-height: 1;
   animation: momentumPet 2.6s ease-in-out infinite;
-  filter: drop-shadow(0 6px 14px rgba(139, 92, 246, 0.4));
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.15));
 }
 @keyframes momentumPet {
   0%, 100% { transform: translateY(0) scale(1); }
@@ -209,9 +196,10 @@
 .momentum-pet-bar-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #a78bfa, #8b5cf6);
+  background: var(--ink, #161616);
   transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+[data-theme="dark"] .momentum-pet-bar-fill { background: var(--ink, #e8e8e4); }
 .momentum-pet-xp {
   font-size: 0.7rem;
   color: var(--text-muted);
@@ -248,7 +236,7 @@
   </div>
   <a href="/pet" class="momentum-pet" id="momentumPetCard">
     <span class="momentum-pet-emoji" id="momentumPetEmoji">🥚</span>
-    <span class="momentum-pet-name"><span id="momentumPetName">Plani</span> · Lv <span id="momentumPetLevel">1</span></span>
+    <span class="momentum-pet-name"><span id="momentumPetName">Pet</span> · Lv <span id="momentumPetLevel">1</span></span>
     <span class="momentum-pet-stage" id="momentumPetStage">Egg</span>
     <div class="momentum-pet-bar"><div class="momentum-pet-bar-fill" id="momentumPetFill" style="width:0%"></div></div>
     <span class="momentum-pet-xp" id="momentumPetXp">0 / 50 XP</span>
@@ -271,7 +259,7 @@
     const sub = document.getElementById('momentumSub');
     if (days === 0) {
       kicker.textContent = 'Start your streak';
-      sub.textContent = 'Complete one task today to ignite the flame. Streaks unlock rewards and grow your Plani.';
+      sub.textContent = 'Complete one task today to ignite the flame. Streaks unlock rewards and grow your pet.';
     } else if (days < 7) {
       kicker.textContent = 'Daily streak';
       sub.textContent = 'You\'re building a habit. Keep showing up — day 7 unlocks a streak freeze.';
@@ -285,7 +273,7 @@
 
     // Pet card
     document.getElementById('momentumPetEmoji').textContent = STAGE_EMOJI[d.stage_id] || '🥚';
-    document.getElementById('momentumPetName').textContent = d.name || 'Plani';
+    document.getElementById('momentumPetName').textContent = d.name || 'Pet';
     document.getElementById('momentumPetLevel').textContent = d.level || 1;
     document.getElementById('momentumPetStage').textContent = d.stage_name || 'Egg';
     const pct = Math.round((d.progress_to_next || 0) * 100);
@@ -325,9 +313,9 @@
   <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:22px;padding:2rem;width:min(620px,100%);max-height:92vh;overflow:auto;animation:fadeUp 0.32s var(--ease-out) both;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1.25rem;">
       <div>
-        <div style="font-family:var(--font-ui);font-size:0.72rem;font-weight: 700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);margin-bottom:6px;">Welcome to IntelliPlan</div>
+        <div style="font-family:var(--font-ui);font-size:0.72rem;font-weight: 700;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink, #161616);margin-bottom:6px;">Welcome to IntelliPlan</div>
         <h2 style="font-family:var(--font-display);font-size:1.65rem;color:var(--text-primary);margin:0;">Let's set up your study profile</h2>
-        <p style="margin:0.5rem 0 0;color:var(--text-secondary);font-size:0.92rem;">Plani uses this to personalise every reply, schedule, and study plan. Takes about 60 seconds, you can edit anything later in Settings.</p>
+        <p style="margin:0.5rem 0 0;color:var(--text-secondary);font-size:0.92rem;">IntelliPlan uses this to personalise every reply, schedule, and study plan. Takes about 60 seconds, you can edit anything later in Settings.</p>
       </div>
       <button onclick="dismissOnb()" aria-label="Skip" style="background:none;border:none;color:var(--text-muted);font-size:1.4rem;cursor:pointer;line-height:1;">×</button>
     </div>
@@ -372,7 +360,7 @@
       <div class="form-group">
         <label class="form-label">Weekly commitments / extracurriculars (optional)</label>
         <input type="text" id="onbCommit" class="form-input" placeholder="e.g. soccer Mon/Wed 4–6pm, piano Fri 5pm" value="{{ identity.weekly_commitments if identity else '' }}">
-        <span class="form-hint">Plani uses this to avoid scheduling study during your busy times.</span>
+        <span class="form-hint">IntelliPlan uses this to avoid scheduling study during your busy times.</span>
       </div>
     </section>
 
@@ -425,7 +413,8 @@
 
 <style>
   .onb-pill { flex:1; height:6px; border-radius:999px; background:var(--border); }
-  .onb-pill.on { background:linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 70%, white)); }
+  .onb-pill.on { background:var(--ink, #161616); }
+  [data-theme="dark"] .onb-pill.on { background:var(--ink, #e8e8e4); }
   .onb-chip { position:relative; cursor:pointer; }
   .onb-chip input { position:absolute; opacity:0; pointer-events:none; }
   .onb-chip span {
@@ -435,7 +424,10 @@
     transition:all 0.14s;
   }
   .onb-chip input:checked + span {
-    background:var(--accent-soft); border-color:var(--accent); color:var(--accent); font-weight:700;
+    background:rgba(22,22,22,0.07); border-color:var(--ink, #161616); color:var(--ink, #161616); font-weight:700;
+  }
+  [data-theme="dark"] .onb-chip input:checked + span {
+    background:rgba(232,232,228,0.1); border-color:var(--ink, #e8e8e4); color:var(--ink, #e8e8e4);
   }
   .onb-svc {
     display:flex; align-items:center; gap:12px; padding:12px 14px;
@@ -443,7 +435,8 @@
     background:var(--bg-card); text-decoration:none; color:var(--text-primary);
     transition:border-color 0.16s;
   }
-  .onb-svc:hover { border-color:var(--border-accent); }
+  .onb-svc:hover { border-color:var(--ink, #161616); }
+  [data-theme="dark"] .onb-svc:hover { border-color:var(--ink, #e8e8e4); }
   .onb-svc-dot {
     width:36px; height:36px; border-radius:10px;
     display:flex; align-items:center; justify-content:center;
@@ -498,7 +491,7 @@
 <div id="feedbackModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
   <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:420px; width:90%; animation:fadeUp 0.25s ease both;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
-      <h2 style="font-family:var(--font-display); font-size:1.1rem; color:var(--text-primary); display:flex; align-items:center; gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg>Task Complete!</h2>
+      <h2 style="font-family:var(--font-display); font-size:1.1rem; color:var(--text-primary); display:flex; align-items:center; gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink, #161616)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg>Task Complete!</h2>
       <button onclick="closeFeedbackModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <input type="hidden" id="feedbackTaskTitle" />
@@ -506,7 +499,7 @@
     <div class="form-group" style="margin-bottom:1rem;">
       <label class="form-label">How long did this actually take? (minutes)</label>
       <input type="number" id="feedbackActualTime" class="form-input" placeholder="e.g. 45" min="1" max="480" />
-      <span class="form-hint" id="feedbackTimeHint" style="color:var(--accent);"></span>
+      <span class="form-hint" id="feedbackTimeHint" style="color:var(--ink, #161616);"></span>
       <span class="form-hint">Helps IntelliPlan estimate better next time</span>
     </div>
     <div style="display:flex; gap:8px;">
@@ -613,9 +606,9 @@
   </div>
 </div>
 <!-- Saved Schedule Banner -->
-<div id="savedScheduleBanner" style="display:none; background:var(--accent-soft); border:1px solid var(--accent-mid); border-radius:16px; padding:1.25rem 1.5rem; margin-bottom:1.5rem; display:none; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
+<div id="savedScheduleBanner" style="display:none; background:rgba(22,22,22,0.04); border:1px solid rgba(22,22,22,0.12); border-radius:16px; padding:1.25rem 1.5rem; margin-bottom:1.5rem; display:none; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
   <div>
-    <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent); margin-bottom:4px; display:flex; align-items:center; gap:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>Active Study Plan</div>
+    <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink, #161616); margin-bottom:4px; display:flex; align-items:center; gap:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>Active Study Plan</div>
     <div id="savedScheduleName" style="font-family:var(--font-display); font-size:1.1rem; color:var(--text-primary);"></div>
     <div id="savedScheduleDate" style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;"></div>
   </div>
@@ -658,10 +651,11 @@
   transition:border-color 0.18s ease;
 }
 .dash-live-card {
-  background:linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, var(--bg-card)), var(--bg-card) 60%);
-  border-color:color-mix(in srgb, var(--accent) 25%, var(--border));
+  background:linear-gradient(135deg, color-mix(in srgb, var(--ink, #161616) 6%, var(--bg-card)), var(--bg-card) 60%);
+  border-color:color-mix(in srgb, var(--ink, #161616) 18%, var(--border));
 }
-.dash-chest-card:hover, .dash-live-card:hover { border-color:var(--border-accent); }
+.dash-chest-card:hover, .dash-live-card:hover { border-color:var(--ink, #161616); }
+[data-theme="dark"] .dash-chest-card:hover, [data-theme="dark"] .dash-live-card:hover { border-color:var(--ink, #e8e8e4); }
 .dash-chest-card[disabled] { opacity:0.55; cursor:not-allowed; transform:none !important; }
 .chest-emoji {
   font-size:42px; line-height:1;
@@ -678,7 +672,8 @@
 .chest-title { font-weight: 700; color:var(--text-primary); font-size:1rem; line-height:1.2; }
 .chest-sub { font-size:0.82rem; color:var(--text-secondary); margin-top:3px; }
 .chest-cta { font-family:var(--font-ui); font-size:0.84rem; font-weight: 700; color:#ea580c; white-space:nowrap; }
-.chest-cta.accent { color:var(--accent); }
+.chest-cta.accent { color:var(--ink, #161616); }
+[data-theme="dark"] .chest-cta.accent { color:var(--ink, #e8e8e4); }
 @keyframes chestWobble {
   0%,100% { transform:rotate(-3deg) scale(1); }
   50% { transform:rotate(3deg) scale(1.05); }
@@ -747,7 +742,8 @@
     overflow:hidden;
     transition:border-color 0.18s ease;
   }
-  .dash-streak:hover { border-color:var(--border-accent); }
+  .dash-streak:hover { border-color:var(--ink, #161616); }
+  [data-theme="dark"] .dash-streak:hover { border-color:var(--ink, #e8e8e4); }
   .dash-streak-left { display:flex; align-items:center; gap:14px; min-width:0; }
 
   .dash-flame-stage { position:relative; width:64px; height:72px; display:grid; place-items:center; flex-shrink:0; }
@@ -799,7 +795,8 @@
   .dash-spark-icon { font-size:22px; filter:drop-shadow(0 2px 6px rgba(99,102,241,0.45)); }
   .dash-spark-num { font-family:var(--font-ui); font-size:1.25rem; font-weight: 700; color:var(--text-primary); line-height:1; }
   .dash-spark-label { font-size:0.66rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin-top:2px; }
-  .dash-streak-cta { font-family:var(--font-ui); font-size:0.78rem; font-weight:700; color:var(--accent); }
+  .dash-streak-cta { font-family:var(--font-ui); font-size:0.78rem; font-weight:700; color:var(--ink, #161616); }
+  [data-theme="dark"] .dash-streak-cta { color:var(--ink, #e8e8e4); }
 
   @keyframes dashFlameLive {
     0%   { transform:translateY(0)    rotate(-1deg)  scale(1); }
@@ -847,9 +844,9 @@
     <div id="overdueList" class="notion-col"></div>
   </div>
   <div>
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:2px solid var(--accent);">
-      <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--accent); display:inline-flex; align-items:center; gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>Today</span>
-      <span id="todayCount" style="font-size:0.7rem; background:var(--accent-soft); color:var(--accent); padding:2px 8px; border-radius:10px; font-weight:600;">0</span>
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:2px solid var(--ink, #161616);">
+      <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--ink, #161616); display:inline-flex; align-items:center; gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>Today</span>
+      <span id="todayCount" style="font-size:0.7rem; background:rgba(22,22,22,0.07); color:var(--ink, #161616); padding:2px 8px; border-radius:10px; font-weight:600;">0</span>
     </div>
     <div id="todayList" class="notion-col"></div>
   </div>
@@ -934,7 +931,7 @@
     <div id="syllabusDropZone" style="border:2px dashed var(--border); border-radius:14px; padding:2rem; text-align:center; cursor:pointer; transition:border-color 0.15s, background 0.15s;" onclick="document.getElementById('syllabusFileInput').click()" ondragover="event.preventDefault();this.style.borderColor='var(--accent)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="handleSyllabusDrop(event)">
       <input type="file" id="syllabusFileInput" accept=".pdf" style="display:none;" onchange="handleSyllabusFile(this)">
       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" style="margin-bottom:10px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-      <div id="syllabusDropLabel" style="font-size:0.88rem; color:var(--text-muted);">Drop your PDF here or <span style="color:var(--accent); font-weight:600;">browse</span></div>
+      <div id="syllabusDropLabel" style="font-size:0.88rem; color:var(--text-muted);">Drop your PDF here or <span style="color:var(--ink, #161616); font-weight:600;">browse</span></div>
     </div>
 
     <!-- Status / results -->
@@ -1174,7 +1171,7 @@
   color: white;
 }
 .streak-day-dot.today-ring {
-  border-color: var(--accent);
+  border-color: var(--ink, #161616);
   border-width: 2.5px;
 }
 .streak-day-dot.frozen {
@@ -1188,7 +1185,8 @@
   font-weight: 600;
   color: var(--text-muted);
 }
-.streak-day-label.today-txt { color: var(--accent); }
+.streak-day-label.today-txt { color: var(--ink, #161616); }
+[data-theme="dark"] .streak-day-label.today-txt { color: var(--ink, #e8e8e4); }
 .streak-meta {
   display: flex;
   flex-direction: row;
@@ -1281,13 +1279,14 @@
   cursor:pointer; border:1px solid var(--border); background:var(--bg);
   color:var(--text-secondary); font-family:var(--font-ui); transition:all 0.15s;
 }
-.notion-action-btn:hover { background:var(--accent-soft); color:var(--accent); border-color:var(--accent); }
+.notion-action-btn:hover { background:rgba(22,22,22,0.07); color:var(--ink, #161616); border-color:var(--ink, #161616); }
+[data-theme="dark"] .notion-action-btn:hover { background:rgba(232,232,228,0.1); color:var(--ink, #e8e8e4); border-color:var(--ink, #e8e8e4); }
 .notion-action-btn.done-btn { background:var(--low-bg); color:var(--low); border-color:var(--low); }
 .source-badge { font-size:0.62rem; padding:2px 6px; border-radius:5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; }
 .today-block-item {
   display:flex; align-items:center; gap:12px; padding:10px 14px;
   background:var(--bg-card); border:1px solid var(--border); border-radius:10px;
-  font-size:0.85rem; border-left:3px solid var(--accent);
+  font-size:0.85rem; border-left:3px solid var(--ink, #161616);
 }
 @media (max-width: 768px) { #dashColumns { grid-template-columns:1fr !important; } }
 </style>
@@ -1411,7 +1410,7 @@ function openStreakSheet() {
     return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
       <div style="
         width:32px;height:32px;border-radius:999px;display:grid;place-items:center;
-        border:2px solid ${filled ? '#E07A2A' : today ? 'var(--accent)' : '#D1D5DB'};
+        border:2px solid ${filled ? '#E07A2A' : today ? 'var(--ink, #161616)' : '#D1D5DB'};
         background:${filled ? 'linear-gradient(135deg,#fb923c,#E07A2A)' : 'var(--bg)'};
         color:${filled ? '#fff' : 'var(--text-muted)'};
       ">${filled ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}</div>
@@ -1609,7 +1608,7 @@ function updateSubtitle(tasks) {
   if (tasks.overdue.length > 0) {
     sub.innerHTML = `<span style="color:var(--high);display:inline-flex;align-items:center;gap:3px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg>${tasks.overdue.length} overdue</span> · ${tasks.today.length} today · ${tasks.upcoming.length} upcoming`;
   } else if (tasks.today.length > 0) {
-    sub.innerHTML = `<span style="color:var(--accent);display:inline-flex;align-items:center;gap:3px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>${tasks.today.length} due today</span> · ${tasks.upcoming.length} upcoming`;
+    sub.innerHTML = `<span style="color:var(--ink, #161616);display:inline-flex;align-items:center;gap:3px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>${tasks.today.length} due today</span> · ${tasks.upcoming.length} upcoming`;
   } else {
     sub.innerHTML = `<span style="color:var(--text-muted);">${tasks.upcoming.length} upcoming tasks</span>`;
   }
@@ -1625,7 +1624,7 @@ function renderIntegrationBar(calRes) {
         <button onclick="disconnectGCal()" aria-label="Disconnect" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:2px;display:flex;align-items:center;justify-content:center;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>`);
   } else {
-    chips.push(`<a href="/oauth/google" style="display:flex;align-items:center;gap:6px;padding:6px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:20px;font-size:0.78rem;font-weight:600;color:var(--accent);text-decoration:none;">+ Connect Google Calendar</a>`);
+    chips.push(`<a href="/oauth/google" style="display:flex;align-items:center;gap:6px;padding:6px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:20px;font-size:0.78rem;font-weight:600;color:var(--ink, #161616);text-decoration:none;">+ Connect Google Calendar</a>`);
   }
   bar.innerHTML = chips.join('');
 }
@@ -1652,12 +1651,12 @@ function renderSavedSchedule(schedRes) {
       todayWrap.style.display = 'block';
       document.getElementById('todayBlocks').innerHTML = studyBlocks.map(b => `
         <div class="today-block-item">
-          <div style="font-size:0.78rem;color:var(--accent);font-weight:600;min-width:120px;">${b.time_slot?.split(' - ')[0] || ''}</div>
+          <div style="font-size:0.78rem;color:var(--ink, #161616);font-weight:600;min-width:120px;">${b.time_slot?.split(' - ')[0] || ''}</div>
           <div style="flex:1;">
             <div style="font-weight:600;color:var(--text-primary);">${b.assignment}</div>
             <div style="font-size:0.75rem;color:var(--text-muted);">${b.course} · ${b.duration_minutes}m</div>
           </div>
-          <div style="font-size:0.72rem;background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:8px;font-weight:600;">${b.energy_level || ''}</div>
+          <div style="font-size:0.72rem;background:rgba(22,22,22,0.07);color:var(--ink, #161616);padding:2px 8px;border-radius:8px;font-weight:600;">${b.energy_level || ''}</div>
         </div>
       `).join('');
     }
@@ -1781,7 +1780,7 @@ function renderColumn(listId, countId, tasks) {
         ${isDashTest ? '<span class="test-auto-badge">Test</span>' : ''}
       </div>
       <div class="notion-card-meta">
-        ${t.due_date ? `<span class="notion-pill" style="background:var(--accent-soft);color:var(--accent);display:inline-flex;align-items:center;gap:3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>${t.due_date}</span>` : ''}
+        ${t.due_date ? `<span class="notion-pill" style="background:rgba(22,22,22,0.07);color:var(--ink, #161616);display:inline-flex;align-items:center;gap:3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>${t.due_date}</span>` : ''}
         <span class="notion-pill" style="background:${t.color}22;color:${t.color};">${t.priority}</span>
         <span class="source-badge" style="background:${srcColor}22;color:${srcColor};">${srcLabel}</span>
         ${t.course && t.course !== 'Unknown' && t.course !== 'Personal' ? `<span class="notion-pill" style="background:var(--bg);color:var(--text-muted);border:1px solid var(--border);">${t.course}</span>` : ''}
@@ -1937,7 +1936,7 @@ function openSyllabusModal() {
   document.getElementById('syllabusModal').style.display = 'flex';
   document.getElementById('syllabusStatus').style.display = 'none';
   document.getElementById('syllabusResults').style.display = 'none';
-  document.getElementById('syllabusDropLabel').innerHTML = 'Drop your PDF here or <span style="color:var(--accent);font-weight:600;">browse</span>';
+  document.getElementById('syllabusDropLabel').innerHTML = 'Drop your PDF here or <span style="color:var(--ink, #161616);font-weight:600;">browse</span>';
   document.getElementById('syllabusFileInput').value = '';
   _syllabusAssignments = [];
   loadSavedSyllabi();

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block page_title %}My Plani | IntelliPlan{% endblock %}
+{% block page_title %}My Pet | IntelliPlan{% endblock %}
 
 {% block content %}
 <div class="pet-shell">
@@ -24,7 +24,7 @@
     <div class="pet-meta">
       <div class="pet-kicker" id="petKicker">Loading…</div>
       <h1 class="pet-name">
-        <span id="petName">Plani</span>
+        <span id="petName">Pet</span>
         <button class="pet-rename-btn" id="petRenameBtn" title="Rename">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-pencil"/></svg>
         </button>
@@ -66,7 +66,7 @@
   <div class="pet-grid">
     <section class="pet-card">
       <h2 class="pet-h2">Evolution path</h2>
-      <p class="pet-muted">Every milestone unlocks a new stage. Keep showing up to grow your Plani.</p>
+      <p class="pet-muted">Every milestone unlocks a new stage. Keep showing up to grow your pet.</p>
       <div class="pet-stages-list" id="petStagesList"></div>
     </section>
 
@@ -87,8 +87,8 @@
 
 <dialog id="renameDialog" class="pet-dialog">
   <form method="dialog" onsubmit="event.preventDefault(); submitRename();">
-    <h3>Name your Plani</h3>
-    <input type="text" id="renameInput" maxlength="40" placeholder="Plani" />
+    <h3>Name your pet</h3>
+    <input type="text" id="renameInput" maxlength="40" placeholder="Pet" />
     <div class="pet-dialog-btns">
       <button type="button" onclick="document.getElementById('renameDialog').close()">Cancel</button>
       <button type="submit" class="primary">Save</button>
@@ -598,7 +598,7 @@ let petData = null;
 
 function renderPet(d) {
   petData = d;
-  document.getElementById('petName').textContent = d.name || 'Plani';
+  document.getElementById('petName').textContent = d.name || 'Pet';
   document.getElementById('petKicker').textContent = (d.stage_name || 'Egg') + ' stage';
   document.getElementById('petTitleLine').textContent = d.stage_title || '';
   document.getElementById('petLevel').textContent = d.level || 1;
@@ -670,7 +670,7 @@ function submitRename() {
 }
 
 document.getElementById('petRenameBtn').addEventListener('click', () => {
-  document.getElementById('renameInput').value = (petData && petData.name) || 'Plani';
+  document.getElementById('renameInput').value = (petData && petData.name) || 'Pet';
   document.getElementById('renameDialog').showModal();
 });
 
