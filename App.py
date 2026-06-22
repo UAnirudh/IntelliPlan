@@ -282,6 +282,9 @@ class User(UserMixin, db.Model):
     # for the scheduler, tutor, and other AI features. Default OFF to
     # respect privacy — the toggle lives in Settings → Privacy.
     ai_personalization_opt_in = db.Column(db.Boolean, default=False)
+    # ── Role: student | teacher | parent. Drives /teacher and /parent
+    # dashboards plus the StudentLink consent flow.
+    role = db.Column(db.String(16), default="student")
     linked_accounts = db.relationship("LinkedAccount", backref="user", lazy=True, cascade="all, delete-orphan")
     dismissed = db.relationship("DismissedAssignment", backref="user", lazy=True, cascade="all, delete-orphan")
     descriptions = db.relationship("CustomDescription", backref="user", lazy=True, cascade="all, delete-orphan")
@@ -668,6 +671,55 @@ class StudyGroupMember(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     role = db.Column(db.String(16), default="member")  # owner | member
     joined_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class StudyGroupTask(db.Model):
+    """Collaborative task inside a study group. Any member can create,
+    claim, complete, or delete (creator-only) a task."""
+    __tablename__ = "study_group_tasks"
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey("study_groups.id"), nullable=False, index=True)
+    title = db.Column(db.String(200), nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+    due_date = db.Column(db.DateTime, nullable=True)
+    done = db.Column(db.Boolean, default=False)
+    claimed_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+
+class LMSToken(db.Model):
+    """OAuth / API tokens for a user's connection to one LMS provider.
+
+    `provider` is the registry key (google_classroom, blackboard, moodle,
+    powerschool). `tokens_json` stores access/refresh tokens and any
+    provider-specific metadata (base_url for Moodle, etc.).
+    """
+    __tablename__ = "lms_tokens"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    provider = db.Column(db.String(32), nullable=False, index=True)
+    tokens_json = db.Column(db.Text, default="{}")
+    last_synced_at = db.Column(db.DateTime, nullable=True)
+    last_sync_count = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class StudentLink(db.Model):
+    """Teacher/parent ↔ student consent link.
+
+    Students must accept a link before any data is exposed to the
+    linker. The ``relationship`` column doubles as audit log of WHO
+    requested access (teacher vs. parent)."""
+    __tablename__ = "student_links"
+    id = db.Column(db.Integer, primary_key=True)
+    linker_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    student_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    relationship = db.Column(db.String(16), default="teacher")  # teacher | parent
+    invite_token = db.Column(db.String(64), nullable=True)
+    accepted_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class FeatureFlag(db.Model):
@@ -12426,8 +12478,27 @@ app.intelliplan_db = db
 app.intelliplan_bcrypt = bcrypt
 app.intelliplan_user_model = User
 app.intelliplan_get_identity = _get_or_create_identity
+# Expose new models so intelliplan/api/*.py blueprints can resolve them
+# without importing App (avoids the __main__/App double-load issue).
+app.intelliplan_lms_token_model = LMSToken
+app.intelliplan_student_link_model = StudentLink
+app.intelliplan_study_group_model = StudyGroup
+app.intelliplan_study_group_member_model = StudyGroupMember
+app.intelliplan_study_group_task_model = StudyGroupTask
 from intelliplan_api import api_bp as intelliplan_api_bp
 app.register_blueprint(intelliplan_api_bp)
+
+# ── New feature blueprints (grade prediction, LMS sync, roles, group tasks).
+# All are self-contained under intelliplan/ and resolve models via
+# the current_app.intelliplan_* references attached above.
+from intelliplan.api.grade_prediction import bp as grade_prediction_bp
+from intelliplan.api.lms_sync import bp as lms_sync_bp
+from intelliplan.api.roles import bp as roles_bp
+from intelliplan.api.group_tasks import bp as group_tasks_bp
+app.register_blueprint(grade_prediction_bp)
+app.register_blueprint(lms_sync_bp)
+app.register_blueprint(roles_bp)
+app.register_blueprint(group_tasks_bp)
 
 # ── AI Daily Command Center (docs/command-center/). Registered last so
 # the glue module's lazy `from App import ...` calls always resolve.
@@ -12492,6 +12563,7 @@ def _migrate_user_columns():
         ("users", "parent_consent_token", "VARCHAR(64)"),
         ("users", "lms_preferences", "TEXT DEFAULT '{}'"),
         ("users", "ai_personalization_opt_in", "BOOLEAN DEFAULT FALSE"),
+        ("users", "role", "VARCHAR(16) DEFAULT 'student'"),
         # manual_tasks provenance for CSV importer / extension scraper
         ("manual_tasks", "import_source", "VARCHAR(32) DEFAULT ''"),
         ("manual_tasks", "import_batch_id", "VARCHAR(64) DEFAULT ''"),

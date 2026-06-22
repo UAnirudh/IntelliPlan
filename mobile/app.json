@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "IntelliPlan",
+    "slug": "intelliplan",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#f5f4f1"
+    },
+    "scheme": "intelliplan",
+    "plugins": ["expo-router", "expo-secure-store"],
+    "ios": { "supportsTablet": true, "bundleIdentifier": "tech.intelliplan.app" },
+    "android": { "package": "tech.intelliplan.app" },
+    "web": { "bundler": "metro" }
+  }
+}

@@ -3,8 +3,113 @@
 {% block content %}
 <div class="page-header">
   <h1 class="page-title">Grade Modeler</h1>
-  <p class="page-subtitle">See what you need to hit your target grade</p>
+  <p class="page-subtitle">See what you need to hit your target grade — and where the AI thinks you're headed.</p>
 </div>
+
+<style>
+  .gp-panel {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--r-lg); padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem; box-shadow: var(--shadow-sm);
+  }
+  .gp-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.75rem; }
+  .gp-title { font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; margin: 0; }
+  .gp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; }
+  .gp-card { background: var(--bg-elevated); border-radius: var(--r-md); padding: 0.9rem 1rem; border-left: 3px solid var(--accent); }
+  .gp-card.improving { border-left-color: #0a7558; }
+  .gp-card.slipping { border-left-color: var(--high); }
+  .gp-card-course { font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+  .gp-card-percent { font-family: var(--font-display); font-size: 1.75rem; font-weight: 700; color: var(--text-primary); margin: 2px 0; }
+  .gp-card-narrative { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.45; }
+  .gp-card-meta { display: flex; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.7rem; color: var(--text-muted); }
+  .gp-trend-pill { padding: 1px 8px; border-radius: var(--r-full); background: var(--bg-card); border: 1px solid var(--border); }
+  .gp-empty { color: var(--text-muted); font-size: 0.88rem; text-align: center; padding: 1rem; }
+</style>
+
+<div class="gp-panel">
+  <div class="gp-head">
+    <h2 class="gp-title">AI grade predictions</h2>
+    <button class="btn-secondary" id="gpRefreshBtn" onclick="gpRun()">Run prediction</button>
+  </div>
+  <div id="gpResults" class="gp-empty">Tap <em>Run prediction</em> to see where you're projected to land in each course.</div>
+</div>
+
+<script>
+async function gpRun() {
+  const btn = document.getElementById('gpRefreshBtn');
+  const host = document.getElementById('gpResults');
+  btn.disabled = true; btn.textContent = 'Predicting…';
+  host.className = 'gp-empty'; host.innerHTML = 'Crunching your historical performance…';
+
+  // Pass whatever assignments the modeler has loaded into the page as `override`
+  // when available — that's the fastest path. Fallback to server-side aggregation.
+  let body = {};
+  try {
+    if (window.gpBuildOverride) body = { override: window.gpBuildOverride() };
+  } catch (e) { /* ignore — server-side path */ }
+
+  try {
+    const r = await fetch('/api/grade-predictions', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    gpRender(data);
+  } catch (e) {
+    host.innerHTML = "Couldn't run prediction right now. Make sure you have graded assignments loaded.";
+  } finally {
+    btn.disabled = false; btn.textContent = 'Run prediction';
+  }
+}
+
+function gpRender(data) {
+  const host = document.getElementById('gpResults');
+  if (!data.predictions || !data.predictions.length) {
+    host.className = 'gp-empty';
+    host.innerHTML = data.message || 'No graded assignments found yet.';
+    return;
+  }
+  host.className = 'gp-grid';
+  host.innerHTML = data.predictions.map(p => `
+    <div class="gp-card ${p.trend}">
+      <div class="gp-card-course">${p.course}</div>
+      <div class="gp-card-percent">${p.predicted_percent}%</div>
+      <div class="gp-card-narrative">${p.narrative || ''}</div>
+      <div class="gp-card-meta">
+        <span class="gp-trend-pill">${p.trend}</span>
+        <span class="gp-trend-pill">${p.sample_size} graded</span>
+        <span class="gp-trend-pill">${Math.round((p.confidence||0)*100)}% conf</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* The existing grade modeler builds a `state.assignments` array per course.
+   When that's ready we hand the in-memory list to gpRun() so the server
+   doesn't need to re-aggregate. */
+window.gpBuildOverride = function() {
+  try {
+    if (!window.state || !state.assignments) return null;
+    const byCourse = {};
+    for (const a of state.assignments) {
+      const c = a.course || 'Unknown';
+      if (!byCourse[c]) byCourse[c] = { course: c, assignments: [], upcoming_count: 0 };
+      if (a.score != null && a.points_possible) {
+        byCourse[c].assignments.push({
+          score: a.score,
+          points_possible: a.points_possible,
+          due_at: a.due_date,
+        });
+      } else {
+        byCourse[c].upcoming_count++;
+      }
+    }
+    return Object.values(byCourse);
+  } catch (e) { return null; }
+};
+</script>
 
 <div id="loadingState" style="text-align:center; padding:3rem; color:var(--text-muted);">
   <div class="spinner"></div>

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  .pd-shell { display: flex; flex-direction: column; gap: 1.75rem; }
+  .pd-invite {
+    display: flex; gap: 0.5rem; flex: 1; min-width: 280px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--r-md); padding: 0.5rem; max-width: 520px;
+  }
+  .pd-invite input { flex: 1; border: 0; background: transparent; padding: 0 0.5rem; color: var(--text-primary); outline: none; font-size: 0.9rem; }
+  .pd-child {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--r-lg); padding: 1.5rem 1.75rem;
+    display: flex; flex-direction: column; gap: 1rem;
+    box-shadow: var(--shadow-sm);
+  }
+  .pd-child.pending { opacity: 0.7; border-style: dashed; }
+  .pd-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+  .pd-name { font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; color: var(--text-primary); }
+  .pd-email { font-size: 0.85rem; color: var(--text-muted); }
+  .pd-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.6rem; }
+  .pd-stat { background: var(--bg-elevated); border-radius: var(--r-md); padding: 0.9rem; text-align: center; }
+  .pd-stat-val { font-family: var(--font-display); font-size: 1.55rem; font-weight: 700; color: var(--text-primary); }
+  .pd-stat-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }
+  .pd-upcoming-title { font-family: var(--font-display); font-size: 1rem; font-weight: 600; color: var(--text-secondary); margin: 0 0 0.5rem; }
+  .pd-upcoming-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+  .pd-upcoming-list li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.5rem 0.75rem; background: var(--bg); border-radius: var(--r-sm); font-size: 0.88rem; }
+  .pd-upcoming-list .pd-due { color: var(--text-muted); font-size: 0.78rem; white-space: nowrap; }
+  .pd-pill { display: inline-flex; padding: 2px 10px; border-radius: var(--r-full); background: var(--accent-soft); color: var(--accent); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .pd-empty { padding: 3rem 1rem; text-align: center; color: var(--text-muted); }
+</style>
+
+<div class="page-header">
+  <h1 class="page-title">Family view</h1>
+  <p class="page-subtitle">A calm overview of your student's workload — no notifications, no nagging. They control what you see.</p>
+</div>
+
+<div class="pd-shell">
+  <form class="pd-invite" onsubmit="return pdInvite(event)">
+    <input type="email" id="pdInviteEmail" placeholder="Link your student by email…" required />
+    <button type="submit" class="btn-primary">Send link request</button>
+  </form>
+
+  <div id="pdChildren" style="display:flex;flex-direction:column;gap:1rem;"></div>
+  <div id="pdEmpty" class="pd-empty" style="display:none;">
+    No linked students yet. Once they accept your request, you'll see their snapshot here.
+  </div>
+</div>
+
+<script>
+async function pdLoad() {
+  const r = await fetch('/api/roles/links', { credentials: 'same-origin' });
+  if (!r.ok) return;
+  const data = await r.json();
+  const host = document.getElementById('pdChildren');
+  host.innerHTML = '';
+  if (!data.links || !data.links.length) {
+    document.getElementById('pdEmpty').style.display = 'block';
+    return;
+  }
+  document.getElementById('pdEmpty').style.display = 'none';
+
+  for (const link of data.links) {
+    const card = document.createElement('div');
+    card.className = 'pd-child' + (link.accepted ? '' : ' pending');
+    if (link.accepted) {
+      card.innerHTML = `
+        <div class="pd-row">
+          <div><div class="pd-name">${link.student_name}</div><div class="pd-email">${link.student_email}</div></div>
+        </div>
+        <div id="pdStats-${link.student_id}" class="pd-stats">
+          <div class="pd-stat"><div class="pd-stat-val">…</div><div class="pd-stat-label">Total</div></div>
+          <div class="pd-stat"><div class="pd-stat-val">…</div><div class="pd-stat-label">Done</div></div>
+          <div class="pd-stat"><div class="pd-stat-val">…</div><div class="pd-stat-label">Overdue</div></div>
+          <div class="pd-stat"><div class="pd-stat-val">…</div><div class="pd-stat-label">Avg %</div></div>
+        </div>
+        <div>
+          <h3 class="pd-upcoming-title">Upcoming</h3>
+          <ul class="pd-upcoming-list" id="pdUpcoming-${link.student_id}"><li>Loading…</li></ul>
+        </div>`;
+      pdLoadOverview(link.student_id);
+    } else {
+      card.innerHTML = `
+        <div class="pd-row">
+          <div><div class="pd-name">${link.student_name}</div><div class="pd-email">${link.student_email}</div></div>
+          <span class="pd-pill">Awaiting consent</span>
+        </div>
+        <p style="color:var(--text-muted);font-size:0.9rem;margin:0;">Your student needs to accept the link request from their <em>Settings → Linked accounts</em> screen.</p>`;
+    }
+    host.appendChild(card);
+  }
+}
+
+async function pdLoadOverview(studentId) {
+  try {
+    const r = await fetch(`/api/roles/student/${studentId}/overview`, { credentials: 'same-origin' });
+    if (!r.ok) return;
+    const data = await r.json();
+    const s = data.summary || {};
+    const statsHost = document.getElementById(`pdStats-${studentId}`);
+    if (statsHost) {
+      statsHost.innerHTML = `
+        <div class="pd-stat"><div class="pd-stat-val">${s.total_assignments ?? 0}</div><div class="pd-stat-label">Total</div></div>
+        <div class="pd-stat"><div class="pd-stat-val">${s.completed ?? 0}</div><div class="pd-stat-label">Done</div></div>
+        <div class="pd-stat"><div class="pd-stat-val">${s.overdue ?? 0}</div><div class="pd-stat-label">Overdue</div></div>
+        <div class="pd-stat"><div class="pd-stat-val">${s.avg_percent != null ? s.avg_percent + '%' : '—'}</div><div class="pd-stat-label">Avg %</div></div>`;
+    }
+    const upHost = document.getElementById(`pdUpcoming-${studentId}`);
+    if (upHost) {
+      const items = (s.upcoming || []).slice(0, 6);
+      upHost.innerHTML = items.length
+        ? items.map(u => `<li><div><strong>${u.title || 'Assignment'}</strong> <span style="color:var(--text-muted);">· ${u.course || '—'}</span></div><span class="pd-due">${u.due_date || 'no due date'}</span></li>`).join('')
+        : '<li style="color:var(--text-muted);">Nothing upcoming. 🎉</li>'.replace('🎉','');
+    }
+  } catch (e) { /* ignore */ }
+}
+
+async function pdInvite(e) {
+  e.preventDefault();
+  const email = document.getElementById('pdInviteEmail').value.trim();
+  if (!email) return false;
+  const r = await fetch('/api/roles/invite', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ student_email: email }),
+  });
+  const data = await r.json();
+  if (!r.ok) {
+    alert(data.error === 'student_not_found'
+      ? "We couldn't find a student with that email."
+      : 'Could not send request: ' + (data.error || r.status));
+    return false;
+  }
+  document.getElementById('pdInviteEmail').value = '';
+  pdLoad();
+  return false;
+}
+
+pdLoad();
+</script>
+{% endblock %}
