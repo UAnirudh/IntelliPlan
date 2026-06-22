@@ -2,7 +2,7 @@
    Command Center — client-side hydration
    All data loads async via parallel fetch after the shell renders.
 ═══════════════════════════════════════════════════════════════ */
-var STAGE_EMOJI = { egg:'\u{1F95A}', hatchling:'\u{1F423}', sprout:'\u{1F331}', cub:'\u{1F431}', scholar:'\u{1F98A}', sage:'\u{1F989}', guardian:'\u{1F409}', mythic:'\u{1F984}', cosmic:'\u{1F31F}' };
+var STAGE_SVG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg>';
 var TZ = (typeof Intl !== 'undefined') ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -54,8 +54,15 @@ function ccBootstrap() {
     .then(function(r) { if (!r.ok) throw r; return r.json(); })
     .then(hydrateToday)
     .catch(function(e) {
-      console.warn('[cc] today fetch failed', e);
-      ccShowError("We couldn't load your day. Pull to refresh or try again.");
+      console.warn('[cc] today fetch failed, retrying…', e);
+      return new Promise(function(resolve) { setTimeout(resolve, 1500); })
+        .then(function() { return fetch('/api/today', { credentials:'same-origin' }); })
+        .then(function(r) { if (!r.ok) throw r; return r.json(); })
+        .then(hydrateToday)
+        .catch(function(e2) {
+          console.warn('[cc] today retry also failed', e2);
+          ccShowError("We couldn't load your day. Refresh the page to try again.");
+        });
     });
 
   petP
@@ -170,7 +177,7 @@ function hydrateTaskList(plan) {
       + '<p class="cc-task-why-now">' + escapeHtml(task.why_now || '') + '</p>'
       + '</div>'
       + '<div class="cc-task-actions">'
-      + '<button type="button" class="cc-task-btn cc-task-btn-ask" onclick="ccAskAboutTask(this)" title="Ask Plani about this"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>'
+      + '<button type="button" class="cc-task-btn cc-task-btn-ask" onclick="ccAskAboutTask(this)" title="Ask about this"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>'
       + '<button type="button" class="cc-task-btn cc-task-btn-why" aria-expanded="false" onclick="ccToggleWhy(this)" title="Why this priority?"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button>'
       + '<button type="button" class="cc-task-btn cc-task-btn-dismiss" onclick="ccDismissTask(this)" title="Mark done"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>'
       + '</div></div>';
@@ -241,12 +248,12 @@ function hydrateHealth(h) {
 function hydrateMomentumData(d) {
   if (d.status !== 'ok') return;
   setText('ccOrbStreakNum', d.streak || 0);
-  setText('ccOrbPetIcon', STAGE_EMOJI[d.stage_id] || '\u{1F95A}');
+  setHtml('ccOrbPetIcon', STAGE_SVG);
   setText('ccOrbPetLvl', d.level || 1);
-  setText('ccOrbPetLbl', d.name || 'Plani');
+  setText('ccOrbPetLbl', d.name || 'Pet');
   setText('ccMomentumStreakNum', d.streak || 0);
-  setText('ccMomentumPetEmoji', STAGE_EMOJI[d.stage_id] || '\u{1F95A}');
-  setText('ccMomentumPetName', d.name || 'Plani');
+  setHtml('ccMomentumPetEmoji', STAGE_SVG);
+  setText('ccMomentumPetName', d.name || 'Pet');
   setText('ccMomentumPetLvl', d.level || 1);
   var fill = document.getElementById('ccMomentumPetFill');
   if (fill) fill.style.width = Math.round((d.progress_to_next || 0) * 100) + '%';
@@ -285,11 +292,11 @@ function hydrateStreakRisk(d) {
   if (d.level === 'danger' || d.level === 'broken') {
     banner.hidden = false; banner.style.display = 'flex';
     banner.className = 'cc-risk-banner cc-risk-' + d.level;
-    banner.innerHTML = '<span class="cc-risk-icon">' + (d.level === 'broken' ? '\u{1F494}' : '⚠️') + '</span><span>' + d.message + '</span><a href="/dashboard" class="cc-risk-cta">Save it</a>';
+    banner.innerHTML = '<span class="cc-risk-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-warning"/></svg></span><span>' + d.message + '</span><a href="/dashboard" class="cc-risk-cta">Save it</a>';
   } else if (d.perfect_week && d.perfect_week.perfect && d.perfect_week_paid) {
     banner.hidden = false; banner.style.display = 'flex';
     banner.className = 'cc-risk-banner cc-risk-celebrate';
-    banner.innerHTML = '<span class="cc-risk-icon">\u{1F3C6}</span><span>Perfect week · +' + d.perfect_week_paid + ' XP</span>';
+    banner.innerHTML = '<span class="cc-risk-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg></span><span>Perfect week · +' + d.perfect_week_paid + ' XP</span>';
     setTimeout(function() { banner.hidden = true; banner.style.display = 'none'; }, 8000);
   }
 }
@@ -298,6 +305,7 @@ function hydrateStreakRisk(d) {
    UTILITIES
 ═══════════════════════════════════════════════════════════════ */
 function setText(id, val) { var el = document.getElementById(id); if (el) el.textContent = String(val); }
+function setHtml(id, val) { var el = document.getElementById(id); if (el) el.innerHTML = val; }
 function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function escapeAttr(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
@@ -463,8 +471,8 @@ function openChest() {
 
 function showEvolution(evo) {
   if (!evo) return;
-  setText('ccEvolveEmoji', STAGE_EMOJI[evo.to] || '✨');
-  setText('ccEvolveHeadline', evo.headline || 'Plani evolved!');
+  setHtml('ccEvolveEmoji', STAGE_SVG);
+  setText('ccEvolveHeadline', evo.headline || 'Your pet evolved!');
   setText('ccEvolveCopy', evo.copy || '');
   var ov = document.getElementById('ccEvolveOverlay');
   ov.hidden = false; ov.style.display = 'flex';

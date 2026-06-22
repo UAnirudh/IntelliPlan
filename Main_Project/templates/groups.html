@@ -305,7 +305,7 @@ function startMeeting(id) {
 function copyInvite(url, btn) {
   try { navigator.clipboard.writeText(url); }
   catch(e) { const t=document.createElement('input'); t.value=url; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
-  if (btn) { const orig = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(() => btn.textContent = orig, 1400); }
+  if (btn) { const orig = btn.textContent; btn.textContent = 'Copied'; setTimeout(() => btn.textContent = orig, 1400); }
 }
 
 // If we arrived via an invite link (or post-login redirect with ?open=ID),

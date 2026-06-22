@@ -660,7 +660,7 @@ function dsRefreshLockStatus() {
   const msg = document.getElementById('dsLockStatus');
   if (!allChecked) msg.textContent = `Tick all 4 items above (${Object.values(DS.checklist).filter(Boolean).length}/4 done).`;
   else if (!DS.medDone) msg.textContent = 'Finish the silence timer to unlock the encoding engine.';
-  else msg.textContent = '✓ Lock-in complete, encoding engine unlocked.';
+  else msg.textContent = 'Lock-in complete, encoding engine unlocked.';
 }
 
 function dsMedToggle() {
@@ -693,7 +693,7 @@ function dsMedFinish() {
   clearInterval(DS.medInterval);
   DS.medRunning = false;
   DS.medDone = true;
-  document.getElementById('dsMedBtn').textContent = '✓ Done';
+  document.getElementById('dsMedBtn').textContent = 'Done';
   document.getElementById('dsMedBtn').disabled = true;
   dsRefreshLockStatus();
 }
@@ -919,7 +919,7 @@ async function dsSync(i, btn) {
         body: JSON.stringify({ title: '[Recall] ' + c.question.slice(0, 80) }),
       });
     } catch(e){}
-    btn.textContent = '✓ Synced';
+    btn.textContent = 'Synced';
     btn.style.background = '#10b981';
     btn.style.borderColor = '#10b981';
   } catch (e) {

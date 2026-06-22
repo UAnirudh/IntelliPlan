@@ -121,7 +121,7 @@
       barEl.style.width = pct + '%';
       lblEl.textContent = total + ' / ' + t.needed + ' referrals';
     } else {
-      noteEl.innerHTML = `You're at the top tier. 🎉 Top ambassadors get featured on the program page each semester.`;
+      noteEl.innerHTML = `You're at the top tier. Top ambassadors get featured on the program page each semester.`;
       barEl.style.width = '100%';
       lblEl.textContent = total + ' / 25+ referrals';
     }
@@ -139,7 +139,7 @@ function copyRef() {
   const inp = document.getElementById('refLink'); const btn = document.getElementById('copyBtn');
   inp.select(); inp.setSelectionRange(0, 99999);
   try { navigator.clipboard.writeText(inp.value); } catch (e) { document.execCommand && document.execCommand('copy'); }
-  btn.textContent = 'Copied ✓'; btn.classList.add('copied');
+  btn.textContent = 'Copied'; btn.classList.add('copied');
   setTimeout(() => { btn.textContent = 'Copy link'; btn.classList.remove('copied'); }, 1800);
 }
 </script>

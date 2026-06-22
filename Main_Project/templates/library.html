@@ -325,7 +325,7 @@ function loadCardsIntoSrs(flashList) {
 
 function showBanner(text) {
   const b = document.createElement('div');
-  b.textContent = '✓ ' + text;
+  b.textContent = text;
   b.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0d0d0d;color:#fff;padding:11px 22px;border-radius:10px;font-size:0.84rem;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);';
   document.body.appendChild(b);
   setTimeout(() => b.remove(), 2400);

@@ -129,7 +129,7 @@ function saveMaterials() {
   })
     .then(r => r.json())
     .then(d => {
-      status.textContent = d.status === 'ok' ? '✓ Saved' : 'Failed to save';
+      status.textContent = d.status === 'ok' ? 'Saved' : 'Failed to save';
       status.style.color = d.status === 'ok' ? 'var(--low)' : 'var(--high)';
       setTimeout(() => { status.textContent = ''; }, 1500);
     })

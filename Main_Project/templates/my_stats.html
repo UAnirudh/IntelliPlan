@@ -147,7 +147,7 @@
 </style>
 
 <script>
-const STAGE_EMOJI_MS = {egg:'🥚',hatchling:'🐣',sprout:'🌱',cub:'🐱',scholar:'🦊',sage:'🦉',guardian:'🐉',mythic:'🦄',cosmic:'🌟'};
+var STAGE_SVG_MS = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg>';
 
 document.addEventListener('DOMContentLoaded', function() {
   Promise.all([
@@ -238,7 +238,7 @@ function renderStats(d) {
   if (d.pet) {
     document.getElementById('msPetSection').hidden = false;
     document.getElementById('msPetCard').innerHTML =
-      '<span class="ms-pet-emoji">' + (STAGE_EMOJI_MS[d.pet.stage] || '🥚') + '</span>'
+      '<span class="ms-pet-emoji">' + STAGE_SVG_MS + '</span>'
       + '<div class="ms-pet-info">'
       + '<div class="ms-pet-name">' + escHtml(d.pet.name) + '</div>'
       + '<div class="ms-pet-detail">Level ' + d.pet.level + ' · ' + d.pet.xp + ' XP · ' + d.pet.stage + '</div>'

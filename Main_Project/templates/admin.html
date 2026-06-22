@@ -211,7 +211,7 @@ function smsBlastSend() {
       btn.textContent = 'Send SMS';
       if (d.status === 'ok') {
         out.style.color = 'var(--low)';
-        out.textContent = `✓ Sent ${d.sent} · Failed ${d.failed} · Skipped ${d.skipped} (total ${d.total})`;
+        out.textContent = `Sent ${d.sent} · Failed ${d.failed} · Skipped ${d.skipped} (total ${d.total})`;
       } else {
         out.style.color = 'var(--high)';
         out.textContent = d.message || 'Error';

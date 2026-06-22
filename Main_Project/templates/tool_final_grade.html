@@ -157,7 +157,7 @@ function calcFinal() {
   var rounded = Math.round(needed * 10) / 10;
   if (needed <= 0) {
     res.className = 'calc-result show res-ok';
-    res.innerHTML = '<div class="big">You\'re set 🎉</div>Even a <strong>0%</strong> on the final keeps you at or above ' + want + '%. Your target is already locked in.';
+    res.innerHTML = '<div class="big">You\'re set</div>Even a <strong>0%</strong> on the final keeps you at or above ' + want + '%. Your target is already locked in.';
   } else if (needed > 100) {
     res.className = 'calc-result show res-bad';
     res.innerHTML = '<div class="big">' + rounded + '%</div>That\'s above 100%, so ' + want + '% isn\'t reachable from a ' + cur + '% with this final alone. You\'d need extra credit — or aim a little lower.';

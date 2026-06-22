@@ -130,7 +130,7 @@
           const res = await fetch('/api/lms/connect/' + provider, opts);
           const data = await res.json();
           if (data.status === 'ok' && data.url) { window.location.href = data.url; }
-          else if (data.status === 'pending') { lmsBanner('✓ ' + data.message); }
+          else if (data.status === 'pending') { lmsBanner(data.message); }
           else if (data.status === 'manual' && provider === 'moodle') { showMoodleForm(); }
           else if (data.status === 'need_institution' && provider === 'blackboard') { showBlackboardForm(); }
           else { alert(data.message || 'Could not start connection.'); }
@@ -247,7 +247,7 @@
       <div style="display:flex;flex-direction:column;gap:10px;">
         <button type="button" onclick="ipShowImport('paste')"
           style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);text-align:left;cursor:pointer;font-family:inherit;width:100%;">
-          <span style="font-size:1.2rem;">⚡</span>
+          <span style="display:inline-flex;width:1.2rem;height:1.2rem;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-lightning"/></svg></span>
           <span style="flex:1;">
             <span style="display:block;font-size:0.88rem;font-weight:600;">Smart paste</span>
             <span style="display:block;font-size:0.74rem;color:var(--text-muted);margin-top:1px;">
@@ -257,7 +257,7 @@
         </button>
         <button type="button" onclick="ipShowImport('csv')"
           style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);text-align:left;cursor:pointer;font-family:inherit;width:100%;">
-          <span style="font-size:1.2rem;">📄</span>
+          <span style="display:inline-flex;width:1.2rem;height:1.2rem;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-file"/></svg></span>
           <span style="flex:1;">
             <span style="display:block;font-size:0.88rem;font-weight:600;">CSV template</span>
             <span style="display:block;font-size:0.74rem;color:var(--text-muted);margin-top:1px;">
@@ -267,7 +267,7 @@
         </button>
         <button type="button" onclick="ipShowImport('extension')"
           style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);text-align:left;cursor:pointer;font-family:inherit;width:100%;">
-          <span style="font-size:1.2rem;">🧩</span>
+          <span style="display:inline-flex;width:1.2rem;height:1.2rem;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-puzzle"/></svg></span>
           <span style="flex:1;">
             <span style="display:block;font-size:0.88rem;font-weight:600;">Browser extension auto-sync</span>
             <span style="display:block;font-size:0.74rem;color:var(--text-muted);margin-top:1px;">

@@ -349,7 +349,7 @@ async function renderLinks() {
           <div class="lc-title">${escapeHtml(m.name)}</div>
           <span class="lc-badge">${meta.label}</span>
         </div>
-        ${m.when ? `<div class="lc-sub">⏰ ${escapeHtml(m.when)}${m.is_recurring ? ' · Recurring' : ''}</div>` : (m.is_recurring ? '<div class="lc-sub">🔁 Recurring</div>' : '')}
+        ${m.when ? `<div class="lc-sub"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><use href="#i-clock"/></svg> ${escapeHtml(m.when)}${m.is_recurring ? ' · Recurring' : ''}</div>` : (m.is_recurring ? '<div class="lc-sub"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><use href="#i-repeat"/></svg> Recurring</div>' : '')}
         <div class="lc-sub">${escapeHtml(m.url)}</div>
         <div class="lc-row">
           ${joinBtn}

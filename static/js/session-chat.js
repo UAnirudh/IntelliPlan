@@ -78,7 +78,7 @@ function initSessionChat(opts) {
       const r = await fetch(`/api/sessions/messages/${id}/save`, { method: 'POST' });
       const d = await r.json();
       if (d.status === 'ok') {
-        btn.textContent = 'Saved ✓';
+        btn.textContent = 'Saved';
       } else {
         btn.disabled = false;
         alert(d.message || 'Could not save');

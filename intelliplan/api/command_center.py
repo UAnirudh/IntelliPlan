@@ -94,7 +94,11 @@ def create_command_center_blueprint(deps: CommandCenterDeps) -> Blueprint:
         cached = _TODAY_CACHE.get(uid)
         if cached and (now - cached[0]) < _TODAY_CACHE_TTL:
             return jsonify(cached[1])
-        payload = deps.get_service().build(uid)
+        try:
+            payload = deps.get_service().build(uid)
+        except Exception:
+            logger.exception("TodayService.build failed for user %s", uid)
+            return jsonify({"error": "build_failed"}), 502
         result = today_to_dict(payload)
         _TODAY_CACHE[uid] = (now, result)
         return jsonify(result)

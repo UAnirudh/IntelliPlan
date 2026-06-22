@@ -222,7 +222,7 @@
 <div class="momentum-hero" id="momentumHero">
   <div class="momentum-streak">
     <div class="momentum-flame-wrap">
-      <span class="momentum-flame" id="momentumFlame">🔥</span>
+      <span class="momentum-flame" id="momentumFlame"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-fire"/></svg></span>
     </div>
     <div class="momentum-text">
       <span class="momentum-kicker" id="momentumKicker">Daily streak</span>
@@ -235,7 +235,7 @@
     </div>
   </div>
   <a href="/pet" class="momentum-pet" id="momentumPetCard">
-    <span class="momentum-pet-emoji" id="momentumPetEmoji">🥚</span>
+    <span class="momentum-pet-emoji" id="momentumPetEmoji"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg></span>
     <span class="momentum-pet-name"><span id="momentumPetName">Pet</span> · Lv <span id="momentumPetLevel">1</span></span>
     <span class="momentum-pet-stage" id="momentumPetStage">Egg</span>
     <div class="momentum-pet-bar"><div class="momentum-pet-bar-fill" id="momentumPetFill" style="width:0%"></div></div>
@@ -245,10 +245,7 @@
 
 <script>
 (function(){
-  const STAGE_EMOJI = {
-    egg:'🥚', hatchling:'🐣', sprout:'🌱', cub:'🐱',
-    scholar:'🦊', sage:'🦉', guardian:'🐉', mythic:'🦄', cosmic:'🌟'
-  };
+  var STAGE_SVG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg>';
   function paint(d){
     if (!d || d.status !== 'ok') return;
     const days = d.streak || 0;
@@ -272,7 +269,7 @@
     }
 
     // Pet card
-    document.getElementById('momentumPetEmoji').textContent = STAGE_EMOJI[d.stage_id] || '🥚';
+    document.getElementById('momentumPetEmoji').innerHTML = STAGE_SVG;
     document.getElementById('momentumPetName').textContent = d.name || 'Pet';
     document.getElementById('momentumPetLevel').textContent = d.level || 1;
     document.getElementById('momentumPetStage').textContent = d.stage_name || 'Egg';
@@ -518,7 +515,7 @@
     cursor:pointer; font-family:var(--font-ui); font-weight: 700;
     font-size:0.88rem; color:#E07A2A; transition:all 0.16s;
   ">
-    <span style="font-size:1.1rem;">🔥</span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><use href="#i-fire"/></svg>
     <span id="streakPillText">0</span>
   </button>
 </div>
@@ -528,7 +525,7 @@
   <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:22px 22px 0 0; padding:1.75rem; width:min(480px,100%); max-height:80vh; overflow:auto; animation:fadeUp 0.25s ease both;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
       <h2 style="font-family:var(--font-display); font-size:1.3rem; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
-        <span style="font-size:1.6rem;">🔥</span>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E07A2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-fire"/></svg>
         <span id="sheetStreakNum">0</span> day streak
       </h2>
       <button onclick="closeStreakSheet()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.3rem;">×</button>
@@ -553,7 +550,7 @@
 <div id="streakNudge" style="display:none; background:rgba(224,122,42,0.06); border:1px solid rgba(224,122,42,0.25); border-radius:14px; padding:0.85rem 1rem; margin-bottom:1rem; cursor:pointer;" onclick="nudgeTapped()">
   <div style="display:flex; align-items:center; justify-content:space-between; gap:0.75rem;">
     <div style="display:flex; align-items:center; gap:8px;">
-      <span style="font-size:1.1rem;">🔥</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E07A2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><use href="#i-fire"/></svg>
       <span style="font-family:var(--font-ui); font-weight:700; font-size:0.88rem; color:#E07A2A;">One task to keep your streak alive.</span>
     </div>
     <button onclick="event.stopPropagation(); document.getElementById('streakNudge').style.display='none';" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.1rem; padding:2px 4px;">×</button>
@@ -621,7 +618,7 @@
 {# ── Daily Chest + Live Session row ───────────────────────────── #}
 <div class="dash-chest-row" id="dashChestRow">
   <button class="dash-chest-card" id="dashChest" onclick="claimDaily()" aria-label="Claim daily Sparks">
-    <div class="chest-emoji" id="chestEmoji">🎁</div>
+    <div class="chest-emoji" id="chestEmoji"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-gift"/></svg></div>
     <div class="chest-body">
       <div class="chest-title">Daily Spark Chest</div>
       <div class="chest-sub" id="chestSub">Claim today's bonus Sparks</div>
@@ -630,7 +627,7 @@
   </button>
 
   <button class="dash-live-card" onclick="startLiveSession()" aria-label="Start a live study session">
-    <div class="live-emoji">🎙️</div>
+    <div class="live-emoji"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-mic"/></svg></div>
     <div class="chest-body">
       <div class="chest-title">Start Live Session</div>
       <div class="chest-sub">Invite friends, audio or video, share materials live</div>
@@ -658,15 +655,13 @@
 [data-theme="dark"] .dash-chest-card:hover, [data-theme="dark"] .dash-live-card:hover { border-color:var(--ink, #e8e8e4); }
 .dash-chest-card[disabled] { opacity:0.55; cursor:not-allowed; transform:none !important; }
 .chest-emoji {
-  font-size:42px; line-height:1;
+  line-height:1; color:#d97706;
   filter:drop-shadow(0 4px 10px rgba(217,119,6,.45));
   animation:chestWobble 2.4s ease-in-out infinite;
-  font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;
 }
 .live-emoji {
-  font-size:38px; line-height:1;
+  line-height:1; color:var(--ink, #161616);
   filter:drop-shadow(0 4px 10px rgba(99,102,241,.4));
-  font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;
 }
 .chest-body { flex:1; min-width:0; }
 .chest-title { font-weight: 700; color:var(--text-primary); font-size:1rem; line-height:1.2; }
@@ -691,7 +686,7 @@
   <div class="dash-streak" id="dashStreakCard">
     <div class="dash-streak-left">
       <div class="dash-flame-stage" aria-hidden="true">
-        <span class="dash-flame-emoji">🔥</span>
+        <span class="dash-flame-emoji"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E07A2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-fire"/></svg></span>
         <span class="dash-flame-aura"></span>
         <span class="dash-flame-spark s1"></span>
         <span class="dash-flame-spark s2"></span>
@@ -716,7 +711,7 @@
 
     <div class="dash-streak-right">
       <div class="dash-spark-row">
-        <span class="dash-spark-icon" aria-hidden="true">⚡</span>
+        <span class="dash-spark-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-lightning"/></svg></span>
         <div>
           <div class="dash-spark-num" id="dashSparkNum">0</div>
           <div class="dash-spark-label">Sparks</div>
@@ -1312,7 +1307,7 @@
       <textarea id="adNotes" class="form-input" rows="5" placeholder="Add notes, reminders, or a personal description for this assignment..."></textarea>
       <div style="margin-top:8px;display:flex;gap:8px;">
         <button onclick="saveAssignNotes()" class="btn-primary" style="padding:10px 20px;border:none;cursor:pointer;">Save Notes</button>
-        <span id="adSaveStatus" style="font-size:0.78rem;color:var(--low);align-self:center;display:none;">Saved ✓</span>
+        <span id="adSaveStatus" style="font-size:0.78rem;color:var(--low);align-self:center;display:none;">Saved</span>
       </div>
     </div>
   </div>
@@ -1746,7 +1741,7 @@ function renderColumn(listId, countId, tasks) {
   list.innerHTML = '';
 
   if (!tasks.length) {
-    list.innerHTML = `<div style="text-align:center;padding:2rem 0.5rem;color:var(--text-muted);font-size:0.82rem;border:1px dashed var(--border);border-radius:10px;">All clear ✓</div>`;
+    list.innerHTML = `<div style="text-align:center;padding:2rem 0.5rem;color:var(--text-muted);font-size:0.82rem;border:1px dashed var(--border);border-radius:10px;">All clear</div>`;
     return;
   }
 
@@ -2064,7 +2059,7 @@ async function importSelectedSyllabus() {
   closeSyllabusModal();
   // Show a brief banner then reload
   const banner = document.createElement('div');
-  banner.textContent = `✓ Added ${added} assignment${added !== 1 ? 's' : ''} from syllabus`;
+  banner.textContent = `Added ${added} assignment${added !== 1 ? 's' : ''} from syllabus`;
   banner.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0d0d0d;color:#fff;padding:10px 22px;border-radius:10px;font-size:0.84rem;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);';
   document.body.appendChild(banner);
   setTimeout(() => { banner.remove(); location.reload(); }, 1800);
@@ -2170,7 +2165,7 @@ async function checkGCalStatus() {
   const status = document.getElementById('gcalStatus');
   const actions = document.getElementById('gcalActions');
   if (res.connected) {
-    status.innerHTML = '<span style="color:var(--low);">Connected ✓</span>';
+    status.innerHTML = '<span style="color:var(--low);">Connected</span>';
     actions.innerHTML = `<button onclick="disconnectGCal()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text-muted);cursor:pointer;font-size:0.75rem;font-family:var(--font-ui);">Disconnect</button>`;
   } else {
     status.textContent = 'Not connected';
@@ -2192,7 +2187,7 @@ async function checkNotionStatus() {
   const dbSelect = document.getElementById('notionDbSelect');
 
   if (res.connected) {
-    status.innerHTML = `<span style="color:var(--low);">Connected · ${res.tasks.length} tasks ✓</span>`;
+    status.innerHTML = `<span style="color:var(--low);">Connected · ${res.tasks.length} tasks</span>`;
     setup.style.display = 'none';
     dbSelect.style.display = 'none';
     actions.innerHTML = `<button onclick="disconnectNotion()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text-muted);cursor:pointer;font-size:0.75rem;font-family:var(--font-ui);">Disconnect</button>`;
@@ -2293,7 +2288,7 @@ async function loadStreak() {
   if (sparkEl) sparkEl.textContent = sparks;
   if (ctaEl) {
     if (streak === 0) ctaEl.textContent = 'Start a session →';
-    else if (atRisk)  ctaEl.textContent = '⚠ Study today →';
+    else if (atRisk)  ctaEl.textContent = 'Study today →';
     else              ctaEl.textContent = (tier.name || 'Keep it going') + ' →';
   }
 
@@ -2327,7 +2322,7 @@ function _renderChestClaimedState() {
   btn.style.opacity = '0.55';
   btn.style.cursor = 'not-allowed';
   if (emoji) {
-    emoji.textContent = '🌙';
+    emoji.innerHTML = '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-moon"/></svg>';
     emoji.style.animation = 'none';
   }
   if (sub) sub.textContent = 'Already claimed, come back tomorrow.';
@@ -2360,10 +2355,10 @@ function claimDaily() {
     .then(r => r.json())
     .then(d => {
       if (d.status === 'ok' && d.claimed) {
-        emoji.textContent = '✨';
+        emoji.innerHTML = '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg>';
         emoji.style.animation = 'chestPop 0.6s var(--ease-spring)';
         sub.innerHTML = '<strong style="color:var(--low);">+' + d.reward + ' Sparks</strong> added to your balance!';
-        cta.textContent = 'Claimed ✓';
+        cta.textContent = 'Claimed';
         loadStreak();   // refresh spark balance widget
         // After the celebratory animation finishes, lock the chest down
         // for the rest of the day so it's visually clear it's done.
@@ -2480,9 +2475,9 @@ function saveAssignDueDate() {
   }).then(r => r.json()).then(d => {
     if (d.status === 'ok') {
       const s = document.getElementById('adSaveStatus');
-      s.textContent = 'Date saved ✓';
+      s.textContent = 'Date saved';
       s.style.display = 'inline';
-      setTimeout(() => { s.style.display = 'none'; s.textContent = 'Saved ✓'; }, 2000);
+      setTimeout(() => { s.style.display = 'none'; s.textContent = 'Saved'; }, 2000);
     }
   });
 }

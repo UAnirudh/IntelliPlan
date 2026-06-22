@@ -355,7 +355,7 @@
   </div>
 
   <div id="ivEmpty" class="iv-empty">
-    <div style="font-size:2rem;">🗓️</div>
+    <div><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-scheduler"/></svg></div>
     <div class="iv-empty-title">No schedule yet</div>
     <p>Head to the <strong>Creator</strong> tab and generate a plan first.</p>
     <button type="button" class="btn-primary" style="margin-top:1rem;padding:10px 22px;border:none;cursor:pointer;" onclick="switchTab('creator')">Go to Creator</button>
@@ -550,7 +550,7 @@ async function autoDetectTime() {
     if (slot) summaryParts.push(`First free: ${escapeText(slot)}`);
     if (totalFreeHours > 0) summaryParts.push(`~${totalFreeHours}h free today`);
     summaryParts.push(`→ ${prefLabel} sessions recommended`);
-    hint.innerHTML = `<span style="color:var(--low);font-weight:600;">✓</span> ${summaryParts.join(' · ')}`;
+    hint.innerHTML = `<span style="color:var(--low);font-weight:600;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-check"/></svg></span> ${summaryParts.join(' · ')}`;
   } catch(e) {
     btn.innerHTML = '<svg width="13" height="13"><use href="#i-sparkle"/></svg> Auto';
     btn.disabled = false;
@@ -729,16 +729,16 @@ function renderSchedule(data) {
           <div class="time-block ${block.is_break ? 'break-block' : ''}" style="${block.color ? `border-left:3px solid ${block.color};` : ''}">
             <div class="time-slot">${escapeText(block.time_slot || '')}</div>
             <div class="block-content">
-              <div class="block-title">${block.is_break ? '☕ Break' : escapeText(block.assignment || '')}</div>
-              ${!block.is_break && block.course ? `<div class="block-course">📚 ${escapeText(block.course)}</div>` : ''}
-              ${block.notes ? `<div class="block-notes">💡 ${escapeText(block.notes)}</div>` : ''}
+              <div class="block-title">${block.is_break ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-coffee"/></svg> Break' : escapeText(block.assignment || '')}</div>
+              ${!block.is_break && block.course ? `<div class="block-course"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-book"/></svg> ${escapeText(block.course)}</div>` : ''}
+              ${block.notes ? `<div class="block-notes"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-lightbulb"/></svg> ${escapeText(block.notes)}</div>` : ''}
             </div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
               <div class="block-duration">${escapeText(String(block.duration_minutes || 0))}m</div>
             </div>
           </div>`).join('')}
       </div>
-      ${day.daily_tip ? `<div class="daily-tip">✨ ${escapeText(day.daily_tip)}</div>` : ''}
+      ${day.daily_tip ? `<div class="daily-tip"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-sparkle"/></svg> ${escapeText(day.daily_tip)}</div>` : ''}
     </div>`).join('');
 }
 
@@ -821,7 +821,7 @@ function renderIvBlock(b) {
       <div class="iv-block is-break">
         <div class="iv-time">${escapeText(b.time_slot || '')}</div>
         <div class="iv-block-body">
-          <div class="iv-block-title">☕ Break</div>
+          <div class="iv-block-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-coffee"/></svg> Break</div>
           ${b.notes ? `<div class="iv-block-sub">${escapeText(b.notes)}</div>` : ''}
         </div>
         <div class="iv-block-right"><div class="iv-duration">${escapeText(String(b.duration_minutes || 0))}m</div></div>

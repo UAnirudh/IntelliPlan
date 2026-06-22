@@ -127,9 +127,10 @@
 {% endblock %}
 
 {% block scripts %}
+var _svgIcon = function(id) { return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#' + id + '"/></svg>'; };
 const TYPE_ICONS = {
-  schedule: '📅', schedule_day: '🗓️', resources: '📚', notes: '📝',
-  custom_tasks: '✅', identity: '👤', snapshot: '💾', manual_tasks: '📋', library: '📖'
+  schedule: _svgIcon('i-scheduler'), schedule_day: _svgIcon('i-scheduler'), resources: _svgIcon('i-book'), notes: _svgIcon('i-pencil'),
+  custom_tasks: _svgIcon('i-done'), identity: _svgIcon('i-user'), snapshot: _svgIcon('i-save'), manual_tasks: _svgIcon('i-clipboard'), library: _svgIcon('i-book')
 };
 
 function toast(msg) {
@@ -174,7 +175,7 @@ async function loadMemories() {
       day.items.forEach(item => {
         const card = document.createElement('article');
         card.className = 'mem-card';
-        const icon = TYPE_ICONS[item.item_type] || '💾';
+        const icon = TYPE_ICONS[item.item_type] || _svgIcon('i-save');
         card.innerHTML = `
           <div class="mem-type">${icon} ${item.type_label}</div>
           <div class="mem-title">${item.title}</div>

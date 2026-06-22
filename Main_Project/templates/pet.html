@@ -41,11 +41,11 @@
           <span class="pet-stat-label">Total XP</span>
         </div>
         <div class="pet-stat">
-          <span class="pet-stat-num"><span id="petStreak">0</span>🔥</span>
+          <span class="pet-stat-num"><span id="petStreak">0</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-left:2px"><use href="#i-fire"/></svg></span>
           <span class="pet-stat-label">Streak</span>
         </div>
         <div class="pet-stat">
-          <span class="pet-stat-num" id="petMoodEmoji">😴</span>
+          <span class="pet-stat-num" id="petMoodEmoji"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-heart"/></svg></span>
           <span class="pet-stat-label" id="petMoodLabel">Sleepy</span>
         </div>
       </div>
@@ -583,16 +583,14 @@ function svgForStage(stageId, color) {
   }
 }
 
-const MOOD_MAP = {
-  happy: { emoji: '😊', label: 'Happy' },
-  neutral: { emoji: '🙂', label: 'Content' },
-  sad: { emoji: '😔', label: 'Lonely' },
-  sleepy: { emoji: '😴', label: 'Sleepy' }
+var MOOD_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-heart"/></svg>';
+var MOOD_MAP = {
+  happy: { label: 'Happy' },
+  neutral: { label: 'Content' },
+  sad: { label: 'Lonely' },
+  sleepy: { label: 'Sleepy' }
 };
-const STAGE_EMOJI_LIST = {
-  egg:'🥚', hatchling:'🐣', sprout:'🌱', cub:'🐱',
-  scholar:'🦊', sage:'🦉', guardian:'🐉', mythic:'🦄', cosmic:'🌟'
-};
+var PET_STAGE_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg>';
 
 let petData = null;
 
@@ -605,14 +603,14 @@ function renderPet(d) {
   document.getElementById('petXp').textContent = d.xp || 0;
   document.getElementById('petStreak').textContent = d.streak || 0;
 
-  const mood = MOOD_MAP[d.mood] || MOOD_MAP.neutral;
-  document.getElementById('petMoodEmoji').textContent = mood.emoji;
+  var mood = MOOD_MAP[d.mood] || MOOD_MAP.neutral;
+  document.getElementById('petMoodEmoji').innerHTML = MOOD_SVG;
   document.getElementById('petMoodLabel').textContent = mood.label;
 
   document.getElementById('petStageNow').textContent = d.stage_name || 'Egg';
   document.getElementById('petStageNext').textContent = d.next_stage_name
     ? '→ ' + d.next_stage_name
-    : '✨ Maxed';
+    : 'Maxed';
   const pct = Math.round((d.progress_to_next || 0) * 100);
   document.getElementById('petProgressFill').style.width = pct + '%';
   if (d.xp_for_next_stage > 0) {
@@ -632,7 +630,7 @@ function renderPet(d) {
     const badge = idx === currentIdx ? 'YOU ARE HERE' : idx < currentIdx ? 'Unlocked' : (s.min_xp + ' XP');
     return `
       <div class="pet-stage-row ${cls}">
-        <div class="pet-stage-emoji">${STAGE_EMOJI_LIST[s.id] || '✨'}</div>
+        <div class="pet-stage-emoji">${PET_STAGE_SVG}</div>
         <div class="pet-stage-info">
           <span class="pet-stage-name">${s.name}</span>
           <span class="pet-stage-xp">${s.title}</span>

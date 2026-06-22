@@ -690,9 +690,9 @@ document.querySelectorAll('.profile-tab').forEach(tab => {
 /* ── Availability time-block UI ─────────────────── */
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const SLOTS = [
-  {id:'morning',  label:'Morning',   icon:'☀️', range:'6–12am'},
-  {id:'afternoon',label:'Afternoon', icon:'🌤', range:'12–5pm'},
-  {id:'evening',  label:'Evening',   icon:'🌙', range:'5–10pm'}
+  {id:'morning',  label:'Morning',   icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sun"/></svg>', range:'6–12am'},
+  {id:'afternoon',label:'Afternoon', icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cloud-sun"/></svg>', range:'12–5pm'},
+  {id:'evening',  label:'Evening',   icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-moon"/></svg>', range:'5–10pm'}
 ];
 let availData = {};
 
@@ -1040,7 +1040,7 @@ function initA11y() {
       // Keep the tutor's separate TTS flag in sync if this is the read-aloud toggle.
       if (info.legacy) localStorage.setItem(info.legacy, cb.checked ? '1' : '0');
       _applyA11yClasses();
-      _a11yFlash('Saved ✓');
+      _a11yFlash('Saved');
     });
   });
   const langSel = document.getElementById('a11yLang');
@@ -1048,7 +1048,7 @@ function initA11y() {
     langSel.value = localStorage.getItem('ip_a11y_lang') || 'en';
     langSel.addEventListener('change', () => {
       localStorage.setItem('ip_a11y_lang', langSel.value);
-      _a11yFlash('Saved ✓');
+      _a11yFlash('Saved');
     });
   }
   _applyA11yClasses();
@@ -1264,7 +1264,7 @@ function copyReferralLink() {
     document.execCommand && document.execCommand('copy');
   }
   const btn = document.getElementById('refCopyBtn');
-  if (btn) { const t = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(() => btn.textContent = t, 1400); }
+  if (btn) { const t = btn.textContent; btn.textContent = 'Copied'; setTimeout(() => btn.textContent = t, 1400); }
 }
 refreshReferral();
 
@@ -1344,7 +1344,7 @@ function savePhone() {
     .then(d => {
       btn.disabled = false; btn.textContent = 'Save';
       if (d.status === 'ok') {
-        _phoneStatus('Saved ✓', true);
+        _phoneStatus('Saved', true);
         refreshPhone();
       } else _phoneStatus(d.message || 'Failed', false);
     })
@@ -1357,7 +1357,7 @@ function testPhone() {
     .then(r => r.json())
     .then(d => {
       btn.disabled = false; btn.textContent = 'Test SMS';
-      _phoneStatus(d.message || (d.status === 'ok' ? 'Sent ✓' : 'Failed'), d.status === 'ok');
+      _phoneStatus(d.message || (d.status === 'ok' ? 'Sent' : 'Failed'), d.status === 'ok');
     });
 }
 
@@ -1406,7 +1406,7 @@ async function enablePushNotifications() {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ push_reminders_opt_in: true }),
     });
-    _phoneStatus('Browser push enabled ✓', true);
+    _phoneStatus('Browser push enabled', true);
   } catch(e) {
     console.error(e);
     _phoneStatus('Could not enable push: ' + (e.message || e), false);
@@ -1580,7 +1580,7 @@ document.getElementById('saveLmsSourcesBtn')?.addEventListener('click', async ()
     });
     const data = await res.json();
     if (data.status === 'ok') {
-      if (status) status.textContent = 'Saved ✓';
+      if (status) status.textContent = 'Saved';
     } else {
       if (status) status.textContent = data.message || 'Save failed';
     }
