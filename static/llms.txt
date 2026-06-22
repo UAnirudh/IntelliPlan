@@ -1,5 +1,7 @@
 # IntelliPlan - AI Study Planner for Students
 
+Last updated: 2026-06-22
+
 Canonical site: https://intelliplan.tech/
 Primary audience: high school, AP, IB, dual-enrollment, and college students.
 Primary category: free AI study planner, assignment prioritizer, homework planner, and AI tutor.

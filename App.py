@@ -181,15 +181,27 @@ def add_cors_headers(response):
     origin = request.headers.get("Origin", "")
     is_extension = origin.startswith("chrome-extension://")
     is_local = origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1")
-    if origin and (origin.rstrip("/") in ALLOWED_WEB_ORIGINS or is_extension or is_local):
-        # Echo origin back for our own domains/extension so credentials work
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Vary"] = "Origin"
+    # HTML documents do not need CORS — only XHR/fetch endpoints. Limiting
+    # CORS to /api/* removes a wildcard from every HTML response while
+    # keeping the programmatic surfaces working.
+    try:
+        path = (request.path or "")
+    except Exception:
+        path = ""
+    needs_cors = path.startswith("/api/")
+    if needs_cors:
+        if origin and (origin.rstrip("/") in ALLOWED_WEB_ORIGINS or is_extension or is_local):
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Vary"] = "Origin"
+        else:
+            response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Extension-Token"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     else:
-        # Allow any other origin (including Lotus and other embedders)
-        response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Extension-Token"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        # Make sure no upstream layer leaks a wildcard CORS header on HTML.
+        for h in ("Access-Control-Allow-Origin", "Access-Control-Allow-Headers",
+                  "Access-Control-Allow-Methods", "Access-Control-Allow-Credentials"):
+            response.headers.pop(h, None)
     # Sensitive auth/account pages must NEVER be embeddable — an attacker who
     # can iframe the login or settings page can clickjack credentials and
     # account changes. These pages are never part of the embed product, so
@@ -199,14 +211,49 @@ def add_cors_headers(response):
         path = (request.path or "").rstrip("/")
     except Exception:
         path = ""
+    # ── CSP: hardened directives, scoped frame-ancestors per surface ──
+    # Auth/account pages can never be iframed (clickjacking risk). All
+    # other surfaces stay iframeable for Lotus and the embeddable widgets.
+    #
+    # Set CSP_ENFORCE=1 in env to flip from Report-Only to enforced mode;
+    # default ships Report-Only so violations are surfaced without breaking
+    # the live site. After 48h of clean reports, flip the env flag.
+    _common_csp = (
+        "default-src 'self'; "
+        # 'unsafe-inline' on script-src is required today because most
+        # templates ship inline <script> blocks. Migrate to nonces in a
+        # follow-up; CSP_ENFORCE stays off until then.
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
+            "https://www.googletagmanager.com https://www.google-analytics.com "
+            "https://www.clarity.ms https://*.clarity.ms "
+            "https://browser.sentry-cdn.com https://*.sentry.io "
+            "https://js.stripe.com https://challenges.cloudflare.com "
+            "https://meet.jit.si; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "img-src 'self' data: blob: https:; "
+        "font-src 'self' data: https://fonts.gstatic.com; "
+        "connect-src 'self' https://www.google-analytics.com "
+            "https://*.clarity.ms https://*.sentry.io https://api.stripe.com "
+            "https://*.googleapis.com https://meet.jit.si; "
+        "media-src 'self' blob:; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+    )
     if _is_frame_sensitive(path):
         response.headers["X-Frame-Options"] = "DENY"
-        response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
+        csp_value = _common_csp + "frame-src 'none'; frame-ancestors 'none'"
     else:
-        # Allow embedding in iframes on any domain for the embeddable surface.
+        # Embeddable surface — Lotus + our own origin + local dev.
         response.headers.pop("X-Frame-Options", None)
-        response.headers["Content-Security-Policy"] = "frame-ancestors * https://lotus-72e3e.web.app https://intelliplan.tech http://localhost:5000"
-    response.headers["X-Permitted-Cross-Domain-Policies"] = "all"
+        csp_value = _common_csp + (
+            "frame-src https://meet.jit.si https://challenges.cloudflare.com; "
+            "frame-ancestors 'self' https://lotus-72e3e.web.app "
+            "https://intelliplan.tech http://localhost:5000"
+        )
+    csp_header_name = "Content-Security-Policy" if os.getenv("CSP_ENFORCE") == "1" else "Content-Security-Policy-Report-Only"
+    response.headers[csp_header_name] = csp_value
+    response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
     return response
 
 # Paths that must never be iframed (clickjacking protection). Matched as a
@@ -2290,9 +2337,107 @@ def landing():
 def robots_txt():
     return send_from_directory(app.static_folder, "robots.txt")
 
+def _sitemap_lastmod_for(template_name: str | None, fallback: str) -> str:
+    """Return an ISO-8601 lastmod for a sitemap URL.
+
+    Prefer the linked template's mtime — it's the closest proxy for "when
+    did this page actually change?". Falls back to ``fallback`` when the
+    template can't be stat'd (e.g. dynamic routes, missing files)."""
+    if template_name:
+        try:
+            path = os.path.join(app.template_folder or "", template_name)
+            if os.path.exists(path):
+                ts = os.path.getmtime(path)
+                return datetime.utcfromtimestamp(ts).strftime("%Y-%m-%d")
+        except Exception:
+            pass
+    return fallback
+
+
+# Canonical sitemap. Each entry: (path, template_or_None, default_lastmod,
+# changefreq, priority). Onboarding is intentionally absent — it's
+# Disallowed in robots.txt, so listing it in the sitemap is a conflict.
+_SITEMAP_ENTRIES = [
+    # Public marketing
+    ("/",                                "landing.html",                  "2026-06-22", "weekly",  "1.0"),
+    ("/tutor",                           "tutor.html",                    "2026-06-22", "weekly",  "0.9"),
+    ("/faq",                             "faq.html",                      "2026-06-22", "monthly", "0.9"),
+    ("/pricing",                         "pricing.html",                  "2026-06-22", "monthly", "0.8"),
+    ("/compare",                         "compare.html",                  "2026-06-22", "monthly", "0.8"),
+    ("/about",                           "about.html",                    "2026-06-22", "monthly", "0.7"),
+    ("/contact",                         "contact.html",                  "2026-06-22", "yearly",  "0.5"),
+    ("/install",                         "install.html",                  "2026-06-22", "monthly", "0.6"),
+    ("/legal",                           "legal.html",                    "2026-06-22", "yearly",  "0.3"),
+    ("/ambassador",                      "ambassador.html",               "2026-06-22", "monthly", "0.7"),
+    ("/schools",                         "schools.html",                  "2026-06-22", "monthly", "0.7"),
+    ("/uk",                              "uk.html",                       "2026-06-22", "monthly", "0.7"),
+    ("/api-docs",                        "api_docs.html",                 "2026-06-22", "monthly", "0.5"),
+    # Blog
+    ("/blog",                            "blog_index.html",               "2026-06-22", "weekly",  "0.8"),
+    ("/blog/how-to-use-canvas-with-a-study-planner", "blog_canvas.html",  "2026-06-22", "monthly", "0.7"),
+    ("/blog/studentvue-study-planner",   "blog_studentvue.html",          "2026-06-22", "monthly", "0.7"),
+    ("/blog/how-to-prioritize-assignments", "blog_prioritize.html",       "2026-06-22", "monthly", "0.7"),
+    ("/blog/best-ai-study-planner",      "blog_best_ai_planner.html",     "2026-06-22", "monthly", "0.8"),
+    ("/blog/best-student-planner-app",   "blog_student_planner_app.html", "2026-06-22", "monthly", "0.8"),
+    ("/blog/ai-notetaker-for-students",  "blog_ai_notetaker.html",        "2026-06-22", "monthly", "0.8"),
+    ("/blog/what-is-a-good-gpa",         "blog_good_gpa.html",            "2026-06-22", "monthly", "0.8"),
+    ("/blog/ap-study-planner",           "blog_ap_study_planner.html",    "2026-06-22", "monthly", "0.8"),
+    # Compare
+    ("/compare/intelliplan-vs-notion",       "compare_notion.html",       "2026-06-22", "monthly", "0.8"),
+    ("/compare/intelliplan-vs-myhomework",   "compare_myhomework.html",   "2026-06-22", "monthly", "0.8"),
+    ("/compare/intelliplan-vs-turbo-ai",     "compare_turbo.html",        "2026-06-22", "monthly", "0.8"),
+    ("/compare/intelliplan-vs-quizlet",      "compare_quizlet.html",      "2026-06-22", "monthly", "0.8"),
+    ("/compare/intelliplan-vs-mystudylife",  "compare_mystudylife.html",  "2026-06-22", "monthly", "0.8"),
+    # Tools
+    ("/tools/final-grade-calculator",    "tool_final_grade.html",         "2026-06-22", "monthly", "0.9"),
+    ("/tools/gpa-calculator",            "tool_gpa_calculator.html",      "2026-06-22", "monthly", "0.9"),
+    ("/tools/grade-calculator",          "tool_grade_calculator.html",    "2026-06-22", "monthly", "0.9"),
+    ("/tools/finals-countdown",          "tool_countdown.html",           "2026-06-22", "monthly", "0.7"),
+    ("/tools/test-grade-calculator",     "tool_test_grade.html",          "2026-06-22", "monthly", "0.9"),
+    ("/tools/study-schedule-maker",      "tool_schedule_maker.html",      "2026-06-22", "monthly", "0.9"),
+    ("/tools/text-dissector",            "text_dissector.html",           "2026-06-22", "monthly", "0.8"),
+    # App pages
+    ("/olympiad",                        "olympiad.html",                 "2026-06-22", "monthly", "0.85"),
+    ("/dashboard",                       "dashboard.html",                "2026-06-22", "daily",   "0.9"),
+    ("/scheduler",                       "scheduler.html",                "2026-06-22", "daily",   "0.8"),
+    ("/study",                           "study.html",                    "2026-06-22", "weekly",  "0.8"),
+    ("/learn",                           "study.html",                    "2026-06-22", "weekly",  "0.8"),
+    ("/study-and-learn",                 "study.html",                    "2026-06-22", "weekly",  "0.8"),
+    ("/grademodel",                      "grademodel.html",               "2026-06-22", "weekly",  "0.8"),
+    ("/grades",                          "gradebook.html",                "2026-06-22", "weekly",  "0.7"),
+    ("/gradebook",                       "gradebook.html",                "2026-06-22", "weekly",  "0.7"),
+    ("/classes",                         None,                            "2026-06-22", "weekly",  "0.7"),
+    ("/streak",                          "streak.html",                   "2026-06-22", "weekly",  "0.7"),
+    ("/focus",                           "focus.html",                    "2026-06-22", "weekly",  "0.7"),
+    ("/lessons",                         None,                            "2026-06-22", "weekly",  "0.7"),
+    ("/groups",                          "groups.html",                   "2026-06-22", "weekly",  "0.7"),
+    ("/meetings",                        "meetings.html",                 "2026-06-22", "weekly",  "0.7"),
+    ("/priority",                        None,                            "2026-06-22", "weekly",  "0.6"),
+    ("/writing",                         None,                            "2026-06-22", "weekly",  "0.7"),
+    ("/math",                            None,                            "2026-06-22", "weekly",  "0.7"),
+    ("/extractor",                       None,                            "2026-06-22", "weekly",  "0.6"),
+    ("/tests",                           None,                            "2026-06-22", "weekly",  "0.7"),
+    ("/memories",                        None,                            "2026-06-22", "weekly",  "0.6"),
+    ("/library",                         "library.html",                  "2026-06-22", "weekly",  "0.7"),
+]
+
+
 @app.route("/sitemap.xml")
 def sitemap_xml():
-    return send_from_directory(app.static_folder, "sitemap.xml", mimetype="application/xml")
+    base = APP_BASE_URL.rstrip("/")
+    parts = ['<?xml version="1.0" encoding="UTF-8"?>',
+             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for path, tpl, default_lm, changefreq, priority in _SITEMAP_ENTRIES:
+        lastmod = _sitemap_lastmod_for(tpl, default_lm)
+        parts.append(
+            f"  <url><loc>{base}{path}</loc>"
+            f"<lastmod>{lastmod}</lastmod>"
+            f"<changefreq>{changefreq}</changefreq>"
+            f"<priority>{priority}</priority></url>"
+        )
+    parts.append("</urlset>")
+    xml = "\n".join(parts)
+    return flask.Response(xml, mimetype="application/xml")
 
 @app.route("/llms.txt")
 def llms_txt():
@@ -2312,14 +2457,13 @@ def _indexnow_host():
 
 
 def _indexnow_sitemap_urls(limit=10000):
-    path = os.path.join(app.static_folder, "sitemap.xml")
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            xml = f.read()
-    except Exception as e:
-        print(f"[indexnow] could not read sitemap: {e}")
-        return []
-    urls = re.findall(r"<loc>\s*([^<\s]+)\s*</loc>", xml, flags=re.I)
+    """IndexNow source-of-truth: the same URL list the dynamic sitemap emits.
+
+    Previously we re-read static/sitemap.xml; now that the sitemap is
+    generated at request time we pull straight from _SITEMAP_ENTRIES so
+    the two surfaces can never drift."""
+    base = APP_BASE_URL.rstrip("/")
+    urls = [f"{base}{path}" for path, *_ in _SITEMAP_ENTRIES]
     return urls[:limit]
 
 
@@ -2550,10 +2694,24 @@ def _seo_headers(response):
     # + Google's "HTTPS / best practices" signals without breaking embeds.
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-    # HSTS: force HTTPS for a year. Browsers ignore this header over plain
-    # HTTP, so it's safe to always send. No includeSubDomains (we don't
-    # control every subdomain) and no preload (opt-in is a deliberate step).
-    response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+    # HSTS: 2 years, opt-in to includeSubDomains/preload via env so we don't
+    # commit subdomain HTTPS before every subdomain is actually serving HTTPS.
+    # Once verified, set HSTS_PRELOAD=1 in env to unlock preload eligibility.
+    hsts = "max-age=63072000"
+    if os.getenv("HSTS_INCLUDE_SUBDOMAINS", "1") == "1":
+        hsts += "; includeSubDomains"
+    if os.getenv("HSTS_PRELOAD") == "1":
+        hsts += "; preload"
+    response.headers["Strict-Transport-Security"] = hsts
+    # Permissions-Policy: deny features we don't use anywhere. Camera/mic/
+    # speaker-selection are NOT denied — Jitsi live sessions need them.
+    # Payment is denied today; flip to 'self' if we ever ship Stripe Checkout
+    # on our own origin.
+    response.headers.setdefault("Permissions-Policy", (
+        "geolocation=(), interest-cohort=(), payment=(), usb=(), "
+        "magnetometer=(), gyroscope=(), accelerometer=(), "
+        "ambient-light-sensor=(), battery=(), bluetooth=()"
+    ))
     return response
 
 @app.route("/tutor")
@@ -2572,7 +2730,7 @@ def compare():
 
 @app.route("/pricing")
 def pricing():
-    return redirect(url_for("faq"))
+    return render_template("pricing.html", active_page="pricing")
 
 # ── Blog / guides ──────────────────────────────────────────────
 @app.route("/blog/how-to-use-canvas-with-a-study-planner")

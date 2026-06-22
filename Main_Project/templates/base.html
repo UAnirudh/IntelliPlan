@@ -6,6 +6,7 @@
      real values on notched iPhones, without it the insets are always 0. #}
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <title>{% block page_title %}IntelliPlan | Free AI Study Planner and Homework Organizer{% endblock %}</title>
+  {# Per-request CSP nonce so future inline scripts can opt out of 'unsafe-inline' incrementally. #}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   {# Canonical: forces Google to consolidate http/https + trailing-slash variants
@@ -28,7 +29,6 @@
   {%- set _default_desc = "Free AI study planner. Sync Canvas, StudentVue & Schoology, auto-prioritize assignments, build study schedules, and learn with the built-in AI tutor." -%}
   <meta name="description" content="{% block meta_description %}{{ _default_desc }}{% endblock %}">
   <meta name="author" content="IntelliPlan">
-  <meta name="keywords" content="AI study planner, free study planner, Canvas study planner, StudentVue planner, assignment prioritizer, AI tutor for students, study schedule generator, grade calculator, homework planner, AP study tools">
   <meta name="application-name" content="IntelliPlan">
 
   {# ── Service categorization signals ─────────────────────────────
