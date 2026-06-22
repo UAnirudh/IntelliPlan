@@ -402,7 +402,31 @@
       line-height: 1.6;
       font-size: 15px;
       text-rendering: optimizeLegibility;
+      position: relative;
     }
+    /* Subtle ambient atmosphere — soft radial wash anchored top-left
+       to break the flat background without distracting from content. */
+    body::before {
+      content:'';
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 0% 0%, var(--accent-soft) 0%, transparent 55%),
+        radial-gradient(ellipse 60% 50% at 100% 100%, var(--accent-soft) 0%, transparent 60%);
+      opacity: 0.6;
+    }
+    /* Fine-grain noise overlay — adds tactile warmth so surfaces don't
+       feel like a clinical CSS gradient. Heavy on light theme, lighter on dark. */
+    body::after {
+      content:'';
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity: 0.025;
+      mix-blend-mode: multiply;
+    }
+    [data-theme="dark"] body::after { opacity: 0.04; mix-blend-mode: screen; }
+    body > * { position: relative; z-index: 1; }
 
     h1, h2, h3 {
       font-family: var(--font-display);
@@ -420,6 +444,32 @@
     p { line-height: 1.65; }
     ::selection { background: var(--accent-soft); color: var(--accent); }
     a { transition: color 0.15s ease; }
+
+    /* Branded scrollbars — quieter, theme-aware, doesn't fight the layout. */
+    * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+    *::-webkit-scrollbar { width: 10px; height: 10px; }
+    *::-webkit-scrollbar-track { background: transparent; }
+    *::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border: 2px solid transparent;
+      background-clip: padding-box;
+      border-radius: 10px;
+      transition: background 0.18s;
+    }
+    *::-webkit-scrollbar-thumb:hover { background: var(--text-muted); background-clip: padding-box; }
+
+    /* Subtle inner highlight on elevated surfaces — the "edge light"
+       that makes cards feel physical instead of pasted-on. */
+    .stat-card, .assignment-card, .login-card {
+      position: relative;
+    }
+    [data-theme="dark"] .stat-card::after,
+    [data-theme="dark"] .assignment-card::after,
+    [data-theme="dark"] .login-card::after {
+      content:''; position:absolute; inset:0; border-radius:inherit;
+      pointer-events:none;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    }
 
     /* ══════════════════════════════════════
        HEADER
@@ -537,8 +587,20 @@
 
     .date-badge {
       font-family:var(--font-ui); font-size:0.74rem; font-weight:600;
-      color:var(--text-muted); background:var(--accent-soft);
+      color:var(--accent); background:var(--accent-soft);
       padding:4px 12px; border-radius:var(--r-full);
+      display:inline-flex; align-items:center; gap:6px;
+      border:1px solid var(--border-accent);
+    }
+    .date-badge::before {
+      content:''; width:6px; height:6px; border-radius:50%;
+      background:var(--accent); flex-shrink:0;
+      box-shadow:0 0 0 3px var(--accent-soft);
+      animation:datePulse 2.4s ease-in-out infinite;
+    }
+    @keyframes datePulse {
+      0%, 100% { box-shadow:0 0 0 3px var(--accent-soft); }
+      50%      { box-shadow:0 0 0 5px transparent; }
     }
     .toggle-wrap { display:flex; align-items:center; gap:7px; font-size:0.75rem; color:var(--text-muted); font-weight:500; }
     .toggle { position:relative; width:46px; height:24px; cursor:pointer; flex-shrink:0; }
@@ -889,9 +951,9 @@
     /* ══════════════════════════════════════
        PAGE HEADER
     ══════════════════════════════════════ */
-    .page-header { margin-bottom:2rem; animation:fadeUp 0.5s var(--ease-out) both; }
-    .page-title { font-family:var(--font-display); font-size:2rem; font-weight:700; color:var(--text-primary); letter-spacing:-0.022em; margin-bottom:4px; line-height:1.1; }
-    .page-subtitle { font-size:0.95rem; color:var(--text-muted); font-weight:300; letter-spacing:-0.006em; }
+    .page-header { margin-bottom:2.25rem; animation:fadeUp 0.5s var(--ease-out) both; }
+    .page-title { font-family:var(--font-display); font-size:clamp(2rem, 1.5rem + 1.6vw, 2.75rem); font-weight:700; color:var(--text-primary); letter-spacing:-0.028em; margin-bottom:6px; line-height:1.05; }
+    .page-subtitle { font-size:1.02rem; color:var(--text-muted); font-weight:300; letter-spacing:-0.008em; max-width:60ch; }
 
     /* ══════════════════════════════════════
        STATS BAR
@@ -903,7 +965,7 @@
       transition:background 0.2s ease, box-shadow 0.25s ease, transform 0.2s ease, border-color 0.2s ease;
       box-shadow:var(--shadow-sm);
     }
-    .stat-card:hover { background:var(--bg-card); box-shadow:var(--shadow); transform:translateY(-1px); border-color:var(--border-strong); }
+    .stat-card:hover { background:var(--bg-card); box-shadow:var(--shadow); transform:translateY(-2px); border-color:var(--border-accent); }
     .stat-icon { width:40px; height:40px; border-radius:var(--r-md); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
     .stat-info { flex:1; }
     .stat-value { font-family:var(--font-display); font-size:1.75rem; font-weight:400; color:var(--text-primary); line-height:1.05; margin-bottom:2px; letter-spacing:-0.02em; }
@@ -937,7 +999,9 @@
     .assignment-card::before {
       content:''; position:absolute; left:0; top:8px; bottom:8px;
       width:3px; border-radius:0 2px 2px 0;
+      transition:width 0.2s ease;
     }
+    .assignment-card:hover::before { width:5px; }
     .assignment-card.high::before   { background:var(--high); }
     .assignment-card.medium::before { background:var(--medium); }
     .assignment-card.low::before    { background:var(--low); }
@@ -983,7 +1047,8 @@
       transition:background 0.2s var(--ease-out), transform 0.14s ease, box-shadow 0.2s var(--ease-out);
       white-space:nowrap;
       letter-spacing:-0.008em;
-      box-shadow:0 1px 3px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.08);
+      box-shadow:0 1px 3px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.08),
+                 inset 0 1px 0 rgba(255,255,255,0.12);
     }
     .btn-primary:hover {
       background:#2c2c2c;
@@ -1624,6 +1689,13 @@ body {
   }
 }
 </style>
+<script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "x22981gfva");
+</script>
 </head>
 
 {% set _app_pages = ['dashboard','scheduler','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','olympiad','memories','pet','command_center','balance','features','accessibility','text_dissector','my_stats'] %}
