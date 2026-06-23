@@ -1,0 +1,134 @@
+# IntelliPlan, robots.txt
+#
+# All public and app pages are crawlable. Only internal endpoints
+# (API, cron, push, OAuth, admin, etc.) are disallowed.
+#
+# Sitemap is below the bot rules.
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /push/
+Disallow: /notifications/
+Disallow: /cron/
+Disallow: /oauth/
+Disallow: /calendar/
+Disallow: /debug/
+Disallow: /feedback/
+Disallow: /assignment/
+Disallow: /admin
+Disallow: /logout
+Disallow: /archive/
+Disallow: /live/
+Disallow: /onboarding
+
+User-agent: Googlebot
+Allow: /
+Disallow: /api/
+Disallow: /push/
+Disallow: /notifications/
+Disallow: /cron/
+Disallow: /oauth/
+Disallow: /calendar/
+Disallow: /debug/
+Disallow: /feedback/
+Disallow: /assignment/
+Disallow: /admin
+Disallow: /logout
+Disallow: /archive/
+Disallow: /live/
+Disallow: /onboarding
+
+User-agent: Bingbot
+Allow: /
+Disallow: /api/
+Disallow: /push/
+Disallow: /notifications/
+Disallow: /cron/
+Disallow: /oauth/
+Disallow: /calendar/
+Disallow: /debug/
+Disallow: /feedback/
+Disallow: /assignment/
+Disallow: /admin
+Disallow: /logout
+Disallow: /archive/
+Disallow: /live/
+Disallow: /onboarding
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /api/
+Disallow: /push/
+Disallow: /notifications/
+Disallow: /cron/
+Disallow: /oauth/
+Disallow: /calendar/
+Disallow: /debug/
+Disallow: /feedback/
+Disallow: /assignment/
+Disallow: /admin
+Disallow: /logout
+
+User-agent: GPTBot
+Allow: /
+Disallow: /api/
+Disallow: /push/
+Disallow: /notifications/
+Disallow: /cron/
+Disallow: /oauth/
+Disallow: /calendar/
+Disallow: /debug/
+Disallow: /feedback/
+Disallow: /assignment/
+Disallow: /admin
+Disallow: /logout
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /api/
+Disallow: /push/
+Disallow: /notifications/
+Disallow: /cron/
+Disallow: /oauth/
+Disallow: /calendar/
+Disallow: /debug/
+Disallow: /feedback/
+Disallow: /assignment/
+Disallow: /admin
+Disallow: /logout
+
+User-agent: Claude-SearchBot
+Allow: /
+Disallow: /api/
+Disallow: /push/
+Disallow: /notifications/
+Disallow: /cron/
+Disallow: /oauth/
+Disallow: /calendar/
+Disallow: /debug/
+Disallow: /feedback/
+Disallow: /assignment/
+Disallow: /admin
+Disallow: /logout
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /api/
+Disallow: /push/
+Disallow: /notifications/
+Disallow: /cron/
+Disallow: /oauth/
+Disallow: /calendar/
+Disallow: /debug/
+Disallow: /feedback/
+Disallow: /assignment/
+Disallow: /admin
+Disallow: /logout
+
+# AI citation file: https://intelliplan.tech/llms.txt
+
+Sitemap: https://intelliplan.tech/sitemap.xml
