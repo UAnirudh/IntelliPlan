@@ -224,7 +224,7 @@
           if (d.status === 'ok') {
             msg.style.display='block'; msg.style.color='#10b981';
             msg.textContent = 'Connected as ' + (d.fullname || d.username || 'your Moodle account') + '.';
-            setTimeout(() => { window.location.href = '/schedule'; }, 900);
+            setTimeout(() => { window.location.href = '/scheduler'; }, 900);
           } else {
             msg.style.display='block'; msg.style.color='#ef4444';
             msg.textContent = d.message || 'Could not connect.';

@@ -3267,7 +3267,7 @@ window.addEventListener('load',()=>{
   window.addEventListener('start-tour', () => startTour(0));
   window.closeTour = closeTour;
   window.tourNav = tourNav;
-  const appPages = ['/dashboard','/tutor','/schedule','/study','/streak','/settings','/grademodel','/groups'];
+  const appPages = ['/dashboard','/tutor','/scheduler','/study','/streak','/settings','/grademodel','/groups'];
   const isAppPage = appPages.some(p => location.pathname.startsWith(p));
   const tourDone = localStorage.getItem('ip_tour_done');
   if (isAppPage && !tourDone) {

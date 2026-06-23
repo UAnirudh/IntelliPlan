@@ -2390,8 +2390,8 @@ _SITEMAP_ENTRIES = [
     ("/compare/intelliplan-vs-mystudylife",  "compare_mystudylife.html",  "2026-06-22", "monthly", "0.8"),
     # Tools
     ("/tools/final-grade-calculator",    "tool_final_grade.html",         "2026-06-22", "monthly", "0.9"),
-    ("/tools/gpa-calculator",            "tool_gpa_calculator.html",      "2026-06-22", "monthly", "0.9"),
-    ("/tools/grade-calculator",          "tool_grade_calculator.html",    "2026-06-22", "monthly", "0.9"),
+    ("/tools/gpa-calculator",            "tool_gpa.html",                 "2026-06-22", "monthly", "0.9"),
+    ("/tools/grade-calculator",          "tool_grade.html",               "2026-06-22", "monthly", "0.9"),
     ("/tools/finals-countdown",          "tool_countdown.html",           "2026-06-22", "monthly", "0.7"),
     ("/tools/test-grade-calculator",     "tool_test_grade.html",          "2026-06-22", "monthly", "0.9"),
     ("/tools/study-schedule-maker",      "tool_schedule_maker.html",      "2026-06-22", "monthly", "0.9"),
