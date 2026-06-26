@@ -2,6 +2,7 @@
 
 {% block content %}
 <style>
+/* ── Mobile nav (kept from existing) ──────────────────────── */
 .mobile-top-nav { display:none; align-items:center; justify-content:space-between; padding:0 1rem; height:52px; background:var(--bg-card); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:90; margin:-2.5rem -1.5rem 1.5rem; }
 .mobile-nav-ham { background:none; border:1px solid var(--border); border-radius:8px; padding:6px 8px; cursor:pointer; color:var(--text-secondary); display:flex; align-items:center; }
 .mobile-nav-drawer { position:fixed; top:0; left:-280px; bottom:0; width:270px; background:var(--bg-card); border-right:1px solid var(--border); z-index:900; transition:left 0.28s var(--ease-out); overflow-y:auto; }
@@ -11,1821 +12,1169 @@
 .mobile-nav-link:hover, .mobile-nav-link.active { background:rgba(22,22,22,0.07); color:var(--ink, #161616); }
 [data-theme="dark"] .mobile-nav-link:hover, [data-theme="dark"] .mobile-nav-link.active { background:rgba(232,232,228,0.1); color:var(--ink, #e8e8e4); }
 @media (max-width: 720px) { .mobile-top-nav { display:flex; } }
+
+/* ── IPD Design Tokens ────────────────────────────────────── */
+:root {
+  --ipd-font-display: 'DM Serif Display', Georgia, serif;
+  --ipd-font-body: 'DM Sans', -apple-system, sans-serif;
+  --ipd-font-mono: 'DM Mono', 'SF Mono', monospace;
+  --ipd-radius-lg: 20px;
+  --ipd-radius-md: 14px;
+  --ipd-radius-sm: 10px;
+  --ipd-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ipd-priority-high: #b91c1c;
+  --ipd-priority-med: #b45309;
+  --ipd-priority-low: #047857;
+  --ipd-glass-bg: rgba(255, 255, 255, 0.72);
+  --ipd-glass-border: rgba(0, 0, 0, 0.06);
+}
+[data-theme="dark"] {
+  --ipd-glass-bg: rgba(28, 28, 28, 0.72);
+  --ipd-glass-border: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Animations ───────────────────────────────────────────── */
+@keyframes ipd-fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes ipd-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+.ipd-anim { opacity: 0; animation: ipd-fadeUp 0.55s var(--ipd-ease-out) forwards; }
+.ipd-d1 { animation-delay: 0.05s; }
+.ipd-d2 { animation-delay: 0.10s; }
+.ipd-d3 { animation-delay: 0.15s; }
+.ipd-d4 { animation-delay: 0.20s; }
+.ipd-d5 { animation-delay: 0.25s; }
+.ipd-d6 { animation-delay: 0.30s; }
+.ipd-d7 { animation-delay: 0.35s; }
+.ipd-d8 { animation-delay: 0.40s; }
+
+/* ── Page header ──────────────────────────────────────────── */
+.ipd-header { margin-bottom: 2rem; }
+.ipd-kicker {
+  font-family: var(--ipd-font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.ipd-greeting {
+  font-family: var(--ipd-font-display);
+  font-size: clamp(1.75rem, 1.2rem + 2.5vw, 2.75rem);
+  font-weight: 400;
+  color: var(--text-primary);
+  line-height: 1.15;
+}
+.ipd-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+.ipd-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--ipd-radius-sm);
+  font-family: var(--ipd-font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+.ipd-btn:hover { border-color: var(--text-muted); }
+.ipd-btn-primary {
+  background: var(--text-primary);
+  color: var(--bg);
+  border-color: transparent;
+}
+.ipd-btn-primary:hover { opacity: 0.88; }
+
+/* ── Stats row ────────────────────────────────────────────── */
+.ipd-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 2rem;
+}
+.ipd-stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--ipd-radius-lg);
+  padding: 1.25rem 1.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.ipd-stat-card:hover {
+  box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+  transform: translateY(-2px);
+}
+.ipd-stat-label {
+  font-family: var(--ipd-font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.ipd-stat-value {
+  font-family: var(--ipd-font-display);
+  font-size: 2rem;
+  font-weight: 400;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+.ipd-stat-sub {
+  font-family: var(--ipd-font-body);
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ── Two-column layout ────────────────────────────────────── */
+.ipd-columns {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 20px;
+  align-items: start;
+}
+
+/* ── Card base ────────────────────────────────────────────── */
+.ipd-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--ipd-radius-lg);
+  padding: 1.4rem;
+}
+.ipd-card-title {
+  font-family: var(--ipd-font-body);
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ── Task cards ───────────────────────────────────────────── */
+.ipd-task-list { display: flex; flex-direction: column; gap: 10px; }
+.ipd-task-card {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: var(--ipd-radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  position: relative;
+}
+.ipd-task-card:hover {
+  border-color: var(--text-muted);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  transform: translateY(-1px);
+}
+.ipd-task-priority-bar {
+  width: 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  align-self: stretch;
+}
+.ipd-task-priority-bar.high { background: var(--ipd-priority-high); }
+.ipd-task-priority-bar.medium { background: var(--ipd-priority-med); }
+.ipd-task-priority-bar.low { background: var(--ipd-priority-low); }
+.ipd-task-body { flex: 1; min-width: 0; }
+.ipd-task-time {
+  font-family: var(--ipd-font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+}
+.ipd-task-title {
+  font-family: var(--ipd-font-body);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ipd-task-due {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+.ipd-task-badge {
+  font-family: var(--ipd-font-mono);
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 6px;
+  align-self: center;
+  flex-shrink: 0;
+}
+.ipd-task-badge.high { background: rgba(185,28,28,0.1); color: var(--ipd-priority-high); }
+.ipd-task-badge.medium { background: rgba(180,83,9,0.1); color: var(--ipd-priority-med); }
+.ipd-task-badge.low { background: rgba(4,120,87,0.1); color: var(--ipd-priority-low); }
+
+.ipd-task-actions {
+  display: flex;
+  gap: 4px;
+  align-self: center;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.ipd-task-card:hover .ipd-task-actions { opacity: 1; }
+.ipd-task-action-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  font-family: var(--ipd-font-body);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  transition: all 0.13s;
+}
+.ipd-task-action-btn:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+
+.ipd-empty-state {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--text-muted);
+  font-family: var(--ipd-font-body);
+}
+.ipd-empty-state svg { opacity: 0.4; margin-bottom: 0.75rem; }
+.ipd-empty-state p { font-size: 0.86rem; margin: 0; }
+
+/* ── Section tabs ─────────────────────────────────────────── */
+.ipd-section-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 1rem;
+  background: var(--bg);
+  border-radius: var(--ipd-radius-sm);
+  padding: 3px;
+  border: 1px solid var(--border);
+}
+.ipd-section-tab {
+  flex: 1;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  font-family: var(--ipd-font-body);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+.ipd-section-tab.active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.ipd-section-tab:hover:not(.active) { color: var(--text-secondary); }
+
+/* ── Overdue banner ───────────────────────────────────────── */
+.ipd-overdue-banner {
+  background: rgba(185,28,28,0.06);
+  border: 1px solid rgba(185,28,28,0.15);
+  border-radius: var(--ipd-radius-md);
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--ipd-font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ipd-priority-high);
+}
+
+/* ── Right column: Assistant strip ────────────────────────── */
+.ipd-assistant-card {
+  background: var(--text-primary);
+  color: var(--bg);
+  border-radius: var(--ipd-radius-lg);
+  padding: 1.4rem;
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+}
+.ipd-assistant-card::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  right: -30%;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.05);
+}
+.ipd-assistant-label {
+  font-family: var(--ipd-font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  margin-bottom: 10px;
+}
+.ipd-assistant-text {
+  font-family: var(--ipd-font-body);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  font-weight: 500;
+}
+.ipd-assistant-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  font-family: var(--ipd-font-body);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+}
+.ipd-assistant-cta:hover { opacity: 1; }
+
+/* ── Right column: Grade Modeler teaser ───────────────────── */
+.ipd-grade-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--ipd-radius-lg);
+  padding: 1.4rem;
+  margin-bottom: 14px;
+}
+.ipd-grade-bar-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+.ipd-grade-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ipd-grade-bar-label {
+  font-family: var(--ipd-font-body);
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  width: 90px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ipd-grade-bar-track {
+  flex: 1;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.ipd-grade-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--text-primary);
+  transition: width 0.6s var(--ipd-ease-out);
+}
+.ipd-grade-bar-val {
+  font-family: var(--ipd-font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── Right column: Coming up ──────────────────────────────── */
+.ipd-upcoming-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--ipd-radius-lg);
+  padding: 1.4rem;
+}
+.ipd-upcoming-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.ipd-upcoming-item:last-child { border-bottom: none; }
+.ipd-upcoming-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.ipd-upcoming-info { flex: 1; min-width: 0; }
+.ipd-upcoming-title {
+  font-family: var(--ipd-font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ipd-upcoming-meta {
+  font-family: var(--ipd-font-body);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+/* ── Streak pill (inline, in stats) ───────────────────────── */
+.ipd-streak-week {
+  display: flex;
+  gap: 5px;
+  margin-top: 6px;
+}
+.ipd-streak-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.25s;
+}
+.ipd-streak-dot.studied { background: var(--ipd-priority-low); }
+.ipd-streak-dot.today { box-shadow: 0 0 0 2px var(--text-primary); }
+
+/* ── Loading skeleton ─────────────────────────────────────── */
+.ipd-skeleton {
+  background: linear-gradient(90deg, var(--border) 25%, transparent 37%, var(--border) 63%);
+  background-size: 400% 100%;
+  animation: ipd-pulse 1.5s ease infinite;
+  border-radius: 6px;
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 960px) {
+  .ipd-columns { grid-template-columns: 1fr; }
+  .ipd-stats-row { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+  .ipd-stats-row { grid-template-columns: 1fr; }
+}
+
+/* ── Modal resets (shared across all modals) ──────────────── */
+.ipd-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(7,8,20,0.55);
+  backdrop-filter: blur(6px);
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.ipd-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--ipd-radius-lg);
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 1.75rem;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.2);
+}
+.ipd-modal h3 {
+  font-family: var(--ipd-font-display);
+  font-size: 1.35rem;
+  font-weight: 400;
+  color: var(--text-primary);
+  margin: 0 0 1.25rem;
+}
+.ipd-modal label {
+  display: block;
+  font-family: var(--ipd-font-body);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  margin-top: 14px;
+}
+.ipd-modal input[type="text"],
+.ipd-modal input[type="date"],
+.ipd-modal input[type="number"],
+.ipd-modal input[type="password"],
+.ipd-modal select,
+.ipd-modal textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--ipd-radius-sm);
+  font-family: var(--ipd-font-body);
+  font-size: 0.86rem;
+  color: var(--text-primary);
+  background: var(--bg);
+  box-sizing: border-box;
+}
+.ipd-modal textarea { resize: vertical; min-height: 70px; }
+.ipd-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+/* ── Notion-style pill (reused in modals/detail) ──────────── */
+.notion-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-family: var(--ipd-font-body);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
 </style>
 
+{# ── Mobile nav drawer ─────────────────────────────────────── #}
 <div id="mobileTopNav" class="mobile-top-nav">
   <button onclick="openMobileNav()" class="mobile-nav-ham" aria-label="Open navigation">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
   </button>
-  <span style="font-family:var(--font-ui);font-weight:700;font-size:1rem;color:var(--text-primary);">IntelliPlan</span>
+  <span style="font-family:var(--ipd-font-body);font-weight:700;font-size:1rem;color:var(--text-primary);">IntelliPlan</span>
   <div style="width:36px;"></div>
 </div>
 
 <div id="mobileNavDrawer" class="mobile-nav-drawer" aria-hidden="true">
   <div class="mobile-nav-inner">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
-      <span style="font-family:var(--font-ui);font-weight: 700;font-size:1.05rem;color:var(--text-primary);">IntelliPlan</span>
+      <span style="font-family:var(--ipd-font-body);font-weight:700;font-size:1.05rem;color:var(--text-primary);">IntelliPlan</span>
       <button onclick="closeMobileNav()" style="background:none;border:none;font-size:1.5rem;color:var(--text-muted);cursor:pointer;">×</button>
     </div>
     <nav style="padding:0.75rem 0;">
-      <a href="/dashboard" class="mobile-nav-link active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-dashboard"/></svg> Dashboard</a>
-      <a href="/tutor" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg> AI Tutor</a>
-      <a href="/scheduler" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-scheduler"/></svg> Scheduler</a>
-      <a href="/study" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-study"/></svg> Study & Learn</a>
-      <a href="/grademodel" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chart"/></svg> Grade Modeler</a>
-      <a href="/streak" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-fire"/></svg> Streak</a>
-      <a href="/groups" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-users"/></svg> Study Groups</a>
-      <a href="/lessons" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-play"/></svg> Lessons</a>
-      <a href="/settings" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-settings"/></svg> Settings</a>
+      <a href="/dashboard" class="mobile-nav-link active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-dashboard"/></svg> Dashboard</a>
+      <a href="/tutor" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-sparkle"/></svg> AI Tutor</a>
+      <a href="/scheduler" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-scheduler"/></svg> Scheduler</a>
+      <a href="/study" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-study"/></svg> Study & Learn</a>
+      <a href="/grademodel" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-chart"/></svg> Grade Modeler</a>
+      <a href="/streak" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-fire"/></svg> Streak</a>
+      <a href="/groups" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-users"/></svg> Study Groups</a>
+      <a href="/lessons" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-play"/></svg> Lessons</a>
+      <a href="/settings" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-settings"/></svg> Settings</a>
     </nav>
   </div>
 </div>
 <div id="mobileNavBackdrop" onclick="closeMobileNav()" style="display:none;position:fixed;inset:0;z-index:899;background:rgba(7,8,20,0.5);backdrop-filter:blur(4px);"></div>
 
-{# ═════════════════════════════════════════════════════════════
-   DAILY MOMENTUM HERO — Duolingo-style streak + Plani pet banner.
-   This is the FIRST thing the user sees on the dashboard, every day.
-   Hydrated by /api/pet/status (which surfaces streak data too).
-═════════════════════════════════════════════════════════════ #}
 {% if logged_in %}
-<style>
-.momentum-hero {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 1.4rem;
-  align-items: center;
-  padding: 1.6rem 1.8rem;
-  margin-bottom: 1.5rem;
-  border-radius: 24px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
-  overflow: hidden;
-}
-.momentum-streak {
-  display: flex;
-  align-items: center;
-  gap: 1.2rem;
-}
-.momentum-flame-wrap {
-  position: relative;
-  width: 92px; height: 100px;
-  display: grid; place-items: center;
-  flex-shrink: 0;
-}
-.momentum-flame {
-  font-size: 5rem;
-  line-height: 1;
-  display: inline-block;
-  filter:
-    drop-shadow(0 6px 12px rgba(249,115,22,0.55))
-    drop-shadow(0 0 24px rgba(251,146,60,0.45));
-  animation: momentumFlame 1.5s ease-in-out infinite;
-  transform-origin: 50% 80%;
-  color: #f97316;
-}
-.momentum-flame.cold {
-  filter: grayscale(0.8) drop-shadow(0 2px 5px rgba(0,0,0,0.2));
-  animation: none;
-  opacity: 0.6;
-}
-@keyframes momentumFlame {
-  0%, 100% { transform: translateY(0) rotate(-2deg) scale(1); }
-  25% { transform: translateY(-3px) rotate(2deg) scale(1.05); }
-  50% { transform: translateY(-5px) rotate(-1deg) scale(0.97); }
-  75% { transform: translateY(-2px) rotate(2deg) scale(1.04); }
-}
-.momentum-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.momentum-kicker {
-  font-family: var(--font-ui, sans-serif);
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--ink, #161616);
-}
-[data-theme="dark"] .momentum-kicker { color: var(--ink, #e8e8e4); }
-.momentum-big {
-  font-family: var(--font-display, var(--font-ui, sans-serif));
-  font-size: 3.2rem;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--text-primary);
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-}
-.momentum-big small {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text-secondary);
-}
-.momentum-sub {
-  color: var(--text-secondary);
-  font-size: 0.92rem;
-  line-height: 1.45;
-  max-width: 540px;
-}
-.momentum-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 10px;
-  padding: 8px 16px;
-  background: var(--ink, #161616);
-  color: #fff;
-  border-radius: 999px;
-  font-family: var(--font-ui, sans-serif);
-  font-weight: 700;
-  font-size: 0.86rem;
-  text-decoration: none;
-  width: fit-content;
-  box-shadow: var(--shadow-sm);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-.momentum-cta:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
-[data-theme="dark"] .momentum-cta { background: var(--ink, #e8e8e4); color: #161616; }
-.momentum-pet {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 14px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  text-decoration: none;
-  color: inherit;
-  transition: transform 0.18s ease;
-}
-.momentum-pet:hover { transform: translateY(-2px) scale(1.02); }
-.momentum-pet-emoji {
-  font-size: 3.4rem;
-  line-height: 1;
-  animation: momentumPet 2.6s ease-in-out infinite;
-  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.15));
-}
-@keyframes momentumPet {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-6px) scale(1.05); }
-}
-.momentum-pet-name {
-  font-family: var(--font-ui, sans-serif);
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--text-primary);
-}
-.momentum-pet-stage {
-  font-size: 0.74rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-weight: 700;
-}
-.momentum-pet-bar {
-  width: 100%;
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-}
-[data-theme="dark"] .momentum-pet-bar { background: rgba(255,255,255,0.1); }
-.momentum-pet-bar-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: var(--ink, #161616);
-  transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-[data-theme="dark"] .momentum-pet-bar-fill { background: var(--ink, #e8e8e4); }
-.momentum-pet-xp {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-}
-@media (prefers-reduced-motion: reduce) {
-  .momentum-flame, .momentum-pet-emoji { animation: none !important; }
-}
-@media (max-width: 820px) {
-  .momentum-hero {
-    grid-template-columns: 1fr;
-    padding: 1.25rem;
-  }
-  .momentum-big { font-size: 2.4rem; }
-  .momentum-flame { font-size: 3.6rem; }
-}
-</style>
 
-<div class="momentum-hero" id="momentumHero">
-  <div class="momentum-streak">
-    <div class="momentum-flame-wrap">
-      <span class="momentum-flame" id="momentumFlame"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-fire"/></svg></span>
-    </div>
-    <div class="momentum-text">
-      <span class="momentum-kicker" id="momentumKicker">Daily streak</span>
-      <span class="momentum-big"><span id="momentumDays">0</span><small>day streak</small></span>
-      <span class="momentum-sub" id="momentumSub">Complete one task today to keep the flame alive.</span>
-      <a href="/streak" class="momentum-cta">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-fire"/></svg>
-        Streak details
-      </a>
-    </div>
-  </div>
-  <a href="/pet" class="momentum-pet" id="momentumPetCard">
-    <span class="momentum-pet-emoji" id="momentumPetEmoji"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg></span>
-    <span class="momentum-pet-name"><span id="momentumPetName">Pet</span> · Lv <span id="momentumPetLevel">1</span></span>
-    <span class="momentum-pet-stage" id="momentumPetStage">Egg</span>
-    <div class="momentum-pet-bar"><div class="momentum-pet-bar-fill" id="momentumPetFill" style="width:0%"></div></div>
-    <span class="momentum-pet-xp" id="momentumPetXp">0 / 50 XP</span>
-  </a>
-</div>
-
-<script>
-(function(){
-  var STAGE_SVG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg>';
-  function paint(d){
-    if (!d || d.status !== 'ok') return;
-    const days = d.streak || 0;
-    document.getElementById('momentumDays').textContent = days;
-    const flame = document.getElementById('momentumFlame');
-    if (flame) flame.classList.toggle('cold', days === 0);
-    const kicker = document.getElementById('momentumKicker');
-    const sub = document.getElementById('momentumSub');
-    if (days === 0) {
-      kicker.textContent = 'Start your streak';
-      sub.textContent = 'Complete one task today to ignite the flame. Streaks unlock rewards and grow your pet.';
-    } else if (days < 7) {
-      kicker.textContent = 'Daily streak';
-      sub.textContent = 'You\'re building a habit. Keep showing up — day 7 unlocks a streak freeze.';
-    } else if (days < 30) {
-      kicker.textContent = 'Streak burning';
-      sub.textContent = 'You\'re on fire. ' + (30 - days) + ' more days to hit the Monthly Master milestone.';
-    } else {
-      kicker.textContent = 'Legendary streak';
-      sub.textContent = 'You\'re in rare territory. Best ever: ' + (d.longest_streak || days) + ' days.';
-    }
-
-    // Pet card
-    document.getElementById('momentumPetEmoji').innerHTML = STAGE_SVG;
-    document.getElementById('momentumPetName').textContent = d.name || 'Pet';
-    document.getElementById('momentumPetLevel').textContent = d.level || 1;
-    document.getElementById('momentumPetStage').textContent = d.stage_name || 'Egg';
-    const pct = Math.round((d.progress_to_next || 0) * 100);
-    document.getElementById('momentumPetFill').style.width = pct + '%';
-    if (d.xp_for_next_stage > 0) {
-      document.getElementById('momentumPetXp').textContent =
-        d.xp_into_stage + ' / ' + d.xp_for_next_stage + ' XP to ' + (d.next_stage_name || '?');
-    } else {
-      document.getElementById('momentumPetXp').textContent = 'Maxed — ' + d.xp + ' XP';
-    }
-  }
-  async function load(){
-    try {
-      const r = await fetch('/api/pet/status', { credentials:'same-origin' });
-      if (!r.ok) return;
-      const d = await r.json();
-      paint(d);
-    } catch(e){}
-  }
-  // Hook into the global refresh so task-complete updates the hero in-place
-  const originalRefresh = window.intelliplanRefreshPet;
-  window.intelliplanRefreshPet = function(){
-    if (originalRefresh) originalRefresh();
-    load();
-  };
-  load();
-})();
-</script>
-{% endif %}
-
-{# ─── First-run questionnaire modal ─────────────────────────────
-   Pops up automatically the first time a brand-new account hits the
-   dashboard. Mirrors the full /settings Study Profile + connect flow
-   so the student is ready to use the planner in two clicks. ──────── #}
-{% if needs_onboarding %}
-<div id="onbModal" style="position:fixed;inset:0;z-index:1400;background:rgba(7,8,20,0.72);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:1rem;">
-  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:22px;padding:2rem;width:min(620px,100%);max-height:92vh;overflow:auto;animation:fadeUp 0.32s var(--ease-out) both;">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1.25rem;">
-      <div>
-        <div style="font-family:var(--font-ui);font-size:0.72rem;font-weight: 700;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink, #161616);margin-bottom:6px;">Welcome to IntelliPlan</div>
-        <h2 style="font-family:var(--font-display);font-size:1.65rem;color:var(--text-primary);margin:0;">Let's set up your study profile</h2>
-        <p style="margin:0.5rem 0 0;color:var(--text-secondary);font-size:0.92rem;">IntelliPlan uses this to personalise every reply, schedule, and study plan. Takes about 60 seconds, you can edit anything later in Settings.</p>
-      </div>
-      <button onclick="dismissOnb()" aria-label="Skip" style="background:none;border:none;color:var(--text-muted);font-size:1.4rem;cursor:pointer;line-height:1;">×</button>
-    </div>
-
-    <!-- Step pill bar -->
-    <div id="onbSteps" style="display:flex;gap:6px;margin-bottom:1.4rem;">
-      <span class="onb-pill on"></span>
-      <span class="onb-pill"></span>
-      <span class="onb-pill"></span>
-    </div>
-
-    <!-- Step 1: Grade + focus -->
-    <section class="onb-step on" data-step="1">
-      <div class="form-group" style="margin-bottom:1rem;">
-        <label class="form-label">What grade are you in?</label>
-        <select id="onbGrade" class="form-input">
-          <option value="">Prefer not to say</option>
-          {% for g in (grade_choices or []) %}
-            <option value="{{ g }}" {% if identity and identity.grade_level == g %}selected{% endif %}>{{ g }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">What subjects are you focused on?</label>
-        <div id="onbFocus" style="display:flex;flex-wrap:wrap;gap:8px;">
-          {% for f in (focus_choices or []) %}
-            <label class="onb-chip">
-              <input type="checkbox" value="{{ f }}" {% if identity and f in identity.focus_areas %}checked{% endif %}>
-              <span>{{ f }}</span>
-            </label>
-          {% endfor %}
-        </div>
-      </div>
-    </section>
-
-    <!-- Step 2: Goals + commitments -->
-    <section class="onb-step" data-step="2" style="display:none;">
-      <div class="form-group" style="margin-bottom:1rem;">
-        <label class="form-label">What do you want to get out of IntelliPlan?</label>
-        <textarea id="onbGoals" rows="3" class="form-input" placeholder="e.g. raise my AP Calc grade to an A, build study habits for the SAT, get faster at essays">{{ (identity.goals if identity else '') }}</textarea>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Weekly commitments / extracurriculars (optional)</label>
-        <input type="text" id="onbCommit" class="form-input" placeholder="e.g. soccer Mon/Wed 4–6pm, piano Fri 5pm" value="{{ identity.weekly_commitments if identity else '' }}">
-        <span class="form-hint">IntelliPlan uses this to avoid scheduling study during your busy times.</span>
-      </div>
-    </section>
-
-    <!-- Step 3: Connect a service -->
-    <section class="onb-step" data-step="3" style="display:none;">
-      <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:8px;">Connect your school (optional)</div>
-      <p style="color:var(--text-secondary);font-size:0.88rem;margin-bottom:1rem;">Pulling assignments automatically is the magic. You can also skip and add a manual task later.</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <a class="onb-svc" href="/oauth/canvas">
-          <span class="onb-svc-dot" style="background:#e66000;">C</span>
-          <div>
-            <div class="onb-svc-name">Canvas</div>
-            <div class="onb-svc-sub">One-click OAuth</div>
-          </div>
-        </a>
-        <a class="onb-svc" href="/login/studentvue">
-          <span class="onb-svc-dot" style="background:#16a34a;">SV</span>
-          <div>
-            <div class="onb-svc-name">StudentVue</div>
-            <div class="onb-svc-sub">District login</div>
-          </div>
-        </a>
-        <a class="onb-svc" href="/login/schoology">
-          <span class="onb-svc-dot" style="background:#5865F2;">S</span>
-          <div>
-            <div class="onb-svc-name">Schoology</div>
-            <div class="onb-svc-sub">API key</div>
-          </div>
-        </a>
-        <a class="onb-svc" href="/oauth/google">
-          <span class="onb-svc-dot" style="background:#4285f4;">G</span>
-          <div>
-            <div class="onb-svc-name">Google Calendar</div>
-            <div class="onb-svc-sub">Sync events</div>
-          </div>
-        </a>
-      </div>
-    </section>
-
-    <!-- Nav -->
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1.5rem;gap:8px;flex-wrap:wrap;">
-      <button onclick="dismissOnb()" style="background:none;border:0;font-size:0.84rem;color:var(--text-muted);cursor:pointer;font-family:var(--font-ui);font-weight:600;">Skip for now</button>
-      <div style="display:flex;gap:8px;">
-        <button id="onbBack" onclick="onbStep(-1)" style="padding:10px 18px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-secondary);cursor:pointer;font-family:var(--font-ui);font-weight:600;visibility:hidden;">Back</button>
-        <button id="onbNext" class="btn-primary" onclick="onbStep(1)" style="padding:10px 22px;border:none;cursor:pointer;">Next</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<style>
-  .onb-pill { flex:1; height:6px; border-radius:999px; background:var(--border); }
-  .onb-pill.on { background:var(--ink, #161616); }
-  [data-theme="dark"] .onb-pill.on { background:var(--ink, #e8e8e4); }
-  .onb-chip { position:relative; cursor:pointer; }
-  .onb-chip input { position:absolute; opacity:0; pointer-events:none; }
-  .onb-chip span {
-    display:inline-block; padding:8px 14px; border-radius:999px;
-    border:1.5px solid var(--border-strong); background:var(--bg-card);
-    font-size:0.86rem; color:var(--text-secondary);
-    transition:all 0.14s;
-  }
-  .onb-chip input:checked + span {
-    background:rgba(22,22,22,0.07); border-color:var(--ink, #161616); color:var(--ink, #161616); font-weight:700;
-  }
-  [data-theme="dark"] .onb-chip input:checked + span {
-    background:rgba(232,232,228,0.1); border-color:var(--ink, #e8e8e4); color:var(--ink, #e8e8e4);
-  }
-  .onb-svc {
-    display:flex; align-items:center; gap:12px; padding:12px 14px;
-    border-radius:14px; border:1px solid var(--border);
-    background:var(--bg-card); text-decoration:none; color:var(--text-primary);
-    transition:border-color 0.16s;
-  }
-  .onb-svc:hover { border-color:var(--ink, #161616); }
-  [data-theme="dark"] .onb-svc:hover { border-color:var(--ink, #e8e8e4); }
-  .onb-svc-dot {
-    width:36px; height:36px; border-radius:10px;
-    display:flex; align-items:center; justify-content:center;
-    color:white; font-family:var(--font-ui); font-weight: 700; font-size:0.84rem; flex-shrink:0;
-  }
-  .onb-svc-name { font-weight:700; font-size:0.95rem; }
-  .onb-svc-sub  { font-size:0.74rem; color:var(--text-muted); margin-top:2px; }
-</style>
-
-<script>
-  let _onbCur = 1;
-  const _onbMax = 3;
-  function onbStep(dir) {
-    const next = _onbCur + dir;
-    if (next < 1) return;
-    if (next > _onbMax) { finishOnb(); return; }
-    document.querySelectorAll('.onb-step').forEach(s => s.style.display = (parseInt(s.dataset.step) === next) ? '' : 'none');
-    document.querySelectorAll('#onbSteps .onb-pill').forEach((el, i) => el.classList.toggle('on', i < next));
-    document.getElementById('onbBack').style.visibility = next === 1 ? 'hidden' : 'visible';
-    document.getElementById('onbNext').textContent = (next === _onbMax) ? 'Finish' : 'Next';
-    _onbCur = next;
-  }
-  function _onbPayload(markCompleted) {
-    const focus = Array.from(document.querySelectorAll('#onbFocus input:checked')).map(i => i.value);
-    return {
-      grade_level: document.getElementById('onbGrade').value,
-      focus_areas: focus,
-      goals: document.getElementById('onbGoals').value.trim(),
-      weekly_commitments: document.getElementById('onbCommit').value.trim(),
-      completed: !!markCompleted,
-    };
-  }
-  function finishOnb() {
-    const btn = document.getElementById('onbNext');
-    btn.disabled = true; btn.textContent = 'Saving...';
-    fetch('/identity', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(_onbPayload(true)) })
-      .then(() => closeOnb())
-      .catch(() => { btn.disabled = false; btn.textContent = 'Finish'; alert('Could not save, try again.'); });
-  }
-  function dismissOnb() {
-    // Save partial info but mark completed so we don't nag again.
-    fetch('/identity', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(_onbPayload(true)) }).finally(closeOnb);
-  }
-  function closeOnb() {
-    const m = document.getElementById('onbModal');
-    if (m) m.remove();
-  }
-</script>
-{% endif %}
-
-<!-- Feedback Modal -->
-<div id="feedbackModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
-  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:420px; width:90%; animation:fadeUp 0.25s ease both;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
-      <h2 style="font-family:var(--font-display); font-size:1.1rem; color:var(--text-primary); display:flex; align-items:center; gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink, #161616)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg>Task Complete!</h2>
-      <button onclick="closeFeedbackModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    </div>
-    <input type="hidden" id="feedbackTaskTitle" />
-    <p id="feedbackTaskName" style="font-size:0.9rem; font-weight:600; color:var(--text-primary); margin-bottom:1rem;"></p>
-    <div class="form-group" style="margin-bottom:1rem;">
-      <label class="form-label">How long did this actually take? (minutes)</label>
-      <input type="number" id="feedbackActualTime" class="form-input" placeholder="e.g. 45" min="1" max="480" />
-      <span class="form-hint" id="feedbackTimeHint" style="color:var(--ink, #161616);"></span>
-      <span class="form-hint">Helps IntelliPlan estimate better next time</span>
-    </div>
-    <div style="display:flex; gap:8px;">
-      <button onclick="submitFeedback(true)" class="btn-primary" style="flex:1; padding:12px; border:none; cursor:pointer;">Save & Done</button>
-      <button onclick="submitFeedback(false)" style="padding:12px 16px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text-muted); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem;">Skip</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── Task Streak Pill ─────────────────────────────────────── -->
-<div id="streakPillWrap" style="display:none; margin-bottom:0.75rem;">
-  <button id="streakPill" onclick="openStreakSheet()" style="
-    display:inline-flex; align-items:center; gap:6px;
-    padding:6px 14px 6px 10px; border-radius:999px;
-    border:1.5px solid #E07A2A; background:rgba(224,122,42,0.08);
-    cursor:pointer; font-family:var(--font-ui); font-weight: 700;
-    font-size:0.88rem; color:#E07A2A; transition:all 0.16s;
-  ">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><use href="#i-fire"/></svg>
-    <span id="streakPillText">0</span>
-  </button>
-</div>
-
-<!-- ── Streak Detail Sheet ────────────────────────────────── -->
-<div id="streakSheet" style="display:none; position:fixed; inset:0; z-index:1200; background:rgba(7,8,20,0.55); backdrop-filter:blur(6px); align-items:flex-end; justify-content:center;" onclick="if(event.target===this)closeStreakSheet()">
-  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:22px 22px 0 0; padding:1.75rem; width:min(480px,100%); max-height:80vh; overflow:auto; animation:fadeUp 0.25s ease both;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
-      <h2 style="font-family:var(--font-display); font-size:1.3rem; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E07A2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-fire"/></svg>
-        <span id="sheetStreakNum">0</span> day streak
-      </h2>
-      <button onclick="closeStreakSheet()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.3rem;">×</button>
-    </div>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:1.25rem;">
-      <div style="background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:0.75rem;">
-        <div style="font-family:var(--font-ui); font-size:1.1rem; font-weight: 700; color:var(--text-primary);" id="sheetLongest">0</div>
-        <div style="font-size:0.72rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:0.05em; margin-top:2px;">Longest streak</div>
-      </div>
-      <div style="background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:0.75rem;">
-        <div style="font-family:var(--font-ui); font-size:1.1rem; font-weight: 700; color:var(--text-primary);" id="sheetFreezes">0 / 3</div>
-        <div style="font-size:0.72rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:0.05em; margin-top:2px;">Freezes available</div>
-      </div>
-    </div>
-    <p style="font-size:0.82rem; color:var(--text-muted); line-height:1.5; margin-bottom:1rem;">Freezes save your streak when life happens.</p>
-    <div style="font-family:var(--font-ui); font-size:0.72rem; font-weight: 700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin-bottom:0.5rem;">This week</div>
-    <div id="sheetWeekDots" style="display:grid; grid-template-columns:repeat(7,1fr); gap:0.4rem; margin-bottom:0.75rem;"></div>
-  </div>
-</div>
-
-<!-- ── Streak Nudge Card ─────────────────────────────────── -->
-<div id="streakNudge" style="display:none; background:rgba(224,122,42,0.06); border:1px solid rgba(224,122,42,0.25); border-radius:14px; padding:0.85rem 1rem; margin-bottom:1rem; cursor:pointer;" onclick="nudgeTapped()">
-  <div style="display:flex; align-items:center; justify-content:space-between; gap:0.75rem;">
-    <div style="display:flex; align-items:center; gap:8px;">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E07A2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><use href="#i-fire"/></svg>
-      <span style="font-family:var(--font-ui); font-weight:700; font-size:0.88rem; color:#E07A2A;">One task to keep your streak alive.</span>
-    </div>
-    <button onclick="event.stopPropagation(); document.getElementById('streakNudge').style.display='none';" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.1rem; padding:2px 4px;">×</button>
-  </div>
-</div>
-
-<!-- ── Streak Toast ──────────────────────────────────────── -->
-<div id="streakToast" style="
-  display:none; position:fixed; bottom:1.5rem; right:1.5rem; z-index:1300;
-  padding:0.75rem 1.1rem; border-radius:12px;
-  background:var(--text-primary); color:var(--bg-card);
-  font-family:var(--font-ui); font-weight:700; font-size:0.88rem;
-  box-shadow:0 8px 30px rgba(0,0,0,0.25);
-  animation:fadeUp 0.22s ease both;
-"></div>
-
-<div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
-  <div>
-    <h1 class="page-title">Dashboard</h1>
-    <p class="page-subtitle" id="dashSubtitle">Loading...</p>
-  </div>
-  <div style="display:flex; gap:8px; flex-wrap:wrap;">
-    <button onclick="openNewTaskModal()" class="btn-primary" style="padding:10px 20px; border:none; cursor:pointer; font-size:0.88rem;">+ New Task</button>
-    <button onclick="openSyllabusModal()" class="btn-secondary" style="padding:10px 20px; font-size:0.88rem; display:inline-flex; align-items:center; gap:6px;" title="Import assignments from a PDF syllabus"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>Import Syllabus</button>
-    <button onclick="openIntegrationsModal()" class="btn-secondary" style="padding:10px 20px; font-size:0.88rem; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-settings"/></svg>Integrations</button>
-    <button onclick="openSilenceModal()" class="btn-secondary" style="padding:10px 20px; font-size:0.88rem; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-bell-off"/></svg>Silence</button>
-  </div>
-</div>
-
-<!-- Integration / status chips -->
-<div id="integrationBar" style="display:flex; gap:8px; margin-bottom:1.5rem; flex-wrap:wrap;"></div>
-<!-- Schedule Export Bar -->
-<div id="exportBar" style="display:none; background:var(--bg-card); border:1px solid var(--border); border-radius:14px; padding:1rem 1.5rem; margin-bottom:1.5rem; display:none; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
-  <div style="font-size:0.85rem; color:var(--text-secondary);">
-    <strong style="color:var(--text-primary); display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>Export to Google Calendar</strong>
-    <span id="exportStatus" style="margin-left:8px; font-size:0.78rem; color:var(--text-muted);"></span>
-  </div>
-  <div style="display:flex; gap:8px; align-items:center;">
-    <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;color:var(--text-secondary);cursor:pointer;">
-      <input type="checkbox" id="skipOverlaps" checked style="accent-color:var(--accent);width:14px;height:14px;" />
-      Skip overlapping events
-    </label>
-    <button onclick="exportScheduleToCal()" id="exportCalBtn" style="
-      padding:8px 18px; background:#ea4335; color:white; border:none;
-      border-radius:10px; cursor:pointer; font-family:var(--font-ui);
-      font-size:0.85rem; font-weight:600; transition:all 0.2s;
-">
-      Export Schedule
+{# ── Page header ────────────────────────────────────────────── #}
+<div class="ipd-header ipd-anim ipd-d1">
+  <div class="ipd-kicker" id="ipdDateKicker"></div>
+  <h1 class="ipd-greeting" id="ipdGreeting">Good morning.</h1>
+  <div class="ipd-header-actions">
+    <button class="ipd-btn ipd-btn-primary" onclick="openNewTaskModal()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      New Task
+    </button>
+    <button class="ipd-btn" onclick="openSyllabusModal()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-upload"/></svg>
+      Import Syllabus
+    </button>
+    <button class="ipd-btn" onclick="openIntegrationsModal()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-link"/></svg>
+      Integrations
     </button>
   </div>
 </div>
-<!-- Saved Schedule Banner -->
-<div id="savedScheduleBanner" style="display:none; background:rgba(22,22,22,0.04); border:1px solid rgba(22,22,22,0.12); border-radius:16px; padding:1.25rem 1.5rem; margin-bottom:1.5rem; display:none; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
-  <div>
-    <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink, #161616); margin-bottom:4px; display:flex; align-items:center; gap:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>Active Study Plan</div>
-    <div id="savedScheduleName" style="font-family:var(--font-display); font-size:1.1rem; color:var(--text-primary);"></div>
-    <div id="savedScheduleDate" style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;"></div>
+
+{# ── Stats row ──────────────────────────────────────────────── #}
+<div class="ipd-stats-row ipd-anim ipd-d2">
+  <div class="ipd-stat-card">
+    <span class="ipd-stat-label">On-time rate</span>
+    <span class="ipd-stat-value" id="ipdStatOnTime">—</span>
+    <span class="ipd-stat-sub" id="ipdStatOnTimeSub">Loading…</span>
   </div>
-  <div style="display:flex; gap:8px;">
-    <button onclick="viewSavedSchedule()" class="btn-primary" style="padding:8px 18px; border:none; cursor:pointer; font-size:0.85rem;">View Plan</button>
-    <button onclick="clearSavedSchedule()" style="padding:8px 14px; border-radius:10px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-muted); cursor:pointer; font-family:var(--font-ui); font-size:0.82rem;">Clear</button>
+  <div class="ipd-stat-card">
+    <span class="ipd-stat-label">GPA</span>
+    <span class="ipd-stat-value" id="ipdStatGpa">—</span>
+    <span class="ipd-stat-sub" id="ipdStatGpaSub">Loading…</span>
+  </div>
+  <div class="ipd-stat-card">
+    <span class="ipd-stat-label">Due this week</span>
+    <span class="ipd-stat-value" id="ipdStatDueWeek">—</span>
+    <span class="ipd-stat-sub" id="ipdStatDueWeekSub">Loading…</span>
+  </div>
+  <div class="ipd-stat-card">
+    <span class="ipd-stat-label">Study streak</span>
+    <span class="ipd-stat-value" id="ipdStatStreak">—</span>
+    <div class="ipd-streak-week" id="ipdStreakWeek">
+      <span class="ipd-streak-dot" data-d="0"></span>
+      <span class="ipd-streak-dot" data-d="1"></span>
+      <span class="ipd-streak-dot" data-d="2"></span>
+      <span class="ipd-streak-dot" data-d="3"></span>
+      <span class="ipd-streak-dot" data-d="4"></span>
+      <span class="ipd-streak-dot" data-d="5"></span>
+      <span class="ipd-streak-dot" data-d="6"></span>
+    </div>
   </div>
 </div>
 
-{# ── Daily Chest + Live Session row ───────────────────────────── #}
-<div class="dash-chest-row" id="dashChestRow">
-  <button class="dash-chest-card" id="dashChest" onclick="claimDaily()" aria-label="Claim daily Sparks">
-    <div class="chest-emoji" id="chestEmoji"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-gift"/></svg></div>
-    <div class="chest-body">
-      <div class="chest-title">Daily Spark Chest</div>
-      <div class="chest-sub" id="chestSub">Claim today's bonus Sparks</div>
+{# ── Two-column layout ─────────────────────────────────────── #}
+<div class="ipd-columns">
+  {# ── Left: Today's plan ────────────────────────────────────── #}
+  <div class="ipd-anim ipd-d3">
+    <div class="ipd-card">
+      <div class="ipd-card-title">
+        <span>Today's plan</span>
+        <div class="ipd-section-tabs" id="ipdPlanTabs">
+          <button class="ipd-section-tab active" data-tab="today" onclick="switchPlanTab('today')">Today</button>
+          <button class="ipd-section-tab" data-tab="upcoming" onclick="switchPlanTab('upcoming')">This week</button>
+          <button class="ipd-section-tab" data-tab="overdue" onclick="switchPlanTab('overdue')">Overdue</button>
+        </div>
+      </div>
+      <div id="ipdOverdueBanner" class="ipd-overdue-banner" style="display:none;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-alert"/></svg>
+        <span id="ipdOverdueCount">0 overdue tasks</span>
+      </div>
+      <div id="ipdTaskList" class="ipd-task-list">
+        <div class="ipd-empty-state">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><use href="#i-check-circle"/></svg>
+          <p>Loading tasks…</p>
+        </div>
+      </div>
     </div>
-    <span class="chest-cta" id="chestCta">Claim →</span>
-  </button>
+  </div>
 
-  <button class="dash-live-card" onclick="startLiveSession()" aria-label="Start a live study session">
-    <div class="live-emoji"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-mic"/></svg></div>
-    <div class="chest-body">
-      <div class="chest-title">Start Live Session</div>
-      <div class="chest-sub">Invite friends, audio or video, share materials live</div>
+  {# ── Right sidebar ─────────────────────────────────────────── #}
+  <div class="ipd-anim ipd-d4" style="display:flex;flex-direction:column;gap:0;">
+    {# Assistant strip #}
+    <div class="ipd-assistant-card" id="ipdAssistant">
+      <div class="ipd-assistant-label">Plani suggests</div>
+      <div class="ipd-assistant-text" id="ipdAssistantText">Start with your highest-priority task today. Focusing on one thing at a time builds momentum.</div>
+      <a href="/tutor" class="ipd-assistant-cta">
+        Open AI Tutor
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </a>
     </div>
-    <span class="chest-cta accent">Start →</span>
-  </button>
+
+    {# Grade Modeler teaser #}
+    <div class="ipd-grade-card" id="ipdGradeCard">
+      <div class="ipd-card-title">
+        <span>Grade snapshot</span>
+        <a href="/grademodel" style="font-family:var(--ipd-font-body);font-size:0.76rem;font-weight:600;color:var(--text-muted);text-decoration:none;">Open →</a>
+      </div>
+      <div class="ipd-grade-bar-wrap" id="ipdGradeBars">
+        <div style="text-align:center;padding:1rem 0;color:var(--text-muted);font-family:var(--ipd-font-body);font-size:0.82rem;">No grade data yet</div>
+      </div>
+    </div>
+
+    {# Coming up #}
+    <div class="ipd-upcoming-card" id="ipdUpcoming">
+      <div class="ipd-card-title">Coming up</div>
+      <div id="ipdUpcomingList">
+        <div style="text-align:center;padding:1rem 0;color:var(--text-muted);font-family:var(--ipd-font-body);font-size:0.82rem;">Loading…</div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<style>
-.dash-chest-row { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.25rem; }
-@media (max-width:700px){ .dash-chest-row{ grid-template-columns:1fr; } }
-.dash-chest-card, .dash-live-card {
-  display:flex; align-items:center; gap:14px;
-  padding:1rem 1.2rem; border-radius:16px;
-  background:linear-gradient(135deg, color-mix(in srgb, #d97706 12%, var(--bg-card)), var(--bg-card) 60%);
-  border:1px solid color-mix(in srgb, #d97706 25%, var(--border));
-  text-align:left; font:inherit; cursor:pointer;
-  transition:border-color 0.18s ease;
-}
-.dash-live-card {
-  background:linear-gradient(135deg, color-mix(in srgb, var(--ink, #161616) 6%, var(--bg-card)), var(--bg-card) 60%);
-  border-color:color-mix(in srgb, var(--ink, #161616) 18%, var(--border));
-}
-.dash-chest-card:hover, .dash-live-card:hover { border-color:var(--ink, #161616); }
-[data-theme="dark"] .dash-chest-card:hover, [data-theme="dark"] .dash-live-card:hover { border-color:var(--ink, #e8e8e4); }
-.dash-chest-card[disabled] { opacity:0.55; cursor:not-allowed; transform:none !important; }
-.chest-emoji {
-  line-height:1; color:#d97706;
-  filter:drop-shadow(0 4px 10px rgba(217,119,6,.45));
-  animation:chestWobble 2.4s ease-in-out infinite;
-}
-.live-emoji {
-  line-height:1; color:var(--ink, #161616);
-  filter:drop-shadow(0 4px 10px rgba(99,102,241,.4));
-}
-.chest-body { flex:1; min-width:0; }
-.chest-title { font-weight: 700; color:var(--text-primary); font-size:1rem; line-height:1.2; }
-.chest-sub { font-size:0.82rem; color:var(--text-secondary); margin-top:3px; }
-.chest-cta { font-family:var(--font-ui); font-size:0.84rem; font-weight: 700; color:#ea580c; white-space:nowrap; }
-.chest-cta.accent { color:var(--ink, #161616); }
-[data-theme="dark"] .chest-cta.accent { color:var(--ink, #e8e8e4); }
-@keyframes chestWobble {
-  0%,100% { transform:rotate(-3deg) scale(1); }
-  50% { transform:rotate(3deg) scale(1.05); }
-}
-@keyframes chestPop {
-  0% { transform:scale(1); }
-  40% { transform:scale(1.3) rotate(8deg); }
-  100% { transform:scale(1) rotate(0); }
-}
-@media (prefers-reduced-motion: reduce) { .chest-emoji { animation:none !important; } }
-</style>
+{# ═══════════════════════════════════════════════════════════
+   MODALS — All existing modals preserved
+═══════════════════════════════════════════════════════════ #}
 
-<!-- ── Streak Widget (Duolingo-flavoured) ─────────────────────── -->
-<a href="/streak" id="streakWidget" class="dash-streak-link" aria-label="View streak details">
-  <div class="dash-streak" id="dashStreakCard">
-    <div class="dash-streak-left">
-      <div class="dash-flame-stage" aria-hidden="true">
-        <span class="dash-flame-emoji"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E07A2A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-fire"/></svg></span>
-        <span class="dash-flame-aura"></span>
-        <span class="dash-flame-spark s1"></span>
-        <span class="dash-flame-spark s2"></span>
-        <span class="dash-flame-spark s3"></span>
-      </div>
-      <div>
-        <div class="dash-streak-count" id="dashStreakCount">0</div>
-        <div class="dash-streak-label">day streak</div>
+{# ── New Task Modal ──────────────────────────────────────── #}
+<div id="newTaskModal" class="ipd-modal-overlay">
+  <div class="ipd-modal">
+    <h3>New task</h3>
+    <label>Title</label>
+    <input type="text" id="newTaskTitle" placeholder="e.g. Read Chapter 5">
+    <label>Due date</label>
+    <input type="date" id="newTaskDue">
+    <label>Course</label>
+    <input type="text" id="newTaskCourse" placeholder="e.g. Biology 101">
+    <label>Priority</label>
+    <select id="newTaskPriority">
+      <option value="High">High</option>
+      <option value="Medium" selected>Medium</option>
+      <option value="Low">Low</option>
+    </select>
+    <label>Estimated time (minutes)</label>
+    <input type="number" id="newTaskTime" value="60" min="5" max="480">
+    <label>Notes</label>
+    <textarea id="newTaskNotes" placeholder="Optional notes…"></textarea>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:14px;cursor:pointer;">
+      <input type="checkbox" id="syncNotion" style="accent-color:var(--text-primary);"> Sync to Notion
+    </label>
+    <div class="ipd-modal-actions">
+      <button class="ipd-btn" onclick="closeNewTaskModal()">Cancel</button>
+      <button class="ipd-btn ipd-btn-primary" onclick="createManualTask()">Create</button>
+    </div>
+  </div>
+</div>
+
+{# ── Edit Task Modal ─────────────────────────────────────── #}
+<div id="editTaskModal" class="ipd-modal-overlay">
+  <div class="ipd-modal">
+    <h3>Edit task</h3>
+    <input type="hidden" id="editTaskId">
+    <input type="hidden" id="editTaskSource">
+    <input type="hidden" id="editTaskNotionId">
+    <label>Title</label>
+    <input type="text" id="editTaskTitle">
+    <label>Due date</label>
+    <input type="date" id="editTaskDue">
+    <label>Course</label>
+    <input type="text" id="editTaskCourse">
+    <label>Priority</label>
+    <select id="editTaskPriority">
+      <option value="High">High</option>
+      <option value="Medium" selected>Medium</option>
+      <option value="Low">Low</option>
+    </select>
+    <label>Estimated time (minutes)</label>
+    <input type="number" id="editTaskTime" value="60" min="5" max="480">
+    <label>Notes</label>
+    <textarea id="editTaskNotes"></textarea>
+    <div class="ipd-modal-actions">
+      <button class="ipd-btn" style="color:var(--ipd-priority-high);border-color:rgba(185,28,28,0.2);" onclick="deleteManualTask()">Delete</button>
+      <div style="flex:1;"></div>
+      <button class="ipd-btn" onclick="closeEditModal()">Cancel</button>
+      <button class="ipd-btn ipd-btn-primary" onclick="saveEditTask()">Save</button>
+    </div>
+  </div>
+</div>
+
+{# ── Syllabus Import Modal ───────────────────────────────── #}
+<div id="syllabusModal" class="ipd-modal-overlay">
+  <div class="ipd-modal" style="max-width:540px;">
+    <h3>Import syllabus</h3>
+    <label>Course name (optional)</label>
+    <input type="text" id="syllabusCourseName" placeholder="e.g. Chemistry 202">
+    <div id="savedSyllabiWrap" style="display:none;margin-top:14px;">
+      <label style="margin-top:0;">Saved syllabi</label>
+      <div id="savedSyllabiList" style="display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
+    <div id="syllabusDropZone"
+         ondrop="handleSyllabusDrop(event)"
+         ondragover="event.preventDefault(); this.style.borderColor='var(--text-muted)';"
+         ondragleave="this.style.borderColor='var(--border)';"
+         style="margin-top:16px;border:2px dashed var(--border);border-radius:var(--ipd-radius-md);padding:2.5rem;text-align:center;cursor:pointer;transition:border-color 0.15s;"
+         onclick="document.getElementById('syllabusFileInput').click();">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.4;margin-bottom:8px;"><use href="#i-upload"/></svg>
+      <div id="syllabusDropLabel" style="font-size:0.86rem;color:var(--text-muted);">Drop your PDF here or <span style="color:var(--text-primary);font-weight:600;">browse</span></div>
+    </div>
+    <input type="file" id="syllabusFileInput" accept=".pdf" style="display:none;" onchange="handleSyllabusFile(this)">
+    <div id="syllabusStatus" style="display:none;margin-top:12px;font-size:0.84rem;color:var(--text-muted);text-align:center;"></div>
+    <div id="syllabusResults" style="display:none;margin-top:16px;">
+      <label style="margin-top:0;">Found assignments</label>
+      <div id="syllabusResultList" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;"></div>
+      <div class="ipd-modal-actions" style="margin-top:1rem;">
+        <button class="ipd-btn" onclick="closeSyllabusModal()">Cancel</button>
+        <button class="ipd-btn ipd-btn-primary" onclick="importSelectedSyllabus()">Add selected</button>
       </div>
     </div>
+  </div>
+</div>
 
-    <!-- 7-day strip (Mon-Sun), filled vs hollow circles -->
-    <div class="dash-week" id="dashWeek" aria-hidden="true">
-      <div class="dash-week-day" data-d="0"><span class="dash-week-dot"></span><span class="dash-week-let">M</span></div>
-      <div class="dash-week-day" data-d="1"><span class="dash-week-dot"></span><span class="dash-week-let">T</span></div>
-      <div class="dash-week-day" data-d="2"><span class="dash-week-dot"></span><span class="dash-week-let">W</span></div>
-      <div class="dash-week-day" data-d="3"><span class="dash-week-dot"></span><span class="dash-week-let">T</span></div>
-      <div class="dash-week-day" data-d="4"><span class="dash-week-dot"></span><span class="dash-week-let">F</span></div>
-      <div class="dash-week-day" data-d="5"><span class="dash-week-dot"></span><span class="dash-week-let">S</span></div>
-      <div class="dash-week-day" data-d="6"><span class="dash-week-dot"></span><span class="dash-week-let">S</span></div>
-    </div>
-
-    <div class="dash-streak-right">
-      <div class="dash-spark-row">
-        <span class="dash-spark-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-lightning"/></svg></span>
+{# ── Integrations Modal ──────────────────────────────────── #}
+<div id="integrationsModal" class="ipd-modal-overlay">
+  <div class="ipd-modal">
+    <h3>Integrations</h3>
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);">
         <div>
-          <div class="dash-spark-num" id="dashSparkNum">0</div>
-          <div class="dash-spark-label">Sparks</div>
-        </div>
-      </div>
-      <div class="dash-streak-cta" id="dashStreakCta">Study now →</div>
-    </div>
-  </div>
-</a>
-
-<style>
-  .dash-streak-link { display:block; text-decoration:none; color:inherit; margin-bottom:1.5rem; }
-  .dash-streak {
-    background: linear-gradient(135deg, color-mix(in srgb, #f97316 12%, var(--bg-card)), var(--bg-card) 60%);
-    border:1px solid color-mix(in srgb, #f97316 25%, var(--border));
-    border-radius:18px;
-    padding:1.1rem 1.25rem;
-    display:grid;
-    grid-template-columns: auto 1fr auto;
-    align-items:center;
-    gap:1rem;
-    position:relative;
-    overflow:hidden;
-    transition:border-color 0.18s ease;
-  }
-  .dash-streak:hover { border-color:var(--ink, #161616); }
-  [data-theme="dark"] .dash-streak:hover { border-color:var(--ink, #e8e8e4); }
-  .dash-streak-left { display:flex; align-items:center; gap:14px; min-width:0; }
-
-  .dash-flame-stage { position:relative; width:64px; height:72px; display:grid; place-items:center; flex-shrink:0; }
-  .dash-flame-emoji {
-    font-size:46px; line-height:1; z-index:2; position:relative;
-    filter:drop-shadow(0 4px 10px rgba(249,115,22,.55)) drop-shadow(0 0 22px rgba(249,115,22,.45));
-    animation:dashFlameLive 1.4s cubic-bezier(0.45,0.05,0.55,0.95) infinite;
-    color:#f97316;
-    user-select:none;
-  }
-  .dash-flame-aura {
-    position:absolute; bottom:-4px; left:50%; transform:translateX(-50%);
-    width:46px; height:14px; border-radius:50%;
-    background:radial-gradient(ellipse, rgba(249,115,22,.6) 0%, transparent 72%);
-    filter:blur(3px);
-    animation:dashAura 1.6s ease-in-out infinite;
-  }
-  .dash-flame-spark { position:absolute; border-radius:999px; opacity:0; animation:dashSparkRise 1.8s ease-out infinite; pointer-events:none; z-index:3; }
-  .dash-flame-spark.s1 { width:5px; height:5px; left:22px; bottom:30px; background:#facc15; animation-delay:.2s; }
-  .dash-flame-spark.s2 { width:4px; height:4px; left:36px; bottom:32px; background:#fb923c; animation-delay:.8s; }
-  .dash-flame-spark.s3 { width:3px; height:3px; left:30px; bottom:38px; background:#fde68a; animation-delay:1.4s; }
-
-  .dash-streak-count {
-    font-family:var(--font-display); font-size:2.6rem; line-height:1;
-    color:#ea580c; letter-spacing:-0.02em;
-  }
-  .dash-streak-label { font-family:var(--font-ui); font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin-top:4px; }
-
-  /* Week strip */
-  .dash-week { display:flex; gap:6px; justify-self:center; }
-  .dash-week-day { display:flex; flex-direction:column; align-items:center; gap:4px; min-width:24px; }
-  .dash-week-let { font-family:var(--font-ui); font-size:0.62rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em; }
-  .dash-week-dot {
-    width:18px; height:18px; border-radius:50%;
-    border:2px solid color-mix(in srgb, #f97316 35%, var(--border));
-    background:transparent;
-    transition:all 0.22s var(--ease-spring);
-  }
-  .dash-week-day.studied .dash-week-dot {
-    background:linear-gradient(135deg, #f97316, #facc15);
-    border-color:transparent;
-    box-shadow:0 0 12px rgba(249,115,22,0.55);
-  }
-  .dash-week-day.today .dash-week-dot { border-color:#ea580c; transform:scale(1.18); }
-  .dash-week-day.today.studied .dash-week-dot { animation:dashTodayPop 1.6s ease-in-out infinite; }
-
-  .dash-streak-right { display:flex; flex-direction:column; align-items:flex-end; gap:8px; min-width:0; }
-  .dash-spark-row { display:flex; align-items:center; gap:8px; }
-  .dash-spark-icon { font-size:22px; filter:drop-shadow(0 2px 6px rgba(99,102,241,0.45)); }
-  .dash-spark-num { font-family:var(--font-ui); font-size:1.25rem; font-weight: 700; color:var(--text-primary); line-height:1; }
-  .dash-spark-label { font-size:0.66rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin-top:2px; }
-  .dash-streak-cta { font-family:var(--font-ui); font-size:0.78rem; font-weight:700; color:var(--ink, #161616); }
-  [data-theme="dark"] .dash-streak-cta { color:var(--ink, #e8e8e4); }
-
-  @keyframes dashFlameLive {
-    0%   { transform:translateY(0)    rotate(-1deg)  scale(1); }
-    30%  { transform:translateY(-3px) rotate(1.5deg) scale(1.05); }
-    65%  { transform:translateY(-4px) rotate(-1deg)  scale(0.98); }
-    100% { transform:translateY(0)    rotate(-1deg)  scale(1); }
-  }
-  @keyframes dashAura {
-    0%,100% { transform:translateX(-50%) scaleX(1)    scaleY(1);    opacity:0.7; }
-    50%     { transform:translateX(-50%) scaleX(1.18) scaleY(0.82); opacity:1; }
-  }
-  @keyframes dashSparkRise {
-    0%   { transform:translateY(0)    scale(.6); opacity:0; }
-    18%  { opacity:1; }
-    100% { transform:translateY(-44px) translateX(10px) scale(.2); opacity:0; }
-  }
-  @keyframes dashTodayPop {
-    0%,100% { transform:scale(1.18); box-shadow:0 0 12px rgba(249,115,22,0.55); }
-    50%     { transform:scale(1.32); box-shadow:0 0 22px rgba(249,115,22,0.85); }
-  }
-
-  @media (max-width:600px) {
-    .dash-streak { grid-template-columns: auto 1fr; padding:1rem; }
-    .dash-week { grid-column:1/-1; justify-self:start; }
-    .dash-streak-right { grid-column:1/-1; flex-direction:row; justify-content:space-between; align-items:center; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .dash-flame-emoji, .dash-flame-aura, .dash-flame-spark, .dash-week-day.today.studied .dash-week-dot { animation:none !important; }
-  }
-</style>
-
-<!-- Today's schedule preview -->
-<div id="todayScheduleWrap" style="display:none; margin-bottom:1.5rem;">
-  <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); margin-bottom:0.75rem;">Today's Blocks</div>
-  <div id="todayBlocks" style="display:flex; flex-direction:column; gap:8px;"></div>
-</div>
-
-<!-- Notion-style task columns -->
-<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.25rem;" id="dashColumns">
-  <div>
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:2px solid var(--high);">
-      <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--high); display:inline-flex; align-items:center; gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg>Overdue</span>
-      <span id="overdueCount" style="font-size:0.7rem; background:var(--high-bg); color:var(--high); padding:2px 8px; border-radius:10px; font-weight:600;">0</span>
-    </div>
-    <div id="overdueList" class="notion-col"></div>
-  </div>
-  <div>
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:2px solid var(--ink, #161616);">
-      <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--ink, #161616); display:inline-flex; align-items:center; gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>Today</span>
-      <span id="todayCount" style="font-size:0.7rem; background:rgba(22,22,22,0.07); color:var(--ink, #161616); padding:2px 8px; border-radius:10px; font-weight:600;">0</span>
-    </div>
-    <div id="todayList" class="notion-col"></div>
-  </div>
-  <div>
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:2px solid var(--low);">
-      <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--low); display:inline-flex; align-items:center; gap:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> Upcoming</span>
-      <span id="upcomingCount" style="font-size:0.7rem; background:var(--low-bg); color:var(--low); padding:2px 8px; border-radius:10px; font-weight:600;">0</span>
-    </div>
-    <div id="upcomingList" class="notion-col"></div>
-  </div>
-</div>
-
-<!-- New Task Modal -->
-<div id="newTaskModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
-  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:500px; width:90%; animation:fadeUp 0.25s ease both; max-height:90vh; overflow-y:auto;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-      <h2 style="font-family:var(--font-display); font-size:1.2rem; color:var(--text-primary);">New Task</h2>
-      <button onclick="closeNewTaskModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    </div>
-    <div style="display:flex; flex-direction:column; gap:1rem;">
-      <div class="form-group">
-        <label class="form-label">Title *</label>
-        <input type="text" id="newTaskTitle" class="form-input" placeholder="What needs to get done?" />
-      </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
-        <div class="form-group">
-          <label class="form-label">Due Date</label>
-          <input type="date" id="newTaskDue" class="form-input" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Priority</label>
-          <select id="newTaskPriority" class="form-input">
-            <option value="High">High</option>
-            <option value="Medium" selected>Medium</option>
-            <option value="Low">Low</option>
-          </select>
-        </div>
-      </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
-        <div class="form-group">
-          <label class="form-label">Course / Category</label>
-          <input type="text" id="newTaskCourse" class="form-input" placeholder="e.g. Math, Personal" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Est. Time (min)</label>
-          <input type="number" id="newTaskTime" class="form-input" value="60" min="15" step="15" />
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Notes</label>
-        <textarea id="newTaskNotes" class="form-input" style="resize:vertical; min-height:70px;" placeholder="Optional notes..."></textarea>
-      </div>
-      <div style="display:flex; align-items:center; gap:8px; padding:10px; background:var(--bg); border-radius:10px; border:1px solid var(--border);">
-        <input type="checkbox" id="syncNotion" style="width:16px;height:16px;accent-color:var(--accent);" />
-        <label for="syncNotion" style="font-size:0.85rem; color:var(--text-secondary); cursor:pointer; display:inline-flex; align-items:center; gap:5px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-notion"/></svg>Also add to Notion</label>
-      </div>
-      <button onclick="createManualTask()" class="btn-primary" style="padding:14px; border:none; cursor:pointer; font-size:0.9rem;">Create Task</button>
-    </div>
-  </div>
-</div>
-
-<!-- Syllabus Import Modal -->
-<div id="syllabusModal" style="display:none; position:fixed; inset:0; z-index:1010; background:rgba(0,0,0,0.45); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
-  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:520px; width:90%; animation:fadeUp 0.25s ease both; max-height:80vh; overflow-y:auto;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
-      <h2 style="font-family:var(--font-display); font-size:1.15rem; font-weight: 700; color:var(--text-primary); margin:0;">Import Syllabus</h2>
-      <button onclick="closeSyllabusModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    </div>
-    <p style="font-size:0.84rem; color:var(--text-muted); margin:0 0 1rem;">Upload syllabi for different classes — each import is saved so you can re-use assignments later.</p>
-
-    <div class="form-group" style="margin-bottom:1rem;">
-      <label class="form-label" for="syllabusCourseName">Course name</label>
-      <input type="text" id="syllabusCourseName" class="form-input" placeholder="e.g. AP Biology, Algebra II" maxlength="160">
-    </div>
-
-    <div id="savedSyllabiWrap" style="display:none; margin-bottom:1rem;">
-      <div style="font-family:var(--font-ui); font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); margin-bottom:6px;">Saved syllabi</div>
-      <div id="savedSyllabiList" style="display:flex; flex-direction:column; gap:6px; max-height:140px; overflow-y:auto;"></div>
-    </div>
-
-    <!-- Upload area -->
-    <div id="syllabusDropZone" style="border:2px dashed var(--border); border-radius:14px; padding:2rem; text-align:center; cursor:pointer; transition:border-color 0.15s, background 0.15s;" onclick="document.getElementById('syllabusFileInput').click()" ondragover="event.preventDefault();this.style.borderColor='var(--accent)'" ondragleave="this.style.borderColor='var(--border)'" ondrop="handleSyllabusDrop(event)">
-      <input type="file" id="syllabusFileInput" accept=".pdf" style="display:none;" onchange="handleSyllabusFile(this)">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" style="margin-bottom:10px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-      <div id="syllabusDropLabel" style="font-size:0.88rem; color:var(--text-muted);">Drop your PDF here or <span style="color:var(--ink, #161616); font-weight:600;">browse</span></div>
-    </div>
-
-    <!-- Status / results -->
-    <div id="syllabusStatus" style="display:none; margin-top:1rem; font-size:0.84rem; color:var(--text-muted); text-align:center;"></div>
-    <div id="syllabusResults" style="display:none; margin-top:1rem;">
-      <div style="font-family:var(--font-ui); font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); margin-bottom:8px;">Extracted assignments, select which to add:</div>
-      <div id="syllabusResultList" style="display:flex; flex-direction:column; gap:6px; max-height:280px; overflow-y:auto;"></div>
-      <div style="display:flex; gap:8px; margin-top:1.25rem; justify-content:flex-end;">
-        <button onclick="closeSyllabusModal()" class="btn-secondary" style="padding:9px 18px; font-size:0.84rem;">Cancel</button>
-        <button onclick="importSelectedSyllabus()" class="btn-primary" style="padding:9px 18px; border:none; cursor:pointer; font-size:0.84rem;">Add Selected Tasks</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Edit Task Modal -->
-<div id="editTaskModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
-  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:500px; width:90%; animation:fadeUp 0.25s ease both;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-      <h2 style="font-family:var(--font-display); font-size:1.2rem; color:var(--text-primary);">Edit Task</h2>
-      <button onclick="closeEditModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    </div>
-    <div style="display:flex; flex-direction:column; gap:1rem;">
-      <input type="hidden" id="editTaskId" />
-      <input type="hidden" id="editTaskSource" />
-      <input type="hidden" id="editTaskNotionId" />
-      <div class="form-group">
-        <label class="form-label">Title</label>
-        <input type="text" id="editTaskTitle" class="form-input" />
-      </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
-        <div class="form-group">
-          <label class="form-label">Due Date</label>
-          <input type="date" id="editTaskDue" class="form-input" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Priority</label>
-          <select id="editTaskPriority" class="form-input">
-            <option value="High">High</option>
-            <option value="Medium">Medium</option>
-            <option value="Low">Low</option>
-          </select>
-        </div>
-      </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
-        <div class="form-group">
-          <label class="form-label">Est. Time (min)</label>
-          <input type="number" id="editTaskTime" class="form-input" min="15" step="15" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Course</label>
-          <input type="text" id="editTaskCourse" class="form-input" />
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Notes</label>
-        <textarea id="editTaskNotes" class="form-input" style="resize:vertical; min-height:70px;"></textarea>
-      </div>
-      <div style="display:flex; gap:8px;">
-        <button onclick="saveEditTask()" class="btn-primary" style="flex:1; padding:12px; border:none; cursor:pointer;">Save Changes</button>
-        <button onclick="deleteManualTask()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--high); background:var(--high-bg); color:var(--high); cursor:pointer; font-family:var(--font-ui); font-weight:600;">Delete</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Integrations Modal -->
-<div id="integrationsModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
-  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:2rem; max-width:520px; width:90%; animation:fadeUp 0.25s ease both; max-height:85vh; overflow-y:auto;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-      <h2 style="font-family:var(--font-display); font-size:1.2rem; color:var(--text-primary);">Integrations</h2>
-      <button onclick="closeIntegrationsModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    </div>
-
-    <!-- Google Calendar -->
-    <div style="background:var(--bg); border:1px solid var(--border); border-radius:14px; padding:1.25rem; margin-bottom:1rem;">
-      <div style="display:flex; align-items:center; gap:12px;">
-        <div style="width:42px;height:42px;border-radius:10px;background:#ea4335;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg></div>
-        <div style="flex:1;">
-          <div style="font-size:0.95rem;font-weight:600;color:var(--text-primary);">Google Calendar</div>
-          <div id="gcalStatus" style="font-size:0.78rem;color:var(--text-muted);">Checking...</div>
+          <div style="font-weight:600;font-size:0.88rem;color:var(--text-primary);font-family:var(--ipd-font-body);">Google Calendar</div>
+          <div id="gcalStatus" style="font-size:0.76rem;color:var(--text-muted);margin-top:2px;">Checking…</div>
         </div>
         <div id="gcalActions"></div>
       </div>
-    </div>
-
-    <!-- Notion -->
-    <div style="background:var(--bg); border:1px solid var(--border); border-radius:14px; padding:1.25rem;">
-      <div style="display:flex; align-items:center; gap:12px; margin-bottom:1rem;">
-        <div style="width:42px;height:42px;border-radius:10px;background:#191919;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-notion"/></svg></div>
-        <div style="flex:1;">
-          <div style="font-size:0.95rem;font-weight:600;color:var(--text-primary);">Notion</div>
-          <div id="notionStatus" style="font-size:0.78rem;color:var(--text-muted);">Not connected</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;">
+        <div>
+          <div style="font-weight:600;font-size:0.88rem;color:var(--text-primary);font-family:var(--ipd-font-body);">Notion</div>
+          <div id="notionStatus" style="font-size:0.76rem;color:var(--text-muted);margin-top:2px;">Checking…</div>
         </div>
         <div id="notionActions"></div>
       </div>
-      <div id="notionSetup">
-        <div class="form-group" style="margin-bottom:0.75rem;">
-          <label class="form-label">Integration Token</label>
-          <input type="password" id="notionTokenInput" class="form-input" placeholder="secret_..." />
-          <span class="form-hint">Notion → Settings → Connections → Develop or manage integrations</span>
+      <div id="notionSetup" style="display:none;">
+        <label>Notion integration token</label>
+        <div style="display:flex;gap:8px;">
+          <input type="password" id="notionTokenInput" placeholder="secret_…" style="flex:1;">
+          <button class="ipd-btn ipd-btn-primary" onclick="connectNotion()">Connect</button>
         </div>
-        <button onclick="connectNotion()" class="btn-primary" style="padding:10px 20px; border:none; cursor:pointer; font-size:0.88rem; width:100%;">Connect Notion</button>
       </div>
-      <div id="notionDbSelect" style="display:none; margin-top:0.75rem;">
-        <label class="form-label">Select your task database</label>
-        <select id="notionDbDropdown" class="form-input" style="margin-top:6px;" onchange="setNotionDatabase(this.value)">
-          <option value="">Choose a database...</option>
+      <div id="notionDbSelect" style="display:none;">
+        <label>Select database</label>
+        <select id="notionDbDropdown" onchange="setNotionDatabase(this.value)" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--ipd-radius-sm);font-family:var(--ipd-font-body);font-size:0.86rem;background:var(--bg);color:var(--text-primary);">
+          <option value="">Choose a database…</option>
         </select>
       </div>
     </div>
-  </div>
-</div>
-
-<div id="silenceModal" style="display:none; position:fixed; inset:0; z-index:1000;
-  background:rgba(0,0,0,0.4); backdrop-filter:blur(4px);
-  align-items:center; justify-content:center;">
-
-  <div style="background:var(--bg-card); border:1px solid var(--border);
-    border-radius:20px; padding:2rem; max-width:420px; width:90%;
-    animation:fadeUp 0.25s ease both;">
-
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-      <h2 style="font-family:var(--font-display);">Silence Notifications</h2>
-      <button onclick="closeSilenceModal()" aria-label="Close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    </div>
-
-    <label class="form-label">Duration (minutes)</label>
-    <input type="number" id="silenceMinutes" class="form-input" value="30" min="1" max="1440"/>
-
-    <button onclick="enableSilence()" class="btn-primary"
-      style="width:100%; margin-top:1rem; padding:12px;">
-      Enable Silence
-    </button>
-
-    <p id="silenceStatus" style="margin-top:10px; font-size:0.8rem; color:var(--text-muted);"></p>
-  </div>
-</div>
-
-<style>
-/* ── Streak widget ──────────────────────────────── */
-.streak-card {
-  --tier:#f97316;
-  background:
-    radial-gradient(circle at 8% 20%, color-mix(in srgb, var(--tier) 18%, transparent), transparent 25%),
-    linear-gradient(135deg, var(--bg-card), var(--bg-elevated));
-  border: 1px solid color-mix(in srgb, var(--tier) 26%, var(--border));
-  border-radius: 18px;
-  padding: 1.25rem 1.4rem;
-  display: flex;
-  align-items: center;
-  gap: 1.25rem;
-  flex-wrap: wrap;
-  overflow: hidden;
-  position: relative;
-}
-.dashboard-streak-card::after {
-  content:"";
-  position:absolute;
-  inset:auto 8% -52px;
-  height:88px;
-  background:radial-gradient(circle, color-mix(in srgb, var(--tier) 20%, transparent), transparent 66%);
-  filter:blur(10px);
-  pointer-events:none;
-}
-.dashboard-streak-card > * { position:relative; z-index:1; }
-.dashboard-streak-card.loading { color:var(--text-muted); }
-.streak-loading-copy {
-  color:var(--text-muted);
-  font-size:.9rem;
-  font-weight:700;
-}
-.streak-flame {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-  min-width: 72px;
-}
-.streak-flame-icon {
-  width:44px;
-  height:44px;
-  border-radius:15px;
-  display:grid;
-  place-items:center;
-  color:#fff;
-  background:linear-gradient(135deg,#ef4444,#f97316 55%,#facc15);
-  filter: drop-shadow(0 0 6px rgba(251,146,60,0.5));
-  transition: transform 0.2s;
-}
-.streak-flame-icon.cold { filter: grayscale(1); opacity: 0.45; background:var(--bg); color:var(--text-muted); }
-.streak-flame-count {
-  font-family: var(--font-ui);
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--tier);
-  line-height: 1.1;
-  margin-top: 5px;
-}
-.streak-flame-label {
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-}
-.streak-days {
-  display: flex;
-  gap: 5px;
-  flex: 1;
-  flex-wrap: wrap;
-  min-width: 0;
-}
-.streak-day {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  min-width: 32px;
-}
-.streak-day-dot {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 2px solid var(--border-strong);
-  background: var(--bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.7rem;
-  transition: all 0.18s;
-}
-.streak-day-dot.active {
-  background: linear-gradient(135deg, #fb923c, #f97316);
-  border-color: #f97316;
-  box-shadow: 0 2px 8px rgba(249,115,22,0.35);
-  color: white;
-}
-.streak-day-dot.today-ring {
-  border-color: var(--ink, #161616);
-  border-width: 2.5px;
-}
-.streak-day-dot.frozen {
-  background: #e0e7ff;
-  border-color: #93c5fd;
-  color: #3b82f6;
-}
-.streak-day-label {
-  font-family: var(--font-ui);
-  font-size: 0.62rem;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-.streak-day-label.today-txt { color: var(--ink, #161616); }
-[data-theme="dark"] .streak-day-label.today-txt { color: var(--ink, #e8e8e4); }
-.streak-meta {
-  display: flex;
-  flex-direction: row;
-  align-items:center;
-  gap: 8px;
-  flex-wrap:wrap;
-  flex-shrink: 0;
-}
-.streak-stat {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-ui);
-  font-size: 0.78rem;
-  color: var(--text-secondary);
-}
-.streak-stat svg { flex-shrink: 0; }
-.streak-at-risk {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 12px;
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  border-radius: 10px;
-  font-family: var(--font-ui);
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: #c2410c;
-  width: 100%;
-  margin-top: 4px;
-}
-.streak-tier-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  border: 1px solid currentColor;
-}
-.streak-actions {
-  margin-left:auto;
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-}
-.streak-action {
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:6px;
-  min-height:34px;
-  padding:8px 12px;
-  border-radius:10px;
-  font-family:var(--font-ui);
-  font-size:.78rem;
-  font-weight: 700;
-  text-decoration:none;
-  border:1px solid var(--border);
-  background:var(--bg-card);
-  color:var(--text-secondary);
-}
-.streak-action.primary { background:var(--tier); color:#fff; border-color:var(--tier); }
-@media (max-width: 720px) {
-  .streak-days { order:3; width:100%; flex-basis:100%; justify-content:space-between; }
-  .streak-meta { order:4; width:100%; }
-  .streak-actions { margin-left:0; width:100%; }
-  .streak-action { flex:1; }
-}
-
-/* ── Notion columns ─────────────────────────────── */
-.notion-col { display:flex; flex-direction:column; gap:8px; min-height:80px; }
-
-.notion-card {
-  background:var(--bg-card); border:1px solid var(--border);
-  border-radius:12px; padding:1rem; cursor:default;
-  transition:all 0.18s ease; position:relative;
-  animation:fadeUp 0.3s ease both;
-  border-left:3px solid var(--border);
-}
-.notion-card:hover { }
-.notion-card-title { font-size:0.88rem; font-weight:600; color:var(--text-primary); margin-bottom:6px; line-height:1.3; }
-.notion-card-meta { display:flex; flex-wrap:wrap; gap:5px; align-items:center; }
-.notion-pill { font-size:0.68rem; font-weight:600; padding:2px 7px; border-radius:7px; }
-.notion-card-actions { display:flex; gap:5px; margin-top:8px; flex-wrap:wrap; }
-.notion-action-btn {
-  font-size:0.7rem; font-weight:600; padding:3px 9px; border-radius:7px;
-  cursor:pointer; border:1px solid var(--border); background:var(--bg);
-  color:var(--text-secondary); font-family:var(--font-ui); transition:all 0.15s;
-}
-.notion-action-btn:hover { background:rgba(22,22,22,0.07); color:var(--ink, #161616); border-color:var(--ink, #161616); }
-[data-theme="dark"] .notion-action-btn:hover { background:rgba(232,232,228,0.1); color:var(--ink, #e8e8e4); border-color:var(--ink, #e8e8e4); }
-.notion-action-btn.done-btn { background:var(--low-bg); color:var(--low); border-color:var(--low); }
-.source-badge { font-size:0.62rem; padding:2px 6px; border-radius:5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; }
-.today-block-item {
-  display:flex; align-items:center; gap:12px; padding:10px 14px;
-  background:var(--bg-card); border:1px solid var(--border); border-radius:10px;
-  font-size:0.85rem; border-left:3px solid var(--ink, #161616);
-}
-@media (max-width: 768px) { #dashColumns { grid-template-columns:1fr !important; } }
-</style>
-
-{# ── Assignment Detail Modal ──────────────────────────────────── #}
-<div id="assignDetailModal" style="display:none;position:fixed;inset:0;z-index:1400;background:rgba(7,8,20,0.62);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:1rem;">
-  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:22px;padding:2rem;width:min(580px,100%);max-height:88vh;overflow:auto;box-shadow:var(--shadow-lg);animation:fadeUp 0.28s var(--ease-out) both;">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1.25rem;">
-      <h2 id="adTitle" style="font-family:var(--font-display);font-size:1.4rem;color:var(--text-primary);margin:0;line-height:1.25;"></h2>
-      <button onclick="closeAssignDetail()" style="background:none;border:none;font-size:1.4rem;color:var(--text-muted);cursor:pointer;line-height:1;">×</button>
-    </div>
-    <div id="adMeta" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1.25rem;"></div>
-    <div class="form-group" style="margin-bottom:1rem;">
-      <label class="form-label">Due Date</label>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <input type="date" id="adDueDate" class="form-input" style="max-width:180px;" />
-        <button onclick="saveAssignDueDate()" class="btn-secondary" style="padding:8px 14px;cursor:pointer;font-size:0.84rem;">Update</button>
-      </div>
-      <span class="form-hint">Override the system date if it's incorrect</span>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Personal Notes</label>
-      <textarea id="adNotes" class="form-input" rows="5" placeholder="Add notes, reminders, or a personal description for this assignment..."></textarea>
-      <div style="margin-top:8px;display:flex;gap:8px;">
-        <button onclick="saveAssignNotes()" class="btn-primary" style="padding:10px 20px;border:none;cursor:pointer;">Save Notes</button>
-        <span id="adSaveStatus" style="font-size:0.78rem;color:var(--low);align-self:center;display:none;">Saved</span>
-      </div>
+    <div class="ipd-modal-actions">
+      <button class="ipd-btn" onclick="closeIntegrationsModal()">Close</button>
     </div>
   </div>
 </div>
+
+{# ── Assignment Detail Modal ─────────────────────────────── #}
+<div id="assignDetailModal" class="ipd-modal-overlay">
+  <div class="ipd-modal">
+    <h3 id="adTitle">Assignment</h3>
+    <div id="adMeta" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem;"></div>
+    <label>Due date</label>
+    <input type="date" id="adDueDate" onchange="saveAssignDueDate()">
+    <label>Notes</label>
+    <textarea id="adNotes" placeholder="Add your notes…" oninput="saveAssignNotes()"></textarea>
+    <span id="adSaveStatus" style="display:none;font-size:0.74rem;color:var(--ipd-priority-low);font-family:var(--ipd-font-body);margin-top:6px;">Saved</span>
+    <div class="ipd-modal-actions">
+      <button class="ipd-btn" onclick="closeAssignDetail()">Close</button>
+    </div>
+  </div>
+</div>
+
+{# ── Feedback Modal ──────────────────────────────────────── #}
+<div id="feedbackModal" class="ipd-modal-overlay">
+  <div class="ipd-modal" style="max-width:400px;text-align:center;">
+    <div style="font-size:2.5rem;margin-bottom:0.75rem;">✓</div>
+    <h3 style="margin-bottom:0.5rem;">Task complete?</h3>
+    <p style="font-size:0.84rem;color:var(--text-muted);margin:0 0 1.25rem;">How did it go?</p>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button class="ipd-btn" onclick="submitFeedback('easy')" style="flex:1;">Easy</button>
+      <button class="ipd-btn" onclick="submitFeedback('ok')" style="flex:1;">OK</button>
+      <button class="ipd-btn" onclick="submitFeedback('hard')" style="flex:1;">Hard</button>
+    </div>
+    <button class="ipd-btn" onclick="submitFeedback('skip')" style="margin-top:12px;width:100%;color:var(--text-muted);">Just dismiss</button>
+  </div>
+</div>
+
+{# ── Onboarding Modal ───────────────────────────────────── #}
+{% if needs_onboarding %}
+<div id="onboardingModal" class="ipd-modal-overlay" style="display:flex;">
+  <div class="ipd-modal" style="max-width:520px;text-align:center;">
+    <div style="font-size:3rem;margin-bottom:1rem;">📚</div>
+    <h3>Welcome to IntelliPlan</h3>
+    <p style="font-size:0.88rem;color:var(--text-secondary);line-height:1.6;margin:0 0 1.5rem;">Your AI-powered study planner. Let's set you up — it only takes a minute.</p>
+    <a href="/onboarding" class="ipd-btn ipd-btn-primary" style="text-decoration:none;display:inline-flex;padding:12px 28px;font-size:0.92rem;">Get started</a>
+    <div style="margin-top:1rem;">
+      <button class="ipd-btn" onclick="document.getElementById('onboardingModal').style.display='none'" style="font-size:0.8rem;color:var(--text-muted);">Skip for now</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endif %}
 {% endblock %}
 
+
 {% block scripts %}
-let _unifiedTasks = { today: [], upcoming: [], overdue: [] };
-let _gcalConnected = false;
-let _savedSchedule = null;
-let _editingTask = null;
-let _feedbackCard = null;
-let _feedbackTask = null;
-let _silencedUntil = null;
+<script>
+// ── Namespace guard (per base.html collision rule) ────────────
+var _ipdState = {
+  unifiedTasks: { today: [], upcoming: [], overdue: [] },
+  gcalConnected: false,
+  savedSchedule: null,
+  editingTask: null,
+  feedbackTask: null,
+  feedbackCard: null,
+  silencedUntil: null,
+  currentTab: 'today'
+};
 
-// ── Task-completion streak ──────────────────────────────────────
-let _streakData = null;
+var DASH_TEST_RE = /\b(test|exam|quiz|midterm|final)\b/i;
 
-async function loadStreak() {
-  try {
-    const res = await fetch('/api/streak/status').then(r => r.json());
-    if (res.status !== 'ok' || !res.enabled) return;
-    _streakData = res;
-    renderStreakPill();
-    renderStreakNudge();
-    // Send timezone on first load
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (tz && res.timezone === 'UTC') {
-      fetch('/api/streak/set-timezone', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ timezone: tz })
-      });
-    }
-    // Plan review qualifying action (viewing the dashboard)
-    fetch('/api/streak/plan-review', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ timezone: tz })
-    }).then(r => r.json()).then(d => {
-      if (d.toast && d.event) showStreakToast(d.toast);
-      if (d.current_streak !== undefined) {
-        _streakData.current_streak = d.current_streak;
-        _streakData.longest_streak = d.longest_streak;
-        _streakData.freezes_available = d.freezes_available;
-        renderStreakPill();
-      }
-    }).catch(() => {});
-  } catch (e) {
-    console.log('[streak] load error:', e);
+// ── Greeting + date kicker ───────────────────────────────────
+(function setGreeting() {
+  var h = new Date().getHours();
+  var greet = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  var name = '{{ identity.first_name|default("") }}';
+  var el = document.getElementById('ipdGreeting');
+  if (el) el.textContent = name ? greet + ', ' + name + '.' : greet + '.';
+  var kicker = document.getElementById('ipdDateKicker');
+  if (kicker) {
+    var d = new Date();
+    kicker.textContent = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   }
-}
+})();
 
-function renderStreakPill() {
-  if (!_streakData) return;
-  const wrap = document.getElementById('streakPillWrap');
-  const pill = document.getElementById('streakPill');
-  const text = document.getElementById('streakPillText');
-  wrap.style.display = 'block';
-  if (_streakData.current_streak === 0) {
-    pill.style.borderColor = '#D1D5DB';
-    pill.style.background = 'transparent';
-    pill.style.color = 'var(--text-muted)';
-    text.textContent = 'Start today';
-  } else {
-    pill.style.borderColor = '#E07A2A';
-    pill.style.background = 'rgba(224,122,42,0.08)';
-    pill.style.color = '#E07A2A';
-    text.textContent = _streakData.current_streak;
-  }
-}
-
-function renderStreakNudge() {
-  if (!_streakData || !_streakData.show_nudge) return;
-  document.getElementById('streakNudge').style.display = 'block';
-  fetch('/api/streak/nudge-shown', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
-}
-
-function nudgeTapped() {
-  fetch('/api/streak/nudge-tapped', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
-  document.getElementById('streakNudge').style.display = 'none';
-  const firstTask = document.querySelector('.notion-card');
-  if (firstTask) firstTask.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
-function openStreakSheet() {
-  if (!_streakData) return;
-  fetch('/api/streak/pill-tapped', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' }).catch(() => {});
-  document.getElementById('sheetStreakNum').textContent = _streakData.current_streak;
-  document.getElementById('sheetLongest').textContent = _streakData.longest_streak + ' days';
-  document.getElementById('sheetFreezes').textContent = _streakData.freezes_available + ' / ' + _streakData.freezes_max;
-  // Week dots
-  const dots = _streakData.week_dots || [];
-  document.getElementById('sheetWeekDots').innerHTML = dots.map(d => {
-    const filled = d.qualified;
-    const today = d.is_today;
-    return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-      <div style="
-        width:32px;height:32px;border-radius:999px;display:grid;place-items:center;
-        border:2px solid ${filled ? '#E07A2A' : today ? 'var(--ink, #161616)' : '#D1D5DB'};
-        background:${filled ? 'linear-gradient(135deg,#fb923c,#E07A2A)' : 'var(--bg)'};
-        color:${filled ? '#fff' : 'var(--text-muted)'};
-      ">${filled ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}</div>
-      <span style="font-size:0.68rem;font-weight:700;color:var(--text-muted);">${d.label}</span>
-    </div>`;
-  }).join('');
-  document.getElementById('streakSheet').style.display = 'flex';
-}
-
-function closeStreakSheet() {
-  document.getElementById('streakSheet').style.display = 'none';
-}
-
-function showStreakToast(msg) {
-  const el = document.getElementById('streakToast');
-  el.textContent = msg;
-  el.style.display = 'block';
-  setTimeout(() => { el.style.display = 'none'; }, 2500);
-}
-
-function openSilenceModal() {
-  document.getElementById('silenceModal').style.display = 'flex';
-}
-
-function closeSilenceModal() {
-  document.getElementById('silenceModal').style.display = 'none';
-}
-
-async function enableSilence() {
-  const minutes = parseInt(document.getElementById('silenceMinutes').value);
-
-  if (!minutes || minutes <= 0) return;
-
-  const res = await fetch('/notifications/silence', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ minutes })
-  }).then(r => r.json());
-
-  if (res.status === 'ok') {
-    _silencedUntil = res.silenced_until;
-
-    document.getElementById('silenceStatus').textContent =
-      `Silenced until ${new Date(_silencedUntil).toLocaleTimeString()}`;
-
-    setTimeout(closeSilenceModal, 800);
-  }
-}
-
-// global check helper
-function notificationsSilenced() {
-  if (!_silencedUntil) return false;
-  return new Date() < new Date(_silencedUntil);
-}
-
-function openFeedbackModal(task, card) {
-  _feedbackTask = task;
-  _feedbackCard = card;
-  document.getElementById('feedbackTaskTitle').value = task.title;
-  document.getElementById('feedbackTaskName').textContent = task.title;
-  const timeInput = document.getElementById('feedbackActualTime');
-  // Start with the original estimate while we fetch a better prediction
-  // from the user's task-completion history. The fetch is async so the
-  // modal still opens immediately if the network is slow.
-  timeInput.value = task.estimated_time || '';
-  timeInput.dataset.predicted = '';
-  // Clear any prior hint
-  const hintEl = document.getElementById('feedbackTimeHint');
-  if (hintEl) hintEl.textContent = '';
-  const params = new URLSearchParams({
-    title: task.title || '',
-    course: task.course || '',
-    priority: task.priority || 'Medium',
-    fallback: String(task.estimated_time || 60),
+// ── Tab switching ────────────────────────────────────────────
+function switchPlanTab(tab) {
+  _ipdState.currentTab = tab;
+  document.querySelectorAll('#ipdPlanTabs .ipd-section-tab').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
   });
-  fetch('/feedback/predict-time?' + params.toString())
-    .then(r => r.json())
-    .then(d => {
-      if (d.status !== 'ok' || !d.predicted_minutes) return;
-      // Only pre-fill if the user hasn't already typed something.
-      if (timeInput.value === String(task.estimated_time || '') || timeInput.value === '') {
-        timeInput.value = d.predicted_minutes;
-        timeInput.dataset.predicted = d.predicted_minutes;
-      }
-      if (hintEl) {
-        const sourceLabels = {
-          same_title: 'last time you did this',
-          'course+priority': 'past ' + (task.course || 'course') + ' work',
-          course: 'past ' + (task.course || 'course') + ' work',
-          priority: (task.priority || 'this priority') + ' tasks',
-          global: 'all your past tasks',
-          fallback: 'default estimate',
-        };
-        const lbl = sourceLabels[d.source] || 'past tasks';
-        hintEl.textContent = `Predicted from ${lbl}${d.sample_size ? ' (' + d.sample_size + ' samples)' : ''}`;
-      }
-    })
-    .catch(() => {});
-  document.getElementById('feedbackModal').style.display = 'flex';
-  setTimeout(() => timeInput.focus(), 100);
+  renderTaskList();
 }
 
-function closeFeedbackModal() {
-  document.getElementById('feedbackModal').style.display = 'none';
-  _feedbackTask = null;
-  _feedbackCard = null;
-}
-
-async function submitFeedback(save) {
-  const task = _feedbackTask;
-  const card = _feedbackCard;
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-  if (save && task) {
-    const actualTime = document.getElementById('feedbackActualTime').value;
-    await fetch('/feedback/complete', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        title: task.title,
-        course: task.course || '',
-        estimated_time: task.estimated_time || 60,
-        actual_time: actualTime ? parseInt(actualTime) : null,
-        difficulty: task.difficulty || 'Medium',
-        priority: task.priority || 'Medium',
-        dismiss: true,
-        timezone: tz,
-        ...task
-      })
-    });
-  } else {
-    // Just dismiss
-    await fetch('/dismiss', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ title: task.title, timezone: tz, ...task })
-    });
-  }
-  // Always update the UI after a successful save. (Previously a
-  // notificationsSilenced() early-return here skipped the card removal
-  // and dashboard refresh, so a completed task appeared to "not save"
-  // until a manual reload, even though the DB write above succeeded.)
-  closeFeedbackModal();
-  if (card) {
-    card.style.opacity = '0';
-    card.style.transform = 'scale(0.95)';
-    card.style.transition = 'all 0.2s';
-    setTimeout(() => { card.remove(); }, 200);
-  }
-  // Refresh streak after task completion
-  loadStreak();
-  loadDashboard();
-}
-
-document.getElementById('feedbackModal').addEventListener('click', function(e) {
-  if (e.target === this) closeFeedbackModal();
-});
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && document.getElementById('feedbackModal').style.display === 'flex') {
-    submitFeedback(true);
-  }
-});
-async function loadDashboard() {
-  const [tasksRes, schedRes, calRes] = await Promise.all([
-    fetch('/tasks/unified').then(r => r.json()).catch(() => ({ today: [], upcoming: [], overdue: [] })),
-    fetch('/schedule/saved').then(r => r.json()).catch(() => ({ status: 'none' })),
-    fetch('/calendar/events').then(r => r.json()).catch(() => ({ connected: false, events: [] }))
-  ]);
-
-  _unifiedTasks = tasksRes;
-  _gcalConnected = calRes.connected;
-
-  const allDashTasks = [...(tasksRes.overdue||[]), ...(tasksRes.today||[]), ...(tasksRes.upcoming||[])];
-  autoDashMarkTests(allDashTasks);
-
-  updateSubtitle(tasksRes);
-  renderColumn('overdueList', 'overdueCount', tasksRes.overdue);
-  renderColumn('todayList', 'todayCount', tasksRes.today);
-  renderColumn('upcomingList', 'upcomingCount', tasksRes.upcoming);
-  renderIntegrationBar(calRes);
-  // Show export bar if calendar connected and schedule exists
-  if (calRes.connected && schedRes.status === 'ok') {
-    document.getElementById('exportBar').style.display = 'flex';
-    document.getElementById('exportStatus').textContent = `· ${schedRes.name}`;
-  } else {
-    document.getElementById('exportBar').style.display = 'none';
-  }
-  renderSavedSchedule(schedRes);
-}
-
-function updateSubtitle(tasks) {
-  const sub = document.getElementById('dashSubtitle');
-  const total = tasks.overdue.length + tasks.today.length;
-  if (tasks.overdue.length > 0) {
-    sub.innerHTML = `<span style="color:var(--high);display:inline-flex;align-items:center;gap:3px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg>${tasks.overdue.length} overdue</span> · ${tasks.today.length} today · ${tasks.upcoming.length} upcoming`;
-  } else if (tasks.today.length > 0) {
-    sub.innerHTML = `<span style="color:var(--ink, #161616);display:inline-flex;align-items:center;gap:3px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>${tasks.today.length} due today</span> · ${tasks.upcoming.length} upcoming`;
-  } else {
-    sub.innerHTML = `<span style="color:var(--text-muted);">${tasks.upcoming.length} upcoming tasks</span>`;
-  }
-}
-
-function renderIntegrationBar(calRes) {
-  const bar = document.getElementById('integrationBar');
-  const chips = [];
-  if (calRes.connected) {
-    chips.push(`
-      <div style="display:flex;align-items:center;gap:8px;padding:6px 14px;background:var(--low-bg);border:1px solid var(--low);border-radius:20px;font-size:0.78rem;font-weight:600;color:var(--low);">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>Google Calendar connected
-        <button onclick="disconnectGCal()" aria-label="Disconnect" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:2px;display:flex;align-items:center;justify-content:center;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-      </div>`);
-  } else {
-    chips.push(`<a href="/oauth/google" style="display:flex;align-items:center;gap:6px;padding:6px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:20px;font-size:0.78rem;font-weight:600;color:var(--ink, #161616);text-decoration:none;">+ Connect Google Calendar</a>`);
-  }
-  bar.innerHTML = chips.join('');
-}
-
-function renderSavedSchedule(schedRes) {
-  const banner = document.getElementById('savedScheduleBanner');
-  const todayWrap = document.getElementById('todayScheduleWrap');
-  if (schedRes.status !== 'ok') {
-    banner.style.display = 'none';
-    todayWrap.style.display = 'none';
-    return;
-  }
-  _savedSchedule = schedRes.data;
-  banner.style.display = 'flex';
-  document.getElementById('savedScheduleName').textContent = schedRes.name;
-  document.getElementById('savedScheduleDate').textContent = `Saved ${schedRes.created_at}`;
-
-  // Find today's blocks
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todayDay = schedRes.data.schedule?.find(d => d.date === todayStr);
-  if (todayDay && todayDay.blocks) {
-    const studyBlocks = todayDay.blocks.filter(b => !b.is_break);
-    if (studyBlocks.length > 0) {
-      todayWrap.style.display = 'block';
-      document.getElementById('todayBlocks').innerHTML = studyBlocks.map(b => `
-        <div class="today-block-item">
-          <div style="font-size:0.78rem;color:var(--ink, #161616);font-weight:600;min-width:120px;">${b.time_slot?.split(' - ')[0] || ''}</div>
-          <div style="flex:1;">
-            <div style="font-weight:600;color:var(--text-primary);">${b.assignment}</div>
-            <div style="font-size:0.75rem;color:var(--text-muted);">${b.course} · ${b.duration_minutes}m</div>
-          </div>
-          <div style="font-size:0.72rem;background:rgba(22,22,22,0.07);color:var(--ink, #161616);padding:2px 8px;border-radius:8px;font-weight:600;">${b.energy_level || ''}</div>
-        </div>
-      `).join('');
-    }
-  } else {
-    todayWrap.style.display = 'none';
-  }
-}
-
-function viewSavedSchedule() {
-  window.location.href = '/scheduler/saved';
-}
-
-async function clearSavedSchedule() {
-  await fetch('/schedule/delete', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({}) });
-  document.getElementById('savedScheduleBanner').style.display = 'none';
-  document.getElementById('todayScheduleWrap').style.display = 'none';
-  _savedSchedule = null;
-}
-
-async function exportScheduleToCal() {
-  const btn = document.getElementById('exportCalBtn');
-  const status = document.getElementById('exportStatus');
-  const skipOverlaps = document.getElementById('skipOverlaps').checked;
-
-  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="spin" aria-hidden="true"><use href="#i-spinner"/></svg> Exporting...';
-  btn.disabled = true;
-
-  // Get saved schedule
-  const schedRes = await fetch('/schedule/saved').then(r => r.json());
-  if (schedRes.status !== 'ok') {
-    alert('No saved schedule found. Generate and save a schedule first.');
-    btn.textContent = 'Export Schedule';
-    btn.disabled = false;
-    return;
-  }
-
-  // Get existing calendar events if overlap checking enabled
-  let busyTimes = [];
-  if (skipOverlaps) {
-    const calRes = await fetch('/calendar/events').then(r => r.json());
-    busyTimes = calRes.events || [];
-  }
-
-  // Filter schedule blocks to remove overlaps
-  const scheduleData = schedRes.data;
-  if (skipOverlaps && busyTimes.length > 0) {
-    scheduleData.schedule = scheduleData.schedule.map(day => ({
-      ...day,
-      blocks: day.blocks.filter(block => {
-        if (block.is_break) return false;
-        if (!block.time_slot || !block.time_slot.includes(' - ')) return true;
-        // Check overlap with existing events on same date
-        const dayEvents = busyTimes.filter(e => e.start && e.start.startsWith(day.date));
-        if (dayEvents.length === 0) return true;
-        // Simple check, include block (server handles detailed overlap)
-        return true;
-      })
-    }));
-  }
-
-  const res = await fetch('/calendar/export', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ schedule_data: scheduleData, skip_overlaps: skipOverlaps })
-  }).then(r => r.json());
-
-  btn.disabled = false;
-  if (res.status === 'ok') {
-    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg> Added ${res.created} events`;
-    btn.style.background = 'var(--low)';
-    status.textContent = `· ${res.skipped || 0} overlaps skipped`;
-    setTimeout(() => {
-      btn.textContent = 'Export Schedule';
-      btn.style.background = '#ea4335';
-    }, 4000);
-  } else {
-    btn.textContent = 'Export Schedule';
-    alert('Export failed: ' + (res.message || 'Unknown error'));
-  }
-}
-
-// ── TASK COLUMNS ──────────────────────────────────────────────
-function renderColumn(listId, countId, tasks) {
-  const list = document.getElementById(listId);
-  const count = document.getElementById(countId);
-  count.textContent = tasks.length;
-  list.innerHTML = '';
+// ── Render task list ─────────────────────────────────────────
+function renderTaskList() {
+  var tab = _ipdState.currentTab;
+  var tasks = _ipdState.unifiedTasks[tab] || [];
+  var container = document.getElementById('ipdTaskList');
+  if (!container) return;
 
   if (!tasks.length) {
-    list.innerHTML = `<div style="text-align:center;padding:2rem 0.5rem;color:var(--text-muted);font-size:0.82rem;border:1px dashed var(--border);border-radius:10px;">All clear</div>`;
+    var msgs = { today: "You're all clear for today.", upcoming: 'No upcoming tasks this week.', overdue: 'No overdue tasks — nice!' };
+    container.innerHTML = '<div class="ipd-empty-state"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><use href="#i-check-circle"/></svg><p>' + (msgs[tab] || 'No tasks.') + '</p></div>';
     return;
   }
 
-  tasks.forEach((t, i) => {
-    const card = document.createElement('div');
-    card.className = 'notion-card';
-    card.style.animationDelay = `${i * 0.04}s`;
-    card.style.borderLeftColor = t.color || '#60a5fa';
+  container.innerHTML = tasks.map(function(t, i) {
+    var prio = (t.priority || 'medium').toLowerCase();
+    var taskJson = JSON.stringify(t).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    var titleEsc = (t.title || 'Untitled').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    var courseEsc = (t.course || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    var dueText = t.due_date || '';
+    var estText = t.estimated_time ? t.estimated_time + ' min' : '';
+    var timeLabel = [courseEsc, estText].filter(Boolean).join(' · ');
 
-    const sourceMap = {
-      canvas: ['#e66000', 'Canvas'],
-      studentvue: ['#16a34a', 'SV'],
-      notion: ['#191919', 'Notion'],
-      manual: ['#7c3aed', 'Manual'],
-      studentvue_missing: ['#ef4444', 'Missing'],
+    return '<div class="ipd-task-card" onclick="openAssignDetail(\'' + titleEsc.replace(/'/g, "\\'") + '\', \'' + courseEsc.replace(/'/g, "\\'") + '\', \'' + dueText + '\', \'' + prio + '\', \'\')" style="animation-delay:' + (i * 0.04) + 's;">' +
+      '<div class="ipd-task-priority-bar ' + prio + '"></div>' +
+      '<div class="ipd-task-body">' +
+        '<div class="ipd-task-time">' + timeLabel + '</div>' +
+        '<div class="ipd-task-title">' + titleEsc + '</div>' +
+        (dueText ? '<div class="ipd-task-due">Due ' + dueText + '</div>' : '') +
+      '</div>' +
+      '<span class="ipd-task-badge ' + prio + '">' + prio + '</span>' +
+      '<div class="ipd-task-actions">' +
+        '<button class="ipd-task-action-btn" onclick="openEditTask(event, ' + taskJson + ')" title="Edit"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-edit"/></svg></button>' +
+        '<button class="ipd-task-action-btn" onclick="dismissTask(event, \'' + titleEsc.replace(/'/g, "\\'") + '\', this)" title="Dismiss"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-check-circle"/></svg></button>' +
+        (DASH_TEST_RE.test(t.title) ? '<button class="ipd-task-action-btn" onclick="dashMarkTest(event, ' + taskJson + ', this)" title="Mark as test"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-file"/></svg> Test</button>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// ── Render coming up (sidebar) ───────────────────────────────
+function renderUpcoming(tasks) {
+  var list = document.getElementById('ipdUpcomingList');
+  if (!list) return;
+  var upcoming = (tasks || []).slice(0, 5);
+  if (!upcoming.length) {
+    list.innerHTML = '<div style="text-align:center;padding:1rem 0;color:var(--text-muted);font-family:var(--ipd-font-body);font-size:0.82rem;">Nothing coming up</div>';
+    return;
+  }
+  var colors = ['var(--ipd-priority-high)', 'var(--ipd-priority-med)', 'var(--ipd-priority-low)', 'var(--text-muted)', 'var(--border)'];
+  list.innerHTML = upcoming.map(function(t, i) {
+    var titleEsc = (t.title || 'Untitled').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    var meta = [t.course || '', t.due_date || ''].filter(Boolean).join(' · ');
+    var dot = colors[(t.priority || '').toLowerCase() === 'high' ? 0 : (t.priority || '').toLowerCase() === 'medium' ? 1 : 2];
+    return '<div class="ipd-upcoming-item">' +
+      '<span class="ipd-upcoming-dot" style="background:' + dot + ';"></span>' +
+      '<div class="ipd-upcoming-info">' +
+        '<div class="ipd-upcoming-title">' + titleEsc + '</div>' +
+        (meta ? '<div class="ipd-upcoming-meta">' + meta + '</div>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// ── Update stats ─────────────────────────────────────────────
+function updateStats() {
+  var t = _ipdState.unifiedTasks;
+  var todayCount = t.today.length;
+  var overdueCount = t.overdue.length;
+  var totalCount = todayCount + t.upcoming.length + overdueCount;
+
+  // Due this week
+  var el = document.getElementById('ipdStatDueWeek');
+  if (el) el.textContent = totalCount;
+  var sub = document.getElementById('ipdStatDueWeekSub');
+  if (sub) sub.textContent = todayCount + ' due today';
+
+  // Overdue banner
+  var banner = document.getElementById('ipdOverdueBanner');
+  var bannerCount = document.getElementById('ipdOverdueCount');
+  if (banner) {
+    if (overdueCount > 0) {
+      banner.style.display = 'flex';
+      if (bannerCount) bannerCount.textContent = overdueCount + ' overdue task' + (overdueCount !== 1 ? 's' : '');
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+
+  // On-time rate (estimate from overdue ratio)
+  var completed = Math.max(totalCount, 1);
+  var onTime = Math.round(((completed - overdueCount) / completed) * 100);
+  var onTimeEl = document.getElementById('ipdStatOnTime');
+  if (onTimeEl) onTimeEl.textContent = onTime + '%';
+  var onTimeSub = document.getElementById('ipdStatOnTimeSub');
+  if (onTimeSub) onTimeSub.textContent = overdueCount === 0 ? 'All caught up' : overdueCount + ' overdue';
+}
+
+// ── Load dashboard (main data fetch) ─────────────────────────
+async function loadDashboard() {
+  try {
+    var [tasksRes, schedRes, calRes] = await Promise.all([
+      fetch('/tasks/unified').then(function(r) { return r.json(); }),
+      fetch('/schedule/saved').then(function(r) { return r.json(); }).catch(function() { return {}; }),
+      fetch('/calendar/events').then(function(r) { return r.json(); }).catch(function() { return { connected: false }; })
+    ]);
+
+    _ipdState.unifiedTasks = {
+      today: tasksRes.today || [],
+      upcoming: tasksRes.upcoming || [],
+      overdue: tasksRes.overdue || []
     };
-    const [srcColor, srcLabel] = sourceMap[t.source] || ['#64748b', t.source || 'Task'];
-    const isMissing = t.is_missing || t.source === 'studentvue_missing';
+    _ipdState.gcalConnected = !!(calRes && calRes.connected);
+    _ipdState.savedSchedule = schedRes;
 
-    const isDashTest = DASH_TEST_RE.test(t.title || '');
-    if (isDashTest) card.style.borderLeftColor = 'var(--medium)';
-    card.style.cursor = 'pointer';
-    card.addEventListener('click', function(e) {
-      if (e.target.closest('button, a')) return;
-      openAssignDetail(t.title, t.course || '', t.due_date || '', t.priority || '', '');
-    });
-    card.innerHTML = `
-      <div class="notion-card-title">
-        ${t.title}
-        ${isMissing ? `<span style="color:var(--high);font-size:0.72rem;font-weight:700;"> · ${t.score_label || 'Missing'}</span>` : ''}
-        ${isDashTest ? '<span class="test-auto-badge">Test</span>' : ''}
-      </div>
-      <div class="notion-card-meta">
-        ${t.due_date ? `<span class="notion-pill" style="background:rgba(22,22,22,0.07);color:var(--ink, #161616);display:inline-flex;align-items:center;gap:3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>${t.due_date}</span>` : ''}
-        <span class="notion-pill" style="background:${t.color}22;color:${t.color};">${t.priority}</span>
-        <span class="source-badge" style="background:${srcColor}22;color:${srcColor};">${srcLabel}</span>
-        ${t.course && t.course !== 'Unknown' && t.course !== 'Personal' ? `<span class="notion-pill" style="background:var(--bg);color:var(--text-muted);border:1px solid var(--border);">${t.course}</span>` : ''}
-      </div>
-      <div class="notion-card-actions">
-        ${t.source === 'manual' ? `<button class="notion-action-btn" onclick='openEditTask(event, ${JSON.stringify(t)})' style="display:inline-flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pencil"/></svg>Edit</button>` : ''}
-        ${t.notion_page_id ? `<button class="notion-action-btn" onclick="completeNotionTask(event,'${t.notion_page_id}')" style="display:inline-flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-notion"/></svg>Notion</button>` : ''}
-        ${_gcalConnected && t.due_date ? `<button class="notion-action-btn" onclick='addToCalendar(event, ${JSON.stringify(t)})' style="display:inline-flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>Cal</button>` : ''}
-        <button class="notion-action-btn" onclick="dashMarkAsTest(event,'${t.title.replace(/'/g, "\\'")}',${JSON.stringify(t)},this)" style="display:inline-flex;align-items:center;gap:3px;color:var(--medium);border-color:var(--medium);"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-test"/></svg>Test</button>
-        <button class="notion-action-btn done-btn" onclick="dismissTask(event,'${t.title.replace(/'/g, "\\'")}',this)" style="display:inline-flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-done"/></svg>Done</button>
-      </div>
-    `;
-    list.appendChild(card);
-  });
+    autoDashMarkTests(_ipdState.unifiedTasks.today);
+    renderTaskList();
+    renderUpcoming(_ipdState.unifiedTasks.upcoming);
+    updateStats();
+    loadGradeSnapshot();
+    updateAssistantTip();
+  } catch (e) {
+    var container = document.getElementById('ipdTaskList');
+    if (container) container.innerHTML = '<div class="ipd-empty-state"><p>Could not load tasks. <button class="ipd-btn" onclick="loadDashboard()" style="margin-top:8px;">Retry</button></p></div>';
+  }
 }
 
-// ── ACTIONS ───────────────────────────────────────────────────
-const DASH_TEST_RE = /\btest(s|ing)?\b/i;
-
-function _dashToast(msg, link) {
-  const el = document.createElement('div');
-  el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0d0d0d;color:#fff;padding:10px 18px;border-radius:10px;font-size:0.84rem;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);display:flex;align-items:center;gap:12px;';
-  el.innerHTML = `<span>${msg}</span>` + (link ? `<a href="${link}" style="color:#93c5fd;text-decoration:none;font-weight:700;">View →</a>` : '');
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 3200);
+// ── Assistant tip (contextual) ───────────────────────────────
+function updateAssistantTip() {
+  var el = document.getElementById('ipdAssistantText');
+  if (!el) return;
+  var t = _ipdState.unifiedTasks;
+  if (t.overdue.length > 0) {
+    el.textContent = 'You have ' + t.overdue.length + ' overdue task' + (t.overdue.length > 1 ? 's' : '') + '. Tackling the oldest one first clears mental weight fast.';
+  } else if (t.today.length === 0) {
+    el.textContent = "You're clear for today! Perfect time to get ahead on upcoming work or review your notes.";
+  } else if (t.today.length <= 2) {
+    el.textContent = 'Light day — just ' + t.today.length + ' task' + (t.today.length > 1 ? 's' : '') + '. Start with the hardest one while your energy is fresh.';
+  } else {
+    var highPrio = t.today.filter(function(task) { return (task.priority || '').toLowerCase() === 'high'; });
+    if (highPrio.length > 0) {
+      el.textContent = highPrio.length + ' high-priority task' + (highPrio.length > 1 ? 's' : '') + ' today. Focus on "' + highPrio[0].title + '" first — it\'ll have the biggest impact.';
+    } else {
+      el.textContent = t.today.length + ' tasks today. Start with your toughest one while your energy is fresh, then build momentum through the easier ones.';
+    }
+  }
 }
 
-function dashMarkAsTest(e, title, taskObj, btn) {
+// ── Grade snapshot ───────────────────────────────────────────
+async function loadGradeSnapshot() {
+  try {
+    var res = await fetch('/api/grades/snapshot').then(function(r) { return r.json(); });
+    var wrap = document.getElementById('ipdGradeBars');
+    if (!wrap) return;
+    if (!res || !res.courses || !res.courses.length) {
+      wrap.innerHTML = '<div style="text-align:center;padding:1rem 0;color:var(--text-muted);font-family:var(--ipd-font-body);font-size:0.82rem;">No grade data yet</div>';
+      // Also try to set GPA stat
+      var gpaEl = document.getElementById('ipdStatGpa');
+      if (gpaEl) gpaEl.textContent = '—';
+      var gpaSub = document.getElementById('ipdStatGpaSub');
+      if (gpaSub) gpaSub.textContent = 'No grades yet';
+      return;
+    }
+    wrap.innerHTML = res.courses.slice(0, 4).map(function(c) {
+      var pct = Math.min(Math.max(c.grade || 0, 0), 100);
+      return '<div class="ipd-grade-bar-row">' +
+        '<span class="ipd-grade-bar-label">' + (c.name || 'Course') + '</span>' +
+        '<div class="ipd-grade-bar-track"><div class="ipd-grade-bar-fill" style="width:' + pct + '%;"></div></div>' +
+        '<span class="ipd-grade-bar-val">' + pct + '%</span>' +
+      '</div>';
+    }).join('');
+
+    // Update GPA stat card
+    if (res.gpa !== undefined) {
+      var gpaEl = document.getElementById('ipdStatGpa');
+      if (gpaEl) gpaEl.textContent = parseFloat(res.gpa).toFixed(2);
+      var gpaSub = document.getElementById('ipdStatGpaSub');
+      if (gpaSub) gpaSub.textContent = res.courses.length + ' course' + (res.courses.length !== 1 ? 's' : '');
+    }
+  } catch (e) {
+    // Silently fail — grade data is supplementary
+    var gpaEl = document.getElementById('ipdStatGpa');
+    if (gpaEl) gpaEl.textContent = '—';
+    var gpaSub = document.getElementById('ipdStatGpaSub');
+    if (gpaSub) gpaSub.textContent = 'Unavailable';
+  }
+}
+
+// ── Dashboard toast ──────────────────────────────────────────
+function _dashToast(msg, href) {
+  var banner = document.createElement('div');
+  banner.textContent = msg;
+  banner.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text-primary);color:var(--bg);padding:10px 22px;border-radius:var(--ipd-radius-sm);font-size:0.84rem;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);cursor:pointer;font-family:var(--ipd-font-body);';
+  if (href) banner.onclick = function() { window.location.href = href; };
+  document.body.appendChild(banner);
+  setTimeout(function() { banner.remove(); }, 2500);
+}
+
+// ── Feedback modal ───────────────────────────────────────────
+function openFeedbackModal(task, card) {
+  _ipdState.feedbackTask = task;
+  _ipdState.feedbackCard = card;
+  document.getElementById('feedbackModal').style.display = 'flex';
+}
+
+function submitFeedback(difficulty) {
+  var task = _ipdState.feedbackTask;
+  var card = _ipdState.feedbackCard;
+  document.getElementById('feedbackModal').style.display = 'none';
+
+  if (card) {
+    card.style.transition = 'opacity 0.2s, transform 0.2s';
+    card.style.transform = 'translateX(10px)';
+    card.style.opacity = '0';
+    setTimeout(function() { card.remove(); }, 220);
+  }
+
+  fetch('/dismiss', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: task.title, feedback: difficulty })
+  }).catch(function() {});
+}
+
+// ── Mark as test ─────────────────────────────────────────────
+function dashMarkTest(e, taskObj, btn) {
   e.stopPropagation();
-  const orig = btn.innerHTML;
+  var orig = btn.innerHTML;
   btn.disabled = true;
   btn.textContent = 'Saving…';
   fetch('/test/mark', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(taskObj)
-  }).then(r => r.json()).then(d => {
+  }).then(function(r) { return r.json(); }).then(function(d) {
     if (d.status === 'ok') {
-      btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><use href="#i-check-circle"/></svg> In Tests';
+      btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-check-circle"/></svg> In Tests';
       btn.disabled = true;
       btn.style.opacity = '0.7';
       btn.title = 'Open Tests page';
-      btn.onclick = (ev) => { ev.stopPropagation(); window.location.href = '/tests'; };
+      btn.onclick = function(ev) { ev.stopPropagation(); window.location.href = '/tests'; };
       _dashToast(d.already_marked ? 'Already in Tests' : 'Added to Tests', '/tests');
     } else {
       btn.disabled = false;
       btn.innerHTML = orig;
       alert(d.message || 'Could not mark as test');
     }
-  }).catch(() => {
+  }).catch(function() {
     btn.disabled = false;
     btn.innerHTML = orig;
     alert('Network error — try again.');
@@ -1833,43 +1182,41 @@ function dashMarkAsTest(e, title, taskObj, btn) {
 }
 
 function autoDashMarkTests(tasks) {
-  tasks.filter(t => DASH_TEST_RE.test(t.title || '')).forEach(t => {
+  tasks.filter(function(t) { return DASH_TEST_RE.test(t.title || ''); }).forEach(function(t) {
     fetch('/test/mark', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(t)
-    }).catch(() => {});
+    }).catch(function() {});
   });
 }
 
+// ── Dismiss task ─────────────────────────────────────────────
 function dismissTask(e, title, btn) {
   e.stopPropagation();
-  // Find the task data
-  const taskData = _unifiedTasks.today.concat(_unifiedTasks.upcoming, _unifiedTasks.overdue)
-    .find(t => t.title === title);
+  var taskData = _ipdState.unifiedTasks.today.concat(_ipdState.unifiedTasks.upcoming, _ipdState.unifiedTasks.overdue)
+    .find(function(t) { return t.title === title; });
 
   if (taskData) {
-    openFeedbackModal(taskData, btn.closest('.notion-card'));
+    openFeedbackModal(taskData, btn.closest('.ipd-task-card'));
     return;
   }
-  // Just dismiss without feedback, with error handling so the button
-  // never silently does nothing if the request fails.
-  const card = btn.closest('.notion-card');
+  var card = btn.closest('.ipd-task-card');
   btn.disabled = true;
   if (card) card.style.opacity = '0.5';
   fetch('/dismiss', {
     method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ title })
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: title })
   })
-    .then(r => r.json().catch(() => ({})))
-    .then(d => {
+    .then(function(r) { return r.json().catch(function() { return {}; }); })
+    .then(function(d) {
       if (d && d.status === 'ok') {
         if (card) {
           card.style.transition = 'opacity 0.2s, transform 0.2s';
           card.style.transform = 'translateX(10px)';
           card.style.opacity = '0';
-          setTimeout(() => card.remove(), 220);
+          setTimeout(function() { card.remove(); }, 220);
         }
       } else {
         if (card) card.style.opacity = '1';
@@ -1877,7 +1224,7 @@ function dismissTask(e, title, btn) {
         alert(d && d.message ? d.message : 'Could not dismiss, try again.');
       }
     })
-    .catch(() => {
+    .catch(function() {
       if (card) card.style.opacity = '1';
       btn.disabled = false;
       alert('Network error, could not dismiss.');
@@ -1887,78 +1234,79 @@ function dismissTask(e, title, btn) {
 function completeNotionTask(e, pageId) {
   e.stopPropagation();
   fetch('/notion/tasks/complete', {
-    method:'POST', headers:{'Content-Type':'application/json'},
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ page_id: pageId })
-  }).then(() => loadDashboard());
+  }).then(function() { loadDashboard(); });
 }
 
 async function addToCalendar(e, task) {
   e.stopPropagation();
-  const btn = e.target;
-  btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="spin" aria-hidden="true"><use href="#i-spinner"/></svg>';
+  var btn = e.target;
+  btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" class="spin"><use href="#i-spinner"/></svg>';
   btn.disabled = true;
-  const res = await fetch(`/calendar/free-slot?date=${task.due_date}`).then(r => r.json());
-  const start = res.slot || '7:00 PM';
+  var res = await fetch('/calendar/free-slot?date=' + task.due_date).then(function(r) { return r.json(); });
+  var start = res.slot || '7:00 PM';
   await fetch('/calendar/export', {
-    method:'POST', headers:{'Content-Type':'application/json'},
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       schedule_data: {
         schedule: [{
           date: task.due_date,
-          blocks: [{ assignment: task.title, course: task.course || '', duration_minutes: task.estimated_time || 60, time_slot: `${start} - end`, notes:'', is_break: false }]
+          blocks: [{ assignment: task.title, course: task.course || '', duration_minutes: task.estimated_time || 60, time_slot: start + ' - end', notes: '', is_break: false }]
         }]
       }
     })
   });
-  btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg>';
-  setTimeout(() => { btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>Cal'; btn.disabled = false; }, 2000);
+  btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-check-circle"/></svg>';
+  setTimeout(function() { btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-scheduler"/></svg>Cal'; btn.disabled = false; }, 2000);
 }
 
-// ── NEW TASK ──────────────────────────────────────────────────
+// ── NEW TASK ─────────────────────────────────────────────────
 function openNewTaskModal() {
   document.getElementById('newTaskModal').style.display = 'flex';
-  setTimeout(() => document.getElementById('newTaskTitle').focus(), 100);
+  setTimeout(function() { document.getElementById('newTaskTitle').focus(); }, 100);
 }
 function closeNewTaskModal() {
   document.getElementById('newTaskModal').style.display = 'none';
 }
 
-// ── Syllabus Import ────────────────────────────────────────────
+// ── Syllabus Import ──────────────────────────────────────────
 function _sEsc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-let _syllabusAssignments = [];
+var _syllabusAssignments = [];
 
 function openSyllabusModal() {
   document.getElementById('syllabusModal').style.display = 'flex';
   document.getElementById('syllabusStatus').style.display = 'none';
   document.getElementById('syllabusResults').style.display = 'none';
-  document.getElementById('syllabusDropLabel').innerHTML = 'Drop your PDF here or <span style="color:var(--ink, #161616);font-weight:600;">browse</span>';
+  document.getElementById('syllabusDropLabel').innerHTML = 'Drop your PDF here or <span style="color:var(--text-primary);font-weight:600;">browse</span>';
   document.getElementById('syllabusFileInput').value = '';
   _syllabusAssignments = [];
   loadSavedSyllabi();
 }
 
 async function loadSavedSyllabi() {
-  const wrap = document.getElementById('savedSyllabiWrap');
-  const list = document.getElementById('savedSyllabiList');
+  var wrap = document.getElementById('savedSyllabiWrap');
+  var list = document.getElementById('savedSyllabiList');
   if (!wrap || !list) return;
   try {
-    const res = await fetch('/api/syllabus/records');
-    const data = await res.json();
-    const rows = (data.records || []);
+    var res = await fetch('/api/syllabus/records');
+    var data = await res.json();
+    var rows = (data.records || []);
     if (!rows.length) { wrap.style.display = 'none'; return; }
     wrap.style.display = 'block';
-    list.innerHTML = rows.map(r => `
-      <button type="button" onclick="openSavedSyllabus(${r.id})" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg);cursor:pointer;text-align:left;width:100%;">
-        <span style="font-size:0.84rem;font-weight:600;color:var(--text-primary);">${_sEsc(r.course_name || r.filename || 'Syllabus')}</span>
-        <span style="font-size:0.72rem;color:var(--text-muted);white-space:nowrap;">${r.count || 0} items</span>
-      </button>`).join('');
+    list.innerHTML = rows.map(function(r) {
+      return '<button type="button" onclick="openSavedSyllabus(' + r.id + ')" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--ipd-radius-sm);background:var(--bg);cursor:pointer;text-align:left;width:100%;font-family:var(--ipd-font-body);">' +
+        '<span style="font-size:0.84rem;font-weight:600;color:var(--text-primary);">' + _sEsc(r.course_name || r.filename || 'Syllabus') + '</span>' +
+        '<span style="font-size:0.72rem;color:var(--text-muted);white-space:nowrap;">' + (r.count || 0) + ' items</span>' +
+      '</button>';
+    }).join('');
   } catch (e) { wrap.style.display = 'none'; }
 }
 
 async function openSavedSyllabus(id) {
   try {
-    const res = await fetch('/api/syllabus/records/' + id);
-    const data = await res.json();
+    var res = await fetch('/api/syllabus/records/' + id);
+    var data = await res.json();
     if (data.status !== 'ok') throw new Error(data.message || 'Could not load');
     _syllabusAssignments = data.assignments || [];
     if (data.course_name) document.getElementById('syllabusCourseName').value = data.course_name;
@@ -1975,11 +1323,11 @@ function closeSyllabusModal() {
 function handleSyllabusDrop(e) {
   e.preventDefault();
   document.getElementById('syllabusDropZone').style.borderColor = 'var(--border)';
-  const file = e.dataTransfer.files[0];
+  var file = e.dataTransfer.files[0];
   if (file) processSyllabusFile(file);
 }
 function handleSyllabusFile(input) {
-  const file = input.files[0];
+  var file = input.files[0];
   if (file) processSyllabusFile(file);
 }
 
@@ -1989,18 +1337,18 @@ async function processSyllabusFile(file) {
     return;
   }
   document.getElementById('syllabusDropLabel').textContent = file.name;
-  const status = document.getElementById('syllabusStatus');
+  var status = document.getElementById('syllabusStatus');
   status.style.display = 'block';
   status.textContent = 'Analysing syllabus with AI…';
   document.getElementById('syllabusResults').style.display = 'none';
 
-  const fd = new FormData();
+  var fd = new FormData();
   fd.append('file', file);
-  const courseName = (document.getElementById('syllabusCourseName')?.value || '').trim();
+  var courseName = (document.getElementById('syllabusCourseName').value || '').trim();
   if (courseName) fd.append('course_name', courseName);
   try {
-    const res = await fetch('/api/syllabus/import', { method: 'POST', body: fd });
-    const data = await res.json();
+    var res = await fetch('/api/syllabus/import', { method: 'POST', body: fd });
+    var data = await res.json();
     if (!res.ok || data.status !== 'ok') throw new Error(data.message || 'Import failed');
     _syllabusAssignments = data.assignments || [];
     if (!_syllabusAssignments.length) {
@@ -2015,33 +1363,34 @@ async function processSyllabusFile(file) {
 }
 
 function renderSyllabusResults(items) {
-  const list = document.getElementById('syllabusResultList');
-  list.innerHTML = items.map((item, i) => `
-    <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer;background:var(--bg);">
-      <input type="checkbox" checked data-idx="${i}" style="margin-top:3px;accent-color:var(--accent);flex-shrink:0;">
-      <div style="flex:1;min-width:0;">
-        <div style="font-weight:600;font-size:0.86rem;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_sEsc(item.title || 'Untitled')}</div>
-        <div style="font-size:0.76rem;color:var(--text-muted);margin-top:2px;">${item.course ? _sEsc(item.course) + ' · ' : ''}${item.due_date || 'No date'}</div>
-        ${item.description ? `<div style="font-size:0.76rem;color:var(--text-muted);margin-top:2px;">${_sEsc(item.description)}</div>` : ''}
-      </div>
-    </label>
-  `).join('');
+  var list = document.getElementById('syllabusResultList');
+  list.innerHTML = items.map(function(item, i) {
+    return '<label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--ipd-radius-sm);cursor:pointer;background:var(--bg);">' +
+      '<input type="checkbox" checked data-idx="' + i + '" style="margin-top:3px;accent-color:var(--text-primary);flex-shrink:0;">' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-weight:600;font-size:0.86rem;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _sEsc(item.title || 'Untitled') + '</div>' +
+        '<div style="font-size:0.76rem;color:var(--text-muted);margin-top:2px;">' + (item.course ? _sEsc(item.course) + ' · ' : '') + (item.due_date || 'No date') + '</div>' +
+        (item.description ? '<div style="font-size:0.76rem;color:var(--text-muted);margin-top:2px;">' + _sEsc(item.description) + '</div>' : '') +
+      '</div>' +
+    '</label>';
+  }).join('');
   document.getElementById('syllabusResults').style.display = 'block';
 }
 
 async function importSelectedSyllabus() {
-  const checks = document.querySelectorAll('#syllabusResultList input[type=checkbox]:checked');
-  const selected = Array.from(checks).map(cb => _syllabusAssignments[parseInt(cb.dataset.idx)]);
+  var checks = document.querySelectorAll('#syllabusResultList input[type=checkbox]:checked');
+  var selected = Array.from(checks).map(function(cb) { return _syllabusAssignments[parseInt(cb.dataset.idx)]; });
   if (!selected.length) { alert('Select at least one assignment to add.'); return; }
 
-  const btn = document.querySelector('#syllabusResults .btn-primary');
+  var btn = document.querySelector('#syllabusResults .ipd-btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = 'Adding…'; }
-  const defaultCourse = (document.getElementById('syllabusCourseName')?.value || '').trim() || 'Personal';
+  var defaultCourse = (document.getElementById('syllabusCourseName').value || '').trim() || 'Personal';
 
-  let added = 0;
-  for (const item of selected) {
+  var added = 0;
+  for (var si = 0; si < selected.length; si++) {
+    var item = selected[si];
     try {
-      const res = await fetch('/tasks/manual/create', {
+      var res = await fetch('/tasks/manual/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2057,19 +1406,15 @@ async function importSelectedSyllabus() {
     } catch (e) { /* skip individual failures */ }
   }
   closeSyllabusModal();
-  // Show a brief banner then reload
-  const banner = document.createElement('div');
-  banner.textContent = `Added ${added} assignment${added !== 1 ? 's' : ''} from syllabus`;
-  banner.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0d0d0d;color:#fff;padding:10px 22px;border-radius:10px;font-size:0.84rem;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);';
-  document.body.appendChild(banner);
-  setTimeout(() => { banner.remove(); location.reload(); }, 1800);
+  _dashToast('Added ' + added + ' assignment' + (added !== 1 ? 's' : '') + ' from syllabus');
+  setTimeout(function() { loadDashboard(); }, 400);
 }
 
 async function createManualTask() {
-  const title = document.getElementById('newTaskTitle').value.trim();
+  var title = document.getElementById('newTaskTitle').value.trim();
   if (!title) { alert('Please enter a title.'); return; }
-  const data = {
-    title,
+  var data = {
+    title: title,
     due_date: document.getElementById('newTaskDue').value,
     priority: document.getElementById('newTaskPriority').value,
     course: document.getElementById('newTaskCourse').value || 'Personal',
@@ -2077,24 +1422,24 @@ async function createManualTask() {
     notes: document.getElementById('newTaskNotes').value,
     sync_notion: document.getElementById('syncNotion').checked
   };
-  const res = await fetch('/tasks/manual/create', {
-    method:'POST', headers:{'Content-Type':'application/json'},
+  var res = await fetch('/tasks/manual/create', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
-  }).then(r => r.json());
+  }).then(function(r) { return r.json(); });
 
   if (res.status === 'ok') {
     closeNewTaskModal();
-    ['newTaskTitle','newTaskDue','newTaskNotes','newTaskCourse'].forEach(id => document.getElementById(id).value = '');
+    ['newTaskTitle','newTaskDue','newTaskNotes','newTaskCourse'].forEach(function(id) { document.getElementById(id).value = ''; });
     document.getElementById('newTaskTime').value = '60';
     document.getElementById('syncNotion').checked = false;
     loadDashboard();
   }
 }
 
-// ── EDIT TASK ─────────────────────────────────────────────────
+// ── EDIT TASK ────────────────────────────────────────────────
 function openEditTask(e, task) {
   e.stopPropagation();
-  _editingTask = task;
+  _ipdState.editingTask = task;
   document.getElementById('editTaskId').value = task.id || '';
   document.getElementById('editTaskSource').value = task.source || '';
   document.getElementById('editTaskNotionId').value = task.notion_page_id || '';
@@ -2108,14 +1453,14 @@ function openEditTask(e, task) {
 }
 function closeEditModal() {
   document.getElementById('editTaskModal').style.display = 'none';
-  _editingTask = null;
+  _ipdState.editingTask = null;
 }
 
 async function saveEditTask() {
-  const id = document.getElementById('editTaskId').value;
-  const source = document.getElementById('editTaskSource').value;
-  const notionId = document.getElementById('editTaskNotionId').value;
-  const updates = {
+  var id = document.getElementById('editTaskId').value;
+  var source = document.getElementById('editTaskSource').value;
+  var notionId = document.getElementById('editTaskNotionId').value;
+  var updates = {
     title: document.getElementById('editTaskTitle').value.trim(),
     due_date: document.getElementById('editTaskDue').value,
     priority: document.getElementById('editTaskPriority').value,
@@ -2126,13 +1471,13 @@ async function saveEditTask() {
 
   if (source === 'manual' && id) {
     await fetch('/tasks/manual/update', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ id, ...updates })
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ id: id }, updates))
     });
   } else if (source === 'notion' && notionId) {
     await fetch('/notion/tasks/update', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ page_id: notionId, updates })
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page_id: notionId, updates: updates })
     });
   }
   closeEditModal();
@@ -2140,17 +1485,17 @@ async function saveEditTask() {
 }
 
 async function deleteManualTask() {
-  const id = document.getElementById('editTaskId').value;
+  var id = document.getElementById('editTaskId').value;
   if (!id || !confirm('Delete this task?')) return;
   await fetch('/tasks/manual/delete', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ id })
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: id })
   });
   closeEditModal();
   loadDashboard();
 }
 
-// ── INTEGRATIONS ──────────────────────────────────────────────
+// ── INTEGRATIONS ─────────────────────────────────────────────
 function openIntegrationsModal() {
   document.getElementById('integrationsModal').style.display = 'flex';
   checkGCalStatus();
@@ -2161,36 +1506,36 @@ function closeIntegrationsModal() {
 }
 
 async function checkGCalStatus() {
-  const res = await fetch('/calendar/events').then(r => r.json()).catch(() => ({ connected: false }));
-  const status = document.getElementById('gcalStatus');
-  const actions = document.getElementById('gcalActions');
+  var res = await fetch('/calendar/events').then(function(r) { return r.json(); }).catch(function() { return { connected: false }; });
+  var status = document.getElementById('gcalStatus');
+  var actions = document.getElementById('gcalActions');
   if (res.connected) {
-    status.innerHTML = '<span style="color:var(--low);">Connected</span>';
-    actions.innerHTML = `<button onclick="disconnectGCal()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text-muted);cursor:pointer;font-size:0.75rem;font-family:var(--font-ui);">Disconnect</button>`;
+    status.innerHTML = '<span style="color:var(--ipd-priority-low);">Connected</span>';
+    actions.innerHTML = '<button onclick="disconnectGCal()" class="ipd-btn" style="font-size:0.75rem;padding:6px 12px;">Disconnect</button>';
   } else {
     status.textContent = 'Not connected';
-    actions.innerHTML = `<a href="/oauth/google" class="btn-primary" style="text-decoration:none;padding:8px 16px;font-size:0.82rem;">Connect</a>`;
+    actions.innerHTML = '<a href="/oauth/google" class="ipd-btn ipd-btn-primary" style="text-decoration:none;padding:8px 16px;font-size:0.82rem;">Connect</a>';
   }
 }
 
 async function disconnectGCal() {
-  await fetch('/oauth/google/disconnect', { method:'POST' });
+  await fetch('/oauth/google/disconnect', { method: 'POST' });
   checkGCalStatus();
   loadDashboard();
 }
 
 async function checkNotionStatus() {
-  const res = await fetch('/notion/tasks').then(r => r.json()).catch(() => ({ connected: false }));
-  const status = document.getElementById('notionStatus');
-  const actions = document.getElementById('notionActions');
-  const setup = document.getElementById('notionSetup');
-  const dbSelect = document.getElementById('notionDbSelect');
+  var res = await fetch('/notion/tasks').then(function(r) { return r.json(); }).catch(function() { return { connected: false }; });
+  var status = document.getElementById('notionStatus');
+  var actions = document.getElementById('notionActions');
+  var setup = document.getElementById('notionSetup');
+  var dbSelect = document.getElementById('notionDbSelect');
 
   if (res.connected) {
-    status.innerHTML = `<span style="color:var(--low);">Connected · ${res.tasks.length} tasks</span>`;
+    status.innerHTML = '<span style="color:var(--ipd-priority-low);">Connected · ' + res.tasks.length + ' tasks</span>';
     setup.style.display = 'none';
     dbSelect.style.display = 'none';
-    actions.innerHTML = `<button onclick="disconnectNotion()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text-muted);cursor:pointer;font-size:0.75rem;font-family:var(--font-ui);">Disconnect</button>`;
+    actions.innerHTML = '<button onclick="disconnectNotion()" class="ipd-btn" style="font-size:0.75rem;padding:6px 12px;">Disconnect</button>';
   } else {
     status.textContent = 'Not connected';
     setup.style.display = 'block';
@@ -2200,19 +1545,19 @@ async function checkNotionStatus() {
 }
 
 async function connectNotion() {
-  const token = document.getElementById('notionTokenInput').value.trim();
+  var token = document.getElementById('notionTokenInput').value.trim();
   if (!token) { alert('Please enter your Notion token.'); return; }
-  const res = await fetch('/notion/connect', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ token })
-  }).then(r => r.json());
+  var res = await fetch('/notion/connect', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: token })
+  }).then(function(r) { return r.json(); });
 
   if (res.status === 'ok') {
     document.getElementById('notionSetup').style.display = 'none';
-    const dropdown = document.getElementById('notionDbDropdown');
-    dropdown.innerHTML = '<option value="">Choose a database...</option>';
-    res.databases.forEach(db => {
-      const opt = document.createElement('option');
+    var dropdown = document.getElementById('notionDbDropdown');
+    dropdown.innerHTML = '<option value="">Choose a database…</option>';
+    res.databases.forEach(function(db) {
+      var opt = document.createElement('option');
       opt.value = db.id;
       opt.textContent = db.name;
       dropdown.appendChild(opt);
@@ -2226,7 +1571,7 @@ async function connectNotion() {
 async function setNotionDatabase(dbId) {
   if (!dbId) return;
   await fetch('/notion/set-database', {
-    method:'POST', headers:{'Content-Type':'application/json'},
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ database_id: dbId })
   });
   checkNotionStatus();
@@ -2234,17 +1579,20 @@ async function setNotionDatabase(dbId) {
 }
 
 async function disconnectNotion() {
-  await fetch('/notion/disconnect', { method:'POST' });
+  await fetch('/notion/disconnect', { method: 'POST' });
   checkNotionStatus();
   loadDashboard();
 }
 
-// ── KEYBOARD SHORTCUTS ────────────────────────────────────────
-document.addEventListener('keydown', e => {
+// ── KEYBOARD SHORTCUTS ───────────────────────────────────────
+document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     closeNewTaskModal();
     closeEditModal();
     closeIntegrationsModal();
+    closeSyllabusModal();
+    closeAssignDetail();
+    document.getElementById('feedbackModal').style.display = 'none';
   }
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
     e.preventDefault();
@@ -2252,199 +1600,74 @@ document.addEventListener('keydown', e => {
   }
 });
 
-['newTaskModal','editTaskModal','integrationsModal'].forEach(id => {
-  document.getElementById(id).addEventListener('click', function(e) {
+['newTaskModal','editTaskModal','integrationsModal','syllabusModal','assignDetailModal','feedbackModal'].forEach(function(id) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('click', function(e) {
     if (e.target === this) this.style.display = 'none';
   });
 });
 
-async function loadSilenceState() {
-  const res = await fetch('/notifications/status').then(r => r.json());
-
-  if (res.silenced_until) {
-    _silencedUntil = res.silenced_until;
-  }
-}
-
-// ── STREAK WIDGET (Duolingo-style) ────────────────────────────
-// Fills in the live data on the existing .dash-streak markup instead
-// of rebuilding it, keeps animations + the link wrapper intact.
+// ── STREAK ───────────────────────────────────────────────────
 async function loadStreak() {
-  let data;
-  try { data = await fetch('/study/streak').then(r => r.json()); }
-  catch { return; }
+  var data;
+  try { data = await fetch('/study/streak').then(function(r) { return r.json(); }); }
+  catch(e) { return; }
   if (!data || data.status === 'error') return;
 
-  const streak = data.streak_count || 0;
-  const history = new Set(data.streak_history || []);
-  const sparks  = data.spark_balance || 0;
-  const tier    = data.streak_tier || {};
-  const atRisk  = !!data.at_risk;
+  var streak = data.streak_count || 0;
+  var history = new Set(data.streak_history || []);
 
-  const countEl = document.getElementById('dashStreakCount');
-  const sparkEl = document.getElementById('dashSparkNum');
-  const ctaEl   = document.getElementById('dashStreakCta');
-  if (countEl) countEl.textContent = streak;
-  if (sparkEl) sparkEl.textContent = sparks;
-  if (ctaEl) {
-    if (streak === 0) ctaEl.textContent = 'Start a session →';
-    else if (atRisk)  ctaEl.textContent = 'Study today →';
-    else              ctaEl.textContent = (tier.name || 'Keep it going') + ' →';
-  }
+  // Update stat card
+  var streakEl = document.getElementById('ipdStatStreak');
+  if (streakEl) streakEl.textContent = streak + 'd';
 
-  // Light the 7-day strip (Mon=0..Sun=6) for the current ISO week.
-  const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
-  const jsMonIdx = (today.getDay() + 6) % 7;  // shift Sun=0..Sat=6 → Mon=0..Sun=6
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(today);
+  // Light the 7-day dots
+  var today = new Date();
+  var todayStr = today.toISOString().split('T')[0];
+  var jsMonIdx = (today.getDay() + 6) % 7;
+  for (var i = 0; i < 7; i++) {
+    var d = new Date(today);
     d.setDate(d.getDate() - (jsMonIdx - i));
-    const ds = d.toISOString().split('T')[0];
-    const el = document.querySelector(`.dash-week-day[data-d="${i}"]`);
+    var ds = d.toISOString().split('T')[0];
+    var el = document.querySelector('.ipd-streak-dot[data-d="' + i + '"]');
     if (!el) continue;
     el.classList.toggle('studied', history.has(ds));
     el.classList.toggle('today', ds === todayStr);
   }
 }
 
-// ── Daily Spark Chest ──────────────────────────────────────────
-function _renderChestClaimedState() {
-  const btn = document.getElementById('dashChest');
-  const sub = document.getElementById('chestSub');
-  const cta = document.getElementById('chestCta');
-  const emoji = document.getElementById('chestEmoji');
-  if (!btn) return;
-  btn.disabled = true;
-  btn.setAttribute('disabled', 'disabled');
-  // Grey it out and stop the wobble animation so users can see at a
-  // glance the chest is locked until tomorrow.
-  btn.style.filter = 'grayscale(0.85)';
-  btn.style.opacity = '0.55';
-  btn.style.cursor = 'not-allowed';
-  if (emoji) {
-    emoji.innerHTML = '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-moon"/></svg>';
-    emoji.style.animation = 'none';
-  }
-  if (sub) sub.textContent = 'Already claimed, come back tomorrow.';
-  if (cta) cta.textContent = 'Locked';
-}
-
-function refreshChestState() {
-  // GET-side companion to the POST /api/streak/daily-claim. If the user
-  // already claimed today, render the chest in its locked state on first
-  // paint instead of letting them click and only then learn.
-  fetch('/api/streak/daily-claim')
-    .then(r => r.json())
-    .then(d => {
-      if (d && d.status === 'ok' && d.claimed) {
-        _renderChestClaimedState();
-      }
-    })
-    .catch(() => {});
-}
-
-function claimDaily() {
-  const btn = document.getElementById('dashChest');
-  const sub = document.getElementById('chestSub');
-  const cta = document.getElementById('chestCta');
-  const emoji = document.getElementById('chestEmoji');
-  if (!btn || btn.disabled) return;
-  btn.disabled = true;
-  cta.textContent = 'Claiming...';
-  fetch('/api/streak/daily-claim', { method: 'POST' })
-    .then(r => r.json())
-    .then(d => {
-      if (d.status === 'ok' && d.claimed) {
-        emoji.innerHTML = '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg>';
-        emoji.style.animation = 'chestPop 0.6s var(--ease-spring)';
-        sub.innerHTML = '<strong style="color:var(--low);">+' + d.reward + ' Sparks</strong> added to your balance!';
-        cta.textContent = 'Claimed';
-        loadStreak();   // refresh spark balance widget
-        // After the celebratory animation finishes, lock the chest down
-        // for the rest of the day so it's visually clear it's done.
-        setTimeout(_renderChestClaimedState, 1500);
-      } else if (d.status === 'ok' && !d.claimed) {
-        _renderChestClaimedState();
-      } else {
-        sub.textContent = d.message || 'Could not claim, try again.';
-        cta.textContent = 'Retry';
-        btn.disabled = false;
-      }
-    })
-    .catch(() => { sub.textContent = 'Network error.'; cta.textContent = 'Retry'; btn.disabled = false; });
-}
-
-// ── Start a live study session ─────────────────────────────────
-function startLiveSession() {
-  const title = prompt('Session title?', 'Quick study session');
-  if (!title) return;
-  const audio_only = !confirm('Use video? (Cancel = audio only)');
-  const btn = document.querySelector('.dash-live-card');
-  if (btn) { btn.disabled = true; btn.style.opacity = '0.7'; }
-  fetch('/api/live', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ title, audio_only }),
-  })
-    .then(r => r.json().then(d => ({ ok: r.ok, d })))
-    .then(({ ok, d }) => {
-      if (ok && d.status === 'ok' && d.session) {
-        if (d.session.room_url) {
-          window.open(d.session.room_url, '_blank', 'noopener,noreferrer');
-        }
-        window.location.href = '/live/' + d.session.id;
-        return;
-      }
-      alert(d.message || 'Could not start session. Try again or use Study Groups.');
-    })
-    .catch(() => alert('Network error — check your connection and try again.'))
-    .finally(() => {
-      if (btn) { btn.disabled = false; btn.style.opacity = ''; }
-    });
-}
-
-// Init
-loadDashboard();
-loadStreak();
-refreshChestState();
-setInterval(loadDashboard, 60000);
-
-// ── Assignment Detail Modal ────────────────────────────────────
-let _currentAssignTitle = '';
+// ── Assignment Detail Modal ──────────────────────────────────
+var _currentAssignTitle = '';
 
 function openAssignDetail(title, course, dueDate, priority, notes) {
   _currentAssignTitle = title;
   document.getElementById('adTitle').textContent = title;
-  // Meta pills
-  const meta = document.getElementById('adMeta');
+  var meta = document.getElementById('adMeta');
   meta.innerHTML = '';
   if (course && course !== 'Unknown' && course !== 'Personal') {
-    const p = document.createElement('span');
+    var p = document.createElement('span');
     p.className = 'notion-pill';
     p.style = 'background:var(--bg);color:var(--text-muted);border:1px solid var(--border);';
     p.textContent = course;
     meta.appendChild(p);
   }
   if (priority) {
-    const p = document.createElement('span');
-    p.className = 'notion-pill';
-    p.textContent = priority;
-    meta.appendChild(p);
+    var p2 = document.createElement('span');
+    p2.className = 'notion-pill';
+    p2.textContent = priority;
+    meta.appendChild(p2);
   }
-  // Due date field
   document.getElementById('adDueDate').value = dueDate || '';
-  // Notes, fetch existing from server
   document.getElementById('adNotes').value = notes || '';
   document.getElementById('adSaveStatus').style.display = 'none';
   fetch('/api/assignment/notes?title=' + encodeURIComponent(title))
-    .then(r => r.json())
-    .then(d => {
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
       if (d.notes) document.getElementById('adNotes').value = d.notes;
       if (d.due_date) document.getElementById('adDueDate').value = d.due_date;
     })
-    .catch(() => {});
-  const modal = document.getElementById('assignDetailModal');
-  modal.style.display = 'flex';
+    .catch(function() {});
+  document.getElementById('assignDetailModal').style.display = 'flex';
 }
 
 function closeAssignDetail() {
@@ -2452,35 +1675,37 @@ function closeAssignDetail() {
 }
 
 function saveAssignNotes() {
-  const notes = document.getElementById('adNotes').value;
+  var notes = document.getElementById('adNotes').value;
   fetch('/api/assignment/notes', {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({title: _currentAssignTitle, notes})
-  }).then(r => r.json()).then(d => {
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: _currentAssignTitle, notes: notes })
+  }).then(function(r) { return r.json(); }).then(function(d) {
     if (d.status === 'ok') {
-      const s = document.getElementById('adSaveStatus');
+      var s = document.getElementById('adSaveStatus');
       s.style.display = 'inline';
-      setTimeout(() => s.style.display = 'none', 2000);
+      setTimeout(function() { s.style.display = 'none'; }, 2000);
     }
   });
 }
 
 function saveAssignDueDate() {
-  const due_date = document.getElementById('adDueDate').value;
+  var due_date = document.getElementById('adDueDate').value;
   fetch('/api/assignment/due-date', {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({title: _currentAssignTitle, due_date})
-  }).then(r => r.json()).then(d => {
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: _currentAssignTitle, due_date: due_date })
+  }).then(function(r) { return r.json(); }).then(function(d) {
     if (d.status === 'ok') {
-      const s = document.getElementById('adSaveStatus');
+      var s = document.getElementById('adSaveStatus');
       s.textContent = 'Date saved';
       s.style.display = 'inline';
-      setTimeout(() => { s.style.display = 'none'; s.textContent = 'Saved'; }, 2000);
+      setTimeout(function() { s.style.display = 'none'; s.textContent = 'Saved'; }, 2000);
     }
   });
 }
+
+// ── Mobile nav ───────────────────────────────────────────────
 function openMobileNav() {
   document.getElementById('mobileNavDrawer').classList.add('open');
   document.getElementById('mobileNavBackdrop').style.display = 'block';
@@ -2489,6 +1714,12 @@ function openMobileNav() {
 function closeMobileNav() {
   document.getElementById('mobileNavDrawer').classList.remove('open');
   document.getElementById('mobileNavBackdrop').style.display = 'none';
-  document.getElementById('mobileNavDrawer').setAttribute('aria-hidden','true');
+  document.getElementById('mobileNavDrawer').setAttribute('aria-hidden', 'true');
 }
+
+// ── Init ─────────────────────────────────────────────────────
+loadDashboard();
+loadStreak();
+setInterval(loadDashboard, 60000);
+</script>
 {% endblock %}
