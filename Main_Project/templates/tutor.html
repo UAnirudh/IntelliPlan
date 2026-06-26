@@ -52,15 +52,15 @@ main {
 .tutor-new-chat {
   display: flex; align-items: center; justify-content: center; gap: 7px;
   width: 100%; padding: 9px 12px;
-  background: var(--accent); color: white;
-  border: none; border-radius: var(--r-md);
-  font-family: var(--font-ui); font-size: 0.82rem; font-weight: 700;
+  background: var(--text-primary); color: var(--bg);
+  border: none; border-radius: var(--ipd-radius-sm);
+  font-family: var(--ipd-font-body); font-size: 0.82rem; font-weight: 600;
   letter-spacing: 0.02em; cursor: pointer;
-  transition: background 0.14s;
+  transition: opacity 0.14s;
 }
-.tutor-new-chat:hover { background: var(--accent-hover); }
+.tutor-new-chat:hover { opacity: 0.88; }
 .tutor-side-title {
-  font-family: var(--font-ui); font-size: 0.65rem; font-weight: 700;
+  font-family: var(--ipd-font-mono); font-size: 0.65rem; font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.09em;
   color: var(--text-muted); padding: 12px 1rem 4px;
 }
@@ -79,17 +79,17 @@ main {
 .tutor-history-item {
   display: flex; align-items: center; gap: 6px;
   width: 100%; padding: 8px 10px;
-  background: none; border: 1px solid transparent; border-radius: var(--r-sm);
+  background: none; border: 1px solid transparent; border-radius: var(--ipd-radius-sm);
   text-align: left; cursor: pointer;
-  font-family: var(--font-body); font-size: 0.83rem; font-weight: 500;
+  font-family: var(--ipd-font-body); font-size: 0.83rem; font-weight: 500;
   color: var(--text-secondary);
   transition: background 0.12s, color 0.12s;
   position: relative;
 }
-.tutor-history-item:hover { background: var(--accent-soft); color: var(--accent); }
+.tutor-history-item:hover { background: var(--bg); color: var(--text-primary); }
 .tutor-history-item.active {
-  background: var(--accent-soft); color: var(--accent);
-  border-color: var(--border-accent); font-weight: 600;
+  background: var(--bg); color: var(--text-primary);
+  border-color: var(--border); font-weight: 600;
 }
 .tutor-history-title {
   flex: 1; min-width: 0;
@@ -117,16 +117,16 @@ main {
 .tutor-refusal {
   background: var(--high-bg);
   border: 1px solid var(--high);
-  border-radius: var(--r-md);
+  border-radius: var(--ipd-radius-md);
   padding: 12px 14px;
   margin-top: 6px;
 }
 .tutor-refusal-cat {
-  display: inline-block; font-family: var(--font-ui);
+  display: inline-block; font-family: var(--ipd-font-mono);
   font-size: 0.66rem; font-weight: 700;
   letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--high); background: rgba(220,38,38,0.10);
-  padding: 3px 10px; border-radius: var(--r-full);
+  padding: 3px 10px; border-radius: 999px;
   margin-bottom: 8px;
 }
 
@@ -152,7 +152,7 @@ main {
   /* Bottom padding clears the floating composer (position:absolute, ~150px tall). */
   padding: 2rem 1.5rem 160px;
   text-align: center;
-  animation: fadeUp 0.5s var(--ease-out) both;
+  animation: fadeUp 0.5s var(--ipd-ease-out) both;
   overflow-y: auto;
 }
 .tutor-empty.hidden { display: none; }
@@ -179,8 +179,9 @@ main {
 @keyframes tpRespond  { 0%{transform:scale(1)} 35%{transform:scale(1.14)} 65%{transform:scale(0.95)} 100%{transform:scale(1)} }
 
 .tutor-empty-title {
-  font-family: var(--font-display);
-  font-size: 1.9rem; letter-spacing: -0.03em; line-height: 1.15;
+  font-family: var(--ipd-font-display);
+  font-size: clamp(1.5rem, 1rem + 2vw, 2rem); font-weight: 400;
+  line-height: 1.15;
   color: var(--text-primary); margin-bottom: 0.5rem;
 }
 .tutor-empty-sub {
@@ -195,33 +196,33 @@ main {
 }
 .tutor-chip {
   padding: 7px 16px;
-  border-radius: var(--r-full);
+  border-radius: 999px;
   border: 1px solid var(--border-strong);
   background: var(--bg-card);
   color: var(--text-secondary);
-  font-family: var(--font-body); font-size: 0.82rem; font-weight: 500;
+  font-family: var(--ipd-font-body); font-size: 0.82rem; font-weight: 500;
   cursor: pointer; transition: all 0.14s ease;
 }
-.tutor-chip:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--border-accent); }
-.tutor-chip.active { background: var(--accent); color: white; border-color: transparent; }
+.tutor-chip:hover { background: var(--bg); color: var(--text-primary); border-color: var(--text-muted); }
+.tutor-chip.active { background: var(--text-primary); color: var(--bg); border-color: transparent; }
 
 /* Suggested questions */
 .tutor-suggestions { display: flex; flex-direction: column; gap: 7px; max-width: 520px; width: 100%; }
 .tutor-sug-label {
-  font-family: var(--font-ui); font-size: 0.68rem; font-weight: 700;
+  font-family: var(--ipd-font-mono); font-size: 0.68rem; font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.08em;
   color: var(--text-muted); margin-bottom: 2px; text-align: left;
 }
 .tutor-sug-card {
   background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: var(--r-md); padding: 10px 14px;
+  border-radius: var(--ipd-radius-md); padding: 10px 14px;
   text-align: left; font-size: 0.875rem; color: var(--text-secondary);
   cursor: pointer; transition: all 0.14s ease;
   display: flex; align-items: center; gap: 10px; width: 100%;
 }
 .tutor-sug-card:hover {
-  border-color: var(--border-accent); color: var(--accent);
-  background: var(--accent-soft); transform: translateX(4px);
+  border-color: var(--text-muted); color: var(--text-primary);
+  background: var(--bg); transform: translateX(4px);
 }
 .tutor-sug-icon { font-size: 1.05rem; flex-shrink: 0; }
 
@@ -242,7 +243,7 @@ main {
 .tutor-msg-group {
   display: flex; gap: 12px;
   padding: 0.5rem 2rem;
-  animation: fadeUp 0.22s var(--ease-out) both;
+  animation: fadeUp 0.22s var(--ipd-ease-out) both;
   max-width: 860px; width: 100%; margin: 0 auto;
 }
 .tutor-msg-group.user { flex-direction: row-reverse; }
@@ -255,13 +256,13 @@ main {
 .tutor-avatar.bot { background: linear-gradient(135deg,#1d4ed8,#3b82f6); }
 .tutor-avatar.user {
   background: var(--accent-soft);
-  font-family: var(--font-ui); font-size: 0.6rem; font-weight: 700; color: var(--accent);
+  font-family: var(--ipd-font-mono); font-size: 0.6rem; font-weight: 700; color: var(--accent);
 }
 
 .tutor-bubble-wrap { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
 .tutor-msg-group.user .tutor-bubble-wrap { align-items: flex-end; }
 .tutor-sender {
-  font-family: var(--font-ui); font-size: 0.7rem; font-weight: 700;
+  font-family: var(--ipd-font-mono); font-size: 0.7rem; font-weight: 700;
   color: var(--text-muted); letter-spacing: 0.03em; padding: 0 4px;
 }
 
@@ -292,7 +293,7 @@ main {
 .tutor-msg-group.user .tutor-bubble code { background: rgba(255,255,255,0.2); color: white; }
 .tutor-bubble pre {
   background: var(--bg); border: 1px solid var(--border);
-  border-radius: var(--r-sm); padding: 0.85rem 1rem;
+  border-radius: var(--ipd-radius-sm); padding: 0.85rem 1rem;
   overflow-x: auto; margin: 8px 0;
   font-family: 'DM Mono', ui-monospace, monospace;
   font-size: 0.82rem; line-height: 1.6;
@@ -302,7 +303,7 @@ main {
 .tutor-bubble ul { padding-left: 1.4rem; margin: 6px 0; display: flex; flex-direction: column; gap: 3px; }
 .tutor-bubble li { line-height: 1.65; }
 .tutor-bubble .md-h3 {
-  font-family: var(--font-display); font-size: 1rem; font-weight: 400;
+  font-family: var(--ipd-font-display); font-size: 1rem; font-weight: 400;
   color: var(--text-primary); margin: 12px 0 4px; letter-spacing: -0.01em;
 }
 .tutor-bubble .md-hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
@@ -363,7 +364,7 @@ main {
   display: flex; align-items: center; gap: 5px;
   padding: 0 13px; height: 50px;
   border: none; border-right: 1px solid var(--border);
-  font-family: var(--font-ui); font-size: 0.74rem; font-weight: 700;
+  font-family: var(--ipd-font-mono); font-size: 0.74rem; font-weight: 700;
   color: var(--accent); background: var(--accent-soft);
   cursor: pointer; white-space: nowrap; flex-shrink: 0;
   transition: background 0.13s;
@@ -372,7 +373,7 @@ main {
 .tutor-subject-pill:hover { background: var(--accent-mid); }
 #tutorInput {
   flex: 1; border: none; background: transparent;
-  padding: 14px 14px; font-family: var(--font-body); font-size: 0.92rem;
+  padding: 14px 14px; font-family: var(--ipd-font-body); font-size: 0.92rem;
   color: var(--text-primary); outline: none; resize: none;
   min-height: 50px; max-height: 180px; line-height: 1.5;
   scrollbar-width: thin;
@@ -406,7 +407,7 @@ main {
   background: #0d0d0d; color: #fff; padding: 4px 8px; border-radius: 6px;
   font-size: 0.7rem; font-weight: 600; white-space: nowrap;
   opacity: 0; pointer-events: none; transition: opacity 0.15s;
-  font-family: var(--font-ui);
+  font-family: var(--ipd-font-mono);
 }
 .tutor-icon-btn:hover .ib-tip { opacity: 1; }
 @keyframes pulse-rec { 0%,100% { opacity:1; } 50% { opacity:0.55; } }
@@ -455,7 +456,7 @@ main {
     width: min(82vw, 320px);
     z-index: 100001;
     transform: translateX(-100%);
-    transition: transform 0.22s var(--ease-out);
+    transition: transform 0.22s var(--ipd-ease-out);
     box-shadow: 8px 0 24px rgba(0,0,0,0.18);
     padding-top: env(safe-area-inset-top);
   }
@@ -491,7 +492,7 @@ main {
   }
   .tutor-mobile-bar .tutor-mobile-title {
     flex: 1; text-align: center;
-    font-family: var(--font-ui); font-size: 0.85rem; font-weight: 700;
+    font-family: var(--ipd-font-mono); font-size: 0.85rem; font-weight: 700;
     color: var(--text-primary);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     padding: 0 4px;
@@ -570,7 +571,7 @@ main {
     <div class="tutor-empty" id="tutorEmpty">
 
       <div id="tutorPlaniWrap" style="width:92px;height:92px;border-radius:18px;background:var(--ink, #161616);display:grid;place-items:center;">
-        <span id="tutorPlaniSvg" style="font-family:var(--font-ui);font-size:2.2rem;font-weight:700;color:#fff;letter-spacing:-0.02em;user-select:none;">IP</span>
+        <span id="tutorPlaniSvg" style="font-family:var(--ipd-font-mono);font-size:2.2rem;font-weight:700;color:#fff;letter-spacing:-0.02em;user-select:none;">IP</span>
       </div>
 
       <h1 class="tutor-empty-title">What do you want to learn today?</h1>
@@ -668,7 +669,7 @@ main {
 <div id="snapCameraModal" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:1rem;">
   <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:1.25rem;max-width:520px;width:100%;box-shadow:var(--shadow-lg);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-      <h3 style="margin:0;font-family:var(--font-display);font-size:1.1rem;">Snap a problem</h3>
+      <h3 style="margin:0;font-family:var(--ipd-font-display);font-size:1.1rem;">Snap a problem</h3>
       <button type="button" onclick="closeSnapCamera()" style="background:none;border:none;font-size:1.3rem;color:var(--text-muted);cursor:pointer;">×</button>
     </div>
     <video id="snapVideo" autoplay playsinline muted style="width:100%;border-radius:12px;background:#000;aspect-ratio:4/3;object-fit:cover;"></video>
