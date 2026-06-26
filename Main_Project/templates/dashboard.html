@@ -22,9 +22,9 @@
   --ipd-radius-md: 14px;
   --ipd-radius-sm: 10px;
   --ipd-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ipd-priority-high: #b91c1c;
-  --ipd-priority-med: #b45309;
-  --ipd-priority-low: #047857;
+  --ipd-priority-high: var(--high, #b91c1c);
+  --ipd-priority-med: var(--medium, #b45309);
+  --ipd-priority-low: var(--low, #047857);
   --ipd-glass-bg: rgba(255, 255, 255, 0.72);
   --ipd-glass-border: rgba(0, 0, 0, 0.06);
 }
@@ -890,7 +890,6 @@
 
 
 {% block scripts %}
-<script>
 // ── Namespace guard (per base.html collision rule) ────────────
 var _ipdState = {
   unifiedTasks: { today: [], upcoming: [], overdue: [] },
@@ -1078,36 +1077,44 @@ function updateAssistantTip() {
 // ── Grade snapshot ───────────────────────────────────────────
 async function loadGradeSnapshot() {
   try {
-    var res = await fetch('/api/grades/snapshot').then(function(r) { return r.json(); });
+    var courses = await fetch('/grades/data').then(function(r) { return r.json(); });
     var wrap = document.getElementById('ipdGradeBars');
     if (!wrap) return;
-    if (!res || !res.courses || !res.courses.length) {
+    if (!courses || !Array.isArray(courses) || !courses.length) {
       wrap.innerHTML = '<div style="text-align:center;padding:1rem 0;color:var(--text-muted);font-family:var(--ipd-font-body);font-size:0.82rem;">No grade data yet</div>';
-      // Also try to set GPA stat
       var gpaEl = document.getElementById('ipdStatGpa');
       if (gpaEl) gpaEl.textContent = '—';
       var gpaSub = document.getElementById('ipdStatGpaSub');
       if (gpaSub) gpaSub.textContent = 'No grades yet';
       return;
     }
-    wrap.innerHTML = res.courses.slice(0, 4).map(function(c) {
-      var pct = Math.min(Math.max(c.grade || 0, 0), 100);
+    var withPct = courses.filter(function(c) { return c.percentage != null; });
+    wrap.innerHTML = withPct.slice(0, 4).map(function(c) {
+      var pct = Math.min(Math.max(parseFloat(c.percentage) || 0, 0), 100);
+      var name = c.course || c.class_name || 'Course';
       return '<div class="ipd-grade-bar-row">' +
-        '<span class="ipd-grade-bar-label">' + (c.name || 'Course') + '</span>' +
+        '<span class="ipd-grade-bar-label">' + name.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</span>' +
         '<div class="ipd-grade-bar-track"><div class="ipd-grade-bar-fill" style="width:' + pct + '%;"></div></div>' +
-        '<span class="ipd-grade-bar-val">' + pct + '%</span>' +
+        '<span class="ipd-grade-bar-val">' + Math.round(pct) + '%</span>' +
       '</div>';
     }).join('');
+    if (!withPct.length) {
+      wrap.innerHTML = '<div style="text-align:center;padding:1rem 0;color:var(--text-muted);font-family:var(--ipd-font-body);font-size:0.82rem;">No grade data yet</div>';
+    }
 
-    // Update GPA stat card
-    if (res.gpa !== undefined) {
+    // Compute average as GPA proxy
+    if (withPct.length) {
+      var sum = 0;
+      withPct.forEach(function(c) { sum += parseFloat(c.percentage) || 0; });
+      var avg = sum / withPct.length;
+      // Convert percentage to 4.0 scale (rough: 90+=4.0, 80+=3.0, etc.)
+      var gpa = avg >= 93 ? 4.0 : avg >= 90 ? 3.7 : avg >= 87 ? 3.3 : avg >= 83 ? 3.0 : avg >= 80 ? 2.7 : avg >= 77 ? 2.3 : avg >= 73 ? 2.0 : avg >= 70 ? 1.7 : avg >= 67 ? 1.3 : avg >= 60 ? 1.0 : 0.0;
       var gpaEl = document.getElementById('ipdStatGpa');
-      if (gpaEl) gpaEl.textContent = parseFloat(res.gpa).toFixed(2);
+      if (gpaEl) gpaEl.textContent = gpa.toFixed(2);
       var gpaSub = document.getElementById('ipdStatGpaSub');
-      if (gpaSub) gpaSub.textContent = res.courses.length + ' course' + (res.courses.length !== 1 ? 's' : '');
+      if (gpaSub) gpaSub.textContent = withPct.length + ' course' + (withPct.length !== 1 ? 's' : '') + ' · ' + Math.round(avg) + '% avg';
     }
   } catch (e) {
-    // Silently fail — grade data is supplementary
     var gpaEl = document.getElementById('ipdStatGpa');
     if (gpaEl) gpaEl.textContent = '—';
     var gpaSub = document.getElementById('ipdStatGpaSub');
@@ -1721,5 +1728,4 @@ function closeMobileNav() {
 loadDashboard();
 loadStreak();
 setInterval(loadDashboard, 60000);
-</script>
 {% endblock %}
