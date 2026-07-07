@@ -416,7 +416,10 @@
       border: 1px solid var(--border);
       border-radius: var(--ipd-radius-lg);
       padding: 1.4rem;
+      box-shadow: var(--shadow-sm);
+      transition: box-shadow 0.25s var(--ipd-ease-out), border-color 0.25s var(--ipd-ease-out);
     }
+    .ipd-card:hover { box-shadow: var(--shadow); border-color: var(--border-strong); }
     .ipd-card-title {
       font-family: var(--ipd-font-body);
       font-size: 0.92rem;
@@ -478,6 +481,16 @@
       overflow-y: auto;
       padding: 1.75rem;
       box-shadow: 0 24px 80px rgba(0,0,0,0.2);
+      animation: ipd-fadeUp 0.28s var(--ipd-ease-out);
+    }
+    @supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
+      .ipd-modal {
+        background: var(--ipd-glass-bg);
+        backdrop-filter: blur(28px) saturate(180%);
+        -webkit-backdrop-filter: blur(28px) saturate(180%);
+        box-shadow: 0 24px 80px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.5);
+      }
+      [data-theme="dark"] .ipd-modal { box-shadow: 0 24px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06); }
     }
     .ipd-modal h3 {
       font-family: var(--ipd-font-display);
@@ -752,8 +765,11 @@
     body > header {
       background: var(--nav-bg);
       border-bottom: 1px solid var(--nav-border);
-      backdrop-filter: blur(24px) saturate(180%);
-      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      backdrop-filter: blur(28px) saturate(200%);
+      -webkit-backdrop-filter: blur(28px) saturate(200%);
+      /* Subtle float + top "edge light" — the sheen that makes frosted
+         glass read as a physical pane instead of a flat translucent bar. */
+      box-shadow: 0 1px 0 var(--nav-border), 0 6px 24px -12px rgba(0,0,0,0.10);
       padding: 0 2rem;
       height: var(--nav-height);
       display: grid;
@@ -840,9 +856,23 @@
       background:var(--bg-card); border:1px solid var(--border-strong);
       border-radius:var(--r-md); box-shadow:var(--shadow-lg); padding:6px;
       opacity:0; pointer-events:none;
-      transition:opacity 0.2s ease;
+      transition:opacity 0.2s ease, transform 0.2s var(--ease-out);
+      transform:translateY(-4px);
       z-index:200;
       margin-top:10px;
+    }
+    .nav-dropdown:hover .dropdown-panel,
+    .nav-dropdown.is-open .dropdown-panel { transform:translateY(0); }
+    /* Frosted glass on the floating popover — only where the browser can
+       actually blur behind it, so no-support browsers keep the solid panel. */
+    @supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
+      .dropdown-panel {
+        background:var(--ipd-glass-bg);
+        backdrop-filter:blur(20px) saturate(180%);
+        -webkit-backdrop-filter:blur(20px) saturate(180%);
+        box-shadow:var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.5);
+      }
+      [data-theme="dark"] .dropdown-panel { box-shadow:var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.06); }
     }
     .nav-dropdown:hover .dropdown-panel,
     .nav-dropdown.is-open .dropdown-panel { opacity:1; pointer-events:auto; }
@@ -974,6 +1004,13 @@
       display: flex; flex-direction: column;
       animation: fadeUp 0.18s var(--ease-out) both;
       overflow: hidden;
+    }
+    @supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
+      #navCustomizer .nc-box {
+        background: var(--ipd-glass-bg);
+        backdrop-filter: blur(28px) saturate(180%);
+        -webkit-backdrop-filter: blur(28px) saturate(180%);
+      }
     }
     #navCustomizer .nc-head {
       display: flex; align-items: center; justify-content: space-between;
@@ -1760,7 +1797,9 @@
         top:0; left:0; bottom:0; right:auto;
         width:min(82vw, 300px);
         height:100dvh;
-        background:var(--bg-card);
+        background:var(--nav-bg);
+        backdrop-filter:blur(28px) saturate(200%);
+        -webkit-backdrop-filter:blur(28px) saturate(200%);
         border-right:1px solid var(--border);
         flex-direction:column;
         padding:76px 12px calc(16px + env(safe-area-inset-bottom));
@@ -1834,6 +1873,18 @@
       --accent:#ffeb3b; --accent-hover:#ffd600;
     }
     html[data-a11y-contrast="1"] * { text-shadow: none !important; }
+    /* High-contrast users must not get faint frosted glass — force every
+       floating surface back to a solid, opaque fill with a hard border. */
+    html[data-a11y-contrast="1"] body > header,
+    html[data-a11y-contrast="1"] .dropdown-panel,
+    html[data-a11y-contrast="1"] .ipd-modal,
+    html[data-a11y-contrast="1"] #navCustomizer .nc-box,
+    html[data-a11y-contrast="1"] #mainNav {
+      background: var(--bg-card) !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      box-shadow: none !important;
+    }
 
     /* Reduced motion: kill animations and transitions globally. Respects
        the OS-level pref too via the standard media query. */

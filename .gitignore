@@ -6,6 +6,13 @@ instance/
 uploads/
 .claude/worktrees/focused-zhukovsky-8d7a67/
 
+# Runtime artifacts — never belong in version control
+*.pid
+*.log
+.pytest_cache/
+.DS_Store
+Thumbs.db
+
 # Friend handoff bundle — kept on disk for sending, not tracked in the repo
 # (it's a 7.5MB zip + a full duplicate of the source tree).
 AppStore-Launch/IntelliPlan-Full-Package/

@@ -1,5 +1,6 @@
 # Core Flask
 flask>=2.3.0
+flask-compress>=1.14
 flask-login>=0.6.2
 flask-sqlalchemy>=3.0.0
 flask-bcrypt>=1.0.1

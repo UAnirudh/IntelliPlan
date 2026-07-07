@@ -117,6 +117,28 @@ app = flask.Flask(
 app.secret_key = os.getenv("SECRET_KEY", "intelliplan-dev-key")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
+# ── Response compression ──────────────────────────────────────────────
+#   Every page ships ~200KB of HTML (the shared design system is inlined
+#   into base.html), so without compression a first paint on a real
+#   network takes ~2s. gzip/br cuts text responses ~85-90% (200KB → ~30KB),
+#   which is the single biggest win for perceived load time. Defensive
+#   import so the app still boots if the package isn't installed yet.
+try:
+    from flask_compress import Compress
+
+    # Only compress payloads big enough to beat the CPU cost; the shared
+    # CSS/JS/HTML and JSON API responses all clear this easily.
+    app.config.setdefault("COMPRESS_MIN_SIZE", 1024)
+    app.config.setdefault("COMPRESS_LEVEL", 6)
+    app.config.setdefault("COMPRESS_MIMETYPES", [
+        "text/html", "text/css", "text/xml", "text/plain",
+        "application/json", "application/javascript", "application/xml",
+        "application/rss+xml", "image/svg+xml",
+    ])
+    Compress(app)
+except Exception as _compress_err:  # pragma: no cover - optional dependency
+    print(f"[startup] response compression disabled: {_compress_err}")
+
 APP_BASE_URL = os.getenv("APP_BASE_URL", "https://intelliplan.tech").rstrip("/")
 APP_DOMAIN = APP_BASE_URL.replace("https://", "").replace("http://", "").split("/", 1)[0]
 LEGACY_ALLOWED_ORIGINS = [
@@ -270,15 +292,26 @@ def _is_frame_sensitive(path):
 @app.after_request
 def add_static_cache_headers(response):
     """Cache static assets (icons, images, fonts, css/js) for repeat visits and
-    better Core Web Vitals. Never caches the service worker, which must
-    revalidate so updates ship. Only applied to successful /static/ responses
-    that don't already set their own Cache-Control."""
+    better Core Web Vitals. Never caches the service worker or manifest, which
+    must revalidate so updates ship.
+
+    Flask's static handler sets ``Cache-Control: no-cache`` by default, so this
+    hook must OVERRIDE that value rather than only fill it in when absent —
+    otherwise every asset revalidates on every navigation (a round-trip per
+    icon/css/js on each page). Media (icons/logos/images/fonts) get a long
+    7-day cache; CSS/JS aren't content-hashed, so they get a shorter TTL with
+    stale-while-revalidate so a deploy's new styles propagate within a day
+    while repeat views still serve instantly from cache."""
     try:
         p = request.path or ""
-        if (p.startswith("/static/") and p != "/static/sw.js"
-                and response.status_code == 200
-                and "Cache-Control" not in response.headers):
-            response.headers["Cache-Control"] = "public, max-age=604800"
+        no_cache_assets = ("/static/sw.js", "/static/manifest.json")
+        if (p.startswith("/static/")
+                and p not in no_cache_assets
+                and response.status_code in (200, 304)):
+            if p.endswith((".css", ".js")):
+                response.headers["Cache-Control"] = "public, max-age=86400, stale-while-revalidate=604800"
+            else:
+                response.headers["Cache-Control"] = "public, max-age=604800, immutable"
     except Exception:
         pass
     return response
