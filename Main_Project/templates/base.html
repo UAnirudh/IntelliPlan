@@ -1257,6 +1257,58 @@
     @media (min-width: 2560px) { main { max-width: 1840px; } }
 
     /* ══════════════════════════════════════
+       APP INTERIOR — Apple-clean / minimal
+       Scoped to body.has-side (app pages only) so the warm editorial
+       marketing surface is untouched. Lighter, cooler canvas; quieted
+       ambient texture; a seamless minimal sidebar; and no in-product
+       marketing chrome — a calm, focused workspace.
+    ══════════════════════════════════════ */
+    [data-theme="light"] body.has-side { --bg: #f6f6f8; --bg-elevated: #ececef; }
+    [data-theme="dark"]  body.has-side { --bg: #0d0d0f; --bg-elevated: #1a1a1e; }
+    /* Calm the ambient wash + grain — Apple surfaces read clean, not textured. */
+    body.has-side::before { opacity: 0.20; }
+    body.has-side::after  { opacity: 0.012; }
+
+    /* Seamless, minimal sidebar: blends into the canvas behind a hairline
+       divider so the white content surfaces carry the visual hierarchy. */
+    body.has-side .app-side {
+      background: transparent;
+      border-right: 1px solid var(--border);
+      padding: 18px 14px 14px;
+      gap: 2px;
+    }
+    body.has-side .side-logo { border-bottom: none; padding-bottom: 6px; margin-bottom: 4px; }
+    body.has-side .side-search {
+      background: var(--bg-card);
+      border-radius: 11px;
+      padding: 9px 12px;
+      margin-bottom: 10px;
+      box-shadow: var(--shadow-sm);
+    }
+    /* Roomier, quieter nav rows — soft neutral hover, clean accent-tinted
+       selected state in the spirit of macOS System Settings. */
+    body.has-side .app-side .side-link {
+      padding: 8px 12px;
+      border-radius: 9px;
+      font-size: 0.855rem;
+      font-weight: 450;
+      color: var(--text-secondary);
+    }
+    body.has-side .app-side .side-link:hover { background: var(--bg-elevated); color: var(--text-primary); transform: none; }
+    body.has-side .app-side .side-link.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+    body.has-side .side-customize-btn { margin-top: 8px; }
+    body.has-side .side-foot { border-top: 1px solid var(--border); }
+
+    /* Remove in-product marketing chrome for a distraction-free workspace.
+       The install banner is shown via an inline style from JS, so the hide
+       needs !important to win the cascade on app surfaces. */
+    body.has-side > footer { display: none; }
+    body.has-side #installBanner { display: none !important; }
+
+    /* A touch more air above the fold on app pages. */
+    @media (min-width: 769px) { body.has-side main { padding-top: 3rem; } }
+
+    /* ══════════════════════════════════════
        PAGE HEADER
     ══════════════════════════════════════ */
     .page-header { margin-bottom:2.25rem; animation:fadeUp 0.5s var(--ease-out) both; }
