@@ -8385,6 +8385,132 @@ def delete_saved_schedule():
     db.session.commit()
     return flask.jsonify({"status": "ok"})
 
+
+# ── UNIVERSAL CALENDAR EXPORT (.ics) ──────────────────────────
+def _ics_escape(text):
+    """Escape text per RFC 5545 (backslash, semicolon, comma, newline)."""
+    return (str(text or "")
+            .replace("\\", "\\\\")
+            .replace(";", "\\;")
+            .replace(",", "\\,")
+            .replace("\r\n", "\\n")
+            .replace("\n", "\\n"))
+
+
+def _parse_12h_time(raw):
+    """Parse '7:00 PM' / '7 PM' into a time object, or None."""
+    cleaned = str(raw or "").strip().upper().replace(".", "")
+    for fmt in ("%I:%M %p", "%I %p"):
+        try:
+            return datetime.strptime(cleaned, fmt).time()
+        except ValueError:
+            continue
+    return None
+
+
+def _schedule_to_ics(schedule_data, name="IntelliPlan Study Plan"):
+    """Convert schedule JSON into an RFC 5545 iCalendar string.
+
+    Events use floating local times (no TZID) so blocks land at the same
+    wall-clock hour in any calendar app — Apple, Outlook, Google, Proton.
+    Block times come from start_iso/end_iso when present, but are always
+    re-anchored onto the day's own date: humanize_schedule() stamps every
+    day's ISO times with *today's* date, so only the clock part is trusted.
+    """
+    now_stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//IntelliPlan//Study Scheduler//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        f"X-WR-CALNAME:{_ics_escape(name)}",
+    ]
+    seq = 0
+    for day in (schedule_data.get("schedule") or []):
+        date_str = str(day.get("date") or "")[:10]
+        try:
+            day_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        for block in (day.get("blocks") or []):
+            if block.get("is_break"):
+                continue
+            start_t = end_t = None
+            for key, target in (("start_iso", "start"), ("end_iso", "end")):
+                if block.get(key):
+                    try:
+                        parsed = datetime.fromisoformat(str(block[key])).time()
+                        if target == "start":
+                            start_t = parsed
+                        else:
+                            end_t = parsed
+                    except ValueError:
+                        pass
+            if start_t is None and block.get("time_slot"):
+                parts = str(block["time_slot"]).split("-")
+                start_t = _parse_12h_time(parts[0]) if parts else None
+                if len(parts) > 1:
+                    end_t = _parse_12h_time(parts[1])
+            if start_t is None:
+                continue
+            start_dt = datetime.combine(day_date, start_t)
+            if end_t is not None:
+                end_dt = datetime.combine(day_date, end_t)
+                if end_dt <= start_dt:
+                    end_dt += timedelta(days=1)
+            else:
+                end_dt = start_dt + timedelta(minutes=int(block.get("duration_minutes") or 30))
+            seq += 1
+            summary = block.get("assignment") or "Study block"
+            if block.get("course"):
+                summary = f"{summary} ({block['course']})"
+            desc_bits = []
+            if block.get("notes"):
+                desc_bits.append(str(block["notes"]))
+            desc_bits.append("Planned with IntelliPlan.")
+            lines += [
+                "BEGIN:VEVENT",
+                f"UID:ipd-{now_stamp}-{seq}@intelliplan.tech",
+                f"DTSTAMP:{now_stamp}",
+                f"DTSTART:{start_dt.strftime('%Y%m%dT%H%M%S')}",
+                f"DTEND:{end_dt.strftime('%Y%m%dT%H%M%S')}",
+                f"SUMMARY:{_ics_escape(summary)}",
+                f"DESCRIPTION:{_ics_escape(' '.join(desc_bits))}",
+                "END:VEVENT",
+            ]
+    lines.append("END:VCALENDAR")
+    return "\r\n".join(lines) + "\r\n"
+
+
+@app.route("/schedule/export.ics", methods=["POST"])
+def export_schedule_ics():
+    """Download the current schedule as a universal .ics calendar file.
+
+    Accepts schedule_data in the POST body; falls back to the active
+    saved schedule so the button also works after a page reload."""
+    data = request.json or {}
+    schedule_data = data.get("schedule_data")
+    name = (data.get("name") or "IntelliPlan Study Plan").strip() or "IntelliPlan Study Plan"
+    if not schedule_data:
+        if current_user.is_authenticated:
+            s = SavedSchedule.query.filter_by(user_id=current_user.id, is_active=True).order_by(SavedSchedule.created_at.desc()).first()
+        else:
+            s = SavedSchedule.query.filter_by(guest_session_id=get_guest_session_id(), is_active=True).order_by(SavedSchedule.created_at.desc()).first()
+        if s:
+            try:
+                schedule_data = json.loads(s.schedule_data)
+                name = s.name or name
+            except Exception:
+                schedule_data = None
+    if not schedule_data:
+        return flask.jsonify({"status": "error", "message": "No schedule to export"}), 400
+    ics = _schedule_to_ics(schedule_data, name)
+    resp = flask.Response(ics, mimetype="text/calendar; charset=utf-8")
+    fname = re.sub(r"[^A-Za-z0-9._-]+", "-", name).strip("-") or "study-plan"
+    resp.headers["Content-Disposition"] = f'attachment; filename="{fname}.ics"'
+    return resp
+
 # ── DAY ARCHIVE / MEMORIES ────────────────────────────────────
 ARCHIVE_TYPE_LABELS = {
     "schedule": "Full schedule",

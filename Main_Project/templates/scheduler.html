@@ -450,11 +450,91 @@
     margin-top: 4px;
   }
 
+  /* ── Export actions row ───────────────────────── */
+  .exp-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .exp-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 18px; border-radius: var(--ipd-radius-sm);
+    border: 1px solid var(--border); background: var(--bg-card);
+    color: var(--text-primary); cursor: pointer; text-decoration: none;
+    font-family: var(--ipd-font-body); font-size: 0.84rem; font-weight: 600;
+    transition: border-color 0.15s, opacity 0.15s;
+  }
+  .exp-btn:hover { border-color: var(--text-muted); }
+  .exp-btn:disabled { opacity: 0.6; cursor: default; }
+  .exp-btn.exp-gcal { background: #ea4335; border-color: #ea4335; color: #fff; }
+  .exp-btn.exp-gcal:hover { opacity: 0.9; }
+  .exp-btn svg { width: 14px; height: 14px; }
+
+  /* ── Saved-plan notice ────────────────────────── */
+  .saved-notice {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: var(--accent-soft, rgba(26,86,219,0.06));
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    border-radius: var(--ipd-radius-md); padding: 10px 14px; margin: 0 0 1rem;
+    font-family: var(--ipd-font-body); font-size: 0.84rem;
+  }
+  .saved-notice strong { color: var(--text-primary); }
+  .saved-notice svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .saved-notice button {
+    margin-left: auto; background: transparent; border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 12px; cursor: pointer; color: var(--text-secondary);
+    font-family: var(--ipd-font-body); font-size: 0.78rem; font-weight: 600;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .saved-notice button:hover { color: var(--text-primary); border-color: var(--text-muted); }
+
+  /* ── Generation error banner ──────────────────── */
+  .gen-error {
+    display: none; align-items: flex-start; gap: 10px;
+    margin-top: 1rem; padding: 12px 14px;
+    background: var(--high-bg, rgba(220,38,38,0.06));
+    border: 1px solid var(--high, #dc2626);
+    border-radius: var(--ipd-radius-md);
+    color: var(--text-primary); font-family: var(--ipd-font-body); font-size: 0.86rem;
+    line-height: 1.5;
+  }
+  .gen-error.show { display: flex; }
+  .gen-error .ge-retry {
+    margin-left: auto; flex-shrink: 0;
+    background: var(--high, #dc2626); color: #fff; border: 0;
+    border-radius: 8px; padding: 7px 14px; cursor: pointer;
+    font-family: var(--ipd-font-body); font-size: 0.78rem; font-weight: 600;
+  }
+  .gen-error .ge-retry:hover { opacity: 0.88; }
+
+  /* ── Today highlighting ───────────────────────── */
+  .today-pill {
+    display: inline-flex; align-items: center;
+    font-family: var(--ipd-font-mono); font-size: 0.6rem; font-weight: 700;
+    letter-spacing: 0.07em; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 999px;
+    background: var(--accent, #1a56db); color: #fff;
+    vertical-align: 2px; margin-left: 8px;
+  }
+  .day-card.is-today, .iv-day-card.is-today {
+    border-color: var(--accent, #1a56db);
+    box-shadow: 0 0 0 1px var(--accent, #1a56db) inset;
+  }
+
   @media (max-width: 600px) {
     .iv-block, .time-block { grid-template-columns: 80px 1fr auto; gap: 8px; padding: 10px; }
     .iv-time, .time-slot { font-size: 0.68rem; }
     .ck-drawer { width: 100vw; }
     .scheduler-inputs { flex-direction: column; }
+  }
+
+  /* ── Print: clean plan on paper / PDF ─────────── */
+  @media print {
+    .sched-tabs, #inputPanel, #calExportWrap, #savedNotice, #genError,
+    .ck-overlay, .ck-drawer, .iv-check, .daily-tip,
+    nav, aside, header, footer { display: none !important; }
+    body { background: #fff !important; }
+    main { margin: 0 !important; padding: 0 !important; max-width: 100% !important; }
+    .day-card, .overview-card { break-inside: avoid; box-shadow: none !important; }
+    .sched-pane { display: none !important; }
+    .sched-pane#pane-creator { display: block !important; }
   }
 </style>
 {% endblock %}
@@ -515,10 +595,19 @@
         <button type="button" onclick="saveSchedule()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--low); background:var(--low-bg); color:var(--low); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-save"/></svg> Save to Dashboard</button>
         <button type="button" onclick="saveToMemories()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--accent); background:var(--accent-soft); color:var(--accent); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-save"/></svg> Save to Memories</button>
         <button type="button" onclick="openInteractive()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--accent); background:var(--accent); color:#fff; cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-arrow-right"/></svg> Open Interactive View</button>
-        <a href="/memories" style="padding:12px 16px; border-radius:10px; border:1px solid var(--border-strong); background:var(--bg-card); color:var(--text-secondary); text-decoration:none; font-family:var(--font-ui); font-size:0.85rem; font-weight:600;">View Memories</a>
-        <button type="button" onclick="openInteractive()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--accent); background:var(--accent); color:#fff; cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-arrow-right"/></svg> Open Interactive View</button>
       </div>
     </div>
+    <div class="gen-error" id="genError" role="alert">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="genErrorMsg"></span>
+      <button type="button" class="ge-retry" id="genErrorRetry" onclick="generateSchedule()" style="display:none;">Try again</button>
+    </div>
+  </div>
+
+  <div class="saved-notice" id="savedNotice" style="display:none;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+    <span id="savedNoticeText"></span>
+    <button type="button" onclick="dismissSavedPlan()">Start fresh</button>
   </div>
 
   <div class="scheduler-loading" id="schedulerLoading" style="display:none;">
@@ -691,6 +780,22 @@ function escapeText(s) {
   );
 }
 
+// Local YYYY-MM-DD (toISOString() is UTC and flips the date late at night).
+function localToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function showGenError(msg, retryable) {
+  const box = document.getElementById('genError');
+  document.getElementById('genErrorMsg').textContent = msg;
+  document.getElementById('genErrorRetry').style.display = retryable ? '' : 'none';
+  box.classList.add('show');
+}
+function hideGenError() {
+  document.getElementById('genError').classList.remove('show');
+}
+
 async function autoDetectTime() {
   const btn = document.getElementById('autoTimeBtn');
   const hint = document.getElementById('autoTimeHint');
@@ -762,6 +867,8 @@ function generateSchedule() {
     document.getElementById('emptyState').style.display = 'block';
     return;
   }
+  hideGenError();
+  document.getElementById('savedNotice').style.display = 'none';
   document.getElementById('inputPanel').style.opacity = '0.5';
   document.getElementById('inputPanel').style.pointerEvents = 'none';
   document.getElementById('schedulerLoading').style.display = 'block';
@@ -772,16 +879,23 @@ function generateSchedule() {
   const hours = parseFloat(document.getElementById('hoursPerDay').value);
   const time = document.getElementById('preferredTime').value;
 
+  function done() {
+    document.getElementById('schedulerLoading').style.display = 'none';
+    document.getElementById('inputPanel').style.opacity = '1';
+    document.getElementById('inputPanel').style.pointerEvents = 'auto';
+  }
+
   fetch('/generate_schedule', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ assignments: allAssignments, hours_per_day: hours, preferred_time: time, custom_tasks: customTasks })
   })
   .then(r => r.json())
   .then(response => {
-    document.getElementById('schedulerLoading').style.display = 'none';
-    document.getElementById('inputPanel').style.opacity = '1';
-    document.getElementById('inputPanel').style.pointerEvents = 'auto';
-    if (response.status === 'error') { alert('Error: ' + response.message); return; }
+    done();
+    if (response.status === 'error') {
+      showGenError(response.message || 'The AI could not build a schedule.', !!response.retryable);
+      return;
+    }
     _lastScheduleData = response.data;
     renderSchedule(response.data);
     document.getElementById('scheduleResults').style.display = 'block';
@@ -792,37 +906,68 @@ function generateSchedule() {
     updateBadge();
   })
   .catch(() => {
-    document.getElementById('schedulerLoading').style.display = 'none';
-    document.getElementById('inputPanel').style.opacity = '1';
-    document.getElementById('inputPanel').style.pointerEvents = 'auto';
-    alert('Something went wrong. Please try again.');
+    done();
+    showGenError('Something went wrong while generating your plan. Check your connection and try again.', true);
   });
 }
 
 function updateCalExportButton() {
+  const universal = `
+    <button type="button" id="icsBtn" class="exp-btn" onclick="downloadIcs()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download .ics
+    </button>
+    <button type="button" class="exp-btn" onclick="printSchedule()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Print / PDF
+    </button>`;
+  const wrap = document.getElementById('calExportWrap');
   fetch('/calendar/events').then(r => r.json()).then(calRes => {
     _gcalConnected = calRes.connected;
-    const wrap = document.getElementById('calExportWrap');
-    if (calRes.connected) {
-      wrap.innerHTML = `
-        <button type="button" id="calExportBtn" onclick="exportToCalendar()" style="
-          display:inline-flex; align-items:center; gap:8px; padding:12px 24px;
-          background:#ea4335; color:white; border:none; border-radius:12px;
-          cursor:pointer; font-family:var(--font-ui); font-size:0.9rem; font-weight:600;
-          box-shadow:0 4px 16px rgba(234,67,53,0.3); transition:all 0.2s;">
-          <svg width="15" height="15"><use href="#i-scheduler"/></svg> Export to Google Calendar
-        </button>`;
-    } else {
-      wrap.innerHTML = `
-        <a href="/oauth/google" style="
-          display:inline-flex; align-items:center; gap:8px; padding:12px 24px;
-          background:var(--bg-card); color:var(--text-secondary); border:1px solid var(--border);
-          border-radius:12px; text-decoration:none; font-family:var(--font-ui);
-          font-size:0.88rem; font-weight:600;">
-          <svg width="14" height="14"><use href="#i-link"/></svg> Connect Google Calendar to export
-        </a>`;
-    }
-  }).catch(() => {});
+    const gcal = calRes.connected
+      ? `<button type="button" id="calExportBtn" onclick="exportToCalendar()" class="exp-btn exp-gcal">
+           <svg><use href="#i-scheduler"/></svg> Export to Google Calendar
+         </button>`
+      : `<a href="/oauth/google" class="exp-btn">
+           <svg><use href="#i-link"/></svg> Connect Google Calendar
+         </a>`;
+    wrap.innerHTML = `<div class="exp-row">${gcal}${universal}</div>`;
+  }).catch(() => {
+    // Calendar status unavailable — still offer the universal exports.
+    wrap.innerHTML = `<div class="exp-row">${universal}</div>`;
+  });
+}
+
+async function downloadIcs() {
+  if (!_lastScheduleData) return;
+  const btn = document.getElementById('icsBtn');
+  const orig = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
+  try {
+    const name = (document.getElementById('scheduleName').value || '').trim() || 'IntelliPlan Study Plan';
+    const res = await fetch('/schedule/export.ics', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ schedule_data: _lastScheduleData, name })
+    });
+    if (!res.ok) throw new Error('export failed');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') + '.ics';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    if (btn) btn.innerHTML = '<svg width="14" height="14"><use href="#i-check-circle"/></svg> Downloaded';
+  } catch (e) {
+    if (btn) btn.textContent = 'Export failed — try again';
+  } finally {
+    if (btn) setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 2200);
+  }
+}
+
+function printSchedule() {
+  switchTab('creator');
+  setTimeout(() => window.print(), 60);
 }
 
 async function saveSchedule() {
@@ -913,11 +1058,12 @@ function renderSchedule(data) {
       <div class="overview-stat"><svg width="12" height="12"><use href="#i-clock"/></svg> Total study time: <strong>${escapeText(data.total_study_time || '')}</strong></div>
     </div>`;
   const days = document.getElementById('scheduleDays');
+  const todayStr = localToday();
   days.innerHTML = (data.schedule || []).map((day, di) => `
-    <div class="day-card" style="animation-delay:${di * 0.07}s">
+    <div class="day-card ${String(day.date || '').slice(0,10) === todayStr ? 'is-today' : ''}" style="animation-delay:${di * 0.07}s">
       <div class="day-header">
         <div>
-          <div class="day-name">${escapeText(day.day_name || '')}, ${escapeText(day.date || '')}</div>
+          <div class="day-name">${escapeText(day.day_name || '')}, ${escapeText(day.date || '')}${String(day.date || '').slice(0,10) === todayStr ? '<span class="today-pill">Today</span>' : ''}</div>
           ${day.workload_level ? `<div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;">${escapeText(day.workload_level)} workload</div>` : ''}
         </div>
         <div class="day-hours"><svg width="11" height="11"><use href="#i-clock"/></svg> ${escapeText(String(day.total_hours || 0))}h</div>
@@ -966,11 +1112,18 @@ function renderInteractive() {
   empty.style.display = 'none';
   ctx.style.display = '';
 
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = localToday();
   const sched = _lastScheduleData.schedule;
   const todayDay = sched.find(d => (d.date || '').slice(0, 10) === todayIso) || sched[0];
+  let allWork = 0, allDone = 0;
+  sched.forEach(d => (d.blocks || []).forEach(b => {
+    if (b.is_break) return;
+    allWork++;
+    if (stateFor(b.block_id).done) allDone++;
+  }));
+  const overall = allWork ? ` · ${allDone}/${allWork} done overall` : '';
   const ctxBody = todayDay
-    ? `Today (${escapeText(todayDay.day_name || '')}): ${(todayDay.blocks || []).filter(b => !b.is_break).length} work blocks · ${escapeText(String(todayDay.total_hours || 0))}h planned${todayDay.daily_tip ? ', ' + escapeText(todayDay.daily_tip) : ''}`
+    ? `Today (${todayDay.day_name || ''}): ${(todayDay.blocks || []).filter(b => !b.is_break).length} work blocks · ${todayDay.total_hours || 0}h planned${overall}${todayDay.daily_tip ? ' — ' + todayDay.daily_tip : ''}`
     : 'Pick a block to open its interactive checklist.';
   document.getElementById('ivContextBody').textContent = ctxBody;
 
@@ -978,11 +1131,12 @@ function renderInteractive() {
     const work = (day.blocks || []).filter(b => !b.is_break);
     const doneCount = work.filter(b => stateFor(b.block_id).done).length;
     const pct = work.length ? Math.round((doneCount / work.length) * 100) : 0;
+    const isToday = String(day.date || '').slice(0, 10) === todayIso;
     return `
-      <div class="iv-day-card">
+      <div class="iv-day-card ${isToday ? 'is-today' : ''}">
         <div class="iv-day-head">
           <div>
-            <div class="iv-day-name">${escapeText(day.day_name || '')}, ${escapeText(day.date || '')}</div>
+            <div class="iv-day-name">${escapeText(day.day_name || '')}, ${escapeText(day.date || '')}${isToday ? '<span class="today-pill">Today</span>' : ''}</div>
             <div style="font-size:0.74rem;color:var(--text-muted);margin-top:2px;">${doneCount}/${work.length} blocks done · ${escapeText(String(day.total_hours || 0))}h</div>
           </div>
           <div class="iv-day-meta"><svg><use href="#i-clock"/></svg> ${escapeText(String(day.total_hours || 0))}h</div>
@@ -1197,20 +1351,30 @@ fetch('/archive/context').then(r => r.json()).then(ctx => {
   }
 }).catch(() => {});
 
-{% if load_saved %}
+/* ────────── SAVED PLAN: always resume where you left off ────────── */
+function dismissSavedPlan() {
+  _lastScheduleData = null;
+  document.getElementById('savedNotice').style.display = 'none';
+  document.getElementById('scheduleResults').style.display = 'none';
+  document.getElementById('savePanel').style.display = 'none';
+  updateBadge();
+  if (_currentTab === 'interactive') renderInteractive();
+}
+
 fetch('/schedule/saved').then(r => r.json()).then(res => {
-  if (res.status === 'ok') {
-    _lastScheduleData = res.data;
-    renderSchedule(res.data);
-    document.getElementById('scheduleResults').style.display = 'block';
-    document.getElementById('savePanel').style.display = 'flex';
-    document.getElementById('scheduleName').value = res.name || 'My Schedule';
-    updateCalExportButton();
-    updateBadge();
-    try {
-      if (localStorage.getItem('ip_scheduler_tab') === 'interactive') switchTab('interactive');
-    } catch(e) {}
-  }
-});
-{% endif %}
+  if (res.status !== 'ok' || _lastScheduleData) return;
+  _lastScheduleData = res.data;
+  renderSchedule(res.data);
+  document.getElementById('scheduleResults').style.display = 'block';
+  document.getElementById('savePanel').style.display = 'flex';
+  document.getElementById('scheduleName').value = res.name || 'My Schedule';
+  const noticeText = document.getElementById('savedNoticeText');
+  noticeText.innerHTML = `Resumed your saved plan <strong>${escapeText(res.name || 'My Schedule')}</strong>${res.created_at ? ` · saved ${escapeText(res.created_at)}` : ''}`;
+  document.getElementById('savedNotice').style.display = 'flex';
+  updateCalExportButton();
+  updateBadge();
+  try {
+    if (localStorage.getItem('ip_scheduler_tab') === 'interactive') switchTab('interactive');
+  } catch(e) {}
+}).catch(() => {});
 {% endblock %}
