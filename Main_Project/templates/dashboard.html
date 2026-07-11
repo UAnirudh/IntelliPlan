@@ -1062,13 +1062,17 @@ function renderSchedToday() {
   if (!work.length) return;
   var ck = {};
   try { ck = JSON.parse(localStorage.getItem('ip_checklist_state_v2') || '{}') || {}; } catch (e) {}
+  var serverProg = (s.progress && typeof s.progress === 'object') ? s.progress : {};
   var esc = function(v) {
     return String(v == null ? '' : v)
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   };
   var done = 0;
   host.innerHTML = work.map(function(b) {
-    var isDone = !!(b.block_id && ck[b.block_id] && ck[b.block_id].done);
+    var isDone = !!(b.block_id && (
+      (ck[b.block_id] && ck[b.block_id].done) ||
+      (serverProg[b.block_id] && serverProg[b.block_id].done)
+    ));
     if (isDone) done++;
     var startTime = String(b.time_slot || '').split('-')[0].trim();
     return '<div class="ipd-sched-block' + (isDone ? ' done' : '') + '">' +

@@ -601,6 +601,9 @@ class SavedSchedule(db.Model):
     guest_session_id = db.Column(db.String(64), nullable=True)
     name = db.Column(db.String(256), default="My Schedule")
     schedule_data = db.Column(db.Text, nullable=False)
+    # Interactive View progress ({block_id: {done, checked, ...}}), synced
+    # from the client so checked-off blocks follow the student across devices.
+    progress_json = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
 
@@ -8374,7 +8377,38 @@ def get_saved_schedule():
             data = humanize_schedule(data, "evening", 2)
     except Exception as e:
         print(f"[scheduler] backfill on saved schedule failed: {e}")
-    return flask.jsonify({"status": "ok", "name": s.name, "created_at": s.created_at.strftime("%b %d, %Y"), "data": data})
+    try:
+        progress = json.loads(s.progress_json) if s.progress_json else {}
+        if not isinstance(progress, dict):
+            progress = {}
+    except Exception:
+        progress = {}
+    return flask.jsonify({"status": "ok", "name": s.name, "created_at": s.created_at.strftime("%b %d, %Y"), "data": data, "progress": progress})
+
+
+@app.route("/schedule/progress", methods=["POST"])
+def save_schedule_progress():
+    """Persist Interactive View progress for the active saved schedule.
+
+    The client sends {progress: {block_id: {done, checked, ...}}} debounced
+    after each interaction, so checked-off blocks follow the student to any
+    device instead of living only in one browser's localStorage."""
+    data = request.json or {}
+    progress = data.get("progress")
+    if not isinstance(progress, dict):
+        return flask.jsonify({"status": "error", "message": "progress object required"}), 400
+    raw = json.dumps(progress)
+    if len(raw) > 200_000:
+        return flask.jsonify({"status": "error", "message": "progress payload too large"}), 413
+    if current_user.is_authenticated:
+        s = SavedSchedule.query.filter_by(user_id=current_user.id, is_active=True).order_by(SavedSchedule.created_at.desc()).first()
+    else:
+        s = SavedSchedule.query.filter_by(guest_session_id=get_guest_session_id(), is_active=True).order_by(SavedSchedule.created_at.desc()).first()
+    if not s:
+        return flask.jsonify({"status": "none", "message": "No active saved schedule"})
+    s.progress_json = raw
+    db.session.commit()
+    return flask.jsonify({"status": "ok"})
 
 @app.route("/schedule/delete", methods=["POST"])
 def delete_saved_schedule():
@@ -12885,6 +12919,8 @@ def _migrate_user_columns():
         ("manual_tasks", "import_source", "VARCHAR(32) DEFAULT ''"),
         ("manual_tasks", "import_batch_id", "VARCHAR(64) DEFAULT ''"),
         ("manual_tasks", "external_id", "VARCHAR(128) DEFAULT ''"),
+        # saved_schedules — cross-device Interactive View progress
+        ("saved_schedules", "progress_json", "TEXT"),
         # user_identities — earlier migration's columns. Without these,
         # _get_or_create_identity() blows up and registration redirects
         # to /onboarding which then 500s.

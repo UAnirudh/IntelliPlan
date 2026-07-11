@@ -705,8 +705,51 @@ function loadChecklistState() {
 }
 function saveChecklistState(state) {
   try { localStorage.setItem(CK_STATE_KEY, JSON.stringify(state)); } catch(e) {}
+  scheduleProgressPush();
 }
 let _checklistState = loadChecklistState();
+
+/* ────────── CROSS-DEVICE PROGRESS SYNC ──────────
+   Progress lives in localStorage for instant UI, and is debounce-pushed
+   to the active saved schedule so it follows the student across devices.
+   Sync stays off for freshly generated (unsaved) plans, so scratch work
+   can never clobber the saved plan's progress. */
+let _progressSyncEnabled = false;
+let _progressPushTimer = null;
+
+function mergeServerProgress(server) {
+  if (!server || typeof server !== 'object') return;
+  Object.keys(server).forEach(id => {
+    const sv = server[id];
+    if (!sv || typeof sv !== 'object') return;
+    const local = stateFor(id);
+    local.done = !!(local.done || sv.done);
+    const checked = new Set(local.checked || []);
+    (Array.isArray(sv.checked) ? sv.checked : []).forEach(k => checked.add(k));
+    local.checked = Array.from(checked);
+  });
+  try { localStorage.setItem(CK_STATE_KEY, JSON.stringify(_checklistState)); } catch(e) {}
+}
+
+function scheduleProgressPush() {
+  if (!_progressSyncEnabled || !_lastScheduleData) return;
+  clearTimeout(_progressPushTimer);
+  _progressPushTimer = setTimeout(pushProgress, 900);
+}
+
+function pushProgress() {
+  if (!_progressSyncEnabled || !_lastScheduleData) return;
+  // Only ship state for blocks in the current plan — not the whole
+  // accumulated localStorage history.
+  const slice = {};
+  (_lastScheduleData.schedule || []).forEach(d => (d.blocks || []).forEach(b => {
+    if (b.block_id && _checklistState[b.block_id]) slice[b.block_id] = _checklistState[b.block_id];
+  }));
+  fetch('/schedule/progress', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ progress: slice })
+  }).catch(() => {});
+}
 
 function stateFor(blockId) {
   if (!_checklistState[blockId]) {
@@ -897,6 +940,14 @@ function generateSchedule() {
       return;
     }
     _lastScheduleData = response.data;
+    // Block ids restart at d1-b1 for every generated plan, so stale state
+    // from an older plan would make new blocks appear pre-checked. Clear
+    // state for this plan's ids, and keep sync off until the plan is saved.
+    _progressSyncEnabled = false;
+    (response.data.schedule || []).forEach(d => (d.blocks || []).forEach(b => {
+      if (b.block_id && _checklistState[b.block_id]) delete _checklistState[b.block_id];
+    }));
+    try { localStorage.setItem(CK_STATE_KEY, JSON.stringify(_checklistState)); } catch(e) {}
     renderSchedule(response.data);
     document.getElementById('scheduleResults').style.display = 'block';
     document.getElementById('savePanel').style.display = 'flex';
@@ -978,6 +1029,9 @@ async function saveSchedule() {
     body: JSON.stringify({ schedule_data: _lastScheduleData, name })
   }).then(r => r.json()).catch(() => ({ status: 'error' }));
   if (res.status === 'ok') {
+    // The plan is now the active saved schedule — progress can sync to it.
+    _progressSyncEnabled = true;
+    pushProgress();
     const btn = document.querySelector('[onclick="saveSchedule()"]');
     if (!btn) return;
     const orig = btn.innerHTML;
@@ -1354,6 +1408,8 @@ fetch('/archive/context').then(r => r.json()).then(ctx => {
 /* ────────── SAVED PLAN: always resume where you left off ────────── */
 function dismissSavedPlan() {
   _lastScheduleData = null;
+  _progressSyncEnabled = false;
+  clearTimeout(_progressPushTimer);
   document.getElementById('savedNotice').style.display = 'none';
   document.getElementById('scheduleResults').style.display = 'none';
   document.getElementById('savePanel').style.display = 'none';
@@ -1364,6 +1420,8 @@ function dismissSavedPlan() {
 fetch('/schedule/saved').then(r => r.json()).then(res => {
   if (res.status !== 'ok' || _lastScheduleData) return;
   _lastScheduleData = res.data;
+  mergeServerProgress(res.progress);
+  _progressSyncEnabled = true;
   renderSchedule(res.data);
   document.getElementById('scheduleResults').style.display = 'block';
   document.getElementById('savePanel').style.display = 'flex';
