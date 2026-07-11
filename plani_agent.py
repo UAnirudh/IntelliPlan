@@ -292,7 +292,7 @@ def _find_manual_task(args: dict, user_id: int):
 def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
     from App import (
         ManualTask, SavedSchedule, ImportedGrade, DismissedAssignment,
-        CourseNote, db,
+        CourseNote, DayArchive, db,
         infer_task_difficulty, PRIORITY_COLORS, enrich_schedule_data,
         humanize_schedule, build_student_context,
         _ai_personalization_enabled, _summarize_grade_signals,
@@ -606,13 +606,29 @@ Return ONLY valid JSON:
             schedule = enrich_schedule_data(schedule, assignments, pref, hours)
             try: schedule = humanize_schedule(schedule, pref, hours)
             except Exception: pass
-            sched = SavedSchedule(user_id=user_id,
-                name=f"Plani Schedule {datetime.now().strftime('%b %d')}",
-                schedule_data=json.dumps(schedule), is_active=True)
+            sched_name = f"Plani Schedule {datetime.now().strftime('%b %d')}"
             SavedSchedule.query.filter_by(user_id=user_id).update({"is_active": False})
-            db.session.add(sched); db.session.commit()
+            sched = SavedSchedule(user_id=user_id,
+                name=sched_name,
+                schedule_data=json.dumps(schedule), is_active=True)
+            db.session.add(sched)
+            # Deterministically archive to Memories in the same transaction —
+            # the user asked once, so it must land everywhere without relying
+            # on the model remembering a follow-up save_note call.
+            try:
+                db.session.add(DayArchive(
+                    user_id=user_id,
+                    archive_date=datetime.now().date(),
+                    item_type="schedule",
+                    title=sched_name,
+                    payload=json.dumps(schedule),
+                ))
+            except Exception as _arch_e:
+                logger.warning("plani schedule archive skipped: %s", _arch_e)
+            db.session.commit()
             return {"status": "ok",
-                "message": f"Schedule generated — {schedule.get('total_study_time', '')}.",
+                "message": f"Schedule generated — {schedule.get('total_study_time', '')}. "
+                           "It is saved on the Scheduler page, the Dashboard, and Memories.",
                 "days": len(schedule.get("schedule", [])),
                 "overview": schedule.get("overview", "")}
         except Exception as e:
