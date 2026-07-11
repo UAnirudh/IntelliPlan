@@ -128,6 +128,12 @@
 
 {% block scripts %}
 var _svgIcon = function(id) { return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#' + id + '"/></svg>'; };
+
+function memEscape(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])
+  );
+}
 const TYPE_ICONS = {
   schedule: _svgIcon('i-scheduler'), schedule_day: _svgIcon('i-scheduler'), resources: _svgIcon('i-book'), notes: _svgIcon('i-pencil'),
   custom_tasks: _svgIcon('i-done'), identity: _svgIcon('i-user'), snapshot: _svgIcon('i-save'), manual_tasks: _svgIcon('i-clipboard'), library: _svgIcon('i-book')
@@ -161,7 +167,7 @@ async function loadMemories() {
       section.innerHTML = `
         <div class="mem-day-head">
           <div>
-            <div class="mem-day-date">${day.label}</div>
+            <div class="mem-day-date">${memEscape(day.label)}</div>
             <div class="mem-day-count">${day.count} saved item${day.count === 1 ? '' : 's'}</div>
           </div>
           <div class="mem-day-actions">
@@ -177,9 +183,9 @@ async function loadMemories() {
         card.className = 'mem-card';
         const icon = TYPE_ICONS[item.item_type] || _svgIcon('i-save');
         card.innerHTML = `
-          <div class="mem-type">${icon} ${item.type_label}</div>
-          <div class="mem-title">${item.title}</div>
-          <div class="mem-meta">Saved ${item.created_at}</div>
+          <div class="mem-type">${icon} ${memEscape(item.type_label)}</div>
+          <div class="mem-title">${memEscape(item.title)}</div>
+          <div class="mem-meta">Saved ${memEscape(item.created_at)}</div>
           <div class="mem-card-actions">
             <button type="button" class="mem-btn mem-btn-primary" data-load="${item.id}">Load</button>
             <button type="button" class="mem-btn mem-btn-danger" data-delete="${item.id}">Delete</button>

@@ -30,16 +30,22 @@
   </div>
 </div>
 
-<div class="dropdown-wrap">
-  <button class="dropdown-btn" id="priorityDropBtn">
-    High Priority <span class="chevron">▾</span>
-  </button>
-  <div class="dropdown-menu" id="priorityMenu">
-    <div class="dropdown-item active" data-filter="high">High</div>
-    <div class="dropdown-item" data-filter="medium">Medium</div>
-    <div class="dropdown-item" data-filter="low">Low</div>
-    <div class="dropdown-item" data-filter="tests">Tests</div>
+<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+  <div class="dropdown-wrap">
+    <button class="dropdown-btn" id="priorityDropBtn">
+      High Priority <span class="chevron">▾</span>
+    </button>
+    <div class="dropdown-menu" id="priorityMenu">
+      <div class="dropdown-item active" data-filter="high">High</div>
+      <div class="dropdown-item" data-filter="medium">Medium</div>
+      <div class="dropdown-item" data-filter="low">Low</div>
+      <div class="dropdown-item" data-filter="tests">Tests</div>
+    </div>
   </div>
+  <input type="search" id="prioritySearch" placeholder="Search title or course…" autocomplete="off"
+    style="flex:1; min-width:180px; max-width:320px; padding:10px 14px; border:1px solid var(--border);
+           border-radius:10px; background:var(--bg-card); color:var(--text-primary);
+           font-family:var(--font-ui); font-size:0.86rem;" />
 </div>
 
 <div id="assignmentsList" class="assignments-list" style="margin-top: 1.5rem;">
@@ -59,6 +65,14 @@
 {% block scripts %}
 let allAssignments = [];
 let currentFilter = 'high';
+let currentSearch = '';
+let _renderedList = [];   // last array passed to renderCards; indexes match data-idx
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])
+  );
+}
 
 function formatDate(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
@@ -90,6 +104,7 @@ function renderCards(assignments) {
   const list = document.getElementById('assignmentsList');
   const empty = document.getElementById('emptyState');
   list.innerHTML = '';
+  _renderedList = assignments;
 
   if (!assignments.length) {
     empty.classList.add('visible');
@@ -98,7 +113,7 @@ function renderCards(assignments) {
   empty.classList.remove('visible');
 
   assignments.forEach((a, i) => {
-    const priority = a.priority.toLowerCase();
+    const priority = (a.priority || 'medium').toLowerCase();
     const card = document.createElement('div');
     card.className = `assignment-card ${priority}`;
     card.style.animationDelay = `${i * 0.07}s`;
@@ -115,18 +130,18 @@ function renderCards(assignments) {
       <div class="rank-bubble">#${i + 1}</div>
       <div class="card-main">
         <div class="card-title">
-          ${a.title}
+          ${escapeHtml(a.title)}
           ${isTest ? '<span class="test-auto-badge">Test</span>' : ''}
         </div>
         <div class="card-meta">
-          <span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg> ${a.course}</span>
+          <span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg> ${escapeHtml(a.course)}</span>
           <span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> ${formatDate(a.due_date)}</span>
           <span class="meta-item">${daysUntil(a.due_date)}</span>
         </div>
       </div>
       <span class="time-pill"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg> ${formatTime(a.estimated_time)}</span>
-      <span class="priority-badge ${priority}">${a.priority}</span>
-      <button class="test-btn${isTest ? ' already-test' : ''}" title="${isTest ? 'Already in Tests' : 'Mark as test'}" onclick="markAsTest(${JSON.stringify(a)}, this)">
+      <span class="priority-badge ${priority}">${escapeHtml(a.priority || 'Medium')}</span>
+      <button class="test-btn${isTest ? ' already-test' : ''}" title="${isTest ? 'Already in Tests' : 'Mark as test'}" data-action="mark-test" data-idx="${i}">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-test"/></svg> ${isTest ? 'In Tests' : 'Test'}
       </button>
       <button class="dismiss-btn" data-action="dismiss"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-done"/></svg> Done</button>
@@ -135,7 +150,15 @@ function renderCards(assignments) {
   });
 }
 
-function markAsTest(assignment, btn) {
+// Delegated: mark-as-test. Looks the assignment up by rendered index, so
+// titles containing quotes/backslashes/HTML can never break the handler.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-action="mark-test"]');
+  if (!btn) return;
+  e.stopPropagation();
+  const assignment = _renderedList[parseInt(btn.dataset.idx, 10)];
+  if (!assignment) return;
+  btn.disabled = true;
   fetch('/test/mark', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -147,11 +170,16 @@ function markAsTest(assignment, btn) {
       card.style.opacity = '0';
       card.style.transform = 'translateX(8px)';
       setTimeout(() => card.remove(), 300);
-      // Show brief toast
       showToast('Moved to Tests', 'primary');
+    } else {
+      btn.disabled = false;
+      showToast(data.message || 'Could not mark as test', 'high');
     }
+  }).catch(() => {
+    btn.disabled = false;
+    showToast('Network error, try again', 'high');
   });
-}
+});
 
 // Delegated handler, survives titles with quotes/backslashes/HTML and
 // surfaces failures with a toast so the button never "silently" does
@@ -211,12 +239,10 @@ function showToast(msg, type) {
 }
 
 function updateStats(assignments) {
-  document.getElementById('statHigh').textContent =
-    assignments.filter(a => a.priority.toLowerCase() === 'high').length;
-  document.getElementById('statMedium').textContent =
-    assignments.filter(a => a.priority.toLowerCase() === 'medium').length;
-  document.getElementById('statLow').textContent =
-    assignments.filter(a => a.priority.toLowerCase() === 'low').length;
+  const byLevel = level => assignments.filter(a => (a.priority || '').toLowerCase() === level).length;
+  document.getElementById('statHigh').textContent = byLevel('high');
+  document.getElementById('statMedium').textContent = byLevel('medium');
+  document.getElementById('statLow').textContent = byLevel('low');
 }
 
 function dedupeTasks(tasks) {
@@ -266,9 +292,23 @@ function isTestAssignment(a) {
 }
 
 function filterByTab(assignments, filter) {
-  if (filter === 'tests') return assignments.filter(isTestAssignment);
-  return assignments.filter(a => a.priority.toLowerCase() === filter);
+  let out = (filter === 'tests')
+    ? assignments.filter(isTestAssignment)
+    : assignments.filter(a => (a.priority || '').toLowerCase() === filter);
+  if (currentSearch) {
+    const q = currentSearch.toLowerCase();
+    out = out.filter(a =>
+      (a.title || '').toLowerCase().includes(q) ||
+      (a.course || '').toLowerCase().includes(q)
+    );
+  }
+  return out;
 }
+
+document.getElementById('prioritySearch').addEventListener('input', (e) => {
+  currentSearch = (e.target.value || '').trim();
+  renderCards(filterByTab(allAssignments, currentFilter));
+});
 
 document.querySelectorAll('.dropdown-item').forEach(item => {
   item.addEventListener('click', () => {

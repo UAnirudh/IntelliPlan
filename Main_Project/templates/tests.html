@@ -344,6 +344,14 @@ function formatDate(d) {
   return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
+let _renderedTests = [];  // last rendered array; indexes match data-idx
+
+function testEscape(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])
+  );
+}
+
 function render(tests) {
   const list = document.getElementById('testsList');
   const empty = document.getElementById('testsEmpty');
@@ -352,6 +360,7 @@ function render(tests) {
   const filtered = activeFilter === 'all'
     ? tests
     : tests.filter(t => urgencyClass(t.due_date) === activeFilter);
+  _renderedTests = filtered;
 
   if (!filtered.length) {
     empty.classList.add('visible');
@@ -365,30 +374,45 @@ function render(tests) {
     const card = document.createElement('div');
     card.className = `test-card ${urg}`;
     card.style.animationDelay = `${i * 0.06}s`;
-    const safeTitle = (t.title || '').replace(/"/g, '&quot;').replace(/'/g, "\\'");
     card.innerHTML = `
       <div class="test-card-icon">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-test"/></svg>
       </div>
       <div class="test-card-body">
-        <div class="test-card-title">${t.title || 'Untitled Test'}</div>
+        <div class="test-card-title">${testEscape(t.title || 'Untitled Test')}</div>
         <div class="test-card-meta">
-          ${t.course ? `<span class="test-meta-item"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-backpack"/></svg> ${t.course}</span>` : ''}
+          ${t.course ? `<span class="test-meta-item"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-backpack"/></svg> ${testEscape(t.course)}</span>` : ''}
           ${t.due_date ? `<span class="test-meta-item"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-scheduler"/></svg> ${formatDate(t.due_date)}</span>` : ''}
           <span class="test-countdown ${cd.cls}">${cd.text}</span>
         </div>
       </div>
       <div class="test-card-actions">
-        <button class="test-prep-btn" onclick="openPrepModal(${JSON.stringify(t).replace(/"/g,'&quot;')})">
+        <button class="test-prep-btn" data-idx="${i}">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-lightbulb"/></svg>
           Prep
         </button>
-        <button class="test-unmark-btn" onclick="unmarkTest('${safeTitle}', this)">Remove</button>
+        <button class="test-unmark-btn" data-idx="${i}">Remove</button>
       </div>
     `;
     list.appendChild(card);
   });
 }
+
+// Delegated actions — index lookup means titles with quotes/HTML can never
+// break out of an onclick attribute.
+document.addEventListener('click', (e) => {
+  const prep = e.target.closest('.test-prep-btn[data-idx]');
+  if (prep) {
+    const t = _renderedTests[parseInt(prep.dataset.idx, 10)];
+    if (t) openPrepModal(t);
+    return;
+  }
+  const un = e.target.closest('.test-unmark-btn[data-idx]');
+  if (un) {
+    const t = _renderedTests[parseInt(un.dataset.idx, 10)];
+    if (t) unmarkTest(t.title || '', un);
+  }
+});
 
 function updateStats(tests) {
   const statsEl = document.getElementById('testsStats');
