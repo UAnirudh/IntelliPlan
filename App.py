@@ -8506,7 +8506,7 @@ def export_schedule_ics():
     if not schedule_data:
         return flask.jsonify({"status": "error", "message": "No schedule to export"}), 400
     ics = _schedule_to_ics(schedule_data, name)
-    resp = flask.Response(ics, mimetype="text/calendar; charset=utf-8")
+    resp = flask.Response(ics, mimetype="text/calendar")
     fname = re.sub(r"[^A-Za-z0-9._-]+", "-", name).strip("-") or "study-plan"
     resp.headers["Content-Disposition"] = f'attachment; filename="{fname}.ics"'
     return resp
