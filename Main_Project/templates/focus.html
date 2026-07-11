@@ -310,18 +310,39 @@
 </div>
 
 <script>
+/* ══════════════════════════════════════════════════════════════
+   FOCUS TIMER — drift-free engine
+   Countdown is derived from an absolute end timestamp (endAt), so
+   backgrounded tabs (where browsers throttle setInterval to 1/min
+   or less) can never make the clock lag behind wall time. Running
+   state persists to localStorage, so a reload resumes the session.
+═══════════════════════════════════════════════════════════════ */
 const CIRC = 2 * Math.PI * 98; // 615.75
+const TIMER_KEY = 'ip_focus_timer_v1';
+const LONG_BREAK_EVERY = 4;    // every 4th work session earns a long break
+const LONG_BREAK_MINS  = 15;
+
 let workMins  = 25;
 let breakMins = 5;
 let totalSecs = workMins * 60;
 let remaining = totalSecs;
 let isRunning  = false;
 let isBreak    = false;
+let endAt      = null;   // ms epoch when the current phase ends (while running)
 let intervalId = null;
+let cycleCount = 0;      // completed work sessions since page state began
 let sessionLog = JSON.parse(localStorage.getItem('ip_focus_log') || '[]').filter(s => {
   return new Date(s.ts).toDateString() === new Date().toDateString();
 });
-let statData = JSON.parse(localStorage.getItem('ip_focus_stats') || '{"sessions":0,"minutes":0,"streak":0}');
+
+function persistTimer() {
+  try {
+    localStorage.setItem(TIMER_KEY, JSON.stringify({
+      endAt, remaining, isRunning, isBreak, workMins, breakMins, cycleCount,
+      totalSecs, savedAt: Date.now(),
+    }));
+  } catch (e) {}
+}
 
 function setMode(btn) {
   if (isRunning) return;
@@ -339,16 +360,28 @@ function toggleTimer() {
 
 function startTimer() {
   isRunning = true;
+  endAt = Date.now() + remaining * 1000;
   document.getElementById('playIcon').style.display  = 'none';
   document.getElementById('pauseIcon').style.display = '';
-  intervalId = setInterval(tick, 1000);
+  clearInterval(intervalId);
+  intervalId = setInterval(tick, 500);
+  // First interaction is the right moment to ask for notifications.
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+  persistTimer();
 }
 
 function pauseTimer() {
+  if (isRunning && endAt) {
+    remaining = Math.max(0, Math.round((endAt - Date.now()) / 1000));
+  }
   isRunning = false;
+  endAt = null;
   clearInterval(intervalId);
   document.getElementById('playIcon').style.display  = '';
   document.getElementById('pauseIcon').style.display = 'none';
+  persistTimer();
 }
 
 function resetTimer() {
@@ -359,6 +392,7 @@ function resetTimer() {
   updateDisplay();
   document.getElementById('timerRing').classList.remove('break');
   document.getElementById('phaseLabel').textContent = 'Focus';
+  persistTimer();
 }
 
 function skipPhase() {
@@ -367,47 +401,70 @@ function skipPhase() {
 }
 
 function tick() {
-  remaining--;
+  if (!endAt) return;
+  remaining = Math.max(0, Math.round((endAt - Date.now()) / 1000));
   updateDisplay();
   if (remaining <= 0) completePhase();
+}
+
+function nextBreakMins() {
+  return (cycleCount > 0 && cycleCount % LONG_BREAK_EVERY === 0) ? LONG_BREAK_MINS : breakMins;
 }
 
 function completePhase() {
   clearInterval(intervalId);
   isRunning = false;
+  endAt = null;
   document.getElementById('playIcon').style.display  = '';
   document.getElementById('pauseIcon').style.display = 'none';
 
   if (!isBreak) {
     // Work phase done
+    cycleCount++;
     const task = document.getElementById('taskInput').value.trim() || 'Focus session';
     logSession(task, workMins);
-    notify('Focus session complete!', `Time for a ${breakMins}-min break.`);
+    reportSession(workMins);
+    const bMins = nextBreakMins();
+    const isLong = bMins === LONG_BREAK_MINS && bMins !== breakMins;
+    chime();
+    notify('Focus session complete!', isLong
+      ? `You earned a long ${bMins}-min break — ${cycleCount} sessions done.`
+      : `Time for a ${bMins}-min break.`);
     isBreak   = true;
-    totalSecs = breakMins * 60;
+    totalSecs = bMins * 60;
     remaining = totalSecs;
     document.getElementById('timerRing').classList.add('break');
-    document.getElementById('phaseLabel').textContent = 'Break';
-  } else {
-    // Break done
-    notify('Break over!', 'Ready for another focus session?');
-    isBreak   = false;
-    totalSecs = workMins * 60;
-    remaining = totalSecs;
-    document.getElementById('timerRing').classList.remove('break');
-    document.getElementById('phaseLabel').textContent = 'Focus';
+    document.getElementById('phaseLabel').textContent = isLong ? 'Long break' : 'Break';
+    updateDisplay();
+    // Breaks start themselves — the whole point is stepping away.
+    startTimer();
+    return;
   }
+  // Break done — wait for the student to start the next work block.
+  chime();
+  notify('Break over!', 'Ready for another focus session?');
+  isBreak   = false;
+  totalSecs = workMins * 60;
+  remaining = totalSecs;
+  document.getElementById('timerRing').classList.remove('break');
+  document.getElementById('phaseLabel').textContent = 'Focus';
   updateDisplay();
+  persistTimer();
 }
 
 function updateDisplay() {
   const m = String(Math.floor(remaining / 60)).padStart(2, '0');
   const s = String(remaining % 60).padStart(2, '0');
   document.getElementById('timerDisplay').textContent = `${m}:${s}`;
-  const pct = remaining / totalSecs;
+  const pct = totalSecs ? remaining / totalSecs : 0;
   document.getElementById('timerRing').style.strokeDashoffset = CIRC * pct;
   document.title = `${m}:${s}, ${isBreak ? 'Break' : 'Focus'} | IntelliPlan`;
 }
+
+// Backgrounded tabs throttle intervals — recompute the instant we're visible.
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && isRunning) tick();
+});
 
 function logSession(task, mins) {
   const entry = { task, mins, ts: new Date().toISOString(), type: 'work' };
@@ -425,6 +482,23 @@ function logSession(task, mins) {
   localStorage.setItem('ip_focus_stats_full', JSON.stringify(raw));
   renderStats(raw);
   renderLog();
+}
+
+// Completed focus sessions feed the same sparks/badges/quests pipeline as
+// the Study arena, so deep work counts toward the student's progression.
+function reportSession(mins) {
+  const sparks = Math.max(1, Math.round(mins / 5));
+  fetch('/study/session/complete', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      mode: 'focus',
+      questions_total: 0, questions_correct: 0, questions_partial: 0,
+      points_earned: sparks,
+      duration_seconds: mins * 60,
+      local_date: `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}`,
+      local_hour: new Date().getHours(),
+    })
+  }).catch(() => {});
 }
 
 function renderStats(raw) {
@@ -458,23 +532,63 @@ function notify(title, body) {
   if (!('Notification' in window)) return;
   if (Notification.permission === 'granted') {
     new Notification(title, { body, icon: '/static/icons/icon-192.png' });
-  } else if (Notification.permission !== 'denied') {
-    Notification.requestPermission().then(p => {
-      if (p === 'granted') new Notification(title, { body });
-    });
   }
 }
 
-// Init
+// Soft two-tone chime via WebAudio — works even when notifications are
+// denied, and needs no audio asset.
+function chime() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [[880, 0], [1174.66, 0.18]].forEach(([freq, delay]) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + delay + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + delay + 0.5);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 0.55);
+    });
+    setTimeout(() => ctx.close().catch(() => {}), 1200);
+  } catch (e) {}
+}
+
+// Init — restore any in-flight session from a previous page load.
 (function init() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TIMER_KEY) || 'null');
+    if (saved && typeof saved.remaining === 'number') {
+      workMins   = saved.workMins  || workMins;
+      breakMins  = saved.breakMins || breakMins;
+      isBreak    = !!saved.isBreak;
+      cycleCount = saved.cycleCount || 0;
+      totalSecs  = saved.totalSecs || workMins * 60;
+      document.querySelectorAll('.focus-mode-btn').forEach(b => {
+        b.classList.toggle('active', parseInt(b.dataset.work) === workMins);
+      });
+      if (isBreak) {
+        document.getElementById('timerRing').classList.add('break');
+        document.getElementById('phaseLabel').textContent = 'Break';
+      }
+      if (saved.isRunning && saved.endAt && saved.endAt > Date.now()) {
+        remaining = Math.round((saved.endAt - Date.now()) / 1000);
+        startTimer();
+      } else if (saved.isRunning && saved.endAt) {
+        // Phase elapsed while the page was closed.
+        remaining = 0;
+        completePhase();
+      } else {
+        remaining = Math.min(saved.remaining, totalSecs);
+      }
+    }
+  } catch (e) {}
   updateDisplay();
   const raw = JSON.parse(localStorage.getItem('ip_focus_stats_full') || 'null');
   if (raw && raw.date === new Date().toDateString()) renderStats(raw);
   renderLog();
-  // Ask for notification permission on load
-  if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission();
-  }
 })();
 </script>
 {% endblock %}
