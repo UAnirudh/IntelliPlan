@@ -942,6 +942,20 @@
 </div>
 {% endif %}
 
+{% else %}
+{# ── Signed-out state: never show a blank page ──────────────── #}
+<div class="ipd-anim ipd-d1" style="max-width:560px;margin:10vh auto 0;text-align:center;padding:0 1rem;">
+  <div style="font-size:2.6rem;margin-bottom:1rem;">📚</div>
+  <h1 class="ipd-greeting" style="margin-bottom:0.6rem;">Your dashboard is waiting</h1>
+  <p style="font-family:var(--ipd-font-body);font-size:0.95rem;color:var(--text-muted);line-height:1.65;margin:0 0 1.75rem;">
+    Sign in or connect your school account to see your assignments, build
+    AI study plans, and track your progress — it takes under a minute.
+  </p>
+  <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+    <a href="/login" class="ipd-btn ipd-btn-primary" style="text-decoration:none;padding:12px 28px;font-size:0.92rem;">Sign in / Get started</a>
+    <a href="/" class="ipd-btn" style="text-decoration:none;padding:12px 22px;font-size:0.9rem;">Learn more</a>
+  </div>
+</div>
 {% endif %}
 {% endblock %}
 
