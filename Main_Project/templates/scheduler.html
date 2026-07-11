@@ -223,6 +223,10 @@
     box-shadow: 0 4px 16px rgba(0,0,0,0.06);
     transform: translateY(-1px);
   }
+  .iv-block:focus-visible {
+    outline: 2px solid var(--accent, #1a56db);
+    outline-offset: 2px;
+  }
   .iv-block.is-break { opacity: 0.6; cursor: default; }
   .iv-block.is-break:hover { transform: none; border-color: var(--border); box-shadow: none; }
   .iv-block.done { opacity: 0.5; }
@@ -623,8 +627,8 @@
 
   <div class="empty-state" id="emptyState" style="display:none;">
     <div class="empty-icon"><svg width="32" height="32"><use href="#i-scheduler"/></svg></div>
-    <div class="empty-title">No assignments to schedule</div>
-    <p>Add some assignments first from your Canvas or StudentVue account.</p>
+    <div class="empty-title">Nothing to schedule yet</div>
+    <p>Connect Canvas or StudentVue to pull in assignments — or just type a task into <strong>Add custom tasks</strong> above. No account needed.</p>
   </div>
 </div>
 
@@ -1200,13 +1204,19 @@ function renderInteractive() {
       </div>`;
   }).join('');
 
-  // Wire click handlers
+  // Wire click + keyboard handlers
   host.querySelectorAll('.iv-block').forEach(el => {
     if (el.classList.contains('is-break')) return;
     el.addEventListener('click', e => {
       // ignore clicks on the inner check button, it has its own handler
       if (e.target.closest('.iv-check')) return;
       openChecklist(el.dataset.blockId);
+    });
+    el.addEventListener('keydown', e => {
+      if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('.iv-check')) {
+        e.preventDefault();
+        openChecklist(el.dataset.blockId);
+      }
     });
   });
   host.querySelectorAll('.iv-check').forEach(btn => {
@@ -1239,7 +1249,7 @@ function renderIvBlock(b) {
   if (b.kind && b.kind !== 'general') pills.push(escapeText(b.kind));
   if (b.priority) pills.push(escapeText(b.priority));
   return `
-    <div class="iv-block ${s.done ? 'done' : ''}" data-block-id="${escapeText(b.block_id)}">
+    <div class="iv-block ${s.done ? 'done' : ''}" data-block-id="${escapeText(b.block_id)}" tabindex="0" role="button" aria-label="Open checklist for ${escapeText(b.assignment || 'task')}">
       <div class="iv-time">${escapeText(b.time_slot || '')}</div>
       <div class="iv-block-body">
         <div class="iv-block-title">${escapeText(b.assignment || '')}</div>
@@ -1301,9 +1311,15 @@ function openChecklist(blockId) {
 
   renderChecklistBody();
 
+  // Move focus into the dialog; remember where it came from so Escape /
+  // close returns the keyboard user to the block they were on.
+  _ckReturnFocus = document.activeElement;
   document.getElementById('ckOverlay').classList.add('open');
   document.getElementById('ckDrawer').classList.add('open');
+  const closeBtn = document.querySelector('#ckDrawer .ck-close');
+  if (closeBtn) closeBtn.focus();
 }
+let _ckReturnFocus = null;
 
 function renderChecklistBody() {
   if (!_activeBlockId) return;
@@ -1384,6 +1400,10 @@ function closeChecklist() {
   _activeBlockId = null;
   document.getElementById('ckOverlay').classList.remove('open');
   document.getElementById('ckDrawer').classList.remove('open');
+  if (_ckReturnFocus && typeof _ckReturnFocus.focus === 'function' && document.contains(_ckReturnFocus)) {
+    _ckReturnFocus.focus();
+  }
+  _ckReturnFocus = null;
 }
 
 document.addEventListener('keydown', e => {
