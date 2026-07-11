@@ -370,6 +370,52 @@
   padding: 1.4rem;
   margin-bottom: 14px;
 }
+.ipd-sched-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--ipd-radius-lg);
+  padding: 1.4rem;
+  margin-bottom: 14px;
+}
+.ipd-sched-sub {
+  font-family: var(--ipd-font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ipd-sched-progress {
+  height: 4px; background: var(--border);
+  border-radius: 999px; overflow: hidden;
+  margin: 10px 0 8px;
+}
+.ipd-sched-progress-bar {
+  height: 100%; background: var(--text-primary);
+  width: 0%; transition: width 0.4s ease;
+}
+.ipd-sched-block {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+  font-family: var(--ipd-font-body); font-size: 0.84rem;
+}
+.ipd-sched-block:last-child { border-bottom: none; }
+.ipd-sched-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  flex-shrink: 0; background: var(--border);
+}
+.ipd-sched-block.done .ipd-sched-dot { background: var(--low, #0a7558); }
+.ipd-sched-title {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text-primary); font-weight: 600;
+}
+.ipd-sched-block.done .ipd-sched-title {
+  text-decoration: line-through; color: var(--text-muted);
+}
+.ipd-sched-time {
+  font-family: var(--ipd-font-mono); font-size: 0.7rem;
+  color: var(--text-muted); white-space: nowrap;
+}
 .ipd-grade-bar-wrap {
   display: flex;
   flex-direction: column;
@@ -681,6 +727,17 @@
       </a>
     </div>
 
+    {# Today's study plan (from saved schedule) #}
+    <div class="ipd-sched-card" id="ipdSchedCard" style="display:none;">
+      <div class="ipd-card-title">
+        <span>Today's study plan</span>
+        <a href="/scheduler" style="font-family:var(--ipd-font-body);font-size:0.76rem;font-weight:600;color:var(--text-muted);text-decoration:none;">Open →</a>
+      </div>
+      <div class="ipd-sched-progress"><div class="ipd-sched-progress-bar" id="ipdSchedBar"></div></div>
+      <div class="ipd-sched-sub" id="ipdSchedSub"></div>
+      <div id="ipdSchedBlocks" style="margin-top:6px;"></div>
+    </div>
+
     {# Grade Modeler teaser #}
     <div class="ipd-grade-card" id="ipdGradeCard">
       <div class="ipd-card-title">
@@ -966,6 +1023,52 @@ function renderTaskList() {
   }).join('');
 }
 
+// ── Render today's study plan (sidebar) ──────────────────────
+// Shows today's blocks from the active saved schedule; done state is
+// shared with the Scheduler's Interactive View via localStorage.
+function renderSchedToday() {
+  var card = document.getElementById('ipdSchedCard');
+  var host = document.getElementById('ipdSchedBlocks');
+  var s = _ipdState.savedSchedule;
+  if (!card || !host) return;
+  if (!s || s.status !== 'ok' || !s.data || !(s.data.schedule || []).length) return;
+  var d = new Date();
+  var todayStr = d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
+  var day = null;
+  for (var i = 0; i < s.data.schedule.length; i++) {
+    if (String(s.data.schedule[i].date || '').slice(0, 10) === todayStr) {
+      day = s.data.schedule[i];
+      break;
+    }
+  }
+  if (!day) return; // no plan for today — card stays hidden
+  var work = (day.blocks || []).filter(function(b) { return !b.is_break; });
+  if (!work.length) return;
+  var ck = {};
+  try { ck = JSON.parse(localStorage.getItem('ip_checklist_state_v2') || '{}') || {}; } catch (e) {}
+  var esc = function(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  };
+  var done = 0;
+  host.innerHTML = work.map(function(b) {
+    var isDone = !!(b.block_id && ck[b.block_id] && ck[b.block_id].done);
+    if (isDone) done++;
+    var startTime = String(b.time_slot || '').split('-')[0].trim();
+    return '<div class="ipd-sched-block' + (isDone ? ' done' : '') + '">' +
+      '<span class="ipd-sched-dot"></span>' +
+      '<span class="ipd-sched-title">' + esc(b.assignment || 'Study block') + '</span>' +
+      '<span class="ipd-sched-time">' + esc(startTime) + '</span>' +
+    '</div>';
+  }).join('');
+  var pct = Math.round((done / work.length) * 100);
+  document.getElementById('ipdSchedBar').style.width = pct + '%';
+  document.getElementById('ipdSchedSub').textContent = done + '/' + work.length + ' blocks done · ' + (day.total_hours || 0) + 'h planned';
+  card.style.display = '';
+}
+
 // ── Render coming up (sidebar) ───────────────────────────────
 function renderUpcoming(tasks) {
   var list = document.getElementById('ipdUpcomingList');
@@ -1043,6 +1146,7 @@ async function loadDashboard() {
 
     autoDashMarkTests(_ipdState.unifiedTasks.today);
     renderTaskList();
+    renderSchedToday();
     renderUpcoming(_ipdState.unifiedTasks.upcoming);
     updateStats();
     loadGradeSnapshot();
