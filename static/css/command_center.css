@@ -1673,3 +1673,147 @@
   .cc-lg-heatmap-row { grid-template-columns: 100px 1fr 40px; }
   .cc-lg-heatmap-count { display: none; }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   IPD ALIGNMENT LAYER (2026-07)
+   Calms the Jarvis-era styling into the site's editorial design
+   language: serif 400 display headlines, ink-solid actions, no
+   purple/pink gradients, no sci-fi conic spinners. Surfaces ride
+   the shared neo-glass tokens from base.html.
+═══════════════════════════════════════════════════════════════ */
+
+/* Typography — match the app's serif display voice */
+.cc-hero-headline { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.01em; }
+.cc-chat-welcome h3 { font-family: var(--font-display); font-weight: 400; }
+.cc-evolve-card h2 { font-weight: 400; }
+.cc-learning-title { font-weight: 400; font-size: 1.15rem; }
+.cc-orb-num, .cc-health-num, .cc-lg-pred-value,
+.cc-score-num, .cc-empty-title { font-weight: 400; }
+.cc-hero-line {
+  font-family: var(--ipd-font-mono, monospace);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+/* Hero — quiet glass panel, no accent gradient wash */
+.cc-hero, [data-theme="dark"] .cc-hero {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--neu-shadow);
+}
+.cc-hero-dot { background: var(--low); box-shadow: none; }
+
+/* Orbs — soft neumorphic stat chips, spinners off */
+.cc-orb, .cc-orb-streak, .cc-orb-pet, .cc-orb-health, .cc-orb-load {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow: var(--neu-shadow-sm);
+}
+.cc-orb::before { display: none; }
+.cc-orb:hover { transform: translateY(-2px); border-color: var(--border-strong); }
+
+/* Actions — ink pills like .btn-primary everywhere else */
+.cc-hero-cta {
+  background: var(--text-primary);
+  color: var(--bg) !important;
+  box-shadow: var(--neu-shadow-sm);
+  font-weight: 600;
+}
+.cc-hero-cta:hover { transform: translateY(-1px); filter: none; opacity: 0.9; box-shadow: var(--neu-shadow-sm); }
+.cc-hero-cta-secondary {
+  background: transparent;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-strong);
+  box-shadow: none;
+}
+.cc-hero-cta-secondary:hover { background: var(--bg-elevated); opacity: 1; }
+
+/* Chat panel — calm glass card, no radial wash or accent glow */
+.cc-center, .cc-center:focus-within {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--neu-shadow);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+.cc-chat-header { background: transparent; }
+.cc-chat-avatar { background: var(--text-primary); color: var(--bg); box-shadow: none; }
+.cc-chat-welcome-icon {
+  background: var(--text-primary);
+  color: var(--bg);
+  box-shadow: var(--neu-shadow-sm);
+  animation: none;
+  border-radius: 20px;
+}
+.cc-chat-status-dot { background: var(--low); box-shadow: none; }
+.cc-msg-user {
+  background: var(--text-primary);
+  color: var(--bg);
+  box-shadow: none;
+}
+.cc-chat-send { background: var(--text-primary); color: var(--bg); box-shadow: var(--neu-shadow-sm); }
+.cc-chat-send:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--neu-shadow-sm); opacity: 0.9; }
+.cc-chat-input { background: var(--bg); box-shadow: var(--neu-inset); border: 1px solid var(--border); }
+.cc-chat-input:focus { border-color: var(--border-strong); box-shadow: var(--neu-inset), 0 0 0 3px var(--accent-soft); }
+.cc-chat-composer { background: transparent; }
+.cc-sugg-primary { background: var(--bg); border-color: var(--border-strong); }
+.cc-sugg-primary::before { display: none; }
+.cc-sugg-primary:hover { background: var(--bg-elevated); border-color: var(--border-strong); box-shadow: var(--neu-shadow-sm); }
+.cc-chat-suggestion:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  box-shadow: var(--neu-shadow-sm);
+}
+.cc-chat-suggestion:hover .cc-sugg-text strong { color: var(--text-primary); }
+
+/* Momentum — semantic tints, animations off */
+.cc-momentum-streak { background: var(--medium-bg); border: 1px solid var(--border); }
+.cc-momentum-pet { background: var(--accent-soft); border: 1px solid var(--border); }
+.cc-momentum-flame { animation: none; filter: none; color: var(--medium); }
+.cc-momentum-pet-emoji { animation: none; filter: none; color: var(--accent); }
+.cc-momentum-pet-fill { background: var(--accent); }
+.cc-care-chest { background: var(--medium-bg); border-color: var(--border); }
+.cc-care-chest .cc-care-xp { color: var(--medium); }
+
+/* Task buttons — accent, not violet */
+.cc-task-btn-ask:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.cc-task-btn-dismiss:hover { color: #fff; border-color: var(--low); background: var(--low); }
+
+/* Bars & rings — flat semantic colors, inset tracks */
+.cc-bar-fill { background: var(--accent); }
+.cc-bar-fill.cc-bar-warm { background: var(--medium); }
+.cc-bar-fill.cc-bar-hot { background: var(--high); }
+.cc-bar-track { border: none; box-shadow: var(--neu-inset); background: transparent; }
+.cc-momentum-pet-bar { box-shadow: var(--neu-inset); background: transparent; }
+[data-theme="dark"] .cc-momentum-pet-bar { background: transparent; }
+
+/* Toast — ink pill, not a purple gradient */
+.cc-toast, .cc-toast-info { background: var(--text-primary); color: var(--bg); box-shadow: var(--shadow-lg); }
+.cc-toast-success { background: var(--low); color: #fff; box-shadow: var(--shadow-lg); }
+.cc-toast-error { background: var(--high); color: #fff; box-shadow: var(--shadow-lg); }
+.cc-toast-pet { background: var(--text-primary); color: var(--bg); box-shadow: var(--shadow-lg); }
+
+/* Evolution overlay — celebratory but on-palette */
+.cc-evolve-overlay { background: rgba(10,10,14,0.75); }
+.cc-evolve-burst { display: none; }
+.cc-evolve-emoji { filter: none; }
+.cc-evolve-card {
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-xl);
+}
+.cc-evolve-btn {
+  background: var(--text-primary);
+  color: var(--bg);
+  box-shadow: var(--neu-shadow-sm);
+}
+.cc-evolve-btn:hover { filter: none; opacity: 0.9; }
+
+/* Learning Intelligence — inherit the shared card look */
+.cc-learning {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--neu-shadow-sm);
+}
+.cc-lg-pred-card, .cc-lg-trend-card { background: var(--bg); }

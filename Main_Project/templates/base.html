@@ -219,6 +219,15 @@
       --footer-border:rgba(0,0,0,0.05);
       --footer-link: #1a56db;
       --accent-shadow: 26,86,219;
+      /* Neo-glass surface system: translucent cards with soft dual
+         (neumorphic) shadows; true backdrop blur is reserved for
+         floating chrome so long card lists stay compositor-cheap. */
+      --glass-bg:      rgba(255,255,255,0.66);
+      --glass-border:  rgba(255,255,255,0.60);
+      --glass-blur:    14px;
+      --neu-shadow:    7px 7px 16px rgba(28,25,20,0.07), -7px -7px 16px rgba(255,255,255,0.90);
+      --neu-shadow-sm: 3px 3px 8px rgba(28,25,20,0.06), -3px -3px 8px rgba(255,255,255,0.85);
+      --neu-inset:     inset 2px 2px 5px rgba(28,25,20,0.06), inset -2px -2px 5px rgba(255,255,255,0.90);
     }
 
     :root[data-theme="dark"] {
@@ -257,6 +266,12 @@
       --footer-border:rgba(255,255,255,0.05);
       --footer-link: #5b93f5;
       --accent-shadow: 91,147,245;
+      --glass-bg:      rgba(28,28,32,0.62);
+      --glass-border:  rgba(255,255,255,0.07);
+      --glass-blur:    16px;
+      --neu-shadow:    7px 7px 16px rgba(0,0,0,0.50), -5px -5px 14px rgba(255,255,255,0.025);
+      --neu-shadow-sm: 3px 3px 8px rgba(0,0,0,0.45), -3px -3px 8px rgba(255,255,255,0.02);
+      --neu-inset:     inset 2px 2px 5px rgba(0,0,0,0.50), inset -2px -2px 5px rgba(255,255,255,0.03);
     }
 
     /* ───── Extra themes ──────────────────────────────────────
@@ -1307,6 +1322,37 @@
 
     /* A touch more air above the fold on app pages. */
     @media (min-width: 769px) { body.has-side main { padding-top: 3rem; } }
+
+    /* ══════════════════════════════════════
+       NEO-GLASS SKIN
+       In-flow cards: translucent surface + soft dual shadows (no
+       backdrop blur — long lists must stay compositor-cheap).
+       Floating chrome: true glass with backdrop blur.
+    ══════════════════════════════════════ */
+    /* body-prefixed so these outrank same-specificity page-local rules,
+       which are emitted later in the document. */
+    body .ipd-card, body .ipd-grade-card, body .ipd-upcoming-card, body .ipd-sched-card,
+    body .stat-card, body .assignment-card, body .test-card, body .mem-card,
+    body .day-card, body .iv-day-card, body .overview-card, body .scheduler-panel,
+    body .focus-task-card, body .focus-log-card, body .focus-stats,
+    body .gp-panel, body .cc-rail, body .cc-card {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--neu-shadow-sm);
+    }
+    body .iv-progress, body .ck-progress, body .ipd-sched-progress {
+      box-shadow: var(--neu-inset);
+      background: transparent;
+    }
+    @supports (backdrop-filter: blur(1px)) {
+      body .ck-drawer, body .iv-move-menu, body .dropdown-menu, body .ipd-modal,
+      body .mobile-nav-drawer, body .cc-mobile-drawer, body .cc-evolve-card {
+        background: var(--glass-bg);
+        border-color: var(--glass-border);
+        backdrop-filter: blur(var(--glass-blur));
+        -webkit-backdrop-filter: blur(var(--glass-blur));
+      }
+    }
 
     /* ══════════════════════════════════════
        PAGE HEADER
