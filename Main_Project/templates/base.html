@@ -1312,8 +1312,11 @@
        PAGE HEADER
     ══════════════════════════════════════ */
     .page-header { margin-bottom:2.25rem; animation:fadeUp 0.5s var(--ease-out) both; }
-    .page-title { font-family:var(--font-display); font-size:clamp(2rem, 1.5rem + 1.6vw, 2.75rem); font-weight:700; color:var(--text-primary); letter-spacing:-0.028em; margin-bottom:6px; line-height:1.05; }
-    .page-subtitle { font-size:1.02rem; color:var(--text-muted); font-weight:300; letter-spacing:-0.008em; max-width:60ch; }
+    /* DM Serif Display ships only weight 400 — the old 700 forced faux-bold
+       synthetic type, which is why these pages looked heavier and mushier
+       than the IPD pages. Matching the IPD header scale unifies the app. */
+    .page-title { font-family:var(--font-display); font-size:clamp(1.6rem, 1.1rem + 1.8vw, 2.4rem); font-weight:400; color:var(--text-primary); letter-spacing:-0.01em; margin-bottom:6px; line-height:1.12; }
+    .page-subtitle { font-size:0.95rem; color:var(--text-muted); font-weight:400; letter-spacing:0; max-width:62ch; line-height:1.55; }
 
     /* ══════════════════════════════════════
        STATS BAR
@@ -1459,7 +1462,7 @@
     .login-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-xl); padding:2.5rem; width:100%; max-width:420px; box-shadow:var(--shadow-lg); transition:box-shadow 0.3s ease; }
     .login-card:hover { box-shadow:var(--shadow-xl, var(--shadow-lg)); }
     .login-header { text-align:center; margin-bottom:1.75rem; }
-    .login-title { font-family:var(--font-display); font-size:1.75rem; font-weight:700; color:var(--text-primary); letter-spacing:-0.019em; margin-bottom:0.35rem; }
+    .login-title { font-family:var(--font-display); font-size:1.75rem; font-weight:400; color:var(--text-primary); letter-spacing:-0.019em; margin-bottom:0.35rem; }
     .login-subtitle { font-size:0.9rem; color:var(--text-muted); font-weight:300; }
     .login-form { display:flex; flex-direction:column; gap:1.1rem; }
     .login-footer { text-align:center; margin-top:1.5rem; font-size:0.845rem; color:var(--text-muted); }
@@ -1618,13 +1621,13 @@
     }
     .hero-copy { display:flex; flex-direction:column; align-items:flex-start; }
     .hero-badge { display:inline-flex; align-items:center; gap:6px; background:var(--bg-elevated); color:var(--text-secondary); font-family:var(--font-ui); font-size:0.74rem; font-weight:500; padding:5px 14px; border-radius:var(--r-full); margin-bottom:1.75rem; letter-spacing:0.02em; border:none; }
-    .hero-title { font-family:var(--font-display); font-size:clamp(2.8rem, 6vw, 4.5rem); font-weight:700; color:var(--text-primary); letter-spacing:-0.022em; line-height:1.05; margin-bottom:1.5rem; }
+    .hero-title { font-family:var(--font-display); font-size:clamp(2.8rem, 6vw, 4.5rem); font-weight:400; color:var(--text-primary); letter-spacing:-0.022em; line-height:1.05; margin-bottom:1.5rem; }
     .hero-title em { font-style:normal; color:var(--accent); }
     .hero-subtitle { font-size:1.15rem; color:var(--text-secondary); line-height:1.5; font-weight:300; margin-bottom:2.5rem; max-width:540px; letter-spacing:-0.006em; }
     .hero-actions { display:flex; gap:12px; flex-wrap:wrap; }
     .features { padding:5rem 0; animation:fadeUp 0.6s 0.2s var(--ease-out) both; }
     .features-header { text-align:center; margin-bottom:3rem; }
-    .features-title { font-family:var(--font-display); font-size:2.2rem; font-weight:700; color:var(--text-primary); letter-spacing:-0.019em; margin-bottom:0.5rem; }
+    .features-title { font-family:var(--font-display); font-size:2.2rem; font-weight:400; color:var(--text-primary); letter-spacing:-0.019em; margin-bottom:0.5rem; }
     .features-subtitle { font-size:1rem; color:var(--text-muted); font-weight:300; letter-spacing:-0.006em; }
     .features-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1.25rem; }
     .feature-card {
@@ -1637,7 +1640,7 @@
     .feature-title { font-family:var(--font-display); font-size:0.95rem; font-weight:600; color:var(--text-primary); margin-bottom:0.5rem; letter-spacing:-0.01em; }
     .feature-desc  { font-size:0.845rem; color:var(--text-secondary); line-height:1.7; font-weight:400; }
     .cta-section { text-align:center; padding:4rem 2rem; background:var(--bg-card); border:none; border-radius:var(--r-xl); margin:2rem 0 4rem; animation:fadeUp 0.6s 0.3s var(--ease-out) both; }
-    .cta-title { font-family:var(--font-display); font-size:2.2rem; font-weight:700; color:var(--text-primary); letter-spacing:-0.019em; margin-bottom:0.75rem; }
+    .cta-title { font-family:var(--font-display); font-size:2.2rem; font-weight:400; color:var(--text-primary); letter-spacing:-0.019em; margin-bottom:0.75rem; }
     .cta-subtitle { font-size:1rem; color:var(--text-secondary); margin-bottom:1.75rem; font-weight:300; }
 
     /* ══════════════════════════════════════
@@ -3461,7 +3464,7 @@ window.addEventListener('load',()=>{
     background: var(--accent); display: inline-block;
   }
   .blog-body > p:first-of-type::first-letter {
-    font-family: var(--font-display); font-size: 3rem; font-weight: 700;
+    font-family: var(--font-display); font-size: 3rem; font-weight:400;
     float: left; line-height: 0.8; margin: 0.06em 0.1em 0 0; color: var(--accent);
   }
   @media (prefers-reduced-motion: reduce) {
