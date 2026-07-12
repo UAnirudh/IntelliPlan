@@ -1312,6 +1312,15 @@
        PAGE HEADER
     ══════════════════════════════════════ */
     .page-header { margin-bottom:2.25rem; animation:fadeUp 0.5s var(--ease-out) both; }
+    /* Mirrors .ipd-kicker so legacy pages share the IPD header anatomy. */
+    .page-kicker {
+      font-family:var(--ipd-font-mono, monospace);
+      font-size:0.78rem;
+      letter-spacing:0.04em;
+      text-transform:uppercase;
+      color:var(--text-muted);
+      margin-bottom:6px;
+    }
     /* DM Serif Display ships only weight 400 — the old 700 forced faux-bold
        synthetic type, which is why these pages looked heavier and mushier
        than the IPD pages. Matching the IPD header scale unifies the app. */
