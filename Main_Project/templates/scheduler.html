@@ -263,6 +263,39 @@
     background: var(--bg-card); border: 1px solid var(--border);
     padding: 2px 10px; border-radius: 999px;
   }
+  .iv-move {
+    width: 24px; height: 24px; border-radius: 6px;
+    border: 1px solid transparent; background: transparent;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted);
+    transition: all 0.16s;
+  }
+  .iv-move:hover, .iv-move:focus-visible {
+    border-color: var(--border); background: var(--bg-card); color: var(--text-primary);
+  }
+  .iv-move svg { width: 13px; height: 13px; }
+
+  .iv-move-menu {
+    position: fixed; z-index: 1200;
+    min-width: 190px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--ipd-radius-md);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.14);
+    padding: 5px;
+    display: none;
+  }
+  .iv-move-menu.open { display: block; animation: ipd-fadeUp 0.15s var(--ipd-ease-out) both; }
+  .iv-move-menu button {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    border: 0; background: transparent; cursor: pointer;
+    padding: 8px 10px; border-radius: 8px; text-align: left;
+    font-family: var(--ipd-font-body); font-size: 0.82rem; font-weight: 500;
+    color: var(--text-primary);
+  }
+  .iv-move-menu button:hover, .iv-move-menu button:focus-visible { background: var(--bg); }
+  .iv-move-menu button:disabled { color: var(--text-muted); opacity: 0.5; cursor: default; background: transparent; }
+  .iv-move-menu button svg { width: 13px; height: 13px; flex-shrink: 0; }
+
   .iv-check {
     width: 24px; height: 24px; border-radius: 50%;
     border: 2px solid var(--border); background: transparent;
@@ -658,6 +691,8 @@
 <!-- ══════════════════════════════════════════════════
      CHECKLIST DRAWER
 ══════════════════════════════════════════════════ -->
+<div class="iv-move-menu" id="ivMoveMenu" role="menu" aria-label="Move block"></div>
+
 <div class="ck-overlay" id="ckOverlay" onclick="if(event.target===this)closeChecklist()"></div>
 <aside class="ck-drawer" id="ckDrawer" role="dialog" aria-modal="true" aria-label="Block checklist">
   <div class="ck-head">
@@ -1117,7 +1152,7 @@ function renderSchedule(data) {
     </div>`;
   const days = document.getElementById('scheduleDays');
   const todayStr = localToday();
-  days.innerHTML = (data.schedule || []).map((day, di) => `
+  days.innerHTML = (data.schedule || []).filter(day => (day.blocks || []).length).map((day, di) => `
     <div class="day-card ${String(day.date || '').slice(0,10) === todayStr ? 'is-today' : ''}" style="animation-delay:${di * 0.07}s">
       <div class="day-header">
         <div>
@@ -1185,7 +1220,7 @@ function renderInteractive() {
     : 'Pick a block to open its interactive checklist.';
   document.getElementById('ivContextBody').textContent = ctxBody;
 
-  host.innerHTML = sched.map(day => {
+  host.innerHTML = sched.filter(day => (day.blocks || []).length).map(day => {
     const work = (day.blocks || []).filter(b => !b.is_break);
     const doneCount = work.filter(b => stateFor(b.block_id).done).length;
     const pct = work.length ? Math.round((doneCount / work.length) * 100) : 0;
@@ -1229,7 +1264,215 @@ function renderInteractive() {
       renderInteractive();
     });
   });
+  host.querySelectorAll('.iv-move').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      openMoveMenu(btn);
+    });
+    btn.addEventListener('keydown', e => e.stopPropagation());
+  });
 }
+
+/* ────────── BLOCK RESCHEDULING ──────────
+   A small move menu per block: reorder within the day or shift to an
+   adjacent day. Affected days are re-timed from their original first
+   start time, and the edit persists to the active saved plan in place
+   (name, created date, and progress survive). */
+let _moveMenuReturnFocus = null;
+let _schedUpdateTimer = null;
+
+function findBlockLocation(blockId) {
+  const sched = (_lastScheduleData && _lastScheduleData.schedule) || [];
+  for (let di = 0; di < sched.length; di++) {
+    const bi = (sched[di].blocks || []).findIndex(b => b.block_id === blockId);
+    if (bi !== -1) return { dayIdx: di, blockIdx: bi };
+  }
+  return null;
+}
+
+function parseTime12(raw) {
+  const m = String(raw || '').trim().match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i);
+  if (!m) return null;
+  let h = parseInt(m[1], 10);
+  const min = parseInt(m[2] || '0', 10);
+  const pm = m[3].toUpperCase() === 'PM';
+  if (pm && h !== 12) h += 12;
+  if (!pm && h === 12) h = 0;
+  return h * 60 + min;
+}
+
+function fmtTime12(mins) {
+  mins = ((mins % 1440) + 1440) % 1440;
+  let h = Math.floor(mins / 60);
+  const m = mins % 60;
+  const ap = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${String(m).padStart(2, '0')} ${ap}`;
+}
+
+function normalizeDayBlocks(day) {
+  const out = [];
+  (day.blocks || []).forEach(b => {
+    if (!b) return;
+    if (b.is_break) {
+      // no leading breaks, no doubled-up breaks
+      if (!out.length || out[out.length - 1].is_break) return;
+    }
+    out.push(b);
+  });
+  while (out.length && out[out.length - 1].is_break) out.pop();
+  day.blocks = out;
+}
+
+function dayAnchor(day) {
+  const first = (day.blocks || [])[0];
+  return first ? parseTime12(String(first.time_slot || '').split('-')[0]) : null;
+}
+
+function retimeDay(day, anchor) {
+  const blocks = day.blocks || [];
+  if (!blocks.length) return;
+  let cursor = anchor != null ? anchor : parseTime12(String(blocks[0].time_slot || '').split('-')[0]);
+  if (cursor == null) cursor = 17 * 60; // sensible fallback: 5:00 PM
+  const dateStr = String(day.date || '').slice(0, 10);
+  blocks.forEach(b => {
+    const dur = parseInt(b.duration_minutes, 10) || 25;
+    const end = cursor + dur;
+    b.time_slot = `${fmtTime12(cursor)} - ${fmtTime12(end)}`;
+    if (dateStr) {
+      const toIso = mins => `${dateStr}T${String(Math.floor(mins / 60) % 24).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}:00`;
+      b.start_iso = toIso(cursor);
+      b.end_iso = toIso(end);
+    }
+    cursor = end + 10; // transition gap, matches the server's default pacing
+  });
+}
+
+function recomputeDayStats(day) {
+  const work = (day.blocks || []).filter(b => !b.is_break);
+  const brks = (day.blocks || []).filter(b => b.is_break);
+  const study = work.reduce((s, b) => s + (parseInt(b.duration_minutes, 10) || 0), 0);
+  const brk = brks.reduce((s, b) => s + (parseInt(b.duration_minutes, 10) || 0), 0);
+  day.study_minutes = study;
+  day.break_minutes = brk;
+  day.total_minutes = study + brk;
+  day.total_hours = Math.round(((study + brk) / 60) * 10) / 10;
+}
+
+function performMove(blockId, action) {
+  const loc = findBlockLocation(blockId);
+  if (!loc) return;
+  const sched = _lastScheduleData.schedule;
+  const day = sched[loc.dayIdx];
+  const blocks = day.blocks;
+  // Anchor each affected day to its pre-move start time, so reordering
+  // never drifts the whole day later.
+  const anchors = new Map([[day, dayAnchor(day)]]);
+  const touched = [day];
+
+  if (action === 'up' || action === 'down') {
+    // Swap with the neighboring work block in place — breaks stay put.
+    let other = -1;
+    if (action === 'up') {
+      for (let i = loc.blockIdx - 1; i >= 0; i--) {
+        if (!blocks[i].is_break) { other = i; break; }
+      }
+    } else {
+      for (let i = loc.blockIdx + 1; i < blocks.length; i++) {
+        if (!blocks[i].is_break) { other = i; break; }
+      }
+    }
+    if (other === -1) return;
+    const tmp = blocks[loc.blockIdx];
+    blocks[loc.blockIdx] = blocks[other];
+    blocks[other] = tmp;
+  } else if (action === 'prevday' || action === 'nextday') {
+    const targetDay = sched[loc.dayIdx + (action === 'nextday' ? 1 : -1)];
+    if (!targetDay) return;
+    anchors.set(targetDay, dayAnchor(targetDay));
+    const [blk] = blocks.splice(loc.blockIdx, 1);
+    targetDay.blocks = targetDay.blocks || [];
+    targetDay.blocks.push(blk);
+    touched.push(targetDay);
+  } else {
+    return;
+  }
+
+  touched.forEach(d => { normalizeDayBlocks(d); retimeDay(d, anchors.get(d)); recomputeDayStats(d); });
+  renderInteractive();
+  renderSchedule(_lastScheduleData);
+  scheduleDataPush();
+}
+
+function scheduleDataPush() {
+  if (!_progressSyncEnabled || !_lastScheduleData) return;
+  clearTimeout(_schedUpdateTimer);
+  _schedUpdateTimer = setTimeout(() => {
+    fetch('/schedule/update', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ schedule_data: _lastScheduleData })
+    }).catch(() => {});
+  }, 900);
+}
+
+function openMoveMenu(btn) {
+  const blockId = btn.dataset.blockId;
+  const loc = findBlockLocation(blockId);
+  if (!loc) return;
+  const sched = _lastScheduleData.schedule;
+  const day = sched[loc.dayIdx];
+  const workIdxs = day.blocks.map((b, i) => b.is_break ? -1 : i).filter(i => i !== -1);
+  const posAmongWork = workIdxs.indexOf(loc.blockIdx);
+  const prevDay = sched[loc.dayIdx - 1];
+  const nextDay = sched[loc.dayIdx + 1];
+
+  const menu = document.getElementById('ivMoveMenu');
+  const icon = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const items = [
+    { action: 'up', label: 'Move earlier in the day', svg: icon('<polyline points="18 15 12 9 6 15"/>'), enabled: posAmongWork > 0 },
+    { action: 'down', label: 'Move later in the day', svg: icon('<polyline points="6 9 12 15 18 9"/>'), enabled: posAmongWork < workIdxs.length - 1 },
+    { action: 'prevday', label: prevDay ? `Move to ${escapeText(prevDay.day_name || 'previous day')}` : 'Move to previous day', svg: icon('<polyline points="15 18 9 12 15 6"/>'), enabled: !!prevDay },
+    { action: 'nextday', label: nextDay ? `Move to ${escapeText(nextDay.day_name || 'next day')}` : 'Move to next day', svg: icon('<polyline points="9 18 15 12 9 6"/>'), enabled: !!nextDay },
+  ];
+  menu.innerHTML = items.map(it =>
+    `<button type="button" role="menuitem" data-action="${it.action}" ${it.enabled ? '' : 'disabled'}>${it.svg} ${it.label}</button>`
+  ).join('');
+  menu.querySelectorAll('button[data-action]').forEach(b => {
+    b.addEventListener('click', () => {
+      closeMoveMenu();
+      performMove(blockId, b.dataset.action);
+    });
+  });
+
+  const rect = btn.getBoundingClientRect();
+  menu.classList.add('open');
+  // Position below the trigger, right-aligned, clamped to the viewport.
+  const mw = menu.offsetWidth || 190;
+  menu.style.top = Math.min(rect.bottom + 6, window.innerHeight - menu.offsetHeight - 10) + 'px';
+  menu.style.left = Math.max(10, Math.min(rect.right - mw, window.innerWidth - mw - 10)) + 'px';
+
+  _moveMenuReturnFocus = btn;
+  const first = menu.querySelector('button:not(:disabled)');
+  if (first) first.focus();
+}
+
+function closeMoveMenu() {
+  const menu = document.getElementById('ivMoveMenu');
+  if (!menu.classList.contains('open')) return;
+  menu.classList.remove('open');
+  if (_moveMenuReturnFocus && document.contains(_moveMenuReturnFocus)) _moveMenuReturnFocus.focus();
+  _moveMenuReturnFocus = null;
+}
+
+document.addEventListener('click', e => {
+  const menu = document.getElementById('ivMoveMenu');
+  if (menu.classList.contains('open') && !menu.contains(e.target) && !e.target.closest('.iv-move')) {
+    closeMoveMenu();
+  }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeMoveMenu();
+});
 
 function renderIvBlock(b) {
   if (b.is_break) {
@@ -1257,9 +1500,14 @@ function renderIvBlock(b) {
       </div>
       <div class="iv-block-right">
         <div class="iv-duration">${escapeText(String(b.duration_minutes || 0))}m</div>
-        <button type="button" class="iv-check ${s.done ? 'checked' : ''}" data-block-id="${escapeText(b.block_id)}" aria-label="${s.done ? 'Mark not done' : 'Mark done'}">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-        </button>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <button type="button" class="iv-move" data-block-id="${escapeText(b.block_id)}" aria-label="Move ${escapeText(b.assignment || 'block')}" aria-haspopup="menu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 9 12 4 17 9"/><polyline points="7 15 12 20 17 15"/></svg>
+          </button>
+          <button type="button" class="iv-check ${s.done ? 'checked' : ''}" data-block-id="${escapeText(b.block_id)}" aria-label="${s.done ? 'Mark not done' : 'Mark done'}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </button>
+        </div>
       </div>
     </div>`;
 }

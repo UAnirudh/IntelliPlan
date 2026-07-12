@@ -8410,6 +8410,31 @@ def save_schedule_progress():
     db.session.commit()
     return flask.jsonify({"status": "ok"})
 
+
+@app.route("/schedule/update", methods=["POST"])
+def update_saved_schedule():
+    """Replace the active saved schedule's data in place.
+
+    Used when the student reschedules blocks in the Interactive View.
+    Unlike /schedule/save this never inserts a new row, so the plan's
+    name, created date, and synced progress all survive the edit."""
+    data = request.json or {}
+    schedule_data = data.get("schedule_data")
+    if not isinstance(schedule_data, dict) or not schedule_data.get("schedule"):
+        return flask.jsonify({"status": "error", "message": "schedule_data required"}), 400
+    raw = json.dumps(schedule_data)
+    if len(raw) > 500_000:
+        return flask.jsonify({"status": "error", "message": "schedule too large"}), 413
+    if current_user.is_authenticated:
+        s = SavedSchedule.query.filter_by(user_id=current_user.id, is_active=True).order_by(SavedSchedule.created_at.desc()).first()
+    else:
+        s = SavedSchedule.query.filter_by(guest_session_id=get_guest_session_id(), is_active=True).order_by(SavedSchedule.created_at.desc()).first()
+    if not s:
+        return flask.jsonify({"status": "none", "message": "No active saved schedule"})
+    s.schedule_data = raw
+    db.session.commit()
+    return flask.jsonify({"status": "ok"})
+
 @app.route("/schedule/delete", methods=["POST"])
 def delete_saved_schedule():
     if current_user.is_authenticated:
