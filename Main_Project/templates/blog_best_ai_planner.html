@@ -30,37 +30,43 @@
 {% block content %}
 
 <style>
-  .blog-page { max-width: 680px; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
+  .blog-page { max-width: 65ch; margin: 0 auto; padding: var(--space-7) var(--space-4) var(--space-8); }
   .blog-kicker {
-    display: inline-flex; align-items: center; padding: 0.45rem 0.8rem; border-radius: 999px;
-    background: var(--accent-soft); color: var(--accent); font-family: var(--font-ui);
-    font-size: 0.8rem; font-weight: 700; margin-bottom: 1rem;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 0.78rem; font-weight: 500;
+    letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted);
+    margin-bottom: var(--space-3);
   }
+  .blog-kicker::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
   .blog-title {
-    font-family: var(--font-display); font-size: clamp(1.8rem, 3.5vw, 2.6rem); line-height: 1.08;
-    color: var(--text-primary); letter-spacing: -0.03em; margin: 0 0 1rem;
+    font-family: var(--font-display); font-weight: 400;
+    font-size: clamp(1.9rem, 1.3rem + 2.4vw, 2.7rem); line-height: 1.14;
+    color: var(--text-primary); letter-spacing: -0.02em; text-wrap: balance; margin: 0 0 var(--space-4);
   }
-  .blog-lede { font-family: var(--font-ui); font-size: 1.08rem; color: var(--text-muted); line-height: 1.7; margin: 0 0 1.5rem; }
-  .blog-body { font-family: var(--font-ui); font-size: 1rem; color: var(--text-secondary); line-height: 1.8; }
-  .blog-body h2 { font-family: var(--font-display); font-size: 1.35rem; color: var(--text-primary); margin: 2rem 0 0.75rem; }
-  .blog-body p { margin: 0 0 1.1rem; }
-  .blog-body ol, .blog-body ul { padding-left: 1.4rem; margin: 0 0 1.1rem; }
+  .blog-lede { font-family: var(--font-body); font-size: 1.08rem; color: var(--text-secondary); line-height: 1.7; margin: 0 0 var(--space-5); }
+  .blog-body { font-family: var(--font-body); font-size: 1rem; color: var(--text-secondary); line-height: 1.7; }
+  .blog-body h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.4rem; color: var(--text-primary); letter-spacing: -0.01em; text-wrap: balance; margin: var(--space-6) 0 var(--space-3); }
+  .blog-body p { margin: 0 0 var(--space-4); }
+  .blog-body ol, .blog-body ul { padding-left: 1.4rem; margin: 0 0 var(--space-4); }
   .blog-body li { margin-bottom: 0.5rem; }
-  .blog-body a { color: var(--accent); }
-  .blog-body strong { color: var(--text-primary); }
+  .blog-body strong { color: var(--text-primary); font-weight: 600; }
+  .blog-body blockquote { margin: var(--space-5) 0; padding: 0.1rem var(--space-5); border-left: 2px solid var(--border-accent); color: var(--text-primary); font-style: italic; }
+  .blog-body a, .blog-lede a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--border-accent); transition: border-color var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out); }
+  .blog-body a:hover, .blog-lede a:hover { border-bottom-color: var(--accent); }
   .blog-cta {
-    margin-top: 2.5rem; padding: 1.75rem; background: var(--bg-card);
-    border: 1px solid var(--border-accent); border-radius: var(--r-xl);
-    box-shadow: var(--accent-glow); text-align: center;
+    margin-top: var(--space-7); padding: var(--space-6);
+    background: var(--glass-bg); border: 1px solid var(--glass-border);
+    border-radius: var(--r-lg); box-shadow: var(--neu-shadow-sm); text-align: center;
   }
-  .blog-cta h3 { font-family: var(--font-display); font-size: 1.3rem; color: var(--text-primary); margin: 0 0 0.5rem; }
-  .blog-cta p { font-family: var(--font-ui); color: var(--text-secondary); margin: 0 0 1rem; font-size: 0.95rem; }
+  .blog-cta h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.3rem; color: var(--text-primary); margin: 0 0 var(--space-2); }
+  .blog-cta p { font-family: var(--font-body); color: var(--text-secondary); margin: 0 0 var(--space-4); font-size: 0.95rem; }
+  @media (max-width: 480px) { .blog-page { padding: var(--space-6) var(--space-3) var(--space-7); } }
 </style>
 
 <div class="blog-page">
-  <span class="blog-kicker">Guides</span>
-  <h1 class="blog-title">The Best AI Study Planner for Students in 2026</h1>
-  <p class="blog-lede">
+  <span class="blog-kicker ipd-anim">Guides</span>
+  <h1 class="blog-title ipd-anim ipd-d1">The Best AI Study Planner for Students in 2026</h1>
+  <p class="blog-lede ipd-anim ipd-d2">
     "AI study planner" can mean anything from a chatbot that writes a to-do list to a tool that actually
     reads your coursework and schedules it. Here is what separates the two, and how to pick one that
     saves you real time.
@@ -86,7 +92,7 @@
         around your availability and export to Google Calendar.</li>
       <li><strong>Built-in tutoring.</strong> When you get stuck, a planner that includes an
         <a href="/tutor">AI tutor</a> keeps you in one place instead of switching apps.</li>
-      <li><strong>Free, with no catch.</strong> Students should not need a credit card to plan their week.</li>
+      <li><strong>Free, with no catch.</strong> Students should not need extra barriers to plan their week.</li>
     </ol>
 
     <h2>Why IntelliPlan is built for this</h2>

@@ -3,7 +3,7 @@
 {% block page_title %}IntelliPlan vs Shovel vs MyStudyLife | Compare{% endblock %}
 
 {# Canonical, og:url, og:type emitted globally by base.html. #}
-{% block meta_description %}Compare IntelliPlan, Shovel, and MyStudyLife side by side. Canvas and StudentVue support, AI scheduling, Grade Modeling, and pricing.{% endblock %}
+{% block meta_description %}Compare IntelliPlan, Shovel, and MyStudyLife side by side. Canvas and StudentVue support, AI scheduling, Grade Modeling, and free access for students.{% endblock %}
 {% block og_title %}IntelliPlan vs Shovel vs MyStudyLife, Best Canvas & StudentVue Study Planner{% endblock %}
 {% block og_description %}Side-by-side comparison of the top student study planners. Only IntelliPlan supports StudentVue, AI scheduling, and Grade Modeling, all free to start.{% endblock %}
 {% block twitter_title %}IntelliPlan vs Shovel vs MyStudyLife, Best Canvas & StudentVue Study Planner{% endblock %}
@@ -17,38 +17,12 @@
     margin: 0 auto;
     padding: 2.5rem 1rem 4rem;
   }
-  .compare-kicker {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.45rem 0.8rem;
-    border-radius: 999px;
-    background: var(--accent-soft);
-    color: var(--accent);
-    font-family: var(--font-ui);
-    font-size: 0.8rem;
-    font-weight: 700;
-    margin-bottom: 1rem;
-  }
-  .compare-title {
-    font-family: var(--font-display);
-    font-size: clamp(1.8rem, 3.5vw, 2.8rem);
-    line-height: 1.05;
-    color: var(--text-primary);
-    letter-spacing: -0.03em;
-    margin: 0 0 0.75rem;
-  }
-  .compare-subtitle {
-    font-family: var(--font-ui);
-    font-size: 1rem;
-    color: var(--text-secondary);
-    line-height: 1.7;
-    margin: 0 0 2.5rem;
-    max-width: 60rem;
-  }
   .compare-table-wrap {
     overflow-x: auto;
-    border-radius: var(--r-xl);
+    border-radius: var(--r-lg);
     border: 1px solid var(--border);
+    background: var(--bg-card);
+    box-shadow: var(--shadow-sm);
     margin-bottom: 2.5rem;
   }
   .compare-table {
@@ -76,15 +50,21 @@
     border-bottom: 1px solid var(--border);
     color: var(--text-secondary);
     vertical-align: middle;
+    transition: background 0.15s ease;
   }
   .compare-table tr:last-child td { border-bottom: none; }
   .compare-table td:first-child {
     font-weight: 600;
     color: var(--text-primary);
   }
-  .compare-table td.col-intelliplan { background: rgba(79,70,229,0.03); }
-  .check { color: #059669; display: inline-flex; align-items: center; }
-  .cross { color: #dc2626; display: inline-flex; align-items: center; }
+  .compare-table td.col-intelliplan { background: var(--accent-soft); }
+  .compare-table tbody tr:hover td { background: var(--bg-elevated); }
+  .compare-table tbody tr:hover td.col-intelliplan { background: var(--accent-mid); }
+  /* Honest competitor rows: a present feature reads positive (--low), a
+     missing one stays neutral rather than an alarm-red X — no fake
+     checkmark-wall scare tactics. */
+  .check { color: var(--low); display: inline-flex; align-items: center; }
+  .cross { color: var(--text-muted); display: inline-flex; align-items: center; opacity: 0.7; }
   .note { font-size: 0.82rem; color: var(--text-muted); }
   .winner-badge {
     display: inline-block;
@@ -99,19 +79,23 @@
   }
   .compare-summary {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1.2fr 1fr 1fr;
     gap: 1rem;
     margin-bottom: 2.5rem;
   }
   .summary-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--r-xl);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--r-lg);
     padding: 1.25rem;
+    box-shadow: var(--neu-shadow-sm);
+    transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out), border-color 0.2s ease;
   }
+  .summary-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
   .summary-card.featured { border-color: var(--border-accent); box-shadow: var(--accent-glow); }
   .summary-product {
     font-family: var(--font-display);
+    font-weight: 400;
     font-size: 1.15rem;
     color: var(--text-primary);
     margin: 0 0 0.5rem;
@@ -129,22 +113,23 @@
     font-size: 0.82rem;
     font-weight: 700;
     padding: 0.35rem 0.75rem;
-    border-radius: 999px;
+    border-radius: var(--r-full);
     display: inline-block;
   }
   .verdict-best { background: var(--accent-soft); color: var(--accent); }
-  .verdict-paid { background: rgba(217,119,6,0.1); color: #d97706; }
-  .verdict-manual { background: rgba(148,163,184,0.15); color: var(--text-muted); }
+    .verdict-limited { background: var(--medium-bg); color: var(--medium); }
+  .verdict-manual { background: var(--bg-elevated); color: var(--text-muted); }
   .compare-cta {
     text-align: center;
     padding: 2rem;
-    background: var(--bg-card);
+    background: var(--glass-bg);
     border: 1px solid var(--border-accent);
-    border-radius: var(--r-xl);
+    border-radius: var(--r-lg);
     box-shadow: var(--accent-glow);
   }
   .compare-cta h2 {
     font-family: var(--font-display);
+    font-weight: 400;
     font-size: 1.6rem;
     color: var(--text-primary);
     margin: 0 0 0.5rem;
@@ -154,38 +139,46 @@
     color: var(--text-secondary);
     margin: 0 0 1.25rem;
   }
+  .compare-cta-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+  }
   @media (max-width: 640px) {
     .compare-summary { grid-template-columns: 1fr; }
   }
 </style>
 
 <div class="compare-page">
-  <span class="compare-kicker">Comparison</span>
-  <h1 class="compare-title">IntelliPlan vs Shovel vs MyStudyLife</h1>
-  <p class="compare-subtitle">
-    Looking for the best study planner that actually connects to Canvas or StudentVue?
-    Here's a complete side-by-side breakdown so you can choose without guessing.
-  </p>
+  <div class="page-header ipd-anim">
+    <span class="page-kicker">Comparison</span>
+    <h1 class="page-title">IntelliPlan vs Shovel vs MyStudyLife</h1>
+    <p class="page-subtitle">
+      Looking for the best study planner that actually connects to Canvas or StudentVue?
+      Here's a complete side-by-side breakdown so you can choose without guessing.
+    </p>
+  </div>
 
   <div class="compare-summary">
-    <div class="summary-card featured">
+    <div class="summary-card featured ipd-anim ipd-d1">
       <h2 class="summary-product featured">IntelliPlan <span class="winner-badge">Recommended</span></h2>
       <p class="summary-desc">Free AI planner with Canvas, StudentVue, and Schoology integration. Includes AI scheduling, Grade Modeler, and flashcards.</p>
       <span class="summary-verdict verdict-best">Free to start</span>
     </div>
-    <div class="summary-card">
+    <div class="summary-card ipd-anim ipd-d2">
       <h2 class="summary-product">Shovel</h2>
-      <p class="summary-desc">Canvas and Brightspace sync with time-blocking. No StudentVue. Requires paid plan for full scheduling features.</p>
-      <span class="summary-verdict verdict-paid">Paid subscription</span>
+      <p class="summary-desc">Canvas and Brightspace sync with time-blocking. No StudentVue. Full scheduling features are not available to every user.</p>
+      <span class="summary-verdict verdict-limited">Limited scheduling</span>
     </div>
-    <div class="summary-card">
+    <div class="summary-card ipd-anim ipd-d3">
       <h2 class="summary-product">MyStudyLife</h2>
       <p class="summary-desc">Free cross-platform scheduler with manual entry. No LMS integration. No AI scheduling or Grade Modeler.</p>
       <span class="summary-verdict verdict-manual">Manual entry only</span>
     </div>
   </div>
 
-  <div class="compare-table-wrap">
+  <div class="compare-table-wrap ipd-anim ipd-d4">
     <table class="compare-table">
       <thead>
         <tr>
@@ -199,7 +192,7 @@
         <tr>
           <td>Canvas LMS integration</td>
           <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span> <span class="note">Free</span></td>
-          <td><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span> <span class="note">Paid</span></td>
+          <td><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span> <span class="note">Limited access</span></td>
           <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
         </tr>
         <tr>
@@ -241,7 +234,7 @@
         <tr>
           <td>Free plan available</td>
           <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
-          <td><span class="note">Trial only</span></td>
+          <td><span class="note">Limited access</span></td>
           <td><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
         </tr>
         <tr>
@@ -274,7 +267,7 @@
 
   <div class="compare-cta">
     <h2>IntelliPlan is free to start</h2>
-    <p>Connect Canvas or StudentVue and see your priorities in under 5 minutes. No credit card required.</p>
+    <p>Connect Canvas or StudentVue and see your priorities in under 5 minutes. Start free with no barriers.</p>
     <a href="/login" class="btn-primary" style="text-decoration:none">Get Started Free →</a>
     &nbsp;&nbsp;
     <a href="/faq" class="btn-secondary" style="text-decoration:none">Read the FAQ</a>
