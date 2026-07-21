@@ -1,14 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 <style>
-  /* Page-scoped premium polish matching login/register. CSS only. */
+  /* ChatGPT-glass auth card — same recipe as /login and the other siblings. */
   .login-wrap .login-card {
-    border: 1px solid var(--border-strong);
-    border-radius: 24px;
-    box-shadow:
-      inset 0 1px 0 rgba(255,255,255,0.06),
-      0 1px 2px rgba(15,23,42,0.05),
-      0 24px 60px rgba(15,23,42,0.12);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--neu-shadow-sm);
     position: relative;
     overflow: hidden;
   }
@@ -20,7 +18,7 @@
     background: var(--grad-brand);
   }
   .login-wrap .form-input {
-    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    transition: border-color 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out);
   }
   .login-wrap .form-input:focus {
     border-color: var(--accent);
@@ -28,21 +26,29 @@
     outline: none;
   }
   .login-wrap .btn-primary {
-    box-shadow: 0 8px 22px rgba(37,99,235,0.30);
-    transition: transform 0.2s var(--ease-out), box-shadow 0.2s ease;
+    min-height: 44px;
+    transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
   }
   .login-wrap .btn-primary:hover {
     transform: translateY(-1px);
-    box-shadow: 0 12px 28px rgba(37,99,235,0.40);
+    box-shadow: var(--shadow-hover);
   }
-  .login-wrap a:focus-visible,
-  .login-wrap button:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-    border-radius: 10px;
+  /* Password show/hide */
+  .ip-pw-wrap { position: relative; }
+  .ip-pw-wrap .form-input { padding-right: 48px; }
+  .ip-pw-toggle {
+    position: absolute; right: 3px; top: 50%; transform: translateY(-50%);
+    width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+    border: none; background: transparent; color: var(--text-muted); cursor: pointer;
+    border-radius: var(--r-sm);
+    transition: color 0.15s var(--ease-out), background 0.15s var(--ease-out);
   }
+  .ip-pw-toggle:hover { color: var(--text-primary); background: var(--accent-soft); }
+  .ip-pw-toggle .ip-eye-off { display: none; }
+  .ip-pw-toggle.is-on .ip-eye { display: none; }
+  .ip-pw-toggle.is-on .ip-eye-off { display: block; }
   @media (prefers-reduced-motion: reduce) {
-    .login-wrap .form-input, .login-wrap .btn-primary { transition: none; }
+    .login-wrap .form-input, .login-wrap .btn-primary, .ip-pw-toggle { transition: none; }
   }
 </style>
 <div class="login-wrap">
