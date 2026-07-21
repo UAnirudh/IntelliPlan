@@ -230,7 +230,11 @@
       /* Neo-glass surface system: translucent cards with soft dual
          (neumorphic) shadows; true backdrop blur is reserved for
          floating chrome so long card lists stay compositor-cheap. */
-      --glass-bg:      rgba(255,255,255,0.58);
+      /* Kept readable-without-blur (0.66): long scrolling lists intentionally
+         skip backdrop-filter for perf, so the fill alone must carry contrast.
+         The glass read comes from blur + the ambient atmosphere + edge-light,
+         not from extreme transparency (which also looks less premium). */
+      --glass-bg:      rgba(255,255,255,0.66);
       --glass-border:  rgba(255,255,255,0.70);
       --glass-blur:    18px;
       --glass-saturate: 1.6;
@@ -282,7 +286,7 @@
       --footer-link: #5b93f5;
       --scrim:       rgba(0,0,0,0.62);
       --accent-shadow: 91,147,245;
-      --glass-bg:      rgba(30,30,36,0.52);
+      --glass-bg:      rgba(28,28,32,0.60);
       --glass-border:  rgba(255,255,255,0.12);
       --glass-blur:    20px;
       --glass-saturate: 1.7;
@@ -1480,7 +1484,8 @@
       body .math-card, body .writing-card, body .amb-card, body .ad-card, body .ad-stat,
       body .pd-invite, body .pd-child, body .pd-empty,
       body .td-invite, body .td-student-card, body .td-detail-box, body .td-empty,
-      body .iv-empty, body .iv-context, body .empty-state, body .settings-card {
+      body .iv-empty, body .iv-context, body .empty-state, body .settings-card,
+      body .login-card, body .test-stat, body .summary-card {
         -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
         backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
       }
