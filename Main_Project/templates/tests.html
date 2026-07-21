@@ -12,10 +12,11 @@
   padding: 9px 18px; background: var(--accent); color: white;
   border: none; border-radius: var(--r-md);
   font-family: var(--font-ui); font-size: 0.84rem; font-weight: 700;
-  cursor: pointer; transition: all 0.16s;
-  box-shadow: 0 2px 10px rgba(79,70,229,0.22);
+  cursor: pointer; transition: background 0.16s var(--ease-out), box-shadow 0.16s var(--ease-out), transform 0.14s var(--ease-out);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 22%, transparent);
 }
-.tests-add-btn:hover { background: var(--accent-hover); }
+.tests-add-btn:hover { background: var(--accent-hover); box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 28%, transparent); transform: translateY(-1px); }
+.tests-add-btn:active { transform: translateY(0) scale(0.98); }
 
 /* ── Test card ── */
 .tests-list { display: flex; flex-direction: column; gap: 12px; }
@@ -32,7 +33,7 @@
   width: 3px; border-radius: 0 2px 2px 0;
   background: var(--medium);
 }
-.test-card:hover { }
+.test-card:hover { transform: translateY(-1px); box-shadow: var(--neu-shadow); border-color: var(--border-accent); }
 .test-card.urgent::before { background: var(--high); }
 .test-card.soon::before   { background: var(--medium); }
 .test-card.later::before  { background: var(--low); }
@@ -57,7 +58,7 @@
   font-size: 0.75rem; color: var(--text-muted);
 }
 .test-countdown {
-  font-family: var(--font-ui); font-size: 0.78rem; font-weight: 700;
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 0.78rem; font-weight: 700;
   padding: 3px 11px; border-radius: var(--r-full);
 }
 .test-countdown.urgent { background: var(--high-bg);   color: var(--high); }
@@ -101,26 +102,45 @@
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;
 }
 .test-stat {
-  background: var(--bg-card); border: 1px solid var(--border);
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
   border-radius: var(--r-md); padding: 0.9rem 1.1rem;
   display: flex; align-items: center; gap: 10px;
+  box-shadow: var(--neu-shadow-sm);
 }
+
+/* ── Inline error state ── */
+.ipTestError { text-align: center; padding: 3rem 1.5rem; color: var(--text-muted); }
+.ipTestError-title { font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+.ipTestError-retry {
+  margin-top: 1rem; padding: 8px 18px; border-radius: var(--r-md);
+  border: 1px solid var(--border); background: var(--bg-card); color: var(--accent);
+  cursor: pointer; font-family: var(--font-ui); font-size: 0.82rem; font-weight: 600;
+  transition: background 0.16s var(--ease-out), border-color 0.16s var(--ease-out);
+}
+.ipTestError-retry:hover { background: var(--accent-soft); border-color: var(--border-accent); }
+.ipTestError-retry:active { transform: scale(0.98); }
 .test-stat-icon { width: 36px; height: 36px; border-radius: var(--r-sm); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.test-stat-val { font-family: var(--font-ui); font-size: 1.4rem; font-weight: 700; color: var(--text-primary); line-height: 1; }
+.test-stat-val { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 1.4rem; font-weight: 700; color: var(--text-primary); line-height: 1; }
 .test-stat-lbl { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 
 /* ── Study prep panel ── */
 #prepModal {
   display: none; position: fixed; inset: 0; z-index: 1000;
-  background: rgba(0,0,0,0.45); backdrop-filter: blur(5px);
+  background: var(--scrim);
   align-items: center; justify-content: center;
 }
 #prepModal.open { display: flex; }
+@supports (backdrop-filter: blur(1px)) {
+  #prepModal { backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
+}
 .prep-panel {
-  background: var(--bg-card); border: 1px solid var(--border-strong);
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
   border-radius: var(--r-xl); padding: 1.75rem; max-width: 520px; width: 90%;
   box-shadow: var(--shadow-lg); animation: fadeUp 0.22s var(--ease-out) both;
   max-height: 85vh; overflow-y: auto;
+}
+@supports (backdrop-filter: blur(1px)) {
+  .prep-panel { backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); }
 }
 .prep-panel-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; }
 .prep-panel-title { font-family: var(--font-display); font-size: 1.2rem; color: var(--text-primary); }
@@ -146,20 +166,26 @@
   background: var(--accent-soft); border: 1px solid var(--accent-mid);
   border-radius: var(--r-md); margin-bottom: 1.25rem;
 }
-.countdown-big-num { font-family: var(--font-ui); font-size: 2.2rem; font-weight: 700; color: var(--accent); line-height: 1; }
+.countdown-big-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 2.2rem; font-weight: 700; color: var(--accent); line-height: 1; }
 .countdown-big-lbl { font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; }
 
 /* ── Add test modal ── */
 #addTestModal {
   display: none; position: fixed; inset: 0; z-index: 1000;
-  background: rgba(0,0,0,0.45); backdrop-filter: blur(5px);
+  background: var(--scrim);
   align-items: center; justify-content: center;
 }
 #addTestModal.open { display: flex; }
+@supports (backdrop-filter: blur(1px)) {
+  #addTestModal { backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
+}
 .add-test-panel {
-  background: var(--bg-card); border: 1px solid var(--border-strong);
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
   border-radius: var(--r-xl); padding: 1.75rem; max-width: 460px; width: 90%;
   box-shadow: var(--shadow-lg); animation: fadeUp 0.22s var(--ease-out) both;
+}
+@supports (backdrop-filter: blur(1px)) {
+  .add-test-panel { backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); }
 }
 
 @media (max-width: 600px) {
@@ -213,7 +239,7 @@
   </div>
   <button class="tests-add-btn" onclick="openAddModal()">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    Add Test
+    Add test
   </button>
 </div>
 
@@ -226,7 +252,7 @@
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-test"/></svg>
   </div>
   <div class="tests-empty-title">No tests yet</div>
-  <p class="tests-empty-sub">Mark assignments as tests from the Priority page, or add one manually here.</p>
+  <p class="tests-empty-sub">Mark assignments as tests from the priority page, or add one manually here.</p>
   <button class="btn-primary" onclick="openAddModal()">Add your first test</button>
 </div>
 
@@ -252,11 +278,11 @@
       <div class="countdown-big-lbl" id="prepCountdownLbl">until test</div>
     </div>
     <div class="prep-section">
-      <div class="prep-section-label">Study Prep Tips</div>
+      <div class="prep-section-label">Study prep tips</div>
       <div class="prep-tips" id="prepTips"></div>
     </div>
     <div class="prep-section">
-      <div class="prep-section-label">Quick Actions</div>
+      <div class="prep-section-label">Quick actions</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <a href="/tutor" class="btn-primary" style="font-size:0.82rem;padding:8px 16px;">AI quiz me</a>
         <a href="/scheduler" class="btn-secondary" style="font-size:0.82rem;padding:8px 16px;">Add study session</a>
@@ -269,7 +295,7 @@
 <div id="addTestModal" role="dialog" aria-modal="true" aria-labelledby="addTestTitle">
   <div class="add-test-panel">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
-      <div id="addTestTitle" style="font-family:var(--font-display);font-size:1.2rem;color:var(--text-primary);">Add a Test</div>
+      <div id="addTestTitle" style="font-family:var(--font-display);font-size:1.2rem;color:var(--text-primary);">Add a test</div>
       <button class="prep-close" onclick="closeAddModal()" aria-label="Close">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
@@ -289,7 +315,7 @@
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:0.5rem;">
         <button class="btn-secondary" onclick="closeAddModal()">Cancel</button>
-        <button class="btn-primary" onclick="submitAddTest()">Add Test</button>
+        <button class="btn-primary" onclick="submitAddTest()">Add test</button>
       </div>
     </div>
   </div>
@@ -444,6 +470,12 @@ async function loadTests() {
     render(allTests);
   } catch (e) {
     console.warn('Failed to load tests', e);
+    document.getElementById('testsList').innerHTML = `
+      <div class="ipTestError">
+        <div class="ipTestError-title">Couldn't load your tests</div>
+        <div style="font-size:0.84rem;">Check your connection and try again.</div>
+        <button type="button" class="ipTestError-retry" onclick="loadTests()">Try again</button>
+      </div>`;
   } finally {
     document.getElementById('testsLoading').style.display = 'none';
   }
@@ -475,7 +507,7 @@ function openPrepModal(test) {
   else {
     const diff = Math.ceil((new Date(test.due_date + 'T00:00:00') - new Date()) / 86400000);
     cdEl.textContent = diff <= 0 ? 'Today' : `${diff}`;
-    cdLbl.textContent = diff > 1 ? 'days until test' : diff === 1 ? 'day until test' : '- test day!';
+    cdLbl.textContent = diff > 1 ? 'days until test' : diff === 1 ? 'day until test' : 'test day';
   }
   const urg = urgencyClass(test.due_date);
   const tips = PREP_TIPS[urg] || PREP_TIPS.later;

@@ -3,30 +3,108 @@
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
   <div>
     <div class="page-kicker">Learn</div>
-    <h1 class="page-title">Lesson Library</h1>
+    <h1 class="page-title">Lesson library</h1>
     <p class="page-subtitle">Upload class recordings, IntelliPlan summarises each one for revision.</p>
   </div>
-  <button class="btn-primary" onclick="openUpload()" style="padding:10px 22px;border:none;cursor:pointer;">+ Upload Lesson</button>
+  <button class="btn-primary" onclick="ipLessonOpenUpload()" style="padding:10px 22px;border:none;cursor:pointer;">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:6px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Upload lesson
+  </button>
 </div>
 
 
 <style>
 .lesson-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:1.25rem; }
-.lesson-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); padding:0;  display:flex; flex-direction:column; overflow:hidden; animation:fadeUp 0.3s var(--ease-out) both; }
-.lesson-media { width:100%; aspect-ratio:16/9; background:#000; display:flex; align-items:center; justify-content:center; }
+@media (max-width: 380px) { .lesson-grid { grid-template-columns: 1fr; } }
+.lesson-card {
+  background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:var(--r-lg);
+  padding:0; display:flex; flex-direction:column; overflow:hidden;
+  animation:fadeUp 0.3s var(--ease-out) both;
+  box-shadow:var(--neu-shadow-sm);
+  transition:transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
+}
+.lesson-card:hover { transform:translateY(-1px); box-shadow:var(--neu-shadow); border-color:var(--border-accent); }
+.lesson-media { width:100%; aspect-ratio:16/9; background:var(--bg-elevated); display:flex; align-items:center; justify-content:center; }
+.lesson-media.is-audio { background:var(--accent-soft); }
 .lesson-media video, .lesson-media audio { width:100%; height:100%; object-fit:cover; }
 .lesson-body { padding:1rem 1.1rem; display:flex; flex-direction:column; gap:8px; flex:1; }
-.lesson-title { font-family:var(--font-display); font-size:1.1rem; color:var(--text-primary); line-height:1.25; }
+.lesson-title { font-family:var(--font-display); font-size:1.1rem; font-weight:400; color:var(--text-primary); line-height:1.25; }
 .lesson-meta { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:0.74rem; color:var(--text-muted); }
-.lesson-tag { padding:2px 9px; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-family:var(--font-ui); font-size:0.66rem; font-weight:700; }
+.lesson-tag { padding:2px 9px; border-radius:var(--r-full); background:var(--accent-soft); color:var(--accent); font-family:var(--font-ui); font-size:0.66rem; font-weight:700; }
 .lesson-summary { font-size:0.86rem; color:var(--text-secondary); line-height:1.55; max-height:140px; overflow:auto; white-space:pre-wrap; border-top:1px dashed var(--border); padding-top:8px; }
-.lesson-status { display:inline-block; padding:2px 8px; border-radius:6px; font-family:var(--font-ui); font-size:0.65rem; font-weight: 700; text-transform:uppercase; letter-spacing:0.06em; }
+.lesson-status { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:var(--r-xs); font-family:var(--font-ui); font-size:0.65rem; font-weight: 700; text-transform:uppercase; letter-spacing:0.06em; }
 .status-pending { background:var(--medium-bg); color:var(--medium); }
 .status-ready { background:var(--low-bg); color:var(--low); }
 .status-failed { background:var(--high-bg); color:var(--high); }
-.upload-modal { position:fixed; inset:0; z-index:1500; background:rgba(7,8,20,0.62); backdrop-filter:blur(6px); display:none; align-items:center; justify-content:center; padding:1rem; }
+.lesson-action-btn {
+  font-size:0.72rem; padding:5px 11px; border:1px solid var(--border); background:var(--bg);
+  border-radius:var(--r-full); cursor:pointer; color:var(--text-secondary);
+  font-family:var(--font-ui); font-weight:600;
+  transition:background 0.16s var(--ease-out), border-color 0.16s var(--ease-out), color 0.16s var(--ease-out);
+}
+.lesson-action-btn:hover { background:var(--accent-soft); border-color:var(--border-accent); color:var(--accent); }
+.lesson-action-btn:active { transform:scale(0.98); }
+.lesson-delete-btn {
+  font-size:0.72rem; padding:5px 11px; border:1px solid var(--high); background:var(--high-bg);
+  color:var(--high); border-radius:var(--r-full); cursor:pointer; margin-left:auto;
+  font-family:var(--font-ui); font-weight:600;
+  transition:background 0.16s var(--ease-out), color 0.16s var(--ease-out);
+}
+.lesson-delete-btn:hover { background:var(--high); color:var(--bg); }
+.lesson-delete-btn:active { transform:scale(0.98); }
+.upload-modal { position:fixed; inset:0; z-index:1500; background:var(--scrim); display:none; align-items:center; justify-content:center; padding:1rem; }
 .upload-modal.on { display:flex; }
-.upload-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-xl); padding:1.75rem; width:min(540px,100%); box-shadow:var(--shadow-lg); max-height:90vh; overflow:auto; }
+@supports (backdrop-filter: blur(1px)) {
+  .upload-modal { backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+}
+.upload-card {
+  background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:var(--r-xl);
+  padding:1.75rem; width:min(540px,100%); box-shadow:var(--shadow-lg); max-height:90vh; overflow:auto;
+  animation:fadeUp 0.22s var(--ease-out) both;
+}
+@supports (backdrop-filter: blur(1px)) {
+  .upload-card { backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur)); }
+}
+.upload-close-btn {
+  background:none; border:none; color:var(--text-muted); cursor:pointer;
+  padding:4px; border-radius:var(--r-sm); display:inline-flex; min-width:32px; min-height:32px;
+  align-items:center; justify-content:center; transition:background 0.14s var(--ease-out);
+}
+.upload-close-btn:hover { background:var(--bg-elevated); color:var(--text-primary); }
+.ipLessonFormError {
+  display:none; background:var(--high-bg); color:var(--high); border:1px solid var(--high);
+  border-radius:var(--r-sm); padding:9px 13px; font-size:0.82rem; font-weight:500;
+}
+.ipLessonFormError.on { display:block; }
+
+/* ── Loading skeleton, shape-matched to .lesson-card ── */
+.ipLessonSkeleton {
+  background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:var(--r-lg);
+  overflow:hidden; box-shadow:var(--neu-shadow-sm);
+}
+.ipLessonSkeleton-media { width:100%; aspect-ratio:16/9; background:var(--bg-elevated); animation:ipd-pulse 1.4s ease-in-out infinite; }
+.ipLessonSkeleton-body { padding:1rem 1.1rem; display:flex; flex-direction:column; gap:10px; }
+.ipLessonSkeleton-line { height:13px; border-radius:var(--r-xs); background:var(--bg-elevated); animation:ipd-pulse 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ipLessonSkeleton-media, .ipLessonSkeleton-line { animation:none; }
+}
+
+/* ── Empty + error states ── */
+.ipLessonEmpty { grid-column:1/-1; text-align:center; padding:4rem 1.5rem; color:var(--text-muted); }
+.ipLessonEmpty-icon {
+  width:52px; height:52px; margin:0 auto 1rem; background:var(--accent-soft);
+  border-radius:var(--r-lg); display:flex; align-items:center; justify-content:center; color:var(--accent);
+}
+.ipLessonEmpty-title { font-family:var(--font-display); font-size:1.2rem; font-weight:400; color:var(--text-secondary); margin-bottom:0.4rem; }
+.ipLessonEmpty-sub { font-size:0.88rem; margin-bottom:1.5rem; }
+.ipLessonError-retry {
+  margin-top:1rem; padding:8px 18px; border-radius:var(--r-md);
+  border:1px solid var(--border); background:var(--bg-card); color:var(--accent);
+  cursor:pointer; font-family:var(--font-ui); font-size:0.82rem; font-weight:600;
+  transition:background 0.16s var(--ease-out), border-color 0.16s var(--ease-out);
+}
+.ipLessonError-retry:hover { background:var(--accent-soft); border-color:var(--border-accent); }
+.ipLessonError-retry:active { transform:scale(0.98); }
 </style>
 
 <div id="lessonsList" class="lesson-grid">

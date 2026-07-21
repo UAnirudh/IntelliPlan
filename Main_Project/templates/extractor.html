@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="page-header">
+  <div class="page-kicker">Tools</div>
   <h1 class="page-title">Task Extractor</h1>
   <p class="page-subtitle">Paste notes, messages, or emails, IntelliPlan pulls out the to-dos.</p>
 </div>
@@ -8,54 +9,99 @@
 <style>
 .ex-grid { display:grid; grid-template-columns:1fr 1.1fr; gap:1.25rem; }
 @media (max-width:900px){ .ex-grid{grid-template-columns:1fr;} }
-.ex-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); padding:1.25rem;  }
-.ex-textarea { width:100%; min-height:300px; padding:14px; border:1.5px solid var(--border-strong); border-radius:12px; background:var(--bg); color:var(--text-primary); font-family:var(--font-body); font-size:0.92rem; resize:vertical; line-height:1.55; }
+.ex-card {
+  background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:var(--r-lg);
+  padding:1.25rem; box-shadow:var(--neu-shadow-sm);
+}
+.ex-card-label { font-family:var(--font-ui); font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); }
+.ex-textarea {
+  width:100%; min-height:300px; padding:14px; border:1.5px solid var(--border-strong); border-radius:var(--r-md);
+  background:var(--bg); color:var(--text-primary); font-family:var(--font-body); font-size:0.92rem;
+  resize:vertical; line-height:1.55; transition:border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ex-textarea::placeholder { color:var(--text-muted); }
 .ex-textarea:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
-.task-row { display:flex; gap:12px; align-items:flex-start; padding:12px 14px; border-radius:12px; background:var(--bg-elevated); border:1px solid var(--border); margin-bottom:8px; animation:fadeUp 0.25s var(--ease-out) both; }
+.ex-footer { display:flex; justify-content:space-between; align-items:center; margin-top:12px; gap:8px; flex-wrap:wrap; }
+.ex-save-label { display:flex; align-items:center; gap:6px; font-size:0.84rem; color:var(--text-secondary); cursor:pointer; min-height:44px; }
+.ex-submit {
+  padding:10px 22px; border:none; cursor:pointer; min-height:44px; border-radius:var(--r-md);
+  font-family:var(--font-body); font-weight:600; font-size:0.92rem; background:var(--accent); color:#fff;
+  transition:opacity 0.15s ease, transform 0.15s ease;
+}
+.ex-submit:hover:not(:disabled) { opacity:0.9; }
+.ex-submit:active:not(:disabled) { transform:scale(0.98); }
+.ex-submit:disabled { opacity:0.55; cursor:not-allowed; }
+.ex-clear-btn {
+  display:none; font-size:0.78rem; border:1px solid var(--border); background:transparent;
+  padding:5px 12px; border-radius:var(--r-full); cursor:pointer; color:var(--text-secondary);
+  min-height:32px; font-family:var(--font-body); font-weight:500; transition:all 0.15s ease;
+}
+.ex-clear-btn:hover { border-color:var(--border-strong); color:var(--text-primary); background:var(--bg-elevated); }
+
+.ipd-empty-solution { color:var(--text-muted); font-size:0.9rem; text-align:center; padding:2.5rem 0; line-height:1.6; }
+.ipd-error-box {
+  background:var(--high-bg); border:1px solid color-mix(in srgb, var(--high) 30%, var(--border));
+  border-radius:var(--r-md); padding:12px 14px; font-size:0.86rem; color:var(--high); line-height:1.5;
+}
+.ipd-error-box button {
+  margin-top:8px; padding:6px 14px; border-radius:var(--r-sm); border:1px solid currentColor;
+  background:transparent; color:inherit; font-family:var(--font-body); font-size:0.8rem; font-weight:600;
+  cursor:pointer; min-height:32px;
+}
+.ipd-error-box button:hover { background:var(--high); color:#fff; }
+.ex-skeleton { display:flex; flex-direction:column; gap:8px; }
+.ex-skel-row { height:58px; border-radius:var(--r-md); background:linear-gradient(90deg, var(--border) 25%, transparent 37%, var(--border) 63%); background-size:400% 100%; animation:ipd-pulse 1.5s ease infinite; }
+
+.task-row { display:flex; gap:12px; align-items:flex-start; padding:12px 14px; border-radius:var(--r-md); background:var(--bg-elevated); border:1px solid var(--border); margin-bottom:8px; animation:fadeUp 0.25s var(--ease-out) both; }
 .task-check { width:20px; height:20px; flex-shrink:0; margin-top:2px; accent-color:var(--accent); cursor:pointer; }
 .task-body { flex:1; min-width:0; }
 .task-title { font-weight:600; color:var(--text-primary); margin-bottom:4px; }
 .task-row.done .task-title { text-decoration:line-through; color:var(--text-muted); }
 .task-meta { display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:0.78rem; color:var(--text-muted); }
-.tag-pill { padding:2px 9px; border-radius:999px; font-family:var(--font-ui); font-size:0.7rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; }
+.task-meta .task-due { font-family:var(--font-mono); font-variant-numeric:tabular-nums; }
+.tag-pill { padding:2px 9px; border-radius:var(--r-full); font-family:var(--font-ui); font-size:0.7rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; }
 .tag-pill.high { background:var(--high-bg); color:var(--high); }
 .tag-pill.medium { background:var(--medium-bg); color:var(--medium); }
 .tag-pill.low { background:var(--low-bg); color:var(--low); }
+.ex-saved-note { margin-top:10px; color:var(--low); font-size:0.82rem; }
+.ex-count-num { color:var(--text-muted); font-weight:600; font-family:var(--font-mono); font-variant-numeric:tabular-nums; }
 </style>
 
 <div class="ex-grid">
-  <div class="ex-card">
-    <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:10px;">Source text</div>
-    <textarea id="exText" class="ex-textarea" placeholder="Paste class notes, a chat thread, or an email here..."></textarea>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:8px;flex-wrap:wrap;">
-      <label style="display:flex;align-items:center;gap:6px;font-size:0.84rem;color:var(--text-secondary);cursor:pointer;">
+  <div class="ex-card ipd-anim ipd-d1">
+    <label class="ex-card-label" for="exText" style="display:block;margin-bottom:10px;">Source text</label>
+    <textarea id="exText" class="ex-textarea" placeholder="Paste class notes, a chat thread, or an email here…"></textarea>
+    <div class="ex-footer">
+      <label class="ex-save-label">
         <input type="checkbox" id="exSave" style="accent-color:var(--accent);">
         Save extracted tasks to my dashboard
       </label>
-      <button class="btn-primary" id="exBtn" onclick="extractTasks()" style="padding:10px 22px;border:none;cursor:pointer;">Extract tasks</button>
+      <button class="ex-submit" id="exBtn" onclick="ipExtractRun()" type="button">Extract tasks</button>
     </div>
   </div>
 
-  <div class="ex-card">
+  <div class="ex-card ipd-anim ipd-d2">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-      <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);">Tasks <span id="exCount" style="color:var(--text-muted);font-weight:600;"></span></div>
-      <button id="exClear" onclick="clearTasks()" style="display:none;font-size:0.78rem;border:1px solid var(--border);background:transparent;padding:5px 12px;border-radius:999px;cursor:pointer;color:var(--text-secondary);">Clear</button>
+      <div class="ex-card-label">Tasks <span id="exCount" class="ex-count-num"></span></div>
+      <button id="exClear" onclick="ipExtractClear()" class="ex-clear-btn" type="button">Clear</button>
     </div>
     <div id="exResult">
-      <div style="color:var(--text-muted);font-size:0.9rem;text-align:center;padding:2rem 0;">Click <strong>Extract tasks</strong> to pull a checklist from the source text.</div>
+      <div class="ipd-empty-solution">Click <strong>Extract tasks</strong> to pull a checklist from the source text.</div>
     </div>
   </div>
 </div>
 
 <script>
-function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function ipExtractEsc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-function extractTasks() {
+function ipExtractRun() {
   const text = document.getElementById('exText').value.trim();
   if (!text) return;
   const save = document.getElementById('exSave').checked;
   const btn = document.getElementById('exBtn');
-  btn.disabled = true; btn.textContent = 'Extracting...';
+  btn.disabled = true; btn.textContent = 'Extracting…';
+  document.getElementById('exResult').innerHTML =
+    '<div class="ex-skeleton" role="status" aria-label="Extracting tasks"><div class="ex-skel-row"></div><div class="ex-skel-row"></div><div class="ex-skel-row"></div></div>';
   fetch('/api/tasks/extract' + (save ? '?save=1' : ''), {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
@@ -63,22 +109,22 @@ function extractTasks() {
   }).then(r => r.json()).then(d => {
     btn.disabled = false; btn.textContent = 'Extract tasks';
     if (d.status !== 'ok') {
-      document.getElementById('exResult').innerHTML = '<div style="color:var(--high);">' + esc(d.message||'error') + '</div>';
+      document.getElementById('exResult').innerHTML = '<div class="ipd-error-box">Couldn’t extract tasks. ' + ipExtractEsc(d.message || 'Try again in a moment.') + '<br><button onclick="ipExtractRun()" type="button">Retry</button></div>';
       return;
     }
-    render(d.tasks || [], save);
+    ipExtractRender(d.tasks || [], save);
   }).catch(() => {
     btn.disabled = false; btn.textContent = 'Extract tasks';
-    document.getElementById('exResult').innerHTML = '<div style="color:var(--high);">Network error</div>';
+    document.getElementById('exResult').innerHTML = '<div class="ipd-error-box">Couldn’t reach the server. Check your connection and try again.<br><button onclick="ipExtractRun()" type="button">Retry</button></div>';
   });
 }
 
-function render(tasks, saved) {
+function ipExtractRender(tasks, saved) {
   const out = document.getElementById('exResult');
   document.getElementById('exCount').textContent = tasks.length ? `(${tasks.length})` : '';
   document.getElementById('exClear').style.display = tasks.length ? 'inline-block' : 'none';
   if (!tasks.length) {
-    out.innerHTML = '<div style="color:var(--text-muted);">No tasks detected in this text.</div>';
+    out.innerHTML = '<div class="ipd-empty-solution">No tasks detected in this text. Try pasting something with clear action items.</div>';
     return;
   }
   let html = '';
@@ -86,23 +132,23 @@ function render(tasks, saved) {
     const pri = (t.priority || 'Medium').toLowerCase();
     html += `
       <div class="task-row" data-i="${i}">
-        <input type="checkbox" class="task-check" onchange="this.closest('.task-row').classList.toggle('done', this.checked)">
+        <input type="checkbox" class="task-check" aria-label="Mark task done" onchange="this.closest('.task-row').classList.toggle('done', this.checked)">
         <div class="task-body">
-          <div class="task-title">${esc(t.title || 'Untitled')}</div>
+          <div class="task-title">${ipExtractEsc(t.title || 'Untitled')}</div>
           <div class="task-meta">
-            <span class="tag-pill ${pri}">${esc(t.priority || 'Medium')}</span>
-            ${t.due_date ? `<span>Due ${esc(t.due_date)}</span>` : ''}
-            ${t.notes ? `<span style="opacity:0.85;">${esc(t.notes).slice(0,80)}</span>` : ''}
+            <span class="tag-pill ${pri}">${ipExtractEsc(t.priority || 'Medium')}</span>
+            ${t.due_date ? `<span class="task-due">Due ${ipExtractEsc(t.due_date)}</span>` : ''}
+            ${t.notes ? `<span style="opacity:0.85;">${ipExtractEsc(t.notes).slice(0,80)}</span>` : ''}
           </div>
         </div>
       </div>`;
   });
-  if (saved) html += '<div style="margin-top:10px;color:var(--low);font-size:0.82rem;">Saved to your dashboard.</div>';
+  if (saved) html += '<div class="ex-saved-note">Saved to your dashboard.</div>';
   out.innerHTML = html;
 }
 
-function clearTasks() {
-  document.getElementById('exResult').innerHTML = '<div style="color:var(--text-muted);font-size:0.9rem;text-align:center;padding:2rem 0;">Click <strong>Extract tasks</strong> to pull a checklist.</div>';
+function ipExtractClear() {
+  document.getElementById('exResult').innerHTML = '<div class="ipd-empty-solution">Click <strong>Extract tasks</strong> to pull a checklist from the source text.</div>';
   document.getElementById('exCount').textContent = '';
   document.getElementById('exClear').style.display = 'none';
 }

@@ -3,12 +3,14 @@
 <style>
 /* ── Settings page ──────────────────────────────── */
 .settings-section {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
   border-left: 3px solid var(--accent);
-  border-radius: 16px;
+  border-radius: var(--r-lg);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
+  box-shadow: var(--neu-shadow-sm);
+  transition: box-shadow 0.25s var(--ease-out), border-color 0.25s var(--ease-out);
 }
 .settings-section-title {
   font-size: 0.72rem;
@@ -17,6 +19,25 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-bottom: 1rem;
+}
+/* Destructive actions live in their own row, separated by a hairline from
+   primary/secondary controls above — never inline with them. */
+.settings-danger-row {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.settings-loading {
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  animation: ipd-pulse 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-loading { animation: none; }
 }
 .profile-tab-bar {
   display: flex;
@@ -104,7 +125,7 @@
 .avail-slots { display:flex; gap:6px; flex-wrap:wrap; }
 .avail-slot-btn { padding:6px 12px; border-radius:999px; border:1.5px solid var(--border-strong); background:var(--bg); font-size:0.78rem; cursor:pointer; color:var(--text-muted); transition:all 0.15s; font-family:var(--font-body); }
 .avail-slot-btn.on { background:var(--accent); color:white; border-color:var(--accent); }
-.avail-slot-btn:hover:not(.on) { border-color:var(--accent); color:var(--accent); background:var(--accent-soft,#eff6ff); }
+.avail-slot-btn:hover:not(.on) { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
 
 /* Focus pill checkboxes */
 .focus-pill-group {
@@ -133,13 +154,17 @@
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 .focus-pill input:checked + label {
-  background: var(--accent-subtle, #eff6ff);
+  background: var(--accent-soft);
   border-color: var(--accent);
   color: var(--accent);
   font-weight: 600;
 }
 .focus-pill label:hover {
   border-color: var(--accent);
+}
+.focus-pill input:focus-visible + label {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 /* Save status indicator */
@@ -203,7 +228,7 @@
 }
 .connected-badge {
   font-size: 0.72rem;
-  background: var(--low-bg, #f0fdf4);
+  background: var(--low-bg);
   color: var(--low);
   border: 1px solid var(--low);
   padding: 3px 10px;
@@ -549,25 +574,27 @@
   <!-- ── Account ──────────────────────────────────── -->
   <div class="settings-section" id="accountCard">
     <div class="settings-section-title">Account</div>
-    <div id="accountInfo" style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:1rem;"></div>
+    <div id="accountInfo" style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:1rem;"><span class="settings-loading">Loading…</span></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
       <a href="/login/canvas"     class="btn-secondary" style="text-decoration:none;padding:10px 20px;font-size:0.88rem;">+ Canvas</a>
       <a href="/login/studentvue" class="btn-secondary" style="text-decoration:none;padding:10px 20px;font-size:0.88rem;">+ StudentVue</a>
       <a href="/login/schoology"  class="btn-secondary" style="text-decoration:none;padding:10px 20px;font-size:0.88rem;">+ Schoology</a>
-      <button id="deleteAccountBtn" onclick="deleteAccount()"
-        style="padding:10px 20px;border-radius:10px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:var(--font-ui);font-size:0.88rem;font-weight:600;">
-        Delete Account
+    </div>
+    <div class="settings-danger-row">
+      <button id="deleteAccountBtn" onclick="deleteAccount()" class="ipd-btn ipd-btn-danger" style="padding:10px 20px;font-size:0.88rem;">
+        Delete account
       </button>
+      <span style="font-size:0.78rem;color:var(--text-muted);">Permanently removes your account and all saved data.</span>
     </div>
   </div>
 
   <!-- ── App Tour ────────────────────────────────── -->
-  <div class="settings-section" style="border-left:3px solid #8b5cf6;">
-    <div class="settings-section-title">App Tour</div>
+  <div class="settings-section">
+    <div class="settings-section-title">App tour</div>
     <p style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:1rem;">Replay the interactive tour of IntelliPlan's features.</p>
-    <button onclick="startAppTour()" class="btn-primary" style="padding:10px 22px;border:none;cursor:pointer;background:#8b5cf6;">
+    <button onclick="startAppTour()" class="btn-primary" style="padding:10px 22px;border:none;cursor:pointer;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      Start Demo Tour
+      Start demo tour
     </button>
   </div>
 
@@ -584,7 +611,7 @@
           </div>
           <div class="integration-sub">Sync your schedule automatically</div>
         </div>
-        <span id="gcalStatus"></span>
+        <span id="gcalStatus"><span class="settings-loading">Loading…</span></span>
       </div>
 
       <div class="integration-row">
@@ -595,7 +622,7 @@
           </div>
           <div class="integration-sub" id="notionSub">Sync tasks to your Notion workspace</div>
         </div>
-        <span id="notionStatus"></span>
+        <span id="notionStatus"><span class="settings-loading">Loading…</span></span>
       </div>
 
       <div class="integration-row">
@@ -606,7 +633,7 @@
           </div>
           <div class="integration-sub" id="classroomSub">Import courses and coursework from Google Classroom</div>
         </div>
-        <span id="classroomStatus"></span>
+        <span id="classroomStatus"><span class="settings-loading">Loading…</span></span>
       </div>
 
       <div class="integration-row">
@@ -617,7 +644,7 @@
           </div>
           <div class="integration-sub" id="blackboardSub">Import higher-ed coursework from your school's Blackboard</div>
         </div>
-        <span id="blackboardStatus"></span>
+        <span id="blackboardStatus"><span class="settings-loading">Loading…</span></span>
       </div>
 
       <div class="integration-row">
@@ -628,7 +655,7 @@
           </div>
           <div class="integration-sub" id="moodleSub">Import assignments from a Moodle URL and web-services token</div>
         </div>
-        <span id="moodleStatus"></span>
+        <span id="moodleStatus"><span class="settings-loading">Loading…</span></span>
       </div>
 
     </div>
@@ -652,7 +679,7 @@
       </div>
       <div>
         <div class="form-label" style="margin-bottom:8px;">Assignments pulled from</div>
-        <div id="assignmentSourcesList" style="display:flex;flex-direction:column;gap:8px;"></div>
+        <div id="assignmentSourcesList" style="display:flex;flex-direction:column;gap:8px;"><span class="settings-loading">Loading…</span></div>
       </div>
       <button type="button" id="saveLmsSourcesBtn" class="btn-primary" style="align-self:flex-start;padding:10px 20px;border:none;cursor:pointer;font-size:0.86rem;">Save preferences</button>
       <span id="lmsSourcesStatus" style="font-size:0.8rem;color:var(--text-muted);min-height:1.1em;"></span>
@@ -662,7 +689,7 @@
   <!-- ── Connected Schools ────────────────────────── -->
   <div class="settings-section">
     <div class="settings-section-title">Connected Schools</div>
-    <div id="linkedAccounts"></div>
+    <div id="linkedAccounts"><span class="settings-loading">Loading…</span></div>
     <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;">
       <a href="/connect" class="btn-primary" style="text-decoration:none;padding:8px 16px;font-size:0.84rem;">+ Connect LMS</a>
       <a href="/oauth/canvas" class="btn-secondary" style="text-decoration:none;padding:8px 16px;font-size:0.84rem;">Canvas</a>
@@ -677,6 +704,24 @@
 {% block scripts %}
 /* ── Identity data injected from server ────────── */
 const IDENTITY = {{ identity | tojson }};
+
+/* ── Small inline notice (replaces window.alert) ── */
+function ipSetNotify(msg, isError) {
+  let host = document.getElementById('ipSetNoticeHost');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'ipSetNoticeHost';
+    host.setAttribute('role', 'status');
+    host.setAttribute('aria-live', 'polite');
+    host.style.cssText = 'position:fixed;bottom:18px;right:18px;z-index:10030;display:flex;flex-direction:column;gap:8px;max-width:340px;';
+    document.body.appendChild(host);
+  }
+  const card = document.createElement('div');
+  card.style.cssText = 'background:var(--bg-card);border:1px solid ' + (isError ? 'var(--high)' : 'var(--border-strong)') + ';border-radius:var(--r-md);padding:10px 14px;box-shadow:var(--shadow-lg);font-family:var(--font-body);font-size:0.84rem;color:' + (isError ? 'var(--high)' : 'var(--text-primary)') + ';';
+  card.textContent = msg;
+  host.appendChild(card);
+  setTimeout(() => { if (card.isConnected) card.remove(); }, 4200);
+}
 
 /* ── Tab switching ──────────────────────────────── */
 document.querySelectorAll('.profile-tab').forEach(tab => {
@@ -1518,7 +1563,7 @@ function disconnectLms(provider) {
   if (!meta || !confirm('Disconnect ' + meta.label + '?')) return;
   fetch(meta.disconnect, { method: 'POST' })
     .then(() => refreshLmsStatuses())
-    .catch(() => alert('Network error.'));
+    .catch(() => ipSetNotify("Couldn't disconnect. Check your connection and try again.", true));
 }
 
 refreshLmsStatuses();

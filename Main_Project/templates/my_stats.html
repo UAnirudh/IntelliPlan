@@ -4,8 +4,9 @@
 {% block content %}
 <div class="ms-page" id="msPage">
   <header class="ms-header">
-    <h1 class="ms-title">My Stats</h1>
-    <p class="ms-subtitle" id="msAccountAge"></p>
+    <p class="page-kicker">Your progress</p>
+    <h1 class="ms-title">My stats</h1>
+    <p class="ms-subtitle" id="msAccountAge">A snapshot of everything you've tracked so far.</p>
   </header>
 
   <div class="ms-skeleton" id="msSkeleton">
@@ -16,52 +17,56 @@
   <div class="ms-body" id="msBody" hidden>
 
     {# ── Top-line KPIs ── #}
-    <div class="ms-kpi-grid" id="msKpis"></div>
+    <div class="ms-kpi-grid ipd-anim" id="msKpis"></div>
 
     {# ── Activity heatmap ── #}
-    <section class="ms-section">
-      <h2 class="ms-section-title">Activity · Last 30 Days</h2>
+    <section class="ms-section ipd-anim ipd-d1">
+      <h2 class="ms-section-title">Activity · last 30 days</h2>
       <div class="ms-activity-grid">
         <div class="ms-activity-card">
-          <h3 class="ms-activity-label">Tasks Completed</h3>
+          <h3 class="ms-activity-label">Tasks completed</h3>
           <div class="ms-spark" id="msCompletionSpark"></div>
         </div>
         <div class="ms-activity-card">
-          <h3 class="ms-activity-label">Study Minutes</h3>
+          <h3 class="ms-activity-label">Study minutes</h3>
           <div class="ms-spark" id="msStudySpark"></div>
         </div>
       </div>
     </section>
 
     {# ── Grades ── #}
-    <section class="ms-section" id="msGradesSection" hidden>
+    <section class="ms-section ipd-anim ipd-d2" id="msGradesSection" hidden>
       <h2 class="ms-section-title">Grades</h2>
       <div class="ms-grades" id="msGrades"></div>
     </section>
 
     {# ── Study performance ── #}
-    <section class="ms-section" id="msStudySection" hidden>
-      <h2 class="ms-section-title">Study Performance</h2>
+    <section class="ms-section ipd-anim ipd-d3" id="msStudySection" hidden>
+      <h2 class="ms-section-title">Study performance</h2>
       <div class="ms-study-stats" id="msStudyStats"></div>
     </section>
 
     {# ── Time management ── #}
-    <section class="ms-section" id="msTimeSection" hidden>
-      <h2 class="ms-section-title">Time Management</h2>
+    <section class="ms-section ipd-anim ipd-d3" id="msTimeSection" hidden>
+      <h2 class="ms-section-title">Time management</h2>
       <div class="ms-time-stats" id="msTimeStats"></div>
     </section>
 
     {# ── Study Pet ── #}
-    <section class="ms-section" id="msPetSection" hidden>
-      <h2 class="ms-section-title">My Pet</h2>
+    <section class="ms-section ipd-anim ipd-d4" id="msPetSection" hidden>
+      <h2 class="ms-section-title">My pet</h2>
       <div class="ms-pet-card" id="msPetCard"></div>
     </section>
 
     {# ── My Feedback ── #}
-    <section class="ms-section">
-      <h2 class="ms-section-title">My Feedback</h2>
+    <section class="ms-section ipd-anim ipd-d4">
+      <h2 class="ms-section-title">My feedback</h2>
       <div class="ms-feedback-list" id="msFeedbackList">
-        <p class="ms-empty">No feedback submitted yet.</p>
+        <div class="ms-fb-empty">
+          <p class="ms-fb-empty-title">No feedback yet</p>
+          <p class="ms-empty">Anything you send through the feedback button will show up here with its status.</p>
+          <button type="button" class="ipd-btn ms-fb-empty-btn" onclick="ipMsOpenFeedback()">Send feedback</button>
+        </div>
       </div>
     </section>
 
@@ -69,77 +74,85 @@
 </div>
 
 <style>
-.ms-page{max-width:960px;margin:0 auto;padding:1.5rem}
-.ms-header{margin-bottom:1.5rem}
-.ms-title{margin:0;font-family:var(--font-display,var(--font-ui));font-size:1.8rem;font-weight: 700;color:var(--text-primary)}
-.ms-subtitle{margin:4px 0 0;font-size:.82rem;color:var(--text-muted)}
+.ms-page{max-width:var(--content-max);margin:0 auto;padding:var(--space-5);min-height:100dvh}
+.ms-header{margin-bottom:var(--space-5)}
+.ms-title{margin:0;font-family:var(--font-display,var(--font-ui));font-size:clamp(1.5rem,1rem+2vw,2.25rem);font-weight:400;line-height:1.12;letter-spacing:-0.01em;color:var(--text-primary);text-wrap:balance}
+.ms-subtitle{margin:6px 0 0;font-family:var(--font-body);font-size:.9rem;color:var(--text-secondary);max-width:60ch;line-height:1.5}
 
-.ms-skeleton{display:flex;flex-direction:column;gap:12px}
-.ms-skel-row{display:flex;gap:12px}
-.ms-skel-block{height:20px;border-radius:8px;background:linear-gradient(90deg,var(--border) 25%,transparent 50%,var(--border) 75%);background-size:200% 100%;animation:msSkelShimmer 1.4s ease infinite;flex:1}
+.ms-skeleton{display:flex;flex-direction:column;gap:var(--space-3)}
+.ms-skel-row{display:flex;gap:var(--space-3)}
+.ms-skel-block{height:20px;border-radius:var(--r-xs);background:linear-gradient(90deg,var(--border) 25%,transparent 50%,var(--border) 75%);background-size:200% 100%;animation:msSkelShimmer 1.4s ease infinite;flex:1}
 .ms-skel-tall{height:120px}
 @keyframes msSkelShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.ms-skel-block{animation:none}}
+
+/* Glass surface recipe — translucent panel, hairline border, soft neu shadow.
+   No backdrop-filter here: these are long scrolling lists, not floating chrome. */
+.ms-kpi,.ms-activity-card,.ms-grade-card,.ms-stat-card,.ms-pet-card,.ms-fb-row{
+  background:var(--glass-bg);border:1px solid var(--glass-border);box-shadow:var(--neu-shadow-sm)}
 
 /* KPIs */
-.ms-kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:1.5rem}
-.ms-kpi{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.1rem;display:flex;flex-direction:column;gap:2px;transition:border-color .15s,box-shadow .15s}
-.ms-kpi:hover{border-color:var(--accent);box-shadow:0 2px 12px color-mix(in srgb,var(--accent) 10%,transparent)}
-.ms-kpi-value{font-family:var(--font-display,var(--font-ui));font-size:1.7rem;font-weight: 700;line-height:1;color:var(--text-primary)}
+.ms-kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:var(--space-3);margin-bottom:var(--space-5)}
+.ms-kpi{border-radius:var(--r-lg);padding:1.1rem;display:flex;flex-direction:column;gap:2px;transition:border-color .18s var(--ease-out),box-shadow .18s var(--ease-out),transform .18s var(--ease-out)}
+.ms-kpi:hover{border-color:var(--border-accent);box-shadow:var(--shadow);transform:translateY(-2px)}
+.ms-kpi-value{font-family:var(--font-display,var(--font-ui));font-size:1.7rem;font-weight:400;line-height:1;color:var(--text-primary);font-variant-numeric:tabular-nums}
 .ms-kpi-value small{font-size:.5em;font-weight:600;opacity:.5}
 .ms-kpi-label{font-size:.78rem;font-weight:600;color:var(--text-secondary)}
-.ms-kpi-sub{font-size:.7rem;color:var(--text-muted)}
+.ms-kpi-sub{font-size:.7rem;color:var(--text-muted);font-variant-numeric:tabular-nums}
 
 /* Sections */
-.ms-section{margin-bottom:1.5rem}
-.ms-section-title{margin:0 0 .75rem;font-family:var(--font-display,var(--font-ui));font-size:1rem;font-weight: 700;color:var(--text-primary)}
+.ms-section{margin-bottom:var(--space-5)}
+.ms-section-title{margin:0 0 .75rem;font-family:var(--font-display,var(--font-ui));font-size:1.05rem;font-weight:400;color:var(--text-primary);letter-spacing:-0.01em}
 
 /* Activity sparks */
-.ms-activity-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.ms-activity-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1rem}
-.ms-activity-label{margin:0 0 8px;font-size:.78rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em}
+.ms-activity-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)}
+.ms-activity-card{border-radius:var(--r-lg);padding:var(--space-4)}
+.ms-activity-label{margin:0 0 8px;font-family:var(--font-ui);font-size:.72rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em}
 .ms-spark{display:flex;align-items:flex-end;height:60px;gap:2px}
 .ms-spark-col{display:flex;align-items:flex-end;height:100%}
-.ms-spark-bar{width:100%;min-width:3px;border-radius:2px 2px 0 0;transition:opacity .15s}
+.ms-spark-bar{width:100%;min-width:3px;border-radius:2px 2px 0 0;transition:opacity .15s var(--ease-out)}
 .ms-spark-col:hover .ms-spark-bar{opacity:1!important}
 
 /* Grades */
-.ms-grades{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
-.ms-grade-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1rem;display:flex;align-items:center;gap:12px}
-.ms-grade-pct{font-family:var(--font-display,var(--font-ui));font-size:1.5rem;font-weight: 700;line-height:1}
+.ms-grades{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--space-3)}
+.ms-grade-card{border-radius:var(--r-md);padding:var(--space-4);display:flex;align-items:center;gap:var(--space-3)}
+.ms-grade-pct{font-family:var(--font-display,var(--font-ui));font-size:1.5rem;font-weight:400;line-height:1;font-variant-numeric:tabular-nums}
 .ms-grade-pct small{font-size:.5em;opacity:.5}
 .ms-grade-info{flex:1;min-width:0}
 .ms-grade-course{font-size:.82rem;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ms-grade-letter{font-size:.72rem;color:var(--text-muted)}
 
 /* Study stats */
-.ms-study-stats,.ms-time-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
-.ms-stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:1rem;text-align:center}
-.ms-stat-num{font-family:var(--font-display,var(--font-ui));font-size:1.4rem;font-weight: 700;color:var(--text-primary)}
+.ms-study-stats,.ms-time-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:var(--space-3)}
+.ms-stat-card{border-radius:var(--r-md);padding:var(--space-4);text-align:center}
+.ms-stat-num{font-family:var(--font-display,var(--font-ui));font-size:1.4rem;font-weight:400;color:var(--text-primary);font-variant-numeric:tabular-nums}
 .ms-stat-num small{font-size:.5em;opacity:.5}
 .ms-stat-label{font-size:.75rem;font-weight:600;color:var(--text-secondary);margin-top:2px}
 
 /* Pet */
-.ms-pet-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.25rem;display:flex;align-items:center;gap:16px;max-width:400px}
-.ms-pet-emoji{font-size:2.5rem}
+.ms-pet-card{border-radius:var(--r-lg);padding:1.25rem;display:flex;align-items:center;gap:var(--space-4);max-width:400px}
+.ms-pet-emoji{color:var(--accent);display:flex}
+.ms-pet-emoji svg{width:40px;height:40px}
 .ms-pet-info{flex:1}
-.ms-pet-name{font-weight: 700;font-size:1rem;color:var(--text-primary)}
-.ms-pet-detail{font-size:.78rem;color:var(--text-secondary)}
+.ms-pet-name{font-weight:700;font-size:1rem;color:var(--text-primary)}
+.ms-pet-detail{font-size:.78rem;color:var(--text-secondary);font-variant-numeric:tabular-nums}
 
 /* Feedback list */
 .ms-feedback-list{display:flex;flex-direction:column;gap:8px}
-.ms-fb-row{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:12px 16px;display:grid;grid-template-columns:auto 1fr auto;align-items:start;gap:10px}
-.ms-fb-cat{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:3px 8px;border-radius:6px;white-space:nowrap}
-.ms-fb-cat-bug{background:hsl(0,70%,95%);color:hsl(0,60%,45%)}
-.ms-fb-cat-feature{background:hsl(210,70%,95%);color:hsl(210,60%,40%)}
-.ms-fb-cat-praise{background:hsl(330,70%,95%);color:hsl(330,50%,40%)}
+.ms-fb-row{border-radius:var(--r-sm);padding:12px 16px;display:grid;grid-template-columns:auto 1fr auto;align-items:start;gap:var(--space-3)}
+.ms-fb-cat{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:3px 8px;border-radius:var(--r-xs);white-space:nowrap}
+.ms-fb-cat-bug{background:var(--high-bg);color:var(--high)}
+.ms-fb-cat-feature{background:var(--accent-soft,var(--accent-mid));color:var(--accent)}
+.ms-fb-cat-praise{background:var(--low-bg);color:var(--low)}
 .ms-fb-cat-general{background:color-mix(in srgb,var(--border) 50%,transparent);color:var(--text-secondary)}
 .ms-fb-msg{font-size:.82rem;color:var(--text-primary);line-height:1.4}
-.ms-fb-meta{font-size:.7rem;color:var(--text-muted);white-space:nowrap}
-.ms-fb-status{font-size:.65rem;font-weight:700;text-transform:uppercase;padding:2px 6px;border-radius:4px;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent)}
-.ms-empty{font-size:.82rem;color:var(--text-muted);margin:0}
+.ms-fb-meta{font-size:.7rem;color:var(--text-muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.ms-fb-status{font-size:.65rem;font-weight:700;text-transform:uppercase;padding:2px 6px;border-radius:var(--r-xs);background:var(--accent-soft,color-mix(in srgb,var(--accent) 12%,transparent));color:var(--accent)}
+.ms-empty{font-size:.82rem;color:var(--text-muted);margin:0;line-height:1.5}
+.ms-retry{margin-top:.85rem}
 
 @media(max-width:640px){
-  .ms-page{padding:1rem}
+  .ms-page{padding:var(--space-4)}
   .ms-kpi-grid{grid-template-columns:1fr 1fr}
   .ms-activity-grid{grid-template-columns:1fr}
   .ms-grades{grid-template-columns:1fr}
@@ -162,7 +175,9 @@ document.addEventListener('DOMContentLoaded', function() {
     renderStats(stats);
     renderFeedback(fb.status === 'ok' ? fb.items : []);
   }).catch(function() {
-    document.getElementById('msSkeleton').innerHTML = '<p class="ms-empty">Could not load stats.</p>';
+    document.getElementById('msSkeleton').innerHTML =
+      '<p class="ms-empty">Couldn\'t load your stats. Check your connection and try again.</p>'
+      + '<button type="button" class="ipd-btn ms-retry" onclick="location.reload()">Try again</button>';
   });
 });
 
@@ -192,9 +207,9 @@ function renderStats(d) {
       + '</div>';
   }).join('');
 
-  // Activity sparks
-  renderActivitySpark('msCompletionSpark', d.daily_completions || {}, 'hsl(262,60%,55%)');
-  renderActivitySpark('msStudySpark', d.daily_study_minutes || {}, 'hsl(142,55%,42%)');
+  // Activity sparks — token colors so all palettes/themes keep working
+  renderActivitySpark('msCompletionSpark', d.daily_completions || {}, 'var(--accent)');
+  renderActivitySpark('msStudySpark', d.daily_study_minutes || {}, 'var(--low)');
 
   // Grades
   if (d.grades && d.grades.length) {
@@ -202,9 +217,13 @@ function renderStats(d) {
     var gEl = document.getElementById('msGrades');
     gEl.innerHTML = d.grades.map(function(g) {
       var pct = g.percentage != null ? Math.round(g.percentage) : '—';
-      var hue = g.percentage != null ? Math.round(Math.max(0, Math.min(g.percentage, 100)) * 1.2) : 0;
+      // Semantic tokens instead of a raw hue ramp so every palette/theme stays coherent
+      var tone = g.percentage == null ? 'var(--text-primary)'
+        : g.percentage >= 80 ? 'var(--low)'
+        : g.percentage >= 60 ? 'var(--medium)'
+        : 'var(--high)';
       return '<div class="ms-grade-card">'
-        + '<div class="ms-grade-pct" style="color:hsl(' + hue + ',60%,42%)">' + pct + '<small>%</small></div>'
+        + '<div class="ms-grade-pct" style="color:' + tone + '">' + pct + '<small>%</small></div>'
         + '<div class="ms-grade-info"><div class="ms-grade-course">' + escHtml(g.course) + '</div>'
         + '<div class="ms-grade-letter">' + (g.letter || '') + '</div></div>'
         + '</div>';

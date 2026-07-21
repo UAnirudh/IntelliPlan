@@ -531,6 +531,53 @@
   .ipd-stats-row { grid-template-columns: 1fr; }
 }
 
+/* ── Featured-on badge strip ──────────────────────────────── */
+.ipd-featured {
+  margin: 2.5rem auto 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.ipd-featured-label {
+  font-family: var(--ipd-font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+.ipd-featured-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: var(--ipd-radius-sm);
+  background: var(--ipd-glass-bg);
+  border: 1px solid var(--ipd-glass-border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: transform 0.2s var(--ipd-ease-out), border-color 0.2s ease, opacity 0.2s ease;
+  opacity: 0.85;
+  text-decoration: none;
+}
+.ipd-featured-badge:hover,
+.ipd-featured-badge:focus-visible {
+  opacity: 1;
+  transform: translateY(-1px);
+  border-color: var(--text-muted);
+  outline: none;
+}
+.ipd-featured-badge img {
+  height: 32px;
+  width: auto;
+  display: block;
+}
+/* Dark mode: badge SVG is designed for light backgrounds — invert hue
+   and re-invert so text stays readable while background blends in. */
+[data-theme="dark"] .ipd-featured-badge img {
+  filter: invert(1) hue-rotate(180deg) brightness(1.05);
+}
+
 /* ── Modal resets (shared across all modals) ──────────────── */
 .ipd-modal-overlay {
   display: none;
@@ -957,6 +1004,14 @@
   </div>
 </div>
 {% endif %}
+
+{# ── Featured-on badge (shown in both signed-in & signed-out states) ── #}
+<div class="ipd-featured ipd-anim ipd-d6">
+  <span class="ipd-featured-label">Featured on</span>
+  <a href="https://sellwithboost.com" target="_blank" rel="noopener noreferrer" class="ipd-featured-badge" aria-label="Listed on Sell With Boost">
+    <img src="https://sellwithboost.com/badge/listing.svg" alt="Listed on Sell With Boost" loading="lazy">
+  </a>
+</div>
 {% endblock %}
 
 

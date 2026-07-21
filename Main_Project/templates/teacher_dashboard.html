@@ -3,106 +3,191 @@
 {% block content %}
 <style>
   .td-shell { display: flex; flex-direction: column; gap: 1.75rem; }
-  .td-toolbar { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+  .td-toolbar { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-start; }
   .td-invite {
     display: flex; gap: 0.5rem; flex: 1; min-width: 280px;
-    background: var(--bg-card); border: 1px solid var(--border);
+    background: var(--glass-bg); border: 1px solid var(--glass-border);
     border-radius: var(--r-md); padding: 0.5rem;
+    box-shadow: var(--neu-shadow-sm);
   }
-  .td-invite input { flex: 1; border: 0; background: transparent; padding: 0 0.5rem; color: var(--text-primary); outline: none; font-size: 0.9rem; }
-  .td-students { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+  .td-invite input {
+    flex: 1; border: 0; background: transparent; padding: 0 0.5rem;
+    color: var(--text-primary); outline: none; font-family: var(--font-body); font-size: 0.9rem;
+  }
+  .td-invite input::placeholder { color: var(--text-muted); }
+  .td-invite input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: var(--r-sm); }
+  .td-invite .btn-primary { min-height: 44px; }
+
+  .td-feedback {
+    font-family: var(--font-body); font-size: 0.85rem; padding: 0.6rem 0.9rem;
+    border-radius: var(--r-sm); display: none; width: 100%;
+  }
+  .td-feedback.visible { display: block; }
+  .td-feedback.error { background: var(--high-bg, rgba(198,40,40,0.08)); color: var(--high, #c62828); }
+  .td-feedback.success { background: var(--accent-soft); color: var(--accent); }
+
+  .td-students { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
   .td-student-card {
-    background: var(--bg-card); border: 1px solid var(--border);
+    background: var(--glass-bg); border: 1px solid var(--glass-border);
     border-radius: var(--r-lg); padding: 1.1rem 1.25rem;
-    transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
+    transition: box-shadow 0.2s var(--ease-out), transform 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
     cursor: pointer; display: flex; flex-direction: column; gap: 0.75rem;
+    box-shadow: var(--neu-shadow-sm);
   }
   .td-student-card:hover { box-shadow: var(--shadow); transform: translateY(-2px); border-color: var(--border-accent); }
-  .td-student-card.pending { opacity: 0.7; border-style: dashed; cursor: default; }
-  .td-student-name { font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; color: var(--text-primary); }
+  .td-student-card:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+  .td-student-card.pending { opacity: 0.75; border-style: dashed; cursor: default; }
+  .td-student-card.pending:hover { box-shadow: var(--neu-shadow-sm); transform: none; border-color: var(--glass-border); }
+  .td-student-name { font-family: var(--font-display); font-size: 1.1rem; font-weight: 400; color: var(--text-primary); text-wrap: balance; }
   .td-student-email { font-size: 0.78rem; color: var(--text-muted); margin-top: -4px; }
+
   .td-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; }
-  .td-stat { text-align: center; padding: 0.4rem 0.2rem; background: var(--bg-elevated); border-radius: var(--r-sm); }
-  .td-stat-val { font-family: var(--font-display); font-size: 1.1rem; font-weight:400; color: var(--text-primary); }
+  .td-stat { text-align: center; padding: 0.5rem 0.2rem; background: var(--bg-elevated); border-radius: var(--r-sm); }
+  .td-stat-val { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 1.05rem; color: var(--text-primary); }
+  .td-stat-val.is-loading { color: var(--text-muted); animation: ipd-pulse 1.4s ease-in-out infinite; }
   .td-stat-label { font-size: 0.62rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+
+  .td-skel { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+  .td-skel-card { height: 140px; border-radius: var(--r-lg); background: var(--bg-elevated); animation: ipd-pulse 1.4s ease-in-out infinite; }
+
   .td-detail-pane {
     position: fixed; inset: 0; z-index: 10000;
-    background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
+    background: var(--scrim);
     display: none; align-items: center; justify-content: center; padding: 2rem;
   }
   .td-detail-pane.open { display: flex; }
+  @supports (backdrop-filter: blur(1px)) {
+    .td-detail-pane { backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); }
+  }
   .td-detail-box {
-    background: var(--bg-card); border: 1px solid var(--border-strong);
+    background: var(--glass-bg); border: 1px solid var(--glass-border);
     border-radius: var(--r-xl); padding: 1.75rem; width: min(620px, 100%);
     max-height: 80vh; overflow-y: auto; box-shadow: var(--shadow-lg);
+    animation: ipd-fadeUp 0.25s var(--ease-out) both;
   }
-  .td-empty { padding: 3rem 1rem; text-align: center; color: var(--text-muted); }
-  .td-pill { display: inline-flex; padding: 2px 10px; border-radius: var(--r-full); background: var(--accent-soft); color: var(--accent); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .td-detail-title { font-family: var(--font-display); font-size: 1.5rem; font-weight: 400; color: var(--text-primary); margin: 0 0 0.25rem; }
+  .td-detail-note { color: var(--text-muted); margin: 0 0 1.25rem; font-size: 0.9rem; }
+  .td-detail-heading { font-family: var(--font-display); font-size: 1.1rem; font-weight: 400; color: var(--text-primary); margin: 1rem 0 0.5rem; }
+  .td-detail-list { padding-left: 1.1rem; line-height: 1.7; font-size: 0.92rem; margin: 0; color: var(--text-secondary); }
+  .td-detail-list li { margin-bottom: 0.15rem; }
+  .td-detail-empty { color: var(--text-muted); list-style: none; margin-left: -1.1rem; }
+
+  .td-pill { display: inline-flex; padding: 2px 10px; border-radius: var(--r-full); background: var(--accent-soft); color: var(--accent); font-family: var(--font-ui); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .td-consent-note { color: var(--text-muted); font-size: 0.85rem; margin: 0; }
+
+  .td-empty {
+    padding: 3.5rem 1.5rem; text-align: center; color: var(--text-muted);
+    background: var(--glass-bg); border: 1px solid var(--glass-border);
+    border-radius: var(--r-lg); box-shadow: var(--neu-shadow-sm);
+  }
+  .td-empty svg { width: 34px; height: 34px; stroke: var(--text-muted); margin-bottom: 0.75rem; }
+  .td-empty-title { font-family: var(--font-display); font-size: 1.1rem; color: var(--text-secondary); margin-bottom: 0.4rem; }
+  .td-empty-sub { font-size: 0.9rem; max-width: 44ch; margin: 0 auto; line-height: 1.5; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .td-skel-card, .td-stat-val.is-loading { animation: none; }
+    .td-detail-box { animation: none; }
+  }
 </style>
 
 <div class="page-header">
+  <div class="page-kicker">Classroom</div>
   <h1 class="page-title">Teacher dashboard</h1>
   <p class="page-subtitle">Read-only view of your linked students' workload, progress, and upcoming deadlines.</p>
 </div>
 
 <div class="td-shell">
   <div class="td-toolbar">
-    <form class="td-invite" id="tdInviteForm" onsubmit="return tdInvite(event)">
-      <input type="email" id="tdInviteEmail" placeholder="Invite a student by email…" required />
+    <form class="td-invite" id="tdInviteForm" onsubmit="return ipTeachInvite(event)">
+      <label for="tdInviteEmail" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Student's email</label>
+      <input type="email" id="tdInviteEmail" placeholder="Invite a student by email…" required autocomplete="email" />
       <button type="submit" class="btn-primary">Send invite</button>
     </form>
+    <p id="tdFeedback" class="td-feedback" role="status" aria-live="polite"></p>
+  </div>
+
+  <div id="tdSkeleton" class="td-skel">
+    <div class="td-skel-card"></div>
+    <div class="td-skel-card"></div>
+    <div class="td-skel-card"></div>
   </div>
 
   <div id="tdStudents" class="td-students"></div>
+
   <div id="tdEmpty" class="td-empty" style="display:none;">
-    No linked students yet. Invite one with their email above — they'll see a consent prompt in their account.
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+    <div class="td-empty-title">No linked students yet</div>
+    <p class="td-empty-sub">Invite one with their email above. They'll see a consent prompt in their own account before anything is shared.</p>
   </div>
 </div>
 
-<div id="tdDetail" class="td-detail-pane" onclick="if(event.target===this)tdCloseDetail()">
+<div id="tdDetail" class="td-detail-pane" role="dialog" aria-modal="true" aria-labelledby="tdDetailTitle" onclick="if(event.target===this)ipTeachCloseDetail()">
   <div class="td-detail-box" id="tdDetailBox"></div>
 </div>
 
 <script>
-async function tdLoad() {
-  const r = await fetch('/api/roles/links', { credentials: 'same-origin' });
-  if (!r.ok) return;
-  const data = await r.json();
+async function ipTeachLoad() {
+  const skel = document.getElementById('tdSkeleton');
   const host = document.getElementById('tdStudents');
-  host.innerHTML = '';
-  if (!data.links || !data.links.length) {
-    document.getElementById('tdEmpty').style.display = 'block';
-    return;
-  }
-  document.getElementById('tdEmpty').style.display = 'none';
+  const empty = document.getElementById('tdEmpty');
+  try {
+    const r = await fetch('/api/roles/links', { credentials: 'same-origin' });
+    skel.style.display = 'none';
+    if (!r.ok) {
+      ipTeachShowFeedback('Couldn\'t load your students. Check your connection and try again.', 'error');
+      return;
+    }
+    const data = await r.json();
+    host.innerHTML = '';
+    if (!data.links || !data.links.length) {
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
 
-  for (const link of data.links) {
-    const card = document.createElement('div');
-    card.className = 'td-student-card' + (link.accepted ? '' : ' pending');
-    let inner = `
-      <div>
-        <div class="td-student-name">${link.student_name}</div>
-        <div class="td-student-email">${link.student_email}</div>
-      </div>`;
-    if (!link.accepted) {
-      inner += `<div><span class="td-pill">Awaiting consent</span></div>`;
-    } else {
-      inner += `<div id="tdStats-${link.student_id}" class="td-stats">
-        <div class="td-stat"><div class="td-stat-val">…</div><div class="td-stat-label">Total</div></div>
-        <div class="td-stat"><div class="td-stat-val">…</div><div class="td-stat-label">Done</div></div>
-        <div class="td-stat"><div class="td-stat-val">…</div><div class="td-stat-label">Avg %</div></div>
-      </div>`;
-    }
-    card.innerHTML = inner;
-    if (link.accepted) {
-      card.onclick = () => tdOpenDetail(link.student_id, link.student_name);
-      tdLoadStats(link.student_id);
-    }
-    host.appendChild(card);
+    data.links.forEach((link, i) => {
+      const card = document.createElement('div');
+      card.className = 'td-student-card ipd-anim' + (i < 4 ? ' ipd-d' + (i + 1) : '') + (link.accepted ? '' : ' pending');
+      let inner = `
+        <div>
+          <div class="td-student-name">${ipTeachEscape(link.student_name)}</div>
+          <div class="td-student-email">${ipTeachEscape(link.student_email)}</div>
+        </div>`;
+      if (!link.accepted) {
+        inner += `<div><span class="td-pill">Awaiting consent</span></div><p class="td-consent-note">They need to accept your invite from Settings → Linked accounts.</p>`;
+      } else {
+        inner += `<div id="tdStats-${link.student_id}" class="td-stats">
+          <div class="td-stat"><div class="td-stat-val is-loading">···</div><div class="td-stat-label">Total</div></div>
+          <div class="td-stat"><div class="td-stat-val is-loading">···</div><div class="td-stat-label">Done</div></div>
+          <div class="td-stat"><div class="td-stat-val is-loading">···</div><div class="td-stat-label">Avg %</div></div>
+        </div>`;
+      }
+      card.innerHTML = inner;
+      if (link.accepted) {
+        card.tabIndex = 0;
+        card.setAttribute('role', 'button');
+        card.setAttribute('aria-label', 'View ' + link.student_name + '\'s overview');
+        card.onclick = () => ipTeachOpenDetail(link.student_id, link.student_name);
+        card.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ipTeachOpenDetail(link.student_id, link.student_name); } };
+        ipTeachLoadStats(link.student_id);
+      }
+      host.appendChild(card);
+    });
+  } catch (e) {
+    skel.style.display = 'none';
+    ipTeachShowFeedback('Couldn\'t load your students. Check your connection and try again.', 'error');
   }
 }
 
-async function tdLoadStats(studentId) {
+function ipTeachEscape(str) {
+  const div = document.createElement('div');
+  div.textContent = str ?? '';
+  return div.innerHTML;
+}
+
+async function ipTeachLoadStats(studentId) {
   try {
     const r = await fetch(`/api/roles/student/${studentId}/overview`, { credentials: 'same-origin' });
     if (!r.ok) return;
@@ -114,37 +199,54 @@ async function tdLoadStats(studentId) {
       <div class="td-stat"><div class="td-stat-val">${s.total_assignments ?? 0}</div><div class="td-stat-label">Total</div></div>
       <div class="td-stat"><div class="td-stat-val">${s.completed ?? 0}</div><div class="td-stat-label">Done</div></div>
       <div class="td-stat"><div class="td-stat-val">${s.avg_percent != null ? s.avg_percent + '%' : '—'}</div><div class="td-stat-label">Avg</div></div>`;
-  } catch (e) { /* ignore */ }
+  } catch (e) { /* card keeps its loading skeleton; non-fatal */ }
 }
 
-async function tdOpenDetail(studentId, studentName) {
+async function ipTeachOpenDetail(studentId, studentName) {
+  const box = document.getElementById('tdDetailBox');
+  box.innerHTML = `<p style="color:var(--text-muted);">Loading ${ipTeachEscape(studentName)}'s overview…</p>`;
+  document.getElementById('tdDetail').classList.add('open');
   const r = await fetch(`/api/roles/student/${studentId}/overview`, { credentials: 'same-origin' });
-  if (!r.ok) return;
+  if (!r.ok) {
+    box.innerHTML = `<p style="color:var(--text-muted);">Couldn't load this student's overview. Check your connection and try again.</p>
+      <div style="margin-top:1.5rem;text-align:right;"><button class="btn-secondary" onclick="ipTeachCloseDetail()">Close</button></div>`;
+    return;
+  }
   const data = await r.json();
   const s = data.summary || {};
   const upcoming = (s.upcoming || []).map(u =>
-    `<li><strong>${u.title || 'Assignment'}</strong> · ${u.course || '—'} · ${u.due_date || 'no due date'}</li>`
-  ).join('') || '<li style="color:var(--text-muted);">Nothing upcoming.</li>';
-  document.getElementById('tdDetailBox').innerHTML = `
-    <h2 style="font-family:var(--font-display);font-size:1.5rem;margin:0 0 0.25rem;">${studentName}</h2>
-    <p style="color:var(--text-muted);margin:0 0 1.25rem;">Read-only snapshot. The student controls what's shared via /linked-accounts.</p>
+    `<li><strong>${ipTeachEscape(u.title || 'Assignment')}</strong> · ${ipTeachEscape(u.course || '—')} · ${ipTeachEscape(u.due_date || 'no due date')}</li>`
+  ).join('') || '<li class="td-detail-empty">Nothing upcoming.</li>';
+  box.innerHTML = `
+    <h2 id="tdDetailTitle" class="td-detail-title">${ipTeachEscape(studentName)}</h2>
+    <p class="td-detail-note">Read-only snapshot. The student controls what's shared via /linked-accounts.</p>
     <div class="td-stats" style="margin-bottom:1rem;">
       <div class="td-stat"><div class="td-stat-val">${s.total_assignments ?? 0}</div><div class="td-stat-label">Total</div></div>
       <div class="td-stat"><div class="td-stat-val">${s.completed ?? 0}</div><div class="td-stat-label">Done</div></div>
       <div class="td-stat"><div class="td-stat-val">${s.overdue ?? 0}</div><div class="td-stat-label">Overdue</div></div>
       <div class="td-stat"><div class="td-stat-val">${s.avg_percent != null ? s.avg_percent + '%' : '—'}</div><div class="td-stat-label">Avg %</div></div>
     </div>
-    <h3 style="font-family:var(--font-display);font-size:1.1rem;margin:1rem 0 0.5rem;">Upcoming</h3>
-    <ul style="padding-left:1.1rem;line-height:1.6;font-size:0.92rem;">${upcoming}</ul>
-    <div style="margin-top:1.5rem;text-align:right;"><button class="btn-secondary" onclick="tdCloseDetail()">Close</button></div>`;
-  document.getElementById('tdDetail').classList.add('open');
+    <h3 class="td-detail-heading">Upcoming</h3>
+    <ul class="td-detail-list">${upcoming}</ul>
+    <div style="margin-top:1.5rem;text-align:right;"><button class="btn-secondary" onclick="ipTeachCloseDetail()">Close</button></div>`;
 }
 
-function tdCloseDetail() { document.getElementById('tdDetail').classList.remove('open'); }
+function ipTeachCloseDetail() { document.getElementById('tdDetail').classList.remove('open'); }
 
-async function tdInvite(e) {
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && document.getElementById('tdDetail').classList.contains('open')) ipTeachCloseDetail();
+});
+
+function ipTeachShowFeedback(message, kind) {
+  const el = document.getElementById('tdFeedback');
+  el.textContent = message;
+  el.className = 'td-feedback visible ' + kind;
+}
+
+async function ipTeachInvite(e) {
   e.preventDefault();
-  const email = document.getElementById('tdInviteEmail').value.trim();
+  const input = document.getElementById('tdInviteEmail');
+  const email = input.value.trim();
   if (!email) return false;
   const r = await fetch('/api/roles/invite', {
     method: 'POST',
@@ -154,16 +256,20 @@ async function tdInvite(e) {
   });
   const data = await r.json();
   if (!r.ok) {
-    alert(data.error === 'student_not_found'
-      ? "We couldn't find a student with that email."
-      : 'Could not invite: ' + (data.error || r.status));
+    ipTeachShowFeedback(
+      data.error === 'student_not_found'
+        ? "We couldn't find a student with that email. Double-check it and try again."
+        : 'Could not send the invite: ' + (data.error || r.status),
+      'error'
+    );
     return false;
   }
-  document.getElementById('tdInviteEmail').value = '';
-  tdLoad();
+  ipTeachShowFeedback('Invite sent.', 'success');
+  input.value = '';
+  ipTeachLoad();
   return false;
 }
 
-tdLoad();
+ipTeachLoad();
 </script>
 {% endblock %}

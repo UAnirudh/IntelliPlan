@@ -26,7 +26,7 @@
   .sched-tab.active {
     background: var(--bg-card);
     color: var(--text-primary);
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    box-shadow: var(--shadow-sm);
   }
   .sched-tab svg { width: 14px; height: 14px; }
   .sched-tab .badge {
@@ -60,16 +60,16 @@
     margin-bottom: 6px; display: block;
   }
   .form-input, .scheduler-panel select {
-    padding: 10px 12px;
+    padding: 12px 14px;
     border: 1px solid var(--border);
     border-radius: var(--ipd-radius-sm);
     font-family: var(--ipd-font-body);
     font-size: 0.86rem;
     color: var(--text-primary);
     background: var(--bg);
+    transition: border-color 0.15s var(--ipd-ease-out);
   }
   .form-input:focus, .scheduler-panel select:focus {
-    outline: none;
     border-color: var(--text-muted);
   }
   .scheduler-loading {
@@ -169,10 +169,16 @@
   .custom-task-item button:hover { color: var(--high); }
 
   /* ── IPD Interactive View ────────────────────────── */
+  /* Mono time/data labels line up column-perfect. */
+  .time-slot, .iv-time, .day-hours, .iv-day-meta,
+  .block-duration, .iv-duration, .ck-progress-text,
+  .sched-tab .badge, .overview-stat {
+    font-variant-numeric: tabular-nums;
+  }
   .iv-empty {
     text-align: center; padding: 3rem 1.5rem;
     color: var(--text-muted); font-size: 0.9rem;
-    background: var(--bg-card);
+    background: var(--glass-bg);
     border: 2px dashed var(--border);
     border-radius: var(--ipd-radius-lg);
     font-family: var(--ipd-font-body);
@@ -220,11 +226,11 @@
   }
   .iv-block:hover {
     border-color: var(--text-muted);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    box-shadow: var(--shadow-sm);
     transform: translateY(-1px);
   }
   .iv-block:focus-visible {
-    outline: 2px solid var(--accent, #1a56db);
+    outline: 2px solid var(--focus-ring);
     outline-offset: 2px;
   }
   .iv-block.is-break { opacity: 0.6; cursor: default; }
@@ -280,7 +286,7 @@
     min-width: 190px;
     background: var(--bg-card); border: 1px solid var(--border);
     border-radius: var(--ipd-radius-md);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.14);
+    box-shadow: var(--shadow-lg);
     padding: 5px;
     display: none;
   }
@@ -305,13 +311,13 @@
   }
   .iv-check:hover { border-color: var(--text-primary); color: var(--text-primary); }
   .iv-check.checked {
-    background: var(--low, #0a7558); border-color: var(--low, #0a7558); color: #fff;
+    background: var(--low); border-color: var(--low); color: var(--bg-card);
   }
 
   /* ── IPD Checklist drawer ───────────────────────── */
   .ck-overlay {
     display: none; position: fixed; inset: 0; z-index: 1100;
-    background: rgba(7,8,20,0.55); backdrop-filter: blur(6px);
+    background: var(--scrim); backdrop-filter: blur(6px);
   }
   .ck-overlay.open { display: block; }
   .ck-drawer {
@@ -319,7 +325,7 @@
     width: min(520px, 100vw);
     background: var(--bg-card);
     border-left: 1px solid var(--border);
-    box-shadow: 0 24px 80px rgba(0,0,0,0.2);
+    box-shadow: var(--shadow-xl);
     transform: translateX(105%);
     transition: transform 0.28s var(--ipd-ease-out);
     z-index: 1101;
@@ -359,7 +365,7 @@
   }
   .ck-mode button.active {
     background: var(--bg-card); color: var(--text-primary);
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    box-shadow: var(--shadow-sm);
   }
 
   .ck-body {
@@ -431,7 +437,8 @@
 
   /* Context info panel */
   .iv-context {
-    background: var(--bg-card); border: 1px solid var(--border);
+    background: var(--glass-bg); border: 1px solid var(--glass-border);
+    box-shadow: var(--neu-shadow-sm);
     border-radius: var(--ipd-radius-lg); padding: 1.1rem 1.25rem; margin-bottom: 1.25rem;
     display: flex; align-items: flex-start; gap: 12px;
   }
@@ -457,6 +464,9 @@
     font-size: 0.86rem; transition: opacity 0.15s;
   }
   .btn-primary:hover { opacity: 0.88; }
+  .btn-primary:active:not(:disabled),
+  .btn-secondary:active:not(:disabled),
+  .sched-tab:active { transform: scale(0.98); }
   .btn-secondary {
     font-family: var(--ipd-font-body); font-weight: 600;
     border-radius: var(--ipd-radius-sm);
@@ -472,8 +482,9 @@
     text-align: center; padding: 3rem;
     font-family: var(--ipd-font-body);
     color: var(--text-muted);
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--neu-shadow-sm);
     border-radius: var(--ipd-radius-lg);
   }
   .empty-title {
@@ -498,15 +509,16 @@
     transition: border-color 0.15s, opacity 0.15s;
   }
   .exp-btn:hover { border-color: var(--text-muted); }
-  .exp-btn:disabled { opacity: 0.6; cursor: default; }
-  .exp-btn.exp-gcal { background: #ea4335; border-color: #ea4335; color: #fff; }
+  .exp-btn:disabled { opacity: 0.6; cursor: default; transform: none; }
+  .exp-btn:active:not(:disabled) { transform: scale(0.98); }
+  .exp-btn.exp-gcal { background: var(--accent); border-color: var(--accent); color: #fff; }
   .exp-btn.exp-gcal:hover { opacity: 0.9; }
   .exp-btn svg { width: 14px; height: 14px; }
 
   /* ── Saved-plan notice ────────────────────────── */
   .saved-notice {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-    background: var(--accent-soft, rgba(26,86,219,0.06));
+    background: var(--accent-soft);
     border: 1px solid var(--border);
     color: var(--text-secondary);
     border-radius: var(--ipd-radius-md); padding: 10px 14px; margin: 0 0 1rem;
@@ -526,8 +538,8 @@
   .gen-error {
     display: none; align-items: flex-start; gap: 10px;
     margin-top: 1rem; padding: 12px 14px;
-    background: var(--high-bg, rgba(220,38,38,0.06));
-    border: 1px solid var(--high, #dc2626);
+    background: var(--high-bg);
+    border: 1px solid var(--high);
     border-radius: var(--ipd-radius-md);
     color: var(--text-primary); font-family: var(--ipd-font-body); font-size: 0.86rem;
     line-height: 1.5;
@@ -535,7 +547,7 @@
   .gen-error.show { display: flex; }
   .gen-error .ge-retry {
     margin-left: auto; flex-shrink: 0;
-    background: var(--high, #dc2626); color: #fff; border: 0;
+    background: var(--high); color: #fff; border: 0;
     border-radius: 8px; padding: 7px 14px; cursor: pointer;
     font-family: var(--ipd-font-body); font-size: 0.78rem; font-weight: 600;
   }
@@ -547,12 +559,12 @@
     font-family: var(--ipd-font-mono); font-size: 0.6rem; font-weight: 700;
     letter-spacing: 0.07em; text-transform: uppercase;
     padding: 2px 8px; border-radius: 999px;
-    background: var(--accent, #1a56db); color: #fff;
+    background: var(--accent); color: #fff;
     vertical-align: 2px; margin-left: 8px;
   }
   .day-card.is-today, .iv-day-card.is-today {
-    border-color: var(--accent, #1a56db);
-    box-shadow: 0 0 0 1px var(--accent, #1a56db) inset;
+    border-color: var(--accent);
+    background: var(--accent-soft);
   }
 
   @media (max-width: 600px) {
@@ -579,17 +591,17 @@
 {% block content %}
 <div class="ipd-page-header ipd-anim ipd-d1">
   <div class="ipd-kicker">Planner</div>
-  <h1 class="ipd-page-title">AI Study Scheduler</h1>
+  <h1 class="ipd-page-title">Study scheduler</h1>
   <p class="ipd-page-subtitle">Build a plan, then work through it with an interactive checklist.</p>
 </div>
 
 <!-- ── TAB BAR ───────────────────────────────────────── -->
-<div class="sched-tabs" role="tablist">
+<div class="sched-tabs ipd-anim ipd-d2" role="tablist">
   <button type="button" class="sched-tab active" data-tab="creator" role="tab" aria-selected="true">
     <svg><use href="#i-pencil"/></svg> Creator
   </button>
   <button type="button" class="sched-tab" data-tab="interactive" role="tab" aria-selected="false">
-    <svg><use href="#i-check-circle"/></svg> Interactive View <span class="badge" id="ivBlockCount" style="display:none;">0</span>
+    <svg><use href="#i-check-circle"/></svg> Interactive view <span class="badge" id="ivBlockCount" style="display:none;">0</span>
   </button>
 </div>
 
@@ -626,12 +638,12 @@
       </div>
     </div>
     <div style="display:flex; gap:10px; align-items:center; margin-top:1.5rem; flex-wrap:wrap;">
-      <button class="btn-primary" id="generateBtn" type="button" onclick="generateSchedule()" style="padding:14px 32px; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:8px;"><svg width="16" height="16"><use href="#i-robot"/></svg> Generate My Study Plan</button>
+      <button class="btn-primary" id="generateBtn" type="button" onclick="generateSchedule()" style="padding:14px 32px; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:8px;"><svg width="16" height="16"><use href="#i-robot"/></svg> Generate my study plan</button>
       <div id="savePanel" style="display:none; gap:8px; align-items:center; flex-wrap:wrap;">
         <input type="text" id="scheduleName" class="form-input" placeholder="Schedule name..." style="max-width:200px;" />
-        <button type="button" onclick="saveSchedule()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--low); background:var(--low-bg); color:var(--low); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-save"/></svg> Save to Dashboard</button>
-        <button type="button" onclick="saveToMemories()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--accent); background:var(--accent-soft); color:var(--accent); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-save"/></svg> Save to Memories</button>
-        <button type="button" onclick="openInteractive()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--accent); background:var(--accent); color:#fff; cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-arrow-right"/></svg> Open Interactive View</button>
+        <button type="button" onclick="saveSchedule()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--low); background:var(--low-bg); color:var(--low); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-save"/></svg> Save to dashboard</button>
+        <button type="button" onclick="saveToMemories()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--accent); background:var(--accent-soft); color:var(--accent); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-save"/></svg> Save to memories</button>
+        <button type="button" onclick="openInteractive()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--accent); background:var(--accent); color:#fff; cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-arrow-right"/></svg> Open interactive view</button>
       </div>
     </div>
     <div class="gen-error" id="genError" role="alert">
