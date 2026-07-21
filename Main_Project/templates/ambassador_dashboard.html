@@ -24,7 +24,6 @@
   .tier-bronze { background:#fef3c7; color:#92400e; }
   .tier-silver { background:#e0e7ff; color:#3730a3; }
   .tier-gold { background:#fef9c3; color:#854d0e; }
-  .tier-platinum { background:#cffafe; color:#155e75; }
   .ad-progress { margin-top:1rem; }
   .ad-progress .bar-wrap { height:8px; background:var(--bg-elevated); border-radius:999px; overflow:hidden; }
   .ad-progress .bar { height:100%; background:var(--grad-brand); transition:width 0.5s ease; }
@@ -95,11 +94,10 @@
 <script>
 (async function () {
   function tierFor(n) {
-    if (n >= 25) return { name: "Platinum", cls: "tier-platinum", next: null,    needed: 0 };
-    if (n >= 10) return { name: "Gold",     cls: "tier-gold",     next: "Platinum", needed: 25 };
-    if (n >= 5)  return { name: "Silver",   cls: "tier-silver",   next: "Gold",     needed: 10 };
-    if (n >= 1)  return { name: "Bronze",   cls: "tier-bronze",   next: "Silver",   needed: 5  };
-    return       { name: "Not yet",         cls: "tier-none",     next: "Bronze",   needed: 1  };
+    if (n >= 50) return { name: "Gold",   cls: "tier-gold",   next: null,    needed: 0 };
+    if (n >= 25) return { name: "Silver", cls: "tier-silver", next: "Gold",    needed: 50 };
+    if (n >= 1)  return { name: "Bronze", cls: "tier-bronze", next: "Silver",  needed: 25 };
+    return       { name: "Not yet", cls: "tier-none",   next: "Bronze",  needed: 1  };
   }
   try {
     const r = await fetch('/api/referral');
