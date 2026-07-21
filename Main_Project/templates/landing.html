@@ -176,7 +176,7 @@
       "name": "Is IntelliPlan free for students?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. IntelliPlan is free to start for students and does not require a credit card to begin planning assignments and study time."
+        "text": "Yes. IntelliPlan is free to start for students and does not require extra information to begin planning assignments and study time."
       }
     },
     {
@@ -716,7 +716,7 @@
 
     <details class="faq-item">
       <summary>Is IntelliPlan free for students?</summary>
-      <p>Yes. IntelliPlan is free to start, so students can begin organizing assignments and study time without a credit card.</p>
+      <p>Yes. IntelliPlan is free to start, so students can begin organizing assignments and study time with no extra hurdles.</p>
     </details>
 
     <details class="faq-item">
@@ -954,7 +954,7 @@
 
 <section class="cta-section">
   <h2 class="cta-title">Ready to stop winging it?</h2>
-  <p class="cta-subtitle">Join students who use IntelliPlan to stay ahead, cut study stress, and plan their entire week in minutes. Free to start, no credit card.</p>
+  <p class="cta-subtitle">Join students who use IntelliPlan to stay ahead, cut study stress, and plan your week in minutes. Free to start, no extra hurdles.</p>
   <div class="cta-actions">
     <a href="/login" class="btn-primary cta-btn">Get Started Free →</a>
     <a href="#how-it-works" class="cta-ghost-btn cta-btn">See How It Works</a>
@@ -1685,26 +1685,42 @@
 
   .faq-item p { margin-top: 0.8rem; }
 
-  /* ── CTA outer dark wrapper ───────────────────────────────── */
+  /* ── CTA outer wrapper ────────────────────────────────────────
+     Neutral wrapper only. The dark treatment lives on the CTA card
+     itself (.cta-section below), NOT here — a full-bleed dark band
+     used to swallow the light-themed "Free student tools" grid and
+     render its dark text unreadable in light mode. */
   .cta-outer {
     width: 100%;
-    background: var(--ink, #161616);
+    background: transparent;
     margin-top: 1rem;
     position: relative;
     overflow: hidden;
   }
   .cta-outer::before { display: none; }
-  [data-theme="dark"] .cta-outer { background: #1a1a1a; }
 
-  /* ── CTA ─────────────────────────────────────────────────── */
-  .cta-section {
+  /* ── CTA — self-contained dark card, readable in both themes ──
+     Higher specificity (.cta-outer .cta-section) so it wins over the
+     generic base.html .cta-section { background: var(--bg-card) },
+     which otherwise painted this card white under white text. */
+  .cta-outer .cta-section {
     text-align: center;
-    padding: 5rem 1rem 5.5rem;
+    padding: clamp(3rem, 6vw, 5rem) 1.5rem;
     display: flex;
     flex-direction: column;
     align-items: center;
     position: relative;
     z-index: 1;
+    margin: 2.5rem auto 4rem;
+    background: radial-gradient(120% 140% at 50% 0%, #23232c 0%, #16161b 55%, #101014 100%);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: clamp(20px, 2vw, 28px);
+    box-shadow: 0 24px 60px -24px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  [data-theme="dark"] .cta-outer .cta-section {
+    background: radial-gradient(120% 140% at 50% 0%, #1c1c24 0%, #131318 55%, #0d0d11 100%);
+    border-color: rgba(255,255,255,0.10);
+    box-shadow: 0 24px 60px -28px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05);
   }
 
   .cta-title {
@@ -1719,9 +1735,9 @@
 
   .cta-subtitle {
     font-family: var(--font-ui);
-    color: rgba(255,255,255,0.55);
+    color: rgba(255,255,255,0.85);
     font-size: 1rem;
-    line-height: 1.7;
+    line-height: 1.8;
     margin: 0 auto 1.75rem;
     max-width: 40rem;
   }
@@ -1762,7 +1778,7 @@
   .cta-link {
     font-family: var(--font-ui);
     font-size: 0.84rem;
-    color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.65);
     text-decoration: none;
     transition: color 0.15s;
   }
