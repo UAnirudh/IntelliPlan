@@ -254,8 +254,8 @@
       --glass-btn-hover:    rgba(255,255,255,0.68);
       --glass-btn-shadow:   inset 0 1px 0 rgba(255,255,255,0.95), 0 1px 2px rgba(28,25,20,0.06), 0 4px 12px -4px rgba(var(--accent-shadow),0.14);
       --glass-btn-shadow-hover: inset 0 1px 0 rgba(255,255,255,1), 0 2px 6px rgba(28,25,20,0.08), 0 10px 24px -8px rgba(var(--accent-shadow),0.28);
-      --glass-primary-bg:   rgba(24,24,26,0.90);
-      --glass-primary-hover: rgba(38,38,42,0.94);
+      --glass-primary-bg:   rgba(22,22,26,0.78);
+      --glass-primary-hover: rgba(36,36,42,0.86);
       --glass-primary-text: #ffffff;
       --glass-input-bg:     rgba(255,255,255,0.5);
       --glass-input-border: rgba(0,0,0,0.10);
@@ -314,8 +314,8 @@
       --glass-btn-hover:    rgba(255,255,255,0.15);
       --glass-btn-shadow:   inset 0 1px 0 rgba(255,255,255,0.14), 0 1px 2px rgba(0,0,0,0.35), 0 4px 12px -4px rgba(0,0,0,0.4);
       --glass-btn-shadow-hover: inset 0 1px 0 rgba(255,255,255,0.20), 0 2px 6px rgba(0,0,0,0.4), 0 10px 24px -8px rgba(0,0,0,0.5);
-      --glass-primary-bg:   rgba(240,240,236,0.94);
-      --glass-primary-hover: rgba(255,255,255,0.98);
+      --glass-primary-bg:   rgba(240,240,236,0.84);
+      --glass-primary-hover: rgba(255,255,255,0.92);
       --glass-primary-text: #16161a;
       --glass-input-bg:     rgba(255,255,255,0.05);
       --glass-input-border: rgba(255,255,255,0.14);
@@ -1677,6 +1677,44 @@
     }
     .btn-secondary:hover { border-color:var(--glass-btn-border); color:var(--text-primary); background:var(--glass-btn-hover); transform:translateY(-1px); box-shadow:var(--glass-btn-shadow-hover); }
     .btn-secondary:active { transform:translateY(0) scale(0.98); }
+
+    /* ══════════════════════════════════════════════════════════
+       UNIVERSAL GLASS BUTTONS
+       Every button/CTA shares the frosted-glass material. Visual only
+       (background/border/blur/shadow) so each keeps its own size, shape
+       and radius. !important defeats the opaque background rules some
+       pages set. Structural toggles (nav tabs, theme switch, sidebar
+       links, command-palette items, segmented/aria-pressed controls)
+       opt out via :not(); add .no-glass to opt a one-off button out.
+    ══════════════════════════════════════════════════════════ */
+    /* Prominent / primary buttons — solid frosted material, strong label. */
+    body .btn-primary, body .ipd-btn-primary, body .mobile-cta-primary,
+    body button.is-primary, body .btn.is-primary, body input[type="submit"] {
+      background: var(--glass-primary-bg) !important;
+      color: var(--glass-primary-text) !important;
+      border: 1px solid rgba(255,255,255,0.16) !important;
+      -webkit-backdrop-filter: blur(12px) saturate(1.5) !important;
+      backdrop-filter: blur(12px) saturate(1.5) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 2px 8px rgba(0,0,0,0.14), 0 10px 26px -10px rgba(0,0,0,0.28) !important;
+    }
+    /* Everything else that's a button — translucent frosted glass. */
+    body button:not(.no-glass):not(.btn-primary):not(.ipd-btn-primary):not(.mobile-cta-primary):not(.nav-tab):not(.nav-tab-tutor):not([class*="toggle"]):not(.side-link):not(.cmd-item):not(.cmd-row):not([aria-pressed]):not(.seg-btn):not(input),
+    body a.btn-secondary, body .cta-ghost-btn, body .mini-btn, body .ad-btn,
+    body .check-btn, body .dropdown-btn, body .dismiss-btn, body .test-btn,
+    body .discord-btn, body .btn-guest, body .btn-google, body .logout-btn,
+    body .side-customize-btn, body .mobile-cta-secondary, body .amb-btn, body .ad-share a {
+      background: var(--glass-btn-bg) !important;
+      border: 1px solid var(--glass-btn-border) !important;
+      -webkit-backdrop-filter: blur(14px) saturate(1.6) !important;
+      backdrop-filter: blur(14px) saturate(1.6) !important;
+      box-shadow: var(--glass-btn-shadow) !important;
+    }
+    body button:not(.no-glass):not(.btn-primary):not(.ipd-btn-primary):not(.nav-tab):not([class*="toggle"]):not(.side-link):not(.cmd-item):not([aria-pressed]):hover,
+    body a.btn-secondary:hover, body .cta-ghost-btn:hover, body .mini-btn:hover,
+    body .ad-btn:hover, body .check-btn:hover, body .dropdown-btn:hover {
+      background: var(--glass-btn-hover) !important;
+      box-shadow: var(--glass-btn-shadow-hover) !important;
+    }
 
     /* ══════════════════════════════════════
        FORMS
