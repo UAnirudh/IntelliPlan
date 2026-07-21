@@ -1468,6 +1468,23 @@
       border-color: var(--border-strong) !important;
       box-shadow: none !important;
     }
+
+    /* Page-specific surfaces that already opt into --glass-bg (pricing,
+       compare, blog, tools, the study tools, parent/teacher panels, empty
+       states…) get real backdrop blur too, so the frosted material is
+       identical no matter which page defined the class. */
+    @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      body .pricing-card, body .pricing-faq-item, body .summary-card, body .compare-cta,
+      body .blog-cta, body .legal-card, body .calc-card, body .tool-cta,
+      body .ex-card, body .grade-card, body .lesson-card, body .upload-card,
+      body .math-card, body .writing-card, body .amb-card, body .ad-card, body .ad-stat,
+      body .pd-invite, body .pd-child, body .pd-empty,
+      body .td-invite, body .td-student-card, body .td-detail-box, body .td-empty,
+      body .iv-empty, body .iv-context, body .empty-state, body .settings-card {
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+        backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+      }
+    }
     @supports (backdrop-filter: blur(1px)) {
       body .ck-drawer, body .iv-move-menu, body .dropdown-menu, body .ipd-modal,
       body .mobile-nav-drawer, body .cc-mobile-drawer, body .cc-evolve-card {
@@ -2100,11 +2117,15 @@
       --bg:#ffffff; --bg-secondary:#ffffff; --bg-card:#ffffff; --bg-elevated:#f4f4f4;
       --border:#000000; --border-strong:#000000; --border-accent:#000000;
       --accent:#0000ee; --accent-hover:#0000aa;
+      /* Solid glass tokens so every frosted surface goes opaque with a hard
+         border — one override covers all glass classes at once. */
+      --glass-bg:#ffffff; --glass-border:#000000; --glass-shadow:none; --glass-highlight:none;
     }
     html[data-a11y-contrast="1"][data-theme="dark"] {
       --text-primary:#ffffff; --text-secondary:#f4f4f4; --text-muted:#cccccc;
       --bg:#000000; --bg-secondary:#000000; --bg-card:#0a0a0a; --bg-elevated:#1a1a1a;
       --border:#ffffff; --border-strong:#ffffff; --border-accent:#ffffff;
+      --glass-bg:#0a0a0a; --glass-border:#ffffff; --glass-shadow:none; --glass-highlight:none;
       --accent:#ffeb3b; --accent-hover:#ffd600;
     }
     html[data-a11y-contrast="1"] * { text-shadow: none !important; }
@@ -2220,6 +2241,12 @@ body {
   }
 }
 @media (max-width: 768px) {
+  /* Blur is disabled on mobile (below) so glass can't refract — make the
+     glass tokens themselves near-opaque here. One override covers every
+     glass surface sitewide, including page-specific ones, so nothing lets
+     the atmosphere bleed through and hurt contrast. */
+  :root[data-theme="light"] { --glass-bg: rgba(255,255,255,0.95); --glass-border: rgba(0,0,0,0.08); }
+  :root[data-theme="dark"]  { --glass-bg: rgba(24,24,28,0.95);    --glass-border: rgba(255,255,255,0.10); }
   /* backdrop-filter and large blurred backdrops are the biggest cause of
      stuttery scrolling on Android. Disable them on small screens. */
   *, *::before, *::after {
