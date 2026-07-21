@@ -1564,27 +1564,55 @@
     box-shadow: var(--shadow);
     padding: 1.75rem 1.5rem;
     display: grid;
-    grid-template-columns: 44px 1fr;
+    grid-template-columns: 46px 1fr;
     grid-template-rows: auto auto;
     gap: 0.3rem 1.1rem;
     align-items: start;
     transition: background 0.15s;
   }
   .feature-card:hover { background: var(--bg-elevated); }
+  /* ── GlassIcons treatment (React Bits inspired) ──────────────
+     Each feature icon is a frosted-glass "front" tile; ::before is a
+     colored gradient "back" that peeks out behind it and swings further
+     on card hover. Per-card colors below via nth-child. */
   .feature-icon {
     grid-row: span 2;
+    position: relative;
     font-size: 0;
-    margin-bottom: 0;
-    width: 44px; height: 44px;
+    margin: 0;
+    width: 46px; height: 46px;
     display: flex; align-items: center; justify-content: center;
-    background: rgba(22,22,22,0.07);
-    border-radius: var(--r-md);
-    color: var(--ink, #161616);
-    margin-left: 0; margin-right: 0;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.5);
+    border: 1px solid rgba(255,255,255,0.75);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 6px 16px -8px rgba(var(--icon-rgb, var(--accent-shadow)),0.55);
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    color: var(--text-primary);
     align-self: start;
     flex-shrink: 0;
+    z-index: 1;
+    transition: transform 0.4s var(--ease-spring), box-shadow 0.4s var(--ease-spring);
   }
-  [data-theme="dark"] .feature-icon { background: rgba(232,232,228,0.1); color: var(--ink, #e8e8e4); }
+  .feature-icon::before {
+    content: '';
+    position: absolute; inset: 0; z-index: -1;
+    border-radius: inherit;
+    background: var(--icon-grad, linear-gradient(135deg, #1e40af, #3b82f6));
+    transform: rotate(13deg);
+    transform-origin: 100% 100%;
+    box-shadow: 0 8px 18px -6px rgba(var(--icon-rgb, var(--accent-shadow)),0.6);
+    transition: transform 0.4s var(--ease-spring);
+  }
+  .feature-card:hover .feature-icon { transform: translateY(-1px); }
+  .feature-card:hover .feature-icon::before { transform: rotate(24deg) translate3d(-3px,-3px,0); }
+  /* React Bits color set, one per feature card */
+  .feature-card:nth-child(1) .feature-icon { --icon-grad: linear-gradient(hsl(223,90%,50%),hsl(208,90%,50%)); --icon-rgb: 26,86,219; }
+  .feature-card:nth-child(2) .feature-icon { --icon-grad: linear-gradient(hsl(283,90%,50%),hsl(268,90%,50%)); --icon-rgb: 147,51,234; }
+  .feature-card:nth-child(3) .feature-icon { --icon-grad: linear-gradient(hsl(123,90%,40%),hsl(108,90%,40%)); --icon-rgb: 22,163,74; }
+  .feature-card:nth-child(4) .feature-icon { --icon-grad: linear-gradient(hsl(43,90%,50%),hsl(28,90%,50%));  --icon-rgb: 217,119,6; }
+  .feature-card:nth-child(5) .feature-icon { --icon-grad: linear-gradient(hsl(253,90%,58%),hsl(238,90%,58%)); --icon-rgb: 79,70,229; }
+  .feature-card:nth-child(6) .feature-icon { --icon-grad: linear-gradient(hsl(3,90%,52%),hsl(348,90%,52%));  --icon-rgb: 220,38,38; }
+  [data-theme="dark"] .feature-icon { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.14); color: var(--text-primary); }
   .feature-title { align-self: end; }
   .feature-desc { grid-column: 2; margin: 0; }
 
