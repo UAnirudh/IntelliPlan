@@ -3,6 +3,23 @@
 {% set _marketing = _p in ['/', '/faq', '/compare', '/about', '/contact', '/legal', '/install', '/blog', '/uk', '/schools', '/olympiad', '/tutor', '/api-docs', '/developers'] or _p.startswith('/blog/') or _p.startswith('/compare/') or _p.startswith('/tools/') %}
 {% set _trust = _p in ['/', '/about'] %}
 
+{# Glass-calm state coverage for the footer's inline-styled links. Inline
+   opacity is overridden with !important on hover/focus; focus-visible adds
+   the shared accent ring so keyboard users see where they are. #}
+<style>
+  footer a { transition: opacity .18s var(--ease-out), color .18s var(--ease-out); }
+  footer a:hover { opacity: 1 !important; color: var(--footer-link) !important; }
+  footer a:focus-visible {
+    outline: 2px solid var(--focus-ring, var(--accent));
+    outline-offset: 2px; border-radius: 5px; opacity: 1 !important;
+  }
+  footer details > summary { transition: opacity .18s var(--ease-out); }
+  footer details > summary:hover { opacity: 1 !important; }
+  footer details > summary:focus-visible {
+    outline: 2px solid var(--focus-ring, var(--accent)); outline-offset: 2px; border-radius: 5px;
+  }
+</style>
+
 <footer style="
   margin-top: auto;
   padding: 1.75rem 2rem;
@@ -25,7 +42,7 @@
       <a href="/blog" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Guides</a>
       <a href="/olympiad" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Olympiad Prep</a>
       <a href="/compare" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Compare</a>
-      <a href="/pricing" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Pricing</a>
+      <a href="/pricing" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Free plan</a>
       <a href="/contact" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Contact</a>
       <a href="/ambassador" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Ambassador</a>
       <a href="/api-docs" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">API</a>
