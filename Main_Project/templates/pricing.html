@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block page_title %}Pricing | IntelliPlan — Free AI Study Planner for Students{% endblock %}
+{% block page_title %}IntelliPlan is Free | Free AI Study Planner for Students{% endblock %}
 
 {# Canonical, og:url, og:type are emitted globally by base.html. #}
-{% block meta_description %}IntelliPlan is free forever for students. Upgrade to Pro ($4.99/mo) for unlimited lesson recordings, study groups, and AI tools.{% endblock %}
-{% block og_title %}IntelliPlan Pricing, Free Forever, Pro $4.99/mo{% endblock %}
-{% block og_description %}IntelliPlan is free to get started. Upgrade to Pro for unlimited AI study tools, lesson recordings, and live study groups.{% endblock %}
-{% block twitter_title %}IntelliPlan Pricing, Free Forever, Pro $4.99/mo{% endblock %}
-{% block twitter_description %}IntelliPlan is free to get started. Upgrade to Pro for unlimited AI study tools, lesson recordings, and live study groups.{% endblock %}
+{% block meta_description %}IntelliPlan is free for students. Connect Canvas, StudentVue, and Schoology assignments, build AI study schedules, and use the full planner without hidden fees.{% endblock %}
+{% block og_title %}IntelliPlan is Free | AI Study Planner for Students{% endblock %}
+{% block og_description %}IntelliPlan is free for students. Connect Canvas, StudentVue, or Schoology, generate a study schedule, and access AI tutor and grade modeling at no cost.{% endblock %}
+{% block twitter_title %}IntelliPlan is Free | AI Study Planner for Students{% endblock %}
+{% block twitter_description %}IntelliPlan is free for students. Connect school tools, auto-prioritize assignments, and build a study schedule with AI at no cost.{% endblock %}
 
 {% block head_extra %}
 <script type="application/ld+json">
@@ -22,21 +22,7 @@
       "name": "Free Plan",
       "price": "0",
       "priceCurrency": "USD",
-      "description": "Get started free. Connect Canvas, StudentVue, or Schoology and see your priorities."
-    },
-    {
-      "@type": "Offer",
-      "name": "IntelliPlan Pro",
-      "price": "4.99",
-      "priceCurrency": "USD",
-      "priceSpecification": {
-        "@type": "UnitPriceSpecification",
-        "price": "4.99",
-        "priceCurrency": "USD",
-        "billingDuration": "P1M",
-        "unitText": "MONTH"
-      },
-      "description": "Unlimited lesson recordings with AI summaries, unlimited study groups, no daily caps on Writing, Math, and Task Extractor."
+      "description": "Free forever for students. Connect Canvas, StudentVue, or Schoology and automate your study plan."
     }
   ]
 }
@@ -47,77 +33,60 @@
 
 <style>
   .pricing-page {
-    max-width: 800px;
+    max-width: 860px;
     margin: 0 auto;
-    padding: 2.5rem 1rem 4rem;
-  }
-  .pricing-kicker {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.45rem 0.8rem;
-    border-radius: 999px;
-    background: var(--accent-soft);
-    color: var(--accent);
-    font-family: var(--font-ui);
-    font-size: 0.8rem;
-    font-weight: 700;
-    margin-bottom: 1rem;
+    padding: var(--space-6) var(--space-4) var(--space-8);
   }
   .pricing-title {
     font-family: var(--font-display);
-    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 400;
+    font-size: clamp(2rem, 1.4rem + 2.6vw, 3.1rem);
     line-height: 1.05;
     color: var(--text-primary);
-    letter-spacing: -0.03em;
+    letter-spacing: -0.02em;
     margin: 0 0 0.75rem;
+    text-wrap: balance;
   }
   .pricing-subtitle {
-    font-family: var(--font-ui);
+    font-family: var(--font-body);
     font-size: 1rem;
     color: var(--text-secondary);
     line-height: 1.7;
-    margin: 0 0 2.5rem;
+    max-width: 62ch;
+    margin: 0 0 var(--space-6);
   }
   .pricing-cards {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.25rem;
-    margin-bottom: 2.5rem;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
     align-items: stretch;
   }
   @media (max-width: 720px) { .pricing-cards { grid-template-columns: 1fr; } }
   .pricing-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--r-xl);
-    padding: 2rem;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--neu-shadow-sm);
+    padding: var(--space-6) var(--space-5) var(--space-5);
     display: flex;
     flex-direction: column;
     position: relative;
+    transition: transform var(--t-base) var(--ease-out), box-shadow var(--t-base) ease, border-color var(--t-base) ease;
   }
-  .pricing-card.featured {
-    border-color: var(--border-accent);
-    box-shadow: var(--accent-glow);
-  }
-  .pricing-card.pro {
-    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, var(--bg-card)), var(--bg-card) 65%);
-    border: 1.5px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  .pricing-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+    border-color: var(--border-strong);
   }
   .pricing-card .pricing-features { flex: 1; }
-  .pricing-strike {
-    text-decoration: line-through;
-    color: var(--text-muted);
-    font-size: 0.9rem;
-    font-family: var(--font-ui);
-    margin-left: 6px;
-    font-weight: 600;
-  }
   .pricing-month-tag {
-    font-family: var(--font-ui);
+    font-family: var(--font-body);
     font-size: 0.95rem;
     color: var(--text-muted);
-    font-weight: 600;
+    font-weight: 500;
     margin-left: 4px;
+    letter-spacing: 0;
   }
   .pricing-card-header {
     display: flex;
@@ -125,206 +94,201 @@
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 0.75rem;
-    margin-bottom: 1rem;
+    margin-bottom: var(--space-4);
+    min-height: 30px;
   }
   .pricing-plan-name {
     font-family: var(--font-display);
+    font-weight: 400;
     font-size: 1.4rem;
     color: var(--text-primary);
     margin: 0;
   }
-  .pricing-plan-name.accent { color: var(--accent); }
   .pricing-badge {
-    background: var(--accent-soft);
-    color: var(--accent);
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
     font-family: var(--font-ui);
-    font-size: 0.76rem;
+    font-size: 0.72rem;
     font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     padding: 0.3rem 0.7rem;
-    border-radius: 999px;
+    border-radius: var(--r-full);
   }
   .pricing-price {
     font-family: var(--font-display);
+    font-weight: 400;
     font-size: 2.8rem;
-    color: var(--accent);
-    letter-spacing: -0.04em;
+    color: var(--text-primary);
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
     margin: 0 0 0.25rem;
     line-height: 1;
   }
   .pricing-price-note {
-    font-family: var(--font-ui);
+    font-family: var(--font-body);
     font-size: 0.88rem;
     color: var(--text-muted);
-    margin: 0 0 1.5rem;
+    min-height: 1.3em;
+    margin: 0 0 var(--space-5);
   }
   .pricing-features {
     list-style: none;
     padding: 0;
-    margin: 0 0 1.75rem;
+    margin: 0 0 var(--space-5);
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
   }
   .pricing-features li {
-    font-family: var(--font-ui);
-    font-size: 0.95rem;
+    font-family: var(--font-body);
+    font-size: 0.94rem;
+    line-height: 1.5;
     color: var(--text-secondary);
     display: flex;
     align-items: flex-start;
     gap: 0.6rem;
   }
+  .pricing-features li strong { color: var(--text-primary); font-weight: 600; }
   .pricing-features li::before {
-    content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23059669' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+    content: "";
+    width: 15px;
+    height: 15px;
     flex-shrink: 0;
-    margin-top: 0.05rem;
+    margin-top: 0.2rem;
+    background: var(--accent);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  /* CTA pinned to the card bottom by the flex column above. */
+  .pricing-cta {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: 44px;
+    margin-top: auto;
   }
   .pricing-faq {
-    margin-top: 2.5rem;
+    margin-top: var(--space-6);
   }
   .pricing-faq h2 {
     font-family: var(--font-display);
+    font-weight: 400;
     font-size: 1.5rem;
     color: var(--text-primary);
-    margin: 0 0 1rem;
+    margin: 0 0 var(--space-4);
+    text-wrap: balance;
   }
   .pricing-faq-item {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--r-xl);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--neu-shadow-sm);
     padding: 1rem 1.25rem;
     margin-bottom: 0.6rem;
+    transition: border-color var(--t-base) ease;
   }
+  .pricing-faq-item:hover { border-color: var(--border-strong); }
   .pricing-faq-item summary {
     cursor: pointer;
-    font-family: var(--font-ui);
+    font-family: var(--font-body);
     font-size: 0.95rem;
     font-weight: 600;
     color: var(--text-primary);
     list-style: none;
+    padding: 0.25rem 0;
+    min-height: 28px;
   }
+  .pricing-faq-item summary:hover { color: var(--accent); }
   .pricing-faq-item summary::-webkit-details-marker { display: none; }
   .pricing-faq-item p {
     margin: 0.75rem 0 0;
-    font-family: var(--font-ui);
+    font-family: var(--font-body);
     font-size: 0.92rem;
     color: var(--text-secondary);
+    max-width: 65ch;
     line-height: 1.7;
   }
-</style>
-
-<style>
-  /* Premium polish pass — matches the revamped landing/auth language. */
-  .pricing-page .pricing-title {
-    letter-spacing: -0.045em;
-    background: linear-gradient(180deg, var(--text-primary) 0%, color-mix(in srgb, var(--text-primary) 72%, transparent) 100%);
-    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-  }
-  .pricing-page .pricing-cards > div {
-    transition: transform 0.25s var(--ease-out), box-shadow 0.25s ease, border-color 0.25s ease;
-  }
-  .pricing-page .pricing-cards > div:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-hover);
-    border-color: var(--border-accent);
-  }
-  .pricing-page a:focus-visible,
-  .pricing-page button:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-    border-radius: 10px;
-  }
+  .pricing-faq-item a { color: var(--accent); }
   @media (prefers-reduced-motion: reduce) {
-    .pricing-page .pricing-cards > div { transition: none; }
+    .pricing-card { transition: none; }
+    .pricing-card:hover { transform: none; }
   }
 </style>
 <div class="pricing-page">
-  <span class="pricing-kicker">Pricing</span>
-  <h1 class="pricing-title">Free forever. Pro when you're ready.</h1>
-  <p class="pricing-subtitle">
-    IntelliPlan is free for students. Connect your school tools, auto-prioritize your assignments,
-    and build your first AI study schedule today, no credit card required. Upgrade to Pro for
-    unlimited lesson recordings, study groups, and AI tools whenever you want.
+  <p class="page-kicker ipd-anim">Free plan</p>
+  <h1 class="pricing-title ipd-anim" style="animation-delay:0.05s">Free forever. No tiers. No catch.</h1>
+  <p class="pricing-subtitle ipd-anim" style="animation-delay:0.1s">
+    IntelliPlan is free for students. Connect your school tools, auto-prioritize every assignment, and build a study schedule with AI today. No sign-up barriers, no locked features, and no hidden hurdles.
   </p>
 
   <div class="pricing-cards">
-    <div class="pricing-card featured">
+    <div class="pricing-card ipd-anim" style="animation-delay:0.15s">
       <div class="pricing-card-header">
-        <h2 class="pricing-plan-name accent">Free</h2>
-        <span class="pricing-badge">Get started</span>
+        <h2 class="pricing-plan-name">Always free</h2>
+        <span class="pricing-badge">Student-first</span>
       </div>
       <div class="pricing-price">$0<span class="pricing-month-tag">/forever</span></div>
-      <p class="pricing-price-note">No credit card. No time limit.</p>
+      <p class="pricing-price-note">No barriers. No time limit.</p>
       <ul class="pricing-features">
         <li>Canvas / StudentVue / Schoology auto-import</li>
         <li>AI-generated study schedules + Google Calendar &amp; Notion export</li>
         <li>Priority scoring across every class</li>
         <li>Grade Modeler with simulate &amp; reset</li>
         <li>Study &amp; Learn, flashcards, quizzes, lesson sessions</li>
-        <li>Daily Spark chest + streak rewards</li>
-        <li>Writing Assistant, Math Explainer, Task Extractor <em>(daily caps)</em></li>
-        <li>Up to 3 lesson recordings with AI summaries</li>
-        <li>Up to 1 owned study group</li>
-        <li>PWA, install on iPhone &amp; Android</li>
+        <li>Writing Assistant, Math Explainer, Task Extractor</li>
+        <li>Lecture-to-flashcard AI, PDF notes, and practice quizzes</li>
+        <li>Study group planning, progress tracking, and reminders</li>
       </ul>
-      <a href="/login" class="btn-primary" style="text-decoration:none;display:inline-block;text-align:center;">Get Started Free →</a>
+      <a href="/login" class="btn-primary pricing-cta">Get started free →</a>
     </div>
 
-    <div class="pricing-card pro">
+    <div class="pricing-card ipd-anim" style="animation-delay:0.2s">
       <div class="pricing-card-header">
-        <h2 class="pricing-plan-name accent">Pro</h2>
-        <span class="pricing-badge">Most popular</span>
+        <h2 class="pricing-plan-name">Why it works this way</h2>
+        <span class="pricing-badge">Built for students</span>
       </div>
-      <div class="pricing-price">$4.99<span class="pricing-month-tag">/month</span></div>
-      <p class="pricing-price-note">Cancel anytime. Billed monthly via Stripe.</p>
+      <div class="pricing-price">Free for students</div>
+      <p class="pricing-price-note">Every core planner feature is included.</p>
       <ul class="pricing-features">
-        <li><strong>Everything in Free</strong>, plus:</li>
-        <li>Unlimited lesson recordings + Whisper transcripts &amp; AI summaries</li>
-        <li>Unlimited study groups with private Jitsi rooms</li>
-        <li>Live study sessions, audio/video + shared materials</li>
-        <li>Writing Assistant, Math Explainer, Task Extractor, no daily caps</li>
-        <li>Public REST API + MCP server access</li>
-        <li>Priority AI replies + faster responses</li>
-        <li>SMS study reminders (Twilio-backed)</li>
-        <li>Refer a friend → both get 14 bonus Pro days</li>
+        <li>Designed around real classes, not upsells</li>
+        <li>All planning, scheduling, and tutor tools are available to every user</li>
+        <li>No feature gates for AI, grades, or study sessions</li>
+        <li>Instant access with email or Google sign in</li>
+        <li>Works on desktop, phone, and as a Progressive Web App</li>
       </ul>
-      <a href="/settings#proCard" class="btn-primary" style="text-decoration:none;display:inline-block;text-align:center;">Upgrade to Pro →</a>
+      <a href="/login" class="btn-primary pricing-cta">Start planning free →</a>
     </div>
   </div>
 
   <div class="pricing-faq">
-    <h2>Pricing questions</h2>
+    <h2>Common questions</h2>
 
     <details class="pricing-faq-item">
-      <summary>Is the Free plan really free forever?</summary>
-      <p>Yes. The Free plan stays free with no time limit and no credit card. You can connect Canvas, StudentVue, or Schoology, build AI study schedules, model your grade, and use Writing / Math / Task Extractor every day. The only ceilings are the lesson recordings (3), owned study groups (1), and per-day caps on the AI tools, Pro lifts all of those.</p>
+      <summary>Is IntelliPlan really free forever?</summary>
+      <p>Yes. IntelliPlan is free forever with no sign-up barriers. You can connect Canvas, StudentVue, or Schoology, build AI study schedules, model your grades, and use the built-in study tools without any feature gates.</p>
     </details>
 
     <details class="pricing-faq-item">
-      <summary>What do I get with Pro?</summary>
-      <p>Unlimited lesson recordings with Whisper transcription + AI summaries, unlimited study groups (including live audio/video study sessions with shared materials), and no daily caps on the Writing Assistant, Math Explainer, or Task Extractor. You also get access to the public REST API + MCP server, priority AI replies, and optional SMS study reminders.</p>
+      <summary>How does IntelliPlan stay free?</summary>
+      <p>IntelliPlan is built for students first. We keep the core planning experience fully accessible so every student can benefit from assignment prioritization, scheduling, and tutoring without friction.</p>
     </details>
 
     <details class="pricing-faq-item">
-      <summary>How does billing work?</summary>
-      <p>Pro is $4.99/month, billed by Stripe. You'll be redirected to Stripe Checkout, never enter card details on IntelliPlan directly. Cancel anytime from Settings → IntelliPlan Pro, and you keep access until the end of the period you paid for.</p>
+      <summary>Can I get started right away?</summary>
+      <p>Yes. You can create an account and connect your school tools with just an email address or Google sign-in. IntelliPlan works immediately after sign-up.</p>
     </details>
 
     <details class="pricing-faq-item">
-      <summary>Can I try Pro before paying?</summary>
-      <p>Refer a friend with your link (Settings → Refer a friend) and you both get 14 days of Pro for free, every time. Stack invites to keep Pro running indefinitely. There's also a 30-day trial path for new accounts when Stripe isn't required by the deployment.</p>
+      <summary>Are there any limits on the free plan?</summary>
+      <p>IntelliPlan gives students access to scheduling, grade modeling, assignment prioritization, and AI study tools. The experience is designed to support students without hiding key features behind separate account levels.</p>
     </details>
 
     <details class="pricing-faq-item">
-      <summary>Do I need a credit card to sign up?</summary>
-      <p>No. You can create an account and connect your school tools with just an email address (or Google sign-in). A card is only required when you choose to upgrade to Pro.</p>
-    </details>
-
-    <details class="pricing-faq-item">
-      <summary>How does IntelliPlan compare to paid tools like Shovel?</summary>
-      <p>
-        Shovel charges a yearly or lifetime subscription to access its core scheduling features. IntelliPlan gives you AI scheduling, LMS integration (including StudentVue, which Shovel doesn't support), and Grade Modeling for free.
-        See the full <a href="/compare" style="color:var(--accent)">comparison here</a>.
-      </p>
+      <summary>How does IntelliPlan compare to other planners?</summary>
+      <p>IntelliPlan includes LMS integration, AI scheduling, grade modeling, and study tools in one experience. Many other planners are either manual, require more setup, or do not support direct Canvas/StudentVue integration.</p>
     </details>
   </div>
 </div>
