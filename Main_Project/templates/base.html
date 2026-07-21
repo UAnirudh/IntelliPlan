@@ -238,10 +238,11 @@
       --glass-border:  rgba(255,255,255,0.70);
       --glass-blur:    18px;
       --glass-saturate: 1.6;
-      /* Glass depth: crisp top edge-light + ambient drop shadow. Pairs with
-         backdrop blur to make surfaces feel like real frosted panes. */
-      --glass-shadow:  inset 0 1px 0 rgba(255,255,255,0.75), inset 0 0 0 1px rgba(255,255,255,0.16), 0 10px 34px rgba(28,25,20,0.10), 0 2px 8px rgba(28,25,20,0.06);
-      --glass-highlight: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 42%);
+      /* Glass depth: bright top edge-light + a crisp 1px inner refraction
+         border + an accent-TINTED ambient drop (never flat black). Pairs with
+         backdrop blur to make surfaces read as real frosted panes. */
+      --glass-shadow:  inset 0 1.5px 0 rgba(255,255,255,0.95), inset 0 0 0 1px rgba(255,255,255,0.45), 0 16px 40px -12px rgba(var(--accent-shadow),0.22), 0 4px 14px rgba(28,25,20,0.08);
+      --glass-highlight: linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.08) 34%, rgba(255,255,255,0) 60%);
       --neu-shadow:    7px 7px 16px rgba(28,25,20,0.07), -7px -7px 16px rgba(255,255,255,0.90);
       --neu-shadow-sm: 3px 3px 8px rgba(28,25,20,0.06), -3px -3px 8px rgba(255,255,255,0.85);
       --neu-inset:     inset 2px 2px 5px rgba(28,25,20,0.06), inset -2px -2px 5px rgba(255,255,255,0.90);
@@ -290,8 +291,8 @@
       --glass-border:  rgba(255,255,255,0.12);
       --glass-blur:    20px;
       --glass-saturate: 1.7;
-      --glass-shadow:  inset 0 1px 0 rgba(255,255,255,0.10), inset 0 0 0 1px rgba(255,255,255,0.04), 0 12px 40px rgba(0,0,0,0.45), 0 2px 10px rgba(0,0,0,0.35);
-      --glass-highlight: linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0) 46%);
+      --glass-shadow:  inset 0 1.5px 0 rgba(255,255,255,0.18), inset 0 0 0 1px rgba(255,255,255,0.08), 0 18px 46px -14px rgba(0,0,0,0.55), 0 4px 14px rgba(0,0,0,0.30);
+      --glass-highlight: linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.03) 40%, rgba(255,255,255,0) 62%);
       --neu-shadow:    7px 7px 16px rgba(0,0,0,0.50), -5px -5px 14px rgba(255,255,255,0.025);
       --neu-shadow-sm: 3px 3px 8px rgba(0,0,0,0.45), -3px -3px 8px rgba(255,255,255,0.02);
       --neu-inset:     inset 2px 2px 5px rgba(0,0,0,0.50), inset -2px -2px 5px rgba(255,255,255,0.03);
@@ -745,10 +746,11 @@
       position: fixed; inset: 0;
       pointer-events: none; z-index: 0;
       background:
-        radial-gradient(46rem 40rem at 6% -6%,  rgba(var(--accent-shadow),0.16) 0%, transparent 58%),
-        radial-gradient(40rem 38rem at 98% 2%,  rgba(var(--accent-shadow),0.10) 0%, transparent 60%),
-        radial-gradient(54rem 50rem at 84% 106%, rgba(var(--accent-shadow),0.11) 0%, transparent 60%),
-        radial-gradient(38rem 34rem at 30% 118%, rgba(var(--accent-shadow),0.07) 0%, transparent 62%);
+        radial-gradient(50rem 44rem at 4% -8%,   rgba(var(--accent-shadow),0.30) 0%, transparent 56%),
+        radial-gradient(44rem 40rem at 100% 0%,  rgba(var(--accent-shadow),0.20) 0%, transparent 58%),
+        radial-gradient(58rem 54rem at 88% 108%, rgba(var(--accent-shadow),0.22) 0%, transparent 58%),
+        radial-gradient(40rem 36rem at 22% 120%, rgba(var(--accent-shadow),0.14) 0%, transparent 60%),
+        radial-gradient(30rem 30rem at 50% 42%,  rgba(var(--accent-shadow),0.05) 0%, transparent 60%);
       opacity: 1;
     }
     [data-theme="dark"] body::before { opacity: 0.85; }
@@ -1319,7 +1321,7 @@
     [data-theme="light"] body.has-side { --bg: #f6f6f8; --bg-elevated: #ececef; }
     [data-theme="dark"]  body.has-side { --bg: #0d0d0f; --bg-elevated: #1a1a1e; }
     /* Calm the ambient wash + grain — Apple surfaces read clean, not textured. */
-    body.has-side::before { opacity: 0.20; }
+    body.has-side::before { opacity: 0.55; }
     body.has-side::after  { opacity: 0.012; }
 
     /* Seamless, minimal sidebar: blends into the canvas behind a hairline
@@ -1374,7 +1376,7 @@
     body .day-card, body .iv-day-card, body .overview-card, body .scheduler-panel,
     body .focus-task-card, body .focus-log-card, body .focus-stats,
     body .gp-panel, body .cc-rail, body .cc-card {
-      background: var(--glass-bg);
+      background: var(--glass-highlight), var(--glass-bg);
       border: 1px solid var(--glass-border);
       box-shadow: var(--glass-shadow);
     }
@@ -1444,7 +1446,7 @@
     body .feature-card, body .answer-card, body .integration-card,
     body .review-card, body .step-card, body .comparison-card,
     body .lp-tool-card, body .about-card, body .faq-item, body .demo-panel {
-      background: var(--glass-bg);
+      background: var(--glass-highlight), var(--glass-bg);
       border: 1px solid var(--glass-border);
       box-shadow: var(--glass-shadow);
     }
