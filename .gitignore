@@ -17,3 +17,16 @@ Thumbs.db
 # (it's a 7.5MB zip + a full duplicate of the source tree).
 AppStore-Launch/IntelliPlan-Full-Package/
 AppStore-Launch/IntelliPlan-Full-Package.zip
+
+# Customer export and HubSpot artifacts — case-insensitive-safe (must hold on
+# Linux/CI where gitignore matching is case-sensitive), so list every casing.
+hubspot_contacts.csv
+[Hh]ub[Ss]pot*.csv
+*[Hh]ub[Ss]pot*.csv
+*[Ee]xport*.csv
+*[Cc]ustomer*[Ee]xport*.csv
+*[Cc]ontacts*[Ee]xport*.csv
+# Generic customer/contact data dumps
+contacts.csv
+customers.csv
+leads.csv
