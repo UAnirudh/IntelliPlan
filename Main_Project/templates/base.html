@@ -234,15 +234,18 @@
          skip backdrop-filter for perf, so the fill alone must carry contrast.
          The glass read comes from blur + the ambient atmosphere + edge-light,
          not from extreme transparency (which also looks less premium). */
-      --glass-bg:      rgba(255,255,255,0.55);
-      --glass-border:  rgba(255,255,255,0.75);
-      --glass-blur:    22px;
-      --glass-saturate: 1.7;
+      --glass-bg:      rgba(255,255,255,0.40);
+      --glass-border:  rgba(255,255,255,0.80);
+      --glass-blur:    26px;
+      --glass-saturate: 1.8;
       /* Glass depth: bright top edge-light + a crisp 1px inner refraction
          border + an accent-TINTED ambient drop (never flat black). Pairs with
          backdrop blur to make surfaces read as real frosted panes. */
-      --glass-shadow:  inset 0 1.5px 0 rgba(255,255,255,0.95), inset 0 0 0 1px rgba(255,255,255,0.45), 0 16px 40px -12px rgba(var(--accent-shadow),0.22), 0 4px 14px rgba(28,25,20,0.08);
-      --glass-highlight: linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.08) 34%, rgba(255,255,255,0) 60%);
+      /* LiquidGlass edge layer: crisp white inner rim on all sides + a soft
+         ambient glow. This is what reads as a real frosted pane over the
+         aurora backdrop, even when the fill is very translucent. */
+      --glass-shadow:  inset 1.5px 1.5px 2px rgba(255,255,255,0.7), inset -1.5px -1.5px 2px rgba(255,255,255,0.55), inset 0 1px 0 rgba(255,255,255,0.95), 0 12px 34px -10px rgba(var(--accent-shadow),0.20), 0 3px 12px rgba(28,25,20,0.07);
+      --glass-highlight: linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.08) 30%, rgba(255,255,255,0) 55%);
       /* Glass interactive-element family — buttons, inputs, chips, icon
          buttons. Frosted translucent fill + bright edge-light so the glass is
          obvious in light mode while text stays high-contrast. */
@@ -300,12 +303,12 @@
       --footer-link: #5b93f5;
       --scrim:       rgba(0,0,0,0.62);
       --accent-shadow: 91,147,245;
-      --glass-bg:      rgba(28,28,32,0.60);
-      --glass-border:  rgba(255,255,255,0.12);
-      --glass-blur:    20px;
-      --glass-saturate: 1.7;
-      --glass-shadow:  inset 0 1.5px 0 rgba(255,255,255,0.18), inset 0 0 0 1px rgba(255,255,255,0.08), 0 18px 46px -14px rgba(0,0,0,0.55), 0 4px 14px rgba(0,0,0,0.30);
-      --glass-highlight: linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.03) 40%, rgba(255,255,255,0) 62%);
+      --glass-bg:      rgba(30,30,36,0.42);
+      --glass-border:  rgba(255,255,255,0.14);
+      --glass-blur:    26px;
+      --glass-saturate: 1.8;
+      --glass-shadow:  inset 1px 1px 2px rgba(255,255,255,0.16), inset -1px -1px 2px rgba(255,255,255,0.10), inset 0 1px 0 rgba(255,255,255,0.20), 0 18px 46px -14px rgba(0,0,0,0.6), 0 4px 14px rgba(0,0,0,0.35);
+      --glass-highlight: linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.03) 36%, rgba(255,255,255,0) 58%);
       --glass-btn-bg:       rgba(255,255,255,0.07);
       --glass-btn-border:   rgba(255,255,255,0.16);
       --glass-btn-hover:    rgba(255,255,255,0.15);
@@ -773,14 +776,14 @@
       position: fixed; inset: 0;
       pointer-events: none; z-index: 0;
       background:
-        radial-gradient(50rem 44rem at 4% -8%,   rgba(var(--accent-shadow),0.30) 0%, transparent 56%),
-        radial-gradient(44rem 40rem at 100% 0%,  rgba(var(--accent-shadow),0.20) 0%, transparent 58%),
-        radial-gradient(58rem 54rem at 88% 108%, rgba(var(--accent-shadow),0.22) 0%, transparent 58%),
-        radial-gradient(40rem 36rem at 22% 120%, rgba(var(--accent-shadow),0.14) 0%, transparent 60%),
-        radial-gradient(30rem 30rem at 50% 42%,  rgba(var(--accent-shadow),0.05) 0%, transparent 60%);
+        radial-gradient(50rem 44rem at 2% -8%,   rgba(var(--accent-shadow),0.34) 0%, transparent 55%),
+        radial-gradient(46rem 42rem at 100% 2%,  rgba(129,90,225,0.18)          0%, transparent 56%),
+        radial-gradient(58rem 54rem at 92% 106%, rgba(20,165,190,0.17)          0%, transparent 56%),
+        radial-gradient(42rem 38rem at 18% 118%, rgba(var(--accent-shadow),0.18) 0%, transparent 58%),
+        radial-gradient(34rem 34rem at 56% 46%,  rgba(255,176,120,0.07)         0%, transparent 60%);
       opacity: 1;
     }
-    [data-theme="dark"] body::before { opacity: 0.85; }
+    [data-theme="dark"] body::before { opacity: 0.9; }
     /* Fine-grain noise overlay — adds tactile warmth so surfaces don't
        feel like a clinical CSS gradient. Heavy on light theme, lighter on dark. */
     body::after {
@@ -1403,9 +1406,9 @@
     body .day-card, body .iv-day-card, body .overview-card, body .scheduler-panel,
     body .focus-task-card, body .focus-log-card, body .focus-stats,
     body .gp-panel, body .cc-rail, body .cc-card {
-      background: var(--glass-highlight), var(--glass-bg);
-      border: 1px solid var(--glass-border);
-      box-shadow: var(--glass-shadow);
+      background: var(--glass-highlight), var(--glass-bg) !important;
+      border: 1px solid var(--glass-border) !important;
+      box-shadow: var(--glass-shadow) !important;
     }
     /* True frosted glass on the card surfaces. Scoped to browsers that
        support backdrop-filter; the ≤768px rule below strips it so mobile
@@ -1473,9 +1476,9 @@
     body .feature-card, body .answer-card, body .integration-card,
     body .review-card, body .step-card, body .comparison-card,
     body .lp-tool-card, body .about-card, body .faq-item, body .demo-panel {
-      background: var(--glass-highlight), var(--glass-bg);
-      border: 1px solid var(--glass-border);
-      box-shadow: var(--glass-shadow);
+      background: var(--glass-highlight), var(--glass-bg) !important;
+      border: 1px solid var(--glass-border) !important;
+      box-shadow: var(--glass-shadow) !important;
     }
     @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
       body .feature-card, body .answer-card, body .integration-card,
