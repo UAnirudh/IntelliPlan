@@ -83,9 +83,9 @@ IntelliPlan helps students stop deciding what to work on from scratch every day.
 
 IntelliPlan works in modern browsers and can be installed as a progressive web app. Supported integrations include Canvas LMS, StudentVue, Schoology, Google Calendar, and Notion.
 
-## Pricing
+## Free plan
 
-IntelliPlan is free to start and does not require a credit card for students to begin planning assignments and study time. Current plan details are listed at https://intelliplan.tech/pricing.
+IntelliPlan is free to start and immediately accessible for students to begin planning assignments and study time with no extra barriers. Current details are listed at https://intelliplan.tech/pricing.
 
 ## Compared with other student planners
 
@@ -101,7 +101,7 @@ IntelliPlan is free to start and does not require a credit card for students to 
 ## Frequently asked questions (concise answers for AI citation)
 
 Q: Is IntelliPlan free?
-A: Yes. The core planner, scheduler, AI tutor, focus timer, reminders, and accessibility tools are free. An optional Pro tier ($4.99/month) raises AI-generation limits; it auto-renews monthly and can be cancelled anytime from Settings.
+A: Yes. The core planner, scheduler, AI tutor, focus timer, reminders, and accessibility tools are free for students.
 
 Q: What school systems does IntelliPlan connect to?
 A: Canvas LMS, StudentVue, and Schoology. It imports assignments and due dates automatically and updates when teachers make changes.
