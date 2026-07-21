@@ -230,9 +230,14 @@
       /* Neo-glass surface system: translucent cards with soft dual
          (neumorphic) shadows; true backdrop blur is reserved for
          floating chrome so long card lists stay compositor-cheap. */
-      --glass-bg:      rgba(255,255,255,0.66);
-      --glass-border:  rgba(255,255,255,0.60);
-      --glass-blur:    14px;
+      --glass-bg:      rgba(255,255,255,0.58);
+      --glass-border:  rgba(255,255,255,0.70);
+      --glass-blur:    18px;
+      --glass-saturate: 1.6;
+      /* Glass depth: crisp top edge-light + ambient drop shadow. Pairs with
+         backdrop blur to make surfaces feel like real frosted panes. */
+      --glass-shadow:  inset 0 1px 0 rgba(255,255,255,0.75), inset 0 0 0 1px rgba(255,255,255,0.16), 0 10px 34px rgba(28,25,20,0.10), 0 2px 8px rgba(28,25,20,0.06);
+      --glass-highlight: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 42%);
       --neu-shadow:    7px 7px 16px rgba(28,25,20,0.07), -7px -7px 16px rgba(255,255,255,0.90);
       --neu-shadow-sm: 3px 3px 8px rgba(28,25,20,0.06), -3px -3px 8px rgba(255,255,255,0.85);
       --neu-inset:     inset 2px 2px 5px rgba(28,25,20,0.06), inset -2px -2px 5px rgba(255,255,255,0.90);
@@ -277,9 +282,12 @@
       --footer-link: #5b93f5;
       --scrim:       rgba(0,0,0,0.62);
       --accent-shadow: 91,147,245;
-      --glass-bg:      rgba(28,28,32,0.62);
-      --glass-border:  rgba(255,255,255,0.07);
-      --glass-blur:    16px;
+      --glass-bg:      rgba(30,30,36,0.52);
+      --glass-border:  rgba(255,255,255,0.12);
+      --glass-blur:    20px;
+      --glass-saturate: 1.7;
+      --glass-shadow:  inset 0 1px 0 rgba(255,255,255,0.10), inset 0 0 0 1px rgba(255,255,255,0.04), 0 12px 40px rgba(0,0,0,0.45), 0 2px 10px rgba(0,0,0,0.35);
+      --glass-highlight: linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0) 46%);
       --neu-shadow:    7px 7px 16px rgba(0,0,0,0.50), -5px -5px 14px rgba(255,255,255,0.025);
       --neu-shadow-sm: 3px 3px 8px rgba(0,0,0,0.45), -3px -3px 8px rgba(255,255,255,0.02);
       --neu-inset:     inset 2px 2px 5px rgba(0,0,0,0.50), inset -2px -2px 5px rgba(255,255,255,0.03);
@@ -724,17 +732,22 @@
       text-rendering: optimizeLegibility;
       position: relative;
     }
-    /* Subtle ambient atmosphere — soft radial wash anchored top-left
-       to break the flat background without distracting from content. */
+    /* Ambient glass atmosphere — a fixed field of accent-tinted light so
+       every translucent surface has real color to refract. Tuned to read as
+       premium depth without tinting body text; recolors per theme/palette
+       because it's built on the live --accent-shadow RGB triplet. */
     body::before {
       content:'';
       position: fixed; inset: 0;
       pointer-events: none; z-index: 0;
       background:
-        radial-gradient(ellipse 80% 60% at 0% 0%, var(--accent-soft) 0%, transparent 55%),
-        radial-gradient(ellipse 60% 50% at 100% 100%, var(--accent-soft) 0%, transparent 60%);
-      opacity: 0.6;
+        radial-gradient(46rem 40rem at 6% -6%,  rgba(var(--accent-shadow),0.16) 0%, transparent 58%),
+        radial-gradient(40rem 38rem at 98% 2%,  rgba(var(--accent-shadow),0.10) 0%, transparent 60%),
+        radial-gradient(54rem 50rem at 84% 106%, rgba(var(--accent-shadow),0.11) 0%, transparent 60%),
+        radial-gradient(38rem 34rem at 30% 118%, rgba(var(--accent-shadow),0.07) 0%, transparent 62%);
+      opacity: 1;
     }
+    [data-theme="dark"] body::before { opacity: 0.85; }
     /* Fine-grain noise overlay — adds tactile warmth so surfaces don't
        feel like a clinical CSS gradient. Heavy on light theme, lighter on dark. */
     body::after {
@@ -1359,11 +1372,101 @@
     body .gp-panel, body .cc-rail, body .cc-card {
       background: var(--glass-bg);
       border: 1px solid var(--glass-border);
-      box-shadow: var(--neu-shadow-sm);
+      box-shadow: var(--glass-shadow);
+    }
+    /* True frosted glass on the card surfaces. Scoped to browsers that
+       support backdrop-filter; the ≤768px rule below strips it so mobile
+       scrolling stays smooth (cards fall back to the opaque mobile fill). */
+    @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      body .ipd-card, body .ipd-grade-card, body .ipd-upcoming-card, body .ipd-sched-card,
+      body .stat-card, body .assignment-card, body .test-card, body .mem-card,
+      body .day-card, body .iv-day-card, body .overview-card, body .scheduler-panel,
+      body .focus-task-card, body .focus-log-card, body .focus-stats,
+      body .gp-panel, body .cc-rail, body .cc-card {
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+        backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+      }
     }
     body .iv-progress, body .ck-progress, body .ipd-sched-progress {
       box-shadow: var(--neu-inset);
       background: transparent;
+    }
+
+    /* ── Reusable glass utility ────────────────────────────────
+       Drop .glass-surface on any panel/section for the full frosted
+       pane: translucent fill, fine light-catching border, edge-light
+       sheen (::before), ambient shadow, and backdrop blur where the
+       browser supports it. Use for hero cards, promos, CTAs, etc. */
+    .glass-surface {
+      position: relative;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--r-lg);
+      box-shadow: var(--glass-shadow);
+      overflow: hidden;
+      isolation: isolate;
+    }
+    .glass-surface::before {
+      content:''; position: absolute; inset: 0; z-index: 0;
+      pointer-events: none; background: var(--glass-highlight);
+    }
+    .glass-surface > * { position: relative; z-index: 1; }
+    @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      .glass-surface {
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+        backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+      }
+    }
+    /* High-contrast users must never get faint frosted glass — force the
+       glass surfaces (utility + card list) back to a solid opaque fill. */
+    html[data-a11y-contrast="1"] .glass-surface,
+    html[data-a11y-contrast="1"] body .ipd-card,
+    html[data-a11y-contrast="1"] body .stat-card,
+    html[data-a11y-contrast="1"] body .assignment-card,
+    html[data-a11y-contrast="1"] body .test-card,
+    html[data-a11y-contrast="1"] body .overview-card,
+    html[data-a11y-contrast="1"] body .scheduler-panel {
+      background: var(--bg-card) !important;
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+      border-color: var(--border-strong) !important;
+      box-shadow: none !important;
+    }
+    html[data-a11y-contrast="1"] .glass-surface::before { display: none; }
+
+    /* Marketing/content card surfaces (homepage, compare, blog, faq…) get the
+       same frosted glass so the whole site reads as one material. body-prefixed
+       to outrank the page-local .card rules emitted later in the document. */
+    body .feature-card, body .answer-card, body .integration-card,
+    body .review-card, body .step-card, body .comparison-card,
+    body .lp-tool-card, body .about-card, body .faq-item, body .demo-panel {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--glass-shadow);
+    }
+    @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      body .feature-card, body .answer-card, body .integration-card,
+      body .review-card, body .step-card, body .comparison-card,
+      body .lp-tool-card, body .about-card, body .faq-item, body .demo-panel {
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+        backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+      }
+    }
+    html[data-a11y-contrast="1"] body .feature-card,
+    html[data-a11y-contrast="1"] body .answer-card,
+    html[data-a11y-contrast="1"] body .integration-card,
+    html[data-a11y-contrast="1"] body .review-card,
+    html[data-a11y-contrast="1"] body .step-card,
+    html[data-a11y-contrast="1"] body .comparison-card,
+    html[data-a11y-contrast="1"] body .lp-tool-card,
+    html[data-a11y-contrast="1"] body .about-card,
+    html[data-a11y-contrast="1"] body .faq-item,
+    html[data-a11y-contrast="1"] body .demo-panel {
+      background: var(--bg-card) !important;
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+      border-color: var(--border-strong) !important;
+      box-shadow: none !important;
     }
     @supports (backdrop-filter: blur(1px)) {
       body .ck-drawer, body .iv-move-menu, body .dropdown-menu, body .ipd-modal,
@@ -2122,6 +2225,20 @@ body {
   *, *::before, *::after {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
+  }
+  /* Blur is gone on mobile, so translucent glass would let the atmosphere
+     bleed through and hurt text contrast — give glass surfaces a near-opaque
+     fill so they still read as clean frosted cards. */
+  .glass-surface,
+  body .ipd-card, body .ipd-grade-card, body .ipd-upcoming-card, body .ipd-sched-card,
+  body .stat-card, body .assignment-card, body .test-card, body .mem-card,
+  body .day-card, body .iv-day-card, body .overview-card, body .scheduler-panel,
+  body .focus-task-card, body .focus-log-card, body .focus-stats,
+  body .gp-panel, body .cc-rail, body .cc-card,
+  body .feature-card, body .answer-card, body .integration-card,
+  body .review-card, body .step-card, body .comparison-card,
+  body .lp-tool-card, body .about-card, body .faq-item, body .demo-panel {
+    background: var(--bg-card);
   }
   .hero-wrap::before, .hero-preview::before { display: none !important; }
   /* Lighter shadows mean far fewer expensive repaints while scrolling */
