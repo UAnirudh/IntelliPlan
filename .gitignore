@@ -30,3 +30,4 @@ hubspot_contacts.csv
 contacts.csv
 customers.csv
 leads.csv
+export_hubspot_contacts.py
