@@ -1,0 +1,6 @@
+# Deploy-critical files must stay LF so a Windows CRLF checkout can never break
+# the container build/start (a trailing \r on a CMD/shebang line is fatal).
+Dockerfile      text eol=lf
+.dockerignore   text eol=lf
+Procfile        text eol=lf
+*.sh            text eol=lf
