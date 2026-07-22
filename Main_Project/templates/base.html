@@ -175,8 +175,10 @@
       --ease-out:    cubic-bezier(0.16,1,0.3,1);
       --ease-in-out: cubic-bezier(0.65,0,0.35,1);
       --t-fast: 0.16s; --t-base: 0.22s; --t-slow: 0.45s;
-      --grad-brand:      linear-gradient(135deg,#1e40af 0%,#2563eb 55%,#3b82f6 100%);
-      --grad-brand-soft: linear-gradient(135deg,rgba(37,99,235,0.08) 0%,rgba(59,130,246,0.04) 100%);
+      /* Flat brand fills instead of the old 3-stop blue gradient (a classic
+         "AI look"). A single, considered accent reads more professional. */
+      --grad-brand:      var(--accent);
+      --grad-brand-soft: var(--accent-soft);
       --accent-shadow:   37,99,235;
       --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
       --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px;
@@ -776,11 +778,8 @@
       position: fixed; inset: 0;
       pointer-events: none; z-index: 0;
       background:
-        radial-gradient(50rem 44rem at 2% -8%,   rgba(var(--accent-shadow),0.34) 0%, transparent 55%),
-        radial-gradient(46rem 42rem at 100% 2%,  rgba(129,90,225,0.18)          0%, transparent 56%),
-        radial-gradient(58rem 54rem at 92% 106%, rgba(20,165,190,0.17)          0%, transparent 56%),
-        radial-gradient(42rem 38rem at 18% 118%, rgba(var(--accent-shadow),0.18) 0%, transparent 58%),
-        radial-gradient(34rem 34rem at 56% 46%,  rgba(255,176,120,0.07)         0%, transparent 60%);
+        radial-gradient(56rem 48rem at -4% -12%, rgba(var(--accent-shadow),0.08) 0%, transparent 52%),
+        radial-gradient(52rem 46rem at 104% 110%, rgba(var(--accent-shadow),0.06) 0%, transparent 54%);
       opacity: 1;
     }
     [data-theme="dark"] body::before { opacity: 0.9; }
@@ -3548,7 +3547,7 @@ function addMsg(role, text) {
   av.className = 'plani-msg-avatar';
   av.setAttribute('aria-hidden','true');
   if (role === 'bot') {
-    av.style.background = 'linear-gradient(135deg,#1d4ed8,#2563eb)';
+    av.style.background = 'var(--accent)';
     av.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-robot"/></svg>';
   } else {
     av.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-user"/></svg>';
@@ -4604,7 +4603,7 @@ window.addEventListener('load',()=>{
 </div>
 <style>
 .ip-fb{position:fixed;bottom:20px;right:20px;z-index:999;font-family:var(--font-ui)}
-.ip-fb-trigger{width:48px;height:48px;border-radius:50%;border:none;background:linear-gradient(135deg,var(--accent,#6d28d9),#8b5cf6);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(109,40,217,0.35);transition:transform .15s,box-shadow .15s}
+.ip-fb-trigger{width:48px;height:48px;border-radius:50%;border:none;background:var(--accent);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(109,40,217,0.35);transition:transform .15s,box-shadow .15s}
 .ip-fb-trigger:hover{transform:scale(1.08);box-shadow:0 6px 24px rgba(109,40,217,0.5)}
 .ip-fb-panel{position:absolute;bottom:60px;right:0;width:320px;background:var(--bg-card);border:1px solid var(--border);border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,0.15);overflow:hidden;animation:ipFbUp .2s ease both}
 @keyframes ipFbUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -4626,7 +4625,7 @@ window.addEventListener('load',()=>{
 .ip-fb-mood.ip-fb-mood-active{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent)}
 .ip-fb-msg{width:100%;border:1px solid var(--border);border-radius:10px;padding:8px 10px;font-family:var(--font-ui);font-size:.82rem;resize:vertical;background:var(--bg-page,#f8f8fa);color:var(--text-primary);min-height:60px}
 .ip-fb-msg:focus{outline:none;border-color:var(--accent)}
-.ip-fb-submit{width:100%;padding:8px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--accent,#6d28d9),#8b5cf6);color:#fff;font-family:var(--font-ui);font-weight:700;font-size:.82rem;cursor:pointer;transition:filter .15s}
+.ip-fb-submit{width:100%;padding:8px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-family:var(--font-ui);font-weight:700;font-size:.82rem;cursor:pointer;transition:filter .15s}
 .ip-fb-submit:hover{filter:brightness(1.1)}
 .ip-fb-submit:disabled{opacity:.5;cursor:not-allowed}
 .ip-fb-done{text-align:center;padding:2rem 1rem}
