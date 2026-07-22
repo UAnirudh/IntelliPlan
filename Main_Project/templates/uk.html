@@ -33,12 +33,12 @@
   .uk-section { margin: 2.5rem 0; }
   .uk-section h2 { font-family:var(--font-display); font-size:clamp(1.5rem,2.6vw,2rem); color:var(--text-primary); margin:0 0 1rem; letter-spacing:-0.03em; }
   .uk-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem; }
-  .uk-card { background:var(--bg-card); border:1px solid var(--border-strong); border-radius:var(--r-xl); padding:1.4rem; transition:transform 0.2s var(--ease-out), border-color 0.2s; }
+  .uk-card { background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); border:1px solid var(--border-strong); border-radius:var(--r-xl); padding:1.4rem; transition:transform 0.2s var(--ease-out), border-color 0.2s; }
   .uk-card:hover { border-color:var(--border-accent); }
   .uk-card h3 { font-family:var(--font-display); font-size:1.08rem; color:var(--text-primary); margin:0 0 0.4rem; letter-spacing:-0.02em; }
   .uk-card p { font-family:var(--font-ui); font-size:0.92rem; color:var(--text-secondary); line-height:1.55; margin:0; }
   .uk-uni-row { display:flex; flex-wrap:wrap; gap:0.45rem; }
-  .uk-uni-row span { padding:0.5rem 0.85rem; border:1px solid var(--border-strong); border-radius:999px; font-family:var(--font-ui); font-size:0.86rem; color:var(--text-primary); background:var(--bg-card); }
+  .uk-uni-row span { padding:0.5rem 0.85rem; border:1px solid var(--border-strong); border-radius:999px; font-family:var(--font-ui); font-size:0.86rem; color:var(--text-primary); background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); }
 </style>
 
 <div class="uk-page">
@@ -94,7 +94,7 @@
     </p>
   </section>
 
-  <div style="margin-top:2.5rem;padding:2rem;background:var(--bg-card);border:1px solid var(--border-accent);border-radius:var(--r-xl);box-shadow:var(--accent-glow);text-align:center;" data-reveal>
+  <div style="margin-top:2.5rem;padding:2rem;background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);border:1px solid var(--border-accent);border-radius:var(--r-xl);box-shadow:var(--accent-glow);text-align:center;" data-reveal>
     <h3 style="font-family:var(--font-display);font-size:1.4rem;color:var(--text-primary);margin:0 0 0.5rem;">Start in 90 seconds</h3>
     <p style="font-family:var(--font-ui);color:var(--text-secondary);margin:0 0 1rem;">Free, no card required. Connect your university portal and let IntelliPlan plan your week.</p>
     <a class="btn-primary" style="padding:1rem 1.5rem;text-decoration:none;border-radius:12px;font-weight:700;" href="/register">Get started free →</a>
