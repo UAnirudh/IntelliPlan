@@ -2313,6 +2313,11 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="IntelliPlan">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  {# Favicon = the IntelliPlan logo. Several sizes so browsers, bookmarks and
+     tabs all pick a crisp source instead of falling back to a default. #}
+  <link rel="icon" type="image/png" sizes="512x512" href="/static/icons/icon-512.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png">
+  <link rel="shortcut icon" href="/static/icons/icon-192.png">
   {# Single viewport tag lives at the top of <head>; duplicate removed. #}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
   {% block head_extra %}{% endblock %}
