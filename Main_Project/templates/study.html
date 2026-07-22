@@ -71,7 +71,7 @@
 /* ── INPUT TABS ── */
 .itabs { display:flex; gap:3px; margin-bottom:1rem; background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:3px; }
 .itab { flex:1; padding:8px; border:none; background:transparent; border-radius:10px; font-size:0.78rem; font-weight:700; cursor:pointer; color:var(--text-muted); transition:all 0.15s; font-family:var(--font-ui); }
-.itab.active { background:var(--bg-card); color:var(--si); box-shadow:0 1px 4px rgba(0,0,0,0.07); }
+.itab.active { background:var(--glass-btn-bg); -webkit-backdrop-filter:blur(10px) saturate(1.5); backdrop-filter:blur(10px) saturate(1.5); border:1px solid var(--glass-border); color:var(--si); box-shadow:var(--glass-btn-shadow); }
 .ipanel { display:none; } .ipanel.active { display:block; }
 
 .study-ta {
@@ -388,7 +388,7 @@
   background:rgba(15,23,42,0.46); padding:1rem; backdrop-filter:blur(5px);
 }
 .celebration.on { display:flex; }
-.celebration-card { width:min(420px,100%); background:var(--bg-card); border-radius:20px; padding:2rem; text-align:center; box-shadow:0 24px 80px rgba(15,23,42,.28); position:relative; overflow:hidden; }
+.celebration-card { width:min(420px,100%); background:var(--glass-highlight), var(--glass-bg); -webkit-backdrop-filter:blur(22px) saturate(1.7); backdrop-filter:blur(22px) saturate(1.7); border:1px solid var(--glass-border); border-radius:20px; padding:2rem; text-align:center; box-shadow:var(--glass-shadow), 0 24px 80px rgba(15,23,42,.28); position:relative; overflow:hidden; }
 .celebration-card::before { content:""; position:absolute; inset:-40% -20% auto; height:180px; background:radial-gradient(circle,#facc15,transparent 62%); opacity:.35; }
 .celebration-title { position:relative; font-family:var(--ipd-font-display); font-size:2rem; color:#1c1917; margin-bottom:6px; }
 .celebration-sub { position:relative; color:var(--text-muted); font-size:.9rem; line-height:1.5; margin-bottom:1.2rem; }
