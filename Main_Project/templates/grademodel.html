@@ -24,7 +24,7 @@
   .gp-card-percent { font-family: var(--font-display); font-size: 1.75rem; font-weight:400; color: var(--text-primary); margin: 2px 0; }
   .gp-card-narrative { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.45; }
   .gp-card-meta { display: flex; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.7rem; color: var(--text-muted); }
-  .gp-trend-pill { padding: 1px 8px; border-radius: var(--r-full); background: var(--bg-card); border: 1px solid var(--border); }
+  .gp-trend-pill { padding: 1px 8px; border-radius: var(--r-full); background: var(--glass-btn-bg); border: 1px solid var(--glass-border); -webkit-backdrop-filter: blur(8px) saturate(1.4); backdrop-filter: blur(8px) saturate(1.4); box-shadow: var(--glass-btn-shadow); }
   .gp-empty { color: var(--text-muted); font-size: 0.88rem; text-align: center; padding: 1rem; }
 </style>
 
@@ -133,7 +133,9 @@ window.gpBuildOverride = function() {
   <!-- Current grade + target input -->
   <div id="courseOverview" style="display:none;">
     <div style="
-      background:var(--bg-card); border:1px solid var(--border);
+      background:var(--glass-highlight), var(--glass-bg); border:1px solid var(--glass-border);
+      -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate)); backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));
+      box-shadow:var(--glass-shadow);
       border-radius:16px; padding:1.5rem; margin-bottom:1.5rem;
        display:flex; gap:2rem; flex-wrap:wrap; align-items:center;
     ">
@@ -182,7 +184,7 @@ window.gpBuildOverride = function() {
     </div>
 
     <!-- Manual add-assignment form (hidden until "Add assignment" is clicked). -->
-    <div id="addAsgnForm" style="display:none;background:var(--bg-card);border:1px solid var(--border-accent);border-radius:14px;padding:1rem 1.1rem;margin-bottom:1rem;">
+    <div id="addAsgnForm" style="display:none;background:var(--glass-highlight), var(--glass-bg);-webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));border:1px solid var(--border-accent);box-shadow:var(--glass-shadow);border-radius:14px;padding:1rem 1.1rem;margin-bottom:1rem;">
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.6rem;align-items:end;">
         <div>
           <label for="newAsgnTitle" style="display:block;font-family:var(--font-ui);font-size:0.74rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Title</label>
