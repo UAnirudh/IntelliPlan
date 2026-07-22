@@ -32,7 +32,7 @@
 
   .ax-page .ax-card {
     display: block;
-    background: var(--bg-card);
+    background: var(--glass-bg); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
     border: 1px solid var(--border);
     border-radius: 16px;
     padding: 18px 22px;
@@ -105,7 +105,7 @@
   }
   .ax-page .ax-seg button:hover:not(.active) { color: var(--text-primary); }
   .ax-page .ax-seg button.active {
-    background: var(--bg-card); color: var(--text-primary);
+    background: var(--glass-bg); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6); color: var(--text-primary);
     box-shadow: var(--shadow-sm);
   }
 
