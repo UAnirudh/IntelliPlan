@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import json
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, Callable
@@ -80,14 +79,17 @@ class TodayService:
         today = now.date()
         student = self._get_student(user_id)
 
-        with ThreadPoolExecutor(max_workers=3) as pool:
-            f_assignments = pool.submit(self._assignments.for_user, user_id, today)
-            f_grades = pool.submit(self._get_grades, user_id)
-            f_completion = pool.submit(self._get_completion, user_id)
-
-        assignments = tuple(f_assignments.result())
-        grades = tuple(f_grades.result())
-        completion = float(f_completion.result())
+        # Run sequentially, NOT in a thread pool. These calls hit the
+        # Flask-SQLAlchemy scoped session, which is bound to the application
+        # context and is NOT propagated into worker threads — the previous
+        # ThreadPoolExecutor here raised "Working outside of application
+        # context" on every request, which is exactly what left the Command
+        # Center stuck on "We couldn't load your day." The queries are cheap;
+        # the only slow part (the LMS network fetch inside for_user) can't
+        # safely share the session across threads anyway.
+        assignments = tuple(self._assignments.for_user(user_id, today))
+        grades = tuple(self._get_grades(user_id))
+        completion = float(self._get_completion(user_id))
 
         # ── deterministic engines ────────────────────────────────────
         ctx = priority_engine.PriorityContext.from_assignments(today, assignments)
