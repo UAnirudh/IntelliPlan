@@ -932,7 +932,7 @@
       </div>
       <div id="notionDbSelect" style="display:none;">
         <label>Select database</label>
-        <select id="notionDbDropdown" onchange="setNotionDatabase(this.value)" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--ipd-radius-sm);font-family:var(--ipd-font-body);font-size:0.86rem;background:var(--bg);color:var(--text-primary);">
+        <select id="notionDbDropdown" onchange="setNotionDatabase(this.value)" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--ipd-radius-sm);font-family:var(--ipd-font-body);font-size:0.86rem;background:var(--glass-input-bg);-webkit-backdrop-filter:blur(10px) saturate(1.4);backdrop-filter:blur(10px) saturate(1.4);color:var(--text-primary);">
           <option value="">Choose a database…</option>
         </select>
       </div>
@@ -1479,7 +1479,7 @@ async function loadSavedSyllabi() {
     if (!rows.length) { wrap.style.display = 'none'; return; }
     wrap.style.display = 'block';
     list.innerHTML = rows.map(function(r) {
-      return '<button type="button" onclick="openSavedSyllabus(' + r.id + ')" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--ipd-radius-sm);background:var(--bg);cursor:pointer;text-align:left;width:100%;font-family:var(--ipd-font-body);">' +
+      return '<button type="button" onclick="openSavedSyllabus(' + r.id + ')" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--ipd-radius-sm);background:var(--glass-input-bg);-webkit-backdrop-filter:blur(10px) saturate(1.4);backdrop-filter:blur(10px) saturate(1.4);cursor:pointer;text-align:left;width:100%;font-family:var(--ipd-font-body);">' +
         '<span style="font-size:0.84rem;font-weight:600;color:var(--text-primary);">' + _sEsc(r.course_name || r.filename || 'Syllabus') + '</span>' +
         '<span style="font-size:0.72rem;color:var(--text-muted);white-space:nowrap;">' + (r.count || 0) + ' items</span>' +
       '</button>';
@@ -1549,7 +1549,7 @@ async function processSyllabusFile(file) {
 function renderSyllabusResults(items) {
   var list = document.getElementById('syllabusResultList');
   list.innerHTML = items.map(function(item, i) {
-    return '<label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--ipd-radius-sm);cursor:pointer;background:var(--bg);">' +
+    return '<label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--ipd-radius-sm);cursor:pointer;background:var(--glass-input-bg);-webkit-backdrop-filter:blur(10px) saturate(1.4);backdrop-filter:blur(10px) saturate(1.4);">' +
       '<input type="checkbox" checked data-idx="' + i + '" style="margin-top:3px;accent-color:var(--text-primary);flex-shrink:0;">' +
       '<div style="flex:1;min-width:0;">' +
         '<div style="font-weight:600;font-size:0.86rem;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _sEsc(item.title || 'Untitled') + '</div>' +
@@ -1831,7 +1831,7 @@ function openAssignDetail(title, course, dueDate, priority, notes) {
   if (course && course !== 'Unknown' && course !== 'Personal') {
     var p = document.createElement('span');
     p.className = 'notion-pill';
-    p.style = 'background:var(--bg);color:var(--text-muted);border:1px solid var(--border);';
+    p.style = 'background:var(--glass-input-bg);-webkit-backdrop-filter:blur(10px) saturate(1.4);backdrop-filter:blur(10px) saturate(1.4);color:var(--text-muted);border:1px solid var(--border);';
     p.textContent = course;
     meta.appendChild(p);
   }
