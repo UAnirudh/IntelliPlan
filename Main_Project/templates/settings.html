@@ -719,7 +719,7 @@ function ipSetNotify(msg, isError) {
     document.body.appendChild(host);
   }
   const card = document.createElement('div');
-  card.style.cssText = 'background:var(--bg-card);border:1px solid ' + (isError ? 'var(--high)' : 'var(--border-strong)') + ';border-radius:var(--r-md);padding:10px 14px;box-shadow:var(--shadow-lg);font-family:var(--font-body);font-size:0.84rem;color:' + (isError ? 'var(--high)' : 'var(--text-primary)') + ';';
+  card.style.cssText = 'background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);border:1px solid ' + (isError ? 'var(--high)' : 'var(--border-strong)') + ';border-radius:var(--r-md);padding:10px 14px;box-shadow:var(--shadow-lg);font-family:var(--font-body);font-size:0.84rem;color:' + (isError ? 'var(--high)' : 'var(--text-primary)') + ';';
   card.textContent = msg;
   host.appendChild(card);
   setTimeout(() => { if (card.isConnected) card.remove(); }, 4200);
@@ -1030,7 +1030,7 @@ function saveAnimSetting(key, value) {
     <button type="button" class="theme-swatch ${current===t.id?'active':''}" data-palette="${t.id}"
             style="display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:12px;border-radius:12px;
                    border:2px solid ${current===t.id?'var(--accent)':'var(--border)'};
-                   background:var(--bg-card);cursor:pointer;text-align:left;font:inherit;color:var(--text-primary);
+                   background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);cursor:pointer;text-align:left;font:inherit;color:var(--text-primary);
                    transition:transform 0.16s, box-shadow 0.16s, border-color 0.16s;">
       <div style="display:flex;gap:0;width:100%;height:36px;border-radius:8px;overflow:hidden;">
         <div style="flex:1;background:${t.colors[0]};"></div>
@@ -1492,13 +1492,13 @@ function renderNotionStatus(s) {
     const name = ws.name ? ('Workspace: ' + ws.name) : 'Connected';
     const via = ws.auth_type === 'oauth' ? ' · via OAuth' : ' · via token';
     if (sub) sub.textContent = name + via + (s.has_database ? '' : ' · choose a database below');
-    el.innerHTML = '<span style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;"><button onclick="chooseNotionDatabase()" style="padding:6px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-secondary);cursor:pointer;font-family:var(--font-ui);font-size:0.76rem;font-weight:600;">Choose database</button><button onclick="disconnectNotion()" style="padding:6px 14px;border-radius:10px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:var(--font-ui);font-size:0.78rem;font-weight:600;">Disconnect</button></span>';
+    el.innerHTML = '<span style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;"><button onclick="chooseNotionDatabase()" style="padding:6px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);color:var(--text-secondary);cursor:pointer;font-family:var(--font-ui);font-size:0.76rem;font-weight:600;">Choose database</button><button onclick="disconnectNotion()" style="padding:6px 14px;border-radius:10px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:var(--font-ui);font-size:0.78rem;font-weight:600;">Disconnect</button></span>';
     return;
   }
   const oauthBtn = s.oauth_available
     ? '<a href="/oauth/notion" class="btn-primary" style="padding:6px 14px;font-size:0.78rem;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">Connect with Notion</a>'
     : '';
-  const tokenBtn = '<button onclick="connectNotionToken()" style="padding:6px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-secondary);cursor:pointer;font-family:var(--font-ui);font-size:0.76rem;font-weight:600;">Paste token</button>';
+  const tokenBtn = '<button onclick="connectNotionToken()" style="padding:6px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);color:var(--text-secondary);cursor:pointer;font-family:var(--font-ui);font-size:0.76rem;font-weight:600;">Paste token</button>';
   el.innerHTML = '<span style="display:inline-flex;gap:6px;align-items:center;">' + oauthBtn + tokenBtn + '</span>';
 }
 
@@ -1693,7 +1693,7 @@ function _notionModal(innerHTML) {
     m.addEventListener('click', e => { if (e.target === m) m.remove(); });
     document.body.appendChild(m);
   }
-  m.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.25rem 1.4rem;max-width:520px;width:100%;box-shadow:var(--shadow-lg);max-height:80vh;overflow-y:auto;">${innerHTML}</div>`;
+  m.innerHTML = `<div style="background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);border:1px solid var(--border);border-radius:16px;padding:1.25rem 1.4rem;max-width:520px;width:100%;box-shadow:var(--shadow-lg);max-height:80vh;overflow-y:auto;">${innerHTML}</div>`;
   return m;
 }
 

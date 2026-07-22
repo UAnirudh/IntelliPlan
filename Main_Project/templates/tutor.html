@@ -37,7 +37,7 @@ main {
 .tutor-side {
   width: 260px;
   flex-shrink: 0;
-  background: var(--bg-card);
+  background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -198,7 +198,7 @@ main {
   padding: 7px 16px;
   border-radius: 999px;
   border: 1px solid var(--border-strong);
-  background: var(--bg-card);
+  background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);
   color: var(--text-secondary);
   font-family: var(--ipd-font-body); font-size: 0.82rem; font-weight: 500;
   cursor: pointer; transition: all 0.14s ease;
@@ -438,7 +438,7 @@ main {
 
 /* ── Message bubbles, polished ── */
 .tutor-msg-group.bot .tutor-bubble {
-  background: var(--bg-card);
+  background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);
   border: 1px solid var(--border);
   border-radius: 4px 18px 18px 18px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04);
@@ -475,7 +475,7 @@ main {
     display: flex !important;
     align-items: center; justify-content: space-between;
     gap: 8px; padding: 8px 12px;
-    background: var(--bg-card);
+    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
   }
@@ -669,7 +669,7 @@ main {
 
 <!-- Camera capture modal -->
 <div id="snapCameraModal" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:1rem;">
-  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:1.25rem;max-width:520px;width:100%;box-shadow:var(--shadow-lg);">
+  <div style="background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);border:1px solid var(--border);border-radius:18px;padding:1.25rem;max-width:520px;width:100%;box-shadow:var(--shadow-lg);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
       <h3 style="margin:0;font-family:var(--ipd-font-display);font-size:1.1rem;">Snap a problem</h3>
       <button type="button" onclick="closeSnapCamera()" style="background:none;border:none;font-size:1.3rem;color:var(--text-muted);cursor:pointer;">×</button>

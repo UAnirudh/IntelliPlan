@@ -10,7 +10,7 @@
 
 <style>
   .gp-panel {
-    background: var(--bg-card); border: 1px solid var(--border);
+    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); border: 1px solid var(--border);
     border-radius: var(--r-lg); padding: 1.25rem 1.5rem;
     margin-bottom: 1.5rem; box-shadow: var(--shadow-sm);
   }
@@ -155,7 +155,7 @@ window.gpBuildOverride = function() {
             Model It
           </button>
           <button class="btn-secondary" onclick="simulateBest()" id="simBtn" style="padding:10px 16px; cursor:pointer; font-size:0.84rem;">Simulate</button>
-          <button onclick="resetModel()" id="resetBtn" style="padding:10px 14px; cursor:pointer; font-size:0.84rem; border-radius:10px; border:1px solid var(--border-strong); background:var(--bg-card); color:var(--text-secondary); font-family:var(--font-ui); font-weight:600;">&#x21BA; Reset</button>
+          <button onclick="resetModel()" id="resetBtn" style="padding:10px 14px; cursor:pointer; font-size:0.84rem; border-radius:10px; border:1px solid var(--border-strong); background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); color:var(--text-secondary); font-family:var(--font-ui); font-weight:600;">&#x21BA; Reset</button>
         </div>
         <div style="font-size:0.74rem;color:var(--text-muted);margin-top:6px;">Simulate fills pending assignments with the scores you need; Reset restores real data.</div>
         <div id="targetHint" style="font-size:0.78rem;margin-top:4px;font-family:var(--font-ui);min-height:1.1rem;"></div>
@@ -178,7 +178,7 @@ window.gpBuildOverride = function() {
         Assignment Breakdown
       </div>
       <button type="button" id="addAsgnBtn" onclick="toggleAddAssignment()"
-        style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-primary);border-radius:10px;cursor:pointer;font-family:var(--font-ui);font-size:0.84rem;font-weight:600;">
+        style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border:1px solid var(--border-strong);background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);color:var(--text-primary);border-radius:10px;cursor:pointer;font-family:var(--font-ui);font-size:0.84rem;font-weight:600;">
         <span style="font-size:1rem;line-height:1;">+</span> Add assignment
       </button>
     </div>
@@ -219,7 +219,7 @@ window.gpBuildOverride = function() {
 
 <style>
 @keyframes simFlash {
-  0%, 100% { background: var(--bg-card); }
+  0%, 100% { background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); }
   50%       { background: rgba(99,102,241,0.15); }
 }
 .sim-highlight { animation: simFlash 0.4s ease; }

@@ -816,15 +816,15 @@ body.serious-mode .nav-tabs { display:none !important; }
           <!-- Flip card -->
           <div id="srsCardEl" style="perspective:900px;cursor:pointer;margin-bottom:1rem;" onclick="srsFlipped||srsShowAnswer()">
             <div style="position:relative;min-height:140px;transform-style:preserve-3d;transition:transform 0.4s;border-radius:var(--r-lg);border:1.5px solid var(--border);" id="srsCardInner">
-              <div style="position:absolute;inset:0;backface-visibility:hidden;display:flex;align-items:center;justify-content:center;padding:1.5rem;background:var(--bg-card);border-radius:inherit;font-size:0.95rem;font-weight:600;text-align:center;line-height:1.5;" id="srsCardFront"></div>
-              <div style="position:absolute;inset:0;backface-visibility:hidden;transform:rotateY(180deg);display:flex;align-items:center;justify-content:center;padding:1.5rem;background:var(--bg-card);border-radius:inherit;font-size:0.9rem;line-height:1.55;text-align:center;color:var(--txs);" id="srsCardBack"></div>
+              <div style="position:absolute;inset:0;backface-visibility:hidden;display:flex;align-items:center;justify-content:center;padding:1.5rem;background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);border-radius:inherit;font-size:0.95rem;font-weight:600;text-align:center;line-height:1.5;" id="srsCardFront"></div>
+              <div style="position:absolute;inset:0;backface-visibility:hidden;transform:rotateY(180deg);display:flex;align-items:center;justify-content:center;padding:1.5rem;background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);border-radius:inherit;font-size:0.9rem;line-height:1.55;text-align:center;color:var(--txs);" id="srsCardBack"></div>
             </div>
           </div>
           <style>
             #srsCardEl.flipped #srsCardInner { transform: rotateY(180deg); }
           </style>
           <div style="display:flex;justify-content:center;margin-bottom:0.75rem;">
-            <button id="srsShowAnswerBtn" onclick="srsShowAnswer()" style="padding:8px 22px;border-radius:var(--r-md);border:1.5px solid var(--border);background:var(--bg-card);font-family:var(--font-ui);font-size:0.82rem;font-weight:600;cursor:pointer;color:var(--text-primary);">Show Answer</button>
+            <button id="srsShowAnswerBtn" onclick="srsShowAnswer()" style="padding:8px 22px;border-radius:var(--r-md);border:1.5px solid var(--border);background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);font-family:var(--font-ui);font-size:0.82rem;font-weight:600;cursor:pointer;color:var(--text-primary);">Show Answer</button>
           </div>
           <!-- Rating buttons -->
           <div id="srsRatings" style="display:none;flex-direction:column;gap:8px;align-items:center;">

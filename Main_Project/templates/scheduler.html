@@ -46,7 +46,7 @@
 
   /* ── Creator panel ─────────────────────────────── */
   .scheduler-panel {
-    background: var(--bg-card);
+    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);
     border: 1px solid var(--border);
     border-radius: var(--ipd-radius-lg);
     padding: 1.5rem;
@@ -82,7 +82,7 @@
 
   /* ── Overview + day cards ──────────────────────── */
   .overview-card {
-    background: var(--bg-card); border: 1px solid var(--border);
+    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); border: 1px solid var(--border);
     border-radius: var(--ipd-radius-lg); padding: 1.25rem;
     margin-bottom: 1.25rem;
   }
@@ -96,7 +96,7 @@
     display: flex; align-items: center; gap: 6px;
   }
   .day-card {
-    background: var(--bg-card); border: 1px solid var(--border);
+    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); border: 1px solid var(--border);
     border-radius: var(--ipd-radius-lg); padding: 1.25rem;
     margin-bottom: 1rem;
     animation: ipd-fadeUp 0.5s var(--ipd-ease-out) both;
@@ -141,7 +141,7 @@
   .block-duration {
     font-family: var(--ipd-font-mono); font-size: 0.72rem;
     color: var(--text-secondary); font-weight: 700;
-    background: var(--bg-card); border: 1px solid var(--border);
+    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); border: 1px solid var(--border);
     padding: 2px 10px; border-radius: 999px;
   }
   .daily-tip {
@@ -191,7 +191,7 @@
   }
 
   .iv-day-card {
-    background: var(--bg-card); border: 1px solid var(--border);
+    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); border: 1px solid var(--border);
     border-radius: var(--ipd-radius-lg); padding: 1.4rem;
     margin-bottom: 1rem;
   }
@@ -258,7 +258,7 @@
   .iv-pill {
     display: inline-flex; align-items: center; gap: 3px;
     padding: 2px 8px; border-radius: 999px;
-    background: var(--bg-card); border: 1px solid var(--border);
+    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); border: 1px solid var(--border);
     font-family: var(--ipd-font-mono); font-size: 0.68rem;
     font-weight: 500; letter-spacing: 0.02em;
   }
@@ -290,7 +290,7 @@
   .iv-move-menu {
     position: fixed; z-index: 1200;
     min-width: 190px;
-    background: var(--bg-card); border: 1px solid var(--border);
+    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); border: 1px solid var(--border);
     border-radius: var(--ipd-radius-md);
     box-shadow: var(--shadow-lg);
     padding: 5px;
@@ -329,7 +329,7 @@
   .ck-drawer {
     position: fixed; top: 0; right: 0; bottom: 0;
     width: min(520px, 100vw);
-    background: var(--bg-card);
+    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);
     border-left: 1px solid var(--border);
     box-shadow: var(--shadow-xl);
     transform: translateX(105%);
@@ -370,7 +370,7 @@
     transition: all 0.15s;
   }
   .ck-mode button.active {
-    background: var(--bg-card); color: var(--text-primary);
+    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); color: var(--text-primary);
     box-shadow: var(--shadow-sm);
   }
 
@@ -476,7 +476,7 @@
   .btn-secondary {
     font-family: var(--ipd-font-body); font-weight: 600;
     border-radius: var(--ipd-radius-sm);
-    background: var(--bg-card); color: var(--text-primary);
+    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); color: var(--text-primary);
     border: 1px solid var(--border); font-size: 0.84rem;
     padding: 8px 14px; cursor: pointer;
     transition: border-color 0.15s;
@@ -509,7 +509,7 @@
   .exp-btn {
     display: inline-flex; align-items: center; gap: 7px;
     padding: 10px 18px; border-radius: var(--ipd-radius-sm);
-    border: 1px solid var(--border); background: var(--bg-card);
+    border: 1px solid var(--border); background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);
     color: var(--text-primary); cursor: pointer; text-decoration: none;
     font-family: var(--ipd-font-body); font-size: 0.84rem; font-weight: 600;
     transition: border-color 0.15s, opacity 0.15s;

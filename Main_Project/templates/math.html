@@ -157,7 +157,7 @@ function ipMathRender() {
       <div class="answer-value">${ipMathEsc(d.answer || '-')}</div>
     </div>`;
   if (d.notes) html += `<div class="notes-box"><strong>Tips:</strong> ${ipMathEsc(d.notes)}</div>`;
-  html += `<button class="math-submit" onclick="ipMathSimilar()" id="mSimBtn" type="button" style="margin-top:1rem;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-strong);">Try a similar problem</button>`;
+  html += `<button class="math-submit" onclick="ipMathSimilar()" id="mSimBtn" type="button" style="margin-top:1rem;background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);color:var(--text-primary);border:1px solid var(--border-strong);">Try a similar problem</button>`;
   html += `<div id="mSim"></div>`;
   document.getElementById('mResult').innerHTML = html;
 }

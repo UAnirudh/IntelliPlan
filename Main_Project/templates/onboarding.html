@@ -477,9 +477,9 @@ function onbImport(kind) {
           Copy your gradebook or assignment list (any format) and paste below. AI will extract it.
         </p>
         <input type="text" id="onbPasteHint" placeholder="Source? e.g. 'PowerSchool Q3'"
-          style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-primary);font-family:inherit;font-size:0.85rem;margin-bottom:8px;">
+          style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--border-strong);background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);color:var(--text-primary);font-family:inherit;font-size:0.85rem;margin-bottom:8px;">
         <textarea id="onbPasteText" rows="6" placeholder="Paste here..."
-          style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-primary);font-family:inherit;font-size:0.85rem;margin-bottom:10px;resize:vertical;"></textarea>
+          style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);color:var(--text-primary);font-family:inherit;font-size:0.85rem;margin-bottom:10px;resize:vertical;"></textarea>
         <button class="btn-primary" onclick="onbDoPaste()" id="onbPasteBtn"
           style="padding:9px 18px;border:none;border-radius:10px;cursor:pointer;font-size:0.85rem;">Import with AI</button>
         <div id="onbPasteMsg" style="margin-top:8px;font-size:0.8rem;"></div>

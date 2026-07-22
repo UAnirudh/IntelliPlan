@@ -36,7 +36,7 @@ fetch('/profiles/list')
       const icon = `<span style="display:inline-block;width:28px;height:28px;border-radius:6px;background:${iconColor};flex-shrink:0;"></span>`;
       const card = document.createElement('div');
       card.style.cssText = `
-        background:var(--bg-card); border:${isActive ? '2px solid var(--accent)' : '1px solid var(--border)'};
+        background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); border:${isActive ? '2px solid var(--accent)' : '1px solid var(--border)'};
         border-radius:16px; padding:1.25rem 1.5rem; display:flex; align-items:center;
         gap:1rem;  transition:box-shadow 0.2s;
       `;

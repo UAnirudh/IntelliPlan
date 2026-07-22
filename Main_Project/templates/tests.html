@@ -21,7 +21,7 @@
 /* ── Test card ── */
 .tests-list { display: flex; flex-direction: column; gap: 12px; }
 .test-card {
-  background: var(--bg-card); border: 1px solid var(--border);
+  background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); border: 1px solid var(--border);
   border-radius: var(--r-lg); padding: 1.1rem 1.4rem;
   display: flex; align-items: flex-start; gap: 1rem;
   transition: transform 0.18s, box-shadow 0.18s, opacity 0.3s;
@@ -113,7 +113,7 @@
 .ipTestError-title { font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
 .ipTestError-retry {
   margin-top: 1rem; padding: 8px 18px; border-radius: var(--r-md);
-  border: 1px solid var(--border); background: var(--bg-card); color: var(--accent);
+  border: 1px solid var(--border); background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); color: var(--accent);
   cursor: pointer; font-family: var(--font-ui); font-size: 0.82rem; font-weight: 600;
   transition: background 0.16s var(--ease-out), border-color 0.16s var(--ease-out);
 }
