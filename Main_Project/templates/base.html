@@ -1687,9 +1687,16 @@
        links, command-palette items, segmented/aria-pressed controls)
        opt out via :not(); add .no-glass to opt a one-off button out.
     ══════════════════════════════════════════════════════════ */
-    /* Prominent / primary buttons — solid frosted material, strong label. */
+    /* Prominent / primary buttons — solid frosted material, strong label.
+       Includes any button/link whose class names it primary or a CTA, so
+       page-specific action buttons keep their dominance instead of being
+       flattened into the translucent tier. */
     body .btn-primary, body .ipd-btn-primary, body .mobile-cta-primary,
-    body button.is-primary, body .btn.is-primary, body input[type="submit"] {
+    body button.is-primary, body .btn.is-primary, body input[type="submit"],
+    body button[class*="primary"]:not(.no-glass):not([class*="secondary"]):not([class*="ghost"]),
+    body a[class*="primary"]:not(.no-glass):not([class*="secondary"]):not([class*="ghost"]),
+    body button[class*="cta"]:not(.no-glass):not([class*="secondary"]):not([class*="ghost"]),
+    body a[class*="cta"]:not(.no-glass):not([class*="secondary"]):not([class*="ghost"]) {
       background: var(--glass-primary-bg) !important;
       color: var(--glass-primary-text) !important;
       border: 1px solid rgba(255,255,255,0.16) !important;
@@ -1698,7 +1705,7 @@
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 2px 8px rgba(0,0,0,0.14), 0 10px 26px -10px rgba(0,0,0,0.28) !important;
     }
     /* Everything else that's a button — translucent frosted glass. */
-    body button:not(.no-glass):not(.btn-primary):not(.ipd-btn-primary):not(.mobile-cta-primary):not(.nav-tab):not(.nav-tab-tutor):not([class*="toggle"]):not(.side-link):not(.cmd-item):not(.cmd-row):not([aria-pressed]):not(.seg-btn):not(input),
+    body button:not(.no-glass):not(.btn-primary):not(.ipd-btn-primary):not(.mobile-cta-primary):not([class*="primary"]):not([class*="cta"]):not(.nav-tab):not(.nav-tab-tutor):not([class*="toggle"]):not(.side-link):not(.cmd-item):not(.cmd-row):not([aria-pressed]):not(.seg-btn):not(input),
     body a.btn-secondary, body .cta-ghost-btn, body .mini-btn, body .ad-btn,
     body .check-btn, body .dropdown-btn, body .dismiss-btn, body .test-btn,
     body .discord-btn, body .btn-guest, body .btn-google, body .logout-btn,
@@ -1709,11 +1716,19 @@
       backdrop-filter: blur(14px) saturate(1.6) !important;
       box-shadow: var(--glass-btn-shadow) !important;
     }
-    body button:not(.no-glass):not(.btn-primary):not(.ipd-btn-primary):not(.nav-tab):not([class*="toggle"]):not(.side-link):not(.cmd-item):not([aria-pressed]):hover,
+    body button:not(.no-glass):not(.btn-primary):not(.ipd-btn-primary):not([class*="primary"]):not([class*="cta"]):not(.nav-tab):not([class*="toggle"]):not(.side-link):not(.cmd-item):not([aria-pressed]):hover,
     body a.btn-secondary:hover, body .cta-ghost-btn:hover, body .mini-btn:hover,
     body .ad-btn:hover, body .check-btn:hover, body .dropdown-btn:hover {
       background: var(--glass-btn-hover) !important;
       box-shadow: var(--glass-btn-shadow-hover) !important;
+    }
+    /* Primary/CTA hover — lift the material a touch, keep it dominant. */
+    body .btn-primary:hover, body .ipd-btn-primary:hover, body .mobile-cta-primary:hover,
+    body button[class*="primary"]:not(.no-glass):not([class*="secondary"]):not([class*="ghost"]):hover,
+    body a[class*="primary"]:not(.no-glass):not([class*="secondary"]):not([class*="ghost"]):hover,
+    body button[class*="cta"]:not(.no-glass):not([class*="secondary"]):not([class*="ghost"]):hover,
+    body a[class*="cta"]:not(.no-glass):not([class*="secondary"]):not([class*="ghost"]):hover {
+      background: var(--glass-primary-hover) !important;
     }
 
     /* ══════════════════════════════════════
