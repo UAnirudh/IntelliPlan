@@ -1,0 +1,35 @@
+# Keep the build context small and never ship secrets or local state.
+.git
+.gitignore
+.venv
+venv
+env
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.early.coverage
+.claude
+.idea
+.github
+docs
+tests
+node_modules
+
+# Secrets and local data — Railway injects env vars; prod uses Postgres.
+.env
+*.db
+*.sqlite3
+instance
+uploads
+
+# Bulky artifacts that don't belong in the runtime image.
+AppStore-Launch
+*.zip
+mobile
+extension
+intelliplan.tech-audit
+hubspot_contacts.csv
+*[Hh]ub[Ss]pot*.csv
+*[Ee]xport*.csv
