@@ -31,7 +31,7 @@
 .ds-step-pill {
   flex: 1; padding: 12px 16px;
   display: flex; align-items: center; gap: 10px;
-  background: var(--bg-card);
+  background: var(--glass-bg); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
   font-family: var(--font-ui); font-size: 0.82rem; font-weight: 600;
   color: var(--text-muted);
   border-right: 1px solid var(--border);
@@ -55,7 +55,7 @@
 
 /* ── Step pane ── */
 .ds-pane {
-  background: var(--bg-card);
+  background: var(--glass-bg); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   padding: 1.75rem 2rem;
@@ -116,7 +116,7 @@
 .ds-textwrap textarea {
   flex: 1; min-height: 160px;
   border: 1.5px solid var(--border);
-  background: var(--bg-card);
+  background: var(--glass-bg); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
   border-radius: var(--r-md);
   padding: 12px 14px;
   font-family: var(--font-body); font-size: 0.9rem;
@@ -168,7 +168,7 @@
 .ds-check .ds-cbox {
   width: 22px; height: 22px; border-radius: 6px;
   border: 1.5px solid var(--border-strong);
-  background: var(--bg-card);
+  background: var(--glass-bg); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
   flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   transition: background 0.13s, border-color 0.13s;
@@ -273,7 +273,7 @@
 }
 
 .ds-mode-toggle {
-  display: inline-flex; background: var(--bg-card);
+  display: inline-flex; background: var(--glass-bg); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
   border: 1.5px solid var(--border); border-radius: 20px;
   padding: 3px; margin-bottom: 1.25rem;
 }
@@ -295,7 +295,7 @@
 }
 .ds-call-btn:hover { transform: scale(1.07); }
 .ds-call-btn:active { transform: scale(0.95); }
-.ds-call-btn.mute { background: var(--bg-card); border: 1.5px solid var(--border); color: var(--text-primary); }
+.ds-call-btn.mute { background: var(--glass-bg); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6); border: 1.5px solid var(--border); color: var(--text-primary); }
 .ds-call-btn.mute.is-muted { background: #fee2e2; color: #dc2626; border-color: #fecaca; }
 .ds-call-btn.end { background: #ef4444; color: #fff; }
 .ds-call-btn.end:hover { background: #dc2626; }
@@ -331,13 +331,13 @@
   color: var(--text-muted);
 }
 .ds-db-fact {
-  padding: 10px 12px; background: var(--bg-card);
+  padding: 10px 12px; background: var(--glass-bg); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
   border-radius: var(--r-sm); margin-bottom: 8px;
   font-size: 0.84rem; line-height: 1.5; color: var(--text-primary);
   border-left: 3px solid var(--accent);
 }
 .ds-testcard {
-  background: var(--bg-card);
+  background: var(--glass-bg); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
   border: 1.5px solid var(--border);
   border-radius: var(--r-md);
   padding: 14px 16px; margin-bottom: 10px;
