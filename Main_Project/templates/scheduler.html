@@ -24,9 +24,11 @@
   }
   .sched-tab:hover:not(.active) { color: var(--text-secondary); }
   .sched-tab.active {
-    background: var(--bg-card);
+    background: var(--glass-btn-bg);
+    -webkit-backdrop-filter: blur(10px) saturate(1.5); backdrop-filter: blur(10px) saturate(1.5);
     color: var(--text-primary);
-    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-btn-shadow);
   }
   .sched-tab svg { width: 14px; height: 14px; }
   .sched-tab .badge {
@@ -266,7 +268,9 @@
   .iv-duration {
     font-family: var(--ipd-font-mono); font-size: 0.72rem; font-weight: 700;
     color: var(--text-secondary);
-    background: var(--bg-card); border: 1px solid var(--border);
+    background: var(--glass-btn-bg); border: 1px solid var(--glass-border);
+    -webkit-backdrop-filter: blur(8px) saturate(1.4); backdrop-filter: blur(8px) saturate(1.4);
+    box-shadow: var(--glass-btn-shadow);
     padding: 2px 10px; border-radius: 999px;
   }
   .iv-move {
@@ -277,7 +281,9 @@
     transition: all 0.16s;
   }
   .iv-move:hover, .iv-move:focus-visible {
-    border-color: var(--border); background: var(--bg-card); color: var(--text-primary);
+    border-color: var(--glass-border); background: var(--glass-btn-bg);
+    -webkit-backdrop-filter: blur(8px) saturate(1.4); backdrop-filter: blur(8px) saturate(1.4);
+    color: var(--text-primary);
   }
   .iv-move svg { width: 13px; height: 13px; }
 
