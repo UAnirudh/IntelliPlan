@@ -1148,7 +1148,7 @@
     content: '';
     position: absolute;
     inset: -40px;
-    background: radial-gradient(ellipse at 60% 50%, rgba(0,113,227,0.07) 0%, transparent 70%);
+    background: radial-gradient(ellipse at 60% 50%, rgba(var(--accent-shadow),0.06) 0%, transparent 70%);
     pointer-events: none;
     z-index: 0;
   }
@@ -1592,7 +1592,7 @@
     content: '';
     position: absolute; inset: 0; z-index: -1;
     border-radius: inherit;
-    background: var(--icon-grad, linear-gradient(135deg, #1e40af, #3b82f6));
+    background: var(--icon-grad, linear-gradient(135deg, var(--accent), var(--accent-hover)));
     transform: rotate(13deg);
     transform-origin: 100% 100%;
     box-shadow: 0 8px 18px -6px rgba(var(--icon-rgb, var(--accent-shadow)),0.6);
@@ -1600,13 +1600,8 @@
   }
   .feature-card:hover .feature-icon { transform: translateY(-1px); }
   .feature-card:hover .feature-icon::before { transform: rotate(24deg) translate3d(-3px,-3px,0); }
-  /* React Bits color set, one per feature card */
-  .feature-card:nth-child(1) .feature-icon { --icon-grad: linear-gradient(hsl(223,90%,50%),hsl(208,90%,50%)); --icon-rgb: 26,86,219; }
-  .feature-card:nth-child(2) .feature-icon { --icon-grad: linear-gradient(hsl(283,90%,50%),hsl(268,90%,50%)); --icon-rgb: 147,51,234; }
-  .feature-card:nth-child(3) .feature-icon { --icon-grad: linear-gradient(hsl(123,90%,40%),hsl(108,90%,40%)); --icon-rgb: 22,163,74; }
-  .feature-card:nth-child(4) .feature-icon { --icon-grad: linear-gradient(hsl(43,90%,50%),hsl(28,90%,50%));  --icon-rgb: 217,119,6; }
-  .feature-card:nth-child(5) .feature-icon { --icon-grad: linear-gradient(hsl(253,90%,58%),hsl(238,90%,58%)); --icon-rgb: 79,70,229; }
-  .feature-card:nth-child(6) .feature-icon { --icon-grad: linear-gradient(hsl(3,90%,52%),hsl(348,90%,52%));  --icon-rgb: 220,38,38; }
+  /* One considered accent for every feature icon — a monochrome brand set
+     reads more professional than a six-colour rainbow. */
   [data-theme="dark"] .feature-icon { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.14); color: var(--text-primary); }
   .feature-title { align-self: end; }
   .feature-desc { grid-column: 2; margin: 0; }
