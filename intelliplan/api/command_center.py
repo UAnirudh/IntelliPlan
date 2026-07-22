@@ -54,6 +54,17 @@ class CommandCenterDeps:
 
 _TODAY_CACHE: dict[int, tuple[float, dict]] = {}
 _TODAY_CACHE_TTL = 90  # seconds
+_TODAY_CACHE_MAX = 500  # cap entries so the process can't leak memory unbounded
+
+
+def _cache_put(uid: int, result: dict) -> None:
+    """Store a payload and evict the oldest entries past the cap so the
+    module-level cache can't grow without bound."""
+    _TODAY_CACHE[uid] = (time.monotonic(), result)
+    overflow = len(_TODAY_CACHE) - _TODAY_CACHE_MAX
+    if overflow > 0:
+        for key, _ in sorted(_TODAY_CACHE.items(), key=lambda kv: kv[1][0])[:overflow]:
+            _TODAY_CACHE.pop(key, None)
 
 
 def create_command_center_blueprint(deps: CommandCenterDeps) -> Blueprint:
@@ -100,7 +111,7 @@ def create_command_center_blueprint(deps: CommandCenterDeps) -> Blueprint:
             logger.exception("TodayService.build failed for user %s", uid)
             return jsonify({"error": "build_failed"}), 502
         result = today_to_dict(payload)
-        _TODAY_CACHE[uid] = (now, result)
+        _cache_put(uid, result)
         return jsonify(result)
 
     @bp.route("/api/today/refresh", methods=["POST"])
@@ -108,9 +119,13 @@ def create_command_center_blueprint(deps: CommandCenterDeps) -> Blueprint:
         _require_flag()
         uid = _require_user()
         _TODAY_CACHE.pop(uid, None)
-        payload = deps.get_service().build(uid, force_brief=True)
+        try:
+            payload = deps.get_service().build(uid, force_brief=True)
+        except Exception:
+            logger.exception("TodayService.build (refresh) failed for user %s", uid)
+            return jsonify({"error": "build_failed"}), 502
         result = today_to_dict(payload)
-        _TODAY_CACHE[uid] = (time.monotonic(), result)
+        _cache_put(uid, result)
         deps.emit_signal(uid, "briefing_refreshed", subject_type="briefing")
         return jsonify(result)
 
@@ -122,10 +137,16 @@ def create_command_center_blueprint(deps: CommandCenterDeps) -> Blueprint:
         if component not in ("priority", "health", "forecast"):
             abort(400, description="component must be priority | health | forecast")
 
-        payload = deps.get_service().build(uid)
+        try:
+            payload = deps.get_service().build(uid)
+        except Exception:
+            logger.exception("TodayService.build (explain) failed for user %s", uid)
+            return jsonify({"error": "build_failed"}), 502
 
         if component == "priority":
             task_id = (request.args.get("task_id") or "").strip()
+            if not task_id:
+                abort(400, description="task_id is required when component=priority.")
             match = next((t for t in payload.plan if t.assignment.id == task_id), None)
             if match is None:
                 abort(404, description="Unknown task_id.")
@@ -179,6 +200,16 @@ def create_command_center_blueprint(deps: CommandCenterDeps) -> Blueprint:
     @bp.errorhandler(400)
     def _bad_request(e):
         return jsonify({"error": "bad_request", "detail": str(e.description)}), 400
+
+    @bp.errorhandler(403)
+    def _forbidden(e):
+        return jsonify({"error": "forbidden"}), 403
+
+    @bp.errorhandler(404)
+    def _not_found(e):
+        # API-centric blueprint: keep abort(404) responses (flag off, unknown
+        # task_id) as JSON so fetch().json() callers don't choke on an HTML body.
+        return jsonify({"error": "not_found", "detail": str(e.description)}), 404
 
     return bp
 

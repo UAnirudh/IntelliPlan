@@ -66,11 +66,14 @@ def _payload() -> TodayPayload:
 
 
 class FakeService:
-    def __init__(self) -> None:
+    def __init__(self, raise_on_build: bool = False) -> None:
         self.calls: list[dict] = []
+        self.raise_on_build = raise_on_build
 
     def build(self, uid: int, *, force_brief: bool = False) -> TodayPayload:
         self.calls.append({"uid": uid, "force": force_brief})
+        if self.raise_on_build:
+            raise RuntimeError("boom")
         return _payload()
 
 
@@ -159,6 +162,59 @@ class TestExplain:
     def test_invalid_component_400(self, harness) -> None:
         client, _, _, _ = harness
         assert client.get("/api/today/explain?component=magic").status_code == 400
+
+    def test_priority_missing_task_id_400(self, harness) -> None:
+        client, _, _, _ = harness
+        resp = client.get("/api/today/explain?component=priority")
+        assert resp.status_code == 400
+        assert resp.get_json()["error"] == "bad_request"
+
+
+class TestBuildFailure:
+    """A crashing TodayService must degrade to a JSON 502, never a 500."""
+
+    def _client(self, raising: bool = True):
+        from intelliplan.api import command_center as cc
+        cc._TODAY_CACHE.clear()  # module-level cache leaks across tests
+        service = FakeService(raise_on_build=raising)
+        deps = CommandCenterDeps(
+            get_service=lambda: service,
+            feature_enabled=lambda key: True,
+            current_user_id=lambda: 1,
+            cron_token=lambda: "sekrit",
+        )
+        app = Flask(__name__)
+        app.register_blueprint(create_command_center_blueprint(deps))
+        return app.test_client()
+
+    def test_today_502(self) -> None:
+        resp = self._client().get("/api/today")
+        assert resp.status_code == 502
+        assert resp.get_json()["error"] == "build_failed"
+
+    def test_refresh_502(self) -> None:
+        resp = self._client().post("/api/today/refresh")
+        assert resp.status_code == 502
+
+    def test_explain_502(self) -> None:
+        resp = self._client().get("/api/today/explain?component=health")
+        assert resp.status_code == 502
+
+
+class TestCacheEviction:
+    def test_cap_evicts_oldest(self) -> None:
+        from intelliplan.api import command_center as cc
+
+        cc._TODAY_CACHE.clear()
+        try:
+            for uid in range(cc._TODAY_CACHE_MAX + 25):
+                cc._cache_put(uid, {"uid": uid})
+            assert len(cc._TODAY_CACHE) == cc._TODAY_CACHE_MAX
+            # the earliest-inserted uids should have been evicted first
+            assert 0 not in cc._TODAY_CACHE
+            assert (cc._TODAY_CACHE_MAX + 24) in cc._TODAY_CACHE
+        finally:
+            cc._TODAY_CACHE.clear()
 
 
 class TestCron:
