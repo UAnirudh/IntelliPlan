@@ -69,7 +69,7 @@
 .sp-label { font-size:0.68rem; font-weight: 700; text-transform:uppercase; letter-spacing:0.1em; color:var(--txm); margin-bottom:1rem; }
 
 /* ── INPUT TABS ── */
-.itabs { display:flex; gap:3px; margin-bottom:1rem; background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:3px; }
+.itabs { display:flex; gap:3px; margin-bottom:1rem; background:var(--glass-btn-bg); -webkit-backdrop-filter:blur(12px) saturate(1.5); backdrop-filter:blur(12px) saturate(1.5); border:1px solid var(--glass-border); box-shadow:var(--glass-btn-shadow); border-radius:12px; padding:3px; }
 .itab { flex:1; padding:8px; border:none; background:transparent; border-radius:10px; font-size:0.78rem; font-weight:700; cursor:pointer; color:var(--text-muted); transition:all 0.15s; font-family:var(--font-ui); }
 .itab.active { background:var(--glass-btn-bg); -webkit-backdrop-filter:blur(10px) saturate(1.5); backdrop-filter:blur(10px) saturate(1.5); border:1px solid var(--glass-border); color:var(--si); box-shadow:var(--glass-btn-shadow); }
 .ipanel { display:none; } .ipanel.active { display:block; }
@@ -393,7 +393,7 @@
 .celebration-title { position:relative; font-family:var(--ipd-font-display); font-size:2rem; color:#1c1917; margin-bottom:6px; }
 .celebration-sub { position:relative; color:var(--text-muted); font-size:.9rem; line-height:1.5; margin-bottom:1.2rem; }
 .celebration-rewards { position:relative; display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin-bottom:1.3rem; }
-.reward-pill { padding:7px 12px; border-radius:999px; background:var(--bg); border:1px solid var(--border); font-weight: 700; font-size:.78rem; color:var(--text-secondary); }
+.reward-pill { padding:7px 12px; border-radius:999px; background:var(--glass-btn-bg); -webkit-backdrop-filter:blur(10px) saturate(1.5); backdrop-filter:blur(10px) saturate(1.5); border:1px solid var(--glass-border); box-shadow:var(--glass-btn-shadow); font-weight: 700; font-size:.78rem; color:var(--text-secondary); }
 
 /* ── SESSION COMPLETE ANIMATION ── */
 #scAnim {
