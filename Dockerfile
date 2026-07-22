@@ -33,6 +33,6 @@ RUN mkdir -p instance uploads
 ENV PORT=8080
 EXPOSE 8080
 
-# Shell form so ${PORT} expands. Module invocation avoids any venv/console-
-# script shebang dependency.
-CMD python -m gunicorn App:app --bind 0.0.0.0:${PORT:-8080} --workers 4 --timeout 120 --max-requests 500 --max-requests-jitter 50
+# Exec form — no shell needed. gunicorn.conf.py reads $PORT in Python, so the
+# start command carries no "$PORT" that could reach gunicorn unexpanded.
+CMD ["python", "-m", "gunicorn", "App:app", "-c", "gunicorn.conf.py"]
