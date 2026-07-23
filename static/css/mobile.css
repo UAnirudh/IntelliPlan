@@ -568,46 +568,11 @@ select {
     grid-template-columns: 1fr 1fr !important;
   }
 
-  /* Mobile sticky CTA */
-  .mobile-cta-bar {
-    display: grid !important;
-    grid-template-columns: 1fr 0.75fr !important;
-    gap: 0.5rem !important;
-    position: fixed !important;
-    left: 0.75rem !important;
-    right: 0.75rem !important;
-    /* Sit above the Plani avatar (bottom-left) and install banner
-       (bottom-right) row, and clear the iOS home indicator. */
-    bottom: calc(76px + env(safe-area-inset-bottom)) !important;
-    z-index: 9998 !important;
-  }
-
-  .mobile-cta-primary,
-  .mobile-cta-secondary {
-    text-decoration: none;
-    text-align: center;
-    border-radius: 999px;
-    padding: 0.85rem 1rem;
-    font-family: var(--font-ui);
-    font-weight: 700;
-    font-size: 0.9rem;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
-  }
-
-  .mobile-cta-primary {
-    background: var(--accent);
-    color: white;
-  }
-
-  .mobile-cta-secondary {
-    background: var(--bg-card);
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-  }
-
-  .cta-section {
-    padding-bottom: 5.5rem !important;
-  }
+  /* The mobile sticky CTA (.mobile-cta-bar / .mobile-cta-primary / -secondary)
+     and .cta-section live ONLY on the landing page, which owns their styles in
+     landing.html. The old rules here duplicated them with `!important` and
+     forced a 2-column grid + a too-short bottom pad that fought the landing's
+     own compact, minimizable layout. Removed to keep a single source of truth. */
 
   .floating-badge {
     right: 0.5rem;
