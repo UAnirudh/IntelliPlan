@@ -204,9 +204,12 @@
       --ink:           #1a1a1a;
       --text-primary:  #1a1a1a;
       --text-secondary:#4a4a46;
-      /* Muted was #8c8c87 (~3.1:1 on --bg) — darkened to clear WCAG AA 4.5:1
-         for small labels/kickers while staying clearly lighter than secondary. */
-      --text-muted:    #6e6e69;
+      /* Muted was #8c8c87 (~3.1:1 on --bg) — darkened to clear WCAG AA 4.5:1.
+         #6e6e69 cleared 4.5 on --bg but fell to ~4.27 on --bg-elevated (#eceae6),
+         so muted text on elevated surfaces (e.g. the ⌘K "esc" hint) failed AA.
+         #666660 clears 4.5 on the elevated surface too while staying clearly
+         lighter than --text-secondary. */
+      --text-muted:    #666660;
       --border:        rgba(0,0,0,0.06);
       --border-strong: rgba(0,0,0,0.11);
       --border-accent: rgba(26,86,219,0.24);
@@ -224,7 +227,9 @@
       --toggle-knob: #1a1a1a;
       --nav-divider: rgba(0,0,0,0.08);
       --footer-bg:   #eae8e4;
-      --footer-text: #6a6a66;
+      /* #6a6a66 measured 4.44:1 on --footer-bg — just under AA. #636360 clears
+         4.5:1 (~4.66) while keeping the quiet, de-emphasised footer tone. */
+      --footer-text: #636360;
       --footer-border:rgba(0,0,0,0.05);
       --footer-link: #1a56db;
       --scrim:       rgba(18,18,23,0.44);
@@ -2377,7 +2382,12 @@ html {
   scroll-behavior: smooth;
 }
 body {
-  -webkit-overflow-scrolling: touch;     /* momentum scrolling */
+  /* NOTE: -webkit-overflow-scrolling:touch was removed from <body> on purpose.
+     On iOS 13+ momentum scrolling is the default, and forcing it on the body
+     promotes the document into a separate accelerated scroll context that
+     rubber-bands back to the top. It stays only on genuine inner scrollers
+     (nav drawer, modals, horizontal tables) where a nested momentum scroller
+     is actually wanted. */
   overscroll-behavior-y: contain;        /* stops janky scroll chaining */
 }
 /* Immediate visual feedback when pressing buttons on touch devices */
@@ -2760,7 +2770,7 @@ body {
     </div>
     <div id="modalCustomWrap" style="margin-top:1rem;display:none;">
       <div style="font-family:var(--font-ui);font-size:0.71rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Add your own description</div>
-      <textarea id="modalCustomInput" style="width:100%;padding:10px 14px;border-radius:var(--r-sm);border:1px solid var(--border-strong);background:var(--bg);color:var(--text-primary);font-family:var(--font-body);font-size:0.87rem;resize:vertical;min-height:90px;outline:none;transition:border-color 0.16s;" placeholder="Describe what this assignment involves..."></textarea>
+      <textarea id="modalCustomInput" aria-label="Add your own description" style="width:100%;padding:10px 14px;border-radius:var(--r-sm);border:1px solid var(--border-strong);background:var(--bg);color:var(--text-primary);font-family:var(--font-body);font-size:0.87rem;resize:vertical;min-height:90px;outline:none;transition:border-color 0.16s;" placeholder="Describe what this assignment involves..."></textarea>
       <button class="btn-primary" style="margin-top:8px;padding:10px 20px;" onclick="saveCustomDescription()">Save Description</button>
     </div>
   </div>
@@ -2795,7 +2805,7 @@ body {
   <div class="cmd-box">
     <div class="cmd-input-row">
       <svg><use href="#i-search"/></svg>
-      <input type="text" class="cmd-input" id="cmdInput" placeholder="Search pages, themes, actions…" autocomplete="off" spellcheck="false">
+      <input type="text" class="cmd-input" id="cmdInput" aria-label="Search pages, themes, and actions" placeholder="Search pages, themes, actions…" autocomplete="off" spellcheck="false">
       <span class="cmd-esc">esc</span>
     </div>
     <div class="cmd-results" id="cmdResults"></div>

@@ -38,24 +38,33 @@ select {
 @media (max-width: 768px) {
 
   /* ── No horizontal scroll, but NEVER trap vertical scroll ──────
-     overflow-x:hidden forces overflow-y to compute as `auto`, which turned
-     both <html> and <body> into scroll containers. body then grew to full
-     content height (no real overflow) and swallowed the scroll, leaving the
-     whole page unscrollable on mobile. overflow-x:clip stops sideways scroll
-     WITHOUT creating a scroll container, so normal document scrolling works. */
-  html, body {
+     CRITICAL iOS rule: NEVER put overflow (not even `clip`) on the root <html>.
+     Any overflow value on the root element breaks iOS Safari's compositor
+     touch-scrolling — the page scrolls a few pixels then rubber-bands straight
+     back to the top. (An earlier fix swapped overflow-x:hidden→clip on <html>,
+     which stopped the "unscrollable" desktop trap but NOT the iOS rubber-band,
+     because clip on the root breaks touch-scroll just like hidden does.)
+     Horizontal containment therefore lives ONLY on <body>/<main>: body{overflow-x:clip}
+     clips sideways overflow without turning the root into a broken scroller and
+     without touching the compositor's ownership of vertical touch-scroll. */
+  html {
     width: 100%;
     max-width: 100%;
-    overflow-x: clip;
     min-height: 100%;
     height: auto;
   }
 
   body {
+    width: 100%;
+    max-width: 100%;
+    min-height: 100%;
+    height: auto;
     /* Clear the fixed header AND the iOS notch / Dynamic Island. On devices
        with no inset, env() resolves to 0 so this equals 62px. */
     padding-top: calc(62px + env(safe-area-inset-top)) !important;
     padding-left: 0 !important;
+    /* clip (not hidden) stops sideways scroll WITHOUT forcing overflow-y to
+       compute as `auto`, so body never becomes a broken non-overflowing scroller. */
     overflow-x: clip;
     /* NOTE: no overflow-y here on purpose — the viewport scrolls the document.
        Setting overflow-y:auto made body a broken (non-overflowing) scroller. */
