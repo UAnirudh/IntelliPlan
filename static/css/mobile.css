@@ -37,11 +37,16 @@ select {
 ══════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
 
-  /* ── No horizontal scroll ─────────────────────────────── */
+  /* ── No horizontal scroll, but NEVER trap vertical scroll ──────
+     overflow-x:hidden forces overflow-y to compute as `auto`, which turned
+     both <html> and <body> into scroll containers. body then grew to full
+     content height (no real overflow) and swallowed the scroll, leaving the
+     whole page unscrollable on mobile. overflow-x:clip stops sideways scroll
+     WITHOUT creating a scroll container, so normal document scrolling works. */
   html, body {
     width: 100%;
     max-width: 100%;
-    overflow-x: hidden;
+    overflow-x: clip;
     min-height: 100%;
     height: auto;
   }
@@ -51,10 +56,9 @@ select {
        with no inset, env() resolves to 0 so this equals 62px. */
     padding-top: calc(62px + env(safe-area-inset-top)) !important;
     padding-left: 0 !important;
-    overflow-x: hidden;
-    overflow-y: auto;
-    /* Stop the rubber-band overscroll from revealing a blank bar behind the
-       page on iOS, and stop scroll chaining out of the document. */
+    overflow-x: clip;
+    /* NOTE: no overflow-y here on purpose — the viewport scrolls the document.
+       Setting overflow-y:auto made body a broken (non-overflowing) scroller. */
     overscroll-behavior-y: contain;
   }
 
