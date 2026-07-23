@@ -472,7 +472,7 @@ function openChest() {
 function showEvolution(evo) {
   if (!evo) return;
   setHtml('ccEvolveEmoji', STAGE_SVG);
-  setText('ccEvolveHeadline', evo.headline || 'Your pet evolved!');
+  setText('ccEvolveHeadline', evo.headline || 'Your pet evolved.');
   setText('ccEvolveCopy', evo.copy || '');
   var ov = document.getElementById('ccEvolveOverlay');
   ov.hidden = false; ov.style.display = 'flex';

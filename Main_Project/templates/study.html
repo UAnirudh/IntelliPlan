@@ -616,7 +616,7 @@ body.serious-mode .nav-tabs { display:none !important; }
     </div>
     <div class="sca-plani" id="scaPlani"></div>
     <div class="sca-title">Session Complete!</div>
-    <div class="sca-sub" id="scaSub">Great work keeping the momentum going.</div>
+    <div class="sca-sub" id="scaSub">That's another session in.</div>
     <div class="sca-pills" id="scaPills"></div>
     <button class="sca-btn" onclick="closeScAnim()">Continue</button>
   </div>
@@ -1721,7 +1721,7 @@ function renderStreakTab() {
   const today = new Date().toISOString().split('T')[0];
   const sub = document.getElementById('streakSubMsg');
   if (G.streak === 0) sub.textContent = 'Complete a session today to start your streak!';
-  else if (G.streakHistory.includes(today)) sub.textContent = `Day ${G.streak} - you're on fire. Keep it going.`;
+  else if (G.streakHistory.includes(today)) sub.textContent = `Day ${G.streak}. Today's session is in.`;
   else if (G.atRisk) sub.textContent = 'Your streak is at risk. One 5-question session protects it.';
   else sub.textContent = `Daily ${tier.name} bonus: +${tier.bonus} Sparks when you finish a session.`;
 
@@ -2053,7 +2053,7 @@ async function loadDueReviews() {
     document.getElementById('srsDoneMsg').style.display  = 'block';
     document.getElementById('srsDoneMsg').innerHTML = `
       <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-      <div style="font-weight:700;font-size:1rem;margin-top:8px;">All caught up!</div>
+      <div style="font-weight:700;font-size:1rem;margin-top:8px;">All caught up.</div>
       <div style="font-size:0.82rem;color:var(--txm);margin-top:4px;">Your next cards are scheduled for future days.</div>
     `;
   }
@@ -2254,7 +2254,7 @@ function renderQuestsTab() {
   const completed = new Set(qd.completed || []);
   const progress = qd.progress || {};
   document.getElementById('questCompletionMsg').textContent = completed.size >= 3
-    ? 'Weekly set complete. Nice work.'
+    ? 'Weekly set complete.'
     : `${3 - completed.size} quest${3-completed.size === 1 ? '' : 's'} left for the weekly completion bonus.`;
   list.innerHTML = qd.quests.map(q => {
     const cur = Math.min(progress[q.id] || 0, q.target);
@@ -2375,7 +2375,7 @@ function showSessionCompleteAnim(sparks, streakDays, accuracy) {
     ? 'Exceptional work! Knowledge locked in.'
     : accuracy >= 55
     ? 'Solid effort. Keep building that streak.'
-    : 'Every session counts. Keep going!';
+    : 'Every session counts.';
   document.getElementById('scaSub').textContent = sub;
 
   // Pills
