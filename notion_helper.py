@@ -190,10 +190,24 @@ def create_intelliplan_database(token, parent_page_id, name="IntelliPlan Tasks")
     return db["id"]
 
 def get_notion_tasks(token, database_id):
-    """Pull tasks from a Notion database."""
+    """Pull tasks from a Notion database (all pages, following pagination)."""
     client = get_notion_client(token)
-    results = client.databases.query(database_id=database_id).get("results", [])
-    
+    results = []
+    cursor = None
+    # Notion returns at most 100 rows per page — follow the cursor so large
+    # databases pull completely instead of silently stopping at 100.
+    for _ in range(50):  # hard cap (5000 rows) to avoid a runaway loop
+        resp = client.databases.query(
+            database_id=database_id,
+            **({"start_cursor": cursor} if cursor else {}),
+        )
+        results.extend(resp.get("results", []))
+        if not resp.get("has_more"):
+            break
+        cursor = resp.get("next_cursor")
+        if not cursor:
+            break
+
     tasks = []
     for page in results:
         props = page.get("properties", {})

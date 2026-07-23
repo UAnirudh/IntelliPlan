@@ -6425,7 +6425,9 @@ def notion_connect():
         existing = NotionIntegration.query.filter_by(user_id=current_user.id).first()
         if existing:
             existing.token = token
-            existing.database_id = None
+            # Keep the previously-selected database so re-pasting the token to
+            # refresh the connection doesn't silently stop the task sync. The
+            # user can still change it from "Pick a database".
             existing.auth_type = "manual"
             existing.workspace_name = workspace_name
             existing.bot_id = bot_id
