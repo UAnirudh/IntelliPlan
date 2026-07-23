@@ -59,9 +59,9 @@ select {
     max-width: 100%;
     min-height: 100%;
     height: auto;
-    /* Clear the fixed header AND the iOS notch / Dynamic Island. On devices
-       with no inset, env() resolves to 0 so this equals 62px. */
-    padding-top: calc(62px + env(safe-area-inset-top)) !important;
+    /* Clear the fixed header AND the iOS notch / Dynamic Island. Must match the
+       header's height below (54px) so content sits flush under it. */
+    padding-top: calc(54px + env(safe-area-inset-top)) !important;
     padding-left: 0 !important;
     /* clip (not hidden) stops sideways scroll WITHOUT forcing overflow-y to
        compute as `auto`, so body never becomes a broken non-overflowing scroller. */
@@ -117,11 +117,13 @@ select {
     left: 0 !important;
     right: 0 !important;
     width: 100% !important;
-    min-height: 62px;
+    /* Tighter, Linear/ChatGPT-style top bar — 54px reclaims 8px of vertical
+       space on every app screen. The 40px controls fit within 7px padding. */
+    min-height: 54px;
     height: auto !important;
     /* Pad for the notch (top) and landscape rounded corners (left/right). */
-    padding: 10px 14px !important;
-    padding-top: calc(10px + env(safe-area-inset-top)) !important;
+    padding: 7px 14px !important;
+    padding-top: calc(7px + env(safe-area-inset-top)) !important;
     padding-left: calc(14px + env(safe-area-inset-left)) !important;
     padding-right: calc(14px + env(safe-area-inset-right)) !important;
     display: grid !important;
@@ -177,9 +179,9 @@ select {
     display: flex !important;
     align-items: center;
     justify-content: center;
-    width: 42px;
-    height: 42px;
-    border-radius: 12px;
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
     background: var(--bg-card);
     border: 1px solid var(--border);
     color: var(--text-primary);
@@ -205,8 +207,8 @@ select {
     max-width: calc(100vw - 18px) !important;
     height: 100dvh !important;
     max-height: none !important;
-    /* Top pad clears the notch; bottom pad clears the home indicator. */
-    padding: calc(78px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-left)) calc(18px + env(safe-area-inset-bottom)) !important;
+    /* Top pad clears the notch + the 54px header; bottom pad clears the home indicator. */
+    padding: calc(70px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-left)) calc(18px + env(safe-area-inset-bottom)) !important;
     margin: 0 !important;
     gap: 4px !important;
     background: var(--bg-card) !important;
