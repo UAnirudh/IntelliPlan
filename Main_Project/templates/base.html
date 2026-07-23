@@ -3246,11 +3246,12 @@ if (mobileMenuBtn) {
   const side = document.querySelector('.app-side');
   const STORAGE_KEY = 'ip_sideHidden';
 
-  // Section labels and the items inside each (must match data-nav-item attrs)
-  const SECTIONS = [
-    { key:'top', label:'Main', items:['dashboard','scheduler','gradebook','study_hub','streak'] },
-  ];
-  const NEVER_HIDE = new Set(['dashboard']); // always keep Dashboard reachable
+  // Source of truth = the real sidebar links, read live from the DOM, so the
+  // customizer can never drift out of sync with what's actually in the nav.
+  function navLinks() {
+    return side ? Array.from(side.querySelectorAll('.side-nav-list [data-nav-item]')) : [];
+  }
+  const NEVER_HIDE = new Set(['command_center', 'dashboard']); // keep a home reachable
 
   function loadHidden() {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {}; }
@@ -3263,50 +3264,36 @@ if (mobileMenuBtn) {
   function applyHidden() {
     if (!side) return;
     const hidden = loadHidden();
-    side.querySelectorAll('[data-nav-item]').forEach(link => {
+    navLinks().forEach(link => {
       const key = link.dataset.navItem;
       link.classList.toggle('nav-hidden', !!hidden[key] && !NEVER_HIDE.has(key));
     });
-    // Hide a section label if every item under it is hidden
-    side.querySelectorAll('[data-nav-section]').forEach(label => {
-      const sec = SECTIONS.find(s => s.key === label.dataset.navSection);
-      if (!sec) return;
-      const anyVisible = sec.items.some(k => !hidden[k] || NEVER_HIDE.has(k));
-      label.style.display = anyVisible ? '' : 'none';
-    });
   }
 
-  function labelFor(navKey) {
-    if (!side) return navKey;
-    const link = side.querySelector(`[data-nav-item="${navKey}"]`);
-    if (!link) return navKey;
-    // Last text node = visible label (siblings are icons)
-    return (link.textContent || navKey).trim();
+  function labelFor(link) {
+    // Visible label = the link's text (icon is an SVG, badges are empty).
+    return (link.textContent || link.dataset.navItem || '').trim();
   }
 
   function renderCustomizer() {
     const host = document.getElementById('navCustomizerList');
     if (!host) return;
     const hidden = loadHidden();
-    host.innerHTML = SECTIONS.map(sec => {
-      const rows = sec.items.map(k => {
-        const isHidden = !!hidden[k] && !NEVER_HIDE.has(k);
-        const locked = NEVER_HIDE.has(k);
-        const link = side && side.querySelector(`[data-nav-item="${k}"]`);
-        if (!link) return '';
-        const lbl = labelFor(k);
-        return `
-          <div class="nc-row">
-            <span class="nc-icon"><svg width="18" height="18">${link.querySelector('.side-icon svg')?.innerHTML || ''}</svg></span>
-            <span class="nc-label">${lbl}</span>
-            <span class="nc-grp">${sec.label}</span>
-            <div class="nc-toggle" role="group" aria-label="Visibility for ${lbl}">
-              <button type="button" data-key="${k}" data-mode="show" class="${!isHidden?'active':''}">Show</button>
-              <button type="button" data-key="${k}" data-mode="hide" class="${isHidden?'active':''}" ${locked?'disabled title="Dashboard cannot be hidden"':''}>Hide</button>
-            </div>
-          </div>`;
-      }).join('');
-      return rows;
+    host.innerHTML = navLinks().map(link => {
+      const k = link.dataset.navItem;
+      const isHidden = !!hidden[k] && !NEVER_HIDE.has(k);
+      const locked = NEVER_HIDE.has(k);
+      const lbl = labelFor(link);
+      const icon = link.querySelector('.side-icon svg')?.innerHTML || '';
+      return `
+        <div class="nc-row">
+          <span class="nc-icon"><svg width="18" height="18">${icon}</svg></span>
+          <span class="nc-label">${lbl}</span>
+          <div class="nc-toggle" role="group" aria-label="Visibility for ${lbl}">
+            <button type="button" data-key="${k}" data-mode="show" class="${!isHidden?'active':''}">Show</button>
+            <button type="button" data-key="${k}" data-mode="hide" class="${isHidden?'active':''}" ${locked?'disabled title="This page cannot be hidden"':''}>Hide</button>
+          </div>
+        </div>`;
     }).join('');
 
     host.querySelectorAll('.nc-toggle button').forEach(btn => {
