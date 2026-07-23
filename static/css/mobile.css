@@ -106,8 +106,13 @@ select {
   /* ════════════════════════════════════════════════════════
      HEADER / TOP BAR
      Fully opaque so nothing bleeds through.
+     Scoped to `body > header` (the ONE top-level nav bar). A bare `header`
+     selector matched every nested <header> — .cc-hero, .cc-rail-head,
+     .cc-chat-header, page section headers — and force-fixed them to the top
+     of the viewport (position:fixed;top:0;z-index:99999), so e.g. the Control
+     Center hero permanently covered the content scrolling beneath it.
   ════════════════════════════════════════════════════════ */
-  header,
+  body > header,
   .top-bar {
     background-color: var(--bg-card) !important;
     backdrop-filter: none !important;
@@ -136,12 +141,12 @@ select {
     isolation: isolate;
   }
 
-  header .logo,
+  body > header .logo,
   .top-bar .logo {
     min-width: 0;
   }
 
-  header .logo-text {
+  body > header .logo-text {
     overflow: hidden;
     text-overflow: ellipsis;
   }
