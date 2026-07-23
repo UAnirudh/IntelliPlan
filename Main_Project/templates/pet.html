@@ -114,7 +114,7 @@
   border-radius: 28px;
   border: 1px solid var(--border);
   background:
-    radial-gradient(circle at 20% 30%, rgba(167,139,250,0.18), transparent 50%),
+    radial-gradient(circle at 20% 30%, rgba(37,99,235,0.18), transparent 50%),
     radial-gradient(circle at 80% 70%, rgba(251,146,60,0.15), transparent 50%),
     linear-gradient(135deg, var(--bg-card), var(--bg-elevated));
   overflow: hidden;
@@ -124,7 +124,7 @@
   position: absolute;
   top: -120px; right: -80px;
   width: 380px; height: 380px;
-  background: radial-gradient(circle, rgba(139,92,246,0.18), transparent 70%);
+  background: radial-gradient(circle, rgba(37,99,235,0.18), transparent 70%);
   pointer-events: none;
   animation: petOrbBg 12s ease-in-out infinite;
 }
@@ -141,12 +141,12 @@
   border-radius: 50%;
   background:
     radial-gradient(circle at 50% 60%, rgba(255,255,255,0.6) 0%, transparent 50%),
-    linear-gradient(180deg, transparent 60%, rgba(139,92,246,0.12) 100%);
+    linear-gradient(180deg, transparent 60%, rgba(37,99,235,0.12) 100%);
 }
 [data-theme="dark"] .pet-stage {
   background:
     radial-gradient(circle at 50% 60%, rgba(255,255,255,0.06) 0%, transparent 50%),
-    linear-gradient(180deg, transparent 60%, rgba(139,92,246,0.18) 100%);
+    linear-gradient(180deg, transparent 60%, rgba(37,99,235,0.18) 100%);
 }
 .pet-shadow {
   position: absolute;
@@ -170,7 +170,7 @@
   display: grid;
   place-items: center;
   animation: petBob 2.4s ease-in-out infinite;
-  filter: drop-shadow(0 12px 24px rgba(139, 92, 246, 0.35));
+  filter: drop-shadow(0 12px 24px rgba(37, 99, 235, 0.35));
 }
 @keyframes petBob {
   0%, 100% { transform: translateY(0) scale(1); }
@@ -187,7 +187,7 @@
   opacity: 0;
   animation: petSparkle 3.4s ease-in-out infinite;
 }
-.pet-sparkle.s1 { top: 18%; left: 25%; animation-delay: 0s; background: #c4b5fd; }
+.pet-sparkle.s1 { top: 18%; left: 25%; animation-delay: 0s; background: #bfdbfe; }
 .pet-sparkle.s2 { top: 30%; right: 20%; animation-delay: 0.8s; background: #fde68a; }
 .pet-sparkle.s3 { bottom: 28%; left: 18%; animation-delay: 1.6s; background: #fb923c; }
 .pet-sparkle.s4 { bottom: 22%; right: 22%; animation-delay: 2.2s; background: #a7f3d0; }
@@ -204,7 +204,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--accent, #6d28d9);
+  color: var(--accent, #1a56db);
 }
 .pet-name {
   display: flex;
@@ -266,8 +266,8 @@
 .pet-progress-card {
   margin-top: 0.6rem;
   padding: 1rem;
-  background: rgba(167, 139, 250, 0.08);
-  border: 1px solid rgba(167, 139, 250, 0.25);
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.25);
   border-radius: 14px;
 }
 .pet-progress-head {
@@ -290,7 +290,7 @@
 .pet-progress-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #a78bfa 0%, #8b5cf6 50%, #ec4899 100%);
+  background: linear-gradient(90deg, #7aabf8 0%, #2563eb 50%, #3b82f6 100%);
   transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .pet-progress-meta {
@@ -337,9 +337,9 @@
   transition: all 0.2s;
 }
 .pet-stage-row.current {
-  background: linear-gradient(135deg, rgba(167,139,250,0.1), rgba(139,92,246,0.05));
-  border-color: rgba(167,139,250,0.4);
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);
+  background: linear-gradient(135deg, rgba(37,99,235,0.1), rgba(37,99,235,0.05));
+  border-color: rgba(37,99,235,0.4);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
 }
 .pet-stage-row.locked { opacity: 0.55; }
 .pet-stage-emoji { font-size: 2rem; line-height: 1; text-align: center; }
@@ -353,11 +353,11 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  background: rgba(139, 92, 246, 0.15);
-  color: #6d28d9;
+  background: rgba(37, 99, 235, 0.15);
+  color: #1a56db;
 }
-.pet-stage-row.current .pet-stage-badge { background: #8b5cf6; color: #fff; }
-[data-theme="dark"] .pet-stage-badge { background: rgba(167,139,250,0.2); color: #c4b5fd; }
+.pet-stage-row.current .pet-stage-badge { background: #2563eb; color: #fff; }
+[data-theme="dark"] .pet-stage-badge { background: rgba(37,99,235,0.2); color: #bfdbfe; }
 
 .pet-xp-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
 .pet-xp-list li {
@@ -368,12 +368,12 @@
   font-size: 0.92rem;
   color: var(--text-secondary);
 }
-.pet-xp-list strong { color: #6d28d9; font-family: var(--font-ui, sans-serif); }
-[data-theme="dark"] .pet-xp-list strong { color: #c4b5fd; }
+.pet-xp-list strong { color: #1a56db; font-family: var(--font-ui, sans-serif); }
+[data-theme="dark"] .pet-xp-list strong { color: #bfdbfe; }
 .pet-cta-link {
   display: inline-block;
   margin-top: 1rem;
-  color: var(--accent, #6d28d9);
+  color: var(--accent, #1a56db);
   text-decoration: none;
   font-family: var(--font-ui, sans-serif);
   font-weight: 700;
@@ -403,7 +403,7 @@
   font-size: 1rem;
   margin-bottom: 1rem;
 }
-.pet-dialog input:focus { outline: none; border-color: var(--accent, #6d28d9); }
+.pet-dialog input:focus { outline: none; border-color: var(--accent, #1a56db); }
 .pet-dialog-btns { display: flex; justify-content: flex-end; gap: 8px; }
 .pet-dialog-btns button {
   padding: 8px 16px;
@@ -415,7 +415,7 @@
   cursor: pointer;
 }
 .pet-dialog-btns .primary {
-  background: linear-gradient(135deg, #a78bfa, #8b5cf6);
+  background: linear-gradient(135deg, #7aabf8, #2563eb);
   border-color: transparent;
   color: #fff;
 }
@@ -439,7 +439,7 @@
 // committing dozens of static assets. Colors come from the API.
 
 function svgForStage(stageId, color) {
-  const c = color || '#a78bfa';
+  const c = color || '#7aabf8';
   // Each stage is a different shape. Eyes are constants.
   const eyes = `
     <ellipse cx="-22" cy="-8" rx="6" ry="8" fill="#1f2937"/>
@@ -529,10 +529,10 @@ function svgForStage(stageId, color) {
       return `<svg viewBox="-80 -100 160 200">
         <ellipse cx="0" cy="50" rx="72" ry="56" fill="${c}" stroke="#1f2937" stroke-width="3"/>
         <circle cx="0" cy="-10" r="64" fill="${c}" stroke="#1f2937" stroke-width="3"/>
-        <path d="M -58 -54 L -34 -26 L -68 -32 Z" fill="#a855f7" stroke="#1f2937" stroke-width="2.5"/>
-        <path d="M 58 -54 L 34 -26 L 68 -32 Z" fill="#a855f7" stroke="#1f2937" stroke-width="2.5"/>
-        <path d="M -40 -68 L -28 -52 L -50 -56 Z" fill="#a855f7" stroke="#1f2937" stroke-width="2"/>
-        <path d="M 40 -68 L 28 -52 L 50 -56 Z" fill="#a855f7" stroke="#1f2937" stroke-width="2"/>
+        <path d="M -58 -54 L -34 -26 L -68 -32 Z" fill="#3b82f6" stroke="#1f2937" stroke-width="2.5"/>
+        <path d="M 58 -54 L 34 -26 L 68 -32 Z" fill="#3b82f6" stroke="#1f2937" stroke-width="2.5"/>
+        <path d="M -40 -68 L -28 -52 L -50 -56 Z" fill="#3b82f6" stroke="#1f2937" stroke-width="2"/>
+        <path d="M 40 -68 L 28 -52 L 50 -56 Z" fill="#3b82f6" stroke="#1f2937" stroke-width="2"/>
         ${eyes}
         <path d="M -14 12 Q 0 24 14 12 L 10 8 L 6 12 L 0 8 L -6 12 L -10 8 Z" fill="#1f2937"/>
         <circle cx="0" cy="-72" r="6" fill="#fbbf24" stroke="#1f2937" stroke-width="2"/>
@@ -542,7 +542,7 @@ function svgForStage(stageId, color) {
         <defs>
           <linearGradient id="mythicGrad" x1="0" x2="1" y1="0" y2="1">
             <stop offset="0%" stop-color="${c}"/>
-            <stop offset="100%" stop-color="#ec4899"/>
+            <stop offset="100%" stop-color="#3b82f6"/>
           </linearGradient>
         </defs>
         <ellipse cx="0" cy="50" rx="74" ry="58" fill="url(#mythicGrad)" stroke="#1f2937" stroke-width="3"/>
@@ -565,7 +565,7 @@ function svgForStage(stageId, color) {
           <radialGradient id="cosmicGrad">
             <stop offset="0%" stop-color="#fbbf24"/>
             <stop offset="50%" stop-color="${c}"/>
-            <stop offset="100%" stop-color="#6d28d9"/>
+            <stop offset="100%" stop-color="#1a56db"/>
           </radialGradient>
         </defs>
         <ellipse cx="0" cy="50" rx="76" ry="60" fill="url(#cosmicGrad)" stroke="#1f2937" stroke-width="3"/>
