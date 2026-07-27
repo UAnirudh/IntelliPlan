@@ -4527,7 +4527,17 @@ window.addEventListener('load',()=>{
   const TZ = new Date().getTimezoneOffset();
   let lastPing = 0;
   let lastNudge = 0;
-  let nudgeShownAt = 0;
+  // Wellness nudges are throttled across page loads. This is a multi-page app,
+  // so the old in-memory timestamp reset on every navigation — that was the
+  // "far too frequent" bug (navigate → throttle clears → nudge fires again).
+  // State now lives in localStorage, and on top of the user's configured
+  // cadence we enforce a hard minimum gap and a daily ceiling.
+  const NUDGE_KEY = 'ip_wellness_nudge_v1';
+  const NUDGE_FLOOR_MIN = 20;   // never nudge more than once per 20 min
+  const NUDGE_MAX_PER_DAY = 6;  // hard daily ceiling, whatever the cadence
+  function loadNudgeState(){ try { return JSON.parse(localStorage.getItem(NUDGE_KEY)) || {}; } catch(e){ return {}; } }
+  function saveNudgeState(s){ try { localStorage.setItem(NUDGE_KEY, JSON.stringify(s)); } catch(e){} }
+  function nudgeDayKey(){ const d = new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
 
   function ping(){
     if (document.hidden) return;
@@ -4572,13 +4582,24 @@ window.addEventListener('load',()=>{
     const now = Date.now();
     if (now - lastNudge < 60000) return;  // throttle server hits
     lastNudge = now;
+
+    const st = loadNudgeState();
+    const dayKey = nudgeDayKey();
+    if (st.dayKey !== dayKey) { st.dayKey = dayKey; st.countToday = 0; }  // new day resets the count
+    if ((st.countToday || 0) >= NUDGE_MAX_PER_DAY) return;                // daily ceiling reached
+
     try {
       const r = await fetch(`/api/balance/nudge?tz_offset=${TZ}`);
       const d = await r.json();
       if (d.status !== 'ok' || !d.show) return;
-      const cadenceMs = Math.max(5, d.cadence_minutes) * 60 * 1000;
-      if (nudgeShownAt && (now - nudgeShownAt) < cadenceMs) return;
-      nudgeShownAt = now;
+      // Respect the user's cadence but never dip below the hard floor. Persisted
+      // lastShownAt means navigating between pages can't reset the throttle.
+      const effectiveMin = Math.max(NUDGE_FLOOR_MIN, Number(d.cadence_minutes) || NUDGE_FLOOR_MIN);
+      const cadenceMs = effectiveMin * 60 * 1000;
+      if (st.lastShownAt && (now - st.lastShownAt) < cadenceMs) return;   // still inside the cooldown
+      st.lastShownAt = now;
+      st.countToday = (st.countToday || 0) + 1;
+      saveNudgeState(st);
       showBanner(d.message, !!d.is_night);
     } catch (e) { /* fail-quiet */ }
   }
