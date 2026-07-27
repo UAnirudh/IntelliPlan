@@ -285,9 +285,12 @@
       --ink:           #e6e6e2;
       --text-primary:  #e6e6e2;
       --text-secondary:#9e9e9a;
-      /* Muted was #5e5e5a (~2.9:1 on --bg) — lightened to clear WCAG AA 4.5:1
-         while staying clearly dimmer than secondary. */
-      --text-muted:    #7c7c76;
+      /* Muted was #5e5e5a (~2.9:1 on --bg) — lightened to clear WCAG AA 4.5:1.
+         #7c7c76 cleared 4.5 on --bg (4.53) but only managed 4.05 on --bg-card
+         (#1c1c20), so muted text on every dark card failed AA — the same
+         wrong-surface mistake the light token had. #878780 clears both
+         (4.70 on card, 5.26 on bg) and stays dimmer than --text-secondary. */
+      --text-muted:    #878780;
       --border:        rgba(255,255,255,0.06);
       --border-strong: rgba(255,255,255,0.10);
       --border-accent: rgba(91,147,245,0.26);
@@ -1710,7 +1713,7 @@
     }
     /* Everything else that's a button — translucent frosted glass. */
     body button:not(.no-glass):not(.btn-primary):not(.ipd-btn-primary):not(.mobile-cta-primary):not([class*="primary"]):not([class*="cta"]):not(.nav-tab):not(.nav-tab-tutor):not([class*="toggle"]):not(.side-link):not(.cmd-item):not(.cmd-row):not([aria-pressed]):not(.seg-btn):not(input),
-    body a.btn-secondary, body .cta-ghost-btn, body .mini-btn, body .ad-btn,
+    body a.btn-secondary, body .mini-btn, body .ad-btn,
     body .check-btn, body .dropdown-btn, body .dismiss-btn, body .test-btn,
     body .discord-btn, body .btn-guest, body .btn-google, body .logout-btn,
     body .side-customize-btn, body .mobile-cta-secondary, body .amb-btn, body .ad-share a {
@@ -1721,7 +1724,7 @@
       box-shadow: var(--glass-btn-shadow) !important;
     }
     body button:not(.no-glass):not(.btn-primary):not(.ipd-btn-primary):not([class*="primary"]):not([class*="cta"]):not(.nav-tab):not([class*="toggle"]):not(.side-link):not(.cmd-item):not([aria-pressed]):hover,
-    body a.btn-secondary:hover, body .cta-ghost-btn:hover, body .mini-btn:hover,
+    body a.btn-secondary:hover, body .mini-btn:hover,
     body .ad-btn:hover, body .check-btn:hover, body .dropdown-btn:hover {
       background: var(--glass-btn-hover) !important;
       box-shadow: var(--glass-btn-shadow-hover) !important;
@@ -2400,25 +2403,58 @@ body {
   }
 }
 @media (max-width: 768px) {
-  /* Blur is disabled on mobile (below) so glass can't refract — make the
-     glass tokens themselves near-opaque here. One override covers every
-     glass surface sitewide, including page-specific ones, so nothing lets
-     the atmosphere bleed through and hurt contrast. */
+  /* Scrolling card surfaces keep an opaque fill on mobile (see the blur policy
+     below): they can't refract, so the fill alone must carry contrast. */
   :root[data-theme="light"] {
     --glass-bg: rgba(255,255,255,0.95); --glass-border: rgba(0,0,0,0.08);
     --glass-btn-bg: rgba(255,255,255,0.86); --glass-btn-hover: rgba(240,240,238,0.95);
     --glass-primary-bg: rgba(22,22,24,0.97); --glass-input-bg: rgba(255,255,255,0.9);
+    /* Fixed chrome DOES get real glass — translucent enough to refract the
+       page beneath, opaque enough to keep nav text at full contrast. */
+    --chrome-glass: rgba(255,255,255,0.72);
+    --chrome-glass-border: rgba(0,0,0,0.07);
   }
   :root[data-theme="dark"]  {
     --glass-bg: rgba(24,24,28,0.95); --glass-border: rgba(255,255,255,0.10);
     --glass-btn-bg: rgba(255,255,255,0.12); --glass-btn-hover: rgba(255,255,255,0.18);
     --glass-primary-bg: rgba(240,240,236,0.98); --glass-input-bg: rgba(255,255,255,0.08);
+    --chrome-glass: rgba(18,18,22,0.72);
+    --chrome-glass-border: rgba(255,255,255,0.10);
   }
-  /* backdrop-filter and large blurred backdrops are the biggest cause of
-     stuttery scrolling on Android. Disable them on small screens. */
+  /* ── Mobile blur policy ──────────────────────────────────────────────
+     Blurring is expensive when MANY surfaces are blurred while they move —
+     that's what made Android scrolling stutter, and why this used to be off
+     everywhere. But fixed chrome is a handful of elements that don't reflow
+     with the scroll, so it can carry real glass at no scroll cost.
+     So: off by default, handed back to fixed chrome only. */
   *, *::before, *::after {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
+  }
+  @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    body > header,
+    #mainNav,
+    .ipd-modal,
+    #planiChat {
+      -webkit-backdrop-filter: blur(20px) saturate(1.7) !important;
+      backdrop-filter: blur(20px) saturate(1.7) !important;
+    }
+    /* Blur behind an opaque fill is invisible — these must be translucent
+       for the frost to actually read. */
+    body > header, #mainNav {
+      background: var(--chrome-glass) !important;
+      border-color: var(--chrome-glass-border) !important;
+    }
+    .ipd-modal, #planiChat { background: var(--chrome-glass) !important; }
+    /* Reduced-transparency and high-contrast users opt out of all of it. */
+    html[data-a11y-contrast="1"] body > header,
+    html[data-a11y-contrast="1"] #mainNav,
+    html[data-a11y-contrast="1"] .ipd-modal,
+    html[data-a11y-contrast="1"] #planiChat {
+      background: var(--bg-card) !important;
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+    }
   }
   /* Blur is gone on mobile, so translucent glass would let the atmosphere
      bleed through and hurt text contrast — give glass surfaces a near-opaque
