@@ -4766,5 +4766,155 @@ window.addEventListener('load',()=>{
 </script>
 {% endif %}
 
+{# ── Tooltips ────────────────────────────────────────────────────────────
+   One shared floating element (never clipped by a scroll container), driven
+   by [data-tip]. On load it also adopts every native title= on the page:
+   browser tooltips are slow, unstyled, and can't be themed, so we retitle
+   them as data-tip — promoting the text to aria-label first when the control
+   has no accessible name, so screen readers never lose it.
+
+   Restraint by design: hover-capable pointers only (never fights a touch
+   tap), a 380ms open delay so tooltips don't strobe while the cursor crosses
+   a toolbar, and opacity/transform-only motion that reduced-motion disables.
+─────────────────────────────────────────────────────────────────────── #}
+<style>
+  :root { --tip-bg: #1c1c1f; --tip-fg: #f4f4f2; }
+  :root[data-theme="dark"] { --tip-bg: #f0f0ec; --tip-fg: #17171a; }
+  #ipTip {
+    position: fixed; top: 0; left: 0; z-index: 2147483647;
+    pointer-events: none; max-width: 250px;
+    padding: 6px 9px; border-radius: 7px;
+    background: var(--tip-bg); color: var(--tip-fg);
+    font-family: var(--font-ui); font-size: 0.735rem; font-weight: 500;
+    line-height: 1.4; letter-spacing: -0.005em; text-align: left;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+    opacity: 0; transform: translateY(3px);
+    transition: opacity 0.13s var(--ease-out), transform 0.13s var(--ease-out);
+  }
+  #ipTip.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { #ipTip { transition: none; } }
+  html.a11y-reduce-motion #ipTip { transition: none; }
+</style>
+<script>
+(function () {
+  'use strict';
+  // Hover-capable, fine pointers only. On touch there is no hover state, so a
+  // tooltip would either never show or fight the tap it is attached to.
+  if (!window.matchMedia || !matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+
+  var OPEN_DELAY = 380, tip = null, current = null, timer = null, seq = 0;
+
+  function el() {
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.id = 'ipTip';
+      tip.setAttribute('role', 'tooltip');
+      document.body.appendChild(tip);
+    }
+    return tip;
+  }
+
+  function place(target) {
+    var t = el(), r = target.getBoundingClientRect();
+    t.style.left = '0px'; t.style.top = '0px';
+    var b = t.getBoundingClientRect(), gap = 8;
+    var top = r.top - b.height - gap;
+    if (top < 8) top = r.bottom + gap;                       // flip below
+    var left = r.left + (r.width - b.width) / 2;             // centre, then clamp
+    left = Math.max(8, Math.min(left, window.innerWidth - b.width - 8));
+    top  = Math.max(8, Math.min(top, window.innerHeight - b.height - 8));
+    t.style.left = Math.round(left) + 'px';
+    t.style.top  = Math.round(top) + 'px';
+  }
+
+  function show(target) {
+    var text = (target.getAttribute('data-tip') || '').trim();
+    if (!text) return;
+    var t = el();
+    t.textContent = text;
+    t.id = 'ipTip';
+    place(target);
+    t.classList.add('in');
+    current = target;
+    // Announce to AT only while visible, and only if it adds information.
+    if ((target.getAttribute('aria-label') || '').trim() !== text) {
+      target.setAttribute('aria-describedby', 'ipTip');
+    }
+  }
+
+  function hide() {
+    clearTimeout(timer); seq++;
+    if (tip) tip.classList.remove('in');
+    if (current) { current.removeAttribute('aria-describedby'); current = null; }
+  }
+
+  function open(target) {
+    if (target === current) return;
+    hide();
+    var mine = ++seq;
+    timer = setTimeout(function () { if (mine === seq) show(target); }, OPEN_DELAY);
+  }
+
+  function tipTarget(node) {
+    return node && node.closest ? node.closest('[data-tip]') : null;
+  }
+
+  document.addEventListener('mouseover', function (e) {
+    var t = tipTarget(e.target);
+    if (t) open(t); else if (current || timer) hide();
+  }, true);
+  document.addEventListener('mouseout', function (e) {
+    if (tipTarget(e.target) && !tipTarget(e.relatedTarget)) hide();
+  }, true);
+  // Keyboard parity: show immediately for keyboard focus, skip mouse focus.
+  document.addEventListener('focusin', function (e) {
+    var t = tipTarget(e.target);
+    if (t && t.matches(':focus-visible')) { hide(); show(t); }
+  });
+  document.addEventListener('focusout', hide);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hide(); });
+  document.addEventListener('click', hide, true);
+  window.addEventListener('scroll', hide, true);
+  window.addEventListener('resize', hide);
+  window.addEventListener('blur', hide);
+
+  // Adopt native title= tooltips (skips <svg><title>, which is a child element,
+  // not an attribute, so icon labels are untouched).
+  function adopt(root) {
+    var nodes = (root && root.querySelectorAll) ? root.querySelectorAll('[title]') : [];
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i], text = (n.getAttribute('title') || '').trim();
+      if (!text || n.closest('svg')) continue;
+      if (!n.hasAttribute('data-tip')) n.setAttribute('data-tip', text);
+      // Don't strip an accessible name: promote it before removing title.
+      var named = (n.getAttribute('aria-label') || n.getAttribute('aria-labelledby') || (n.textContent || '')).trim();
+      if (!named) n.setAttribute('aria-label', text);
+      n.removeAttribute('title');
+    }
+  }
+
+  function init() {
+    adopt(document);
+    // Late-rendered UI (chat, modals, fetched lists) gets the same treatment.
+    if (window.MutationObserver) {
+      new MutationObserver(function (muts) {
+        for (var i = 0; i < muts.length; i++) {
+          var added = muts[i].addedNodes;
+          for (var j = 0; j < added.length; j++) {
+            if (added[j].nodeType === 1) {
+              if (added[j].hasAttribute && added[j].hasAttribute('title')) adopt(added[j].parentNode || document);
+              else adopt(added[j]);
+            }
+          }
+        }
+      }).observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+
 </body>
 </html>
