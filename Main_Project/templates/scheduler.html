@@ -152,6 +152,24 @@
     border: 1px solid var(--border);
   }
 
+  /* ── Placement notes ───────────────────────────────
+     Shown when work had to move because the student's own availability
+     left no room for it. Quiet by default — this is an explanation, not
+     an error. */
+  .placement-notes {
+    margin-top: 12px; padding: 10px 14px;
+    border-left: 2px solid var(--text-muted);
+    background: var(--bg); border-radius: 0 var(--ipd-radius-sm) var(--ipd-radius-sm) 0;
+    font-family: var(--ipd-font-body); font-size: 0.78rem;
+    color: var(--text-muted); line-height: 1.5;
+  }
+  .placement-notes ul { margin: 0; padding-left: 1.1em; }
+  .placement-notes li + li { margin-top: 4px; }
+  .placement-notes .pn-head {
+    display: block; margin-bottom: 5px;
+    color: var(--text-secondary); font-weight: 600;
+  }
+
   /* ── Custom tasks ──────────────────────────────── */
   .custom-tasks-wrap {
     display: flex; gap: 6px;
@@ -1160,6 +1178,17 @@ async function exportToCalendar() {
   }
 }
 
+/* Explain any work the planner had to move because the student's own
+   availability left no room for it. Silent when everything fit. */
+function renderPlacementNotes(notes) {
+  if (!Array.isArray(notes) || !notes.length) return '';
+  return `
+    <div class="placement-notes">
+      <span class="pn-head">A few things moved to fit your week</span>
+      <ul>${notes.map(n => `<li>${escapeText(String(n))}</li>`).join('')}</ul>
+    </div>`;
+}
+
 /* ────────── CREATOR: render plain schedule preview ────────── */
 function renderSchedule(data) {
   const overview = document.getElementById('scheduleOverview');
@@ -1167,6 +1196,7 @@ function renderSchedule(data) {
     <div class="overview-card">
       <div class="overview-text">${escapeText(data.overview || '')}</div>
       <div class="overview-stat"><svg width="12" height="12"><use href="#i-clock"/></svg> Total study time: <strong>${escapeText(data.total_study_time || '')}</strong></div>
+      ${renderPlacementNotes(data.placement_notes)}
     </div>`;
   const days = document.getElementById('scheduleDays');
   const todayStr = localToday();

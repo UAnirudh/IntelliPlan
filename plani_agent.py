@@ -296,7 +296,7 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
         infer_task_difficulty, PRIORITY_COLORS, enrich_schedule_data,
         humanize_schedule, build_student_context,
         _ai_personalization_enabled, _summarize_grade_signals,
-        _fetch_grades_for_personalization,
+        _fetch_grades_for_personalization, build_scheduler_personalization,
         save_dismissed, invalidate_lms_cache_for_user,
         collect_lms_assignments_for_user,
     )
@@ -588,10 +588,20 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
             except Exception:
                 pass
         profile_ctx = build_student_context(user_id=user_id, grades_summary=grades_summary, depth="full")
+        # Same personalization the /generate-schedule endpoint uses, so a plan
+        # made in chat lands in the student's real hours just like one made on
+        # the Scheduler page.
+        import scheduler_engine
+        dna, availability, commitments = build_scheduler_personalization(user_id=user_id)
+        week_ctx = scheduler_engine.describe_week(availability, commitments)
+        habits_ctx = dna.to_prompt() if _ai_personalization_enabled() else ""
 
         prompt = f"""Today is {today_str}. Schedule ALL items for this student.
-{profile_ctx}{overdue_text}{upcoming_text}
+{profile_ctx}{week_ctx}{habits_ctx}{overdue_text}{upcoming_text}
 Availability: {hours} hours/day, prefers {pref}.
+If REAL WEEK is present, schedule no work on days marked "no study time available".
+Write "notes" as the actual next physical action for that assignment, and make
+"daily_tip" specific to that day — never filler that would fit any other day.
 Return ONLY valid JSON:
 {{"schedule": [{{"date": "YYYY-MM-DD", "day_name": "Monday", "total_hours": {hours}, "blocks": [{{"assignment": "title", "course": "name", "duration_minutes": 45, "time_slot": "7:00 PM", "notes": "focus", "is_break": false}}], "daily_tip": "tip"}}], "overview": "summary", "total_study_time": "X hours"}}"""
 
@@ -604,7 +614,10 @@ Return ONLY valid JSON:
             raw = re.sub(r"```\n?", "", raw).strip()
             schedule = json.loads(raw)
             schedule = enrich_schedule_data(schedule, assignments, pref, hours)
-            try: schedule = humanize_schedule(schedule, pref, hours)
+            try:
+                schedule = humanize_schedule(schedule, pref, hours,
+                                             availability=availability,
+                                             commitments=commitments, dna=dna)
             except Exception: pass
             sched_name = f"Plani Schedule {datetime.now().strftime('%b %d')}"
             SavedSchedule.query.filter_by(user_id=user_id).update({"is_active": False})

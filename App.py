@@ -55,6 +55,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 import streak_engine
 import pet_engine
 import analytics as app_analytics
+import scheduler_engine
 
 # ── FIX: Use database-backed sessions so Railway container restarts
 #         don't wipe the OAuth state between redirect hops.
@@ -2190,16 +2191,26 @@ def build_block_checklist(block, kind, assignment_meta):
     return templates.get(kind, templates["general"])
 
 
-def humanize_schedule(schedule_data, preferred_time, hours_per_day):
+def humanize_schedule(schedule_data, preferred_time, hours_per_day,
+                      availability=None, commitments=None, dna=None):
     """Make the AI output look and feel like a real human study plan:
       - Enforce minimum transition gaps between blocks (no back-to-back).
       - Prevent two Hard tasks in a row — inject a break or a lighter task.
       - Cap the streak of work blocks before a real break.
-      - Re-time blocks to clean 5-minute boundaries with realistic gaps.
+      - Re-time blocks into the student's *real* free windows.
       - Attach kind / redirect / checklist data for the Interactive View.
+
+    ``availability`` / ``commitments`` / ``dna`` are the personalization
+    inputs. When all three are absent — guests, users who never filled in
+    Settings → Availability — placement falls back to the legacy fixed-anchor
+    behaviour so nothing regresses for them.
+
     Operates in place on schedule_data and returns it."""
     from datetime import timedelta as _td
     schedule = schedule_data.get("schedule", []) or []
+    personalized = bool(availability) or dna is not None
+    carry = []          # blocks pushed forward because a day ran out of time
+    overflow_notes = []
     # Hours-per-day pacing → tighter buffers if the student only has 1h,
     # roomier ones if they have a long evening.
     base_gap = 5 if hours_per_day and hours_per_day <= 1.5 else 10
@@ -2225,9 +2236,11 @@ def humanize_schedule(schedule_data, preferred_time, hours_per_day):
             i += 1
         # 2. Long-work-streak rule: more than long_break_after minutes of
         #    continuous study without a break → inject a 15-min break.
+        #    Skipped on the personalized path — place_day_blocks() does this
+        #    itself, against real clock time, and running both double-breaks.
         i = 0
         run = 0
-        while i < len(blocks):
+        while i < len(blocks) and not personalized:
             b = blocks[i]
             if b.get("is_break"):
                 run = 0
@@ -2245,34 +2258,70 @@ def humanize_schedule(schedule_data, preferred_time, hours_per_day):
                     run = 0
                     i += 1
             i += 1
-        # 3. Re-time everything from a clean start anchor. We respect the
-        #    preferred_time energy profile but ignore the LLM's exact time
-        #    strings — they're often inconsistent (e.g. "8 PM-8:45").
-        profile = get_energy_profile(preferred_time)
-        start_hour = profile["recommended_start_hour"]
-        # `recommended_start_hour` for "afternoon" returns 1 (i.e. 1 PM); fix.
-        if preferred_time == "afternoon" and start_hour <= 6: start_hour += 12
-        cursor = datetime.now().replace(hour=start_hour, minute=0, second=0, microsecond=0)
-        # If today's first day is *today*, push start forward to "now + 15min" rounded up.
-        if day_idx == 0:
-            now = datetime.now()
-            soonest = now + _td(minutes=15)
-            soonest = soonest.replace(minute=(soonest.minute // 5) * 5, second=0, microsecond=0)
-            if soonest > cursor:
-                cursor = soonest
-        def _fmt12(dt):
-            # Cross-platform 12-hour formatting with no leading zero on the hour.
-            return dt.strftime("%I:%M %p").lstrip("0") or "12:00 AM"
-        for b_idx, b in enumerate(blocks):
-            dur = int(b.get("duration_minutes") or 25)
-            end = cursor + _td(minutes=dur)
-            b["time_slot"] = f"{_fmt12(cursor)} - {_fmt12(end)}"
-            b["start_iso"] = cursor.isoformat()
-            b["end_iso"] = end.isoformat()
-            # Next block starts after a transition gap (longer after a long block).
-            gap = base_gap
-            if dur >= 60: gap = max(gap, 10)
-            cursor = end + _td(minutes=gap)
+        # 3. Re-time everything. We ignore the LLM's exact time strings —
+        #    they're often inconsistent (e.g. "8 PM-8:45") — and place blocks
+        #    ourselves. When we know the student's real availability we lay
+        #    them inside those windows; otherwise we fall back to a fixed
+        #    anchor derived from preferred_time.
+        day_date = _parse_schedule_day_date(day.get("date"), day_idx)
+        placed_ok = False
+        if personalized and day_date is not None:
+            try:
+                windows = scheduler_engine.windows_for_date(
+                    day_date, availability, preferred_time, commitments,
+                )
+                # Anything that didn't fit yesterday tries again today, ahead
+                # of today's own work — a dropped task is worse than a late one.
+                placed, spilled = scheduler_engine.place_day_blocks(
+                    carry + blocks, windows, dna, long_break_after=long_break_after,
+                )
+                blocks, carry = placed, spilled
+                placed_ok = True
+                if spilled and windows:
+                    overflow_notes.append(
+                        f"{len(spilled)} block(s) didn't fit in your free time on "
+                        f"{day_date:%a %b %d} — moved to the next available day."
+                    )
+                elif not windows:
+                    # The student has no free time left on this date (the slots
+                    # they marked have already passed, or are fully booked by a
+                    # commitment). Carrying forward respects what they told us;
+                    # falling back to an anchor hour would silently contradict it.
+                    overflow_notes.append(
+                        f"No free time on {day_date:%a %b %d} — that day's work "
+                        f"moved to your next available day."
+                    )
+            except Exception as pe:
+                print(f"[scheduler] personalized placement failed, using anchor: {pe}")
+        if not placed_ok:
+            profile = get_energy_profile(preferred_time)
+            start_hour = profile["recommended_start_hour"]
+            # `recommended_start_hour` is stored in 12-hour terms for the
+            # afternoon (1 → 1 PM) and evening (6 → 6 PM) profiles. Without
+            # this, every evening plan anchored day 2 onward at 6:00 AM.
+            if preferred_time in ("afternoon", "evening") and start_hour <= 6:
+                start_hour += 12
+            cursor = datetime.now().replace(hour=start_hour, minute=0, second=0, microsecond=0)
+            # If today's first day is *today*, push start forward to "now + 15min" rounded up.
+            if day_idx == 0:
+                now = datetime.now()
+                soonest = now + _td(minutes=15)
+                soonest = soonest.replace(minute=(soonest.minute // 5) * 5, second=0, microsecond=0)
+                if soonest > cursor:
+                    cursor = soonest
+            def _fmt12(dt):
+                # Cross-platform 12-hour formatting with no leading zero on the hour.
+                return dt.strftime("%I:%M %p").lstrip("0") or "12:00 AM"
+            for b_idx, b in enumerate(blocks):
+                dur = int(b.get("duration_minutes") or 25)
+                end = cursor + _td(minutes=dur)
+                b["time_slot"] = f"{_fmt12(cursor)} - {_fmt12(end)}"
+                b["start_iso"] = cursor.isoformat()
+                b["end_iso"] = end.isoformat()
+                # Next block starts after a transition gap (longer after a long block).
+                gap = base_gap
+                if dur >= 60: gap = max(gap, 10)
+                cursor = end + _td(minutes=gap)
         # 4. Attach metadata used by the Interactive View.
         for b in blocks:
             b["block_id"] = f"d{day_idx + 1}-b{next_block_id}"
@@ -2282,7 +2331,79 @@ def humanize_schedule(schedule_data, preferred_time, hours_per_day):
             b["redirect"] = BLOCK_KIND_REDIRECT.get(kind) if kind != "break" else None
             b["checklist"] = build_block_checklist(b, kind, {})
         day["blocks"] = blocks
+    # Anything still unplaced after the last day genuinely has nowhere to go
+    # in the student's stated free time. Surface it instead of silently
+    # dropping it — the honest answer is "you don't have room for this".
+    if carry and schedule:
+        for b in carry:
+            b["unplaced"] = True
+            b["time_slot"] = "No free time — needs rescheduling"
+            b["block_id"] = f"unplaced-{next_block_id}"
+            next_block_id += 1
+            b.setdefault("kind", "study")
+            b.setdefault("checklist", [])
+            b["redirect"] = None
+        schedule[-1].setdefault("blocks", []).extend(carry)
+        overflow_notes.append(
+            f"{len(carry)} block(s) could not fit anywhere in your available hours. "
+            f"Add availability in Settings, or push a due date."
+        )
+    if overflow_notes:
+        schedule_data["placement_notes"] = overflow_notes
+    # Placement can move blocks between days, so any per-day totals computed
+    # before this point (enrich_schedule_data runs first) are now stale.
+    if personalized:
+        _recompute_day_totals(schedule_data, hours_per_day)
     return schedule_data
+
+
+def _recompute_day_totals(schedule_data, hours_per_day=2):
+    """Refresh per-day totals and workload labels after blocks were re-placed.
+
+    enrich_schedule_data() runs before placement, so once blocks move between
+    days its minute counts and "heavy/moderate/light" labels describe a plan
+    that no longer exists.
+    """
+    total_study = 0
+    for day in schedule_data.get("schedule", []) or []:
+        blocks = day.get("blocks", []) or []
+        study = sum(int(b.get("duration_minutes") or 0)
+                    for b in blocks if not b.get("is_break") and not b.get("unplaced"))
+        brk = sum(int(b.get("duration_minutes") or 0) for b in blocks if b.get("is_break"))
+        total_study += study
+        day["study_minutes"] = study
+        day["break_minutes"] = brk
+        day["total_minutes"] = study + brk
+        day["total_hours"] = round((study + brk) / 60, 1)
+        if study >= max(int(hours_per_day * 60 * 0.85), 150):
+            level = "heavy"
+        elif study >= max(int(hours_per_day * 60 * 0.55), 90):
+            level = "moderate"
+        else:
+            level = "light"
+        day["workload_level"] = level
+        day["color_theme"] = WORKLOAD_COLORS[level]
+    schedule_data["total_study_time"] = f"{total_study // 60} hours {total_study % 60} minutes"
+    return schedule_data
+
+
+def _parse_schedule_day_date(raw, day_idx):
+    """Resolve a schedule day's "date" field to a real ``date``.
+
+    The model is asked for YYYY-MM-DD but occasionally returns something else.
+    Falls back to today + day_idx so placement still works on a malformed day
+    rather than dropping the whole personalized path.
+    """
+    if raw:
+        for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%Y/%m/%d"):
+            try:
+                return datetime.strptime(str(raw).strip()[:10], fmt).date()
+            except ValueError:
+                continue
+    try:
+        return (datetime.now() + timedelta(days=int(day_idx))).date()
+    except Exception:
+        return None
 
 
 def enrich_schedule_data(schedule_data, assignments, preferred_time, hours_per_day):
@@ -2324,7 +2445,13 @@ def enrich_schedule_data(schedule_data, assignments, preferred_time, hours_per_d
         day["break_minutes"] = break_minutes
         day["total_minutes"] = total_minutes
         day["color_theme"] = WORKLOAD_COLORS[workload_level]
-        day["daily_tip"] = build_daily_tip(workload_level, preferred_time, high_priority_count, hard_task_count)
+        # Keep the model's day-specific tip — it can name the actual assignment
+        # that matters today. build_daily_tip() is a four-branch template and
+        # reads identically every day, so it's a fallback, not an override.
+        ai_tip = (day.get("daily_tip") or "").strip()
+        day["daily_tip"] = ai_tip or build_daily_tip(
+            workload_level, preferred_time, high_priority_count, hard_task_count
+        )
         if not day.get("total_hours"):
             day["total_hours"] = round(total_minutes / 60, 1)
     schedule_data["energy_profile"] = get_energy_profile(preferred_time)
@@ -4329,6 +4456,51 @@ def build_student_context(user_id=None, grades_summary=None, depth="full"):
         return ""
 
 
+def build_scheduler_personalization(user_id=None, guest_id=None, feedback_limit=400):
+    """Gather everything the placement engine needs for one student.
+
+    Returns ``(dna, availability, commitments)``. Any piece may be empty —
+    the engine and humanize_schedule() both degrade to the pre-personalization
+    behaviour when a signal is missing, so this never has to raise.
+
+    Unlike build_student_context(), this is NOT gated on the AI-personalization
+    opt-in: none of it leaves the server. Availability and completion history
+    shape *where blocks land locally*; the opt-in gate governs what we ship to
+    the AI provider, which is handled separately by StudyDNA.to_prompt().
+    """
+    dna = scheduler_engine.StudyDNA()
+    availability, commitments = {}, ""
+    try:
+        q = TaskFeedback.query
+        q = q.filter_by(user_id=user_id) if user_id else q.filter_by(guest_session_id=guest_id)
+        rows = q.order_by(TaskFeedback.id.desc()).limit(feedback_limit).all()
+        feedback = [{
+            "estimated_time": r.estimated_time, "actual_time": r.actual_time,
+            "course": r.course, "day_of_week": r.day_of_week,
+            "time_of_day": r.time_of_day,
+        } for r in rows]
+
+        sq = SavedSchedule.query
+        sq = sq.filter_by(user_id=user_id) if user_id else sq.filter_by(guest_session_id=guest_id)
+        recent = sq.order_by(SavedSchedule.created_at.desc()).limit(10).all()
+        progress = [
+            scheduler_engine.summarize_progress(s.progress_json)
+            for s in recent if s.progress_json
+        ]
+        dna = scheduler_engine.build_study_dna(feedback, progress)
+    except Exception as e:
+        print(f"[scheduler] study DNA build failed (non-fatal): {e}")
+
+    if user_id:
+        try:
+            identity = _get_or_create_identity(user_id)
+            availability = identity.avail_dict() or {}
+            commitments = identity.weekly_commitments or ""
+        except Exception as e:
+            print(f"[scheduler] identity load failed (non-fatal): {e}")
+    return dna, availability, commitments
+
+
 def _fetch_grades_for_personalization():
     """Best-effort grades fetch used by AI endpoints that don't already have them.
 
@@ -6113,6 +6285,23 @@ def generate_schedule():
             "difficulty": difficulty,
             "color": assignment.get("color") or PRIORITY_COLORS.get(assignment.get("priority", "Medium"), "#60a5fa"),
         })
+    # Measured habits + real weekly availability. These drive deterministic
+    # block placement after the model returns; the prompt blocks built from
+    # them only help the model propose durations that survive placement.
+    dna, availability, commitments = build_scheduler_personalization(
+        user_id=current_user.id if current_user.is_authenticated else None,
+        guest_id=None if current_user.is_authenticated else get_guest_session_id(),
+    )
+    # Re-baseline estimates against how long work actually takes THIS student,
+    # before they reach the prompt — a plan built on "60 min" for someone who
+    # reliably needs 90 is a plan they will fall behind on by lunchtime.
+    for a in normalized_assignments:
+        try:
+            raw_est = int(a.get("estimated_time") or 60)
+        except (TypeError, ValueError):
+            raw_est = 60
+        a["estimated_time"] = dna.adjust_estimate(raw_est, a.get("course", ""))
+
     today_str = datetime.now().strftime("%Y-%m-%d")
     overdue = [a for a in normalized_assignments if a.get("due_date", "9999") < today_str]
     upcoming = [a for a in normalized_assignments if a.get("due_date", "9999") >= today_str]
@@ -6152,14 +6341,18 @@ def generate_schedule():
         grades_summary=grades_summary,
         depth="full",
     )
+    week_context = scheduler_engine.describe_week(availability, commitments)
+    habits_context = dna.to_prompt() if _ai_personalization_enabled() else ""
     prompt = f"""You are IntelliPlan — an adaptive academic study-planning system. Today is {today}.
 
 You must schedule ALL {total} items below. Every single one must appear in the schedule.
-{profile_context}{overdue_text}
+{profile_context}{week_context}{habits_context}{overdue_text}
 {upcoming_text}
 {custom_text}
 
 Student availability: {hours_per_day} hours/day, prefers {preferred_time}.
+The estimates above are already corrected for how long work actually takes
+this student — treat them as accurate and do not pad them further.
 
 RULES:
 1. ALL {total} items must appear in the schedule — no exceptions
@@ -6170,6 +6363,10 @@ RULES:
 6. Add a 10min break after every 45min work block
 7. Never put the same assignment twice in one day
 8. Schedule must end before the latest due date
+9. If REAL WEEK is present above, put NO work on days marked "no study time
+   available", and keep each day's total within that day's listed hours.
+   Blocks that don't fit get pushed to the next day automatically, so an
+   overstuffed day silently loses work — size days honestly.
 
 PERSONALIZATION (only if STUDENT CONTEXT is present above):
 - Allocate ~30% more study time to assignments in subjects listed under "needing more time".
@@ -6177,9 +6374,16 @@ PERSONALIZATION (only if STUDENT CONTEXT is present above):
   (e.g. "review the last quiz error first", "redo example problems before starting").
 - For strong-subject blocks, keep blocks shorter and frame notes around polish/depth,
   not foundations.
-- Match block placement to availability and weekly commitments when stated.
 - Never reference specific past grades back to the student in the notes — the context
   is for YOUR planning only, the student does not need to read their own GPA back.
+
+WRITE FOR THIS STUDENT, NOT A GENERIC ONE:
+- "notes" must name the actual next physical action for THAT assignment
+  ("outline the three body paragraphs", "redo problems 12–18"), never filler
+  like "focus on this task", "work steadily", or "review the material".
+- "daily_tip" must reference something concrete about THAT day — the specific
+  assignment that matters most, or the shape of that day's free time. A tip
+  that would read identically on any other day is a failed tip.
 
 Return ONLY valid JSON:
 {{
@@ -6228,7 +6432,10 @@ Return ONLY valid JSON:
         # Adaptive humanization pass — fix spacing, anti-cluster, attach
         # checklist + redirect data the Interactive View needs.
         try:
-            schedule_data = humanize_schedule(schedule_data, preferred_time, hours_per_day)
+            schedule_data = humanize_schedule(
+                schedule_data, preferred_time, hours_per_day,
+                availability=availability, commitments=commitments, dna=dna,
+            )
         except Exception as he:
             print(f"[scheduler] humanize_schedule failed (non-fatal): {he}")
         return flask.jsonify({"status": "ok", "data": schedule_data})
