@@ -2387,6 +2387,110 @@ def _recompute_day_totals(schedule_data, hours_per_day=2):
     return schedule_data
 
 
+def _repair_truncated_json(raw):
+    """Best-effort close of a JSON document that was cut off mid-write.
+
+    Walks the text tracking string/escape state and bracket depth, rewinds to
+    the last structurally complete element, then closes whatever is still
+    open. Returns None if there's nothing salvageable.
+
+    This is a net, not a plan: with the thinking budget capped, truncation
+    should be rare. But a schedule missing its last day beats an error page.
+    """
+    if not raw:
+        return None
+    in_string = escaped = False
+    stack = []
+    # Index just past the last point where we were at depth>=1 and had just
+    # finished an element — a safe place to cut.
+    safe_cut = None
+    for i, ch in enumerate(raw):
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+        elif ch in "{[":
+            stack.append(ch)
+        elif ch in "}]":
+            if stack:
+                stack.pop()
+            if len(stack) >= 1:
+                safe_cut = i + 1
+    if not stack:
+        return None            # not actually truncated
+    if safe_cut is None:
+        return None            # nothing complete to keep
+    head = raw[:safe_cut]
+    # Re-derive what's still open at the cut point.
+    in_string = escaped = False
+    open_stack = []
+    for ch in head:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+        elif ch in "{[":
+            open_stack.append(ch)
+        elif ch in "}]":
+            if open_stack:
+                open_stack.pop()
+    closers = "".join("}" if c == "{" else "]" for c in reversed(open_stack))
+    try:
+        return json.loads(head + closers)
+    except json.JSONDecodeError:
+        return None
+
+
+def _parse_schedule_json(raw):
+    """Turn a model response into a schedule dict, or raise.
+
+    Handles, in order: code fences, plain JSON, a JSON object embedded in
+    prose, and finally a truncated document. Raises ValueError if what comes
+    back has no usable schedule, so the caller can retry rather than hand the
+    student an empty plan.
+    """
+    text = re.sub(r"```json\n?", "", raw or "")
+    text = re.sub(r"```\n?", "", text).strip()
+
+    data = None
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        m = re.search(r"\{[\s\S]*\}", text)
+        if m:
+            try:
+                data = json.loads(m.group(0))
+            except json.JSONDecodeError:
+                data = None
+        if data is None:
+            data = _repair_truncated_json(text)
+            if data is not None:
+                print("[scheduler] recovered a truncated schedule by repairing JSON")
+    if data is None:
+        raise json.JSONDecodeError("Could not parse a schedule", text[:200], 0)
+    if not isinstance(data, dict):
+        raise ValueError(f"Schedule response was {type(data).__name__}, expected object")
+    days = data.get("schedule")
+    if not isinstance(days, list) or not days:
+        raise ValueError("Schedule response had no 'schedule' array")
+    # A day list where nothing has blocks is not a plan.
+    if not any((d or {}).get("blocks") for d in days if isinstance(d, dict)):
+        raise ValueError("Schedule response had no blocks in any day")
+    return data
+
+
 def _parse_schedule_day_date(raw, day_idx):
     """Resolve a schedule day's "date" field to a real ``date``.
 
@@ -6476,26 +6580,35 @@ Return ONLY valid JSON:
   "overview": "Plan covering all {total} items",
   "total_study_time": "X hours Y minutes"
 }}"""
+    # Scale the ceiling to the size of the plan. A 30-item schedule simply
+    # needs more room to write than a 3-item one, and running out mid-object
+    # is what surfaces to the student as "the AI returned an invalid schedule".
+    max_tokens = max(8000, min(32000, 2000 + total * 900))
     try:
-        result = ai_chat(
-            [{"role": "user", "content": prompt}],
-            tier="standard",
-            temperature=0.3,
-            max_tokens=8000,
-            response_format={"type": "json_object"},
-        )
-        result = re.sub(r"```json\n?", "", result)
-        result = re.sub(r"```\n?", "", result)
-        result = result.strip()
-        try:
-            schedule_data = json.loads(result)
-        except json.JSONDecodeError:
-            # Extract first JSON object substring as a fallback for models that
-            # prepend a "Here is your schedule:" preamble despite JSON mode.
-            m = re.search(r"\{[\s\S]*\}", result)
-            if not m:
-                raise
-            schedule_data = json.loads(m.group(0))
+        schedule_data = None
+        last_err = None
+        result = ""
+        for attempt in range(2):
+            try:
+                result = ai_chat(
+                    [{"role": "user", "content": prompt}],
+                    tier="standard",
+                    temperature=0.3,
+                    max_tokens=max_tokens,
+                    response_format={"type": "json_object"},
+                    # Second pass drops reasoning entirely — if the first
+                    # attempt failed, a plainer plan beats another error page.
+                    thinking_budget=0 if attempt else None,
+                )
+                schedule_data = _parse_schedule_json(result)
+                break
+            except (json.JSONDecodeError, ValueError) as pe:
+                last_err = pe
+                print(f"[scheduler] schedule JSON parse failed (attempt {attempt + 1}): {pe}")
+                print(f"[scheduler] raw head: {str(result)[:300]!r}")
+                print(f"[scheduler] raw tail: {str(result)[-300:]!r}")
+        if schedule_data is None:
+            raise last_err or json.JSONDecodeError("no schedule", "", 0)
         schedule_data = enrich_schedule_data(schedule_data, normalized_assignments, preferred_time, hours_per_day)
         # Adaptive humanization pass — fix spacing, anti-cluster, attach
         # checklist + redirect data the Interactive View needs.

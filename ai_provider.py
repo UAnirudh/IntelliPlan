@@ -10,6 +10,7 @@ import base64
 import json
 import logging
 import os
+import time
 from typing import Any, Literal
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,31 @@ _TIER_GROQ = {"standard": GROQ_STANDARD, "fast": GROQ_FAST, "vision": GROQ_VISIO
 
 _gemini_client_cache = None
 _groq_client_cache = None
+
+# Gemini 2.5+ are *thinking* models: internal reasoning tokens are billed
+# against max_output_tokens. Left unbounded, a hard prompt can spend the whole
+# budget thinking and emit truncated JSON — measured at 7541 thinking / 444
+# output tokens on an 8000 budget for a 12-assignment schedule. Capping
+# thinking keeps the reasoning that makes plans good while guaranteeing room
+# to actually write the answer (1024 thinking left 4540 output on that same
+# request). Override with GEMINI_THINKING_BUDGET; -1 disables the cap.
+DEFAULT_THINKING_BUDGET = int(os.getenv("GEMINI_THINKING_BUDGET", "1024"))
+
+
+class AITruncatedError(RuntimeError):
+    """The model hit its token ceiling and returned a partial response.
+
+    Raised rather than returned so the provider chain treats it as a failure
+    and tries the next backend. A truncated body is non-empty, so without
+    this it would sail back to the caller and blow up as a JSON parse error
+    with the fallback never consulted.
+    """
+
+
+def _supports_thinking(model: str) -> bool:
+    """Thinking config is only valid on the 2.5+ families."""
+    m = (model or "").lower()
+    return "2.5" in m or "3.0" in m or "-thinking" in m
 
 
 def gemini_api_key() -> str | None:
@@ -103,12 +129,21 @@ def _gemini_contents(messages: list[dict]):
     return contents
 
 
+def _finish_reason(resp) -> str:
+    for cand in getattr(resp, "candidates", None) or []:
+        fr = getattr(cand, "finish_reason", None)
+        if fr is not None:
+            return str(getattr(fr, "name", fr)).upper()
+    return ""
+
+
 def _gemini_chat(
     messages: list[dict],
     tier: Tier,
     temperature: float,
     max_tokens: int,
     response_format: dict | None,
+    thinking_budget: int | None = None,
 ) -> str:
     from google.genai import types
 
@@ -116,6 +151,7 @@ def _gemini_chat(
     if not chat_messages:
         chat_messages = messages
 
+    model = _TIER_GEMINI[tier]
     config_kwargs: dict[str, Any] = {
         "temperature": temperature,
         "max_output_tokens": max_tokens,
@@ -125,12 +161,30 @@ def _gemini_chat(
     if response_format and response_format.get("type") == "json_object":
         config_kwargs["response_mime_type"] = "application/json"
 
+    budget = DEFAULT_THINKING_BUDGET if thinking_budget is None else thinking_budget
+    if budget >= 0 and _supports_thinking(model):
+        config_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=budget)
+
     client = _gemini_client()
-    resp = client.models.generate_content(
-        model=_TIER_GEMINI[tier],
-        contents=_gemini_contents(chat_messages),
-        config=types.GenerateContentConfig(**config_kwargs),
-    )
+
+    def _call(cfg: dict):
+        return client.models.generate_content(
+            model=model,
+            contents=_gemini_contents(chat_messages),
+            config=types.GenerateContentConfig(**cfg),
+        )
+
+    try:
+        resp = _call(config_kwargs)
+    except Exception as exc:
+        # Some model families reject thinking_config outright. Losing the cap
+        # is far better than losing the request, so retry once without it.
+        if "thinking" not in str(exc).lower() or "thinking_config" not in config_kwargs:
+            raise
+        logger.info("Model %s rejected thinking_config, retrying without it", model)
+        config_kwargs.pop("thinking_config", None)
+        resp = _call(config_kwargs)
+
     text = (resp.text or "").strip()
     if not text and getattr(resp, "candidates", None):
         parts = []
@@ -140,6 +194,14 @@ def _gemini_chat(
                 if getattr(part, "text", None):
                     parts.append(part.text)
         text = "".join(parts).strip()
+
+    if _finish_reason(resp) == "MAX_TOKENS":
+        um = getattr(resp, "usage_metadata", None)
+        raise AITruncatedError(
+            f"Gemini hit max_output_tokens ({max_tokens}); response is partial "
+            f"(thinking={getattr(um, 'thoughts_token_count', '?')}, "
+            f"output={getattr(um, 'candidates_token_count', '?')})."
+        )
     if not text:
         raise RuntimeError("Gemini returned an empty response.")
     return text
@@ -162,8 +224,14 @@ def _groq_chat(
     if response_format:
         kwargs["response_format"] = response_format
     resp = client.chat.completions.create(**kwargs)
-    content = resp.choices[0].message.content or ""
-    content = content.strip()
+    choice = resp.choices[0]
+    content = (choice.message.content or "").strip()
+    # Same trap as Gemini: a length-truncated body is non-empty and would
+    # otherwise be returned as if it were a complete answer.
+    if getattr(choice, "finish_reason", None) == "length":
+        raise AITruncatedError(
+            f"Groq hit max_tokens ({max_tokens}); response is partial."
+        )
     if not content:
         raise RuntimeError("Groq returned an empty response.")
     return content
@@ -174,6 +242,16 @@ def _is_quota_error(exc: Exception) -> bool:
     return "quota" in msg or "rate" in msg or "resource exhausted" in msg
 
 
+def _is_transient_error(exc: Exception) -> bool:
+    """A server-side blip worth one immediate retry on the same provider.
+
+    Gemini returns 503 UNAVAILABLE under load spikes; these clear in seconds,
+    and retrying is cheaper than degrading to the fallback model.
+    """
+    msg = str(exc).lower()
+    return "503" in msg or "unavailable" in msg or "overloaded" in msg or "internal error" in msg
+
+
 def chat(
     messages: list[dict],
     *,
@@ -181,16 +259,35 @@ def chat(
     temperature: float = 0.7,
     max_tokens: int = 512,
     response_format: dict | None = None,
+    thinking_budget: int | None = None,
 ) -> str:
-    """Chat completion — Gemini first, Groq on failure."""
+    """Chat completion — Gemini first, Groq on failure.
+
+    ``thinking_budget`` caps Gemini's internal reasoning tokens, which are
+    billed against ``max_tokens``. ``None`` uses DEFAULT_THINKING_BUDGET;
+    ``-1`` removes the cap; ``0`` disables thinking entirely.
+    """
     errors: list[str] = []
 
     if gemini_api_key():
         try:
-            return _gemini_chat(messages, tier, temperature, max_tokens, response_format)
+            try:
+                return _gemini_chat(messages, tier, temperature, max_tokens,
+                                    response_format, thinking_budget)
+            except Exception as exc:
+                # A 503 under load clears in seconds. One quick retry beats
+                # dropping to the fallback model for a momentary blip.
+                if not _is_transient_error(exc) or isinstance(exc, AITruncatedError):
+                    raise
+                logger.info("Gemini transient error (%s), retrying once", exc)
+                time.sleep(1.5)
+                return _gemini_chat(messages, tier, temperature, max_tokens,
+                                    response_format, thinking_budget)
         except Exception as exc:
             errors.append(f"Gemini: {exc}")
-            if _is_quota_error(exc):
+            if isinstance(exc, AITruncatedError):
+                logger.warning("Gemini response truncated, falling back to Groq: %s", exc)
+            elif _is_quota_error(exc):
                 logger.info("Gemini quota/rate limit hit, falling back to Groq")
             else:
                 logger.warning("Gemini chat failed (%s), trying Groq fallback", exc)
