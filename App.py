@@ -56,6 +56,7 @@ import streak_engine
 import pet_engine
 import analytics as app_analytics
 import scheduler_engine
+import scheduler_clarify
 
 # ── FIX: Use database-backed sessions so Railway container restarts
 #         don't wipe the OAuth state between redirect hops.
@@ -607,6 +608,39 @@ class SavedSchedule(db.Model):
     progress_json = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
+
+class SchedulerPreset(db.Model):
+    """A saved answer to a clarifying question, keyed by normalized task title.
+
+    Students re-add the same vague task constantly ("Study", every week), so
+    the answers they gave last time are worth offering back instead of asking
+    again. One row per (owner, task key).
+    """
+    __tablename__ = "scheduler_presets"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    guest_session_id = db.Column(db.String(64), nullable=True, index=True)
+    task_key = db.Column(db.String(96), nullable=False)      # scheduler_clarify.preset_key()
+    label = db.Column(db.String(200), default="")            # title as the student typed it
+    answers_json = db.Column(db.Text, nullable=False, default="{}")
+    times_used = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_used_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def answers(self):
+        try:
+            v = json.loads(self.answers_json or "{}")
+            return v if isinstance(v, dict) else {}
+        except (TypeError, ValueError):
+            return {}
+
+    def to_dict(self):
+        return {
+            "task_key": self.task_key, "label": self.label,
+            "answers": self.answers(), "times_used": self.times_used or 0,
+            "last_used_at": self.last_used_at.isoformat() if self.last_used_at else None,
+        }
+
 
 class DayArchive(db.Model):
     """Day-by-day snapshots — schedules, resources, notes, and anything else."""
@@ -4628,6 +4662,100 @@ def build_student_context(user_id=None, grades_summary=None, depth="full"):
         return ""
 
 
+def normalized_custom_task_views(custom_tasks):
+    """Give free-text custom tasks the same dict shape as an assignment.
+
+    They arrive as bare title strings, but the clarification pass needs to
+    look at course / estimate / due date uniformly across both kinds.
+    """
+    views = []
+    for t in custom_tasks or []:
+        if isinstance(t, dict):
+            views.append(dict(t))
+        else:
+            views.append({"title": str(t or "").strip(), "course": "",
+                          "estimated_time": 0, "due_date": ""})
+    return views
+
+
+def _preset_query(user_id=None, guest_id=None):
+    q = SchedulerPreset.query
+    return q.filter_by(user_id=user_id) if user_id else q.filter_by(guest_session_id=guest_id)
+
+
+def load_scheduler_presets(user_id=None, guest_id=None):
+    """Saved clarification answers for this owner, keyed by task key."""
+    try:
+        return {p.task_key: p.to_dict() for p in _preset_query(user_id, guest_id).all()}
+    except Exception as e:
+        print(f"[clarify] preset load failed (non-fatal): {e}")
+        return {}
+
+
+def save_scheduler_presets(payload, user_id=None, guest_id=None):
+    """Upsert clarification answers so we can offer them back next time."""
+    if not payload:
+        return 0
+    saved = 0
+    try:
+        for key, entry in payload.items():
+            row = _preset_query(user_id, guest_id).filter_by(task_key=key).first()
+            if row is None:
+                row = SchedulerPreset(user_id=user_id, guest_session_id=guest_id, task_key=key)
+                db.session.add(row)
+            row.label = str(entry.get("label") or key)[:200]
+            # Merge rather than replace: a later partial answer shouldn't wipe
+            # fields the student already filled in.
+            merged = {**row.answers(), **(entry.get("answers") or {})}
+            row.answers_json = json.dumps(merged)
+            row.last_used_at = datetime.utcnow()
+            saved += 1
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[clarify] preset save failed (non-fatal): {e}")
+        return 0
+    return saved
+
+
+def _mark_presets_used(keys, user_id=None, guest_id=None):
+    if not keys:
+        return
+    try:
+        for row in _preset_query(user_id, guest_id).filter(SchedulerPreset.task_key.in_(list(keys))).all():
+            row.times_used = (row.times_used or 0) + 1
+            row.last_used_at = datetime.utcnow()
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[clarify] preset usage bump failed (non-fatal): {e}")
+
+
+@app.route("/scheduler/presets", methods=["GET"])
+def list_scheduler_presets():
+    uid = current_user.id if current_user.is_authenticated else None
+    gid = None if uid else get_guest_session_id()
+    presets = load_scheduler_presets(uid, gid)
+    return flask.jsonify({"status": "ok", "presets": presets})
+
+
+@app.route("/scheduler/presets/delete", methods=["POST"])
+def delete_scheduler_preset():
+    """Forget a saved answer. Students change classes; presets must be undoable."""
+    uid = current_user.id if current_user.is_authenticated else None
+    gid = None if uid else get_guest_session_id()
+    key = (request.json or {}).get("task_key")
+    if not key:
+        return flask.jsonify({"status": "error", "message": "task_key required"}), 400
+    try:
+        n = _preset_query(uid, gid).filter_by(task_key=key).delete()
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return flask.jsonify({"status": "error", "message": str(e)}), 500
+    return flask.jsonify({"status": "ok", "deleted": n})
+
+
 def build_scheduler_personalization(user_id=None, guest_id=None, feedback_limit=400):
     """Gather everything the placement engine needs for one student.
 
@@ -6445,6 +6573,71 @@ def generate_schedule():
     custom_tasks = data.get("custom_tasks", [])
     if not assignments and not custom_tasks:
         return flask.jsonify({"status": "error", "message": "No assignments to schedule."})
+
+    uid = current_user.id if current_user.is_authenticated else None
+    gid = None if uid else get_guest_session_id()
+
+    # ── Clarification gate ────────────────────────────────────────
+    # A task called "Study" with no subject and no goal can only ever produce
+    # a block that says "Study" back at the student. Rather than dress that up
+    # with better prompt wording, ask for the missing pieces — once — and
+    # remember the answers.
+    clarifications = data.get("clarifications") or {}
+    presets = load_scheduler_presets(uid, gid)
+    # Free-text custom tasks are just titles; give them the same shape so one
+    # code path assesses everything.
+    task_views = [*normalized_custom_task_views(custom_tasks), *assignments]
+    preset_answers = scheduler_clarify.answers_from_presets(task_views, presets)
+    effective_answers = {**preset_answers, **clarifications}
+
+    # Persist new answers immediately, before the gate re-checks. Clarifying
+    # can take more than one round (we only ask three things at a time), and
+    # saving after the gate meant round one's answers were thrown away every
+    # time round two was needed.
+    if clarifications:
+        save_scheduler_presets(
+            scheduler_clarify.preset_payload_from_answers(
+                clarifications, scheduler_clarify.labels_for(task_views)),
+            uid, gid)
+
+    if not data.get("skip_clarify"):
+        pending = [
+            q for q in scheduler_clarify.assess_tasks(
+                scheduler_clarify.apply_answers(task_views, effective_answers),
+                known_courses=[a.get("course", "") for a in assignments if a.get("course")],
+            )
+        ]
+        if pending:
+            offered = {
+                k: v for k, v in presets.items()
+                if any(scheduler_clarify.preset_key(q.task) == k for q in pending)
+            }
+            return flask.jsonify({
+                "status": "needs_clarification",
+                "questions": [q.to_dict() for q in pending],
+                "presets": offered,
+                "message": "A couple of quick questions so this plan is actually about your work.",
+            })
+
+    used_presets = []
+    if effective_answers:
+        applied = scheduler_clarify.apply_answers(task_views, effective_answers)
+        # Split back out: custom tasks stay strings, assignments stay dicts.
+        n_custom = len(custom_tasks)
+        custom_tasks = [t.get("title", "") for t in applied[:n_custom]]
+        assignments = applied[n_custom:]
+        matched = {k for k in presets if any(
+            scheduler_clarify.preset_key(t.get("title") or "") == k for t in task_views)}
+        _mark_presets_used(matched, uid, gid)
+        # Tell the student a saved answer was used. Silently reusing something
+        # they typed weeks ago and never mentioning it is how a planner starts
+        # feeling like it's ignoring them.
+        used_presets = [
+            {"task_key": k, "label": presets[k].get("label") or k,
+             "answers": presets[k].get("answers") or {}}
+            for k in sorted(matched)
+        ]
+
     normalized_assignments = []
     for assignment in assignments:
         difficulty = assignment.get("difficulty") or infer_task_difficulty(
@@ -6619,7 +6812,8 @@ Return ONLY valid JSON:
             )
         except Exception as he:
             print(f"[scheduler] humanize_schedule failed (non-fatal): {he}")
-        return flask.jsonify({"status": "ok", "data": schedule_data})
+        return flask.jsonify({"status": "ok", "data": schedule_data,
+                              "used_presets": used_presets})
     except json.JSONDecodeError:
         return flask.jsonify({"status": "error", "message": "The AI returned an invalid schedule. Please try again.", "retryable": True})
     except Exception as e:
@@ -13557,6 +13751,9 @@ def _ensure_indexes():
         "CREATE INDEX IF NOT EXISTS ix_reminders_user_key ON reminders_sent (user_id, task_key)",
         "CREATE INDEX IF NOT EXISTS ix_groupmember_group ON study_group_members (group_id)",
         "CREATE INDEX IF NOT EXISTS ix_groupmember_user ON study_group_members (user_id)",
+        # Clarification presets: looked up by owner on every schedule request.
+        "CREATE INDEX IF NOT EXISTS ix_presets_user_key ON scheduler_presets (user_id, task_key)",
+        "CREATE INDEX IF NOT EXISTS ix_presets_guest_key ON scheduler_presets (guest_session_id, task_key)",
     ]
     for stmt in statements:
         try:

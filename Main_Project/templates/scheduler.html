@@ -156,6 +156,84 @@
     border: 1px solid var(--border);
   }
 
+  /* ── Clarification card ────────────────────────────
+     Shown when a request is too vague to plan — "Study" with no subject and
+     no goal. Deliberately looks like a conversation, not an error. */
+  .clarify-card {
+    margin-top: 1rem; padding: 1.15rem 1.25rem;
+    background: var(--glass-bg); border: 1px solid var(--border-strong);
+    border-radius: var(--ipd-radius-lg);
+    animation: ipd-fadeUp 0.35s var(--ipd-ease-out) both;
+  }
+  .clarify-head {
+    display: flex; gap: 10px; align-items: flex-start; margin-bottom: 1rem;
+    color: var(--accent);
+  }
+  .clarify-head svg { flex-shrink: 0; margin-top: 2px; }
+  .clarify-title {
+    font-family: var(--ipd-font-display, var(--ipd-font-body));
+    font-size: 1rem; font-weight: 650; color: var(--text-primary);
+  }
+  .clarify-sub {
+    font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;
+  }
+  .clarify-q { margin-bottom: 1.1rem; }
+  .clarify-q:last-of-type { margin-bottom: 0.5rem; }
+  .clarify-q-label {
+    display: block; font-size: 0.88rem; font-weight: 600;
+    color: var(--text-primary); margin-bottom: 3px;
+  }
+  .clarify-q-why {
+    display: block; font-size: 0.74rem; color: var(--text-muted);
+    margin-bottom: 8px; line-height: 1.45;
+  }
+  .clarify-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .clarify-chip {
+    font-size: 0.76rem; padding: 5px 11px; cursor: pointer;
+    border-radius: 999px; border: 1px solid var(--border-strong);
+    background: var(--bg); color: var(--text-secondary);
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .clarify-chip:hover { border-color: var(--accent); color: var(--text-primary); }
+  .clarify-chip.on {
+    background: var(--accent); border-color: var(--accent);
+    color: var(--glass-primary-text, #fff);
+  }
+  .clarify-chip:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+  .clarify-input {
+    width: 100%; padding: 9px 12px; font-size: 0.85rem;
+    font-family: var(--ipd-font-body);
+    border: 1px solid var(--border-strong); border-radius: var(--ipd-radius-sm);
+    background: var(--glass-input-bg, var(--bg)); color: var(--text-primary);
+  }
+  .clarify-input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+  /* "You told me this before" — the preset affordance. */
+  .clarify-preset {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    margin-bottom: 8px; padding: 7px 10px;
+    background: var(--bg); border-left: 2px solid var(--accent);
+    border-radius: 0 var(--ipd-radius-sm) var(--ipd-radius-sm) 0;
+    font-size: 0.76rem; color: var(--text-secondary);
+  }
+  .clarify-preset button {
+    font-size: 0.74rem; padding: 3px 9px; cursor: pointer;
+    border-radius: 999px; border: 1px solid var(--accent);
+    background: none; color: var(--accent); font-weight: 600;
+  }
+  .clarify-preset button.forget {
+    border-color: var(--border-strong); color: var(--text-muted); font-weight: 500;
+  }
+  .clarify-actions {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    margin-top: 1rem; padding-top: 0.9rem; border-top: 1px solid var(--border);
+  }
+  .clarify-skip {
+    background: none; border: none; cursor: pointer;
+    font-size: 0.8rem; color: var(--text-muted); text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .clarify-skip:hover { color: var(--text-secondary); }
+
   /* ── Placement notes ───────────────────────────────
      Shown when work had to move because the student's own availability
      left no room for it. Quiet by default — this is an explanation, not
@@ -757,6 +835,24 @@
       <span id="genErrorMsg"></span>
       <button type="button" class="ge-retry" id="genErrorRetry" onclick="generateSchedule()" style="display:none;">Try again</button>
     </div>
+
+    <!-- Clarification card: shown instead of a plan when the request is too
+         vague to plan against. -->
+    <div class="clarify-card" id="clarifyCard" style="display:none;"
+         role="group" aria-labelledby="clarifyTitle">
+      <div class="clarify-head">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div>
+          <div class="clarify-title" id="clarifyTitle">Before I plan this</div>
+          <div class="clarify-sub" id="clarifySub"></div>
+        </div>
+      </div>
+      <div id="clarifyQuestions"></div>
+      <div class="clarify-actions">
+        <button type="button" class="btn-primary" onclick="submitClarify()">Use these answers</button>
+        <button type="button" class="clarify-skip" onclick="skipClarify()">Plan it anyway</button>
+      </div>
+    </div>
   </div>
 
   <div class="saved-notice" id="savedNotice" style="display:none;">
@@ -772,6 +868,9 @@
 
   <div id="scheduleResults" style="display:none;">
     <div id="calExportWrap" style="margin-bottom:1rem;"></div>
+    <!-- "Used your saved answers for Study" — so a preset is never applied
+         behind the student's back. -->
+    <div id="usedPresets" style="display:none;margin-bottom:1rem;"></div>
     <div class="schedule-overview" id="scheduleOverview"></div>
     <div class="schedule-days" id="scheduleDays"></div>
   </div>
@@ -1004,6 +1103,132 @@ function hideGenError() {
   document.getElementById('genError').classList.remove('show');
 }
 
+/* ════════════════════════════════════════════════════════
+   CLARIFICATION
+
+   When a request is too vague to plan — "Study", no subject, no goal — the
+   server answers with questions instead of a plan. Answers are remembered as
+   presets, so the same vague task isn't interrogated twice.
+═════════════════════════════════════════════════════════ */
+let _clarifyQuestions = [];
+let _clarifyPresets = {};
+
+function hideClarify() {
+  const el = document.getElementById('clarifyCard');
+  if (el) el.style.display = 'none';
+}
+
+function showClarify(response) {
+  _clarifyQuestions = response.questions || [];
+  _clarifyPresets = response.presets || {};
+  const card = document.getElementById('clarifyCard');
+  const host = document.getElementById('clarifyQuestions');
+  document.getElementById('clarifySub').textContent =
+    response.message || 'A couple of quick questions.';
+
+  host.innerHTML = _clarifyQuestions.map((q, i) => {
+    const preset = _clarifyPresets[String(q.id).split('::')[0]];
+    const saved = preset && preset.answers ? preset.answers[q.field] : '';
+    const chips = (q.options || []).map(o =>
+      `<button type="button" class="clarify-chip" data-qi="${i}" data-val="${escapeText(o)}"
+         onclick="pickClarifyChip(this)">${escapeText(o)}</button>`).join('');
+    return `
+      <div class="clarify-q" data-qi="${i}">
+        <label class="clarify-q-label" for="clarifyIn${i}">${escapeText(q.question)}</label>
+        <span class="clarify-q-why">${escapeText(q.why || '')}</span>
+        ${saved ? `
+          <div class="clarify-preset">
+            <span>Last time you said <strong>${escapeText(saved)}</strong></span>
+            <button type="button" onclick="useClarifyPreset(${i}, this)">Use it</button>
+            <button type="button" class="forget"
+              onclick="forgetClarifyPreset('${escapeText(String(q.id).split('::')[0])}', this)">Forget</button>
+          </div>` : ''}
+        ${chips ? `<div class="clarify-chips">${chips}</div>` : ''}
+        <input class="clarify-input" id="clarifyIn${i}" type="text"
+               value="${escapeText(saved || '')}"
+               placeholder="${escapeText(q.placeholder || '')}"
+               aria-describedby="clarifyWhy${i}">
+      </div>`;
+  }).join('');
+
+  card.style.display = '';
+  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  const first = host.querySelector('.clarify-input');
+  if (first) first.focus();
+}
+
+function pickClarifyChip(btn) {
+  const wrap = btn.closest('.clarify-q');
+  wrap.querySelectorAll('.clarify-chip').forEach(c => c.classList.remove('on'));
+  btn.classList.add('on');
+  wrap.querySelector('.clarify-input').value = btn.dataset.val;
+}
+
+function useClarifyPreset(i, btn) {
+  const q = _clarifyQuestions[i];
+  const preset = _clarifyPresets[String(q.id).split('::')[0]];
+  const saved = preset && preset.answers ? preset.answers[q.field] : '';
+  const input = document.getElementById('clarifyIn' + i);
+  if (input) { input.value = saved || ''; input.focus(); }
+  btn.textContent = 'Applied';
+  btn.disabled = true;
+}
+
+function forgetClarifyPreset(key, btn) {
+  fetch('/scheduler/presets/delete', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ task_key: key })
+  }).catch(() => {});
+  const row = btn.closest('.clarify-preset');
+  if (row) row.remove();
+}
+
+/* Collect the answers and ask again. The server saves them as presets and
+   re-checks; if something is still missing it asks the rest. */
+function submitClarify() {
+  _clarifyQuestions.forEach((q, i) => {
+    const input = document.getElementById('clarifyIn' + i);
+    const val = input ? input.value.trim() : '';
+    if (val) _clarifyAnswers[q.id] = val;
+  });
+  generateSchedule();
+}
+
+/* Escape hatch: plan without answering. Some students would rather have a
+   rough plan now than answer three questions. */
+function skipClarify() {
+  hideClarify();
+  generateSchedule({ skip_clarify: true });
+}
+
+/* A preset answered the questions for them this time. Say so — and give them
+   a one-click way to change their mind. */
+function showUsedPresets(used) {
+  const host = document.getElementById('usedPresets');
+  if (!host) return;
+  if (!Array.isArray(used) || !used.length) { host.style.display = 'none'; return; }
+  host.innerHTML = used.map(p => {
+    const summary = Object.entries(p.answers || {})
+      .map(([k, v]) => `${escapeText(k)}: <strong>${escapeText(v)}</strong>`).join(' · ');
+    return `
+      <div class="clarify-preset" style="margin:0;">
+        <span>Used your saved answers for <strong>${escapeText(p.label)}</strong>${summary ? ' — ' + summary : ''}</span>
+        <button type="button" class="forget"
+          onclick="forgetPresetAndReplan('${escapeText(p.task_key)}')">Change these</button>
+      </div>`;
+  }).join('');
+  host.style.display = '';
+}
+
+function forgetPresetAndReplan(key) {
+  fetch('/scheduler/presets/delete', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ task_key: key })
+  })
+    .catch(() => {})
+    .finally(() => { _clarifyAnswers = {}; generateSchedule(); });
+}
+
 async function autoDetectTime() {
   const btn = document.getElementById('autoTimeBtn');
   const hint = document.getElementById('autoTimeHint');
@@ -1070,12 +1295,16 @@ async function autoDetectTime() {
 }
 
 /* ────────── CREATOR: generate + save + export ────────── */
-function generateSchedule() {
+/* Answers gathered from the clarification card, carried into the retry. */
+let _clarifyAnswers = {};
+
+function generateSchedule(extra) {
   if (!allAssignments.length && !customTasks.length) {
     document.getElementById('emptyState').style.display = 'block';
     return;
   }
   hideGenError();
+  hideClarify();
   document.getElementById('savedNotice').style.display = 'none';
   document.getElementById('inputPanel').style.opacity = '0.5';
   document.getElementById('inputPanel').style.pointerEvents = 'none';
@@ -1095,15 +1324,24 @@ function generateSchedule() {
 
   fetch('/generate_schedule', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ assignments: allAssignments, hours_per_day: hours, preferred_time: time, custom_tasks: customTasks })
+    body: JSON.stringify(Object.assign({
+      assignments: allAssignments, hours_per_day: hours, preferred_time: time,
+      custom_tasks: customTasks, clarifications: _clarifyAnswers,
+    }, extra || {}))
   })
   .then(r => r.json())
   .then(response => {
     done();
+    if (response.status === 'needs_clarification') {
+      showClarify(response);
+      return;
+    }
     if (response.status === 'error') {
       showGenError(response.message || 'The AI could not build a schedule.', !!response.retryable);
       return;
     }
+    _clarifyAnswers = {};   // consumed — a fresh plan starts clean
+    showUsedPresets(response.used_presets);
     _lastScheduleData = response.data;
     // Block ids restart at d1-b1 for every generated plan, so stale state
     // from an older plan would make new blocks appear pre-checked. Clear
