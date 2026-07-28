@@ -125,10 +125,14 @@
   }
   .time-block:hover { border-color: var(--text-muted); }
   .time-block.break-block { opacity: 0.65; }
+  /* A full range ("12:00 PM - 12:45 PM") measures ~128px, so nowrap in a
+     100px column ran the text straight under the title. Wrap at the dash
+     instead; each clock time is kept intact by a non-breaking space in the
+     markup, so it never splits as "5:00" / "PM". */
   .time-slot {
     font-family: var(--ipd-font-mono); font-size: 0.75rem;
-    color: var(--text-muted); white-space: nowrap;
-    letter-spacing: 0.02em;
+    color: var(--text-muted); white-space: normal;
+    letter-spacing: 0.02em; overflow-wrap: break-word;
   }
   .block-title {
     font-family: var(--ipd-font-body); font-size: 0.9rem;
@@ -242,7 +246,11 @@
     background: var(--bg);
     border: 1px solid var(--border);
     cursor: pointer;
-    transition: all 0.18s ease;
+    /* Named properties, not `all`. With `all`, every style touched during a
+       drag animates — including the drag proxy's position, which made it
+       trail the cursor by a full 180ms. */
+    transition: border-color 0.18s ease, box-shadow 0.18s ease,
+                transform 0.18s ease, opacity 0.18s ease;
   }
   .iv-block:hover {
     border-color: var(--text-muted);
@@ -268,15 +276,21 @@
     transform: none;
     box-shadow: none;
   }
+  /* The proxy is positioned with transform only — a compositor property, so
+     following the pointer never triggers layout. `transition: none` is load
+     bearing: without it the clone inherits .iv-block's transition and eases
+     toward the cursor instead of tracking it. */
   .iv-drag-proxy {
-    position: fixed; z-index: 90; pointer-events: none;
+    position: fixed; top: 0; left: 0; z-index: 90; pointer-events: none;
     margin: 0; width: auto;
     box-shadow: var(--shadow-lg, 0 12px 32px rgba(0,0,0,0.18));
     border-color: var(--text-primary);
     background: var(--surface, var(--bg));
-    transform: scale(1.015) rotate(-0.4deg);
     opacity: 0.97;
+    transition: none !important;
+    will-change: transform;
   }
+  .iv-drag-proxy:hover { transform: none; }
   .iv-drop-line {
     height: 2px; margin: 3px 2px;
     background: var(--focus-ring, var(--text-primary));
@@ -324,10 +338,11 @@
   .iv-block.unplaced .iv-time {
     color: var(--danger-text); font-weight: 600;
   }
+  /* See .time-slot — same overflow, same fix. */
   .iv-time {
     font-family: var(--ipd-font-mono); font-size: 0.72rem; font-weight: 500;
-    color: var(--text-muted); white-space: nowrap;
-    letter-spacing: 0.02em;
+    color: var(--text-muted); white-space: normal;
+    letter-spacing: 0.02em; overflow-wrap: break-word;
   }
   .iv-block-body { min-width: 0; }
   .iv-block-title {
@@ -965,6 +980,14 @@ function escapeText(s) {
   );
 }
 
+/* Escape a time range for display, binding each clock time together with a
+   non-breaking space. The column is too narrow for "12:00 PM - 12:45 PM" on
+   one line, so it has to wrap — but it must wrap at the dash, never between
+   a time and its AM/PM. */
+function escapeTimeSlot(s) {
+  return escapeText(s).replace(/(\d)\s+(AM|PM)/gi, '$1 $2');
+}
+
 // Local YYYY-MM-DD (toISOString() is UTC and flips the date late at night).
 function localToday() {
   const d = new Date();
@@ -1279,7 +1302,7 @@ function renderSchedule(data) {
       <div class="day-blocks">
         ${(day.blocks || []).map(block => `
           <div class="time-block ${block.is_break ? 'break-block' : ''}" style="${block.color ? `border-left:3px solid ${block.color};` : ''}">
-            <div class="time-slot">${escapeText(block.time_slot || '')}</div>
+            <div class="time-slot">${escapeTimeSlot(block.time_slot || '')}</div>
             <div class="block-content">
               <div class="block-title">${block.is_break ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-coffee"/></svg> Break' : escapeText(block.assignment || '')}</div>
               ${!block.is_break && block.course ? `<div class="block-course"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-book"/></svg> ${escapeText(block.course)}</div>` : ''}
@@ -1588,6 +1611,7 @@ function ivBlockTouchScroll(e) { e.preventDefault(); }
 
 function ivCleanupDrag() {
   if (!_drag) return;
+  if (_drag.raf) cancelAnimationFrame(_drag.raf);
   if (_drag.proxy) _drag.proxy.remove();
   if (_drag.line) _drag.line.remove();
   if (_drag.srcEl) _drag.srcEl.classList.remove('is-dragging');
@@ -1610,8 +1634,8 @@ function ivBeginDrag(ev) {
   proxy.classList.add('iv-drag-proxy');
   proxy.classList.remove('is-dragging');
   proxy.style.width = rect.width + 'px';
-  proxy.style.left = rect.left + 'px';
-  proxy.style.top = rect.top + 'px';
+  proxy.style.transform =
+    `translate3d(${Math.round(rect.left)}px, ${Math.round(rect.top)}px, 0)`;
   document.body.appendChild(proxy);
   _drag.proxy = proxy;
 
@@ -1622,52 +1646,103 @@ function ivBeginDrag(ev) {
   el.classList.add('is-dragging');
   document.body.classList.add('iv-dragging');
   document.addEventListener('touchmove', ivBlockTouchScroll, { passive: false });
-  ivMoveDrag(ev);
+  // Measure once, up front, with the source block already marked so it is
+  // excluded from the drop candidates.
+  ivMeasureGeom();
+  _drag.px = ev.clientX;
+  _drag.py = ev.clientY;
+  ivDragFrame();
 }
 
-/* Where would a drop at this point land? Returns {dayIdx, beforeEl} or null. */
-function ivDropTargetAt(x, y) {
-  const card = document.elementsFromPoint(x, y)
-    .find(el => el.classList && el.classList.contains('iv-day-card'));
-  if (!card) return null;
-  const host = document.getElementById('ivDays');
-  const cards = [...host.querySelectorAll('.iv-day-card')];
-  const dayIdx = _drag.dayCardIdx.get(card);
-  if (dayIdx == null) return null;
+/* Snapshot the geometry of every day card and block, once.
 
-  // Insert before the first block whose vertical midpoint is below the
-  // pointer; null means "append to the end of this day".
-  const blocks = [...card.querySelectorAll('.iv-block')]
-    .filter(b => b !== _drag.srcEl);
+   Measuring inside pointermove meant a getBoundingClientRect() per block per
+   event, interleaved with DOM writes — the textbook layout-thrash pattern.
+   Rects are stored in PAGE coordinates (client + scrollY) so auto-scrolling
+   during a drag doesn't invalidate them. */
+function ivMeasureGeom() {
+  const sy = window.scrollY, sx = window.scrollX;
+  _drag.geom = [...document.querySelectorAll('.iv-day-card')].map(card => {
+    const r = card.getBoundingClientRect();
+    const dayIdx = _drag.dayCardIdx.get(card);
+    return {
+      card, dayIdx,
+      top: r.top + sy, bottom: r.bottom + sy,
+      left: r.left + sx, right: r.right + sx,
+      blocks: [...card.querySelectorAll('.iv-block')]
+        .filter(b => b !== _drag.srcEl)
+        .map(b => {
+          const br = b.getBoundingClientRect();
+          return { el: b, mid: br.top + sy + br.height / 2 };
+        }),
+    };
+  }).filter(g => g.dayIdx != null);
+}
+
+/* Where would a drop at this page point land? Pure lookup — no DOM reads. */
+function ivDropTargetAt(pageX, pageY) {
+  const g = (_drag.geom || []).find(
+    c => pageY >= c.top && pageY <= c.bottom && pageX >= c.left && pageX <= c.right);
+  if (!g) return null;
+  // Insert before the first block whose midpoint is below the pointer;
+  // null means "append to the end of this day".
   let beforeEl = null;
-  for (const b of blocks) {
-    const r = b.getBoundingClientRect();
-    if (y < r.top + r.height / 2) { beforeEl = b; break; }
+  for (const b of g.blocks) {
+    if (pageY < b.mid) { beforeEl = b.el; break; }
   }
-  return { dayIdx, card, beforeEl };
+  return { dayIdx: g.dayIdx, card: g.card, beforeEl };
 }
 
+/* pointermove can fire far faster than the display refreshes. Record the
+   position and do the work at most once per frame. */
 function ivMoveDrag(ev) {
   if (!_drag || !_drag.active) return;
-  const x = ev.clientX, y = ev.clientY;
-  _drag.proxy.style.left = (x - _drag.offsetX) + 'px';
-  _drag.proxy.style.top = (y - _drag.offsetY) + 'px';
+  _drag.px = ev.clientX;
+  _drag.py = ev.clientY;
+  if (_drag.raf) return;
+  _drag.raf = requestAnimationFrame(ivDragFrame);
+}
 
-  document.querySelectorAll('.iv-day-card.is-drop-target')
-    .forEach(el => el.classList.remove('is-drop-target'));
+function ivDragFrame() {
+  if (!_drag || !_drag.active) return;
+  _drag.raf = 0;
+  const x = _drag.px, y = _drag.py;
 
-  const target = ivDropTargetAt(x, y);
+  // Compositor-only move; no layout, no paint of anything else.
+  _drag.proxy.style.transform =
+    `translate3d(${Math.round(x - _drag.offsetX)}px, ${Math.round(y - _drag.offsetY)}px, 0)`;
+
+  const target = ivDropTargetAt(x + window.scrollX, y + window.scrollY);
+  const prev = _drag.target;
   _drag.target = target;
-  if (!target) { _drag.line.remove(); return; }
-  target.card.classList.add('is-drop-target');
-  if (target.beforeEl) target.card.insertBefore(_drag.line, target.beforeEl);
-  else target.card.appendChild(_drag.line);
 
-  // Auto-scroll when dragging near the viewport edge, or a long plan is
-  // impossible to reorder across days on a small screen.
+  // Only touch the DOM when the insertion point actually changes. Previously
+  // this ran insertBefore on every event, which invalidated layout and forced
+  // the next frame's measurements to recompute from scratch.
+  const changed = !prev || !target
+    || prev.card !== target.card || prev.beforeEl !== target.beforeEl;
+  if (changed) {
+    if (prev && prev.card !== (target && target.card)) {
+      prev.card.classList.remove('is-drop-target');
+    }
+    if (!target) {
+      _drag.line.remove();
+    } else {
+      target.card.classList.add('is-drop-target');
+      if (target.beforeEl) target.card.insertBefore(_drag.line, target.beforeEl);
+      else target.card.appendChild(_drag.line);
+      // Inserting the line shifts everything below it, so the cached rects
+      // are now stale — but only here, a handful of times per drag rather
+      // than on every pointer event.
+      ivMeasureGeom();
+    }
+  }
+
+  // Auto-scroll near the viewport edge, or a long plan can't be reordered
+  // across days on a small screen. Page-space geometry survives this.
   const pad = 90;
-  if (y < pad) window.scrollBy({ top: -14 });
-  else if (y > window.innerHeight - pad) window.scrollBy({ top: 14 });
+  if (y < pad) window.scrollBy(0, -14);
+  else if (y > window.innerHeight - pad) window.scrollBy(0, 14);
 }
 
 function ivEndDrag() {
@@ -1758,6 +1833,7 @@ function ivWireDrag(host) {
         startX: ev.clientX, startY: ev.clientY,
         active: false, moved: false, pointerId: ev.pointerId,
         dayCardIdx: dayCardIdxSource, holdTimer: null,
+        raf: 0, px: ev.clientX, py: ev.clientY, geom: null,
       };
       try { el.setPointerCapture(ev.pointerId); } catch (_) {}
       if (onGrip) {
@@ -1857,7 +1933,7 @@ function renderIvBlock(b) {
   if (b.is_break) {
     return `
       <div class="iv-block is-break">
-        <div class="iv-time">${escapeText(b.time_slot || '')}</div>
+        <div class="iv-time">${escapeTimeSlot(b.time_slot || '')}</div>
         <div class="iv-block-body">
           <div class="iv-block-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-coffee"/></svg> Break</div>
           ${b.notes ? `<div class="iv-block-sub">${escapeText(b.notes)}</div>` : ''}
@@ -1877,7 +1953,7 @@ function renderIvBlock(b) {
     : '';
   return `
     <div class="iv-block ${s.done ? 'done' : ''}${b.conflict ? ' has-conflict' : ''}${b.unplaced ? ' unplaced' : ''}" data-block-id="${escapeText(b.block_id)}" tabindex="0" role="button" aria-label="Open checklist for ${escapeText(b.assignment || 'task')}">
-      <div class="iv-time">${escapeText(b.time_slot || '')}</div>
+      <div class="iv-time">${escapeTimeSlot(b.time_slot || '')}</div>
       <div class="iv-block-body">
         <div class="iv-block-title">${escapeText(b.assignment || '')}</div>
         <div class="iv-block-sub">${pills.map(p => `<span class="iv-pill">${p}</span>`).join('')}</div>
