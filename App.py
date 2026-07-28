@@ -2406,6 +2406,74 @@ def _parse_schedule_day_date(raw, day_idx):
         return None
 
 
+def reflow_schedule(schedule_data, availability=None, commitments=None, dna=None,
+                    preferred_time="evening", hours_per_day=2):
+    """Re-time a schedule the student has rearranged by hand.
+
+    Unlike humanize_schedule() this preserves block order exactly as given —
+    the student just dragged these into the arrangement they want, so
+    reordering them again would fight the user. All this does is recompute
+    clock times against their real free windows, flag anything that no longer
+    fits, and refresh day totals.
+
+    Returns the same dict, mutated, with ``placement_notes`` and per-block
+    ``conflict`` flags describing what could not be honoured.
+    """
+    schedule = schedule_data.get("schedule", []) or []
+    carry, notes = [], []
+    personalized = bool(availability) or dna is not None
+    for day_idx, day in enumerate(schedule):
+        # Drop breaks we injected last time — the break rule runs again below,
+        # so keeping them would grow the plan by one break per drag.
+        blocks = scheduler_engine.strip_auto_breaks(
+            [b for b in (day.get("blocks") or []) if b]
+        )
+        for b in blocks:
+            b.pop("conflict", None)
+            b.pop("unplaced", None)
+        day_date = _parse_schedule_day_date(day.get("date"), day_idx)
+        if not personalized or day_date is None:
+            day["blocks"] = carry + blocks
+            carry = []
+            continue
+        try:
+            windows = scheduler_engine.windows_for_date(
+                day_date, availability, preferred_time, commitments,
+            )
+            placed, spilled = scheduler_engine.place_day_blocks(
+                carry + blocks, windows, dna, preserve_order=True,
+            )
+        except Exception as e:
+            print(f"[reflow] placement failed for day {day_idx}: {e}")
+            day["blocks"] = carry + blocks
+            carry = []
+            continue
+        day["blocks"] = placed
+        carry = spilled
+        if spilled:
+            for b in spilled:
+                b["conflict"] = "no_room"
+            label = "You have no free time" if not windows else "There isn't room"
+            notes.append(
+                f"{label} on {day_date:%a %b %d} for "
+                f"{len(spilled)} block(s) — moved to your next available day."
+            )
+    if carry and schedule:
+        for b in carry:
+            b["conflict"] = "unplaceable"
+            b["unplaced"] = True
+            b["time_slot"] = "No free time — needs rescheduling"
+        schedule[-1].setdefault("blocks", []).extend(carry)
+        notes.append(
+            f"{len(carry)} block(s) don't fit anywhere in your available hours. "
+            f"Add availability in Settings, or move them to a different day."
+        )
+    schedule_data["placement_notes"] = notes
+    if personalized:
+        _recompute_day_totals(schedule_data, hours_per_day)
+    return schedule_data
+
+
 def enrich_schedule_data(schedule_data, assignments, preferred_time, hours_per_day):
     assignment_lookup = {item["title"]: item for item in assignments if isinstance(item, dict) and item.get("title")}
     schedule = schedule_data.get("schedule", [])
@@ -8664,6 +8732,47 @@ def update_saved_schedule():
     s.schedule_data = raw
     db.session.commit()
     return flask.jsonify({"status": "ok"})
+
+@app.route("/schedule/reflow", methods=["POST"])
+def reflow_saved_schedule():
+    """Re-time a hand-rearranged schedule against the student's real free time.
+
+    The Interactive View calls this after a drag-and-drop. The client has
+    already applied an optimistic local re-time so the UI feels instant; this
+    is the authoritative pass that knows the student's availability and
+    commitments, so it's what catches "you just dragged this into your soccer
+    practice". Block order is preserved exactly — only clock times move.
+    """
+    data = request.json or {}
+    schedule_data = data.get("schedule_data")
+    if not isinstance(schedule_data, dict) or not schedule_data.get("schedule"):
+        return flask.jsonify({"status": "error", "message": "schedule_data required"}), 400
+    if len(json.dumps(schedule_data)) > 500_000:
+        return flask.jsonify({"status": "error", "message": "schedule too large"}), 413
+    uid = current_user.id if current_user.is_authenticated else None
+    gid = None if uid else get_guest_session_id()
+    dna, availability, commitments = build_scheduler_personalization(user_id=uid, guest_id=gid)
+    try:
+        schedule_data = reflow_schedule(
+            schedule_data, availability=availability, commitments=commitments, dna=dna,
+            preferred_time=data.get("preferred_time") or "evening",
+            hours_per_day=data.get("hours_per_day") or 2,
+        )
+    except Exception as e:
+        print(f"[reflow] failed: {e}")
+        return flask.jsonify({"status": "error", "message": "Could not re-time the plan."}), 500
+    # Persist in place so the rearrangement survives a reload, exactly like
+    # /schedule/update. Missing row is not an error — an unsaved preview can
+    # still be reflowed, the client just keeps it client-side.
+    if uid:
+        s = SavedSchedule.query.filter_by(user_id=uid, is_active=True).order_by(SavedSchedule.created_at.desc()).first()
+    else:
+        s = SavedSchedule.query.filter_by(guest_session_id=gid, is_active=True).order_by(SavedSchedule.created_at.desc()).first()
+    if s:
+        s.schedule_data = json.dumps(schedule_data)
+        db.session.commit()
+    return flask.jsonify({"status": "ok", "data": schedule_data, "saved": bool(s)})
+
 
 @app.route("/schedule/delete", methods=["POST"])
 def delete_saved_schedule():

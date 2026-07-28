@@ -210,6 +210,14 @@
          #666660 clears 4.5 on the elevated surface too while staying clearly
          lighter than --text-secondary. */
       --text-muted:    #666660;
+      /* Danger. Two tokens because the contrast bars differ: --danger is used
+         for borders and icons (UI components, 3:1) while --danger-text carries
+         words (4.5:1). #dc2626 as text measured 4.15:1 on the faint red-tinted
+         surface it sits on — a fail — so the text token is a step darker.
+         #b91c1c is 5.99:1 on --bg and 5.56:1 on that tinted surface. */
+      --danger:        #dc2626;
+      --danger-text:   #b91c1c;
+      --danger-soft:   rgba(220,38,38,0.06);
       --border:        rgba(0,0,0,0.06);
       --border-strong: rgba(0,0,0,0.11);
       --border-accent: rgba(26,86,219,0.24);
@@ -291,6 +299,12 @@
          wrong-surface mistake the light token had. #878780 clears both
          (4.70 on card, 5.26 on bg) and stays dimmer than --text-secondary. */
       --text-muted:    #878780;
+      /* Dark-theme danger. The light theme's #b91c1c is far too dark to read
+         on a dark surface, so the text token goes lighter rather than darker
+         (~9.7:1 on --bg). See the light-theme note for why these are split. */
+      --danger:        #f87171;
+      --danger-text:   #fca5a5;
+      --danger-soft:   rgba(248,113,113,0.10);
       --border:        rgba(255,255,255,0.06);
       --border-strong: rgba(255,255,255,0.10);
       --border-accent: rgba(91,147,245,0.26);
@@ -2220,6 +2234,10 @@
       --bg:#ffffff; --bg-secondary:#ffffff; --bg-card:#ffffff; --bg-elevated:#f4f4f4;
       --border:#000000; --border-strong:#000000; --border-accent:#000000;
       --accent:#0000ee; --accent-hover:#0000aa;
+      /* Danger stays a real red so it still reads as an error, but goes dark
+         enough to clear high-contrast expectations on white (>7:1), and the
+         tint drops to nothing so the surface stays solid white. */
+      --danger:#8b0000; --danger-text:#8b0000; --danger-soft:transparent;
       /* Solid glass tokens so every frosted surface goes opaque with a hard
          border — one override covers all glass classes at once. */
       --glass-bg:#ffffff; --glass-border:#000000; --glass-shadow:none; --glass-highlight:none;
@@ -2238,6 +2256,9 @@
       --glass-primary-bg:#ffffff; --glass-primary-hover:#e8e8e8; --glass-primary-text:#000000;
       --glass-input-bg:#0a0a0a; --glass-input-border:#ffffff;
       --accent:#ffeb3b; --accent-hover:#ffd600;
+      /* Mirror of the light high-contrast danger: a light red that still
+         reads as an error against pure black (>10:1), with no tint. */
+      --danger:#ff8a80; --danger-text:#ff8a80; --danger-soft:transparent;
     }
     html[data-a11y-contrast="1"] * { text-shadow: none !important; }
     /* High-contrast users must not get faint frosted glass — force every

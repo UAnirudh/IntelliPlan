@@ -504,11 +504,21 @@ def _difficulty_rank(block: Mapping[str, Any]) -> int:
     return {"Hard": 0, "Medium": 1, "Easy": 2}.get(str(block.get("difficulty") or "Medium"), 1)
 
 
+def strip_auto_breaks(blocks: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Drop breaks this engine inserted, keeping ones the plan itself authored.
+
+    Re-placing a schedule runs the break rule again, so without this a plan
+    that is re-placed on every drag accumulates a new "Long break" each time.
+    """
+    return [dict(b) for b in blocks if not (b.get("is_break") and b.get("auto"))]
+
+
 def place_day_blocks(
     blocks: list[dict[str, Any]],
     windows: Sequence[Window],
     dna: StudyDNA | None = None,
     long_break_after: int = LONG_BREAK_AFTER_MINUTES,
+    preserve_order: bool = False,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Lay ``blocks`` into real ``windows``, in order, with breaks.
 
@@ -518,7 +528,9 @@ def place_day_blocks(
     fastest way to teach someone to ignore their planner.
 
     Hard work is steered toward the window matching the student's measured
-    best slot when one exists.
+    best slot, unless ``preserve_order`` is set — which the reflow path uses,
+    because the student just arranged these by hand and re-sorting them would
+    undo the drag they performed.
     """
     if not blocks:
         return [], []
@@ -528,7 +540,7 @@ def place_day_blocks(
         return [], list(blocks)
 
     # Front-load demanding work into the student's best measured slot.
-    if dna.best_slot and len(usable) > 1:
+    if dna.best_slot and len(usable) > 1 and not preserve_order:
         usable = sorted(usable, key=lambda w: (w.slot() != dna.best_slot, w.start))
         work = [b for b in blocks if not b.get("is_break")]
         if work:
@@ -602,6 +614,7 @@ def place_day_blocks(
                     "end_iso": brk_end.isoformat(),
                     "notes": "You've worked a solid stretch. Step away, eat, walk.",
                     "is_break": True,
+                    "auto": True,   # engine-inserted — see strip_auto_breaks()
                     "window_slot": window.slot(),
                 }
             )

@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block page_title %}Scheduler | IntelliPlan{% endblock %}
 
 {% block head_extra %}
@@ -257,6 +257,73 @@
   .iv-block.is-break:hover { transform: none; border-color: var(--border); box-shadow: none; }
   .iv-block.done { opacity: 0.5; }
   .iv-block.done .iv-block-title { text-decoration: line-through; color: var(--text-muted); }
+
+  /* ── Drag to reschedule ─────────────────────────────
+     Pointer-events based so one code path covers mouse and touch. The
+     block being dragged stays in the list as a dimmed placeholder while a
+     detached proxy follows the pointer. */
+  .iv-block.is-dragging {
+    opacity: 0.32;
+    border-style: dashed;
+    transform: none;
+    box-shadow: none;
+  }
+  .iv-drag-proxy {
+    position: fixed; z-index: 90; pointer-events: none;
+    margin: 0; width: auto;
+    box-shadow: var(--shadow-lg, 0 12px 32px rgba(0,0,0,0.18));
+    border-color: var(--text-primary);
+    background: var(--surface, var(--bg));
+    transform: scale(1.015) rotate(-0.4deg);
+    opacity: 0.97;
+  }
+  .iv-drop-line {
+    height: 2px; margin: 3px 2px;
+    background: var(--focus-ring, var(--text-primary));
+    border-radius: 2px;
+    position: relative;
+  }
+  .iv-drop-line::before {
+    content: ''; position: absolute; left: -3px; top: -3px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--focus-ring, var(--text-primary));
+  }
+  .iv-day-card.is-drop-target {
+    border-color: var(--text-muted);
+    background: var(--glass-bg);
+  }
+  /* Suppress the lift-on-hover while a drag is in flight — two blocks
+     rising at once reads as a glitch. */
+  body.iv-dragging .iv-block:hover { transform: none; box-shadow: none; }
+  body.iv-dragging { user-select: none; -webkit-user-select: none; }
+  .iv-grip {
+    display: none; align-items: center; justify-content: center;
+    width: 22px; height: 22px; flex-shrink: 0;
+    color: var(--text-muted); cursor: grab;
+    border-radius: var(--ipd-radius-sm); border: none; background: none;
+    touch-action: none;
+  }
+  .iv-grip:active { cursor: grabbing; }
+  .iv-grip:hover { color: var(--text-primary); background: var(--bg); }
+  .iv-grip:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+  .iv-block:not(.is-break) .iv-grip { display: inline-flex; }
+
+  /* A block whose time no longer fits the student's stated free hours.
+     --danger carries the border (a UI component, 3:1); --danger-text carries
+     the words (4.5:1). They are different values on purpose — see base.html. */
+  .iv-block.has-conflict {
+    border-color: var(--danger);
+    background: var(--danger-soft);
+  }
+  .iv-conflict-note {
+    grid-column: 1 / -1;
+    margin-top: 6px; font-size: 0.75rem;
+    color: var(--danger-text);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .iv-block.unplaced .iv-time {
+    color: var(--danger-text); font-weight: 600;
+  }
   .iv-time {
     font-family: var(--ipd-font-mono); font-size: 0.72rem; font-weight: 500;
     color: var(--text-muted); white-space: nowrap;
@@ -1291,8 +1358,11 @@ function renderInteractive() {
   host.querySelectorAll('.iv-block').forEach(el => {
     if (el.classList.contains('is-break')) return;
     el.addEventListener('click', e => {
-      // ignore clicks on the inner check button, it has its own handler
-      if (e.target.closest('.iv-check')) return;
+      // ignore clicks on the inner buttons, they have their own handlers
+      if (e.target.closest('.iv-check, .iv-move, .iv-grip')) return;
+      // A drag ends with a click event on most browsers — don't open the
+      // checklist for the block the student just dropped.
+      if (Date.now() < _suppressClickUntil) return;
       openChecklist(el.dataset.blockId);
     });
     el.addEventListener('keydown', e => {
@@ -1319,6 +1389,7 @@ function renderInteractive() {
     });
     btn.addEventListener('keydown', e => e.stopPropagation());
   });
+  ivWireDrag(host);
 }
 
 /* ────────── BLOCK RESCHEDULING ──────────
@@ -1463,6 +1534,266 @@ function scheduleDataPush() {
   }, 900);
 }
 
+/* Ask the server to re-time the plan against the student's real availability.
+   The local retimeDay() above is an optimistic guess that only knows about
+   block durations; this is the pass that knows about school hours, soccer
+   practice, and everything else the student told us — so it's what turns
+   "dragged somewhere" into "dragged somewhere that actually works". */
+let _reflowTimer = null;
+let _reflowSeq = 0;
+function scheduleReflow() {
+  if (!_lastScheduleData) return;
+  clearTimeout(_reflowTimer);
+  _reflowTimer = setTimeout(() => {
+    const seq = ++_reflowSeq;
+    fetch('/schedule/reflow', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ schedule_data: _lastScheduleData })
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(body => {
+        // Ignore a stale response if the student kept dragging while it flew.
+        if (!body || body.status !== 'ok' || seq !== _reflowSeq) return;
+        _lastScheduleData = body.data;
+        renderInteractive();
+        renderSchedule(_lastScheduleData);
+        updateBadge();
+      })
+      .catch(() => {});   // offline / unsaved preview — the local retime stands
+  }, 700);
+}
+
+/* ════════════════════════════════════════════════════════
+   DRAG TO RESCHEDULE
+
+   Pointer Events rather than HTML5 drag-and-drop: HTML5 DnD does not fire
+   on touch at all, and this has to work on a phone. One code path, both
+   input types.
+
+   Dragging is a pointer-down on the grip, or a press-and-hold anywhere on
+   the block. A plain tap/click still opens the checklist, and the existing
+   move menu remains the keyboard route — drag is an accelerator, never the
+   only way to do this.
+═════════════════════════════════════════════════════════ */
+const IV_DRAG_THRESHOLD_PX = 6;
+const IV_HOLD_MS = 260;
+let _drag = null;
+let _suppressClickUntil = 0;
+
+/* While a drag is in flight, stop the browser turning the same finger
+   movement into a page scroll. touch-action alone can't do this: it is
+   evaluated when the gesture starts, and our drag begins mid-gesture after
+   the hold timer. A non-passive touchmove listener is the reliable way. */
+function ivBlockTouchScroll(e) { e.preventDefault(); }
+
+function ivCleanupDrag() {
+  if (!_drag) return;
+  if (_drag.proxy) _drag.proxy.remove();
+  if (_drag.line) _drag.line.remove();
+  if (_drag.srcEl) _drag.srcEl.classList.remove('is-dragging');
+  document.querySelectorAll('.iv-day-card.is-drop-target')
+    .forEach(el => el.classList.remove('is-drop-target'));
+  document.body.classList.remove('iv-dragging');
+  document.removeEventListener('touchmove', ivBlockTouchScroll, { passive: false });
+  clearTimeout(_drag.holdTimer);
+  _drag = null;
+}
+
+function ivBeginDrag(ev) {
+  const el = _drag.srcEl;
+  const rect = el.getBoundingClientRect();
+  _drag.active = true;
+  _drag.offsetX = _drag.startX - rect.left;
+  _drag.offsetY = _drag.startY - rect.top;
+
+  const proxy = el.cloneNode(true);
+  proxy.classList.add('iv-drag-proxy');
+  proxy.classList.remove('is-dragging');
+  proxy.style.width = rect.width + 'px';
+  proxy.style.left = rect.left + 'px';
+  proxy.style.top = rect.top + 'px';
+  document.body.appendChild(proxy);
+  _drag.proxy = proxy;
+
+  const line = document.createElement('div');
+  line.className = 'iv-drop-line';
+  _drag.line = line;
+
+  el.classList.add('is-dragging');
+  document.body.classList.add('iv-dragging');
+  document.addEventListener('touchmove', ivBlockTouchScroll, { passive: false });
+  ivMoveDrag(ev);
+}
+
+/* Where would a drop at this point land? Returns {dayIdx, beforeEl} or null. */
+function ivDropTargetAt(x, y) {
+  const card = document.elementsFromPoint(x, y)
+    .find(el => el.classList && el.classList.contains('iv-day-card'));
+  if (!card) return null;
+  const host = document.getElementById('ivDays');
+  const cards = [...host.querySelectorAll('.iv-day-card')];
+  const dayIdx = _drag.dayCardIdx.get(card);
+  if (dayIdx == null) return null;
+
+  // Insert before the first block whose vertical midpoint is below the
+  // pointer; null means "append to the end of this day".
+  const blocks = [...card.querySelectorAll('.iv-block')]
+    .filter(b => b !== _drag.srcEl);
+  let beforeEl = null;
+  for (const b of blocks) {
+    const r = b.getBoundingClientRect();
+    if (y < r.top + r.height / 2) { beforeEl = b; break; }
+  }
+  return { dayIdx, card, beforeEl };
+}
+
+function ivMoveDrag(ev) {
+  if (!_drag || !_drag.active) return;
+  const x = ev.clientX, y = ev.clientY;
+  _drag.proxy.style.left = (x - _drag.offsetX) + 'px';
+  _drag.proxy.style.top = (y - _drag.offsetY) + 'px';
+
+  document.querySelectorAll('.iv-day-card.is-drop-target')
+    .forEach(el => el.classList.remove('is-drop-target'));
+
+  const target = ivDropTargetAt(x, y);
+  _drag.target = target;
+  if (!target) { _drag.line.remove(); return; }
+  target.card.classList.add('is-drop-target');
+  if (target.beforeEl) target.card.insertBefore(_drag.line, target.beforeEl);
+  else target.card.appendChild(_drag.line);
+
+  // Auto-scroll when dragging near the viewport edge, or a long plan is
+  // impossible to reorder across days on a small screen.
+  const pad = 90;
+  if (y < pad) window.scrollBy({ top: -14 });
+  else if (y > window.innerHeight - pad) window.scrollBy({ top: 14 });
+}
+
+function ivEndDrag() {
+  if (!_drag) return;
+  const wasActive = _drag.active;
+  const target = _drag.target;
+  const blockId = _drag.blockId;
+  // Read the DOM order the drop line implies *before* teardown removes it.
+  let destIdx = null;
+  if (wasActive && target) {
+    const siblings = [...target.card.querySelectorAll('.iv-block, .iv-drop-line')]
+      .filter(el => el !== _drag.srcEl);
+    destIdx = siblings.indexOf(_drag.line);
+  }
+  ivCleanupDrag();
+  if (!wasActive) return;
+  _suppressClickUntil = Date.now() + 350;
+  if (!target || destIdx == null || destIdx < 0) return;
+  ivPerformDrop(blockId, target.dayIdx, destIdx);
+}
+
+/* Move a block to an arbitrary (day, index). Mirrors performMove()'s
+   contract: renormalize, re-time from each affected day's original anchor,
+   refresh stats, persist. */
+function ivPerformDrop(blockId, destDayIdx, destIdx) {
+  const loc = findBlockLocation(blockId);
+  if (!loc) return;
+  const sched = _lastScheduleData.schedule;
+  const srcDay = sched[loc.dayIdx];
+  const destDay = sched[destDayIdx];
+  if (!srcDay || !destDay) return;
+  if (loc.dayIdx === destDayIdx && (destIdx === loc.blockIdx || destIdx === loc.blockIdx + 1)) {
+    return;   // dropped exactly where it already was
+  }
+
+  const anchors = new Map([[srcDay, dayAnchor(srcDay)], [destDay, dayAnchor(destDay)]]);
+  const [blk] = srcDay.blocks.splice(loc.blockIdx, 1);
+  // Removing from an earlier position in the same day shifts the target left.
+  let insertAt = destIdx;
+  if (srcDay === destDay && loc.blockIdx < destIdx) insertAt -= 1;
+  destDay.blocks = destDay.blocks || [];
+  insertAt = Math.max(0, Math.min(insertAt, destDay.blocks.length));
+  destDay.blocks.splice(insertAt, 0, blk);
+
+  [srcDay, destDay].forEach(d => {
+    normalizeDayBlocks(d);
+    retimeDay(d, anchors.get(d));
+    recomputeDayStats(d);
+  });
+  renderInteractive();
+  renderSchedule(_lastScheduleData);
+  scheduleReflow();   // authoritative re-time + conflict detection
+  ivAnnounce(`Moved ${blk.assignment || 'block'} to ${destDay.day_name || 'another day'}.`);
+}
+
+/* Politely tell a screen reader what the drag did. */
+function ivAnnounce(msg) {
+  let live = document.getElementById('ivLive');
+  if (!live) {
+    live = document.createElement('div');
+    live.id = 'ivLive';
+    live.setAttribute('aria-live', 'polite');
+    live.setAttribute('role', 'status');
+    live.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;';
+    document.body.appendChild(live);
+  }
+  live.textContent = msg;
+}
+
+function ivWireDrag(host) {
+  // Map each rendered day card back to its index in the data.
+  const dayCardIdxSource = new Map();
+  const rendered = (_lastScheduleData.schedule || [])
+    .map((d, i) => ({ d, i }))
+    .filter(({ d }) => (d.blocks || []).length);
+  [...host.querySelectorAll('.iv-day-card')].forEach((card, n) => {
+    if (rendered[n]) dayCardIdxSource.set(card, rendered[n].i);
+  });
+
+  host.querySelectorAll('.iv-block').forEach(el => {
+    if (el.classList.contains('is-break')) return;
+    el.addEventListener('pointerdown', ev => {
+      if (ev.button != null && ev.button !== 0) return;
+      if (ev.target.closest('.iv-check, .iv-move')) return;
+      const onGrip = !!ev.target.closest('.iv-grip');
+      _drag = {
+        srcEl: el, blockId: el.dataset.blockId,
+        startX: ev.clientX, startY: ev.clientY,
+        active: false, moved: false, pointerId: ev.pointerId,
+        dayCardIdx: dayCardIdxSource, holdTimer: null,
+      };
+      try { el.setPointerCapture(ev.pointerId); } catch (_) {}
+      if (onGrip) {
+        ev.preventDefault();
+        ivBeginDrag(ev);
+      } else {
+        // Press-and-hold elsewhere on the block. Keeps a tap = open
+        // checklist, and keeps vertical scrolling usable on touch.
+        _drag.holdTimer = setTimeout(() => {
+          if (_drag && !_drag.active && !_drag.moved) ivBeginDrag(ev);
+        }, IV_HOLD_MS);
+      }
+    });
+
+    el.addEventListener('pointermove', ev => {
+      if (!_drag || _drag.srcEl !== el) return;
+      const dx = Math.abs(ev.clientX - _drag.startX);
+      const dy = Math.abs(ev.clientY - _drag.startY);
+      if (!_drag.active) {
+        // Moved before the hold fired → treat as a scroll/click, not a drag.
+        if (dx > IV_DRAG_THRESHOLD_PX || dy > IV_DRAG_THRESHOLD_PX) {
+          _drag.moved = true;
+          clearTimeout(_drag.holdTimer);
+        }
+        return;
+      }
+      ev.preventDefault();
+      ivMoveDrag(ev);
+    });
+
+    const finish = () => { if (_drag && _drag.srcEl === el) ivEndDrag(); };
+    el.addEventListener('pointerup', finish);
+    el.addEventListener('pointercancel', () => { if (_drag) ivCleanupDrag(); });
+  });
+}
+
 function openMoveMenu(btn) {
   const blockId = btn.dataset.blockId;
   const loc = findBlockLocation(blockId);
@@ -1539,8 +1870,13 @@ function renderIvBlock(b) {
   if (b.course) pills.push(escapeText(b.course));
   if (b.kind && b.kind !== 'general') pills.push(escapeText(b.kind));
   if (b.priority) pills.push(escapeText(b.priority));
+  const conflict = b.conflict
+    ? (b.conflict === 'unplaceable'
+        ? "This doesn't fit anywhere in your available hours."
+        : "No room left for this on its original day.")
+    : '';
   return `
-    <div class="iv-block ${s.done ? 'done' : ''}" data-block-id="${escapeText(b.block_id)}" tabindex="0" role="button" aria-label="Open checklist for ${escapeText(b.assignment || 'task')}">
+    <div class="iv-block ${s.done ? 'done' : ''}${b.conflict ? ' has-conflict' : ''}${b.unplaced ? ' unplaced' : ''}" data-block-id="${escapeText(b.block_id)}" tabindex="0" role="button" aria-label="Open checklist for ${escapeText(b.assignment || 'task')}">
       <div class="iv-time">${escapeText(b.time_slot || '')}</div>
       <div class="iv-block-body">
         <div class="iv-block-title">${escapeText(b.assignment || '')}</div>
@@ -1549,6 +1885,9 @@ function renderIvBlock(b) {
       <div class="iv-block-right">
         <div class="iv-duration">${escapeText(String(b.duration_minutes || 0))}m</div>
         <div style="display:flex;gap:4px;align-items:center;">
+          <button type="button" class="iv-grip" data-block-id="${escapeText(b.block_id)}" tabindex="-1" aria-hidden="true" title="Drag to reschedule">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
+          </button>
           <button type="button" class="iv-move" data-block-id="${escapeText(b.block_id)}" aria-label="Move ${escapeText(b.assignment || 'block')}" aria-haspopup="menu">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 9 12 4 17 9"/><polyline points="7 15 12 20 17 15"/></svg>
           </button>
@@ -1557,6 +1896,7 @@ function renderIvBlock(b) {
           </button>
         </div>
       </div>
+      ${conflict ? `<div class="iv-conflict-note"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ${escapeText(conflict)}</div>` : ''}
     </div>`;
 }
 
