@@ -8026,22 +8026,42 @@ def api_my_stats():
     manual_done = ManualTask.query.filter_by(user_id=uid, done=True).count()
 
     # Task feedback stats
-    fb_rows = TaskFeedback.query.filter_by(user_id=uid).all()
-    total_actual_min = sum((r.actual_time or 0) for r in fb_rows)
-    total_estimated_min = sum((r.estimated_time or 0) for r in fb_rows)
-    avg_difficulty = None
+    # These are pure aggregates — compute them in SQL. Hydrating every
+    # TaskFeedback / StudySession / StudyMastery row into ORM objects just to
+    # sum them made this endpoint scale with the user's lifetime history.
+    total_actual_min, total_estimated_min = db.session.query(
+        db.func.coalesce(db.func.sum(TaskFeedback.actual_time), 0),
+        db.func.coalesce(db.func.sum(TaskFeedback.estimated_time), 0),
+    ).filter(TaskFeedback.user_id == uid).one()
+
     diff_map = {"Easy": 1, "Medium": 2, "Hard": 3}
-    if fb_rows:
-        diffs = [diff_map.get(r.difficulty, 2) for r in fb_rows]
-        avg_difficulty = round(sum(diffs) / len(diffs), 1)
-    courses_worked = list(set(r.course for r in fb_rows if r.course))
+    diff_rows = (
+        db.session.query(TaskFeedback.difficulty, db.func.count(TaskFeedback.id))
+        .filter(TaskFeedback.user_id == uid)
+        .group_by(TaskFeedback.difficulty)
+        .all()
+    )
+    avg_difficulty = None
+    fb_total = sum(n for _, n in diff_rows)
+    if fb_total:
+        avg_difficulty = round(
+            sum(diff_map.get(d, 2) * n for d, n in diff_rows) / fb_total, 1
+        )
+
+    courses_worked = [
+        c for (c,) in db.session.query(TaskFeedback.course)
+        .filter(TaskFeedback.user_id == uid, TaskFeedback.course != "")
+        .distinct().all() if c
+    ]
 
     # Study sessions
-    sessions = StudySession.query.filter_by(user_id=uid, completed=True).all()
-    total_study_min = sum((s.duration_seconds or 0) for s in sessions) // 60
-    total_questions = sum((s.questions_total or 0) for s in sessions)
-    total_correct = sum((s.questions_correct or 0) for s in sessions)
-    session_count = len(sessions)
+    total_secs, total_questions, total_correct, session_count = db.session.query(
+        db.func.coalesce(db.func.sum(StudySession.duration_seconds), 0),
+        db.func.coalesce(db.func.sum(StudySession.questions_total), 0),
+        db.func.coalesce(db.func.sum(StudySession.questions_correct), 0),
+        db.func.count(StudySession.id),
+    ).filter(StudySession.user_id == uid, StudySession.completed == True).one()
+    total_study_min = int(total_secs or 0) // 60
 
     # Streak
     streak_row = UserStreak.query.filter_by(user_id=uid).first()
@@ -8067,10 +8087,11 @@ def api_my_stats():
     if grade_list:
         gpa = round(sum(g["percentage"] for g in grade_list) / len(grade_list), 1)
 
-    # Mastery
-    mastery_rows = StudyMastery.query.filter_by(user_id=uid).all()
-    mastery_count = len(mastery_rows)
-    mastered = sum(1 for m in mastery_rows if m.mastery_level >= 4)
+    # Mastery — two counts, no need to hydrate the rows.
+    mastery_count = StudyMastery.query.filter_by(user_id=uid).count()
+    mastered = StudyMastery.query.filter(
+        StudyMastery.user_id == uid, StudyMastery.mastery_level >= 4
+    ).count()
 
     # Study points
     sp = StudyPoints.query.filter_by(user_id=uid).first()
@@ -8115,7 +8136,7 @@ def api_my_stats():
         "tasks_completed": tasks_done + manual_done,
         "tasks_lms": tasks_done,
         "tasks_manual": manual_done,
-        "feedback_count": len(fb_rows),
+        "feedback_count": fb_total,
         "total_actual_minutes": total_actual_min,
         "total_estimated_minutes": total_estimated_min,
         "avg_difficulty": avg_difficulty,
@@ -11765,19 +11786,25 @@ def _send_reminders_for_user(user, mark_sent=True, force=False):
         return sent
     want_sms  = bool(getattr(user, "sms_reminders_opt_in", False) and user.phone)
     want_push = bool(getattr(user, "push_reminders_opt_in", False))
+    # Load this user's already-sent dedupe rows once. Previously this was one
+    # query per (task, channel), so the reminder sweep cost
+    # users x tasks x channels round-trips.
+    already_sent = set()
+    if not force:
+        keys = [f"manual:{t.id}" for t, _ in upcoming]
+        rows = ReminderSent.query.filter(
+            ReminderSent.user_id == user.id, ReminderSent.task_key.in_(keys)
+        ).all()
+        already_sent = {(r.task_key, r.channel) for r in rows}
     for task, due in upcoming:
         sent["tasks"] += 1
         key = f"manual:{task.id}"
         for channel, want in (("sms", want_sms), ("push", want_push)):
             if not want:
                 continue
-            if not force:
-                already = ReminderSent.query.filter_by(
-                    user_id=user.id, task_key=key, channel=channel
-                ).first()
-                if already:
-                    sent["skipped"] += 1
-                    continue
+            if not force and (key, channel) in already_sent:
+                sent["skipped"] += 1
+                continue
             mins = max(1, int((due - datetime.utcnow()).total_seconds() // 60))
             body = f"⏰ {task.title} is due in {mins} min ({task.course})."
             ok = False
@@ -12629,6 +12656,18 @@ def api_list_groups():
     if current_user.is_authenticated:
         mine_ids = {m.group_id for m in StudyGroupMember.query.filter_by(user_id=current_user.id).all()}
 
+    # One grouped COUNT for the whole page instead of one per group — this
+    # was 50 extra round-trips on a full listing.
+    counts = {}
+    if public_q:
+        rows = (
+            db.session.query(StudyGroupMember.group_id, db.func.count(StudyGroupMember.id))
+            .filter(StudyGroupMember.group_id.in_([g.id for g in public_q]))
+            .group_by(StudyGroupMember.group_id)
+            .all()
+        )
+        counts = {gid: n for gid, n in rows}
+
     def _ser(g):
         return {
             "id": g.id,
@@ -12641,7 +12680,7 @@ def api_list_groups():
             "meeting_url": g.meeting_url or "",
             "next_meeting_at": g.next_meeting_at.isoformat() if g.next_meeting_at else None,
             "next_meeting_topic": g.next_meeting_topic or "",
-            "member_count": StudyGroupMember.query.filter_by(group_id=g.id).count(),
+            "member_count": counts.get(g.id, 0),
             "is_member": g.id in mine_ids,
         }
 
@@ -12705,9 +12744,18 @@ def api_get_group(group_id):
     g = StudyGroup.query.get(group_id)
     if not g:
         return flask.jsonify({"status": "error"}), 404
+    rows = StudyGroupMember.query.filter_by(group_id=group_id).all()
+    # Resolve every member's display name in one IN query rather than one
+    # User.get() per member.
+    users = {}
+    if rows:
+        users = {
+            u.id: u
+            for u in User.query.filter(User.id.in_([m.user_id for m in rows])).all()
+        }
     members = []
-    for m in StudyGroupMember.query.filter_by(group_id=group_id).all():
-        u = User.query.get(m.user_id)
+    for m in rows:
+        u = users.get(m.user_id)
         members.append({
             "user_id": m.user_id,
             "role": m.role,
@@ -13243,14 +13291,50 @@ def _ensure_indexes():
     already-existing prod table never gets the `index=True` columns we
     added later. These `CREATE INDEX IF NOT EXISTS` statements are
     idempotent and valid on both SQLite and Postgres. They back the
-    per-owner lookups that run on every dashboard / command-center load
-    (completed-assignment and test-mark filtering)."""
+    per-owner lookups that run on every dashboard / command-center load.
+
+    Every statement here backs a query pattern that actually exists in the
+    codebase — these are not speculative. Without them each of these lookups
+    is a full table scan that grows linearly with total site usage, not with
+    the requesting user's own data."""
     from sqlalchemy import text as _t
     statements = [
         "CREATE INDEX IF NOT EXISTS ix_dismissed_user ON dismissed_assignments (user_id)",
         "CREATE INDEX IF NOT EXISTS ix_dismissed_guest ON dismissed_assignments (guest_session_id)",
         "CREATE INDEX IF NOT EXISTS ix_testmarks_user ON test_marks (user_id)",
         "CREATE INDEX IF NOT EXISTS ix_testmarks_guest ON test_marks (guest_session_id)",
+        # The single hottest query in the app: "newest active schedule for this
+        # owner", run on nearly every scheduler/dashboard/export request.
+        # Composite so the filter *and* the ORDER BY ... LIMIT 1 are covered.
+        "CREATE INDEX IF NOT EXISTS ix_sched_user_active ON saved_schedules (user_id, is_active, created_at)",
+        "CREATE INDEX IF NOT EXISTS ix_sched_guest_active ON saved_schedules (guest_session_id, is_active, created_at)",
+        # Task lists — dashboard, scheduler, and the Plani agent all filter
+        # by owner and done-state.
+        "CREATE INDEX IF NOT EXISTS ix_tasks_user_done ON manual_tasks (user_id, done)",
+        "CREATE INDEX IF NOT EXISTS ix_tasks_guest_done ON manual_tasks (guest_session_id, done)",
+        # Completion history — read on every schedule generation to build
+        # Study DNA, and on every /feedback/predict-time call.
+        "CREATE INDEX IF NOT EXISTS ix_feedback_user ON task_feedback (user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_feedback_guest ON task_feedback (guest_session_id)",
+        # Memories page: owner + date range.
+        "CREATE INDEX IF NOT EXISTS ix_archive_user_date ON day_archives (user_id, archive_date)",
+        "CREATE INDEX IF NOT EXISTS ix_archive_guest_date ON day_archives (guest_session_id, archive_date)",
+        "CREATE INDEX IF NOT EXISTS ix_notes_user ON course_notes (user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_notes_guest ON course_notes (guest_session_id)",
+        "CREATE INDEX IF NOT EXISTS ix_linked_user ON linked_accounts (user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_grades_user ON imported_grades (user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_descriptions_user ON custom_descriptions (user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_descriptions_guest ON custom_descriptions (guest_session_id)",
+        # Spaced-repetition lookups are per-owner and per-question-key.
+        "CREATE INDEX IF NOT EXISTS ix_mastery_user ON study_mastery (user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_sessions_user ON study_sessions (user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_points_user ON study_points (user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_pushsub_user ON push_subscriptions (user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_sessmsg_user ON session_messages (user_id)",
+        # Reminder dedupe lookup, run for every user on every cron sweep.
+        "CREATE INDEX IF NOT EXISTS ix_reminders_user_key ON reminders_sent (user_id, task_key)",
+        "CREATE INDEX IF NOT EXISTS ix_groupmember_group ON study_group_members (group_id)",
+        "CREATE INDEX IF NOT EXISTS ix_groupmember_user ON study_group_members (user_id)",
     ]
     for stmt in statements:
         try:
