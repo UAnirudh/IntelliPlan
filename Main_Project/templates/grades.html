@@ -91,8 +91,10 @@
 
   .grade-bar {
     height: 100%;
-    border-radius: 3px;
-    transition: width 0.8s var(--ease-out);
+    width: 100%;
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 0.8s var(--ease-out);
   }
 
   .grade-percentage {
@@ -241,7 +243,7 @@ fetch('/grades/data')
           </div>
         </div>
         <div class="grade-bar-wrap">
-          <div class="grade-bar" style="width:0%; background:${colors.color};"></div>
+          <div class="grade-bar" style="background:${colors.color};"></div>
         </div>
         <div class="grade-percentage">${pctDisplay}</div>
       `;

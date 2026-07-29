@@ -29,6 +29,7 @@ import unicodedata as _unicodedata
 import json
 import uuid
 import base64
+import hashlib
 import io
 import functools
 import random
@@ -1069,7 +1070,41 @@ class SiteFeedback(db.Model):
     page_url = db.Column(db.String(512), default="")
     status = db.Column(db.String(16), default="new")
     admin_note = db.Column(db.Text, default="")
+    # JSON blob captured by the client bug-report dialog: route, viewport,
+    # theme, connectivity and the last few JS failures. Empty for feedback
+    # sent through the plain widget.
+    diagnostics = db.Column(db.Text, default="")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class ClientErrorLog(db.Model):
+    """JavaScript failures reported by the browser.
+
+    Rows are collapsed on `fingerprint` (kind + message + source + line) so a
+    render loop firing the same TypeError a thousand times produces one row
+    with a count, not a thousand rows. `first_seen` / `last_seen` bracket the
+    occurrence window, which is what tells us whether a bug is still live
+    after a deploy.
+    """
+    __tablename__ = "client_error_logs"
+    id = db.Column(db.Integer, primary_key=True)
+    # Nullable: anonymous visitors hit JS errors too, and those are often the
+    # most useful ones (they are on the pages with the least testing).
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    fingerprint = db.Column(db.String(64), nullable=False, index=True)
+    kind = db.Column(db.String(32), default="error")
+    message = db.Column(db.String(512), default="")
+    stack = db.Column(db.Text, default="")
+    source = db.Column(db.String(512), default="")
+    line = db.Column(db.Integer, default=0)
+    page_url = db.Column(db.String(512), default="")
+    user_agent = db.Column(db.String(300), default="")
+    viewport = db.Column(db.String(24), default="")
+    context = db.Column(db.Text, default="")
+    count = db.Column(db.Integer, default=1)
+    resolved = db.Column(db.Boolean, default=False)
+    first_seen = db.Column(db.DateTime, default=datetime.utcnow)
+    last_seen = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
 
 class MediaBalanceSession(db.Model):
@@ -6242,8 +6277,10 @@ def notes_list():
         q = q.filter(CourseNote.course_id == course_id)
     if course_source:
         q = q.filter(CourseNote.course_source == course_source)
-    notes = q.order_by(CourseNote.note_date.desc(), CourseNote.created_at.desc()).all()
-    return flask.jsonify({"status": "ok", "notes": [course_note_payload(n) for n in notes]})
+    q = q.order_by(CourseNote.note_date.desc(), CourseNote.created_at.desc())
+    payload = paginate_query(q, course_note_payload, default_size=30)
+    payload["notes"] = payload["items"]
+    return flask.jsonify(payload)
 
 @app.route("/notes/upload", methods=["POST"])
 def upload_note():
@@ -8325,6 +8362,63 @@ def streak_risk():
     })
 
 
+# ── Pagination ──────────────────────────────────────────────────
+
+# Ceiling on `per_page` so a hand-edited query string cannot ask the DB for
+# the whole table. Every paginated endpoint clamps to this.
+PAGE_SIZE_DEFAULT = 25
+PAGE_SIZE_MAX = 100
+
+
+def _page_args(default_size: int = PAGE_SIZE_DEFAULT) -> tuple[int, int]:
+    """Read and clamp `page` / `per_page` from the query string."""
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        per_page = int(request.args.get("per_page", default_size))
+    except (TypeError, ValueError):
+        per_page = default_size
+    per_page = max(1, min(per_page, PAGE_SIZE_MAX))
+    return page, per_page
+
+
+def paginate_query(query, serialize, default_size: int = PAGE_SIZE_DEFAULT,
+                   count_total: bool = True) -> dict:
+    """Run `query` for one page and shape the response the client expects.
+
+    Fetches `per_page + 1` rows and discards the extra. That one spare row is
+    what tells us whether another page exists without paying for a COUNT on
+    every request — `count_total=False` skips the COUNT entirely for tables
+    where the exact total is not worth the scan.
+
+    Returns {items, page, per_page, has_more, total?} — the shape
+    IP.paginate() in ip-async.js consumes.
+    """
+    page, per_page = _page_args(default_size)
+    offset = (page - 1) * per_page
+    rows = query.limit(per_page + 1).offset(offset).all()
+    has_more = len(rows) > per_page
+    rows = rows[:per_page]
+
+    payload = {
+        "status": "ok",
+        "items": [serialize(r) for r in rows],
+        "page": page,
+        "per_page": per_page,
+        "has_more": has_more,
+    }
+    if count_total:
+        try:
+            payload["total"] = query.order_by(None).count()
+        except Exception:
+            # A COUNT is a nicety, not a requirement — never fail the page
+            # over it (some queries carry DISTINCT/GROUP BY that upset it).
+            pass
+    return payload
+
+
 # ── Feedback collector ──────────────────────────────────────────
 
 @app.route("/api/feedback/submit", methods=["POST"])
@@ -8363,13 +8457,8 @@ def feedback_submit():
         return jsonify({"status": "error", "message": "Could not save"}), 500
 
 
-@app.route("/api/feedback/mine")
-def feedback_mine():
-    if not current_user.is_authenticated:
-        return jsonify({"status": "error"}), 401
-    rows = SiteFeedback.query.filter_by(user_id=current_user.id)\
-        .order_by(SiteFeedback.created_at.desc()).limit(50).all()
-    return jsonify({"status": "ok", "items": [{
+def _serialize_feedback(r: "SiteFeedback") -> dict:
+    return {
         "id": r.id,
         "category": r.category,
         "mood": r.mood,
@@ -8378,7 +8467,196 @@ def feedback_mine():
         "status": r.status,
         "admin_note": r.admin_note or "",
         "created_at": r.created_at.isoformat() if r.created_at else None,
-    } for r in rows]})
+    }
+
+
+@app.route("/api/feedback/mine")
+def feedback_mine():
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error"}), 401
+    q = SiteFeedback.query.filter_by(user_id=current_user.id)\
+        .order_by(SiteFeedback.created_at.desc())
+    return jsonify(paginate_query(q, _serialize_feedback, default_size=20))
+
+
+# ── Client error reporting ──────────────────────────────────────
+
+def _error_fingerprint(kind: str, message: str, source: str, line: int) -> str:
+    """Stable id for "the same bug", so repeats increment instead of piling up.
+
+    The message is truncated before hashing because many browser errors embed
+    a varying id or URL in the tail; keeping the first 180 characters groups
+    those together while still separating genuinely different failures.
+    """
+    raw = f"{kind}|{message[:180]}|{source[-120:]}|{line}"
+    return hashlib.sha256(raw.encode("utf-8", "replace")).hexdigest()[:32]
+
+
+@app.route("/api/client-error", methods=["POST"])
+@limiter.limit("60 per hour")
+def client_error_report():
+    """Record a JavaScript failure reported by the browser.
+
+    Deliberately permissive: anonymous reports are accepted (unauthenticated
+    pages break too), the response is always 204, and every failure path is
+    swallowed. A reporting endpoint that can itself error, 401, or block is
+    worse than no reporting at all.
+    """
+    data = request.get_json(silent=True, force=True) or {}
+    message = (data.get("message") or "").strip()[:512]
+    if not message:
+        return ("", 204)
+
+    kind = (data.get("kind") or "error")[:32]
+    source = (data.get("source") or "")[:512]
+    try:
+        line = int(data.get("line") or 0)
+    except (TypeError, ValueError):
+        line = 0
+
+    fp = _error_fingerprint(kind, message, source, line)
+    uid = current_user.id if current_user.is_authenticated else None
+
+    try:
+        row = ClientErrorLog.query.filter_by(fingerprint=fp).first()
+        if row:
+            row.count = (row.count or 0) + 1
+            row.last_seen = datetime.utcnow()
+            # A recurrence after someone marked it fixed means it is not fixed.
+            if row.resolved:
+                row.resolved = False
+            if uid and not row.user_id:
+                row.user_id = uid
+        else:
+            db.session.add(ClientErrorLog(
+                user_id=uid,
+                fingerprint=fp,
+                kind=kind,
+                message=message,
+                stack=(data.get("stack") or "")[:4000],
+                source=source,
+                line=line,
+                page_url=(data.get("url") or "")[:512],
+                user_agent=(data.get("ua") or "")[:300],
+                viewport=(data.get("viewport") or "")[:24],
+                context=(data.get("context") or "")[:1000],
+            ))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[client-error] could not record: {e}")
+    return ("", 204)
+
+
+@app.route("/api/bug-report", methods=["POST"])
+@limiter.limit("20 per hour")
+def bug_report_submit():
+    """User-written bug report plus the diagnostics the dialog collected."""
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "Login required"}), 401
+
+    data = request.get_json(silent=True) or {}
+    message = (data.get("message") or "").strip()
+    if len(message) < 8:
+        return jsonify({"status": "error",
+                        "message": "Add a little more detail so we can find the problem."}), 400
+    if len(message) > 5000:
+        return jsonify({"status": "error", "message": "Message too long"}), 400
+
+    category = data.get("category", "bug")
+    if category not in ("bug", "feature", "praise", "general"):
+        category = "bug"
+
+    diagnostics = data.get("diagnostics") or {}
+    try:
+        diag_json = json.dumps(diagnostics)[:8000]
+    except (TypeError, ValueError):
+        diag_json = ""
+
+    try:
+        fb = SiteFeedback(
+            user_id=current_user.id,
+            category=category,
+            message=message[:5000],
+            page_url=(data.get("page_url") or "")[:512],
+            diagnostics=diag_json,
+        )
+        db.session.add(fb)
+        db.session.commit()
+        return jsonify({"status": "ok", "id": fb.id})
+    except Exception as e:
+        db.session.rollback()
+        print(f"[bug-report] submit failed: {e}")
+        return jsonify({"status": "error", "message": "Could not save your report"}), 500
+
+
+@app.route("/api/admin/client-errors")
+def admin_client_errors():
+    """Paginated JS error log, newest occurrence first. Admin only."""
+    if not is_admin(current_user):
+        return jsonify({"status": "error", "message": "Not permitted"}), 403
+
+    q = ClientErrorLog.query
+    if request.args.get("unresolved") == "1":
+        q = q.filter(ClientErrorLog.resolved.is_(False))
+    q = q.order_by(ClientErrorLog.last_seen.desc())
+
+    def _row(r):
+        return {
+            "id": r.id,
+            "fingerprint": r.fingerprint,
+            "kind": r.kind,
+            "message": r.message,
+            "source": r.source,
+            "line": r.line,
+            "page_url": r.page_url,
+            "viewport": r.viewport,
+            "user_agent": r.user_agent,
+            "count": r.count,
+            "resolved": bool(r.resolved),
+            "user_id": r.user_id,
+            "stack": (r.stack or "")[:1500],
+            "first_seen": r.first_seen.isoformat() if r.first_seen else None,
+            "last_seen": r.last_seen.isoformat() if r.last_seen else None,
+        }
+
+    return jsonify(paginate_query(q, _row, default_size=30))
+
+
+@app.route("/api/admin/client-errors/<int:error_id>/resolve", methods=["POST"])
+def admin_resolve_client_error(error_id: int):
+    if not is_admin(current_user):
+        return jsonify({"status": "error", "message": "Not permitted"}), 403
+    row = db.session.get(ClientErrorLog, error_id)
+    if not row:
+        return jsonify({"status": "error", "message": "Not found"}), 404
+    row.resolved = not row.resolved
+    db.session.commit()
+    return jsonify({"status": "ok", "resolved": row.resolved})
+
+
+@app.route("/api/admin/bug-reports")
+def admin_bug_reports():
+    """Paginated user-submitted reports, with the attached diagnostics."""
+    if not is_admin(current_user):
+        return jsonify({"status": "error", "message": "Not permitted"}), 403
+
+    q = SiteFeedback.query
+    category = request.args.get("category")
+    if category in ("bug", "feature", "praise", "general"):
+        q = q.filter(SiteFeedback.category == category)
+    q = q.order_by(SiteFeedback.created_at.desc())
+
+    def _row(r):
+        out = _serialize_feedback(r)
+        out["user_id"] = r.user_id
+        try:
+            out["diagnostics"] = json.loads(r.diagnostics) if r.diagnostics else None
+        except (TypeError, ValueError):
+            out["diagnostics"] = None
+        return out
+
+    return jsonify(paginate_query(q, _row, default_size=30))
 
 
 # ── My Stats page ──────────────────────────────────────────────
@@ -9493,16 +9771,60 @@ def archive_snapshot():
 def archive_days():
     if not is_logged_in():
         return flask.jsonify({"status": "error", "message": "Login required"}), 401
-    rows = _archive_query().order_by(DayArchive.archive_date.desc(), DayArchive.created_at.desc()).all()
-    by_date = {}
-    for row in rows:
-        key = row.archive_date.isoformat()
-        if key not in by_date:
-            by_date[key] = {"date": key, "label": row.archive_date.strftime("%A, %B %d, %Y"), "items": [], "count": 0}
-        by_date[key]["items"].append(_archive_row_dict(row))
-        by_date[key]["count"] += 1
-    days = sorted(by_date.values(), key=lambda d: d["date"], reverse=True)
-    return flask.jsonify({"status": "ok", "days": days, "total": len(rows)})
+    # Paged by *day*, not by row, so a day's items never split across two
+    # pages. We select the page of distinct dates first, then fetch only the
+    # rows belonging to them.
+    page, per_page = _page_args(14)
+    date_rows = (_archive_query()
+                 .with_entities(DayArchive.archive_date)
+                 .distinct()
+                 .order_by(DayArchive.archive_date.desc())
+                 .limit(per_page + 1)
+                 .offset((page - 1) * per_page)
+                 .all())
+    has_more = len(date_rows) > per_page
+    dates = [d[0] for d in date_rows[:per_page]]
+
+    days = []
+    if dates:
+        rows = (_archive_query()
+                .filter(DayArchive.archive_date.in_(dates))
+                .order_by(DayArchive.archive_date.desc(), DayArchive.created_at.desc())
+                .all())
+        by_date = {}
+        for row in rows:
+            key = row.archive_date.isoformat()
+            if key not in by_date:
+                by_date[key] = {"date": key,
+                                "label": row.archive_date.strftime("%A, %B %d, %Y"),
+                                "items": [], "count": 0}
+            by_date[key]["items"].append(_archive_row_dict(row))
+            by_date[key]["count"] += 1
+        days = sorted(by_date.values(), key=lambda d: d["date"], reverse=True)
+
+    # `total` counts distinct archived dates, not the rows on this page —
+    # the page unit is a day, so summing this page's items produced
+    # nonsense like "showing 4 of 2" in the paginator.
+    try:
+        total_days = (_archive_query()
+                      .with_entities(DayArchive.archive_date)
+                      .distinct()
+                      .count())
+    except Exception:
+        total_days = None
+
+    payload = {
+        "status": "ok",
+        "days": days,
+        "items": days,
+        "page": page,
+        "per_page": per_page,
+        "has_more": has_more,
+        "items_on_page": sum(d["count"] for d in days),
+    }
+    if total_days is not None:
+        payload["total"] = total_days
+    return flask.jsonify(payload)
 
 @app.route("/archive/day/<date_str>")
 def archive_day(date_str):
@@ -11530,6 +11852,49 @@ def _send_email(to_addr, subject, body):
         return False
 
 
+def _mini_page(title: str, body_html: str) -> str:
+    """A standalone one-off HTML page, on-brand without a template.
+
+    The COPPA consent flow is often a parent's only visual contact with
+    IntelliPlan, and it used to render four copies of the same Arial-on-cool-
+    grey stylesheet. This is one place, using the same fonts and warm palette
+    as the rest of the site, with a dark-mode block so it does not glare at
+    night. Deliberately inline: these responses must survive a half-migrated
+    database that could break template rendering.
+    """
+    return (
+        "<!doctype html><html lang='en'><head><meta charset='utf-8'>"
+        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+        "<meta name='robots' content='noindex'>"
+        f"<title>{title} | IntelliPlan</title>"
+        "<link rel='icon' type='image/png' sizes='192x192' href='/static/icons/icon-192.png'>"
+        "<link href='https://fonts.googleapis.com/css2?family=DM+Serif+Display"
+        "&family=DM+Sans:wght@400;500;600&display=swap' rel='stylesheet'>"
+        "<style>"
+        ":root{--bg:#f5f4f1;--card:#fff;--ink:#1a1a1a;--muted:#4a4a46;"
+        "--accent:#1a56db;--line:rgba(0,0,0,0.08)}"
+        "@media(prefers-color-scheme:dark){:root{--bg:#101012;--card:#1c1c20;"
+        "--ink:#e6e6e2;--muted:#9e9e9a;--accent:#5b93f5;--line:rgba(255,255,255,0.08)}}"
+        "*{box-sizing:border-box}"
+        "body{margin:0;min-height:100dvh;display:flex;align-items:center;justify-content:center;"
+        "padding:2rem 1rem;background:var(--bg);color:var(--ink);line-height:1.6;"
+        "font-family:'DM Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}"
+        "main{max-width:560px;width:100%;padding:2rem;background:var(--card);"
+        "border:1px solid var(--line);border-radius:20px;"
+        "box-shadow:0 4px 12px rgba(28,25,20,0.06),0 24px 56px rgba(28,25,20,0.10)}"
+        "h1{margin:0 0 .75rem;font-family:'DM Serif Display',Georgia,serif;font-weight:400;"
+        "font-size:1.75rem;letter-spacing:-0.02em;text-wrap:balance}"
+        "p{margin:0 0 1rem;color:var(--muted);max-width:52ch;text-wrap:pretty}"
+        "p:last-child{margin-bottom:0}"
+        "strong{color:var(--ink)}"
+        "a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}"
+        "a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}"
+        "</style></head><body><main>"
+        f"{body_html}"
+        "</main></body></html>"
+    )
+
+
 @app.route("/parent/consent")
 def parent_consent():
     """Public landing page for the COPPA parental-consent link."""
@@ -11538,27 +11903,35 @@ def parent_consent():
         return "Missing consent token.", 400
     user = User.query.filter_by(parent_consent_token=token).first()
     if not user:
-        return render_template(
-            "error.html",
-            error_title="Link not valid",
-            error_message="This consent link is no longer valid. Either the account has already been approved, or the link has expired."
-        ) if os.path.exists(os.path.join(app.template_folder, "error.html")) else (
-            "<h1>Consent link not valid</h1><p>This consent link is no longer valid.</p>", 404
-        )
+        # Was rendering error.html with error_title/error_message, which that
+        # template does not read — it takes error_code/message. The result was
+        # a parent with a stale link seeing "500 · Something went wrong",
+        # served with a 200. Now it says what actually happened, with a 404.
+        return _mini_page(
+            "Link not valid",
+            "<h1>Link not valid</h1>"
+            "<p>This consent link no longer works. Either the account was already approved, "
+            "or the link has expired.</p>"
+            "<p>If your child still needs approval, ask them to sign up again and you will "
+            "get a fresh consent email.</p>"
+            "<p><a href='/'>Back to IntelliPlan</a></p>"
+        ), 404
     if not user.parent_consent_granted:
         user.parent_consent_granted = True
         user.parent_consent_token = None  # one-shot
         db.session.commit()
     # Render a tiny inline confirmation — no template needed.
     return (
-        "<!doctype html><meta charset='utf-8'><title>Consent granted</title>"
-        "<style>body{font-family:Arial,sans-serif;max-width:560px;margin:60px auto;padding:24px;"
-        "background:#f9fafb;color:#111827;line-height:1.6;}a{color:#2563eb;}</style>"
-        f"<h1>Thanks!</h1><p>You've approved <strong>{user.email}</strong>'s IntelliPlan account. "
-        "They can now sign in and start using the app. You can revoke consent any time by emailing "
-        "<a href='mailto:uanirudh0811@gmail.com'>uanirudh0811@gmail.com</a> — we'll delete the "
-        "account and all associated data within 30 days.</p>"
-        "<p><a href='/'>← Back to IntelliPlan</a></p>"
+        _mini_page(
+            "Consent granted",
+            "<h1>Consent granted</h1>"
+            f"<p>You have approved <strong>{user.email}</strong>'s IntelliPlan account. "
+            "They can sign in and start using the app now.</p>"
+            "<p>You can revoke consent at any time by emailing "
+            "<a href='mailto:uanirudh0811@gmail.com'>uanirudh0811@gmail.com</a>. We delete the "
+            "account and all associated data within 30 days.</p>"
+            "<p><a href='/'>Back to IntelliPlan</a></p>"
+        )
     )
 
 
@@ -11575,24 +11948,28 @@ def parent_deny():
     user = User.query.filter_by(parent_consent_token=token).first()
     if not user:
         return (
-            "<!doctype html><meta charset='utf-8'><title>Link not valid</title>"
-            "<style>body{font-family:Arial,sans-serif;max-width:560px;margin:60px auto;padding:24px;"
-            "background:#f9fafb;color:#111827;line-height:1.6;}</style>"
-            "<h1>Link not valid</h1><p>This link is no longer valid. The account may already have been "
-            "approved or removed.</p><p><a href='/'>← Back to IntelliPlan</a></p>"
+            _mini_page(
+                "Link not valid",
+                "<h1>Link not valid</h1>"
+                "<p>This link no longer works. The account was probably already approved, "
+                "or it has been removed.</p>"
+                "<p><a href='/'>Back to IntelliPlan</a></p>"
+            )
         ), 404
     # Refuse to delete an account that's already been activated — at that
     # point consent has been granted and removal needs to go through the
     # account-deletion flow under the child's logged-in session.
     if user.parent_consent_granted:
         return (
-            "<!doctype html><meta charset='utf-8'><title>Already approved</title>"
-            "<style>body{font-family:Arial,sans-serif;max-width:560px;margin:60px auto;padding:24px;"
-            "background:#f9fafb;color:#111827;line-height:1.6;}a{color:#2563eb;}</style>"
-            f"<h1>Already approved</h1><p>This account has already been approved. To remove "
-            f"<strong>{user.email}</strong>, please email "
-            "<a href='mailto:uanirudh0811@gmail.com'>uanirudh0811@gmail.com</a> and we'll delete "
-            "the account and all associated data within 30 days, as required by COPPA.</p>"
+            _mini_page(
+                "Already approved",
+                "<h1>Already approved</h1>"
+                "<p>This account has already been approved, so it cannot be removed from "
+                "this link.</p>"
+                f"<p>To remove <strong>{user.email}</strong>, email "
+                "<a href='mailto:uanirudh0811@gmail.com'>uanirudh0811@gmail.com</a>. We delete "
+                "the account and all associated data within 30 days, as COPPA requires.</p>"
+            )
         ), 409
     child_email = user.email
     try:
@@ -11604,13 +11981,15 @@ def parent_deny():
         print(f"[coppa] deny delete failed for {child_email}: {_e}")
         return "Could not remove the account right now. Please try again later.", 500
     return (
-        "<!doctype html><meta charset='utf-8'><title>Account removed</title>"
-        "<style>body{font-family:Arial,sans-serif;max-width:560px;margin:60px auto;padding:24px;"
-        "background:#f9fafb;color:#111827;line-height:1.6;}a{color:#2563eb;}</style>"
-        f"<h1>Account removed</h1><p>The pending IntelliPlan account for <strong>{child_email}</strong> "
-        "has been deleted. No data is kept. If this was a mistake, your child can sign up again at any "
-        "time and you'll receive a new consent email.</p>"
-        "<p><a href='/'>← Back to IntelliPlan</a></p>"
+        _mini_page(
+            "Account removed",
+            "<h1>Account removed</h1>"
+            f"<p>The pending IntelliPlan account for <strong>{child_email}</strong> has been "
+            "deleted. We keep no data from it.</p>"
+            "<p>If that was a mistake, your child can sign up again at any time and you will "
+            "get a new consent email.</p>"
+            "<p><a href='/'>Back to IntelliPlan</a></p>"
+        )
     )
 
 
@@ -12955,8 +13334,16 @@ def lessons_page():
 
 @app.route("/api/lessons", methods=["GET"])
 def api_list_lessons():
-    rows = Lesson.query.filter(_owner_filter(Lesson)).order_by(Lesson.created_at.desc()).all()
-    return flask.jsonify({"lessons": [l.to_dict() for l in rows]})
+    """Paginated lesson list, newest first.
+
+    Was unbounded: a user with a term's worth of uploads pulled every row
+    (transcripts included) on each page load. `lessons` is kept alongside
+    `items` so existing template code keeps working.
+    """
+    q = Lesson.query.filter(_owner_filter(Lesson)).order_by(Lesson.created_at.desc())
+    payload = paginate_query(q, lambda l: l.to_dict(), default_size=20)
+    payload["lessons"] = payload["items"]
+    return flask.jsonify(payload)
 
 
 
@@ -13066,8 +13453,20 @@ def groups_page():
 
 @app.route("/api/groups", methods=["GET"])
 def api_list_groups():
-    """List public groups + groups the user belongs to."""
-    public_q = StudyGroup.query.filter_by(visibility="public").order_by(StudyGroup.created_at.desc()).limit(50).all()
+    """List public groups + groups the user belongs to.
+
+    Paged rather than a flat top-50: the old ceiling meant group 51 onward
+    was unreachable from the UI entirely, not merely slow to reach.
+    """
+    _page, _per_page = _page_args(24)
+    public_q = (StudyGroup.query
+                .filter_by(visibility="public")
+                .order_by(StudyGroup.created_at.desc())
+                .limit(_per_page + 1)
+                .offset((_page - 1) * _per_page)
+                .all())
+    _has_more = len(public_q) > _per_page
+    public_q = public_q[:_per_page]
     mine_ids = set()
     if current_user.is_authenticated:
         mine_ids = {m.group_id for m in StudyGroupMember.query.filter_by(user_id=current_user.id).all()}
@@ -13105,11 +13504,19 @@ def api_list_groups():
         "level": request.args.get("level", ""),
         "style": request.args.get("style", ""),
     }
+    # Match scoring reorders within the fetched page only — a global ranking
+    # would need the whole table, which is exactly what pagination avoids.
     scored = [(_group_match_score(g, prefs), g) for g in public_q]
     scored.sort(key=lambda x: (-x[0], -(x[1].id or 0)))
+    items = [_ser(g) for _, g in scored]
     return flask.jsonify({
-        "groups": [_ser(g) for _, g in scored],
+        "status": "ok",
+        "groups": items,
+        "items": items,
         "my_group_ids": list(mine_ids),
+        "page": _page,
+        "per_page": _per_page,
+        "has_more": _has_more,
     })
 
 
@@ -13641,6 +14048,8 @@ def _migrate_user_columns():
         ("google_integrations", "connected_at", "TIMESTAMP"),
         # feature_flags — percentage rollout support
         ("feature_flags", "rollout_percentage", "INTEGER DEFAULT 100"),
+        # site_feedback — diagnostics blob attached by the bug-report dialog
+        ("site_feedback", "diagnostics", "TEXT DEFAULT ''"),
         # user_streaks — task-completion streak (created by db.create_all,
         # entries here are for columns that may be added after initial deploy)
         ("user_streaks", "nudge_shown_date", "VARCHAR(16) DEFAULT ''"),
@@ -13754,6 +14163,13 @@ def _ensure_indexes():
         # Clarification presets: looked up by owner on every schedule request.
         "CREATE INDEX IF NOT EXISTS ix_presets_user_key ON scheduler_presets (user_id, task_key)",
         "CREATE INDEX IF NOT EXISTS ix_presets_guest_key ON scheduler_presets (guest_session_id, task_key)",
+        # Client error log: every write is a fingerprint lookup, every admin
+        # read is ordered by last_seen. Without these the table degrades into
+        # a scan as soon as it holds real traffic.
+        "CREATE INDEX IF NOT EXISTS ix_clienterr_fp ON client_error_logs (fingerprint)",
+        "CREATE INDEX IF NOT EXISTS ix_clienterr_seen ON client_error_logs (last_seen)",
+        # Feedback list is always "mine, newest first".
+        "CREATE INDEX IF NOT EXISTS ix_feedback_user_created ON site_feedback (user_id, created_at)",
     ]
     for stmt in statements:
         try:
@@ -13996,15 +14412,18 @@ def api_lms_sources():
 def api_saved_meetings():
     if request.method == "GET":
         if current_user.is_authenticated:
-            rows = SavedMeeting.query.filter_by(user_id=current_user.id).order_by(SavedMeeting.created_at.desc()).all()
+            q = SavedMeeting.query.filter_by(user_id=current_user.id)
         else:
-            gid = get_guest_session_id()
-            rows = SavedMeeting.query.filter_by(guest_session_id=gid).order_by(SavedMeeting.created_at.desc()).all()
-        return jsonify({"status": "ok", "meetings": [{
+            q = SavedMeeting.query.filter_by(guest_session_id=get_guest_session_id())
+        q = q.order_by(SavedMeeting.created_at.desc())
+
+        payload = paginate_query(q, lambda m: {
             "id": m.id, "name": m.name, "url": m.url, "platform": m.platform,
             "schedule_text": m.schedule_text or "", "is_recurring": bool(m.is_recurring),
             "created_at": m.created_at.isoformat() if m.created_at else None,
-        } for m in rows]})
+        }, default_size=25)
+        payload["meetings"] = payload["items"]
+        return jsonify(payload)
     body = request.get_json(silent=True) or {}
     name = (body.get("name") or "").strip()[:120]
     url = (body.get("url") or "").strip()[:512]

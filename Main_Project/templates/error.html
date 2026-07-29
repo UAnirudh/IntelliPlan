@@ -3,159 +3,250 @@
    broken context processor (e.g. inject_pro / inject_auth blowing up
    during a partial DB migration) can never cascade into the error
    render itself. If this template fails to find a variable, Jinja2's
-   default mode treats it as empty rather than raising. #}
+   default mode treats it as empty rather than raising.
+
+   Because it stands alone it cannot borrow base.html's design tokens,
+   fonts or icon sprite — so it declares its own copies below, matching
+   base.html's values. The icons are inline paths rather than <use> refs
+   for the same reason: the sprite lives in base.html and would render
+   as five empty boxes here. #}
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
   <title>{{ error_code or 500 }} · IntelliPlan</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&family=Syne:wght@600&family=DM+Mono&display=swap" rel="stylesheet">
   <style>
+    /* Mirrors base.html's light palette so a 500 does not look like it came
+       from a different product than the page the user just left. */
+    :root {
+      --font-display:'DM Serif Display', Georgia, serif;
+      --font-body:   'DM Sans', system-ui, -apple-system, sans-serif;
+      --font-ui:     'Syne', 'DM Sans', system-ui, sans-serif;
+      --font-mono:   'DM Mono', ui-monospace, monospace;
+
+      --bg:            #f5f4f1;
+      --bg-card:       #ffffff;
+      --bg-elevated:   #eceae6;
+      --accent:        #1a56db;
+      --accent-hover:  #1648b8;
+      --accent-soft:   rgba(26,86,219,0.06);
+      --text-primary:  #1a1a1a;
+      --text-secondary:#4a4a46;
+      --text-muted:    #666660;
+      --border:        rgba(0,0,0,0.06);
+      --border-strong: rgba(0,0,0,0.11);
+      --shadow-lg:     0 4px 12px rgba(28,25,20,0.06), 0 24px 56px rgba(28,25,20,0.11);
+      --accent-shadow: 26,86,219;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:            #101012;
+        --bg-card:       #1c1c20;
+        --bg-elevated:   #242428;
+        --accent:        #5b93f5;
+        --accent-hover:  #7aabf8;
+        --accent-soft:   rgba(91,147,245,0.09);
+        --text-primary:  #e6e6e2;
+        --text-secondary:#9e9e9a;
+        --text-muted:    #878780;
+        --border:        rgba(255,255,255,0.06);
+        --border-strong: rgba(255,255,255,0.10);
+        --shadow-lg:     0 4px 12px rgba(0,0,0,0.45), 0 24px 56px rgba(0,0,0,0.45);
+        --accent-shadow: 91,147,245;
+      }
+    }
+
     *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+
     body {
-      font-family:'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-      background:#fafaf9;
-      color:#1c1917;
-      min-height:100vh;
+      font-family:var(--font-body);
+      background:var(--bg);
+      color:var(--text-primary);
+      min-height:100dvh;
       display:flex;
       align-items:center;
       justify-content:center;
       padding:2rem 1rem;
-      line-height:1.5;
+      line-height:1.55;
+      -webkit-font-smoothing:antialiased;
     }
-    @media (prefers-color-scheme: dark) {
-      body { background:#07080d; color:#e2e8f4; }
-      .err-card { background:#111520; border-color:rgba(255,255,255,0.08); }
-      .err-meta { background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.08); }
-      .err-btn-secondary { background:#161c2c; color:#cbd5e1; border-color:rgba(255,255,255,0.1); }
-    }
+
     .err-card {
-      background:#ffffff;
-      border:1px solid rgba(15,23,60,0.08);
+      background:var(--bg-card);
+      border:1px solid var(--border);
       border-radius:24px;
-      padding:2.5rem 2.25rem;
+      /* Optically balanced: the icon reads as extra top weight, so the top
+         padding is slightly tighter than the bottom. */
+      padding:2.25rem 2.25rem 2.5rem;
       max-width:520px;
       width:100%;
       text-align:center;
-      box-shadow:0 24px 64px rgba(15,23,60,0.08);
+      box-shadow:var(--shadow-lg);
     }
-    .err-emoji {
-      font-size:54px;
-      line-height:1;
-      margin-bottom:1rem;
-      display:inline-block;
-      filter:drop-shadow(0 6px 14px rgba(99,102,241,.25));
+
+    .err-icon {
+      display:inline-grid;
+      place-items:center;
+      width:56px;
+      height:56px;
+      margin-bottom:1.25rem;
+      border-radius:16px;
+      background:var(--accent-soft);
+      color:var(--accent);
     }
+
     .err-code {
       font-family:var(--font-display);
       font-size:3.6rem;
+      font-weight:400;
       line-height:1;
       letter-spacing:-0.03em;
-      background:linear-gradient(135deg, #3b82f6, #8b5cf6);
-      -webkit-background-clip:text;
-      -webkit-text-fill-color:transparent;
-      background-clip:text;
-      margin-bottom:0.5rem;
+      color:var(--text-primary);
+      font-variant-numeric:tabular-nums;
+      margin-bottom:0.4rem;
     }
+
     .err-title {
-      font-family:var(--font-display);
-      font-size:1.35rem;
+      font-family:var(--font-ui);
+      font-size:1.2rem;
+      font-weight:600;
+      letter-spacing:-0.015em;
       margin-bottom:0.5rem;
+      text-wrap:balance;
     }
+
     .err-desc {
-      color:#64748b;
-      font-size:0.95rem;
-      margin-bottom:1.5rem;
-      max-width:360px;
-      margin-left:auto;
-      margin-right:auto;
+      color:var(--text-secondary);
+      font-size:0.94rem;
+      margin:0 auto 1.75rem;
+      max-width:42ch;
+      text-wrap:pretty;
     }
-    .err-actions { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:1.5rem; }
+
+    .err-actions { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+
     .err-btn {
-      padding:11px 24px;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      min-height:42px;
+      padding:0 22px;
+      border:1px solid transparent;
       border-radius:12px;
-      font-size:0.92rem;
-      font-weight:700;
-      cursor:pointer;
+      font-family:var(--font-ui);
+      font-size:0.9rem;
+      font-weight:600;
       text-decoration:none;
-      display:inline-block;
-      border:0;
-      transition:transform 0.16s, box-shadow 0.16s;
+      cursor:pointer;
+      transition:background 0.16s cubic-bezier(0.16,1,0.3,1),
+                 border-color 0.16s ease,
+                 transform 0.16s cubic-bezier(0.16,1,0.3,1);
     }
+    .err-btn:active { transform:translateY(1px) scale(0.985); }
+    .err-btn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
     .err-btn-primary {
-      background:linear-gradient(135deg, #3b82f6, #8b5cf6);
+      background:var(--accent);
       color:#fff;
-      box-shadow:0 4px 14px rgba(99,102,241,0.32);
+      box-shadow:0 1px 2px rgba(var(--accent-shadow),0.22),
+                 0 6px 16px -8px rgba(var(--accent-shadow),0.42);
     }
-    .err-btn-primary:hover { box-shadow:0 8px 24px rgba(99,102,241,0.4); }
+    .err-btn-primary:hover { background:var(--accent-hover); }
+
     .err-btn-secondary {
-      background:#f8fafc;
-      color:#475569;
-      border:1px solid #e2e8f0;
+      background:var(--bg-card);
+      color:var(--text-primary);
+      border-color:var(--border-strong);
     }
-    .err-btn-secondary:hover { border-color:#3b82f6; color:#3b82f6; }
+    .err-btn-secondary:hover { background:var(--bg-elevated); }
+
     .err-meta {
-      margin-top:1rem;
+      margin-top:1.75rem;
       padding:0.85rem 1rem;
-      background:#f8fafc;
-      border:1px solid #e2e8f0;
+      background:var(--bg-elevated);
+      border:1px solid var(--border);
       border-radius:12px;
-      font-family:'DM Mono', monospace;
-      font-size:0.78rem;
-      color:#64748b;
+      font-family:var(--font-mono);
+      font-size:0.76rem;
+      color:var(--text-secondary);
       text-align:left;
+      overflow-wrap:anywhere;
     }
     .err-meta-label {
       font-family:var(--font-ui);
       font-size:0.66rem;
-      font-weight: 700;
+      font-weight:600;
       text-transform:uppercase;
       letter-spacing:0.08em;
-      color:#94a3b8;
+      color:var(--text-muted);
       margin-bottom:4px;
+    }
+    .err-meta-hint {
+      margin-top:6px;
+      font-family:var(--font-body);
+      font-size:0.74rem;
+      color:var(--text-muted);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .err-btn { transition:none; }
+      .err-btn:active { transform:none; }
     }
   </style>
 </head>
 <body>
-  <div class="err-card">
-    <div class="err-emoji">
-      {% if error_code == 404 %}<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-search"/></svg>
-      {% elif error_code == 403 %}<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-x-circle"/></svg>
-      {% elif error_code == 429 %}<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-clock"/></svg>
-      {% elif error_code == 503 %}<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-settings"/></svg>
-      {% else %}<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-warning"/></svg>{% endif %}
+  <main class="err-card">
+    <div class="err-icon" aria-hidden="true">
+      {% if error_code == 404 %}
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      {% elif error_code == 403 %}
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+      {% elif error_code == 429 %}
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      {% elif error_code == 503 %}
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0 5 5l-9.4 9.4a2.8 2.8 0 0 1-4-4z"/><path d="M17 4 4.5 16.5"/></svg>
+      {% else %}
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      {% endif %}
     </div>
 
-    <div class="err-code">{{ error_code or 500 }}</div>
+    <p class="err-code">{{ error_code or 500 }}</p>
 
-    <div class="err-title">
+    <h1 class="err-title">
       {% if error_code == 404 %}Page not found
       {% elif error_code == 403 %}Access restricted
       {% elif error_code == 429 %}Slow down a moment
       {% elif error_code == 503 %}Service unavailable
       {% else %}Something went wrong{% endif %}
-    </div>
+    </h1>
 
     <p class="err-desc">
-      {% if error_code == 404 %}That page doesn't exist or has moved.
-      {% elif error_code == 403 %}You don't have permission to access this. Try signing in again.
-      {% elif error_code == 429 %}Too many requests. Give IntelliPlan a minute, then refresh.
-      {% elif error_code == 503 %}A dependency is temporarily down. This usually clears within a few minutes.
+      {% if error_code == 404 %}That page does not exist, or it moved.
+      {% elif error_code == 403 %}You do not have permission to open this. Signing in again usually fixes it.
+      {% elif error_code == 429 %}Too many requests in a short window. Wait a minute, then refresh.
+      {% elif error_code == 503 %}A service IntelliPlan depends on is down. This normally clears within a few minutes.
       {% elif message %}{{ message }}
-      {% else %}An unexpected error occurred. We've logged it and will fix it shortly.{% endif %}
+      {% else %}We logged this and are looking at it. Your saved work is not affected.{% endif %}
     </p>
 
     <div class="err-actions">
-      <a href="/" class="err-btn err-btn-primary">← Home</a>
-      <a href="/dashboard" class="err-btn err-btn-secondary">Dashboard</a>
+      <a href="/dashboard" class="err-btn err-btn-primary">Back to dashboard</a>
+      <a href="/" class="err-btn err-btn-secondary">Home</a>
     </div>
 
     {% if error_id %}
     <div class="err-meta">
-      <div class="err-meta-label">Error Reference</div>
+      <div class="err-meta-label">Error reference</div>
       <div>{{ error_id }}</div>
+      <p class="err-meta-hint">Quote this reference if you report the problem.</p>
     </div>
     {% endif %}
-  </div>
+  </main>
 </body>
 </html>

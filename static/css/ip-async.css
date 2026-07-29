@@ -1,0 +1,503 @@
+/* ==========================================================================
+   ip-async.css — loading / empty / error / pagination surfaces
+   --------------------------------------------------------------------------
+   Every colour, radius, shadow and easing here comes from the tokens defined
+   in base.html, so these states inherit the theme (warm light / tinted dark)
+   and both palettes stay in sync automatically.
+   ========================================================================== */
+
+/* ── Skeletons ────────────────────────────────────────────────────────
+   Shaped like the content they stand in for, so nothing shifts when the
+   real data lands. The sweep is a single translateX on a pseudo-element —
+   compositor-only, no layout work per frame. */
+
+.ip-skeleton { width: 100%; }
+
+.ip-sk {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-elevated);
+  border-radius: var(--r-sm);
+}
+
+.ip-sk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 100%
+  );
+  animation: ip-sk-sweep 1.4s var(--ease-in-out) infinite;
+}
+
+[data-theme="dark"] .ip-sk::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.07) 50%,
+    transparent 100%
+  );
+}
+
+@keyframes ip-sk-sweep { to { transform: translateX(100%); } }
+
+.ip-sk--line   { height: 12px; margin-bottom: 10px; }
+.ip-sk--sm     { height: 9px; opacity: 0.72; }
+.ip-sk--title  { height: 26px; border-radius: var(--r-md); margin-bottom: 14px; }
+.ip-sk--num    { height: 30px; width: 58px; border-radius: var(--r-sm); margin-bottom: 8px; }
+.ip-sk--block  { height: 78px; border-radius: var(--r-md); margin: 12px 0; }
+.ip-sk--avatar { height: 40px; width: 40px; border-radius: var(--r-md); flex: 0 0 auto; }
+.ip-sk--orb    { height: 168px; width: 168px; border-radius: var(--r-full); flex: 0 0 auto; }
+
+.ip-sk-group  { display: block; }
+
+.ip-sk-row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+.ip-sk-row:last-child { border-bottom: 0; }
+.ip-sk-row__body { flex: 1 1 auto; min-width: 0; }
+.ip-sk-row__body .ip-sk--line:last-child { margin-bottom: 0; }
+
+.ip-sk-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: var(--space-4);
+}
+.ip-sk-card {
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bg-card);
+}
+.ip-sk-card .ip-sk--line:last-child { margin-bottom: 0; }
+
+.ip-sk-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+.ip-sk-stat .ip-sk--line { margin-bottom: 0; }
+
+.ip-sk-table { width: 100%; }
+.ip-sk-trow {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+.ip-sk-trow .ip-sk--line { margin-bottom: 0; }
+.ip-sk-trow--head .ip-sk { opacity: 0.55; }
+
+.ip-sk-hero {
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: center;
+}
+.ip-sk-hero__body { min-width: 0; }
+
+@media (max-width: 720px) {
+  .ip-sk-hero { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .ip-sk-trow { grid-template-columns: 2fr 1fr; }
+}
+
+/* ── Empty and error states ───────────────────────────────────────────
+   Deliberately composed rather than a bare line of grey text: an icon, a
+   sentence-case title, one line of explanation, and a next action. */
+
+.ip-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-2);
+  padding: var(--space-7) var(--space-5) var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bg-card);
+}
+
+.ip-state__icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: var(--space-2);
+  border-radius: var(--r-md);
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+}
+
+.ip-state__icon--error {
+  color: var(--danger-text);
+  background: var(--danger-soft);
+}
+
+.ip-state__title {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.ip-state__body {
+  margin: 0;
+  max-width: 46ch;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+.ip-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.ip-state__details {
+  margin-top: var(--space-4);
+  width: 100%;
+  max-width: 42ch;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.ip-state__details summary {
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.ip-state__details summary:hover { color: var(--text-secondary); }
+.ip-state__details pre {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3);
+  overflow-x: auto;
+  border-radius: var(--r-sm);
+  background: var(--bg-elevated);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* A block that failed inside a card already has a surface behind it —
+   drop the second border so the two do not stack. */
+.ip-state--inline,
+.ip-block[data-ip-state="error"] > .ip-state--nested {
+  border: 0;
+  background: transparent;
+  padding: var(--space-5) var(--space-3);
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────
+   Scoped to the async surfaces so they never collide with page buttons. */
+
+.ip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;              /* 44px touch target incl. surrounding gap */
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  font-family: var(--font-ui);
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background var(--t-fast) var(--ease-out),
+    border-color var(--t-fast) var(--ease-out),
+    color var(--t-fast) var(--ease-out),
+    transform var(--t-fast) var(--ease-out);
+}
+
+.ip-btn:active { transform: translateY(1px) scale(0.985); }
+
+.ip-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.ip-btn[disabled] { opacity: 0.6; cursor: default; transform: none; }
+
+.ip-btn--primary {
+  color: #fff;
+  background: var(--accent);
+  box-shadow: 0 1px 2px rgba(var(--accent-shadow), 0.22),
+              0 6px 16px -8px rgba(var(--accent-shadow), 0.42);
+}
+.ip-btn--primary:hover:not([disabled]) { background: var(--accent-hover); }
+
+.ip-btn--ghost {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background: var(--bg-card);
+}
+.ip-btn--ghost:hover:not([disabled]) {
+  border-color: var(--border-accent);
+  background: var(--bg-elevated);
+}
+
+.ip-btn--text {
+  min-height: 36px;
+  padding: 0 var(--space-2);
+  color: var(--text-muted);
+  background: none;
+}
+.ip-btn--text:hover:not([disabled]) { color: var(--accent); }
+
+/* ── Pagination ───────────────────────────────────────────────────── */
+
+.ip-page-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-5) 0 var(--space-3);
+}
+
+.ip-page-status {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.ip-page-status--error { color: var(--danger-text); }
+
+/* In infinite mode the button stays as the keyboard-reachable fallback,
+   just visually quieter — gesture-only paging locks out keyboard users. */
+.ip-page-more--auto { opacity: 0.75; }
+
+/* ── Boundary ─────────────────────────────────────────────────────── */
+
+.ip-boundary { position: relative; }
+
+.ip-block[data-ip-state="refreshing"] { position: relative; }
+.ip-block[data-ip-state="refreshing"]::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 2px;
+  border-radius: var(--r-full);
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: ip-refresh-sweep 1.1s var(--ease-in-out) infinite;
+}
+@keyframes ip-refresh-sweep {
+  0%   { opacity: 0; transform: translateX(-30%); }
+  50%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(30%); }
+}
+
+/* ── Toast ───────────────────────────────────────────────────────────
+   Bottom-left so it never covers the floating Plani launcher or the
+   feedback button in the bottom-right corner. */
+
+.ip-toast-host {
+  position: fixed;
+  left: max(var(--space-4), env(safe-area-inset-left));
+  bottom: max(var(--space-4), env(safe-area-inset-bottom));
+  z-index: 900;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--space-2);
+  max-width: min(380px, calc(100vw - var(--space-6)));
+  pointer-events: none;
+}
+
+.ip-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+  transition: opacity var(--t-base) var(--ease-out),
+              transform var(--t-base) var(--ease-out);
+  pointer-events: auto;
+}
+
+.ip-toast.is-in { opacity: 1; transform: none; }
+
+.ip-toast__text { flex: 1 1 auto; min-width: 0; }
+
+.ip-toast__action {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease-out);
+}
+.ip-toast__action:hover { background: var(--accent-mid); }
+
+/* Status reads from a glyph, not a coloured edge. The earlier version used a
+   3px left border and claimed that kept meaning off hue alone — which was
+   wrong, a colour bar IS hue alone. A shape works for colour-blind users and
+   in forced-colours mode, and drops the side-tab treatment. */
+.ip-toast__icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+}
+.ip-toast--success .ip-toast__icon { color: var(--low); }
+.ip-toast--error   .ip-toast__icon { color: var(--danger-text); }
+.ip-toast--info    .ip-toast__icon { color: var(--accent); }
+
+/* ── Bug report dialog ───────────────────────────────────────────── */
+
+.ip-bug-dialog {
+  width: min(520px, calc(100vw - var(--space-6)));
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-xl);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-xl);
+}
+.ip-bug-dialog::backdrop { background: var(--scrim); backdrop-filter: blur(3px); }
+
+.ip-bug-dialog__form { padding: var(--space-5); }
+
+.ip-bug-dialog h2 {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+}
+
+.ip-bug-dialog p.ip-bug-lede {
+  margin: 0 0 var(--space-4);
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  max-width: 52ch;
+}
+
+.ip-bug-field { margin-bottom: var(--space-4); }
+
+.ip-bug-field label {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+}
+
+.ip-bug-field textarea,
+.ip-bug-field select {
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  transition: border-color var(--t-fast) var(--ease-out),
+              box-shadow var(--t-fast) var(--ease-out);
+}
+.ip-bug-field textarea { min-height: 118px; resize: vertical; }
+
+.ip-bug-field textarea:focus,
+.ip-bug-field select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.ip-bug-field textarea[aria-invalid="true"] { border-color: var(--danger); }
+
+.ip-bug-error {
+  margin: 6px 0 0;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  color: var(--danger-text);
+}
+
+.ip-bug-diag {
+  margin-bottom: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+.ip-bug-diag summary {
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+}
+.ip-bug-diag pre {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3);
+  max-height: 150px;
+  overflow: auto;
+  border-radius: var(--r-sm);
+  background: var(--bg-elevated);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ip-bug-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+
+/* ── Motion and contrast preferences ─────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .ip-sk::after,
+  .ip-block[data-ip-state="refreshing"]::after { animation: none; }
+  .ip-sk { opacity: 0.75; }
+  .ip-toast { transition: opacity var(--t-fast) linear; transform: none; }
+  .ip-toast.is-in { transform: none; }
+  .ip-btn { transition: none; }
+  .ip-btn:active { transform: none; }
+}
+
+html.a11y-high-contrast .ip-state,
+html.a11y-high-contrast .ip-toast,
+html.a11y-high-contrast .ip-btn--ghost {
+  border-color: var(--text-primary);
+}

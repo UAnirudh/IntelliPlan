@@ -6,7 +6,7 @@
     <h1 class="page-title">Lesson library</h1>
     <p class="page-subtitle">Upload class recordings, IntelliPlan summarises each one for revision.</p>
   </div>
-  <button class="btn-primary" onclick="ipLessonOpenUpload()" style="padding:10px 22px;border:none;cursor:pointer;">
+  <button class="btn-primary" onclick="openUpload()" style="padding:10px 22px;border:none;cursor:pointer;">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:6px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     Upload lesson
   </button>
@@ -107,9 +107,8 @@
 .ipLessonError-retry:active { transform:scale(0.98); }
 </style>
 
-<div id="lessonsList" class="lesson-grid">
-  <div style="grid-column:1/-1;color:var(--text-muted);text-align:center;padding:3rem 1rem;">Loading lessons...</div>
-</div>
+<div id="lessonsList" class="lesson-grid" data-ip-boundary></div>
+<div id="lessonsFooter"></div>
 
 <!-- Upload modal -->
 <div id="upMod" class="upload-modal" onclick="if(event.target===this)closeUpload()">
@@ -155,38 +154,58 @@ function closeUpload() { document.getElementById('upMod').classList.remove('on')
 
 function statusClass(s) { return s === 'ready' ? 'status-ready' : s === 'failed' ? 'status-failed' : 'status-pending'; }
 
+/* One card. Returned as a node rather than an HTML string so the paginator
+   can append pages without re-parsing and re-mounting the <video> elements
+   already on screen — reflowing those restarts playback. */
+function lessonCard(l) {
+  const card = document.createElement('div');
+  card.className = 'lesson-card';
+  card.dataset.lessonId = l.id;
+  const tagsHtml = (l.tags || []).map(t => `<span class="lesson-tag">${esc(t)}</span>`).join('');
+  const media = l.media_kind === 'audio'
+    ? `<div class="lesson-media is-audio"><audio controls src="${esc(l.stream_url)}" preload="metadata" style="width:90%;"></audio></div>`
+    : `<div class="lesson-media"><video controls src="${esc(l.stream_url)}" preload="metadata"></video></div>`;
+  card.innerHTML = `
+    ${media}
+    <div class="lesson-body">
+      <div class="lesson-title">${esc(l.title)}</div>
+      <div class="lesson-meta">
+        <span class="lesson-status ${statusClass(l.summary_status)}">${esc(l.summary_status)}</span>
+        ${l.course ? `<span>· ${esc(l.course)}</span>` : ''}
+        ${tagsHtml}
+      </div>
+      <div class="lesson-summary">${(l.summary || '').trim() ? esc(l.summary) : '<em style="color:var(--text-muted);">Summary is still generating. Refresh it in a moment.</em>'}</div>
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        <button type="button" class="lesson-action-btn" onclick="resumm(${l.id})">Refresh summary</button>
+        <button type="button" class="lesson-delete-btn" onclick="delLesson(${l.id})">Delete</button>
+      </div>
+    </div>`;
+  return card;
+}
+
+let lessonsPager = null;
+
+/* Paged, because /api/lessons used to hand back every lesson a user had
+   ever uploaded — transcripts included — on each page load. */
 function loadLessons() {
-  fetch('/api/lessons').then(r => r.json()).then(d => {
-    const list = document.getElementById('lessonsList');
-    const ls = d.lessons || [];
-    if (!ls.length) {
-      list.innerHTML = '<div style="grid-column:1/-1;color:var(--text-muted);text-align:center;padding:3rem 1rem;">No lessons yet. Click <strong>+ Upload Lesson</strong> to get started.</div>';
-      return;
+  if (lessonsPager) return lessonsPager.reset();
+  lessonsPager = IP.paginate({
+    list: '#lessonsList',
+    footerHost: '#lessonsFooter',
+    mode: 'infinite',
+    skeleton: 'cards',
+    pageSize: 6,
+    unit: 'lesson',
+    errorTitle: 'Your lessons did not load',
+    fetchPage: page => IP.get('/api/lessons?per_page=12&page=' + page),
+    renderItem: lessonCard,
+    empty: {
+      title: 'No lessons yet',
+      body: 'Upload a recording and IntelliPlan writes the summary for you.',
+      action: { label: 'Upload a lesson', onClick: openUpload }
     }
-    list.innerHTML = ls.map(l => {
-      const tagsHtml = (l.tags || []).map(t => `<span class="lesson-tag">${esc(t)}</span>`).join('');
-      const media = l.media_kind === 'audio'
-        ? `<div class="lesson-media" style="background:linear-gradient(135deg,#1d4ed8,#3b82f6);"><audio controls src="${esc(l.stream_url)}" preload="metadata" style="width:90%;"></audio></div>`
-        : `<div class="lesson-media"><video controls src="${esc(l.stream_url)}" preload="metadata"></video></div>`;
-      return `
-        <div class="lesson-card">
-          ${media}
-          <div class="lesson-body">
-            <div class="lesson-title">${esc(l.title)}</div>
-            <div class="lesson-meta">
-              <span class="lesson-status ${statusClass(l.summary_status)}">${esc(l.summary_status)}</span>
-              ${l.course ? `<span>· ${esc(l.course)}</span>` : ''}
-              ${tagsHtml}
-            </div>
-            <div class="lesson-summary">${(l.summary || '').trim() ? esc(l.summary) : '<em style=\"color:var(--text-muted);\">Summary not ready yet, try refresh.</em>'}</div>
-            <div style="display:flex;gap:6px;margin-top:6px;">
-              <button onclick="resumm(${l.id})" style="font-size:0.72rem;padding:5px 11px;border:1px solid var(--border);background:var(--bg);border-radius:999px;cursor:pointer;color:var(--text-secondary);">Refresh summary</button>
-              <button onclick="delLesson(${l.id})" style="font-size:0.72rem;padding:5px 11px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);border-radius:999px;cursor:pointer;margin-left:auto;">Delete</button>
-            </div>
-          </div>
-        </div>`;
-    }).join('');
   });
+  return lessonsPager;
 }
 
 function submitUpload(e) {
@@ -195,26 +214,38 @@ function submitUpload(e) {
   const data = new FormData(form);
   const btn = document.getElementById('upBtn');
   btn.disabled = true; btn.textContent = 'Uploading...';
-  fetch('/api/lessons', { method: 'POST', body: data }).then(r => r.json()).then(d => {
-    btn.disabled = false; btn.textContent = 'Upload & summarise';
-    if (d.status !== 'ok') { alert(d.message || 'upload failed'); return; }
-    form.reset();
-    closeUpload();
-    loadLessons();
-  }).catch(() => {
-    btn.disabled = false; btn.textContent = 'Upload & summarise';
-    alert('Network error.');
-  });
+  IP.request('/api/lessons', { method: 'POST', body: data, timeout: 120000 })
+    .then(() => {
+      form.reset();
+      closeUpload();
+      IP.toast('Lesson uploaded. The summary is generating now.', 'success');
+      loadLessons();
+    })
+    .catch(err => IP.toast(err.friendly ? err.friendly() : 'Upload failed.', 'error'))
+    .then(() => { btn.disabled = false; btn.textContent = 'Upload & summarise'; });
 }
 
 function resumm(id) {
-  fetch('/api/lessons/' + id + '/resummarize', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' })
-    .then(r => r.json()).then(() => loadLessons());
+  IP.post('/api/lessons/' + id + '/resummarize', {})
+    .then(() => { IP.toast('Rewriting the summary. This takes a few seconds.', 'info'); loadLessons(); })
+    .catch(err => IP.toast(err.friendly ? err.friendly() : 'Could not refresh that summary.', 'error'));
 }
 
+/* Deleting a recording cannot be undone, so it still asks first — but the
+   card leaves immediately and comes back if the server refuses. */
 function delLesson(id) {
-  if (!confirm('Delete this lesson and its recording?')) return;
-  fetch('/api/lessons/' + id, { method: 'DELETE' }).then(() => loadLessons());
+  if (!confirm('Delete this lesson and its recording? This cannot be undone.')) return;
+  const card = document.querySelector(`.lesson-card[data-lesson-id="${id}"]`);
+  if (!card) return;
+  const parent = card.parentNode, next = card.nextSibling;
+
+  IP.optimistic({
+    label: 'deletion',
+    apply:    () => card.remove(),
+    rollback: () => parent.insertBefore(card, next),
+    commit:   () => IP.request('/api/lessons/' + id, { method: 'DELETE' }),
+    onSuccess: () => IP.toast('Lesson deleted.', 'success')
+  }).catch(() => {});
 }
 
 loadLessons();

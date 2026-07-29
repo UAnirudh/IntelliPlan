@@ -60,7 +60,7 @@
         <div style="margin-left:auto;color:var(--text-muted);">→</div>
       </a>
       <a href="/login/studentvue" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;border:1px solid var(--glass-border);box-shadow:var(--glass-btn-shadow);background:var(--glass-btn-bg);-webkit-backdrop-filter:blur(12px) saturate(1.5);backdrop-filter:blur(12px) saturate(1.5);text-decoration:none;color:var(--text-primary);transition:all 0.2s;"
-        onmouseover="this.style.borderColor='#22c55e'" onmouseout="this.style.borderColor='var(--border)'">
+        onmouseover="this.style.borderColor='var(--low)'" onmouseout="this.style.borderColor='var(--border)'">
         {{ lms_logo('studentvue', 42) }}
         <div>
           <div style="font-size:0.95rem;font-weight:600;margin-bottom:2px;">StudentVue</div>
@@ -164,7 +164,7 @@
         const url = (document.getElementById('bbUrl').value || '').trim();
         const msg = document.getElementById('bbMsg');
         const btn = document.getElementById('bbBtn');
-        if (!url) { msg.style.display='block'; msg.style.color='#ef4444'; msg.textContent='Paste your Blackboard URL first.'; return; }
+        if (!url) { msg.style.display='block'; msg.style.color='var(--danger)'; msg.textContent='Paste your Blackboard URL first.'; return; }
         btn.disabled = true; btn.textContent = 'Starting...';
         try {
           const r = await fetch('/api/lms/connect/blackboard', {
@@ -175,12 +175,12 @@
           if (d.status === 'ok' && d.url) {
             window.location.href = d.url;
           } else {
-            msg.style.display='block'; msg.style.color='#ef4444';
+            msg.style.display='block'; msg.style.color='var(--danger)';
             msg.textContent = d.message || 'Could not start Blackboard sign-in.';
             btn.disabled = false; btn.textContent = 'Continue to Blackboard';
           }
         } catch (e) {
-          msg.style.display='block'; msg.style.color='#ef4444';
+          msg.style.display='block'; msg.style.color='var(--danger)';
           msg.textContent = 'Network error, please try again.';
           btn.disabled = false; btn.textContent = 'Continue to Blackboard';
         }
@@ -213,7 +213,7 @@
         const tok = (document.getElementById('mTok').value || '').trim();
         const msg = document.getElementById('mMsg');
         const btn = document.getElementById('mBtn');
-        if (!url || !tok) { msg.style.display='block'; msg.style.color='#ef4444'; msg.textContent='Both fields are required.'; return; }
+        if (!url || !tok) { msg.style.display='block'; msg.style.color='var(--danger)'; msg.textContent='Both fields are required.'; return; }
         btn.disabled = true; btn.textContent = 'Verifying...';
         try {
           const r = await fetch('/api/lms/connect/moodle/manual', {
@@ -222,16 +222,16 @@
           });
           const d = await r.json();
           if (d.status === 'ok') {
-            msg.style.display='block'; msg.style.color='#10b981';
+            msg.style.display='block'; msg.style.color='var(--low)';
             msg.textContent = 'Connected as ' + (d.fullname || d.username || 'your Moodle account') + '.';
             setTimeout(() => { window.location.href = '/scheduler'; }, 900);
           } else {
-            msg.style.display='block'; msg.style.color='#ef4444';
+            msg.style.display='block'; msg.style.color='var(--danger)';
             msg.textContent = d.message || 'Could not connect.';
             btn.disabled = false; btn.textContent = 'Connect Moodle';
           }
         } catch (e) {
-          msg.style.display='block'; msg.style.color='#ef4444';
+          msg.style.display='block'; msg.style.color='var(--danger)';
           msg.textContent = 'Network error, please try again.';
           btn.disabled = false; btn.textContent = 'Connect Moodle';
         }
@@ -337,7 +337,7 @@
         const file = document.getElementById('ipCsvFile').files[0];
         const msg = document.getElementById('ipCsvMsg');
         const btn = document.getElementById('ipCsvBtn');
-        if (!file) { msg.style.color='#ef4444'; msg.textContent='Pick a CSV first.'; return; }
+        if (!file) { msg.style.color='var(--danger)'; msg.textContent='Pick a CSV first.'; return; }
         btn.disabled = true; btn.textContent = 'Uploading...';
         const fd = new FormData();
         fd.append('file', file);
@@ -345,13 +345,13 @@
           const r = await fetch('/api/import/csv', { method: 'POST', body: fd });
           const d = await r.json();
           if (d.status === 'ok') {
-            msg.style.color='#10b981';
+            msg.style.color='var(--low)';
             msg.textContent = `Imported ${d.assignments_imported} assignments + ${d.grades_imported} grades.`;
           } else {
-            msg.style.color='#ef4444'; msg.textContent = d.message || 'Import failed.';
+            msg.style.color='var(--danger)'; msg.textContent = d.message || 'Import failed.';
           }
         } catch (e) {
-          msg.style.color='#ef4444'; msg.textContent = 'Network error.';
+          msg.style.color='var(--danger)'; msg.textContent = 'Network error.';
         }
         btn.disabled = false; btn.textContent = 'Upload';
       }
@@ -360,7 +360,7 @@
         const hint = (document.getElementById('ipPasteHint').value || '').trim();
         const msg = document.getElementById('ipPasteMsg');
         const btn = document.getElementById('ipPasteBtn');
-        if (!text) { msg.style.color='#ef4444'; msg.textContent='Paste something first.'; return; }
+        if (!text) { msg.style.color='var(--danger)'; msg.textContent='Paste something first.'; return; }
         btn.disabled = true; btn.textContent = 'AI parsing...';
         try {
           const r = await fetch('/api/import/smart_paste', {
@@ -369,13 +369,13 @@
           });
           const d = await r.json();
           if (d.status === 'ok') {
-            msg.style.color='#10b981';
+            msg.style.color='var(--low)';
             msg.textContent = `Imported ${d.assignments_imported} assignments + ${d.grades_imported} grades.`;
           } else {
-            msg.style.color='#ef4444'; msg.textContent = d.message || 'Import failed.';
+            msg.style.color='var(--danger)'; msg.textContent = d.message || 'Import failed.';
           }
         } catch (e) {
-          msg.style.color='#ef4444'; msg.textContent = 'Network error.';
+          msg.style.color='var(--danger)'; msg.textContent = 'Network error.';
         }
         btn.disabled = false; btn.textContent = 'Import with AI';
       }

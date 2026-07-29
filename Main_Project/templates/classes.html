@@ -18,7 +18,7 @@
 
 <div class="stats-bar" id="statsBar">
   <div class="stat-card">
-    <div class="stat-icon" style="background:#e0e7ff;color:var(--accent);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg></div>
+    <div class="stat-icon" style="background:var(--accent-soft);color:var(--accent);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg></div>
     <div class="stat-info">
       <div class="stat-value" id="statCourses">-</div>
       <div class="stat-label">Total Courses</div>
@@ -289,13 +289,21 @@
   .notes-card {
     background: var(--glass-bg); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
     border: 1px solid var(--border);
-    border-left: 3px solid var(--accent);
     border-radius: 14px;
     padding: 0.9rem;
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    transition: transform 0.18s var(--ease-out),
+                box-shadow 0.18s var(--ease-out),
+                border-color 0.18s var(--ease-out);
   }
 
-  .notes-card:hover { }
+  /* Was a 3px accent stripe down the left edge with an empty :hover rule —
+     so the card declared a transform/shadow transition that nothing ever
+     triggered. The elevation now does the work the stripe was doing. */
+  .notes-card:hover {
+    transform: translateY(-1px);
+    border-color: var(--border-accent);
+    box-shadow: var(--shadow-sm);
+  }
 
   .notes-card-title {
     font-size: 0.92rem;
@@ -782,25 +790,36 @@ function toggleNotesDrawer() {
 
 async function loadCourseNotes() {
   const listWrap = document.getElementById('notesListWrap');
-  listWrap.innerHTML = `<div class="notes-preview-empty">Loading notes...</div>`;
 
   const params = new URLSearchParams();
   if (currentCourseObj && courseLabel(currentCourseObj)) params.set("course_name", courseLabel(currentCourseObj));
   if (currentCourseObj && currentCourseObj.id) params.set("course_id", currentCourseObj.id);
   if (currentCourseObj && currentCourseObj.source) params.set("course_source", currentCourseObj.source);
 
+  listWrap.innerHTML = IP.skeleton('list', 3);
   try {
-    const res = await fetch(`/notes/list?${params.toString()}`);
-    const data = await res.json();
-
-    if (!res.ok || data.status !== "ok") {
-      listWrap.innerHTML = `<div class="notes-preview-empty">Could not load notes.</div>`;
-      return;
-    }
-
-    renderNotesList(data.notes || []);
-  } catch (e) {
-    listWrap.innerHTML = `<div class="notes-preview-empty">Could not load notes.</div>`;
+    // /notes/list is paged server-side now; this panel shows the full set for
+    // the selected course, so walk the pages rather than truncating at 30.
+    const { items } = await IP.getAll(`/notes/list?${params.toString()}`, { key: 'notes' });
+    renderNotesList(items);
+  } catch (err) {
+    listWrap.innerHTML = '';
+    const state = document.createElement('div');
+    state.className = 'ip-state ip-state--error';
+    state.innerHTML =
+      '<p class="ip-state__title">Notes did not load</p>' +
+      '<p class="ip-state__body">' +
+        (err.friendly ? err.friendly() : 'Something went wrong.') + '</p>';
+    const actions = document.createElement('div');
+    actions.className = 'ip-state__actions';
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'ip-btn ip-btn--primary';
+    retry.textContent = 'Retry';
+    retry.addEventListener('click', loadCourseNotes);
+    actions.appendChild(retry);
+    state.appendChild(actions);
+    listWrap.appendChild(state);
   }
 }
 

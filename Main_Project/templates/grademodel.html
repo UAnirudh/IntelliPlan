@@ -17,9 +17,9 @@
   .gp-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.75rem; }
   .gp-title { font-family: var(--font-display); font-size: 1.15rem; font-weight:400; margin: 0; }
   .gp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; }
-  .gp-card { background: var(--bg-elevated); border-radius: var(--r-md); padding: 0.9rem 1rem; border-left: 3px solid var(--accent); }
-  .gp-card.improving { border-left-color: #0a7558; }
-  .gp-card.slipping { border-left-color: var(--high); }
+  .gp-card { background: var(--bg-elevated); border: 1px solid var(--border-accent); border-radius: var(--r-md); padding: 0.9rem 1rem; }
+  .gp-card.improving { border-color: var(--low); background: var(--low-bg); }
+  .gp-card.slipping { border-color: var(--high); background: var(--high-bg); }
   .gp-card-course { font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
   .gp-card-percent { font-family: var(--font-display); font-size: 1.75rem; font-weight:400; color: var(--text-primary); margin: 2px 0; }
   .gp-card-narrative { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.45; }
@@ -202,7 +202,7 @@ window.gpBuildOverride = function() {
             style="width:100%;padding:8px 10px;border:1px solid var(--border-strong);border-radius:9px;font-family:inherit;font-size:0.92rem;background:var(--bg-secondary);color:var(--text-primary);"/>
         </div>
       </div>
-      <div id="newAsgnMsg" style="font-family:var(--font-ui);font-size:0.8rem;color:#ef4444;margin-top:6px;display:none;"></div>
+      <div id="newAsgnMsg" style="font-family:var(--font-ui);font-size:0.8rem;color:var(--danger);margin-top:6px;display:none;"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:0.85rem;flex-wrap:wrap;">
         <button type="button" onclick="toggleAddAssignment()" style="padding:7px 13px;border:1px solid var(--border-strong);background:transparent;color:var(--text-secondary);border-radius:9px;cursor:pointer;font-family:var(--font-ui);font-size:0.85rem;font-weight:600;">Cancel</button>
         <button type="button" onclick="submitAddAssignment()" style="padding:7px 14px;border:none;background:var(--accent);color:#fff;border-radius:9px;cursor:pointer;font-family:var(--font-ui);font-size:0.85rem;font-weight:700;">Add</button>
@@ -519,7 +519,7 @@ function renderBreakdown(assignments) {
     const wasOriginallyPending = origMatch && !origMatch.graded;
 
     const statusLabel = a.simulated
-      ? '<span style="font-family:var(--font-ui);font-size:0.62rem;font-weight: 700;text-transform:uppercase;letter-spacing:0.06em;background:rgba(99,102,241,0.12);color:#3b82f6;padding:2px 7px;border-radius:999px;">simulated</span>'
+      ? '<span style="font-family:var(--font-ui);font-size:0.62rem;font-weight: 700;text-transform:uppercase;letter-spacing:0.06em;background:rgba(99,102,241,0.12);color:var(--accent);padding:2px 7px;border-radius:999px;">simulated</span>'
       : a.graded
         ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--low)"><use href="#i-check-circle"/></svg> Graded'
         : 'Pending';
@@ -552,7 +552,7 @@ function renderBreakdown(assignments) {
     card.style.position = 'relative';
     card.innerHTML = `
       ${removeBtnHtml}
-      <div class="rank-bubble" style="font-size:0.7rem;${a.simulated?'background:rgba(99,102,241,0.12);color:#3b82f6;':''}${a.manual && !a.simulated && !a.graded?'background:rgba(245,158,11,0.14);color:#b45309;':''}">${a.simulated ? '~' : a.graded ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : a.manual ? '+' : '–'}</div>
+      <div class="rank-bubble" style="font-size:0.7rem;${a.simulated?'background:rgba(99,102,241,0.12);color:var(--accent);':''}${a.manual && !a.simulated && !a.graded?'background:rgba(245,158,11,0.14);color:#b45309;':''}">${a.simulated ? '~' : a.graded ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : a.manual ? '+' : '–'}</div>
       <div class="card-main">
         <div class="card-title">${a.title}${manualTag}</div>
         <div class="card-meta">
@@ -561,7 +561,7 @@ function renderBreakdown(assignments) {
         </div>
       </div>
       <div style="text-align:right; flex-shrink:0;">
-        <div style="font-size:0.88rem; font-weight:600; color:${a.simulated ? '#3b82f6' : 'var(--text-primary)'};">${scoreDisplay}</div>
+        <div style="font-size:0.88rem; font-weight:600; color:${a.simulated ? 'var(--accent)' : 'var(--text-primary)'};">${scoreDisplay}</div>
         ${pct ? `<div style="font-size:0.75rem; color:var(--text-muted);">${pct}</div>` : ''}
         ${editorHtml}
       </div>
@@ -795,7 +795,7 @@ function onTargetTyped() {
   const maxP = computeMaxPossible();
   if (maxP == null) { hint.textContent = ''; return; }
   if (v > maxP + 1e-9) {
-    hint.style.color = '#d97706';
+    hint.style.color = 'var(--medium)';
     hint.innerHTML = `Not reachable, your max achievable is <strong>${maxP.toFixed(2)}%</strong>.`;
   } else if (v > maxP - 1) {
     hint.style.color = 'var(--text-muted)';

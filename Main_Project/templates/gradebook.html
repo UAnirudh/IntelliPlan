@@ -27,7 +27,7 @@
   .gp-panel::before {
     content: "";
     position: absolute; inset: 0 0 auto 0; height: 3px;
-    background: linear-gradient(90deg, var(--accent), #8b5cf6, var(--accent));
+    background: linear-gradient(90deg, var(--accent), var(--accent-hover), var(--accent));
     opacity: 0.85;
   }
   .gp-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
@@ -427,7 +427,7 @@ function renderBreakdown(assignments) {
 
     const scoreBar = pct !== null ? `
       <div style="margin-top:6px; height:4px; background:var(--border); border-radius:2px; overflow:hidden;">
-        <div class="score-bar-fill" style="height:100%; width:${Math.min(pct,100)}%; background:${pct>=90?'var(--low)':pct>=70?'var(--accent)':'var(--high)'}; border-radius:2px; transition:width 0.3s;"></div>
+        <div class="score-bar-fill" style="height:100%; width:100%; transform:scaleX(${Math.min(pct,100)/100}); transform-origin:left center; background:${pct>=90?'var(--low)':pct>=70?'var(--accent)':'var(--high)'}; transition:transform 0.3s var(--ease-out);"></div>
       </div>` : '';
 
     // Cap the slider/numeric input at the assignment's points_possible so
@@ -557,7 +557,7 @@ function syncAssignmentCard(id) {
 
   if (scoreBar) {
     if (pct !== null) {
-      scoreBar.style.width = `${Math.min(pct, 100)}%`;
+      scoreBar.style.transform = `scaleX(${Math.min(pct, 100) / 100})`;
       scoreBar.style.background = pct >= 90
         ? 'var(--low)'
         : pct >= 70
@@ -966,7 +966,7 @@ function renderTrendChart(assignments) {
 
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-  const textColor = isDark ? '#8b949e' : '#94a3b8';
+  const textColor = isDark ? '#8b949e' : 'var(--text-muted)';
 
   if (trendChart) trendChart.destroy();
 
@@ -978,9 +978,9 @@ function renderTrendChart(assignments) {
         {
           label: 'Score %',
           data: scores,
-          borderColor: '#3b82f6',
+          borderColor: 'var(--accent)',
           backgroundColor: 'rgba(59,130,246,0.08)',
-          pointBackgroundColor: '#3b82f6',
+          pointBackgroundColor: 'var(--accent)',
           tension: 0.3,
           fill: true,
           pointRadius: 4,
@@ -988,7 +988,7 @@ function renderTrendChart(assignments) {
         {
           label: 'Running Avg',
           data: running,
-          borderColor: '#22c55e',
+          borderColor: 'var(--low)',
           borderDash: [5, 4],
           pointRadius: 0,
           tension: 0.3,

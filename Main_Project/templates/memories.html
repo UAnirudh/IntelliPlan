@@ -18,19 +18,12 @@
   </div>
 </div>
 
-<div id="memoriesLoading" class="loading">
-  <div class="spinner"></div>
-  <p>Loading your memories…</p>
-</div>
-
-<div id="memoriesEmpty" class="empty-state" style="display:none;">
-  <div class="empty-icon"><svg width="32" height="32"><use href="#i-save"/></svg></div>
-  <div class="empty-title">No memories yet</div>
-  <p>Save a schedule, resources, or a full day snapshot from the Scheduler or tap <strong>Save today</strong> above.</p>
-  <a href="/scheduler" class="btn-primary" style="margin-top:1rem;padding:10px 22px;text-decoration:none;display:inline-block;">Go to Scheduler</a>
-</div>
-
-<div id="memoriesTimeline" style="display:none;"></div>
+{# The spinner and the separate empty block are gone: IP.paginate renders a
+   skeleton shaped like the timeline, its own empty view, and an error card
+   with a Retry button — the old code's only failure path was a dead-end
+   sentence with nothing to click. #}
+<div id="memoriesTimeline" data-ip-boundary></div>
+<div id="memoriesFooter"></div>
 
 <style>
   .mem-day {
@@ -149,64 +142,74 @@ function toast(msg) {
   setTimeout(() => el.remove(), 2800);
 }
 
-async function loadMemories() {
-  const loading = document.getElementById('memoriesLoading');
-  const empty = document.getElementById('memoriesEmpty');
-  const timeline = document.getElementById('memoriesTimeline');
-  try {
-    const res = await fetch('/archive/days').then(r => r.json());
-    loading.style.display = 'none';
-    if (!res.days || !res.days.length) {
-      empty.style.display = 'block';
-      return;
+/* One day's section. /archive/days pages by date rather than by row, so a
+   day's items never straddle a page boundary. */
+function memDaySection(day, idx) {
+  const section = document.createElement('section');
+  section.className = 'mem-day';
+  section.style.animationDelay = `${Math.min(idx, 8) * 0.05}s`;
+  section.innerHTML = `
+    <div class="mem-day-head">
+      <div>
+        <div class="mem-day-date">${memEscape(day.label)}</div>
+        <div class="mem-day-count">${day.count} saved item${day.count === 1 ? '' : 's'}</div>
+      </div>
+      <div class="mem-day-actions">
+        <button type="button" class="mem-btn mem-btn-primary" data-load-day="${day.date}">Load entire day</button>
+        <a class="mem-btn" href="/archive/export/${day.date}" style="text-decoration:none;display:inline-flex;align-items:center;">Export CSV</a>
+      </div>
+    </div>
+    <div class="mem-grid"></div>`;
+
+  const grid = section.querySelector('.mem-grid');
+  day.items.forEach(item => {
+    const card = document.createElement('article');
+    card.className = 'mem-card';
+    card.dataset.memId = item.id;
+    const icon = TYPE_ICONS[item.item_type] || _svgIcon('i-save');
+    card.innerHTML = `
+      <div class="mem-type">${icon} ${memEscape(item.type_label)}</div>
+      <div class="mem-title">${memEscape(item.title)}</div>
+      <div class="mem-meta">Saved ${memEscape(item.created_at)}</div>
+      <div class="mem-card-actions">
+        <button type="button" class="mem-btn mem-btn-primary" data-load="${item.id}">Load</button>
+        <button type="button" class="mem-btn mem-btn-danger" data-delete="${item.id}">Delete</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+
+  // Bound per section, so appending a page does not rebind the sections
+  // already on screen.
+  section.querySelectorAll('[data-load]').forEach(b =>
+    b.addEventListener('click', () => loadItem(b.dataset.load)));
+  section.querySelectorAll('[data-delete]').forEach(b =>
+    b.addEventListener('click', () => deleteItem(b.dataset.delete)));
+  section.querySelectorAll('[data-load-day]').forEach(b =>
+    b.addEventListener('click', () => loadDay(b.dataset.loadDay)));
+  return section;
+}
+
+let memPager = null;
+
+function loadMemories() {
+  if (memPager) return memPager.reset();
+  memPager = IP.paginate({
+    list: '#memoriesTimeline',
+    footerHost: '#memoriesFooter',
+    mode: 'infinite',
+    skeleton: 'cards',
+    pageSize: 3,
+    unit: 'day',
+    errorTitle: 'Your memories did not load',
+    fetchPage: page => IP.get('/archive/days?per_page=10&page=' + page),
+    renderItem: memDaySection,
+    empty: {
+      title: 'No memories yet',
+      body: 'Save a schedule, your resources, or a whole day from the Scheduler, or tap Save today above.',
+      action: { label: 'Go to Scheduler', href: '/scheduler' }
     }
-    timeline.style.display = 'block';
-    timeline.innerHTML = '';
-    res.days.forEach((day, idx) => {
-      const section = document.createElement('section');
-      section.className = 'mem-day';
-      section.style.animationDelay = `${idx * 0.05}s`;
-      section.innerHTML = `
-        <div class="mem-day-head">
-          <div>
-            <div class="mem-day-date">${memEscape(day.label)}</div>
-            <div class="mem-day-count">${day.count} saved item${day.count === 1 ? '' : 's'}</div>
-          </div>
-          <div class="mem-day-actions">
-            <button type="button" class="mem-btn mem-btn-primary" data-load-day="${day.date}">Load entire day</button>
-            <a class="mem-btn" href="/archive/export/${day.date}" style="text-decoration:none;display:inline-flex;align-items:center;">Export CSV</a>
-          </div>
-        </div>
-        <div class="mem-grid" id="grid-${day.date}"></div>`;
-      timeline.appendChild(section);
-      const grid = section.querySelector(`#grid-${day.date}`);
-      day.items.forEach(item => {
-        const card = document.createElement('article');
-        card.className = 'mem-card';
-        const icon = TYPE_ICONS[item.item_type] || _svgIcon('i-save');
-        card.innerHTML = `
-          <div class="mem-type">${icon} ${memEscape(item.type_label)}</div>
-          <div class="mem-title">${memEscape(item.title)}</div>
-          <div class="mem-meta">Saved ${memEscape(item.created_at)}</div>
-          <div class="mem-card-actions">
-            <button type="button" class="mem-btn mem-btn-primary" data-load="${item.id}">Load</button>
-            <button type="button" class="mem-btn mem-btn-danger" data-delete="${item.id}">Delete</button>
-          </div>`;
-        grid.appendChild(card);
-      });
-    });
-    timeline.querySelectorAll('[data-load]').forEach(btn => {
-      btn.addEventListener('click', () => loadItem(btn.dataset.load));
-    });
-    timeline.querySelectorAll('[data-delete]').forEach(btn => {
-      btn.addEventListener('click', () => deleteItem(btn.dataset.delete));
-    });
-    timeline.querySelectorAll('[data-load-day]').forEach(btn => {
-      btn.addEventListener('click', () => loadDay(btn.dataset.loadDay));
-    });
-  } catch (e) {
-    loading.innerHTML = '<p style="color:var(--high);">Could not load memories. Please refresh.</p>';
-  }
+  });
+  return memPager;
 }
 
 async function loadItem(id) {
@@ -229,10 +232,28 @@ async function loadDay(date) {
   }
 }
 
-async function deleteItem(id) {
+/* The card disappears on click and is put back if the delete fails, instead
+   of re-fetching the whole timeline for a one-row change. */
+function deleteItem(id) {
   if (!confirm('Delete this saved item?')) return;
-  await fetch(`/archive/delete/${id}`, { method: 'POST' });
-  loadMemories();
+  const card = document.querySelector(`.mem-card[data-mem-id="${id}"]`);
+  if (!card) return;
+  const parent = card.parentNode, next = card.nextSibling;
+  const section = card.closest('.mem-day');
+
+  IP.optimistic({
+    label: 'deletion',
+    apply: () => {
+      card.remove();
+      // A day with nothing left in it should not linger as an empty header.
+      if (section && !section.querySelectorAll('.mem-card').length) section.hidden = true;
+    },
+    rollback: () => {
+      parent.insertBefore(card, next);
+      if (section) section.hidden = false;
+    },
+    commit: () => IP.post(`/archive/delete/${id}`, {})
+  }).catch(() => {});
 }
 
 document.getElementById('saveTodayBtn').addEventListener('click', async () => {

@@ -277,23 +277,29 @@ function loadLinksLocal() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
   catch(e) { return []; }
 }
+/* The rest of this page filters and sorts the full set client-side, so it
+   walks every page rather than rendering one. /api/meetings/saved is paged
+   now, so the server never runs an unbounded query even though the client
+   ends up with everything. */
 async function loadLinks() {
   try {
-    const res = await fetch('/api/meetings/saved');
-    const data = await res.json();
-    if (data.status === 'ok' && Array.isArray(data.meetings)) {
-      _meetingsCache = data.meetings.map(m => ({
-        id: m.id,
-        name: m.name,
-        url: m.url,
-        when: m.schedule_text || '',
-        platform: m.platform || 'other',
-        is_recurring: !!m.is_recurring,
-      }));
-      return _meetingsCache;
-    }
-  } catch (e) { /* fall through */ }
-  return _meetingsCache;
+    const { items, truncated } = await IP.getAll('/api/meetings/saved', { key: 'meetings' });
+    _meetingsCache = items.map(m => ({
+      id: m.id,
+      name: m.name,
+      url: m.url,
+      when: m.schedule_text || '',
+      platform: m.platform || 'other',
+      is_recurring: !!m.is_recurring,
+    }));
+    if (truncated) IP.toast('Showing your ' + _meetingsCache.length + ' most recent meeting links.', 'info');
+    return _meetingsCache;
+  } catch (err) {
+    IP.toast(err.friendly ? err.friendly() : 'Could not load your saved meetings.', 'error', {
+      action: 'Retry', onAction: () => loadLinks().then(() => location.reload())
+    });
+    return _meetingsCache;
+  }
 }
 async function migrateLocalMeetings() {
   const local = loadLinksLocal();

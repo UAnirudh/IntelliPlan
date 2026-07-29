@@ -171,7 +171,6 @@
       --font-mono:    'DM Mono', ui-monospace, monospace;
       --r-xs: 6px; --r-sm: 10px; --r-md: 14px;
       --r-lg: 18px; --r-xl: 24px; --r-2xl: 24px; --r-full: 9999px;
-      --ease-spring: cubic-bezier(0.34,1.56,0.64,1);
       --ease-out:    cubic-bezier(0.16,1,0.3,1);
       --ease-in-out: cubic-bezier(0.65,0,0.35,1);
       --t-fast: 0.16s; --t-base: 0.22s; --t-slow: 0.45s;
@@ -259,7 +258,9 @@
       /* LiquidGlass edge layer: crisp white inner rim on all sides + a soft
          ambient glow. This is what reads as a real frosted pane over the
          aurora backdrop, even when the fill is very translucent. */
-      --glass-shadow:  inset 1.5px 1.5px 2px rgba(255,255,255,0.7), inset -1.5px -1.5px 2px rgba(255,255,255,0.55), inset 0 1px 0 rgba(255,255,255,0.95), 0 12px 34px -10px rgba(var(--accent-shadow),0.20), 0 3px 12px rgba(28,25,20,0.07);
+      /* Card elevation stays on the warm-neutral ramp; the inner highlights
+         are what make the surface read as glass, not a coloured cast. */
+      --glass-shadow:  inset 1.5px 1.5px 2px rgba(255,255,255,0.7), inset -1.5px -1.5px 2px rgba(255,255,255,0.55), inset 0 1px 0 rgba(255,255,255,0.95), 0 12px 34px -10px rgba(28,25,20,0.16), 0 3px 12px rgba(28,25,20,0.07);
       --glass-highlight: linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.08) 30%, rgba(255,255,255,0) 55%);
       /* Glass interactive-element family — buttons, inputs, chips, icon
          buttons. Frosted translucent fill + bright edge-light so the glass is
@@ -267,8 +268,11 @@
       --glass-btn-bg:       rgba(255,255,255,0.42);
       --glass-btn-border:   rgba(255,255,255,0.85);
       --glass-btn-hover:    rgba(255,255,255,0.68);
-      --glass-btn-shadow:   inset 0 1px 0 rgba(255,255,255,0.95), 0 1px 2px rgba(28,25,20,0.06), 0 4px 12px -4px rgba(var(--accent-shadow),0.14);
-      --glass-btn-shadow-hover: inset 0 1px 0 rgba(255,255,255,1), 0 2px 6px rgba(28,25,20,0.08), 0 10px 24px -8px rgba(var(--accent-shadow),0.28);
+      /* Elevation layer kept warm-neutral to match --shadow / --shadow-lg.
+         It used to carry an accent tint, which read as a chromatic glow and
+         was the one shadow on the site not using the neutral ramp. */
+      --glass-btn-shadow:   inset 0 1px 0 rgba(255,255,255,0.95), 0 1px 2px rgba(28,25,20,0.06), 0 4px 12px -4px rgba(28,25,20,0.14);
+      --glass-btn-shadow-hover: inset 0 1px 0 rgba(255,255,255,1), 0 2px 6px rgba(28,25,20,0.08), 0 10px 24px -8px rgba(28,25,20,0.22);
       --glass-primary-bg:   rgba(22,22,26,0.78);
       --glass-primary-hover: rgba(36,36,42,0.86);
       --glass-primary-text: #ffffff;
@@ -1016,7 +1020,7 @@
     .toggle-knob {
       position:absolute; top:3px; left:3px; width:18px; height:18px;
       background:var(--toggle-knob); border-radius:50%;
-      transition:transform 0.3s var(--ease-spring); box-shadow:0 2px 6px rgba(0,0,0,0.2);
+      transition:transform 0.3s var(--ease-out); box-shadow:0 2px 6px rgba(0,0,0,0.2);
     }
     .toggle input:checked ~ .toggle-knob { transform:translateX(22px); }
 
@@ -1212,7 +1216,6 @@
     .side-group-body {
       display: flex; flex-direction: column; gap: 2px;
       max-height: 0; overflow: hidden;
-      transition: max-height 0.22s ease;
       padding-left: 8px;
       margin-left: 12px;
       border-left: 1px solid var(--border);
@@ -1621,9 +1624,10 @@
     .assignment-card::before {
       content:''; position:absolute; left:0; top:8px; bottom:8px;
       width:3px; border-radius:0 2px 2px 0;
-      transition:width 0.2s ease;
+      transform-origin:left center;
+      transition:transform 0.2s var(--ease-out);
     }
-    .assignment-card:hover::before { width:5px; }
+    .assignment-card:hover::before { transform:scaleX(1.6); }
     .assignment-card.high::before   { background:var(--high); }
     .assignment-card.medium::before { background:var(--medium); }
     .assignment-card.low::before    { background:var(--low); }
@@ -1876,7 +1880,7 @@
     .grade-teacher { font-size:0.75rem; color:var(--text-muted); }
     .grade-badge { padding:7px 14px; border-radius:var(--r-sm); font-family:var(--font-ui); font-size:1.15rem; font-weight:700; flex-shrink:0; margin-left:1rem; }
     .grade-bar-wrap { height:5px; background:var(--border); border-radius:3px; overflow:hidden; margin-bottom:5px; }
-    .grade-bar { height:100%; border-radius:3px; transition:width 0.9s var(--ease-out); }
+    .grade-bar { height:100%; width:100%; transform:scaleX(0); transform-origin:left center; transition:transform 0.9s var(--ease-out); }
     .grade-percentage { font-family:var(--font-ui); font-size:0.74rem; color:var(--text-muted); text-align:right; font-weight:600; }
 
     /* ══════════════════════════════════════
@@ -1964,10 +1968,10 @@
       position:fixed; left:18px; bottom:18px; z-index:998;
       display:flex; align-items:center; gap:10px; padding:8px 10px;
       border-radius:var(--r-lg); background:rgba(var(--accent-shadow),0.96);
-      box-shadow:0 12px 40px rgba(var(--accent-shadow),0.4); backdrop-filter:blur(10px);
+      box-shadow:0 12px 34px -8px rgba(28,25,20,0.30); backdrop-filter:blur(10px);
       transition:transform 0.2s ease, box-shadow 0.2s ease;
     }
-    #installBanner:hover { box-shadow:0 14px 40px rgba(var(--accent-shadow),0.45); }
+    #installBanner:hover { box-shadow:0 16px 40px -8px rgba(28,25,20,0.38); }
     .install-pill { display:flex; align-items:center; gap:8px; color:white; text-decoration:none; white-space:nowrap; }
     .install-icon { width:32px; height:32px; border-radius:9px; overflow:hidden; flex-shrink:0; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; }
     .install-icon img { width:100%; height:100%; object-fit:cover; }
@@ -2067,7 +2071,7 @@
     #planiTyping { display:none; align-items:center; gap:8px; padding:0 0 3px; }
     #planiTyping.visible { display:flex; }
     .plani-dots { display:flex; gap:4px; align-items:center; padding:8px 11px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:3px 13px 13px 13px; }
-    .plani-dot { width:6px; height:6px; background:var(--text-muted); border-radius:50%; animation:dotBounce 1.2s infinite; }
+    .plani-dot { width:6px; height:6px; background:var(--text-muted); border-radius:50%; animation:dotPulse 1.2s var(--ease-in-out) infinite; }
     .plani-dot:nth-child(2) { animation-delay:0.18s; }
     .plani-dot:nth-child(3) { animation-delay:0.36s; }
 
@@ -2119,7 +2123,7 @@
     @keyframes spin    { to{transform:rotate(360deg)} }
     .spin { animation: spin 0.75s linear infinite; display:inline-block; }
     @keyframes planiFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
-    @keyframes dotBounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
+    @keyframes dotPulse { 0%,100%{opacity:0.35; transform:scale(0.78)} 40%{opacity:1; transform:scale(1)} }
     @keyframes statusPulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
 
     /* ══════════════════════════════════════
@@ -2389,6 +2393,17 @@
   <link rel="shortcut icon" href="/static/icons/icon-192.png">
   {# Single viewport tag lives at the top of <head>; duplicate removed. #}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-async.css') }}">
+
+  {# ── Async runtime ──────────────────────────────────────────────────
+     Loaded synchronously, not deferred, on purpose: page templates write
+     their JS into the scripts block, which sits inside the inline <script>
+     near the bottom of <body>. That inline block parses before any deferred
+     script runs, so `IP` has to already exist by then.
+     Three small files, same-origin, no dependencies. #}
+  <script src="{{ url_for('static', filename='js/ip-core.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/ip-async.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/ip-report.js') }}"></script>
   {% block head_extra %}{% endblock %}
 <style id="android-touch-polish">
 /* ===== Android scroll + tap responsiveness and mobile polish =====
@@ -3887,10 +3902,12 @@ window.addEventListener('load',()=>{
 </button>
 <style>
   #readingProgress {
-    position: fixed; top: 0; left: 0; height: 3px; width: 0;
+    position: fixed; top: 0; left: 0; height: 3px; width: 100%;
     background: var(--grad-brand, #2453d6);
     z-index: 2147483646; pointer-events: none;
-    transition: width 0.08s linear;
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 0.08s linear;
   }
   #scrollTopBtn {
     position: fixed; bottom: 20px; right: 20px;
@@ -3934,7 +3951,7 @@ window.addEventListener('load',()=>{
   function onScroll() {
     var max = doc.scrollHeight - doc.clientHeight;
     var y = window.scrollY || doc.scrollTop || 0;
-    if (bar) bar.style.width = (max > 0 ? (y / max) * 100 : 0) + '%';
+    if (bar) bar.style.transform = 'scaleX(' + (max > 0 ? y / max : 0) + ')';
     if (btn) btn.classList.toggle('show', y > 500);
   }
   window.addEventListener('scroll', onScroll, { passive: true });
@@ -4338,13 +4355,13 @@ window.addEventListener('load',()=>{
   }
   .nav-streak-badge {
     background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
-    color: #c2410c;
-    border: 1.5px solid #fb923c;
-    box-shadow: 0 2px 6px rgba(251, 146, 60, 0.25);
+    color: var(--medium);
+    border: 1.5px solid var(--medium);
+    box-shadow: 0 1px 3px rgba(28,25,20,0.10);
   }
   .nav-streak-badge:hover {
     transform: translateY(-1px) scale(1.04);
-    box-shadow: 0 4px 12px rgba(251, 146, 60, 0.45);
+    box-shadow: 0 4px 12px -4px rgba(28,25,20,0.24);
   }
   .nav-streak-badge .nav-streak-flame {
     font-size: 1.05rem;
@@ -4362,15 +4379,18 @@ window.addEventListener('load',()=>{
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
   }
+  /* Was a lavender gradient with a violet border — the one piece of purple
+     in the global chrome, and the reason the pet colour scheme leaked onto
+     every page. It now reads from the accent, so it follows the palette. */
   .nav-pet-badge {
-    background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
-    color: #6d28d9;
-    border: 1.5px solid #a78bfa;
-    box-shadow: 0 2px 6px rgba(167, 139, 250, 0.25);
+    background: var(--accent-soft);
+    color: var(--accent);
+    border: 1.5px solid var(--border-accent);
+    box-shadow: 0 1px 3px rgba(28,25,20,0.10);
   }
   .nav-pet-badge:hover {
     transform: translateY(-1px) scale(1.04);
-    box-shadow: 0 4px 12px rgba(167, 139, 250, 0.45);
+    box-shadow: 0 4px 12px -4px rgba(28,25,20,0.24);
   }
   .nav-pet-emoji {
     font-size: 1.1rem;
@@ -4383,8 +4403,8 @@ window.addEventListener('load',()=>{
     font-size: 0.74rem;
     padding: 2px 6px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.75);
-    color: #6d28d9;
+    background: var(--bg-card);
+    color: var(--accent);
     line-height: 1;
   }
   /* Sidebar streak/pet little badge bubbles */
@@ -4399,11 +4419,11 @@ window.addEventListener('load',()=>{
     padding: 2px 8px;
     border-radius: 999px;
     line-height: 1.3;
-    box-shadow: 0 2px 5px rgba(249, 115, 22, 0.35);
+    box-shadow: 0 1px 3px rgba(28,25,20,0.16);
   }
   .side-pet-badge {
-    background: linear-gradient(135deg, #a78bfa, #8b5cf6);
-    box-shadow: 0 2px 5px rgba(139, 92, 246, 0.35);
+    background: linear-gradient(135deg, var(--accent-hover), var(--accent));
+    box-shadow: 0 1px 3px rgba(28,25,20,0.16);
   }
   /* Dark theme adjustments */
   [data-theme="dark"] .nav-streak-badge {
@@ -4412,13 +4432,13 @@ window.addEventListener('load',()=>{
     border-color: rgba(251, 146, 60, 0.55);
   }
   [data-theme="dark"] .nav-pet-badge {
-    background: linear-gradient(135deg, rgba(167, 139, 250, 0.18), rgba(139, 92, 246, 0.22));
-    color: #ddd6fe;
-    border-color: rgba(167, 139, 250, 0.55);
+    background: rgba(var(--accent-shadow), 0.16);
+    color: var(--accent-hover);
+    border-color: rgba(var(--accent-shadow), 0.5);
   }
   [data-theme="dark"] .nav-pet-level {
     background: rgba(255, 255, 255, 0.12);
-    color: #ddd6fe;
+    color: var(--accent-hover);
   }
   @keyframes navFlameFlicker {
     0%, 100% { transform: translateY(0) rotate(-2deg) scale(1); }
@@ -4443,18 +4463,18 @@ window.addEventListener('load',()=>{
     bottom: 24px;
     left: 50%;
     transform: translateX(-50%) translateY(20px);
-    background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+    background: linear-gradient(135deg, var(--accent-hover), var(--accent));
     color: #fff;
     padding: 10px 20px;
     border-radius: 999px;
     font-family: var(--font-ui, sans-serif);
     font-weight: 700;
     font-size: 0.9rem;
-    box-shadow: 0 8px 24px rgba(139, 92, 246, 0.45);
+    box-shadow: 0 10px 28px -8px rgba(28,25,20,0.32);
     z-index: 9999;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: opacity 0.3s ease, transform 0.4s var(--ease-out);
   }
   .pet-xp-toast.show {
     opacity: 1;
@@ -4463,7 +4483,7 @@ window.addEventListener('load',()=>{
   .pet-evolve-flash {
     position: fixed;
     inset: 0;
-    background: radial-gradient(circle at 50% 50%, rgba(139,92,246,0.7), transparent 60%);
+    background: radial-gradient(circle at 50% 50%, rgba(var(--accent-shadow), 0.55), transparent 62%);
     z-index: 9998;
     pointer-events: none;
     opacity: 0;
@@ -4630,7 +4650,6 @@ window.addEventListener('load',()=>{
     banner.id = 'ipWellnessBanner';
     banner.setAttribute('role','status');
     banner.setAttribute('aria-live','polite');
-    const accent = isNight ? '#2563eb' : '#0ea5e9';
     banner.innerHTML = `
       <div style="display:flex;align-items:flex-start;gap:10px;">
         <div style="flex:1;font-size:0.92rem;line-height:1.5;">${text.replace(/[<>]/g,'')}</div>
@@ -4638,7 +4657,7 @@ window.addEventListener('load',()=>{
       </div>`;
     banner.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
       max-width:440px;background:var(--bg-card);color:var(--text-primary);
-      padding:14px 16px;border:1px solid ${accent}44;border-left:3px solid ${accent};
+      padding:14px 16px;border:1px solid var(--border-accent);
       border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.15);z-index:9999;
       font-family:var(--font-body);`;
     banner.querySelector('button').addEventListener('click', () => banner.remove());
@@ -4701,7 +4720,7 @@ window.addEventListener('load',()=>{
   </button>
   <div class="ip-fb-panel" id="ipFbPanel" hidden>
     <div class="ip-fb-head">
-      <span class="ip-fb-title">Send Feedback</span>
+      <span class="ip-fb-title">Send feedback</span>
       <button type="button" class="ip-fb-close" onclick="ipFbClose()" aria-label="Close">&times;</button>
     </div>
     <form id="ipFbForm" onsubmit="event.preventDefault();ipFbSend();">
@@ -4723,10 +4742,16 @@ window.addEventListener('load',()=>{
       </div>
       <textarea class="ip-fb-msg" id="ipFbMsg" rows="3" placeholder="What's on your mind?" required minlength="3" maxlength="5000"></textarea>
       <button type="submit" class="ip-fb-submit" id="ipFbSubmit">Send</button>
+      {# Bug reports go through IP.openBugReport instead, which attaches the
+         route, viewport, theme and recent JS failures so the report is
+         reproducible without a follow-up email. #}
+      <button type="button" class="ip-fb-bug" data-ip-bug-report>
+        Hit a bug? Report it with technical details
+      </button>
     </form>
     <div class="ip-fb-done" id="ipFbDone" hidden>
       <span class="ip-fb-done-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
-      <p>Thanks for your feedback!</p>
+      <p>Thanks for the feedback.</p>
     </div>
   </div>
 </div>
@@ -4734,8 +4759,8 @@ window.addEventListener('load',()=>{
 /* Stacked above the Plani assistant (which sits at bottom:24px) so the two
    floating controls no longer overlap in the bottom-right corner. */
 .ip-fb{position:fixed;bottom:92px;right:24px;z-index:1001;font-family:var(--font-ui)}
-.ip-fb-trigger{width:48px;height:48px;border-radius:50%;border:none;background:var(--accent);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(var(--accent-shadow),0.35);transition:transform .15s,box-shadow .15s}
-.ip-fb-trigger:hover{transform:scale(1.08);box-shadow:0 6px 24px rgba(var(--accent-shadow),0.5)}
+.ip-fb-trigger{width:48px;height:48px;border-radius:50%;border:none;background:var(--accent);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px -4px rgba(28,25,20,0.28);transition:transform .15s,box-shadow .15s}
+.ip-fb-trigger:hover{transform:scale(1.08);box-shadow:0 8px 22px -6px rgba(28,25,20,0.38)}
 /* Small ✕ badge, top-right of the feedback button, to hide the widget. */
 .ip-fb-hide{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-secondary);font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm);padding:0;transition:background .15s,color .15s,transform .15s}
 .ip-fb-hide:hover{background:var(--high-bg);color:var(--high);transform:scale(1.1)}
@@ -4762,6 +4787,9 @@ window.addEventListener('load',()=>{
 .ip-fb-submit{width:100%;padding:8px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-family:var(--font-ui);font-weight:700;font-size:.82rem;cursor:pointer;transition:filter .15s}
 .ip-fb-submit:hover{filter:brightness(1.1)}
 .ip-fb-submit:disabled{opacity:.5;cursor:not-allowed}
+.ip-fb-bug{background:none;border:0;padding:2px 0;font-family:var(--font-ui);font-size:.74rem;font-weight:600;color:var(--text-muted);text-align:left;cursor:pointer;transition:color .15s}
+.ip-fb-bug:hover{color:var(--accent)}
+.ip-fb-bug:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px;border-radius:4px}
 .ip-fb-done{text-align:center;padding:2rem 1rem}
 .ip-fb-done-icon{display:inline-block;width:40px;height:40px;line-height:40px;border-radius:50%;background:hsl(142,55%,42%);color:#fff;font-size:1.2rem;font-weight:700;margin-bottom:8px}
 .ip-fb-done p{margin:0;font-size:.88rem;color:var(--text-secondary)}

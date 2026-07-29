@@ -174,7 +174,7 @@
 .streak-spark {
   position:absolute;
   border-radius:999px;
-  background:#facc15;
+  background:var(--medium);
   opacity:0;
   animation:streakSparkRise 1.8s ease-out infinite;
   z-index:3;
@@ -182,8 +182,8 @@
 }
 .streak-spark.s1 { width:6px; height:6px; left:32px; bottom:36px; }
 .streak-spark.s2 { width:5px; height:5px; left:54px; bottom:40px; animation-delay:.45s; background:#fb923c; }
-.streak-spark.s3 { width:4px; height:4px; left:44px; bottom:46px; animation-delay:.95s; background:#fde68a; }
-.streak-spark.s4 { width:3px; height:3px; left:24px; bottom:40px; animation-delay:1.35s; background:#fff7ad; }
+.streak-spark.s3 { width:4px; height:4px; left:44px; bottom:46px; animation-delay:.95s; background:var(--medium-bg); }
+.streak-spark.s4 { width:3px; height:3px; left:24px; bottom:40px; animation-delay:1.35s; background:var(--medium-bg); }
 
 @keyframes streakFlameLive {
   0%   { transform:translateY(0)    rotate(-1.5deg) scale(1)   ; }
@@ -308,9 +308,9 @@
   display:grid;
   place-items:center;
   border-radius:var(--ipd-radius-sm);
-  background:#e0e7ff;
-  color:#2563eb;
-  border:1px solid #bfdbfe;
+  background:var(--accent-soft);
+  color:var(--accent);
+  border:1px solid var(--accent-soft);
 }
 .freeze-chip.used { opacity:.35; filter:grayscale(1); }
 .milestone-lane { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.65rem; }
@@ -320,12 +320,12 @@
   border-radius:var(--ipd-radius-sm);
   padding:.85rem;
 }
-.milestone-card.reached { border-color:#10b981; background:rgba(16,185,129,.07); }
+.milestone-card.reached { border-color:var(--low); background:rgba(16,185,129,.07); }
 .milestone-card.next { border-color:#f97316; background:rgba(249,115,22,.08); }
 .milestone-card strong { display:block; font-family:var(--ipd-font-mono); color:var(--text-primary); margin-bottom:.25rem; }
 .milestone-card span { display:block; color:var(--text-muted); font-size:.76rem; line-height:1.35; }
 /* Use the theme medium/high alert colours so dark mode stays readable.
-   The previous version hard-coded light-mode #fff7ed/#fef2f2. */
+   The previous version hard-coded light-mode var(--medium-bg)/var(--danger-soft). */
 .streak-alert {
   display:flex;
   align-items:center;
@@ -410,7 +410,7 @@
 .quest-title { color:var(--text-primary); font-weight: 700; }
 .quest-reward { color:var(--text-primary); font-family:var(--ipd-font-mono); font-weight: 700; white-space:nowrap; }
 .quest-track { height:8px; border-radius:999px; background:var(--border); overflow:hidden; }
-.quest-fill { height:100%; border-radius:999px; background:linear-gradient(90deg,#10b981,#2563eb); }
+.quest-fill { height:100%; border-radius:999px; background:linear-gradient(90deg,var(--low),var(--accent)); }
 .quest-meta { margin-top:.45rem; color:var(--text-muted); font-size:.76rem; font-weight:700; }
 .badge-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.75rem; }
 .badge-card {
@@ -428,7 +428,7 @@
   border-radius:11px;
   display:grid;
   place-items:center;
-  background:linear-gradient(135deg,#f97316,#facc15);
+  background:linear-gradient(135deg,#f97316,var(--medium));
   color:white;
   flex-shrink:0;
 }
@@ -524,7 +524,7 @@ function renderAll() {
 }
 
 function tierColor() {
-  const colorMap = { gold:'#d97706', neon:'#06b6d4', forest:'#059669' };
+  const colorMap = { gold:'var(--medium)', neon:'#06b6d4', forest:'var(--low)' };
   return colorMap[streakState.active_cosmetics?.streak_color] || streakState.streak_tier?.color || '#f97316';
 }
 
@@ -643,7 +643,7 @@ function renderQuests() {
     const pct = Math.min(100, Math.round((cur / q.target) * 100));
     return `<div class="quest-card">
       <div class="quest-row">
-        <div class="quest-title">${completed.has(q.id) ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;"><use href="#i-check-circle"/></svg> ' : ''}${esc(q.title)}</div>
+        <div class="quest-title">${completed.has(q.id) ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="stroke:var(--low);vertical-align:-2px;"><use href="#i-check-circle"/></svg> ' : ''}${esc(q.title)}</div>
         <div class="quest-reward">+${q.reward} Sparks</div>
       </div>
       <div class="quest-track"><div class="quest-fill" style="width:${pct}%"></div></div>

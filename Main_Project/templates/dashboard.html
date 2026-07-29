@@ -390,8 +390,10 @@
   margin: 10px 0 8px;
 }
 .ipd-sched-progress-bar {
-  height: 100%; background: var(--text-primary);
-  width: 0%; transition: width 0.4s ease;
+  height: 100%; width: 100%; background: var(--text-primary);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.4s var(--ipd-ease-out, ease-out);
 }
 .ipd-sched-block {
   display: flex; align-items: center; gap: 10px;
@@ -447,9 +449,10 @@
 }
 .ipd-grade-bar-fill {
   height: 100%;
-  border-radius: 3px;
+  width: 100%;
   background: var(--text-primary);
-  transition: width 0.6s var(--ipd-ease-out);
+  transform-origin: left center;
+  transition: transform 0.6s var(--ipd-ease-out);
 }
 .ipd-grade-bar-val {
   font-family: var(--ipd-font-mono);
@@ -1137,7 +1140,7 @@ function renderSchedToday() {
     '</div>';
   }).join('');
   var pct = Math.round((done / work.length) * 100);
-  document.getElementById('ipdSchedBar').style.width = pct + '%';
+  document.getElementById('ipdSchedBar').style.transform = 'scaleX(' + (pct / 100) + ')';
   document.getElementById('ipdSchedSub').textContent = done + '/' + work.length + ' blocks done · ' + (day.total_hours || 0) + 'h planned';
   card.style.display = '';
 }
@@ -1271,7 +1274,7 @@ async function loadGradeSnapshot() {
       var name = c.course || c.class_name || 'Course';
       return '<div class="ipd-grade-bar-row">' +
         '<span class="ipd-grade-bar-label">' + name.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</span>' +
-        '<div class="ipd-grade-bar-track"><div class="ipd-grade-bar-fill" style="width:' + pct + '%;"></div></div>' +
+        '<div class="ipd-grade-bar-track"><div class="ipd-grade-bar-fill" style="transform:scaleX(' + (pct / 100) + ')"></div></div>' +
         '<span class="ipd-grade-bar-val">' + Math.round(pct) + '%</span>' +
       '</div>';
     }).join('');

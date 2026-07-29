@@ -5,7 +5,6 @@
 .settings-section {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
-  border-left: 3px solid var(--accent);
   border-radius: var(--r-lg);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
@@ -1017,12 +1016,12 @@ function saveAnimSetting(key, value) {
   const host = document.getElementById('themeSwatches');
   if (!host) return;
   const THEMES = [
-    { id:'default',  label:'Classic',  colors:['#1d4ed8','#3b82f6'] },
+    { id:'default',  label:'Classic',  colors:['var(--accent)','var(--accent)'] },
     { id:'ocean',    label:'Ocean',    colors:['#0277bd','#26c6da'] },
     { id:'forest',   label:'Forest',   colors:['#1b5e20','#8bc34a'] },
     { id:'sunset',   label:'Sunset',   colors:['#e65100','#ffab91'] },
     { id:'rose',     label:'Rose',     colors:['#c2185b','#f8bbd0'] },
-    { id:'midnight', label:'Midnight', colors:['#4c1d95','#a78bfa'] },
+    { id:'midnight', label:'Midnight', colors:['#4c1d95','var(--accent-hover)'] },
     { id:'mocha',    label:'Mocha',    colors:['#4e3724','#c4a380'] },
   ];
   const current = localStorage.getItem('ip_theme_palette') || 'default';

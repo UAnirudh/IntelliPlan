@@ -66,15 +66,25 @@ def api_features_list():
     else:
         q = q.order_by(FeatureRequest.vote_count.desc(), FeatureRequest.created_at.desc())
 
-    items = q.limit(200).all()
-    voted_ids = {
-        v.request_id
-        for v in FeatureRequestVote.query.filter_by(user_id=current_user.id).all()
-    }
-    return jsonify({
-        "status": "ok",
-        "items": [_serialize_request(r, r.id in voted_ids) for r in items],
-    })
+    # Paged rather than a flat top-200 cap, which silently hid every request
+    # past the 200th once the board filled up.
+    from App import paginate_query
+
+    payload = paginate_query(q, lambda r: r, default_size=30)
+    rows = payload["items"]
+
+    # Only look up votes for the ids on this page.
+    voted_ids = set()
+    if rows:
+        voted_ids = {
+            v.request_id
+            for v in FeatureRequestVote.query.filter(
+                FeatureRequestVote.user_id == current_user.id,
+                FeatureRequestVote.request_id.in_([r.id for r in rows]),
+            ).all()
+        }
+    payload["items"] = [_serialize_request(r, r.id in voted_ids) for r in rows]
+    return jsonify(payload)
 
 
 @extras_bp.route("/api/features", methods=["POST"])

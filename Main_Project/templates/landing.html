@@ -1586,7 +1586,7 @@
     align-self: start;
     flex-shrink: 0;
     z-index: 1;
-    transition: transform 0.4s var(--ease-spring), box-shadow 0.4s var(--ease-spring);
+    transition: transform 0.4s var(--ease-out), box-shadow 0.4s var(--ease-out);
   }
   .feature-icon::before {
     content: '';
@@ -1596,7 +1596,7 @@
     transform: rotate(13deg);
     transform-origin: 100% 100%;
     box-shadow: 0 8px 18px -6px rgba(var(--icon-rgb, var(--accent-shadow)),0.6);
-    transition: transform 0.4s var(--ease-spring);
+    transition: transform 0.4s var(--ease-out);
   }
   .feature-card:hover .feature-icon { transform: translateY(-1px); }
   .feature-card:hover .feature-icon::before { transform: rotate(24deg) translate3d(-3px,-3px,0); }

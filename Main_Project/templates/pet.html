@@ -1,10 +1,43 @@
 {% extends "base.html" %}
 
-{% block page_title %}My Pet | IntelliPlan{% endblock %}
+{% block page_title %}My pet | IntelliPlan{% endblock %}
 
 {% block content %}
 <div class="pet-shell">
 
+  {# The hero is data-driven end to end, so it owns its own loading, error
+     and empty states through IP.block rather than sitting on a hardcoded
+     "Loading…" string that never clears when the request fails. #}
+  <div id="petHero" class="pet-hero-slot" data-ip-boundary></div>
+
+  <div class="pet-grid">
+    <section class="pet-card">
+      <h2 class="pet-h2">Evolution path</h2>
+      <p class="pet-muted">Every milestone unlocks a new stage. Keep showing up and your pet grows with you.</p>
+      <div class="pet-stages-list" id="petStagesList"></div>
+    </section>
+
+    <section class="pet-card pet-card--ledger">
+      <h2 class="pet-h2">How to earn XP</h2>
+      <ul class="pet-xp-list">
+        <li><span class="pet-xp-amt">+15</span><span class="pet-xp-what">Visit IntelliPlan for the day</span></li>
+        <li><span class="pet-xp-amt">+20</span><span class="pet-xp-what">Complete a task</span></li>
+        <li><span class="pet-xp-amt">+35</span><span class="pet-xp-what">Generate a study schedule</span></li>
+        <li><span class="pet-xp-amt">+25</span><span class="pet-xp-what">Finish a study session</span></li>
+        <li><span class="pet-xp-amt">+40</span><span class="pet-xp-what">Import your grades</span></li>
+        <li><span class="pet-xp-amt">+50–1000</span><span class="pet-xp-what">Hit a streak milestone at 3, 7, 14, 30, 60 or 100 days</span></li>
+      </ul>
+      <a href="/streak" class="pet-cta-link">
+        View streak milestones
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </a>
+    </section>
+  </div>
+</div>
+
+{# Hero markup lives in a template so IP.block can swap between the skeleton,
+   the error card and the real thing inside one container. #}
+<template id="petHeroTemplate">
   <div class="pet-hero">
     <div class="pet-orb-bg" aria-hidden="true"></div>
     <div class="pet-stage" id="petStage">
@@ -16,378 +49,521 @@
         <span class="pet-sparkle s5"></span>
       </div>
       <div class="pet-shadow" aria-hidden="true"></div>
-      <div class="pet-creature" id="petCreature">
-        <!-- SVG injected by JS based on stage -->
-      </div>
+      <div class="pet-creature" id="petCreature" role="img" aria-label="Your pet"></div>
     </div>
 
     <div class="pet-meta">
-      <div class="pet-kicker" id="petKicker">Loading…</div>
+      <p class="pet-kicker" id="petKicker"></p>
       <h1 class="pet-name">
         <span id="petName">Pet</span>
-        <button class="pet-rename-btn" id="petRenameBtn" title="Rename">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-pencil"/></svg>
+        <button type="button" class="pet-rename-btn" id="petRenameBtn" aria-label="Rename your pet" title="Rename">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-pencil"/></svg>
         </button>
       </h1>
-      <div class="pet-title-line" id="petTitleLine">A mysterious egg</div>
+      <p class="pet-title-line" id="petTitleLine"></p>
 
-      <div class="pet-stats">
+      <dl class="pet-stats">
         <div class="pet-stat">
-          <span class="pet-stat-num" id="petLevel">1</span>
-          <span class="pet-stat-label">Level</span>
+          <dd class="pet-stat-num" id="petLevel">1</dd>
+          <dt class="pet-stat-label">Level</dt>
         </div>
         <div class="pet-stat">
-          <span class="pet-stat-num" id="petXp">0</span>
-          <span class="pet-stat-label">Total XP</span>
+          <dd class="pet-stat-num" id="petXp">0</dd>
+          <dt class="pet-stat-label">Total XP</dt>
         </div>
         <div class="pet-stat">
-          <span class="pet-stat-num"><span id="petStreak">0</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-left:2px"><use href="#i-fire"/></svg></span>
-          <span class="pet-stat-label">Streak</span>
+          <dd class="pet-stat-num">
+            <span id="petStreak">0</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pet-stat-icon" aria-hidden="true"><use href="#i-fire"/></svg>
+          </dd>
+          <dt class="pet-stat-label">Streak</dt>
         </div>
         <div class="pet-stat">
-          <span class="pet-stat-num" id="petMoodEmoji"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-heart"/></svg></span>
-          <span class="pet-stat-label" id="petMoodLabel">Sleepy</span>
+          <dd class="pet-stat-num pet-stat-num--icon" id="petMoodIcon"></dd>
+          <dt class="pet-stat-label" id="petMoodLabel">Sleepy</dt>
         </div>
-      </div>
+      </dl>
 
       <div class="pet-progress-card">
         <div class="pet-progress-head">
           <span id="petStageNow">Egg</span>
-          <span id="petStageNext">→ Hatchling</span>
+          <span id="petStageNext"></span>
         </div>
-        <div class="pet-progress-track">
-          <div class="pet-progress-fill" id="petProgressFill" style="width:0%"></div>
+        <div class="pet-progress-track" role="progressbar" id="petProgressBar"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Progress to next stage">
+          <div class="pet-progress-fill" id="petProgressFill"></div>
         </div>
-        <div class="pet-progress-meta" id="petProgressMeta">0 / 50 XP</div>
+        <p class="pet-progress-meta" id="petProgressMeta">0 / 50 XP</p>
       </div>
     </div>
   </div>
+</template>
 
-  <div class="pet-grid">
-    <section class="pet-card">
-      <h2 class="pet-h2">Evolution path</h2>
-      <p class="pet-muted">Every milestone unlocks a new stage. Keep showing up to grow your pet.</p>
-      <div class="pet-stages-list" id="petStagesList"></div>
-    </section>
-
-    <section class="pet-card">
-      <h2 class="pet-h2">How to earn XP</h2>
-      <ul class="pet-xp-list">
-        <li><strong>+15 XP</strong> · Visit IntelliPlan daily</li>
-        <li><strong>+20 XP</strong> · Complete a task</li>
-        <li><strong>+35 XP</strong> · Generate a study schedule</li>
-        <li><strong>+25 XP</strong> · Finish a study session</li>
-        <li><strong>+40 XP</strong> · Import grades</li>
-        <li><strong>+50–1000 XP</strong> · Hit streak milestones (3, 7, 14, 30, 60, 100 days)</li>
-      </ul>
-      <a href="/streak" class="pet-cta-link">View streak milestones →</a>
-    </section>
-  </div>
-</div>
-
-<dialog id="renameDialog" class="pet-dialog">
-  <form method="dialog" onsubmit="event.preventDefault(); submitRename();">
-    <h3>Name your pet</h3>
-    <input type="text" id="renameInput" maxlength="40" placeholder="Pet" />
+<dialog id="renameDialog" class="pet-dialog" aria-labelledby="renameTitle">
+  <form method="dialog" id="renameForm">
+    <h2 id="renameTitle">Name your pet</h2>
+    <label for="renameInput">Pet name</label>
+    <input type="text" id="renameInput" maxlength="40" autocomplete="off" placeholder="Plani" />
+    <p class="pet-dialog-error" id="renameError" hidden></p>
     <div class="pet-dialog-btns">
-      <button type="button" onclick="document.getElementById('renameDialog').close()">Cancel</button>
-      <button type="submit" class="primary">Save</button>
+      <button type="button" class="pet-btn pet-btn--ghost" id="renameCancel">Cancel</button>
+      <button type="submit" class="pet-btn pet-btn--primary">Save</button>
     </div>
   </form>
 </dialog>
 
 <style>
+/* ── Scoped tokens ────────────────────────────────────────────────────
+   The pet illustration needs colours the global palette does not define
+   (an outline ink, a leaf green, a blush). Declaring them here, derived
+   from the site tokens, keeps the page on-theme and lets it follow the
+   accent when someone switches palette in settings. Nothing below this
+   block hardcodes a hex value. */
 .pet-shell {
-  max-width: 1100px;
+  --pet-ink:    #26231e;                       /* warm charcoal outline    */
+  --pet-gold:   var(--medium);                 /* crown, sparks            */
+  --pet-warm:   #c9691f;                       /* beak, feet               */
+  --pet-blush:  #cf6d72;
+  --pet-leaf:   var(--low);
+  --pet-glow:   rgba(var(--accent-shadow), 0.16);
+
+  max-width: var(--page-max);
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--space-5);
 }
+
+[data-theme="dark"] .pet-shell {
+  /* The creature body stays light in dark mode, so the outline stays dark
+     for contrast rather than inverting with the page. */
+  --pet-ink:   #1c1a16;
+  --pet-warm:  #d97f34;
+  --pet-blush: #d9797e;
+  --pet-glow:  rgba(var(--accent-shadow), 0.24);
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────── */
+
+/* Reserve the hero's height up front so the skeleton, the error card and
+   the loaded pet all occupy the same box — no layout shift on arrival.
+   Both numbers are measured from the rendered hero at each breakpoint,
+   not guessed. */
+.pet-hero-slot { min-height: 378px; }
+@media (max-width: 880px) { .pet-hero-slot { min-height: 744px; } }
+
 .pet-hero {
   position: relative;
   display: grid;
-  grid-template-columns: 340px minmax(0, 1fr);
-  gap: 2rem;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: var(--space-6);
   align-items: center;
-  padding: 2rem;
-  border-radius: 28px;
+  /* Optically balanced rather than mathematically equal: the creature sits
+     low in its circle, so the block needs less padding underneath. */
+  padding: var(--space-6) var(--space-6) var(--space-5);
   border: 1px solid var(--border);
+  border-radius: var(--r-2xl);
   background:
-    radial-gradient(circle at 20% 30%, rgba(37,99,235,0.18), transparent 50%),
-    radial-gradient(circle at 80% 70%, rgba(251,146,60,0.15), transparent 50%),
+    radial-gradient(circle at 22% 28%, var(--pet-glow), transparent 52%),
     linear-gradient(135deg, var(--bg-card), var(--bg-elevated));
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
 }
+
 .pet-orb-bg {
   position: absolute;
-  top: -120px; right: -80px;
-  width: 380px; height: 380px;
-  background: radial-gradient(circle, rgba(37,99,235,0.18), transparent 70%);
+  top: -120px;
+  right: -80px;
+  width: 380px;
+  height: 380px;
   pointer-events: none;
-  animation: petOrbBg 12s ease-in-out infinite;
+  background: radial-gradient(circle, var(--pet-glow), transparent 70%);
+  animation: petOrbBg 12s var(--ease-in-out) infinite;
 }
 @keyframes petOrbBg {
-  0%, 100% { transform: translate(0,0) scale(1); }
-  50% { transform: translate(-20px, 20px) scale(1.1); }
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(-20px, 20px) scale(1.1); }
 }
+
 .pet-stage {
   position: relative;
-  width: 340px;
-  height: 340px;
+  width: 320px;
+  height: 320px;
   display: grid;
   place-items: center;
-  border-radius: 50%;
+  border-radius: var(--r-full);
   background:
-    radial-gradient(circle at 50% 60%, rgba(255,255,255,0.6) 0%, transparent 50%),
-    linear-gradient(180deg, transparent 60%, rgba(37,99,235,0.12) 100%);
+    radial-gradient(circle at 50% 60%, rgba(255, 255, 255, 0.55) 0%, transparent 50%),
+    linear-gradient(180deg, transparent 60%, var(--pet-glow) 100%);
 }
 [data-theme="dark"] .pet-stage {
   background:
-    radial-gradient(circle at 50% 60%, rgba(255,255,255,0.06) 0%, transparent 50%),
-    linear-gradient(180deg, transparent 60%, rgba(37,99,235,0.18) 100%);
+    radial-gradient(circle at 50% 60%, rgba(255, 255, 255, 0.05) 0%, transparent 50%),
+    linear-gradient(180deg, transparent 60%, var(--pet-glow) 100%);
 }
+
 .pet-shadow {
   position: absolute;
   bottom: 28px;
   left: 50%;
   width: 180px;
   height: 22px;
-  background: radial-gradient(ellipse, rgba(0,0,0,0.25), transparent 70%);
+  background: radial-gradient(ellipse, rgba(28, 25, 20, 0.28), transparent 70%);
   transform: translateX(-50%);
   filter: blur(6px);
-  animation: petShadow 2s ease-in-out infinite;
+  animation: petShadow 2.4s var(--ease-in-out) infinite;
 }
 @keyframes petShadow {
-  0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.55; }
-  50% { transform: translateX(-50%) scale(0.85); opacity: 0.4; }
+  0%, 100% { transform: translateX(-50%) scale(1);    opacity: 0.55; }
+  50%      { transform: translateX(-50%) scale(0.85); opacity: 0.40; }
 }
+
+/* `color` here is what the injected SVG reads through currentColor for
+   every outline, eye and mouth — one property themes the whole drawing. */
 .pet-creature {
   position: relative;
-  width: 240px;
-  height: 240px;
+  width: 236px;
+  height: 236px;
   display: grid;
   place-items: center;
-  animation: petBob 2.4s ease-in-out infinite;
-  filter: drop-shadow(0 12px 24px rgba(37, 99, 235, 0.35));
+  color: var(--pet-ink);
+  filter: drop-shadow(0 12px 24px rgba(var(--accent-shadow), 0.3));
+  animation: petBob 2.4s var(--ease-in-out) infinite;
 }
 @keyframes petBob {
   0%, 100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-12px) scale(1.04); }
+  50%      { transform: translateY(-12px) scale(1.04); }
 }
 .pet-creature svg { width: 100%; height: 100%; }
 
 .pet-sparkles { position: absolute; inset: 0; pointer-events: none; }
 .pet-sparkle {
   position: absolute;
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: #fde68a;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-full);
   opacity: 0;
-  animation: petSparkle 3.4s ease-in-out infinite;
+  animation: petSparkle 3.4s var(--ease-in-out) infinite;
 }
-.pet-sparkle.s1 { top: 18%; left: 25%; animation-delay: 0s; background: #bfdbfe; }
-.pet-sparkle.s2 { top: 30%; right: 20%; animation-delay: 0.8s; background: #fde68a; }
-.pet-sparkle.s3 { bottom: 28%; left: 18%; animation-delay: 1.6s; background: #fb923c; }
-.pet-sparkle.s4 { bottom: 22%; right: 22%; animation-delay: 2.2s; background: #a7f3d0; }
-.pet-sparkle.s5 { top: 45%; left: 50%; animation-delay: 1.2s; background: #f0abfc; width: 6px; height: 6px; }
+.pet-sparkle.s1 { top: 18%;    left: 25%;  animation-delay: 0s;   background: var(--accent); }
+.pet-sparkle.s2 { top: 30%;    right: 20%; animation-delay: 0.8s; background: var(--pet-gold); }
+.pet-sparkle.s3 { bottom: 28%; left: 18%;  animation-delay: 1.6s; background: var(--pet-warm); }
+.pet-sparkle.s4 { bottom: 22%; right: 22%; animation-delay: 2.2s; background: var(--pet-leaf); }
+.pet-sparkle.s5 { top: 45%;    left: 50%;  animation-delay: 1.2s; background: var(--pet-gold); width: 6px; height: 6px; }
 @keyframes petSparkle {
   0%, 100% { opacity: 0; transform: scale(0.4); }
-  50% { opacity: 1; transform: scale(1.4); }
+  50%      { opacity: 1; transform: scale(1.4); }
 }
 
-.pet-meta { display: flex; flex-direction: column; gap: 0.6rem; }
+/* ── Hero copy ────────────────────────────────────────────────────── */
+
+.pet-meta { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+
 .pet-kicker {
-  font-family: var(--font-ui, sans-serif);
-  font-size: 0.74rem;
-  font-weight: 700;
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--accent, #1a56db);
+  letter-spacing: 0.11em;
+  color: var(--accent);
 }
+
 .pet-name {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   margin: 0;
-  font-family: var(--font-display, var(--font-ui, sans-serif));
-  font-size: 2.6rem;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 1.2rem + 2.6vw, 2.9rem);
+  font-weight: 400;
+  line-height: 1.02;
+  letter-spacing: -0.022em;
   color: var(--text-primary);
-  line-height: 1;
+  text-wrap: balance;
 }
+
 .pet-rename-btn {
-  background: transparent;
-  border: 1.5px solid var(--border);
-  border-radius: 8px;
-  padding: 6px;
-  cursor: pointer;
-  color: var(--text-muted);
-  transition: all 0.15s;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--t-fast) var(--ease-out),
+              border-color var(--t-fast) var(--ease-out),
+              background var(--t-fast) var(--ease-out),
+              transform var(--t-fast) var(--ease-out);
 }
-.pet-rename-btn:hover { color: var(--accent); border-color: var(--accent); }
-.pet-title-line { color: var(--text-secondary); font-style: italic; font-size: 1rem; }
+.pet-rename-btn:hover { color: var(--accent); border-color: var(--border-accent); background: var(--accent-soft); }
+.pet-rename-btn:active { transform: scale(0.94); }
+.pet-rename-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+.pet-title-line {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+/* ── Stats ────────────────────────────────────────────────────────── */
 
 .pet-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.6rem;
-  margin-top: 0.4rem;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
 }
+
 .pet-stat {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0.7rem 0.5rem;
-  background: var(--glass-bg);
-  -webkit-backdrop-filter: blur(14px) saturate(1.5); backdrop-filter: blur(14px) saturate(1.5);
+  gap: 4px;
+  padding: var(--space-3) var(--space-2);
   border: 1px solid var(--glass-border);
+  border-radius: var(--r-sm);
+  background: var(--glass-bg);
   box-shadow: var(--glass-btn-shadow);
-  border-radius: 12px;
-}
-.pet-stat-num {
-  font-family: var(--font-ui, sans-serif);
-  font-weight: 700;
-  font-size: 1.4rem;
-  color: var(--text-primary);
-  line-height: 1.1;
-}
-.pet-stat-label {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-weight: 700;
-  margin-top: 4px;
+  -webkit-backdrop-filter: blur(14px) saturate(1.5);
+  backdrop-filter: blur(14px) saturate(1.5);
 }
 
-.pet-progress-card {
-  margin-top: 0.6rem;
-  padding: 1rem;
-  background: rgba(37, 99, 235, 0.08);
-  border: 1px solid rgba(37, 99, 235, 0.25);
-  border-radius: 14px;
+.pet-stat-num {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
 }
+.pet-stat-num--icon { color: var(--accent); display: inline-flex; align-items: center; min-height: 1.35rem; }
+.pet-stat-icon { vertical-align: -2px; margin-left: 2px; color: var(--medium); }
+
+.pet-stat-label {
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ── Progress ─────────────────────────────────────────────────────── */
+
+.pet-progress-card {
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+}
+
 .pet-progress-head {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 8px;
-  font-family: var(--font-ui, sans-serif);
-  font-weight: 700;
-  font-size: 0.88rem;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+  font-family: var(--font-ui);
+  font-size: 0.86rem;
+  font-weight: 600;
   color: var(--text-primary);
 }
-.pet-progress-head span:last-child { color: var(--text-muted); font-weight: 700; }
+.pet-progress-head span:last-child { color: var(--text-muted); font-weight: 500; }
+
 .pet-progress-track {
-  height: 12px;
-  border-radius: 999px;
-  background: rgba(0,0,0,0.08);
+  height: 10px;
+  border-radius: var(--r-full);
+  background: var(--toggle-bg);
   overflow: hidden;
 }
-[data-theme="dark"] .pet-progress-track { background: rgba(255,255,255,0.08); }
+
+/* Scales rather than animating width: transform runs on the compositor, so
+   the fill cannot thrash layout on the way to its value. The track clips it,
+   which is why the fill carries no radius of its own — a scaled radius would
+   stretch into an ellipse. */
 .pet-progress-fill {
+  width: 100%;
   height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #7aabf8 0%, #2563eb 50%, #3b82f6 100%);
-  transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform: scaleX(0);
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--accent-hover) 0%, var(--accent) 68%);
+  transition: transform var(--t-slow) var(--ease-out);
 }
+
 .pet-progress-meta {
-  margin-top: 6px;
+  margin: 6px 0 0;
+  font-family: var(--font-body);
   font-size: 0.78rem;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 
+/* ── Cards ────────────────────────────────────────────────────────── */
+
+/* Deliberately unequal: the evolution list is the denser column and the XP
+   ledger is a short read, so a 50/50 split wastes space on the right. */
 .pet-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.2rem;
+  grid-template-columns: 1.12fr 0.88fr;
+  gap: var(--space-5);
+  align-items: start;
 }
+
 .pet-card {
-  background: var(--glass-bg); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
+  padding: var(--space-5);
   border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 1.4rem;
+  border-radius: var(--r-lg);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
 }
+.pet-card--ledger { background: var(--bg-secondary); }
+
 .pet-h2 {
-  margin: 0 0 0.5rem;
-  font-family: var(--font-display, var(--font-ui, sans-serif));
-  font-size: 1.3rem;
-  font-weight: 700;
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 1.32rem;
+  font-weight: 400;
+  letter-spacing: -0.018em;
   color: var(--text-primary);
 }
-.pet-muted { color: var(--text-secondary); font-size: 0.92rem; margin-bottom: 1rem; }
 
-.pet-stages-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.pet-muted {
+  margin: 0 0 var(--space-4);
+  max-width: 52ch;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  text-wrap: pretty;
 }
+
+/* ── Evolution list ───────────────────────────────────────────────── */
+
+.pet-stages-list { display: flex; flex-direction: column; gap: 6px; }
+
+/* The placeholder rows reuse .pet-stage-row itself, so padding, border and
+   gap are identical to the real thing and the list does not resize when the
+   stages arrive. */
+.pet-stage-row--sk { pointer-events: none; }
+.pet-stage-row--sk .ip-sk { margin: 0; }
+
 .pet-stage-row {
   display: grid;
-  grid-template-columns: 48px 1fr auto;
-  gap: 12px;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: var(--space-3);
   align-items: center;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: var(--glass-bg); -webkit-backdrop-filter: blur(14px) saturate(1.5); backdrop-filter: blur(14px) saturate(1.5);
+  padding: var(--space-3);
   border: 1px solid var(--border);
-  transition: all 0.2s;
+  border-radius: var(--r-sm);
+  background: var(--bg-secondary);
+  transition: border-color var(--t-fast) var(--ease-out),
+              background var(--t-fast) var(--ease-out);
 }
-.pet-stage-row.current {
-  background: linear-gradient(135deg, rgba(37,99,235,0.1), rgba(37,99,235,0.05));
-  border-color: rgba(37,99,235,0.4);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
-}
-.pet-stage-row.locked { opacity: 0.55; }
-.pet-stage-emoji { font-size: 2rem; line-height: 1; text-align: center; }
-.pet-stage-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.pet-stage-name { font-family: var(--font-ui, sans-serif); font-weight: 700; color: var(--text-primary); }
-.pet-stage-xp { font-size: 0.78rem; color: var(--text-muted); }
-.pet-stage-badge {
-  font-size: 0.7rem;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  background: rgba(37, 99, 235, 0.15);
-  color: #1a56db;
-}
-.pet-stage-row.current .pet-stage-badge { background: #2563eb; color: #fff; }
-[data-theme="dark"] .pet-stage-badge { background: rgba(37,99,235,0.2); color: #bfdbfe; }
+.pet-stage-row:hover { border-color: var(--border-strong); }
 
-.pet-xp-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
-.pet-xp-list li {
-  padding: 10px 14px;
-  background: var(--glass-bg); -webkit-backdrop-filter: blur(14px) saturate(1.5); backdrop-filter: blur(14px) saturate(1.5);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  font-size: 0.92rem;
-  color: var(--text-secondary);
+.pet-stage-row.current {
+  border-color: var(--border-accent);
+  background: var(--accent-soft);
+  box-shadow: 0 1px 2px rgba(var(--accent-shadow), 0.10),
+              0 8px 22px -14px rgba(var(--accent-shadow), 0.5);
 }
-.pet-xp-list strong { color: #1a56db; font-family: var(--font-ui, sans-serif); }
-[data-theme="dark"] .pet-xp-list strong { color: #bfdbfe; }
+.pet-stage-row.locked { opacity: 0.5; }
+
+.pet-stage-icon { display: grid; place-items: center; color: var(--text-muted); }
+.pet-stage-row.current .pet-stage-icon { color: var(--accent); }
+
+.pet-stage-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.pet-stage-name {
+  font-family: var(--font-ui);
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: -0.008em;
+  color: var(--text-primary);
+}
+.pet-stage-xp {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Square-cornered rather than a pill, and sentence case rather than
+   shouting caps. */
+.pet-stage-badge {
+  padding: 3px 8px;
+  border-radius: var(--r-xs);
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  font-variant-numeric: tabular-nums;
+}
+.pet-stage-row.current .pet-stage-badge { color: #fff; background: var(--accent); }
+.pet-stage-row.unlocked .pet-stage-badge { color: var(--low); background: var(--low-bg); }
+
+/* ── XP ledger ────────────────────────────────────────────────────── */
+
+.pet-xp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pet-xp-list li {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+.pet-xp-list li:last-child { border-bottom: 0; }
+
+.pet-xp-amt {
+  font-family: var(--font-mono);
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.pet-xp-what {
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
 .pet-cta-link {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 1.25rem;
-  padding: 9px 18px;
-  color: var(--accent, #1a56db);
-  text-decoration: none;
-  font-family: var(--font-ui, sans-serif);
-  font-weight: 600;
-  font-size: 0.88rem;
-  letter-spacing: -0.01em;
-  border-radius: 999px;
-  background: var(--glass-btn-bg);
+  margin-top: var(--space-4);
+  padding: 9px 16px;
   border: 1px solid var(--glass-border);
-  -webkit-backdrop-filter: blur(12px) saturate(1.5); backdrop-filter: blur(12px) saturate(1.5);
+  border-radius: var(--r-full);
+  background: var(--glass-btn-bg);
   box-shadow: var(--glass-btn-shadow);
-  transition: transform 0.16s var(--ease-out), border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+  color: var(--accent);
+  font-family: var(--font-ui);
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: -0.008em;
+  text-decoration: none;
+  -webkit-backdrop-filter: blur(12px) saturate(1.5);
+  backdrop-filter: blur(12px) saturate(1.5);
+  transition: transform var(--t-fast) var(--ease-out),
+              border-color var(--t-fast) var(--ease-out),
+              box-shadow var(--t-fast) var(--ease-out),
+              background var(--t-fast) var(--ease-out);
 }
 .pet-cta-link:hover {
   transform: translateY(-1px);
@@ -396,300 +572,477 @@
   box-shadow: var(--glass-btn-shadow-hover);
   text-decoration: none;
 }
+.pet-cta-link:active { transform: translateY(0); }
+.pet-cta-link:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+.pet-cta-link svg { transition: transform var(--t-fast) var(--ease-out); }
+.pet-cta-link:hover svg { transform: translateX(2px); }
+
+/* ── Rename dialog ────────────────────────────────────────────────── */
 
 .pet-dialog {
-  border: none;
-  border-radius: 16px;
   padding: 0;
-  box-shadow: 0 24px 60px rgba(0,0,0,0.25);
-  background: var(--glass-bg); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-xl);
+  background: var(--bg-card);
   color: var(--text-primary);
+  box-shadow: var(--shadow-xl);
 }
-.pet-dialog::backdrop { background: rgba(7,8,20,0.5); backdrop-filter: blur(6px); }
-.pet-dialog form { padding: 1.5rem; min-width: 320px; }
-.pet-dialog h3 { margin: 0 0 1rem; font-family: var(--font-display, var(--font-ui, sans-serif)); }
+.pet-dialog::backdrop { background: var(--scrim); backdrop-filter: blur(4px); }
+.pet-dialog form { padding: var(--space-5); min-width: min(340px, calc(100vw - var(--space-6))); }
+
+.pet-dialog h2 {
+  margin: 0 0 var(--space-4);
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 400;
+  letter-spacing: -0.018em;
+}
+
+.pet-dialog label {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--font-ui);
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+}
+
 .pet-dialog input {
   width: 100%;
   box-sizing: border-box;
-  padding: 10px 14px;
-  border-radius: 10px;
-  border: 1.5px solid var(--border);
-  background: var(--glass-bg); -webkit-backdrop-filter: blur(14px) saturate(1.5); backdrop-filter: blur(14px) saturate(1.5);
+  padding: 10px var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--bg-secondary);
   color: var(--text-primary);
-  font-size: 1rem;
-  margin-bottom: 1rem;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  transition: border-color var(--t-fast) var(--ease-out),
+              box-shadow var(--t-fast) var(--ease-out);
 }
-.pet-dialog input:focus { outline: none; border-color: var(--accent, #1a56db); }
-.pet-dialog-btns { display: flex; justify-content: flex-end; gap: 8px; }
-.pet-dialog-btns button {
-  padding: 8px 16px;
-  border-radius: 8px;
-  border: 1.5px solid var(--border);
-  background: var(--glass-bg); -webkit-backdrop-filter: blur(14px) saturate(1.5); backdrop-filter: blur(14px) saturate(1.5);
-  color: var(--text-primary);
-  font-weight: 700;
+.pet-dialog input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.pet-dialog input[aria-invalid="true"] { border-color: var(--danger); }
+
+.pet-dialog-error {
+  margin: 6px 0 0;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  color: var(--danger-text);
+}
+
+.pet-dialog-btns { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-5); }
+
+.pet-btn {
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  font-family: var(--font-ui);
+  font-size: 0.86rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: background var(--t-fast) var(--ease-out),
+              border-color var(--t-fast) var(--ease-out),
+              transform var(--t-fast) var(--ease-out);
 }
-.pet-dialog-btns .primary {
-  background: linear-gradient(135deg, #7aabf8, #2563eb);
-  border-color: transparent;
-  color: #fff;
-}
+.pet-btn:active { transform: translateY(1px) scale(0.985); }
+.pet-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.pet-btn--ghost { border-color: var(--border-strong); background: var(--bg-card); color: var(--text-primary); }
+.pet-btn--ghost:hover { background: var(--bg-elevated); }
+.pet-btn--primary { background: var(--accent); color: #fff; }
+.pet-btn--primary:hover { background: var(--accent-hover); }
+
+/* ── Preferences and responsive ───────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
   .pet-creature, .pet-shadow, .pet-sparkle, .pet-orb-bg { animation: none !important; }
+  .pet-progress-fill, .pet-cta-link, .pet-btn, .pet-rename-btn { transition: none; }
+  .pet-sparkle { opacity: 0.6; }
 }
-@media (max-width: 880px) {
-  .pet-hero { grid-template-columns: 1fr; padding: 1.4rem; }
-  .pet-stage { width: 100%; height: 280px; max-width: 320px; margin: 0 auto; }
-  .pet-creature { width: 200px; height: 200px; }
-  .pet-name { font-size: 2rem; }
+
+@media (max-width: 980px) {
   .pet-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 880px) {
+  .pet-hero { grid-template-columns: 1fr; padding: var(--space-5) var(--space-4); }
+  .pet-stage { width: 100%; max-width: 300px; height: 280px; margin: 0 auto; }
+  .pet-creature { width: 200px; height: 200px; }
   .pet-stats { grid-template-columns: repeat(2, 1fr); }
+  .pet-xp-list li { grid-template-columns: 66px minmax(0, 1fr); }
 }
 </style>
 
-<script>
-// ── Stage SVG factory ────────────────────────────────────────────
-// Procedurally generated SVG so each stage looks distinct without
-// committing dozens of static assets. Colors come from the API.
+{% endblock %}
 
-function svgForStage(stageId, color) {
-  const c = color || '#7aabf8';
-  // Each stage is a different shape. Eyes are constants.
+{% block scripts %}
+/* ── My pet ──────────────────────────────────────────────────────────
+   Namespaced under petPage_ because this block is inlined into base.html's
+   shared <script>; bare top-level names collide with other pages there. */
+
+const petPage_MOOD_LABELS = {
+  happy:   'Happy',
+  neutral: 'Content',
+  sad:     'Lonely',
+  sleepy:  'Sleepy'
+};
+
+const petPage_ICON_HEART =
+  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-heart"/></svg>';
+const petPage_ICON_STAGE =
+  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg>';
+
+let petPage_data = null;
+let petPage_block = null;
+
+/* Reads the scoped illustration tokens off .pet-shell and hands back plain
+   colour strings. SVG presentation attributes do not resolve var(), so the
+   values have to be computed here rather than written into the markup. */
+function petPage_palette() {
+  const shell = document.querySelector('.pet-shell');
+  const cs = getComputedStyle(shell || document.documentElement);
+  const read = (name, fallback) => (cs.getPropertyValue(name) || '').trim() || fallback;
+  return {
+    accent: read('--accent', '#1a56db'),
+    gold:   read('--pet-gold', '#c27a06'),
+    warm:   read('--pet-warm', '#c9691f'),
+    blush:  read('--pet-blush', '#cf6d72'),
+    leaf:   read('--pet-leaf', '#0a7558')
+  };
+}
+
+/* Stage artwork is generated rather than shipped as a dozen static files.
+   Every outline, eye and mouth is `currentColor`, which .pet-creature sets
+   from --pet-ink — so the drawing follows the theme instead of baking in a
+   slate that goes muddy on the warm background and invisible in dark mode. */
+function petPage_svgForStage(stageId, color) {
+  const p = petPage_palette();
+  const c = color || p.accent;
   const eyes = `
-    <ellipse cx="-22" cy="-8" rx="6" ry="8" fill="#1f2937"/>
-    <ellipse cx="22" cy="-8" rx="6" ry="8" fill="#1f2937"/>
+    <ellipse cx="-22" cy="-8" rx="6" ry="8" fill="currentColor"/>
+    <ellipse cx="22" cy="-8" rx="6" ry="8" fill="currentColor"/>
     <circle cx="-20" cy="-11" r="2.4" fill="#fff"/>
-    <circle cx="24" cy="-11" r="2.4" fill="#fff"/>
-  `;
-  const smile = `<path d="M -10 14 Q 0 22 10 14" stroke="#1f2937" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+    <circle cx="24" cy="-11" r="2.4" fill="#fff"/>`;
+  const smile = `<path d="M -10 14 Q 0 22 10 14" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/>`;
   const blush = `
-    <circle cx="-32" cy="6" r="6" fill="#fb7185" opacity="0.5"/>
-    <circle cx="32" cy="6" r="6" fill="#fb7185" opacity="0.5"/>
-  `;
+    <circle cx="-32" cy="6" r="6" fill="${p.blush}" opacity="0.5"/>
+    <circle cx="32" cy="6" r="6" fill="${p.blush}" opacity="0.5"/>`;
 
-  switch(stageId) {
+  switch (stageId) {
     case 'egg':
       return `<svg viewBox="-80 -100 160 200">
-        <ellipse cx="0" cy="20" rx="60" ry="78" fill="${c}" stroke="#1f2937" stroke-width="3"/>
+        <ellipse cx="0" cy="20" rx="60" ry="78" fill="${c}" stroke="currentColor" stroke-width="3"/>
         <ellipse cx="-20" cy="-10" rx="14" ry="20" fill="#fff" opacity="0.45"/>
-        <path d="M -38 -10 q 10 -8 18 0 t 18 0 t 18 0 t 18 0" stroke="#1f2937" stroke-width="2" fill="none" opacity="0.4" stroke-dasharray="3 4"/>
+        <path d="M -38 -10 q 10 -8 18 0 t 18 0 t 18 0 t 18 0" stroke="currentColor" stroke-width="2" fill="none" opacity="0.4" stroke-dasharray="3 4"/>
       </svg>`;
+
     case 'hatchling':
       return `<svg viewBox="-80 -100 160 200">
-        <ellipse cx="0" cy="40" rx="50" ry="42" fill="${c}" stroke="#1f2937" stroke-width="3"/>
-        <circle cx="0" cy="-10" r="48" fill="${c}" stroke="#1f2937" stroke-width="3"/>
-        <path d="M -50 -10 L -64 -22 L -58 -8 Z" fill="${c}" stroke="#1f2937" stroke-width="2.5"/>
-        <path d="M 50 -10 L 64 -22 L 58 -8 Z" fill="${c}" stroke="#1f2937" stroke-width="2.5"/>
+        <ellipse cx="0" cy="40" rx="50" ry="42" fill="${c}" stroke="currentColor" stroke-width="3"/>
+        <circle cx="0" cy="-10" r="48" fill="${c}" stroke="currentColor" stroke-width="3"/>
+        <path d="M -50 -10 L -64 -22 L -58 -8 Z" fill="${c}" stroke="currentColor" stroke-width="2.5"/>
+        <path d="M 50 -10 L 64 -22 L 58 -8 Z" fill="${c}" stroke="currentColor" stroke-width="2.5"/>
         ${eyes}
-        <path d="M -8 8 L 0 16 L 8 8 Z" fill="#fb923c" stroke="#1f2937" stroke-width="2.5"/>
-        <ellipse cx="-32" cy="60" rx="8" ry="14" fill="#fb923c" stroke="#1f2937" stroke-width="2"/>
-        <ellipse cx="32" cy="60" rx="8" ry="14" fill="#fb923c" stroke="#1f2937" stroke-width="2"/>
+        <path d="M -8 8 L 0 16 L 8 8 Z" fill="${p.warm}" stroke="currentColor" stroke-width="2.5"/>
+        <ellipse cx="-32" cy="60" rx="8" ry="14" fill="${p.warm}" stroke="currentColor" stroke-width="2"/>
+        <ellipse cx="32" cy="60" rx="8" ry="14" fill="${p.warm}" stroke="currentColor" stroke-width="2"/>
       </svg>`;
+
     case 'sprout':
       return `<svg viewBox="-80 -100 160 200">
-        <ellipse cx="0" cy="40" rx="56" ry="50" fill="${c}" stroke="#1f2937" stroke-width="3"/>
-        <circle cx="0" cy="-10" r="52" fill="${c}" stroke="#1f2937" stroke-width="3"/>
-        <path d="M 0 -62 Q -8 -78 -20 -76 Q -10 -64 0 -56" fill="#10b981" stroke="#1f2937" stroke-width="2.5"/>
-        <path d="M 0 -62 Q 8 -78 20 -76 Q 10 -64 0 -56" fill="#34d399" stroke="#1f2937" stroke-width="2.5"/>
-        ${eyes}
-        ${smile}
-        ${blush}
+        <ellipse cx="0" cy="40" rx="56" ry="50" fill="${c}" stroke="currentColor" stroke-width="3"/>
+        <circle cx="0" cy="-10" r="52" fill="${c}" stroke="currentColor" stroke-width="3"/>
+        <path d="M 0 -62 Q -8 -78 -20 -76 Q -10 -64 0 -56" fill="${p.leaf}" stroke="currentColor" stroke-width="2.5"/>
+        <path d="M 0 -62 Q 8 -78 20 -76 Q 10 -64 0 -56" fill="${p.leaf}" stroke="currentColor" stroke-width="2.5" opacity="0.75"/>
+        ${eyes}${smile}${blush}
       </svg>`;
+
     case 'cub':
       return `<svg viewBox="-80 -100 160 200">
-        <ellipse cx="0" cy="50" rx="60" ry="48" fill="${c}" stroke="#1f2937" stroke-width="3"/>
-        <circle cx="0" cy="-10" r="56" fill="${c}" stroke="#1f2937" stroke-width="3"/>
-        <path d="M -44 -52 L -32 -28 L -52 -32 Z" fill="${c}" stroke="#1f2937" stroke-width="2.5"/>
-        <path d="M 44 -52 L 32 -28 L 52 -32 Z" fill="${c}" stroke="#1f2937" stroke-width="2.5"/>
+        <ellipse cx="0" cy="50" rx="60" ry="48" fill="${c}" stroke="currentColor" stroke-width="3"/>
+        <circle cx="0" cy="-10" r="56" fill="${c}" stroke="currentColor" stroke-width="3"/>
+        <path d="M -44 -52 L -32 -28 L -52 -32 Z" fill="${c}" stroke="currentColor" stroke-width="2.5"/>
+        <path d="M 44 -52 L 32 -28 L 52 -32 Z" fill="${c}" stroke="currentColor" stroke-width="2.5"/>
         ${eyes}
-        <path d="M -4 8 L 0 14 L 4 8 Z" fill="#1f2937"/>
-        ${smile}
-        ${blush}
+        <path d="M -4 8 L 0 14 L 4 8 Z" fill="currentColor"/>
+        ${smile}${blush}
       </svg>`;
+
     case 'scholar':
       return `<svg viewBox="-80 -100 160 200">
-        <ellipse cx="0" cy="50" rx="64" ry="52" fill="${c}" stroke="#1f2937" stroke-width="3"/>
-        <circle cx="0" cy="-10" r="58" fill="${c}" stroke="#1f2937" stroke-width="3"/>
-        <path d="M -52 -50 L -38 -22 L -60 -28 Z" fill="${c}" stroke="#1f2937" stroke-width="2.5"/>
-        <path d="M 52 -50 L 38 -22 L 60 -28 Z" fill="${c}" stroke="#1f2937" stroke-width="2.5"/>
-        <ellipse cx="-22" cy="-8" rx="11" ry="11" fill="#fff" stroke="#1f2937" stroke-width="2"/>
-        <ellipse cx="22" cy="-8" rx="11" ry="11" fill="#fff" stroke="#1f2937" stroke-width="2"/>
-        <circle cx="-22" cy="-7" r="5" fill="#1f2937"/>
-        <circle cx="22" cy="-7" r="5" fill="#1f2937"/>
-        <line x1="-11" y1="-8" x2="11" y2="-8" stroke="#1f2937" stroke-width="2"/>
+        <ellipse cx="0" cy="50" rx="64" ry="52" fill="${c}" stroke="currentColor" stroke-width="3"/>
+        <circle cx="0" cy="-10" r="58" fill="${c}" stroke="currentColor" stroke-width="3"/>
+        <path d="M -52 -50 L -38 -22 L -60 -28 Z" fill="${c}" stroke="currentColor" stroke-width="2.5"/>
+        <path d="M 52 -50 L 38 -22 L 60 -28 Z" fill="${c}" stroke="currentColor" stroke-width="2.5"/>
+        <ellipse cx="-22" cy="-8" rx="11" ry="11" fill="#fff" stroke="currentColor" stroke-width="2"/>
+        <ellipse cx="22" cy="-8" rx="11" ry="11" fill="#fff" stroke="currentColor" stroke-width="2"/>
+        <circle cx="-22" cy="-7" r="5" fill="currentColor"/>
+        <circle cx="22" cy="-7" r="5" fill="currentColor"/>
+        <line x1="-11" y1="-8" x2="11" y2="-8" stroke="currentColor" stroke-width="2"/>
         ${smile}
-        <rect x="-60" y="-80" width="120" height="14" rx="4" fill="#1f2937"/>
-        <polygon points="0,-86 -20,-66 20,-66" fill="#1f2937"/>
-        <circle cx="14" cy="-72" r="4" fill="#fbbf24"/>
+        <rect x="-60" y="-80" width="120" height="14" rx="4" fill="currentColor"/>
+        <polygon points="0,-86 -20,-66 20,-66" fill="currentColor"/>
+        <circle cx="14" cy="-72" r="4" fill="${p.gold}"/>
       </svg>`;
+
     case 'sage':
       return `<svg viewBox="-80 -100 160 200">
-        <ellipse cx="0" cy="50" rx="68" ry="54" fill="${c}" stroke="#1f2937" stroke-width="3"/>
-        <circle cx="0" cy="-10" r="62" fill="${c}" stroke="#1f2937" stroke-width="3"/>
-        <path d="M -52 -56 L -30 -28 L -64 -34 Z" fill="${c}" stroke="#1f2937" stroke-width="2.5"/>
-        <path d="M 52 -56 L 30 -28 L 64 -34 Z" fill="${c}" stroke="#1f2937" stroke-width="2.5"/>
-        <ellipse cx="-22" cy="-10" rx="14" ry="14" fill="#fff" stroke="#1f2937" stroke-width="2"/>
-        <ellipse cx="22" cy="-10" rx="14" ry="14" fill="#fff" stroke="#1f2937" stroke-width="2"/>
-        <circle cx="-22" cy="-9" r="6" fill="#1f2937"/>
-        <circle cx="22" cy="-9" r="6" fill="#1f2937"/>
+        <ellipse cx="0" cy="50" rx="68" ry="54" fill="${c}" stroke="currentColor" stroke-width="3"/>
+        <circle cx="0" cy="-10" r="62" fill="${c}" stroke="currentColor" stroke-width="3"/>
+        <path d="M -52 -56 L -30 -28 L -64 -34 Z" fill="${c}" stroke="currentColor" stroke-width="2.5"/>
+        <path d="M 52 -56 L 30 -28 L 64 -34 Z" fill="${c}" stroke="currentColor" stroke-width="2.5"/>
+        <ellipse cx="-22" cy="-10" rx="14" ry="14" fill="#fff" stroke="currentColor" stroke-width="2"/>
+        <ellipse cx="22" cy="-10" rx="14" ry="14" fill="#fff" stroke="currentColor" stroke-width="2"/>
+        <circle cx="-22" cy="-9" r="6" fill="currentColor"/>
+        <circle cx="22" cy="-9" r="6" fill="currentColor"/>
         <circle cx="-20" cy="-12" r="2" fill="#fff"/>
         <circle cx="24" cy="-12" r="2" fill="#fff"/>
-        <path d="M -8 10 L 0 18 L 8 10 Z" fill="#fb923c" stroke="#1f2937" stroke-width="2"/>
-        <path d="M -40 -80 Q -20 -100 0 -84 Q 20 -100 40 -80" stroke="#fbbf24" stroke-width="4" fill="none" stroke-linecap="round"/>
-        <circle cx="-40" cy="-80" r="4" fill="#fbbf24"/>
-        <circle cx="40" cy="-80" r="4" fill="#fbbf24"/>
+        <path d="M -8 10 L 0 18 L 8 10 Z" fill="${p.warm}" stroke="currentColor" stroke-width="2"/>
+        <path d="M -40 -80 Q -20 -100 0 -84 Q 20 -100 40 -80" stroke="${p.gold}" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <circle cx="-40" cy="-80" r="4" fill="${p.gold}"/>
+        <circle cx="40" cy="-80" r="4" fill="${p.gold}"/>
       </svg>`;
+
     case 'guardian':
       return `<svg viewBox="-80 -100 160 200">
-        <ellipse cx="0" cy="50" rx="72" ry="56" fill="${c}" stroke="#1f2937" stroke-width="3"/>
-        <circle cx="0" cy="-10" r="64" fill="${c}" stroke="#1f2937" stroke-width="3"/>
-        <path d="M -58 -54 L -34 -26 L -68 -32 Z" fill="#3b82f6" stroke="#1f2937" stroke-width="2.5"/>
-        <path d="M 58 -54 L 34 -26 L 68 -32 Z" fill="#3b82f6" stroke="#1f2937" stroke-width="2.5"/>
-        <path d="M -40 -68 L -28 -52 L -50 -56 Z" fill="#3b82f6" stroke="#1f2937" stroke-width="2"/>
-        <path d="M 40 -68 L 28 -52 L 50 -56 Z" fill="#3b82f6" stroke="#1f2937" stroke-width="2"/>
+        <ellipse cx="0" cy="50" rx="72" ry="56" fill="${c}" stroke="currentColor" stroke-width="3"/>
+        <circle cx="0" cy="-10" r="64" fill="${c}" stroke="currentColor" stroke-width="3"/>
+        <path d="M -58 -54 L -34 -26 L -68 -32 Z" fill="${p.accent}" stroke="currentColor" stroke-width="2.5"/>
+        <path d="M 58 -54 L 34 -26 L 68 -32 Z" fill="${p.accent}" stroke="currentColor" stroke-width="2.5"/>
+        <path d="M -40 -68 L -28 -52 L -50 -56 Z" fill="${p.accent}" stroke="currentColor" stroke-width="2"/>
+        <path d="M 40 -68 L 28 -52 L 50 -56 Z" fill="${p.accent}" stroke="currentColor" stroke-width="2"/>
         ${eyes}
-        <path d="M -14 12 Q 0 24 14 12 L 10 8 L 6 12 L 0 8 L -6 12 L -10 8 Z" fill="#1f2937"/>
-        <circle cx="0" cy="-72" r="6" fill="#fbbf24" stroke="#1f2937" stroke-width="2"/>
+        <path d="M -14 12 Q 0 24 14 12 L 10 8 L 6 12 L 0 8 L -6 12 L -10 8 Z" fill="currentColor"/>
+        <circle cx="0" cy="-72" r="6" fill="${p.gold}" stroke="currentColor" stroke-width="2"/>
       </svg>`;
+
     case 'mythic':
       return `<svg viewBox="-80 -100 160 200">
         <defs>
-          <linearGradient id="mythicGrad" x1="0" x2="1" y1="0" y2="1">
+          <linearGradient id="petMythicGrad" x1="0" x2="1" y1="0" y2="1">
             <stop offset="0%" stop-color="${c}"/>
-            <stop offset="100%" stop-color="#3b82f6"/>
+            <stop offset="100%" stop-color="${p.accent}"/>
           </linearGradient>
         </defs>
-        <ellipse cx="0" cy="50" rx="74" ry="58" fill="url(#mythicGrad)" stroke="#1f2937" stroke-width="3"/>
-        <circle cx="0" cy="-10" r="66" fill="url(#mythicGrad)" stroke="#1f2937" stroke-width="3"/>
-        <path d="M -56 -56 L -32 -24 L -68 -30 Z" fill="${c}" stroke="#1f2937" stroke-width="2.5"/>
-        <path d="M 56 -56 L 32 -24 L 68 -30 Z" fill="${c}" stroke="#1f2937" stroke-width="2.5"/>
-        ${eyes}
-        ${smile}
-        <path d="M 0 -64 L -8 -84 L 0 -94 L 8 -84 Z" fill="#fbbf24" stroke="#1f2937" stroke-width="2.5"/>
+        <ellipse cx="0" cy="50" rx="74" ry="58" fill="url(#petMythicGrad)" stroke="currentColor" stroke-width="3"/>
+        <circle cx="0" cy="-10" r="66" fill="url(#petMythicGrad)" stroke="currentColor" stroke-width="3"/>
+        <path d="M -56 -56 L -32 -24 L -68 -30 Z" fill="${c}" stroke="currentColor" stroke-width="2.5"/>
+        <path d="M 56 -56 L 32 -24 L 68 -30 Z" fill="${c}" stroke="currentColor" stroke-width="2.5"/>
+        ${eyes}${smile}
+        <path d="M 0 -64 L -8 -84 L 0 -94 L 8 -84 Z" fill="${p.gold}" stroke="currentColor" stroke-width="2.5"/>
         <circle cx="0" cy="-76" r="3" fill="#fff"/>
         <circle cx="-40" cy="40" r="3" fill="#fff" opacity="0.8"/>
         <circle cx="40" cy="40" r="3" fill="#fff" opacity="0.8"/>
         <circle cx="-50" cy="20" r="2" fill="#fff" opacity="0.6"/>
         <circle cx="50" cy="20" r="2" fill="#fff" opacity="0.6"/>
       </svg>`;
+
     case 'cosmic':
     default:
       return `<svg viewBox="-80 -100 160 200">
         <defs>
-          <radialGradient id="cosmicGrad">
-            <stop offset="0%" stop-color="#fbbf24"/>
+          <radialGradient id="petCosmicGrad">
+            <stop offset="0%" stop-color="${p.gold}"/>
             <stop offset="50%" stop-color="${c}"/>
-            <stop offset="100%" stop-color="#1a56db"/>
+            <stop offset="100%" stop-color="${p.accent}"/>
           </radialGradient>
         </defs>
-        <ellipse cx="0" cy="50" rx="76" ry="60" fill="url(#cosmicGrad)" stroke="#1f2937" stroke-width="3"/>
-        <circle cx="0" cy="-10" r="68" fill="url(#cosmicGrad)" stroke="#1f2937" stroke-width="3"/>
-        <path d="M -58 -58 L -34 -22 L -70 -28 Z" fill="${c}" stroke="#1f2937" stroke-width="2.5"/>
-        <path d="M 58 -58 L 34 -22 L 70 -28 Z" fill="${c}" stroke="#1f2937" stroke-width="2.5"/>
-        ${eyes}
-        ${smile}
-        <ellipse cx="0" cy="20" rx="90" ry="14" fill="none" stroke="#fbbf24" stroke-width="3" transform="rotate(-15 0 20)" opacity="0.7"/>
+        <ellipse cx="0" cy="50" rx="76" ry="60" fill="url(#petCosmicGrad)" stroke="currentColor" stroke-width="3"/>
+        <circle cx="0" cy="-10" r="68" fill="url(#petCosmicGrad)" stroke="currentColor" stroke-width="3"/>
+        <path d="M -58 -58 L -34 -22 L -70 -28 Z" fill="${c}" stroke="currentColor" stroke-width="2.5"/>
+        <path d="M 58 -58 L 34 -22 L 70 -28 Z" fill="${c}" stroke="currentColor" stroke-width="2.5"/>
+        ${eyes}${smile}
+        <ellipse cx="0" cy="20" rx="90" ry="14" fill="none" stroke="${p.gold}" stroke-width="3" transform="rotate(-15 0 20)" opacity="0.7"/>
         <circle cx="-70" cy="-30" r="3" fill="#fff"/>
         <circle cx="70" cy="-30" r="3" fill="#fff"/>
         <circle cx="-60" cy="40" r="2" fill="#fff"/>
         <circle cx="60" cy="40" r="2" fill="#fff"/>
-        <circle cx="0" cy="-78" r="4" fill="#fbbf24"/>
+        <circle cx="0" cy="-78" r="4" fill="${p.gold}"/>
       </svg>`;
   }
 }
 
-var MOOD_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-heart"/></svg>';
-var MOOD_MAP = {
-  happy: { label: 'Happy' },
-  neutral: { label: 'Content' },
-  sad: { label: 'Lonely' },
-  sleepy: { label: 'Sleepy' }
-};
-var PET_STAGE_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg>';
-
-let petData = null;
-
-function renderPet(d) {
-  petData = d;
-  document.getElementById('petName').textContent = d.name || 'Pet';
-  document.getElementById('petKicker').textContent = (d.stage_name || 'Egg') + ' stage';
-  document.getElementById('petTitleLine').textContent = d.stage_title || '';
-  document.getElementById('petLevel').textContent = d.level || 1;
-  document.getElementById('petXp').textContent = d.xp || 0;
-  document.getElementById('petStreak').textContent = d.streak || 0;
-
-  var mood = MOOD_MAP[d.mood] || MOOD_MAP.neutral;
-  document.getElementById('petMoodEmoji').innerHTML = MOOD_SVG;
-  document.getElementById('petMoodLabel').textContent = mood.label;
-
-  document.getElementById('petStageNow').textContent = d.stage_name || 'Egg';
-  document.getElementById('petStageNext').textContent = d.next_stage_name
-    ? '→ ' + d.next_stage_name
-    : 'Maxed';
-  const pct = Math.round((d.progress_to_next || 0) * 100);
-  document.getElementById('petProgressFill').style.width = pct + '%';
-  if (d.xp_for_next_stage > 0) {
-    document.getElementById('petProgressMeta').textContent =
-      d.xp_into_stage + ' / ' + d.xp_for_next_stage + ' XP';
-  } else {
-    document.getElementById('petProgressMeta').textContent = 'Maxed out — ' + d.xp + ' XP total';
+/* Nine rows because the server ships nine stages, and each placeholder is a
+   real .pet-stage-row — a generic 4-row list skeleton left the column 424px
+   short and the page jumped when the data landed. Line heights match the
+   rendered text metrics (23px title, 20px subtitle). */
+function petPage_stagesSkeleton() {
+  let out = '';
+  for (let i = 0; i < 9; i++) {
+    out +=
+      '<div class="pet-stage-row pet-stage-row--sk" aria-hidden="true">' +
+        '<div class="pet-stage-icon"><div class="ip-sk" style="width:20px;height:20px;border-radius:6px"></div></div>' +
+        '<div class="pet-stage-info">' +
+          '<div class="ip-sk" style="height:23px;width:' + (42 + (i % 3) * 14) + '%"></div>' +
+          '<div class="ip-sk" style="height:20px;width:' + (28 + (i % 2) * 20) + '%"></div>' +
+        '</div>' +
+        '<div class="ip-sk" style="width:54px;height:20px;border-radius:4px"></div>' +
+      '</div>';
   }
+  return out;
+}
 
-  document.getElementById('petCreature').innerHTML = svgForStage(d.stage_id, d.stage_color);
-
-  // Stages list
+function petPage_renderStages(d) {
+  const host = document.getElementById('petStagesList');
+  if (!host) return;
   const stages = d.stages || [];
   const currentIdx = stages.findIndex(s => s.id === d.stage_id);
-  document.getElementById('petStagesList').innerHTML = stages.map((s, idx) => {
-    const cls = idx === currentIdx ? 'current' : idx > currentIdx ? 'locked' : '';
-    const badge = idx === currentIdx ? 'YOU ARE HERE' : idx < currentIdx ? 'Unlocked' : (s.min_xp + ' XP');
-    return `
-      <div class="pet-stage-row ${cls}">
-        <div class="pet-stage-emoji">${PET_STAGE_SVG}</div>
-        <div class="pet-stage-info">
-          <span class="pet-stage-name">${s.name}</span>
-          <span class="pet-stage-xp">${s.title}</span>
-        </div>
-        <span class="pet-stage-badge">${badge}</span>
-      </div>
-    `;
-  }).join('');
+
+  host.innerHTML = '';
+  stages.forEach((s, idx) => {
+    const row = document.createElement('div');
+    row.className = 'pet-stage-row ' +
+      (idx === currentIdx ? 'current' : idx > currentIdx ? 'locked' : 'unlocked');
+
+    const icon = document.createElement('div');
+    icon.className = 'pet-stage-icon';
+    icon.innerHTML = petPage_ICON_STAGE;
+
+    const info = document.createElement('div');
+    info.className = 'pet-stage-info';
+    const name = document.createElement('span');
+    name.className = 'pet-stage-name';
+    name.textContent = s.name;
+    const sub = document.createElement('span');
+    sub.className = 'pet-stage-xp';
+    sub.textContent = s.title || '';
+    info.append(name, sub);
+
+    const badge = document.createElement('span');
+    badge.className = 'pet-stage-badge';
+    badge.textContent = idx === currentIdx ? 'You are here'
+                      : idx < currentIdx  ? 'Unlocked'
+                      : s.min_xp + ' XP';
+
+    row.append(icon, info, badge);
+    host.appendChild(row);
+  });
 }
 
-async function loadPet() {
-  try {
-    const r = await fetch('/api/pet/status', { credentials:'same-origin' });
-    if (!r.ok) return;
-    const d = await r.json();
-    if (d.status === 'ok') renderPet(d);
-  } catch(e) { console.error(e); }
+function petPage_render(d, host) {
+  petPage_data = d;
+
+  const tpl = document.getElementById('petHeroTemplate');
+  host.appendChild(tpl.content.cloneNode(true));
+
+  const set = (id, value) => { const n = document.getElementById(id); if (n) n.textContent = value; };
+
+  set('petName', d.name || 'Pet');
+  set('petKicker', (d.stage_name || 'Egg') + ' stage');
+  set('petTitleLine', d.stage_title || '');
+  set('petLevel', d.level || 1);
+  set('petXp', d.xp || 0);
+  set('petStreak', d.streak || 0);
+  set('petMoodLabel', petPage_MOOD_LABELS[d.mood] || petPage_MOOD_LABELS.neutral);
+  set('petStageNow', d.stage_name || 'Egg');
+  set('petStageNext', d.next_stage_name ? '→ ' + d.next_stage_name : 'Fully grown');
+
+  document.getElementById('petMoodIcon').innerHTML = petPage_ICON_HEART;
+  document.getElementById('petCreature').innerHTML = petPage_svgForStage(d.stage_id, d.stage_color);
+  document.getElementById('petCreature').setAttribute(
+    'aria-label', (d.name || 'Your pet') + ', ' + (d.stage_name || 'egg') + ' stage');
+
+  const pct = Math.round((d.progress_to_next || 0) * 100);
+  document.getElementById('petProgressFill').style.transform = 'scaleX(' + (pct / 100) + ')';
+  document.getElementById('petProgressBar').setAttribute('aria-valuenow', pct);
+  set('petProgressMeta', d.xp_for_next_stage > 0
+    ? d.xp_into_stage + ' / ' + d.xp_for_next_stage + ' XP'
+    : 'Fully grown — ' + (d.xp || 0) + ' XP total');
+
+  document.getElementById('petRenameBtn').addEventListener('click', IP.guard(petPage_openRename, 'petRename'));
+  petPage_renderStages(d);
 }
 
-function submitRename() {
-  const val = document.getElementById('renameInput').value.trim();
-  if (!val) return;
-  fetch('/api/pet/rename', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    credentials:'same-origin',
-    body: JSON.stringify({ name: val })
-  }).then(r => r.json()).then(d => {
-    if (d.status === 'ok') {
-      document.getElementById('petName').textContent = d.name;
-      document.getElementById('renameDialog').close();
+/* ── Rename ────────────────────────────────────────────────────────── */
+
+function petPage_openRename() {
+  const input = document.getElementById('renameInput');
+  const error = document.getElementById('renameError');
+  input.value = (petPage_data && petPage_data.name) || 'Plani';
+  error.hidden = true;
+  input.removeAttribute('aria-invalid');
+  document.getElementById('renameDialog').showModal();
+  input.select();
+}
+
+function petPage_submitRename() {
+  const input = document.getElementById('renameInput');
+  const error = document.getElementById('renameError');
+  const next = input.value.trim().slice(0, 40);
+  const prev = (petPage_data && petPage_data.name) || 'Plani';
+
+  if (!next) {
+    error.textContent = 'Give your pet a name first.';
+    error.hidden = false;
+    input.setAttribute('aria-invalid', 'true');
+    return;
+  }
+  if (next === prev) { document.getElementById('renameDialog').close(); return; }
+
+  const nameEl = document.getElementById('petName');
+  document.getElementById('renameDialog').close();
+
+  /* The new name shows the moment you press Save. If the server refuses it,
+     the old one comes back and a toast offers a retry — so the common case
+     costs nothing and the rare failure is still recoverable. */
+  IP.optimistic({
+    label: 'pet name',
+    apply:    () => { if (nameEl) nameEl.textContent = next; if (petPage_data) petPage_data.name = next; },
+    rollback: () => { if (nameEl) nameEl.textContent = prev; if (petPage_data) petPage_data.name = prev; },
+    commit:   () => IP.post('/api/pet/rename', { name: next }),
+    queueOnOffline: {
+      url: '/api/pet/rename', method: 'POST', body: { name: next },
+      dedupeKey: 'pet:rename', label: 'pet name'
+    },
+    onSuccess: (res) => {
+      const saved = (res && res.name) || next;
+      if (nameEl) nameEl.textContent = saved;
+      if (petPage_data) petPage_data.name = saved;
+      IP.store.set('pet:status', petPage_data, 5 * 60 * 1000);
+      IP.toast('Renamed to ' + saved, 'success');
       if (window.intelliplanRefreshPet) window.intelliplanRefreshPet();
     }
   });
 }
 
-document.getElementById('petRenameBtn').addEventListener('click', () => {
-  document.getElementById('renameInput').value = (petData && petData.name) || 'Pet';
-  document.getElementById('renameDialog').showModal();
+/* ── Boot ──────────────────────────────────────────────────────────── */
+
+document.getElementById('renameForm').addEventListener('submit', e => {
+  e.preventDefault();
+  IP.guard(petPage_submitRename, 'petSubmitRename')();
+});
+document.getElementById('renameCancel').addEventListener('click', () => {
+  document.getElementById('renameDialog').close();
 });
 
-loadPet();
-</script>
-
+petPage_block = IP.block('#petHero', {
+  skeleton: 'hero',
+  cacheKey: 'pet:status',
+  cacheTtl: 5 * 60 * 1000,
+  errorTitle: 'Your pet did not load',
+  load: ctx => IP.get('/api/pet/status', { signal: ctx.signal }),
+  isEmpty: d => !d || !d.stage_id,
+  empty: {
+    title: 'No pet yet',
+    body: 'Your pet hatches the first time you use IntelliPlan for the day. Plan something and come back.',
+    action: { label: 'Open your schedule', href: '/scheduler' }
+  },
+  render: petPage_render,
+  onState: state => {
+    /* The evolution list is fed by the same request, so it mirrors the
+       hero's state instead of sitting on an empty box forever. */
+    const list = document.getElementById('petStagesList');
+    if (!list) return;
+    if (state === 'loading')  list.innerHTML = petPage_stagesSkeleton();
+    if (state === 'error')    list.innerHTML =
+      '<p class="pet-muted">The stage list loads with your pet. Retry above to fetch both.</p>';
+    if (state === 'empty')    list.innerHTML =
+      '<p class="pet-muted">Stages unlock once your pet hatches.</p>';
+  }
+});
 {% endblock %}

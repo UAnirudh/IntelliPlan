@@ -13,14 +13,14 @@
   .bal-page .bal-badge {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 5px 11px;
-    background: rgba(16,185,129,0.10); color: #10b981;
+    background: rgba(16,185,129,0.10); color: var(--low);
     border: 1px solid rgba(16,185,129,0.22);
     border-radius: 999px;
     font: 600 0.7rem/1 var(--font-display);
     letter-spacing: 0.06em; text-transform: uppercase;
     margin-bottom: 14px;
   }
-  .bal-page .bal-badge::before { content:''; display:block; width:6px; height:6px; border-radius:50%; background:#10b981; }
+  .bal-page .bal-badge::before { content:''; display:block; width:6px; height:6px; border-radius:50%; background:var(--low); }
   .bal-page .bal-h1 {
     display: block; margin: 0 0 8px;
     font: 700 1.9rem/1.15 var(--font-display);
@@ -72,10 +72,11 @@
     background: var(--bg-elevated); border-radius: 999px; overflow: hidden;
   }
   .bal-page .bal-progress-fill {
-    display: block; height: 100%;
-    background: linear-gradient(90deg, #2563eb, #3b82f6);
-    border-radius: 999px;
-    transition: width 0.4s var(--ease-out);
+    display: block; height: 100%; width: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent));
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 0.4s var(--ease-out);
   }
 
   /* Week mini-chart */
@@ -84,13 +85,20 @@
     align-items: end; height: 96px; margin-top: 12px;
   }
   .bal-page .bal-week-bar {
-    display: block; background: var(--accent-soft);
+    display: block; height: 100%; overflow: hidden;
+    border-radius: 5px 5px 0 0;
+  }
+  .bal-page .bal-week-bar-fill {
+    display: block; height: 100%;
+    background: var(--accent-soft);
     border: 1px solid var(--accent-mid);
-    border-radius: 5px 5px 0 0; min-height: 4px;
-    transition: height 0.4s var(--ease-out);
+    border-radius: 5px 5px 0 0;
+    transform: scaleY(0);
+    transform-origin: center bottom;
+    transition: transform 0.4s var(--ease-out);
   }
   .bal-page .bal-week-bar.today {
-    background: linear-gradient(180deg, #3b82f6, #1d4ed8);
+    background: linear-gradient(180deg, var(--accent), var(--accent));
     border-color: transparent;
   }
   .bal-page .bal-week-labels {
@@ -175,7 +183,7 @@
   .bal-page .bal-promise p {
     margin: 0; font: 400 0.88rem/1.55 var(--font-body); color: var(--text-secondary);
   }
-  .bal-page .bal-promise strong { color: #059669; }
+  .bal-page .bal-promise strong { color: var(--low); }
 
   .bal-page .bal-card + .bal-card { margin-top: 16px; }
 </style>
@@ -195,7 +203,7 @@
         <span class="bal-stat-unit">min</span>
       </div>
       <span class="bal-sub">Awareness goal: <span id="balGoal">60</span> min</span>
-      <span class="bal-progress" aria-hidden="true"><span class="bal-progress-fill" id="balBarFill" style="width:0%"></span></span>
+      <span class="bal-progress" aria-hidden="true"><span class="bal-progress-fill" id="balBarFill"></span></span>
     </article>
 
     <article class="bal-card">
@@ -311,7 +319,7 @@
       const pct = d.daily_goal_minutes > 0
         ? Math.min(100, (d.today_minutes / d.daily_goal_minutes) * 100)
         : 0;
-      $('balBarFill').style.width = pct + '%';
+      $('balBarFill').style.transform = 'scaleX(' + (pct / 100) + ')';
 
       const chart = $('balWeekChart');
       const labels = $('balWeekLabels');
@@ -320,7 +328,8 @@
       chart.innerHTML = d.week_series.map(p => {
         const h = Math.max(4, (p.minutes / maxMin) * 100);
         const isToday = p.date === todayDate;
-        return `<span class="bal-week-bar ${isToday?'today':''}" style="height:${h}%" title="${p.date}: ${p.minutes} min"></span>`;
+        return `<span class="bal-week-bar ${isToday?'today':''}" title="${p.date}: ${p.minutes} min">`
+             + `<span class="bal-week-bar-fill" style="transform:scaleY(${h / 100})"></span></span>`;
       }).join('');
       labels.innerHTML = d.week_series.map(p => {
         const day = new Date(p.date + 'T00:00:00').toLocaleDateString(undefined, {weekday:'short'});

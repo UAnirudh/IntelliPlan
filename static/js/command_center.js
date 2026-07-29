@@ -208,7 +208,7 @@ function hydrateForecast(fc) {
     var stress = day.stress || 0;
     var cls = stress >= 0.8 ? 'cc-bar-hot' : stress >= 0.5 ? 'cc-bar-warm' : '';
     return '<div class="cc-bar-col" title="' + day.committed_min + 'min / ' + day.available_min + 'min">'
-      + '<div class="cc-bar-track"><div class="cc-bar-fill ' + cls + '" style="height:' + Math.round(stress * 100) + '%;"></div></div>'
+      + '<div class="cc-bar-track"><div class="cc-bar-fill ' + cls + '" style="transform:scaleY(' + stress + ')"></div></div>'
       + '<span class="cc-bar-label">' + (day.date || '').slice(-5) + '</span></div>';
   }).join('');
   if (summary) summary.textContent = fc.summary || '';
@@ -256,7 +256,7 @@ function hydrateMomentumData(d) {
   setText('ccMomentumPetName', d.name || 'Pet');
   setText('ccMomentumPetLvl', d.level || 1);
   var fill = document.getElementById('ccMomentumPetFill');
-  if (fill) fill.style.width = Math.round((d.progress_to_next || 0) * 100) + '%';
+  if (fill) fill.style.transform = 'scaleX(' + (d.progress_to_next || 0) + ')';
 
   if (d.care) Object.entries(d.care).forEach(function(e) {
     var action = e[0], info = e[1];
@@ -719,7 +719,7 @@ function lgRenderConcepts(containerId, concepts) {
     var pct = Math.round(c.mastery_score * 100);
     var hue = Math.round(c.mastery_score * 120);
     return '<div class="cc-lg-concept-row">'
-      + '<div class="cc-lg-concept-bar-track"><div class="cc-lg-concept-bar-fill" style="width:' + pct + '%;background:hsl(' + hue + ',65%,48%)"></div></div>'
+      + '<div class="cc-lg-concept-bar-track"><div class="cc-lg-concept-bar-fill" style="transform:scaleX(' + (pct / 100) + ');background:hsl(' + hue + ',65%,48%)"></div></div>'
       + '<div class="cc-lg-concept-info"><span class="cc-lg-concept-name">' + escapeHtml(c.concept) + '</span><span class="cc-lg-concept-subject">' + escapeHtml(c.subject) + '</span></div>'
       + '<span class="cc-lg-concept-pct">' + pct + '%</span></div>';
   }).join('');
@@ -737,7 +737,7 @@ function lgRenderHeatmap(subjects) {
     var hue = Math.round((s.avg_mastery || 0) * 120);
     return '<div class="cc-lg-heatmap-row">'
       + '<span class="cc-lg-heatmap-subject">' + escapeHtml(s.subject) + '</span>'
-      + '<div class="cc-lg-heatmap-bar-track"><div class="cc-lg-heatmap-bar-fill" style="width:' + pct + '%;background:hsl(' + hue + ',65%,48%)"></div></div>'
+      + '<div class="cc-lg-heatmap-bar-track"><div class="cc-lg-heatmap-bar-fill" style="transform:scaleX(' + (pct / 100) + ');background:hsl(' + hue + ',65%,48%)"></div></div>'
       + '<span class="cc-lg-heatmap-pct">' + pct + '%</span>'
       + '<span class="cc-lg-heatmap-count">' + (s.concept_count || 0) + ' concepts</span></div>';
   }).join('');

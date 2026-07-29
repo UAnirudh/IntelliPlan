@@ -21,12 +21,12 @@
   .ad-stat .val { font-family:var(--font-display); font-size:2rem; font-weight:400; color:var(--text-primary); line-height:1; margin-top:0.4rem; letter-spacing:-0.03em; }
   .ad-tier-badge { display:inline-block; padding:0.3rem 0.7rem; border-radius:999px; font-weight:700; font-size:0.82rem; font-family:var(--font-ui); margin-top:0.4rem; }
   .tier-none { background:var(--bg-elevated); color:var(--text-muted); }
-  .tier-bronze { background:#fef3c7; color:#92400e; }
-  .tier-silver { background:#e0e7ff; color:#3730a3; }
+  .tier-bronze { background:var(--medium-bg); color:#92400e; }
+  .tier-silver { background:var(--accent-soft); color:#3730a3; }
   .tier-gold { background:#fef9c3; color:#854d0e; }
   .ad-progress { margin-top:1rem; }
   .ad-progress .bar-wrap { height:8px; background:var(--bg-elevated); border-radius:999px; overflow:hidden; }
-  .ad-progress .bar { height:100%; background:var(--grad-brand); transition:width 0.5s ease; }
+  .ad-progress .bar { height:100%; width:100%; background:var(--grad-brand); transform:scaleX(0); transform-origin:left center; transition:transform 0.5s var(--ease-out); }
   .ad-progress .lbl { font-family:var(--font-ui); font-size:0.82rem; color:var(--text-muted); margin-top:0.4rem; }
   .ad-share { display:flex; flex-wrap:wrap; gap:0.5rem; margin-top:0.75rem; }
   .ad-share a { padding:0.55rem 0.95rem; border:1px solid var(--border-strong); border-radius:10px; font-family:var(--font-ui); font-size:0.84rem; font-weight:600; color:var(--text-primary); text-decoration:none; }
@@ -70,7 +70,7 @@
     <div style="font-family:var(--font-display);font-size:1.1rem;font-weight:400;color:var(--text-primary);margin-bottom:0.4rem;">Next tier</div>
     <div style="font-family:var(--font-ui);font-size:0.92rem;color:var(--text-secondary);" id="tierNote">Loading your progress…</div>
     <div class="ad-progress">
-      <div class="bar-wrap"><div class="bar" id="tierBar" style="width:0%"></div></div>
+      <div class="bar-wrap"><div class="bar" id="tierBar"></div></div>
       <div class="lbl" id="tierLbl">—</div>
     </div>
   </div>
@@ -116,11 +116,11 @@
     if (t.next) {
       const pct = Math.min(100, Math.round((total / t.needed) * 100));
       noteEl.innerHTML = `<strong>${t.needed - total}</strong> more referral${(t.needed - total) === 1 ? '' : 's'} to reach <strong>${t.next}</strong>.`;
-      barEl.style.width = pct + '%';
+      barEl.style.transform = 'scaleX(' + (pct / 100) + ')';
       lblEl.textContent = total + ' / ' + t.needed + ' referrals';
     } else {
       noteEl.innerHTML = `You're at the top tier. Top ambassadors get featured on the program page each semester.`;
-      barEl.style.width = '100%';
+      barEl.style.transform = 'scaleX(1)';
       lblEl.textContent = total + ' / 25+ referrals';
     }
     // Wire share links

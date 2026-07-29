@@ -138,6 +138,17 @@
     font-family: var(--ipd-font-body); font-size: 0.9rem;
     font-weight: 600; color: var(--text-primary); margin-bottom: 3px;
   }
+  /* Carries the subject colour that used to be a 3px stripe down the block's
+     left edge. Sitting next to the title makes the pairing explicit instead
+     of asking the reader to map an edge colour to a course. */
+  .block-swatch {
+    display: inline-block;
+    width: 9px; height: 9px;
+    margin-right: 7px;
+    border-radius: 3px;
+    vertical-align: 1px;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14);
+  }
   .block-course, .block-notes {
     font-size: 0.78rem; color: var(--text-muted); line-height: 1.5;
     display: flex; align-items: center; gap: 5px;
@@ -311,8 +322,10 @@
     overflow: hidden; margin-bottom: 0.9rem;
   }
   .iv-progress-bar {
-    height: 100%; background: var(--text-primary);
-    width: 0%; transition: width 0.5s var(--ipd-ease-out);
+    height: 100%; width: 100%; background: var(--text-primary);
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 0.5s var(--ipd-ease-out);
   }
 
   .iv-block {
@@ -601,8 +614,10 @@
     height: 4px; background: var(--border); border-radius: 999px; overflow: hidden;
   }
   .ck-progress-bar {
-    height: 100%; background: var(--text-primary); width: 0%;
-    transition: width 0.3s var(--ipd-ease-out);
+    height: 100%; width: 100%; background: var(--text-primary);
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 0.3s var(--ipd-ease-out);
   }
   .ck-progress-text {
     font-family: var(--ipd-font-mono); font-size: 0.72rem; font-weight: 500;
@@ -1539,10 +1554,10 @@ function renderSchedule(data) {
       </div>
       <div class="day-blocks">
         ${(day.blocks || []).map(block => `
-          <div class="time-block ${block.is_break ? 'break-block' : ''}" style="${block.color ? `border-left:3px solid ${block.color};` : ''}">
+          <div class="time-block ${block.is_break ? 'break-block' : ''}">
             <div class="time-slot">${escapeTimeSlot(block.time_slot || '')}</div>
             <div class="block-content">
-              <div class="block-title">${block.is_break ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-coffee"/></svg> Break' : escapeText(block.assignment || '')}</div>
+              <div class="block-title">${block.is_break ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-coffee"/></svg> Break' : `${block.color ? `<span class="block-swatch" style="background:${block.color}"></span>` : ''}${escapeText(block.assignment || '')}`}</div>
               ${!block.is_break && block.course ? `<div class="block-course"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-book"/></svg> ${escapeText(block.course)}</div>` : ''}
               ${block.notes ? `<div class="block-notes"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-lightbulb"/></svg> ${escapeText(block.notes)}</div>` : ''}
             </div>
@@ -1610,7 +1625,7 @@ function renderInteractive() {
           </div>
           <div class="iv-day-meta"><svg><use href="#i-clock"/></svg> ${escapeText(String(day.total_hours || 0))}h</div>
         </div>
-        <div class="iv-progress"><div class="iv-progress-bar" style="width:${pct}%"></div></div>
+        <div class="iv-progress"><div class="iv-progress-bar" style="transform:scaleX(${pct / 100})"></div></div>
         ${(day.blocks || []).map(b => renderIvBlock(b)).join('')}
       </div>`;
   }).join('');
@@ -2342,7 +2357,7 @@ function renderChecklistBody() {
 
 function updateProgress(done, total) {
   const pct = total ? Math.round((done / total) * 100) : 0;
-  document.getElementById('ckProgressBar').style.width = pct + '%';
+  document.getElementById('ckProgressBar').style.transform = 'scaleX(' + (pct / 100) + ')';
   document.getElementById('ckProgressText').textContent = `${done} / ${total}`;
 }
 

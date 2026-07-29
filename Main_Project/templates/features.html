@@ -164,11 +164,11 @@
     letter-spacing: 0.05em; text-transform: uppercase;
   }
   .fr-page .fr-tag { background: var(--accent-soft); color: var(--accent); }
-  .fr-page .fr-status.open       { background: rgba(16,185,129,0.10); color: #059669; }
-  .fr-page .fr-status.planned    { background: rgba(217,119,6,0.10); color: #d97706; }
+  .fr-page .fr-status.open       { background: rgba(16,185,129,0.10); color: var(--low); }
+  .fr-page .fr-status.planned    { background: rgba(217,119,6,0.10); color: var(--medium); }
   .fr-page .fr-status.in_progress{ background: var(--accent-soft); color: var(--accent); }
   .fr-page .fr-status.shipped    { background: rgba(16,185,129,0.18); color: #047857; }
-  .fr-page .fr-status.declined   { background: rgba(220,38,38,0.10); color: #dc2626; }
+  .fr-page .fr-status.declined   { background: rgba(220,38,38,0.10); color: var(--danger); }
 
   .fr-page .fr-empty {
     display: block; padding: 28px;
@@ -245,9 +245,29 @@
   }
 
   async function load(){
-    const r = await fetch(`/api/features?sort=${state.sort}&status=${state.status}`);
-    const data = await r.json();
     const list = document.getElementById('frList');
+    list.innerHTML = IP.skeleton('list', 5);
+    let data;
+    try {
+      // /api/features pages at 30; the board sorts and filters server-side,
+      // so walk the pages to keep the full ranked list.
+      const all = await IP.getAll(`/api/features?sort=${state.sort}&status=${state.status}`);
+      data = { items: all.items };
+    } catch (err) {
+      list.innerHTML = '';
+      const box = document.createElement('div');
+      box.className = 'ip-state ip-state--error';
+      box.innerHTML =
+        '<p class="ip-state__title">The board did not load</p>' +
+        '<p class="ip-state__body">' + (err.friendly ? err.friendly() : 'Something went wrong.') + '</p>';
+      const acts = document.createElement('div');
+      acts.className = 'ip-state__actions';
+      const btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'ip-btn ip-btn--primary'; btn.textContent = 'Retry';
+      btn.addEventListener('click', load);
+      acts.appendChild(btn); box.appendChild(acts); list.appendChild(box);
+      return;
+    }
     if (!data.items || !data.items.length){
       list.innerHTML = `<div class="fr-empty">No ideas here yet. Be the first.</div>`;
       return;
