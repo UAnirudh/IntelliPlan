@@ -164,12 +164,19 @@ main {
 #tutorPlaniSvg {
   width: 110px; height: 127px;
   animation: tpFloat 3.2s ease-in-out infinite;
-  filter: drop-shadow(0 8px 24px rgba(79,70,229,0.32));
+  /* Amber, matching --plani-signal. This was a hardcoded indigo that
+     belonged to neither the old accent nor the character. */
+  filter: drop-shadow(0 8px 24px rgba(var(--plani-glow), 0.32));
   transition: filter 0.3s ease;
 }
 #tutorPlaniWrap.is-thinking #tutorPlaniSvg {
   animation: tpThink 0.85s ease-in-out infinite;
-  filter: drop-shadow(0 0 22px rgba(79,70,229,0.75));
+  filter: drop-shadow(0 0 22px rgba(var(--plani-glow), 0.7));
+}
+@media (prefers-reduced-motion: reduce) {
+  #tutorPlaniSvg,
+  #tutorPlaniWrap.is-thinking #tutorPlaniSvg,
+  #tutorPlaniWrap.is-responding #tutorPlaniSvg { animation: none; }
 }
 #tutorPlaniWrap.is-responding #tutorPlaniSvg {
   animation: tpRespond 0.55s var(--ease-out) forwards;
@@ -253,7 +260,7 @@ main {
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0; margin-top: 18px; overflow: hidden;
 }
-.tutor-avatar.bot { background: linear-gradient(135deg,var(--accent),var(--accent)); }
+.tutor-avatar.bot { background: linear-gradient(135deg,var(--plani-body-1),var(--plani-body-2)); }
 .tutor-avatar.user {
   background: var(--accent-soft);
   font-family: var(--ipd-font-mono); font-size: 0.6rem; font-weight: 700; color: var(--accent);
@@ -577,8 +584,74 @@ main {
     <!-- Empty state: Plani centered -->
     <div class="tutor-empty" id="tutorEmpty">
 
-      <div id="tutorPlaniWrap" style="width:92px;height:92px;border-radius:18px;background:var(--ink, #161616);display:grid;place-items:center;">
-        <span id="tutorPlaniSvg" style="font-family:var(--ipd-font-mono);font-size:2.2rem;font-weight:700;color:#fff;letter-spacing:-0.02em;user-select:none;">IP</span>
+      {# The empty state is the first thing anyone sees on this page, and it
+         was an "IP" monogram in a dark rounded square — indistinguishable
+         from a placeholder. Plani itself belongs here: same character as the
+         corner assistant, same --plani-* palette, just larger. #}
+      <div id="tutorPlaniWrap">
+        <svg id="tutorPlaniSvg" class="plani-figure" viewBox="0 0 80 92" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="tpHead" class="pg-shell" x1="0" y1="0" x2="1" y2="1">
+              <stop class="pg-s1" offset="0%"/><stop class="pg-s2" offset="100%"/>
+            </linearGradient>
+            <linearGradient id="tpBody" class="pg-torso" x1="0" y1="0" x2="1" y2="1">
+              <stop class="pg-s1" offset="0%"/><stop class="pg-s2" offset="100%"/>
+            </linearGradient>
+            <radialGradient id="tpGlow" class="pg-halo" cx="50%" cy="50%" r="50%">
+              <stop class="pg-s1" offset="0%" stop-opacity="0.85"/>
+              <stop class="pg-s2" offset="100%" stop-opacity="0"/>
+            </radialGradient>
+            <filter id="tpBlur"><feGaussianBlur stdDeviation="1.2"/></filter>
+          </defs>
+
+          <ellipse cx="40" cy="3.5" rx="5" ry="5" fill="url(#tpGlow)" filter="url(#tpBlur)" opacity="0.75">
+            <animate attributeName="opacity" values="0.75;0.3;0.75" dur="2s" repeatCount="indefinite"/>
+            <animate attributeName="rx" values="5;7.5;5" dur="2s" repeatCount="indefinite"/>
+          </ellipse>
+          <line x1="40" y1="14" x2="40" y2="5" class="pg-line" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="40" cy="3.5" r="3" class="pg-signal">
+            <animate attributeName="r" values="3;4;3" dur="2s" repeatCount="indefinite"/>
+          </circle>
+
+          <rect x="13" y="14" width="54" height="42" rx="15" fill="url(#tpHead)"/>
+          <rect x="19" y="19" width="42" height="32" rx="10" class="pg-plate"/>
+
+          <g transform="translate(26,27)">
+            <rect x="0" y="0" width="12" height="9" rx="4" class="pg-eye">
+              <animateTransform attributeName="transform" type="scale" additive="sum"
+                values="1,1; 1,0.05; 1,1" keyTimes="0;0.93;1" dur="4.5s" begin="0s"
+                repeatCount="indefinite" calcMode="spline" keySplines="0.5 0 0.5 1;0.5 0 0.5 1"/>
+            </rect>
+            <circle cx="3" cy="2" r="2" fill="rgba(255,255,255,0.55)"/>
+          </g>
+          <g transform="translate(42,27)">
+            <rect x="0" y="0" width="12" height="9" rx="4" class="pg-eye">
+              <animateTransform attributeName="transform" type="scale" additive="sum"
+                values="1,1; 1,0.05; 1,1" keyTimes="0;0.93;1" dur="4.5s" begin="0.7s"
+                repeatCount="indefinite" calcMode="spline" keySplines="0.5 0 0.5 1;0.5 0 0.5 1"/>
+            </rect>
+            <circle cx="3" cy="2" r="2" fill="rgba(255,255,255,0.55)"/>
+          </g>
+
+          <path d="M 26 42 Q 40 52 54 42" class="pg-line" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+          <ellipse cx="18" cy="40" rx="4.5" ry="2.5" fill="rgba(245,165,36,0.22)"/>
+          <ellipse cx="62" cy="40" rx="4.5" ry="2.5" fill="rgba(245,165,36,0.22)"/>
+
+          <rect x="19" y="59" width="42" height="29" rx="11" fill="url(#tpBody)"/>
+          <line x1="27" y1="68" x2="53" y2="68" stroke="rgba(255,255,255,0.13)" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="27" y1="75" x2="53" y2="75" stroke="rgba(255,255,255,0.09)" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="40" cy="63.5" r="3" class="pg-signal">
+            <animate attributeName="opacity" values="1;0.25;1" dur="1.6s" repeatCount="indefinite"/>
+          </circle>
+
+          <rect x="4"  y="61" width="13" height="11" rx="5.5" fill="url(#tpBody)"/>
+          <circle cx="4.5" cy="66.5" r="4" class="pg-joint"/>
+          <rect x="63" y="61" width="13" height="11" rx="5.5" fill="url(#tpBody)"/>
+          <circle cx="75.5" cy="66.5" r="4" class="pg-joint"/>
+
+          <rect x="23" y="85" width="14" height="7" rx="3.5" class="pg-foot"/>
+          <rect x="43" y="85" width="14" height="7" rx="3.5" class="pg-foot"/>
+        </svg>
       </div>
 
       <h1 class="tutor-empty-title">What do you want to learn today?</h1>
@@ -617,7 +690,7 @@ main {
     <!-- Thinking dots -->
     <div class="tutor-thinking-row" id="tutorThinking" aria-label="AI Tutor is thinking">
       <div class="tutor-avatar bot" aria-hidden="true">
-        <svg width="16" height="18" viewBox="0 0 80 92"><defs><linearGradient id="ta" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" style="stop-color:var(--accent)"/><stop offset="100%" style="stop-color:var(--accent)"/></linearGradient></defs><rect x="13" y="14" width="54" height="42" rx="15" fill="url(#ta)"/><g transform="translate(26,27)"><rect width="12" height="9" rx="4" style="fill:var(--accent-hover)"/></g><g transform="translate(42,27)"><rect width="12" height="9" rx="4" style="fill:var(--accent-hover)"/></g><path d="M26 42 Q40 52 54 42" style="stroke:var(--accent-hover)" stroke-width="2.2" fill="none" stroke-linecap="round"/><rect x="19" y="59" width="42" height="29" rx="11" fill="#1e3a8a"/></svg>
+        <svg width="16" height="18" viewBox="0 0 80 92"><defs><linearGradient id="ta" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" style="stop-color:var(--plani-shell-1)"/><stop offset="100%" style="stop-color:var(--plani-shell-2)"/></linearGradient></defs><rect x="13" y="14" width="54" height="42" rx="15" fill="url(#ta)"/><g transform="translate(26,27)"><rect width="12" height="9" rx="4" style="fill:var(--plani-eye)"/></g><g transform="translate(42,27)"><rect width="12" height="9" rx="4" style="fill:var(--plani-eye)"/></g><path d="M26 42 Q40 52 54 42" style="stroke:var(--plani-line)" stroke-width="2.2" fill="none" stroke-linecap="round"/><rect x="19" y="59" width="42" height="29" rx="11" style="fill:var(--plani-body-1)"/></svg>
       </div>
       <div class="tutor-thinking-dots">
         <div class="tutor-dot"></div><div class="tutor-dot"></div><div class="tutor-dot"></div>
@@ -1246,19 +1319,22 @@ function addTutorMsg(role, text, refusal) {
   av.setAttribute('aria-hidden', 'true');
 
   if (role === 'bot') {
+    /* Same character as the corner assistant — --plani-* tokens, not
+       --accent. The navy body this used to hardcode did not move with the
+       theme and clashed on every non-default palette. */
     const gid = 'av' + Math.random().toString(36).slice(2, 8);
     av.innerHTML = `<svg width="17" height="19" viewBox="0 0 80 92" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" style="stop-color:var(--accent)"/>
-          <stop offset="100%" style="stop-color:var(--accent)"/>
+          <stop offset="0%" style="stop-color:var(--plani-shell-1)"/>
+          <stop offset="100%" style="stop-color:var(--plani-shell-2)"/>
         </linearGradient>
       </defs>
       <rect x="13" y="14" width="54" height="42" rx="15" fill="url(#${gid})"/>
-      <g transform="translate(26,27)"><rect width="12" height="9" rx="4" style="fill:var(--accent-hover)"/></g>
-      <g transform="translate(42,27)"><rect width="12" height="9" rx="4" style="fill:var(--accent-hover)"/></g>
-      <path d="M26 42 Q40 52 54 42" style="stroke:var(--accent-hover)" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-      <rect x="19" y="59" width="42" height="29" rx="11" fill="#1e3a8a"/>
+      <g transform="translate(26,27)"><rect width="12" height="9" rx="4" style="fill:var(--plani-eye)"/></g>
+      <g transform="translate(42,27)"><rect width="12" height="9" rx="4" style="fill:var(--plani-eye)"/></g>
+      <path d="M26 42 Q40 52 54 42" style="stroke:var(--plani-line)" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      <rect x="19" y="59" width="42" height="29" rx="11" style="fill:var(--plani-body-1)"/>
     </svg>`;
   } else {
     av.textContent = 'You';
@@ -1269,7 +1345,7 @@ function addTutorMsg(role, text, refusal) {
 
   const sender = document.createElement('div');
   sender.className   = 'tutor-sender';
-  sender.textContent = role === 'bot' ? 'IntelliPlan' : 'You';
+  sender.textContent = role === 'bot' ? 'Plani' : 'You';
 
   const bubble = document.createElement('div');
   bubble.className = 'tutor-bubble';

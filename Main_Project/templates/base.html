@@ -2381,12 +2381,16 @@
        values do not parse var(), but stop-color is a real CSS property, so
        going through CSS is what lets the palette above drive the artwork
        and react to the theme. */
-    #pgHead .pg-s1 { stop-color:var(--plani-shell-1); }
-    #pgHead .pg-s2 { stop-color:var(--plani-shell-2); }
-    #pgBody .pg-s1 { stop-color:var(--plani-body-1); }
-    #pgBody .pg-s2 { stop-color:var(--plani-body-2); }
-    #pgGlow .pg-s1 { stop-color:var(--plani-signal-2); }
-    #pgGlow .pg-s2 { stop-color:var(--plani-signal); }
+    /* Keyed on classes, not on the gradient IDs — the robot is drawn in
+       more than one place (corner assistant, tutor empty state) and SVG
+       gradient IDs have to be unique per document, so ID-scoped rules
+       would only ever paint the first copy. */
+    .pg-shell .pg-s1 { stop-color:var(--plani-shell-1); }
+    .pg-shell .pg-s2 { stop-color:var(--plani-shell-2); }
+    .pg-torso .pg-s1 { stop-color:var(--plani-body-1); }
+    .pg-torso .pg-s2 { stop-color:var(--plani-body-2); }
+    .pg-halo  .pg-s1 { stop-color:var(--plani-signal-2); }
+    .pg-halo  .pg-s2 { stop-color:var(--plani-signal); }
     .pg-plate  { fill:var(--plani-plate); }
     .pg-eye    { fill:var(--plani-eye); }
     .pg-signal { fill:var(--plani-signal); }
@@ -3286,17 +3290,17 @@ body {
     <!-- Plani. Colours come from the --plani-* tokens via CSS (SVG
          attributes cannot parse var(), stop-color as a CSS property can),
          so the character follows the theme instead of being baked in. -->
-    <svg id="planiRobot" viewBox="0 0 80 92" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <svg id="planiRobot" class="plani-figure" viewBox="0 0 80 92" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs>
-        <linearGradient id="pgHead" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id="pgHead" class="pg-shell" x1="0" y1="0" x2="1" y2="1">
           <stop class="pg-s1" offset="0%"/>
           <stop class="pg-s2" offset="100%"/>
         </linearGradient>
-        <linearGradient id="pgBody" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id="pgBody" class="pg-torso" x1="0" y1="0" x2="1" y2="1">
           <stop class="pg-s1" offset="0%"/>
           <stop class="pg-s2" offset="100%"/>
         </linearGradient>
-        <radialGradient id="pgGlow" cx="50%" cy="50%" r="50%">
+        <radialGradient id="pgGlow" class="pg-halo" cx="50%" cy="50%" r="50%">
           <stop class="pg-s1" offset="0%" stop-opacity="0.85"/>
           <stop class="pg-s2" offset="100%" stop-opacity="0"/>
         </radialGradient>
@@ -3373,9 +3377,13 @@ body {
     var mq = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
     if (!mq) return;
     function apply() {
-      var svg = document.getElementById('planiRobot');
-      if (!svg || !svg.pauseAnimations) return;
-      if (mq.matches) svg.pauseAnimations(); else svg.unpauseAnimations();
+      /* Every copy of the character, not just the corner one — the tutor
+         page draws its own at 110px in the empty state. */
+      var figures = document.querySelectorAll('.plani-figure');
+      Array.prototype.forEach.call(figures, function (svg) {
+        if (!svg.pauseAnimations) return;
+        if (mq.matches) svg.pauseAnimations(); else svg.unpauseAnimations();
+      });
     }
     if (document.readyState !== 'loading') apply();
     else document.addEventListener('DOMContentLoaded', apply);
