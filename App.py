@@ -5023,6 +5023,12 @@ def api_onboarding_chat():
         "VOICE: warm, concise (1–3 sentences), one focused question per turn. "
         "Never ask all five at once. Acknowledge what they just said before asking the next thing. "
         "If they've covered everything, say so and recommend they tap 'Done'.\n\n"
+        # Without this the model invents an origin (it has been answering
+        # "students at Michigan" / "at UPenn"). Stated as a fact so it has
+        # something true to say instead of guessing.
+        "IF ASKED WHO MADE INTELLIPLAN: Anirudh Ulabala built it solo — no company, "
+        "no team, no university. Point to /about. Never invent an origin story. "
+        "Answer in one short sentence inside 'reply', then continue onboarding.\n\n"
         "OUTPUT FORMAT: return ONLY valid JSON shaped exactly like:\n"
         '{"reply":"...your message to the student (under 240 chars)...",'
         '"extracted":{"grade_level":"","focus_areas":[],"goals":"","weekly_commitments":"","availability":{}},'
