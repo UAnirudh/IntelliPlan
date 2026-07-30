@@ -2408,6 +2408,7 @@
   {# Single viewport tag lives at the top of <head>; duplicate removed. #}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-async.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-motion.css') }}">
 
   {# ── Async runtime ──────────────────────────────────────────────────
      Loaded synchronously, not deferred, on purpose: page templates write
@@ -2418,6 +2419,16 @@
   <script src="{{ url_for('static', filename='js/ip-core.js') }}"></script>
   <script src="{{ url_for('static', filename='js/ip-async.js') }}"></script>
   <script src="{{ url_for('static', filename='js/ip-report.js') }}"></script>
+
+  {# ── Motion layer ───────────────────────────────────────────────────
+     Motion (motion.dev) is vendored rather than pulled from jsDelivr so
+     it stays inside `script-src 'self'` — the CSP in App.py allows no
+     generic CDN, and adding one just for an animation library would
+     widen the policy for every page. Both files are deferred: no page
+     script calls IPMotion during parse, and deferred execution keeps
+     them off the critical path. Order is guaranteed by `defer`. #}
+  <script defer data-ipm-vendor src="{{ url_for('static', filename='js/vendor/motion.min.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='js/ip-motion.js') }}"></script>
   {% block head_extra %}{% endblock %}
 <style id="android-touch-polish">
 /* ===== Android scroll + tap responsiveness and mobile polish =====

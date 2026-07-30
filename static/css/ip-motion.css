@@ -1,0 +1,339 @@
+/* ═══════════════════════════════════════════════════════════════════
+   ip-motion.css — the "floaty premium" layer.
+
+   Three families of motion, all opt-in via data-attributes or classes so
+   nothing here changes a page until that page asks for it:
+
+     [data-float]      idle buoyancy on a surface
+     [data-magnetic]   cursor-following lift on a control
+     .sk-link          animated underline/arrow link treatments
+
+   Everything degrades to a static, fully-visible layout when JS is off
+   or the OS asks for reduced motion — the hidden states are applied by
+   ip-motion.js (via html.ipm-on), never by this file alone.
+   ══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* One easing vocabulary. "Glide" is the workhorse; "spring" reads as
+     slightly overshooting without actually running a spring solver. */
+  --ipm-glide:  cubic-bezier(0.22, 1, 0.36, 1);
+  --ipm-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ipm-exit:   cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* ═══════════════════════════════════════════
+   1. SCROLL REVEAL (upgrade of [data-reveal])
+
+   The base template already reveals with a flat 18px translate. These
+   add directional and staggered variants for editorial sections, and a
+   slight scale so cards feel like they settle rather than slide.
+   ═══════════════════════════════════════════ */
+html.ipm-on [data-ipm-reveal] {
+  opacity: 0;
+  will-change: opacity, transform;
+  transition:
+    opacity   0.75s var(--ipm-glide),
+    transform 0.85s var(--ipm-glide);
+  transition-delay: var(--ipm-delay, 0s);
+}
+html.ipm-on [data-ipm-reveal="up"]    { transform: translate3d(0, 34px, 0) scale(0.985); }
+html.ipm-on [data-ipm-reveal="down"]  { transform: translate3d(0, -28px, 0); }
+html.ipm-on [data-ipm-reveal="left"]  { transform: translate3d(-38px, 0, 0); }
+html.ipm-on [data-ipm-reveal="right"] { transform: translate3d(38px, 0, 0); }
+html.ipm-on [data-ipm-reveal="scale"] { transform: scale(0.93); }
+html.ipm-on [data-ipm-reveal="blur"]  { transform: translate3d(0, 20px, 0); filter: blur(9px); }
+
+html.ipm-on [data-ipm-reveal].ipm-in {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+/* Once it has landed, stop promoting the layer — a permanent will-change
+   on dozens of elements costs real memory on low-end Android. */
+html.ipm-on [data-ipm-reveal].ipm-settled { will-change: auto; }
+
+/* Spring entrances. Held at 0 opacity only while html.ipm-on is set AND
+   the element has not yet been played — ip-motion.js stamps
+   [data-ipm-played] unconditionally, including when Motion is missing or
+   motion is reduced, so this can never strand content invisible. */
+html.ipm-on [data-ipm-enter]:not([data-ipm-played]) { opacity: 0; }
+
+/* Scroll parallax. The JS only writes --ipm-py; the transform lives here
+   so an element with no scroll binding still renders in the right place. */
+html.ipm-on [data-parallax] {
+  transform: translate3d(0, var(--ipm-py, 0%), 0);
+  will-change: transform;
+}
+
+/* ═══════════════════════════════════════════
+   2. IDLE FLOAT
+
+   The "floaty" quality the app is after: surfaces that breathe instead
+   of sitting dead on the page. Deliberately slow (7–11s) and tiny
+   (≤10px) — at that scale it reads as depth, not as animation.
+   ═══════════════════════════════════════════ */
+@keyframes ipmFloat {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50%      { transform: translate3d(0, calc(-1 * var(--ipm-float-y, 8px)), 0) rotate(var(--ipm-float-r, 0deg)); }
+}
+html.ipm-on [data-float] {
+  animation: ipmFloat var(--ipm-float-dur, 8s) ease-in-out infinite;
+  animation-delay: var(--ipm-float-delay, 0s);
+}
+/* Pausing on hover stops a floating card from squirming out from under
+   the cursor mid-click. */
+html.ipm-on [data-float]:hover { animation-play-state: paused; }
+
+/* ═══════════════════════════════════════════
+   3. MAGNETIC CONTROLS
+
+   ip-motion.js writes --ipm-mx/--ipm-my from the pointer; the element
+   only ever reads them, so the transform stays declarative and the JS
+   never touches style.transform directly.
+   ═══════════════════════════════════════════ */
+html.ipm-on [data-magnetic] {
+  transform: translate3d(var(--ipm-mx, 0px), var(--ipm-my, 0px), 0);
+  transition: transform 0.45s var(--ipm-glide);
+}
+html.ipm-on [data-magnetic].ipm-tracking {
+  /* While the pointer is inside, follow it near-instantly. The slow
+     transition above then handles the release, which is what makes it
+     feel elastic rather than snappy. */
+  transition: transform 0.12s linear;
+}
+
+/* Depth lift — a card that rises toward the cursor. */
+html.ipm-on [data-lift] {
+  transition:
+    transform   0.4s var(--ipm-glide),
+    box-shadow  0.4s var(--ipm-glide),
+    border-color 0.3s ease;
+}
+html.ipm-on [data-lift]:hover {
+  transform: translate3d(0, -6px, 0);
+  box-shadow: var(--shadow-hover, 0 18px 40px rgba(15, 23, 42, 0.14));
+}
+
+/* 3D tilt. The JS supplies the angles; keeping perspective in CSS means
+   a browser without pointer events still gets a flat, correct card. */
+html.ipm-on [data-tilt] {
+  transform-style: preserve-3d;
+  transform:
+    perspective(900px)
+    rotateX(var(--ipm-rx, 0deg))
+    rotateY(var(--ipm-ry, 0deg))
+    translate3d(0, var(--ipm-tz, 0px), 0);
+  transition: transform 0.5s var(--ipm-glide);
+}
+html.ipm-on [data-tilt].ipm-tracking { transition: transform 0.1s linear; }
+
+/* ═══════════════════════════════════════════
+   4. ANIMATED LINKS
+
+   Ported from Skiper UI's "Skiper 40" animated-link set (an inspired
+   rebuild of the cursor.com link treatment). The originals ship as React
+   + Tailwind; these are the same six behaviours as plain classes, since
+   this app is Jinja templates with no build step.
+
+     .sk-link            underline wipes in from the left
+     .sk-link--out       …and wipes out to the right on leave
+     .sk-link--center    …grows from the centre
+     .sk-link--fill      block fill rises, text inverts (mix-blend)
+     .sk-link--sweep     block fill sweeps across, text inverts
+     .sk-link--arrow     adds the ↗ that fades up on hover
+   ═══════════════════════════════════════════ */
+.sk-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+}
+.sk-link::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -0.08em;
+  width: 100%;
+  height: 0.06em;
+  background: currentColor;
+  pointer-events: none;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.sk-link:hover::before,
+.sk-link:focus-visible::before {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+/* Wipe in from the left, out to the right — the direction never reverses,
+   so a fast hover-out doesn't look like it rewinds. */
+.sk-link--out::before        { transform-origin: left; }
+.sk-link--out:hover::before,
+.sk-link--out:focus-visible::before { transform-origin: right; }
+
+.sk-link--center::before,
+.sk-link--center:hover::before,
+.sk-link--center:focus-visible::before { transform-origin: center; }
+
+/* Fill variants paint a block behind the text and let mix-blend-difference
+   invert the glyphs, so one rule works on any background in either theme. */
+.sk-link--fill,
+.sk-link--sweep { padding: 0 0.4em; }
+.sk-link--fill::before,
+.sk-link--sweep::before {
+  background: #fff;
+  mix-blend-mode: difference;
+  z-index: 1;
+  bottom: 0;
+}
+.sk-link--fill::before {
+  height: 0;
+  transform: scaleX(1);
+  transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.sk-link--fill:hover::before,
+.sk-link--fill:focus-visible::before { height: 1.4em; }
+
+.sk-link--sweep::before {
+  top: 0;
+  bottom: auto;
+  height: 100%;
+  transform-origin: left;
+}
+
+.sk-link__arrow {
+  margin-left: 0.32em;
+  width: 0.58em;
+  height: 0.58em;
+  flex-shrink: 0;
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity 0.3s var(--ipm-glide), transform 0.3s var(--ipm-glide);
+}
+.sk-link:hover .sk-link__arrow,
+.sk-link:focus-visible .sk-link__arrow {
+  opacity: 1;
+  transform: translateY(0);
+}
+.sk-link--sweep:hover .sk-link__arrow { transform: translateX(0) rotate(45deg); }
+.sk-link--sweep .sk-link__arrow       { transform: translateX(-3px) rotate(45deg); }
+
+/* ═══════════════════════════════════════════
+   5. SHIMMER
+
+   Ported from Bklit UI's shimmering-text (used there as a chart loading
+   label). Same job here: a loading string that reads as "working" without
+   a spinner. Masks a moving highlight over the text itself.
+   ═══════════════════════════════════════════ */
+@keyframes ipmShimmer {
+  0%   { background-position: 120% 0; }
+  100% { background-position: -20% 0; }
+}
+.ipm-shimmer {
+  background: linear-gradient(
+    100deg,
+    var(--text-muted) 0%,
+    var(--text-muted) 38%,
+    var(--text-primary) 50%,
+    var(--text-muted) 62%,
+    var(--text-muted) 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: ipmShimmer 2.4s linear infinite;
+}
+
+/* A sheen that travels across a surface — for skeletons and CTAs. */
+@keyframes ipmSheen {
+  0%   { transform: translateX(-120%) skewX(-18deg); }
+  100% { transform: translateX(220%)  skewX(-18deg); }
+}
+.ipm-sheen { position: relative; overflow: hidden; isolation: isolate; }
+.ipm-sheen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, #fff 26%, transparent),
+    transparent
+  );
+  animation: ipmSheen 3.6s var(--ipm-glide) infinite;
+  animation-delay: 1.2s;
+}
+[data-theme="dark"] .ipm-sheen::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, #fff 12%, transparent),
+    transparent
+  );
+}
+
+/* ═══════════════════════════════════════════
+   6. ATMOSPHERE
+
+   A slow-drifting accent wash. Used behind the auth panel and the hero
+   to give the page depth without a hard gradient block.
+   ═══════════════════════════════════════════ */
+@keyframes ipmDrift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  33%  { transform: translate3d(3%, -4%, 0) scale(1.08); }
+  66%  { transform: translate3d(-3%, 3%, 0) scale(0.96); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+.ipm-aurora {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(70px);
+  opacity: 0.5;
+  animation: ipmDrift var(--ipm-drift-dur, 22s) ease-in-out infinite;
+  animation-delay: var(--ipm-drift-delay, 0s);
+}
+[data-theme="dark"] .ipm-aurora { opacity: 0.34; }
+
+/* ═══════════════════════════════════════════
+   7. REDUCED MOTION / NO-JS
+
+   The single most important block in the file. Anything that loops, and
+   anything that starts invisible, is neutralised. `!important` is used
+   deliberately — these must beat every inline delay and variant above.
+   ═══════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  html.ipm-on [data-ipm-reveal],
+  html.ipm-on [data-ipm-reveal].ipm-in {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+  }
+  html.ipm-on [data-float],
+  .ipm-shimmer,
+  .ipm-sheen::after,
+  .ipm-aurora {
+    animation: none !important;
+  }
+  html.ipm-on [data-ipm-enter]:not([data-ipm-played]) { opacity: 1 !important; }
+  html.ipm-on [data-parallax] { transform: none !important; will-change: auto; }
+  html.ipm-on [data-magnetic],
+  html.ipm-on [data-tilt],
+  html.ipm-on [data-lift] {
+    transform: none !important;
+    transition: none !important;
+  }
+  .sk-link::before,
+  .sk-link__arrow { transition: none !important; }
+  .ipm-shimmer {
+    -webkit-text-fill-color: currentColor;
+    background: none;
+    color: var(--text-muted);
+  }
+}
