@@ -331,7 +331,37 @@ button.ipm-shimmer,
 [data-theme="dark"] .ipm-aurora { opacity: 0.34; }
 
 /* ═══════════════════════════════════════════
-   7. REDUCED MOTION / NO-JS
+   7. THEME VIEW TRANSITION
+
+   Ported from Skiper UI's Skiper 26. The theme swap is driven by
+   setThemeMode() in base.html, which supplies the origin as
+   --ip-vt-x / --ip-vt-y / --ip-vt-r; this only describes the wipe.
+
+   The old snapshot is held still underneath and the new one is revealed
+   over it, so the page appears to re-light from the control that was
+   pressed rather than cross-fading as a whole.
+   ═══════════════════════════════════════════ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  /* Kill the UA's default cross-fade — running it underneath the clip
+     produces a muddy double-exposure through the semi-transparent
+     surfaces this app uses everywhere. */
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) { z-index: 1; }
+::view-transition-new(root) { z-index: 2; }
+
+@keyframes ipThemeWipe {
+  from { clip-path: circle(0 at var(--ip-vt-x, 50%) var(--ip-vt-y, 50%)); }
+  to   { clip-path: circle(var(--ip-vt-r, 150vmax) at var(--ip-vt-x, 50%) var(--ip-vt-y, 50%)); }
+}
+html.ip-vt-busy::view-transition-new(root) {
+  animation: ipThemeWipe 0.52s var(--ipm-glide) both;
+}
+
+/* ═══════════════════════════════════════════
+   8. REDUCED MOTION / NO-JS
 
    The single most important block in the file. Anything that loops, and
    anything that starts invisible, is neutralised. `!important` is used
@@ -353,6 +383,9 @@ button.ipm-shimmer,
   }
   html.ipm-on [data-ipm-enter]:not([data-ipm-played]) { opacity: 1 !important; }
   html.ipm-on [data-parallax] { transform: none !important; will-change: auto; }
+  /* setThemeMode() already skips startViewTransition under reduced motion, so
+     this only matters if the setting changes mid-transition. */
+  html.ip-vt-busy::view-transition-new(root) { animation: none !important; }
   html.ipm-on [data-magnetic],
   html.ipm-on [data-tilt],
   html.ipm-on [data-lift] {
