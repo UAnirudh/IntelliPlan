@@ -26,12 +26,16 @@ Resilient to live-site latency:
   - All locator assertions use Playwright's auto-waiting via `expect()`
 """
 
+import os
 import re
 
 import pytest
 from playwright.sync_api import Page, TimeoutError as PWTimeoutError, expect
 
-BASE_URL  = "https://intelliplan.tech"
+# Defaults to production, which is what CI checks. Override to point the suite
+# at a local server and catch a break *before* it ships:
+#   IP_BASE_URL=http://localhost:3000 pytest test_intelliplan.py -v
+BASE_URL  = os.environ.get("IP_BASE_URL", "https://intelliplan.tech")
 NAV_TIMEOUT_MS = 60_000   # Production page goto budget
 EXPECT_TIMEOUT_MS = 15_000  # Locator assertion budget
 
@@ -144,22 +148,29 @@ class TestLoginPage:
         page.get_by_role("link", name="Sign In", exact=True).click()
         assert_url_matches(page, "/login/account")
 
+    # These four target the guest-login buttons by role, not by page text.
+    # get_by_text("StudentVue") matched any element containing the word, so
+    # naming the LMSes in marketing copy elsewhere on the page broke them with
+    # a strict-mode violation. ("Canvas LMS" survived only by luck — the copy
+    # says "Canvas", not "Canvas LMS".) The buttons are what these tests mean,
+    # and role queries also skip the aria-hidden brand panel by construction.
+
     def test_canvas_option_visible(self, page: Page):
         go(page, "/login")
-        expect(page.get_by_text("Canvas LMS")).to_be_visible()
+        expect(page.get_by_role("button", name="Canvas LMS")).to_be_visible()
 
     def test_studentvue_option_visible(self, page: Page):
         go(page, "/login")
-        expect(page.get_by_text("StudentVue")).to_be_visible()
+        expect(page.get_by_role("button", name="StudentVue")).to_be_visible()
 
     def test_canvas_link_works(self, page: Page):
         go(page, "/login")
-        page.get_by_text("Canvas LMS").click()
+        page.get_by_role("button", name="Canvas LMS").click()
         assert_url_matches(page, "/login/canvas")
 
     def test_studentvue_link_works(self, page: Page):
         go(page, "/login")
-        page.get_by_text("StudentVue").click()
+        page.get_by_role("button", name="StudentVue").click()
         assert_url_matches(page, "/login/studentvue")
 
 
