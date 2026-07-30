@@ -2260,11 +2260,22 @@
     #planiChat.open { opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
 
     #planiChatHeader {
-      background:var(--ink, #161616);
+      background:linear-gradient(135deg, var(--plani-shell-1) 0%, var(--plani-body-2) 100%);
       padding:13px 15px; display:flex; align-items:center; gap:10px; flex-shrink:0;
+      position:relative;
     }
-    :root[data-theme="dark"] #planiChatHeader { background:#222222; }
-    .plani-hdr-avatar { width:30px; height:30px; background:rgba(255,255,255,0.15); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:11px; font-family:var(--font-ui); font-weight:700; color:white; letter-spacing:0.02em; flex-shrink:0; }
+    /* Amber hairline tying the panel to the robot's signal colour. */
+    #planiChatHeader::after {
+      content:''; position:absolute; left:0; right:0; bottom:0; height:1px;
+      background:linear-gradient(90deg, transparent, var(--plani-signal), transparent);
+      opacity:0.55;
+    }
+    .plani-hdr-avatar {
+      width:30px; height:30px; background:rgba(255,255,255,0.1);
+      border:1px solid rgba(255,255,255,0.12);
+      border-radius:9px; display:flex; align-items:center; justify-content:center;
+      color:var(--plani-signal); flex-shrink:0;
+    }
     .plani-hdr-info { flex:1; }
     .plani-hdr-name { font-family:var(--font-ui); font-size:0.88rem; font-weight:700; color:white; line-height:1; margin-bottom:2px; }
     .plani-hdr-status { font-size:0.68rem; color:rgba(255,255,255,0.75); display:flex; align-items:center; gap:4px; }
@@ -2313,19 +2324,82 @@
     :root[data-theme="dark"] #planiSendBtn:hover { background:#ffffff; }
     #planiSendBtn:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
 
-    /* Assistant avatar */
+    /* ── Plani, the assistant robot ──────────────────────────────────
+       The character was replaced by a flat "IP" monogram, which read as a
+       generic chat bubble. This restores the illustrated robot and gives
+       it its own palette.
+
+       Not the blue/purple gradient it originally shipped with: that is the
+       exact "AI assistant" cliché the rest of the app has been stripping
+       out (see the de-AI commits). Warm graphite body, amber signal lights
+       — it belongs to IntelliPlan rather than to every other chat widget,
+       and it stays distinct from --accent so it doesn't recolour into a
+       blue blob on the default palette or vanish on the ocean one. */
+    :root {
+      --plani-shell-1:  #33302c;   /* warm graphite, top-left of the head  */
+      --plani-shell-2:  #22201d;   /* …bottom-right, so the form reads 3D  */
+      --plani-body-1:   #2a2724;
+      --plani-body-2:   #1b1917;
+      --plani-plate:    rgba(255,255,255,0.06);
+      --plani-signal:   #f5a524;   /* antenna, chest light                 */
+      --plani-signal-2: #ffd08a;   /* the brighter half of the pulse       */
+      --plani-eye:      #ffe9c9;   /* warm cream, not cyan                 */
+      --plani-line:     rgba(245,165,36,0.85);
+      --plani-glow:     245,165,36;
+    }
+    /* On dark the graphite would sink into the page — lift the shell and
+       cool it a touch so the silhouette still separates from the surface. */
+    :root[data-theme="dark"] {
+      --plani-shell-1: #46423c;
+      --plani-shell-2: #302d29;
+      --plani-body-1:  #3a3733;
+      --plani-body-2:  #26241f;
+    }
+
     #planiAvatar { position:relative; cursor:pointer; user-select:none; }
     #planiRobot {
-      width:54px; height:54px;
-      background:var(--ink, #161616); border-radius:14px;
-      display:flex; align-items:center; justify-content:center;
-      font-family:var(--font-ui); font-weight:700; font-size:18px;
-      color:#ffffff; letter-spacing:0.02em;
-      box-shadow:var(--shadow-hover);
-      transition:transform 0.2s var(--ease-out), box-shadow 0.2s ease;
+      width:68px; height:68px; display:block;
+      filter:drop-shadow(0 10px 24px rgba(var(--plani-glow), 0.30));
+      transition:transform 0.24s var(--ease-out), filter 0.24s ease;
     }
-    :root[data-theme="dark"] #planiRobot { background:#e8e8e4; color:#161616; }
-    #planiAvatar:hover #planiRobot { transform:scale(1.08); box-shadow:var(--shadow-lg); }
+    /* The idle bob is what made the old bot feel alive. Kept slow (3.4s)
+       and small (7px) so it reads as presence, not as a distraction. */
+    @media (prefers-reduced-motion: no-preference) {
+      #planiRobot { animation:planiFloat 3.4s ease-in-out infinite; }
+    }
+    #planiAvatar:hover #planiRobot {
+      transform:scale(1.09);
+      filter:drop-shadow(0 16px 34px rgba(var(--plani-glow), 0.45));
+    }
+    #planiAvatar:focus-visible { outline:none; }
+    #planiAvatar:focus-visible #planiRobot {
+      transform:scale(1.09);
+      filter:drop-shadow(0 0 0 3px var(--accent)) drop-shadow(0 10px 24px rgba(var(--plani-glow), 0.4));
+    }
+
+    /* SVG gradient stops are set here rather than as attributes: attribute
+       values do not parse var(), but stop-color is a real CSS property, so
+       going through CSS is what lets the palette above drive the artwork
+       and react to the theme. */
+    #pgHead .pg-s1 { stop-color:var(--plani-shell-1); }
+    #pgHead .pg-s2 { stop-color:var(--plani-shell-2); }
+    #pgBody .pg-s1 { stop-color:var(--plani-body-1); }
+    #pgBody .pg-s2 { stop-color:var(--plani-body-2); }
+    #pgGlow .pg-s1 { stop-color:var(--plani-signal-2); }
+    #pgGlow .pg-s2 { stop-color:var(--plani-signal); }
+    .pg-plate  { fill:var(--plani-plate); }
+    .pg-eye    { fill:var(--plani-eye); }
+    .pg-signal { fill:var(--plani-signal); }
+    .pg-line   { stroke:var(--plani-line); }
+    .pg-foot   { fill:var(--plani-body-2); }
+    .pg-joint  { fill:var(--plani-shell-2); }
+
+    /* The blink and pulse are SMIL <animate> inside the SVG, which
+       prefers-reduced-motion cannot reach from CSS. The JS toggle below
+       pauses them; this is the belt to that braces. */
+    @media (prefers-reduced-motion: reduce) {
+      #planiRobot { animation:none; }
+    }
 
     #planiBubble {
       position:absolute; bottom:calc(100% + 10px); right:0;
@@ -3162,14 +3236,16 @@ body {
 <!-- ══════════════════════════════════════
      PLANI ROBOT CHATBOT
 ══════════════════════════════════════ -->
-<div id="planiBot" role="complementary" aria-label="IntelliPlan AI Assistant">
+<div id="planiBot" role="complementary" aria-label="Plani, the IntelliPlan assistant">
 
   <!-- Chat window -->
-  <div id="planiChat" role="dialog" aria-label="Chat with IntelliPlan">
+  <div id="planiChat" role="dialog" aria-label="Chat with Plani">
     <div id="planiChatHeader">
-      <div class="plani-hdr-avatar">IP</div>
+      <div class="plani-hdr-avatar" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><use href="#i-robot"/></svg>
+      </div>
       <div class="plani-hdr-info">
-        <div class="plani-hdr-name">IntelliPlan</div>
+        <div class="plani-hdr-name">Plani</div>
         <div class="plani-hdr-status">
           <div class="plani-status-dot"></div>
           Powered by Google Gemini
@@ -3180,8 +3256,10 @@ body {
 
     <div id="planiMessages" role="log" aria-live="polite"></div>
 
-    <div id="planiTyping" aria-label="Assistant is typing">
-      <div class="plani-msg-avatar" style="background:var(--ink, #161616); font-size:9px; font-family:var(--font-ui); font-weight:700; color:#fff; letter-spacing:0.02em;">IP</div>
+    <div id="planiTyping" aria-label="Plani is typing">
+      <div class="plani-msg-avatar" style="background:var(--plani-body-1); color:var(--plani-signal);" aria-hidden="true">
+        <svg width="13" height="13" viewBox="0 0 256 256" fill="currentColor"><use href="#i-robot"/></svg>
+      </div>
       <div class="plani-dots">
         <div class="plani-dot"></div><div class="plani-dot"></div><div class="plani-dot"></div>
       </div>
@@ -3189,7 +3267,7 @@ body {
 
     <div id="planiInputArea">
       <textarea id="planiInput" placeholder="Ask me anything about IntelliPlan…" rows="1"
-        aria-label="Message to IntelliPlan"
+        aria-label="Message to Plani"
         onkeydown="handlePlaniKey(event)"
         oninput="autoResizePlani(this)"></textarea>
       <button id="planiSendBtn" onclick="sendPlaniMessage()" aria-label="Send message">
@@ -3200,14 +3278,113 @@ body {
 
   <!-- Assistant avatar -->
   <div id="planiAvatar" onclick="togglePlani()" role="button" tabindex="0"
-    aria-label="Chat with IntelliPlan assistant"
+    aria-label="Chat with Plani, the IntelliPlan assistant"
     onkeydown="if(event.key==='Enter'||event.key===' ')togglePlani()">
 
     <div id="planiBubble" role="status"></div>
 
-    <div id="planiRobot" aria-hidden="true">IP</div>
+    <!-- Plani. Colours come from the --plani-* tokens via CSS (SVG
+         attributes cannot parse var(), stop-color as a CSS property can),
+         so the character follows the theme instead of being baked in. -->
+    <svg id="planiRobot" viewBox="0 0 80 92" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <linearGradient id="pgHead" x1="0" y1="0" x2="1" y2="1">
+          <stop class="pg-s1" offset="0%"/>
+          <stop class="pg-s2" offset="100%"/>
+        </linearGradient>
+        <linearGradient id="pgBody" x1="0" y1="0" x2="1" y2="1">
+          <stop class="pg-s1" offset="0%"/>
+          <stop class="pg-s2" offset="100%"/>
+        </linearGradient>
+        <radialGradient id="pgGlow" cx="50%" cy="50%" r="50%">
+          <stop class="pg-s1" offset="0%" stop-opacity="0.85"/>
+          <stop class="pg-s2" offset="100%" stop-opacity="0"/>
+        </radialGradient>
+        <filter id="pgBlur"><feGaussianBlur stdDeviation="1.2"/></filter>
+      </defs>
+
+      <!-- Antenna: halo, rod, tip. The halo and tip breathe together so
+           the signal reads as one pulse rather than two loops. -->
+      <ellipse cx="40" cy="3.5" rx="5" ry="5" fill="url(#pgGlow)" filter="url(#pgBlur)" opacity="0.75">
+        <animate attributeName="opacity" values="0.75;0.3;0.75" dur="2s" repeatCount="indefinite"/>
+        <animate attributeName="rx" values="5;7.5;5" dur="2s" repeatCount="indefinite"/>
+      </ellipse>
+      <line x1="40" y1="14" x2="40" y2="5" class="pg-line" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="40" cy="3.5" r="3" class="pg-signal">
+        <animate attributeName="r" values="3;4;3" dur="2s" repeatCount="indefinite"/>
+      </circle>
+
+      <!-- Head + inset face plate -->
+      <rect x="13" y="14" width="54" height="42" rx="15" fill="url(#pgHead)"/>
+      <rect x="19" y="19" width="42" height="32" rx="10" class="pg-plate"/>
+
+      <!-- Eyes. Offset blink timings (0s / 0.7s) — a perfectly synchronised
+           blink reads as a rendering glitch, a staggered one reads alive. -->
+      <g transform="translate(26,27)">
+        <rect x="0" y="0" width="12" height="9" rx="4" class="pg-eye">
+          <animateTransform attributeName="transform" type="scale" additive="sum"
+            values="1,1; 1,0.05; 1,1" keyTimes="0;0.93;1"
+            dur="4.5s" begin="0s" repeatCount="indefinite"
+            calcMode="spline" keySplines="0.5 0 0.5 1;0.5 0 0.5 1"/>
+        </rect>
+        <circle cx="3" cy="2" r="2" fill="rgba(255,255,255,0.55)"/>
+      </g>
+      <g transform="translate(42,27)">
+        <rect x="0" y="0" width="12" height="9" rx="4" class="pg-eye">
+          <animateTransform attributeName="transform" type="scale" additive="sum"
+            values="1,1; 1,0.05; 1,1" keyTimes="0;0.93;1"
+            dur="4.5s" begin="0.7s" repeatCount="indefinite"
+            calcMode="spline" keySplines="0.5 0 0.5 1;0.5 0 0.5 1"/>
+        </rect>
+        <circle cx="3" cy="2" r="2" fill="rgba(255,255,255,0.55)"/>
+      </g>
+
+      <path d="M 26 42 Q 40 52 54 42" class="pg-line" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      <ellipse cx="18" cy="40" rx="4.5" ry="2.5" fill="rgba(245,165,36,0.22)"/>
+      <ellipse cx="62" cy="40" rx="4.5" ry="2.5" fill="rgba(245,165,36,0.22)"/>
+
+      <!-- Body -->
+      <rect x="19" y="59" width="42" height="29" rx="11" fill="url(#pgBody)"/>
+      <line x1="27" y1="68" x2="53" y2="68" stroke="rgba(255,255,255,0.13)" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="27" y1="75" x2="53" y2="75" stroke="rgba(255,255,255,0.09)" stroke-width="1.5" stroke-linecap="round"/>
+      <circle cx="40" cy="63.5" r="3" class="pg-signal">
+        <animate attributeName="opacity" values="1;0.25;1" dur="1.6s" repeatCount="indefinite"/>
+      </circle>
+
+      <!-- Arms -->
+      <rect x="4"  y="61" width="13" height="11" rx="5.5" fill="url(#pgBody)"/>
+      <circle cx="4.5" cy="66.5" r="4" class="pg-joint"/>
+      <rect x="63" y="61" width="13" height="11" rx="5.5" fill="url(#pgBody)"/>
+      <circle cx="75.5" cy="66.5" r="4" class="pg-joint"/>
+
+      <!-- Feet -->
+      <rect x="23" y="85" width="14" height="7" rx="3.5" class="pg-foot"/>
+      <rect x="43" y="85" width="14" height="7" rx="3.5" class="pg-foot"/>
+    </svg>
   </div>
 </div>
+
+<script>
+/* SMIL (<animate>) ignores prefers-reduced-motion — CSS cannot reach it and
+   there is no media query for it. Pausing the SVG's own timeline is the only
+   way to honour the setting for Plani's blink and signal pulse. */
+(function () {
+  try {
+    var mq = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (!mq) return;
+    function apply() {
+      var svg = document.getElementById('planiRobot');
+      if (!svg || !svg.pauseAnimations) return;
+      if (mq.matches) svg.pauseAnimations(); else svg.unpauseAnimations();
+    }
+    if (document.readyState !== 'loading') apply();
+    else document.addEventListener('DOMContentLoaded', apply);
+    /* addEventListener on MediaQueryList is unsupported in older Safari. */
+    if (mq.addEventListener) mq.addEventListener('change', apply);
+    else if (mq.addListener) mq.addListener(apply);
+  } catch (e) {}
+})();
+</script>
 
 <!-- ══════════════════════════════════════
      SCRIPTS
@@ -3927,8 +4104,11 @@ function addMsg(role, text) {
   av.className = 'plani-msg-avatar';
   av.setAttribute('aria-hidden','true');
   if (role === 'bot') {
-    av.style.background = 'var(--accent)';
-    av.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-robot"/></svg>';
+    /* Match the robot's own palette, not --accent — the avatar and the
+       character in the corner have to read as the same entity. */
+    av.style.background = 'var(--plani-body-1)';
+    av.style.color = 'var(--plani-signal)';
+    av.innerHTML = '<svg width="13" height="13" viewBox="0 0 256 256" fill="currentColor"><use href="#i-robot"/></svg>';
   } else {
     av.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-user"/></svg>';
   }
