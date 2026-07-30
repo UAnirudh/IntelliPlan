@@ -119,6 +119,21 @@ html.ipm-on [data-lift]:hover {
   box-shadow: var(--shadow-hover, 0 18px 40px rgba(15, 23, 42, 0.14));
 }
 
+/* Restrained variant for dense rows and list items. A settings row or a
+   list entry rising 6px reads as the row jumping out of the list; 1px plus
+   a background tint reads as "this one is under the cursor", which is all
+   a row needs to say. */
+html.ipm-on [data-lift-sm] {
+  transition:
+    transform  0.22s var(--ipm-glide),
+    background 0.22s var(--ipm-glide),
+    border-color 0.22s ease;
+}
+html.ipm-on [data-lift-sm]:hover {
+  transform: translate3d(0, -1px, 0);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
 /* 3D tilt. The JS supplies the angles; keeping perspective in CSS means
    a browser without pointer events still gets a flat, correct card. */
 html.ipm-on [data-tilt] {
@@ -331,6 +346,82 @@ button.ipm-shimmer,
 [data-theme="dark"] .ipm-aurora { opacity: 0.34; }
 
 /* ═══════════════════════════════════════════
+   6a. SMOOTH INPUT
+
+   Skiper 106. The original mirrors the field's value into a motion layer and
+   springs each character in. That technique is deliberately NOT used here:
+   it needs a shadow copy of what the user typed, which breaks IME
+   composition, fights password managers, and would put a rendered duplicate
+   of credentials in the DOM. Not a trade worth making on a real auth form.
+
+   What carries over is the feel — the field itself reacts. The caret column
+   springs, the frame lifts on focus, and the placeholder slides out of the
+   way rather than cutting. No value mirroring, so autofill, IME and
+   password managers all behave exactly as they did.
+
+   Opt in with .ipm-input on the wrapper. Never applied automatically, and
+   never to type=password.
+   ═══════════════════════════════════════════ */
+.ipm-input {
+  position: relative;
+  transition:
+    border-color 0.22s var(--ipm-glide),
+    box-shadow   0.28s var(--ipm-glide),
+    transform    0.28s var(--ipm-glide);
+}
+.ipm-input:focus-within {
+  transform: translate3d(0, -1px, 0);
+  box-shadow: 0 0 0 3px var(--accent-soft), 0 8px 22px rgba(15, 23, 42, 0.09);
+}
+.ipm-input input::placeholder,
+.ipm-input textarea::placeholder {
+  transition: opacity 0.22s var(--ipm-glide), transform 0.22s var(--ipm-glide);
+}
+.ipm-input:focus-within input::placeholder,
+.ipm-input:focus-within textarea::placeholder {
+  opacity: 0.45;
+  transform: translateX(4px);
+}
+/* Sweep that runs once as the field takes focus — the "settling" beat. */
+.ipm-input::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  transform: scaleX(0);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.42s var(--ipm-glide), opacity 0.42s var(--ipm-glide);
+}
+.ipm-input:focus-within::after { transform: scaleX(1); opacity: 0.9; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ipm-input,
+  .ipm-input::after,
+  .ipm-input input::placeholder,
+  .ipm-input textarea::placeholder { transition: none; }
+  .ipm-input:focus-within { transform: none; }
+}
+
+/* ═══════════════════════════════════════════
+   6b. GOO / SQUIRCLE FILTER
+
+   Skiper 63. Blur the source, then push alpha through a steep colour matrix
+   so partially-transparent edges snap back to opaque: neighbouring shapes
+   bleed into each other and read as one soft blob while they are close,
+   then separate. Pure SVG filter, no JS, no re-render cost.
+
+   The filter element itself lives in base.html; this is the opt-in hook.
+   ═══════════════════════════════════════════ */
+.ipm-goo { filter: url(#ipmGoo); }
+/* The filter rasterises its subtree, which kills subpixel text rendering.
+   Only ever put it on a wrapper whose children are shapes — never on text. */
+@media (prefers-reduced-motion: reduce) {
+  .ipm-goo { filter: none; }
+}
+
+/* ═══════════════════════════════════════════
    7. THEME VIEW TRANSITION
 
    Ported from Skiper UI's Skiper 26. The theme swap is driven by
@@ -388,7 +479,8 @@ html.ip-vt-busy::view-transition-new(root) {
   html.ip-vt-busy::view-transition-new(root) { animation: none !important; }
   html.ipm-on [data-magnetic],
   html.ipm-on [data-tilt],
-  html.ipm-on [data-lift] {
+  html.ipm-on [data-lift],
+  html.ipm-on [data-lift-sm] {
     transform: none !important;
     transition: none !important;
   }

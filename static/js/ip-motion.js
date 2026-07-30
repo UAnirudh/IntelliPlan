@@ -40,6 +40,10 @@
   var TILT_MAX_DEG  = 7;
 
   var api = {
+    /* Bumped whenever the behaviour of this file changes. Flask serves
+       /static with long-lived caching, so this is the only way to tell a
+       stale bundle from a live one when something does not work. */
+    version: 2,
     reduced: REDUCED,
     ready: null,
     springs: { gentle: SPRING_GENTLE, bouncy: SPRING_BOUNCY, snappy: SPRING_SNAPPY }
@@ -323,8 +327,169 @@
     });
   }
 
+  /* ── 7. Sitewide auto-adoption ───────────────────────────────────
+     The data-attributes above are opt-in, which meant only the handful of
+     templates edited by hand had any motion. Enumerating the rest is not
+     practical: this app has ~85 templates and the class names are
+     page-local (hub-card, sch-card, oly-panel, bal-card, cc-card…), so a
+     hardcoded allowlist would go stale immediately.
+
+     So match on structure instead. A class ending in -card / -panel / -tile
+     is a surface; a class ending in -grid / -list is a group. That covers
+     every page including ones added later, and lives in one reviewable
+     place rather than in 85 diffs.
+
+     Anything inside [data-no-motion] is left alone, and a hand-authored
+     attribute always wins — this only fills in what a template did not say.
+  */
+  /* Surfaces worth a hover lift. Deliberately includes -row and -item: on
+     pages like /settings there is not a single "-card" on the page, it is
+     built from settings-section / integration-row / sb-cust-item. Matching
+     only card/panel/tile would have left most of the app untouched. */
+  var SURFACE_RE = /(?:^|[\s])[\w]+-(?:card|panel|tile|row|item)(?:$|[\s])/;
+  var GROUP_RE   = /(?:^|[\s])[\w]+-(?:grid|list|options|slots)(?:$|[\s])/;
+
+  /* A lift is a hover affordance — it promises the thing responds. Putting
+     it on a static block just makes the page twitch as the cursor crosses
+     it, so only elements that actually do something get one. */
+  function isInteractive(el) {
+    var tag = el.tagName;
+    if (tag === 'A' || tag === 'BUTTON' || tag === 'LABEL' || tag === 'SUMMARY') return true;
+    if (el.hasAttribute('onclick') || el.hasAttribute('href')) return true;
+    var role = el.getAttribute('role');
+    if (role === 'button' || role === 'link' || role === 'option') return true;
+    return !!el.querySelector('a[href], button, input, select, textarea, [role="button"]');
+  }
+
+  /* Rows and list items are small and dense; the full -6px card lift reads
+     as the row jumping. They get a restrained version instead. */
+  function isDenseRow(cls) {
+    return /(?:^|[\s])[\w]+-(?:row|item)(?:$|[\s])/.test(cls);
+  }
+
+  /* Dense data views (a gradebook, a full scheduler) would turn into a
+     shimmer of fading rows. Past this many candidates, skip the reveal and
+     keep only the hover treatments. */
+  var REVEAL_BUDGET = 48;
+
+  function classOf(el) {
+    var c = el.getAttribute && el.getAttribute('class');
+    return typeof c === 'string' ? ' ' + c + ' ' : '';
+  }
+
+  /* Structural fallback for pages whose containers are not named *-grid or
+     *-list — most of this app, as it turns out. A run of three or more
+     siblings that all carry the same leading class is a repeated set
+     whatever the parent happens to be called, and repeated sets are exactly
+     what a stagger is for. */
+  function looksLikeGroup(el) {
+    var kids = el.children;
+    if (kids.length < 3) return false;
+    var first = (kids[0].getAttribute('class') || '').split(/\s+/)[0];
+    if (!first) return false;
+    var same = 0;
+    for (var i = 0; i < kids.length; i++) {
+      if ((kids[i].getAttribute('class') || '').split(/\s+/)[0] === first) same++;
+    }
+    return same === kids.length;
+  }
+
+  /* Reveal binds an IntersectionObserver against the viewport, so an element
+     inside its own scroll box can sit "off screen" in that box while being
+     on screen in the viewport, and never settle. Hover effects are fine
+     there; reveals are not. */
+  function inScrollBox(el) {
+    for (var p = el.parentElement; p && p !== doc.body; p = p.parentElement) {
+      var o = getComputedStyle(p).overflowY;
+      if (o === 'auto' || o === 'scroll') return true;
+    }
+    return false;
+  }
+
+  function autoAdopt(scope) {
+    var root = scope || doc;
+    var main = root.querySelector ? (root.querySelector('main') || root) : root;
+    if (!main || !main.querySelectorAll) return;
+
+    var all = main.querySelectorAll('*');
+    var surfaces = [], groups = [];
+
+    Array.prototype.forEach.call(all, function (el) {
+      if (el.closest('[data-no-motion]')) return;
+      var cls = classOf(el);
+      if (!cls) return;
+      if (SURFACE_RE.test(cls)) surfaces.push(el);
+      if (GROUP_RE.test(cls) || looksLikeGroup(el)) groups.push(el);
+    });
+
+    /* Hover lift on interactive surfaces. Pure hover — nothing is ever
+       hidden — so this is safe to apply broadly. */
+    surfaces.forEach(function (el) {
+      if (el.hasAttribute('data-lift') || el.hasAttribute('data-lift-sm')) return;
+      if (el.hasAttribute('data-tilt')) return;
+      if (!isInteractive(el)) return;
+      /* Skip anything that already animates its own transform on hover —
+         two competing transforms on one element is a fight, not a design.
+         Cheap check: does the element declare a transform transition? */
+      var tr = getComputedStyle(el).transitionProperty || '';
+      if (/transform|all/.test(tr)) return;
+      el.setAttribute(isDenseRow(classOf(el)) ? 'data-lift-sm' : 'data-lift', '');
+    });
+
+    if (REDUCED) return;
+
+    /* Staggered reveal for grid/list children, within budget. */
+    var revealed = 0;
+    groups.forEach(function (group) {
+      if (revealed >= REVEAL_BUDGET) return;
+      if (inScrollBox(group)) return;
+
+      var kids = Array.prototype.filter.call(group.children, function (k) {
+        if (k.hasAttribute('data-ipm-reveal') || !classOf(k)) return false;
+        /* Only adopt what is still below the fold.
+
+           html.ipm-on is already on the document by the time this runs, so
+           tagging a visible element would drop it to opacity 0 and fade it
+           back in — a flash on every page load. Off-screen elements have
+           nothing to flash. This also means above-the-fold content paints
+           immediately instead of waiting on an observer, which is the
+           behaviour you want there anyway. */
+        var r = k.getBoundingClientRect();
+        return r.top > window.innerHeight;
+      });
+      /* One child is not a sequence, and a huge one is a data dump. */
+      if (kids.length < 2 || kids.length > 12) return;
+      if (revealed + kids.length > REVEAL_BUDGET) return;
+
+      if (!group.hasAttribute('data-ipm-group')) group.setAttribute('data-ipm-group', '');
+      kids.forEach(function (k) { k.setAttribute('data-ipm-reveal', 'up'); });
+      revealed += kids.length;
+    });
+
+    /* Animated underline on prose links: inside main, real hrefs, not
+       buttons, chips, tabs or anything already styled as a control. */
+    var links = main.querySelectorAll('a[href]:not(.sk-link)');
+    Array.prototype.forEach.call(links, function (a) {
+      if (a.closest('[data-no-motion]')) return;
+      var cls = classOf(a);
+      if (/btn|chip|tab|pill|card|nav|logo|badge|icon/i.test(cls)) return;
+      if (a.querySelector('img, svg')) return;          // icon links
+      var text = (a.textContent || '').trim();
+      if (!text || text.length > 60) return;
+      a.classList.add('sk-link');
+    });
+
+    /* Magnetic pull on the page's primary call to action — the first one
+       only. Every button leaning at the cursor is noise, not emphasis. */
+    var cta = main.querySelector('.btn-primary, .cta-btn, .hero-btn');
+    if (cta && !cta.hasAttribute('data-magnetic') && !cta.closest('[data-no-motion]')) {
+      cta.setAttribute('data-magnetic', '0.2');
+    }
+  }
+
   /* ── Wire-up ─────────────────────────────────────────────────────── */
   function scan(M, scope) {
+    try { autoAdopt(scope); } catch (e) {}
     try { initReveal(scope); } catch (e) {}
     try { initFloat(scope); } catch (e) {}
     try {
@@ -343,11 +508,58 @@
     api.ready.then(function (M) { scan(M, scope); });
   };
 
+  /* ── Re-scan when content arrives ────────────────────────────────
+     autoAdopt runs once at boot, which is too early for most of this app:
+     the dashboard, gradebook, scheduler and friends render their content
+     after a fetch, so a one-shot pass finds an empty <main> and enhances
+     nothing. Watching for inserted nodes covers every async page without
+     each template having to remember to call refresh().
+
+     childList only, never attributes — autoAdopt's whole job is setting
+     attributes, so observing those would feed itself forever. */
+  function watch(M) {
+    if (!window.MutationObserver || !doc.body) return;
+
+    var pending = 0;
+    var mo = new MutationObserver(function (records) {
+      if (pending) return;
+      /* Observe body, not <main>: several pages re-render by replacing the
+         main element outright, which would leave an observer bound to <main>
+         watching a detached node and silently never firing again.
+         Body always survives, so the filter below does the scoping instead. */
+      var main = doc.querySelector('main');
+      var relevant = false;
+      for (var i = 0; i < records.length && !relevant; i++) {
+        var added = records[i].addedNodes;
+        for (var j = 0; j < added.length; j++) {
+          if (added[j].nodeType !== 1) continue;
+          /* Ignore our own furniture — the tooltip re-appends itself to
+             body on every hover, which would otherwise schedule a scan
+             every time the cursor crosses a control. */
+          if (added[j].id === 'ipTip') continue;
+          if (!main || main.contains(added[j])) { relevant = true; break; }
+        }
+      }
+      if (!relevant) return;
+
+      /* Debounced: a render usually lands as a burst of insertions, and
+         re-scanning per node would be quadratic on a long list. */
+      pending = window.setTimeout(function () {
+        pending = 0;
+        try { scan(M, doc); } catch (e) {}
+      }, 180);
+    });
+    mo.observe(doc.body, { childList: true, subtree: true });
+  }
+
   function boot() {
     /* Only now do we let the CSS hide anything — if this line never runs,
        every [data-ipm-reveal] element stays at its natural opacity. */
     root.classList.add('ipm-on');
-    api.ready.then(function (M) { scan(M, doc); });
+    api.ready.then(function (M) {
+      scan(M, doc);
+      try { watch(M); } catch (e) {}
+    });
   }
 
   if (doc.readyState !== 'loading') boot();

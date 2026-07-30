@@ -1898,6 +1898,42 @@ def get_study_profile(user_id=None, guest_id=None):
         p.shop_purchases = "[]"
     return p
 
+@functools.lru_cache(maxsize=1)
+def _asset_version() -> str:
+    """Fingerprint for cache-busting /static URLs.
+
+    Flask serves /static with a long max-age, so a deploy that changes a JS
+    or CSS file leaves returning users running the previous one until their
+    cache expires — a stale bundle that looks exactly like a bug that will
+    not reproduce. Hashing the mtimes of the files we actually version gives
+    a value that changes on deploy and stays put in between.
+
+    Cached: this walks the filesystem, and it must not run per request.
+    """
+    try:
+        base = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+        stamps = []
+        for sub in ("css", "js"):
+            d = os.path.join(base, sub)
+            if not os.path.isdir(d):
+                continue
+            for root, _dirs, files in os.walk(d):
+                for f in files:
+                    if f.endswith((".css", ".js")):
+                        stamps.append(str(int(os.path.getmtime(os.path.join(root, f)))))
+        if not stamps:
+            return "0"
+        return hashlib.md5("|".join(sorted(stamps)).encode()).hexdigest()[:10]
+    except Exception:
+        # A missing fingerprint must never take down a page render.
+        return "0"
+
+
+@app.context_processor
+def inject_asset_version():
+    return dict(asset_v=_asset_version())
+
+
 @app.context_processor
 def inject_auth():
     # Defensive: if load_user blows up
