@@ -251,6 +251,17 @@
 {% block content %}
 
 <section class="hero-wrap">
+  {# Two slow accent washes behind the hero.
+
+     They live in their own clipping box rather than directly in .hero-wrap:
+     that element is overflow-x:clip / overflow-y:visible, which is a legal
+     pair that clips only horizontally — the washes are offset -32%/-34%
+     vertically and would have bled up over the sticky header and down into
+     the stats strip. #}
+  <div class="hero-atmosphere" aria-hidden="true">
+    <div class="ipm-aurora hero-aurora-a"></div>
+    <div class="ipm-aurora hero-aurora-b"></div>
+  </div>
   <div class="hero">
     <div class="hero-copy">
       <h1 class="hero-title">Stop missing assignments and build your study plan automatically</h1>
@@ -258,8 +269,11 @@
         The free AI study planner that syncs Canvas, StudentVue, and Schoology, ranks every assignment by what is due first, and builds a weekly study schedule you can actually follow.
       </p>
 
+      {# Magnetic only on the primary action. Applying it to both would make
+         the pair squirm and cost the primary its emphasis; one control that
+         leans toward the cursor is the whole effect. #}
       <div class="hero-actions">
-        <a href="/login" class="btn-primary hero-btn">Get Started Free →</a>
+        <a href="/login" class="btn-primary hero-btn" data-magnetic="0.24">Get Started Free →</a>
         <a href="#how-it-works" class="btn-secondary hero-btn">See How It Works</a>
       </div>
 
@@ -277,8 +291,12 @@
       </div>
     </div>
 
-    <div class="hero-preview" aria-label="Sample weekly plan">
-      <div class="preview-card">
+    {# The preview drifts slowly and tilts toward the cursor. This is the one
+       place on the page where the "floaty" quality earns its keep: the card
+       is showing a product artifact, so giving it physical presence sells it
+       better than a flat screenshot would. #}
+    <div class="hero-preview" aria-label="Sample weekly plan" data-float style="--ipm-float-y:10px; --ipm-float-dur:9s;">
+      <div class="preview-card" data-tilt="5">
         <div class="preview-header">
           <div class="preview-title">This Week's Priorities</div>
           <div class="preview-pill">4h 30m planned</div>
@@ -387,18 +405,21 @@
     </p>
   </div>
 
-  <div class="steps-grid" data-reveal>
-    <div class="step-card">
+  {# Reveal per card rather than as one block, so the three steps arrive in
+     order — the sequence is the point of the section. data-ipm-group is
+     what tells ip-motion.js to stagger them against each other. #}
+  <div class="steps-grid" data-ipm-group>
+    <div class="step-card" data-ipm-reveal="up" data-lift>
       <div class="step-num">1</div>
       <h3>Import assignments</h3>
       <p>Pull work from your school tools so everything is in one place.</p>
     </div>
-    <div class="step-card">
+    <div class="step-card" data-ipm-reveal="up" data-lift>
       <div class="step-num">2</div>
       <h3>Prioritize automatically</h3>
       <p>Rank tasks by due date, difficulty, points, and the time you have available.</p>
     </div>
-    <div class="step-card">
+    <div class="step-card" data-ipm-reveal="up" data-lift>
       <div class="step-num">3</div>
       <h3>Follow the plan</h3>
       <p>Get a schedule you can actually use, not a pile of random assignments pretending to be organized.</p>
@@ -472,38 +493,40 @@
     <p class="section-subtitle">Built for students who want clarity — not another cluttered dashboard to manage.</p>
   </div>
 
-  <div class="features-grid" data-reveal>
-    <div class="feature-card">
+  {# Staggered per card. Six cards arriving as one block reads as a page
+     load; arriving in sequence reads as the page assembling itself. #}
+  <div class="features-grid" data-ipm-group>
+    <div class="feature-card" data-ipm-reveal="up" data-lift>
       <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg></div>
       <h3 class="feature-title">Smart Scheduling</h3>
       <p class="feature-desc">Automatically pulls assignments from Canvas, StudentVue, and Schoology, then sorts them by urgency and effort.</p>
     </div>
 
-    <div class="feature-card">
+    <div class="feature-card" data-ipm-reveal="up" data-lift>
       <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-priority"/></svg></div>
       <h3 class="feature-title">Priority Scoring</h3>
       <p class="feature-desc">High, Medium, and Low labels make the next step obvious, so you always know what to start first.</p>
     </div>
 
-    <div class="feature-card">
+    <div class="feature-card" data-ipm-reveal="up" data-lift>
       <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg></div>
       <h3 class="feature-title">Time Estimation</h3>
       <p class="feature-desc">Estimate how long each assignment takes so you can plan a realistic week around the time you actually have.</p>
     </div>
 
-    <div class="feature-card">
+    <div class="feature-card" data-ipm-reveal="up" data-lift>
       <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-study"/></svg></div>
       <h3 class="feature-title">Study & Learn</h3>
       <p class="feature-desc">Upload notes and generate flashcards, key concepts, and quiz questions — then keep a daily streak going while you review.</p>
     </div>
 
-    <div class="feature-card">
+    <div class="feature-card" data-ipm-reveal="up" data-lift>
       <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-modeler"/></svg></div>
       <h3 class="feature-title">Grade Modeler</h3>
       <p class="feature-desc">Simulate "what if I get X on the next test?" and see how assignments affect grades instantly.</p>
     </div>
 
-    <div class="feature-card">
+    <div class="feature-card" data-ipm-reveal="up" data-lift>
       <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-robot"/></svg></div>
       <h3 class="feature-title">AI Scheduler</h3>
       <p class="feature-desc">Generate study plans that adapt to deadlines and available time, then export them directly to Google Calendar.</p>
@@ -1047,6 +1070,35 @@
   }
   .hero-wrap::before { display: none; }
 
+  /* Atmosphere behind the hero. Kept faint (0.11–0.24) and very large so it
+     reads as light in the room rather than as a gradient blob — the latter
+     is the stock "AI landing page" look this deliberately avoids. */
+  .hero-atmosphere {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;      /* both axes — see the note on the markup */
+    pointer-events: none;
+    border-radius: inherit;
+  }
+  .hero-aurora-a,
+  .hero-aurora-b { opacity: 0.2; }
+  .hero-aurora-a {
+    width: min(680px, 70vw); height: min(680px, 70vw);
+    top: -32%; right: -14%;
+    background: radial-gradient(circle, var(--accent) 0%, transparent 66%);
+  }
+  .hero-aurora-b {
+    width: min(520px, 58vw); height: min(520px, 58vw);
+    bottom: -34%; left: -12%;
+    background: radial-gradient(circle, #f5a524 0%, transparent 70%);
+    opacity: 0.14;
+    --ipm-drift-dur: 30s;
+    --ipm-drift-delay: -11s;
+  }
+  [data-theme="dark"] .hero-aurora-a { opacity: 0.24; }
+  [data-theme="dark"] .hero-aurora-b { opacity: 0.11; }
+
   .hero {
     display: grid;
     grid-template-columns: 1.15fr 0.85fr;
@@ -1413,19 +1465,47 @@
 
   .step-card { padding: 1.2rem; }
 
+  /* These numerals were painted with var(--border-strong) — a *border*
+     token, rgba(0,0,0,0.11), which is about 1.2:1 on the white card. They
+     were effectively invisible in light mode.
+
+     Fixed by making them a real typographic element rather than a ghost:
+     accent colour (7.4:1 on white, ~6:1 on the dark card) with a short
+     accent rule under each. Semantic colour, readable at a glance, and
+     still reads as an index rather than as body copy. */
   .step-num {
     display: block;
     font-family: var(--font-display);
     font-size: 3rem;
-    font-weight: 400;
-    color: var(--border-strong);
+    font-weight: 500;
+    color: var(--accent);
     line-height: 1;
     letter-spacing: -0.04em;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.9rem;
     background: none;
     width: auto;
     height: auto;
     border-radius: 0;
+    position: relative;
+    padding-bottom: 0.55rem;
+  }
+  .step-num::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 26px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--accent);
+    opacity: 0.4;
+    transition: width 0.35s var(--ipm-glide, cubic-bezier(0.22,1,0.36,1)), opacity 0.35s ease;
+  }
+  /* The rule extends on hover — the only motion on the card, so it reads
+     as a response rather than as decoration. */
+  .step-card:hover .step-num::after { width: 46px; opacity: 0.85; }
+  @media (prefers-reduced-motion: reduce) {
+    .step-num::after { transition: none; }
   }
 
   .step-card h3, .feature-title {

@@ -9,6 +9,10 @@
 <style>
   footer a { transition: opacity .18s var(--ease-out), color .18s var(--ease-out); }
   footer a:hover { opacity: 1 !important; color: var(--footer-link) !important; }
+  /* The footer nav uses the .sk-link underline wipe (ip-motion.css). Its
+     ::before sits at bottom:-0.08em, which needs a little room under the
+     baseline or it collides with the row below when the nav wraps. */
+  footer .sk-link { padding-bottom: 2px; }
   footer a:focus-visible {
     outline: 2px solid var(--focus-ring, var(--accent));
     outline-offset: 2px; border-radius: 5px; opacity: 1 !important;
@@ -36,18 +40,18 @@
       <span style="font-size:0.75rem; color:var(--footer-text); opacity:0.45; margin-left:2px;">© 2026</span>
     </div>
     <nav aria-label="Footer" style="display:flex; align-items:center; gap:1.25rem; flex-wrap:wrap;">
-      <a href="/legal" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Privacy &amp; Terms</a>
-      <a href="/about" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">About</a>
-      <a href="/faq" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">FAQ</a>
-      <a href="/blog" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Guides</a>
-      <a href="/olympiad" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Olympiad Prep</a>
-      <a href="/compare" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Compare</a>
-      <a href="/pricing" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Free plan</a>
-      <a href="/contact" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Contact</a>
-      <a href="/ambassador" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Ambassador</a>
-      <a href="/api-docs" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">API</a>
+      <a class="sk-link" href="/legal" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Privacy &amp; Terms</a>
+      <a class="sk-link" href="/about" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">About</a>
+      <a class="sk-link" href="/faq" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">FAQ</a>
+      <a class="sk-link" href="/blog" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Guides</a>
+      <a class="sk-link" href="/olympiad" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Olympiad Prep</a>
+      <a class="sk-link" href="/compare" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Compare</a>
+      <a class="sk-link" href="/pricing" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Free plan</a>
+      <a class="sk-link" href="/contact" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Contact</a>
+      <a class="sk-link" href="/ambassador" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Ambassador</a>
+      <a class="sk-link" href="/api-docs" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">API</a>
       {% if logged_in %}
-      <a href="/dashboard" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Dashboard</a>
+      <a class="sk-link" href="/dashboard" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Dashboard</a>
       {% endif %}
     </nav>
   </div>
@@ -59,16 +63,16 @@
       <span style="font-size:0.68rem; opacity:0.7;">(expand)</span>
     </summary>
     <div style="display:flex; flex-wrap:wrap; gap:0.65rem 1.25rem; margin-top:0.85rem; justify-content:flex-start;">
-      <a href="/blog/best-ai-study-planner" aria-label="Best AI study planner" style="font-size:0.76rem; color:var(--footer-text); text-decoration:none; opacity:0.75;">Best AI study planner</a>
-      <a href="/blog/best-student-planner-app" aria-label="Best student planner" style="font-size:0.76rem; color:var(--footer-text); text-decoration:none; opacity:0.75;">Best student planner</a>
-      <a href="/blog/how-to-use-canvas-with-a-study-planner" aria-label="Canvas guide" style="font-size:0.76rem; color:var(--footer-text); text-decoration:none; opacity:0.75;">Canvas guide</a>
-      <a href="/blog/ap-study-planner" aria-label="AP study planner" style="font-size:0.76rem; color:var(--footer-text); text-decoration:none; opacity:0.75;">AP study planner</a>
-      <a href="/compare/intelliplan-vs-notion" aria-label="IntelliPlan vs Notion" style="font-size:0.76rem; color:var(--footer-text); text-decoration:none; opacity:0.75;">vs Notion</a>
-      <a href="/compare/intelliplan-vs-myhomework" aria-label="IntelliPlan vs myHomework" style="font-size:0.76rem; color:var(--footer-text); text-decoration:none; opacity:0.75;">vs myHomework</a>
-      <a href="/tools/final-grade-calculator" aria-label="Final grade calculator" style="font-size:0.76rem; color:var(--footer-text); text-decoration:none; opacity:0.75;">Final grade calc</a>
-      <a href="/tools/gpa-calculator" aria-label="GPA calculator" style="font-size:0.76rem; color:var(--footer-text); text-decoration:none; opacity:0.75;">GPA calculator</a>
-      <a href="/uk" aria-label="IntelliPlan for UK students" style="font-size:0.76rem; color:var(--footer-text); text-decoration:none; opacity:0.75;">UK students</a>
-      <a href="/schools" aria-label="IntelliPlan for schools" style="font-size:0.76rem; color:var(--footer-text); text-decoration:none; opacity:0.75;">For schools</a>
+      <a class="sk-link" href="/blog/best-ai-study-planner" aria-label="Best AI study planner" style="font-size:0.76rem; color:var(--footer-text); text-decoration:none; opacity:0.75;">Best AI study planner</a>
+      <a class="sk-link" href="/blog/best-student-planner-app" aria-label="Best student planner" style="font-size:0.76rem; color:var(--footer-text); text-decoration:none; opacity:0.75;">Best student planner</a>
+      <a class="sk-link" href="/blog/how-to-use-canvas-with-a-study-planner" aria-label="Canvas guide" style="font-size:0.76rem; color:var(--footer-text); text-decoration:none; opacity:0.75;">Canvas guide</a>
+      <a class="sk-link" href="/blog/ap-study-planner" aria-label="AP study planner" style="font-size:0.76rem; color:var(--footer-text); text-decoration:none; opacity:0.75;">AP study planner</a>
+      <a class="sk-link" href="/compare/intelliplan-vs-notion" aria-label="IntelliPlan vs Notion" style="font-size:0.76rem; color:var(--footer-text); text-decoration:none; opacity:0.75;">vs Notion</a>
+      <a class="sk-link" href="/compare/intelliplan-vs-myhomework" aria-label="IntelliPlan vs myHomework" style="font-size:0.76rem; color:var(--footer-text); text-decoration:none; opacity:0.75;">vs myHomework</a>
+      <a class="sk-link" href="/tools/final-grade-calculator" aria-label="Final grade calculator" style="font-size:0.76rem; color:var(--footer-text); text-decoration:none; opacity:0.75;">Final grade calc</a>
+      <a class="sk-link" href="/tools/gpa-calculator" aria-label="GPA calculator" style="font-size:0.76rem; color:var(--footer-text); text-decoration:none; opacity:0.75;">GPA calculator</a>
+      <a class="sk-link" href="/uk" aria-label="IntelliPlan for UK students" style="font-size:0.76rem; color:var(--footer-text); text-decoration:none; opacity:0.75;">UK students</a>
+      <a class="sk-link" href="/schools" aria-label="IntelliPlan for schools" style="font-size:0.76rem; color:var(--footer-text); text-decoration:none; opacity:0.75;">For schools</a>
     </div>
   </details>
   {% endif %}

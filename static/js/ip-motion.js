@@ -112,6 +112,7 @@
      CSS means a failed script leaves everything visible (html.ipm-on is
      only ever added once we know we can also remove it). */
   var revealObserver = null;
+  var revealBackstop = 0;
 
   function groupDelay(el) {
     var group = el.closest('[data-ipm-group]');
@@ -147,6 +148,24 @@
       }, { rootMargin: '0px 0px -10% 0px', threshold: 0.08 });
     }
     Array.prototype.forEach.call(els, function (e) { revealObserver.observe(e); });
+
+    /* Backstop. This mechanism hides content until an observer callback
+       says otherwise, so any environment where that callback does not
+       arrive — a page that never composites, an aggressively throttled
+       background tab, print, a headless renderer — would leave sections
+       permanently blank. Nothing about the reveal is important enough to
+       risk that, so anything still hidden after 4s is simply shown.
+       Elements below the fold are unaffected: they have already been
+       revealed by then only if they were actually scrolled into view, and
+       revealing the rest early costs a nicety, not the page. */
+    if (revealBackstop) window.clearTimeout(revealBackstop);
+    revealBackstop = window.setTimeout(function () {
+      var stuck = doc.querySelectorAll('[data-ipm-reveal]:not(.ipm-in)');
+      Array.prototype.forEach.call(stuck, function (e) {
+        e.classList.add('ipm-in', 'ipm-settled');
+        if (revealObserver) revealObserver.unobserve(e);
+      });
+    }, 4000);
   }
 
   /* ── 2. Magnetic controls ────────────────────────────────────────
