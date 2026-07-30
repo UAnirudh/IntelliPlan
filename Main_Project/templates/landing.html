@@ -1489,21 +1489,26 @@
     position: relative;
     padding-bottom: 0.55rem;
   }
+  /* Drawn at its full 46px and scaled down to rest at 26px, so the hover
+     extension is a transform rather than a width animation — width is a
+     layout property and would re-run layout every frame. */
   .step-num::after {
     content: '';
     position: absolute;
     left: 0;
     bottom: 0;
-    width: 26px;
+    width: 46px;
     height: 2px;
     border-radius: 1px;
     background: var(--accent);
     opacity: 0.4;
-    transition: width 0.35s var(--ipm-glide, cubic-bezier(0.22,1,0.36,1)), opacity 0.35s ease;
+    transform: scaleX(0.565);
+    transform-origin: left;
+    transition: transform 0.35s var(--ipm-glide, cubic-bezier(0.22,1,0.36,1)), opacity 0.35s ease;
   }
   /* The rule extends on hover — the only motion on the card, so it reads
      as a response rather than as decoration. */
-  .step-card:hover .step-num::after { width: 46px; opacity: 0.85; }
+  .step-card:hover .step-num::after { transform: scaleX(1); opacity: 0.85; }
   @media (prefers-reduced-motion: reduce) {
     .step-num::after { transition: none; }
   }

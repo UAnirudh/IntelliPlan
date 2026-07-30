@@ -14,11 +14,16 @@
    ══════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* One easing vocabulary. "Glide" is the workhorse; "spring" reads as
-     slightly overshooting without actually running a spring solver. */
-  --ipm-glide:  cubic-bezier(0.22, 1, 0.36, 1);
-  --ipm-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --ipm-exit:   cubic-bezier(0.4, 0, 1, 1);
+  /* One easing vocabulary. "Glide" is the workhorse — exponential ease-out,
+     which is how real objects decelerate.
+
+     There is deliberately no overshoot/bounce curve here. Where this layer
+     wants spring physics it uses a real solver (Motion's `type: 'spring'`,
+     see the SPRING_* constants in ip-motion.js), which settles against
+     stiffness and damping. A cubic-bezier that overshoots is an imitation
+     of that and reads dated. */
+  --ipm-glide: cubic-bezier(0.22, 1, 0.36, 1);
+  --ipm-exit:  cubic-bezier(0.4, 0, 1, 1);
 }
 
 /* ═══════════════════════════════════════════
@@ -188,13 +193,21 @@ html.ipm-on [data-tilt].ipm-tracking { transition: transform 0.1s linear; }
   z-index: 1;
   bottom: 0;
 }
+/* The original animates height 0 → 1.4em. Same visual, driven by scaleY off
+   the bottom edge instead: height is a layout property, so animating it
+   re-runs layout and paint every frame, while a transform stays on the
+   compositor. */
 .sk-link--fill::before {
-  height: 0;
-  transform: scaleX(1);
-  transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  height: 1.4em;
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .sk-link--fill:hover::before,
-.sk-link--fill:focus-visible::before { height: 1.4em; }
+.sk-link--fill:focus-visible::before {
+  transform: scaleY(1);
+  transform-origin: bottom;
+}
 
 .sk-link--sweep::before {
   top: 0;
