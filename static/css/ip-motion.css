@@ -247,6 +247,23 @@ html.ipm-on [data-tilt].ipm-tracking { transition: transform 0.1s linear; }
   animation: ipmShimmer 2.4s linear infinite;
 }
 
+/* Guard rail. This technique paints the text with a gradient and then makes
+   the glyphs themselves transparent — so if anything wins the background
+   declaration, the result is not "no shimmer", it is *invisible text*.
+   base.html ships exactly such a rule:
+     body button:not(…) { background: var(--glass-btn-bg) !important; }
+   which beats this one on any <button> and would blank the label.
+   Rather than escalate to !important and strip a button of its glass mid-
+   load, buttons opt out of the clip and simply dim. Put the class on a
+   <span> inside the button to get the real effect. */
+button.ipm-shimmer,
+.ipm-shimmer:is(button, [type="button"], [type="submit"]) {
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  animation: none;
+  opacity: 0.68;
+}
+
 /* A sheen that travels across a surface — for skeletons and CTAs. */
 @keyframes ipmSheen {
   0%   { transform: translateX(-120%) skewX(-18deg); }

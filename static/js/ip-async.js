@@ -505,7 +505,19 @@
       this.list.innerHTML = IP.skeleton(this.cfg.skeleton || 'list', this.cfg.pageSize || 5);
     }
     this.moreBtn.disabled = true;
-    this.moreBtn.textContent = first ? 'Loading…' : 'Loading more…';
+    /* Shimmer the label while the request is in flight (.ipm-shimmer,
+       ip-motion.css). The button is disabled and otherwise unchanged, so
+       without this there is no signal that anything is happening — and a
+       spinner is heavier than this wait deserves.
+       The class goes on an inner <span>, not on the button: the sitewide
+       glass rule sets `background: … !important` on <button>, which would
+       beat the shimmer's gradient and leave transparent text on a glass
+       fill — an invisible label. Cleared in every settle path below. */
+    this.moreBtn.textContent = '';
+    var label = document.createElement('span');
+    label.className = 'ipm-shimmer';
+    label.textContent = first ? 'Loading…' : 'Loading more…';
+    this.moreBtn.appendChild(label);
     this.footer.hidden = false;
 
     return Promise.resolve(this.cfg.fetchPage(this.page + 1, this.cursor))
@@ -527,11 +539,15 @@
         if (self.count === 0) {
           self.list.appendChild(buildEmptyView(self.cfg.empty));
           self.footer.hidden = true;
+          /* Footer is hidden either way, but do not leave a shimmering
+             label behind in case something later unhides it. */
+          self.moreBtn.textContent = 'Load more';
           if (self.observer) self.observer.disconnect();
           return;
         }
 
         self.moreBtn.disabled = false;
+        // Replaces the shimmering <span> wholesale.
         self.moreBtn.textContent = 'Load more';
         self.moreBtn.hidden = !self.hasMore;
 
@@ -555,6 +571,7 @@
       .catch(function (err) {
         self.loading = false;
         self.moreBtn.disabled = false;
+        // Replaces the shimmering <span> wholesale.
         self.moreBtn.textContent = 'Load more';
 
         if (first) {
