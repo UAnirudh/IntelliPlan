@@ -65,7 +65,13 @@
     }
   }
 </style>
-<div class="login-wrap">
+<div class="login-wrap auth-split">
+  {% with auth_kicker='Free for students',
+          auth_title='Your assignments, already sorted.',
+          auth_sub='Connect Canvas, StudentVue or Schoology once. IntelliPlan pulls the work in, ranks it by what actually matters, and tells you what to do next.' %}
+    {% include "partials/auth_aside.html" %}
+  {% endwith %}
+  <div class="auth-main">
   <div class="login-card">
     <div class="login-header ipd-anim">
       <div class="logo-icon">
@@ -139,6 +145,7 @@
       Creating an account saves your data across devices.<br>
       Guest mode resets when your session expires.
     </div>
+  </div>
   </div>
 </div>
 <script>

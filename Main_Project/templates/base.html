@@ -1883,6 +1883,214 @@
     }
 
     /* ══════════════════════════════════════
+       AUTH — HORIZONTAL SPLIT (desktop)
+
+       The auth pages were a single narrow column at every width, so on a
+       laptop they read like a phone screenshot stretched down the middle
+       of an empty page. Above 960px they become a two-column composition:
+       an editorial brand panel on the left, the form on the right.
+
+       Below 960px every rule here is inert and the original single-card
+       layout renders exactly as before — mobile is untouched.
+    ══════════════════════════════════════ */
+
+    /* main is capped at 960px sitewide; the split needs more room.
+       :has() is unsupported in a few old engines, where the page simply
+       stays centred and narrow — the same layout it has today. */
+    main:has(.auth-split) { max-width: min(1180px, 100%); }
+
+    @media (min-width: 960px) {
+      .auth-split {
+        display: grid;
+        /* Deliberately not 1fr 1fr. The brand panel carries more content
+           and the form wants a comfortable, not stretched, measure. */
+        grid-template-columns: 1.08fr 0.92fr;
+        align-items: stretch;
+        gap: 0;
+        width: 100%;
+        min-height: min(720px, 78vh);
+        border-radius: 26px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-lg);
+        background: var(--bg-card);
+      }
+      /* The card is already inside the shell — drop its own frame so the
+         two halves read as one object rather than a card in a box. */
+      .auth-split .login-card {
+        max-width: 460px;
+        width: 100%;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        background: transparent;
+        padding: 2.75rem 2.5rem;
+        /* Long forms (register) scroll inside the right column instead of
+           stretching the whole shell past the viewport. */
+        max-height: min(720px, 78vh);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
+      .auth-split .login-card::before { display: none; }
+      .auth-split .login-card::-webkit-scrollbar { width: 6px; }
+      .auth-split .login-card::-webkit-scrollbar-thumb {
+        background: var(--border-strong); border-radius: 3px;
+      }
+      .auth-split .auth-main {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg-card);
+        padding: 1rem 0;
+        min-width: 0;
+      }
+      /* Left-align the heading in split mode. Centred text belongs to a
+         narrow column; at this width it just looks unanchored. */
+      .auth-split .login-header { text-align: left; }
+      .auth-split .login-header .logo-icon { margin-left: 0 !important; margin-right: 0 !important; }
+      .auth-split .login-title { font-size: 2rem; }
+      .auth-split .login-footer { text-align: left; }
+    }
+
+    /* ── The brand panel ───────────────────────────────────────────── */
+    .auth-aside {
+      display: none;               /* only exists in the ≥960px composition */
+      position: relative;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 2.75rem 2.5rem;
+      overflow: hidden;
+      isolation: isolate;
+      /* Fixed dark, not var(--ink) — that token inverts in dark mode
+         (#1a1a1a → #e6e6e2), which would flip this panel to near-white and
+         destroy the white type on it. The brand panel is intentionally dark
+         in both themes; the form half is what follows the user's theme. */
+      background: #101215;
+      color: #fff;
+    }
+    [data-theme="dark"] .auth-aside { background: #0b0d10; }
+    /* Fine grid texture. Two 1px gradients beat a background-image here:
+       no request, and it scales with the panel instead of tiling visibly. */
+    .auth-aside::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
+      background-size: 46px 46px;
+      /* Fade the grid out toward the bottom so the copy sits on clean ink. */
+      -webkit-mask-image: radial-gradient(120% 90% at 20% 0%, #000 0%, transparent 72%);
+      mask-image: radial-gradient(120% 90% at 20% 0%, #000 0%, transparent 72%);
+    }
+    .auth-aside .ipm-aurora { z-index: -1; }
+    .auth-aside-a {
+      width: 420px; height: 420px; top: -140px; right: -120px;
+      background: radial-gradient(circle, rgb(var(--accent-shadow, 37,99,235)) 0%, transparent 68%);
+    }
+    .auth-aside-b {
+      width: 340px; height: 340px; bottom: -120px; left: -90px;
+      background: radial-gradient(circle, #f59e0b 0%, transparent 70%);
+      opacity: 0.28;
+      --ipm-drift-dur: 27s;
+      --ipm-drift-delay: -8s;
+    }
+    [data-theme="dark"] .auth-aside-b { opacity: 0.2; }
+
+    .auth-aside-brand {
+      display: flex; align-items: center; gap: 10px;
+      font-family: var(--font-ui); font-weight: 700; font-size: 0.95rem;
+      letter-spacing: -0.01em;
+    }
+    .auth-aside-brand img {
+      width: 30px; height: 30px; border-radius: 8px; object-fit: cover;
+    }
+    .auth-aside-body { margin: 2.25rem 0; }
+    .auth-aside-kicker {
+      font-family: var(--font-ui); font-size: 0.68rem; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 0.9rem;
+    }
+    .auth-aside-title {
+      font-family: var(--font-display);
+      font-size: clamp(1.9rem, 2.5vw, 2.6rem);
+      line-height: 1.12;
+      letter-spacing: -0.035em;
+      font-weight: 400;
+      margin: 0 0 1rem;
+      color: #fff;
+      text-wrap: balance;
+    }
+    .auth-aside-sub {
+      font-size: 0.95rem; line-height: 1.65;
+      color: rgba(255,255,255,0.66);
+      max-width: 38ch;
+      margin: 0;
+    }
+
+    /* Proof rows — real product artifacts, not feature bullets. These are
+       what the app actually renders, shrunk down, so the panel shows the
+       product instead of describing it. */
+    .auth-proof { display: flex; flex-direction: column; gap: 9px; }
+    .auth-proof-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 13px;
+      border-radius: 13px;
+      background: rgba(255,255,255,0.055);
+      border: 1px solid rgba(255,255,255,0.09);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      --ipm-float-y: 5px;
+    }
+    .auth-proof-tag {
+      width: 3px; align-self: stretch; border-radius: 2px; flex-shrink: 0;
+    }
+    .auth-proof-row.is-high   .auth-proof-tag { background: #f87171; }
+    .auth-proof-row.is-medium .auth-proof-tag { background: #fbbf24; }
+    .auth-proof-row.is-low    .auth-proof-tag { background: #4ade80; }
+    .auth-proof-text { flex: 1; min-width: 0; }
+    .auth-proof-title {
+      font-family: var(--font-ui); font-size: 0.83rem; font-weight: 600;
+      color: rgba(255,255,255,0.94);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .auth-proof-meta {
+      font-size: 0.71rem; color: rgba(255,255,255,0.48); margin-top: 2px;
+    }
+    .auth-proof-when {
+      font-family: var(--font-ui); font-size: 0.68rem; font-weight: 700;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      color: rgba(255,255,255,0.42);
+      flex-shrink: 0;
+    }
+
+    .auth-aside-foot {
+      display: flex; align-items: center; gap: 14px;
+      font-size: 0.76rem; color: rgba(255,255,255,0.45);
+      padding-top: 1.5rem;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .auth-aside-foot strong { color: rgba(255,255,255,0.8); font-weight: 600; }
+    .auth-aside-foot .sk-link { color: rgba(255,255,255,0.72); }
+    .auth-aside-foot .sk-link:hover { color: #fff; }
+
+    /* Reveal the panel. This must come *after* the base `display:none`
+       above — same specificity, so source order is what decides, and
+       putting it up in the first ≥960px block silently lost to the base
+       rule and collapsed the left column. */
+    @media (min-width: 960px) {
+      .auth-aside { display: flex; }
+    }
+
+    /* Wider gutters once there is room, so the composition breathes. */
+    @media (min-width: 1120px) {
+      .auth-aside { padding: 3.25rem 3rem; }
+      .auth-split .login-card { padding: 3rem 3rem; }
+    }
+
+    /* ══════════════════════════════════════
        GRADES
     ══════════════════════════════════════ */
     .grades-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1.25rem; animation:fadeUp 0.5s var(--ease-out) both; }

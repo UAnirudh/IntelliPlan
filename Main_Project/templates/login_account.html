@@ -51,7 +51,13 @@
     .login-wrap .form-input, .login-wrap .btn-primary, .ip-pw-toggle { transition: none; }
   }
 </style>
-<div class="login-wrap">
+<div class="login-wrap auth-split">
+  {% with auth_kicker='Welcome back',
+          auth_title='Pick up exactly where you left off.',
+          auth_sub='Your classes, assignments and study schedule are already synced. Sign in and the plan for today is waiting.' %}
+    {% include "partials/auth_aside.html" %}
+  {% endwith %}
+  <div class="auth-main">
   <div class="login-card">
     <div class="login-header">
       <div class="logo-icon" style="width:48px;height:48px;margin:0 auto 1rem;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:12px;">
@@ -80,6 +86,7 @@
       <p>No account? <a href="/register" class="login-link">Create one free</a></p>
       <p style="margin-top:6px;"><a href="/login" class="login-link">← Back to login options</a></p>
     </div>
+  </div>
   </div>
 </div>
 {% endblock %}

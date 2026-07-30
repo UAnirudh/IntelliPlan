@@ -1,0 +1,68 @@
+{# ═══════════════════════════════════════════════════════════════════
+   Brand panel for the horizontal auth layout.
+
+   Rendered only above 960px (the .auth-aside rule is display:none below
+   that), so mobile pays nothing for it — but it stays in the DOM rather
+   than behind a JS width check, so there is no layout shift on resize.
+
+   Callers set these before including:
+     auth_kicker  — small uppercase label
+     auth_title   — the display headline
+     auth_sub     — one supporting sentence
+
+   Usage:
+     {% with auth_kicker='…', auth_title='…', auth_sub='…' %}
+       {% include "partials/auth_aside.html" %}
+     {% endwith %}
+   ══════════════════════════════════════════════════════════════════ #}
+<aside class="auth-aside" aria-hidden="true">
+  {# Decorative only — aria-hidden on the whole panel keeps screen readers
+     on the form, which is the entire point of the page. Nothing here is
+     information the form does not already carry. #}
+  <div class="ipm-aurora auth-aside-a"></div>
+  <div class="ipm-aurora auth-aside-b"></div>
+
+  <div class="auth-aside-brand">
+    <img src="/static/icons/icon-192.png" alt="">
+    IntelliPlan
+  </div>
+
+  <div class="auth-aside-body">
+    <div class="auth-aside-kicker">{{ auth_kicker or 'Free for students' }}</div>
+    <h2 class="auth-aside-title">{{ auth_title or 'Your assignments, already sorted.' }}</h2>
+    <p class="auth-aside-sub">{{ auth_sub or 'Connect Canvas, StudentVue or Schoology once. IntelliPlan pulls the work in and tells you what to do next.' }}</p>
+  </div>
+
+  {# Product artifacts, not feature bullets — this is roughly what the
+     Priority view renders, so the panel shows the product working. #}
+  <div class="auth-proof">
+    <div class="auth-proof-row is-high" data-float>
+      <div class="auth-proof-tag"></div>
+      <div class="auth-proof-text">
+        <div class="auth-proof-title">Calculus BC — Problem Set 7</div>
+        <div class="auth-proof-meta">42 pts · roughly 90 min</div>
+      </div>
+      <div class="auth-proof-when">Tonight</div>
+    </div>
+    <div class="auth-proof-row is-medium" data-float>
+      <div class="auth-proof-tag"></div>
+      <div class="auth-proof-text">
+        <div class="auth-proof-title">AP Lang — Rhetorical analysis draft</div>
+        <div class="auth-proof-meta">100 pts · roughly 2 hrs</div>
+      </div>
+      <div class="auth-proof-when">Thu</div>
+    </div>
+    <div class="auth-proof-row is-low" data-float>
+      <div class="auth-proof-tag"></div>
+      <div class="auth-proof-text">
+        <div class="auth-proof-title">Chemistry — Lab safety quiz</div>
+        <div class="auth-proof-meta">10 pts · roughly 15 min</div>
+      </div>
+      <div class="auth-proof-when">Next wk</div>
+    </div>
+  </div>
+
+  <div class="auth-aside-foot">
+    <span><strong>Free forever.</strong> No card, no trial.</span>
+  </div>
+</aside>
