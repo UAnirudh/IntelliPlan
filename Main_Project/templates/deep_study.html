@@ -422,7 +422,10 @@
     <p class="ds-pane-sub">Drop a PDF, DOCX or TXT, paste your notes, or describe the topic. IntelliPlan extracts the source material for every step that follows.</p>
 
     <div class="ds-ingest-grid">
-      <div class="ds-drop" id="dsDrop" onclick="document.getElementById('dsFile').click()"
+      <div class="ds-drop" id="dsDrop" role="button" tabindex="0"
+           aria-label="Upload a study file: PDF, DOCX, TXT or MD. Drop a file here or activate to browse."
+           onclick="document.getElementById('dsFile').click()"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('dsFile').click();}"
            ondragover="event.preventDefault();this.classList.add('dragging')"
            ondragleave="this.classList.remove('dragging')"
            ondrop="event.preventDefault();this.classList.remove('dragging');dsHandleDrop(event)">

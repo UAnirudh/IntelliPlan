@@ -115,7 +115,7 @@
   <div class="upload-card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
       <h2 style="font-family:var(--font-display);font-size:1.25rem;color:var(--text-primary);margin:0;">Upload Lesson</h2>
-      <button onclick="closeUpload()" style="background:none;border:none;font-size:1.4rem;color:var(--text-muted);cursor:pointer;">×</button>
+      <button type="button" onclick="closeUpload()" aria-label="Close dialog" style="background:none;border:none;font-size:1.4rem;color:var(--text-muted);cursor:pointer;">×</button>
     </div>
     <form id="upForm" onsubmit="submitUpload(event)" style="display:flex;flex-direction:column;gap:0.9rem;">
       <div class="form-group">

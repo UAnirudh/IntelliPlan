@@ -2,16 +2,13 @@
 
 {% block content %}
 <style>
-/* ── Mobile nav (kept from existing) ──────────────────────── */
-.mobile-top-nav { display:none; align-items:center; justify-content:space-between; padding:0 1rem; height:52px; background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:90; margin:-2.5rem -1.5rem 1.5rem; }
-.mobile-nav-ham { background:none; border:1px solid var(--border); border-radius:8px; padding:6px 8px; cursor:pointer; color:var(--text-secondary); display:flex; align-items:center; }
-.mobile-nav-drawer { position:fixed; top:0; left:-280px; bottom:0; width:270px; background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); border-right:1px solid var(--border); z-index:900; transition:left 0.28s var(--ease-out); overflow-y:auto; }
-.mobile-nav-drawer.open { left:0; }
-.mobile-nav-inner { display:flex; flex-direction:column; height:100%; }
-.mobile-nav-link { display:flex; align-items:center; gap:12px; padding:12px 1.25rem; font-size:0.92rem; font-weight:500; color:var(--text-secondary); text-decoration:none; transition:background 0.13s, color 0.13s; }
-.mobile-nav-link:hover, .mobile-nav-link.active { background:rgba(22,22,22,0.07); color:var(--ink, #161616); }
-[data-theme="dark"] .mobile-nav-link:hover, [data-theme="dark"] .mobile-nav-link.active { background:rgba(232,232,228,0.1); color:var(--ink, #e8e8e4); }
-@media (max-width: 720px) { .mobile-top-nav { display:flex; } }
+/* The dashboard used to ship its own mobile top bar + drawer + backdrop.
+   base.html already renders a global fixed header with a hamburger drawer, so
+   on mobile BOTH appeared — two wordmarks and two hamburgers stacked. Worse,
+   the local backdrop reused the id #mobileNavBackdrop, which base.html also
+   defines: getElementById returned base's element (earlier in the document),
+   so openMobileNav() toggled the wrong node and the drawer opened with no
+   dismissable backdrop. Removed in favour of the global nav. */
 
 /* ── IPD Design Tokens ────────────────────────────────────── */
 :root {
@@ -87,7 +84,11 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
-  border: 1px solid var(--border);
+  /* --border is ~6% black, which on a near-white glass fill left secondary
+     buttons with no readable edge — they read as floating cards, not
+     controls. --border-strong gives the outline enough contrast to register
+     as a button while staying quieter than the primary. */
+  border: 1px solid var(--border-strong);
   background: var(--glass-bg); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
   color: var(--text-primary);
 }
@@ -655,35 +656,6 @@
 }
 </style>
 
-{# ── Mobile nav drawer ─────────────────────────────────────── #}
-<div id="mobileTopNav" class="mobile-top-nav">
-  <button onclick="openMobileNav()" class="mobile-nav-ham" aria-label="Open navigation">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-  </button>
-  <span style="font-family:var(--ipd-font-body);font-weight:700;font-size:1rem;color:var(--text-primary);">IntelliPlan</span>
-  <div style="width:36px;"></div>
-</div>
-
-<div id="mobileNavDrawer" class="mobile-nav-drawer" aria-hidden="true">
-  <div class="mobile-nav-inner">
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
-      <span style="font-family:var(--ipd-font-body);font-weight:700;font-size:1.05rem;color:var(--text-primary);">IntelliPlan</span>
-      <button onclick="closeMobileNav()" style="background:none;border:none;font-size:1.5rem;color:var(--text-muted);cursor:pointer;">×</button>
-    </div>
-    <nav style="padding:0.75rem 0;">
-      <a href="/dashboard" class="mobile-nav-link active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-dashboard"/></svg> Dashboard</a>
-      <a href="/tutor" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-sparkle"/></svg> AI Tutor</a>
-      <a href="/scheduler" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-scheduler"/></svg> Scheduler</a>
-      <a href="/study" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-study"/></svg> Study & Learn</a>
-      <a href="/grademodel" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-chart"/></svg> Grade Modeler</a>
-      <a href="/streak" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-fire"/></svg> Streak</a>
-      <a href="/groups" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-users"/></svg> Study Groups</a>
-      <a href="/lessons" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-play"/></svg> Lessons</a>
-      <a href="/settings" class="mobile-nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><use href="#i-settings"/></svg> Settings</a>
-    </nav>
-  </div>
-</div>
-<div id="mobileNavBackdrop" onclick="closeMobileNav()" style="display:none;position:fixed;inset:0;z-index:899;background:rgba(7,8,20,0.5);backdrop-filter:blur(4px);"></div>
 
 {% if logged_in %}
 
@@ -1001,10 +973,17 @@
     Sign in or connect your school account to see your assignments, build
     AI study plans, and track your progress — it takes under a minute.
   </p>
+  {# The old secondary label ("Try the scheduler — no account needed") was wide
+     enough to wrap the pair onto two rows at unequal widths, which read as a
+     layout accident. The reassurance moves to a hint line so the two CTAs stay
+     a matched row. #}
   <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
     <a href="/login" class="ipd-btn ipd-btn-primary" style="text-decoration:none;padding:12px 28px;font-size:0.92rem;">Sign in / Get started</a>
-    <a href="/scheduler" class="ipd-btn" style="text-decoration:none;padding:12px 22px;font-size:0.9rem;">Try the scheduler — no account needed</a>
+    <a href="/scheduler" class="ipd-btn" style="text-decoration:none;padding:12px 24px;font-size:0.92rem;">Try the scheduler</a>
   </div>
+  <p style="font-family:var(--ipd-font-body);font-size:0.8rem;color:var(--text-muted);margin:0.85rem 0 0;">
+    No account needed to try the scheduler.
+  </p>
 </div>
 {% endif %}
 
@@ -1892,17 +1871,10 @@ function saveAssignDueDate() {
   });
 }
 
-// ── Mobile nav ───────────────────────────────────────────────
-function openMobileNav() {
-  document.getElementById('mobileNavDrawer').classList.add('open');
-  document.getElementById('mobileNavBackdrop').style.display = 'block';
-  document.getElementById('mobileNavDrawer').removeAttribute('aria-hidden');
-}
-function closeMobileNav() {
-  document.getElementById('mobileNavDrawer').classList.remove('open');
-  document.getElementById('mobileNavBackdrop').style.display = 'none';
-  document.getElementById('mobileNavDrawer').setAttribute('aria-hidden', 'true');
-}
+// Mobile nav is owned by base.html (global hamburger drawer). The local
+// openMobileNav/closeMobileNav pair was removed with its markup: it looked up
+// #mobileNavBackdrop, an id base.html also defines, so it drove base's node
+// instead of its own.
 
 // ── Init ─────────────────────────────────────────────────────
 loadDashboard();

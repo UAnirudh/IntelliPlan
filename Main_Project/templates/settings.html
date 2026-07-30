@@ -358,7 +358,10 @@
         <div class="integration-label">Color theme</div>
         <div class="integration-sub">Pick a palette, works with both light and dark mode</div>
       </div>
-      <div id="themeSwatches" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;width:100%;">
+      {# 140px tracks fit only 6 across, which stranded the 7th palette (Mocha)
+         alone on a second row next to a run of empty space. 120px lets all
+         seven sit on one row at desktop width and still reflows on narrow. #}
+      <div id="themeSwatches" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;width:100%;">
         <!-- Swatches injected by script -->
       </div>
     </div>
@@ -565,7 +568,7 @@
       Share your link with friends to help them discover IntelliPlan.
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <input type="text" id="refLink" class="form-input" readonly style="flex:1;min-width:240px;font-family:'DM Mono',monospace;font-size:0.84rem;" value="Loading...">
+      <input type="text" id="refLink" class="form-input" readonly aria-label="Your referral link" style="flex:1;min-width:240px;font-family:'DM Mono',monospace;font-size:0.84rem;" value="Loading...">
       <button class="btn-primary" onclick="copyReferralLink()" id="refCopyBtn" style="padding:9px 18px;border:none;cursor:pointer;">Copy link</button>
     </div>
     <div id="refStats" style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:1rem;font-size:0.84rem;color:var(--text-secondary);"></div>
@@ -1643,7 +1646,7 @@ function connectNotionToken() {
   _notionModal(`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
       <h3 style="margin:0;font-family:var(--font-display);font-size:1.1rem;">Connect Notion with a token</h3>
-      <button onclick="document.getElementById('notionModal').remove()" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--text-muted);">✕</button>
+      <button type="button" onclick="document.getElementById('notionModal').remove()" aria-label="Close dialog" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--text-muted);">✕</button>
     </div>
     <ol style="padding-left:1.2rem;font-size:0.86rem;color:var(--text-secondary);line-height:1.7;margin-bottom:0.75rem;">
       <li>Open <a href="https://www.notion.so/profile/integrations" target="_blank" rel="noopener" style="color:var(--accent);">notion.so/profile/integrations</a> and click <strong>New integration</strong>.</li>
@@ -1723,7 +1726,7 @@ async function chooseNotionDatabase() {
     _notionModal(`
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <h3 style="margin:0;font-family:var(--font-display);font-size:1.1rem;">Pick a Notion database</h3>
-        <button onclick="document.getElementById('notionModal').remove()" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--text-muted);">✕</button>
+        <button type="button" onclick="document.getElementById('notionModal').remove()" aria-label="Close dialog" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--text-muted);">✕</button>
       </div>
       <div style="margin-bottom:14px;">${dbList}</div>
       <div style="border-top:1px solid var(--border);padding-top:12px;">

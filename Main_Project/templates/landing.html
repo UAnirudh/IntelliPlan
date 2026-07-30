@@ -426,7 +426,10 @@
       ──────────────────────────────────────────────────────────────────────── -->
 
       <!-- PLACEHOLDER, shown until you add a real video -->
-      <div class="demo-video-placeholder" id="demoPlaceholder" onclick="handleDemoClick()">
+      <div class="demo-video-placeholder" id="demoPlaceholder" role="button" tabindex="0"
+           aria-label="Play the 60-second IntelliPlan walkthrough"
+           onclick="handleDemoClick()"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();handleDemoClick();}">
         <div class="demo-play-ring">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="white" aria-hidden="true">
             <polygon points="6,3 20,12 6,21"/>

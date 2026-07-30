@@ -179,6 +179,7 @@
       --grad-brand:      var(--accent);
       --grad-brand-soft: var(--accent-soft);
       --accent-shadow:   37,99,235;
+      --control-h: 44px;
       --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
       --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px;
       --page-max: 1180px; --content-max: 960px; --nav-height: 62px;
@@ -1761,6 +1762,19 @@
     ══════════════════════════════════════ */
     .form-group { display:flex; flex-direction:column; gap:6px; }
     .form-label { font-family:var(--font-ui); font-size:0.72rem; font-weight:600; color:var(--text-muted); letter-spacing:0.06em; text-transform:uppercase; }
+    /* One canonical control height. A <select> resolves its own intrinsic
+       height from the font, and a hand-padded <button> resolves a third — so
+       an input/select/button row rendered 44 / 46 / 39px tall with the button
+       sitting 2px low. Pinning single-line controls to one height keeps every
+       form row on a single baseline. Textareas opt out (they must grow). */
+    input.form-input,
+    select.form-input {
+      height: var(--control-h);
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+    /* Buttons that sit inline with a field share the field's height. */
+    .btn-control { height: var(--control-h); padding-top: 0; padding-bottom: 0; }
     .form-input {
       padding:11px 14px; border-radius:var(--r-sm); border:1px solid var(--glass-input-border);
       background:var(--glass-input-bg); color:var(--text-primary);
@@ -2468,22 +2482,52 @@ body {
     backdrop-filter: none !important;
   }
   @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    body > header,
     #mainNav,
     .ipd-modal,
     #planiChat {
       -webkit-backdrop-filter: blur(20px) saturate(1.7) !important;
       backdrop-filter: blur(20px) saturate(1.7) !important;
     }
-    /* Blur behind an opaque fill is invisible — these must be translucent
+    /* The header's frost lives on a pseudo-element, NOT on <header> itself.
+       backdrop-filter makes an element the containing block for its
+       position:fixed descendants — and the mobile nav drawer (#mainNav) plus
+       its backdrop (#mobileNavBackdrop) are both inside <header>. With the
+       filter on <header>, the drawer resolved `left:0` against its GRID AREA
+       (header is a grid; .header-right is display:contents, so #mainNav is a
+       grid item in column 2). That parked the closed drawer 282px onscreen,
+       left the open drawer hanging 212px off the right edge, and shrank the
+       full-screen backdrop to the 54px header strip.
+       A pseudo-element carries the same glass with no element descendants to
+       trap, so fixed children resolve against the viewport again. */
+    body > header {
+      background: transparent !important;
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+      border-color: var(--chrome-glass-border) !important;
+    }
+    body > header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background: var(--chrome-glass);
+      -webkit-backdrop-filter: blur(20px) saturate(1.7);
+      backdrop-filter: blur(20px) saturate(1.7);
+    }
+    /* Blur behind an opaque fill is invisible — this must be translucent
        for the frost to actually read. */
-    body > header, #mainNav {
+    #mainNav {
       background: var(--chrome-glass) !important;
       border-color: var(--chrome-glass-border) !important;
     }
     .ipd-modal, #planiChat { background: var(--chrome-glass) !important; }
     /* Reduced-transparency and high-contrast users opt out of all of it. */
-    html[data-a11y-contrast="1"] body > header,
+    html[data-a11y-contrast="1"] body > header::before {
+      background: var(--bg-card);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
     html[data-a11y-contrast="1"] #mainNav,
     html[data-a11y-contrast="1"] .ipd-modal,
     html[data-a11y-contrast="1"] #planiChat {
@@ -4007,7 +4051,7 @@ window.addEventListener('load',()=>{
 <div id="tourTooltip" style="display:none;position:fixed;z-index:9002;background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:1.25rem 1.5rem;max-width:320px;box-shadow:var(--shadow-lg);pointer-events:auto;">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:0.75rem;">
     <div id="tourStepLabel" style="font-family:var(--font-ui);font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);"></div>
-    <button onclick="closeTour()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.2rem;line-height:1;flex-shrink:0;">×</button>
+    <button type="button" onclick="closeTour()" aria-label="Close tour" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.2rem;line-height:1;flex-shrink:0;">×</button>
   </div>
   <div id="tourText" style="font-size:0.92rem;color:var(--text-primary);line-height:1.6;margin-bottom:1.1rem;"></div>
   <div style="display:flex;justify-content:space-between;align-items:center;">

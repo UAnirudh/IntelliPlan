@@ -60,11 +60,11 @@
 <div id="grList">
   <div class="gr-filters">
     <div class="form-group">
-      <label class="form-label">Topic</label>
+      <label class="form-label" for="fTopic">Topic</label>
       <input type="text" id="fTopic" class="form-input" placeholder="e.g. SAT Math">
     </div>
     <div class="form-group">
-      <label class="form-label">Level</label>
+      <label class="form-label" for="fLevel">Level</label>
       <select id="fLevel" class="form-input">
         <option value="">Any</option>
         <option value="beginner">Beginner</option>
@@ -73,7 +73,7 @@
       </select>
     </div>
     <div class="form-group">
-      <label class="form-label">Style</label>
+      <label class="form-label" for="fStyle">Style</label>
       <select id="fStyle" class="form-input">
         <option value="">Any</option>
         <option value="focused">Focused</option>
@@ -82,7 +82,7 @@
         <option value="flashcards">Flashcards</option>
       </select>
     </div>
-    <button class="btn-primary" onclick="loadGroups()" style="padding:10px 18px;border:none;cursor:pointer;">Find groups</button>
+    <button class="btn-primary btn-control" onclick="loadGroups()" style="padding:0 18px;border:none;cursor:pointer;">Find groups</button>
   </div>
 
   <div id="grGrid" class="gr-grid">
@@ -103,7 +103,7 @@
   <div class="cg-card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
       <h2 style="font-family:var(--font-display);font-size:1.25rem;color:var(--text-primary);margin:0;">Create Study Group</h2>
-      <button onclick="closeCreate()" style="background:none;border:none;font-size:1.4rem;color:var(--text-muted);cursor:pointer;">×</button>
+      <button type="button" onclick="closeCreate()" aria-label="Close dialog" style="background:none;border:none;font-size:1.4rem;color:var(--text-muted);cursor:pointer;">×</button>
     </div>
     <form id="cgForm" onsubmit="submitCreate(event)" style="display:flex;flex-direction:column;gap:0.9rem;">
       <div class="form-group">
