@@ -506,3 +506,74 @@ body[data-reading-progress] .ip-progress { display: block; }
   white-space: nowrap;
   border: 0;
 }
+
+/* ═══════════════════════════════════════════
+   15. FORM VALIDITY
+
+   :user-invalid, not :invalid. :invalid matches a required field that
+   the reader has not typed in yet, so a signup form would paint itself
+   red before anyone touched it. :user-invalid only matches after the
+   field has been interacted with or the form submitted, which is the
+   behaviour a hand-rolled "touched" flag is usually written to fake.
+
+   No JS, and it degrades to the existing focus styling in browsers that
+   do not support the selector.
+   ═══════════════════════════════════════════ */
+.form-input:user-invalid,
+[aria-invalid="true"].form-input {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+}
+/* The background is repeated here because base.html's .form-input:focus
+   sets its own, and a focused invalid field would otherwise drop the red
+   tint the moment the reader clicked into it to fix the problem. */
+.form-input:user-invalid:focus,
+[aria-invalid="true"].form-input:focus {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  box-shadow: 0 0 0 3px var(--danger-soft), inset 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Inline message under a field. Colour alone never carries the error —
+   contrast-blind readers get the same red border and no other signal —
+   so this pairs the tint with words. */
+.form-error-text {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  margin-top: 6px;
+  font-size: var(--fs-xs, 0.78rem);
+  line-height: 1.45;
+  color: var(--danger-text);
+}
+
+/* ═══════════════════════════════════════════
+   16. PASSWORD REVEAL
+
+   The button is injected by ip-premium.js so every password field on the
+   site gets one without three templates having to agree on the markup.
+   ═══════════════════════════════════════════ */
+.pw-field { position: relative; display: block; }
+.pw-field > .form-input { padding-right: 46px; }
+
+.pw-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 34px; height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color      var(--dur-quick) var(--ease-swift),
+    background var(--dur-quick) var(--ease-swift);
+}
+.pw-toggle:hover { color: var(--text-primary); background: var(--accent-soft); }
+.pw-toggle:focus-visible { color: var(--accent); }
+.pw-toggle svg { width: 18px; height: 18px; pointer-events: none; }

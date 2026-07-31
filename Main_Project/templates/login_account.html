@@ -67,7 +67,7 @@
       <p class="login-subtitle">Sign in to your IntelliPlan account</p>
     </div>
     {% if error %}
-    <div class="login-error"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px"><use href="#i-warning"/></svg> {{ error }}</div>
+    <div class="login-error" role="alert"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px"><use href="#i-warning"/></svg> {{ error }}</div>
     {% endif %}
     <form class="login-form" method="POST" action="/login/account">
       <div class="form-group">
