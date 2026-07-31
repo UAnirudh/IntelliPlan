@@ -2717,14 +2717,19 @@
 
     /* Skip link — visible on focus, lets keyboard users jump past nav. */
     .a11y-skip {
-      position: absolute; top: -100px; left: 8px; z-index: 9999;
+      /* Fixed, not absolute: on a long page an absolutely positioned skip
+         link is parked at the top of the document, so tabbing to it after
+         any scroll moves focus to something the user cannot see. */
+      position: fixed; top: -100px; left: 8px; z-index: var(--z-max, 9000);
       background: var(--accent); color: #fff;
       padding: 10px 16px; border-radius: 8px;
       font: 600 0.92rem var(--font-display);
       text-decoration: none;
       transition: top 0.18s var(--ease-out);
     }
-    .a11y-skip:focus { top: 8px; }
+    /* The accent fill is the same colour as the default focus ring, so the
+       ring vanishes into it — this link needs a light one to stay visible. */
+    .a11y-skip:focus { top: 8px; outline: 2px solid #fff; outline-offset: 2px; }
 
     /* ══════════════════════════════════════
        SKELETON LOADERS — reusable, sitewide
@@ -2995,18 +3000,12 @@ body {
 <body class="{% if active_page in _app_pages %}has-side{% endif %}"
       {% if _reading_progress %}data-reading-progress{% endif %}{% block body_attrs %}{% endblock %}>
 <div class="ip-progress" aria-hidden="true"></div>
+{# One skip link. There were two — .a11y-skip and .skip-to-content — both
+   pointing at #main-content with identical text, so every screen reader
+   announced "Skip to main content" twice before the first heading. The
+   surviving one keeps the useful parts of the deleted copy: fixed
+   positioning and a white outline on focus. #}
 <a href="#main-content" class="a11y-skip">Skip to main content</a>
-
-<a href="#main-content" class="skip-to-content">Skip to main content</a>
-<style>
-  .skip-to-content {
-    position: fixed; top: -60px; left: 8px; z-index: 2147483647;
-    background: var(--accent, #2453d6); color: #fff; padding: 0.6rem 1rem;
-    border-radius: 8px; font-family: var(--font-ui, sans-serif); font-weight: 700;
-    font-size: 0.9rem; text-decoration: none; transition: top 0.15s ease;
-  }
-  .skip-to-content:focus { top: 8px; outline: 2px solid #fff; outline-offset: 2px; }
-</style>
 
 <!-- ══════════════════════════════════════
      SVG ICON SPRITE — Phosphor Icons (regular), MIT licensed.
