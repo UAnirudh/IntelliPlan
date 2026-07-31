@@ -574,6 +574,9 @@ def split_oversized_blocks(
             piece["duration_minutes"] = base + (1 if i < extra else 0)
             piece["part_index"] = i + 1
             piece["part_total"] = parts
+            # Keep the original title alongside the numbered one so callers can
+            # group the sittings back together without parsing the suffix out.
+            piece["parent_title"] = title
             piece["assignment"] = f"{title} (part {i + 1} of {parts})"
             piece["split_note"] = (
                 f"Split into {parts} sittings to match your usual focus length."

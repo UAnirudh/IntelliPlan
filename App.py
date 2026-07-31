@@ -2453,6 +2453,23 @@ def humanize_schedule(schedule_data, preferred_time, hours_per_day,
             f"{len(carry)} block(s) could not fit anywhere in your available hours. "
             f"Add availability in Settings, or push a due date."
         )
+    # Say which assignments got broken into sittings. The plan shows "Lab
+    # report 1/3" without ever explaining where the other two came from, and a
+    # student who cannot tell why their schedule changed shape stops trusting
+    # it. One line per assignment, not per sitting.
+    split_sizes = {}
+    for day in schedule:
+        for b in day.get("blocks", []) or []:
+            # Every sitting of one split carries the same part_total, so a
+            # plain assignment collapses them to one entry.
+            if b.get("parent_title") and b.get("part_total"):
+                split_sizes[b["parent_title"]] = b["part_total"]
+    for title, parts in split_sizes.items():
+        overflow_notes.append(
+            f'"{title}" is longer than one sitting, so it is split into {parts} '
+            f"shorter blocks that each match how long you actually focus."
+        )
+
     if overflow_notes:
         schedule_data["placement_notes"] = overflow_notes
     # Placement can move blocks between days, so any per-day totals computed
