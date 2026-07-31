@@ -577,3 +577,69 @@ body[data-reading-progress] .ip-progress { display: block; }
 .pw-toggle:hover { color: var(--text-primary); background: var(--accent-soft); }
 .pw-toggle:focus-visible { color: var(--accent); }
 .pw-toggle svg { width: 18px; height: 18px; pointer-events: none; }
+
+/* ═══════════════════════════════════════════
+   17. LONG-FORM READING BASELINE
+
+   Every blog template styles .blog-body, its h2, its lists and its
+   strong — and not one of them styles h3, while all nine use h3 in the
+   article. Those headings were rendering at the browser default: bold,
+   1.17em, default margins, no relationship to the h2 above them or the
+   paragraph below.
+
+   This is a floor, not an override. Page <style> blocks come later in
+   the document, so anything a template does set still wins; these rules
+   only land where nothing was declared.
+   ═══════════════════════════════════════════ */
+.blog-body h3 {
+  font-family: var(--font-body);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  letter-spacing: var(--tr-md);
+  line-height: var(--lh-snug);
+  color: var(--text-primary);
+  /* Asymmetric on purpose: a heading belongs to what follows it, so the
+     space above has to be clearly larger than the space below or the
+     reader cannot tell which section it opens. */
+  margin: 2rem 0 0.5rem;
+}
+.blog-body h4 {
+  font-family: var(--font-body);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  letter-spacing: var(--tr-base);
+  color: var(--text-primary);
+  margin: 1.6rem 0 0.4rem;
+}
+.blog-body p { margin: 0 0 1.1rem; }
+
+/* No leading gap at the top of the article, and no trailing gap that
+   doubles up with the section padding underneath. */
+.blog-body > :first-child { margin-top: 0; }
+.blog-body > :last-child  { margin-bottom: 0; }
+
+/* A heading followed immediately by its paragraph should not carry both
+   the heading's bottom margin and the paragraph's top margin. */
+.blog-body h2 + p,
+.blog-body h3 + p,
+.blog-body h4 + p { margin-top: 0; }
+
+.blog-body li::marker { color: var(--text-muted); }
+
+.blog-body code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  padding: 0.12em 0.36em;
+  border-radius: var(--r-xs);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  /* Long identifiers should wrap rather than push the column wider. */
+  overflow-wrap: anywhere;
+}
+
+.blog-body hr {
+  border: 0;
+  height: 1px;
+  margin: 2.25rem 0;
+  background: linear-gradient(90deg, transparent, var(--border-strong) 20%, var(--border-strong) 80%, transparent);
+}
