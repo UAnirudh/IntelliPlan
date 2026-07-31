@@ -507,6 +507,24 @@ def _difficulty_rank(block: Mapping[str, Any]) -> int:
     return {"Hard": 0, "Medium": 1, "Easy": 2}.get(str(block.get("difficulty") or "Medium"), 1)
 
 
+def long_break_after_for(dna: "StudyDNA | None") -> int:
+    """Minutes of continuous work before this student has earned a real break.
+
+    Two sittings is the natural unit: one sitting is what they finish in a go,
+    and the second is the one they push through. A student whose measured
+    focus length is 25 minutes should not have to work 90 minutes straight to
+    earn a break, which is what a fixed interval asked of them.
+
+    Bounded on both sides — below 45 the plan becomes more break than work,
+    and above 120 the break stops functioning as one. The default stamina
+    lands exactly on the old fixed value, so a student with no measured
+    history sees no change.
+    """
+    if dna is None or not dna.stamina_minutes:
+        return LONG_BREAK_AFTER_MINUTES
+    return max(45, min(120, int(round(dna.stamina_minutes * 2))))
+
+
 def _due_rank(block: Mapping[str, Any]) -> str:
     """Sort key for a block's deadline. ISO dates compare correctly as strings.
 

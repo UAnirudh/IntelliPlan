@@ -2320,7 +2320,12 @@ def humanize_schedule(schedule_data, preferred_time, hours_per_day,
     # Hours-per-day pacing → tighter buffers if the student only has 1h,
     # roomier ones if they have a long evening.
     base_gap = 5 if hours_per_day and hours_per_day <= 1.5 else 10
-    long_break_after = 90  # minutes — after this much continuous work, insert a 15-min reset.
+    # Minutes of continuous work before a 15-minute reset is inserted. Derived
+    # from the student's own measured focus length rather than fixed at 90:
+    # dna is right here and knows it, and asking someone who finishes
+    # 25-minute blocks to work an hour and a half straight is the opposite of
+    # planning around their habits. Falls back to 90 with no measured history.
+    long_break_after = scheduler_engine.long_break_after_for(dna)
     next_block_id = 1
     for day_idx, day in enumerate(schedule):
         blocks = day.get("blocks", []) or []
@@ -2669,6 +2674,10 @@ def reflow_schedule(schedule_data, availability=None, commitments=None, dna=None
             )
             placed, spilled = scheduler_engine.place_day_blocks(
                 carry + blocks, windows, dna, preserve_order=True,
+                # Same interval the plan was generated with. Without this the
+                # reflow used the module default, so a single drag re-spaced
+                # every break in the day to a cadence the student never saw.
+                long_break_after=scheduler_engine.long_break_after_for(dna),
             )
         except Exception as e:
             print(f"[reflow] placement failed for day {day_idx}: {e}")

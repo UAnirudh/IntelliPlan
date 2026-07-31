@@ -488,6 +488,47 @@ def test_work_without_a_due_date_keeps_the_difficulty_ordering():
     assert placed[0]["assignment"] == "Hard proof"
 
 
+def test_the_break_interval_follows_the_students_measured_stamina():
+    from scheduler_engine import long_break_after_for
+
+    # Two sittings' worth of work is the natural unit for "you have earned a
+    # real break". A student who finishes 25-minute blocks should not be made
+    # to work 90 minutes straight to earn one.
+    assert long_break_after_for(StudyDNA(sample_size=10, stamina_minutes=25)) == 50
+    assert long_break_after_for(StudyDNA(sample_size=10, stamina_minutes=60)) == 120
+
+
+def test_the_break_interval_is_unchanged_for_a_student_we_know_nothing_about():
+    from scheduler_engine import LONG_BREAK_AFTER_MINUTES, long_break_after_for
+
+    assert long_break_after_for(StudyDNA()) == LONG_BREAK_AFTER_MINUTES
+    assert long_break_after_for(None) == LONG_BREAK_AFTER_MINUTES
+
+
+def test_the_break_interval_stays_inside_humane_bounds():
+    from scheduler_engine import long_break_after_for
+
+    # Too short and the plan is more break than work; too long and the break
+    # stops being a break.
+    assert long_break_after_for(StudyDNA(sample_size=10, stamina_minutes=20)) >= 45
+    assert long_break_after_for(StudyDNA(sample_size=10, stamina_minutes=90)) <= 120
+
+
+def test_a_short_stamina_student_gets_their_break_sooner():
+    dna = StudyDNA(sample_size=10, stamina_minutes=25)
+    from scheduler_engine import long_break_after_for
+
+    placed, _ = place_day_blocks(
+        [_block(minutes=30) for _ in range(3)],
+        [_window(15, 22)],
+        dna,
+        long_break_after=long_break_after_for(dna),
+    )
+    assert any(b.get("is_break") and b.get("auto") for b in placed), (
+        "90 minutes of work should not pass without a break for a 25-minute student"
+    )
+
+
 def test_a_long_run_of_work_gets_a_forced_break():
     placed, _ = place_day_blocks([_block(minutes=50) for _ in range(3)], [_window(15, 22)])
     assert any(b.get("is_break") and b["assignment"] == "Long break" for b in placed)
