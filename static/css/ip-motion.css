@@ -452,6 +452,122 @@ html.ip-vt-busy::view-transition-new(root) {
 }
 
 /* ═══════════════════════════════════════════
+   7b. PRO-TIER PATTERNS, REBUILT
+
+   Skiper UI's Pro components are behind a licence, so none of their source
+   was available. These are original implementations of the same well-known
+   interaction patterns, written from the public demo descriptions — the
+   same footing Skiper themselves cite for Skiper 40 ("an inspired rebuild
+   with our own taste"). No Pro code was obtained or copied.
+   ═══════════════════════════════════════════ */
+
+/* ── Scroll progress rail (pattern: "Anime js scrollbar", skiper1) ──
+   A hairline at the top of the viewport tracking read position. Driven by
+   --ipm-scroll (0→1) from ip-motion.js; scaleX only, so it never lays out. */
+#ipmScrollRail {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  z-index: 100020;
+  pointer-events: none;
+  transform: scaleX(var(--ipm-scroll, 0));
+  transform-origin: left;
+  background: linear-gradient(90deg,
+    var(--accent), color-mix(in srgb, var(--accent) 55%, #f5a524));
+  opacity: 0;
+  transition: opacity 0.25s var(--ipm-glide);
+}
+#ipmScrollRail.is-on { opacity: 0.9; }
+
+/* ── Dynamic island toast (pattern: "Dynamic island", skiper2) ──
+   The toast enters as a narrow capsule and expands to its content width,
+   the way the island does. clip-path + scale rather than width/height, so
+   the text inside never reflows mid-animation. */
+@keyframes ipmIslandIn {
+  0%   { opacity: 0; transform: translateY(-14px) scale(0.86); clip-path: inset(0 40% 0 40% round 999px); }
+  55%  { opacity: 1; }
+  100% { opacity: 1; transform: translateY(0) scale(1);        clip-path: inset(0 0 0 0 round 14px); }
+}
+html.ipm-on .ip-toast {
+  animation: ipmIslandIn 0.46s var(--ipm-glide) both;
+  will-change: transform, clip-path;
+}
+html.ipm-on .ip-toast.is-out { animation: none; }
+
+/* ── Bouncy accordion (pattern: "Bouncy accordion", skiper103) ──
+   grid-template-rows 0fr→1fr is the one way to animate a panel to its
+   natural height without measuring it in JS or animating height itself. */
+html.ipm-on details.ipm-acc > .ipm-acc__body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.42s var(--ipm-glide);
+}
+html.ipm-on details.ipm-acc[open] > .ipm-acc__body { grid-template-rows: 1fr; }
+/* Closing runs while [open] is still set — the UA hides the content the
+   instant the attribute goes, so there would be nothing left to animate.
+   This has to beat the [open] rule above, hence the extra class. */
+html.ipm-on details.ipm-acc[open].is-closing > .ipm-acc__body { grid-template-rows: 0fr; }
+html.ipm-on details.ipm-acc > .ipm-acc__body > * {
+  overflow: hidden;
+  min-height: 0;
+}
+/* The marker leans into the open state rather than snapping. */
+html.ipm-on details.ipm-acc > summary .ipm-acc__mark {
+  display: inline-block;
+  transition: transform 0.42s var(--ipm-spring-ish, cubic-bezier(0.34, 1.4, 0.64, 1));
+}
+html.ipm-on details.ipm-acc[open] > summary .ipm-acc__mark { transform: rotate(90deg); }
+
+/* ── Auto-scale input (pattern: "Auto Scale input", skiper105) ──
+   The field settles into each new height instead of jumping a line at a
+   time. ip-motion.js flags the growth; this describes the settle. */
+html.ipm-on textarea.ipm-autoscale {
+  transition: height 0.24s var(--ipm-glide);
+}
+html.ipm-on textarea.ipm-autoscale.ipm-grew {
+  animation: ipmAutoScalePulse 0.32s var(--ipm-glide);
+}
+@keyframes ipmAutoScalePulse {
+  0%   { box-shadow: 0 0 0 0 var(--accent-soft); }
+  60%  { box-shadow: 0 0 0 4px var(--accent-soft); }
+  100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); }
+}
+
+/* ── Command search (pattern: "Vercel Command Search", skiper92) ──
+   A single highlight that slides between rows, instead of each row
+   painting its own background. The rail is positioned by JS from the
+   active row's offset; only transform and height animate. */
+#cmdPalette .cmd-results { position: relative; }
+#cmdPalette .ipm-cmd-rail {
+  position: absolute;
+  left: 6px; right: 6px; top: 0;
+  height: var(--ipm-rail-h, 0px);
+  border-radius: 9px;
+  background: var(--accent-soft);
+  transform: translateY(var(--ipm-rail-y, 0px));
+  transition:
+    transform 0.26s var(--ipm-glide),
+    height    0.26s var(--ipm-glide),
+    opacity   0.18s linear;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+#cmdPalette .ipm-cmd-rail.is-on { opacity: 1; }
+/* Rows sit above the rail and stop painting their own active fill. */
+#cmdPalette .cmd-item { position: relative; z-index: 1; }
+html.ipm-on #cmdPalette .cmd-item.active { background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  #ipmScrollRail { transition: none; }
+  html.ipm-on .ip-toast { animation: none; }
+  html.ipm-on details.ipm-acc > .ipm-acc__body,
+  html.ipm-on details.ipm-acc > summary .ipm-acc__mark,
+  html.ipm-on textarea.ipm-autoscale,
+  #cmdPalette .ipm-cmd-rail { transition: none; animation: none; }
+}
+
+/* ═══════════════════════════════════════════
    8. REDUCED MOTION / NO-JS
 
    The single most important block in the file. Anything that loops, and

@@ -43,7 +43,7 @@
     /* Bumped whenever the behaviour of this file changes. Flask serves
        /static with long-lived caching, so this is the only way to tell a
        stale bundle from a live one when something does not work. */
-    version: 2,
+    version: 4,
     reduced: REDUCED,
     ready: null,
     springs: { gentle: SPRING_GENTLE, bouncy: SPRING_BOUNCY, snappy: SPRING_SNAPPY }
@@ -487,8 +487,197 @@
     }
   }
 
+  /* ── 8. Pro-tier patterns, rebuilt ───────────────────────────────
+     Skiper's Pro components are licence-gated, so none of their source was
+     available. These are original implementations of the same well-known
+     interactions, written from the public demo descriptions. CSS lives in
+     ip-motion.css §7b.
+  */
+
+  /* Scroll progress rail — pattern: "Anime js scrollbar" (skiper1). */
+  function initScrollRail() {
+    if (REDUCED || doc.getElementById('ipmScrollRail')) return;
+    /* Pointless on a page that does not scroll, and a full-width bar at 0%
+       just reads as a stray line. */
+    if (doc.documentElement.scrollHeight <= window.innerHeight + 40) return;
+
+    var rail = doc.createElement('div');
+    rail.id = 'ipmScrollRail';
+    rail.setAttribute('aria-hidden', 'true');
+    doc.body.appendChild(rail);
+
+    var frame = 0;
+    function update() {
+      frame = 0;
+      var d = doc.documentElement;
+      var max = d.scrollHeight - window.innerHeight;
+      var p = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+      rail.style.setProperty('--ipm-scroll', p.toFixed(4));
+      rail.classList.toggle('is-on', p > 0.005);
+    }
+    function onScroll() { if (!frame) frame = requestAnimationFrame(update); }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    update();
+  }
+
+  /* Bouncy accordion — pattern: "Bouncy accordion" (skiper103).
+
+     <details> is the right element and already works without JS, so this
+     only adds the animation. The wrinkle: the UA hides non-summary content
+     whenever [open] is absent, so a closing animation has nothing left to
+     animate. Closing therefore runs first and the attribute is removed at
+     the end, which means the click has to be intercepted. */
+  function initAccordions(scope) {
+    if (REDUCED) return;
+    var els = (scope || doc).querySelectorAll('details:not([data-ipm-acc])');
+    Array.prototype.forEach.call(els, function (d) {
+      var summary = d.querySelector('summary');
+      if (!summary || d.closest('[data-no-motion]')) return;
+      d.setAttribute('data-ipm-acc', '');
+
+      /* Wrap everything that is not the summary, so there is a single
+         element to run grid-template-rows against. */
+      var body = doc.createElement('div');
+      body.className = 'ipm-acc__body';
+      var inner = doc.createElement('div');
+      body.appendChild(inner);
+      var node = summary.nextSibling;
+      while (node) {
+        var next = node.nextSibling;
+        inner.appendChild(node);
+        node = next;
+      }
+      d.appendChild(body);
+      d.classList.add('ipm-acc');
+
+      summary.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (d.open) {
+          /* Closing: collapse first, drop [open] once the grid has settled.
+             A guard timer backs the transitionend up — if the event never
+             arrives (interrupted transition, a browser that skips it, the
+             panel hidden mid-animation) the panel would be stuck open with
+             no way to close it, which is far worse than an unanimated
+             close. Both paths funnel through one idempotent finish(). */
+          if (d.__ipmClosing) return;
+          d.__ipmClosing = true;
+          var timer = 0;
+          var finish = function () {
+            if (!d.__ipmClosing) return;
+            d.__ipmClosing = false;
+            window.clearTimeout(timer);
+            body.removeEventListener('transitionend', onEnd);
+            d.open = false;
+            d.classList.remove('is-closing');
+          };
+          var onEnd = function (ev) {
+            if (ev.target !== body || ev.propertyName !== 'grid-template-rows') return;
+            finish();
+          };
+          body.addEventListener('transitionend', onEnd);
+          timer = window.setTimeout(finish, 600);
+          d.classList.add('is-closing');
+        } else {
+          d.classList.remove('is-closing');
+          d.__ipmClosing = false;
+          d.open = true;
+        }
+      });
+    });
+  }
+
+  /* Auto-scale input — pattern: "Auto Scale input" (skiper105).
+     The app already resizes these textareas by setting style.height; this
+     only marks the moment the height changes so the CSS can settle it. */
+  function initAutoScale(scope) {
+    var els = (scope || doc).querySelectorAll('textarea:not([data-ipm-scale])');
+    Array.prototype.forEach.call(els, function (t) {
+      if (t.closest('[data-no-motion]')) return;
+      t.setAttribute('data-ipm-scale', '');
+      t.classList.add('ipm-autoscale');
+      var last = t.offsetHeight;
+      t.addEventListener('input', function () {
+        /* Read after the app's own resize handler has run. */
+        window.requestAnimationFrame(function () {
+          var h = t.offsetHeight;
+          if (h === last) return;
+          last = h;
+          if (REDUCED) return;
+          t.classList.remove('ipm-grew');
+          void t.offsetWidth;              // restart the animation
+          t.classList.add('ipm-grew');
+        });
+      });
+    });
+  }
+
+  /* Command search rail — pattern: "Vercel Command Search" (skiper92).
+     One highlight that slides between rows rather than each row painting
+     its own. Watches the active row via class mutations, because the
+     palette's own keyboard handler is what moves it. */
+  function initCmdRail() {
+    var results = doc.querySelector('#cmdPalette .cmd-results');
+    if (!results || results.hasAttribute('data-ipm-rail')) return;
+    results.setAttribute('data-ipm-rail', '');
+
+    var rail = doc.createElement('div');
+    rail.className = 'ipm-cmd-rail';
+    rail.setAttribute('aria-hidden', 'true');
+
+    /* The palette rebuilds its results by assigning innerHTML on every
+       keystroke, which throws the rail away with them. Re-attach on demand
+       rather than only once at setup, or the highlight silently disappears
+       the first time anyone types. */
+    function ensureRail() {
+      if (rail.parentNode !== results) {
+        results.insertBefore(rail, results.firstChild);
+        lastActive = null;               // forget stale geometry
+      }
+    }
+    ensureRail();
+
+    /* The rail lives inside the node being observed, and place() changes
+       the rail's own class — so a naive observer callback re-triggers
+       itself forever and locks the renderer. Two guards, both needed:
+       ignore records whose target is the rail, and only touch the DOM when
+       the active row has actually changed. */
+    var lastActive = null;
+
+    function place() {
+      ensureRail();
+      var active = results.querySelector('.cmd-item.active');
+      if (active === lastActive) return;
+      lastActive = active;
+      if (!active) {
+        if (rail.classList.contains('is-on')) rail.classList.remove('is-on');
+        return;
+      }
+      rail.style.setProperty('--ipm-rail-y', active.offsetTop + 'px');
+      rail.style.setProperty('--ipm-rail-h', active.offsetHeight + 'px');
+      if (!rail.classList.contains('is-on')) rail.classList.add('is-on');
+    }
+
+    if (window.MutationObserver) {
+      new MutationObserver(function (records) {
+        for (var i = 0; i < records.length; i++) {
+          if (records[i].target !== rail) { place(); return; }
+        }
+      }).observe(results, {
+        subtree: true, childList: true,
+        attributes: true, attributeFilter: ['class']
+      });
+    }
+    results.addEventListener('mousemove', place);
+    place();
+  }
+
   /* ── Wire-up ─────────────────────────────────────────────────────── */
   function scan(M, scope) {
+    try { initScrollRail(); } catch (e) {}
+    try { initAccordions(scope); } catch (e) {}
+    try { initAutoScale(scope); } catch (e) {}
+    try { initCmdRail(); } catch (e) {}
     try { autoAdopt(scope); } catch (e) {}
     try { initReveal(scope); } catch (e) {}
     try { initFloat(scope); } catch (e) {}
