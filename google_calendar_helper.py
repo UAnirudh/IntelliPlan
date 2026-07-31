@@ -1,6 +1,7 @@
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta
+from time_utils import utcnow
 import os
 import requests as http_requests
 import json
@@ -169,8 +170,8 @@ def compute_free_hours(token_dict, date_str):
 
 def get_upcoming_events(token_dict):
     service, _ = get_calendar_service(token_dict)
-    now = datetime.utcnow().isoformat() + "Z"
-    end = (datetime.utcnow() + timedelta(days=7)).isoformat() + "Z"
+    now = utcnow().isoformat() + "Z"
+    end = (utcnow() + timedelta(days=7)).isoformat() + "Z"
     events_result = service.events().list(
         calendarId="primary", timeMin=now, timeMax=end,
         maxResults=50, singleEvents=True, orderBy="startTime"

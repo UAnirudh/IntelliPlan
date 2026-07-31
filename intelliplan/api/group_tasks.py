@@ -15,6 +15,7 @@ Endpoints:
 from __future__ import annotations
 
 from datetime import datetime
+from time_utils import utcnow
 
 from flask import Blueprint, current_app, jsonify, request
 from flask_login import current_user, login_required
@@ -126,7 +127,7 @@ def api_toggle_task(task_id: int):
         return jsonify({"error": "not_a_member"}), 403
     body = request.get_json(silent=True) or {}
     task.done = bool(body.get("done", not task.done))
-    task.completed_at = datetime.utcnow() if task.done else None
+    task.completed_at = utcnow() if task.done else None
     _db().session.commit()
     return jsonify({"task": _task_to_dict(task)})
 

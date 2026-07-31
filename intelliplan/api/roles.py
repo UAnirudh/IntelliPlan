@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import secrets
 from datetime import datetime
+from time_utils import utcnow
 
 from flask import Blueprint, current_app, jsonify, render_template, request
 from flask_login import current_user, login_required
@@ -158,7 +159,7 @@ def api_accept_link(link_id: int):
     link = StudentLink.query.get(link_id)
     if link is None or link.student_user_id != current_user.id:
         return jsonify({"error": "not_found"}), 404
-    link.accepted_at = datetime.utcnow()
+    link.accepted_at = utcnow()
     _db().session.commit()
     return jsonify({"ok": True})
 

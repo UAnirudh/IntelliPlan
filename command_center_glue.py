@@ -9,6 +9,7 @@ of these callables run, App is fully loaded.
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from time_utils import utcnow
 
 from flask_login import current_user
 
@@ -144,7 +145,7 @@ def _stale_briefing_user_ids() -> list[int]:
     from App import BriefingCache
 
     try:
-        now = datetime.utcnow()
+        now = utcnow()
         rows = BriefingCache.query.filter(BriefingCache.expires_at < now).all()
         return [r.user_id for r in rows]
     except Exception:

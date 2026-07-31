@@ -55,8 +55,8 @@ def create_learning_graph_blueprint(deps: LearningGraphDeps) -> Blueprint:
             svc = deps.get_service()
             subject = request.args.get("subject")
             rows = svc._concepts.for_user(uid, subject=subject)
-            from datetime import datetime
-            now = datetime.utcnow()
+            from time_utils import utcnow
+            now = utcnow()
             from intelliplan.services.learning_graph import _row_to_snapshot
             snapshots = [_row_to_snapshot(r, now) for r in rows]
             return jsonify({

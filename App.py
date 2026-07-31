@@ -15,6 +15,7 @@ import requests
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
+from time_utils import utcnow
 from studentvue_helper import (
     test_login,
     get_assignments as get_sv_assignments,
@@ -1317,7 +1318,7 @@ def grant_sparks(p, amount, reason="", apply_booster=True):
         return {"awarded": 0, "base": 0, "multiplier": 1, "level_up": None}
     multiplier = 1
     booster = safe_json_load(p.active_booster, None)
-    now = datetime.utcnow()
+    now = utcnow()
     if apply_booster and isinstance(booster, dict):
         expires_at = booster.get("expires_at")
         if expires_at:
@@ -1344,7 +1345,7 @@ def grant_sparks(p, amount, reason="", apply_booster=True):
         p.sparks_earned_total += 50
         p.total_points = p.sparks_earned_total
         level_up = {"from": old_level, "to": new_level, "bonus": 50}
-    p.updated_at = datetime.utcnow()
+    p.updated_at = utcnow()
     return {"awarded": awarded, "base": amount, "multiplier": multiplier, "level_up": level_up}
 
 def active_week_id(dt=None):
@@ -1426,7 +1427,7 @@ def passive_freezes_due(p, today=None):
     if any(item.get("id") == passive_key for item in history if isinstance(item, dict)):
         return 0
     amount = 2 if int(p.streak_count or 0) >= 100 else 1
-    history.append({"id": passive_key, "item_id": "passive_freeze", "qty": amount, "created_at": datetime.utcnow().isoformat()})
+    history.append({"id": passive_key, "item_id": "passive_freeze", "qty": amount, "created_at": utcnow().isoformat()})
     p.shop_purchases = json.dumps(history[-200:])
     return amount
 
@@ -1452,8 +1453,8 @@ def reconcile_missed_streak(p):
             history.append(missed_day)
             p.streak_history = json.dumps(sorted(history)[-90:])
         return {"type": "freeze_consumed", "message": "Streak Freeze used - your streak is safe. Back tomorrow."}
-    if not p.repair_eligible_until or p.repair_eligible_until < datetime.utcnow():
-        p.repair_eligible_until = datetime.utcnow() + timedelta(hours=48)
+    if not p.repair_eligible_until or p.repair_eligible_until < utcnow():
+        p.repair_eligible_until = utcnow() + timedelta(hours=48)
         cosmetics["broken_streak_count"] = int(p.streak_count or 0)
         cosmetics["broken_last_active_date"] = p.last_active_date
         p.active_cosmetics = json.dumps(cosmetics)
@@ -3890,7 +3891,7 @@ def _classroom_access_token_for(user_id):
     row = ClassroomIntegration.query.filter_by(user_id=user_id).order_by(ClassroomIntegration.id.desc()).first()
     if not row:
         return None, None
-    now = datetime.utcnow()
+    now = utcnow()
     # Refresh if missing expiry or already expired (with 60s safety margin).
     needs_refresh = (not row.token_expires_at) or (row.token_expires_at <= now + timedelta(seconds=60))
     if needs_refresh and row.refresh_token:
@@ -3937,7 +3938,7 @@ def _classroom_fetch_assignments(access_token):
         print(f"[classroom] courses fetch failed: {e}")
         return out
 
-    today = date.today() if 'date' in globals() else datetime.utcnow().date()
+    today = date.today() if 'date' in globals() else utcnow().date()
     for c in courses:
         cid = c.get("id"); cname = c.get("name") or "Google Classroom"
         if not cid:
@@ -4021,7 +4022,7 @@ def _blackboard_access_token_for(user_id):
     row = BlackboardIntegration.query.filter_by(user_id=user_id).order_by(BlackboardIntegration.id.desc()).first()
     if not row:
         return None, None
-    now = datetime.utcnow()
+    now = utcnow()
     needs_refresh = (not row.token_expires_at) or (row.token_expires_at <= now + timedelta(seconds=60))
     if needs_refresh and row.refresh_token and row.institution_url:
         try:
@@ -4178,7 +4179,7 @@ def _moodle_fetch_assignments(moodle_url, ws_token, moodle_user_id=None):
         try:
             evs = _moodle_call(moodle_url, ws_token,
                                "core_calendar_get_action_events_by_timesort",
-                               timesortfrom=int(datetime.utcnow().timestamp()) - 14 * 86400,
+                               timesortfrom=int(utcnow().timestamp()) - 14 * 86400,
                                limitnum=100)
             for e in (evs.get("events", []) or []) if isinstance(evs, dict) else []:
                 ts = e.get("timesort") or e.get("timestart")
@@ -4281,7 +4282,7 @@ def api_lms_connect_moodle_manual():
         return jsonify({"status": "error",
                         "message": f"Could not verify with Moodle: {e}"}), 400
     row = MoodleIntegration.query.filter_by(user_id=current_user.id).order_by(MoodleIntegration.id.desc()).first()
-    now = datetime.utcnow()
+    now = utcnow()
     if not row:
         row = MoodleIntegration(user_id=current_user.id, moodle_url=moodle_url, ws_token=ws_token)
         db.session.add(row)
@@ -4378,7 +4379,7 @@ def api_lms_callback(provider):
                 return redirect("/connect?lms_error=1")
             info = _blackboard_get_userinfo(institution, access)
             row = BlackboardIntegration.query.filter_by(user_id=current_user.id).order_by(BlackboardIntegration.id.desc()).first()
-            now = datetime.utcnow()
+            now = utcnow()
             if not row:
                 row = BlackboardIntegration(user_id=current_user.id, institution_url=institution, access_token=access)
                 db.session.add(row)
@@ -4408,7 +4409,7 @@ def api_lms_callback(provider):
                 return redirect("/connect?lms_error=1")
             info = _classroom_get_userinfo(access)
             row = ClassroomIntegration.query.filter_by(user_id=current_user.id).order_by(ClassroomIntegration.id.desc()).first()
-            now = datetime.utcnow()
+            now = utcnow()
             if not row:
                 row = ClassroomIntegration(user_id=current_user.id, access_token=access)
                 db.session.add(row)
@@ -4521,7 +4522,7 @@ def register():
         if not error and birth_year_raw:
             try:
                 birth_year_val = int(birth_year_raw)
-                current_year = datetime.utcnow().year
+                current_year = utcnow().year
                 if birth_year_val < 1900 or birth_year_val > current_year:
                     error = "Please enter a valid birth year."
                 else:
@@ -4803,7 +4804,7 @@ def save_scheduler_presets(payload, user_id=None, guest_id=None):
             # fields the student already filled in.
             merged = {**row.answers(), **(entry.get("answers") or {})}
             row.answers_json = json.dumps(merged)
-            row.last_used_at = datetime.utcnow()
+            row.last_used_at = utcnow()
             saved += 1
         db.session.commit()
     except Exception as e:
@@ -4819,7 +4820,7 @@ def _mark_presets_used(keys, user_id=None, guest_id=None):
     try:
         for row in _preset_query(user_id, guest_id).filter(SchedulerPreset.task_key.in_(list(keys))).all():
             row.times_used = (row.times_used or 0) + 1
-            row.last_used_at = datetime.utcnow()
+            row.last_used_at = utcnow()
         db.session.commit()
     except Exception as e:
         db.session.rollback()
@@ -5430,7 +5431,7 @@ def oauth_canvas_callback():
     access_token = tokens.get("access_token")
     refresh_token = tokens.get("refresh_token")
     expires_in = tokens.get("expires_in")
-    expires_at = (datetime.utcnow() + timedelta(seconds=int(expires_in))) if expires_in else None
+    expires_at = (utcnow() + timedelta(seconds=int(expires_in))) if expires_in else None
     user_info = tokens.get("user") or {}
     canvas_user_id = str(user_info.get("id") or "") or None
     canvas_user_name = user_info.get("name") or profile_name
@@ -5455,7 +5456,7 @@ def oauth_canvas_callback():
             existing_oauth.token_expires_at = expires_at
             existing_oauth.canvas_user_id = canvas_user_id or existing_oauth.canvas_user_id
             existing_oauth.canvas_user_name = canvas_user_name or existing_oauth.canvas_user_name
-            existing_oauth.connected_at = datetime.utcnow()
+            existing_oauth.connected_at = utcnow()
         else:
             db.session.add(CanvasIntegration(
                 user_id=current_user.id,
@@ -7004,7 +7005,7 @@ def oauth_notion_callback():
             existing.workspace_name = tokens.get("workspace_name")
             existing.workspace_icon = tokens.get("workspace_icon")
             existing.bot_id = tokens.get("bot_id")
-            existing.connected_at = datetime.utcnow()
+            existing.connected_at = utcnow()
             # Don't clobber database_id if the user already chose one.
         else:
             db.session.add(NotionIntegration(
@@ -7116,7 +7117,7 @@ def notion_connect():
             existing.auth_type = "manual"
             existing.workspace_name = workspace_name
             existing.bot_id = bot_id
-            existing.connected_at = datetime.utcnow()
+            existing.connected_at = utcnow()
         else:
             db.session.add(NotionIntegration(
                 user_id=current_user.id,
@@ -8291,7 +8292,7 @@ def pet_care():
     before_stage = pet_engine.stage_for_xp(pet.xp or 0)["id"]
     pet.xp = (pet.xp or 0) + cfg["xp"]
     after_stage = pet_engine.stage_for_xp(pet.xp)["id"]
-    now = datetime.utcnow()
+    now = utcnow()
     if action == "feed":
         pet.last_fed_at = now
     elif action == "play":
@@ -8587,7 +8588,7 @@ def client_error_report():
         row = ClientErrorLog.query.filter_by(fingerprint=fp).first()
         if row:
             row.count = (row.count or 0) + 1
-            row.last_seen = datetime.utcnow()
+            row.last_seen = utcnow()
             # A recurrence after someone marked it fixed means it is not fixed.
             if row.resolved:
                 row.resolved = False
@@ -8824,7 +8825,7 @@ def api_my_stats():
         }
 
     # Daily activity (last 30 days)
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    thirty_days_ago = utcnow() - timedelta(days=30)
     recent_feedback = TaskFeedback.query.filter(
         TaskFeedback.user_id == uid,
         TaskFeedback.completed_at >= thirty_days_ago,
@@ -8847,7 +8848,7 @@ def api_my_stats():
             daily_study_min[day] = daily_study_min.get(day, 0) + (s.duration_seconds or 0) // 60
 
     # Account age
-    account_days = (datetime.utcnow() - current_user.created_at).days if current_user.created_at else 0
+    account_days = (utcnow() - current_user.created_at).days if current_user.created_at else 0
 
     return jsonify({
         "status": "ok",
@@ -9466,7 +9467,7 @@ def _schedule_to_ics(schedule_data, name="IntelliPlan Study Plan"):
     re-anchored onto the day's own date: humanize_schedule() stamps every
     day's ISO times with *today's* date, so only the clock part is trusted.
     """
-    now_stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    now_stamp = utcnow().strftime("%Y%m%dT%H%M%SZ")
     lines = [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
@@ -9587,11 +9588,11 @@ def _archive_query():
 
 def _parse_archive_date(value):
     if not value:
-        return datetime.utcnow().date()
+        return utcnow().date()
     try:
         return datetime.strptime(str(value)[:10], "%Y-%m-%d").date()
     except ValueError:
-        return datetime.utcnow().date()
+        return utcnow().date()
 
 def _archive_row_dict(row):
     meta = {}
@@ -10204,7 +10205,7 @@ def silence_notifications():
     minutes = int(data.get("minutes", 0))
     if minutes <= 0:
         return jsonify({"status": "error", "message": "Invalid duration"})
-    silenced_until = datetime.utcnow() + timedelta(minutes=minutes)
+    silenced_until = utcnow() + timedelta(minutes=minutes)
     session["notifications_silenced_until"] = silenced_until.isoformat()
     return jsonify({"status": "ok", "silenced_until": silenced_until.isoformat()})
 
@@ -10723,7 +10724,7 @@ def study_get_points():
         today_str = now.strftime("%Y-%m-%d")
         at_risk = bool(p.last_active_date != today_str and now.hour >= 18 and int(p.streak_count or 0) > 0)
         repair_until = p.repair_eligible_until.isoformat() if p.repair_eligible_until else None
-        repair_available = bool(p.repair_eligible_until and p.repair_eligible_until > datetime.utcnow())
+        repair_available = bool(p.repair_eligible_until and p.repair_eligible_until > utcnow())
         weekly_item_ids = sorted(SHOP_ITEMS.keys())
         weekly_deal_id = random.Random(active_week_id()).choice(weekly_item_ids)
         db.session.commit()
@@ -10775,7 +10776,7 @@ def study_update_points():
     try:
         p = get_study_profile(uid, gid)
         result = grant_sparks(p, delta, data.get("reason", "study"), apply_booster=bool(data.get("apply_booster", True)))
-        p.updated_at = datetime.utcnow()
+        p.updated_at = utcnow()
         db.session.commit()
         return flask.jsonify({
             "status": "ok",
@@ -11130,11 +11131,11 @@ def study_shop_buy():
             p.streak_freeze_count = min(int(p.freeze_capacity or 2), int(p.streak_freeze_count or 0) + int(item["value"]))
             badges_to_add.append("freeze_ready")
         elif item["kind"] == "booster":
-            booster = {"type": item_id, "multiplier": item["multiplier"], "created_at": datetime.utcnow().isoformat()}
+            booster = {"type": item_id, "multiplier": item["multiplier"], "created_at": utcnow().isoformat()}
             if item.get("uses"):
                 booster["uses"] = item["uses"]
             if item.get("hours"):
-                booster["expires_at"] = (datetime.utcnow() + timedelta(hours=item["hours"])).isoformat()
+                booster["expires_at"] = (utcnow() + timedelta(hours=item["hours"])).isoformat()
             p.active_booster = json.dumps(booster)
             badges_to_add.append("booster_pilot")
         elif item["kind"] == "inventory":
@@ -11154,7 +11155,7 @@ def study_shop_buy():
             badges_to_add.append("spark_saver")
         new_badges = add_badges(p, badges_to_add)
         purchases = safe_json_load(p.shop_purchases, [])
-        purchases.append({"id": str(uuid.uuid4()), "item_id": item_id, "price": price, "created_at": datetime.utcnow().isoformat()})
+        purchases.append({"id": str(uuid.uuid4()), "item_id": item_id, "price": price, "created_at": utcnow().isoformat()})
         p.shop_purchases = json.dumps(purchases[-200:])
         db.session.commit()
         return flask.jsonify({
@@ -11180,7 +11181,7 @@ def study_repair():
         p = get_study_profile(uid, gid)
         cosmetics = safe_json_load(p.active_cosmetics, {})
         broken_streak = int(cosmetics.get("broken_streak_count", p.longest_streak or 0) or 0)
-        if not p.repair_eligible_until or p.repair_eligible_until < datetime.utcnow():
+        if not p.repair_eligible_until or p.repair_eligible_until < utcnow():
             return flask.jsonify({"status": "error", "message": "Repair window expired."}), 400
         if p.repair_last_used:
             try:
@@ -12619,7 +12620,7 @@ def _send_push_to_user(user_id, payload):
 
 def _upcoming_tasks_for(user, lead_minutes):
     """Return ManualTasks due within the next `lead_minutes`, not yet done."""
-    now = datetime.utcnow()
+    now = utcnow()
     cutoff = now + timedelta(minutes=int(lead_minutes or 60))
     rows = ManualTask.query.filter_by(user_id=user.id, done=False).all()
     upcoming = []
@@ -12666,7 +12667,7 @@ def _send_reminders_for_user(user, mark_sent=True, force=False):
             if not force and (key, channel) in already_sent:
                 sent["skipped"] += 1
                 continue
-            mins = max(1, int((due - datetime.utcnow()).total_seconds() // 60))
+            mins = max(1, int((due - utcnow()).total_seconds() // 60))
             body = f"⏰ {task.title} is due in {mins} min ({task.course})."
             ok = False
             if channel == "sms":
@@ -12701,7 +12702,7 @@ def api_reminders_check():
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)}), 500
     out = []
-    now = datetime.utcnow()
+    now = utcnow()
     for task, due in upcoming:
         mins = max(1, int((due - now).total_seconds() // 60))
         out.append({
@@ -12776,7 +12777,7 @@ def api_daily_claim_status():
             user_id=current_user.id if current_user.is_authenticated else None,
             guest_id=None if current_user.is_authenticated else get_guest_session_id(),
         )
-        today = datetime.utcnow().date().isoformat()
+        today = utcnow().date().isoformat()
         last_claim = (p.last_daily_claim or "") if hasattr(p, "last_daily_claim") else ""
     except Exception as e:
         return flask.jsonify({"status": "error", "message": str(e)}), 500
@@ -12803,7 +12804,7 @@ def api_daily_claim():
             user_id=current_user.id if current_user.is_authenticated else None,
             guest_id=None if current_user.is_authenticated else get_guest_session_id(),
         )
-        today = datetime.utcnow().date().isoformat()
+        today = utcnow().date().isoformat()
         last_claim = (p.last_daily_claim or "") if hasattr(p, "last_daily_claim") else ""
         # last_daily_claim might not exist yet — try/except handles that.
     except Exception as e:
@@ -13896,7 +13897,7 @@ def api_task_extract():
     text = (body.get("text") or "").strip()
     if not text:
         return flask.jsonify({"status": "error", "message": "text required"}), 400
-    today_iso = datetime.utcnow().date().isoformat()
+    today_iso = utcnow().date().isoformat()
     system = (
         "Extract actionable tasks from user-supplied notes / messages / emails. Respond with STRICT JSON only:\n"
         "{\n"
@@ -14332,7 +14333,7 @@ def api_syllabus_import():
         return jsonify({"status": "error", "message": "PDF appears to have no readable text"}), 422
 
     truncated = raw_text[:6000]
-    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+    today_str = utcnow().strftime("%Y-%m-%d")
     prompt = f"""You are a syllabus parser. Today is {today_str}.
 Extract every assignment, exam, quiz, project, or deadline from the syllabus text below.
 Return ONLY a valid JSON array — no markdown, no explanations — where each item has:
@@ -14580,7 +14581,7 @@ def api_save_session_message(msg_id):
     note = CourseNote(
         user_id=current_user.id,
         course_name="Study Session",
-        note_date=datetime.utcnow().strftime("%Y-%m-%d"),
+        note_date=utcnow().strftime("%Y-%m-%d"),
         title=f"Chat — {msg.author_name}"[:255],
         text_content=msg.body,
     )

@@ -18,12 +18,13 @@ keep them on the application's module namespace.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from time_utils import utcnow
 from typing import Any
 
 
 def _utcnow() -> datetime:
     # Naive UTC matches the rest of the IntelliPlan ORM (``datetime.utcnow``).
-    return datetime.utcnow()
+    return utcnow()
 
 
 def _default_expiry() -> datetime:

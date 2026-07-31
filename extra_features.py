@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timedelta
+from time_utils import utcnow
 from typing import Any
 
 from flask import Blueprint, jsonify, render_template, request
@@ -105,7 +106,7 @@ def api_features_create():
     if category not in ALLOWED_CATEGORIES:
         category = "general"
 
-    cutoff = datetime.utcnow() - timedelta(minutes=2)
+    cutoff = utcnow() - timedelta(minutes=2)
     recent = FeatureRequest.query.filter(
         FeatureRequest.user_id == current_user.id,
         FeatureRequest.created_at > cutoff,
@@ -239,13 +240,13 @@ def api_text_dissector():
 def _today_local(offset_minutes: int) -> str:
     """Return YYYY-MM-DD for the user's local date. Client sends its
     UTC offset so each user's day boundary is its own."""
-    now = datetime.utcnow() - timedelta(minutes=offset_minutes)
+    now = utcnow() - timedelta(minutes=offset_minutes)
     return now.strftime("%Y-%m-%d")
 
 
 def _local_hour(offset_minutes: int) -> int:
     """Return the user's current local hour (0-23)."""
-    now = datetime.utcnow() - timedelta(minutes=offset_minutes)
+    now = utcnow() - timedelta(minutes=offset_minutes)
     return now.hour
 
 
@@ -292,7 +293,7 @@ def _nudge_for_hour(hour: int) -> dict:
         bucket = "night"
         pool = NIGHT_MESSAGES
     # Rotate by current minute so consecutive pings don't repeat the same line.
-    idx = datetime.utcnow().minute % len(pool)
+    idx = utcnow().minute % len(pool)
     return {"bucket": bucket, "message": pool[idx]}
 
 
@@ -357,7 +358,7 @@ def api_balance_insights():
         tz_offset = 0
     today = _today_local(tz_offset)
     week_dates = [
-        (datetime.utcnow() - timedelta(minutes=tz_offset, days=i)).strftime("%Y-%m-%d")
+        (utcnow() - timedelta(minutes=tz_offset, days=i)).strftime("%Y-%m-%d")
         for i in range(7)
     ]
 

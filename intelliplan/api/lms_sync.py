@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
+from time_utils import utcnow
 
 from flask import Blueprint, current_app, jsonify, request
 from flask_login import current_user, login_required
@@ -100,7 +101,7 @@ def api_sync(key: str):
         logger.exception("sync failed for %s/%s: %s", current_user.id, key, exc)
         return jsonify({"error": "sync_failed", "detail": str(exc)}), 502
 
-    row.last_synced_at = datetime.utcnow()
+    row.last_synced_at = utcnow()
     row.last_sync_count = len(assignments)
     _db().session.commit()
     return jsonify({"synced": len(assignments)})

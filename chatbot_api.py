@@ -8,6 +8,7 @@ import uuid
 import urllib.request
 import urllib.error
 from datetime import datetime
+from time_utils import utcnow
 
 from ai_provider import ai_available, chat as ai_chat, vision as ai_vision
 
@@ -537,7 +538,7 @@ def _load_tutor_memory():
     if row:
         return dict(row)
 
-    now = datetime.utcnow()
+    now = utcnow()
     values = {
         'user_id': user_id,
         'guest_session_id': guest_session_id,
@@ -560,7 +561,7 @@ def _save_tutor_memory(memory_id, messages, profile):
         .values(
             messages_json=json.dumps(_normalize_tutor_messages(messages)),
             profile_json=json.dumps(profile),
-            updated_at=datetime.utcnow(),
+            updated_at=utcnow(),
         )
     )
     db.session.commit()
@@ -571,7 +572,7 @@ def _save_tutor_profile(memory_id, profile):
     db.session.execute(
         _TUTOR_MEMORY_TABLE.update()
         .where(_TUTOR_MEMORY_TABLE.c.id == memory_id)
-        .values(profile_json=json.dumps(profile), updated_at=datetime.utcnow())
+        .values(profile_json=json.dumps(profile), updated_at=utcnow())
     )
     db.session.commit()
 
@@ -615,7 +616,7 @@ def _create_conversation(title='New chat'):
     _ensure_tutor_memory_table()
     db = _get_db()
     _, user_id, guest_id = _convo_owner_where()
-    now = datetime.utcnow()
+    now = utcnow()
     result = db.session.execute(
         _TUTOR_CONVO_TABLE.insert().values(
             user_id=user_id, guest_session_id=guest_id,
@@ -644,7 +645,7 @@ def _save_conversation(convo_id, messages, new_title=None):
     db = _get_db()
     values = {
         'messages_json': json.dumps(_normalize_tutor_messages(messages)),
-        'updated_at': datetime.utcnow(),
+        'updated_at': utcnow(),
     }
     if new_title:
         values['title'] = new_title[:160]
@@ -669,7 +670,7 @@ def _rename_conversation(convo_id, title):
     db.session.execute(
         _TUTOR_CONVO_TABLE.update()
         .where(_TUTOR_CONVO_TABLE.c.id == convo_id).where(where)
-        .values(title=title[:160], updated_at=datetime.utcnow())
+        .values(title=title[:160], updated_at=utcnow())
     )
     db.session.commit()
 
@@ -723,7 +724,7 @@ def _update_tutor_profile(profile, user_text, reply):
     subject, clean_text = _split_subject(user_text)
     lower = clean_text.lower()
     topic = _extract_topic(clean_text, subject)
-    now = datetime.utcnow().strftime('%Y-%m-%d')
+    now = utcnow().strftime('%Y-%m-%d')
 
     profile['last_subject'] = subject
     profile['turns'] = int(profile.get('turns') or 0) + 1

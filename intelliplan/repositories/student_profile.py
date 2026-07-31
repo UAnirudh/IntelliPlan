@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
+from time_utils import utcnow
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ class StudentProfileRepository:
         try:
             row = self._model.query.filter_by(user_id=user_id).first()
             if row is None:
-                row = self._model(user_id=user_id, created_at=datetime.utcnow())
+                row = self._model(user_id=user_id, created_at=utcnow())
                 self._session.add(row)
                 self._session.commit()
             return row

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
+from time_utils import utcnow
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -40,7 +41,7 @@ class ConceptMasteryRepository:
     ) -> bool:
         try:
             row = self._find(user_id, subject, topic, concept)
-            now = datetime.utcnow()
+            now = utcnow()
 
             if row is None:
                 row = self._model(

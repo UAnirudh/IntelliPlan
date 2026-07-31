@@ -16,6 +16,7 @@ collisions with App.py's web routes).
 
 import json
 from datetime import datetime
+from time_utils import utcnow
 from functools import wraps
 
 from flask import Blueprint, jsonify, request, g, current_app
@@ -297,7 +298,7 @@ def patch_identity():
             identity.weekly_commitments = str(body.get("weekly_commitments") or "").strip()[:500]
         if "availability" in body and isinstance(body["availability"], dict):
             identity.availability = json.dumps(body["availability"])
-        identity.updated_at = datetime.utcnow()
+        identity.updated_at = utcnow()
         db.session.commit()
         return jsonify({"status": "ok", "identity": identity.to_dict()})
     except Exception as e:

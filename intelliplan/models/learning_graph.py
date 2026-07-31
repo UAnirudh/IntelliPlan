@@ -17,11 +17,12 @@ Registration follows the same ``register(db)`` pattern as
 from __future__ import annotations
 
 from datetime import datetime
+from time_utils import utcnow
 from typing import Any
 
 
 def _utcnow() -> datetime:
-    return datetime.utcnow()
+    return utcnow()
 
 
 def register(db: Any) -> tuple[type, type, type]:

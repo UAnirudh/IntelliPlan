@@ -1,5 +1,6 @@
 from notion_client import Client
 from datetime import datetime, timedelta
+from time_utils import utcnow
 import base64
 import os
 import urllib.parse
@@ -319,7 +320,7 @@ def get_upcoming_notion_tasks(token, database_id, days=7):
     """
     if not token or not database_id:
         return []
-    today = datetime.utcnow().date()
+    today = utcnow().date()
     horizon = today + timedelta(days=days)
     tasks = get_notion_tasks(token, database_id)
     upcoming = []

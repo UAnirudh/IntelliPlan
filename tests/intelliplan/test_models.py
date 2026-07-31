@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from time_utils import utcnow
 
 
 def test_register_creates_three_tables(app, db, models) -> None:
@@ -81,7 +82,7 @@ def test_student_signal_append(app, db, models) -> None:
                 ),
                 models["StudentSignal"](
                     user_id=1, kind="briefing_seen",
-                    occurred_at=datetime.utcnow() - timedelta(hours=2),
+                    occurred_at=utcnow() - timedelta(hours=2),
                 ),
             ]
         )
