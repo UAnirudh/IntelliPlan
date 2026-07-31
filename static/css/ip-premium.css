@@ -1,0 +1,325 @@
+/* ═══════════════════════════════════════════════════════════════════
+   ip-premium.css — the finishing layer.
+
+   base.html already owns the palette, the glass surfaces, the grain and
+   the component library. This file adds the things a design system needs
+   once those exist and stops being a collection of one-off values:
+
+     1. a real fluid type ramp (size + tracking + leading, together)
+     2. a named z-index scale, so no page has to guess 9999
+     3. cross-document View Transitions, so navigation stops flashing
+     4. tabular figures everywhere a number is compared to another number
+     5. line-breaking and focus details that only show up on close reading
+
+   Loads after ip-motion.css. Everything is either a new token, a new
+   opt-in class, or a property no page was already setting — so no
+   existing rule loses a specificity fight it used to win.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════
+   1. TYPE RAMP
+
+   Sizes are clamped against viewport width so a headline is large on a
+   monitor and still readable at 375px without a media query per page.
+   Each step carries its own tracking: optical sizing means large type
+   needs negative tracking to stop looking loose, and small caps need
+   positive tracking to stop looking cramped. Shipping them as separate
+   ad-hoc values is what makes a type system drift.
+   ═══════════════════════════════════════════ */
+:root {
+  --fs-micro:   clamp(0.6875rem, 0.672rem + 0.08vw, 0.75rem);
+  --fs-xs:      clamp(0.75rem,   0.731rem + 0.10vw, 0.8125rem);
+  --fs-sm:      clamp(0.8125rem, 0.789rem + 0.12vw, 0.875rem);
+  --fs-base:    clamp(0.9375rem, 0.911rem + 0.14vw, 1rem);
+  --fs-md:      clamp(1.0625rem, 1.016rem + 0.23vw, 1.1875rem);
+  --fs-lg:      clamp(1.25rem,   1.164rem + 0.43vw, 1.5rem);
+  --fs-xl:      clamp(1.5rem,    1.328rem + 0.86vw, 2rem);
+  --fs-2xl:     clamp(1.875rem,  1.573rem + 1.51vw, 2.75rem);
+  --fs-3xl:     clamp(2.25rem,   1.646rem + 3.02vw, 4rem);
+  --fs-display: clamp(2.75rem,   1.802rem + 4.74vw, 5.5rem);
+
+  /* Tracking pairs with the step above it. Negative above ~24px,
+     neutral at reading sizes, positive only for uppercase labels. */
+  --tr-display: -0.038em;
+  --tr-3xl:     -0.034em;
+  --tr-2xl:     -0.028em;
+  --tr-xl:      -0.022em;
+  --tr-lg:      -0.016em;
+  --tr-md:      -0.011em;
+  --tr-base:    -0.006em;
+  --tr-label:    0.075em;
+
+  /* Leading. Display type sets tighter than one em because the cap
+     height, not the em box, is what the eye measures. */
+  --lh-display: 0.94;
+  --lh-tight:   1.06;
+  --lh-snug:    1.24;
+  --lh-body:    1.62;
+  --lh-loose:   1.75;
+
+  /* Reading measure. 65ch is the ceiling for body copy. */
+  --measure:       65ch;
+  --measure-tight: 46ch;
+}
+
+/* Opt-in ramp classes. Page templates can reach for these instead of
+   inventing another rem value; nothing is applied to bare elements. */
+.u-display { font-family: var(--font-display); font-size: var(--fs-display); letter-spacing: var(--tr-display); line-height: var(--lh-display); }
+.u-h1      { font-family: var(--font-display); font-size: var(--fs-3xl);     letter-spacing: var(--tr-3xl);     line-height: var(--lh-tight); }
+.u-h2      { font-family: var(--font-display); font-size: var(--fs-2xl);     letter-spacing: var(--tr-2xl);     line-height: var(--lh-tight); }
+.u-h3      { font-family: var(--font-body);    font-size: var(--fs-xl);      letter-spacing: var(--tr-xl);      line-height: var(--lh-snug); font-weight: 600; }
+.u-h4      { font-family: var(--font-body);    font-size: var(--fs-lg);      letter-spacing: var(--tr-lg);      line-height: var(--lh-snug); font-weight: 600; }
+.u-lead    { font-size: var(--fs-md); letter-spacing: var(--tr-md); line-height: var(--lh-snug); color: var(--text-secondary); max-width: var(--measure); }
+.u-body    { font-size: var(--fs-base); letter-spacing: var(--tr-base); line-height: var(--lh-body); max-width: var(--measure); }
+.u-small   { font-size: var(--fs-sm); line-height: var(--lh-snug); color: var(--text-secondary); }
+
+/* Eyebrow / label. Uppercase at small sizes only works with real
+   tracking and a weight bump — otherwise it reads as noise. */
+.u-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-weight: 500;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
+.u-measure       { max-width: var(--measure); }
+.u-measure-tight { max-width: var(--measure-tight); }
+
+/* ═══════════════════════════════════════════
+   2. LINE BREAKING
+
+   `balance` on headings evens the last line so a two-word orphan does
+   not hang under a six-word first line. `pretty` on body copy only
+   fixes the last line, which is what it is for — using `balance` on
+   long paragraphs is slow and re-wraps text that was already fine.
+
+   Applied to bare elements because no page in this codebase sets
+   text-wrap, so nothing is being overridden.
+   ═══════════════════════════════════════════ */
+h1, h2, h3, h4, h5, h6,
+.u-display, .u-h1, .u-h2, .u-h3, .u-h4,
+blockquote, figcaption, .u-lead {
+  text-wrap: balance;
+}
+p, li, dd, .u-body {
+  text-wrap: pretty;
+}
+
+/* Hyphenation only where a narrow column would otherwise open rivers. */
+@media (max-width: 560px) {
+  p, li { hyphens: auto; -webkit-hyphens: auto; }
+}
+
+/* ═══════════════════════════════════════════
+   3. NUMERALS
+
+   Proportional figures make a column of numbers wobble — a 1 is
+   narrower than a 0, so totals never line up and a live-updating
+   counter shifts its own layout on every tick. Every place this app
+   shows a number that is compared to another number gets tabular
+   figures and slashed zeros.
+   ═══════════════════════════════════════════ */
+.u-nums,
+[data-numeric],
+.stat-value, .stat-number, .stat-num,
+.td-stat-val, .pd-stat-val, .pet-stat-num, .ipd-stat-value,
+.nav-streak-count, .nav-pet-level,
+.grade-value, .gpa-value, .score-value, .countdown-value,
+table td, table th,
+time, .date-badge {
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: "tnum" 1, "zero" 1;
+}
+
+/* Big numbers read as data, not as prose: tighten them optically. */
+.stat-value, .stat-number, .stat-num,
+.td-stat-val, .pd-stat-val, .pet-stat-num, .ipd-stat-value {
+  letter-spacing: -0.022em;
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* ═══════════════════════════════════════════
+   4. Z-INDEX SCALE
+
+   Named stops so a new component does not have to reverse-engineer the
+   stack by trying 9999. The values match what base.html already uses
+   (nav 200-ish, modal 1000, toast above it) so adopting a token is
+   never a behaviour change.
+   ═══════════════════════════════════════════ */
+:root {
+  --z-below:     -1;
+  --z-base:       0;
+  --z-raised:     1;
+  --z-sticky:    50;
+  --z-sidebar:  180;
+  --z-nav:      200;
+  --z-dropdown: 400;
+  --z-backdrop: 900;
+  --z-modal:   1000;
+  --z-toast:   1100;
+  --z-tooltip: 1200;
+  --z-max:     9000;
+}
+
+/* ═══════════════════════════════════════════
+   5. MOTION VOCABULARY (additions)
+
+   base.html has --ease-out and --ease-in-out. These are the two curves
+   it is missing: an emphasized curve that leaves fast and arrives slow
+   without overshooting, and the flat-entry curve used for anything that
+   should feel driven rather than dropped.
+   ═══════════════════════════════════════════ */
+:root {
+  --ease-emph:  cubic-bezier(0.2, 0, 0, 1);
+  --ease-swift: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-micro: 120ms;
+  --dur-quick: 180ms;
+  --dur-base:  260ms;
+  --dur-slow:  420ms;
+}
+
+/* ═══════════════════════════════════════════
+   6. CROSS-DOCUMENT VIEW TRANSITIONS
+
+   This is a multi-page Flask app, so every click is a full document
+   load and the browser paints white between them. `navigation: auto`
+   makes the browser hold the old frame and cross-fade into the new
+   one, which is the single largest perceived-quality change available
+   here for the number of lines it costs.
+
+   The header, sidebar and footer are given stable names so they are
+   treated as the *same* element across documents and hold still while
+   the page body changes. Chrome 126+ honours this; every other browser
+   ignores the whole block and navigates exactly as it does today.
+   ═══════════════════════════════════════════ */
+@view-transition { navigation: auto; }
+
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) {
+    animation: ip-vt-exit var(--dur-quick) var(--ease-swift) both;
+  }
+  ::view-transition-new(root) {
+    animation: ip-vt-enter var(--dur-base) var(--ease-swift) both;
+  }
+}
+
+@keyframes ip-vt-exit {
+  to { opacity: 0; transform: translateY(-6px); }
+}
+@keyframes ip-vt-enter {
+  from { opacity: 0; transform: translateY(10px); }
+}
+
+/* Persistent chrome. Named groups are matched across documents, so the
+   nav does not fade out and back in on every navigation.
+
+   Scoped to direct children of <body> on purpose: a view-transition-name
+   has to be unique in the document, and several pages (command_center,
+   my_stats, tool_gpa) use <header> for section headings. A bare `header`
+   selector would name six elements at once, which makes the browser
+   abort the entire transition — the exact bug base.html documents at the
+   top of its own nested-<header> note. */
+body > header      { view-transition-name: ip-header; }
+body > aside.app-side { view-transition-name: ip-sidebar; }
+body > footer      { view-transition-name: ip-footer; }
+
+::view-transition-group(ip-header),
+::view-transition-group(ip-sidebar),
+::view-transition-group(ip-footer) {
+  animation-duration: var(--dur-quick);
+}
+::view-transition-old(ip-header),
+::view-transition-new(ip-header),
+::view-transition-old(ip-sidebar),
+::view-transition-new(ip-sidebar),
+::view-transition-old(ip-footer),
+::view-transition-new(ip-footer) {
+  /* Hold steady: no cross-fade on chrome that exists on both pages. */
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* The site's own reduce-motion switch has to win over the media query,
+   because a user who set it in Settings did not set it in their OS. */
+html.a11y-reduce-motion::view-transition-old(root),
+html.a11y-reduce-motion::view-transition-new(root),
+html[data-a11y-motion="reduce"]::view-transition-old(root),
+html[data-a11y-motion="reduce"]::view-transition-new(root) {
+  animation: none;
+}
+
+/* ═══════════════════════════════════════════
+   7. FOCUS
+
+   base.html draws a 2px accent outline. That reads well on the page
+   background and disappears against a card of the same accent family.
+   Adding a second ring in the surface colour guarantees separation on
+   any background without changing the accent ring anyone already sees.
+
+   Deliberately NOT applied to buttons, nav tabs or anything in the glass
+   family: those carry a real elevation shadow, and box-shadow replaces
+   rather than appends, so a halo there would delete the elevation for as
+   long as the element held focus. Buttons keep the accent outline they
+   already have.
+   ═══════════════════════════════════════════ */
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  box-shadow: 0 0 0 4px var(--bg), 0 0 0 6px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+/* The bold-focus a11y mode already draws its own heavy ring — do not
+   stack a second halo underneath it. */
+html[data-a11y-focus="bold"] a:focus-visible,
+html[data-a11y-focus="bold"] input:focus-visible,
+html[data-a11y-focus="bold"] select:focus-visible,
+html[data-a11y-focus="bold"] textarea:focus-visible,
+html[data-a11y-focus="bold"] summary:focus-visible { box-shadow: none; }
+
+/* ═══════════════════════════════════════════
+   8. SELECTION, CARET, SCROLL ANCHORING
+   ═══════════════════════════════════════════ */
+::selection {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--text-primary);
+}
+input, textarea, [contenteditable] { caret-color: var(--accent); }
+
+/* Anchored scrolling clears the fixed header instead of parking the
+   target underneath it. */
+html { scroll-padding-top: calc(var(--nav-height, 62px) + 16px); }
+
+/* Content that loads above the viewport (async lists, lazy images)
+   stops shoving the page down under the reader. */
+main, .page-wrap, [data-async-list] { overflow-anchor: auto; }
+
+/* ═══════════════════════════════════════════
+   9. SURFACE DETAIL
+
+   A hairline that reads as a real edge: the top border catches light,
+   the bottom sits in shadow. One property, and cards stop looking like
+   flat rectangles with a stroke.
+   ═══════════════════════════════════════════ */
+.u-edge-light {
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 60%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, #000 6%, transparent),
+    var(--shadow);
+}
+[data-theme="dark"] .u-edge-light {
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, #000 24%, transparent),
+    var(--shadow);
+}
+
+/* Divider that fades at both ends rather than butting into the gutter. */
+.u-rule {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-strong) 18%, var(--border-strong) 82%, transparent);
+}

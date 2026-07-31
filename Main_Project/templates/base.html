@@ -2787,6 +2787,9 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}?v={{ asset_v }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-async.css') }}?v={{ asset_v }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-motion.css') }}?v={{ asset_v }}">
+  {# Finishing layer: type ramp, z-scale, cross-document view transitions,
+     tabular figures. Loads last so its tokens win where they overlap. #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-premium.css') }}?v={{ asset_v }}">
 
   {# ── Async runtime ──────────────────────────────────────────────────
      Loaded synchronously, not deferred, on purpose: page templates write
