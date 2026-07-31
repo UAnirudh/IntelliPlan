@@ -48,7 +48,8 @@
     var AUTO = [
       '.feature-card', '.comparison-card', '.about-card', '.integration-card',
       '.step-card', '.review-card', '.lp-tool-card', '.answer-card',
-      '.ipd-card', '.stat-card', '.preview-card'
+      '.ipd-card', '.stat-card', '.preview-card', '.summary-card',
+      '.pricing-card'
     ].join(',');
 
     function stamp() {

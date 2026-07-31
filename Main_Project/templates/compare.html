@@ -268,9 +268,14 @@
   <div class="compare-cta">
     <h2>IntelliPlan is free to start</h2>
     <p>Connect Canvas or StudentVue and see your priorities in under 5 minutes. Start free with no barriers.</p>
-    <a href="/login" class="btn-primary" style="text-decoration:none">Get Started Free →</a>
-    &nbsp;&nbsp;
-    <a href="/faq" class="btn-secondary" style="text-decoration:none">Read the FAQ</a>
+    {# .compare-cta-actions was already defined in this page's CSS but
+       never used — the two buttons were separated by two &nbsp;, which
+       gives no gap control and collapses into a ragged stack on a narrow
+       screen instead of wrapping cleanly. #}
+    <div class="compare-cta-actions">
+      <a href="/login" class="btn-primary u-sheen" style="text-decoration:none">Build my week, free</a>
+      <a href="/faq" class="btn-secondary" style="text-decoration:none">Read the FAQ</a>
+    </div>
   </div>
 </div>
 

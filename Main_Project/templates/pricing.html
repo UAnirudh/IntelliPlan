@@ -55,14 +55,57 @@
     max-width: 62ch;
     margin: 0 0 var(--space-6);
   }
+  /* One plan, so one card. The second column is an argument, not an
+     offer, and giving it card chrome and a price line made the page read
+     as a two-tier table where the second tier had a sentence where its
+     price should be. Asymmetric split so the card that can be bought
+     carries more weight than the column that explains it. */
   .pricing-cards {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-4);
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: clamp(var(--space-5), 4vw, var(--space-7));
     margin-bottom: var(--space-6);
-    align-items: stretch;
+    align-items: start;
   }
   @media (max-width: 720px) { .pricing-cards { grid-template-columns: 1fr; } }
+
+  /* Deliberately no background, border or shadow — this column earns its
+     place through type and space, and a second card would put it in
+     competition with the plan. */
+  .pricing-rationale { padding-top: var(--space-2); }
+  .pricing-rationale h2 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(1.35rem, 1.1rem + 0.9vw, 1.75rem);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+    margin: 0.4rem 0 var(--space-4);
+    text-wrap: balance;
+  }
+  .pricing-rationale-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .pricing-rationale-list li {
+    font-family: var(--font-body);
+    font-size: 0.94rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    padding: 0.85rem 0;
+    border-top: 1px solid var(--border);
+    max-width: 46ch;
+  }
+  .pricing-rationale-list li:last-child { border-bottom: 1px solid var(--border); }
+  .pricing-rationale-list strong {
+    display: block;
+    color: var(--text-primary);
+    font-weight: 600;
+    margin-bottom: 0.15rem;
+  }
   .pricing-card {
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
@@ -242,25 +285,26 @@
         <li>Lecture-to-flashcard AI, PDF notes, and practice quizzes</li>
         <li>Study group planning, progress tracking, and reminders</li>
       </ul>
-      <a href="/login" class="btn-primary pricing-cta">Get started free →</a>
+      {# One CTA on the page. There were two, both primary and both
+         pointing at /login, which split the emphasis budget between two
+         buttons that did the same thing. #}
+      <a href="/login" class="btn-primary pricing-cta u-sheen">Build my week, free</a>
     </div>
 
-    <div class="pricing-card ipd-anim" style="animation-delay:0.2s">
-      <div class="pricing-card-header">
-        <h2 class="pricing-plan-name">Why it works this way</h2>
-        <span class="pricing-badge">Built for students</span>
-      </div>
-      <div class="pricing-price">Free for students</div>
-      <p class="pricing-price-note">Every core planner feature is included.</p>
-      <ul class="pricing-features">
-        <li>Designed around real classes, not upsells</li>
-        <li>All planning, scheduling, and tutor tools are available to every user</li>
-        <li>No feature gates for AI, grades, or study sessions</li>
-        <li>Instant access with email or Google sign in</li>
-        <li>Works on desktop, phone, and as a Progressive Web App</li>
+    {# Not a second plan. This column answers the question a $0 price
+       raises — "what is the catch" — which is the objection that has to
+       clear before the one CTA on the page can work. #}
+    <section class="pricing-rationale ipd-anim" style="animation-delay:0.2s" aria-labelledby="pricing-why">
+      <p class="u-label">What a free plan usually means</p>
+      <h2 id="pricing-why">And what it does not mean here.</h2>
+      <ul class="pricing-rationale-list">
+        <li><strong>Nothing is held back for a paid tier.</strong> There is no paid tier. AI scheduling, grade modeling and the tutor are the product, not the upsell.</li>
+        <li><strong>No trial clock.</strong> Accounts do not expire and features do not switch off after two weeks.</li>
+        <li><strong>Your school data stays yours.</strong> IntelliPlan reads only what you authorize through official OAuth or a scoped login, and you can wipe it from Settings.</li>
+        <li><strong>Sign-in takes one field.</strong> Email or Google, then straight into the planner. No card, no sales call.</li>
+        <li><strong>It runs where you already are.</strong> Desktop, phone, and installable as a Progressive Web App on iOS, Android and Chromebook.</li>
       </ul>
-      <a href="/login" class="btn-primary pricing-cta">Start planning free →</a>
-    </div>
+    </section>
   </div>
 
   <div class="pricing-faq">
