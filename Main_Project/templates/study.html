@@ -1540,8 +1540,9 @@ function nextQuestion() {
   else renderQ();
 }
 
-function exitSession() {
-  if (!confirm('Exit? Progress will be lost.')) return;
+async function exitSession() {
+  if (!await IP.confirm('Your progress in this session will not be saved.',
+                        { title: 'Leave this session?', confirmLabel: 'Leave', danger: true })) return;
   stopTimers();
   document.body.classList.remove('serious-mode');
   document.getElementById('sesTimerWrap').style.display = 'none';
@@ -1888,8 +1889,9 @@ function fcLoadSet(setId) {
   if (typeof srsRegisterQuestions === 'function') srsRegisterQuestions(G.questions);
 }
 
-function fcDeleteSet(setId) {
-  if (!confirm('Delete this flashcard set?')) return;
+async function fcDeleteSet(setId) {
+  if (!await IP.confirm('Every card in the set goes with it.',
+                        { title: 'Delete this set?', confirmLabel: 'Delete', danger: true })) return;
   const sets = fcSetsLoad().filter(s => s.id !== setId);
   fcSetsSave(sets);
   fcRenderSets();

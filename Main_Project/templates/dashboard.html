@@ -1690,7 +1690,9 @@ async function saveEditTask() {
 
 async function deleteManualTask() {
   var id = document.getElementById('editTaskId').value;
-  if (!id || !confirm('Delete this task?')) return;
+  if (!id) return;
+  if (!await IP.confirm('This task will be removed from your plan.',
+                        { title: 'Delete this task?', confirmLabel: 'Delete', danger: true })) return;
   await fetch('/tasks/manual/delete', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id: id })

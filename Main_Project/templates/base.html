@@ -4108,8 +4108,9 @@ if (mobileMenuBtn) {
   document.getElementById('navCustomizer')?.addEventListener('click', e => {
     if (e.target.id === 'navCustomizer') close();
   });
-  document.getElementById('navCustomizerReset')?.addEventListener('click', () => {
-    if (!confirm('Reset sidebar to default? All hidden items will reappear.')) return;
+  document.getElementById('navCustomizerReset')?.addEventListener('click', async () => {
+    if (!await IP.confirm('Every item you hid will come back.',
+                          { title: 'Reset the sidebar?', confirmLabel: 'Reset' })) return;
     saveHidden({});
     applyHidden();
     renderCustomizer();

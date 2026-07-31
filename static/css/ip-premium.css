@@ -643,3 +643,110 @@ body[data-reading-progress] .ip-progress { display: block; }
   margin: 2.25rem 0;
   background: linear-gradient(90deg, transparent, var(--border-strong) 20%, var(--border-strong) 80%, transparent);
 }
+
+/* ═══════════════════════════════════════════
+   18. CONFIRM DIALOG
+
+   Styling for IP.confirm(). window.confirm() freezes the page behind an OS
+   dialog carrying the domain name, no product styling, and buttons the page
+   cannot label — so "OK" ends up meaning "delete my account forever".
+
+   Cancel is the quiet one and Confirm carries the weight, because the reader
+   arrives here already intending to act; the dialog exists to make them say
+   it out loud, not to talk them out of it.
+   ═══════════════════════════════════════════ */
+.ip-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 1000);
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: var(--scrim);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity var(--dur-quick, 180ms) var(--ease-swift, ease);
+}
+.ip-confirm-overlay.is-in { opacity: 1; }
+
+.ip-confirm {
+  width: 100%;
+  max-width: 25rem;
+  padding: 1.5rem;
+  border-radius: var(--ipd-radius-lg, 20px);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-xl);
+  transform: translateY(8px) scale(0.985);
+  transition:
+    transform var(--dur-base, 260ms) var(--ease-swift, ease),
+    opacity   var(--dur-base, 260ms) var(--ease-swift, ease);
+}
+.ip-confirm-overlay.is-in .ip-confirm { transform: none; }
+
+.ip-confirm__title {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg, 1.3rem);
+  font-weight: 400;
+  letter-spacing: var(--tr-lg, -0.016em);
+  line-height: 1.2;
+  color: var(--text-primary);
+  margin: 0 0 0.4rem;
+}
+.ip-confirm__body {
+  font-size: var(--fs-sm, 0.88rem);
+  line-height: var(--lh-snug, 1.5);
+  color: var(--text-secondary);
+  margin: 0;
+  /* Messages interpolate record titles, which can be a single long word. */
+  overflow-wrap: anywhere;
+  /* The engine writes these with \n in a couple of places. */
+  white-space: pre-line;
+}
+.ip-confirm__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 1.5rem;
+}
+.ip-confirm__btn {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: var(--r-sm);
+  font-family: var(--font-body);
+  font-size: var(--fs-sm, 0.85rem);
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--glass-btn-border);
+  background: var(--glass-btn-bg);
+  color: var(--text-primary);
+  transition:
+    background   var(--dur-quick, 180ms) var(--ease-swift, ease),
+    border-color var(--dur-quick, 180ms) var(--ease-swift, ease),
+    transform    var(--dur-micro, 120ms) var(--ease-swift, ease);
+}
+.ip-confirm__btn:hover { background: var(--glass-btn-hover); }
+.ip-confirm__btn:active { transform: scale(0.98); }
+
+.ip-confirm__btn--go {
+  background: var(--glass-primary-bg);
+  color: var(--glass-primary-text);
+  border-color: transparent;
+}
+.ip-confirm__btn--go:hover { background: var(--glass-primary-hover); }
+
+.ip-confirm--danger .ip-confirm__btn--go {
+  background: var(--danger);
+  color: #fff;
+  border-color: transparent;
+}
+.ip-confirm--danger .ip-confirm__btn--go:hover {
+  background: color-mix(in srgb, var(--danger) 85%, #000);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ip-confirm-overlay, .ip-confirm { transition: none; }
+}
+html[data-a11y-motion="reduce"] .ip-confirm-overlay,
+html[data-a11y-motion="reduce"] .ip-confirm { transition: none; }

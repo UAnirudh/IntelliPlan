@@ -427,7 +427,8 @@ async function saveMeeting() {
 }
 
 async function deleteLink(id) {
-  if (!confirm('Remove this saved meeting?')) return;
+  if (!await IP.confirm('The link will no longer appear in your meetings.',
+                        { title: 'Remove this meeting?', confirmLabel: 'Remove', danger: true })) return;
   try {
     await fetch('/api/meetings/saved/' + id, { method: 'DELETE' });
     _meetingsCache = _meetingsCache.filter(m => m.id !== id);

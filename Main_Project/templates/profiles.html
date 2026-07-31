@@ -67,8 +67,9 @@ function switchProfile(id) {
   }).then(() => window.location.reload());
 }
 
-function deleteProfile(id) {
-  if (!confirm('Remove this profile?')) return;
+async function deleteProfile(id) {
+  if (!await IP.confirm('The profile and its saved settings will be removed.',
+                        { title: 'Remove this profile?', confirmLabel: 'Remove', danger: true })) return;
   fetch('/profiles/delete', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},

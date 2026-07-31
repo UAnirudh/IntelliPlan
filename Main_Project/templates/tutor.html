@@ -898,7 +898,8 @@ async function loadConversation(id) {
 }
 
 async function deleteConversation(id) {
-  if (!confirm('Delete this chat? This can\'t be undone.')) return;
+  if (!await IP.confirm('The whole conversation is removed. This cannot be undone.',
+                        { title: 'Delete this chat?', confirmLabel: 'Delete', danger: true })) return;
   try {
     await fetch(`/api/tutor/conversations/${id}`, { method: 'DELETE' });
     conversationList = conversationList.filter(c => c.id !== id);

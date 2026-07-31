@@ -189,12 +189,13 @@ function smsPreview() {
     .catch(() => { out.style.color = 'var(--high)'; out.textContent = 'Network error'; });
 }
 
-function smsBlastSend() {
+async function smsBlastSend() {
   const p = _smsPayload();
   const out = document.getElementById('smsSendResult');
   const btn = document.getElementById('smsSendBtn');
   if (!p.message) { out.style.display = 'block'; out.style.color = 'var(--high)'; out.textContent = 'Enter a message first.'; return; }
-  if (!confirm(`Send SMS to "${p.audience}" audience?\n\nMessage: ${p.message}`)) return;
+  if (!await IP.confirm(`Audience: ${p.audience}\n\nMessage: ${p.message}`,
+                        { title: 'Send this SMS?', confirmLabel: 'Send' })) return;
   btn.disabled = true;
   btn.textContent = 'Sending…';
   out.style.display = 'block';

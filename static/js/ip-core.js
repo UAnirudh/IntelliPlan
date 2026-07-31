@@ -10,6 +10,7 @@
      IP.report()    client error reporting to /api/client-error
      IP.toast()     non-blocking status messages (never window.alert)
      IP.alert()     drop-in for window.alert(), routed through IP.toast
+     IP.confirm()   async replacement for window.confirm(), resolves boolean
 
    No build step, no dependencies. Loaded before ip-async.js.
    ========================================================================== */
@@ -601,6 +602,121 @@
    */
   IP.alert = function (message, type) {
     return IP.toast(String(message), type || 'error');
+  };
+
+  /**
+   * Replaces window.confirm(). Returns a Promise that resolves true if the
+   * reader confirms and false otherwise, so a call site converts by making
+   * its function async and awaiting.
+   *
+   * window.confirm() freezes the page behind an OS dialog that carries the
+   * domain name, no product styling, and button labels the page cannot
+   * choose — so "OK" ends up meaning "delete my account forever". This names
+   * the action on its own button.
+   *
+   * opts: { title, confirmLabel, cancelLabel, danger }
+   */
+  IP.confirm = function (message, opts) {
+    opts = opts || {};
+    if (!document.body) return Promise.resolve(false);
+
+    return new Promise(function (resolve) {
+      var previouslyFocused = document.activeElement;
+      var settled = false;
+
+      var overlay = document.createElement('div');
+      overlay.className = 'ip-confirm-overlay';
+
+      var box = document.createElement('div');
+      box.className = 'ip-confirm' + (opts.danger ? ' ip-confirm--danger' : '');
+      box.setAttribute('role', 'alertdialog');
+      box.setAttribute('aria-modal', 'true');
+
+      var titleText = opts.title || 'Are you sure?';
+      var titleId = 'ip-confirm-title';
+      var bodyId = 'ip-confirm-body';
+      box.setAttribute('aria-labelledby', titleId);
+      box.setAttribute('aria-describedby', bodyId);
+
+      var h = document.createElement('h2');
+      h.className = 'ip-confirm__title';
+      h.id = titleId;
+      h.textContent = titleText;
+
+      var p = document.createElement('p');
+      p.className = 'ip-confirm__body';
+      p.id = bodyId;
+      // textContent, not innerHTML: some of these messages interpolate a
+      // record's own title, which the reader controls.
+      p.textContent = String(message);
+
+      var row = document.createElement('div');
+      row.className = 'ip-confirm__actions';
+
+      // `no-glass` opts out of base.html's blanket `body button:not(...)`
+      // rule, which forces the glass fill with !important. Without it the
+      // destructive action renders as an ordinary frosted button and the
+      // dialog gives no visual warning at all.
+      var cancel = document.createElement('button');
+      cancel.type = 'button';
+      cancel.className = 'no-glass ip-confirm__btn ip-confirm__btn--cancel';
+      cancel.textContent = opts.cancelLabel || 'Cancel';
+
+      var ok = document.createElement('button');
+      ok.type = 'button';
+      ok.className = 'no-glass ip-confirm__btn ip-confirm__btn--go';
+      ok.textContent = opts.confirmLabel || 'Confirm';
+
+      row.appendChild(cancel);
+      row.appendChild(ok);
+      box.appendChild(h);
+      box.appendChild(p);
+      box.appendChild(row);
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+
+      function close(answer) {
+        if (settled) return;
+        settled = true;
+        document.removeEventListener('keydown', onKey, true);
+        overlay.classList.remove('is-in');
+        var remove = function () {
+          if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+          // Put focus back where the reader left it, not on <body>, or the
+          // next Tab starts from the top of the page.
+          if (previouslyFocused && previouslyFocused.focus) {
+            try { previouslyFocused.focus(); } catch (e) { /* detached */ }
+          }
+          resolve(answer);
+        };
+        setTimeout(remove, 140);
+      }
+
+      function onKey(e) {
+        if (e.key === 'Escape') { e.preventDefault(); close(false); return; }
+        if (e.key !== 'Tab') return;
+        // Two focusable controls, so the trap is a straight swap.
+        e.preventDefault();
+        (document.activeElement === ok ? cancel : ok).focus();
+      }
+
+      cancel.addEventListener('click', function () { close(false); });
+      ok.addEventListener('click', function () { close(true); });
+      overlay.addEventListener('mousedown', function (e) {
+        // Only a click on the scrim itself dismisses — not one that started
+        // inside the dialog and drifted out while selecting text.
+        if (e.target === overlay) close(false);
+      });
+      document.addEventListener('keydown', onKey, true);
+
+      // Focus lands on Cancel: this dialog exists because the next action is
+      // hard to undo, and a stray Enter should not be the thing that does it.
+      // Set synchronously rather than inside the rAF below — rAF does not run
+      // in a background tab, and a dialog nothing can type into is worse than
+      // one that skipped its fade.
+      cancel.focus();
+      requestAnimationFrame(function () { overlay.classList.add('is-in'); });
+    });
   };
 
   /* ── Boot ─────────────────────────────────────────────────────────── */

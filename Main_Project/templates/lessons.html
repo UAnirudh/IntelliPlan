@@ -233,8 +233,9 @@ function resumm(id) {
 
 /* Deleting a recording cannot be undone, so it still asks first — but the
    card leaves immediately and comes back if the server refuses. */
-function delLesson(id) {
-  if (!confirm('Delete this lesson and its recording? This cannot be undone.')) return;
+async function delLesson(id) {
+  if (!await IP.confirm('The lesson and its recording go with it. This cannot be undone.',
+                        { title: 'Delete this lesson?', confirmLabel: 'Delete', danger: true })) return;
   const card = document.querySelector(`.lesson-card[data-lesson-id="${id}"]`);
   if (!card) return;
   const parent = card.parentNode, next = card.nextSibling;

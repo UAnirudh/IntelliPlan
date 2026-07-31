@@ -234,8 +234,9 @@ async function loadDay(date) {
 
 /* The card disappears on click and is put back if the delete fails, instead
    of re-fetching the whole timeline for a one-row change. */
-function deleteItem(id) {
-  if (!confirm('Delete this saved item?')) return;
+async function deleteItem(id) {
+  if (!await IP.confirm('This item will be removed from your saved timeline.',
+                        { title: 'Delete this item?', confirmLabel: 'Delete', danger: true })) return;
   const card = document.querySelector(`.mem-card[data-mem-id="${id}"]`);
   if (!card) return;
   const parent = card.parentNode, next = card.nextSibling;

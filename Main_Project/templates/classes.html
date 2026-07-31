@@ -1181,7 +1181,8 @@ function repeatQuizQuestion() {
 }
 
 async function deleteNote(noteId) {
-  if (!confirm("Delete this note?")) return;
+  if (!await IP.confirm('This note and anything generated from it will be removed.',
+                        { title: 'Delete this note?', confirmLabel: 'Delete', danger: true })) return;
 
   try {
     const res = await fetch(`/notes/${noteId}`, { method: "DELETE" });

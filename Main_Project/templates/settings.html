@@ -959,8 +959,9 @@ function gcalActivate(id) {
   fetch('/gcal/activate', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) })
     .then(r => r.json()).then(() => refreshGcal());
 }
-function gcalRemove(id) {
-  if (!confirm('Disconnect this Google account from IntelliPlan?')) return;
+async function gcalRemove(id) {
+  if (!await IP.confirm('Calendar export will stop until you connect it again.',
+                        { title: 'Disconnect this Google account?', confirmLabel: 'Disconnect', danger: true })) return;
   fetch('/gcal/remove', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) })
     .then(r => r.json()).then(() => refreshGcal());
 }
@@ -970,14 +971,16 @@ function switchProfile(id) {
     .then(() => window.location.reload());
 }
 
-function deleteProfile(id) {
-  if (!confirm('Remove this school account?')) return;
+async function deleteProfile(id) {
+  if (!await IP.confirm('Assignments already imported stay; nothing new will sync.',
+                        { title: 'Remove this school account?', confirmLabel: 'Remove', danger: true })) return;
   fetch('/profiles/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) })
     .then(() => window.location.reload());
 }
 
-function deleteAccount() {
-  if (!confirm('Permanently delete your IntelliPlan account and all data? This cannot be undone.')) return;
+async function deleteAccount() {
+  if (!await IP.confirm('Your assignments, schedules, grades and study history are deleted permanently. This cannot be undone.',
+                        { title: 'Delete your account?', confirmLabel: 'Delete everything', danger: true })) return;
   fetch('/account/delete', { method:'POST', headers:{'Content-Type':'application/json'} })
     .then(() => window.location.href = '/');
 }
@@ -1562,9 +1565,11 @@ function refreshLmsStatuses() {
   });
 }
 
-function disconnectLms(provider) {
+async function disconnectLms(provider) {
   const meta = LMS_STATUS_META[provider];
-  if (!meta || !confirm('Disconnect ' + meta.label + '?')) return;
+  if (!meta) return;
+  if (!await IP.confirm('Nothing new will sync from ' + meta.label + ' until you reconnect it.',
+                        { title: 'Disconnect ' + meta.label + '?', confirmLabel: 'Disconnect', danger: true })) return;
   fetch(meta.disconnect, { method: 'POST' })
     .then(() => refreshLmsStatuses())
     .catch(() => ipSetNotify("Couldn't disconnect. Check your connection and try again.", true));
@@ -1773,8 +1778,9 @@ async function createNotionDatabase() {
   }
 }
 
-function disconnectNotion() {
-  if (!confirm("Disconnect Notion?")) return;
+async function disconnectNotion() {
+  if (!await IP.confirm('Task export to Notion stops until you connect it again.',
+                        { title: 'Disconnect Notion?', confirmLabel: 'Disconnect', danger: true })) return;
   fetch('/notion/disconnect', { method: 'POST' })
     .then(() => refreshNotionStatus());
 }
