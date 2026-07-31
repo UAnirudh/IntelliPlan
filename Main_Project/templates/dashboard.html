@@ -170,6 +170,22 @@
 
 /* ── Task cards ───────────────────────────────────────────── */
 .ipd-task-list { display: flex; flex-direction: column; gap: 10px; }
+
+/* Placeholder row: same height, same gutter and same left rhythm as a real
+   task row, so the list does not resize when the data lands. */
+.ipd-task-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--ipd-radius-md);
+  background: var(--bg);
+}
+.ipd-task-skeleton + .ipd-task-skeleton { margin-top: 10px; }
+.ipd-task-skeleton .skel-avatar { width: 30px; height: 30px; flex-shrink: 0; }
+.ipd-task-skeleton-lines { flex: 1; min-width: 0; }
+.ipd-task-skeleton-lines .skel-line { display: block; margin: 6px 0; }
 .ipd-task-card {
   display: flex;
   align-items: stretch;
@@ -728,11 +744,18 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-alert"/></svg>
         <span id="ipdOverdueCount">0 overdue tasks</span>
       </div>
-      <div id="ipdTaskList" class="ipd-task-list">
-        <div class="ipd-empty-state">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><use href="#i-check-circle"/></svg>
-          <p>Loading tasks…</p>
+      {# Loading placeholder shaped like the rows it is standing in for,
+         rather than a tick icon captioned "Loading tasks…" — a checkmark
+         is the symbol for finished, which is the one thing this state is
+         not, and a centred caption makes the list jump when real rows
+         replace it. #}
+      <div id="ipdTaskList" class="ipd-task-list" aria-busy="true">
+        <div class="skeleton-group" aria-hidden="true">
+          <div class="ipd-task-skeleton"><span class="skeleton skel-avatar"></span><span class="ipd-task-skeleton-lines"><span class="skeleton skel-line" style="width:62%"></span><span class="skeleton skel-line" style="width:34%"></span></span></div>
+          <div class="ipd-task-skeleton"><span class="skeleton skel-avatar"></span><span class="ipd-task-skeleton-lines"><span class="skeleton skel-line" style="width:74%"></span><span class="skeleton skel-line" style="width:28%"></span></span></div>
+          <div class="ipd-task-skeleton"><span class="skeleton skel-avatar"></span><span class="ipd-task-skeleton-lines"><span class="skeleton skel-line" style="width:52%"></span><span class="skeleton skel-line" style="width:40%"></span></span></div>
         </div>
+        <span class="sr-only" role="status">Loading your tasks</span>
       </div>
     </div>
   </div>
@@ -1042,9 +1065,24 @@ function renderTaskList() {
   var container = document.getElementById('ipdTaskList');
   if (!container) return;
 
+  container.removeAttribute('aria-busy');
+
   if (!tasks.length) {
-    var msgs = { today: "You're all clear for today.", upcoming: 'No upcoming tasks this week.', overdue: 'No overdue tasks — nice!' };
-    container.innerHTML = '<div class="ipd-empty-state"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><use href="#i-check-circle"/></svg><p>' + (msgs[tab] || 'No tasks.') + '</p></div>';
+    // Each tab is empty for a different reason, so each gets its own next
+    // step. "Nice!" is removed on purpose: a confident product states the
+    // result, it does not congratulate you for it.
+    var msgs = {
+      today:    { text: "You are clear for today.",        cta: 'Plan tomorrow',       href: '/scheduler' },
+      upcoming: { text: 'Nothing due in the next 7 days.', cta: 'Pull in assignments', href: '/connect'   },
+      overdue:  { text: 'Nothing overdue.',                cta: 'See this week',       href: '/scheduler' }
+    };
+    var m = msgs[tab] || { text: 'No tasks.', cta: 'Pull in assignments', href: '/connect' };
+    container.innerHTML =
+      '<div class="ipd-empty-state">' +
+        '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><use href="#i-check-circle"/></svg>' +
+        '<p>' + m.text + '</p>' +
+        '<div class="empty-actions"><a class="ipd-btn" href="' + m.href + '">' + m.cta + '</a></div>' +
+      '</div>';
     return;
   }
 

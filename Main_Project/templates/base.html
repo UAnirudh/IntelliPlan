@@ -677,14 +677,25 @@
       margin-top: 2px;
     }
 
+    /* In-card version of the same idea. No border here — it already sits
+       inside a card, and a second frame around a frame reads as a bug. */
     .ipd-empty-state {
       text-align: center;
       padding: 2.5rem 1rem;
       color: var(--text-muted);
       font-family: var(--ipd-font-body);
     }
-    .ipd-empty-state svg { opacity: 0.4; margin-bottom: 0.75rem; }
+    .ipd-empty-state svg {
+      color: var(--accent);
+      opacity: 0.75;
+      margin-bottom: 0.85rem;
+      padding: 11px;
+      box-sizing: content-box;
+      border-radius: var(--r-full);
+      background: var(--accent-soft);
+    }
     .ipd-empty-state p { font-size: 0.86rem; margin: 0; }
+    .ipd-empty-state .empty-actions { margin-top: 1rem; }
 
     .ipd-section-tabs {
       display: flex;
@@ -1720,10 +1731,53 @@
     /* ══════════════════════════════════════
        EMPTY STATE & LOADING
     ══════════════════════════════════════ */
-    .empty-state { text-align:center; padding:4rem 2rem; color:var(--text-muted); display:none; }
+    /* An empty list is the one screen where the product has the reader's
+       full attention and nothing to show them. Treating it as absence —
+       grey text centred in a void — wastes that. It gets a real surface,
+       the icon gets a tinted disc so it reads as deliberate rather than
+       leftover, and .empty-actions gives every state somewhere to send
+       the reader next. */
+    .empty-state {
+      display: none;
+      text-align: center;
+      padding: clamp(2.5rem, 6vw, 3.75rem) 2rem;
+      color: var(--text-muted);
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--ipd-radius-lg, 20px);
+      background: color-mix(in srgb, var(--bg-card) 50%, transparent);
+      max-width: 34rem;
+      margin-inline: auto;
+    }
     .empty-state.visible { display:block; }
-    .empty-icon  { font-size:2.5rem; margin-bottom:1rem; }
-    .empty-title { font-family:var(--font-display); font-size:1.15rem; color:var(--text-secondary); margin-bottom:0.5rem; }
+    .empty-icon {
+      width: 54px; height: 54px;
+      margin: 0 auto 1.1rem;
+      display: grid; place-items: center;
+      border-radius: var(--r-full);
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 1.5rem;
+    }
+    .empty-icon svg { width: 26px; height: 26px; }
+    .empty-title {
+      font-family: var(--font-display);
+      font-size: var(--fs-lg, 1.3rem);
+      letter-spacing: var(--tr-lg, -0.016em);
+      line-height: 1.2;
+      color: var(--text-primary);
+      margin-bottom: 0.45rem;
+    }
+    .empty-state p {
+      font-size: var(--fs-sm, 0.85rem);
+      line-height: var(--lh-snug, 1.5);
+      max-width: 34ch;
+      margin-inline: auto;
+    }
+    .empty-actions {
+      display: flex; gap: 8px;
+      justify-content: center; flex-wrap: wrap;
+      margin-top: 1.35rem;
+    }
     .loading { text-align:center; padding:3rem; color:var(--text-muted); }
     .spinner { width:28px; height:28px; border:2.5px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.75s linear infinite; margin:0 auto 1rem; }
 
