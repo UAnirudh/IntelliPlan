@@ -511,19 +511,21 @@ html.ipm-on details.ipm-acc > .ipm-acc__body > * {
   overflow: hidden;
   min-height: 0;
 }
-/* The marker leans into the open state rather than snapping. */
-html.ipm-on details.ipm-acc > summary .ipm-acc__mark {
-  display: inline-block;
-  transition: transform 0.42s var(--ipm-spring-ish, cubic-bezier(0.34, 1.4, 0.64, 1));
-}
-html.ipm-on details.ipm-acc[open] > summary .ipm-acc__mark { transform: rotate(90deg); }
 
 /* ── Auto-scale input (pattern: "Auto Scale input", skiper105) ──
-   The field settles into each new height instead of jumping a line at a
-   time. ip-motion.js flags the growth; this describes the settle. */
-html.ipm-on textarea.ipm-autoscale {
-  transition: height 0.24s var(--ipm-glide);
-}
+   The field acknowledges each new height instead of silently snapping.
+
+   Deliberately NOT `transition: height`. Both autosizers in this app
+   (autoResizePlani in base.html, planiAutosize in command_center.js) work
+   by setting height to auto and then reading scrollHeight — so animating
+   height means the measurement that drives the resize is taken while the
+   thing being measured is still moving. That risks the field settling at
+   the wrong height or oscillating, and it made this file's own
+   offsetHeight growth check read an intermediate value.
+
+   The height therefore still snaps, as it always did; the acknowledgement
+   is a box-shadow pulse, which is compositor-safe and cannot feed back
+   into the measurement. */
 html.ipm-on textarea.ipm-autoscale.ipm-grew {
   animation: ipmAutoScalePulse 0.32s var(--ipm-glide);
 }
@@ -562,8 +564,12 @@ html.ipm-on #cmdPalette .cmd-item.active { background: transparent; }
   #ipmScrollRail { transition: none; }
   html.ipm-on .ip-toast { animation: none; }
   html.ipm-on details.ipm-acc > .ipm-acc__body,
-  html.ipm-on details.ipm-acc > summary .ipm-acc__mark,
-  html.ipm-on textarea.ipm-autoscale,
+  /* .ipm-grew, not .ipm-autoscale — the pulse is declared on the two-class
+     selector, so guarding the one-class one loses the cascade and the
+     animation would still run. ip-motion.js also refuses to add the class
+     under reduced motion, but it samples the setting once at load, so a
+     user who changes it mid-session is relying on this rule. */
+  html.ipm-on textarea.ipm-autoscale.ipm-grew,
   #cmdPalette .ipm-cmd-rail { transition: none; animation: none; }
 }
 
