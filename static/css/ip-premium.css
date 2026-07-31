@@ -744,6 +744,15 @@ body[data-reading-progress] .ip-progress { display: block; }
 .ip-confirm--danger .ip-confirm__btn--go:hover {
   background: color-mix(in srgb, var(--danger) 85%, #000);
 }
+/* --danger inverts between themes: #dc2626 in light, #f87171 in dark. White
+   on the dark theme's light red measures 2.77:1 — a fail, on the one button
+   that deletes things. The fill stays; the ink flips. */
+[data-theme="dark"] .ip-confirm--danger .ip-confirm__btn--go {
+  color: #1b0f10;
+}
+[data-theme="dark"] .ip-confirm--danger .ip-confirm__btn--go:hover {
+  background: color-mix(in srgb, var(--danger) 88%, #fff);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .ip-confirm-overlay, .ip-confirm { transition: none; }
