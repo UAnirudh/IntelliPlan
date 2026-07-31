@@ -2810,6 +2810,9 @@
      them off the critical path. Order is guaranteed by `defer`. #}
   <script defer data-ipm-vendor src="{{ url_for('static', filename='js/vendor/motion.min.js') }}?v={{ asset_v }}"></script>
   <script defer src="{{ url_for('static', filename='js/ip-motion.js') }}?v={{ asset_v }}"></script>
+  {# Finishing layer's JS: spotlight cursor, scrolled flag, progress-bar
+     fallback. Deferred — nothing during parse depends on it. #}
+  <script defer src="{{ url_for('static', filename='js/ip-premium.js') }}?v={{ asset_v }}"></script>
   {% block head_extra %}{% endblock %}
 <style id="android-touch-polish">
 /* ===== Android scroll + tap responsiveness and mobile polish =====
@@ -2983,7 +2986,15 @@ body {
 </head>
 
 {% set _app_pages = ['dashboard','scheduler','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','olympiad','memories','pet','command_center','balance','features','accessibility','text_dissector','my_stats'] %}
-<body class="{% if active_page in _app_pages %}has-side{% endif %}">
+{# Reading progress belongs on long-form pages only. On an app screen the
+   scroll length is the size of a list, not the length of an argument, so a
+   progress bar there measures nothing the reader cares about. #}
+{%- set _rp_path = (request.path or '/') if request else '/' -%}
+{%- set _reading_progress = _rp_path.startswith('/blog') or _rp_path.startswith('/compare')
+    or _rp_path in ['/about', '/faq', '/legal', '/privacy', '/terms', '/schools', '/uk', '/olympiad'] -%}
+<body class="{% if active_page in _app_pages %}has-side{% endif %}"
+      {% if _reading_progress %}data-reading-progress{% endif %}{% block body_attrs %}{% endblock %}>
+<div class="ip-progress" aria-hidden="true"></div>
 <a href="#main-content" class="a11y-skip">Skip to main content</a>
 
 <a href="#main-content" class="skip-to-content">Skip to main content</a>

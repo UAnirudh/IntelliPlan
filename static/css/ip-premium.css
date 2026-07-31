@@ -323,3 +323,167 @@ main, .page-wrap, [data-async-list] { overflow-anchor: auto; }
   height: 1px;
   background: linear-gradient(90deg, transparent, var(--border-strong) 18%, var(--border-strong) 82%, transparent);
 }
+
+/* ═══════════════════════════════════════════
+   10. SPOTLIGHT BORDER
+
+   A card border that brightens under the cursor. The gradient is painted
+   on a ::before that sits behind the content and is masked to the border
+   box, so the fill, the shadow and the radius all keep working — nothing
+   here touches the card's own background.
+
+   Opt in with [data-spotlight]. Guarded on pointer:fine because on a
+   touch screen there is no cursor to follow and the paint is wasted.
+   ═══════════════════════════════════════════ */
+@media (pointer: fine) {
+  /* :where() so this carries zero specificity. Several of these cards are
+     positioned by their own page CSS, and a 0,1,0 attribute selector
+     landing later in the cascade would silently win that fight and move
+     them. At zero specificity the card's own rule always wins, and
+     position:relative only applies where nothing else set it. */
+  :where([data-spotlight]) { position: relative; }
+
+  /* ::before, not ::after: base.html already paints a dark-theme inset
+     highlight on .stat-card::after at higher specificity, so a ring there
+     would be dead on exactly the surfaces that need it most.
+
+     No isolation and no negative z-index either — isolating the card would
+     trap any dropdown inside it below the next card, which is a real bug
+     on the dashboard. The ring is masked to the rim, where card content
+     never reaches, so painting it above the content is harmless. */
+  [data-spotlight]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur-base) var(--ease-swift);
+    background: radial-gradient(
+      16rem 16rem at var(--sx, 50%) var(--sy, 50%),
+      color-mix(in srgb, var(--accent) 60%, transparent) 0%,
+      color-mix(in srgb, var(--accent) 16%, transparent) 40%,
+      transparent 72%
+    );
+    /* Punch out the middle so only the 1px rim survives — the card's real
+       surface shows through instead of being tinted. */
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+  [data-spotlight]:hover::before,
+  [data-spotlight]:focus-within::before { opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════
+   11. CONDENSED HEADER
+
+   The header is sticky, so once the page scrolls it stops being part of
+   the page and starts being chrome floating over it. It should look like
+   chrome: a stronger edge and a real drop shadow so the content passing
+   underneath reads as underneath.
+
+   Only shadow, border-colour and a transform change — no height, no
+   padding. Animating the height of a sticky bar reflows the document on
+   every frame of the transition, which is the bug the previous motion
+   pass removed from autoscaling inputs.
+   ═══════════════════════════════════════════ */
+.ip-scroll-sentinel {
+  position: absolute;
+  top: 0; left: 0;
+  width: 1px; height: 1px;
+  pointer-events: none;
+  opacity: 0;
+}
+
+body > header {
+  transition:
+    box-shadow    var(--dur-base) var(--ease-swift),
+    border-color  var(--dur-base) var(--ease-swift);
+}
+html.is-scrolled body > header {
+  border-bottom-color: var(--border-strong);
+  box-shadow:
+    0 1px 0 var(--border-strong),
+    0 10px 34px -14px rgba(0, 0, 0, 0.22);
+}
+html.is-scrolled .logo-text {
+  transform: scale(0.94);
+  transform-origin: left center;
+}
+.logo-text { transition: transform var(--dur-base) var(--ease-swift); }
+
+/* ═══════════════════════════════════════════
+   12. READING PROGRESS
+
+   Scroll-driven where the browser supports it, which means the bar is
+   painted by the compositor off the main thread and costs nothing while
+   scrolling. ip-premium.js only steps in for browsers without a scroll
+   timeline, and there it writes a single custom property per frame.
+
+   Opt in per page with <body data-reading-progress>.
+   ═══════════════════════════════════════════ */
+.ip-progress {
+  display: none;
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 2px;
+  z-index: var(--z-nav);
+  transform-origin: 0 50%;
+  transform: scaleX(var(--ip-progress, 0));
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--accent) 70%, transparent),
+    var(--accent));
+  pointer-events: none;
+}
+body[data-reading-progress] .ip-progress { display: block; }
+
+@supports (animation-timeline: scroll()) {
+  body[data-reading-progress] .ip-progress {
+    animation: ip-progress-grow linear both;
+    animation-timeline: scroll(root block);
+  }
+}
+@keyframes ip-progress-grow {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ip-progress { transition: none; }
+}
+
+/* ═══════════════════════════════════════════
+   13. SHEEN
+
+   One sweep of light across a primary action on hover. Opt-in, because
+   applied to every button it becomes decoration; on the single page-level
+   CTA it reads as the surface catching light.
+   ═══════════════════════════════════════════ */
+@media (pointer: fine) {
+  .u-sheen {
+    position: relative;
+    overflow: hidden;
+  }
+  .u-sheen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      105deg,
+      transparent 38%,
+      color-mix(in srgb, #fff 26%, transparent) 50%,
+      transparent 62%
+    );
+    transform: translateX(-120%);
+    transition: transform 620ms var(--ease-swift);
+  }
+  .u-sheen:hover::after,
+  .u-sheen:focus-visible::after { transform: translateX(120%); }
+  @media (prefers-reduced-motion: reduce) {
+    .u-sheen::after { display: none; }
+  }
+}
