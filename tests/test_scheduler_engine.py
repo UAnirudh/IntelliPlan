@@ -365,6 +365,59 @@ def test_hard_work_is_steered_into_the_measured_best_slot():
     assert hard["window_slot"] == "morning"
 
 
+def test_urgent_easy_work_is_not_displaced_by_hard_work_due_later():
+    # The difficulty sort used to run on its own, so a Hard assignment due next
+    # week was placed ahead of an Easy one due tomorrow — and when the evening
+    # ran out, the one with the deadline was the one that overflowed.
+    dna = StudyDNA(sample_size=10, best_slot="morning")
+    due_soon = _block("Quiz corrections", difficulty="Easy")
+    due_soon["due_date"] = "2026-07-28"
+    due_later = _block("Research paper", difficulty="Hard")
+    due_later["due_date"] = "2026-08-14"
+    placed, overflow = place_day_blocks(
+        [due_later, due_soon], [_window(7, 8), _window(17, 18)], dna
+    )
+    assert placed[0]["assignment"] == "Quiz corrections"
+    assert not overflow
+
+
+def test_the_deadline_that_overflows_is_the_furthest_away():
+    dna = StudyDNA(sample_size=10, best_slot="morning")
+    blocks = []
+    for title, due in (("Due Friday", "2026-07-31"), ("Due Monday", "2026-08-03"),
+                       ("Due tomorrow", "2026-07-28")):
+        b = _block(title, minutes=45)
+        b["due_date"] = due
+        blocks.append(b)
+    # Room for two 45-minute blocks, not three.
+    placed, overflow = place_day_blocks(blocks, [_window(7, 8), _window(17, 18)], dna)
+    assert [b["assignment"] for b in placed] == ["Due tomorrow", "Due Friday"]
+    assert [b["assignment"] for b in overflow] == ["Due Monday"]
+
+
+def test_difficulty_still_decides_between_work_due_the_same_day():
+    dna = StudyDNA(sample_size=10, best_slot="morning")
+    easy = _block("Easy reading", difficulty="Easy")
+    hard = _block("Hard proof", difficulty="Hard")
+    easy["due_date"] = hard["due_date"] = "2026-07-30"
+    placed, _ = place_day_blocks([easy, hard], [_window(17, 19), _window(7, 9)], dna)
+    hard_block = next(b for b in placed if b["assignment"] == "Hard proof")
+    assert hard_block["window_slot"] == "morning"
+
+
+def test_work_without_a_due_date_keeps_the_difficulty_ordering():
+    # LMS items the model renamed never match the lookup, so they arrive with
+    # no due date. They must not all jump the queue or all sink to the bottom
+    # in a way that changes what happened before deadlines were considered.
+    dna = StudyDNA(sample_size=10, best_slot="morning")
+    placed, _ = place_day_blocks(
+        [_block("Easy reading", difficulty="Easy"), _block("Hard proof", difficulty="Hard")],
+        [_window(17, 19), _window(7, 9)],
+        dna,
+    )
+    assert placed[0]["assignment"] == "Hard proof"
+
+
 def test_a_long_run_of_work_gets_a_forced_break():
     placed, _ = place_day_blocks([_block(minutes=50) for _ in range(3)], [_window(15, 22)])
     assert any(b.get("is_break") and b["assignment"] == "Long break" for b in placed)

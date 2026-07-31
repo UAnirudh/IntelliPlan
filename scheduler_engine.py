@@ -507,6 +507,17 @@ def _difficulty_rank(block: Mapping[str, Any]) -> int:
     return {"Hard": 0, "Medium": 1, "Easy": 2}.get(str(block.get("difficulty") or "Medium"), 1)
 
 
+def _due_rank(block: Mapping[str, Any]) -> str:
+    """Sort key for a block's deadline. ISO dates compare correctly as strings.
+
+    Work with no deadline sorts after everything dated rather than before it.
+    Blocks arrive without one whenever the model renamed an assignment and the
+    title lookup missed, and a missing deadline is not evidence of urgency — it
+    is an absence of evidence, so it must not push dated work down the day.
+    """
+    return str(block.get("due_date") or "").strip() or "9999-12-31"
+
+
 def strip_auto_breaks(blocks: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
     """Drop breaks this engine inserted, keeping ones the plan itself authored.
 
@@ -609,7 +620,11 @@ def place_day_blocks(
         usable = sorted(usable, key=lambda w: (w.slot() != dna.best_slot, w.start))
         work = [b for b in blocks if not b.get("is_break")]
         if work:
-            work.sort(key=_difficulty_rank)
+            # Deadline first, difficulty only to break ties. Sorting on
+            # difficulty alone put a Hard assignment due next week ahead of an
+            # Easy one due tomorrow, and when the evening ran out it was the
+            # one with the deadline that overflowed to the following day.
+            work.sort(key=lambda b: (_due_rank(b), _difficulty_rank(b)))
             ordered, it = [], iter(work)
             for b in blocks:
                 ordered.append(b if b.get("is_break") else next(it))

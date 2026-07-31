@@ -2714,6 +2714,13 @@ def enrich_schedule_data(schedule_data, assignments, preferred_time, hours_per_d
             if difficulty == "Hard": hard_task_count += 1
             block["priority"] = priority
             block["difficulty"] = difficulty
+            # The real deadline off the matched assignment, not the model's
+            # opinion of it. place_day_blocks() orders the day by this, so an
+            # assignment due tomorrow is never pushed past one due next week.
+            # Blocks whose title the model rewrote miss the lookup and get no
+            # due date, which the engine treats as "unknown", not "urgent".
+            if assignment_meta.get("due_date"):
+                block["due_date"] = assignment_meta["due_date"]
             block["energy_level"] = energy_level
             block["color"] = PRIORITY_COLORS.get(priority, "#60a5fa")
             block["accent_color"] = DIFFICULTY_COLORS.get(difficulty, "#60a5fa")
