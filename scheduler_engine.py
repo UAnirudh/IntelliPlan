@@ -49,6 +49,9 @@ STAMINA_BOUNDS = (20, 90)
 RATIO_BOUNDS = (0.25, 4.0)
 #: Minutes of continuous work before the engine forces a real break.
 LONG_BREAK_AFTER_MINUTES = 90
+# How far past the per-sitting cap a block has to run before it is worth
+# splitting. See split_oversized_blocks() for why this is not 1.0.
+SPLIT_THRESHOLD_RATIO = 1.5
 
 _DAY_TOKEN = r"mon|tue|wed|thu|fri|sat|sun"
 _TIME = r"\d{1,2}(?::\d{2})?"
@@ -513,6 +516,61 @@ def strip_auto_breaks(blocks: Iterable[Mapping[str, Any]]) -> list[dict[str, Any
     return [dict(b) for b in blocks if not (b.get("is_break") and b.get("auto"))]
 
 
+def split_oversized_blocks(
+    blocks: Iterable[Mapping[str, Any]], cap_minutes: int
+) -> list[dict[str, Any]]:
+    """Break work longer than ``cap_minutes`` into several equal sittings.
+
+    A three-hour assignment given to a student whose measured focus length is
+    thirty minutes is not a three-hour block and it is not a forty-five minute
+    block either — it is four sittings. Returning a single trimmed block, which
+    is what this engine used to do, deletes the rest of the work from the plan:
+    the student sees a schedule that cannot finish the assignment and has no
+    way to know minutes went missing.
+
+    Parts are equal rather than greedy. Filling to the cap and keeping the
+    remainder turns 100 minutes into 45 + 45 + 10, and nobody opens a textbook
+    for ten minutes; three sittings of 34/33/33 is the same total and every one
+    of them is worth sitting down for.
+
+    A block only splits once it is worth more than one sitting — 1.5x the cap.
+    Splitting at the cap exactly means 46 minutes against a 45-minute cap
+    becomes two 23-minute sittings, half the student's actual capacity, to
+    avoid one minute of overshoot. A minute over is not two sittings of work.
+
+    Breaks pass through untouched, and a block that already carries
+    ``part_total`` is left alone so re-placing a plan does not split the parts
+    of an earlier split.
+    """
+    out: list[dict[str, Any]] = []
+    for raw in blocks:
+        block = dict(raw)
+        duration = int(block.get("duration_minutes") or 25)
+        if (
+            cap_minutes <= 0
+            or block.get("is_break")
+            or block.get("part_total")
+            or duration < cap_minutes * SPLIT_THRESHOLD_RATIO
+        ):
+            out.append(block)
+            continue
+
+        parts = -(-duration // cap_minutes)  # ceil, without importing math
+        base, extra = divmod(duration, parts)
+        title = str(block.get("assignment") or "Task").strip()
+        for i in range(parts):
+            piece = dict(block)
+            piece["duration_minutes"] = base + (1 if i < extra else 0)
+            piece["part_index"] = i + 1
+            piece["part_total"] = parts
+            piece["assignment"] = f"{title} (part {i + 1} of {parts})"
+            piece["split_note"] = (
+                f"Split into {parts} sittings to match your usual focus length."
+            )
+            out.append(piece)
+    return out
+
+
 def place_day_blocks(
     blocks: list[dict[str, Any]],
     windows: Sequence[Window],
@@ -539,6 +597,13 @@ def place_day_blocks(
     if not usable:
         return [], list(blocks)
 
+    # Break oversized work into sittings first, so ordering and placement both
+    # operate on blocks the student can actually finish in one go. Skipped on
+    # the reflow path: those blocks are where the student just dragged them,
+    # and multiplying them would undo the arrangement.
+    if not preserve_order:
+        blocks = split_oversized_blocks(blocks, int(dna.stamina_minutes * 1.5))
+
     # Front-load demanding work into the student's best measured slot.
     if dna.best_slot and len(usable) > 1 and not preserve_order:
         usable = sorted(usable, key=lambda w: (w.slot() != dna.best_slot, w.start))
@@ -559,11 +624,6 @@ def place_day_blocks(
     for idx, block in enumerate(blocks):
         more_work_ahead = any(not b.get("is_break") for b in blocks[idx + 1:])
         duration = int(block.get("duration_minutes") or 25)
-        # Never schedule a single block longer than the student finishes.
-        if not block.get("is_break") and duration > dna.stamina_minutes * 1.5:
-            duration = int(dna.stamina_minutes * 1.5)
-            block["duration_minutes"] = duration
-            block["split_note"] = "Trimmed to match your usual focus length."
 
         # Advance to a window that can hold this block.
         while w_idx < len(usable):

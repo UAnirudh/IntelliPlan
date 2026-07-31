@@ -453,6 +453,22 @@
     font-family: var(--ipd-font-mono); font-size: 0.68rem;
     font-weight: 500; letter-spacing: 0.02em;
   }
+  /* Which sitting of a split assignment this block is. Sits beside the title
+     rather than in the pill row below it, because "2 of 3" answers a question
+     about the title itself — the row underneath is for course and due date. */
+  .part-pill {
+    display: inline-flex; align-items: center;
+    margin-left: 7px;
+    padding: 1px 7px; border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border: 1px solid var(--border-accent);
+    font-family: var(--ipd-font-mono);
+    font-size: 0.66rem; font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    vertical-align: 1px;
+    white-space: nowrap;
+  }
   .iv-block-right {
     display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
   }
@@ -1102,6 +1118,28 @@ function escapeTimeSlot(s) {
   return escapeText(s).replace(/(\d)\s+(AM|PM)/gi, '$1 $2');
 }
 
+/* A long assignment is split into sittings by the scheduler engine, which
+   writes the sitting into the title ("Lab report (part 2 of 3)") so a calendar
+   or Notion export does not end up with three identical entries.
+
+   On a card that suffix is dead weight — it repeats for every part and pushes
+   the real title out of view — so the card shows the clean title and moves the
+   sitting into a pill. The stored title is untouched; only the display changes.
+   The regex matches the exact format the engine writes, and only runs when
+   part_total confirms the block really was split. */
+function blockTitle(b) {
+  const raw = String(b.assignment || '');
+  return (b.part_total > 1)
+    ? raw.replace(/\s*\(part \d+ of \d+\)\s*$/i, '')
+    : raw;
+}
+
+function partPill(b) {
+  if (!(b.part_total > 1)) return '';
+  return `<span class="part-pill" title="Sitting ${escapeText(String(b.part_index))} of ${escapeText(String(b.part_total))} for this assignment">`
+       + `${escapeText(String(b.part_index))}/${escapeText(String(b.part_total))}</span>`;
+}
+
 // Local YYYY-MM-DD (toISOString() is UTC and flips the date late at night).
 function localToday() {
   const d = new Date();
@@ -1557,7 +1595,7 @@ function renderSchedule(data) {
           <div class="time-block ${block.is_break ? 'break-block' : ''}">
             <div class="time-slot">${escapeTimeSlot(block.time_slot || '')}</div>
             <div class="block-content">
-              <div class="block-title">${block.is_break ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-coffee"/></svg> Break' : `${block.color ? `<span class="block-swatch" style="background:${block.color}"></span>` : ''}${escapeText(block.assignment || '')}`}</div>
+              <div class="block-title">${block.is_break ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-coffee"/></svg> Break' : `${block.color ? `<span class="block-swatch" style="background:${block.color}"></span>` : ''}${escapeText(blockTitle(block))}${partPill(block)}`}</div>
               ${!block.is_break && block.course ? `<div class="block-course"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-book"/></svg> ${escapeText(block.course)}</div>` : ''}
               ${block.notes ? `<div class="block-notes"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-lightbulb"/></svg> ${escapeText(block.notes)}</div>` : ''}
             </div>
@@ -2208,7 +2246,7 @@ function renderIvBlock(b) {
     <div class="iv-block ${s.done ? 'done' : ''}${b.conflict ? ' has-conflict' : ''}${b.unplaced ? ' unplaced' : ''}" data-block-id="${escapeText(b.block_id)}" tabindex="0" role="button" aria-label="Open checklist for ${escapeText(b.assignment || 'task')}">
       <div class="iv-time">${escapeTimeSlot(b.time_slot || '')}</div>
       <div class="iv-block-body">
-        <div class="iv-block-title">${escapeText(b.assignment || '')}</div>
+        <div class="iv-block-title">${escapeText(blockTitle(b))}${partPill(b)}</div>
         <div class="iv-block-sub">${pills.map(p => `<span class="iv-pill">${p}</span>`).join('')}</div>
       </div>
       <div class="iv-block-right">

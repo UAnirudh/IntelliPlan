@@ -18,6 +18,7 @@ from scheduler_engine import (
     describe_week,
     parse_commitments,
     place_day_blocks,
+    strip_auto_breaks,
     summarize_progress,
     windows_for_date,
 )
@@ -268,11 +269,89 @@ def test_no_windows_means_everything_overflows():
     assert len(overflow) == 1
 
 
-def test_a_long_block_is_trimmed_to_the_students_focus_length():
+def test_a_long_block_is_split_into_sittings_not_trimmed():
+    # This used to assert the 180-minute block came back as a single 45-minute
+    # one. That threw away 135 minutes of required work: the student was shown
+    # a plan that could not possibly finish the assignment, and the only record
+    # of it was a `split_note` key nothing rendered.
     dna = StudyDNA(sample_size=10, stamina_minutes=30)
-    placed, _ = place_day_blocks([_block(minutes=180)], [_window(17, 22)], dna)
-    assert placed[0]["duration_minutes"] == 45  # 30 * 1.5
-    assert "split_note" in placed[0]
+    placed, overflow = place_day_blocks([_block(minutes=180)], [_window(17, 22)], dna)
+    work = [b for b in placed if not b.get("is_break")]
+    assert len(work) == 4                                   # 180 / (30 * 1.5)
+    assert all(b["duration_minutes"] <= 45 for b in work)
+    total = sum(b["duration_minutes"] for b in work) + sum(
+        b["duration_minutes"] for b in overflow
+    )
+    assert total == 180, "every minute of the assignment must survive the split"
+
+
+def test_split_parts_say_which_sitting_they_are():
+    dna = StudyDNA(sample_size=10, stamina_minutes=30)
+    placed, _ = place_day_blocks([_block("Lab report", minutes=120)], [_window(15, 22)], dna)
+    work = [b for b in placed if not b.get("is_break")]
+    assert [b["part_index"] for b in work] == [1, 2, 3]
+    assert all(b["part_total"] == 3 for b in work)
+    assert "part 1 of 3" in work[0]["assignment"].lower()
+
+
+def test_a_split_leaves_no_useless_stub_sitting():
+    # 100 minutes with a 45-minute cap is 3 sittings. Filling greedily gives
+    # 45 + 45 + 10, and a 10-minute sitting is not worth opening the book for.
+    dna = StudyDNA(sample_size=10, stamina_minutes=30)
+    placed, _ = place_day_blocks([_block(minutes=100)], [_window(15, 22)], dna)
+    work = [b for b in placed if not b.get("is_break")]
+    assert len(work) == 3
+    assert min(b["duration_minutes"] for b in work) >= 30
+    assert sum(b["duration_minutes"] for b in work) == 100
+
+
+def test_split_parts_that_do_not_fit_today_overflow_to_be_carried():
+    # The caller moves overflow to the next available day, so a split must not
+    # cram every sitting into one evening.
+    dna = StudyDNA(sample_size=10, stamina_minutes=30)
+    placed, overflow = place_day_blocks([_block(minutes=180)], [_window(19, 20)], dna)
+    assert len(placed) == 1
+    assert len(overflow) == 3
+    assert sum(b["duration_minutes"] for b in placed + overflow) == 180
+
+
+def test_reflow_does_not_re_split_what_the_student_arranged():
+    # preserve_order is the drag-and-drop path. Splitting there would multiply
+    # the blocks the student just positioned by hand.
+    dna = StudyDNA(sample_size=10, stamina_minutes=30)
+    placed, _ = place_day_blocks(
+        [_block(minutes=180)], [_window(15, 22)], dna, preserve_order=True
+    )
+    assert len(placed) == 1
+    assert placed[0]["duration_minutes"] == 180
+
+
+def test_an_already_split_block_is_not_split_again():
+    dna = StudyDNA(sample_size=10, stamina_minutes=30)
+    once, _ = place_day_blocks([_block(minutes=120)], [_window(15, 22)], dna)
+    twice, _ = place_day_blocks(strip_auto_breaks(once), [_window(15, 22)], dna)
+    assert len([b for b in twice if not b.get("is_break")]) == 3
+
+
+def test_a_block_barely_over_the_cap_is_left_whole():
+    # 46 minutes against a 45-minute cap is one minute of overshoot. Splitting
+    # it produces two 23-minute sittings — half the student's actual capacity,
+    # for no benefit. A minute over is not two sittings' worth of work.
+    dna = StudyDNA(sample_size=10, stamina_minutes=30)   # cap = 45
+    placed, _ = place_day_blocks([_block(minutes=46)], [_window(15, 22)], dna)
+    work = [b for b in placed if not b.get("is_break")]
+    assert len(work) == 1
+    assert work[0]["duration_minutes"] == 46
+    assert "part_total" not in work[0]
+
+
+def test_breaks_are_never_split():
+    dna = StudyDNA(sample_size=10, stamina_minutes=20)
+    placed, _ = place_day_blocks(
+        [_block("Lunch", minutes=60, is_break=True)], [_window(12, 14)], dna
+    )
+    assert len(placed) == 1
+    assert placed[0]["duration_minutes"] == 60
 
 
 def test_hard_work_is_steered_into_the_measured_best_slot():
