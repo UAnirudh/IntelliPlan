@@ -83,8 +83,13 @@ class TestLandingPage:
         expect(page).to_have_title(re.compile(r"IntelliPlan"))
 
     def test_get_started_button_redirects_to_login(self, page: Page):
+        # Located by container and destination rather than by label. Pinning
+        # the exact wording made this test fail on a copy edit, and it was
+        # matching the footer CTA anyway — the name was the only thing the
+        # hero and footer buttons had in common, and the footer comes second
+        # only by DOM order.
         go(page, "/")
-        cta = page.get_by_role("link", name=re.compile(r"Get Started Free", re.I)).first
+        cta = page.locator(".hero-actions a.btn-primary[href='/login']").first
         expect(cta).to_be_visible()
         cta.click()
         assert_url_matches(page, "/login")
@@ -628,10 +633,15 @@ class TestAccessibility:
         }""")
         assert bad_links == 0, f"{bad_links} link(s) lack accessible text"
 
-    def test_landing_has_get_started_in_hero(self, page: Page):
+    def test_landing_hero_has_primary_cta_to_login(self, page: Page):
+        # What matters is that the hero offers exactly one primary action and
+        # that it goes to /login with an accessible name — not what that name
+        # currently says. Marketing copy changes; the conversion path does not.
         go(page, "/")
-        hero = page.locator(".hero-actions")
-        expect(hero.get_by_role("link", name=re.compile(r"Get Started Free", re.I))).to_be_visible()
+        cta = page.locator(".hero-actions a.btn-primary[href='/login']")
+        assert cta.count() == 1, "Hero should have exactly one primary CTA"
+        expect(cta).to_be_visible()
+        assert (cta.inner_text() or "").strip(), "Hero CTA needs an accessible name"
 
     def test_landing_integration_logos_present(self, page: Page):
         go(page, "/")
