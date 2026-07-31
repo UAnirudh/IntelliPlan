@@ -274,10 +274,10 @@ function setFlag(key, enabled, el) {
       el.disabled = false;
       if (d.status !== 'ok') {
         el.checked = !enabled;
-        alert(d.message || 'Failed to update flag');
+        IP.alert(d.message || 'Failed to update flag');
       }
     })
-    .catch(() => { el.disabled = false; el.checked = !enabled; alert('Network error'); });
+    .catch(() => { el.disabled = false; el.checked = !enabled; IP.alert('Network error'); });
 }
 
 </script>

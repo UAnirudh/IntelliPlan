@@ -1760,7 +1760,7 @@ function pickNotionDatabase(id) {
 async function createNotionDatabase() {
   const parent = document.getElementById('ipNotionParent');
   const nameEl = document.getElementById('ipNotionName');
-  if (!parent || !parent.value) { alert('Pick a parent page first.'); return; }
+  if (!parent || !parent.value) { IP.alert('Pick a parent page first.'); return; }
   const r = await fetch('/notion/create-database', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ parent_page_id: parent.value, name: (nameEl && nameEl.value) || 'IntelliPlan Tasks' })
@@ -1769,7 +1769,7 @@ async function createNotionDatabase() {
     const m = document.getElementById('notionModal'); if (m) m.remove();
     refreshNotionStatus();
   } else {
-    alert('Could not create: ' + (r.message || 'unknown error'));
+    IP.alert('Could not create: ' + (r.message || 'unknown error'));
   }
 }
 

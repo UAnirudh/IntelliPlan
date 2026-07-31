@@ -9,6 +9,7 @@
      IP.queue       offline mutation queue, flushed when the tab reconnects
      IP.report()    client error reporting to /api/client-error
      IP.toast()     non-blocking status messages (never window.alert)
+     IP.alert()     drop-in for window.alert(), routed through IP.toast
 
    No build step, no dependencies. Loaded before ip-async.js.
    ========================================================================== */
@@ -584,6 +585,22 @@
       setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 220);
     }
     return dismiss;
+  };
+
+  /**
+   * Drop-in for window.alert(). Same one-argument call shape, so a call
+   * site converts by adding a prefix and nothing else — which is how 54
+   * of them were converted at once without hand-editing each expression.
+   *
+   * Not identical to window.alert() in one way that matters: this does
+   * not block. Every converted site either returns immediately after the
+   * call or is the last statement in its handler, so nothing depended on
+   * the pause. New code that genuinely needs to halt should not use a
+   * blocking dialog either — it should not proceed until the user acts on
+   * something in the page.
+   */
+  IP.alert = function (message, type) {
+    return IP.toast(String(message), type || 'error');
   };
 
   /* ── Boot ─────────────────────────────────────────────────────────── */

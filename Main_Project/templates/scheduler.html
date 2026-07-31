@@ -1481,7 +1481,7 @@ async function saveToMemories() {
     btn.innerHTML = '<svg width="14" height="14"><use href="#i-check-circle"/></svg> Saved to Memories!';
     setTimeout(() => { btn.innerHTML = orig; }, 2500);
   } else if (btn) {
-    alert(res.message || 'Could not save to memories');
+    IP.alert(res.message || 'Could not save to memories');
   }
 }
 
@@ -1517,7 +1517,7 @@ async function exportToCalendar() {
     }, 3000);
   } else {
     btn.innerHTML = '<svg width="15" height="15"><use href="#i-scheduler"/></svg> Export to Google Calendar';
-    alert('Export failed: ' + (res.message || 'Unknown error'));
+    IP.alert('Export failed: ' + (res.message || 'Unknown error'));
   }
 }
 

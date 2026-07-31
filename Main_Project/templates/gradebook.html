@@ -837,7 +837,7 @@ function runModel() {
 
   const target = parseFloat(document.getElementById('targetInput').value);
   if (isNaN(target) || target < 0 || target > 100) {
-    alert('Please enter a valid target between 0 and 100.');
+    IP.alert('Please enter a valid target between 0 and 100.');
     return;
   }
 

@@ -447,7 +447,7 @@ function simulateBest() {
   const totalPoss = gradedPoss + pendingPoss;
 
   if (pending.length === 0) {
-    alert('No pending assignments to simulate.');
+    IP.alert('No pending assignments to simulate.');
     return;
   }
 
@@ -579,7 +579,7 @@ function renderBreakdown(assignments) {
    persist through Reset (Reset only clears simulated scores). */
 function toggleAddAssignment() {
   if (!selectedCourse) {
-    alert('Select a course first.');
+    IP.alert('Select a course first.');
     return;
   }
   const form = document.getElementById('addAsgnForm');
@@ -691,7 +691,7 @@ function runModel() {
   if (!selectedCourse) return;
   const target = parseFloat(document.getElementById('targetInput').value);
   if (isNaN(target) || target < 0 || target > 100) {
-    alert('Please enter a valid target between 0 and 100.');
+    IP.alert('Please enter a valid target between 0 and 100.');
     return;
   }
 

@@ -398,12 +398,12 @@ async function saveMeeting() {
   const recurring = document.getElementById('m-recurring').checked;
   let platform = document.getElementById('m-platform').value;
   if (!name || !rawUrl) {
-    alert('Please enter both a name and a URL.');
+    IP.alert('Please enter both a name and a URL.');
     return;
   }
   const url = safeUrl(rawUrl);
   if (!url) {
-    alert('That URL is not allowed. Meeting links must start with http:// or https://');
+    IP.alert('That URL is not allowed. Meeting links must start with http:// or https://');
     return;
   }
   if (platform === 'other') platform = detectPlatform(url);
@@ -422,7 +422,7 @@ async function saveMeeting() {
     closeSaveModal();
     await renderLinks();
   } catch (e) {
-    alert(e.message || 'Could not save meeting');
+    IP.alert(e.message || 'Could not save meeting');
   }
 }
 
@@ -433,7 +433,7 @@ async function deleteLink(id) {
     _meetingsCache = _meetingsCache.filter(m => m.id !== id);
     await renderLinks();
   } catch (e) {
-    alert('Could not delete meeting');
+    IP.alert('Could not delete meeting');
   }
 }
 
@@ -442,7 +442,7 @@ function quickJoin(e) {
   const raw = document.getElementById('quickJoinInput').value.trim();
   const url = safeUrl(raw);
   if (!url) {
-    alert('Only http(s) meeting links can be opened.');
+    IP.alert('Only http(s) meeting links can be opened.');
     return false;
   }
   window.open(url, '_blank', 'noopener,noreferrer');

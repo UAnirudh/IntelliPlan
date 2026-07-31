@@ -318,7 +318,7 @@ function leaveGroup(id) { fetch('/api/groups/'+id+'/leave',{method:'POST'}).then
 function startMeeting(id) {
   fetch('/api/groups/'+id+'/start-meeting', {method:'POST'})
     .then(r=>r.json())
-    .then(d=>{ if(d.status==='ok') openGroup(id); else alert(d.message||'Error'); });
+    .then(d=>{ if(d.status==='ok') openGroup(id); else IP.alert(d.message||'Error'); });
 }
 
 function copyInvite(url, btn) {
@@ -337,7 +337,7 @@ if (_openParam && /^\d+$/.test(_openParam)) {
 function saveNotes(id) {
   const notes = document.getElementById('grNotes').value;
   fetch('/api/groups/'+id+'/notes', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({notes}) })
-    .then(r=>r.json()).then(d=>{ if(d.status==='ok') alert('Notes saved.'); });
+    .then(r=>r.json()).then(d=>{ if(d.status==='ok') IP.toast('Notes saved.', 'success'); });
 }
 
 function setMeeting(id) {
@@ -365,7 +365,7 @@ function submitCreate(e) {
   fetch('/api/groups', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) })
     .then(r=>r.json()).then(d=>{
       btn.disabled = false; btn.textContent = 'Create group';
-      if (d.status !== 'ok') { alert(d.message||'failed'); return; }
+      if (d.status !== 'ok') { IP.alert(d.message||'failed'); return; }
       closeCreate(); form.reset();
       openGroup(d.id);
     });

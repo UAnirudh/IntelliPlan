@@ -4400,10 +4400,12 @@ async function sendPlaniMessage() {
     if (!res.ok) throw new Error('Network error');
     const data = await res.json();
     setTyping(false);
-    addMsg('bot', data.reply || "I didn't catch that, try again!");
+    addMsg('bot', data.reply || "I didn't catch that. Say it again?");
   } catch(err) {
     setTyping(false);
-    addMsg('bot', "Oops, had a glitch! Try again in a moment.");
+    // "Oops!" makes a failure sound like a stumble the user caused. Say
+    // what happened and what to do.
+    addMsg('bot', "I couldn't reach the server. Try that again in a moment.");
   } finally {
     document.getElementById('planiSendBtn').disabled = false;
     document.getElementById('planiInput').focus();

@@ -1281,7 +1281,7 @@ async function startSession() {
     : G.inputTab === 'audio'
     ? document.getElementById('audioContent').value.trim()
     : document.getElementById('uploadContent').value.trim();
-  if (!content || content.length < 50) { alert('Add at least 50 characters of study material.'); return; }
+  if (!content || content.length < 50) { IP.alert('Add at least 50 characters of study material.'); return; }
 
   const btn = document.getElementById('startBtn');
   btn.disabled = true; btn.innerHTML = '<span class="btn-spin"></span>Generating questions...';
@@ -1307,7 +1307,7 @@ async function startSession() {
 
     // Populate flashcards
     populateFlashcards();
-  } catch(e) { alert('Could not generate: ' + e.message); }
+  } catch(e) { IP.alert('Could not generate: ' + e.message); }
   finally {
     btn.disabled = false;
     btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-rocket"/></svg> Generate Study Session';
@@ -1389,7 +1389,7 @@ function setConf(c, btn) {
 
 async function submitAnswer() {
   const ans = document.getElementById('ansInput').value.trim();
-  if (!ans) { alert('Please type an answer.'); return; }
+  if (!ans) { IP.alert('Please type an answer.'); return; }
   const q = G.questions[G.curQ];
 
   const btn = document.getElementById('submitBtn');
@@ -2196,7 +2196,7 @@ function xSetConf(c, btn) {
 
 async function xSubmit() {
   const ans = document.getElementById('xAnsInput').value.trim();
-  if (!ans) { alert('Type an answer first.'); return; }
+  if (!ans) { IP.alert('Type an answer first.'); return; }
   const q = G.questions[G.xQ];
   const btn = document.getElementById('xSubmitBtn');
   btn.disabled = true; btn.textContent = 'Evaluating...';
@@ -2358,7 +2358,7 @@ async function buyShopItem(itemId) {
     showToast(`Bought ${d.item?.name || 'item'}`);
     if (d.badges_unlocked?.length) showCelebration('Badge Unlocked!', 'Your rewards profile is growing.', d.badges_unlocked.map(b => b.replaceAll('_',' ')));
   } catch(e) {
-    alert(e.message);
+    IP.alert(e.message);
   }
 }
 
@@ -2374,7 +2374,7 @@ async function repairStreak() {
     updateChips();
     renderStreakTab();
   } catch(e) {
-    alert(e.message);
+    IP.alert(e.message);
   }
 }
 

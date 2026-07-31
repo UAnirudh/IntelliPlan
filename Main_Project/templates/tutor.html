@@ -1060,7 +1060,7 @@ function applySnapImage(dataUrl, label) {
 function handleSnapFile(fileInput) {
   const file = fileInput.files[0];
   if (!file) return;
-  if (file.size > 8 * 1024 * 1024) { alert('Image must be under 8 MB.'); return; }
+  if (file.size > 8 * 1024 * 1024) { IP.alert('Image must be under 8 MB.'); return; }
   pendingImageMime = file.type || 'image/jpeg';
   const reader = new FileReader();
   reader.onload = e => {
@@ -1090,7 +1090,7 @@ let isRecording = false;
 
 function toggleVoice() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { alert('Voice input requires Chrome or Edge.'); return; }
+  if (!SR) { IP.alert('Voice input requires Chrome or Edge.'); return; }
   if (isRecording) { recognition && recognition.stop(); return; }
   recognition = new SR();
   recognition.lang = 'en-US';

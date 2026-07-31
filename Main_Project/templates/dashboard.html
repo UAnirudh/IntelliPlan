@@ -1376,12 +1376,12 @@ function dashMarkTest(e, taskObj, btn) {
     } else {
       btn.disabled = false;
       btn.innerHTML = orig;
-      alert(d.message || 'Could not mark as test');
+      IP.alert(d.message || 'Could not mark as test');
     }
   }).catch(function() {
     btn.disabled = false;
     btn.innerHTML = orig;
-    alert('Network error — try again.');
+    IP.alert('Network error — try again.');
   });
 }
 
@@ -1425,13 +1425,13 @@ function dismissTask(e, title, btn) {
       } else {
         if (card) card.style.opacity = '1';
         btn.disabled = false;
-        alert(d && d.message ? d.message : 'Could not dismiss, try again.');
+        IP.alert(d && d.message ? d.message : 'Could not dismiss, try again.');
       }
     })
     .catch(function() {
       if (card) card.style.opacity = '1';
       btn.disabled = false;
-      alert('Network error, could not dismiss.');
+      IP.alert('Network error, could not dismiss.');
     });
 }
 
@@ -1517,7 +1517,7 @@ async function openSavedSyllabus(id) {
     document.getElementById('syllabusStatus').style.display = 'none';
     renderSyllabusResults(_syllabusAssignments);
   } catch (err) {
-    alert(err.message || 'Could not load syllabus');
+    IP.alert(err.message || 'Could not load syllabus');
   }
 }
 function closeSyllabusModal() {
@@ -1537,7 +1537,7 @@ function handleSyllabusFile(input) {
 
 async function processSyllabusFile(file) {
   if (!file.name.toLowerCase().endsWith('.pdf')) {
-    alert('Please upload a PDF file.');
+    IP.alert('Please upload a PDF file.');
     return;
   }
   document.getElementById('syllabusDropLabel').textContent = file.name;
@@ -1584,7 +1584,7 @@ function renderSyllabusResults(items) {
 async function importSelectedSyllabus() {
   var checks = document.querySelectorAll('#syllabusResultList input[type=checkbox]:checked');
   var selected = Array.from(checks).map(function(cb) { return _syllabusAssignments[parseInt(cb.dataset.idx)]; });
-  if (!selected.length) { alert('Select at least one assignment to add.'); return; }
+  if (!selected.length) { IP.alert('Select at least one assignment to add.'); return; }
 
   var btn = document.querySelector('#syllabusResults .ipd-btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = 'Adding…'; }
@@ -1616,7 +1616,7 @@ async function importSelectedSyllabus() {
 
 async function createManualTask() {
   var title = document.getElementById('newTaskTitle').value.trim();
-  if (!title) { alert('Please enter a title.'); return; }
+  if (!title) { IP.alert('Please enter a title.'); return; }
   var data = {
     title: title,
     due_date: document.getElementById('newTaskDue').value,
@@ -1750,7 +1750,7 @@ async function checkNotionStatus() {
 
 async function connectNotion() {
   var token = document.getElementById('notionTokenInput').value.trim();
-  if (!token) { alert('Please enter your Notion token.'); return; }
+  if (!token) { IP.alert('Please enter your Notion token.'); return; }
   var res = await fetch('/notion/connect', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token: token })
@@ -1768,7 +1768,7 @@ async function connectNotion() {
     });
     document.getElementById('notionDbSelect').style.display = 'block';
   } else {
-    alert('Failed: ' + res.message);
+    IP.alert('Failed: ' + res.message);
   }
 }
 

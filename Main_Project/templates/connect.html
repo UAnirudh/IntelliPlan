@@ -133,8 +133,8 @@
           else if (data.status === 'pending') { lmsBanner(data.message); }
           else if (data.status === 'manual' && provider === 'moodle') { showMoodleForm(); }
           else if (data.status === 'need_institution' && provider === 'blackboard') { showBlackboardForm(); }
-          else { alert(data.message || 'Could not start connection.'); }
-        } catch (e) { alert('Network error, please try again.'); }
+          else { IP.alert(data.message || 'Could not start connection.'); }
+        } catch (e) { IP.alert('Network error, please try again.'); }
       }
       function formHost() {
         return document.getElementById('lmsInlineForms') || document.querySelector('.login-card');

@@ -719,7 +719,7 @@ document.addEventListener('click', (e) => {
 
 function openSelectedCourseNotes() {
   if (!currentCourseObj || currentCourse === 'all') {
-    alert('Select a specific course first.');
+    IP.alert('Select a specific course first.');
     return;
   }
   openNotesModal(currentCourseObj);
@@ -931,7 +931,7 @@ function renderFilePreview(note) {
 
 async function uploadCourseNote() {
   if (!currentCourseObj || currentCourse === 'all') {
-    alert("Pick a specific course first.");
+    IP.alert("Pick a specific course first.");
     return;
   }
 
@@ -940,7 +940,7 @@ async function uploadCourseNote() {
   const textValue = document.getElementById("notesText").value.trim();
 
   if (!file && !textValue) {
-    alert("Choose a file or paste notes text.");
+    IP.alert("Choose a file or paste notes text.");
     return;
   }
 
@@ -961,7 +961,7 @@ async function uploadCourseNote() {
 
     const data = await res.json();
     if (!res.ok || data.status !== "ok") {
-      alert(data.message || "Could not save notes.");
+      IP.alert(data.message || "Could not save notes.");
       return;
     }
 
@@ -970,7 +970,7 @@ async function uploadCourseNote() {
     document.getElementById("notesFile").value = "";
     loadCourseNotes();
   } catch (e) {
-    alert("Could not save notes.");
+    IP.alert("Could not save notes.");
   }
 }
 
@@ -980,7 +980,7 @@ async function openNote(noteId) {
     const data = await res.json();
 
     if (!res.ok || data.status !== "ok") {
-      alert(data.message || "Could not open note.");
+      IP.alert(data.message || "Could not open note.");
       return;
     }
 
@@ -988,7 +988,7 @@ async function openNote(noteId) {
     currentPreviewNoteId = noteId;
     renderFilePreview(note);
   } catch (e) {
-    alert("Could not open note.");
+    IP.alert("Could not open note.");
   }
 }
 
@@ -998,7 +998,7 @@ async function summarizeNote(noteId) {
     const data = await res.json();
 
     if (!res.ok || data.status !== "ok") {
-      alert(data.message || "Could not summarize note.");
+      IP.alert(data.message || "Could not summarize note.");
       return;
     }
 
@@ -1010,7 +1010,7 @@ async function summarizeNote(noteId) {
       null
     );
   } catch (e) {
-    alert("Could not summarize note.");
+    IP.alert("Could not summarize note.");
   }
 }
 
@@ -1036,7 +1036,7 @@ async function startQuiz(noteId) {
     const data = await res.json();
 
     if (!res.ok || data.status !== "ok") {
-      alert(data.message || "Could not generate question.");
+      IP.alert(data.message || "Could not generate question.");
       return;
     }
 
@@ -1046,7 +1046,7 @@ async function startQuiz(noteId) {
     currentQuiz.currentAnswer = '';
     renderQuizQuestion();
   } catch (e) {
-    alert("Could not generate question.");
+    IP.alert("Could not generate question.");
   }
 }
 
@@ -1114,7 +1114,7 @@ function submitQuizAnswer() {
   const input = document.getElementById('quizAnswerInput');
   currentQuiz.currentAnswer = input ? input.value.trim() : '';
   if (!currentQuiz.currentAnswer) {
-    alert('Type an answer first.');
+    IP.alert('Type an answer first.');
     return;
   }
   currentQuiz.revealed = false;
@@ -1188,14 +1188,14 @@ async function deleteNote(noteId) {
     const data = await res.json();
 
     if (!res.ok || data.status !== "ok") {
-      alert(data.message || "Could not delete note.");
+      IP.alert(data.message || "Could not delete note.");
       return;
     }
 
     closeNotesPreview();
     loadCourseNotes();
   } catch (e) {
-    alert("Could not delete note.");
+    IP.alert("Could not delete note.");
   }
 }
 
