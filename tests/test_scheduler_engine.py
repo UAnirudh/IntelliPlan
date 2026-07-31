@@ -263,6 +263,62 @@ def test_blocks_hop_to_the_next_window_when_the_first_fills_up():
     assert datetime.fromisoformat(placed[1]["start_iso"]).hour == 17
 
 
+def test_a_later_block_backfills_room_left_in_an_earlier_window():
+    # Placement used to walk windows one way only: once a block was too big for
+    # the morning and moved to the evening, every block after it was stuck in
+    # the evening too — even a short one that fit the gap the big block left.
+    # Here 90 minutes cannot fit the 70 left after the first block, but the
+    # 30-minute block that follows it can.
+    placed, overflow = place_day_blocks(
+        [_block("Long essay", minutes=100), _block("Problem set", minutes=90),
+         _block("Flashcards", minutes=30)],
+        [_window(7, 10), _window(17, 22)],
+    )
+    assert not overflow
+    cards = next(b for b in placed if b["assignment"] == "Flashcards")
+    assert datetime.fromisoformat(cards["start_iso"]).hour < 12, (
+        "the short block should use the morning gap, not pile into the evening"
+    )
+
+
+def test_backfilling_never_overlaps_what_is_already_in_that_window():
+    placed, _ = place_day_blocks(
+        [_block("A", minutes=100), _block("B", minutes=90), _block("C", minutes=30),
+         _block("D", minutes=25)],
+        [_window(7, 10), _window(17, 22)],
+    )
+    by_window = {}
+    for b in placed:
+        by_window.setdefault(datetime.fromisoformat(b["start_iso"]).hour < 12, []).append(b)
+    for group in by_window.values():
+        group.sort(key=lambda b: b["start_iso"])
+        for prev, cur in zip(group, group[1:]):
+            assert datetime.fromisoformat(prev["end_iso"]) <= datetime.fromisoformat(cur["start_iso"])
+
+
+def test_placed_blocks_come_back_in_clock_order():
+    # The scheduler renders this list top to bottom, so a block that backfilled
+    # an earlier window must not appear below the evening work it was placed
+    # after.
+    placed, _ = place_day_blocks(
+        [_block("A", minutes=100), _block("B", minutes=90), _block("C", minutes=30)],
+        [_window(7, 10), _window(17, 22)],
+    )
+    starts = [b["start_iso"] for b in placed]
+    assert starts == sorted(starts)
+
+
+def test_backfill_cannot_push_more_urgent_work_into_overflow():
+    dna = StudyDNA(sample_size=10, best_slot="morning")
+    urgent = _block("Due tomorrow", minutes=90)
+    urgent["due_date"] = "2026-07-28"
+    later = _block("Due next month", minutes=30)
+    later["due_date"] = "2026-08-28"
+    placed, overflow = place_day_blocks([later, urgent], [_window(7, 9), _window(17, 18)], dna)
+    assert [b["assignment"] for b in overflow] == []
+    assert next(b for b in placed if b["assignment"] == "Due tomorrow")
+
+
 def test_no_windows_means_everything_overflows():
     placed, overflow = place_day_blocks([_block()], [])
     assert placed == []
@@ -427,6 +483,29 @@ def test_the_day_never_ends_on_a_break():
     # A trailing "take a break" block is just a block that says stop working.
     placed, _ = place_day_blocks([_block(minutes=50) for _ in range(2)], [_window(15, 22)])
     assert not placed[-1].get("is_break")
+
+
+def test_the_day_never_ends_on_a_break_across_several_windows():
+    # The break rule asks "is there more work after this block?" in list order.
+    # Once a later block can backfill an earlier window, the answer can be yes
+    # while the work still lands hours *before* the break — leaving the evening
+    # to close on "step away, eat, walk".
+    placed, _ = place_day_blocks(
+        [_block("Long essay", minutes=100), _block("Problem set", minutes=90),
+         _block("Flashcards", minutes=30)],
+        [_window(7, 10), _window(17, 22)],
+    )
+    assert not placed[-1].get("is_break")
+
+
+def test_a_break_the_plan_authored_may_end_the_day():
+    # Only engine-inserted breaks are trimmed. If the model or the student put
+    # a break last on purpose, that is their call to make.
+    placed, _ = place_day_blocks(
+        [_block(minutes=45), _block("Dinner", minutes=30, is_break=True)],
+        [_window(17, 22)],
+    )
+    assert placed[-1]["assignment"] == "Dinner"
 
 
 def test_empty_input_is_a_no_op():

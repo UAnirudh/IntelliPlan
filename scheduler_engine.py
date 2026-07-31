@@ -635,30 +635,38 @@ def place_day_blocks(
 
     placed: list[dict[str, Any]] = []
     overflow: list[dict[str, Any]] = []
-    w_idx = 0
-    cursor = usable[0].start
-    run = 0
+    # One cursor and one work-streak per window, rather than a single index
+    # walking forward. The old version could only ever move to a later window:
+    # once a block was too big for the morning and spilled into the evening,
+    # every block after it was stuck in the evening too — including short ones
+    # that fit the gap the big block left behind. A three-hour morning could
+    # end up holding one block and wasting an hour.
+    cursors = [w.start for w in usable]
+    runs = [0] * len(usable)
 
     for idx, block in enumerate(blocks):
         more_work_ahead = any(not b.get("is_break") for b in blocks[idx + 1:])
         duration = int(block.get("duration_minutes") or 25)
 
-        # Advance to a window that can hold this block.
-        while w_idx < len(usable):
-            window = usable[w_idx]
-            if cursor < window.start:
-                cursor = window.start
-            if (window.end - cursor).total_seconds() / 60 >= duration:
-                break
-            w_idx += 1
-            run = 0
-            if w_idx < len(usable):
-                cursor = usable[w_idx].start
-        if w_idx >= len(usable):
+        # Earliest window with room. Blocks are already in priority order, so
+        # scanning from the start can only fill gaps — a block considered later
+        # can never take space from one considered earlier, which is why this
+        # cannot push urgent work into overflow.
+        w_idx = next(
+            (
+                i
+                for i, window in enumerate(usable)
+                if (window.end - max(cursors[i], window.start)).total_seconds() / 60
+                >= duration
+            ),
+            None,
+        )
+        if w_idx is None:
             overflow.append(block)
             continue
 
         window = usable[w_idx]
+        cursor = max(cursors[w_idx], window.start)
         end = cursor + timedelta(minutes=duration)
         block["time_slot"] = f"{_fmt12(cursor)} - {_fmt12(end)}"
         block["start_iso"] = cursor.isoformat()
@@ -667,11 +675,13 @@ def place_day_blocks(
         placed.append(block)
 
         if block.get("is_break"):
-            run = 0
+            runs[w_idx] = 0
         else:
-            run += duration
+            runs[w_idx] += duration
+        run = runs[w_idx]
         gap = 10 if duration >= 60 else 5
         cursor = end + timedelta(minutes=gap)
+        cursors[w_idx] = cursor
 
         # Force a real break after a long continuous run — but only if the
         # window still has room AND there's work left to come back to. A break
@@ -696,8 +706,23 @@ def place_day_blocks(
                     "window_slot": window.slot(),
                 }
             )
-            cursor = brk_end + timedelta(minutes=5)
-            run = 0
+            cursors[w_idx] = brk_end + timedelta(minutes=5)
+            runs[w_idx] = 0
+
+    # Backfilling means a block can be placed into an earlier window after a
+    # later one already has work in it, so the append order is no longer clock
+    # order. The scheduler renders this list top to bottom, so sort it — a plan
+    # that lists 7 PM above 8 AM is not a plan anyone can follow.
+    placed.sort(key=lambda b: b["start_iso"])
+
+    # The break rule asks "is there more work after this block?" in list order,
+    # which stopped being the same question as "later in the day" once blocks
+    # could backfill. A block placed after the break can now sit hours before
+    # it, leaving the evening to close on "step away, eat, walk". Trim any
+    # engine-inserted break left at the end; a break the plan authored itself
+    # stays, because that one was somebody's decision.
+    while placed and placed[-1].get("is_break") and placed[-1].get("auto"):
+        placed.pop()
 
     return placed, overflow
 
