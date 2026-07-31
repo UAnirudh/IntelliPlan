@@ -643,20 +643,28 @@ def place_day_blocks(
     # end up holding one block and wasting an hour.
     cursors = [w.start for w in usable]
     runs = [0] * len(usable)
+    # Lowest window a block may still be placed in. Stays 0 while the engine
+    # owns the order, so any window with room can take the next block. On the
+    # reflow path it advances with each placement, which reproduces the
+    # forward-only walk: backfilling is right when the engine chose the order
+    # and wrong when the student did — dragging three blocks into place and
+    # getting the third back above the second is the plan rearranging itself
+    # under their hands.
+    floor_w = 0
 
     for idx, block in enumerate(blocks):
         more_work_ahead = any(not b.get("is_break") for b in blocks[idx + 1:])
         duration = int(block.get("duration_minutes") or 25)
 
-        # Earliest window with room. Blocks are already in priority order, so
+        # First window with room. Blocks are already in priority order, so
         # scanning from the start can only fill gaps — a block considered later
         # can never take space from one considered earlier, which is why this
         # cannot push urgent work into overflow.
         w_idx = next(
             (
                 i
-                for i, window in enumerate(usable)
-                if (window.end - max(cursors[i], window.start)).total_seconds() / 60
+                for i in range(floor_w, len(usable))
+                if (usable[i].end - max(cursors[i], usable[i].start)).total_seconds() / 60
                 >= duration
             ),
             None,
@@ -666,6 +674,8 @@ def place_day_blocks(
             continue
 
         window = usable[w_idx]
+        if preserve_order:
+            floor_w = w_idx
         cursor = max(cursors[w_idx], window.start)
         end = cursor + timedelta(minutes=duration)
         block["time_slot"] = f"{_fmt12(cursor)} - {_fmt12(end)}"

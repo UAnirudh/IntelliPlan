@@ -308,6 +308,20 @@ def test_placed_blocks_come_back_in_clock_order():
     assert starts == sorted(starts)
 
 
+def test_reflow_never_backfills_a_hand_arranged_plan():
+    # Backfilling is right when the engine chose the order and wrong when the
+    # student did. Dragging three blocks into place and getting the third one
+    # back above the second is the plan rearranging itself under their hands.
+    placed, _ = place_day_blocks(
+        [_block("First", minutes=100), _block("Second", minutes=90),
+         _block("Third", minutes=30)],
+        [_window(7, 10), _window(17, 22)],
+        preserve_order=True,
+    )
+    titles = [b["assignment"] for b in placed if not b.get("is_break")]
+    assert titles == ["First", "Second", "Third"]
+
+
 def test_backfill_cannot_push_more_urgent_work_into_overflow():
     dna = StudyDNA(sample_size=10, best_slot="morning")
     urgent = _block("Due tomorrow", minutes=90)
