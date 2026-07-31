@@ -264,6 +264,13 @@
   </div>
   <div class="hero">
     <div class="hero-copy">
+      {# Kicker before the headline. The H1 says what the product does; this
+         says who is behind it, which is the one claim no competitor on this
+         search term can copy. #}
+      {# No data-reveal here: .hero-badge already carries the heroRise
+         entrance at 0.05s like the rest of the hero, and stacking a
+         scroll-reveal on top would hide it behind a second opacity gate. #}
+      <span class="hero-badge">Built by a student, for students</span>
       <h1 class="hero-title">Stop missing assignments and build your study plan automatically</h1>
       <p class="hero-subtitle">
         The free AI study planner that syncs Canvas, StudentVue, and Schoology, ranks every assignment by what is due first, and builds a weekly study schedule you can actually follow.
@@ -272,9 +279,11 @@
       {# Magnetic only on the primary action. Applying it to both would make
          the pair squirm and cost the primary its emphasis; one control that
          leans toward the cursor is the whole effect. #}
+      {# "Get Started Free" works on any product on the internet, which is
+         why it persuades nobody. Name the thing the click produces. #}
       <div class="hero-actions">
-        <a href="/login" class="btn-primary hero-btn" data-magnetic="0.24">Get Started Free →</a>
-        <a href="#how-it-works" class="btn-secondary hero-btn">See How It Works</a>
+        <a href="/login" class="btn-primary hero-btn u-sheen" data-magnetic="0.24">Build my week, free</a>
+        <a href="#how-it-works" class="btn-secondary hero-btn">See how it sorts a real week</a>
       </div>
 
       <div class="hero-mini-actions">
@@ -282,7 +291,10 @@
         <a href="/install/ios" class="btn-secondary mini-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-apple"/></svg> iPhone Install</a>
       </div>
 
+      {# The logos were unlabelled, so they read as decoration. One word in
+         front of them turns the same row into a claim. #}
       <div class="hero-trust-row" aria-label="Supported platforms">
+        <span class="hero-trust-label">Syncs with</span>
         <img src="/static/logos/canvas.svg" alt="Canvas LMS" width="22" height="22" style="border-radius:4px;">
         <img src="/static/logos/studentvue.svg" alt="StudentVue" width="22" height="22" style="border-radius:4px;">
         <img src="/static/logos/schoology.svg" alt="Schoology" width="22" height="22" style="border-radius:4px;">
@@ -726,7 +738,7 @@
 <section class="section-block">
   <div class="section-heading">
     <span class="section-kicker" data-reveal>FAQ</span>
-    <h2 class="section-title" data-reveal>Answer the obvious objections before they bounce.</h2>
+    <h2 class="section-title" data-reveal>The questions students ask before they connect an account.</h2>
   </div>
 
   <div class="faq-grid">
@@ -747,7 +759,7 @@
 
     <details class="faq-item">
       <summary>Do I have to connect everything right away?</summary>
-      <p>No. Start with a demo, then connect what you need. Reduce friction first, because that is apparently a luxury now.</p>
+      <p>No. Start with the demo account, see how it sorts a sample week, then connect the one portal your school actually uses.</p>
     </details>
 
     <details class="faq-item">
@@ -792,7 +804,7 @@
 <section class="reviews-section" aria-label="Student testimonials">
   <div class="reviews-header">
     <span class="section-kicker" data-reveal>Student testimonials</span>
-    <h2 class="section-title" data-reveal style="margin-top:0.5rem;">Real students. Real results.</h2>
+    <h2 class="section-title" data-reveal style="margin-top:0.5rem;">What students say after a month of using it.</h2>
   </div>
 
   <!-- Vertical grid replaces the old auto-scrolling horizontal carousel.
@@ -1182,10 +1194,33 @@
     display: flex;
     gap: 0.6rem;
     flex-wrap: wrap;
+    align-items: center;
     margin-top: 1.2rem;
     font-family: var(--font-ui);
     font-size: 0.82rem;
     color: var(--text-muted);
+  }
+
+  /* The label is a sibling of the logos so it inherits the row's entrance
+     animation, which means it has to opt out of the chip styling the
+     generic `.hero-trust-row span` rule applies to everything in here. */
+  .hero-trust-row .hero-trust-label {
+    padding: 0;
+    border: 0;
+    background: none;
+    font-family: var(--font-mono, var(--font-ui));
+    font-size: var(--fs-micro, 0.7rem);
+    font-weight: 500;
+    letter-spacing: var(--tr-label, 0.075em);
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-right: 0.15rem;
+  }
+  .hero-trust-row .hero-trust-label:hover {
+    background: none;
+    border-color: transparent;
+    color: var(--text-muted);
+    transform: none;
   }
 
   .hero-trust-row span {
