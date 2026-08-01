@@ -723,6 +723,69 @@ class ExtensionToken(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class ApiKey(db.Model):
+    """A credential for the public REST API, plus the application it came from.
+
+    One row covers the whole lifecycle: the developer applies (status
+    'pending'), a human or the auto-approver moves it to 'active' and the
+    secret is minted, and the developer or an admin can 'revoked' it. The
+    application answers stay on the row because they are what an admin
+    reviews, and what we go back to when a key starts behaving oddly.
+
+    The secret itself is never stored — only its SHA-256 and the leading
+    `key_prefix`, which is what the dashboard shows so a developer can tell
+    two keys apart without us being able to reconstruct either one.
+    """
+    __tablename__ = "api_keys"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+
+    # ── The application ──
+    app_name = db.Column(db.String(120), nullable=False)
+    app_url = db.Column(db.String(512), default="")
+    use_case = db.Column(db.Text, default="")            # what they're building
+    expected_volume = db.Column(db.String(32), default="low")   # low | medium | high
+    contact_email = db.Column(db.String(255), default="")
+    accepted_terms_at = db.Column(db.DateTime, nullable=True)
+
+    # ── The credential ──
+    scopes = db.Column(db.Text, default="")              # space-separated
+    key_prefix = db.Column(db.String(24), default="", index=True)
+    key_hash = db.Column(db.String(64), default="", index=True)
+
+    # ── Lifecycle ──
+    status = db.Column(db.String(16), default="pending", index=True)  # pending|active|revoked|denied
+    review_note = db.Column(db.String(500), default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    approved_at = db.Column(db.DateTime, nullable=True)
+    revoked_at = db.Column(db.DateTime, nullable=True)
+    last_used_at = db.Column(db.DateTime, nullable=True)
+    request_count = db.Column(db.Integer, default=0)
+    rate_limit_per_min = db.Column(db.Integer, default=60)
+
+    def scope_list(self):
+        return [s for s in (self.scopes or "").split() if s]
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "app_name": self.app_name,
+            "app_url": self.app_url or "",
+            "use_case": self.use_case or "",
+            "expected_volume": self.expected_volume or "low",
+            "scopes": self.scope_list(),
+            "key_prefix": self.key_prefix or "",
+            "status": self.status,
+            "review_note": self.review_note or "",
+            "rate_limit_per_min": self.rate_limit_per_min or 60,
+            "request_count": self.request_count or 0,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "approved_at": self.approved_at.isoformat() if self.approved_at else None,
+            "revoked_at": self.revoked_at.isoformat() if self.revoked_at else None,
+            "last_used_at": self.last_used_at.isoformat() if self.last_used_at else None,
+        }
+
+
 class Lesson(db.Model):
     """Uploaded lesson recording (audio or video) + AI-generated summary."""
     __tablename__ = "lessons"
@@ -14017,8 +14080,22 @@ app.intelliplan_student_link_model = StudentLink
 app.intelliplan_study_group_model = StudyGroup
 app.intelliplan_study_group_member_model = StudyGroupMember
 app.intelliplan_study_group_task_model = StudyGroupTask
-from intelliplan_api import api_bp as intelliplan_api_bp
+app.intelliplan_api_key_model = ApiKey
+from intelliplan_api import api_bp as intelliplan_api_bp, api_rate_limit_key, api_rate_limit_value
 app.register_blueprint(intelliplan_api_bp)
+
+# Developer portal: apply for a key, revoke, roll, and the admin review queue.
+from api_keys import developer_api_bp
+app.register_blueprint(developer_api_bp)
+
+# Rate-limit the public API per credential rather than per IP. The limit
+# string is resolved per request so an approved high-volume integration gets
+# the ceiling it was granted instead of the shared default. Applied to the
+# whole blueprint so a new endpoint can't be added without a limit.
+limiter.limit(api_rate_limit_value, key_func=api_rate_limit_key)(intelliplan_api_bp)
+# Applying for a key is cheap to submit and expensive to review, so it gets
+# its own much tighter budget.
+limiter.limit("10 per hour")(app.view_functions["developer_api_bp.apply_for_key"])
 
 # ── New feature blueprints (grade prediction, LMS sync, roles, group tasks).
 # All are self-contained under intelliplan/ and resolve models via
