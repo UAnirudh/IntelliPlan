@@ -1,80 +1,784 @@
 {% extends "base.html" %}
-{% block page_title %}API Docs | IntelliPlan{% endblock %}
+{% block page_title %}Developers | IntelliPlan API{% endblock %}
+{% block meta_description %}Build on IntelliPlan. Apply for a scoped API key, read the REST reference, and connect assignments, schedules, and study data to your own app.{% endblock %}
 {% block content %}
 <style>
-  .docs-wrap { max-width: 960px; margin: 0 auto; }
-  .docs-card {
-    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);
+  /* Page-local. Prefixed `dev-` so nothing here can collide with the
+     component library or with another template's classes. */
+  .dev-wrap { max-width: 980px; margin: 0 auto; }
+
+  .dev-card {
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: blur(16px) saturate(1.6);
+    backdrop-filter: blur(16px) saturate(1.6);
     border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 1.35rem;
+    border-radius: var(--r-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.1rem;
+  }
+  .dev-card h2 {
+    font-family: var(--font-ui);
+    font-size: 1.05rem;
+    margin: 0 0 0.3rem;
+  }
+  .dev-card__lede {
+    margin: 0 0 1.15rem;
+    color: var(--text-secondary);
+    font-size: 0.92rem;
+    line-height: 1.65;
+  }
+  .dev-card p, .dev-card li { color: var(--text-secondary); line-height: 1.68; font-size: 0.92rem; }
+
+  /* ── The process, as three steps ── */
+  .dev-steps { display: grid; gap: 0.9rem; grid-template-columns: repeat(3, 1fr); margin-bottom: 1.6rem; }
+  .dev-step {
+    position: relative;
+    padding: 1.1rem 1.1rem 1.1rem 1.15rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+  }
+  .dev-step__n {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.7rem; height: 1.7rem; margin-bottom: 0.6rem;
+    font-family: var(--font-ui); font-size: 0.8rem; font-weight: 700;
+    color: var(--accent); background: var(--accent-soft);
+    border-radius: 50%;
+  }
+  .dev-step h3 { font-family: var(--font-ui); font-size: 0.9rem; margin: 0 0 0.3rem; }
+  .dev-step p { margin: 0; font-size: 0.85rem; }
+  @media (max-width: 760px) { .dev-steps { grid-template-columns: 1fr; } }
+
+  /* ── Scope picker ── */
+  .dev-scopes { display: grid; gap: 0.5rem; grid-template-columns: repeat(2, 1fr); margin: 0.35rem 0 0; }
+  @media (max-width: 700px) { .dev-scopes { grid-template-columns: 1fr; } }
+
+  .dev-scope {
+    display: flex; align-items: flex-start; gap: 0.65rem;
+    padding: 0.7rem 0.8rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition: border-color var(--t-base) var(--ease-out),
+                background var(--t-base) var(--ease-out);
+  }
+  .dev-scope:hover { border-color: var(--border-accent); }
+  .dev-scope:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+  .dev-scope input { margin-top: 0.18rem; accent-color: var(--accent); flex: none; }
+  /* A flex child defaults to min-width:auto, so the scope text refuses to
+     shrink below its longest word and pushes out of the card on a phone.
+     `anywhere` covers the scope names themselves — `read:assignments` has
+     no break opportunity a browser will take on its own. */
+  .dev-scope > span { min-width: 0; overflow-wrap: anywhere; }
+  .dev-scope__name { display: block; font-family: var(--font-ui); font-size: 0.84rem; font-weight: 600; color: var(--text-primary); }
+  .dev-scope__desc { display: block; margin-top: 0.15rem; font-size: 0.78rem; color: var(--text-muted); line-height: 1.5; }
+  .dev-scope__flag {
+    display: inline-block; margin-left: 0.4rem; padding: 0.05rem 0.4rem;
+    font-family: var(--font-ui); font-size: 0.62rem; font-weight: 700;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--medium); background: var(--medium-bg);
+    border-radius: var(--r-xs);
+  }
+
+  .dev-field-row { display: grid; gap: 0.8rem; grid-template-columns: 1fr 1fr; margin-bottom: 0.8rem; }
+  @media (max-width: 700px) { .dev-field-row { grid-template-columns: 1fr; } }
+
+  .dev-terms { display: flex; align-items: flex-start; gap: 0.6rem; margin: 1rem 0 1.15rem; font-size: 0.86rem; color: var(--text-secondary); }
+  .dev-terms input { margin-top: 0.2rem; accent-color: var(--accent); }
+
+  /* ── Issued keys ── */
+  .dev-key {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.8rem 1rem;
+    align-items: center;
+    padding: 0.95rem 1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    margin-bottom: 0.6rem;
+  }
+  .dev-key > div:first-child { min-width: 0; overflow-wrap: anywhere; }
+  .dev-key__name { font-family: var(--font-ui); font-size: 0.92rem; font-weight: 700; color: var(--text-primary); }
+  .dev-key__meta { margin-top: 0.25rem; font-size: 0.79rem; color: var(--text-muted); }
+  @media (max-width: 560px) {
+    .dev-key { grid-template-columns: 1fr; }
+    .dev-key__actions { justify-content: flex-start; }
+  }
+  .dev-key__prefix { font-family: var(--font-mono); font-size: 0.79rem; color: var(--text-secondary); }
+  .dev-key__actions { display: flex; gap: 0.4rem; }
+
+  .dev-pill {
+    display: inline-block; padding: 0.12rem 0.55rem;
+    font-family: var(--font-ui); font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.03em; text-transform: uppercase;
+    border-radius: var(--r-full);
+  }
+  .dev-pill.is-active  { color: var(--low);    background: var(--low-bg); }
+  .dev-pill.is-pending { color: var(--medium); background: var(--medium-bg); }
+  .dev-pill.is-revoked,
+  .dev-pill.is-denied  { color: var(--text-muted); background: var(--bg-elevated); }
+
+  /* ── The one-time secret ── */
+  .dev-secret {
+    padding: 1.05rem 1.15rem;
+    background: var(--accent-soft);
+    border: 1px solid var(--border-accent);
+    border-radius: var(--r-md);
     margin-bottom: 1rem;
   }
-  .docs-card h2 { font-family: var(--font-ui); font-size: 1rem; margin: 0 0 0.65rem; }
-  .docs-card p, .docs-card li { color: var(--text-secondary); line-height: 1.65; font-size: 0.92rem; }
-  .endpoint {
+  .dev-secret h3 { font-family: var(--font-ui); font-size: 0.92rem; margin: 0 0 0.35rem; color: var(--text-primary); }
+  .dev-secret code {
+    display: block;
+    margin: 0.6rem 0;
+    padding: 0.75rem 0.85rem;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    word-break: break-all;
+    color: var(--text-primary);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+  }
+
+  /* ── Reference ── */
+  .dev-endpoint {
     display: grid;
-    grid-template-columns: 190px 1fr;
+    grid-template-columns: 230px 1fr;
     gap: 0.8rem;
     padding: 0.7rem 0;
     border-top: 1px solid var(--border);
   }
-  .endpoint code { color: var(--accent); white-space: nowrap; }
-  pre {
-    overflow:auto;
+  .dev-endpoint code { color: var(--accent); white-space: nowrap; font-size: 0.82rem; }
+  .dev-endpoint__scope { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); }
+  @media (max-width: 760px) {
+    .dev-endpoint { grid-template-columns: 1fr; }
+    /* nowrap keeps a route readable in the two-column desktop layout, but
+       on a phone it just runs off the card. A route has plenty of break
+       points once the browser is allowed to use them. */
+    .dev-endpoint code { white-space: normal; overflow-wrap: anywhere; }
+  }
+
+  .dev-wrap pre {
+    overflow: auto;
     background: var(--bg);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: var(--r-md);
     padding: 1rem;
     color: var(--text-primary);
+    font-size: 0.82rem;
+    line-height: 1.6;
   }
-  @media (max-width: 720px) { .endpoint { grid-template-columns: 1fr; } }
+
+  .dev-empty { padding: 1.4rem; text-align: center; color: var(--text-muted); font-size: 0.88rem; }
 </style>
 
-<div class="docs-wrap">
+<div class="dev-wrap">
   <div class="page-header">
-    <h1 class="page-title">API Documentation</h1>
-    <p class="page-subtitle">Use the IntelliPlan REST API to read assignments, create tasks, generate schedules, and access study data.</p>
+    <h1 class="page-title">Build on IntelliPlan</h1>
+    <p class="page-subtitle">
+      A REST API for assignments, schedules, tests, and study data — the same
+      data a student sees on their own dashboard, and only ever their own.
+    </p>
   </div>
 
-  <section class="docs-card">
+  <!-- ── How access works ─────────────────────────────────────────── -->
+  <section class="dev-card">
+    <h2>How access works</h2>
+    <p class="dev-card__lede">
+      Anyone can create an IntelliPlan account, so being signed in is not a
+      meaningful bar for a student's coursework. Keys are applied for, scoped
+      to what an app actually needs, and revocable one at a time.
+    </p>
+    <div class="dev-steps">
+      <div class="dev-step">
+        <span class="dev-step__n">1</span>
+        <h3>Describe what you're building</h3>
+        <p>App name, where it lives, and what it does with the data. A person reads this.</p>
+      </div>
+      <div class="dev-step">
+        <span class="dev-step__n">2</span>
+        <h3>Pick the narrowest scopes</h3>
+        <p>Read-only applications are approved automatically. Anything that writes into a student's account is reviewed.</p>
+      </div>
+      <div class="dev-step">
+        <span class="dev-step__n">3</span>
+        <h3>Copy the key once</h3>
+        <p>We store a hash, never the secret. Lose it and you roll it — we can't send it again.</p>
+      </div>
+    </div>
+  </section>
+
+  {% if current_user.is_authenticated %}
+  <!-- ── Apply ─────────────────────────────────────────────────────── -->
+  <section class="dev-card" id="devApplyCard">
+    <h2>Apply for a key</h2>
+    <p class="dev-card__lede">Keys are issued against your own account, and reach only your own data.</p>
+
+    <div id="devSecretSlot"></div>
+
+    <form id="devApplyForm" novalidate>
+      <div class="dev-field-row">
+        <div class="ipui-field">
+          <input class="ipui-field__input" id="devAppName" name="app_name"
+                 type="text" placeholder=" " maxlength="120" required>
+          <label class="ipui-field__label" for="devAppName">App name</label>
+        </div>
+        <div class="ipui-field">
+          <input class="ipui-field__input" id="devAppUrl" name="app_url"
+                 type="url" placeholder=" " maxlength="512">
+          <label class="ipui-field__label" for="devAppUrl">App URL (optional)</label>
+        </div>
+      </div>
+
+      <div class="ipui-field" style="margin-bottom:0.35rem;">
+        <textarea class="ipui-field__textarea" id="devUseCase" name="use_case"
+                  placeholder=" " maxlength="2000" required></textarea>
+        <label class="ipui-field__label" for="devUseCase">What are you building?</label>
+      </div>
+      <span class="ipui-field__hint" id="devUseCaseHint">
+        At least 40 characters. Say what the app does and which of these
+        endpoints it needs — that is what a reviewer goes on.
+      </span>
+
+      <fieldset style="border:0;padding:0;margin:1.3rem 0 0;">
+        <legend style="font-family:var(--font-ui);font-size:0.86rem;font-weight:700;color:var(--text-primary);padding:0;">
+          Scopes
+        </legend>
+        <span class="ipui-field__hint">Ask for the least you can work with. Every extra scope is another reason for a reviewer to say no.</span>
+        <div class="dev-scopes" id="devScopes"></div>
+      </fieldset>
+
+      <div style="margin-top:1.3rem;">
+        <span style="display:block;font-family:var(--font-ui);font-size:0.86rem;font-weight:700;color:var(--text-primary);margin-bottom:0.5rem;">
+          Expected volume
+        </span>
+        <div class="ipui-slider" data-ipui="slider" id="devVolume">
+          <div class="ipui-slider__readout">
+            <span class="ipui-slider__value">60</span>
+            <span class="ipui-slider__unit">requests / minute</span>
+          </div>
+          <div class="ipui-slider__track">
+            <div class="ipui-slider__dots"></div>
+            <div class="ipui-slider__fill"></div>
+            <div class="ipui-slider__thumb"></div>
+            <input class="ipui-slider__input" type="range" min="0" max="2"
+                   step="1" value="0" aria-label="Expected requests per minute">
+          </div>
+        </div>
+        <span class="ipui-field__hint" id="devVolumeHint">
+          New keys start at 60/minute regardless. A higher ceiling is granted at review.
+        </span>
+      </div>
+
+      <label class="dev-terms">
+        <input type="checkbox" id="devTerms" required>
+        <span>
+          I have read the <a href="/terms">API terms</a> and the
+          <a href="/privacy">privacy policy</a>, and I will not store or
+          resell student data beyond what this app needs to work.
+        </span>
+      </label>
+
+      <button class="ipui-btn ipui-btn--primary ipui-btn--shimmer" id="devSubmit" type="submit">
+        Submit application
+      </button>
+      <span class="ipui-field__hint" id="devApplyStatus" role="status" aria-live="polite"></span>
+    </form>
+  </section>
+
+  <!-- ── Existing keys ─────────────────────────────────────────────── -->
+  <section class="dev-card">
+    <h2>Your applications and keys</h2>
+    <p class="dev-card__lede">Revoking stops a key on its very next request. Rolling replaces the secret and does the same to the old one.</p>
+    <div id="devKeys"><div class="dev-empty">Loading…</div></div>
+  </section>
+
+  {% if is_admin %}
+  <!-- ── Review queue ──────────────────────────────────────────────── -->
+  <section class="dev-card">
+    <h2>Review queue</h2>
+    <p class="dev-card__lede">Applications waiting on a person. Approving mints the key and emails it to the applicant — it is never shown here.</p>
+    <div id="devQueue"><div class="dev-empty">Loading…</div></div>
+  </section>
+  {% endif %}
+
+  {% else %}
+  <section class="dev-card">
+    <h2>Apply for a key</h2>
+    <p class="dev-card__lede">
+      <a href="/login?next=/developers">Sign in</a> or
+      <a href="/register">create an account</a> to apply. Keys are issued
+      against an account so they can be scoped and revoked.
+    </p>
+  </section>
+  {% endif %}
+
+  <!-- ── Reference ─────────────────────────────────────────────────── -->
+  <section class="dev-card">
     <h2>Authentication</h2>
-    <p>All protected endpoints use a Bearer token. Create one with your IntelliPlan email and password.</p>
-    <pre><code>POST /api/v1/auth/token
-Content-Type: application/json
-
-{
-  "email": "student@example.com",
-  "password": "your-password"
-}</code></pre>
-    <p>Send the returned token as <code>Authorization: Bearer TOKEN</code>.</p>
-  </section>
-
-  <section class="docs-card">
-    <h2>Core Endpoints</h2>
-    <div class="endpoint"><code>GET /api/v1/me</code><span>Return the authenticated user profile.</span></div>
-    <div class="endpoint"><code>GET /api/v1/assignments</code><span>Return the unified assignment list from Canvas, StudentVUE, Notion, and manual tasks.</span></div>
-    <div class="endpoint"><code>POST /api/v1/tasks</code><span>Create a manual task with title, due date, priority, course, estimated time, and notes.</span></div>
-    <div class="endpoint"><code>POST /api/v1/schedule/generate</code><span>Generate a study schedule from connected assignments or a provided assignment list.</span></div>
-    <div class="endpoint"><code>GET /api/v1/streak</code><span>Return Sparks, streak, level, quests, and reward state.</span></div>
-    <div class="endpoint"><code>GET /api/v1/identity</code><span>Return the student's learning profile.</span></div>
-    <div class="endpoint"><code>PATCH /api/v1/identity</code><span>Update grade level, focus areas, goals, commitments, or availability.</span></div>
-  </section>
-
-  <section class="docs-card">
-    <h2>IndexNow (search engine notifications)</h2>
-    <p>IntelliPlan hosts an IndexNow verification key and can notify participating search engines when public URLs change. See the full protocol guide at <a href="/indexnow">/indexnow</a>.</p>
-    <div class="endpoint"><code>GET /&lt;INDEXNOW_KEY&gt;.txt</code><span>Ownership verification key file (hosted at site root).</span></div>
-    <div class="endpoint"><code>POST /api/admin/indexnow/submit</code><span>Admin only — bulk submit URLs from JSON <code>{"urls":[...]}</code> or entire sitemap when omitted.</span></div>
-    <div class="endpoint"><code>GET /api/admin/indexnow/submit?url=...</code><span>Admin only — submit a single URL (IndexNow GET format).</span></div>
-    <div class="endpoint"><code>GET /api/admin/indexnow/status</code><span>Admin only — show key, host, endpoint, and sitemap URL count.</span></div>
-  </section>
-
-  <section class="docs-card">
-    <h2>Example</h2>
-    <pre><code>curl -H "Authorization: Bearer $INTELLIPLAN_TOKEN" \
+    <p class="dev-card__lede">Send your key in the <code>X-API-Key</code> header on every request.</p>
+    <pre><code>curl -H "X-API-Key: $INTELLIPLAN_KEY" \
   https://intelliplan.tech/api/v1/assignments</code></pre>
-    <p>The machine-readable API index is available at <a href="/api/v1/docs">/api/v1/docs</a>.</p>
+    <p>
+      There is a second scheme — <code>POST /api/v1/auth/token</code> exchanges an
+      email and password for a Bearer token that carries every scope. It exists for
+      first-party clients (our MCP server, the browser extension) where you are
+      handing your own password to your own tool. It cannot be revoked
+      individually, so it is not the right credential for an app other people use.
+    </p>
+  </section>
+
+  <section class="dev-card">
+    <h2>Endpoints</h2>
+    <p class="dev-card__lede">The machine-readable index lives at <a href="/api/v1/docs">/api/v1/docs</a>.</p>
+    <div class="dev-endpoint">
+      <code>GET /api/v1/health</code>
+      <span>Liveness. No credential — so you can tell "the API is down" from "my key is wrong" without spending your rate limit.</span>
+    </div>
+    <div class="dev-endpoint">
+      <code>GET /api/v1/me</code>
+      <span>The authenticated account, plus which key you are using and what it can do.
+        <span class="dev-endpoint__scope">read:profile</span></span>
+    </div>
+    <div class="dev-endpoint">
+      <code>GET /api/v1/assignments</code>
+      <span>The unified assignment list from Canvas, StudentVUE, Google Classroom, Notion, and manual tasks.
+        <span class="dev-endpoint__scope">read:assignments</span></span>
+    </div>
+    <div class="dev-endpoint">
+      <code>POST /api/v1/tasks</code>
+      <span>Create a manual task. <code>{title, due_date?, priority?, course?, estimated_time?, notes?}</code>
+        <span class="dev-endpoint__scope">write:tasks</span></span>
+    </div>
+    <div class="dev-endpoint">
+      <code>POST /api/v1/assignments/dismiss</code>
+      <span>Mark an assignment done. <code>{title}</code>
+        <span class="dev-endpoint__scope">write:tasks</span></span>
+    </div>
+    <div class="dev-endpoint">
+      <code>POST /api/v1/assignments/restore</code>
+      <span>Bring a dismissed assignment back. <code>{title}</code>
+        <span class="dev-endpoint__scope">write:tasks</span></span>
+    </div>
+    <div class="dev-endpoint">
+      <code>GET /api/v1/tests</code>
+      <span>Assignments the student marked as tests.
+        <span class="dev-endpoint__scope">read:tests</span></span>
+    </div>
+    <div class="dev-endpoint">
+      <code>POST · DELETE /api/v1/tests</code>
+      <span>Mark or unmark an assignment as a test. <code>{title}</code>
+        <span class="dev-endpoint__scope">write:tests</span></span>
+    </div>
+    <div class="dev-endpoint">
+      <code>POST /api/v1/schedule/generate</code>
+      <span>Build a study plan. <code>{hours_per_day?, preferred_time?, custom_tasks?, assignments?}</code>
+        <span class="dev-endpoint__scope">write:schedule</span></span>
+    </div>
+    <div class="dev-endpoint">
+      <code>GET /api/v1/streak</code>
+      <span>Sparks, streak length, freezes, level, weekly quests.
+        <span class="dev-endpoint__scope">read:streak</span></span>
+    </div>
+    <div class="dev-endpoint">
+      <code>GET · PATCH /api/v1/identity</code>
+      <span>The student's learning profile — grade level, focus areas, goals, availability.
+        <span class="dev-endpoint__scope">read:identity · write:identity</span></span>
+    </div>
+  </section>
+
+  <section class="dev-card">
+    <h2>Errors and limits</h2>
+    <p class="dev-card__lede">Every failure uses one shape, and every response carries an <code>X-Request-Id</code>. Quote that id and we can find the exact request.</p>
+    <pre><code>{
+  "status": "error",
+  "error": "insufficient_scope",
+  "message": "This key is not authorized for that. Missing scope(s): write:tasks.",
+  "request_id": "9f2c41ab77e0c318"
+}</code></pre>
+    <p>
+      <code>invalid_request</code> · <code>unauthorized</code> ·
+      <code>insufficient_scope</code> · <code>not_found</code> ·
+      <code>method_not_allowed</code> · <code>rate_limited</code> ·
+      <code>upstream_failed</code> · <code>server_error</code>
+    </p>
+    <p>
+      Limits are counted per key, not per IP — a shared school network is not one
+      bucket for the whole building. Your ceiling is on every response as
+      <code>X-RateLimit-Limit</code>. A <code>429</code> means back off; it does not
+      mean the key is in trouble.
+    </p>
+  </section>
+
+  <section class="dev-card">
+    <h2>Model Context Protocol</h2>
+    <p>
+      An official MCP server ships in the repository at
+      <code>intelliplan_mcp.py</code>, so an AI assistant can read a student's
+      assignments and build a plan through the same scoped credential.
+    </p>
+  </section>
+
+  <section class="dev-card">
+    <h2>IndexNow</h2>
+    <p>IntelliPlan hosts an IndexNow verification key and notifies participating search engines when public URLs change. Protocol guide: <a href="/indexnow">/indexnow</a>.</p>
+    <div class="dev-endpoint"><code>GET /&lt;INDEXNOW_KEY&gt;.txt</code><span>Ownership verification key file, hosted at the site root.</span></div>
+    <div class="dev-endpoint"><code>POST /api/admin/indexnow/submit</code><span>Admin only — bulk submit from <code>{"urls":[…]}</code>, or the whole sitemap when omitted.</span></div>
+    <div class="dev-endpoint"><code>GET /api/admin/indexnow/status</code><span>Admin only — key, host, endpoint, and sitemap URL count.</span></div>
   </section>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% if current_user.is_authenticated %}
+/* No <script> tag here on purpose: base.html splices this block into the
+   middle of an existing inline <script>, so a nested tag would close it
+   early and take the rest of the page's JS down with it.
+
+   Namespaced into one object for the same reason — every page's script
+   block shares one global scope, so a bare `const scopes` would collide
+   with another template's and throw before any of this ran. */
+window.IPDev = (function () {
+  'use strict';
+
+  var VOLUMES = ['low', 'medium', 'high'];
+  var VOLUME_LABELS = { low: '60', medium: '300', high: '1000' };
+
+  var els = {
+    form:      document.getElementById('devApplyForm'),
+    scopes:    document.getElementById('devScopes'),
+    status:    document.getElementById('devApplyStatus'),
+    submit:    document.getElementById('devSubmit'),
+    keys:      document.getElementById('devKeys'),
+    queue:     document.getElementById('devQueue'),
+    secret:    document.getElementById('devSecretSlot'),
+    volume:    document.getElementById('devVolume'),
+    volumeHint:document.getElementById('devVolumeHint'),
+    terms:     document.getElementById('devTerms')
+  };
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function json(url, opts) {
+    return fetch(url, Object.assign({
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin'
+    }, opts || {})).then(function (r) {
+      return r.json().catch(function () { return {}; })
+        .then(function (body) { return { ok: r.ok, status: r.status, body: body }; });
+    });
+  }
+
+  /* ── Scope picker ── */
+  function renderScopes(list) {
+    els.scopes.innerHTML = list.map(function (s) {
+      return '<label class="dev-scope">' +
+        '<input type="checkbox" value="' + esc(s.name) + '"' +
+          (s.name === 'read:profile' ? ' checked' : '') + '>' +
+        '<span>' +
+          '<span class="dev-scope__name">' + esc(s.label) +
+            (s.requires_review ? '<span class="dev-scope__flag">reviewed</span>' : '') +
+          '</span>' +
+          '<span class="dev-scope__desc">' + esc(s.description) + '</span>' +
+        '</span>' +
+      '</label>';
+    }).join('');
+    els.scopes.addEventListener('change', reflectReviewState);
+    reflectReviewState();
+  }
+
+  /* Tell the applicant what will happen *before* they submit, rather than
+     letting them find out from the response. Ticking a write scope is the
+     difference between a key in ten seconds and a key in two days. */
+  function reflectReviewState() {
+    var needsReview = !!els.scopes.querySelector(
+      '.dev-scope:has(.dev-scope__flag) input:checked');
+    els.submit.textContent = needsReview
+      ? 'Submit for review'
+      : 'Get my key';
+  }
+
+  function selectedScopes() {
+    return Array.prototype.map.call(
+      els.scopes.querySelectorAll('input:checked'),
+      function (i) { return i.value; });
+  }
+
+  /* ── Volume ── */
+  function volumeIndex() {
+    var input = els.volume && els.volume.querySelector('input');
+    return input ? parseInt(input.value, 10) || 0 : 0;
+  }
+
+  function bindVolume() {
+    if (!els.volume) return;
+    var readout = els.volume.querySelector('.ipui-slider__value');
+    function paint() {
+      var key = VOLUMES[volumeIndex()];
+      if (readout) readout.textContent = VOLUME_LABELS[key];
+      els.volumeHint.textContent = volumeIndex() === 0
+        ? 'New keys start at 60/minute regardless. A higher ceiling is granted at review.'
+        : 'Above 60/minute is reviewed by a person, whichever scopes you pick.';
+    }
+    els.volume.addEventListener('ipui:slider', paint);
+    paint();
+  }
+
+  /* ── The one-time secret ── */
+  function showSecret(secret, note) {
+    els.secret.innerHTML =
+      '<div class="dev-secret">' +
+        '<h3>' + esc(note || 'Your key') + '</h3>' +
+        '<p style="margin:0;font-size:0.86rem;">' +
+          'This is the only time it is shown. We store a hash, not the key.' +
+        '</p>' +
+        '<code id="devSecretText">' + esc(secret) + '</code>' +
+        '<button class="ipui-btn" type="button" id="devCopy">Copy key</button>' +
+      '</div>';
+    var btn = document.getElementById('devCopy');
+    btn.addEventListener('click', function () {
+      navigator.clipboard.writeText(secret).then(function () {
+        btn.textContent = 'Copied';
+        IP.toast('Key copied. Store it somewhere safe.', 'success');
+      }, function () {
+        /* Clipboard can be blocked; selecting the text is the fallback
+           that always works. */
+        var range = document.createRange();
+        range.selectNodeContents(document.getElementById('devSecretText'));
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        IP.toast('Copy blocked by the browser — the key is selected, press Ctrl/Cmd+C.', 'info');
+      });
+    });
+    els.secret.scrollIntoView({ block: 'nearest' });
+  }
+
+  /* ── Keys list ── */
+  function keyRow(app) {
+    var status = esc(app.status);
+    var used = app.last_used_at
+      ? 'last used ' + new Date(app.last_used_at).toLocaleDateString()
+      : 'never used';
+    var actions = '';
+    if (app.status === 'active') {
+      actions =
+        '<button class="ipui-btn" data-roll="' + app.id + '">Roll</button>' +
+        '<button class="ipui-btn ipui-btn--danger" data-revoke="' + app.id + '">Revoke</button>';
+    } else if (app.status === 'pending') {
+      actions = '<button class="ipui-btn ipui-btn--danger" data-revoke="' + app.id + '">Withdraw</button>';
+    }
+    return '<div class="dev-key">' +
+      '<div>' +
+        '<span class="dev-key__name">' + esc(app.app_name) + '</span> ' +
+        '<span class="dev-pill is-' + status + '">' + status + '</span>' +
+        '<div class="dev-key__meta">' +
+          (app.key_prefix
+            ? '<span class="dev-key__prefix">' + esc(app.key_prefix) + '…</span> · '
+            : '') +
+          esc(app.scopes.join(' · ') || 'no scopes') +
+          ' · ' + (app.request_count || 0) + ' requests · ' + used +
+          (app.review_note ? ' · ' + esc(app.review_note) : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="dev-key__actions">' + actions + '</div>' +
+    '</div>';
+  }
+
+  function loadKeys() {
+    return json('/developers/applications').then(function (r) {
+      var apps = (r.body && r.body.applications) || [];
+      els.keys.innerHTML = apps.length
+        ? apps.map(keyRow).join('')
+        : '<div class="dev-empty">No applications yet. The form above is the way in.</div>';
+    });
+  }
+
+  function bindKeyActions() {
+    els.keys.addEventListener('click', function (e) {
+      var roll = e.target.closest('[data-roll]');
+      var revoke = e.target.closest('[data-revoke]');
+      if (roll) return doRoll(roll.getAttribute('data-roll'));
+      if (revoke) return doRevoke(revoke.getAttribute('data-revoke'));
+    });
+  }
+
+  function doRevoke(id) {
+    IP.confirm('Revoking stops this key on its very next request. Anything using it breaks immediately.',
+      { title: 'Revoke this key?', confirmLabel: 'Revoke key', danger: true }).then(function (ok) {
+      if (!ok) return;
+      json('/developers/keys/' + id + '/revoke', { method: 'POST' }).then(function (r) {
+        if (!r.ok) return IP.toast(r.body.message || 'Could not revoke.', 'error');
+        IP.toast('Key revoked.', 'success');
+        loadKeys();
+      });
+    });
+  }
+
+  function doRoll(id) {
+    IP.confirm('Rolling issues a new secret and stops the current one immediately. You will need to update anything using it.',
+      { title: 'Roll this key?', confirmLabel: 'Roll key' }).then(function (ok) {
+      if (!ok) return;
+      json('/developers/keys/' + id + '/roll', { method: 'POST' }).then(function (r) {
+        if (!r.ok) return IP.toast(r.body.message || 'Could not roll.', 'error');
+        showSecret(r.body.key, 'Rolled — here is the new key');
+        loadKeys();
+      });
+    });
+  }
+
+  /* ── Apply ── */
+  function bindForm() {
+    els.form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      els.status.classList.remove('is-error');
+
+      var payload = {
+        app_name: document.getElementById('devAppName').value.trim(),
+        app_url: document.getElementById('devAppUrl').value.trim(),
+        use_case: document.getElementById('devUseCase').value.trim(),
+        expected_volume: VOLUMES[volumeIndex()],
+        scopes: selectedScopes(),
+        accepted_terms: els.terms.checked
+      };
+
+      /* Check locally what the server checks anyway, so a 40-character
+         rule is not discovered by round-trip. */
+      if (payload.use_case.length < 40) {
+        els.status.textContent =
+          'Add a bit more detail — ' + payload.use_case.length + ' of 40 characters.';
+        els.status.classList.add('is-error');
+        document.getElementById('devUseCase').focus();
+        return;
+      }
+      if (!payload.scopes.length) {
+        els.status.textContent = 'Pick at least one scope.';
+        els.status.classList.add('is-error');
+        return;
+      }
+      if (!payload.accepted_terms) {
+        els.status.textContent = 'You need to accept the API terms.';
+        els.status.classList.add('is-error');
+        els.terms.focus();
+        return;
+      }
+
+      els.submit.disabled = true;
+      els.status.textContent = 'Submitting…';
+
+      json('/developers/apply', {
+        method: 'POST', body: JSON.stringify(payload)
+      }).then(function (r) {
+        els.submit.disabled = false;
+        if (!r.ok) {
+          els.status.textContent = r.body.message || 'Could not submit.';
+          els.status.classList.add('is-error');
+          return;
+        }
+        els.status.textContent = r.body.message || '';
+        if (r.body.key) showSecret(r.body.key, 'Approved — here is your key');
+        els.form.reset();
+        reflectReviewState();
+        loadKeys();
+      });
+    });
+  }
+
+  /* ── Review queue (admins) ── */
+  function loadQueue() {
+    if (!els.queue) return;
+    json('/developers/admin/applications?status=pending').then(function (r) {
+      var apps = (r.body && r.body.applications) || [];
+      els.queue.innerHTML = apps.length ? apps.map(function (a) {
+        return '<div class="dev-key">' +
+          '<div>' +
+            '<span class="dev-key__name">' + esc(a.app_name) + '</span> ' +
+            '<span class="dev-pill is-pending">pending</span>' +
+            '<div class="dev-key__meta">' +
+              esc(a.owner.email) + ' · ' + esc(a.scopes.join(' · ')) +
+              ' · expects ' + esc(a.expected_volume) + ' volume' +
+              (a.app_url ? ' · <a href="' + esc(a.app_url) + '" rel="noopener nofollow">' + esc(a.app_url) + '</a>' : '') +
+            '</div>' +
+            '<p style="margin:0.5rem 0 0;font-size:0.85rem;">' + esc(a.use_case) + '</p>' +
+            '<div class="ipui-field" style="margin-top:0.7rem;max-width:26rem;">' +
+              '<input class="ipui-field__input" type="text" placeholder=" " ' +
+                     'id="devNote' + a.id + '" data-note="' + a.id + '" maxlength="500">' +
+              '<label class="ipui-field__label" for="devNote' + a.id + '">' +
+                'Note to the applicant — required to deny</label>' +
+            '</div>' +
+          '</div>' +
+          '<div class="dev-key__actions">' +
+            '<button class="ipui-btn ipui-btn--primary" data-approve="' + a.id + '">Approve</button>' +
+            '<button class="ipui-btn ipui-btn--danger" data-deny="' + a.id + '">Deny</button>' +
+          '</div>' +
+        '</div>';
+      }).join('') : '<div class="dev-empty">Nothing waiting.</div>';
+    });
+  }
+
+  function bindQueue() {
+    if (!els.queue) return;
+    els.queue.addEventListener('click', function (e) {
+      var approve = e.target.closest('[data-approve]');
+      var deny = e.target.closest('[data-deny]');
+      var id = approve ? approve.getAttribute('data-approve')
+             : deny ? deny.getAttribute('data-deny') : null;
+      if (!id) return;
+
+      var noteEl = els.queue.querySelector('[data-note="' + id + '"]');
+      var note = noteEl ? noteEl.value.trim() : '';
+
+      /* A denial the applicant cannot act on is worse than a slow one —
+         they reapply with the same problem. Approving needs no note. */
+      if (deny && !note) {
+        IP.toast('Say why, so they know what to change.', 'error');
+        if (noteEl) noteEl.focus();
+        return;
+      }
+
+      IP.confirm(approve
+        ? 'Approving mints the key and emails it to the applicant. It is not shown here.'
+        : 'The applicant will be emailed this note.',
+        { title: approve ? 'Approve this application?' : 'Deny this application?',
+          confirmLabel: approve ? 'Approve' : 'Deny',
+          danger: !approve }).then(function (ok) {
+        if (!ok) return;
+        json('/developers/admin/applications/' + id + '/decide', {
+          method: 'POST',
+          body: JSON.stringify({ decision: approve ? 'approve' : 'deny', note: note })
+        }).then(function (r) {
+          if (!r.ok) return IP.toast(r.body.message || 'Could not record that.', 'error');
+          IP.toast(approve ? 'Approved. The key was emailed to the applicant.' : 'Denied.',
+                   'success');
+          loadQueue();
+        });
+      });
+    });
+  }
+
+  function init() {
+    if (!els.form) return;
+    json('/developers/scopes').then(function (r) {
+      renderScopes((r.body && r.body.scopes) || []);
+    });
+    bindVolume();
+    bindForm();
+    bindKeyActions();
+    loadKeys();
+    bindQueue();
+    loadQueue();
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
+
+  return { reload: loadKeys };
+})();
+{% endif %}
 {% endblock %}

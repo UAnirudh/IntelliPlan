@@ -2846,6 +2846,9 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}?v={{ asset_v }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-async.css') }}?v={{ asset_v }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-motion.css') }}?v={{ asset_v }}">
+  {# UI component library — the Watermelon registry components, hand-ported
+     to vanilla CSS/JS because this app has no build step for shadcn. #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-ui.css') }}?v={{ asset_v }}">
   {# Finishing layer: type ramp, z-scale, cross-document view transitions,
      tabular figures. Loads last so its tokens win where they overlap. #}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-premium.css') }}?v={{ asset_v }}">
@@ -2891,6 +2894,9 @@
      scroll choreography, count-ups, and the lazy plugin loader the UI
      component library builds on. #}
   <script defer src="{{ url_for('static', filename='js/ip-gsap.js') }}?v={{ asset_v }}"></script>
+  {# Component behaviours. Deferred: every component's markup is usable
+     before this runs, so nothing during parse depends on it. #}
+  <script defer src="{{ url_for('static', filename='js/ip-ui.js') }}?v={{ asset_v }}"></script>
   {# Finishing layer's JS: spotlight cursor, scrolled flag, progress-bar
      fallback. Deferred — nothing during parse depends on it. #}
   <script defer src="{{ url_for('static', filename='js/ip-premium.js') }}?v={{ asset_v }}"></script>

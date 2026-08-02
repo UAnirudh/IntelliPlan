@@ -1,0 +1,665 @@
+/* ═══════════════════════════════════════════════════════════════════
+   ip-ui.css — IntelliPlan's UI component library.
+
+   These are hand-ported from the Watermelon shadcn registry. That
+   registry ships React + Tailwind + Motion; this app is Jinja templates
+   and vanilla CSS with no build step, so `npx shadcn add` could not
+   install any of them. Each component here reproduces the interaction
+   and the shape, rebuilt against this app's design tokens rather than
+   Tailwind's palette — so a component inherits the site's accent,
+   radius, and both themes instead of dragging in a second visual system.
+
+   Conventions every component follows:
+
+     · Block is `.ipui-<name>`, elements are `.ipui-<name>__<part>`,
+       state is `.is-<state>`. No Tailwind, no utility soup.
+     · The markup is meaningful and usable before ip-ui.js runs. A
+       stepper is a number input, a split button is a row of buttons, a
+       slider is <input type=range>. JS upgrades; it does not construct.
+     · Colour comes from tokens (--accent, --border, --bg-card, …), never
+       from a hex literal, so dark mode needs no per-component override.
+     · Motion lives in JS (GSAP) when it needs choreography and in CSS
+       when a transition is enough. Nothing animates a layout property
+       where a transform would do.
+     · Every interactive part is reachable and operable from a keyboard,
+       and every state change that matters is announced.
+
+   ip-ui.js documents the markup contract for each component.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── Shared ──────────────────────────────────────────────────────── */
+.ipui-sr {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ═══ 1. Floating-label field ═══════════════════════════════════════
+   Ported from `floating-input`. The original tracked focus and "has a
+   value" in React state; neither needs JavaScript — `:placeholder-shown`
+   already tells us the field is empty, provided the markup carries
+   `placeholder=" "`. That is the whole trick, and it means the label
+   floats correctly on a browser-restored value and on autofill, which
+   the React version does not.
+
+   The label is a real <label for>, so clicking it focuses the field and
+   a screen reader announces it. It is not a fake placeholder. */
+.ipui-field {
+  position: relative;
+  display: block;
+}
+
+.ipui-field__input,
+.ipui-field__textarea,
+.ipui-field__select {
+  width: 100%;
+  padding: 1.05rem 0.9rem 0.5rem;
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  outline: none;
+  transition: border-color var(--t-base) var(--ease-out),
+              box-shadow var(--t-base) var(--ease-out);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.ipui-field__textarea {
+  min-height: 7.5rem;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.ipui-field__input:hover,
+.ipui-field__textarea:hover { border-color: var(--border-accent); }
+
+.ipui-field__input:focus,
+.ipui-field__textarea:focus,
+.ipui-field__select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.ipui-field__label {
+  position: absolute;
+  left: 0.95rem;
+  top: 0.5rem;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.01em;
+  color: var(--text-muted);
+  pointer-events: none;
+  transform-origin: left top;
+  transition: transform var(--t-base) var(--ease-out),
+              color var(--t-base) var(--ease-out);
+}
+
+/* Empty and unfocused: the label sits where a placeholder would, at
+   full size. Anything else and it is parked up top, small. */
+.ipui-field__input:placeholder-shown:not(:focus) ~ .ipui-field__label,
+.ipui-field__textarea:placeholder-shown:not(:focus) ~ .ipui-field__label {
+  transform: translateY(0.42rem) scale(1.28);
+  color: var(--text-muted);
+}
+
+.ipui-field__input:focus ~ .ipui-field__label,
+.ipui-field__textarea:focus ~ .ipui-field__label {
+  color: var(--accent);
+}
+
+/* A field the browser has flagged invalid *after* the user has been in
+   it. :user-invalid rather than :invalid so an empty required field is
+   not red before it has been touched. */
+.ipui-field__input:user-invalid,
+.ipui-field__textarea:user-invalid {
+  border-color: var(--danger);
+}
+.ipui-field__input:user-invalid ~ .ipui-field__label,
+.ipui-field__textarea:user-invalid ~ .ipui-field__label {
+  color: var(--danger-text);
+}
+
+.ipui-field__hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.ipui-field__hint.is-error { color: var(--danger-text); }
+
+/* ═══ 2. Buttons ═══════════════════════════════════════════════════ */
+.ipui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: var(--control-h);
+  padding: 0 1.15rem;
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--t-base) var(--ease-out),
+              border-color var(--t-base) var(--ease-out),
+              box-shadow var(--t-base) var(--ease-out);
+}
+
+.ipui-btn:hover { background: var(--bg-secondary); border-color: var(--border-strong); }
+.ipui-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.ipui-btn--primary {
+  color: #fff;
+  background: var(--accent);
+  border-color: transparent;
+}
+.ipui-btn--primary:hover { background: var(--accent-hover); }
+
+.ipui-btn--danger {
+  color: var(--danger-text);
+  background: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) 28%, transparent);
+}
+
+/* ── Shimmer ───────────────────────────────────────────────────────
+   Ported from `shimmer-button`. A band of light crosses the button on
+   hover. The original animated `translate-x` on a full-size child; this
+   uses a ::after so no extra element is needed in the markup, and moves
+   it with a transform so the sweep stays on the compositor.
+
+   The sweep is hover-only on purpose. A shimmer that loops forever is a
+   loading indicator, and using one as decoration on an idle button
+   teaches people to ignore the real ones. */
+.ipui-btn--shimmer { position: relative; overflow: hidden; isolation: isolate; }
+
+.ipui-btn--shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.28) 45%,
+    rgba(255, 255, 255, 0.42) 50%,
+    rgba(255, 255, 255, 0.28) 55%,
+    transparent 100%);
+  transform: translateX(-100%);
+  transition: transform 0.72s var(--ease-out);
+}
+
+.ipui-btn--shimmer:hover::after,
+.ipui-btn--shimmer:focus-visible::after { transform: translateX(100%); }
+
+/* ═══ 3. Split button ═══════════════════════════════════════════════
+   Ported from `split-button`. One button that blurs out and is replaced
+   by the row of choices it contained.
+
+   Both layers are always in the DOM and stacked, so the container never
+   changes size and nothing around it reflows. The hidden layer gets
+   `visibility: hidden` on top of opacity: without it, the invisible
+   layer still takes clicks and still lands in the tab order, which is
+   the bug the original avoids with pointerEvents and does not solve for
+   keyboards at all. */
+.ipui-split {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(var(--control-h) + 8px);
+}
+
+.ipui-split__main,
+.ipui-split__row {
+  transition: opacity 0.34s var(--ease-out),
+              filter 0.34s var(--ease-out),
+              visibility 0s linear 0s;
+}
+
+.ipui-split__main { position: relative; z-index: 2; }
+
+.ipui-split__row {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  opacity: 0;
+  visibility: hidden;
+  filter: blur(8px);
+  transform: scaleX(0.2);
+  transition: opacity 0.34s var(--ease-out),
+              filter 0.34s var(--ease-out),
+              transform 0.34s var(--ease-out),
+              visibility 0s linear 0.34s;
+}
+
+.ipui-split.is-open .ipui-split__main {
+  opacity: 0;
+  visibility: hidden;
+  filter: blur(8px);
+  transition-delay: 0s, 0s, 0.34s;
+}
+
+.ipui-split.is-open .ipui-split__row {
+  opacity: 1;
+  visibility: visible;
+  filter: blur(0);
+  transform: scaleX(1);
+  transition-delay: 0s, 0s, 0s, 0s;
+}
+
+.ipui-split__back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h);
+  min-height: var(--control-h);
+  padding: 0;
+  border-radius: var(--r-full);
+}
+
+/* ═══ 4. Stepper ════════════════════════════════════════════════════
+   Ported from `stepper`. Digits roll rather than swap, and only the
+   digits that changed move — going 19 → 20 rolls both, going 20 → 21
+   rolls only the last.
+
+   Underneath it is a real <input type="number">: it submits with the
+   form, it validates, it is typeable, and it works with no JS at all.
+   The rolling display is decorative and marked aria-hidden, because a
+   screen reader should read the input, not the animation. */
+.ipui-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.25rem;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--r-full);
+}
+
+.ipui-stepper__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  padding: 0;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease-out),
+              color var(--t-fast) var(--ease-out);
+}
+
+.ipui-stepper__btn:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.ipui-stepper__btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.ipui-stepper__display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.03em;
+  min-width: 2.4rem;
+  height: 1.9rem;
+  font-family: var(--font-ui);
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.ipui-stepper__digit {
+  position: relative;
+  width: 0.62em;
+  height: 100%;
+  overflow: hidden;
+}
+
+.ipui-stepper__digit > span {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ipui-stepper__suffix {
+  padding-right: 0.5rem;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* The real control. Visually replaced by the rolling display, but kept
+   in the layout and focusable so typing a value still works — hence
+   opacity rather than display:none. Focus ring is drawn on the wrapper
+   so the control still shows focus. */
+.ipui-stepper__input {
+  position: absolute;
+  width: 3.4rem;
+  height: 2rem;
+  opacity: 0;
+  cursor: text;
+}
+
+.ipui-stepper:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* ═══ 5. Save toggle ════════════════════════════════════════════════
+   Ported from `save-toggle`. Idle → spinner → check → "Saved", and back
+   to idle when clicked again.
+
+   The width transition is on `width`, which is a layout property and the
+   one thing here that cannot be a transform: the button genuinely
+   changes size, and faking that with scaleX would stretch the label.
+   It is a single element on a click, not a scroll-linked effect, so the
+   cost is a few frames of layout on an isolated subtree.
+
+   `aria-live` on the label is what makes the state change reach a screen
+   reader — the animation alone says nothing. */
+.ipui-save {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: var(--control-h);
+  min-width: 7rem;
+  padding: 0 1.2rem;
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 2px solid transparent;
+  border-radius: var(--r-full);
+  cursor: pointer;
+  overflow: hidden;
+  transition: width 0.42s var(--ease-out),
+              min-width 0.42s var(--ease-out),
+              background var(--t-base) var(--ease-out),
+              border-color var(--t-base) var(--ease-out),
+              color var(--t-base) var(--ease-out);
+}
+
+.ipui-save.is-working {
+  min-width: var(--control-h);
+  width: var(--control-h);
+  padding: 0;
+  color: #fff;
+  background: var(--accent);
+}
+
+.ipui-save.is-saved {
+  background: var(--bg-card);
+  border-color: var(--border-strong);
+  color: var(--text-secondary);
+}
+
+.ipui-save__label { display: inline-flex; align-items: center; gap: 0.45rem; }
+
+.ipui-save__spinner {
+  width: 1.35rem;
+  height: 1.35rem;
+  flex: none;
+}
+.ipui-save__spinner circle { stroke: rgba(255, 255, 255, 0.3); }
+.ipui-save__spinner path   { stroke: #fff; }
+
+.ipui-save__check { width: 1.2rem; height: 1.2rem; flex: none; }
+
+/* ═══ 6. Morphing button ════════════════════════════════════════════
+   Ported from `morphing-button`. A button that opens into the input it
+   is asking for, instead of navigating somewhere to ask.
+
+   Collapsed it is a button; expanded it is a form. That distinction is
+   in the markup, not just the styling: the wrapper is a real <form>, so
+   Enter submits and the browser validates the email before anything of
+   ours runs. */
+.ipui-morph {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  transition: padding 0.4s var(--ease-out),
+              background var(--t-base) var(--ease-out),
+              box-shadow var(--t-base) var(--ease-out);
+}
+
+.ipui-morph.is-open {
+  padding: 0.25rem;
+  background: var(--bg-card);
+  box-shadow: var(--shadow);
+}
+
+.ipui-morph__field {
+  width: 0;
+  min-width: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  outline: none;
+  opacity: 0;
+  transition: width 0.4s var(--ease-out),
+              padding 0.4s var(--ease-out),
+              opacity 0.28s var(--ease-out);
+}
+
+.ipui-morph.is-open .ipui-morph__field {
+  width: 15rem;
+  padding: 0 0.9rem;
+  opacity: 1;
+}
+
+.ipui-morph__field::placeholder { color: var(--text-muted); }
+
+.ipui-morph__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--control-h);
+  padding: 0 1.25rem;
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-radius: var(--r-full);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--t-base) var(--ease-out);
+}
+
+.ipui-morph.is-open .ipui-morph__btn {
+  background: var(--accent);
+  color: #fff;
+}
+
+.ipui-morph__icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  transition: opacity 0.28s var(--ease-out),
+              transform 0.28s var(--ease-out);
+}
+
+/* Collapsing the icon's width as well as fading it keeps the label from
+   sitting off-centre in the expanded state. */
+.ipui-morph.is-open .ipui-morph__icon {
+  opacity: 0;
+  width: 0;
+  transform: scale(0.4);
+}
+
+/* ═══ 7. Adaptive slider ════════════════════════════════════════════
+   Ported from `adaptive-slider`. The fill changes hue as the value
+   climbs, so the amount is legible from the colour before the number is
+   read.
+
+   The original hardcoded three brand gradients. Here the ramp runs
+   through the app's own severity tokens — low, medium, high — which are
+   already what this app uses to mean "comfortable / getting heavy / a
+   lot" everywhere else. A slider that turns red at the top only helps if
+   red means the same thing on this page as it does on the next one.
+
+   Built on a real <input type=range>: keyboard, screen readers, and
+   form submission all come free, and the visible track is a sibling the
+   range is layered over at zero opacity. */
+.ipui-slider { display: block; }
+
+.ipui-slider__readout {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-bottom: 0.7rem;
+  font-family: var(--font-ui);
+}
+
+.ipui-slider__value {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ipui-slider-tint, var(--accent));
+  transition: color 0.3s var(--ease-out);
+}
+
+.ipui-slider__unit {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.ipui-slider__track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 3.1rem;
+  background: var(--bg-elevated);
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+
+.ipui-slider__dots {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.4rem;
+  pointer-events: none;
+}
+
+.ipui-slider__dots i {
+  width: 0.32rem;
+  height: 0.32rem;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+
+.ipui-slider__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border-radius: var(--r-full);
+  background: var(--ipui-slider-fill, var(--accent));
+  transition: width 0.28s var(--ease-out), background 0.3s var(--ease-out);
+  pointer-events: none;
+}
+
+.ipui-slider__thumb {
+  position: absolute;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.1rem;
+  height: 3.1rem;
+  transform: translateY(-50%);
+  transition: left 0.28s var(--ease-out);
+  pointer-events: none;
+}
+
+.ipui-slider__thumb::before {
+  content: '';
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.ipui-slider__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+/* The range input is invisible, so its focus ring is too. Draw one on
+   the track instead — otherwise the control is unusable by keyboard for
+   anyone who cannot see where focus went. */
+.ipui-slider__track:has(.ipui-slider__input:focus-visible) {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ── Reduced motion ────────────────────────────────────────────────
+   Transitions go; state does not. Every component above expresses its
+   state with colour, size, or content as well as with movement, so
+   removing the movement leaves all of it readable. */
+@media (prefers-reduced-motion: reduce) {
+  .ipui-btn,
+  .ipui-btn--shimmer::after,
+  .ipui-split__main,
+  .ipui-split__row,
+  .ipui-save,
+  .ipui-morph,
+  .ipui-morph__field,
+  .ipui-morph__icon,
+  .ipui-slider__fill,
+  .ipui-slider__thumb,
+  .ipui-slider__value,
+  .ipui-field__label,
+  .ipui-stepper__btn {
+    transition-duration: 0.01ms !important;
+  }
+  .ipui-btn--shimmer::after { display: none; }
+}
