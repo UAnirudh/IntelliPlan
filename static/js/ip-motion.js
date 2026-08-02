@@ -1,17 +1,22 @@
 /* ═══════════════════════════════════════════════════════════════════
    ip-motion.js — driver for ip-motion.css.
 
-   Why Motion One and not hand-rolled rAF: the reveal and stagger work is
-   trivial with CSS transitions, but the spring entrances (hero, auth
-   panel, chat open) need real spring physics to stop looking like eased
-   tweens, and scroll-linked progress needs a scroll() that doesn't fight
-   the main thread. Motion is vendored at static/js/vendor/motion.min.js
-   rather than pulled from a CDN so it stays inside `script-src 'self'`
-   (see the CSP block in App.py) and survives a CDN outage.
+   Why an animation library and not hand-rolled rAF: the reveal and
+   stagger work is trivial with CSS transitions, but the entrances (hero,
+   auth panel, chat open) need settle behaviour that stops them looking
+   like eased tweens, and scroll-linked progress needs a scroll driver
+   that doesn't fight the main thread.
 
-   Contract with the rest of the app:
+   The engine is GSAP, vendored under static/js/vendor/gsap/ rather than
+   pulled from a CDN so it stays inside `script-src 'self'` (see the CSP
+   block in App.py) and survives a CDN outage. This file used to run on
+   Motion One; the logic below never touched Motion's API directly, only
+   a five-function surface, so the swap is confined to `buildAdapter()`
+   and shipping two animation engines was avoidable.
+
+   Contract with the rest of the app — unchanged by the swap:
      window.IPMotion.animate / spring / stagger / inView / scroll
-     window.IPMotion.ready      — Promise, resolves once Motion is up
+     window.IPMotion.ready      — Promise, resolves once the engine is up
      window.IPMotion.reduced    — true when the OS asks for less motion
      window.IPMotion.refresh()  — re-scan after injecting new markup
 
@@ -43,20 +48,157 @@
     /* Bumped whenever the behaviour of this file changes. Flask serves
        /static with long-lived caching, so this is the only way to tell a
        stale bundle from a live one when something does not work. */
-    version: 4,
+    version: 5,
+    engine: 'gsap',
     reduced: REDUCED,
     ready: null,
     springs: { gentle: SPRING_GENTLE, bouncy: SPRING_BOUNCY, snappy: SPRING_SNAPPY }
   };
   window.IPMotion = api;
 
-  /* ── Motion One loader ────────────────────────────────────────────
-     The vendored build is UMD, so it attaches window.Motion. Loading it
-     with `defer` off a normal <script> would be simpler, but this file
-     is itself deferred and page scripts may call IPMotion immediately —
-     hence a promise other code can await. */
+  /* ── Spring → tween conversion ───────────────────────────────────
+     GSAP tweens on a duration and an easing curve; it has no mass-spring
+     integrator. Rather than eyeball a replacement for each of the three
+     springs above, solve the second-order system the constants describe
+     and pick a curve that lands in the same place.
+
+       ω₀ = √(k/m)          undamped natural frequency
+       ζ  = c / 2√(km)      damping ratio
+
+     ζ ≥ 1 is critically or over-damped — it settles without overshoot,
+     which is what an ease-out curve already does. ζ < 1 overshoots, and
+     the amount it overshoots is what `back.out(overshoot)` takes. The
+     settle time of a spring is ≈ 4 / (ζω₀); a little headroom on top of
+     that keeps the tail of the curve from being visibly clipped. */
+  function springToTween(opts) {
+    var k = opts.stiffness || 170;
+    var c = opts.damping   || 26;
+    var m = opts.mass      || 1;
+    var w0 = Math.sqrt(k / m);
+    var zeta = c / (2 * Math.sqrt(k * m));
+    var settle = 4 / (Math.max(zeta, 0.2) * w0);
+    var duration = Math.min(1.2, Math.max(0.18, settle * 1.15));
+    var ease;
+    if (zeta >= 0.95) {
+      ease = 'power2.out';
+    } else {
+      /* Peak overshoot of a step response is exp(−πζ/√(1−ζ²)). back.out's
+         argument is roughly that overshoot expressed as a multiplier. */
+      var overshoot = Math.exp(-Math.PI * zeta / Math.sqrt(1 - zeta * zeta));
+      ease = 'back.out(' + (1 + overshoot * 4).toFixed(2) + ')';
+    }
+    return { duration: duration, ease: ease };
+  }
+
+  /* ── Adapter ──────────────────────────────────────────────────────
+     Everything below this file's loader is written against five
+     functions. Implementing those five on GSAP is the whole migration;
+     the ~600 lines of behaviour underneath did not have to change.
+
+     The signatures are Motion One's, deliberately: they are the shape the
+     rest of this file already speaks, and `[from, to]` keyframe arrays
+     map cleanly onto gsap.fromTo. */
+  function buildAdapter(g) {
+    var ST = window.ScrollTrigger;
+    if (ST && g.registerPlugin) {
+      try { g.registerPlugin(ST); } catch (e) {}
+    }
+    if (window.CustomEase && g.registerPlugin) {
+      try { g.registerPlugin(window.CustomEase); } catch (e) {}
+    }
+
+    function toTweenVars(opts) {
+      opts = opts || {};
+      var vars = (opts.type === 'spring') ? springToTween(opts)
+                                          : { duration: opts.duration || 0.4,
+                                              ease: opts.ease || 'power2.out' };
+      if (opts.delay) vars.delay = opts.delay;
+      if (opts.repeat) vars.repeat = opts.repeat;
+      if (opts.onComplete) vars.onComplete = opts.onComplete;
+      return vars;
+    }
+
+    var M = {};
+
+    M.animate = function (target, keyframes, opts) {
+      var vars = toTweenVars(opts);
+      var from = null, to = {};
+      Object.keys(keyframes || {}).forEach(function (prop) {
+        var v = keyframes[prop];
+        if (Array.isArray(v)) {
+          (from = from || {})[prop] = v[0];
+          to[prop] = v[v.length - 1];
+        } else {
+          to[prop] = v;
+        }
+      });
+      Object.keys(vars).forEach(function (kk) { to[kk] = vars[kk]; });
+      var tween = from ? g.fromTo(target, from, to) : g.to(target, to);
+      /* Motion One returns something with `.finished` and `.stop()`; keep
+         both so no call site has to know which engine it got. */
+      tween.finished = new Promise(function (res) {
+        var prev = to.onComplete;
+        tween.eventCallback('onComplete', function () {
+          if (prev) { try { prev(); } catch (e) {} }
+          res();
+        });
+      });
+      tween.stop = function () { tween.kill(); };
+      return tween;
+    };
+
+    M.inView = function (target, onEnter, opts) {
+      if (!ST) return function () {};
+      var t = ST.create({
+        trigger: target,
+        start: (opts && opts.start) || 'top 92%',
+        once: true,
+        onEnter: function () { try { onEnter({ target: target }); } catch (e) {} }
+      });
+      return function () { t.kill(); };
+    };
+
+    /* Motion One's scroll(cb, {target, offset}) reports 0→1 progress
+       across the target's pass through the viewport. ScrollTrigger says
+       the same thing with start/end and scrub. */
+    M.scroll = function (cb, opts) {
+      if (!ST) return function () {};
+      opts = opts || {};
+      var t = ST.create({
+        trigger: opts.target || doc.body,
+        start: 'top bottom',
+        end: 'bottom top',
+        scrub: true,
+        onUpdate: function (self) { try { cb(self.progress); } catch (e) {} }
+      });
+      return function () { t.kill(); };
+    };
+
+    M.stagger = function (step) {
+      return function (i) { return i * (step || STAGGER_STEP); };
+    };
+
+    M.spring = function (opts) {
+      return Object.assign({ type: 'spring' }, opts || {});
+    };
+
+    api.animate = M.animate;
+    api.inView  = M.inView;
+    api.scroll  = M.scroll;
+    api.stagger = M.stagger;
+    api.spring  = M.spring;
+    api.gsap    = g;
+    return M;
+  }
+
+  /* ── Engine loader ────────────────────────────────────────────────
+     The vendored builds are UMD, so they attach window.gsap and
+     window.ScrollTrigger. Loading them with `defer` off normal <script>
+     tags would be simpler, but this file is itself deferred and page
+     scripts may call IPMotion immediately — hence a promise other code
+     can await. */
   api.ready = new Promise(function (resolve) {
-    if (window.Motion) { resolve(window.Motion); return; }
+    if (window.gsap) { resolve(window.gsap); return; }
     var existing = doc.querySelector('script[data-ipm-vendor]');
     if (!existing) { resolve(null); return; }
 
@@ -69,21 +211,14 @@
     function done() {
       if (settled) return;
       settled = true;
-      resolve(window.Motion || null);
+      resolve(window.gsap || null);
     }
     existing.addEventListener('load', done);
     existing.addEventListener('error', done);
     window.setTimeout(done, 2500);
-  }).then(function (M) {
-    if (!M) return null;
-    /* Re-export the handful of primitives pages actually use, so callers
-       never have to know whether Motion loaded. */
-    api.animate = M.animate;
-    api.inView  = M.inView;
-    api.scroll  = M.scroll;
-    api.stagger = M.stagger;
-    api.spring  = M.spring;
-    return M;
+  }).then(function (g) {
+    if (!g) return null;
+    try { return buildAdapter(g); } catch (e) { return null; }
   });
 
   /* Fallbacks so `IPMotion.animate(...)` is always callable. They no-op

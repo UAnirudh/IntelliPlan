@@ -614,3 +614,38 @@ html.ipm-on #cmdPalette .cmd-item.active { background: transparent; }
     color: var(--text-muted);
   }
 }
+
+/* ── §9 Click bloom ───────────────────────────────────────────────────
+   The ring ip-gsap.js expands from a click point on primary controls.
+   GSAP owns the width/height/opacity tween; this owns everything about
+   how the ring looks, so the two never disagree about it.
+
+   `pointer-events: none` is load-bearing: the ring covers the whole
+   control for the length of the animation, and without it the click that
+   created it can be swallowed by it. */
+.ipg-bloom {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle,
+    color-mix(in srgb, var(--accent) 55%, transparent) 0%,
+    color-mix(in srgb, var(--accent) 22%, transparent) 55%,
+    transparent 72%);
+  z-index: 0;
+}
+
+/* The bloom is appended as the control's last child, so anything the
+   control already contained needs to sit above it. Positioning is only
+   applied where the element is currently static, which is what makes
+   this safe to do from a stylesheet rather than per-button. */
+.btn-primary > *,
+.cta-btn > *,
+[data-bloom] > * {
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ipg-bloom { display: none; }
+}
