@@ -872,6 +872,37 @@ class StudyGroupTask(db.Model):
     completed_at = db.Column(db.DateTime, nullable=True)
 
 
+class VoiceSeat(db.Model):
+    """One member's presence in a study group's voice room.
+
+    A row exists only while someone is in voice. It is presence, not
+    membership — leaving voice deletes the row, and staying in it is what
+    `last_seen_at` proves.
+
+    That column is the whole design. A browser tab that crashes, loses
+    Wi-Fi, or is closed by swiping the app away never sends a "leave", so
+    presence tracked purely by join/leave drifts into a room that claims
+    six people and has one. Instead the client says "still here" on a
+    heartbeat and anything that has gone quiet for longer than
+    VOICE_STALE_SECONDS is simply not in the room any more. No cleanup
+    job has to run for that to be true.
+    """
+    __tablename__ = "voice_seats"
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey("study_groups.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    display_name = db.Column(db.String(120), default="")
+    is_muted = db.Column(db.Boolean, default=True)      # everyone joins muted
+    joined_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_seen_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    __table_args__ = (
+        # One seat per person per room. Without this a double-click on
+        # "Join" seats the same student twice and the roster shows a ghost.
+        db.UniqueConstraint("group_id", "user_id", name="uq_voice_seat_member"),
+    )
+
+
 class LMSToken(db.Model):
     """OAuth / API tokens for a user's connection to one LMS provider.
 
@@ -14080,6 +14111,7 @@ app.intelliplan_student_link_model = StudentLink
 app.intelliplan_study_group_model = StudyGroup
 app.intelliplan_study_group_member_model = StudyGroupMember
 app.intelliplan_study_group_task_model = StudyGroupTask
+app.intelliplan_voice_seat_model = VoiceSeat
 app.intelliplan_api_key_model = ApiKey
 from intelliplan_api import api_bp as intelliplan_api_bp, api_rate_limit_key, api_rate_limit_value
 app.register_blueprint(intelliplan_api_bp)
@@ -14104,10 +14136,16 @@ from intelliplan.api.grade_prediction import bp as grade_prediction_bp
 from intelliplan.api.lms_sync import bp as lms_sync_bp
 from intelliplan.api.roles import bp as roles_bp
 from intelliplan.api.group_tasks import bp as group_tasks_bp
+from intelliplan.api.group_voice import bp as group_voice_bp
 app.register_blueprint(grade_prediction_bp)
 app.register_blueprint(lms_sync_bp)
 app.register_blueprint(roles_bp)
 app.register_blueprint(group_tasks_bp)
+app.register_blueprint(group_voice_bp)
+# The voice heartbeat runs every 12 seconds per person in a room, so the
+# default per-IP budget would throttle a household with two students in
+# the same call. Its own limit is sized to the poll, not to page loads.
+limiter.limit("30 per minute")(app.view_functions["group_voice_bp.voice_heartbeat"])
 
 # ── AI Daily Command Center (docs/command-center/). Registered last so
 # the glue module's lazy `from App import ...` calls always resolve.

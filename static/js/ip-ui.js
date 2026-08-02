@@ -557,13 +557,291 @@
     return inst;
   }
 
+  /* ═══ Voice chat disclosure ═══════════════════════════════════════
+     Markup:
+       <div class="ipui-voice" data-ipui="voice" data-group="12"
+            data-title="Voice — AP Calc BC"></div>
+
+     Everything inside is built here, because unlike the other components
+     there is nothing meaningful to render server-side: the roster is
+     live, and a stale list of who *was* in a call is worse than no list.
+     The element is empty until the first poll answers.
+
+     Talks to intelliplan/api/group_voice.py. The contract that matters:
+     `joined` in every response is the server's answer, not ours — if a
+     heartbeat comes back joined:false we were swept out and the UI has
+     to go back to showing the join button rather than pretending. */
+  var FACE_TINTS = [
+    'var(--accent)', 'var(--low)', 'var(--medium)', 'var(--high)',
+    '#6d4aff', '#0d9488', '#c2410c', '#7c3aed'
+  ];
+
+  /* Same name always gets the same colour, for everyone in the room. A
+     per-render random tint would repaint the roster every poll. */
+  function tintFor(name) {
+    var h = 0;
+    var s = String(name || '?');
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return FACE_TINTS[h % FACE_TINTS.length];
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  var EQ_BARS = '<span class="ipui-eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>';
+
+  function faceHtml(seat, cls) {
+    return '<span class="ipui-voice__face' + (cls ? ' ' + cls : '') +
+      '" style="--ipui-face:' + tintFor(seat.name) + '" aria-hidden="true">' +
+      escapeHtml(seat.initial) + '</span>';
+  }
+
+  function mountVoice(root) {
+    if (root.__ipui) return root.__ipui;
+
+    var groupId = root.getAttribute('data-group');
+    if (!groupId) return null;
+
+    var title = attr(root, 'data-title', 'Voice chat');
+    var inst = { el: root, open: false, joined: false, seats: [], muted: true };
+    var timer = 0;
+    var heartbeatMs = 12000;
+
+    function post(path, body) {
+      return fetch('/api/groups/' + groupId + '/voice' + path, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {})
+      }).then(function (r) { return r.json().catch(function () { return {}; }); });
+    }
+
+    function load() {
+      return fetch('/api/groups/' + groupId + '/voice', { credentials: 'same-origin' })
+        .then(function (r) { return r.json().catch(function () { return {}; }); })
+        .then(apply);
+    }
+
+    function apply(data) {
+      if (!data || data.status === 'error') return data;
+      inst.seats = data.seats || [];
+      inst.joined = !!data.joined;
+      inst.room = data.embed_url || null;
+      if (data.heartbeat_seconds) heartbeatMs = data.heartbeat_seconds * 1000;
+      var me = inst.seats.filter(function (s) { return s.is_you; })[0];
+      if (me) inst.muted = !!me.muted;
+      render();
+      return data;
+    }
+
+    function peekHtml() {
+      var n = inst.seats.length;
+      if (!n) {
+        return '<span class="ipui-voice__peek-text">Voice chat' +
+          '<span class="ipui-voice__peek-sub">Nobody in here yet — be first</span></span>';
+      }
+      var shown = inst.seats.slice(0, 4);
+      var extra = n - shown.length;
+      return '<span class="ipui-voice__stack">' +
+          shown.map(function (s) { return faceHtml(s); }).join('') +
+        '</span>' +
+        '<span class="ipui-voice__peek-text">' +
+          (extra > 0 ? '+' + extra + ' more' : (n === 1 ? '1 person' : n + ' people')) +
+          '<span class="ipui-voice__peek-sub">' +
+            (inst.joined ? 'You are in voice' : 'in voice now') +
+          '</span>' +
+        '</span>';
+    }
+
+    function seatHtml(s) {
+      /* The equaliser is the only thing distinguishing talking from
+         listening, and it is decoration to a screen reader. The state
+         goes in the name instead so it is available either way. */
+      var state = s.muted ? 'muted' : 'unmuted';
+      return '<div class="ipui-voice__seat">' +
+        '<span class="ipui-voice__seat-face">' +
+          faceHtml(s) +
+          (s.muted ? '' : '<span class="ipui-voice__badge">' + EQ_BARS + '</span>') +
+        '</span>' +
+        '<span class="ipui-voice__seat-name">' + escapeHtml(s.name) +
+          (s.is_you ? ' (you)' : '') +
+          '<span class="ipui-sr">, ' + state + '</span>' +
+        '</span>' +
+      '</div>';
+    }
+
+    /* The shell is built once and then patched region by region.
+
+       This is not an optimisation. The panel contains the Jitsi iframe,
+       and re-assigning innerHTML tears that iframe out of the document
+       and builds a new one — which drops the call, revokes the
+       microphone permission, and rejoins the room. Doing that on a
+       twelve-second poll would make the call unusable. Only the roster,
+       the peek row, and the footer are ever rewritten; the stage is
+       created when you join and removed when you leave, and is otherwise
+       never touched. */
+    var parts = null;
+
+    function buildShell() {
+      root.innerHTML =
+        '<span class="ipui-voice__live" hidden>' + EQ_BARS + ' live</span>' +
+        '<button class="ipui-voice__peek" type="button" aria-expanded="false"></button>' +
+        '<div class="ipui-voice__panel">' +
+          '<div class="ipui-voice__head">' +
+            '<h3 class="ipui-voice__title">' + escapeHtml(title) + '</h3>' +
+            '<button class="ipui-voice__close" type="button" aria-label="Close voice chat">✕</button>' +
+          '</div>' +
+          '<div class="ipui-voice__roster"></div>' +
+          '<div class="ipui-voice__stage" hidden></div>' +
+          '<div class="ipui-voice__foot">' +
+            '<button class="ipui-btn ipui-voice__cta" type="button"></button>' +
+            '<p class="ipui-voice__hint"></p>' +
+          '</div>' +
+        '</div>';
+
+      parts = {
+        live:   root.querySelector('.ipui-voice__live'),
+        peek:   root.querySelector('.ipui-voice__peek'),
+        roster: root.querySelector('.ipui-voice__roster'),
+        stage:  root.querySelector('.ipui-voice__stage'),
+        cta:    root.querySelector('.ipui-voice__cta'),
+        hint:   root.querySelector('.ipui-voice__hint')
+      };
+    }
+
+    function render() {
+      if (!parts) buildShell();
+
+      var anyLive = inst.seats.some(function (s) { return !s.muted; });
+
+      parts.live.hidden = !inst.seats.length;
+      parts.peek.innerHTML = peekHtml();
+      parts.peek.setAttribute('aria-expanded', inst.open ? 'true' : 'false');
+
+      parts.roster.innerHTML = inst.seats.length
+        ? '<div class="ipui-voice__grid">' + inst.seats.map(seatHtml).join('') + '</div>'
+        : '<p class="ipui-voice__empty">No one is in voice. Joining puts you in the room and lets the rest of the group see you are there.</p>';
+
+      /* The iframe exists only while seated. An iframe that can prompt
+         for a microphone has no business sitting on a page nobody joined
+         from — and once it is there, it is left alone. */
+      var wantStage = !!(inst.joined && inst.room);
+      var haveStage = !!parts.stage.firstChild;
+      if (wantStage && !haveStage) {
+        var frame = doc.createElement('iframe');
+        frame.title = 'Voice room';
+        /* Microphone only. No camera, and no screen share. */
+        frame.setAttribute('allow', 'microphone; autoplay');
+        frame.src = inst.room;
+        parts.stage.appendChild(frame);
+        parts.stage.hidden = false;
+      } else if (!wantStage && haveStage) {
+        parts.stage.innerHTML = '';
+        parts.stage.hidden = true;
+      }
+
+      parts.cta.textContent = inst.joined ? 'Leave voice' : 'Join voice';
+      parts.cta.setAttribute('data-act', inst.joined ? 'leave' : 'join');
+      parts.cta.classList.toggle('ipui-btn--primary', !inst.joined);
+      parts.cta.disabled = false;
+      parts.hint.textContent = inst.joined
+        ? 'Mute and hang up from the controls in the room.'
+        : 'You join muted. Nobody hears you until you unmute.';
+
+      root.classList.toggle('is-open', inst.open);
+      root.classList.toggle('is-live', anyLive);
+    }
+
+    function setOpen(next) {
+      inst.open = next;
+      render();
+      emit(root, 'voice', { open: next, joined: inst.joined });
+    }
+
+    /* Poll only while it can matter: a closed panel that nobody has
+       joined does not need a request every twelve seconds on every group
+       page. Joined, we always poll — that heartbeat is what keeps the
+       seat alive. */
+    function scheduleNext() {
+      window.clearTimeout(timer);
+      var shouldPoll = inst.joined || inst.open;
+      if (!shouldPoll) return;
+      /* A hidden tab throttles timers anyway; skipping the request
+         outright avoids a burst of queued fetches when it comes back. */
+      timer = window.setTimeout(tick, doc.hidden ? heartbeatMs * 3 : heartbeatMs);
+    }
+
+    function tick() {
+      var p = inst.joined
+        ? post('/heartbeat', { muted: inst.muted })
+        : load();
+      p.then(apply).catch(function () {}).then(scheduleNext);
+    }
+
+    root.addEventListener('click', function (e) {
+      if (e.target.closest('.ipui-voice__close')) { setOpen(false); scheduleNext(); return; }
+      if (e.target.closest('.ipui-voice__peek')) { setOpen(true); tick(); return; }
+
+      var act = e.target.closest('[data-act]');
+      if (!act) return;
+      var which = act.getAttribute('data-act');
+      act.disabled = true;
+
+      if (which === 'join') {
+        post('/join').then(function (d) {
+          if (d && d.status === 'error') {
+            if (window.IP && IP.toast) IP.toast(d.message || 'Could not join.', 'error');
+            act.disabled = false;
+            return;
+          }
+          apply(d);
+          scheduleNext();
+          emit(root, 'voice-join', {});
+        });
+      } else if (which === 'leave') {
+        post('/leave').then(function (d) { apply(d); scheduleNext(); });
+      }
+    });
+
+    /* Best-effort exit. The server does not rely on this — a seat that
+       stops reporting is dropped regardless — but sending it means the
+       roster updates immediately for everyone else instead of after the
+       stale window. `pagehide` rather than `unload`, which is not fired
+       on mobile Safari when an app is swiped away. */
+    window.addEventListener('pagehide', function () {
+      if (!inst.joined) return;
+      try {
+        navigator.sendBeacon('/api/groups/' + groupId + '/voice/leave', new Blob([], {
+          type: 'application/json'
+        }));
+      } catch (e) {}
+    });
+
+    /* Coming back to a backgrounded tab should show the truth right
+       away, not at the next scheduled poll. */
+    doc.addEventListener('visibilitychange', function () {
+      if (!doc.hidden && (inst.joined || inst.open)) tick();
+    });
+
+    render();
+    load().then(scheduleNext);
+
+    inst.refresh = tick;
+    root.__ipui = inst;
+    return inst;
+  }
+
   /* ═══ Registry + mounting ═════════════════════════════════════════ */
   api.components = {
     split: mountSplit,
     stepper: mountStepper,
     save: mountSave,
     morph: mountMorph,
-    slider: mountSlider
+    slider: mountSlider,
+    voice: mountVoice
   };
 
   api.get = function (el) { return el ? el.__ipui || null : null; };

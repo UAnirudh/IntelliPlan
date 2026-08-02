@@ -278,6 +278,10 @@ function renderDetail(g) {
 
       <div style="display:flex;flex-direction:column;gap:1.25rem;">
         ${g.is_member ? `
+        <div data-ipui="voice" class="ipui-voice" data-group="${g.id}"
+             data-title="Voice — ${esc(g.name)}"></div>` : ''}
+
+        ${g.is_member ? `
         <div class="gr-panel">
           <div class="gr-panel-title">Group chat &amp; materials</div>
           <p style="font-size:0.78rem;color:var(--text-secondary);margin:0 0 8px 0;">Share links, formulas, or notes. Save anything useful to your library.</p>

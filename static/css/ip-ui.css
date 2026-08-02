@@ -663,3 +663,252 @@
   }
   .ipui-btn--shimmer::after { display: none; }
 }
+
+/* ═══ 8. Voice chat disclosure ══════════════════════════════════════
+   Ported from `voice-chat-disclosure`. Collapsed it is a row of faces
+   and a count; opened it is the full roster plus the join control.
+
+   The original used avatar photographs. This app has no avatars, so the
+   seats show initials on a generated tint — deterministic from the name,
+   so the same person is the same colour to everyone in the room. A
+   random colour per render would make the roster unreadable as people
+   come and go.
+
+   The equaliser bars mean "unmuted". They are the only signal that
+   distinguishes someone who is talking from someone who is listening,
+   so they carry a text equivalent too — see the sr-only span in the
+   markup that ip-ui.js builds. */
+.ipui-voice {
+  position: relative;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transition: border-radius 0.36s var(--ease-out),
+              box-shadow 0.36s var(--ease-out);
+}
+
+.ipui-voice.is-open { border-radius: var(--r-lg); box-shadow: var(--shadow-lg); }
+
+/* ── Collapsed ── */
+.ipui-voice__peek {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  width: 100%;
+  padding: 0.85rem 1.1rem;
+  background: none;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ipui-voice.is-open .ipui-voice__peek { display: none; }
+
+.ipui-voice__stack { display: flex; flex: none; }
+
+/* Overlapping faces read as "a group" rather than "a list". The negative
+   margin is on every seat but the first so the run stays left-aligned. */
+.ipui-voice__stack .ipui-voice__face + .ipui-voice__face { margin-left: -0.75rem; }
+
+.ipui-voice__face {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--ipui-face, var(--accent));
+  border: 3px solid var(--bg-card);
+  border-radius: 50%;
+}
+
+.ipui-voice__peek-text {
+  min-width: 0;
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.ipui-voice__peek-sub {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* ── Live badge ── */
+.ipui-voice__live {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  font-family: var(--font-ui);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--low);
+  background: var(--low-bg);
+  border-radius: var(--r-full);
+}
+
+.ipui-voice.is-open .ipui-voice__live { display: none; }
+
+/* ── Equaliser ── */
+.ipui-eq { display: inline-flex; align-items: center; gap: 2px; height: 0.8rem; }
+
+.ipui-eq i {
+  width: 2px;
+  height: 30%;
+  background: currentColor;
+  border-radius: 1px;
+  animation: ipui-eq-bounce 1s ease-in-out infinite;
+}
+.ipui-eq i:nth-child(2) { animation-delay: 0.15s; }
+.ipui-eq i:nth-child(3) { animation-delay: 0.3s; }
+.ipui-eq i:nth-child(4) { animation-delay: 0.45s; }
+
+@keyframes ipui-eq-bounce {
+  0%, 100% { height: 25%; }
+  50%      { height: 100%; }
+}
+
+/* ── Expanded ── */
+.ipui-voice__panel { display: none; }
+.ipui-voice.is-open .ipui-voice__panel { display: block; }
+
+.ipui-voice__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+}
+
+.ipui-voice__title {
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.ipui-voice__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.ipui-voice__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.1rem 0.5rem;
+  padding: 1.25rem 1rem;
+}
+
+@media (max-width: 380px) { .ipui-voice__grid { grid-template-columns: repeat(3, 1fr); } }
+
+.ipui-voice__seat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.ipui-voice__seat-face { position: relative; }
+
+.ipui-voice__seat .ipui-voice__face {
+  width: 3rem;
+  height: 3rem;
+  font-size: 1rem;
+  border-color: var(--bg-card);
+}
+
+.ipui-voice__badge {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.45rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  box-shadow: var(--shadow-sm);
+}
+
+.ipui-voice__seat-name {
+  width: 100%;
+  font-family: var(--font-ui);
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ipui-voice__foot { padding: 0 1rem 1.15rem; }
+
+.ipui-voice__cta { width: 100%; }
+
+.ipui-voice__hint {
+  margin: 0.7rem 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.5;
+}
+
+.ipui-voice__empty {
+  padding: 1.6rem 1rem;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* The Jitsi frame. Only present once seated — an iframe that asks for
+   microphone permission has no business existing on a page nobody has
+   joined from. */
+.ipui-voice__stage { padding: 0 1rem 1rem; }
+
+.ipui-voice__stage iframe {
+  display: block;
+  width: 100%;
+  height: 190px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--bg-elevated);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ipui-eq i { animation: none; height: 60%; }
+  .ipui-voice { transition-duration: 0.01ms !important; }
+}
