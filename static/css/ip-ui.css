@@ -1103,3 +1103,226 @@
 @media (prefers-reduced-motion: reduce) {
   .ipui-dates__day, .ipui-slot { transition-duration: 0.01ms !important; }
 }
+
+/* ═══ 11. Timed undo ════════════════════════════════════════════════
+   Ported from `timed-undo-action`. A destructive button that becomes a
+   countdown you can cancel, instead of a confirm dialog you have to
+   read.
+
+   Why this beats a confirm for reversible actions: a dialog interrupts
+   before the fact and gets clicked through, whereas a countdown lets the
+   action appear to happen immediately and stays cancellable for as long
+   as it takes to notice the mistake. It is only correct where the work
+   can genuinely be deferred — see ip-ui.js, which does not fire the
+   action until the timer runs out. */
+.ipui-undo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--control-h);
+  padding: 0 1.15rem;
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--danger-text);
+  background: var(--danger-soft);
+  border: 1px solid color-mix(in srgb, var(--danger) 28%, transparent);
+  border-radius: var(--r-full);
+  cursor: pointer;
+  overflow: hidden;
+  transition: background var(--t-base) var(--ease-out),
+              color var(--t-base) var(--ease-out),
+              padding var(--t-base) var(--ease-out);
+}
+
+.ipui-undo.is-armed { padding-left: 0.45rem; }
+
+.ipui-undo__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  color: #fff;
+  background: var(--danger);
+  border-radius: 50%;
+  flex: none;
+}
+
+.ipui-undo:not(.is-armed) .ipui-undo__icon { display: none; }
+
+.ipui-undo__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.9rem;
+  padding: 0.1rem 0.45rem;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  background: var(--danger);
+  border-radius: var(--r-full);
+}
+
+.ipui-undo:not(.is-armed) .ipui-undo__count { display: none; }
+
+/* ═══ 12. Pin ═══════════════════════════════════════════════════════
+   Ported from `pin-item`. Pinned rows lift out into their own group
+   above the rest.
+
+   The lift is done with the Flip plugin rather than by animating the
+   rows: the item genuinely moves to a different parent, and Flip is the
+   only way to make that read as one object travelling rather than one
+   disappearing while another appears. */
+.ipui-pinned-group { margin-bottom: 1.1rem; }
+
+.ipui-pinned-group__title {
+  margin: 0 0 0.5rem 0.15rem;
+  font-family: var(--font-ui);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ipui-pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: color var(--t-fast) var(--ease-out),
+              background var(--t-fast) var(--ease-out),
+              transform var(--t-fast) var(--ease-out);
+}
+
+.ipui-pin:hover { color: var(--text-primary); background: var(--bg-elevated); }
+
+.ipui-pin[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+  transform: rotate(-25deg);
+}
+
+.ipui-pin svg { width: 1rem; height: 1rem; }
+
+/* ═══ 13. Wiggling cards ════════════════════════════════════════════
+   Ported from `wiggling-cards`. A draggable run of cards where the ones
+   either side of centre tilt away, blur, and fade — so the focused card
+   is unambiguous without a highlight or a border.
+
+   The original computed rotation, blur and opacity per card from a
+   Motion value. Here the same three are driven from one custom property
+   per card, `--d` (signed distance from centre, in card widths), written
+   by ip-ui.js as the strip scrolls. That keeps the maths in one place
+   and the painting on the compositor.
+
+   Scroll-snap does the paging, so the whole thing works with a trackpad,
+   a touch swipe, the arrow keys, and no JavaScript at all — JS only adds
+   the tilt. */
+.ipui-wiggle {
+  display: flex;
+  gap: 1.1rem;
+  padding: 1.4rem 0.5rem 1.8rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.ipui-wiggle::-webkit-scrollbar { display: none; }
+
+/* Half a viewport of padding either side so the first and last cards can
+   still reach the centre. Without it the ends never focus and the effect
+   looks broken exactly where a first-time visitor starts. */
+.ipui-wiggle::before,
+.ipui-wiggle::after {
+  content: '';
+  flex: none;
+  width: calc(50% - 9.5rem);
+}
+
+.ipui-wiggle__card {
+  --d: 0;
+  flex: none;
+  width: 19rem;
+  scroll-snap-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.4rem;
+  padding: 1.6rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow);
+  /* clamp() keeps a card that has been scrolled far off-screen from
+     rotating past a right angle or inverting its opacity. */
+  transform: rotate(calc(clamp(-1, var(--d), 1) * -9deg));
+  filter: blur(calc(min(abs(var(--d)), 1) * 3px));
+  opacity: calc(1 - min(abs(var(--d)), 1) * 0.75);
+  transition: transform 0.18s linear, filter 0.18s linear, opacity 0.18s linear;
+  will-change: transform, opacity;
+}
+
+.ipui-wiggle__quote {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.65;
+  color: var(--text-primary);
+}
+
+.ipui-wiggle__foot { display: flex; align-items: center; gap: 0.65rem; }
+
+.ipui-wiggle__who {
+  font-family: var(--font-ui);
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ipui-wiggle__stars { color: var(--medium); font-size: 0.9rem; letter-spacing: 0.08em; }
+
+.ipui-wiggle__dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: -0.6rem;
+}
+
+.ipui-wiggle__dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  padding: 0;
+  background: var(--border-strong);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background var(--t-base) var(--ease-out),
+              transform var(--t-base) var(--ease-out);
+}
+.ipui-wiggle__dot[aria-current="true"] { background: var(--accent); transform: scale(1.35); }
+
+@media (max-width: 640px) {
+  .ipui-wiggle__card { width: 16rem; }
+  .ipui-wiggle::before, .ipui-wiggle::after { width: calc(50% - 8rem); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The tilt and blur are the effect, and both are motion. Without them
+     this is a plain snapping carousel, which is the correct fallback. */
+  .ipui-wiggle__card {
+    transform: none;
+    filter: none;
+    opacity: 1;
+    transition: none;
+  }
+  .ipui-undo, .ipui-pin { transition-duration: 0.01ms !important; }
+  .ipui-pin[aria-pressed="true"] { transform: none; }
+}

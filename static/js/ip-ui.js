@@ -1079,6 +1079,275 @@
     return inst;
   }
 
+  /* ═══ Timed undo ══════════════════════════════════════════════════
+     Markup:
+       <button class="ipui-undo" data-ipui="undo"
+               data-seconds="6" data-label="Hide" data-armed="Undo">Hide</button>
+
+     First press arms it and starts the countdown. A second press cancels.
+     Only when the timer runs out does `ipui:undo-commit` fire — the page
+     does the actual work there.
+
+     That ordering is the whole component. Firing the action first and
+     offering to reverse it would need every caller to implement an undo
+     path; deferring it means the caller implements nothing, and an action
+     that was cancelled simply never happened. It follows that this is
+     only usable where a few seconds of delay is acceptable — which is
+     true of hiding, dismissing, and archiving, and not of anything the
+     student is waiting on a result from. */
+  var UNDO_ICON =
+    '<span class="ipui-undo__icon" aria-hidden="true">' +
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" ' +
+    'stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-4"/></svg></span>';
+
+  function mountUndo(btn) {
+    if (btn.__ipui) return btn.__ipui;
+
+    var seconds = Math.max(2, numAttr(btn, 'data-seconds', 6));
+    var idleLabel = attr(btn, 'data-label', btn.textContent.trim() || 'Delete');
+    var armedLabel = attr(btn, 'data-armed', 'Undo');
+    var inst = { el: btn, armed: false };
+    var timer = 0, left = seconds;
+
+    var label = doc.createElement('span');
+    var count = doc.createElement('span');
+    count.className = 'ipui-undo__count';
+
+    var live = doc.createElement('span');
+    live.className = 'ipui-sr';
+    live.setAttribute('aria-live', 'assertive');
+
+    btn.textContent = '';
+    btn.insertAdjacentHTML('afterbegin', UNDO_ICON);
+    btn.appendChild(label);
+    btn.appendChild(count);
+    btn.appendChild(live);
+    if (!btn.getAttribute('type')) btn.type = 'button';
+
+    function paint() {
+      btn.classList.toggle('is-armed', inst.armed);
+      label.textContent = inst.armed ? armedLabel : idleLabel;
+      count.textContent = inst.armed ? left + 's' : '';
+    }
+
+    function stop() {
+      window.clearInterval(timer);
+      timer = 0;
+      inst.armed = false;
+      left = seconds;
+      paint();
+    }
+
+    function tick() {
+      left -= 1;
+      if (left > 0) { paint(); return; }
+      stop();
+      live.textContent = idleLabel + ' done.';
+      emit(btn, 'undo-commit', {});
+    }
+
+    btn.addEventListener('click', function () {
+      if (inst.armed) {
+        stop();
+        live.textContent = 'Cancelled.';
+        emit(btn, 'undo-cancel', {});
+        return;
+      }
+      inst.armed = true;
+      left = seconds;
+      paint();
+      /* Assertive, because the window to act on it closes. */
+      live.textContent = idleLabel + ' in ' + seconds + ' seconds. Press again to undo.';
+      emit(btn, 'undo-arm', { seconds: seconds });
+      timer = window.setInterval(tick, 1000);
+    });
+
+    inst.cancel = stop;
+    paint();
+    btn.__ipui = inst;
+    return inst;
+  }
+
+  /* ═══ Pin ═════════════════════════════════════════════════════════
+     Markup:
+       <div data-ipui="pin-list" data-pinned-label="Pinned">
+         <div class="ipui-pinned-group" hidden>
+           <p class="ipui-pinned-group__title">Pinned</p>
+           <div class="ipui-pinned-group__items"></div>
+         </div>
+         <div data-pin-items>
+           <div data-pin-id="7"> … <button class="ipui-pin" aria-pressed="false">…</button></div>
+         </div>
+       </div>
+
+     Pinning moves the row into the group above. Flip is used because the
+     row changes parent: animating position alone would show one row
+     fading out while a different one fades in, which reads as a copy
+     rather than as the same thing moving. Flip is fetched on demand — a
+     page with no pinnable list never pays for it. */
+  function mountPinList(root) {
+    if (root.__ipui) return root.__ipui;
+
+    var group = root.querySelector('.ipui-pinned-group');
+    var groupItems = root.querySelector('.ipui-pinned-group__items');
+    var rest = root.querySelector('[data-pin-items]');
+    if (!group || !groupItems || !rest) return null;
+
+    var inst = { el: root };
+
+    function sync() {
+      var pinned = groupItems.children.length;
+      group.hidden = pinned === 0;
+    }
+
+    function move(row, pinned) {
+      var g = gsapNow();
+      var Flip = window.Flip;
+
+      function apply() {
+        (pinned ? groupItems : rest).appendChild(row);
+        sync();
+      }
+
+      if (!g || !Flip || REDUCED) { apply(); return; }
+      var state = Flip.getState(row);
+      apply();
+      Flip.from(state, { duration: 0.45, ease: 'power2.inOut' });
+    }
+
+    root.addEventListener('click', function (e) {
+      var btn = e.target.closest('.ipui-pin');
+      if (!btn) return;
+      var row = btn.closest('[data-pin-id]');
+      if (!row) return;
+
+      var next = btn.getAttribute('aria-pressed') !== 'true';
+      btn.setAttribute('aria-pressed', next ? 'true' : 'false');
+      btn.setAttribute('aria-label', next ? 'Unpin' : 'Pin to the top');
+
+      /* Move optimistically and let the page tell us if the save failed —
+         a pin that waits on a round trip feels broken. */
+      move(row, next);
+      emit(root, 'pin', {
+        id: row.getAttribute('data-pin-id'),
+        pinned: next,
+        row: row,
+        revert: function () {
+          btn.setAttribute('aria-pressed', next ? 'false' : 'true');
+          move(row, !next);
+        }
+      });
+    });
+
+    /* Preload Flip on first hover, so the first pin animates rather than
+       snapping while the plugin is still in flight. */
+    root.addEventListener('pointerenter', function () {
+      if (window.IPGsap && !REDUCED) window.IPGsap.plugin('Flip');
+    }, { once: true });
+
+    sync();
+    root.__ipui = inst;
+    return inst;
+  }
+
+  /* ═══ Wiggling cards ══════════════════════════════════════════════
+     Markup:
+       <div class="ipui-wiggle" data-ipui="wiggle">
+         <article class="ipui-wiggle__card">…</article>
+         …
+       </div>
+
+     CSS owns the tilt, blur and fade; this only writes `--d`, each
+     card's signed distance from the centre of the strip in card widths.
+     Scroll-snap does the paging, so a trackpad, a swipe, and the arrow
+     keys all work whether or not this runs.
+
+     Reading geometry on every scroll event would thrash layout, so
+     positions are measured once per resize and the scroll handler only
+     does arithmetic. */
+  function mountWiggle(root) {
+    if (root.__ipui) return root.__ipui;
+
+    var cards = Array.prototype.slice.call(root.querySelectorAll('.ipui-wiggle__card'));
+    if (!cards.length) return null;
+
+    var inst = { el: root, cards: cards };
+    var centres = [];
+    var frame = 0;
+    var dots = null;
+
+    function measure() {
+      /* offsetLeft is relative to the scroll container's padding box,
+         which is what scrollLeft is measured against — so the two can be
+         subtracted without another getBoundingClientRect per card. */
+      centres = cards.map(function (c) { return c.offsetLeft + c.offsetWidth / 2; });
+      inst.width = cards[0].offsetWidth || 1;
+    }
+
+    function paint() {
+      frame = 0;
+      var mid = root.scrollLeft + root.clientWidth / 2;
+      var nearest = 0, best = Infinity;
+      for (var i = 0; i < cards.length; i++) {
+        var d = (centres[i] - mid) / inst.width;
+        cards[i].style.setProperty('--d', d.toFixed(3));
+        var abs = Math.abs(d);
+        if (abs < best) { best = abs; nearest = i; }
+      }
+      if (inst.index !== nearest) {
+        inst.index = nearest;
+        if (dots) {
+          Array.prototype.forEach.call(dots.children, function (b, i) {
+            b.setAttribute('aria-current', i === nearest ? 'true' : 'false');
+          });
+        }
+        emit(root, 'wiggle', { index: nearest });
+      }
+    }
+
+    function onScroll() { if (!frame) frame = requestAnimationFrame(paint); }
+
+    root.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', function () { measure(); onScroll(); });
+
+    /* Dots double as the keyboard affordance: the strip itself is
+       focusable and arrow-scrollable, but a row of buttons is what makes
+       "there are four of these" obvious. */
+    if (root.hasAttribute('data-dots')) {
+      dots = doc.createElement('div');
+      dots.className = 'ipui-wiggle__dots';
+      cards.forEach(function (c, i) {
+        var b = doc.createElement('button');
+        b.type = 'button';
+        b.className = 'ipui-wiggle__dot';
+        b.setAttribute('aria-label', 'Go to card ' + (i + 1));
+        b.addEventListener('click', function () {
+          c.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth',
+                             block: 'nearest', inline: 'center' });
+        });
+        dots.appendChild(b);
+      });
+      root.insertAdjacentElement('afterend', dots);
+    }
+
+    root.setAttribute('tabindex', '0');
+    root.setAttribute('role', 'region');
+
+    measure();
+    paint();
+
+    /* Web fonts land after this runs and change every card's width, so
+       one re-measure once they are ready keeps the first paint honest. */
+    if (doc.fonts && doc.fonts.ready) {
+      doc.fonts.ready.then(function () { measure(); onScroll(); });
+    }
+
+    inst.refresh = function () { measure(); onScroll(); };
+    root.__ipui = inst;
+    return inst;
+  }
+
   /* ═══ Registry + mounting ═════════════════════════════════════════ */
   api.components = {
     split: mountSplit,
@@ -1088,7 +1357,10 @@
     slider: mountSlider,
     voice: mountVoice,
     dates: mountDates,
-    slots: mountSlots
+    slots: mountSlots,
+    undo: mountUndo,
+    'pin-list': mountPinList,
+    wiggle: mountWiggle
   };
 
   api.get = function (el) { return el ? el.__ipui || null : null; };

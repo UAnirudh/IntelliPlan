@@ -844,7 +844,52 @@
     align-items: stretch;
   }
   @media (max-width: 960px) { .reviews-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (max-width: 600px) { .reviews-grid { grid-template-columns: 1fr; gap: 0.9rem; } }
+
+  /* Below 600px the grid was already one column, which meant scrolling
+     past every testimonial to reach the page below them. At that width
+     only — where nothing is lost — it becomes a snapping strip with the
+     wiggling-cards treatment: the focused card is upright and sharp,
+     its neighbours tilt away and blur.
+
+     The readable grid is kept everywhere it fits. Reading three
+     testimonials side by side beats swiping through them one at a time,
+     and this section was deliberately moved off a carousel once already;
+     this restores the carousel only where the grid had degenerated to a
+     single column anyway. */
+  @media (max-width: 600px) {
+    .reviews-grid {
+      display: flex;
+      gap: 0.9rem;
+      margin: 0 -1rem;
+      padding: 1.1rem 0 1.4rem;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    .reviews-grid::-webkit-scrollbar { display: none; }
+    /* Half a viewport either side so the first and last card can still
+       reach the centre — otherwise the ends never come into focus. */
+    .reviews-grid::before,
+    .reviews-grid::after { content: ''; flex: none; width: calc(50vw - 8.6rem); }
+
+    .reviews-grid .review-card {
+      --d: 0;
+      flex: none;
+      width: 17rem;
+      scroll-snap-align: center;
+      transform: rotate(calc(clamp(-1, var(--d), 1) * -8deg));
+      filter: blur(calc(min(abs(var(--d)), 1) * 2.5px));
+      opacity: calc(1 - min(abs(var(--d)), 1) * 0.7);
+      transition: transform 0.18s linear, filter 0.18s linear, opacity 0.18s linear;
+    }
+  }
+
+  @media (max-width: 600px) and (prefers-reduced-motion: reduce) {
+    .reviews-grid .review-card {
+      transform: none; filter: none; opacity: 1; transition: none;
+    }
+  }
   .review-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
@@ -954,6 +999,57 @@
     var fragment = document.createDocumentFragment();
     testimonials.forEach(function(r) { fragment.appendChild(buildCard(r)); });
     track.appendChild(fragment);
+
+    bindWiggle(track);
+  }
+
+  /* Below 600px the stylesheet turns this grid into a snapping strip and
+     reads a `--d` per card — each card's signed distance from the centre
+     of the strip, in card widths. Writing that is all this does; the
+     tilt, blur and fade are entirely CSS.
+
+     Bound only at that width, and unbound above it: on desktop the cards
+     are a static grid and a scroll listener would be pure overhead. */
+  function bindWiggle(track) {
+    var mq = window.matchMedia('(max-width: 600px)');
+    var frame = 0;
+    var bound = false;
+
+    function paint() {
+      frame = 0;
+      var cards = track.children;
+      var mid = track.scrollLeft + track.clientWidth / 2;
+      for (var i = 0; i < cards.length; i++) {
+        var c = cards[i];
+        var w = c.offsetWidth || 1;
+        var d = (c.offsetLeft + w / 2 - mid) / w;
+        c.style.setProperty('--d', d.toFixed(3));
+      }
+    }
+    function onScroll() { if (!frame) frame = requestAnimationFrame(paint); }
+
+    function sync() {
+      if (mq.matches && !bound) {
+        bound = true;
+        track.addEventListener('scroll', onScroll, { passive: true });
+        paint();
+      } else if (!mq.matches && bound) {
+        bound = false;
+        track.removeEventListener('scroll', onScroll);
+        /* Leave nothing behind: a stale --d would tilt a grid card. */
+        Array.prototype.forEach.call(track.children, function (c) {
+          c.style.removeProperty('--d');
+        });
+      }
+    }
+
+    mq.addEventListener ? mq.addEventListener('change', sync) : mq.addListener(sync);
+    /* sync() from resize as well, not only from the media-query change
+       event: the change event does not fire in every environment that can
+       alter the viewport (devtools emulation among them), and without it
+       the strip stays bound after the layout has gone back to a grid. */
+    window.addEventListener('resize', function () { sync(); onScroll(); }, { passive: true });
+    sync();
   }
 
   if (document.readyState === 'loading') {
