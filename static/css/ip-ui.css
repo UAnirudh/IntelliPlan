@@ -912,3 +912,194 @@
   .ipui-eq i { animation: none; height: 60%; }
   .ipui-voice { transition-duration: 0.01ms !important; }
 }
+
+/* ═══ 9. Date picker strip ══════════════════════════════════════════
+   Ported from `schedule-date`. A horizontal run of days you toggle on
+   and off, rather than a calendar you open, pick one date in, and close.
+
+   A student building a week picks four or five days in a row. A modal
+   date picker makes that five open/pick/close cycles; a strip makes it
+   five taps. The trade is that it only shows a fortnight — past that,
+   the native <input type="date"> alongside is the right tool and it is
+   still there.
+
+   Each day is a real checkbox in a label, so the whole thing is
+   keyboard-operable and the selection submits with a form without any
+   JavaScript having to collect it. */
+.ipui-dates {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.25rem 0.1rem 0.6rem;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  /* The strip scrolls; the page must not. */
+  scrollbar-width: thin;
+}
+
+.ipui-dates__day {
+  position: relative;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  width: 3.4rem;
+  padding: 0.55rem 0.2rem;
+  scroll-snap-align: start;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: border-color var(--t-base) var(--ease-out),
+              background var(--t-base) var(--ease-out),
+              transform var(--t-fast) var(--ease-out);
+}
+
+.ipui-dates__day:hover { border-color: var(--border-accent); }
+
+.ipui-dates__day:has(input:checked) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.ipui-dates__day:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ipui-dates__day input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ipui-dates__dow {
+  font-family: var(--font-ui);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ipui-dates__num {
+  font-family: var(--font-ui);
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+
+.ipui-dates__day:has(input:checked) .ipui-dates__num,
+.ipui-dates__day:has(input:checked) .ipui-dates__dow { color: var(--accent); }
+
+.ipui-dates__mon {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+}
+
+/* Today is marked structurally, not just by being first — the strip can
+   be scrolled and "first" stops meaning anything. */
+.ipui-dates__day.is-today { border-style: dashed; }
+
+/* ═══ 10. Slot picker ═══════════════════════════════════════════════
+   Ported from `slot-picker`. A list of time blocks you add to, edit in
+   place, and remove.
+
+   The original was a read-only list of offered appointment slots. Here
+   the rows are editable, because the whole point of the manual builder
+   is that the student states the times. Every row is a set of real
+   inputs with names, so the browser validates them and the row is
+   readable by assistive tech as the form controls it is. */
+.ipui-slots { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.ipui-slot {
+  display: grid;
+  grid-template-columns: 7.4rem 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.55rem 0.6rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  transition: border-color var(--t-base) var(--ease-out);
+}
+
+.ipui-slot:focus-within { border-color: var(--accent); }
+.ipui-slot.is-invalid { border-color: var(--danger); }
+.ipui-slot.is-break { background: var(--bg-elevated); }
+
+.ipui-slot__times { display: flex; align-items: center; gap: 0.2rem; }
+
+.ipui-slot__time {
+  width: 100%;
+  min-width: 0;
+  padding: 0.3rem 0.15rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  outline: none;
+}
+
+.ipui-slot__time:focus { border-bottom-color: var(--accent); }
+.ipui-slot__dash { color: var(--text-muted); font-size: 0.75rem; }
+
+.ipui-slot__body { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+
+.ipui-slot__title,
+.ipui-slot__course {
+  width: 100%;
+  padding: 0.15rem 0.2rem;
+  font: inherit;
+  color: var(--text-primary);
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+
+.ipui-slot__title { font-family: var(--font-ui); font-size: 0.88rem; font-weight: 600; }
+.ipui-slot__course { font-size: 0.76rem; color: var(--text-muted); }
+.ipui-slot__title:focus, .ipui-slot__course:focus { background: var(--accent-soft); border-radius: var(--r-xs); }
+
+.ipui-slot__tools { display: flex; gap: 0.2rem; align-items: center; }
+
+.ipui-slot__tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: color var(--t-fast) var(--ease-out),
+              background var(--t-fast) var(--ease-out);
+}
+
+.ipui-slot__tool:hover { color: var(--text-primary); background: var(--bg-elevated); }
+.ipui-slot__tool[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); }
+.ipui-slot__tool.is-remove:hover { color: var(--danger-text); background: var(--danger-soft); }
+
+.ipui-slot__error {
+  grid-column: 1 / -1;
+  margin: 0.15rem 0 0;
+  font-size: 0.76rem;
+  color: var(--danger-text);
+}
+
+@media (max-width: 560px) {
+  .ipui-slot { grid-template-columns: 1fr auto; }
+  .ipui-slot__times { grid-column: 1 / -1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ipui-dates__day, .ipui-slot { transition-duration: 0.01ms !important; }
+}

@@ -800,6 +800,105 @@
     .sched-pane { display: none !important; }
     .sched-pane#pane-creator { display: block !important; }
   }
+
+  /* ── Build it yourself ─────────────────────────────────────────────
+     A <details>, so it costs nothing when closed and works with no JS.
+     ip-motion.js already animates every <details> on the site, so the
+     open/close is handled and nothing is duplicated here. */
+  .mb-panel {
+    margin-top: 1.4rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+  }
+
+  .mb-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.2rem;
+    font-family: var(--font-ui);
+    font-size: 0.95rem;
+    cursor: pointer;
+    list-style: none;
+  }
+  .mb-summary::-webkit-details-marker { display: none; }
+  .mb-summary::after {
+    content: '';
+    width: 0.55rem; height: 0.55rem;
+    border-right: 2px solid var(--text-muted);
+    border-bottom: 2px solid var(--text-muted);
+    transform: rotate(45deg);
+    transition: transform var(--t-base) var(--ease-out);
+    flex: none;
+  }
+  .mb-panel[open] .mb-summary::after { transform: rotate(-135deg); }
+
+  .mb-summary__sub {
+    display: block;
+    margin-top: 0.2rem;
+    font-family: var(--font-body);
+    font-size: 0.83rem;
+    font-weight: 400;
+    color: var(--text-muted);
+    line-height: 1.55;
+  }
+
+  .mb-body { padding: 0 1.2rem 1.3rem; }
+  .mb-row { margin-bottom: 1.15rem; }
+
+  .mb-label {
+    display: block;
+    margin-bottom: 0.45rem;
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .mb-presets { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+
+  .mb-preset {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.4rem 0.35rem 0.75rem;
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--r-full);
+  }
+  .mb-preset__use {
+    padding: 0; border: 0; background: none; font: inherit;
+    color: inherit; cursor: pointer;
+  }
+  .mb-preset__meta { font-weight: 400; color: var(--text-muted); font-size: 0.76rem; }
+  .mb-preset__del {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.4rem; height: 1.4rem; padding: 0;
+    color: var(--text-muted); background: none;
+    border: 0; border-radius: 50%; cursor: pointer; font-size: 0.75rem;
+  }
+  .mb-preset__del:hover { color: var(--danger-text); background: var(--danger-soft); }
+  .mb-presets__empty { font-size: 0.83rem; color: var(--text-muted); }
+
+  .mb-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    padding-top: 0.4rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .mb-status { margin: 0.7rem 0 0; font-size: 0.83rem; color: var(--text-muted); line-height: 1.55; }
+  .mb-status.is-error { color: var(--danger-text); }
+  .mb-status.is-ok { color: var(--low); }
 </style>
 {% endblock %}
 
@@ -866,6 +965,53 @@
       <span id="genErrorMsg"></span>
       <button type="button" class="ge-retry" id="genErrorRetry" onclick="generateSchedule()" style="display:none;">Try again</button>
     </div>
+
+    <!-- ── Build it yourself ───────────────────────────────────────────
+         The generator decides placement, which is the right default and
+         is wrong for a real week: band practice the availability form
+         doesn't know about, or simply wanting Chemistry before dinner
+         because that's when you think best. This is the way to say so.
+         Collapsed by default so it never competes with the generator. -->
+    <details class="mb-panel" id="manualPanel">
+      <summary class="mb-summary">
+        <span>
+          <strong>Build it yourself</strong>
+          <span class="mb-summary__sub">Place blocks by hand, and save the shape of a day to reuse.</span>
+        </span>
+      </summary>
+
+      <div class="mb-body">
+        <div class="mb-row">
+          <span class="mb-label">Saved days</span>
+          <div class="mb-presets" id="mbPresets"></div>
+        </div>
+
+        <div class="mb-row">
+          <span class="mb-label" id="mbDatesLabel">Which days?</span>
+          <div class="ipui-dates" data-ipui="dates" data-days="14"
+               data-name="mb_date" id="mbDates" aria-labelledby="mbDatesLabel"></div>
+        </div>
+
+        <div class="mb-row">
+          <span class="mb-label">The day</span>
+          <div class="ipui-slots" data-ipui="slots" id="mbSlots"></div>
+          <button class="ipui-btn" type="button" id="mbAdd" style="margin-top:0.55rem;">+ Add block</button>
+        </div>
+
+        <div class="mb-actions">
+          <button class="ipui-btn ipui-btn--primary ipui-btn--shimmer" type="button" id="mbBuild">
+            Build these days
+          </button>
+          <div class="ipui-field" style="max-width:14rem;">
+            <input class="ipui-field__input" id="mbPresetName" type="text"
+                   placeholder=" " maxlength="120">
+            <label class="ipui-field__label" for="mbPresetName">Name this day</label>
+          </div>
+          <button class="ipui-btn" type="button" id="mbSavePreset">Save for reuse</button>
+        </div>
+        <p class="mb-status" id="mbStatus" role="status" aria-live="polite"></p>
+      </div>
+    </details>
 
     <!-- Clarification card: shown instead of a plan when the request is too
          vague to plan against. -->
@@ -968,6 +1114,221 @@
 {% endblock %}
 
 {% block scripts %}
+
+/* ════════════════════════════════════════════════════════
+   BUILD IT YOURSELF
+   ──────────────────────────────────────────────────────
+   Talks to intelliplan/api/manual_schedule.py. Everything is namespaced
+   into one object: base.html splices every page's script block into one
+   shared inline <script>, so a bare top-level name here can collide with
+   another template's and take this whole block down.
+
+   The server validates the same rules this does. That is deliberate, not
+   duplication — the endpoint is reachable without this page, and the
+   client-side pass exists so a student sees an overlap while they are
+   looking at the row rather than after pressing Build.
+   ════════════════════════════════════════════════════════ */
+window.IPManual = (function () {
+  'use strict';
+
+  var els = {};
+  var busy = false;
+
+  function ui(id) { return document.getElementById(id); }
+
+  function say(message, kind) {
+    if (!els.status) return;
+    els.status.textContent = message || '';
+    els.status.classList.toggle('is-error', kind === 'error');
+    els.status.classList.toggle('is-ok', kind === 'ok');
+  }
+
+  function api(path, opts) {
+    return fetch(path, Object.assign({
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' }
+    }, opts || {})).then(function (r) {
+      return r.json().catch(function () { return {}; })
+        .then(function (body) { return { ok: r.ok, status: r.status, body: body }; });
+    });
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  /* ── Saved days ── */
+  function renderPresets(list) {
+    if (!list.length) {
+      els.presets.innerHTML =
+        '<span class="mb-presets__empty">None yet. Build a day below, then save it.</span>';
+      return;
+    }
+    els.presets.innerHTML = list.map(function (p) {
+      var h = Math.floor(p.total_minutes / 60), m = p.total_minutes % 60;
+      return '<span class="mb-preset">' +
+        '<button class="mb-preset__use" type="button" data-use="' + p.id + '">' +
+          esc(p.name) +
+          ' <span class="mb-preset__meta">' + p.block_count + ' blocks · ' +
+            h + 'h' + (m ? ' ' + m + 'm' : '') + '</span>' +
+        '</button>' +
+        '<button class="mb-preset__del" type="button" data-del="' + p.id + '" ' +
+                'aria-label="Delete ' + esc(p.name) + '">✕</button>' +
+      '</span>';
+    }).join('');
+  }
+
+  function loadPresets() {
+    return api('/api/scheduler/manual/presets').then(function (r) {
+      window.IPManual._presets = (r.body && r.body.presets) || [];
+      renderPresets(window.IPManual._presets);
+    });
+  }
+
+  function usePreset(id) {
+    var p = (window.IPManual._presets || []).filter(function (x) {
+      return String(x.id) === String(id);
+    })[0];
+    if (!p) return;
+    IPUI.get(els.slots).set(p.blocks);
+    els.presetName.value = p.name;
+    say('Loaded “' + p.name + '”. Pick the days to put it on.');
+  }
+
+  function deletePreset(id) {
+    IP.confirm('This only deletes the saved shape. Any plan you already built from it stays.',
+      { title: 'Delete this saved day?', confirmLabel: 'Delete', danger: true })
+      .then(function (ok) {
+        if (!ok) return;
+        api('/api/scheduler/manual/presets/' + id, { method: 'DELETE' })
+          .then(loadPresets);
+      });
+  }
+
+  /* ── Build ── */
+  function firstError(errors) {
+    if (!errors || !errors.length) return 'Something in this day cannot be scheduled.';
+    var e = errors[0];
+    return (e.date ? e.date + ': ' : '') + e.message;
+  }
+
+  function build() {
+    if (busy) return;
+    var dates = IPUI.get(els.dates).selected();
+    var blocks = IPUI.get(els.slots).blocks();
+
+    if (!dates.length) {
+      say('Pick at least one day to put this on.', 'error');
+      return;
+    }
+    if (!IPUI.get(els.slots).valid()) {
+      say('Fix the rows marked in red first.', 'error');
+      return;
+    }
+
+    busy = true;
+    els.build.disabled = true;
+    say('Building…');
+
+    api('/api/scheduler/manual/build', {
+      method: 'POST',
+      body: JSON.stringify({
+        save: true,
+        days: dates.map(function (d) { return { date: d, blocks: blocks }; })
+      })
+    }).then(function (r) {
+      busy = false;
+      els.build.disabled = false;
+      if (!r.ok) {
+        say(firstError(r.body.errors) || r.body.message, 'error');
+        return;
+      }
+      say(r.body.data.summary, 'ok');
+      /* Hand the plan to the page's own renderer rather than reloading —
+         the generated and the hand-built plan are the same shape, so
+         everything downstream already knows how to draw this. */
+      if (typeof renderSchedule === 'function') {
+        _lastScheduleData = r.body.data;
+        renderSchedule(r.body.data);
+        var panel = ui('savePanel');
+        if (panel) panel.style.display = 'flex';
+      }
+      IP.toast('Plan saved. It is on your dashboard.', 'success');
+    });
+  }
+
+  function savePreset() {
+    var name = (els.presetName.value || '').trim();
+    if (!name) {
+      say('Give this day a name so you can find it again.', 'error');
+      els.presetName.focus();
+      return;
+    }
+    if (!IPUI.get(els.slots).valid()) {
+      say('Fix the rows marked in red first.', 'error');
+      return;
+    }
+    api('/api/scheduler/manual/presets', {
+      method: 'POST',
+      body: JSON.stringify({ name: name, blocks: IPUI.get(els.slots).blocks() })
+    }).then(function (r) {
+      if (!r.ok) {
+        say(firstError(r.body.errors) || r.body.message, 'error');
+        return;
+      }
+      say(r.body.replaced ? 'Updated “' + name + '”.' : 'Saved “' + name + '”.', 'ok');
+      loadPresets();
+    });
+  }
+
+  function init() {
+    els = {
+      panel: ui('manualPanel'), dates: ui('mbDates'), slots: ui('mbSlots'),
+      add: ui('mbAdd'), build: ui('mbBuild'), presets: ui('mbPresets'),
+      presetName: ui('mbPresetName'), savePreset: ui('mbSavePreset'),
+      status: ui('mbStatus')
+    };
+    if (!els.panel) return;
+
+    /* ip-ui.js mounts on DOMContentLoaded too, and the order between two
+       deferred scripts is not something to rely on. Mounting here is
+       idempotent, so this just guarantees the instances exist. */
+    if (window.IPUI) IPUI.mount(els.panel);
+
+    els.add.addEventListener('click', function () { IPUI.get(els.slots).add(); });
+    els.build.addEventListener('click', build);
+    els.savePreset.addEventListener('click', savePreset);
+
+    els.presets.addEventListener('click', function (e) {
+      var use = e.target.closest('[data-use]');
+      var del = e.target.closest('[data-del]');
+      if (use) usePreset(use.getAttribute('data-use'));
+      if (del) deletePreset(del.getAttribute('data-del'));
+    });
+
+    /* Today is preselected: the overwhelmingly common case is "plan
+       tonight", and an empty selection that silently refuses to build is
+       a worse first impression than one the student can untick. */
+    IPUI.get(els.dates).select([IPUI.get(els.dates).today]);
+
+    /* Only fetch saved days once the panel is actually opened — this
+       panel is collapsed on every scheduler load, and most students
+       never open it. */
+    els.panel.addEventListener('toggle', function () {
+      if (els.panel.open && !window.IPManual._loaded) {
+        window.IPManual._loaded = true;
+        loadPresets();
+      }
+    });
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
+
+  return { _presets: [], _loaded: false, reload: loadPresets };
+})();
 
 /* ════════════════════════════════════════════════════════
    SCHEDULER STATE

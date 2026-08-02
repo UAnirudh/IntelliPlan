@@ -644,6 +644,49 @@ class SchedulerPreset(db.Model):
         }
 
 
+class ManualPlanPreset(db.Model):
+    """A hand-built day, saved to be laid down again.
+
+    Distinct from SchedulerPreset above, which remembers the *answers* a
+    student gave about one vague task. This remembers a whole shape of a
+    day — "Weekday evening", "Saturday catch-up" — as a list of blocks
+    with clock times and no dates. Applying it stamps those times onto a
+    date the student picks.
+
+    Dateless on purpose: a preset is a routine, and a routine that
+    remembered it was authored on the 14th would be useless on the 15th.
+    """
+    __tablename__ = "manual_plan_presets"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    guest_session_id = db.Column(db.String(64), nullable=True, index=True)
+    name = db.Column(db.String(120), nullable=False, default="My day")
+    blocks_json = db.Column(db.Text, nullable=False, default="[]")
+    times_used = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_used_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def blocks(self):
+        try:
+            v = json.loads(self.blocks_json or "[]")
+            return v if isinstance(v, list) else []
+        except (TypeError, ValueError):
+            return []
+
+    def to_dict(self):
+        blocks = self.blocks()
+        return {
+            "id": self.id,
+            "name": self.name,
+            "blocks": blocks,
+            "block_count": len(blocks),
+            "total_minutes": sum(int(b.get("duration_minutes") or 0) for b in blocks),
+            "times_used": self.times_used or 0,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_used_at": self.last_used_at.isoformat() if self.last_used_at else None,
+        }
+
+
 class DayArchive(db.Model):
     """Day-by-day snapshots — schedules, resources, notes, and anything else."""
     __tablename__ = "day_archives"
@@ -14112,6 +14155,8 @@ app.intelliplan_study_group_model = StudyGroup
 app.intelliplan_study_group_member_model = StudyGroupMember
 app.intelliplan_study_group_task_model = StudyGroupTask
 app.intelliplan_voice_seat_model = VoiceSeat
+app.intelliplan_manual_preset_model = ManualPlanPreset
+app.intelliplan_saved_schedule_model = SavedSchedule
 app.intelliplan_api_key_model = ApiKey
 from intelliplan_api import api_bp as intelliplan_api_bp, api_rate_limit_key, api_rate_limit_value
 app.register_blueprint(intelliplan_api_bp)
@@ -14137,11 +14182,13 @@ from intelliplan.api.lms_sync import bp as lms_sync_bp
 from intelliplan.api.roles import bp as roles_bp
 from intelliplan.api.group_tasks import bp as group_tasks_bp
 from intelliplan.api.group_voice import bp as group_voice_bp
+from intelliplan.api.manual_schedule import bp as manual_schedule_bp
 app.register_blueprint(grade_prediction_bp)
 app.register_blueprint(lms_sync_bp)
 app.register_blueprint(roles_bp)
 app.register_blueprint(group_tasks_bp)
 app.register_blueprint(group_voice_bp)
+app.register_blueprint(manual_schedule_bp)
 # The voice heartbeat runs every 12 seconds per person in a room, so the
 # default per-IP budget would throttle a household with two students in
 # the same call. Its own limit is sized to the poll, not to page loads.

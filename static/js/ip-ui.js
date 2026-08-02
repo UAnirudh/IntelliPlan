@@ -834,6 +834,251 @@
     return inst;
   }
 
+  /* ═══ Date strip ══════════════════════════════════════════════════
+     Markup:
+       <div class="ipui-dates" data-ipui="dates" data-days="14"
+            data-name="plan_date"></div>
+
+     Built here rather than server-side: the range starts at *today*, and
+     a server-rendered strip would be a day stale for anyone who left the
+     tab open overnight — the most common way this page is used.
+
+     inst.selected() returns ISO dates in ascending order. */
+  function mountDates(root) {
+    if (root.__ipui) return root.__ipui;
+
+    var count = Math.min(60, Math.max(1, numAttr(root, 'data-days', 14)));
+    var name = attr(root, 'data-name', 'plan_date');
+    var inst = { el: root };
+
+    /* Local midnight, not UTC. `new Date().toISOString()` rolls the date
+       over for anyone west of Greenwich in the evening, which would show
+       tomorrow's strip and stamp blocks onto the wrong day. */
+    function isoLocal(d) {
+      return d.getFullYear() + '-' +
+        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+        String(d.getDate()).padStart(2, '0');
+    }
+
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var todayIso = isoLocal(today);
+
+    var html = '';
+    for (var i = 0; i < count; i++) {
+      var d = new Date(today);
+      d.setDate(today.getDate() + i);
+      var iso = isoLocal(d);
+      html +=
+        '<label class="ipui-dates__day' + (iso === todayIso ? ' is-today' : '') + '">' +
+          '<input type="checkbox" name="' + name + '" value="' + iso + '">' +
+          '<span class="ipui-dates__dow">' +
+            d.toLocaleDateString(undefined, { weekday: 'short' }) + '</span>' +
+          '<span class="ipui-dates__num">' + d.getDate() + '</span>' +
+          '<span class="ipui-dates__mon">' +
+            d.toLocaleDateString(undefined, { month: 'short' }) + '</span>' +
+        '</label>';
+    }
+    root.innerHTML = html;
+    root.setAttribute('role', 'group');
+
+    root.addEventListener('change', function () {
+      emit(root, 'dates', { selected: inst.selected() });
+    });
+
+    inst.selected = function () {
+      return Array.prototype.map.call(
+        root.querySelectorAll('input:checked'), function (i) { return i.value; }).sort();
+    };
+    inst.select = function (isoList) {
+      var want = {};
+      (isoList || []).forEach(function (d) { want[d] = true; });
+      Array.prototype.forEach.call(root.querySelectorAll('input'), function (i) {
+        i.checked = !!want[i.value];
+      });
+      emit(root, 'dates', { selected: inst.selected() });
+    };
+    inst.today = todayIso;
+
+    root.__ipui = inst;
+    return inst;
+  }
+
+  /* ═══ Slot picker ═════════════════════════════════════════════════
+     Markup:
+       <div class="ipui-slots" data-ipui="slots"></div>
+
+     Rows are added by inst.add() or by the page's own "add block"
+     control. inst.blocks() reads them back in the shape
+     intelliplan/api/manual_schedule.py expects.
+
+     The client checks overlap so the student sees it while typing, but
+     the server checks it again and is the authority — the same endpoint
+     is reachable without this page. */
+  function mountSlots(root) {
+    if (root.__ipui) return root.__ipui;
+
+    var inst = { el: root };
+
+    function rowHtml(b) {
+      b = b || {};
+      return '<div class="ipui-slot' + (b.is_break ? ' is-break' : '') + '">' +
+        '<span class="ipui-slot__times">' +
+          '<input class="ipui-slot__time" type="time" data-f="start" ' +
+                 'aria-label="Start time" value="' + escapeHtml(b.start || '17:00') + '">' +
+          '<span class="ipui-slot__dash" aria-hidden="true">–</span>' +
+          '<input class="ipui-slot__time" type="time" data-f="end" ' +
+                 'aria-label="End time" value="' + escapeHtml(b.end || '18:00') + '">' +
+        '</span>' +
+        '<span class="ipui-slot__body">' +
+          '<input class="ipui-slot__title" data-f="assignment" aria-label="What are you working on" ' +
+                 'placeholder="What are you working on?" maxlength="200" ' +
+                 'value="' + escapeHtml(b.assignment || '') + '">' +
+          '<input class="ipui-slot__course" data-f="course" aria-label="Course" ' +
+                 'placeholder="Course (optional)" maxlength="120" ' +
+                 'value="' + escapeHtml(b.course || '') + '">' +
+        '</span>' +
+        '<span class="ipui-slot__tools">' +
+          '<button class="ipui-slot__tool" type="button" data-act="break" ' +
+                  'aria-pressed="' + (b.is_break ? 'true' : 'false') + '" ' +
+                  'title="Mark as a break" aria-label="Mark as a break">☕</button>' +
+          '<button class="ipui-slot__tool is-remove" type="button" data-act="remove" ' +
+                  'title="Remove this block" aria-label="Remove this block">✕</button>' +
+        '</span>' +
+        '<p class="ipui-slot__error" hidden></p>' +
+      '</div>';
+    }
+
+    function rows() {
+      return Array.prototype.slice.call(root.querySelectorAll('.ipui-slot'));
+    }
+
+    function read(row) {
+      function f(name) {
+        var el = row.querySelector('[data-f="' + name + '"]');
+        return el ? el.value.trim() : '';
+      }
+      return {
+        start: f('start'),
+        end: f('end'),
+        assignment: f('assignment'),
+        course: f('course'),
+        is_break: row.querySelector('[data-act="break"]')
+          .getAttribute('aria-pressed') === 'true'
+      };
+    }
+
+    function toMinutes(hhmm) {
+      var m = /^(\d{1,2}):(\d{2})$/.exec(hhmm || '');
+      if (!m) return null;
+      var h = +m[1], mm = +m[2];
+      if (h > 23 || mm > 59) return null;
+      return h * 60 + mm;
+    }
+
+    /* Validation that runs as they type. It mirrors the server's rules
+       rather than replacing them — the point is that a student finds out
+       about an overlap while looking at the row, not after pressing
+       Build. */
+    function validate() {
+      var parsed = rows().map(function (row) {
+        var b = read(row);
+        return { row: row, b: b, s: toMinutes(b.start), e: toMinutes(b.end) };
+      });
+
+      parsed.forEach(function (p) {
+        var msg = '';
+        if (p.s === null || p.e === null) msg = 'Needs a start and an end time.';
+        else if (p.e <= p.s) msg = 'Ends before it starts.';
+        else if (!p.b.assignment && !p.b.is_break) msg = 'Give this block a name.';
+        p.msg = msg;
+      });
+
+      var ordered = parsed.filter(function (p) { return !p.msg; })
+                          .sort(function (a, b) { return a.s - b.s; });
+      for (var i = 1; i < ordered.length; i++) {
+        if (ordered[i].s < ordered[i - 1].e) {
+          ordered[i].msg = 'Overlaps “' +
+            (ordered[i - 1].b.assignment || 'the block before it') + '”.';
+        }
+      }
+
+      parsed.forEach(function (p) {
+        var err = p.row.querySelector('.ipui-slot__error');
+        p.row.classList.toggle('is-invalid', !!p.msg);
+        err.hidden = !p.msg;
+        err.textContent = p.msg || '';
+      });
+
+      var ok = parsed.every(function (p) { return !p.msg; }) && parsed.length > 0;
+      emit(root, 'slots', { valid: ok, count: parsed.length });
+      return ok;
+    }
+
+    root.addEventListener('input', validate);
+    root.addEventListener('click', function (e) {
+      var act = e.target.closest('[data-act]');
+      if (!act) return;
+      var row = act.closest('.ipui-slot');
+      if (act.getAttribute('data-act') === 'remove') {
+        row.remove();
+        if (!rows().length) inst.add();
+        validate();
+        return;
+      }
+      if (act.getAttribute('data-act') === 'break') {
+        var on = act.getAttribute('aria-pressed') !== 'true';
+        act.setAttribute('aria-pressed', on ? 'true' : 'false');
+        row.classList.toggle('is-break', on);
+        validate();
+      }
+    });
+
+    inst.add = function (block) {
+      /* Default the new row to start where the last one ended. Building a
+         day is a sequence, and retyping the same time you just entered on
+         the row above is the friction that makes people give up on manual
+         schedulers. */
+      if (!block) {
+        var last = rows()[rows().length - 1];
+        if (last) {
+          var prev = read(last);
+          var end = toMinutes(prev.end);
+          if (end !== null) {
+            var s = end, e = Math.min(23 * 60 + 59, end + 60);
+            block = {
+              start: String(Math.floor(s / 60)).padStart(2, '0') + ':' +
+                     String(s % 60).padStart(2, '0'),
+              end: String(Math.floor(e / 60)).padStart(2, '0') + ':' +
+                   String(e % 60).padStart(2, '0')
+            };
+          }
+        }
+      }
+      root.insertAdjacentHTML('beforeend', rowHtml(block));
+      validate();
+      var added = rows()[rows().length - 1];
+      var title = added.querySelector('[data-f="assignment"]');
+      if (title && !(block && block.assignment)) title.focus();
+      return added;
+    };
+
+    inst.set = function (blocks) {
+      root.innerHTML = (blocks || []).map(rowHtml).join('');
+      if (!rows().length) inst.add({});
+      validate();
+    };
+
+    inst.blocks = function () { return rows().map(read); };
+    inst.valid = validate;
+
+    if (!rows().length) inst.add({ assignment: '' });
+    validate();
+
+    root.__ipui = inst;
+    return inst;
+  }
+
   /* ═══ Registry + mounting ═════════════════════════════════════════ */
   api.components = {
     split: mountSplit,
@@ -841,7 +1086,9 @@
     save: mountSave,
     morph: mountMorph,
     slider: mountSlider,
-    voice: mountVoice
+    voice: mountVoice,
+    dates: mountDates,
+    slots: mountSlots
   };
 
   api.get = function (el) { return el ? el.__ipui || null : null; };
