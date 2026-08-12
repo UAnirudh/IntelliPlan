@@ -56,6 +56,53 @@ def apply_command_center_migrations(db: Any) -> list[str]:
     return sorted(target & existing)
 
 
+def apply_active_session_migrations(db: Any) -> list[str]:
+    """Ensure Active-study tables exist and carry their indexes.
+
+    ``create_all`` handles the tables. The explicit index check exists
+    because an instance that ran an earlier build of this feature has the
+    tables but not the composite indexes, and the session-history read on
+    the Active page is a per-user, time-ordered scan that is genuinely slow
+    without them once a student has a few hundred sittings.
+    """
+
+    inspector = inspect(db.engine)
+    existing = set(inspector.get_table_names())
+    target = {"active_sessions", "active_focus_samples"}
+    db.create_all()
+
+    wanted = {
+        "active_sessions": [
+            ("ix_active_sessions_user_started", "active_sessions (user_id, started_at)"),
+            ("ix_active_sessions_state", "active_sessions (state)"),
+        ],
+        "active_focus_samples": [
+            (
+                "ix_focus_samples_session_offset",
+                "active_focus_samples (session_id, offset_seconds)",
+            ),
+        ],
+    }
+    for table, indexes in wanted.items():
+        try:
+            present = {ix["name"] for ix in inspect(db.engine).get_indexes(table)}
+        except Exception:
+            continue
+        for name, definition in indexes:
+            if name in present:
+                continue
+            try:
+                db.session.execute(
+                    text(f"CREATE INDEX IF NOT EXISTS {name} ON {definition}")
+                )
+            except Exception:
+                # A backend that rejects IF NOT EXISTS, or a race with
+                # another worker booting, is not worth failing startup over.
+                db.session.rollback()
+    db.session.commit()
+    return sorted(target & existing)
+
+
 def apply_learning_graph_migrations(db: Any) -> list[str]:
     """Ensure Learning Graph tables exist.
 

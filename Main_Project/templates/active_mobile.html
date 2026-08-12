@@ -1,0 +1,450 @@
+{% extends "base.html" %}
+{% block page_title %}Active | IntelliPlan — Do the work{% endblock %}
+{% block meta_description %}Run a focused study session on your phone. Session timer, goals, break prompts, and an optional on-device focus check-in that never uploads video.{% endblock %}
+
+{% block head_extra %}
+<!-- Scripts load here, not in the scripts block: that block is interpolated
+     *inside* an existing script element in base.html, so a script tag placed
+     there closes the outer element early and the rest of the page's
+     JavaScript dies with "Unexpected token '<'".
+     (Jinja parses its tags inside HTML comments too, so this note spells the
+     block name out instead of quoting it.) -->
+<script src="{{ url_for('static', filename='js/ip-focus.js') }}?v={{ asset_v }}" defer></script>
+<script src="{{ url_for('static', filename='js/ip-active.js') }}?v={{ asset_v }}" defer></script>
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   ACTIVE — PHONE LAYOUT
+
+   Not the desktop page at a narrower width. A phone changes three things
+   about this screen, and each one changes the layout rather than the
+   dimensions:
+
+   1. **Reach.** The primary actions live in a fixed bar at the bottom,
+      inside the thumb arc. On desktop they sit under the timer because a
+      mouse has no reach constraint; here, controls in the middle of a
+      6-inch screen mean a hand shuffle every time you pause.
+   2. **One thing at a time.** There is no room for the timer, the
+      reasoning, the focus toggle, and the finish form at once, so the
+      supporting material collapses behind disclosures and the timer owns
+      the viewport.
+   3. **No hover.** Every affordance is legible at rest and every state
+      change is driven by :active or aria-*, never :hover.
+
+   Element ids match the desktop template exactly — one shared controller
+   in ip-active.js drives both.
+   ══════════════════════════════════════════════════════════════════ */
+
+.ipa-shell {
+  /* The bottom bar is fixed, so the scroll area reserves its height plus
+     the home-indicator inset. Without this the last control sits under
+     the bar and cannot be tapped. */
+  --ipa-bar-h: 76px;
+  padding: 1rem .9rem calc(var(--ipa-bar-h) + env(safe-area-inset-bottom, 0px) + 1.5rem);
+  min-height: 100dvh;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+/* ── Empty ── */
+.ipa-empty { text-align: center; padding: 3rem .75rem; color: var(--text-secondary); }
+.ipa-empty h1 {
+  font-family: var(--font-display);
+  font-size: var(--fs-xl); font-weight: 400;
+  letter-spacing: var(--tr-xl); color: var(--text-primary);
+  margin: 0 0 .5rem;
+}
+.ipa-empty p { margin: 0 auto 1.5rem; font-size: var(--fs-sm); max-width: 34ch; }
+
+/* ── Card ── */
+.ipa-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.1rem 1rem 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.ipa-eyebrow {
+  display: flex; align-items: center; gap: .45rem;
+  font-size: var(--fs-micro); font-weight: 700;
+  letter-spacing: var(--tr-label); text-transform: uppercase;
+  color: var(--text-muted); margin-bottom: .5rem;
+}
+.ipa-course-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
+
+.ipa-title {
+  font-family: var(--font-display);
+  /* Long assignment titles are the norm, not the exception. Wrapping to
+     three lines is fine; truncating the name of the thing you are about
+     to work on is not. */
+  font-size: var(--fs-md); font-weight: 400;
+  line-height: var(--lh-snug); letter-spacing: var(--tr-md);
+  color: var(--text-primary); margin: 0 0 .25rem;
+  overflow-wrap: anywhere;
+}
+.ipa-part { font-size: var(--fs-xs); color: var(--text-muted); margin: 0 0 .75rem; }
+
+/* ── Why this, now — collapsed by default on a phone ── */
+.ipa-reasons-wrap { margin: 0 0 1rem; }
+.ipa-reasons-toggle {
+  width: 100%; min-height: 44px;
+  display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  background: var(--accent-soft);
+  border: 1px solid var(--border-accent);
+  border-radius: 10px;
+  padding: .55rem .8rem;
+  font-family: var(--font-ui); font-size: var(--fs-xs); font-weight: 600;
+  color: var(--text-secondary); cursor: pointer; text-align: left;
+}
+.ipa-reasons-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ipa-reasons-toggle .ipa-chev { transition: transform var(--dur-fast, 180ms) var(--ease-swift, ease-out); }
+.ipa-reasons-toggle[aria-expanded="true"] .ipa-chev { transform: rotate(180deg); }
+.ipa-reasons {
+  list-style: none; margin: .5rem 0 0; padding: 0 .3rem;
+}
+.ipa-reasons li {
+  font-size: var(--fs-xs); color: var(--text-secondary);
+  line-height: var(--lh-snug); padding: .3rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.ipa-reasons li:last-child { border-bottom: 0; }
+
+/* ── Timer: the largest thing on the screen ── */
+.ipa-timer-wrap {
+  display: flex; flex-direction: column; align-items: center;
+  gap: .5rem; margin: .5rem 0 1rem;
+}
+.ipa-ring {
+  position: relative;
+  /* Caps at 300px so it does not dominate a tablet-sized phone, and floors
+     at 200px so it stays readable on a 320px-wide device. */
+  width: min(74vw, 300px); height: min(74vw, 300px);
+  min-width: 200px; min-height: 200px;
+}
+.ipa-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ipa-ring-track { fill: none; stroke: var(--border-strong); stroke-width: 5; }
+.ipa-ring-fill {
+  fill: none; stroke: var(--accent); stroke-width: 5; stroke-linecap: round;
+  transition: stroke-dashoffset .4s var(--ease-swift, ease-out);
+}
+.ipa-ring[data-over="1"] .ipa-ring-fill { stroke: var(--medium, #c27a06); }
+
+.ipa-clock {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+}
+.ipa-clock-time {
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 2rem + 9vw, 4.25rem);
+  font-weight: 400; letter-spacing: -0.035em; line-height: 1;
+  color: var(--text-primary); font-variant-numeric: tabular-nums;
+}
+.ipa-clock-label {
+  font-size: var(--fs-micro); text-transform: uppercase;
+  letter-spacing: var(--tr-label); color: var(--text-muted); font-weight: 600;
+}
+.ipa-status { font-size: var(--fs-xs); color: var(--text-muted); text-align: center; margin: 0; }
+
+/* ── Buttons ── */
+.ipa-btn {
+  font-family: var(--font-ui); font-size: var(--fs-sm); font-weight: 600;
+  border-radius: 999px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--bg-card); color: var(--text-primary);
+  /* 48px, not 44: 44 is the documented floor, and a floor is a bad target
+     for the control someone taps while distracted and mid-session. */
+  min-height: 48px; padding: 0 1.1rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;      /* kills the 300ms double-tap delay */
+  transition: transform var(--dur-micro, 120ms) ease, background var(--dur-micro, 120ms) ease;
+}
+.ipa-btn:active { transform: scale(0.97); background: var(--bg-elevated); }
+.ipa-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ipa-btn:disabled, .ipa-btn[aria-disabled="true"] { opacity: .45; }
+.ipa-btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ipa-btn--ghost { border-color: transparent; background: transparent; color: var(--text-muted); }
+
+/* ── Fixed action bar, in the thumb arc ── */
+.ipa-controls {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: var(--z-sticky, 50);
+  display: flex; gap: .5rem; align-items: center;
+  padding: .7rem .9rem calc(.7rem + env(safe-area-inset-bottom, 0px));
+  background: var(--nav-bg, var(--bg-card));
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border-strong);
+}
+/* Buttons share the bar evenly, so the layout does not lurch when a
+   control appears or disappears mid-session. */
+.ipa-controls .ipa-btn { flex: 1 1 0; min-width: 0; padding: 0 .5rem; }
+.ipa-controls .ipa-btn[hidden] { display: none; }
+
+/* The empty state's call to action is in normal flow, not the bar. */
+.ipa-empty .ipa-btn { display: inline-flex; align-items: center; justify-content: center; }
+
+/* ── Focus check-in ── */
+.ipa-focus { margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.ipa-focus-row { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; }
+.ipa-focus-label { font-size: var(--fs-sm); font-weight: 600; color: var(--text-primary); }
+.ipa-focus-note {
+  font-size: var(--fs-micro); color: var(--text-muted);
+  margin: .3rem 0 0; line-height: var(--lh-snug);
+}
+.ipa-focus-state {
+  display: inline-flex; align-items: center; gap: .4rem; margin-top: .6rem;
+  font-size: var(--fs-micro); font-weight: 700;
+  text-transform: uppercase; letter-spacing: var(--tr-label); color: var(--text-muted);
+}
+.ipa-focus-pip { width: 9px; height: 9px; border-radius: 50%; background: var(--text-muted); }
+.ipa-focus-state[data-state="present"] .ipa-focus-pip { background: var(--low, #0a7558); }
+.ipa-focus-state[data-state="away"]    .ipa-focus-pip { background: var(--medium, #c27a06); }
+.ipa-focus-state[data-state="absent"]  .ipa-focus-pip { background: var(--high, #c62828); }
+
+.ipa-switch { position: relative; display: inline-flex; align-items: center; flex: none; }
+.ipa-switch input {
+  position: absolute; opacity: 0; margin: 0;
+  /* The invisible input *is* the hit area, so it is sized to the target,
+     not to the visible track. */
+  width: 56px; height: 44px; left: -6px; top: -9px;
+}
+.ipa-switch-track {
+  width: 46px; height: 28px; border-radius: 999px;
+  background: var(--toggle-bg); transition: background var(--dur-micro, 120ms) ease;
+}
+.ipa-switch-knob {
+  position: absolute; left: 3px; top: 3px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--toggle-knob);
+  transition: transform var(--dur-fast, 180ms) var(--ease-swift, ease-out);
+}
+.ipa-switch input:checked ~ .ipa-switch-track { background: var(--accent); }
+.ipa-switch input:checked ~ .ipa-switch-knob { transform: translateX(18px); background: #fff; }
+.ipa-switch input:focus-visible ~ .ipa-switch-track { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ── Nudge ── */
+.ipa-nudge {
+  margin-top: .9rem; padding: .75rem .85rem;
+  border-radius: 12px; background: var(--bg-elevated); border: 1px solid var(--border);
+  font-size: var(--fs-xs); color: var(--text-secondary);
+  display: flex; flex-direction: column; gap: .5rem;
+}
+.ipa-nudge[hidden] { display: none; }
+.ipa-nudge .ipa-btn { align-self: flex-end; min-height: 44px; }
+
+/* ── Finish sheet ── */
+.ipa-finish {
+  margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--border);
+}
+.ipa-finish[hidden] { display: none; }
+.ipa-field { margin-bottom: 1.1rem; }
+.ipa-field label {
+  display: flex; justify-content: space-between; gap: .5rem;
+  font-size: var(--fs-xs); font-weight: 600; color: var(--text-primary); margin-bottom: .5rem;
+}
+.ipa-range {
+  width: 100%; accent-color: var(--accent);
+  height: 44px;                    /* full-height track = easy drag */
+}
+/* Difficulty scale: five equal, thumb-sized targets.
+   Grid, not flex-wrap. With flex the row overflowed by a few pixels on a
+   375px screen, the fifth option wrapped alone, and flex-grow stretched it
+   to full width — so "Brutal" rendered four times the size of "Easy" and
+   read like the recommended answer. Grid columns are equal by
+   construction and cannot produce a stray full-width item. */
+.ipa-scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: .35rem; }
+.ipa-scale button {
+  min-width: 0;                    /* let a grid cell shrink below its text */
+  min-height: 48px;
+  padding: 0 .15rem;
+  border-radius: 10px; border: 1.5px solid var(--border-strong);
+  background: var(--bg-card); color: var(--text-secondary);
+  font-family: var(--font-ui); font-size: var(--fs-xs); font-weight: 600;
+  cursor: pointer; touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.ipa-scale button:active { transform: scale(0.97); }
+/* Below ~360px five columns put the labels under a legible size, so drop
+   to a 3+2 grid. Still equal widths — the rows differ, the buttons don't. */
+@media (max-width: 359px) {
+  .ipa-scale { grid-template-columns: repeat(3, 1fr); }
+}
+.ipa-scale button[aria-pressed="true"] {
+  border-color: var(--accent); background: var(--accent-soft); color: var(--accent);
+}
+.ipa-finish-actions { display: flex; flex-direction: column; gap: .5rem; }
+.ipa-finish-actions .ipa-btn { width: 100%; }
+
+/* ── Learned ── */
+.ipa-learned {
+  margin-top: 1rem; padding: .85rem .9rem;
+  border-radius: 12px; background: var(--accent-soft); border: 1px solid var(--border-accent);
+  font-size: var(--fs-xs); color: var(--text-secondary);
+}
+.ipa-learned[hidden] { display: none; }
+
+.ipa-upnext { margin-top: 1.5rem; }
+.ipa-upnext h2 {
+  font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: var(--tr-label);
+  color: var(--text-muted); font-weight: 700; margin: 0 0 .5rem;
+}
+
+/* Landscape on a phone leaves almost no vertical room; shrink the ring
+   rather than pushing the controls off-screen. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .ipa-ring { width: min(38vw, 190px); height: min(38vw, 190px); min-width: 150px; min-height: 150px; }
+  .ipa-clock-time { font-size: 2.25rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ipa-ring-fill, .ipa-switch-knob, .ipa-btn, .ipa-reasons-toggle .ipa-chev { transition: none; }
+  .ipa-btn:active, .ipa-scale button:active { transform: none; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ipa-shell">
+
+  <section class="ipa-empty" id="ipaEmpty">
+    <h1>Active</h1>
+    <p id="ipaEmptyMsg">Loading your next session…</p>
+    <a class="ipa-btn ipa-btn--primary" href="/scheduler" id="ipaEmptyCta" hidden>Build a schedule</a>
+  </section>
+
+  <section class="ipa-card" id="ipaCard" hidden aria-live="polite">
+    <div class="ipa-eyebrow">
+      <span class="ipa-course-dot" aria-hidden="true"></span>
+      <span id="ipaCourse">Study</span>
+      <span aria-hidden="true">·</span>
+      <span id="ipaDue"></span>
+    </div>
+
+    <h1 class="ipa-title" id="ipaTitle">Session</h1>
+    <p class="ipa-part" id="ipaPart" hidden></p>
+
+    <div class="ipa-reasons-wrap">
+      <button type="button" class="ipa-reasons-toggle" id="ipaReasonsToggle"
+              aria-expanded="false" aria-controls="ipaReasons" hidden>
+        <span>Why this, now</span>
+        <span class="ipa-chev" aria-hidden="true">⌄</span>
+      </button>
+      <ul class="ipa-reasons" id="ipaReasons" hidden></ul>
+    </div>
+
+    <div class="ipa-timer-wrap">
+      <div class="ipa-ring" id="ipaRing" role="timer" aria-label="Session timer">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="ipa-ring-track" cx="60" cy="60" r="54"></circle>
+          <circle class="ipa-ring-fill" id="ipaRingFill" cx="60" cy="60" r="54"
+                  stroke-dasharray="339.29" stroke-dashoffset="339.29"></circle>
+        </svg>
+        <div class="ipa-clock">
+          <span class="ipa-clock-time" id="ipaClock">00:00</span>
+          <span class="ipa-clock-label" id="ipaClockLabel">of 0 min</span>
+        </div>
+      </div>
+      <p class="ipa-status" id="ipaStatus"></p>
+    </div>
+
+    <div class="ipa-nudge" id="ipaNudge" hidden>
+      <span id="ipaNudgeText"></span>
+      <button type="button" class="ipa-btn ipa-btn--ghost" id="ipaNudgeDismiss">Dismiss</button>
+    </div>
+
+    <div class="ipa-focus">
+      <div class="ipa-focus-row">
+        <div>
+          <span class="ipa-focus-label">Focus check-in</span>
+          <p class="ipa-focus-note" id="ipaFocusNote">
+            Optional. Uses your camera on this device only to estimate whether you're still there.
+            Nothing is recorded or uploaded, and it stays quiet unless you've clearly been away.
+          </p>
+        </div>
+        <label class="ipa-switch" for="ipaFocusToggle">
+          <input type="checkbox" id="ipaFocusToggle" aria-describedby="ipaFocusNote">
+          <span class="ipa-switch-track" aria-hidden="true"></span>
+          <span class="ipa-switch-knob" aria-hidden="true"></span>
+        </label>
+      </div>
+      <p class="ipa-focus-state" id="ipaFocusState" data-state="unknown" hidden>
+        <span class="ipa-focus-pip" aria-hidden="true"></span>
+        <span id="ipaFocusStateText">Not tracking</span>
+      </p>
+    </div>
+
+    <div class="ipa-finish" id="ipaFinish" hidden>
+      <div class="ipa-field">
+        <label for="ipaProgress">
+          <span>How far did you get?</span>
+          <span id="ipaProgressValue">100%</span>
+        </label>
+        <input class="ipa-range" type="range" id="ipaProgress" min="0" max="100" step="5" value="100">
+      </div>
+      <div class="ipa-field">
+        <label id="ipaDiffLabel"><span>How hard was it?</span></label>
+        <div class="ipa-scale" role="group" aria-labelledby="ipaDiffLabel" id="ipaDifficulty">
+          <button type="button" data-value="1" aria-pressed="false">Easy</button>
+          <button type="button" data-value="2" aria-pressed="false">Light</button>
+          <button type="button" data-value="3" aria-pressed="false">Fair</button>
+          <button type="button" data-value="4" aria-pressed="false">Hard</button>
+          <button type="button" data-value="5" aria-pressed="false">Brutal</button>
+        </div>
+      </div>
+      <div class="ipa-finish-actions">
+        <button type="button" class="ipa-btn ipa-btn--primary" id="ipaFinishSave">Save and finish</button>
+        <button type="button" class="ipa-btn ipa-btn--ghost" id="ipaFinishCancel">Keep working</button>
+      </div>
+    </div>
+
+    <div class="ipa-learned" id="ipaLearned" hidden></div>
+  </section>
+
+  <section class="ipa-upnext" id="ipaUpNext" hidden>
+    <h2>After this</h2>
+    <p class="ipa-status" id="ipaUpNextText"></p>
+  </section>
+</div>
+
+<!-- Fixed thumb-zone bar. The controller shows and hides these; the bar
+     itself stays put so the page never reflows mid-session. -->
+<div class="ipa-controls" id="ipaControlBar">
+  <button type="button" class="ipa-btn ipa-btn--primary" id="ipaStart">Start</button>
+  <button type="button" class="ipa-btn" id="ipaPause" hidden>Pause</button>
+  <button type="button" class="ipa-btn ipa-btn--primary" id="ipaDone" hidden>Done</button>
+  <button type="button" class="ipa-btn ipa-btn--ghost" id="ipaQuit" hidden>Stop</button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+/* Phone-only behaviour. Everything else is in ip-active.js, shared with
+   the desktop template. */
+(function () {
+  'use strict';
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var toggle = document.getElementById('ipaReasonsToggle');
+    var list = document.getElementById('ipaReasons');
+    if (!toggle || !list) return;
+
+    toggle.addEventListener('click', function () {
+      var open = toggle.getAttribute('aria-expanded') === 'true';
+      toggle.setAttribute('aria-expanded', String(!open));
+      list.hidden = open;
+    });
+
+    /* The shared controller fills the list and unhides it. On a phone the
+     * reasons start collapsed behind the disclosure, so watch for the
+     * controller's write and re-hide the list while revealing the button.
+     * A MutationObserver rather than a controller callback keeps the phone
+     * layout's quirks out of the shared code. */
+    new MutationObserver(function () {
+      var hasReasons = list.children.length > 0;
+      toggle.hidden = !hasReasons;
+      if (hasReasons && toggle.getAttribute('aria-expanded') !== 'true') list.hidden = true;
+    }).observe(list, { childList: true });
+  });
+})();
+{% endblock %}

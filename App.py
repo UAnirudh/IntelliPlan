@@ -15,6 +15,7 @@ import requests
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
+import time
 from time_utils import utcnow
 from studentvue_helper import (
     test_login,
@@ -1639,9 +1640,19 @@ def apply_study_schema_migrations():
 # the App.py namespace for the upcoming /api/today handler.
 from intelliplan.models import command_center as _cc_models
 from intelliplan.models import learning_graph as _lg_models
-from intelliplan.migrations import apply_command_center_migrations, apply_learning_graph_migrations, apply_media_balance_migrations
+from intelliplan.models import active_session as _as_models
+from intelliplan.migrations import (
+    apply_active_session_migrations,
+    apply_command_center_migrations,
+    apply_learning_graph_migrations,
+    apply_media_balance_migrations,
+)
 BriefingCache, HealthSnapshot, StudentSignal = _cc_models.register(db)
 StudentProfile, ConceptMastery, LearningEvent = _lg_models.register(db)
+# Active study sessions — the table the scheduler's estimation model learns
+# from. See intelliplan/models/active_session.py for the privacy contract
+# covering the focus-sample rows.
+ActiveSession, ActiveFocusSample = _as_models.register(db)
 
 with app.app_context():
     db.create_all()
@@ -1649,6 +1660,7 @@ with app.app_context():
     apply_media_balance_migrations(db)
     apply_command_center_migrations(db)
     apply_learning_graph_migrations(db)
+    apply_active_session_migrations(db)
 
 print([str(r) for r in app.url_map.iter_rules() if 'tutor' in str(r)])
 
@@ -1727,6 +1739,57 @@ def get_guest_session_id():
     if "guest_id" not in session:
         session["guest_id"] = str(uuid.uuid4())
     return session["guest_id"]
+
+
+# ── Plan cache ────────────────────────────────────────────────────────
+# Building a plan fits the student's estimation model over their history
+# and then runs the optimizer, which is cheap in absolute terms but not
+# free, and the scheduler page reads it on every navigation. Cache per
+# identity, and — this is the load-bearing half — invalidate the moment a
+# study session ends, because "finishing a session changes the next plan"
+# is the entire promise of the feedback loop.
+
+_PLAN_CACHE = {}
+_PLAN_CACHE_TTL = 120          # seconds
+_PLAN_CACHE_MAX = 500          # bound the process's memory
+
+
+def _plan_cache_key(user_id, guest_id):
+    return f"u{user_id}" if user_id else (f"g{guest_id}" if guest_id else None)
+
+
+def get_cached_plan(user_id, guest_id):
+    """Return a cached plan payload, or None when absent or stale."""
+    key = _plan_cache_key(user_id, guest_id)
+    if not key:
+        return None
+    entry = _PLAN_CACHE.get(key)
+    if not entry:
+        return None
+    stamped, payload = entry
+    if (time.monotonic() - stamped) > _PLAN_CACHE_TTL:
+        _PLAN_CACHE.pop(key, None)
+        return None
+    return payload
+
+
+def set_cached_plan(user_id, guest_id, payload):
+    key = _plan_cache_key(user_id, guest_id)
+    if not key:
+        return payload
+    _PLAN_CACHE[key] = (time.monotonic(), payload)
+    overflow = len(_PLAN_CACHE) - _PLAN_CACHE_MAX
+    if overflow > 0:
+        for stale_key, _ in sorted(_PLAN_CACHE.items(), key=lambda kv: kv[1][0])[:overflow]:
+            _PLAN_CACHE.pop(stale_key, None)
+    return payload
+
+
+def invalidate_schedule_cache(user_id=None, guest_id=None):
+    """Drop one student's cached plan. Safe to call with nothing to drop."""
+    key = _plan_cache_key(user_id, guest_id)
+    if key:
+        _PLAN_CACHE.pop(key, None)
 
 def is_logged_in():
     if current_user.is_authenticated:
@@ -6811,8 +6874,197 @@ def api_save_assignment_due_date():
     save_custom_description(title, json.dumps(existing))
     return flask.jsonify({"status": "ok"})
 
+def _planner_task_rows(normalized_assignments, custom_tasks):
+    """Flatten assignments and free-text custom tasks into planner input.
+
+    Custom tasks carry no metadata at all — they are a title someone typed
+    — so they get neutral defaults and let the estimation model's kind-level
+    prior do the sizing. Inventing a due date for them would be worse than
+    having none: the planner treats a missing deadline as "no deadline
+    pressure", which is the truth, rather than as urgency we made up.
+    """
+    _KIND_WORDS = (
+        ("exam", ("exam", "final", "midterm")),
+        ("test", ("test", "quiz")),
+        ("project", ("project", "essay", "paper", "presentation", "report")),
+        ("lab", ("lab",)),
+        ("classwork", ("classwork", "worksheet", "notes")),
+    )
+
+    def kind_of(title, declared=""):
+        declared = (declared or "").strip().lower()
+        if declared in ("exam", "test", "project", "lab", "homework", "classwork"):
+            return declared
+        text = (title or "").lower()
+        for kind, words in _KIND_WORDS:
+            if any(w in text for w in words):
+                return kind
+        return "homework"
+
+    rows = []
+    for a in normalized_assignments:
+        title = a.get("title") or "Task"
+        rows.append({
+            "id": str(a.get("id") or a.get("source_ref") or title),
+            "title": title,
+            "course": a.get("course") or "",
+            "kind": kind_of(title, a.get("kind") or a.get("type")),
+            "due_date": a.get("due_date") or "",
+            "est_minutes": a.get("estimated_time"),
+            "difficulty": (a.get("difficulty") or "Medium").lower(),
+            "priority": _priority_score_for(a),
+            "points_possible": a.get("points_possible"),
+            "subtask_count": len(a.get("subtasks") or []),
+        })
+    for title in custom_tasks or []:
+        title = (title or "").strip()
+        if not title:
+            continue
+        rows.append({
+            "id": f"custom:{title}",
+            "title": title,
+            "course": "",
+            "kind": kind_of(title),
+            "due_date": "",
+            "difficulty": "medium",
+            "priority": 50,
+        })
+    return rows
+
+
+def _priority_score_for(assignment):
+    """Map the UI's three-level priority onto the planner's 0..100 scale.
+
+    Deliberately not a bare 30/50/80 lookup: an assignment worth a large
+    share of the grade matters more than one that is not, whatever bucket
+    the label puts it in.
+    """
+    base = {"high": 80, "medium": 50, "low": 30}.get(
+        str(assignment.get("priority") or "Medium").strip().lower(), 50
+    )
+    try:
+        points = float(assignment.get("points_possible") or 0)
+    except (TypeError, ValueError):
+        points = 0
+    if points >= 100:
+        base += 10
+    elif points >= 50:
+        base += 5
+    return max(0, min(100, base))
+
+
+def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
+                            availability, commitments, preferred_time, hours_per_day):
+    """Run the v2 planner and return ``schedule_data``, or None to fall back.
+
+    Returning None rather than raising is deliberate: if anything here is
+    wrong, the student gets the old AI path and a schedule, instead of an
+    error page. The failure is logged loudly so it does not stay hidden.
+    """
+    try:
+        from intelliplan.intelligence.planner import PlannerConfig
+        from intelliplan.services.scheduling import SchedulingService, StudentContext
+
+        rows = _planner_task_rows(normalized_assignments, custom_tasks)
+        if not rows:
+            return None
+
+        context = StudentContext(
+            availability=availability,
+            commitments=commitments,
+            preferred_time=preferred_time,
+            feedback_rows=_planner_feedback_rows(uid, gid),
+            session_rows=_planner_session_rows(uid, gid),
+            concept_mastery=_planner_concept_mastery(uid),
+        )
+        # The student's stated hours-per-day is a ceiling on comfort, not on
+        # capacity: their availability windows are the hard limit, and this
+        # sets how full those windows get before the optimizer starts
+        # charging for it.
+        config = PlannerConfig()
+        service = SchedulingService(context, config)
+        plan = service.plan(rows)
+        data = service.to_schedule_data(plan)
+
+        # Reuse the existing enrichment so the Interactive View, checklists,
+        # and redirects keep working exactly as they do on the AI path.
+        try:
+            data = enrich_schedule_data(
+                data, normalized_assignments, preferred_time, hours_per_day
+            )
+        except Exception as ee:
+            print(f"[planner] enrich_schedule_data failed (non-fatal): {ee}")
+        return data
+    except Exception as pe:
+        import traceback
+        print(f"[planner] v2 planning failed, falling back to AI path: {pe}")
+        traceback.print_exc()
+        return None
+
+
+def _planner_feedback_rows(uid, gid):
+    """``TaskFeedback`` rows the estimation model fits on."""
+    try:
+        query = TaskFeedback.query
+        if uid:
+            query = query.filter(TaskFeedback.user_id == uid)
+        elif gid:
+            query = query.filter(
+                TaskFeedback.user_id.is_(None),
+                TaskFeedback.guest_session_id == gid,
+            )
+        else:
+            return []
+        rows = query.order_by(TaskFeedback.completed_at.desc()).limit(300).all()
+        return [{
+            "estimated_time": r.estimated_time,
+            "actual_time": r.actual_time,
+            "course": r.course or "",
+            "completed_at": r.completed_at,
+        } for r in rows]
+    except Exception as e:
+        print(f"[planner] feedback load failed: {e}")
+        return []
+
+
+def _planner_session_rows(uid, gid):
+    """Active-study sittings — richer than feedback, and the source of truth
+    for how long this student actually sits still."""
+    try:
+        from intelliplan.repositories.active_sessions import ActiveSessionRepository
+
+        repo = ActiveSessionRepository(ActiveSession, ActiveFocusSample, db.session)
+        return repo.observations(user_id=uid, guest_id=gid)
+    except Exception as e:
+        print(f"[planner] session load failed: {e}")
+        return []
+
+
+def _planner_concept_mastery(uid):
+    """``{concept: mastery}`` so shaky material gets more room."""
+    if not uid:
+        return {}
+    try:
+        rows = ConceptMastery.query.filter(ConceptMastery.user_id == uid).limit(500).all()
+        out = {}
+        for r in rows:
+            name = (getattr(r, "concept", "") or "").strip().lower()
+            score = getattr(r, "mastery_score", None)
+            if name and score is not None:
+                out[name] = max(0.0, min(1.0, float(score)))
+        return out
+    except Exception as e:
+        print(f"[planner] concept mastery load failed: {e}")
+        return {}
+
+
 @app.route("/generate_schedule", methods=["GET", "POST"])
-@limiter.limit("10 per hour", methods=["POST"])
+# 10/hour was sized for a route whose every call cost an AI round trip.
+# Planning is now deterministic and free, and re-planning is something a
+# student should be able to do as often as their week changes — which, in
+# the week before finals, is many times a day. The limit still exists
+# because the AI fallback path is still reachable.
+@limiter.limit("60 per hour", methods=["POST"])
 def generate_schedule():
     if request.method != "POST":
         return flask.jsonify({"status": "error", "message": "POST required"}), 405
@@ -6916,6 +7168,30 @@ def generate_schedule():
         except (TypeError, ValueError):
             raw_est = 60
         a["estimated_time"] = dna.adjust_estimate(raw_est, a.get("course", ""))
+
+    # ── Deterministic planning ────────────────────────────────────
+    # Day allocation — how much work exists, how it splits into sittings,
+    # which day each lands on, how much buffer sits before each deadline —
+    # is decided by the planner, not by a language model. The model was
+    # never able to reason about the student's measured pace, their real
+    # free hours, or the interaction between six deadlines in one week; it
+    # produced plausible-looking days that placement then had to repair.
+    #
+    # This also takes an AI round trip off the critical path, so the
+    # scheduler stays fast and keeps working when the provider is down.
+    #
+    # Flag-gated so the previous behaviour is one toggle away.
+    if feature_enabled("planner_v2"):
+        planned = _build_planner_schedule(
+            normalized_assignments, custom_tasks, uid, gid,
+            availability, commitments, preferred_time, hours_per_day,
+        )
+        if planned is not None:
+            return flask.jsonify({
+                "status": "ok",
+                "data": planned,
+                "used_presets": used_presets,
+            })
 
     today_str = datetime.now().strftime("%Y-%m-%d")
     overdue = [a for a in normalized_assignments if a.get("due_date", "9999") < today_str]
@@ -11722,6 +11998,8 @@ DEFAULT_FLAGS = {
     "ai_chat":       "Plani chat assistant",
     "streak_v1":     "Task-completion streak (retention experiment)",
     "command_center": "AI Daily Command Center (kill switch — default page)",
+    "active_study":  "Active study sessions (timer, focus check-in, feedback loop)",
+    "planner_v2":    "Deterministic scheduling engine (kill switch — falls back to the AI path)",
 }
 
 
@@ -14201,6 +14479,15 @@ from command_center_glue import command_center_bp
 app.register_blueprint(command_center_bp)
 from learning_graph_glue import learning_graph_bp
 app.register_blueprint(learning_graph_bp)
+# ── Active study. Registered here for the same reason: its glue module
+# resolves App lazily. The `active_study` flag is a kill switch (default on).
+from active_glue import active_bp
+app.register_blueprint(active_bp)
+# Heartbeats arrive roughly every 15 seconds while a session runs, so this
+# route is sized to the poll rather than to page loads — the default per-IP
+# budget would throttle a single student mid-session.
+limiter.limit("60 per minute")(app.view_functions["active.heartbeat"])
+limiter.limit("30 per hour")(app.view_functions["active.start_session"])
 limiter.limit("30 per minute")(app.view_functions["command_center.api_today"])
 limiter.limit("6 per hour")(app.view_functions["command_center.api_today_refresh"])
 limiter.exempt(app.view_functions["command_center.cron_refresh_briefings"])
