@@ -136,6 +136,22 @@ def _on_session_finished(row: Any) -> None:
     """Fan a finished sitting out to everything that should react to it."""
     _mirror_task_feedback(row)
     _invalidate_plan_cache()
+    _notify_session_finished(row)
+
+
+def _notify_session_finished(row: Any) -> None:
+    """Let the notification subsystem know. Queued, never sent inline.
+
+    Wrapped because a notification failure must not fail the request that
+    ended the student's study session — losing the session record to a
+    Twilio hiccup would be an absurd trade.
+    """
+    try:
+        from notifications_glue import on_session_completed
+
+        on_session_completed(row)
+    except Exception as exc:
+        logger.warning("session-completed notification failed: %s", exc)
 
 
 def _mirror_task_feedback(row: Any) -> None:

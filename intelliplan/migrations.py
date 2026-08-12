@@ -103,6 +103,44 @@ def apply_active_session_migrations(db: Any) -> list[str]:
     return sorted(target & existing)
 
 
+def apply_notification_migrations(db: Any) -> list[str]:
+    """Create the outbox table and add the notification columns to users.
+
+    The ``users`` columns are added with ALTER rather than left to
+    ``create_all``, which only creates missing *tables* and silently leaves
+    an existing table short of its new columns — the failure mode being a
+    500 on the first SELECT after deploy.
+    """
+
+    inspector = inspect(db.engine)
+    existing = set(inspector.get_table_names())
+    target = {"notification_outbox"}
+    db.create_all()
+
+    if "users" in existing:
+        columns = {c["name"] for c in inspect(db.engine).get_columns("users")}
+        additions = {
+            "email_reminders_opt_in": "BOOLEAN DEFAULT 0",
+            "utc_offset_minutes": "INTEGER DEFAULT 0",
+            "quiet_hours_enabled": "BOOLEAN DEFAULT 1",
+            "quiet_hours_start": "INTEGER DEFAULT 22",
+            "quiet_hours_end": "INTEGER DEFAULT 7",
+            "notification_kinds": "VARCHAR(512)",
+        }
+        for name, ddl in additions.items():
+            if name in columns:
+                continue
+            try:
+                db.session.execute(text(f"ALTER TABLE users ADD COLUMN {name} {ddl}"))
+                db.session.commit()
+            except Exception:
+                # Another worker booting concurrently, or a backend that
+                # spells the default differently. Not worth failing startup.
+                db.session.rollback()
+
+    return sorted(target & existing)
+
+
 def apply_learning_graph_migrations(db: Any) -> list[str]:
     """Ensure Learning Graph tables exist.
 

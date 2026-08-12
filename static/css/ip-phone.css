@@ -1,0 +1,224 @@
+/* ═══════════════════════════════════════════════════════════════════
+   IntelliPlan — phone corrections
+
+   Loads last, after ip-premium.css, for the same reason ip-premium loads
+   after ip-ui: this file exists to *win*. mobile.css is first in the
+   cascade and therefore loses every specificity tie to the component
+   library, which is fine for the layout rules it owns and useless for
+   corrections to those components.
+
+   Scope: `(pointer: coarse)` rather than a width breakpoint alone. The
+   problems here — targets too small for a fingertip, text sized for a
+   screen held at desk distance — are properties of the *input device*,
+   not the viewport. A 1024px tablet has fingers; a 700px desktop window
+   has a mouse.
+
+   Every rule below was written against a measured defect, not a guess.
+   The measurements are in the comments so the next person can re-check
+   them rather than trusting this file.
+   ══════════════════════════════════════════════════════════════════ */
+
+@media (pointer: coarse) {
+
+  /* ── Touch targets ────────────────────────────────────────────────
+     Measured on /scheduler at 375px: the view tabs ("Creator",
+     "Interactive view") were 35px tall and the summary tabs 32px. Both
+     are primary navigation for the page. 44px is the documented floor
+     from every platform's guidance; these were meaningfully under it,
+     which on a phone means mis-taps rather than merely tight taps.
+
+     Applied as a min-height with centred content so a control grows
+     downward from its text rather than having its label re-positioned. */
+  .sched-tab,
+  .ipui-tab,
+  .tab-btn,
+  .sched-summary-tab,
+  .ipui-slot__tool,
+  .ck-mode button,
+  .chip,
+  .pill-btn,
+  .install-pill,
+  .ipui-announce__cta,
+  .ipui-announce__close,
+  .cta-link {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Accordion headers. Measured 19–36px across / and /pricing, and on a
+     phone the FAQ accordion *is* the page — every answer is behind one of
+     these. `display` is left alone: a summary has a disclosure marker
+     whose layout depends on the default display type, and flexing it
+     moves the triangle. Padding grows the box instead. */
+  summary {
+    min-height: 44px;
+    padding-block: 0.55rem;
+  }
+
+  /* Footer / sitemap link columns. Measured 21–24px on every page. These
+     are stacked lists of links, so they need vertical separation as much
+     as height — two 22px links 2px apart is one 46px mis-tap. */
+  .sk-link,
+  .footer-links a,
+  .site-footer a {
+    display: inline-block;
+    min-height: 44px;
+    line-height: 44px;
+  }
+
+  /* Icon-only controls are the worst offenders because there is no text
+     to enlarge the box. Measured: 29x29 and 34x34 on the landing page,
+     43x27 for the CTA minimiser. */
+  button[aria-label]:not(.ipa-btn):not([class*="ipui-"]),
+  .icon-btn,
+  #planiSendBtn,
+  #mobileCTAMinimize {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* The dark-mode switch measured 46x24. The visible track should stay
+     the size it is — a 44px-tall pill would look wrong — so the *label*
+     grows instead and the track stays centred inside it. This is the
+     general fix for any control whose look is deliberately small: give
+     the hit area the height, not the paint. */
+  label.toggle,
+  .ipui-switch,
+  .toggle-wrap {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* Date chips in the scheduler's day picker. The label is the target
+     (its input is pointer-events:none), and it was comfortably wide but
+     short. */
+  .ipui-dates__day {
+    min-height: 56px;
+  }
+
+  /* ── Readable text ────────────────────────────────────────────────
+     Measured across /, /scheduler, /dashboard and /study: 34 elements on
+     the scheduler alone rendered between 9.6px and 11.4px. Those sizes
+     are legible on a monitor at 60cm and genuinely hard on a phone at
+     30cm, especially the metadata they were used for — day-of-week
+     abbreviations, month names, eyebrow labels, keyboard hints.
+
+     Raised to a flat 12px floor. Note the temptation to write
+     `max(0.75rem, 1em)` so each element keeps its own size unless it is
+     below the floor — that does not work. `1em` resolves against the
+     *parent's* font size, not the element's, so every one of these
+     inherits its container's size instead: the date chip's "Wed" and
+     "Aug" jumped to 15px and became the same size as the day number they
+     are supposed to sit beneath. CSS cannot express "your own size, but
+     not below 12px" without naming the size, so it is named.
+
+     Every selector below is prefixed with `body`. That is not decoration:
+     several of these classes are defined in a page template's inline
+     <style>, which sits *after* this file's <link> in the document. At
+     equal specificity the later rule wins, so a bare `.ds-eyebrow` here
+     silently loses. `body .ds-eyebrow` outranks it by one element and
+     wins regardless of order. */
+  body .ipui-dates__dow,
+  body .ipui-dates__mon {
+    font-size: 0.75rem;   /* was 10.2px / 9.6px */
+  }
+
+  body .date-badge,
+  body .ipd-featured-label,
+  body .ds-eyebrow,
+  body .ds-drop-types,
+  body .ds-med-label,
+  body .ds-db-panel-title,
+  body .install-subtitle,
+  body .ipui-field__label,
+  body .ipui-announce__badge,
+  body .hero-badge,
+  body .hero-trust-label,
+  body .section-kicker,
+  body .comparison-label,
+  body .u-label,
+  body .cmd-esc,
+  body kbd {
+    font-size: 0.75rem;   /* was 9.6px – 11.4px */
+  }
+
+  /* Catch-all for the long tail. Scoped to the small-text utility
+     classes the codebase actually uses, so it cannot accidentally
+     inflate a deliberate display size. */
+  body .text-micro,
+  body .text-xs,
+  body .eyebrow,
+  body .meta,
+  body .caption {
+    font-size: 0.75rem;
+  }
+
+  /* ── Forms ────────────────────────────────────────────────────────
+     iOS zooms the viewport when a focused input's text is under 16px,
+     and then does not zoom back out. The result is a page the student
+     has to pinch to escape after every text entry. 16px is the fix and
+     it has to be exact — 15.9px still zooms. */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="number"],
+  input[type="date"],
+  input[type="time"],
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /* Give form controls a real height too — a 32px input is as awkward to
+     tap into as a 32px button is to press. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]),
+  select,
+  textarea {
+    min-height: 44px;
+  }
+
+  /* Range inputs are dragged, not tapped, so they need vertical room for
+     the thumb rather than a tall box. */
+  input[type="range"] {
+    min-height: 44px;
+  }
+}
+
+/* ── Narrow phones ──────────────────────────────────────────────────
+   Everything above is about fingers. This block is about width: below
+   ~360px, horizontal padding is the difference between a readable column
+   and a gutter. */
+@media (max-width: 360px) {
+  .ipui-dates__day {
+    /* Fit one more day on screen rather than making the row scroll for a
+       single chip. */
+    min-width: 52px;
+  }
+}
+
+/* ── Landscape phones ───────────────────────────────────────────────
+   A phone on its side has ~350px of height. Anything that reserves
+   vertical space by viewport units becomes unusable, so sticky chrome
+   gets out of the way. */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 480px) {
+  .mobile-cta,
+  .install-banner {
+    display: none;
+  }
+}
+
+/* Respect the platform preference. Motion added elsewhere is decorative;
+   none of the corrections above depend on it. */
+@media (prefers-reduced-motion: reduce) {
+  .sched-tab,
+  .ipui-tab,
+  .tab-btn {
+    transition: none;
+  }
+}

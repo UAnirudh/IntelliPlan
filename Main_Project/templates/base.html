@@ -2852,6 +2852,11 @@
   {# Finishing layer: type ramp, z-scale, cross-document view transitions,
      tabular figures. Loads last so its tokens win where they overlap. #}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-premium.css') }}?v={{ asset_v }}">
+  {# Phone corrections. Loads after ip-premium for the same reason
+     ip-premium loads after ip-ui — it exists to win specificity ties
+     against the component library. Scoped to (pointer: coarse), so it
+     never touches a mouse-driven narrow window. #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-phone.css') }}?v={{ asset_v }}">
 
   {# ── Async runtime ──────────────────────────────────────────────────
      Loaded synchronously, not deferred, on purpose: page templates write

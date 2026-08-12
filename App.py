@@ -355,6 +355,17 @@ class User(UserMixin, db.Model):
     push_reminders_opt_in = db.Column(db.Boolean, default=False)
     reminder_lead_minutes = db.Column(db.Integer, default=60)  # how far ahead to remind
     sms_carrier = db.Column(db.String(32), default="tmobile")  # SMS-over-email gateway key
+    # ── Notification preferences (see intelliplan/notifications/) ──
+    email_reminders_opt_in = db.Column(db.Boolean, default=False)
+    # Minutes east of UTC. Every timestamp here is naive UTC, so this is the
+    # only way to reach the student's wall clock — without it, "don't text me
+    # after 10pm" silently means 10pm wherever the server happens to live.
+    utc_offset_minutes = db.Column(db.Integer, default=0)
+    quiet_hours_enabled = db.Column(db.Boolean, default=True)
+    quiet_hours_start = db.Column(db.Integer, default=22)
+    quiet_hours_end = db.Column(db.Integer, default=7)
+    # Comma-separated EventKind values; empty means "the defaults".
+    notification_kinds = db.Column(db.String(512), nullable=True)
     # ── COPPA: under-13 gating ──
     birth_year = db.Column(db.Integer, nullable=True)          # collected at signup
     parent_email = db.Column(db.String(255), nullable=True)    # for under-13 accounts
@@ -1643,6 +1654,7 @@ from intelliplan.models import learning_graph as _lg_models
 from intelliplan.models import active_session as _as_models
 from intelliplan.migrations import (
     apply_active_session_migrations,
+    apply_notification_migrations,
     apply_command_center_migrations,
     apply_learning_graph_migrations,
     apply_media_balance_migrations,
@@ -1653,6 +1665,9 @@ StudentProfile, ConceptMastery, LearningEvent = _lg_models.register(db)
 # from. See intelliplan/models/active_session.py for the privacy contract
 # covering the focus-sample rows.
 ActiveSession, ActiveFocusSample = _as_models.register(db)
+# Notification outbox — durable queue with dedupe, retries, and expiry.
+from intelliplan.notifications import models as _notif_models
+NotificationOutbox = _notif_models.register(db)
 
 with app.app_context():
     db.create_all()
@@ -1661,6 +1676,7 @@ with app.app_context():
     apply_command_center_migrations(db)
     apply_learning_graph_migrations(db)
     apply_active_session_migrations(db)
+    apply_notification_migrations(db)
 
 print([str(r) for r in app.url_map.iter_rules() if 'tutor' in str(r)])
 
@@ -14483,6 +14499,13 @@ app.register_blueprint(learning_graph_bp)
 # resolves App lazily. The `active_study` flag is a kill switch (default on).
 from active_glue import active_bp
 app.register_blueprint(active_bp)
+# ── Notifications. Outbox-backed: events are queued by the sweep and
+# delivered by /cron/notifications, so no student request ever waits on
+# Twilio or an SMTP handshake.
+from notifications_glue import notifications_bp
+app.register_blueprint(notifications_bp)
+limiter.exempt(app.view_functions["notifications.cron_notifications"])
+limiter.limit("6 per hour")(app.view_functions["notifications.send_test_notification"])
 # Heartbeats arrive roughly every 15 seconds while a session runs, so this
 # route is sized to the poll rather than to page loads — the default per-IP
 # budget would throttle a single student mid-session.
