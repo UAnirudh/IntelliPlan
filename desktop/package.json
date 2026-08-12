@@ -1,0 +1,84 @@
+{
+  "name": "intelliplan-desktop",
+  "productName": "IntelliPlan",
+  "version": "1.0.0",
+  "description": "IntelliPlan for desktop — study planner with native notifications, tray, and global shortcuts",
+  "main": "src/main.js",
+  "author": "IntelliPlan",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dev": "cross-env IP_TARGET=http://127.0.0.1:3000 electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder -mwl",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "tech.intelliplan.desktop",
+    "productName": "IntelliPlan",
+    "copyright": "Copyright © IntelliPlan",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "!**/*.map"
+    ],
+    "protocols": [
+      {
+        "name": "IntelliPlan",
+        "schemes": ["intelliplan"]
+      }
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64", "arm64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "artifactName": "IntelliPlan-Setup-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "IntelliPlan"
+    },
+    "mac": {
+      "category": "public.app-category.education",
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] },
+        { "target": "zip", "arch": ["x64", "arm64"] }
+      ],
+      "artifactName": "IntelliPlan-${version}-${arch}.${ext}",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "dmg": {
+      "title": "IntelliPlan ${version}"
+    },
+    "linux": {
+      "category": "Education",
+      "target": [
+        { "target": "AppImage", "arch": ["x64", "arm64"] },
+        { "target": "deb", "arch": ["x64", "arm64"] },
+        { "target": "rpm", "arch": ["x64"] }
+      ],
+      "artifactName": "IntelliPlan-${version}-${arch}.${ext}",
+      "desktop": {
+        "Name": "IntelliPlan",
+        "Comment": "Your study planner",
+        "Keywords": "study;planner;school;homework;"
+      }
+    }
+  }
+}

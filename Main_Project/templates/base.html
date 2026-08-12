@@ -1353,6 +1353,18 @@ if (mobileMenuBtn) {
       : `Due in ${task.minutes_until_due} min`;
     // In-app toast always (user might have notifications blocked)
     showToast(title, body);
+    // Desktop app: hand this to the operating system instead. A real OS
+    // notification arrives whether or not this window is open or focused,
+    // which is the reason to install the app at all — the Notification API
+    // below only fires while the page is alive. window.intelliplan exists
+    // only in the Electron build (see desktop/src/preload.js), so browsers
+    // fall straight through to the code underneath.
+    try {
+      if (window.intelliplan && window.intelliplan.isDesktop) {
+        window.intelliplan.notify({ title, body, url: '/active' });
+        return;
+      }
+    } catch(e) { /* fall through to the browser path */ }
     // Native browser notification, only if permission already granted
     try {
       if ('Notification' in window && Notification.permission === 'granted') {
