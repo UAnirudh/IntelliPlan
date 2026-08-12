@@ -119,10 +119,16 @@ def apply_notification_migrations(db: Any) -> list[str]:
 
     if "users" in existing:
         columns = {c["name"] for c in inspect(db.engine).get_columns("users")}
+        # FALSE/TRUE, not 0/1. SQLite accepts either, Postgres rejects the
+        # integer form for a BOOLEAN column outright — so on production these
+        # ALTERs threw, were swallowed by the except below, and the columns
+        # were quietly never created. The retry path in App._migrate_user_columns
+        # would eventually cover it, but a migration that silently does
+        # nothing on the only backend that matters is not a migration.
         additions = {
-            "email_reminders_opt_in": "BOOLEAN DEFAULT 0",
+            "email_reminders_opt_in": "BOOLEAN DEFAULT FALSE",
             "utc_offset_minutes": "INTEGER DEFAULT 0",
-            "quiet_hours_enabled": "BOOLEAN DEFAULT 1",
+            "quiet_hours_enabled": "BOOLEAN DEFAULT TRUE",
             "quiet_hours_start": "INTEGER DEFAULT 22",
             "quiet_hours_end": "INTEGER DEFAULT 7",
             "notification_kinds": "VARCHAR(512)",
