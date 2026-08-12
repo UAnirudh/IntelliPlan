@@ -17,26 +17,24 @@ cover both directions:
 from __future__ import annotations
 
 import pytest
-from flask import session
 
 import App as app_module
 
 
+#: An existing endpoint that writes to the session — it allocates a guest
+#: id — so a cookie is actually issued. Flask only emits Set-Cookie when
+#: the session is modified, so a plain GET of a static page proves nothing.
+#:
+#: Deliberately not a route registered by this fixture: Flask refuses to
+#: accept new routes once the app has served its first request, so doing
+#: that makes these tests pass alone and error whenever another test module
+#: happens to run first.
+PROBE_URL = "/api/active/current"
+
+
 @pytest.fixture(scope="module")
 def probe_app():
-    """Register a route that writes to the session, so a cookie is issued.
-
-    Flask only emits Set-Cookie when the session is actually modified, so
-    a plain GET of an existing page proves nothing.
-    """
     app = app_module.app
-
-    if "_cookie_probe" not in app.view_functions:
-        @app.route("/__test/cookie-probe")
-        def _cookie_probe():
-            session["probe"] = "1"
-            return "ok"
-
     app.config["TESTING"] = True
     return app
 
@@ -66,7 +64,7 @@ def attrs(cookie: str) -> dict[str, str]:
 def test_top_level_navigation_gets_samesite_lax(probe_app):
     """The phone case. Lax is what keeps the cookie alive in Safari."""
     client = probe_app.test_client()
-    cookie = session_cookie(client.get("/__test/cookie-probe", headers={"Sec-Fetch-Dest": "document"}))
+    cookie = session_cookie(client.get(PROBE_URL, headers={"Sec-Fetch-Dest": "document"}))
     assert cookie is not None
     assert attrs(cookie).get("samesite") == "Lax"
 
@@ -74,7 +72,7 @@ def test_top_level_navigation_gets_samesite_lax(probe_app):
 def test_framed_request_gets_samesite_none(probe_app):
     """The embed case. Without None the cookie is not sent in an iframe."""
     client = probe_app.test_client()
-    cookie = session_cookie(client.get("/__test/cookie-probe", headers={"Sec-Fetch-Dest": "iframe"}))
+    cookie = session_cookie(client.get(PROBE_URL, headers={"Sec-Fetch-Dest": "iframe"}))
     assert cookie is not None
     assert attrs(cookie).get("samesite") == "None"
 
@@ -82,14 +80,14 @@ def test_framed_request_gets_samesite_none(probe_app):
 def test_samesite_none_always_carries_secure(probe_app):
     """Browsers reject SameSite=None without Secure outright."""
     client = probe_app.test_client()
-    cookie = session_cookie(client.get("/__test/cookie-probe", headers={"Sec-Fetch-Dest": "iframe"}))
+    cookie = session_cookie(client.get(PROBE_URL, headers={"Sec-Fetch-Dest": "iframe"}))
     assert "secure" in attrs(cookie)
 
 
 def test_explicit_embed_flag_also_upgrades(probe_app):
     """Entry points that pass ?embed=1 work on browsers without Sec-Fetch-*."""
     client = probe_app.test_client()
-    cookie = session_cookie(client.get("/__test/cookie-probe?embed=1"))
+    cookie = session_cookie(client.get(PROBE_URL + "?embed=1"))
     assert attrs(cookie).get("samesite") == "None"
 
 
@@ -97,13 +95,13 @@ def test_a_browser_without_sec_fetch_headers_defaults_to_lax(probe_app):
     """Unknown context falls back to the safe direction: direct sign-in
     keeps working, and only the embed degrades."""
     client = probe_app.test_client()
-    cookie = session_cookie(client.get("/__test/cookie-probe"))
+    cookie = session_cookie(client.get(PROBE_URL))
     assert attrs(cookie).get("samesite") == "Lax"
 
 
 def test_cookie_is_http_only(probe_app):
     client = probe_app.test_client()
-    cookie = session_cookie(client.get("/__test/cookie-probe", headers={"Sec-Fetch-Dest": "document"}))
+    cookie = session_cookie(client.get(PROBE_URL, headers={"Sec-Fetch-Dest": "document"}))
     assert "httponly" in attrs(cookie)
 
 

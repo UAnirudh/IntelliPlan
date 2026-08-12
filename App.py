@@ -1854,6 +1854,56 @@ API_ERROR_MESSAGES = {
     "generic": "Service temporarily unavailable. Please try again later."
 }
 
+
+# Exception types whose text is always internal detail, never something a
+# student can act on. A SQLAlchemy error's str() contains the failing SQL
+# statement and the table's column list; an OSError contains filesystem
+# paths. Returning either to an API caller is a free schema dump.
+_OPAQUE_ERROR_TYPES = (
+    "OperationalError", "ProgrammingError", "IntegrityError", "DataError",
+    "InternalError", "InvalidRequestError", "StatementError", "DBAPIError",
+    "SQLAlchemyError", "OSError", "IOError", "AttributeError", "TypeError",
+    "KeyError", "IndexError", "ImportError", "ModuleNotFoundError",
+    "RecursionError", "MemoryError",
+)
+
+# Fragments that mean the text is internal even when the exception type
+# looked harmless — a wrapped driver error, a traceback fragment, a path.
+_LEAKY_FRAGMENTS = re.compile(
+    r"(?:\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bFROM\s+\w+|\bTable\b|"
+    r"\bcolumn\b|Traceback|File \"|/usr/|[A-Za-z]:\\\\|site-packages|"
+    r"psycopg|sqlite3|sqlalchemy|\bDSN\b|password=|token=|secret=)",
+    re.IGNORECASE,
+)
+
+
+def safe_error_message(exc, fallback=None, limit=180):
+    """A message safe to send to an API caller.
+
+    Most of this codebase's handlers returned ``str(e)`` directly. That is
+    fine for a hand-written ``ValueError("Due date must be in the future")``
+    and disastrous for a database error, whose text carries the SQL and the
+    schema. Rather than blanking every message — several are genuinely
+    useful and the UI shows them — this keeps short, human-sounding text
+    and replaces anything that looks like machinery.
+
+    The full exception still goes to the server log at every call site; the
+    only thing narrowed is what crosses the network.
+    """
+    fallback = fallback or API_ERROR_MESSAGES["generic"]
+    if exc is None:
+        return fallback
+    if type(exc).__name__ in _OPAQUE_ERROR_TYPES:
+        return fallback
+    text = str(exc).strip()
+    if not text or len(text) > 300:
+        return fallback
+    if _LEAKY_FRAGMENTS.search(text):
+        return fallback
+    if "\n" in text:
+        text = text.split("\n", 1)[0].strip()
+    return text[:limit]
+
 # ── ERROR HELPERS ─────────────────────────────────────────────
 def make_error_id():
     return "IPE-" + str(uuid.uuid4())[:8].upper()
@@ -3324,7 +3374,7 @@ def _submit_indexnow_single_url(url):
             urls=[target],
         )
     except Exception as e:
-        return {"status": "error", "message": str(e), "submitted": 0, "endpoint": INDEXNOW_ENDPOINT}
+        return {"status": "error", "message": safe_error_message(e), "submitted": 0, "endpoint": INDEXNOW_ENDPOINT}
 
 
 def _submit_indexnow_urls(urls):
@@ -3357,7 +3407,7 @@ def _submit_indexnow_urls(urls):
             urls=urls,
         )
     except Exception as e:
-        return {"status": "error", "message": str(e), "submitted": 0, "endpoint": INDEXNOW_ENDPOINT}
+        return {"status": "error", "message": safe_error_message(e), "submitted": 0, "endpoint": INDEXNOW_ENDPOINT}
 
 
 def notify_indexnow(urls):
@@ -4642,7 +4692,7 @@ def api_blackboard_disconnect():
         return jsonify({"status": "ok"})
     except Exception as e:
         db.session.rollback()
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 @app.route("/api/lms/status/blackboard", methods=["GET"])
 def api_blackboard_status():
@@ -4666,7 +4716,7 @@ def api_moodle_disconnect():
         return jsonify({"status": "ok"})
     except Exception as e:
         db.session.rollback()
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 @app.route("/api/lms/status/moodle", methods=["GET"])
 def api_moodle_status():
@@ -4776,7 +4826,7 @@ def api_classroom_disconnect():
         return jsonify({"status": "ok"})
     except Exception as e:
         db.session.rollback()
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 
 @app.route("/api/lms/status/google_classroom", methods=["GET"])
@@ -5181,7 +5231,7 @@ def delete_scheduler_preset():
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
     return flask.jsonify({"status": "ok", "deleted": n})
 
 
@@ -6255,7 +6305,7 @@ def calendar_events():
         if current_user.is_authenticated:
             GoogleIntegration.query.filter_by(user_id=current_user.id).delete()
             db.session.commit()
-        return flask.jsonify({"connected": False, "error": str(e), "events": []})
+        return flask.jsonify({"connected": False, "error": safe_error_message(e), "events": []})
 
 @app.route("/calendar/free-slot")
 def calendar_free_slot():
@@ -6270,7 +6320,7 @@ def calendar_free_slot():
         free_hours = compute_free_hours(token, date_str)
         return flask.jsonify({"slot": slot, "connected": True, "free_hours": free_hours})
     except Exception as e:
-        return flask.jsonify({"slot": "7:00 PM", "connected": False, "error": str(e)})
+        return flask.jsonify({"slot": "7:00 PM", "connected": False, "error": safe_error_message(e)})
 
 @app.route("/calendar/export", methods=["POST"])
 def calendar_export():
@@ -6821,7 +6871,7 @@ def notes_quiz(note_id):
         quiz = json.loads(raw)
         return flask.jsonify({"status": "ok", "quiz": quiz})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 @app.route("/notes/<int:note_id>/file", methods=["GET"])
 def notes_file(note_id):
@@ -6859,7 +6909,7 @@ def dismiss():
                 pass
         return flask.jsonify({"status": "ok"})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 @app.route("/restore", methods=["POST"])
 def restore():
@@ -6871,7 +6921,7 @@ def restore():
         delete_dismissed(title)
         return flask.jsonify({"status": "ok"})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 @app.route("/tests")
 def tests_page():
@@ -6905,7 +6955,7 @@ def mark_as_test():
         save_test_mark(title, data)
         return flask.jsonify({"status": "ok", "already_marked": False})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 @app.route("/test/unmark", methods=["POST"])
 def unmark_as_test():
@@ -6917,7 +6967,7 @@ def unmark_as_test():
         delete_test_mark(title)
         return flask.jsonify({"status": "ok"})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 @app.route("/assignment/description", methods=["GET"])
 def get_description():
@@ -7612,7 +7662,7 @@ def notion_upcoming():
         tasks = get_upcoming_notion_tasks(token, db_id, days=days)
         return flask.jsonify({"connected": True, "tasks": tasks})
     except Exception as e:
-        return flask.jsonify({"connected": False, "error": str(e), "tasks": []})
+        return flask.jsonify({"connected": False, "error": safe_error_message(e), "tasks": []})
 
 
 @app.route("/notion/export", methods=["POST"])
@@ -7628,7 +7678,7 @@ def notion_export_schedule():
         created, skipped = add_schedule_to_notion(token, db_id, schedule)
         return flask.jsonify({"status": "ok", "created": len(created), "skipped": skipped, "ids": created})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 
 # ── NOTION ────────────────────────────────────────────────────
@@ -7726,7 +7776,7 @@ def notion_databases_route():
             "databases": get_notion_databases(token),
         })
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e), "databases": []}), 500
+        return flask.jsonify({"status": "error", "message": safe_error_message(e), "databases": []}), 500
 
 
 @app.route("/notion/pages")
@@ -7741,7 +7791,7 @@ def notion_pages_route():
     try:
         return flask.jsonify({"status": "ok", "pages": get_shared_pages(token)})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e), "pages": []}), 500
+        return flask.jsonify({"status": "error", "message": safe_error_message(e), "pages": []}), 500
 
 
 @app.route("/notion/create-database", methods=["POST"])
@@ -7761,7 +7811,7 @@ def notion_create_database_route():
     try:
         new_id = create_intelliplan_database(token, parent_id, name=name)
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
     # Auto-select the new database as the active target.
     if current_user.is_authenticated:
         ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
@@ -7783,7 +7833,7 @@ def notion_tasks_route():
         tasks = get_notion_tasks(token, db_id)
         return flask.jsonify({"connected": True, "tasks": tasks})
     except Exception as e:
-        return flask.jsonify({"connected": False, "error": str(e), "tasks": []})
+        return flask.jsonify({"connected": False, "error": safe_error_message(e), "tasks": []})
 
 @app.route("/notion/tasks/create", methods=["POST"])
 def notion_create_task():
@@ -7797,7 +7847,7 @@ def notion_create_task():
         page_id = create_notion_task(token, db_id, data.get("title", ""), data.get("due_date"), data.get("priority", "Medium"))
         return flask.jsonify({"status": "ok", "page_id": page_id})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)})
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)})
 
 @app.route("/notion/tasks/update", methods=["POST"])
 def notion_update_task():
@@ -7811,7 +7861,7 @@ def notion_update_task():
         update_notion_task(token, data["page_id"], data.get("updates", {}))
         return flask.jsonify({"status": "ok"})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)})
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)})
 
 @app.route("/notion/tasks/complete", methods=["POST"])
 def notion_complete_task():
@@ -7825,7 +7875,7 @@ def notion_complete_task():
         complete_notion_task(token, page_id)
         return flask.jsonify({"status": "ok"})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)})
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)})
 
 # ── UNIFIED TASKS ─────────────────────────────────────────────
 # ── LMS aggregation cache ────────────────────────────────────────────
@@ -10719,7 +10769,7 @@ def push_subscribe():
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
     return flask.jsonify({"status": "ok"})
 
 @app.route("/push/test", methods=["POST"])
@@ -10739,7 +10789,7 @@ def push_test():
         )
         return flask.jsonify({"status": "ok"})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)})
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)})
 
 @app.route("/push/vapid-public")
 def vapid_public():
@@ -11036,7 +11086,7 @@ def extension_tasks():
         return ext_response(result)
     except Exception as e:
         print(f"Extension tasks error: {e}")
-        return ext_response({"status": "error", "message": str(e)}, 500)
+        return ext_response({"status": "error", "message": safe_error_message(e)}, 500)
 
 @app.route("/extension/schedule")
 def extension_schedule():
@@ -11330,7 +11380,7 @@ def study_get_points():
             }
         })
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)})
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)})
 
 @app.route("/study/sparks/update", methods=["POST"])
 @app.route("/study/points/update", methods=["POST"])
@@ -11358,7 +11408,7 @@ def study_update_points():
             "active_booster": safe_json_load(p.active_booster, None)
         })
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)})
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)})
 
 @app.route("/study/streak/update", methods=["POST"])
 def study_update_streak():
@@ -11435,7 +11485,7 @@ def study_update_streak():
             "streak_event": streak_event
         })
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)})
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)})
 
 @app.route("/api/activity", methods=["POST"])
 def api_activity():
@@ -11472,7 +11522,7 @@ def api_activity():
         db.session.commit()
         return flask.jsonify({"status": "ok", "streak_count": p.streak_count, "spark_balance": p.spark_balance, "streak_history": history})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)})
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)})
 
 @app.route("/study/mastery/update", methods=["POST"])
 def study_mastery_update():
@@ -11526,7 +11576,7 @@ def study_mastery_update():
         return flask.jsonify({"status": "ok", "mastery_level": q.mastery_level, "mastery_label": mastery_labels[q.mastery_level], "next_review": q.next_review, "interval_days": q.interval_days})
     except Exception as e:
         print(f"Mastery update error: {e}")
-        return flask.jsonify({"status": "error", "message": str(e)})
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)})
 
 @app.route("/study/mastery/due", methods=["GET"])
 def study_mastery_due():
@@ -11646,7 +11696,7 @@ def study_session_complete():
             "weekly_quests": safe_json_load(p.weekly_quests, {})
         })
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)})
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)})
 
 @app.route("/study/quests", methods=["GET"])
 def study_quests():
@@ -11658,7 +11708,7 @@ def study_quests():
         db.session.commit()
         return flask.jsonify({"status": "ok", "weekly_quests": quests})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)})
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)})
 
 @app.route("/study/quests/update", methods=["POST"])
 def study_quests_update():
@@ -11671,7 +11721,7 @@ def study_quests_update():
         db.session.commit()
         return flask.jsonify({"status": "ok", "quest_rewards": rewards, "weekly_quests": safe_json_load(p.weekly_quests, {}), "spark_balance": p.spark_balance})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)})
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)})
 
 @app.route("/study/shop/buy", methods=["POST"])
 def study_shop_buy():
@@ -11737,7 +11787,7 @@ def study_shop_buy():
             "badges_unlocked": new_badges
         })
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)})
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)})
 
 @app.route("/study/repair", methods=["POST"])
 def study_repair():
@@ -11777,7 +11827,7 @@ def study_repair():
         db.session.commit()
         return flask.jsonify({"status": "ok", "streak_count": p.streak_count, "spark_balance": p.spark_balance, "badges_unlocked": new_badges, "message": "Streak repaired.", "repair_cost": cost, "used_repair_credit": used_repair_credit})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)})
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)})
 
 # ── STUDY ACCESS LIMITS ───────────────────────────────────────
 GUEST_STUDY_LIMITS = {
@@ -11844,7 +11894,7 @@ def study_extract_pdf():
             _save_guest_usage(usage)
         return flask.jsonify({"status": "ok", "text": text[:15000]})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 @app.route("/study/youtube", methods=["POST"])
 def study_youtube():
@@ -12307,7 +12357,7 @@ def admin_sms_blast_preview():
             "sample": [u.email for u in users[:10]],
         })
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 
 @app.route("/api/admin/sms-blast/send", methods=["POST"])
@@ -12330,7 +12380,7 @@ def admin_sms_blast_send():
         q = _admin_sms_audience_query(audience, specific_emails)
         users = q.all()
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
     sent, failed, skipped = 0, 0, 0
     results = []
@@ -13268,7 +13318,7 @@ def api_reminders_check():
     try:
         upcoming = _upcoming_tasks_for(current_user, lead)
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
     out = []
     now = utcnow()
     for task, due in upcoming:
@@ -13348,7 +13398,7 @@ def api_daily_claim_status():
         today = utcnow().date().isoformat()
         last_claim = (p.last_daily_claim or "") if hasattr(p, "last_daily_claim") else ""
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
     streak = int(getattr(p, "streak_count", 0) or 0)
     reward = 10 + min(40, streak * 2)
     return flask.jsonify({
@@ -13376,7 +13426,7 @@ def api_daily_claim():
         last_claim = (p.last_daily_claim or "") if hasattr(p, "last_daily_claim") else ""
         # last_daily_claim might not exist yet — try/except handles that.
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
     already = (last_claim == today)
     if already:
         return flask.jsonify({"status": "ok", "claimed": False, "reward": 0,
@@ -14377,7 +14427,7 @@ def api_writing_analyze():
         )
         return flask.jsonify({"status": "ok", **data})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 
 # ── MATH EXPLAINER ──────────────────────────────────────────
@@ -14420,7 +14470,7 @@ def api_math_explain():
         )
         return flask.jsonify({"status": "ok", **data})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 
 @app.route("/api/math/similar", methods=["POST"])
@@ -14446,7 +14496,7 @@ def api_math_similar():
         )
         return flask.jsonify({"status": "ok", **data})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 
 # ── TASK EXTRACTOR ──────────────────────────────────────────
@@ -14504,7 +14554,7 @@ def api_task_extract():
             db.session.commit()
         return flask.jsonify({"status": "ok", "tasks": tasks, "saved_ids": saved_ids})
     except Exception as e:
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 
 @app.errorhandler(429)
