@@ -430,7 +430,7 @@
       inset: 0;
       z-index: 999;
       background: var(--scrim);
-      backdrop-filter: blur(6px);
+      backdrop-filter: var(--ip-glass-fx, blur(6px));
       align-items: center;
       justify-content: center;
       padding: 1rem;
@@ -450,8 +450,8 @@
     @supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
       .ipd-modal {
         background: var(--ipd-glass-bg);
-        backdrop-filter: blur(28px) saturate(180%);
-        -webkit-backdrop-filter: blur(28px) saturate(180%);
+        backdrop-filter: var(--ip-glass-fx, blur(28px) saturate(180%));
+        -webkit-backdrop-filter: var(--ip-glass-fx, blur(28px) saturate(180%));
         box-shadow: 0 24px 80px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.5);
       }
       [data-theme="dark"] .ipd-modal { box-shadow: 0 24px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06); }
@@ -744,8 +744,8 @@
     body > header {
       background: var(--nav-bg);
       border-bottom: 1px solid var(--nav-border);
-      backdrop-filter: blur(28px) saturate(200%);
-      -webkit-backdrop-filter: blur(28px) saturate(200%);
+      backdrop-filter: var(--ip-glass-fx, blur(28px) saturate(200%));
+      -webkit-backdrop-filter: var(--ip-glass-fx, blur(28px) saturate(200%));
       /* Subtle float + top "edge light" — the sheen that makes frosted
          glass read as a physical pane instead of a flat translucent bar. */
       box-shadow: 0 1px 0 var(--nav-border), 0 6px 24px -12px rgba(0,0,0,0.10);
@@ -847,8 +847,8 @@
     @supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
       .dropdown-panel {
         background:var(--ipd-glass-bg);
-        backdrop-filter:blur(20px) saturate(180%);
-        -webkit-backdrop-filter:blur(20px) saturate(180%);
+        backdrop-filter: var(--ip-glass-fx, blur(20px) saturate(180%));
+        -webkit-backdrop-filter: var(--ip-glass-fx, blur(20px) saturate(180%));
         box-shadow:var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.5);
       }
       [data-theme="dark"] .dropdown-panel { box-shadow:var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.06); }
@@ -1031,8 +1031,8 @@
     @supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
       #navCustomizer .nc-box {
         background: var(--ipd-glass-bg);
-        backdrop-filter: blur(28px) saturate(180%);
-        -webkit-backdrop-filter: blur(28px) saturate(180%);
+        backdrop-filter: var(--ip-glass-fx, blur(28px) saturate(180%));
+        -webkit-backdrop-filter: var(--ip-glass-fx, blur(28px) saturate(180%));
       }
     }
     #navCustomizer .nc-head {
@@ -1379,8 +1379,8 @@
       body .day-card, body .iv-day-card, body .overview-card, body .scheduler-panel,
       body .focus-task-card, body .focus-log-card, body .focus-stats,
       body .gp-panel, body .cc-rail, body .cc-card {
-        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-        backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+        -webkit-backdrop-filter: var(--ip-glass-fx, blur(var(--glass-blur)) saturate(var(--glass-saturate)));
+        backdrop-filter: var(--ip-glass-fx, blur(var(--glass-blur)) saturate(var(--glass-saturate)));
       }
     }
     body .iv-progress, body .ck-progress, body .ipd-sched-progress {
@@ -1409,8 +1409,8 @@
     .glass-surface > * { position: relative; z-index: 1; }
     @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
       .glass-surface {
-        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-        backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+        -webkit-backdrop-filter: var(--ip-glass-fx, blur(var(--glass-blur)) saturate(var(--glass-saturate)));
+        backdrop-filter: var(--ip-glass-fx, blur(var(--glass-blur)) saturate(var(--glass-saturate)));
       }
     }
     /* High-contrast users must never get faint frosted glass — force the
@@ -1444,8 +1444,8 @@
       body .feature-card, body .answer-card, body .integration-card,
       body .review-card, body .step-card, body .comparison-card,
       body .lp-tool-card, body .about-card, body .faq-item, body .demo-panel {
-        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-        backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+        -webkit-backdrop-filter: var(--ip-glass-fx, blur(var(--glass-blur)) saturate(var(--glass-saturate)));
+        backdrop-filter: var(--ip-glass-fx, blur(var(--glass-blur)) saturate(var(--glass-saturate)));
       }
     }
     html[data-a11y-contrast="1"] body .feature-card,
@@ -1480,8 +1480,8 @@
       body .login-card, body .test-stat, body .summary-card,
       body .ms-kpi, body .ms-activity-card, body .ms-grade-card, body .ms-stat-card,
       body .ms-pet-card, body .ms-fb-row {
-        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-        backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+        -webkit-backdrop-filter: var(--ip-glass-fx, blur(var(--glass-blur)) saturate(var(--glass-saturate)));
+        backdrop-filter: var(--ip-glass-fx, blur(var(--glass-blur)) saturate(var(--glass-saturate)));
       }
     }
     @supports (backdrop-filter: blur(1px)) {
@@ -1489,8 +1489,8 @@
       body .mobile-nav-drawer, body .cc-mobile-drawer, body .cc-evolve-card {
         background: var(--glass-bg);
         border-color: var(--glass-border);
-        backdrop-filter: blur(var(--glass-blur));
-        -webkit-backdrop-filter: blur(var(--glass-blur));
+        backdrop-filter: var(--ip-glass-fx, blur(var(--glass-blur)));
+        -webkit-backdrop-filter: var(--ip-glass-fx, blur(var(--glass-blur)));
       }
     }
 
@@ -1704,8 +1704,8 @@
       background: var(--glass-primary-bg) !important;
       color: var(--glass-primary-text) !important;
       border: 1px solid rgba(255,255,255,0.16) !important;
-      -webkit-backdrop-filter: blur(12px) saturate(1.5) !important;
-      backdrop-filter: blur(12px) saturate(1.5) !important;
+      -webkit-backdrop-filter: var(--ip-glass-fx, blur(12px) saturate(1.5)) !important;
+      backdrop-filter: var(--ip-glass-fx, blur(12px) saturate(1.5)) !important;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 2px 8px rgba(0,0,0,0.14), 0 10px 26px -10px rgba(0,0,0,0.28) !important;
     }
     /* Everything else that's a button — translucent frosted glass. */
@@ -1716,8 +1716,8 @@
     body .side-customize-btn, body .mobile-cta-secondary, body .amb-btn, body .ad-share a {
       background: var(--glass-btn-bg) !important;
       border: 1px solid var(--glass-btn-border) !important;
-      -webkit-backdrop-filter: blur(14px) saturate(1.6) !important;
-      backdrop-filter: blur(14px) saturate(1.6) !important;
+      -webkit-backdrop-filter: var(--ip-glass-fx, blur(14px) saturate(1.6)) !important;
+      backdrop-filter: var(--ip-glass-fx, blur(14px) saturate(1.6)) !important;
       box-shadow: var(--glass-btn-shadow) !important;
     }
     body button:not(.no-glass):not(.btn-primary):not(.ipd-btn-primary):not([class*="primary"]):not([class*="cta"]):not(.nav-tab):not([class*="toggle"]):not(.side-link):not(.cmd-item):not([aria-pressed]):hover,
@@ -2037,8 +2037,8 @@
       border-radius: 13px;
       background: rgba(255,255,255,0.055);
       border: 1px solid rgba(255,255,255,0.09);
-      -webkit-backdrop-filter: blur(10px);
-      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: var(--ip-glass-fx, blur(10px));
+      backdrop-filter: var(--ip-glass-fx, blur(10px));
       --ipm-float-y: 5px;
     }
     .auth-proof-tag {
@@ -2474,8 +2474,8 @@
         width:min(82vw, 300px);
         height:100dvh;
         background:var(--nav-bg);
-        backdrop-filter:blur(28px) saturate(200%);
-        -webkit-backdrop-filter:blur(28px) saturate(200%);
+        backdrop-filter: var(--ip-glass-fx, blur(28px) saturate(200%));
+        -webkit-backdrop-filter: var(--ip-glass-fx, blur(28px) saturate(200%));
         border-right:1px solid var(--border);
         flex-direction:column;
         padding:76px 12px calc(16px + env(safe-area-inset-bottom));

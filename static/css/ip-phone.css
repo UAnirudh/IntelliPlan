@@ -18,7 +18,78 @@
    them rather than trusting this file.
    ══════════════════════════════════════════════════════════════════ */
 
+/* ═══════════════════════════════════════════════════════════════════
+   BUTTON RESPONSIVENESS
+
+   Measured on the landing page: 21 of 72 interactive elements carried
+   `backdrop-filter`, covering ~198,000 px² of live-blurred backdrop, and
+   13 more used `transition: all`.
+
+   backdrop-filter is the most expensive property here by a wide margin.
+   The browser must re-sample and re-blur everything *behind* the element
+   every time either the element or the content behind it changes — which
+   during a press animation is every frame. Twenty-one of them on one
+   screen is why buttons felt like they lagged behind the finger.
+
+   `transition: all` compounds it: the browser evaluates every animatable
+   property on every state change instead of the two or three that
+   actually differ, and it silently animates any property added later.
+
+   Both are fixed below. The blur removal is scoped to coarse pointers,
+   where mobile GPUs suffer most and the effect is least visible at arm's
+   length; the transition narrowing is global because it changes nothing
+   visually — nothing in these rules animates a layout property, verified
+   before the change.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Animate only what the compositor can handle on its own thread. Listing
+   properties explicitly also stops a future declaration from becoming an
+   accidental animation. */
+button, .btn, [role="button"], .nav-tab, .sched-tab, .ipui-tab, .chip {
+  transition-property: transform, opacity, color, background-color,
+                       border-color, box-shadow;
+}
+
 @media (pointer: coarse) {
+
+  /* Drop the live blur on touch devices. The translucent background is
+     kept, so the element still reads as glassy — it simply no longer
+     re-blurs the page behind it on every frame.
+
+     Every selector carries a `body ` prefix, and that is load-bearing.
+     ip-base.css declares `body .btn-primary, … { backdrop-filter: …
+     !important }`. Two !important declarations are settled by specificity
+     first, so a bare `.btn-primary` here — even with !important — loses to
+     it. Matching the prefix ties the specificity, and ip-phone.css loads
+     last, so order decides in this file's favour.
+
+     There is already a `*, ::before, ::after { backdrop-filter: none
+     !important }` under max-width:768px elsewhere in the app. It was
+     written to do exactly this job and never worked, and the reason is
+     worth recording: the winning declaration is
+
+         body button:not(.no-glass):not(.btn-primary)
+                    :not(.ipd-btn-primary):not(.mobile-cta-primary) { … }
+
+     `:not()` contributes the specificity of its argument, so that selector
+     scores (0,4,2). The universal selector scores zero. No selector a
+     correction layer can reasonably write beats it, and escalating is an
+     arms race that the next person loses again.
+
+     So this does not fight the cascade. ip-base.css now expresses every
+     glass blur as `var(--ip-glass-fx, <original value>)`, and a custom
+     property set on :root inherits to every element regardless of how
+     specific the rule that consumes it is. One declaration turns the
+     entire effect off, and the fallback keeps desktop byte-identical. */
+  :root {
+    --ip-glass-fx: none;
+  }
+
+  /* A press should read instantly. transform is compositor-only, so this
+     lands on the next frame regardless of what else is painting. */
+  button:active, .btn:active, [role="button"]:active {
+    transition-duration: 60ms;
+  }
 
   /* ── Touch targets ────────────────────────────────────────────────
      Measured on /scheduler at 375px: the view tabs ("Creator",
