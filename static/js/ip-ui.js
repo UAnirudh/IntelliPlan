@@ -504,7 +504,19 @@
     if (!input) return null;
 
     var inst = { el: root, input: input };
-    var THUMB_PX = 50;   // must match .ipui-slider__thumb width in the CSS
+    var track = root.querySelector('.ipui-slider__track') || root;
+
+    /* Geometry is measured on mount and on resize, never inside paint().
+       paint() runs on every `input` event, which on a drag is every
+       pointer move — reading offsetWidth there, straight after writing a
+       custom property, forces a synchronous layout on each frame, which
+       is precisely the cost the transform and clip-path exist to avoid. */
+    var trackW = 0, thumbW = 0;
+
+    function measure() {
+      trackW = track.clientWidth || 0;
+      thumbW = (thumb && thumb.offsetWidth) || 0;
+    }
 
     function ratio() {
       var min = numAttr(input, 'min', 0);
@@ -522,12 +534,22 @@
       root.style.setProperty('--ipui-slider-tint', band.tint);
       root.style.setProperty('--ipui-slider-fill', band.fill);
 
-      /* The fill runs from the left edge to the centre of the thumb, and
-         the thumb travels the track minus its own width — so both are
-         expressed against (100% - thumb) rather than against 100%, or
-         the thumb overhangs the end of the track at max. */
-      if (fill) fill.style.width = 'calc(' + (r * 100) + '% * (1 - ' + THUMB_PX + 'px / 100%) + ' + THUMB_PX + 'px)';
-      if (thumb) thumb.style.left = 'calc(' + (r * 100) + '% - ' + (r * THUMB_PX) + 'px)';
+      /* Both offsets are in px, not percentages. A percentage inside
+         translate() resolves against the element's own width — the thumb
+         — not against the track, so the two are not interchangeable
+         here. The travel is (track − thumb) so the thumb cannot overhang
+         the end of the track at max, and the fill reaches the thumb's
+         centre rather than its left edge. */
+      var travel = Math.max(0, trackW - thumbW);
+      var filled = r * travel + thumbW;
+
+      if (fill) {
+        fill.style.setProperty('--ipui-fill-inset',
+          Math.max(0, trackW - filled).toFixed(1) + 'px');
+      }
+      if (thumb) {
+        thumb.style.setProperty('--ipui-thumb-x', (r * travel).toFixed(1) + 'px');
+      }
       if (value) value.textContent = input.value;
     }
 
@@ -546,10 +568,31 @@
       for (var i = 0; i < 6; i++) dots.appendChild(doc.createElement('i'));
     }
 
+    window.addEventListener('resize', function () { measure(); paint(); });
+
+    measure();
     paint();
+
+    /* Mounting can happen before the track has been laid out — inside a
+       collapsed <details>, which is where the manual scheduler's slider
+       lives, or simply early enough that clientWidth is still 0. Both
+       measure to zero, and a zero track makes the fill and the thumb sit
+       at the left edge no matter the value.
+
+       So re-measure unconditionally whenever the track's box changes, and
+       once more on the next frame after mount. The observer callback only
+       writes custom properties on the fill and the thumb, never anything
+       that changes the track's own size, so it cannot feed itself. */
+    if (window.ResizeObserver) {
+      new ResizeObserver(function () { measure(); paint(); }).observe(track);
+    } else {
+      window.requestAnimationFrame(function () { measure(); paint(); });
+    }
+
     inst.value = function (v) {
       if (v === undefined) return parseFloat(input.value);
       input.value = v;
+      measure();
       paint();
       return v;
     };
@@ -1348,6 +1391,176 @@
     return inst;
   }
 
+  /* ═══ Announcement bar ════════════════════════════════════════════
+     Markup:
+       <div class="ipui-announce" data-ipui="announce" data-key="api-2026-08"
+            hidden>…<button class="ipui-announce__close">…</button></div>
+
+     `data-key` is the whole design. A bar that remembers only
+     "dismissed" can never be reused: every later announcement is either
+     invisible to returning visitors or has to un-dismiss itself for
+     everyone, and that second one is how these turn into nagware. The
+     key is per-announcement, so dismissing this one says nothing about
+     the next.
+
+     The element ships `hidden` and is revealed here. Rendering it and
+     then hiding it would flash the bar on every load for someone who
+     dismissed it a month ago. */
+  function mountAnnounce(root) {
+    if (root.__ipui) return root.__ipui;
+    root.__ipui = { el: root };
+
+    var key = attr(root, 'data-key', '');
+    var store = 'ipui.announce.' + key;
+
+    function seen() {
+      try { return window.localStorage.getItem(store) === '1'; }
+      catch (e) { return false; }   // private mode, or storage disabled
+    }
+
+    if (key && seen()) { root.remove(); return root.__ipui; }
+    root.hidden = false;
+
+    var close = root.querySelector('.ipui-announce__close');
+    if (close) {
+      close.addEventListener('click', function () {
+        try { window.localStorage.setItem(store, '1'); } catch (e) {}
+        var g = gsapNow();
+        if (!g || REDUCED) { root.remove(); return; }
+        /* Collapsing the height as well as fading means the page below
+           rises to fill the gap instead of leaving a band of nothing. */
+        g.to(root, {
+          height: 0, opacity: 0, paddingTop: 0, paddingBottom: 0,
+          duration: 0.3, ease: 'power2.inOut',
+          onComplete: function () { root.remove(); }
+        });
+      });
+    }
+    return root.__ipui;
+  }
+
+  /* ═══ Pagination ══════════════════════════════════════════════════
+     Markup:
+       <div class="ipui-pager" data-ipui="pager" data-total="12" data-page="1">
+       </div>
+
+     Emits `ipui:page` with the new page; the host does the fetching. The
+     digit roll is the stepper's, shared rather than reimplemented — it
+     is the same interaction, and two copies would drift.
+
+     Rendered here rather than in the template because the control is
+     meaningless without the count, which the host only knows once its
+     data has loaded. `inst.set(page, total)` is how it is told. */
+  var ARROW_L = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" ' +
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>';
+  var ARROW_R = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" ' +
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>';
+
+  function mountPager(root) {
+    if (root.__ipui) return root.__ipui;
+
+    var inst = { el: root, page: Math.max(1, numAttr(root, 'data-page', 1)),
+                 total: Math.max(1, numAttr(root, 'data-total', 1)) };
+    var prevText = '';
+
+    root.innerHTML =
+      '<button class="ipui-pager__btn" type="button" data-dir="-1" ' +
+              'aria-label="Previous page">' + ARROW_L + '</button>' +
+      '<span class="ipui-pager__count">' +
+        '<span class="ipui-pager__digits" aria-hidden="true"></span>' +
+        '<span class="ipui-pager__of" aria-hidden="true">/ <span data-total></span></span>' +
+        '<span class="ipui-sr" aria-live="polite" data-live></span>' +
+      '</span>' +
+      '<button class="ipui-pager__btn" type="button" data-dir="1" ' +
+              'aria-label="Next page">' + ARROW_R + '</button>';
+
+    var digits = root.querySelector('.ipui-pager__digits');
+    var totalEl = root.querySelector('[data-total]');
+    var live = root.querySelector('[data-live]');
+
+    /* Shared with the stepper: same cells, same roll, same direction
+       semantics. */
+    function rollTo(next, dir) {
+      var g = gsapNow();
+      if (next.length !== prevText.length || !prevText || !g || REDUCED) {
+        digits.textContent = '';
+        next.split('').forEach(function (ch) {
+          var cell = doc.createElement('span');
+          cell.className = 'ipui-stepper__digit';
+          var glyph = doc.createElement('span');
+          glyph.textContent = ch;
+          cell.appendChild(glyph);
+          digits.appendChild(cell);
+        });
+        prevText = next;
+        return;
+      }
+      var cells = digits.querySelectorAll('.ipui-stepper__digit');
+      next.split('').forEach(function (ch, i) {
+        if (ch === prevText[i] || !cells[i]) return;
+        var cell = cells[i];
+        var outgoing = cell.firstElementChild;
+        var incoming = doc.createElement('span');
+        incoming.textContent = ch;
+        cell.appendChild(incoming);
+        var travel = dir >= 0 ? 20 : -20;
+        g.fromTo(incoming,
+          { y: travel, opacity: 0, scale: 0.5, filter: 'blur(2px)' },
+          { y: 0, opacity: 1, scale: 1, filter: 'blur(0px)',
+            duration: 0.4, ease: 'back.out(1.7)' });
+        if (outgoing) {
+          g.to(outgoing, {
+            y: -travel, opacity: 0, scale: 0.5, filter: 'blur(2px)',
+            duration: 0.32, ease: 'power2.in',
+            onComplete: function () {
+              if (outgoing.parentNode) outgoing.parentNode.removeChild(outgoing);
+            }
+          });
+          window.setTimeout(function () {
+            if (outgoing.parentNode && outgoing !== cell.lastElementChild) {
+              outgoing.parentNode.removeChild(outgoing);
+            }
+          }, 1200);
+        }
+      });
+      prevText = next;
+    }
+
+    function paint(dir) {
+      rollTo(String(inst.page), dir || 1);
+      totalEl.textContent = String(inst.total);
+      /* The digit roll says nothing to a screen reader, and on a paged
+         list the number changing is the only confirmation the button
+         worked. */
+      live.textContent = 'Page ' + inst.page + ' of ' + inst.total;
+      root.querySelector('[data-dir="-1"]').disabled = inst.page <= 1;
+      root.querySelector('[data-dir="1"]').disabled = inst.page >= inst.total;
+    }
+
+    function go(dir) {
+      var next = Math.min(inst.total, Math.max(1, inst.page + dir));
+      if (next === inst.page) return;
+      inst.page = next;
+      paint(dir);
+      emit(root, 'page', { page: next, total: inst.total });
+    }
+
+    Array.prototype.forEach.call(root.querySelectorAll('[data-dir]'), function (b) {
+      b.addEventListener('click', function () { go(numAttr(b, 'data-dir', 1)); });
+    });
+
+    inst.set = function (page, total) {
+      if (total !== undefined) inst.total = Math.max(1, total);
+      var dir = page >= inst.page ? 1 : -1;
+      inst.page = Math.min(inst.total, Math.max(1, page));
+      paint(dir);
+    };
+
+    paint(1);
+    root.__ipui = inst;
+    return inst;
+  }
+
   /* ═══ Registry + mounting ═════════════════════════════════════════ */
   api.components = {
     split: mountSplit,
@@ -1360,7 +1573,9 @@
     slots: mountSlots,
     undo: mountUndo,
     'pin-list': mountPinList,
-    wiggle: mountWiggle
+    wiggle: mountWiggle,
+    announce: mountAnnounce,
+    pager: mountPager
   };
 
   api.get = function (el) { return el ? el.__ipui || null : null; };

@@ -588,27 +588,38 @@
   background: var(--border-strong);
 }
 
+/* The fill is always full width and is clipped back, rather than having
+   its `width` animated. This one is dragged: `input` fires on every
+   pointer move, so a width transition would invalidate layout on every
+   frame of a drag. `clip-path` is a paint-stage property, so the same
+   motion costs no layout at all — and `round` keeps the rounded right
+   edge that a scaleX() would have flattened. */
 .ipui-slider__fill {
   position: absolute;
   left: 0;
   top: 0;
+  width: 100%;
   height: 100%;
-  border-radius: var(--r-full);
+  clip-path: inset(0 var(--ipui-fill-inset, 100%) 0 0 round 999px);
   background: var(--ipui-slider-fill, var(--accent));
-  transition: width 0.28s var(--ease-out), background 0.3s var(--ease-out);
+  transition: clip-path 0.28s var(--ease-out), background 0.3s var(--ease-out);
   pointer-events: none;
 }
 
+/* Likewise the thumb travels on a transform rather than on `left`. Both
+   axes are in the one transform because a second declaration would
+   overwrite the first. */
 .ipui-slider__thumb {
   position: absolute;
   top: 50%;
+  left: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 3.1rem;
   height: 3.1rem;
-  transform: translateY(-50%);
-  transition: left 0.28s var(--ease-out);
+  transform: translate(var(--ipui-thumb-x, 0px), -50%);
+  transition: transform 0.28s var(--ease-out);
   pointer-events: none;
 }
 
@@ -774,13 +785,13 @@
   height: 30%;
   background: currentColor;
   border-radius: 1px;
-  animation: ipui-eq-bounce 1s ease-in-out infinite;
+  animation: ipui-eq-pulse 1s ease-in-out infinite;
 }
 .ipui-eq i:nth-child(2) { animation-delay: 0.15s; }
 .ipui-eq i:nth-child(3) { animation-delay: 0.3s; }
 .ipui-eq i:nth-child(4) { animation-delay: 0.45s; }
 
-@keyframes ipui-eq-bounce {
+@keyframes ipui-eq-pulse {
   0%, 100% { height: 25%; }
   50%      { height: 100%; }
 }
@@ -1325,4 +1336,178 @@
   }
   .ipui-undo, .ipui-pin { transition-duration: 0.01ms !important; }
   .ipui-pin[aria-pressed="true"] { transform: none; }
+}
+
+/* ═══ 14. Announcement bar ══════════════════════════════════════════
+   Ported from `announcement-1`. One line above the page: a NEW badge, a
+   sentence, a link, and a dismiss.
+
+   Dismissal is per-announcement, not global — see ip-ui.js. A bar keyed
+   only to "dismissed" can never be used again, so every future
+   announcement is either invisible to returning visitors or has to
+   un-dismiss itself for everyone, which is how these become nagware. */
+.ipui-announce {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 1rem;
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--border-accent);
+  font-size: 0.84rem;
+}
+
+.ipui-announce[hidden] { display: none; }
+
+.ipui-announce__body {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+  margin: 0 auto;
+}
+
+.ipui-announce__badge {
+  flex: none;
+  padding: 0.1rem 0.45rem;
+  font-family: var(--font-ui);
+  font-size: 0.63rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--accent);
+  border-radius: var(--r-xs);
+}
+
+.ipui-announce__text {
+  min-width: 0;
+  margin: 0;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ipui-announce__cta {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* The underline wipes in from the left rather than appearing, which is
+   the same treatment prose links get from ip-motion.css. */
+.ipui-announce__cta span {
+  position: relative;
+}
+.ipui-announce__cta span::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  width: 100%;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.3s var(--ease-out);
+}
+.ipui-announce__cta:hover span::after,
+.ipui-announce__cta:focus-visible span::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+.ipui-announce__cta svg {
+  transition: transform 0.2s var(--ease-out);
+}
+.ipui-announce__cta:hover svg { transform: translate(2px, -2px); }
+
+.ipui-announce__close {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  padding: 0;
+  color: var(--accent);
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity var(--t-fast) var(--ease-out);
+}
+.ipui-announce__close:hover { opacity: 1; }
+
+@media (max-width: 620px) {
+  /* The link is the point of the bar; the sentence is context. On a
+     phone there is room for one of them. */
+  .ipui-announce__text { display: none; }
+}
+
+/* ═══ 15. Pagination ════════════════════════════════════════════════
+   Ported from `pagination`. Prev/next either side of a page number
+   whose digits roll — the same mechanic as the stepper, and it shares
+   that implementation in ip-ui.js rather than repeating it.
+
+   The number is a live region: on a paged list the only thing that
+   confirms the button worked is the number changing, and a screen reader
+   gets nothing from a digit animation. */
+.ipui-pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.25rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+}
+
+.ipui-pager__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  padding: 0;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background var(--t-fast) var(--ease-out),
+              color var(--t-fast) var(--ease-out);
+}
+
+.ipui-pager__btn:hover:not(:disabled) { background: var(--accent); color: #fff; }
+.ipui-pager__btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+.ipui-pager__btn svg { width: 1.1rem; height: 1.1rem; }
+
+.ipui-pager__count {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.35rem;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.ipui-pager__of { font-weight: 500; color: var(--text-muted); }
+
+/* Reuses the stepper's digit cells so the roll behaves identically. */
+.ipui-pager__digits {
+  display: flex;
+  align-items: center;
+  height: 1.5rem;
 }

@@ -3089,6 +3089,41 @@ body {
    positioning and a white outline on focus. #}
 <a href="#main-content" class="a11y-skip">Skip to main content</a>
 
+{# ── Announcement bar ───────────────────────────────────────────────
+   Public marketing pages only, and never on /developers itself — a bar
+   pointing at the page you are already on is noise.
+
+   `data-key` is dated so a later announcement is a new key rather than
+   an un-dismissal of this one. It ships `hidden`; ip-ui.js reveals it
+   only for readers who have not dismissed this particular key, which
+   avoids flashing the bar on every load for someone who closed it
+   weeks ago. #}
+{% set _ann_pages = ['/', '/about', '/faq', '/compare', '/blog', '/install'] %}
+{% if (request.path or '/') in _ann_pages %}
+<div class="ipui-announce" data-ipui="announce" data-key="public-api-2026-08"
+     role="region" aria-label="Announcement" hidden>
+  <span class="ipui-announce__body">
+    <span class="ipui-announce__badge">New</span>
+    <p class="ipui-announce__text">
+      The IntelliPlan API is open — read assignments, build plans, and sync study data from your own app.
+    </p>
+    <a class="ipui-announce__cta" href="/developers">
+      <span>Apply for a key</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M7 17 17 7"/><path d="M8 7h9v9"/>
+      </svg>
+    </a>
+  </span>
+  <button class="ipui-announce__close" type="button" aria-label="Dismiss this announcement">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
+      <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+    </svg>
+  </button>
+</div>
+{% endif %}
+
 <!-- ══════════════════════════════════════
      SVG ICON SPRITE — Phosphor Icons (regular), MIT licensed.
      https://github.com/phosphor-icons/core
