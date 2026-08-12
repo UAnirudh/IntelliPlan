@@ -167,12 +167,33 @@ ALLOWED_WEB_ORIGINS = [
 #   needs the app config ready, and we wire it up after db is created below.
 app.config["SESSION_TYPE"] = "sqlalchemy"
 app.config["SESSION_PERMANENT"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "None"
+# ── Session cookie SameSite ───────────────────────────────────────
+# Default is Lax, NOT None, and the difference is why sign-in was failing
+# on phones.
+#
+# SameSite=None marks a cookie as usable in a cross-site context. Safari's
+# Intelligent Tracking Prevention — on by default on every iPhone — treats
+# such cookies as tracking cookies and will refuse or evict them. The
+# symptom is exactly what was reported: the password is accepted,
+# login_user() runs, the redirect fires, and the very next request arrives
+# with no session, so @login_required bounces the student back to the login
+# page. It looks like the password was wrong. It wasn't; the cookie was
+# never kept.
+#
+# None was chosen originally because IntelliPlan is embedded in an iframe by
+# Lotus, and a cookie in a cross-site frame genuinely does need
+# SameSite=None. Both requirements are real, so this is resolved per
+# response rather than per deployment: Lax by default, upgraded to None
+# only for requests that actually arrive inside a frame. See
+# _samesite_for_embeds() below.
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SECURE"] = True
-app.config["REMEMBER_COOKIE_SECURE"] = True
+# Secure cookies are HTTPS-only. Over plain http (local development) the
+# browser silently discards them, which presents as "login does nothing".
+app.config["SESSION_COOKIE_SECURE"] = APP_BASE_URL.startswith("https://")
+app.config["REMEMBER_COOKIE_SECURE"] = APP_BASE_URL.startswith("https://")
 app.config["REMEMBER_COOKIE_HTTPONLY"] = True
-app.config["REMEMBER_COOKIE_SAMESITE"] = "None"
+app.config["REMEMBER_COOKIE_SAMESITE"] = "Lax"
 app.config["PREFERRED_URL_SCHEME"] = "https" if APP_BASE_URL.startswith("https://") else "http"
 app.permanent_session_lifetime = timedelta(days=7)
 
@@ -202,6 +223,93 @@ app.register_blueprint(chatbot_bp)
 app.register_blueprint(plani_agent_bp)
 from extra_features import extras_bp
 app.register_blueprint(extras_bp)
+
+#: Cookies whose SameSite attribute we manage. Anything else Flask or an
+#: extension sets is left exactly as it was.
+_SAMESITE_MANAGED_COOKIES = ("session", "remember_token")
+
+
+def _request_is_framed() -> bool:
+    """Whether this request is being made from inside an iframe.
+
+    `Sec-Fetch-Dest: iframe` is set by the browser itself and cannot be
+    forged by page script, which makes it the right signal here — the whole
+    point is to relax a cookie restriction, so the input has to be one the
+    embedding page does not control.
+
+    Browsers without Sec-Fetch-* (older Safari) fall through to False and
+    therefore get Lax. That is the safe direction: a student signing in
+    directly keeps working, and only the embed degrades on browsers that
+    were already unreliable for third-party cookies.
+    """
+    dest = (request.headers.get("Sec-Fetch-Dest") or "").lower()
+    if dest in ("iframe", "frame", "embed", "object"):
+        return True
+    # Explicit opt-in for the embed product's own entry points, so the
+    # widget routes work even when Sec-Fetch-Dest is absent.
+    return (request.args.get("embed") == "1") or bool(session.get("_embedded"))
+
+
+def _upgrade_samesite(cookie: str) -> str:
+    """Rewrite one Set-Cookie value to SameSite=None; Secure.
+
+    SameSite=None without Secure is rejected outright by every current
+    browser, so Secure is added rather than assumed.
+    """
+    if "samesite=" in cookie.lower():
+        cookie = re.sub(r"SameSite\s*=\s*\w+", "SameSite=None", cookie, flags=re.IGNORECASE)
+    else:
+        cookie += "; SameSite=None"
+    if "secure" not in cookie.lower():
+        cookie += "; Secure"
+    return cookie
+
+
+class _EmbedSameSiteMiddleware:
+    """Upgrade session cookies to SameSite=None only inside a frame.
+
+    This is WSGI middleware and not an ``after_request`` hook, which is
+    where the first attempt at this went wrong: Flask runs after_request
+    handlers *before* it saves the session, so the session cookie does not
+    exist yet at that point and the hook silently rewrote nothing. By the
+    time the response reaches WSGI, every Set-Cookie — Flask's session,
+    flask-session's, and Flask-Login's remember token — is present.
+
+    Varying per response is the whole point. SESSION_COOKIE_SAMESITE is
+    application-wide config read at serialisation time, and both needs are
+    real: a student on an iPhone needs Lax so Safari keeps the cookie, and
+    the Lotus iframe needs None so the cookie is sent at all.
+    """
+
+    def __init__(self, wsgi_app, managed):
+        self._app = wsgi_app
+        self._managed = managed
+
+    def __call__(self, environ, start_response):
+        framed = self._is_framed(environ)
+
+        def _start(status, headers, exc_info=None):
+            if framed:
+                headers = [
+                    (k, _upgrade_samesite(v))
+                    if k.lower() == "set-cookie" and v.split("=", 1)[0].strip() in self._managed
+                    else (k, v)
+                    for k, v in headers
+                ]
+            return start_response(status, headers, exc_info)
+
+        return self._app(environ, _start)
+
+    @staticmethod
+    def _is_framed(environ) -> bool:
+        dest = (environ.get("HTTP_SEC_FETCH_DEST") or "").lower()
+        if dest in ("iframe", "frame", "embed", "object"):
+            return True
+        return "embed=1" in (environ.get("QUERY_STRING") or "")
+
+
+app.wsgi_app = _EmbedSameSiteMiddleware(app.wsgi_app, _SAMESITE_MANAGED_COOKIES)
+
 
 @app.after_request
 def add_cors_headers(response):
