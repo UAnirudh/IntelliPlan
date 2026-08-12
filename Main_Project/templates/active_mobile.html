@@ -186,7 +186,29 @@
 .ipa-empty .ipa-btn { display: inline-flex; align-items: center; justify-content: center; }
 
 /* ── Focus check-in ── */
-.ipa-focus { margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.ipa-focus {
+  margin: 0 0 1rem; padding: .8rem .85rem;
+  border: 1px solid var(--border-accent); border-radius: 12px;
+  background: var(--accent-soft);
+}
+.ipa-focus-head { display: flex; align-items: center; gap: .45rem; margin-bottom: .3rem; }
+.ipa-focus-icon { width: 17px; height: 17px; flex: none; color: var(--accent); }
+.ipa-focus-how {
+  margin: .55rem 0 0; padding: .55rem 0 0; list-style: none;
+  border-top: 1px solid var(--border);
+}
+.ipa-focus-how li {
+  font-size: var(--fs-micro); color: var(--text-secondary);
+  line-height: var(--lh-snug); padding: 3px 0 3px 1rem; position: relative;
+}
+.ipa-focus-how li::before {
+  content: '·'; position: absolute; left: .3rem; color: var(--accent); font-weight: 700;
+}
+.ipa-focus-privacy {
+  font-size: var(--fs-micro); font-weight: 600; color: var(--accent);
+  background: none; border: 0; padding: .4rem 0 0; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 2px; min-height: 44px;
+}
 .ipa-focus-row { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; }
 .ipa-focus-label { font-size: var(--fs-sm); font-weight: 600; color: var(--text-primary); }
 .ipa-focus-note {
@@ -334,6 +356,53 @@
       <ul class="ipa-reasons" id="ipaReasons" hidden></ul>
     </div>
 
+    <!-- Focus check-in. Above the timer: the decision is made before you
+         start, and below a running timer on a phone it is off-screen. -->
+    <div class="ipa-focus">
+      <div class="ipa-focus-row">
+        <div>
+          <span class="ipa-focus-head">
+            <svg class="ipa-focus-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M23 7l-7 5 7 5V7z"></path>
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+            </svg>
+            <span class="ipa-focus-label">Focus check-in &mdash; optional</span>
+          </span>
+          <p class="ipa-focus-note" id="ipaFocusNote">
+            Nudges you if you drift off. Everything happens on this device.
+          </p>
+        </div>
+        <label class="ipa-switch" for="ipaFocusToggle">
+          <input type="checkbox" id="ipaFocusToggle" aria-describedby="ipaFocusNote">
+          <span class="ipa-switch-track" aria-hidden="true"></span>
+          <span class="ipa-switch-knob" aria-hidden="true"></span>
+        </label>
+      </div>
+
+      <ul class="ipa-focus-how">
+        <li>Turn it on, then tap Start. Your phone asks for the camera once.</li>
+        <li>Checks every couple of seconds whether you're still there.</li>
+        <li>Nudges only after you've clearly gone &mdash; not for glancing away.</li>
+        <li>Switch it off and the camera stops immediately.</li>
+      </ul>
+
+      <button type="button" class="ipa-focus-privacy" id="ipaFocusPrivacy"
+              aria-expanded="false" aria-controls="ipaFocusPrivacyText">
+        What leaves my device?
+      </button>
+      <p class="ipa-focus-note" id="ipaFocusPrivacyText" hidden>
+        Nothing that could identify you. Video is never recorded or uploaded &mdash; frames are
+        checked on your phone and discarded. All we receive is a count per minute: how many
+        checks saw someone, how many didn't. No images, no face data.
+      </p>
+
+      <p class="ipa-focus-state" id="ipaFocusState" data-state="unknown" hidden>
+        <span class="ipa-focus-pip" aria-hidden="true"></span>
+        <span id="ipaFocusStateText">Not tracking</span>
+      </p>
+    </div>
+
     <div class="ipa-timer-wrap">
       <div class="ipa-ring" id="ipaRing" role="timer" aria-label="Session timer">
         <svg viewBox="0 0 120 120" aria-hidden="true">
@@ -354,26 +423,6 @@
       <button type="button" class="ipa-btn ipa-btn--ghost" id="ipaNudgeDismiss">Dismiss</button>
     </div>
 
-    <div class="ipa-focus">
-      <div class="ipa-focus-row">
-        <div>
-          <span class="ipa-focus-label">Focus check-in</span>
-          <p class="ipa-focus-note" id="ipaFocusNote">
-            Optional. Uses your camera on this device only to estimate whether you're still there.
-            Nothing is recorded or uploaded, and it stays quiet unless you've clearly been away.
-          </p>
-        </div>
-        <label class="ipa-switch" for="ipaFocusToggle">
-          <input type="checkbox" id="ipaFocusToggle" aria-describedby="ipaFocusNote">
-          <span class="ipa-switch-track" aria-hidden="true"></span>
-          <span class="ipa-switch-knob" aria-hidden="true"></span>
-        </label>
-      </div>
-      <p class="ipa-focus-state" id="ipaFocusState" data-state="unknown" hidden>
-        <span class="ipa-focus-pip" aria-hidden="true"></span>
-        <span id="ipaFocusStateText">Not tracking</span>
-      </p>
-    </div>
 
     <div class="ipa-finish" id="ipaFinish" hidden>
       <div class="ipa-field">

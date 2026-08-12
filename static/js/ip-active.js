@@ -408,6 +408,19 @@
       });
     });
 
+    // "What leaves my device?" disclosure. Present in both layouts; absent
+    // in neither, but guarded anyway so this controller never assumes markup
+    // it does not own.
+    var privacyBtn = $('ipaFocusPrivacy');
+    var privacyText = $('ipaFocusPrivacyText');
+    if (privacyBtn && privacyText) {
+      privacyBtn.addEventListener('click', function () {
+        var open = privacyBtn.getAttribute('aria-expanded') === 'true';
+        privacyBtn.setAttribute('aria-expanded', String(!open));
+        privacyText.hidden = open;
+      });
+    }
+
     $('ipaFocusToggle').addEventListener('change', function () {
       if (this.checked) {
         if (IPA.session) startTracker();

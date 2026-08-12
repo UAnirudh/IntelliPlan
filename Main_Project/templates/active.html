@@ -175,10 +175,41 @@
 .ipa-btn--ghost:hover { color: var(--text-primary); }
 
 /* ── Focus check-in ── */
+/* ── Focus check-in ──
+   Presented as its own card rather than a footnote under the timer. It was
+   a toggle at the bottom of a scrolling page, which meant the feature was
+   effectively undiscoverable: nobody scrolls past a running timer to read
+   about a setting. It now sits directly beneath the session header, where
+   the decision is made before you start, and it explains itself without
+   being asked. */
 .ipa-focus {
-  margin-top: 1.5rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--border);
+  margin: 0 0 1.25rem;
+  padding: .9rem 1rem;
+  border: 1px solid var(--border-accent);
+  border-radius: 12px;
+  background: var(--accent-soft);
+}
+.ipa-focus-head {
+  display: flex; align-items: center; gap: .5rem; margin-bottom: .35rem;
+}
+.ipa-focus-icon {
+  width: 18px; height: 18px; flex: none; color: var(--accent);
+}
+.ipa-focus-how {
+  margin: .6rem 0 0; padding: 0; list-style: none;
+  border-top: 1px solid var(--border); padding-top: .6rem;
+}
+.ipa-focus-how li {
+  font-size: var(--fs-micro); color: var(--text-secondary);
+  line-height: var(--lh-snug); padding: 3px 0 3px 1.1rem; position: relative;
+}
+.ipa-focus-how li::before {
+  content: '·'; position: absolute; left: .35rem; color: var(--accent); font-weight: 700;
+}
+.ipa-focus-privacy {
+  font-size: var(--fs-micro); font-weight: 600; color: var(--accent);
+  background: none; border: 0; padding: .35rem 0 0; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 2px;
 }
 .ipa-focus-row {
   display: flex; align-items: center; justify-content: space-between;
@@ -311,6 +342,55 @@
 
     <ul class="ipa-reasons" id="ipaReasons" hidden></ul>
 
+    <!-- Focus check-in. Placed here, above the timer, because the decision
+         is made before you start — and because as a toggle below a running
+         timer it was effectively invisible. -->
+    <div class="ipa-focus">
+      <div class="ipa-focus-row">
+        <div>
+          <span class="ipa-focus-head">
+            <svg class="ipa-focus-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M23 7l-7 5 7 5V7z"></path>
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+            </svg>
+            <span class="ipa-focus-label">Focus check-in &mdash; optional</span>
+          </span>
+          <p class="ipa-focus-note" id="ipaFocusNote">
+            Nudges you if you drift off mid-session. Everything happens on this device.
+          </p>
+        </div>
+        <label class="ipa-switch" for="ipaFocusToggle">
+          <input type="checkbox" id="ipaFocusToggle" aria-describedby="ipaFocusNote">
+          <span class="ipa-switch-track" aria-hidden="true"></span>
+          <span class="ipa-switch-knob" aria-hidden="true"></span>
+        </label>
+      </div>
+
+      <ul class="ipa-focus-how">
+        <li>Turn it on, then press Start. Your browser asks for the camera once.</li>
+        <li>It checks roughly every 2 seconds whether someone is at the screen.</li>
+        <li>You get a nudge only after you've clearly been away &mdash; never for glancing at your notes.</li>
+        <li>Turn it off at any time and the camera stops immediately.</li>
+      </ul>
+
+      <button type="button" class="ipa-focus-privacy" id="ipaFocusPrivacy"
+              aria-expanded="false" aria-controls="ipaFocusPrivacyText">
+        What leaves my device?
+      </button>
+      <p class="ipa-focus-note" id="ipaFocusPrivacyText" hidden>
+        Nothing that could identify you. Video is never recorded and never uploaded &mdash; frames
+        are examined in your browser and discarded. All that reaches us is a count per minute:
+        how many checks saw someone, how many didn't. No images, no face data. It's a rough
+        signal, not a measurement, so treat it as a nudge rather than a verdict.
+      </p>
+
+      <p class="ipa-focus-state" id="ipaFocusState" data-state="unknown" hidden>
+        <span class="ipa-focus-pip" aria-hidden="true"></span>
+        <span id="ipaFocusStateText">Not tracking</span>
+      </p>
+    </div>
+
     <div class="ipa-timer-wrap">
       <div class="ipa-ring" id="ipaRing" role="timer" aria-label="Session timer">
         <svg viewBox="0 0 120 120" aria-hidden="true">
@@ -339,27 +419,6 @@
     </div>
 
     <!-- Focus check-in. Off by default, always. -->
-    <div class="ipa-focus">
-      <div class="ipa-focus-row">
-        <div>
-          <span class="ipa-focus-label">Focus check-in</span>
-          <p class="ipa-focus-note" id="ipaFocusNote">
-            Optional. Uses your camera on this device only to estimate whether you're at your desk —
-            no video is recorded, uploaded, or used to identify anyone. It's a rough signal, not a
-            measurement, so it stays quiet unless you've clearly been away a while.
-          </p>
-        </div>
-        <label class="ipa-switch" for="ipaFocusToggle">
-          <input type="checkbox" id="ipaFocusToggle" aria-describedby="ipaFocusNote">
-          <span class="ipa-switch-track" aria-hidden="true"></span>
-          <span class="ipa-switch-knob" aria-hidden="true"></span>
-        </label>
-      </div>
-      <p class="ipa-focus-state" id="ipaFocusState" data-state="unknown" hidden>
-        <span class="ipa-focus-pip" aria-hidden="true"></span>
-        <span id="ipaFocusStateText">Not tracking</span>
-      </p>
-    </div>
 
     <!-- Finish -->
     <div class="ipa-finish" id="ipaFinish" hidden>
