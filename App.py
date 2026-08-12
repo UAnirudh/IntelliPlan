@@ -10740,10 +10740,25 @@ def extension_login():
         email = data.get("email", "").strip().lower()
         password = data.get("password", "").strip()
         if not email or not password:
-            return flask.jsonify({"status": "error", "message": "Email and password required"})
-        user = User.query.filter_by(email=email).first()
+            return flask.jsonify({"status": "error", "message": "Email and password required"}), 400
+        try:
+            user = User.query.filter_by(email=email).first()
+        except Exception as lookup_error:
+            # A failing User SELECT here is almost always a schema that is
+            # behind the code — a column the model knows about and the
+            # database does not. Retry the migration once and look again,
+            # rather than returning 500 to every extension user until
+            # somebody notices.
+            print(f"[extension-login] user lookup failed, retrying migration: {lookup_error}")
+            db.session.rollback()
+            _run_boot_migration_once()
+            user = User.query.filter_by(email=email).first()
+
         if not user or not user.password_hash or not bcrypt.check_password_hash(user.password_hash, password):
-            return flask.jsonify({"status": "error", "message": "Invalid email or password"})
+            # 401, not 200. A failed login is not a successful request, and
+            # a client that only checks the status code was being told it
+            # had signed in.
+            return flask.jsonify({"status": "error", "message": "Invalid email or password"}), 401
         token = secrets_module.token_hex(32)
         db.session.add(ExtensionToken(user_id=user.id, token=token))
         db.session.commit()
@@ -10751,8 +10766,11 @@ def extension_login():
         resp.headers["Access-Control-Allow-Origin"] = "*"
         return resp
     except Exception as e:
+        # Never return the exception text. This endpoint is unauthenticated,
+        # and str(e) on a SQLAlchemy error contains the failing SQL and the
+        # table's column list — a free schema dump for anyone who asks.
         print(f"Extension login error: {e}")
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": "Login is temporarily unavailable."}), 500
 
 @app.route("/extension/register", methods=["POST", "OPTIONS"])
 def extension_register():
@@ -10783,8 +10801,10 @@ def extension_register():
         resp.headers["Access-Control-Allow-Origin"] = "*"
         return resp
     except Exception as e:
+        # Same reasoning as extension_login: no exception text to an
+        # unauthenticated caller.
         print(f"Extension register error: {e}")
-        return flask.jsonify({"status": "error", "message": str(e)}), 500
+        return flask.jsonify({"status": "error", "message": "Sign-up is temporarily unavailable."}), 500
 
 @app.route("/extension/logout", methods=["POST", "OPTIONS"])
 def extension_logout():
@@ -14568,6 +14588,19 @@ def _migrate_user_columns():
         ("users", "lms_preferences", "TEXT DEFAULT '{}'"),
         ("users", "ai_personalization_opt_in", "BOOLEAN DEFAULT FALSE"),
         ("users", "role", "VARCHAR(16) DEFAULT 'student'"),
+        # users — notification preferences. These are listed here as well as
+        # in apply_notification_migrations() on purpose: that one runs once,
+        # at import, inside an app context. If the database is not reachable
+        # at that moment — the gunicorn cold start this whole function exists
+        # for — it never runs again, and every User SELECT afterwards fails
+        # on the missing column. That is not a broken settings page, it is a
+        # 500 on every authenticated request in the app.
+        ("users", "email_reminders_opt_in", "BOOLEAN DEFAULT FALSE"),
+        ("users", "utc_offset_minutes", "INTEGER DEFAULT 0"),
+        ("users", "quiet_hours_enabled", "BOOLEAN DEFAULT TRUE"),
+        ("users", "quiet_hours_start", "INTEGER DEFAULT 22"),
+        ("users", "quiet_hours_end", "INTEGER DEFAULT 7"),
+        ("users", "notification_kinds", "VARCHAR(512)"),
         # manual_tasks provenance for CSV importer / extension scraper
         ("manual_tasks", "import_source", "VARCHAR(32) DEFAULT ''"),
         ("manual_tasks", "import_batch_id", "VARCHAR(64) DEFAULT ''"),

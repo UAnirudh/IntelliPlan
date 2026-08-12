@@ -1,0 +1,2684 @@
+/* ═══════════════════════════════════════════════════════════════════
+   IntelliPlan — base stylesheet
+
+   Extracted verbatim from a 133KB inline <style> block in base.html.
+
+   Why: an inline style block is part of the HTML document, so it cannot
+   be cached. Every page in the app extends base.html, which meant every
+   single navigation re-downloaded the same 133KB of CSS — roughly 40% of
+   each page's weight — and re-parsed it. As an external file the browser
+   fetches it once and reuses it for the rest of the session.
+
+   Load position is unchanged: base.html links this where the block used
+   to sit, ahead of mobile.css and the component layers, so the cascade is
+   byte-for-byte the same as before.
+
+   Contains no Jinja — verified before extraction — so it is safe as a
+   static asset. Keep it that way: a template expression added here will
+   ship to the browser as literal text.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ══════════════════════════════════════
+       DESIGN TOKENS
+    ══════════════════════════════════════ */
+    :root {
+      --font-display: 'DM Serif Display', serif;
+      --font-body:    'DM Sans', sans-serif;
+      --font-ui:      'Syne', sans-serif;
+      --font-mono:    'DM Mono', ui-monospace, monospace;
+      --r-xs: 6px; --r-sm: 10px; --r-md: 14px;
+      --r-lg: 18px; --r-xl: 24px; --r-2xl: 24px; --r-full: 9999px;
+      --ease-out:    cubic-bezier(0.16,1,0.3,1);
+      --ease-in-out: cubic-bezier(0.65,0,0.35,1);
+      --t-fast: 0.16s; --t-base: 0.22s; --t-slow: 0.45s;
+      /* Flat brand fills instead of the old 3-stop blue gradient (a classic
+         "AI look"). A single, considered accent reads more professional. */
+      --grad-brand:      var(--accent);
+      --grad-brand-soft: var(--accent-soft);
+      --accent-shadow:   37,99,235;
+      --control-h: 44px;
+      --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+      --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px;
+      --page-max: 1180px; --content-max: 960px; --nav-height: 62px;
+      /* Focus ring hook (resolves to the live accent per theme) and a
+         neutral scrim fallback; both overridden per theme below. Additive
+         — page templates may consume var(--focus-ring)/var(--scrim). */
+      --focus-ring: var(--accent);
+      --scrim: rgba(0,0,0,0.5);
+    }
+
+    :root[data-theme="light"] {
+      --bg:            #f5f4f1;
+      --bg-secondary:  #fefefe;
+      --bg-card:       #ffffff;
+      --bg-elevated:   #eceae6;
+      --bg-dot:        transparent;
+      --accent:        #1a56db;
+      --accent-hover:  #1648b8;
+      --accent-soft:   rgba(26,86,219,0.06);
+      --accent-mid:    rgba(26,86,219,0.18);
+      --accent-glow:   0 0 48px rgba(26,86,219,0.10);
+      --ink:           #1a1a1a;
+      --text-primary:  #1a1a1a;
+      --text-secondary:#4a4a46;
+      /* Muted was #8c8c87 (~3.1:1 on --bg) — darkened to clear WCAG AA 4.5:1.
+         #6e6e69 cleared 4.5 on --bg but fell to ~4.27 on --bg-elevated (#eceae6),
+         so muted text on elevated surfaces (e.g. the ⌘K "esc" hint) failed AA.
+         #666660 clears 4.5 on the elevated surface too while staying clearly
+         lighter than --text-secondary. */
+      --text-muted:    #666660;
+      /* Danger. Two tokens because the contrast bars differ: --danger is used
+         for borders and icons (UI components, 3:1) while --danger-text carries
+         words (4.5:1). #dc2626 as text measured 4.15:1 on the faint red-tinted
+         surface it sits on — a fail — so the text token is a step darker.
+         #b91c1c is 5.99:1 on --bg and 5.56:1 on that tinted surface. */
+      --danger:        #dc2626;
+      --danger-text:   #b91c1c;
+      --danger-soft:   rgba(220,38,38,0.06);
+      --border:        rgba(0,0,0,0.06);
+      --border-strong: rgba(0,0,0,0.11);
+      --border-accent: rgba(26,86,219,0.24);
+      --shadow-sm:  0 1px 2px rgba(28,25,20,0.04), 0 2px 6px rgba(28,25,20,0.03);
+      --shadow:     0 1px 3px rgba(28,25,20,0.04), 0 6px 20px rgba(28,25,20,0.05);
+      --shadow-hover:0 2px 6px rgba(28,25,20,0.06), 0 16px 40px rgba(28,25,20,0.09);
+      --shadow-lg:  0 4px 12px rgba(28,25,20,0.06), 0 24px 56px rgba(28,25,20,0.11);
+      --shadow-xl:  0 8px 24px rgba(28,25,20,0.08), 0 32px 72px rgba(28,25,20,0.14);
+      --nav-bg:     rgba(254,254,254,0.85);
+      --nav-border: rgba(0,0,0,0.05);
+      --high:        #c62828; --high-bg:    rgba(198,40,40,0.06);
+      --medium:      #c27a06; --medium-bg:  rgba(194,122,6,0.06);
+      --low:         #0a7558; --low-bg:     rgba(10,117,88,0.06);
+      --toggle-bg:   rgba(0,0,0,0.07);
+      --toggle-knob: #1a1a1a;
+      --nav-divider: rgba(0,0,0,0.08);
+      --footer-bg:   #eae8e4;
+      /* #6a6a66 measured 4.44:1 on --footer-bg — just under AA. #636360 clears
+         4.5:1 (~4.66) while keeping the quiet, de-emphasised footer tone. */
+      --footer-text: #636360;
+      --footer-border:rgba(0,0,0,0.05);
+      --footer-link: #1a56db;
+      --scrim:       rgba(18,18,23,0.44);
+      --accent-shadow: 26,86,219;
+      /* Neo-glass surface system: translucent cards with soft dual
+         (neumorphic) shadows; true backdrop blur is reserved for
+         floating chrome so long card lists stay compositor-cheap. */
+      /* Kept readable-without-blur (0.66): long scrolling lists intentionally
+         skip backdrop-filter for perf, so the fill alone must carry contrast.
+         The glass read comes from blur + the ambient atmosphere + edge-light,
+         not from extreme transparency (which also looks less premium). */
+      --glass-bg:      rgba(255,255,255,0.40);
+      --glass-border:  rgba(255,255,255,0.80);
+      --glass-blur:    26px;
+      --glass-saturate: 1.8;
+      /* Glass depth: bright top edge-light + a crisp 1px inner refraction
+         border + an accent-TINTED ambient drop (never flat black). Pairs with
+         backdrop blur to make surfaces read as real frosted panes. */
+      /* LiquidGlass edge layer: crisp white inner rim on all sides + a soft
+         ambient glow. This is what reads as a real frosted pane over the
+         aurora backdrop, even when the fill is very translucent. */
+      /* Card elevation stays on the warm-neutral ramp; the inner highlights
+         are what make the surface read as glass, not a coloured cast. */
+      --glass-shadow:  inset 1.5px 1.5px 2px rgba(255,255,255,0.7), inset -1.5px -1.5px 2px rgba(255,255,255,0.55), inset 0 1px 0 rgba(255,255,255,0.95), 0 12px 34px -10px rgba(28,25,20,0.16), 0 3px 12px rgba(28,25,20,0.07);
+      --glass-highlight: linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.08) 30%, rgba(255,255,255,0) 55%);
+      /* Glass interactive-element family — buttons, inputs, chips, icon
+         buttons. Frosted translucent fill + bright edge-light so the glass is
+         obvious in light mode while text stays high-contrast. */
+      --glass-btn-bg:       rgba(255,255,255,0.42);
+      --glass-btn-border:   rgba(255,255,255,0.85);
+      --glass-btn-hover:    rgba(255,255,255,0.68);
+      /* Elevation layer kept warm-neutral to match --shadow / --shadow-lg.
+         It used to carry an accent tint, which read as a chromatic glow and
+         was the one shadow on the site not using the neutral ramp. */
+      --glass-btn-shadow:   inset 0 1px 0 rgba(255,255,255,0.95), 0 1px 2px rgba(28,25,20,0.06), 0 4px 12px -4px rgba(28,25,20,0.14);
+      --glass-btn-shadow-hover: inset 0 1px 0 rgba(255,255,255,1), 0 2px 6px rgba(28,25,20,0.08), 0 10px 24px -8px rgba(28,25,20,0.22);
+      --glass-primary-bg:   rgba(22,22,26,0.78);
+      --glass-primary-hover: rgba(36,36,42,0.86);
+      --glass-primary-text: #ffffff;
+      --glass-input-bg:     rgba(255,255,255,0.5);
+      --glass-input-border: rgba(0,0,0,0.10);
+      --neu-shadow:    7px 7px 16px rgba(28,25,20,0.07), -7px -7px 16px rgba(255,255,255,0.90);
+      --neu-shadow-sm: 3px 3px 8px rgba(28,25,20,0.06), -3px -3px 8px rgba(255,255,255,0.85);
+      --neu-inset:     inset 2px 2px 5px rgba(28,25,20,0.06), inset -2px -2px 5px rgba(255,255,255,0.90);
+    }
+
+    :root[data-theme="dark"] {
+      --bg:            #101012;
+      --bg-secondary:  #17171a;
+      --bg-card:       #1c1c20;
+      --bg-elevated:   #242428;
+      --bg-dot:        transparent;
+      --accent:        #5b93f5;
+      --accent-hover:  #7aabf8;
+      --accent-soft:   rgba(91,147,245,0.09);
+      --accent-mid:    rgba(91,147,245,0.22);
+      --accent-glow:   0 0 48px rgba(91,147,245,0.14);
+      --ink:           #e6e6e2;
+      --text-primary:  #e6e6e2;
+      --text-secondary:#9e9e9a;
+      /* Muted was #5e5e5a (~2.9:1 on --bg) — lightened to clear WCAG AA 4.5:1.
+         #7c7c76 cleared 4.5 on --bg (4.53) but only managed 4.05 on --bg-card
+         (#1c1c20), so muted text on every dark card failed AA — the same
+         wrong-surface mistake the light token had. #878780 clears both
+         (4.70 on card, 5.26 on bg) and stays dimmer than --text-secondary. */
+      --text-muted:    #878780;
+      /* Dark-theme danger. The light theme's #b91c1c is far too dark to read
+         on a dark surface, so the text token goes lighter rather than darker
+         (~9.7:1 on --bg). See the light-theme note for why these are split. */
+      --danger:        #f87171;
+      --danger-text:   #fca5a5;
+      --danger-soft:   rgba(248,113,113,0.10);
+      --border:        rgba(255,255,255,0.06);
+      --border-strong: rgba(255,255,255,0.10);
+      --border-accent: rgba(91,147,245,0.26);
+      --shadow-sm:  0 1px 3px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.35);
+      --shadow:     0 1px 4px rgba(0,0,0,0.4), 0 6px 20px rgba(0,0,0,0.3);
+      --shadow-hover:0 2px 8px rgba(0,0,0,0.4), 0 16px 40px rgba(0,0,0,0.35);
+      --shadow-lg:  0 4px 12px rgba(0,0,0,0.45), 0 24px 56px rgba(0,0,0,0.45);
+      --shadow-xl:  0 8px 24px rgba(0,0,0,0.5), 0 32px 72px rgba(0,0,0,0.5);
+      --nav-bg:     rgba(16,16,18,0.92);
+      --nav-border: rgba(255,255,255,0.05);
+      --high:        #f07070; --high-bg:   rgba(240,112,112,0.10);
+      --medium:      #f0b429; --medium-bg: rgba(240,180,41,0.10);
+      --low:         #3dd4a0; --low-bg:    rgba(61,212,160,0.10);
+      --toggle-bg:   rgba(255,255,255,0.07);
+      --toggle-knob: #e6e6e2;
+      --nav-divider: rgba(255,255,255,0.08);
+      --footer-bg:   #17171a;
+      --footer-text: #6a6a66;
+      --footer-border:rgba(255,255,255,0.05);
+      --footer-link: #5b93f5;
+      --scrim:       rgba(0,0,0,0.62);
+      --accent-shadow: 91,147,245;
+      --glass-bg:      rgba(30,30,36,0.42);
+      --glass-border:  rgba(255,255,255,0.14);
+      --glass-blur:    26px;
+      --glass-saturate: 1.8;
+      --glass-shadow:  inset 1px 1px 2px rgba(255,255,255,0.16), inset -1px -1px 2px rgba(255,255,255,0.10), inset 0 1px 0 rgba(255,255,255,0.20), 0 18px 46px -14px rgba(0,0,0,0.6), 0 4px 14px rgba(0,0,0,0.35);
+      --glass-highlight: linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.03) 36%, rgba(255,255,255,0) 58%);
+      --glass-btn-bg:       rgba(255,255,255,0.07);
+      --glass-btn-border:   rgba(255,255,255,0.16);
+      --glass-btn-hover:    rgba(255,255,255,0.15);
+      --glass-btn-shadow:   inset 0 1px 0 rgba(255,255,255,0.14), 0 1px 2px rgba(0,0,0,0.35), 0 4px 12px -4px rgba(0,0,0,0.4);
+      --glass-btn-shadow-hover: inset 0 1px 0 rgba(255,255,255,0.20), 0 2px 6px rgba(0,0,0,0.4), 0 10px 24px -8px rgba(0,0,0,0.5);
+      --glass-primary-bg:   rgba(240,240,236,0.84);
+      --glass-primary-hover: rgba(255,255,255,0.92);
+      --glass-primary-text: #16161a;
+      --glass-input-bg:     rgba(255,255,255,0.05);
+      --glass-input-border: rgba(255,255,255,0.14);
+      --neu-shadow:    7px 7px 16px rgba(0,0,0,0.50), -5px -5px 14px rgba(255,255,255,0.025);
+      --neu-shadow-sm: 3px 3px 8px rgba(0,0,0,0.45), -3px -3px 8px rgba(255,255,255,0.02);
+      --neu-inset:     inset 2px 2px 5px rgba(0,0,0,0.50), inset -2px -2px 5px rgba(255,255,255,0.03);
+    }
+
+    /* ───── Extra themes ──────────────────────────────────────
+       Each theme overrides accent + a tasteful set of surface colors
+       on top of the light or dark base. Theme switching is done by
+       setting both data-theme (light|dark) and data-palette (id). */
+    :root[data-palette="ocean"][data-theme="light"] {
+      --bg:#f0f5fa; --bg-secondary:#ffffff; --bg-card:#ffffff; --bg-elevated:#edf2f7;
+      --accent:#0369a1; --accent-hover:#075985;
+      --accent-soft:rgba(3,105,161,0.08); --accent-mid:rgba(3,105,161,0.25); --border-accent:rgba(3,105,161,0.28);
+      --grad-brand:linear-gradient(135deg,#075985 0%,#0284c7 55%,#38bdf8 100%);
+      --toggle-knob:#0369a1; --footer-link:#0369a1;
+    }
+    :root[data-palette="ocean"][data-theme="dark"] {
+      --bg:#070a0d; --bg-secondary:#0c1218; --bg-card:#111820; --bg-elevated:#162030;
+      --accent:#38bdf8; --accent-hover:#7dd3fc;
+      --accent-soft:rgba(56,189,248,0.10); --accent-mid:rgba(56,189,248,0.28); --border-accent:rgba(56,189,248,0.30);
+      --grad-brand:linear-gradient(135deg,#075985 0%,#0284c7 55%,#38bdf8 100%);
+      --toggle-knob:#38bdf8; --footer-link:#38bdf8;
+    }
+
+    :root[data-palette="forest"][data-theme="light"] {
+      --bg:#f0f5f0; --bg-secondary:#ffffff; --bg-card:#ffffff; --bg-elevated:#edf2ed;
+      --accent:#15803d; --accent-hover:#166534;
+      --accent-soft:rgba(21,128,61,0.08); --accent-mid:rgba(21,128,61,0.25); --border-accent:rgba(21,128,61,0.28);
+      --grad-brand:linear-gradient(135deg,#166534 0%,#16a34a 55%,#4ade80 100%);
+      --toggle-knob:#15803d; --footer-link:#15803d;
+    }
+    :root[data-palette="forest"][data-theme="dark"] {
+      --bg:#070d08; --bg-secondary:#0c180e; --bg-card:#112016; --bg-elevated:#1e2c22;
+      --accent:#4ade80; --accent-hover:#86efac;
+      --accent-soft:rgba(74,222,128,0.10); --accent-mid:rgba(74,222,128,0.28); --border-accent:rgba(74,222,128,0.30);
+      --grad-brand:linear-gradient(135deg,#166534 0%,#22c55e 55%,#86efac 100%);
+      --toggle-knob:#4ade80; --footer-link:#4ade80;
+    }
+
+    :root[data-palette="sunset"][data-theme="light"] {
+      --bg:#fbf5f0; --bg-secondary:#ffffff; --bg-card:#ffffff; --bg-elevated:#f2ece7;
+      --accent:#c2410c; --accent-hover:#9a3412;
+      --accent-soft:rgba(194,65,12,0.08); --accent-mid:rgba(194,65,12,0.25); --border-accent:rgba(194,65,12,0.28);
+      --grad-brand:linear-gradient(135deg,#9a3412 0%,#ea580c 55%,#fb923c 100%);
+      --toggle-knob:#c2410c; --footer-link:#c2410c;
+    }
+    :root[data-palette="sunset"][data-theme="dark"] {
+      --bg:#0d0907; --bg-secondary:#180e0c; --bg-card:#201510; --bg-elevated:#2c2118;
+      --accent:#fb923c; --accent-hover:#fdba74;
+      --accent-soft:rgba(251,146,60,0.10); --accent-mid:rgba(251,146,60,0.28); --border-accent:rgba(251,146,60,0.30);
+      --grad-brand:linear-gradient(135deg,#9a3412 0%,#ea580c 55%,#fb923c 100%);
+      --toggle-knob:#fb923c; --footer-link:#fb923c;
+    }
+
+    :root[data-palette="rose"][data-theme="light"] {
+      --bg:#fbf0f5; --bg-secondary:#ffffff; --bg-card:#ffffff; --bg-elevated:#f2edf0;
+      --accent:#be185d; --accent-hover:#9d174d;
+      --accent-soft:rgba(190,24,93,0.08); --accent-mid:rgba(190,24,93,0.25); --border-accent:rgba(190,24,93,0.28);
+      --grad-brand:linear-gradient(135deg,#9d174d 0%,#db2777 55%,#f472b6 100%);
+      --toggle-knob:#be185d; --footer-link:#be185d;
+    }
+    :root[data-palette="rose"][data-theme="dark"] {
+      --bg:#0d0710; --bg-secondary:#180c18; --bg-card:#201020; --bg-elevated:#2c1c28;
+      --accent:#f472b6; --accent-hover:#f9a8d4;
+      --accent-soft:rgba(244,114,182,0.10); --accent-mid:rgba(244,114,182,0.28); --border-accent:rgba(244,114,182,0.30);
+      --grad-brand:linear-gradient(135deg,#9d174d 0%,#ec4899 55%,#f9a8d4 100%);
+      --toggle-knob:#f472b6; --footer-link:#f472b6;
+    }
+
+    :root[data-palette="midnight"][data-theme="dark"],
+    :root[data-palette="midnight"][data-theme="light"] {
+      --bg:#07060d; --bg-secondary:#0e0c18; --bg-card:#12101e; --bg-elevated:#1c1830;
+      --accent:#a78bfa; --accent-hover:#c4b5fd;
+      --accent-soft:rgba(167,139,250,0.10); --accent-mid:rgba(167,139,250,0.28); --border-accent:rgba(167,139,250,0.30);
+      --text-primary:#e2e8f4; --text-secondary:#8892a8; --text-muted:#7c8598;
+      --border:rgba(255,255,255,0.065); --border-strong:rgba(255,255,255,0.10);
+      --nav-bg:rgba(7,6,13,0.9);
+      --grad-brand:linear-gradient(135deg,#5b21b6 0%,#7c3aed 55%,#a78bfa 100%);
+      --toggle-knob:#a78bfa; --footer-link:#a78bfa;
+    }
+
+    :root[data-palette="mocha"][data-theme="light"] {
+      --bg:#f7f3f0; --bg-secondary:#ffffff; --bg-card:#ffffff; --bg-elevated:#ede8e2;
+      --accent:#78552e; --accent-hover:#5c3d1e;
+      --accent-soft:rgba(120,85,46,0.08); --accent-mid:rgba(120,85,46,0.25); --border-accent:rgba(120,85,46,0.28);
+      --grad-brand:linear-gradient(135deg,#5c3d1e 0%,#92652e 55%,#c8a17a 100%);
+      --toggle-knob:#78552e; --footer-link:#78552e;
+    }
+    :root[data-palette="mocha"][data-theme="dark"] {
+      --bg:#0d0a07; --bg-secondary:#18130c; --bg-card:#201a10; --bg-elevated:#2a221a;
+      --accent:#c8a17a; --accent-hover:#dcb893;
+      --accent-soft:rgba(200,161,122,0.10); --accent-mid:rgba(200,161,122,0.28); --border-accent:rgba(200,161,122,0.30);
+      --grad-brand:linear-gradient(135deg,#5c3d1e 0%,#a47551 55%,#c8a17a 100%);
+      --toggle-knob:#c8a17a; --footer-link:#c8a17a;
+    }
+
+    /* ══════════════════════════════════════
+       IPD SHARED DESIGN SYSTEM
+    ══════════════════════════════════════ */
+    :root {
+      --ipd-font-display: 'DM Serif Display', Georgia, serif;
+      --ipd-font-body: 'DM Sans', -apple-system, sans-serif;
+      --ipd-font-mono: 'DM Mono', 'SF Mono', monospace;
+      --ipd-radius-lg: 20px;
+      --ipd-radius-md: 14px;
+      --ipd-radius-sm: 10px;
+      --ipd-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --ipd-glass-bg: rgba(255, 255, 255, 0.72);
+      --ipd-glass-border: rgba(0, 0, 0, 0.06);
+    }
+    [data-theme="dark"] {
+      --ipd-glass-bg: rgba(28, 28, 28, 0.72);
+      --ipd-glass-border: rgba(255, 255, 255, 0.08);
+    }
+
+    @keyframes ipd-fadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes ipd-pulse {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.5; }
+    }
+    .ipd-anim { opacity: 0; animation: ipd-fadeUp 0.55s var(--ipd-ease-out) forwards; }
+    .ipd-d1 { animation-delay: 0.05s; }
+    .ipd-d2 { animation-delay: 0.10s; }
+    .ipd-d3 { animation-delay: 0.15s; }
+    .ipd-d4 { animation-delay: 0.20s; }
+    .ipd-d5 { animation-delay: 0.25s; }
+    .ipd-d6 { animation-delay: 0.30s; }
+    .ipd-d7 { animation-delay: 0.35s; }
+    .ipd-d8 { animation-delay: 0.40s; }
+
+    .ipd-page-header { margin-bottom: 2rem; }
+    .ipd-kicker {
+      font-family: var(--ipd-font-mono);
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .ipd-page-title {
+      font-family: var(--ipd-font-display);
+      font-size: clamp(1.5rem, 1rem + 2vw, 2.25rem);
+      font-weight: 400;
+      color: var(--text-primary);
+      line-height: 1.15;
+      text-wrap: balance;
+    }
+    .ipd-page-subtitle {
+      font-family: var(--ipd-font-body);
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+
+    .ipd-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--ipd-radius-lg);
+      padding: 1.4rem;
+      box-shadow: var(--shadow-sm);
+      transition: box-shadow 0.25s var(--ipd-ease-out), border-color 0.25s var(--ipd-ease-out);
+    }
+    .ipd-card:hover { box-shadow: var(--shadow); border-color: var(--border-strong); }
+    .ipd-card-title {
+      font-family: var(--ipd-font-body);
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .ipd-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: var(--ipd-radius-sm);
+      font-family: var(--ipd-font-body);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      -webkit-backdrop-filter: blur(10px) saturate(1.5); backdrop-filter: blur(10px) saturate(1.5);
+      transition: background 0.16s var(--ease-out), border-color 0.16s ease, box-shadow 0.16s ease, color 0.16s ease, transform 0.14s var(--ease-out);
+      border: 1px solid var(--glass-btn-border);
+      background: var(--glass-btn-bg);
+      color: var(--text-primary);
+      box-shadow: var(--glass-btn-shadow);
+      text-decoration: none;
+    }
+    .ipd-btn:hover { border-color: var(--glass-btn-border); background: var(--glass-btn-hover); box-shadow: var(--glass-btn-shadow-hover); }
+    .ipd-btn-primary {
+      background: var(--glass-primary-bg);
+      color: var(--glass-primary-text);
+      border-color: rgba(255,255,255,0.16);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 2px 8px rgba(0,0,0,0.14), 0 8px 20px -8px rgba(0,0,0,0.22);
+    }
+    .ipd-btn-primary:hover { background: var(--glass-primary-hover); box-shadow: inset 0 1px 0 rgba(255,255,255,0.26), 0 4px 12px rgba(0,0,0,0.16), 0 12px 28px -10px rgba(0,0,0,0.3); }
+    .ipd-btn-danger {
+      color: var(--high);
+      border-color: rgba(198,40,40,0.28);
+      background: var(--high-bg);
+    }
+    .ipd-btn-danger:hover { background: color-mix(in srgb, var(--high) 16%, transparent); }
+    .ipd-btn:active { transform: scale(0.98); }
+    /* Shared disabled state for base-defined buttons — no press/hover affordance. */
+    .ipd-btn:disabled, .ipd-btn[disabled],
+    .btn-primary:disabled, .btn-primary[disabled],
+    .btn-secondary:disabled, .btn-secondary[disabled],
+    .filter-btn:disabled, .filter-btn[disabled] {
+      opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none;
+    }
+
+    .ipd-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 999;
+      background: var(--scrim);
+      backdrop-filter: blur(6px);
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .ipd-modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--ipd-radius-lg);
+      width: 100%;
+      max-width: 480px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 1.75rem;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.2);
+      animation: ipd-fadeUp 0.28s var(--ipd-ease-out);
+    }
+    @supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
+      .ipd-modal {
+        background: var(--ipd-glass-bg);
+        backdrop-filter: blur(28px) saturate(180%);
+        -webkit-backdrop-filter: blur(28px) saturate(180%);
+        box-shadow: 0 24px 80px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.5);
+      }
+      [data-theme="dark"] .ipd-modal { box-shadow: 0 24px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06); }
+    }
+    .ipd-modal h3 {
+      font-family: var(--ipd-font-display);
+      font-size: 1.35rem;
+      font-weight: 400;
+      color: var(--text-primary);
+      margin: 0 0 1.25rem;
+    }
+    .ipd-modal label {
+      display: block;
+      font-family: var(--ipd-font-body);
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      margin-top: 14px;
+    }
+    .ipd-modal input[type="text"],
+    .ipd-modal input[type="date"],
+    .ipd-modal input[type="number"],
+    .ipd-modal input[type="password"],
+    .ipd-modal input[type="email"],
+    .ipd-modal input[type="url"],
+    .ipd-modal select,
+    .ipd-modal textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--ipd-radius-sm);
+      font-family: var(--ipd-font-body);
+      font-size: 0.86rem;
+      color: var(--text-primary);
+      background: var(--bg);
+      box-sizing: border-box;
+    }
+    .ipd-modal textarea { resize: vertical; min-height: 70px; }
+    .ipd-modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 1.5rem;
+    }
+
+    .ipd-stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--ipd-radius-lg);
+      padding: 1.25rem 1.3rem;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: box-shadow 0.2s ease, transform 0.2s ease;
+    }
+    .ipd-stat-card:hover {
+      box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+      transform: translateY(-2px);
+    }
+    .ipd-stat-label {
+      font-family: var(--ipd-font-mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .ipd-stat-value {
+      font-family: var(--ipd-font-display);
+      font-size: 2rem;
+      font-weight: 400;
+      color: var(--text-primary);
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+    }
+    .ipd-stat-sub {
+      font-family: var(--ipd-font-body);
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* In-card version of the same idea. No border here — it already sits
+       inside a card, and a second frame around a frame reads as a bug. */
+    .ipd-empty-state {
+      text-align: center;
+      padding: 2.5rem 1rem;
+      color: var(--text-muted);
+      font-family: var(--ipd-font-body);
+    }
+    .ipd-empty-state svg {
+      color: var(--accent);
+      opacity: 0.75;
+      margin-bottom: 0.85rem;
+      padding: 11px;
+      box-sizing: content-box;
+      border-radius: var(--r-full);
+      background: var(--accent-soft);
+    }
+    .ipd-empty-state p { font-size: 0.86rem; margin: 0; }
+    .ipd-empty-state .empty-actions { margin-top: 1rem; }
+
+    .ipd-section-tabs {
+      display: flex;
+      gap: 2px;
+      background: var(--bg);
+      border-radius: var(--ipd-radius-sm);
+      padding: 3px;
+      border: 1px solid var(--border);
+    }
+    .ipd-section-tab {
+      flex: 1;
+      padding: 7px 14px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      font-family: var(--ipd-font-body);
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+    }
+    .ipd-section-tab.active {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .ipd-section-tab:hover:not(.active) { color: var(--text-secondary); }
+
+    .ipd-list-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      border-radius: var(--ipd-radius-md);
+      border: 1px solid var(--border);
+      background: var(--bg);
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+    .ipd-list-item:hover {
+      border-color: var(--text-muted);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+      transform: translateY(-1px);
+    }
+
+    .ipd-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .ipd-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .ipd-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    @media (max-width: 960px) {
+      .ipd-grid-3, .ipd-grid-4 { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 560px) {
+      .ipd-grid-2, .ipd-grid-3, .ipd-grid-4 { grid-template-columns: 1fr; }
+    }
+
+    /* ══════════════════════════════════════
+       RESET & BASE
+    ══════════════════════════════════════ */
+    *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+    html { scroll-behavior:smooth; }
+
+    /* ── Accessibility classes (toggled from Settings → Accessibility) ── */
+    html.a11y-large-text { font-size: 17.25px; }
+    @media (max-width: 720px) { html.a11y-large-text { font-size: 18px; } }
+    html.a11y-high-contrast {
+      --text-primary: #000;
+      --text-secondary: #1f2937;
+      --text-muted: #374151;
+      --border: #6b7280;
+      --border-strong: #111827;
+      --accent: #1d4ed8;
+    }
+    html.a11y-high-contrast[data-theme="dark"] {
+      --text-primary: #fff;
+      --text-secondary: #f3f4f6;
+      --text-muted: #d1d5db;
+      --border: #9ca3af;
+      --border-strong: #f3f4f6;
+      --accent: #60a5fa;
+    }
+    html.a11y-reduce-motion *,
+    html.a11y-reduce-motion *::before,
+    html.a11y-reduce-motion *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        transition-duration: 0.001ms !important;
+      }
+    }
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      transition: background 0.25s ease, color 0.25s ease;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      line-height: 1.6;
+      font-size: 15px;
+      text-rendering: optimizeLegibility;
+      position: relative;
+    }
+    /* Ambient glass atmosphere — a fixed field of accent-tinted light so
+       every translucent surface has real color to refract. Tuned to read as
+       premium depth without tinting body text; recolors per theme/palette
+       because it's built on the live --accent-shadow RGB triplet. */
+    body::before {
+      content:'';
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 0;
+      background:
+        radial-gradient(56rem 48rem at -4% -12%, rgba(var(--accent-shadow),0.08) 0%, transparent 52%),
+        radial-gradient(52rem 46rem at 104% 110%, rgba(var(--accent-shadow),0.06) 0%, transparent 54%);
+      opacity: 1;
+    }
+    [data-theme="dark"] body::before { opacity: 0.9; }
+    /* Fine-grain noise overlay — adds tactile warmth so surfaces don't
+       feel like a clinical CSS gradient. Heavy on light theme, lighter on dark. */
+    body::after {
+      content:'';
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity: 0.025;
+      mix-blend-mode: multiply;
+    }
+    [data-theme="dark"] body::after { opacity: 0.04; mix-blend-mode: screen; }
+    body > * { position: relative; z-index: 1; }
+
+    h1, h2, h3 {
+      font-family: var(--font-display);
+      letter-spacing: -0.025em;
+      line-height: 1.08;
+      color: var(--text-primary);
+    }
+    h1 { letter-spacing: -0.035em; line-height: 1.0; }
+    h2 { letter-spacing: -0.02em; }
+    h4, h5, h6 {
+      font-family: var(--font-ui);
+      letter-spacing: -0.015em;
+      line-height: 1.25;
+    }
+    p { line-height: 1.65; }
+    ::selection { background: var(--accent-soft); color: var(--accent); }
+    a { transition: color 0.15s ease; }
+
+    /* Branded scrollbars — quieter, theme-aware, doesn't fight the layout. */
+    * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+    *::-webkit-scrollbar { width: 10px; height: 10px; }
+    *::-webkit-scrollbar-track { background: transparent; }
+    *::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border: 2px solid transparent;
+      background-clip: padding-box;
+      border-radius: 10px;
+      transition: background 0.18s;
+    }
+    *::-webkit-scrollbar-thumb:hover { background: var(--text-muted); background-clip: padding-box; }
+
+    /* Subtle inner highlight on elevated surfaces — the "edge light"
+       that makes cards feel physical instead of pasted-on. */
+    .stat-card, .assignment-card, .login-card {
+      position: relative;
+    }
+    [data-theme="dark"] .stat-card::after,
+    [data-theme="dark"] .assignment-card::after,
+    [data-theme="dark"] .login-card::after {
+      content:''; position:absolute; inset:0; border-radius:inherit;
+      pointer-events:none;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    /* ══════════════════════════════════════
+       HEADER
+    ══════════════════════════════════════ */
+    /* Scoped to the top-level nav header only. A bare `header {}` here
+       used to style EVERY nested <header> (62px sticky grid bar),
+       silently breaking any page that used <header> for a hero/section.
+       `body > header` keeps the nav styled and frees inner headers. */
+    body > header {
+      background: var(--nav-bg);
+      border-bottom: 1px solid var(--nav-border);
+      backdrop-filter: blur(28px) saturate(200%);
+      -webkit-backdrop-filter: blur(28px) saturate(200%);
+      /* Subtle float + top "edge light" — the sheen that makes frosted
+         glass read as a physical pane instead of a flat translucent bar. */
+      box-shadow: 0 1px 0 var(--nav-border), 0 6px 24px -12px rgba(0,0,0,0.10);
+      padding: 0 2rem;
+      height: var(--nav-height);
+      display: grid;
+      grid-template-columns: minmax(150px, 1fr) minmax(0, auto) minmax(150px, 1fr);
+      align-items: center;
+      gap: clamp(0.75rem, 2vw, 1.5rem);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo { display:flex; align-items:center; gap:10px; text-decoration:none; flex-shrink:0; }
+    .logo-icon {
+      width:30px; height:30px;
+      background: var(--ink, #161616);
+      border-radius:var(--r-sm); display:flex; align-items:center; justify-content:center;
+      overflow:hidden; flex-shrink:0;
+    }
+    .logo-icon img { width:100%; height:100%; object-fit:cover; border-radius:var(--r-sm); }
+    .logo-text { font-family:var(--font-ui); font-size:1rem; font-weight:600; color:var(--text-primary); letter-spacing:-0.025em; }
+    .logo-text span { color:var(--text-primary); }
+    .header-right { display:contents; }
+    .header-actions {
+      grid-column: 3;
+      justify-self: end;
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:0.9rem;
+      min-width:0;
+    }
+
+    /* ── NAV ── */
+    .nav-tabs  {
+      grid-column: 2;
+      justify-self: center;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:2px;
+      max-width: min(100%, 980px);
+      min-width: 0;
+    }
+    .nav-group { display:flex; align-items:center; gap:2px; }
+    .nav-divider { width:1px; height:20px; background:var(--nav-divider); margin:0 6px; border-radius:var(--r-full); }
+    .nav-tab {
+      padding:5px 14px; border-radius:var(--r-full); border:none;
+      background:transparent; color:var(--text-secondary);
+      font-family:var(--font-ui); font-size:0.8rem; font-weight:400;
+      letter-spacing:-0.003em;
+      cursor:pointer; text-decoration:none; transition:all 0.15s ease; white-space:nowrap;
+      display:inline-flex; align-items:center; gap:6px;
+    }
+    .nav-tab-icon { width:14px; height:14px; display:inline-flex; align-items:center; justify-content:center; color:currentColor; }
+    .nav-tab-icon svg { width:100%; height:100%; }
+    .nav-tab:hover  { background:var(--bg-elevated); color:var(--text-primary); }
+    .nav-tab.active { background:var(--ink, #161616); color:white; font-weight:500; }
+    .nav-tab:active { transform:scale(0.97); }
+    .nav-tab.logout-btn { background:transparent; border:none; font:inherit; cursor:pointer; }
+    .nav-tab.logout-btn:hover { background:var(--high-bg); color:var(--high); }
+    .nav-tab-tutor { background:rgba(22,22,22,0.07); color:var(--ink, #161616) !important; font-weight:600; }
+    .nav-tab-tutor:hover { background:var(--ink, #161616) !important; color:#fff !important; }
+    .nav-tab-tutor.active { background:var(--ink, #161616) !important; color:#fff !important; }
+    [data-theme="dark"] .nav-tab-tutor { background:rgba(232,232,228,0.1); color:var(--ink, #e8e8e4) !important; }
+    [data-theme="dark"] .nav-tab-tutor:hover { background:var(--ink, #e8e8e4) !important; color:#161616 !important; }
+    /* Marketing "Get started" CTA, filled accent button, the conversion
+       anchor every leading SaaS marketing nav ends with. */
+    .nav-cta { background:var(--ink, #161616); color:#fff !important; font-weight:600; padding:7px 18px; border-radius:var(--r-full); box-shadow:var(--shadow); letter-spacing:-0.01em; }
+    .nav-cta:hover { background:#2a2a2a; color:#fff !important; box-shadow:var(--shadow-hover); }
+    :root[data-theme="dark"] .nav-cta { background:#e8e8e4; color:#161616 !important; }
+    :root[data-theme="dark"] .nav-cta:hover { background:#ffffff; }
+
+    .nav-dropdown { position:relative; }
+    .dropdown-toggle {
+      background:none; border:none; font-family:var(--font-body); font-size:0.84rem; font-weight:500;
+      cursor:pointer; color:var(--text-secondary); padding:7px 13px; border-radius:var(--r-full);
+      transition:all 0.16s; display:flex; align-items:center; gap:5px;
+    }
+    .dropdown-toggle:hover { background:var(--bg-elevated); color:var(--text-primary); }
+    .chevron { font-size:0.62rem; color:var(--text-muted); transition:transform 0.2s ease; }
+    .nav-dropdown:hover .chevron,
+    .nav-dropdown.is-open .chevron { transform:rotate(180deg); }
+    .dropdown-panel {
+      position:absolute; top:100%; left:0; min-width:180px;
+      background:var(--bg-card); border:1px solid var(--border-strong);
+      border-radius:var(--r-md); box-shadow:var(--shadow-lg); padding:6px;
+      opacity:0; pointer-events:none;
+      transition:opacity 0.2s ease, transform 0.2s var(--ease-out);
+      transform:translateY(-4px);
+      z-index:200;
+      margin-top:10px;
+    }
+    .nav-dropdown:hover .dropdown-panel,
+    .nav-dropdown.is-open .dropdown-panel { transform:translateY(0); }
+    /* Frosted glass on the floating popover — only where the browser can
+       actually blur behind it, so no-support browsers keep the solid panel. */
+    @supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
+      .dropdown-panel {
+        background:var(--ipd-glass-bg);
+        backdrop-filter:blur(20px) saturate(180%);
+        -webkit-backdrop-filter:blur(20px) saturate(180%);
+        box-shadow:var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.5);
+      }
+      [data-theme="dark"] .dropdown-panel { box-shadow:var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.06); }
+    }
+    .nav-dropdown:hover .dropdown-panel,
+    .nav-dropdown.is-open .dropdown-panel { opacity:1; pointer-events:auto; }
+    .nav-dropdown { position:relative; }
+    .nav-dropdown::before { content:''; position:absolute; top:100%; left:0; right:0; height:14px; }
+    .dropdown-item {
+      display:block; padding:9px 12px; border-radius:var(--r-sm);
+      font-size:0.86rem; font-weight:500; color:var(--text-secondary);
+      text-decoration:none; transition:all 0.13s ease; cursor:pointer;
+    }
+    .dropdown-item:hover  { background:var(--accent-soft); color:var(--accent); transform:translateX(3px); }
+    .dropdown-item.active { background:var(--accent-soft); color:var(--accent); font-weight:600; }
+
+    .date-badge {
+      font-family:var(--font-ui); font-size:0.74rem; font-weight:600;
+      color:var(--accent); background:var(--accent-soft);
+      padding:4px 12px; border-radius:var(--r-full);
+      display:inline-flex; align-items:center; gap:6px;
+      border:1px solid var(--border-accent);
+    }
+    .date-badge::before {
+      content:''; width:6px; height:6px; border-radius:50%;
+      background:var(--accent); flex-shrink:0;
+      box-shadow:0 0 0 3px var(--accent-soft);
+      animation:datePulse 2.4s ease-in-out infinite;
+    }
+    @keyframes datePulse {
+      0%, 100% { box-shadow:0 0 0 3px var(--accent-soft); }
+      50%      { box-shadow:0 0 0 5px transparent; }
+    }
+    .toggle-wrap { display:flex; align-items:center; gap:7px; font-size:0.75rem; color:var(--text-muted); font-weight:500; }
+    .toggle { position:relative; width:46px; height:24px; cursor:pointer; flex-shrink:0; }
+    .toggle input { display:none; }
+    .toggle-track { width:100%; height:100%; background:var(--toggle-bg); border-radius:12px; transition:background 0.25s; border:1px solid var(--border); }
+    .toggle-knob {
+      position:absolute; top:3px; left:3px; width:18px; height:18px;
+      background:var(--toggle-knob); border-radius:50%; overflow:hidden;
+      transition:transform 0.3s var(--ease-out); box-shadow:0 2px 6px rgba(0,0,0,0.2);
+    }
+    .toggle input:checked ~ .toggle-knob { transform:translateX(22px); }
+
+    /* Sun → crescent moon (Skiper 4's theme-toggle set). A second circle
+       painted in the track colour slides in and carves the knob, so the same
+       element reads as a sun when off and a moon when on. Sizes itself from
+       inset:0, so the smaller sidebar variant needs no extra rule. */
+    .toggle-knob::after {
+      content:''; position:absolute; inset:0; border-radius:50%;
+      background:var(--toggle-bg);
+      transform:translate(-55%, -55%) scale(0.2);
+      opacity:0;
+      transition:transform 0.32s var(--ease-out), opacity 0.2s linear;
+    }
+    .toggle input:checked ~ .toggle-knob::after {
+      transform:translate(-32%, -32%) scale(1);
+      opacity:1;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .toggle-knob, .toggle-knob::after { transition:none; }
+    }
+
+    /* .discord-btn {
+      display:inline-flex; align-items:center; gap:6px;
+      padding:7px 13px; background:#5865F2; color:white; text-decoration:none;
+      border-radius:var(--r-full); font-family:var(--font-ui); font-size:0.8rem; font-weight:600;
+      transition:all 0.16s ease;
+    }
+    .discord-btn:hover { background:#4752c4; transform:translateY(-1px); } */
+
+    #mobileMenuBtn {
+      display:none; background:none; border:1px solid var(--border);
+      border-radius:var(--r-sm); color:var(--text-secondary); font-size:1.1rem;
+      padding:6px 10px; cursor:pointer; transition:all 0.16s; align-items:center;
+    }
+    #mobileMenuBtn:hover { background:var(--accent-soft); border-color:var(--border-accent); color:var(--accent); }
+
+    /* Morphing menu icon (Skiper 99's MenuIcon, ported to CSS).
+       Three bars: the outer two translate to centre and counter-rotate into
+       an X while the middle one fades. Everything is transform/opacity, so
+       it stays on the compositor. */
+    .ip-burger {
+      position:relative; display:grid; place-items:center;
+      width:20px; height:16px;
+    }
+    .ip-burger > span {
+      position:absolute; left:0;
+      width:100%; height:2px; border-radius:2px;
+      background:currentColor;
+      transition:transform 0.28s var(--ease-out), opacity 0.16s linear;
+    }
+    .ip-burger > span:nth-child(1) { transform:translateY(-5px); }
+    .ip-burger > span:nth-child(3) { transform:translateY(5px); }
+
+    #mobileMenuBtn.is-open .ip-burger > span:nth-child(1) { transform:translateY(0) rotate(45deg); }
+    #mobileMenuBtn.is-open .ip-burger > span:nth-child(2) { opacity:0; }
+    #mobileMenuBtn.is-open .ip-burger > span:nth-child(3) { transform:translateY(0) rotate(-45deg); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ip-burger > span { transition:none; }
+    }
+
+    /* ══════════════════════════════════════
+       APP SIDEBAR (desktop) ──────────────
+    ══════════════════════════════════════ */
+    /* Sidebar width scales with the viewport: narrower on compact laptops,
+       wider on large monitors, clamped so it never gets cramped or bloated.
+       `main`'s left padding reads this var, so the content stays in sync. */
+    :root { --side-w: clamp(204px, 15vw, 272px); }
+    .app-side {
+      position: fixed; top: 0; left: 0; bottom: 0; width: var(--side-w);
+      background: var(--bg-card); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 4px;
+      padding: 14px 12px 12px; z-index: 95;
+      overflow-y: auto; scrollbar-width: thin;
+    }
+    .app-side::-webkit-scrollbar { width: 4px; }
+    .app-side::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+    .side-logo {
+      display: flex; align-items: center; gap: 10px;
+      padding: 4px 8px 12px; text-decoration: none; border-bottom: 1px solid var(--border);
+      margin-bottom: 8px;
+    }
+    .side-logo .logo-icon { width: 28px; height: 28px; border-radius: var(--r-sm); }
+    .side-logo .logo-text { font-family: var(--font-ui); font-size: 0.95rem; font-weight: 600; color: var(--text-primary); letter-spacing: -0.015em; }
+    .side-logo .logo-text span { color: var(--accent); }
+    .side-section-label {
+      font-family: var(--font-ui); font-size: 0.62rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted);
+      padding: 14px 12px 2px;
+      opacity: 0.7;
+    }
+    .side-section-label:first-child { padding-top: 4px; }
+    /* Tighter, less cluttered sidebar links */
+    .app-side .side-link {
+      padding: 7px 11px;
+      font-size: 0.85rem;
+      gap: 10px;
+    }
+    .app-side .side-link .side-icon { width: 16px; height: 16px; }
+    .side-nav-list { display: flex; flex-direction: column; gap: 1px; }
+    .side-nav-list .side-link.nav-hidden { display: none !important; }
+    /* Sidebar customize trigger, quiet, lives just above footer */
+    .side-customize-btn {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 11px; margin: 10px 0 4px;
+      border-radius: var(--r-sm);
+      background: transparent;
+      border: 1px dashed var(--border);
+      color: var(--text-muted);
+      font-family: var(--font-body); font-size: 0.78rem; font-weight: 500;
+      cursor: pointer;
+      transition: color 0.13s, border-color 0.13s, background 0.13s;
+      width: 100%; text-align: left;
+    }
+    .side-customize-btn:hover { color: var(--accent); border-color: var(--border-accent); background: var(--accent-soft); }
+    .side-customize-btn .side-icon { width: 14px; height: 14px; }
+
+    /* ── Customizer modal ───────────────────────────────── */
+    #navCustomizer {
+      display: none; position: fixed; inset: 0; z-index: 100010;
+      align-items: center; justify-content: center;
+      background: var(--scrim); backdrop-filter: blur(6px);
+      /* Pad for notch/home-indicator so the box is never clipped on phones. */
+      padding: calc(12px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom));
+    }
+    #navCustomizer.open { display: flex; }
+    #navCustomizer .nc-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--r-xl);
+      box-shadow: var(--shadow-lg);
+      width: min(540px, 94vw);
+      max-height: 80vh;
+      display: flex; flex-direction: column;
+      animation: fadeUp 0.18s var(--ease-out) both;
+      overflow: hidden;
+    }
+    @supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
+      #navCustomizer .nc-box {
+        background: var(--ipd-glass-bg);
+        backdrop-filter: blur(28px) saturate(180%);
+        -webkit-backdrop-filter: blur(28px) saturate(180%);
+      }
+    }
+    #navCustomizer .nc-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; border-bottom: 1px solid var(--border);
+    }
+    #navCustomizer .nc-head h2 { font-family: var(--font-display); font-size: 1.1rem; margin: 0; }
+    #navCustomizer .nc-head button {
+      background: none; border: 0; cursor: pointer; color: var(--text-muted);
+      width: 30px; height: 30px; border-radius: var(--r-sm);
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    #navCustomizer .nc-head button:hover { background: var(--bg-elevated); color: var(--text-primary); }
+    #navCustomizer .nc-body { padding: 14px 18px; overflow-y: auto; }
+    #navCustomizer .nc-hint { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px; }
+    #navCustomizer .nc-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 10px; border-radius: var(--r-sm);
+      background: var(--bg-elevated);
+      margin-bottom: 6px;
+    }
+    #navCustomizer .nc-row .nc-label { flex: 1; font-size: 0.9rem; font-weight: 500; }
+    #navCustomizer .nc-row .nc-icon { width: 18px; height: 18px; color: var(--text-secondary); flex-shrink: 0; }
+    #navCustomizer .nc-row .nc-grp {
+      font-family: var(--font-ui); font-size: 0.65rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--text-muted); padding: 2px 8px;
+      background: var(--bg-card); border-radius: var(--r-full);
+      border: 1px solid var(--border);
+    }
+    #navCustomizer .nc-toggle {
+      display: inline-flex; gap: 4px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--r-full); padding: 2px;
+    }
+    #navCustomizer .nc-toggle button {
+      background: transparent; border: 0; cursor: pointer;
+      font-family: var(--font-ui); font-size: 0.7rem; font-weight: 700;
+      padding: 4px 10px; border-radius: var(--r-full);
+      color: var(--text-muted); transition: all 0.12s;
+    }
+    #navCustomizer .nc-toggle button:hover { color: var(--text-primary); }
+    #navCustomizer .nc-toggle button.active { background: var(--accent); color: #fff; }
+    #navCustomizer .nc-foot {
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+      padding: 12px 18px; border-top: 1px solid var(--border);
+      background: var(--bg);
+    }
+    #navCustomizer .nc-reset {
+      background: transparent; border: 0; cursor: pointer; color: var(--text-muted);
+      font-size: 0.82rem; font-weight: 600; padding: 6px 10px;
+    }
+    #navCustomizer .nc-reset:hover { color: var(--high); }
+    .side-link {
+      display: flex; align-items: center; gap: 11px;
+      padding: 8px 12px; border-radius: var(--r-md);
+      color: var(--text-secondary); text-decoration: none;
+      font-family: var(--font-body); font-size: 0.85rem; font-weight: 400;
+      transition: background 0.18s ease, color 0.18s ease, transform 0.12s ease;
+      position: relative; border: none;
+    }
+    .side-link:hover { background: var(--bg-elevated); color: var(--text-primary); }
+    .side-link:active { transform: scale(0.98); }
+    .side-link.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+    .side-link.active .side-icon { color: var(--accent); }
+    .side-link.tutor { color: var(--ink, #161616); font-weight: 600; }
+    .side-link.tutor:hover { background: var(--ink, #161616); color: white; }
+    /* "side-pop", soft accent background to draw eye (used for Meetings). */
+    .side-link.side-pop {
+      background: var(--accent-soft); color: var(--accent); font-weight: 600;
+    }
+    .side-link.side-pop:hover { background: var(--ink, #161616); color: white; }
+    .side-link.side-pop.active { background: var(--ink, #161616); color: white; }
+    .side-icon {
+      width: 18px; height: 18px; flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: currentColor;
+    }
+    .side-icon svg { width: 100%; height: 100%; }
+
+    /* Collapsible sidebar groups (Plan / Toolkit). The active page's
+       group opens by default; users can toggle the others. State is
+       persisted in localStorage so the preference sticks across pages. */
+    .side-group { display: flex; flex-direction: column; }
+    .side-group-toggle {
+      background: none; border: 0; cursor: pointer; width: 100%;
+      text-align: left;
+    }
+    .side-group .side-chev {
+      margin-left: auto; font-size: 0.7rem; color: var(--text-muted);
+      transition: transform 0.18s ease;
+    }
+    .side-group.is-open .side-chev { transform: rotate(180deg); }
+    .side-group-body {
+      display: flex; flex-direction: column; gap: 2px;
+      max-height: 0; overflow: hidden;
+      padding-left: 8px;
+      margin-left: 12px;
+      border-left: 1px solid var(--border);
+    }
+    .side-group.is-open .side-group-body { max-height: 900px; }
+    .side-link.side-sub {
+      padding: 7px 10px; font-size: 0.84rem; font-weight: 500;
+      color: var(--text-secondary);
+    }
+    .side-link.side-sub.active { background: var(--bg-elevated); color: var(--text-primary); }
+    .side-link.nav-hidden, .side-group.nav-empty { display: none !important; }
+
+    /* Sidebar search trigger (opens command palette) */
+    .side-search {
+      display: flex; align-items: center; gap: 11px;
+      padding: 8px 12px; border-radius: var(--r-sm);
+      color: var(--text-muted);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      font-family: var(--font-body); font-size: 0.84rem; font-weight: 500;
+      cursor: pointer;
+      transition: background 0.13s, color 0.13s, border-color 0.13s;
+      margin: 4px 0 10px;
+      width: 100%; text-align: left;
+    }
+    .side-search:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--border-accent); }
+    .side-search .kbd-hint {
+      font-family: var(--font-ui); font-size: 0.68rem; font-weight: 700;
+      padding: 2px 7px; border-radius: var(--r-xs);
+      background: var(--bg-card); color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+
+    /* ── Command palette (Cmd/Ctrl + K) ── */
+    #cmdPalette {
+      position: fixed; inset: 0; z-index: 100012;
+      display: none; align-items: flex-start; justify-content: center;
+      background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
+      /* Clear the notch; on phones this keeps the search field tappable
+         and out from under the fixed header. */
+      padding-top: max(14vh, calc(70px + env(safe-area-inset-top)));
+      padding-left: 12px; padding-right: 12px;
+    }
+    #cmdPalette.open { display: flex; }
+    /* Skiper 3's expanding pill, applied to the palette opening: the panel
+       unfurls from a compact pill into the full box.
+
+       Driven by clip-path, not width. Skiper 3 animates width, which here
+       would re-run layout every frame *and* reflow the results list mid-
+       animation; a clip stays on the compositor and leaves the contents
+       laid out at their final size the whole time, so no text reflows or
+       stretches. The radius rides along so the mask stays pill-shaped
+       while it is narrow. */
+    @keyframes ipCmdUnfurl {
+      from {
+        opacity: 0;
+        clip-path: inset(38% 42% 38% 42% round 999px);
+      }
+      60%  { opacity: 1; }
+      to {
+        opacity: 1;
+        clip-path: inset(0 0 0 0 round var(--r-lg));
+      }
+    }
+    #cmdPalette .cmd-box {
+      width: min(560px, 92vw);
+      background: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--r-lg);
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+      animation: ipCmdUnfurl 0.42s var(--ipm-glide, cubic-bezier(0.22,1,0.36,1)) both;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #cmdPalette .cmd-box { animation: none; }
+    }
+    #cmdPalette .cmd-input-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+    }
+    #cmdPalette .cmd-input-row svg { width: 18px; height: 18px; color: var(--text-muted); flex-shrink: 0; }
+    #cmdPalette input.cmd-input {
+      flex: 1; border: 0; outline: 0; background: transparent;
+      color: var(--text-primary);
+      font-family: var(--font-body); font-size: 0.98rem;
+    }
+    #cmdPalette input.cmd-input::placeholder { color: var(--text-muted); }
+    #cmdPalette .cmd-esc {
+      font-family: var(--font-ui); font-size: 0.68rem; font-weight: 700;
+      padding: 2px 7px; border-radius: var(--r-xs);
+      background: var(--bg-elevated); color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    #cmdPalette .cmd-results {
+      max-height: 50vh; overflow-y: auto;
+      padding: 6px;
+    }
+    #cmdPalette .cmd-section {
+      font-family: var(--font-ui); font-size: 0.64rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.09em;
+      color: var(--text-muted);
+      padding: 10px 12px 4px;
+    }
+    #cmdPalette .cmd-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 9px 12px; border-radius: var(--r-sm);
+      color: var(--text-primary);
+      cursor: pointer; text-decoration: none;
+      font-size: 0.88rem; font-weight: 500;
+      transition: background 0.1s;
+    }
+    #cmdPalette .cmd-item:hover,
+    #cmdPalette .cmd-item.active { background: var(--accent-soft); color: var(--accent); }
+    #cmdPalette .cmd-item .cmd-icon { width: 16px; height: 16px; color: var(--text-muted); flex-shrink: 0; }
+    #cmdPalette .cmd-item:hover .cmd-icon,
+    #cmdPalette .cmd-item.active .cmd-icon { color: var(--accent); }
+    #cmdPalette .cmd-item .cmd-arrow { margin-left: auto; opacity: 0; transition: opacity 0.12s; }
+    #cmdPalette .cmd-item.active .cmd-arrow { opacity: 1; }
+    #cmdPalette .cmd-empty { padding: 22px; text-align: center; color: var(--text-muted); font-size: 0.86rem; }
+    #cmdPalette .cmd-footer {
+      display: flex; gap: 12px; padding: 8px 14px;
+      border-top: 1px solid var(--border);
+      font-size: 0.72rem; color: var(--text-muted);
+      background: var(--bg);
+    }
+    #cmdPalette .cmd-footer .kbd {
+      font-family: var(--font-ui); font-weight: 700; font-size: 0.66rem;
+      padding: 1px 6px; border-radius: var(--r-xs);
+      background: var(--bg-card); border: 1px solid var(--border);
+      margin-right: 4px;
+    }
+
+    .side-spacer { flex: 1; }
+    .side-foot {
+      border-top: 1px solid var(--border); padding-top: 10px; margin-top: 6px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .side-foot-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; border-radius: var(--r-sm);
+      color: var(--text-muted); font-size: 0.78rem; font-family: var(--font-ui); font-weight: 600;
+    }
+    .side-foot-row .toggle { width: 38px; height: 20px; }
+    .side-foot-row .toggle-knob { width: 14px; height: 14px; top: 3px; left: 3px; }
+    .side-foot-row .toggle input:checked ~ .toggle-knob { transform: translateX(18px); }
+    .side-foot-row .date-badge { padding: 3px 9px; font-size: 0.68rem; }
+    .side-logout {
+      background: none; border: none; cursor: pointer;
+      width: 100%; text-align: left;
+      font: inherit;
+    }
+    .app-side { display: none; }
+
+    /* ══════════════════════════════════════
+       MAIN
+    ══════════════════════════════════════ */
+    main { flex:1; max-width:min(960px, 100%); margin:0 auto; padding:2.5rem 1.5rem; width:100%; min-width:0; }
+    @media (min-width: 769px) {
+      body.has-side .app-side { display: flex; }
+      body.has-side { padding-left: var(--side-w); }
+      body.has-side > header { display: none; }
+    }
+    /* ── Fluid desktop scaling ───────────────────────────────────
+       Instead of locking content to a 960px column (which leaves big
+       empty margins on large monitors), grow the content width with the
+       viewport. Fixed breakpoints (not vw units) keep this safe against
+       the sidebar offset so nothing ever overflows horizontally. */
+    @media (min-width: 1280px) { main { max-width: 1120px; padding: 2.5rem 2rem; } }
+    @media (min-width: 1536px) { main { max-width: 1320px; padding: 3rem 2.5rem; } }
+    @media (min-width: 1920px) { main { max-width: 1560px; padding: 3rem 3rem; } }
+    @media (min-width: 2560px) { main { max-width: 1840px; } }
+
+    /* ══════════════════════════════════════
+       APP INTERIOR — Apple-clean / minimal
+       Scoped to body.has-side (app pages only) so the warm editorial
+       marketing surface is untouched. Lighter, cooler canvas; quieted
+       ambient texture; a seamless minimal sidebar; and no in-product
+       marketing chrome — a calm, focused workspace.
+    ══════════════════════════════════════ */
+    [data-theme="light"] body.has-side { --bg: #f6f6f8; --bg-elevated: #ececef; }
+    [data-theme="dark"]  body.has-side { --bg: #0d0d0f; --bg-elevated: #1a1a1e; }
+    /* Calm the ambient wash + grain — Apple surfaces read clean, not textured. */
+    body.has-side::before { opacity: 0.55; }
+    body.has-side::after  { opacity: 0.012; }
+
+    /* Seamless, minimal sidebar: blends into the canvas behind a hairline
+       divider so the white content surfaces carry the visual hierarchy. */
+    body.has-side .app-side {
+      background: transparent;
+      border-right: 1px solid var(--border);
+      padding: 18px 14px 14px;
+      gap: 2px;
+    }
+    body.has-side .side-logo { border-bottom: none; padding-bottom: 6px; margin-bottom: 4px; }
+    body.has-side .side-search {
+      background: var(--bg-card);
+      border-radius: 11px;
+      padding: 9px 12px;
+      margin-bottom: 10px;
+      box-shadow: var(--shadow-sm);
+    }
+    /* Roomier, quieter nav rows — soft neutral hover, clean accent-tinted
+       selected state in the spirit of macOS System Settings. */
+    body.has-side .app-side .side-link {
+      padding: 8px 12px;
+      border-radius: 9px;
+      font-size: 0.855rem;
+      font-weight: 450;
+      color: var(--text-secondary);
+    }
+    body.has-side .app-side .side-link:hover { background: var(--bg-elevated); color: var(--text-primary); transform: none; }
+    body.has-side .app-side .side-link.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+    body.has-side .side-customize-btn { margin-top: 8px; }
+    body.has-side .side-foot { border-top: 1px solid var(--border); }
+
+    /* Remove in-product marketing chrome for a distraction-free workspace.
+       The install banner is shown via an inline style from JS, so the hide
+       needs !important to win the cascade on app surfaces. */
+    body.has-side > footer { display: none; }
+    body.has-side #installBanner { display: none !important; }
+
+    /* A touch more air above the fold on app pages. */
+    @media (min-width: 769px) { body.has-side main { padding-top: 3rem; } }
+
+    /* ══════════════════════════════════════
+       NEO-GLASS SKIN
+       In-flow cards: translucent surface + soft dual shadows (no
+       backdrop blur — long lists must stay compositor-cheap).
+       Floating chrome: true glass with backdrop blur.
+    ══════════════════════════════════════ */
+    /* body-prefixed so these outrank same-specificity page-local rules,
+       which are emitted later in the document. */
+    body .ipd-card, body .ipd-grade-card, body .ipd-upcoming-card, body .ipd-sched-card,
+    body .stat-card, body .assignment-card, body .test-card, body .mem-card,
+    body .day-card, body .iv-day-card, body .overview-card, body .scheduler-panel,
+    body .focus-task-card, body .focus-log-card, body .focus-stats,
+    body .gp-panel, body .cc-rail, body .cc-card {
+      background: var(--glass-highlight), var(--glass-bg) !important;
+      border: 1px solid var(--glass-border) !important;
+      box-shadow: var(--glass-shadow) !important;
+    }
+    /* True frosted glass on the card surfaces. Scoped to browsers that
+       support backdrop-filter; the ≤768px rule below strips it so mobile
+       scrolling stays smooth (cards fall back to the opaque mobile fill). */
+    @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      body .ipd-card, body .ipd-grade-card, body .ipd-upcoming-card, body .ipd-sched-card,
+      body .stat-card, body .assignment-card, body .test-card, body .mem-card,
+      body .day-card, body .iv-day-card, body .overview-card, body .scheduler-panel,
+      body .focus-task-card, body .focus-log-card, body .focus-stats,
+      body .gp-panel, body .cc-rail, body .cc-card {
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+        backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+      }
+    }
+    body .iv-progress, body .ck-progress, body .ipd-sched-progress {
+      box-shadow: var(--neu-inset);
+      background: transparent;
+    }
+
+    /* ── Reusable glass utility ────────────────────────────────
+       Drop .glass-surface on any panel/section for the full frosted
+       pane: translucent fill, fine light-catching border, edge-light
+       sheen (::before), ambient shadow, and backdrop blur where the
+       browser supports it. Use for hero cards, promos, CTAs, etc. */
+    .glass-surface {
+      position: relative;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--r-lg);
+      box-shadow: var(--glass-shadow);
+      overflow: hidden;
+      isolation: isolate;
+    }
+    .glass-surface::before {
+      content:''; position: absolute; inset: 0; z-index: 0;
+      pointer-events: none; background: var(--glass-highlight);
+    }
+    .glass-surface > * { position: relative; z-index: 1; }
+    @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      .glass-surface {
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+        backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+      }
+    }
+    /* High-contrast users must never get faint frosted glass — force the
+       glass surfaces (utility + card list) back to a solid opaque fill. */
+    html[data-a11y-contrast="1"] .glass-surface,
+    html[data-a11y-contrast="1"] body .ipd-card,
+    html[data-a11y-contrast="1"] body .stat-card,
+    html[data-a11y-contrast="1"] body .assignment-card,
+    html[data-a11y-contrast="1"] body .test-card,
+    html[data-a11y-contrast="1"] body .overview-card,
+    html[data-a11y-contrast="1"] body .scheduler-panel {
+      background: var(--bg-card) !important;
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+      border-color: var(--border-strong) !important;
+      box-shadow: none !important;
+    }
+    html[data-a11y-contrast="1"] .glass-surface::before { display: none; }
+
+    /* Marketing/content card surfaces (homepage, compare, blog, faq…) get the
+       same frosted glass so the whole site reads as one material. body-prefixed
+       to outrank the page-local .card rules emitted later in the document. */
+    body .feature-card, body .answer-card, body .integration-card,
+    body .review-card, body .step-card, body .comparison-card,
+    body .lp-tool-card, body .about-card, body .faq-item, body .demo-panel {
+      background: var(--glass-highlight), var(--glass-bg) !important;
+      border: 1px solid var(--glass-border) !important;
+      box-shadow: var(--glass-shadow) !important;
+    }
+    @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      body .feature-card, body .answer-card, body .integration-card,
+      body .review-card, body .step-card, body .comparison-card,
+      body .lp-tool-card, body .about-card, body .faq-item, body .demo-panel {
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+        backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+      }
+    }
+    html[data-a11y-contrast="1"] body .feature-card,
+    html[data-a11y-contrast="1"] body .answer-card,
+    html[data-a11y-contrast="1"] body .integration-card,
+    html[data-a11y-contrast="1"] body .review-card,
+    html[data-a11y-contrast="1"] body .step-card,
+    html[data-a11y-contrast="1"] body .comparison-card,
+    html[data-a11y-contrast="1"] body .lp-tool-card,
+    html[data-a11y-contrast="1"] body .about-card,
+    html[data-a11y-contrast="1"] body .faq-item,
+    html[data-a11y-contrast="1"] body .demo-panel {
+      background: var(--bg-card) !important;
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+      border-color: var(--border-strong) !important;
+      box-shadow: none !important;
+    }
+
+    /* Page-specific surfaces that already opt into --glass-bg (pricing,
+       compare, blog, tools, the study tools, parent/teacher panels, empty
+       states…) get real backdrop blur too, so the frosted material is
+       identical no matter which page defined the class. */
+    @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      body .pricing-card, body .pricing-faq-item, body .summary-card, body .compare-cta,
+      body .blog-cta, body .legal-card, body .calc-card, body .tool-cta,
+      body .ex-card, body .grade-card, body .lesson-card, body .upload-card,
+      body .math-card, body .writing-card, body .amb-card, body .ad-card, body .ad-stat,
+      body .pd-invite, body .pd-child, body .pd-empty,
+      body .td-invite, body .td-student-card, body .td-detail-box, body .td-empty,
+      body .iv-empty, body .iv-context, body .empty-state, body .settings-card,
+      body .login-card, body .test-stat, body .summary-card,
+      body .ms-kpi, body .ms-activity-card, body .ms-grade-card, body .ms-stat-card,
+      body .ms-pet-card, body .ms-fb-row {
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+        backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+      }
+    }
+    @supports (backdrop-filter: blur(1px)) {
+      body .ck-drawer, body .iv-move-menu, body .dropdown-menu, body .ipd-modal,
+      body .mobile-nav-drawer, body .cc-mobile-drawer, body .cc-evolve-card {
+        background: var(--glass-bg);
+        border-color: var(--glass-border);
+        backdrop-filter: blur(var(--glass-blur));
+        -webkit-backdrop-filter: blur(var(--glass-blur));
+      }
+    }
+
+    /* ══════════════════════════════════════
+       PAGE HEADER
+    ══════════════════════════════════════ */
+    .page-header { margin-bottom:2.25rem; animation:fadeUp 0.5s var(--ease-out) both; }
+    /* Mirrors .ipd-kicker so legacy pages share the IPD header anatomy. */
+    .page-kicker {
+      font-family:var(--ipd-font-mono, monospace);
+      font-size:0.78rem;
+      letter-spacing:0.04em;
+      text-transform:uppercase;
+      color:var(--text-muted);
+      margin-bottom:6px;
+    }
+    /* DM Serif Display ships only weight 400 — the old 700 forced faux-bold
+       synthetic type, which is why these pages looked heavier and mushier
+       than the IPD pages. Matching the IPD header scale unifies the app. */
+    .page-title { font-family:var(--font-display); font-size:clamp(1.6rem, 1.1rem + 1.8vw, 2.4rem); font-weight:400; color:var(--text-primary); letter-spacing:-0.01em; margin-bottom:6px; line-height:1.12; text-wrap:balance; }
+    .page-subtitle { font-size:0.95rem; color:var(--text-muted); font-weight:400; letter-spacing:0; max-width:62ch; line-height:1.55; }
+
+    /* ══════════════════════════════════════
+       STATS BAR
+    ══════════════════════════════════════ */
+    .stats-bar { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-bottom:2rem; animation:fadeUp 0.5s 0.1s var(--ease-out) both; }
+    .stat-card {
+      background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-md);
+      padding:1.1rem 1.25rem; display:flex; align-items:center; gap:12px;
+      transition:background 0.2s ease, box-shadow 0.25s ease, transform 0.2s ease, border-color 0.2s ease;
+      box-shadow:var(--shadow-sm);
+    }
+    .stat-card:hover { background:var(--bg-card); box-shadow:var(--shadow); transform:translateY(-2px); border-color:var(--border-accent); }
+    .stat-icon { width:40px; height:40px; border-radius:var(--r-md); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+    .stat-info { flex:1; }
+    .stat-value { font-family:var(--font-display); font-size:1.75rem; font-weight:400; color:var(--text-primary); line-height:1.05; margin-bottom:2px; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; }
+    .stat-label { font-size:0.71rem; color:var(--text-muted); font-weight:500; text-transform:uppercase; letter-spacing:0.04em; }
+
+    /* ══════════════════════════════════════
+       FILTER BAR
+    ══════════════════════════════════════ */
+    .filter-bar { display:flex; gap:6px; margin-bottom:1.5rem; flex-wrap:wrap; animation:fadeUp 0.5s 0.2s var(--ease-out) both; }
+    .filter-btn {
+      padding:6px 16px; border-radius:var(--r-full); border:1px solid var(--glass-btn-border);
+      background:var(--glass-btn-bg); color:var(--text-secondary);
+      font-family:var(--font-body); font-size:0.82rem; font-weight:500;
+      cursor:pointer;
+      -webkit-backdrop-filter:blur(10px) saturate(1.5); backdrop-filter:blur(10px) saturate(1.5);
+      box-shadow:var(--glass-btn-shadow);
+      transition:background 0.18s var(--ease-out), color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.14s var(--ease-out);
+    }
+    .filter-btn:hover { background:var(--glass-btn-hover); color:var(--text-primary); border-color:var(--glass-btn-border); box-shadow:var(--glass-btn-shadow-hover); }
+    .filter-btn.active { background:var(--glass-primary-bg); color:var(--glass-primary-text); border-color:rgba(255,255,255,0.16); box-shadow:inset 0 1px 0 rgba(255,255,255,0.2), 0 6px 16px -6px rgba(0,0,0,0.28); }
+    .filter-btn:active { transform:scale(0.98); }
+
+    /* ══════════════════════════════════════
+       ASSIGNMENT CARDS
+    ══════════════════════════════════════ */
+    .assignments-list { display:flex; flex-direction:column; gap:10px; position:relative; z-index:1; }
+    .assignment-card {
+      background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg);
+      padding:14px 18px; display:flex; align-items:center; gap:1.1rem;
+      transition:background 0.2s ease, opacity 0.3s ease, box-shadow 0.25s ease, transform 0.2s ease, border-color 0.2s ease;
+      animation:fadeUp 0.4s var(--ease-out) both; cursor:pointer; position:relative; z-index:1;
+      box-shadow:var(--shadow-sm);
+    }
+    .assignment-card::before {
+      content:''; position:absolute; left:0; top:8px; bottom:8px;
+      width:3px; border-radius:0 2px 2px 0;
+      transform-origin:left center;
+      transition:transform 0.2s var(--ease-out);
+    }
+    .assignment-card:hover::before { transform:scaleX(1.6); }
+    .assignment-card.high::before   { background:var(--high); }
+    .assignment-card.medium::before { background:var(--medium); }
+    .assignment-card.low::before    { background:var(--low); }
+    .assignment-card:hover { background:var(--bg-card); box-shadow:var(--shadow); transform:translateY(-1px); border-color:var(--border-strong); }
+    .assignment-card.hidden { display:none; }
+
+    .rank-bubble {
+      width:34px; height:34px; border-radius:50%; background:var(--accent-soft); color:var(--accent);
+      font-family:var(--font-ui); font-size:0.82rem; font-weight:700;
+      display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    }
+    .card-main { flex:1; min-width:0; }
+    .card-title { font-size:0.95rem; font-weight:600; color:var(--text-primary); margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .card-meta  { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .meta-item  { display:flex; align-items:center; gap:3px; font-size:0.75rem; color:var(--text-muted); }
+    .priority-badge { padding:3px 10px; border-radius:var(--r-full); font-family:var(--font-ui); font-size:0.71rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; flex-shrink:0; }
+    .priority-badge.high   { background:var(--high-bg);   color:var(--high); }
+    .priority-badge.medium { background:var(--medium-bg); color:var(--medium); }
+    .priority-badge.low    { background:var(--low-bg);    color:var(--low); }
+    .time-pill { background:var(--accent-soft); color:var(--accent); padding:3px 10px; border-radius:var(--r-full); font-family:var(--font-ui); font-size:0.75rem; font-weight:600; flex-shrink:0; white-space:nowrap; }
+
+    /* ══════════════════════════════════════
+       EMPTY STATE & LOADING
+    ══════════════════════════════════════ */
+    /* An empty list is the one screen where the product has the reader's
+       full attention and nothing to show them. Treating it as absence —
+       grey text centred in a void — wastes that. It gets a real surface,
+       the icon gets a tinted disc so it reads as deliberate rather than
+       leftover, and .empty-actions gives every state somewhere to send
+       the reader next. */
+    .empty-state {
+      display: none;
+      text-align: center;
+      padding: clamp(2.5rem, 6vw, 3.75rem) 2rem;
+      color: var(--text-muted);
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--ipd-radius-lg, 20px);
+      background: color-mix(in srgb, var(--bg-card) 50%, transparent);
+      max-width: 34rem;
+      margin-inline: auto;
+    }
+    .empty-state.visible { display:block; }
+    .empty-icon {
+      width: 54px; height: 54px;
+      margin: 0 auto 1.1rem;
+      display: grid; place-items: center;
+      border-radius: var(--r-full);
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 1.5rem;
+    }
+    .empty-icon svg { width: 26px; height: 26px; }
+    .empty-title {
+      font-family: var(--font-display);
+      font-size: var(--fs-lg, 1.3rem);
+      letter-spacing: var(--tr-lg, -0.016em);
+      line-height: 1.2;
+      color: var(--text-primary);
+      margin-bottom: 0.45rem;
+    }
+    .empty-state p {
+      font-size: var(--fs-sm, 0.85rem);
+      line-height: var(--lh-snug, 1.5);
+      max-width: 34ch;
+      margin-inline: auto;
+    }
+    .empty-actions {
+      display: flex; gap: 8px;
+      justify-content: center; flex-wrap: wrap;
+      margin-top: 1.35rem;
+    }
+    .loading { text-align:center; padding:3rem; color:var(--text-muted); }
+    .spinner { width:28px; height:28px; border:2.5px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.75s linear infinite; margin:0 auto 1rem; }
+
+    /* ══════════════════════════════════════
+       BUTTONS
+    ══════════════════════════════════════ */
+    /* ── Glass button family ──────────────────────────────────────
+       Primary is a high-opacity frosted "material" button (dark in light
+       mode / light in dark mode) so white/ink text stays high-contrast;
+       secondary is translucent frosted glass. Both share blur + edge-light
+       so every button reads as the same material. Mobile strips the blur
+       (global rule) and the tokens carry enough opacity to stay legible. */
+    .btn-primary {
+      display:inline-flex; align-items:center; justify-content:center;
+      padding:10px 24px;
+      background:var(--glass-primary-bg); color:var(--glass-primary-text);
+      border:1px solid rgba(255,255,255,0.16);
+      border-radius:var(--r-full);
+      font-family:var(--font-ui); font-size:0.86rem; font-weight:600;
+      text-decoration:none; cursor:pointer;
+      -webkit-backdrop-filter:blur(10px) saturate(1.4); backdrop-filter:blur(10px) saturate(1.4);
+      transition:background 0.2s var(--ease-out), transform 0.14s var(--ease-out), box-shadow 0.2s var(--ease-out), border-color 0.2s ease;
+      white-space:nowrap;
+      letter-spacing:-0.008em;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.20), 0 2px 8px rgba(0,0,0,0.14), 0 8px 22px -8px rgba(0,0,0,0.22);
+    }
+    .btn-primary:hover {
+      background:var(--glass-primary-hover);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.26), 0 4px 12px rgba(0,0,0,0.16), 0 14px 34px -10px rgba(0,0,0,0.30);
+      transform:translateY(-1px);
+    }
+    .btn-primary:active { transform:translateY(0) scale(0.98); }
+    .btn-secondary {
+      display:inline-flex; align-items:center; justify-content:center;
+      padding:10px 24px; background:var(--glass-btn-bg); color:var(--text-primary);
+      border:1px solid var(--glass-btn-border); border-radius:var(--r-full);
+      font-family:var(--font-ui); font-size:0.86rem; font-weight:600;
+      text-decoration:none; cursor:pointer;
+      -webkit-backdrop-filter:blur(12px) saturate(1.5); backdrop-filter:blur(12px) saturate(1.5);
+      box-shadow:var(--glass-btn-shadow);
+      transition:border-color 0.2s var(--ease-out), color 0.2s ease, background 0.2s ease, transform 0.14s var(--ease-out), box-shadow 0.2s ease;
+      white-space:nowrap;
+      letter-spacing:-0.008em;
+    }
+    .btn-secondary:hover { border-color:var(--glass-btn-border); color:var(--text-primary); background:var(--glass-btn-hover); transform:translateY(-1px); box-shadow:var(--glass-btn-shadow-hover); }
+    .btn-secondary:active { transform:translateY(0) scale(0.98); }
+
+    /* ══════════════════════════════════════════════════════════
+       UNIVERSAL GLASS BUTTONS
+       Every button/CTA shares the frosted-glass material. Visual only
+       (background/border/blur/shadow) so each keeps its own size, shape
+       and radius. !important defeats the opaque background rules some
+       pages set. Structural toggles (nav tabs, theme switch, sidebar
+       links, command-palette items, segmented/aria-pressed controls)
+       opt out via :not(); add .no-glass to opt a one-off button out.
+    ══════════════════════════════════════════════════════════ */
+    /* Prominent / primary buttons — solid frosted material, strong label.
+       Includes any button/link whose class names it primary or a CTA, so
+       page-specific action buttons keep their dominance instead of being
+       flattened into the translucent tier. */
+    body .btn-primary, body .ipd-btn-primary, body .mobile-cta-primary,
+    body button.is-primary, body .btn.is-primary, body input[type="submit"],
+    body button[class*="primary"]:not(.no-glass):not([class*="secondary"]):not([class*="ghost"]),
+    body a[class*="primary"]:not(.no-glass):not([class*="secondary"]):not([class*="ghost"]),
+    body button[class*="cta"]:not(.no-glass):not([class*="secondary"]):not([class*="ghost"]),
+    body a[class*="cta"]:not(.no-glass):not([class*="secondary"]):not([class*="ghost"]) {
+      background: var(--glass-primary-bg) !important;
+      color: var(--glass-primary-text) !important;
+      border: 1px solid rgba(255,255,255,0.16) !important;
+      -webkit-backdrop-filter: blur(12px) saturate(1.5) !important;
+      backdrop-filter: blur(12px) saturate(1.5) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 2px 8px rgba(0,0,0,0.14), 0 10px 26px -10px rgba(0,0,0,0.28) !important;
+    }
+    /* Everything else that's a button — translucent frosted glass. */
+    body button:not(.no-glass):not(.btn-primary):not(.ipd-btn-primary):not(.mobile-cta-primary):not([class*="primary"]):not([class*="cta"]):not(.nav-tab):not(.nav-tab-tutor):not([class*="toggle"]):not(.side-link):not(.cmd-item):not(.cmd-row):not([aria-pressed]):not(.seg-btn):not(input),
+    body a.btn-secondary, body .mini-btn, body .ad-btn,
+    body .check-btn, body .dropdown-btn, body .dismiss-btn, body .test-btn,
+    body .discord-btn, body .btn-guest, body .btn-google, body .logout-btn,
+    body .side-customize-btn, body .mobile-cta-secondary, body .amb-btn, body .ad-share a {
+      background: var(--glass-btn-bg) !important;
+      border: 1px solid var(--glass-btn-border) !important;
+      -webkit-backdrop-filter: blur(14px) saturate(1.6) !important;
+      backdrop-filter: blur(14px) saturate(1.6) !important;
+      box-shadow: var(--glass-btn-shadow) !important;
+    }
+    body button:not(.no-glass):not(.btn-primary):not(.ipd-btn-primary):not([class*="primary"]):not([class*="cta"]):not(.nav-tab):not([class*="toggle"]):not(.side-link):not(.cmd-item):not([aria-pressed]):hover,
+    body a.btn-secondary:hover, body .mini-btn:hover,
+    body .ad-btn:hover, body .check-btn:hover, body .dropdown-btn:hover {
+      background: var(--glass-btn-hover) !important;
+      box-shadow: var(--glass-btn-shadow-hover) !important;
+    }
+    /* Primary/CTA hover — lift the material a touch, keep it dominant. */
+    body .btn-primary:hover, body .ipd-btn-primary:hover, body .mobile-cta-primary:hover,
+    body button[class*="primary"]:not(.no-glass):not([class*="secondary"]):not([class*="ghost"]):hover,
+    body a[class*="primary"]:not(.no-glass):not([class*="secondary"]):not([class*="ghost"]):hover,
+    body button[class*="cta"]:not(.no-glass):not([class*="secondary"]):not([class*="ghost"]):hover,
+    body a[class*="cta"]:not(.no-glass):not([class*="secondary"]):not([class*="ghost"]):hover {
+      background: var(--glass-primary-hover) !important;
+    }
+
+    /* ══════════════════════════════════════
+       FORMS
+    ══════════════════════════════════════ */
+    .form-group { display:flex; flex-direction:column; gap:6px; }
+    .form-label { font-family:var(--font-ui); font-size:0.72rem; font-weight:600; color:var(--text-muted); letter-spacing:0.06em; text-transform:uppercase; }
+    /* One canonical control height. A <select> resolves its own intrinsic
+       height from the font, and a hand-padded <button> resolves a third — so
+       an input/select/button row rendered 44 / 46 / 39px tall with the button
+       sitting 2px low. Pinning single-line controls to one height keeps every
+       form row on a single baseline. Textareas opt out (they must grow). */
+    input.form-input,
+    select.form-input {
+      height: var(--control-h);
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+    /* Buttons that sit inline with a field share the field's height. */
+    .btn-control { height: var(--control-h); padding-top: 0; padding-bottom: 0; }
+    .form-input {
+      padding:11px 14px; border-radius:var(--r-sm); border:1px solid var(--glass-input-border);
+      background:var(--glass-input-bg); color:var(--text-primary);
+      -webkit-backdrop-filter:blur(8px) saturate(1.3); backdrop-filter:blur(8px) saturate(1.3);
+      font-family:var(--font-body); font-size:0.9rem; outline:none;
+      box-shadow:inset 0 1px 2px rgba(0,0,0,0.04);
+      transition:border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+    .form-input:focus { border-color:var(--accent); background:var(--glass-btn-hover); box-shadow:0 0 0 3px var(--accent-soft), inset 0 1px 2px rgba(0,0,0,0.04); }
+    .form-input::placeholder { color:var(--text-muted); font-weight:400; }
+    .form-hint { font-size:0.74rem; color:var(--text-muted); }
+
+    /* ══════════════════════════════════════
+       LOGIN
+    ══════════════════════════════════════ */
+    .login-wrap { display:flex; justify-content:center; align-items:center; min-height:68vh; animation:fadeUp 0.5s var(--ease-out) both; }
+    .login-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-xl); padding:2.5rem; width:100%; max-width:420px; box-shadow:var(--shadow-lg); transition:box-shadow 0.3s ease; }
+    .login-card:hover { box-shadow:var(--shadow-xl, var(--shadow-lg)); }
+    .login-header { text-align:center; margin-bottom:1.75rem; }
+    .login-title { font-family:var(--font-display); font-size:1.75rem; font-weight:400; color:var(--text-primary); letter-spacing:-0.019em; margin-bottom:0.35rem; }
+    .login-subtitle { font-size:0.9rem; color:var(--text-muted); font-weight:300; }
+    .login-form { display:flex; flex-direction:column; gap:1.1rem; }
+    .login-footer { text-align:center; margin-top:1.5rem; font-size:0.845rem; color:var(--text-muted); }
+    .login-link { color:var(--accent); font-weight:600; text-decoration:none; }
+    .login-link:hover { text-decoration:underline; }
+    .login-error { background:var(--high-bg); color:var(--high); border:1px solid var(--high); border-radius:var(--r-sm); padding:10px 14px; font-size:0.84rem; font-weight:500; margin-bottom:1rem; }
+    .dismiss-btn { padding:5px 12px; border-radius:var(--r-full); border:1px solid var(--low); background:var(--low-bg); color:var(--low); font-family:var(--font-ui); font-size:0.75rem; font-weight:600; cursor:pointer; transition:all 0.16s; flex-shrink:0; white-space:nowrap; display:inline-flex; align-items:center; gap:5px; }
+    .dismiss-btn:hover { background:var(--low); color:white; }
+    .test-btn { padding:5px 12px; border-radius:var(--r-full); border:1px solid var(--medium); background:var(--medium-bg); color:var(--medium); font-family:var(--font-ui); font-size:0.75rem; font-weight:600; cursor:pointer; transition:all 0.16s; flex-shrink:0; white-space:nowrap; display:inline-flex; align-items:center; gap:5px; }
+    .test-btn:hover { background:var(--medium); color:white; }
+    .test-btn.already-test { border-color:var(--accent); background:var(--accent-soft); color:var(--accent); }
+    .test-auto-badge { display:inline-flex; align-items:center; margin-left:6px; padding:1px 7px; border-radius:var(--r-full); background:var(--medium-bg); color:var(--medium); font-family:var(--font-ui); font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; vertical-align:middle; }
+    .assignment-card.is-test { border-color:color-mix(in srgb, var(--medium) 28%, var(--border)); }
+
+    /* Login card, every action below renders as a proper button on desktop.
+       (Mobile.css already covers ≤768px; these rules cover the desktop view.) */
+    .btn-google {
+      display:flex; align-items:center; justify-content:center; gap:10px;
+      width:100%; padding:11px 14px; margin-bottom:1rem;
+      border:1px solid var(--border-strong); border-radius:var(--r-md);
+      background:var(--bg-card); color:var(--text-primary);
+      font-family:var(--font-ui); font-size:0.9rem; font-weight:600;
+      text-decoration:none; cursor:pointer;
+      transition:border-color 0.15s ease, background 0.15s ease;
+    }
+    .btn-google:hover { border-color:var(--border-accent); background:var(--bg-elevated); }
+    .btn-google:active { transform:scale(0.98); }
+
+    .login-card .divider {
+      display:flex; align-items:center; gap:12px; margin:1rem 0;
+      color:var(--text-muted); font-size:0.78rem; font-weight:500;
+    }
+    .login-card .divider::before,
+    .login-card .divider::after {
+      content:""; flex:1; height:1px; background:var(--border);
+    }
+
+    .account-buttons {
+      display:flex; gap:10px; align-items:stretch;
+    }
+    .account-buttons .btn-primary,
+    .account-buttons .btn-secondary {
+      flex:1 1 0; min-height:46px;
+      padding:12px 18px; font-size:0.92rem;
+      display:flex; align-items:center; justify-content:center;
+    }
+
+    .guest-options { display:flex; flex-direction:column; gap:10px; }
+    .btn-guest {
+      display:flex; align-items:center; gap:14px;
+      padding:14px 16px; border-radius:var(--r-sm);
+      background:var(--bg-card); color:var(--text-primary);
+      border:1px solid var(--border-strong);
+      text-decoration:none; cursor:pointer;
+      transition:border-color 0.15s ease, background 0.15s ease;
+      font-family:var(--font-body);
+    }
+    .btn-guest:hover { border-color:var(--border-accent); background:var(--accent-soft); }
+    .btn-guest:active { transform:scale(0.98); }
+    .btn-guest .icon {
+      width:42px; height:42px; border-radius:10px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:20px; flex-shrink:0;
+      background:var(--bg-elevated, var(--bg));
+    }
+    .btn-guest .text { flex:1; min-width:0; text-align:left; }
+    .btn-guest .text .title {
+      font-family:var(--font-ui); font-size:0.92rem; font-weight:700;
+      color:var(--text-primary); margin-bottom:2px;
+    }
+    .btn-guest .text .subtitle {
+      font-size:0.78rem; color:var(--text-muted); font-weight:500;
+    }
+    .btn-guest .text .highlight { color:var(--high); font-weight:600; }
+    /* Arrow that grows a tail on hover (Skiper 99's ArrowIcon). The chevron
+       nudges right while a 2px rule scales out from its right edge to meet
+       it, so the glyph reads as an arrow being drawn rather than sliding. */
+    .btn-guest .arrow {
+      position:relative;
+      margin-left:auto; color:var(--text-muted); font-size:1rem;
+      display:inline-flex; align-items:center; justify-content:flex-end;
+      min-width:22px; padding-right:2px;
+      transition:transform 0.22s var(--ease-out), color 0.22s var(--ease-out);
+    }
+    .btn-guest .arrow::after {
+      content:''; position:absolute; right:5px; top:50%;
+      width:11px; height:2px; margin-top:-1px; border-radius:1px;
+      background:currentColor;
+      transform-origin:right; transform:scaleX(0);
+      transition:transform 0.26s var(--ease-out), right 0.26s var(--ease-out);
+    }
+    .btn-guest:hover .arrow,
+    .btn-guest:focus-visible .arrow { color:var(--accent); transform:translateX(2px); }
+    .btn-guest:hover .arrow::after,
+    .btn-guest:focus-visible .arrow::after { transform:scaleX(1); right:7px; }
+    @media (prefers-reduced-motion: reduce) {
+      .btn-guest .arrow, .btn-guest .arrow::after { transition:none; }
+    }
+    .btn-guest.canvas:hover     { border-color:#e66000; }
+    .btn-guest.studentvue:hover { border-color:#22c55e; }
+    .btn-guest.schoology:hover  { border-color:#5865F2; }
+    /* Killing browser button defaults for the <button> variant */
+    button.btn-guest, button.btn-google {
+      font:inherit; text-align:left; width:100%;
+    }
+
+    /* ══════════════════════════════════════
+       AUTH — HORIZONTAL SPLIT (desktop)
+
+       The auth pages were a single narrow column at every width, so on a
+       laptop they read like a phone screenshot stretched down the middle
+       of an empty page. Above 960px they become a two-column composition:
+       an editorial brand panel on the left, the form on the right.
+
+       Below 960px every rule here is inert and the original single-card
+       layout renders exactly as before — mobile is untouched.
+    ══════════════════════════════════════ */
+
+    /* main is capped at 960px sitewide; the split needs more room.
+       :has() is unsupported in a few old engines, where the page simply
+       stays centred and narrow — the same layout it has today. */
+    main:has(.auth-split) { max-width: min(1180px, 100%); }
+
+    @media (min-width: 960px) {
+      .auth-split {
+        display: grid;
+        /* Deliberately not 1fr 1fr. The brand panel carries more content
+           and the form wants a comfortable, not stretched, measure. */
+        grid-template-columns: 1.08fr 0.92fr;
+        align-items: stretch;
+        gap: 0;
+        width: 100%;
+        min-height: min(720px, 78vh);
+        border-radius: 26px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-lg);
+        background: var(--bg-card);
+      }
+      /* The card is already inside the shell — drop its own frame so the
+         two halves read as one object rather than a card in a box. */
+      .auth-split .login-card {
+        max-width: 460px;
+        width: 100%;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        background: transparent;
+        padding: 2.75rem 2.5rem;
+        /* Long forms (register) scroll inside the right column instead of
+           stretching the whole shell past the viewport. */
+        max-height: min(720px, 78vh);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
+      .auth-split .login-card::before { display: none; }
+      .auth-split .login-card::-webkit-scrollbar { width: 6px; }
+      .auth-split .login-card::-webkit-scrollbar-thumb {
+        background: var(--border-strong); border-radius: 3px;
+      }
+      .auth-split .auth-main {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg-card);
+        padding: 1rem 0;
+        min-width: 0;
+      }
+      /* Left-align the heading in split mode. Centred text belongs to a
+         narrow column; at this width it just looks unanchored. */
+      .auth-split .login-header { text-align: left; }
+      .auth-split .login-header .logo-icon { margin-left: 0 !important; margin-right: 0 !important; }
+      .auth-split .login-title { font-size: 2rem; }
+      .auth-split .login-footer { text-align: left; }
+    }
+
+    /* ── The brand panel ───────────────────────────────────────────── */
+    .auth-aside {
+      display: none;               /* only exists in the ≥960px composition */
+      position: relative;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 2.75rem 2.5rem;
+      overflow: hidden;
+      isolation: isolate;
+      /* Fixed dark, not var(--ink) — that token inverts in dark mode
+         (#1a1a1a → #e6e6e2), which would flip this panel to near-white and
+         destroy the white type on it. The brand panel is intentionally dark
+         in both themes; the form half is what follows the user's theme. */
+      background: #101215;
+      color: #fff;
+    }
+    [data-theme="dark"] .auth-aside { background: #0b0d10; }
+    /* Fine grid texture. Two 1px gradients beat a background-image here:
+       no request, and it scales with the panel instead of tiling visibly. */
+    .auth-aside::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
+      background-size: 46px 46px;
+      /* Fade the grid out toward the bottom so the copy sits on clean ink. */
+      -webkit-mask-image: radial-gradient(120% 90% at 20% 0%, #000 0%, transparent 72%);
+      mask-image: radial-gradient(120% 90% at 20% 0%, #000 0%, transparent 72%);
+    }
+    .auth-aside .ipm-aurora { z-index: -1; }
+    .auth-aside-a {
+      width: 420px; height: 420px; top: -140px; right: -120px;
+      background: radial-gradient(circle, rgb(var(--accent-shadow, 37,99,235)) 0%, transparent 68%);
+    }
+    .auth-aside-b {
+      width: 340px; height: 340px; bottom: -120px; left: -90px;
+      background: radial-gradient(circle, #f59e0b 0%, transparent 70%);
+      opacity: 0.28;
+      --ipm-drift-dur: 27s;
+      --ipm-drift-delay: -8s;
+    }
+    [data-theme="dark"] .auth-aside-b { opacity: 0.2; }
+
+    .auth-aside-brand {
+      display: flex; align-items: center; gap: 10px;
+      font-family: var(--font-ui); font-weight: 700; font-size: 0.95rem;
+      letter-spacing: -0.01em;
+    }
+    .auth-aside-brand img {
+      width: 30px; height: 30px; border-radius: 8px; object-fit: cover;
+    }
+    .auth-aside-body { margin: 2.25rem 0; }
+    .auth-aside-kicker {
+      font-family: var(--font-ui); font-size: 0.68rem; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 0.9rem;
+    }
+    .auth-aside-title {
+      font-family: var(--font-display);
+      font-size: clamp(1.9rem, 2.5vw, 2.6rem);
+      line-height: 1.12;
+      letter-spacing: -0.035em;
+      font-weight: 400;
+      margin: 0 0 1rem;
+      color: #fff;
+      text-wrap: balance;
+    }
+    .auth-aside-sub {
+      font-size: 0.95rem; line-height: 1.65;
+      color: rgba(255,255,255,0.66);
+      max-width: 38ch;
+      margin: 0;
+    }
+
+    /* Proof rows — real product artifacts, not feature bullets. These are
+       what the app actually renders, shrunk down, so the panel shows the
+       product instead of describing it. */
+    .auth-proof { display: flex; flex-direction: column; gap: 9px; }
+    .auth-proof-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 13px;
+      border-radius: 13px;
+      background: rgba(255,255,255,0.055);
+      border: 1px solid rgba(255,255,255,0.09);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      --ipm-float-y: 5px;
+    }
+    .auth-proof-tag {
+      width: 3px; align-self: stretch; border-radius: 2px; flex-shrink: 0;
+    }
+    .auth-proof-row.is-high   .auth-proof-tag { background: #f87171; }
+    .auth-proof-row.is-medium .auth-proof-tag { background: #fbbf24; }
+    .auth-proof-row.is-low    .auth-proof-tag { background: #4ade80; }
+    .auth-proof-text { flex: 1; min-width: 0; }
+    .auth-proof-title {
+      font-family: var(--font-ui); font-size: 0.83rem; font-weight: 600;
+      color: rgba(255,255,255,0.94);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .auth-proof-meta {
+      font-size: 0.71rem; color: rgba(255,255,255,0.48); margin-top: 2px;
+    }
+    .auth-proof-when {
+      font-family: var(--font-ui); font-size: 0.68rem; font-weight: 700;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      color: rgba(255,255,255,0.42);
+      flex-shrink: 0;
+    }
+
+    .auth-aside-foot {
+      display: flex; align-items: center; gap: 14px;
+      font-size: 0.76rem; color: rgba(255,255,255,0.45);
+      padding-top: 1.5rem;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .auth-aside-foot strong { color: rgba(255,255,255,0.8); font-weight: 600; }
+    .auth-aside-foot .sk-link { color: rgba(255,255,255,0.72); }
+    .auth-aside-foot .sk-link:hover { color: #fff; }
+
+    /* Reveal the panel. This must come *after* the base `display:none`
+       above — same specificity, so source order is what decides, and
+       putting it up in the first ≥960px block silently lost to the base
+       rule and collapsed the left column. */
+    @media (min-width: 960px) {
+      .auth-aside { display: flex; }
+    }
+
+    /* Wider gutters once there is room, so the composition breathes. */
+    @media (min-width: 1120px) {
+      .auth-aside { padding: 3.25rem 3rem; }
+      .auth-split .login-card { padding: 3rem 3rem; }
+    }
+
+    /* ══════════════════════════════════════
+       GRADES
+    ══════════════════════════════════════ */
+    .grades-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1.25rem; animation:fadeUp 0.5s var(--ease-out) both; }
+    .grade-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); padding:1.4rem; transition:border-color 0.15s ease; animation:fadeUp 0.4s var(--ease-out) both; }
+    .grade-card:hover { border-color:var(--border-strong); }
+    .grade-card-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1rem; }
+    .grade-card-info { flex:1; min-width:0; }
+    .grade-course-name { font-size:0.93rem; font-weight:600; color:var(--text-primary); margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .grade-teacher { font-size:0.75rem; color:var(--text-muted); }
+    .grade-badge { padding:7px 14px; border-radius:var(--r-sm); font-family:var(--font-ui); font-size:1.15rem; font-weight:700; flex-shrink:0; margin-left:1rem; }
+    .grade-bar-wrap { height:5px; background:var(--border); border-radius:3px; overflow:hidden; margin-bottom:5px; }
+    .grade-bar { height:100%; width:100%; transform:scaleX(0); transform-origin:left center; transition:transform 0.9s var(--ease-out); }
+    .grade-percentage { font-family:var(--font-ui); font-size:0.74rem; color:var(--text-muted); text-align:right; font-weight:600; }
+
+    /* ══════════════════════════════════════
+       SCHEDULER
+    ══════════════════════════════════════ */
+    .scheduler-panel { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); padding:1.75rem; margin-bottom:2rem; }
+    .scheduler-inputs { display:flex; gap:1.5rem; flex-wrap:wrap; align-items:flex-start; }
+    .input-group { display:flex; flex-direction:column; gap:6px; }
+    .custom-tasks-wrap { display:flex; gap:8px; align-items:center; }
+    .custom-tasks-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+    .custom-task-item { display:flex; align-items:center; gap:5px; background:var(--accent-soft); color:var(--accent); padding:4px 10px; border-radius:var(--r-full); font-size:0.8rem; font-weight:500; }
+    .custom-task-item button { background:none; border:none; color:var(--accent); cursor:pointer; font-size:0.72rem; padding:0; }
+    .scheduler-loading { text-align:center; padding:3rem; color:var(--text-muted); }
+    .overview-card { background:var(--accent-soft); border:1px solid var(--accent-mid); border-radius:var(--r-md); padding:1.4rem; margin-bottom:1.5rem; }
+    .overview-text { font-size:0.93rem; color:var(--text-primary); line-height:1.65; margin-bottom:0.75rem; }
+    .overview-stat { font-size:0.84rem; color:var(--accent); font-weight:500; }
+    .schedule-days { display:flex; flex-direction:column; gap:1.25rem; }
+    .day-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); padding:1.4rem; animation:fadeUp 0.4s var(--ease-out) both; }
+    .day-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:1px solid var(--border); }
+    .day-name { font-family:var(--font-display); font-size:1.05rem; color:var(--text-primary); }
+    .day-hours { font-family:var(--font-ui); font-size:0.82rem; color:var(--accent); font-weight:600; background:var(--accent-soft); padding:4px 12px; border-radius:var(--r-full); }
+    .day-blocks { display:flex; flex-direction:column; gap:8px; }
+    .time-block { display:flex; align-items:flex-start; gap:1rem; padding:0.7rem; background:var(--bg); border-radius:var(--r-sm); border:1px solid var(--border); }
+    .time-slot { font-family:var(--font-ui); font-size:0.75rem; color:var(--accent); font-weight:600; white-space:nowrap; min-width:130px; }
+    .block-content { flex:1; }
+    .block-title  { font-size:0.88rem; font-weight:600; color:var(--text-primary); margin-bottom:2px; }
+    .block-course { font-size:0.74rem; color:var(--text-muted); margin-bottom:2px; }
+    .block-notes  { font-size:0.74rem; color:var(--text-secondary); font-style:italic; }
+    .block-duration { font-family:var(--font-ui); font-size:0.74rem; color:var(--text-muted); font-weight:600; white-space:nowrap; background:var(--bg-secondary); padding:2px 8px; border-radius:var(--r-full); }
+    .daily-tip { margin-top:1rem; padding:0.7rem; background:var(--medium-bg); color:var(--medium); border-radius:var(--r-sm); font-size:0.8rem; font-weight:500; }
+    .schedule-controls { margin-bottom:1.5rem; }
+    .today-card { border:2px solid var(--accent) !important; box-shadow:0 0 0 4px var(--accent-soft) !important; }
+    .break-block { opacity:0.55; background:var(--bg-secondary) !important; }
+    .block-done  { opacity:0.45; }
+    .strikethrough { text-decoration:line-through; color:var(--text-muted) !important; }
+    .check-btn { background:none; border:2px solid var(--border-strong); border-radius:50%; width:26px; height:26px; cursor:pointer; font-size:0.8rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all 0.16s; color:var(--text-muted); }
+    .check-btn.checked { border-color:var(--low); background:var(--low-bg); }
+    .check-btn:hover   { border-color:var(--accent); }
+
+    /* ══════════════════════════════════════
+       DROPDOWN WRAP (pages)
+    ══════════════════════════════════════ */
+    .dropdown-wrap { position:relative; display:inline-block; animation:fadeUp 0.5s var(--ease-out) both; z-index:300; }
+    .dropdown-btn { padding:9px 18px; border-radius:var(--r-md); border:1px solid var(--border-strong); background:var(--bg-card); color:var(--text-primary); font-family:var(--font-body); font-size:0.88rem; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:8px; transition:border-color 0.16s; }
+    .dropdown-btn:hover { border-color:var(--border-accent); }
+    .dropdown-menu { position:absolute; top:calc(100% + 8px); left:0; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-xl); min-width:180px; overflow:hidden; display:none; z-index:200; animation:fadeUp 0.16s var(--ease-out) both; }
+    .dropdown-menu.open { display:block; }
+
+    /* ══════════════════════════════════════
+       LANDING STYLES
+    ══════════════════════════════════════ */
+    .hero {
+      animation:fadeUp 0.6s var(--ease-out) both;
+      display:grid; grid-template-columns:1.15fr 0.85fr; gap:4rem; align-items:center;
+      min-height:min(78vh, 680px); padding:3rem 0;
+    }
+    .hero-copy { display:flex; flex-direction:column; align-items:flex-start; }
+    .hero-badge { display:inline-flex; align-items:center; gap:6px; background:var(--bg-elevated); color:var(--text-secondary); font-family:var(--font-ui); font-size:0.74rem; font-weight:500; padding:5px 14px; border-radius:var(--r-full); margin-bottom:1.75rem; letter-spacing:0.02em; border:none; }
+    .hero-title { font-family:var(--font-display); font-size:clamp(2.8rem, 6vw, 4.5rem); font-weight:400; color:var(--text-primary); letter-spacing:-0.022em; line-height:1.05; margin-bottom:1.5rem; }
+    .hero-title em { font-style:normal; color:var(--accent); }
+    .hero-subtitle { font-size:1.15rem; color:var(--text-secondary); line-height:1.5; font-weight:300; margin-bottom:2.5rem; max-width:540px; letter-spacing:-0.006em; }
+    .hero-actions { display:flex; gap:12px; flex-wrap:wrap; }
+    .features { padding:5rem 0; animation:fadeUp 0.6s 0.2s var(--ease-out) both; }
+    .features-header { text-align:center; margin-bottom:3rem; }
+    .features-title { font-family:var(--font-display); font-size:2.2rem; font-weight:400; color:var(--text-primary); letter-spacing:-0.019em; margin-bottom:0.5rem; }
+    .features-subtitle { font-size:1rem; color:var(--text-muted); font-weight:300; letter-spacing:-0.006em; }
+    .features-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1.25rem; }
+    .feature-card {
+      background:var(--bg-card); border:none; border-radius:var(--r-xl);
+      padding:2rem 1.75rem;
+      transition:background 0.2s ease;
+    }
+    .feature-card:hover { background:var(--bg-elevated); }
+    .feature-icon  { font-size:1.75rem; margin-bottom:1rem; width:44px; height:44px; display:flex; align-items:center; justify-content:center; background:var(--accent-soft); border-radius:var(--r-md); color:var(--accent); }
+    .feature-title { font-family:var(--font-display); font-size:0.95rem; font-weight:600; color:var(--text-primary); margin-bottom:0.5rem; letter-spacing:-0.01em; }
+    .feature-desc  { font-size:0.845rem; color:var(--text-secondary); line-height:1.7; font-weight:400; }
+    .cta-section { text-align:center; padding:4rem 2rem; background:var(--bg-card); border:none; border-radius:var(--r-xl); margin:2rem 0 4rem; animation:fadeUp 0.6s 0.3s var(--ease-out) both; }
+    .cta-title { font-family:var(--font-display); font-size:2.2rem; font-weight:400; color:var(--text-primary); letter-spacing:-0.019em; margin-bottom:0.75rem; }
+    .cta-subtitle { font-size:1rem; color:var(--text-secondary); margin-bottom:1.75rem; font-weight:300; }
+
+    /* ══════════════════════════════════════
+       PWA INSTALL BANNER
+    ══════════════════════════════════════ */
+    #installBanner {
+      position:fixed; left:18px; bottom:18px; z-index:998;
+      display:flex; align-items:center; gap:10px; padding:8px 10px;
+      border-radius:var(--r-lg); background:rgba(var(--accent-shadow),0.96);
+      box-shadow:0 12px 34px -8px rgba(28,25,20,0.30); backdrop-filter:blur(10px);
+      transition:transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    #installBanner:hover { box-shadow:0 16px 40px -8px rgba(28,25,20,0.38); }
+    .install-pill { display:flex; align-items:center; gap:8px; color:white; text-decoration:none; white-space:nowrap; }
+    .install-icon { width:32px; height:32px; border-radius:9px; overflow:hidden; flex-shrink:0; background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; }
+    .install-icon img { width:100%; height:100%; object-fit:cover; }
+    .install-copy { display:none; flex-direction:column; line-height:1.1; }
+    .install-title    { font-family:var(--font-ui); font-size:0.9rem; color:white; }
+    .install-subtitle { font-size:0.71rem; color:rgba(255,255,255,0.85); margin-top:2px; }
+    #installBtn { border:none; border-radius:var(--r-sm); padding:9px 14px; background:rgba(255,255,255,0.18); color:white; font-family:var(--font-ui); font-size:0.8rem; font-weight:700; cursor:pointer; transition:all 0.16s; white-space:nowrap; display:flex; align-items:center; gap:7px; min-width:116px; justify-content:center; }
+    #installBtn:hover { background:rgba(255,255,255,0.26); }
+    #installBanner:hover .install-copy { display:flex; animation:fadeUp 0.15s var(--ease-out) both; }
+    #installDismissBtn {
+      background:rgba(255,255,255,0.15); border:none; border-radius:6px;
+      width:26px; height:26px; color:rgba(255,255,255,0.8); cursor:pointer;
+      display:flex; align-items:center; justify-content:center;
+      flex-shrink:0; transition:all 0.14s; padding:0; margin-left:2px;
+    }
+    #installDismissBtn:hover { background:rgba(255,255,255,0.28); color:white; }
+
+    /* ══════════════════════════════════════
+       FOOTER LAYOUT WHEN SIDEBAR ACTIVE
+    ══════════════════════════════════════ */
+    @media (min-width: 769px) {
+      body.has-side footer,
+      body.has-side .footer { width: 100%; }
+    }
+
+    /* ══════════════════════════════════════
+       ██████████ PLANI ROBOT ██████████
+    ══════════════════════════════════════ */
+    #planiBot {
+      position:fixed; bottom:24px; right:24px; z-index:999;
+      display:flex; flex-direction:column; align-items:flex-end; gap:12px;
+      /* Container itself must NEVER block clicks, only the avatar and
+         the bubble accept pointer events. Without this rule any element
+         that sits behind Plani (the Done button on the last assignment
+         card, the bottom mobile-cta-bar, etc.) becomes un-clickable. */
+      pointer-events:none;
+    }
+    #planiAvatar { pointer-events:auto; }
+    #planiBubble { pointer-events:none; }
+    #planiChat { pointer-events:none; }
+    #planiChat.open { pointer-events:auto; }
+    @media (max-width:600px) {
+      #planiBot {
+        right:auto; left:14px; bottom:14px;
+        align-items:flex-start;
+      }
+      #planiRobot { width:52px; height:52px; }
+      #planiBubble {
+        right:auto; left:0;
+        border-radius:13px 13px 13px 2px;
+      }
+      #planiChat { left:0; right:auto; width:calc(100vw - 28px); }
+      #planiAvatar { touch-action:manipulation; }
+    }
+
+    /* Chat panel */
+    #planiChat {
+      width:340px; background:var(--bg-card); border:1px solid var(--border-strong);
+      border-radius:var(--r-xl); box-shadow:var(--shadow-lg);
+      display:flex; flex-direction:column; overflow:hidden;
+      opacity:0; transform:translateY(14px) scale(0.96); pointer-events:none;
+      transition:all 0.24s var(--ease-out); max-height:500px;
+    }
+    #planiChat.open { opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
+
+    #planiChatHeader {
+      background:linear-gradient(135deg, var(--plani-shell-1) 0%, var(--plani-body-2) 100%);
+      padding:13px 15px; display:flex; align-items:center; gap:10px; flex-shrink:0;
+      position:relative;
+    }
+    /* Amber hairline tying the panel to the robot's signal colour. */
+    #planiChatHeader::after {
+      content:''; position:absolute; left:0; right:0; bottom:0; height:1px;
+      background:linear-gradient(90deg, transparent, var(--plani-signal), transparent);
+      opacity:0.55;
+    }
+    .plani-hdr-avatar {
+      width:30px; height:30px; background:rgba(255,255,255,0.1);
+      border:1px solid rgba(255,255,255,0.12);
+      border-radius:9px; display:flex; align-items:center; justify-content:center;
+      color:var(--plani-signal); flex-shrink:0;
+    }
+    .plani-hdr-info { flex:1; }
+    .plani-hdr-name { font-family:var(--font-ui); font-size:0.88rem; font-weight:700; color:white; line-height:1; margin-bottom:2px; }
+    .plani-hdr-status { font-size:0.68rem; color:rgba(255,255,255,0.75); display:flex; align-items:center; gap:4px; }
+    .plani-status-dot { width:6px; height:6px; background:#4ade80; border-radius:50%; animation:statusPulse 2.2s infinite; }
+    #planiCloseBtn { background:rgba(255,255,255,0.15); border:none; border-radius:7px; width:27px; height:27px; color:rgba(255,255,255,0.85); cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; transition:all 0.14s; }
+    #planiCloseBtn:hover { background:rgba(255,255,255,0.25); }
+
+    #planiMessages {
+      flex:1; overflow-y:auto; padding:13px; display:flex; flex-direction:column; gap:9px;
+      min-height:210px; max-height:290px;
+      scrollbar-width:thin; scrollbar-color:var(--border) transparent;
+    }
+    #planiMessages::-webkit-scrollbar { width:3px; }
+    #planiMessages::-webkit-scrollbar-thumb { background:var(--border-strong); border-radius:2px; }
+
+    .plani-msg { display:flex; gap:8px; animation:fadeUp 0.22s var(--ease-out) both; }
+    .plani-msg.user { flex-direction:row-reverse; }
+    .plani-msg-avatar { width:25px; height:25px; border-radius:7px; background:var(--ink, #161616); display:flex; align-items:center; justify-content:center; font-size:9px; font-family:var(--font-ui); font-weight:700; color:#fff; letter-spacing:0.02em; flex-shrink:0; margin-top:2px; }
+    :root[data-theme="dark"] .plani-msg-avatar { background:#e8e8e4; color:#161616; }
+    .plani-msg.user .plani-msg-avatar { background:var(--accent-soft); color:var(--accent); }
+    .plani-msg-bubble { max-width:76%; padding:8px 12px; border-radius:15px; font-size:0.84rem; line-height:1.55; color:var(--text-primary); background:var(--bg-elevated); border:1px solid var(--border); }
+    .plani-msg.user .plani-msg-bubble { background:var(--ink, #161616); color:white; border-color:transparent; border-radius:15px 15px 3px 15px; }
+    :root[data-theme="dark"] .plani-msg.user .plani-msg-bubble { background:#e8e8e4; color:#161616; }
+    .plani-msg.bot  .plani-msg-bubble { border-radius:3px 15px 15px 15px; }
+
+    #planiTyping { display:none; align-items:center; gap:8px; padding:0 0 3px; }
+    #planiTyping.visible { display:flex; }
+    .plani-dots { display:flex; gap:4px; align-items:center; padding:8px 11px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:3px 13px 13px 13px; }
+    /* The three dots sit in their own gooed wrapper (Skiper 63): as each one
+       swells it fuses with its neighbour and then parts again, so the
+       indicator reads as one living thing rather than three timers.
+       The filter has to be on this inner element, not on .plani-dots — that
+       carries a background and border, which the goo would smear. */
+    .plani-dots-goo { display:flex; gap:4px; align-items:center; }
+    .plani-dot { width:6px; height:6px; background:var(--text-muted); border-radius:50%; animation:dotPulse 1.2s var(--ease-in-out) infinite; }
+    .plani-dot:nth-child(2) { animation-delay:0.18s; }
+    .plani-dot:nth-child(3) { animation-delay:0.36s; }
+
+    #planiInputArea { padding:11px; border-top:1px solid var(--border); display:flex; gap:7px; align-items:flex-end; background:var(--bg-card); flex-shrink:0; }
+    #planiInput {
+      flex:1; border:1px solid var(--border-strong); border-radius:var(--r-md);
+      padding:8px 12px; background:var(--bg); color:var(--text-primary);
+      font-family:var(--font-body); font-size:0.84rem; outline:none;
+      resize:none; max-height:88px; min-height:36px; line-height:1.4;
+      transition:border-color 0.16s, box-shadow 0.16s;
+    }
+    #planiInput:focus { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft); }
+    #planiInput::placeholder { color:var(--text-muted); }
+    #planiSendBtn { width:35px; height:35px; background:var(--ink, #161616); border:none; border-radius:var(--r-sm); color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; transition:all 0.16s; flex-shrink:0; }
+    #planiSendBtn:hover { background:#2a2a2a; transform:scale(1.06); }
+    :root[data-theme="dark"] #planiSendBtn { background:#e8e8e4; color:#161616; }
+    :root[data-theme="dark"] #planiSendBtn:hover { background:#ffffff; }
+    #planiSendBtn:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+
+    /* ── Plani, the assistant robot ──────────────────────────────────
+       The character was replaced by a flat "IP" monogram, which read as a
+       generic chat bubble. This restores the illustrated robot and gives
+       it its own palette.
+
+       Not the blue/purple gradient it originally shipped with: that is the
+       exact "AI assistant" cliché the rest of the app has been stripping
+       out (see the de-AI commits). Warm graphite body, amber signal lights
+       — it belongs to IntelliPlan rather than to every other chat widget,
+       and it stays distinct from --accent so it doesn't recolour into a
+       blue blob on the default palette or vanish on the ocean one. */
+    :root {
+      --plani-shell-1:  #33302c;   /* warm graphite, top-left of the head  */
+      --plani-shell-2:  #22201d;   /* …bottom-right, so the form reads 3D  */
+      --plani-body-1:   #2a2724;
+      --plani-body-2:   #1b1917;
+      --plani-plate:    rgba(255,255,255,0.06);
+      --plani-signal:   #f5a524;   /* antenna, chest light                 */
+      --plani-signal-2: #ffd08a;   /* the brighter half of the pulse       */
+      --plani-eye:      #ffe9c9;   /* warm cream, not cyan                 */
+      --plani-line:     rgba(245,165,36,0.85);
+      --plani-glow:     245,165,36;
+    }
+    /* On dark the graphite would sink into the page — lift the shell and
+       cool it a touch so the silhouette still separates from the surface. */
+    :root[data-theme="dark"] {
+      --plani-shell-1: #46423c;
+      --plani-shell-2: #302d29;
+      --plani-body-1:  #3a3733;
+      --plani-body-2:  #26241f;
+    }
+
+    #planiAvatar { position:relative; cursor:pointer; user-select:none; }
+    #planiRobot {
+      width:68px; height:68px; display:block;
+      filter:drop-shadow(0 10px 24px rgba(var(--plani-glow), 0.30));
+      transition:transform 0.24s var(--ease-out), filter 0.24s ease;
+    }
+    /* The idle bob is what made the old bot feel alive. Kept slow (3.4s)
+       and small (7px) so it reads as presence, not as a distraction. */
+    @media (prefers-reduced-motion: no-preference) {
+      #planiRobot { animation:planiFloat 3.4s ease-in-out infinite; }
+    }
+    #planiAvatar:hover #planiRobot {
+      transform:scale(1.09);
+      filter:drop-shadow(0 16px 34px rgba(var(--plani-glow), 0.45));
+    }
+    #planiAvatar:focus-visible { outline:none; }
+    #planiAvatar:focus-visible #planiRobot {
+      transform:scale(1.09);
+      filter:drop-shadow(0 0 0 3px var(--accent)) drop-shadow(0 10px 24px rgba(var(--plani-glow), 0.4));
+    }
+
+    /* SVG gradient stops are set here rather than as attributes: attribute
+       values do not parse var(), but stop-color is a real CSS property, so
+       going through CSS is what lets the palette above drive the artwork
+       and react to the theme. */
+    /* Keyed on classes, not on the gradient IDs — the robot is drawn in
+       more than one place (corner assistant, tutor empty state) and SVG
+       gradient IDs have to be unique per document, so ID-scoped rules
+       would only ever paint the first copy. */
+    .pg-shell .pg-s1 { stop-color:var(--plani-shell-1); }
+    .pg-shell .pg-s2 { stop-color:var(--plani-shell-2); }
+    .pg-torso .pg-s1 { stop-color:var(--plani-body-1); }
+    .pg-torso .pg-s2 { stop-color:var(--plani-body-2); }
+    .pg-halo  .pg-s1 { stop-color:var(--plani-signal-2); }
+    .pg-halo  .pg-s2 { stop-color:var(--plani-signal); }
+    .pg-plate  { fill:var(--plani-plate); }
+    .pg-eye    { fill:var(--plani-eye); }
+    .pg-signal { fill:var(--plani-signal); }
+    .pg-line   { stroke:var(--plani-line); }
+    .pg-foot   { fill:var(--plani-body-2); }
+    .pg-joint  { fill:var(--plani-shell-2); }
+
+    /* The blink and pulse are SMIL <animate> inside the SVG, which
+       prefers-reduced-motion cannot reach from CSS. The JS toggle below
+       pauses them; this is the belt to that braces. */
+    @media (prefers-reduced-motion: reduce) {
+      #planiRobot { animation:none; }
+    }
+
+    #planiBubble {
+      position:absolute; bottom:calc(100% + 10px); right:0;
+      background:var(--bg-card); border:1px solid var(--border-strong);
+      border-radius:13px 13px 2px 13px; padding:8px 12px;
+      font-size:0.81rem; font-weight:500; color:var(--text-primary);
+      white-space:nowrap; box-shadow:var(--shadow); opacity:0;
+      transform:translateY(4px); pointer-events:none;
+      transition:all 0.2s var(--ease-out);
+    }
+    #planiBubble.visible { opacity:1; transform:translateY(0); }
+
+    /* ══════════════════════════════════════
+       KEYFRAME ANIMATIONS
+    ══════════════════════════════════════ */
+    @keyframes fadeUp  { from{opacity:0;transform:translateY(13px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes spin    { to{transform:rotate(360deg)} }
+    .spin { animation: spin 0.75s linear infinite; display:inline-block; }
+    @keyframes planiFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
+    @keyframes dotPulse { 0%,100%{opacity:0.35; transform:scale(0.78)} 40%{opacity:1; transform:scale(1)} }
+    @keyframes statusPulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+    /* ══════════════════════════════════════
+       RESPONSIVE
+    ══════════════════════════════════════ */
+
+    /* Nav label text, visible by default, hidden on small/mid screens */
+    .nav-label { display:inline; }
+
+    /* ── Tablet wide (900–1100px): reduce padding, hide date ── */
+    @media (max-width:1100px) {
+      .date-badge { display:none; }
+      #themeLabel { display:none; }
+    }
+
+    /* ── Mid desktop (901–1100px): tighten nav spacing so the full
+       labels keep fitting instead of wrapping or overflowing ── */
+    @media (min-width:901px) and (max-width:1100px) {
+      .nav-tabs, .nav-group { gap:1px; }
+      .nav-tab { padding:6px 9px; font-size:0.78rem; gap:5px; }
+      .dropdown-toggle { padding:6px 9px; }
+      .nav-divider { margin:0 4px; }
+      .header-actions { gap:0.7rem; }
+      body > header { padding:0 1.25rem; }
+    }
+
+    /* ── Tablet (721–900px): icon-only nav tabs (closes the old 721–768
+       dead zone so the nav never shows oversized labels at narrow widths) ── */
+    @media (min-width:721px) and (max-width:900px) {
+      .nav-divider { display:none; }
+      .nav-group   { gap:2px; }
+      .nav-tab     { padding:8px; gap:0; border-radius:var(--r-sm); }
+      .nav-tab .nav-label { display:none; }
+      .dropdown-toggle .nav-label { display:none; }
+      .dropdown-toggle { padding:8px; gap:0; }
+      .chevron { display:none; }
+      .nav-tab-icon { width:17px; height:17px; }
+    }
+
+    /* ── Mobile (<= 720px): hamburger drawer ── */
+    @media (max-width:720px) {
+      #mainNav {
+        position:fixed;
+        top:0; left:0; bottom:0; right:auto;
+        width:min(82vw, 300px);
+        height:100dvh;
+        background:var(--nav-bg);
+        backdrop-filter:blur(28px) saturate(200%);
+        -webkit-backdrop-filter:blur(28px) saturate(200%);
+        border-right:1px solid var(--border);
+        flex-direction:column;
+        padding:76px 12px calc(16px + env(safe-area-inset-bottom));
+        gap:3px;
+        z-index:100001;
+        box-shadow:12px 0 36px rgba(0,0,0,0.18);
+        transform:translateX(-100%);
+        opacity:1;
+        pointer-events:none;
+        transition:transform 0.26s var(--ease-out);
+        display:flex;
+        overflow-y:auto;
+        align-items:stretch;
+        justify-content:flex-start;
+      }
+      #mainNav.mobile-open { transform:translateX(0); pointer-events:auto; }
+      #mobileMenuBtn { display:flex; }
+      #mobileNavBackdrop.mobile-open { opacity:1; pointer-events:auto; }
+    }
+
+    @media (max-width:600px) {
+      .stats-bar     { grid-template-columns:1fr 1fr; }
+      .time-pill     { display:none; }
+      body > header  { padding:0 1rem; }
+      .header-actions { gap:0.55rem; }
+      main           { padding:1.5rem 1rem; }
+      .features-grid { grid-template-columns:1fr; }
+      .grades-grid   { grid-template-columns:1fr; }
+      .hero-title    { font-size:2.4rem; }
+      #planiChat     { width:calc(100vw - 48px); }
+    }
+    @media (max-width:480px) {
+      main        { padding:1rem 0.75rem; }
+      .page-title { font-size:1.6rem; }
+      .stats-bar  { grid-template-columns:1fr 1fr; gap:0.6rem; }
+      #installBanner { left:12px; bottom:12px; right:12px; justify-content:space-between; }
+      /* planiBot mobile override handled above */
+    }
+
+    /* ══════════════════════════════════════
+       ACCESSIBILITY OVERRIDES
+       Activated by data-a11y-* attributes on <html>. Applied before
+       first paint by the bootstrap script at the top of <head>.
+    ══════════════════════════════════════ */
+    html[data-a11y-dyslexia="1"], html[data-a11y-dyslexia="1"] body,
+    html[data-a11y-dyslexia="1"] *:not(code):not(pre):not(.mono):not([class*="mono"]) {
+      font-family: 'OpenDyslexic', 'Comic Sans MS', sans-serif !important;
+      letter-spacing: 0.01em;
+    }
+    html[data-a11y-scale="90"]  { font-size: 90%; }
+    html[data-a11y-scale="115"] { font-size: 115%; }
+    html[data-a11y-scale="130"] { font-size: 130%; }
+    html[data-a11y-scale="150"] { font-size: 150%; }
+
+    html[data-a11y-spacing="130"] body * { line-height: 1.55 !important; }
+    html[data-a11y-spacing="160"] body * { line-height: 1.8 !important; }
+    html[data-a11y-spacing="200"] body * { line-height: 2.0 !important; }
+
+    /* High-contrast: black-on-white (or white-on-black for dark theme)
+       with stronger borders, no faint translucent surfaces. */
+    html[data-a11y-contrast="1"][data-theme="light"] {
+      --text-primary:#000000; --text-secondary:#1a1a1a; --text-muted:#3a3a3a;
+      --bg:#ffffff; --bg-secondary:#ffffff; --bg-card:#ffffff; --bg-elevated:#f4f4f4;
+      --border:#000000; --border-strong:#000000; --border-accent:#000000;
+      --accent:#0000ee; --accent-hover:#0000aa;
+      /* Danger stays a real red so it still reads as an error, but goes dark
+         enough to clear high-contrast expectations on white (>7:1), and the
+         tint drops to nothing so the surface stays solid white. */
+      --danger:#8b0000; --danger-text:#8b0000; --danger-soft:transparent;
+      /* Solid glass tokens so every frosted surface goes opaque with a hard
+         border — one override covers all glass classes at once. */
+      --glass-bg:#ffffff; --glass-border:#000000; --glass-shadow:none; --glass-highlight:none;
+      --glass-btn-bg:#ffffff; --glass-btn-border:#000000; --glass-btn-hover:#e8e8e8;
+      --glass-btn-shadow:none; --glass-btn-shadow-hover:none;
+      --glass-primary-bg:#000000; --glass-primary-hover:#1a1a1a; --glass-primary-text:#ffffff;
+      --glass-input-bg:#ffffff; --glass-input-border:#000000;
+    }
+    html[data-a11y-contrast="1"][data-theme="dark"] {
+      --text-primary:#ffffff; --text-secondary:#f4f4f4; --text-muted:#cccccc;
+      --bg:#000000; --bg-secondary:#000000; --bg-card:#0a0a0a; --bg-elevated:#1a1a1a;
+      --border:#ffffff; --border-strong:#ffffff; --border-accent:#ffffff;
+      --glass-bg:#0a0a0a; --glass-border:#ffffff; --glass-shadow:none; --glass-highlight:none;
+      --glass-btn-bg:#0a0a0a; --glass-btn-border:#ffffff; --glass-btn-hover:#1e1e1e;
+      --glass-btn-shadow:none; --glass-btn-shadow-hover:none;
+      --glass-primary-bg:#ffffff; --glass-primary-hover:#e8e8e8; --glass-primary-text:#000000;
+      --glass-input-bg:#0a0a0a; --glass-input-border:#ffffff;
+      --accent:#ffeb3b; --accent-hover:#ffd600;
+      /* Mirror of the light high-contrast danger: a light red that still
+         reads as an error against pure black (>10:1), with no tint. */
+      --danger:#ff8a80; --danger-text:#ff8a80; --danger-soft:transparent;
+    }
+    html[data-a11y-contrast="1"] * { text-shadow: none !important; }
+    /* High-contrast users must not get faint frosted glass — force every
+       floating surface back to a solid, opaque fill with a hard border. */
+    html[data-a11y-contrast="1"] body > header,
+    html[data-a11y-contrast="1"] .dropdown-panel,
+    html[data-a11y-contrast="1"] .ipd-modal,
+    html[data-a11y-contrast="1"] #navCustomizer .nc-box,
+    html[data-a11y-contrast="1"] #mainNav {
+      background: var(--bg-card) !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      box-shadow: none !important;
+    }
+
+    /* Reduced motion: kill animations and transitions globally. Respects
+       the OS-level pref too via the standard media query. */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+    html[data-a11y-motion="reduce"] *,
+    html[data-a11y-motion="reduce"] *::before,
+    html[data-a11y-motion="reduce"] *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+
+    /* Underline all in-content links — helps users who can't reliably
+       distinguish links from body text by color alone. */
+    html[data-a11y-underline="1"] a:not(.nav-tab):not(.nav-cta):not(.btn):not([role="button"]) {
+      text-decoration: underline !important;
+      text-underline-offset: 2px;
+    }
+
+    /* Default visible focus ring on every interactive control — a quiet
+       2px accent outline offset clear of the edge. Wrapped in :where() so
+       specificity is 0: page-local focus styles and inputs that manage
+       their own focus (box-shadow rings) still win, and the bold a11y
+       variant below still reinforces via !important. */
+    :where(a[href], button, input, select, textarea, summary,
+           [tabindex]:not([tabindex="-1"]), [role="button"]):focus-visible {
+      outline: 2px solid var(--focus-ring, var(--accent));
+      outline-offset: 2px;
+    }
+
+    /* Bold focus rings — never *replaces* the existing :focus, just
+       reinforces it with a high-contrast outline. */
+    html[data-a11y-focus="bold"] *:focus-visible {
+      outline: 3px solid var(--accent) !important;
+      outline-offset: 3px !important;
+      box-shadow: 0 0 0 6px rgba(var(--accent-shadow), 0.25) !important;
+    }
+
+    /* Skip link — visible on focus, lets keyboard users jump past nav. */
+    .a11y-skip {
+      /* Fixed, not absolute: on a long page an absolutely positioned skip
+         link is parked at the top of the document, so tabbing to it after
+         any scroll moves focus to something the user cannot see. */
+      position: fixed; top: -100px; left: 8px; z-index: var(--z-max, 9000);
+      background: var(--accent); color: #fff;
+      padding: 10px 16px; border-radius: 8px;
+      font: 600 0.92rem var(--font-display);
+      text-decoration: none;
+      transition: top 0.18s var(--ease-out);
+    }
+    /* The accent fill is the same colour as the default focus ring, so the
+       ring vanishes into it — this link needs a light one to stay visible. */
+    .a11y-skip:focus { top: 8px; outline: 2px solid #fff; outline-offset: 2px; }
+
+    /* ══════════════════════════════════════
+       SKELETON LOADERS — reusable, sitewide
+       Drop .skeleton on any placeholder while data loads. Neutral grey
+       shimmer (no brand gradient), respects reduced-motion, and hides any
+       inner text. Helpers give common shapes. Usage:
+         <div class="skeleton skel-title"></div>
+         <div class="skeleton skel-line" style="width:70%"></div>
+         <div class="skeleton skel-card"></div>
+       and add [hidden] / remove it to toggle. .skeleton-group fades out
+       smoothly when you add .is-loaded to it.
+    ══════════════════════════════════════ */
+    @keyframes ip-skeleton-shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .skeleton {
+      position: relative;
+      background: linear-gradient(90deg,
+        var(--bg-elevated) 25%,
+        color-mix(in srgb, var(--bg-elevated) 60%, var(--text-muted)) 50%,
+        var(--bg-elevated) 75%);
+      background-size: 200% 100%;
+      animation: ip-skeleton-shimmer 1.5s ease-in-out infinite;
+      border-radius: var(--r-sm);
+      color: transparent !important;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .skeleton * { visibility: hidden; }
+    .skel-line  { height: 12px; border-radius: 999px; margin: 8px 0; }
+    .skel-title { height: 22px; border-radius: 8px; margin: 4px 0 12px; width: 55%; }
+    .skel-chip  { height: 26px; width: 84px; border-radius: 999px; display: inline-block; }
+    .skel-avatar{ width: 40px; height: 40px; border-radius: 50%; }
+    .skel-card  { height: 96px; border-radius: var(--r-lg); }
+    .skeleton-group { transition: opacity 0.3s var(--ease-out); }
+    .skeleton-group.is-loaded { opacity: 0; pointer-events: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .skeleton { animation: none; }
+    }
+    html[data-a11y-motion="reduce"] .skeleton { animation: none; }
