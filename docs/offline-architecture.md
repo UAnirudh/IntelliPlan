@@ -143,15 +143,16 @@ has to actually ask for it.
 
 These are real and unfixed, recorded here rather than papered over:
 
-1. **Only the dashboard reads through the cache so far.** Scheduler,
-   grades, and the study surfaces still fetch directly and will show their
-   normal error states offline.
-3. **No conflict resolution beyond last-write-wins.** The server applies
+1. **Not every surface reads through the cache.** Dashboard, grades, and
+   the saved schedule do. Classes, stats, streak, and the study surfaces
+   still fetch directly and show their normal error states offline.
+2. **No conflict resolution beyond last-write-wins.** The server applies
    whatever arrives; there is no vector clock and no merge. For the current
    write set — dismissals, manual task edits, test marks — the last write
    is the right answer. It would not be for collaborative group tasks.
-4. **Server-dependent features stay server-dependent.** AI planning, LMS
-   sync, and grade prediction require a connection and say so.
+3. **Server-dependent features stay server-dependent.** Generating a new
+   plan, AI planning, LMS sync, and grade prediction require a connection
+   and say so. Re-reading a plan you already made does not.
 
 ## Testing
 
@@ -171,3 +172,7 @@ register a service worker at all). Flows confirmed by hand:
 | Park a write, `postMessage('ip-flush-now')` | Worker drains it; page count updates |
 | Seed the old localStorage queue, reload | Adopted into IndexedDB, old key cleared |
 | Read cache after the v1 → v2 upgrade | Still reads and writes |
+| Kill the server, reload `/scheduler` | Saved plan renders from cache, labelled |
+| Tick a block offline | Parked in the queue, drained on reconnect |
+| Grades offline with a cached copy | Renders, labelled with its age |
+| Grades offline with no cached copy | "No grades saved on this device yet" |

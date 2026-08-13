@@ -538,6 +538,19 @@
   50%      { opacity: 0.35; }
 }
 
+/* Provenance note above cached content. Quiet by design — it is a caveat
+   on data the student can already see, not a warning about it. Shared
+   across every surface that reads through IP.offline, so the wording and
+   weight of "this is not live" stay identical wherever it appears. */
+.ipd-cache-age {
+  margin: 0 0 10px;
+  font-family: var(--font-body);
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+.ipd-cache-age[hidden] { display: none; }
+
 /* ── Motion and contrast preferences ─────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {

@@ -161,6 +161,10 @@
   </a>
 </div>
 
+{# Only rendered when the figures came from the offline cache. A grade is
+   the one number in this app nobody should have to guess the age of. #}
+<p id="gradesCacheAge" class="ipd-cache-age" hidden></p>
+
 <div class="grades-grid" id="gradesGrid" aria-live="polite" aria-busy="true">
   <div class="ipGradeSkeleton" aria-hidden="true">
     <div class="ipGradeSkeleton-row">
@@ -209,10 +213,39 @@ function ipGradeEscape(s) {
   );
 }
 
-fetch('/grades/data')
-  .then(r => {
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    return r.json();
+/* Grades read through the offline cache.
+
+   "What am I sitting on in Chem?" is the question a student most often
+   has somewhere with no signal — a corridor, a bus, a classroom with bad
+   reception. Grades also change slowly, so a copy from this morning is
+   almost always still the right answer. It is labelled with its age
+   regardless: an unlabelled stale percentage is the one number in this
+   app nobody should have to guess about. */
+function ipGradesRead() {
+  if (!window.IP || !IP.offline) {
+    return fetch('/grades/data')
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(data => ({ data: data, fromCache: false, cachedAt: null }));
+  }
+  return IP.offline.read('/grades/data');
+}
+
+function ipGradesProvenance(fromCache, cachedAt) {
+  const el = document.getElementById('gradesCacheAge');
+  if (!el) return;
+  if (!fromCache) { el.hidden = true; return; }
+  const mins = Math.round((Date.now() - (cachedAt || Date.now())) / 60000);
+  const when = mins < 1 ? 'moments ago'
+             : mins < 60 ? mins + ' minute' + (mins === 1 ? '' : 's') + ' ago'
+             : Math.round(mins / 60) + ' hour' + (Math.round(mins / 60) === 1 ? '' : 's') + ' ago';
+  el.textContent = 'Offline — these are your grades as of ' + when + '.';
+  el.hidden = false;
+}
+
+ipGradesRead()
+  .then(res => {
+    ipGradesProvenance(res.fromCache, res.cachedAt);
+    return res.data;
   })
   .then(data => {
     const grid = document.getElementById('gradesGrid');
@@ -263,16 +296,26 @@ fetch('/grades/data')
     });
   })
   .catch(err => {
-    console.error('Grades load error:', err);
     const grid = document.getElementById('gradesGrid');
     grid.setAttribute('aria-busy', 'false');
+    // Offline with nothing cached is a different problem from a broken
+    // StudentVue connection, and telling a student to go check their
+    // settings when the real answer is "you have no signal" sends them
+    // to fix something that is not broken.
+    const offline = navigator.onLine === false;
+    const heading = offline ? "No grades saved on this device yet"
+                            : "Couldn't load grades";
+    const detail = offline
+      ? 'Open this page once while you are online and it will be available offline after that.'
+      : 'Check your StudentVue connection in settings and try again.';
     grid.innerHTML = `
       <div class="grades-error">
         <div style="margin-bottom:0.75rem;color:var(--medium);"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg></div>
-        <div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">Couldn't load grades</div>
-        <div style="font-size:0.82rem;">Check your StudentVue connection in settings and try again.</div>
-        <button type="button" class="ip-grade-retry-btn" onclick="location.reload()">Try again</button>
+        <div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">${heading}</div>
+        <div style="font-size:0.82rem;">${detail}</div>
+        ${offline ? '' : '<button type="button" class="ip-grade-retry-btn" onclick="location.reload()">Try again</button>'}
       </div>
     `;
+    if (window.IP && IP.report) IP.report(err, { kind: 'grades.load' });
   });
 {% endblock %}

@@ -53,7 +53,14 @@
         var store = t.objectStore(READ_STORE);
         var out;
         try { out = fn(store); } catch (e) { reject(e); return; }
-        t.oncomplete = function () { resolve(out && out.result !== undefined ? out.result : out); };
+        // `'result' in out`, not `out.result !== undefined`. A cache *miss*
+        // is an IDBRequest whose result is undefined, and the looser test
+        // fell through to resolving the request object itself — truthy, so
+        // a miss read as a hit carrying no data. The page then announced
+        // "showing your last synced copy" over a blank screen.
+        t.oncomplete = function () {
+          resolve(out && typeof out === 'object' && 'result' in out ? out.result : out);
+        };
         t.onerror    = function () { reject(t.error); };
         t.onabort    = function () { reject(t.error || new Error('aborted')); };
       });

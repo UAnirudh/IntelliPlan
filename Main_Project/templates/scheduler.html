@@ -1083,6 +1083,9 @@
     <button type="button" onclick="dismissSavedPlan()">Start fresh</button>
   </div>
 
+  {# Shown only when the plan came from the offline cache. #}
+  <p id="schedCacheAge" class="ipd-cache-age" hidden></p>
+
   <div class="scheduler-loading" id="schedulerLoading" style="display:none;">
     <div class="spinner"></div>
     <p>AI is building your personalized study plan…</p>
@@ -1438,10 +1441,33 @@ function pushProgress() {
   (_lastScheduleData.schedule || []).forEach(d => (d.blocks || []).forEach(b => {
     if (b.block_id && _checklistState[b.block_id]) slice[b.block_id] = _checklistState[b.block_id];
   }));
+  const body = { progress: slice };
+
+  // Offline, this used to `.catch(() => {})` — the tick stayed on screen
+  // (the checklist is in localStorage) and never reached the server, so
+  // the plan silently disagreed with itself on the next device. Park it
+  // instead. The dedupeKey collapses a burst of ticks into one replay of
+  // the final state, which is the only state that matters: progress is
+  // absolute here, not a delta.
+  if (navigator.onLine === false && window.IP && IP.queue) {
+    IP.queue.push({
+      url: '/schedule/progress', method: 'POST', body: body,
+      dedupeKey: 'schedule-progress', label: 'schedule progress'
+    });
+    return;
+  }
+
   fetch('/schedule/progress', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ progress: slice })
-  }).catch(() => {});
+    body: JSON.stringify(body)
+  }).catch(() => {
+    if (window.IP && IP.queue) {
+      IP.queue.push({
+        url: '/schedule/progress', method: 'POST', body: body,
+        dedupeKey: 'schedule-progress', label: 'schedule progress'
+      });
+    }
+  });
 }
 
 function stateFor(blockId) {
@@ -2912,10 +2938,25 @@ function dismissSavedPlan() {
   if (_currentTab === 'interactive') renderInteractive();
 }
 
-fetch('/schedule/saved').then(r => r.json()).then(res => {
+/* The saved plan reads through the offline cache.
+
+   Generating a new plan needs the server and always will. Re-reading the
+   plan you already made does not, and "what am I meant to be doing at
+   4pm" is the exact question a student has on a train. Ticking blocks off
+   still works offline too — those writes park in IP.queue and replay on
+   reconnect. */
+(window.IP && IP.offline
+  ? IP.offline.read('/schedule/saved')
+  : fetch('/schedule/saved').then(r => r.json())
+      .then(data => ({ data: data, fromCache: false, cachedAt: null }))
+).then(wrapped => {
+  const res = wrapped.data || {};
   if (res.status !== 'ok' || _lastScheduleData) return;
   _lastScheduleData = res.data;
   mergeServerProgress(res.progress);
+  // Progress pushes are queued while offline rather than dropped, so this
+  // stays on: IP.queue owns the retry, and the op id keeps a replay from
+  // counting a block twice.
   _progressSyncEnabled = true;
   renderSchedule(res.data);
   document.getElementById('scheduleResults').style.display = 'block';
@@ -2924,6 +2965,20 @@ fetch('/schedule/saved').then(r => r.json()).then(res => {
   const noticeText = document.getElementById('savedNoticeText');
   noticeText.innerHTML = `Resumed your saved plan <strong>${escapeText(res.name || 'My Schedule')}</strong>${res.created_at ? ` · saved ${escapeText(res.created_at)}` : ''}`;
   document.getElementById('savedNotice').style.display = 'flex';
+
+  if (wrapped.fromCache) {
+    const mins = Math.round((Date.now() - (wrapped.cachedAt || Date.now())) / 60000);
+    const when = mins < 1 ? 'moments ago'
+               : mins < 60 ? mins + ' minute' + (mins === 1 ? '' : 's') + ' ago'
+               : Math.round(mins / 60) + ' hour' + (Math.round(mins / 60) === 1 ? '' : 's') + ' ago';
+    const note = document.getElementById('schedCacheAge');
+    if (note) {
+      note.textContent = 'Offline — this is your plan as it was ' + when +
+                         '. Anything you tick off will sync when you reconnect.';
+      note.hidden = false;
+    }
+  }
+
   updateCalExportButton();
   updateBadge();
   try {
