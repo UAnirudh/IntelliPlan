@@ -844,10 +844,26 @@ class TaskFeedback(db.Model):
     time_of_day = db.Column(db.String(16), default="")
 
 class PushSubscription(db.Model):
+    """One row per *browser*, not per student.
+
+    A student with a phone and a laptop has two subscriptions, and both have
+    to survive: the endpoint is what a push service addresses, and it is
+    unique per browser install. Keying these rows on user_id alone meant
+    enabling notifications on the second device overwrote the first, so the
+    phone went quiet the moment the laptop subscribed — with nothing in the
+    UI to suggest it had happened.
+
+    ``endpoint`` is denormalised out of ``subscription_json`` so the upsert
+    can match on it without parsing every row.
+    """
+
     __tablename__ = "push_subscriptions"
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     guest_session_id = db.Column(db.String(64), nullable=True)
+    #: Nullable for rows written before this column existed; backfilled by
+    #: _migrate_push_subscription_endpoints() at boot.
+    endpoint = db.Column(db.String(512), nullable=True, index=True)
     subscription_json = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -10749,6 +10765,49 @@ def feedback_export():
     return flask.Response(output.getvalue(), mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=intelliplan_data.csv"})
 
 # ── PUSH NOTIFICATIONS ────────────────────────────────────────
+
+#: Seconds a push service should hold an undelivered message for.
+#:
+#: This is not a nicety. pywebpush defaults to TTL 0, meaning "deliver only
+#: if the device is connected right now, otherwise discard". Microsoft's
+#: WNS — which is where every Edge subscription points — rejects TTL 0
+#: outright with `400 Ttl value conflicts with X-WNS-Cache-Policy`, so
+#: every push to an Edge user failed, silently, on the server side. Even
+#: where TTL 0 is accepted it is the wrong contract: a phone in a bag
+#: misses the notification entirely rather than getting it on wake.
+#:
+#: Twelve hours is chosen against what these messages are: a reminder that
+#: something is due is still worth reading later today, and is worth
+#: nothing tomorrow.
+PUSH_DEFAULT_TTL = 12 * 60 * 60
+
+#: Never send TTL 0 even when a caller asks for it — see above.
+PUSH_MIN_TTL = 60
+
+#: Browsers a student can hold subscriptions for at once. Generous enough
+#: that phone + laptop + tablet + a spare browser all work, low enough that
+#: a loop re-subscribing on every page load cannot grow the table forever.
+MAX_PUSH_SUBSCRIPTIONS = 10
+
+
+def _prune_push_subscriptions(uid, gid):
+    """Drop the oldest rows so a new one stays inside the per-owner cap.
+
+    Oldest-first because a subscription the student has not refreshed in
+    months is the one most likely to be a browser they no longer open —
+    and push services expire those anyway.
+    """
+    try:
+        rows = (PushSubscription.query
+                .filter_by(user_id=uid, guest_session_id=gid)
+                .order_by(PushSubscription.created_at.asc())
+                .all())
+        for row in rows[:max(0, len(rows) - (MAX_PUSH_SUBSCRIPTIONS - 1))]:
+            db.session.delete(row)
+    except Exception as e:
+        print(f"[push] prune failed: {e}")
+
+
 @app.route("/push/subscribe", methods=["POST"])
 def push_subscribe():
     data = request.get_json(silent=True) or {}
@@ -10764,14 +10823,24 @@ def push_subscribe():
     # Cap size to avoid abusive payloads filling the DB.
     if len(sub_json) > 4000:
         return flask.jsonify({"status": "error", "message": "subscription too large"}), 400
+    if len(endpoint) > 512:
+        return flask.jsonify({"status": "error", "message": "endpoint too long"}), 400
     uid = current_user.id if current_user.is_authenticated else None
     gid = None if current_user.is_authenticated else get_guest_session_id()
     try:
-        existing = PushSubscription.query.filter_by(user_id=uid, guest_session_id=gid).first()
+        # Match on the endpoint, which identifies the browser. Matching on
+        # the owner instead let a second device overwrite the first, so a
+        # student who enabled notifications on a laptop stopped getting
+        # them on their phone.
+        existing = PushSubscription.query.filter_by(
+            user_id=uid, guest_session_id=gid, endpoint=endpoint).first()
         if existing:
             existing.subscription_json = sub_json
         else:
-            db.session.add(PushSubscription(user_id=uid, guest_session_id=gid, subscription_json=sub_json))
+            _prune_push_subscriptions(uid, gid)
+            db.session.add(PushSubscription(
+                user_id=uid, guest_session_id=gid,
+                endpoint=endpoint, subscription_json=sub_json))
         db.session.commit()
     except Exception as e:
         db.session.rollback()
@@ -10780,22 +10849,73 @@ def push_subscribe():
 
 @app.route("/push/test", methods=["POST"])
 def push_test():
+    """Fire a test notification at every browser the caller has registered.
+
+    Every one, not the first: the point of the button is to answer "will I
+    actually get reminders on this device?", and testing only one row
+    answers it for the wrong device as often as the right one.
+    """
     uid = current_user.id if current_user.is_authenticated else None
     gid = None if current_user.is_authenticated else get_guest_session_id()
-    sub = PushSubscription.query.filter_by(user_id=uid, guest_session_id=gid).first()
-    if not sub:
-        return flask.jsonify({"status": "error", "message": "No subscription"})
+    subs = PushSubscription.query.filter_by(user_id=uid, guest_session_id=gid).all()
+    if not subs:
+        return flask.jsonify({
+            "status": "error",
+            "message": "No subscription on file for this device. Turn notifications on first.",
+        })
+    if not os.getenv("VAPID_PRIVATE_KEY"):
+        return flask.jsonify({
+            "status": "error",
+            "message": "Push is not configured on the server (no VAPID key).",
+        })
+
+    payload = json.dumps({
+        "title": "IntelliPlan",
+        "body": "Notifications are working!",
+        "url": "/dashboard",
+    })
+    claims = {"sub": f"mailto:{os.getenv('VAPID_EMAIL', 'hello@intelliplan.tech')}"}
+    sent, expired, last_error = 0, 0, None
     try:
         from pywebpush import webpush
-        webpush(
-            subscription_info=json.loads(sub.subscription_json),
-            data=json.dumps({"title": "IntelliPlan", "body": "Notifications are working!"}),
-            vapid_private_key=os.getenv("VAPID_PRIVATE_KEY"),
-            vapid_claims={"sub": f"mailto:{os.getenv('VAPID_EMAIL', 'hello@intelliplan.app')}"}
-        )
-        return flask.jsonify({"status": "ok"})
-    except Exception as e:
-        return flask.jsonify({"status": "error", "message": safe_error_message(e)})
+    except ImportError:
+        return flask.jsonify({"status": "error", "message": "Push library unavailable."})
+
+    for sub in list(subs):
+        try:
+            webpush(
+                subscription_info=json.loads(sub.subscription_json),
+                data=payload,
+                vapid_private_key=os.getenv("VAPID_PRIVATE_KEY"),
+                vapid_claims=dict(claims),
+                # Short, but not zero: a test the student asked for a minute
+                # ago is worth delivering when their phone wakes up, and
+                # zero is rejected outright by WNS. See PUSH_DEFAULT_TTL.
+                ttl=15 * 60,
+            )
+            sent += 1
+        except Exception as e:
+            msg = str(e)
+            # 404/410 mean the browser dropped the subscription. Keeping the
+            # row makes every later send fail on a device that no longer
+            # exists, so bin it here as well as in _send_push_to_user.
+            if "410" in msg or "404" in msg:
+                expired += 1
+                try:
+                    db.session.delete(sub)
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+            else:
+                last_error = safe_error_message(e)
+    if sent:
+        return flask.jsonify({"status": "ok", "sent": sent, "expired": expired})
+    if expired:
+        return flask.jsonify({
+            "status": "error",
+            "message": "Your saved subscription had expired. Turn notifications off and on again.",
+        })
+    return flask.jsonify({"status": "error", "message": last_error or "Push delivery failed."})
 
 @app.route("/push/vapid-public")
 def vapid_public():
@@ -13207,7 +13327,7 @@ def api_snapshot():
     return flask.jsonify(snapshot)
 
 
-def _send_push_to_user(user_id, payload):
+def _send_push_to_user(user_id, payload, ttl=None):
     """Send a webpush payload to every subscription tied to user_id.
     Returns the count of successful deliveries."""
     subs = PushSubscription.query.filter_by(user_id=user_id).all()
@@ -13221,6 +13341,7 @@ def _send_push_to_user(user_id, payload):
     if not private_key:
         return 0
     claims = {"sub": f"mailto:{os.getenv('VAPID_EMAIL', 'hello@intelliplan.tech')}"}
+    ttl_seconds = PUSH_DEFAULT_TTL if ttl is None else max(PUSH_MIN_TTL, int(ttl))
     ok = 0
     for sub in list(subs):
         try:
@@ -13228,7 +13349,8 @@ def _send_push_to_user(user_id, payload):
                 subscription_info=json.loads(sub.subscription_json),
                 data=json.dumps(payload),
                 vapid_private_key=private_key,
-                vapid_claims=claims,
+                vapid_claims=dict(claims),
+                ttl=ttl_seconds,
             )
             ok += 1
         except Exception as e:
@@ -14912,6 +15034,9 @@ def _ensure_indexes():
         "CREATE INDEX IF NOT EXISTS ix_sessions_user ON study_sessions (user_id)",
         "CREATE INDEX IF NOT EXISTS ix_points_user ON study_points (user_id)",
         "CREATE INDEX IF NOT EXISTS ix_pushsub_user ON push_subscriptions (user_id)",
+        # The subscribe upsert matches on endpoint; without this it scans
+        # every subscription on the site on each notification opt-in.
+        "CREATE INDEX IF NOT EXISTS ix_pushsub_endpoint ON push_subscriptions (endpoint)",
         "CREATE INDEX IF NOT EXISTS ix_sessmsg_user ON session_messages (user_id)",
         # Reminder dedupe lookup, run for every user on every cron sweep.
         "CREATE INDEX IF NOT EXISTS ix_reminders_user_key ON reminders_sent (user_id, task_key)",
@@ -14937,6 +15062,47 @@ def _ensure_indexes():
     db.session.commit()
 
 
+def _migrate_push_subscription_endpoints():
+    """Add push_subscriptions.endpoint and backfill it from the stored JSON.
+
+    Rows written before the column existed have no endpoint, so the upsert
+    in /push/subscribe would treat every one of them as a different browser
+    and start stacking duplicates. Backfilling is a few hundred rows of
+    json.loads at boot, once.
+    """
+    from sqlalchemy import text as _t
+
+    columns = _existing_columns("push_subscriptions")
+    if not columns:
+        return
+    if "endpoint" not in columns:
+        try:
+            db.session.execute(_t(
+                "ALTER TABLE push_subscriptions ADD COLUMN endpoint VARCHAR(512)"))
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"[migrate] push endpoint column: {e}")
+            return
+
+    try:
+        stale = PushSubscription.query.filter(
+            (PushSubscription.endpoint.is_(None)) | (PushSubscription.endpoint == "")
+        ).all()
+        for row in stale:
+            try:
+                row.endpoint = (json.loads(row.subscription_json) or {}).get("endpoint")
+            except Exception:
+                # Unparseable JSON was never a usable subscription. Leaving
+                # it null keeps it out of the way of the endpoint upsert.
+                continue
+        if stale:
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[migrate] push endpoint backfill: {e}")
+
+
 def _run_boot_migration_once():
     """Idempotent migration helper — safe to call repeatedly."""
     global _MIGRATION_DONE
@@ -14945,6 +15111,7 @@ def _run_boot_migration_once():
     try:
         db.create_all()
         _migrate_user_columns()
+        _migrate_push_subscription_endpoints()
         _ensure_indexes()
         _MIGRATION_DONE = True
     except Exception as _boot_e:
