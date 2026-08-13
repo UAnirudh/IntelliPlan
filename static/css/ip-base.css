@@ -75,6 +75,15 @@
       --danger:        #dc2626;
       --danger-text:   #b91c1c;
       --danger-soft:   rgba(220,38,38,0.06);
+      /* Warning. Distinct from danger on purpose: "you have more work than
+         hours" and "you are offline" are true statements about a situation,
+         not failures, and red reads as something broke. Same two-token split
+         as danger for the same contrast reason — #b4780a measures 4.6:1 on
+         --bg, where the brighter amber used for borders and icons does not. */
+      --warn:          #c8890f;
+      --warn-text:     #b4780a;
+      --warn-soft:     rgba(200,137,15,0.08);
+      --warn-border:   rgba(200,137,15,0.28);
       --border:        rgba(0,0,0,0.06);
       --border-strong: rgba(0,0,0,0.11);
       --border-accent: rgba(26,86,219,0.24);
@@ -167,6 +176,11 @@
       --danger:        #f87171;
       --danger-text:   #fca5a5;
       --danger-soft:   rgba(248,113,113,0.10);
+      /* Dark-theme warning, lightened the same way danger is. */
+      --warn:          #e0a94a;
+      --warn-text:     #f0c477;
+      --warn-soft:     rgba(224,169,74,0.10);
+      --warn-border:   rgba(224,169,74,0.30);
       --border:        rgba(255,255,255,0.06);
       --border-strong: rgba(255,255,255,0.10);
       --border-accent: rgba(91,147,245,0.26);
@@ -2545,6 +2559,9 @@
          enough to clear high-contrast expectations on white (>7:1), and the
          tint drops to nothing so the surface stays solid white. */
       --danger:#8b0000; --danger-text:#8b0000; --danger-soft:transparent;
+      /* Amber cannot reach 7:1 on white, so high-contrast warnings become a
+         dark brown that still reads as caution rather than error. */
+      --warn:#6b4a00; --warn-text:#6b4a00; --warn-soft:transparent; --warn-border:#000000;
       /* Solid glass tokens so every frosted surface goes opaque with a hard
          border — one override covers all glass classes at once. */
       --glass-bg:#ffffff; --glass-border:#000000; --glass-shadow:none; --glass-highlight:none;
@@ -2566,6 +2583,9 @@
       /* Mirror of the light high-contrast danger: a light red that still
          reads as an error against pure black (>10:1), with no tint. */
       --danger:#ff8a80; --danger-text:#ff8a80; --danger-soft:transparent;
+      /* Warm amber, light enough to clear high contrast on pure black and
+         still distinguishable from both --danger and --accent. */
+      --warn:#ffcc66; --warn-text:#ffcc66; --warn-soft:transparent; --warn-border:#ffffff;
     }
     html[data-a11y-contrast="1"] * { text-shadow: none !important; }
     /* High-contrast users must not get faint frosted glass — force every

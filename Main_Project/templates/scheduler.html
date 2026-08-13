@@ -263,6 +263,52 @@
     color: var(--text-secondary); font-weight: 600;
   }
 
+  /* ── "Not everything fits" ─────────────────────────
+     Weightier than a placement note and deliberately so: those describe
+     work that moved, this describes work that has nowhere to go. Warm
+     rather than red — the plan is not broken, it is honest, and alarming
+     a student about their own workload is not the job. */
+  .capacity-warning {
+    margin-top: 14px; padding: 13px 16px;
+    border: 1px solid var(--warn-border, rgba(180,120,10,0.28));
+    border-left-width: 3px;
+    border-radius: var(--ipd-radius-sm);
+    background: var(--warn-soft, rgba(200,140,20,0.07));
+    font-family: var(--ipd-font-body);
+  }
+  .capacity-warning .cap-head {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 0.74rem; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--warn, #b4780a);
+  }
+  .capacity-warning .cap-headline {
+    margin: 7px 0 0; font-size: 0.87rem; line-height: 1.5;
+    color: var(--text-primary);
+  }
+  .cap-deferred {
+    margin: 11px 0 0; padding: 0; list-style: none;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .cap-deferred li {
+    padding-left: 11px;
+    border-left: 2px solid var(--border-strong);
+    font-size: 0.82rem; color: var(--text-secondary);
+  }
+  .cap-deferred__title { font-weight: 600; color: var(--text-primary); }
+  .cap-deferred__mins, .cap-deferred__due {
+    margin-left: 8px; font-size: 0.75rem; color: var(--text-muted);
+  }
+  .cap-deferred__why {
+    margin-top: 2px; font-size: 0.76rem; line-height: 1.45;
+    color: var(--text-muted);
+  }
+  .capacity-warning .cap-next {
+    margin: 12px 0 0; font-size: 0.78rem; line-height: 1.5;
+    color: var(--text-muted);
+  }
+  .capacity-warning .cap-next a { color: var(--accent); }
+
   /* ── Custom tasks ──────────────────────────────── */
   .custom-tasks-wrap {
     display: flex; gap: 6px;
@@ -1931,14 +1977,80 @@ function renderPlacementNotes(notes) {
     </div>`;
 }
 
+function fmtMinutes(mins) {
+  const n = Math.max(0, Math.round(Number(mins) || 0));
+  const h = Math.floor(n / 60), m = n % 60;
+  if (!h) return m + 'm';
+  return m ? h + 'h ' + m + 'm' : h + 'h';
+}
+
+/* The arithmetic, stated plainly.
+
+   The planner already works out that a week holds 4h30m of free time and
+   7h20m of work, and which tasks it therefore could not place. None of
+   that reached the page: the student saw a calendar that looked complete
+   and quietly was not, then missed a deadline the app had already
+   predicted. A schedule that cannot fit is useful information; a pretty
+   calendar hiding it is worse than no calendar. */
+function renderCapacitySummary(data) {
+  const deferred = Array.isArray(data.deferred) ? data.deferred : [];
+  if (!data.overloaded && !deferred.length) return '';
+
+  const total = Number(data.total_minutes) || 0;
+  const capacity = Number(data.capacity_minutes) || 0;
+  const shortfall = total - capacity;
+
+  let headline;
+  if (total && capacity && shortfall > 0) {
+    headline = 'You have about ' + fmtMinutes(total) + ' of work and ' +
+               fmtMinutes(capacity) + ' of free time before these are due — ' +
+               'roughly ' + fmtMinutes(shortfall) + ' short.';
+  } else if (deferred.length) {
+    headline = deferred.length === 1
+      ? 'One task could not be placed in your free hours.'
+      : deferred.length + ' tasks could not be placed in your free hours.';
+  } else {
+    headline = 'This week is fuller than your stated free hours.';
+  }
+
+  const list = deferred.length ? `
+      <ul class="cap-deferred">
+        ${deferred.map(d => `
+          <li>
+            <span class="cap-deferred__title">${escapeText(d.title || 'Task')}</span>
+            ${d.minutes ? `<span class="cap-deferred__mins">${escapeText(fmtMinutes(d.minutes))}</span>` : ''}
+            ${d.due_date ? `<span class="cap-deferred__due">due ${escapeText(String(d.due_date).slice(0, 10))}</span>` : ''}
+            ${d.reason ? `<div class="cap-deferred__why">${escapeText(d.reason)}</div>` : ''}
+          </li>`).join('')}
+      </ul>` : '';
+
+  return `
+    <div class="capacity-warning" role="status">
+      <div class="cap-head">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-alert"/></svg>
+        <span>Not everything fits</span>
+      </div>
+      <p class="cap-headline">${escapeText(headline)}</p>
+      ${list}
+      <p class="cap-next">What helps: move a due date, add free hours in
+        <a href="/settings">Settings</a>, or start the tightest one today.</p>
+    </div>`;
+}
+
 /* ────────── CREATOR: render plain schedule preview ────────── */
 function renderSchedule(data) {
   const overview = document.getElementById('scheduleOverview');
+  // `notes` is what the planner returns; `placement_notes` is the older AI
+  // path's name for the same thing. Reading only the latter meant every
+  // explanation the planner produced was discarded before it reached the
+  // page — the student got a plan with no reasoning attached to it.
+  const notes = data.notes || data.placement_notes;
   overview.innerHTML = `
     <div class="overview-card">
       <div class="overview-text">${escapeText(data.overview || '')}</div>
       <div class="overview-stat"><svg width="12" height="12"><use href="#i-clock"/></svg> Total study time: <strong>${escapeText(data.total_study_time || '')}</strong></div>
-      ${renderPlacementNotes(data.placement_notes)}
+      ${renderCapacitySummary(data)}
+      ${renderPlacementNotes(notes)}
     </div>`;
   const days = document.getElementById('scheduleDays');
   const todayStr = localToday();
