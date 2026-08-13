@@ -330,6 +330,17 @@
   color: var(--ipd-priority-high);
 }
 
+/* Provenance note above the task list. Quiet by design — it is a caveat
+   on data the student can already see, not a warning about it. */
+.ipd-cache-age {
+  margin: 0 0 10px;
+  font-family: var(--ipd-font-body);
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+.ipd-cache-age[hidden] { display: none; }
+
 /* ── Right column: Assistant strip ────────────────────────── */
 .ipd-assistant-card {
   background: var(--text-primary);
@@ -744,6 +755,11 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-alert"/></svg>
         <span id="ipdOverdueCount">0 overdue tasks</span>
       </div>
+      {# Only rendered when the list came from the offline cache, and only
+         then — a provenance note on fresh data is noise, but silently
+         showing a two-hour-old plan as if it were current is how a
+         planner loses a student's trust. #}
+      <p id="ipdCacheAge" class="ipd-cache-age" hidden></p>
       {# Loading placeholder shaped like the rows it is standing in for,
          rather than a tick icon captioned "Loading tasks…" — a checkmark
          is the symbol for finished, which is the one thing this state is
@@ -1221,13 +1237,38 @@ function updateStats() {
 }
 
 // ── Load dashboard (main data fetch) ─────────────────────────
+
+/* Read through the offline cache when it is available.
+   IP.offline.read serves the network when it can and the last synced copy
+   when it cannot, so a dashboard opened in a tunnel shows the student's
+   real assignments instead of the retry card. It resolves with metadata
+   about where the answer came from; `_ipdCacheAge` holds the oldest of
+   those so the page can say how current it is. */
+var _ipdCacheAge = null;
+
+function ipdRead(url, fallback) {
+  if (!window.IP || !IP.offline) {
+    return fetch(url).then(function (r) { return r.json(); })
+      .catch(function () { return fallback; });
+  }
+  return IP.offline.read(url).then(function (res) {
+    if (res.fromCache && res.cachedAt) {
+      _ipdCacheAge = _ipdCacheAge === null ? res.cachedAt
+                                           : Math.min(_ipdCacheAge, res.cachedAt);
+    }
+    return res.data;
+  }, function () { return fallback; });
+}
+
 async function loadDashboard() {
+  _ipdCacheAge = null;
   try {
     var [tasksRes, schedRes, calRes] = await Promise.all([
-      fetch('/tasks/unified').then(function(r) { return r.json(); }),
-      fetch('/schedule/saved').then(function(r) { return r.json(); }).catch(function() { return {}; }),
-      fetch('/calendar/events').then(function(r) { return r.json(); }).catch(function() { return { connected: false }; })
+      ipdRead('/tasks/unified', null),
+      ipdRead('/schedule/saved', {}),
+      ipdRead('/calendar/events', { connected: false })
     ]);
+    if (!tasksRes) throw new Error('no tasks available, online or cached');
 
     _ipdState.unifiedTasks = {
       today: tasksRes.today || [],
@@ -1244,10 +1285,31 @@ async function loadDashboard() {
     updateStats();
     loadGradeSnapshot();
     updateAssistantTip();
+    renderCacheAge();
   } catch (e) {
     var container = document.getElementById('ipdTaskList');
-    if (container) container.innerHTML = '<div class="ipd-empty-state"><p>Could not load tasks. <button class="ipd-btn" onclick="loadDashboard()" style="margin-top:8px;">Retry</button></p></div>';
+    if (container) {
+      var offline = navigator.onLine === false;
+      container.innerHTML = offline
+        ? '<div class="ipd-empty-state"><p>You\'re offline and this device hasn\'t synced your tasks yet. They\'ll load as soon as you reconnect.</p></div>'
+        : '<div class="ipd-empty-state"><p>Could not load tasks. <button class="ipd-btn" onclick="loadDashboard()" style="margin-top:8px;">Retry</button></p></div>';
+    }
   }
+}
+
+/* Say how old the data is, but only when it is actually old. A "synced
+   just now" label on every load is noise; a silent hour-old dashboard is
+   the thing that makes a student mistrust the app. */
+function renderCacheAge() {
+  var el = document.getElementById('ipdCacheAge');
+  if (!el) return;
+  if (_ipdCacheAge === null) { el.hidden = true; return; }
+  var mins = Math.round((Date.now() - _ipdCacheAge) / 60000);
+  var when = mins < 1 ? 'moments ago'
+           : mins < 60 ? mins + ' minute' + (mins === 1 ? '' : 's') + ' ago'
+           : Math.round(mins / 60) + ' hour' + (Math.round(mins / 60) === 1 ? '' : 's') + ' ago';
+  el.textContent = 'Showing your last synced copy, from ' + when + '.';
+  el.hidden = false;
 }
 
 // ── Assistant tip (contextual) ───────────────────────────────

@@ -147,6 +147,23 @@ def apply_notification_migrations(db: Any) -> list[str]:
     return sorted(target & existing)
 
 
+def apply_sync_migrations(db: Any) -> list[str]:
+    """Ensure the offline replay ledger exists.
+
+    Same idempotent ``create_all`` pattern as the tables above. The unique
+    index on ``(user_id, op_id)`` comes from the model's table args, so it
+    is created with the table rather than bolted on after — a ledger
+    without that constraint would look fine and silently permit the
+    duplicate writes it exists to prevent.
+    """
+
+    inspector = inspect(db.engine)
+    existing = set(inspector.get_table_names())
+    target = {"sync_ops"}
+    db.create_all()
+    return sorted(target & existing)
+
+
 def apply_learning_graph_migrations(db: Any) -> list[str]:
     """Ensure Learning Graph tables exist.
 

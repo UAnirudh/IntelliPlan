@@ -31,6 +31,26 @@
   var QUEUE_MAX_TRIES  = 5;
   var QUEUE_MAX_ITEMS  = 60;
   var TOAST_MS         = 4200;
+  // Idempotency key header. The server records the response it produced for
+  // each one and returns that recording on any later arrival of the same id,
+  // which is what makes replaying a queued write safe. See
+  // intelliplan/sync/models.py and docs/offline-architecture.md.
+  var OP_ID_HEADER     = 'X-IP-Op-Id';
+
+  /**
+   * A key for one logical write, stable across every retry of that write.
+   * Minting a fresh one per attempt would defeat the whole point — the
+   * server would see two unrelated ops and apply both.
+   */
+  function newOpId() {
+    if (window.crypto && window.crypto.randomUUID) {
+      try { return window.crypto.randomUUID(); } catch (e) {}
+    }
+    return 'op-' + Date.now().toString(36) + '-' +
+           Math.random().toString(36).slice(2, 10);
+  }
+
+  IP.newOpId = newOpId;
 
   /* ── Errors ───────────────────────────────────────────────────────── */
 
@@ -114,6 +134,7 @@
     var timeout  = opts.timeout != null ? opts.timeout : DEFAULT_TIMEOUT;
     var dedupe   = isSafe && opts.dedupe !== false;
     var key      = method + ' ' + url;
+    var opId     = (!isSafe && retries > 0) ? newOpId() : '';
 
     if (dedupe && inflight[key]) return inflight[key];
 
@@ -135,6 +156,14 @@
         'Accept': 'application/json',
         'X-Requested-With': 'XMLHttpRequest'
       }, opts.headers || {});
+
+      // A mutating request that is allowed to retry needs an idempotency
+      // key, or the retry after a timeout is a second write. The key is
+      // minted once per logical request (outside `attempt`) so every
+      // attempt of it carries the same value.
+      if (!isSafe && retries > 0 && !headers[OP_ID_HEADER]) {
+        headers[OP_ID_HEADER] = opId;
+      }
 
       var body = opts.body;
       if (body != null && typeof body !== 'string' && !(body instanceof FormData)) {
@@ -367,6 +396,11 @@
       }
       items.push({
         id: 'q' + Date.now() + Math.random().toString(36).slice(2, 7),
+        // Minted here, not at flush time. A write parked offline may be
+        // replayed several times across several sessions; every one of
+        // those attempts has to carry the same key or the server sees
+        // them as distinct writes and applies each.
+        opId: entry.opId || newOpId(),
         url: entry.url,
         method: entry.method || 'POST',
         body: entry.body,
@@ -390,8 +424,15 @@
 
       return items.reduce(function (chain, item) {
         return chain.then(function () {
+          var headers = {};
+          // Older queue entries, parked before op ids existed, have none.
+          // Replaying those unkeyed is the pre-existing behaviour, not a
+          // regression — and minting one now would not help, since the
+          // server never saw a key on the attempt that may have landed.
+          if (item.opId) headers[OP_ID_HEADER] = item.opId;
           return IP.request(item.url, {
-            method: item.method, body: item.body, retries: 1, retryUnsafe: true
+            method: item.method, body: item.body, retries: 1,
+            retryUnsafe: true, headers: headers
           }).then(function () {
             sent++;
           }, function (err) {

@@ -1766,6 +1766,7 @@ from intelliplan.migrations import (
     apply_command_center_migrations,
     apply_learning_graph_migrations,
     apply_media_balance_migrations,
+    apply_sync_migrations,
 )
 BriefingCache, HealthSnapshot, StudentSignal = _cc_models.register(db)
 StudentProfile, ConceptMastery, LearningEvent = _lg_models.register(db)
@@ -1776,6 +1777,12 @@ ActiveSession, ActiveFocusSample = _as_models.register(db)
 # Notification outbox — durable queue with dedupe, retries, and expiry.
 from intelliplan.notifications import models as _notif_models
 NotificationOutbox = _notif_models.register(db)
+# Offline replay ledger. Registered here, alongside the other models, so
+# the create_all() below builds the table and its unique index; the
+# request hooks that use it are installed further down, once `current_user`
+# is available to scope ops by owner.
+from intelliplan.sync import models as _sync_models
+_sync_models.register(db)
 
 with app.app_context():
     db.create_all()
@@ -1785,8 +1792,7 @@ with app.app_context():
     apply_learning_graph_migrations(db)
     apply_active_session_migrations(db)
     apply_notification_migrations(db)
-
-print([str(r) for r in app.url_map.iter_rules() if 'tutor' in str(r)])
+    apply_sync_migrations(db)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -14683,6 +14689,18 @@ app.register_blueprint(active_bp)
 from notifications_glue import notifications_bp
 app.register_blueprint(notifications_bp)
 limiter.exempt(app.view_functions["notifications.cron_notifications"])
+# ── Offline write safety. Installs before/after-request hooks that make any
+# mutating endpoint replay-safe when the client sends an X-IP-Op-Id, plus the
+# one endpoint the offline queue uses to ask "did these ops land?".
+from intelliplan.sync import setup as _setup_sync
+
+SyncOp = _setup_sync(
+    app, db,
+    lambda: current_user.id if current_user.is_authenticated else 0,
+)
+# The queue flushes every op it holds in one burst on reconnect, which is a
+# legitimate spike the per-IP page-load budget would mistake for abuse.
+limiter.limit("120 per minute")(app.view_functions["ip_sync.check_ops"])
 limiter.limit("6 per hour")(app.view_functions["notifications.send_test_notification"])
 # Heartbeats arrive roughly every 15 seconds while a session runs, so this
 # route is sized to the poll rather than to page loads — the default per-IP

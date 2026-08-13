@@ -206,6 +206,9 @@
   <script src="{{ url_for('static', filename='js/ip-core.js') }}?v={{ asset_v }}"></script>
   <script src="{{ url_for('static', filename='js/ip-async.js') }}?v={{ asset_v }}"></script>
   <script src="{{ url_for('static', filename='js/ip-report.js') }}?v={{ asset_v }}"></script>
+  {# Offline reads and the connection pill. After ip-core.js: it builds on
+     IP.request, IP.queue and the event bus defined there. #}
+  <script src="{{ url_for('static', filename='js/ip-offline.js') }}?v={{ asset_v }}"></script>
 
   {# ── Motion layer ───────────────────────────────────────────────────
      GSAP is vendored rather than pulled from jsDelivr so it stays inside
@@ -1680,11 +1683,18 @@ document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); 
 
 {% block scripts %}{% endblock %}
 
-/* ── SERVICE WORKER ─────────────────── */
+/* ── SERVICE WORKER ─────────────────────────────────────────────────
+   `{scope: '/'}` is load-bearing, not decoration. A worker registered from
+   /static/sw.js defaults to a /static/ scope, which controls stylesheets
+   and nothing else: no navigation ever reaches its fetch handler, so the
+   offline fallback and the cached pages it exists for never run. The
+   Service-Worker-Allowed: / header App.py sends on this file is what makes
+   the wider scope legal to ask for — asking is still on us.
+   ─────────────────────────────────────────────────────────────────── */
 if ('serviceWorker' in navigator && window.self === window.top) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/static/sw.js')
-      .then(r=>console.log('SW:',r.scope)).catch(e=>console.log('SW fail:',e));
+    navigator.serviceWorker.register('/static/sw.js', { scope: '/' })
+      .catch(() => { /* unsupported or blocked: the app works, just online-only */ });
   });
 }
 
