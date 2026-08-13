@@ -484,6 +484,60 @@
   margin-top: var(--space-5);
 }
 
+/* ── Connection state ────────────────────────────────────────────────
+   A persistent condition, not a passing message, so it does not belong in
+   the toast stack: toasts leave, and "you are offline" has to stay true on
+   screen for as long as it is true. Top-centre keeps it clear of the toast
+   host bottom-left and the Plani launcher bottom-right. */
+
+.ip-offline-pill {
+  position: fixed;
+  top: max(var(--space-3), env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-toast, 1100);
+  max-width: min(560px, calc(100vw - var(--space-6)));
+  padding: 7px var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-secondary, var(--text-primary));
+  font-family: var(--font-ui, var(--font-body));
+  font-size: 0.79rem;
+  line-height: 1.35;
+  letter-spacing: 0.005em;
+  text-align: center;
+  /* Informational only — never intercept a tap meant for the page under it. */
+  pointer-events: none;
+}
+
+.ip-offline-pill[hidden] { display: none; }
+
+/* A dot carrying the state, so it does not rely on colour alone. */
+.ip-offline-pill::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 8px;
+  border-radius: 50%;
+  vertical-align: 1px;
+  background: var(--text-muted);
+}
+
+.ip-offline-pill[data-state="offline"]::before { background: var(--warn, #d08700); }
+
+.ip-offline-pill[data-state="syncing"]::before {
+  background: var(--accent);
+  animation: ipOfflinePulse 1.4s var(--ease-out) infinite;
+}
+
+@keyframes ipOfflinePulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+
 /* ── Motion and contrast preferences ─────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
@@ -494,10 +548,12 @@
   .ip-toast.is-in { transform: none; }
   .ip-btn { transition: none; }
   .ip-btn:active { transform: none; }
+  .ip-offline-pill[data-state="syncing"]::before { animation: none; }
 }
 
 html.a11y-high-contrast .ip-state,
 html.a11y-high-contrast .ip-toast,
+html.a11y-high-contrast .ip-offline-pill,
 html.a11y-high-contrast .ip-btn--ghost {
   border-color: var(--text-primary);
 }

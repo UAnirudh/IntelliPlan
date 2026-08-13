@@ -47,12 +47,35 @@ notifications_bp = Blueprint("notifications", __name__)
 # dispatcher can retry it.
 
 
+def _push_ttl_for(row: Any) -> int | None:
+    """How long a push service should hold this message.
+
+    The outbox already knows when a message stops being worth delivering —
+    ``expires_at`` exists precisely so a "starts in 15 minutes" reminder is
+    not delivered at midnight. Handing that same deadline to the push
+    service extends the guarantee past our own queue: if the phone is off
+    until after the deadline, the message is dropped by the service rather
+    than arriving stale.
+
+    Returns None for rows with no expiry, letting the caller's default
+    stand.
+    """
+    from App import PUSH_MIN_TTL
+    from time_utils import utcnow
+
+    if not getattr(row, "expires_at", None):
+        return None
+    remaining = int((row.expires_at - utcnow()).total_seconds())
+    return max(PUSH_MIN_TTL, remaining)
+
+
 def _send_push(row: Any) -> bool:
     from App import _send_push_to_user
 
     delivered = _send_push_to_user(
         row.user_id,
         {"title": row.title, "body": row.body, "url": row.url},
+        ttl=_push_ttl_for(row),
     )
     if delivered and delivered > 0:
         return True

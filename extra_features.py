@@ -453,9 +453,14 @@ def api_balance_nudge():
 
     prefs = MediaBalancePrefs.query.filter_by(user_id=current_user.id).first()
     day_enabled = bool(prefs.reminders_enabled) if prefs else False
-    night_enabled = bool(prefs.night_nudges_enabled) if prefs is None or prefs.night_nudges_enabled is None else bool(prefs.night_nudges_enabled)
-    if prefs is None:
+    # A student who has never opened the balance settings has no row at all.
+    # Night nudges are on by default for them — the daytime ones are not,
+    # because an unprompted "drink water" at 2pm reads as noise, while a
+    # 1am "your recall halves without sleep" is the one that earns its place.
+    if prefs is None or prefs.night_nudges_enabled is None:
         night_enabled = True
+    else:
+        night_enabled = bool(prefs.night_nudges_enabled)
     day_cadence = int(prefs.reminder_minutes) if prefs and prefs.reminder_minutes else 45
     night_cadence = int(prefs.night_cadence_minutes) if prefs and prefs.night_cadence_minutes else 10
     night_start = int(prefs.night_start_hour) if prefs and prefs.night_start_hour is not None else 22
