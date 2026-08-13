@@ -30,6 +30,82 @@
   font-size: 1rem; color: var(--text-secondary); margin: 0 0 1.9rem;
   line-height: 1.65; max-width: 54ch;
 }
+/* ── First plan ───────────────────────────────────────────────────
+   The payoff screen. Deliberately one thing large and everything else
+   small: the whole point is that the student leaves knowing what to do
+   next, and a grid of equally-weighted cards would put that decision
+   back on them. */
+.onb-plan-body { min-height: 132px; }
+
+.onb-plan-first {
+  padding: 18px 20px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md, 14px);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+.onb-plan-kicker {
+  font-family: var(--font-ui); font-size: 0.68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--accent); margin-bottom: 7px;
+}
+.onb-plan-task {
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 1rem + 1vw, 1.6rem);
+  line-height: 1.2; letter-spacing: -0.02em;
+  color: var(--text-primary); text-wrap: balance;
+}
+.onb-plan-meta {
+  display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 9px;
+  font-size: 0.8rem; color: var(--text-muted);
+}
+.onb-plan-meta span + span::before {
+  content: '·'; margin-right: 14px; opacity: 0.55;
+}
+.onb-plan-why {
+  margin: 13px 0 0; padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 0.86rem; line-height: 1.6; color: var(--text-secondary);
+}
+
+.onb-plan-facts {
+  margin: 16px 0 0; padding: 0; list-style: none;
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.onb-plan-facts li {
+  padding: 5px 12px; border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.78rem; color: var(--text-secondary);
+}
+.onb-plan-rest {
+  margin: 12px 0 0; font-size: 0.82rem; color: var(--text-muted);
+}
+
+.onb-plan-empty p { margin: 0; font-size: 0.92rem; line-height: 1.65; color: var(--text-secondary); }
+.onb-plan-empty-actions { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; }
+.onb-plan-link {
+  font-size: 0.86rem; font-weight: 600; color: var(--accent);
+  text-decoration: none; border-bottom: 1px solid transparent;
+  transition: border-color var(--t-fast, 120ms) ease;
+}
+.onb-plan-link:hover, .onb-plan-link:focus-visible { border-bottom-color: currentColor; }
+
+/* Shaped like the rows it stands in for, so nothing jumps when the real
+   plan replaces it. */
+.onb-plan-skeleton { display: flex; flex-direction: column; gap: 10px; }
+.onb-plan-skeleton span {
+  display: block; height: 14px; border-radius: 7px;
+  background: var(--border); opacity: 0.75;
+  animation: onbPulse 1.5s ease-in-out infinite;
+}
+.onb-plan-skeleton span:nth-child(1) { width: 32%; height: 11px; }
+.onb-plan-skeleton span:nth-child(2) { width: 78%; height: 22px; animation-delay: 0.12s; }
+.onb-plan-skeleton span:nth-child(3) { width: 54%; animation-delay: 0.24s; }
+@keyframes onbPulse { 0%, 100% { opacity: 0.75; } 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) {
+  .onb-plan-skeleton span { animation: none; }
+}
+
 .onb-mode-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
 }
@@ -313,6 +389,35 @@
         </div>
       </div>
     </section>
+
+    <!-- ── STEP: FIRST PLAN ──────────────────────────────────────────
+         The point of the whole flow. Onboarding used to end by sending
+         the student to a dashboard of empty cards, which asks them to
+         work out for themselves what IntelliPlan is for. This step shows
+         it instead: the real workload read, the one task the priority
+         engine puts first, and the reason it did.
+
+         Nothing here is invented. Every value comes from /api/today —
+         the same engines the Command Center runs on. When there is no
+         data yet there is no plan to show, and this step says so plainly
+         rather than inventing an encouraging one. ── -->
+    <section id="onbPlan" class="onb-section" style="display:none;">
+      <div class="onb-eyebrow" id="onbPlanEyebrow">Reading your week</div>
+      <h1 class="onb-title" id="onbPlanTitle">Working out what matters first…</h1>
+      <p class="onb-sub" id="onbPlanSub">One moment — IntelliPlan is sorting your deadlines by what actually needs doing.</p>
+
+      <div id="onbPlanBody" class="onb-plan-body">
+        <div class="onb-plan-skeleton" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+
+      <div class="onb-actions" id="onbPlanActions" style="display:none;">
+        <span></span>
+        <a class="btn-primary" id="onbPlanGo" href="/command-center"
+           style="padding:11px 24px;border:none;cursor:pointer;font-size:0.92rem;text-decoration:none;display:inline-block;">Open my plan</a>
+      </div>
+    </section>
   </div>
 </div>
 
@@ -324,7 +429,9 @@ const ONB = {
 };
 
 function onbProgressFor(step) {
-  const order = { intro: 1, quick: 3, custom: 2, import: 3 };
+  // 'plan' fills every pip: setup is finished by the time it renders, and
+  // a progress bar still showing a gap would suggest otherwise.
+  const order = { intro: 1, quick: 3, custom: 2, import: 3, plan: 3 };
   const n = order[step] || 1;
   document.querySelectorAll('#onbProgress .onb-pip').forEach((el, i) => {
     el.classList.toggle('on', i < n);
@@ -334,7 +441,8 @@ function onbProgressFor(step) {
 function onbShow(step) {
   ONB.step = step;
   document.querySelectorAll('.onb-section').forEach((s) => { s.style.display = 'none'; });
-  const map = { intro: 'onbIntro', quick: 'onbQuick', custom: 'onbCustom', import: 'onbImport' };
+  const map = { intro: 'onbIntro', quick: 'onbQuick', custom: 'onbCustom',
+                import: 'onbImport', plan: 'onbPlan' };
   const el = document.getElementById(map[step]);
   if (el) el.style.display = '';
   onbProgressFor(step);
@@ -371,7 +479,7 @@ async function onbFinishQuick(ev) {
       body: JSON.stringify({ ..._onbQuickFields(), completed: true }),
     });
   } catch (e) { /* still proceed */ }
-  window.location.href = '/dashboard';
+  onbShowFirstPlan();
 }
 
 // ── Custom path ─────────────────────────────────────
@@ -540,7 +648,145 @@ async function onbFinishCustom(ev) {
       body: JSON.stringify({ completed: true })
     });
   } catch (_e) { /* proceed anyway */ }
-  window.location.href = '/dashboard';
+  onbShowFirstPlan();
+}
+
+/* ── The first plan ────────────────────────────────────────────────
+   Runs the same engines the Command Center runs on, and reports what
+   they actually returned. Three outcomes, all honest:
+
+     * work found      → the read, the first task, and why it is first
+     * nothing to plan → say so, and offer the one action that fixes it
+     * request failed  → say that, and let them in anyway
+
+   The third matters: a student who finishes onboarding must never be
+   trapped behind a spinner because an API call timed out. ── */
+
+function onbEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function onbHours(mins) {
+  const n = Math.max(0, Math.round(Number(mins) || 0));
+  const h = Math.floor(n / 60), m = n % 60;
+  if (!h) return m + ' min';
+  return m ? h + 'h ' + m + 'm' : h + ' hour' + (h === 1 ? '' : 's');
+}
+
+function onbDueLabel(iso) {
+  if (!iso) return '';
+  const due = new Date(String(iso).slice(0, 10) + 'T00:00:00');
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const days = Math.round((due - today) / 86400000);
+  if (days < 0) return 'overdue';
+  if (days === 0) return 'due today';
+  if (days === 1) return 'due tomorrow';
+  return 'due in ' + days + ' days';
+}
+
+function onbPlanSet(eyebrow, title, sub) {
+  document.getElementById('onbPlanEyebrow').textContent = eyebrow;
+  document.getElementById('onbPlanTitle').textContent = title;
+  document.getElementById('onbPlanSub').textContent = sub;
+}
+
+function onbRenderEmptyPlan() {
+  onbPlanSet(
+    'You are set up',
+    'Nothing to plan yet.',
+    'IntelliPlan works from your assignments. Add one — or connect your school — and it will sort your week by what actually needs doing.'
+  );
+  document.getElementById('onbPlanBody').innerHTML = `
+    <div class="onb-plan-empty">
+      <p>Once there is work in here, this screen becomes your plan: what to start
+         now, how much is left this week, and which day is going to hurt.</p>
+      <div class="onb-plan-empty-actions">
+        <a class="onb-plan-link" href="/connect">Connect your school</a>
+        <a class="onb-plan-link" href="/dashboard#add">Add a task by hand</a>
+      </div>
+    </div>`;
+  document.getElementById('onbPlanGo').textContent = 'Go to my dashboard';
+  document.getElementById('onbPlanGo').href = '/dashboard';
+  document.getElementById('onbPlanActions').style.display = 'flex';
+}
+
+function onbRenderPlan(data) {
+  const plan = Array.isArray(data.plan) ? data.plan : [];
+  if (!plan.length) { onbRenderEmptyPlan(); return; }
+
+  const first = plan[0];
+  const forecast = data.forecast || {};
+  const days = Array.isArray(forecast.days) ? forecast.days : [];
+  const weekMinutes = days.reduce(
+    (sum, d) => sum + (Number(d.committed_min) || 0) + (Number(d.prework_min) || 0), 0);
+  const heaviest = days.filter(d => d.date === forecast.heaviest_date)[0];
+
+  onbPlanSet(
+    'Here is your week',
+    plan.length === 1 ? 'One thing needs your attention.'
+                      : plan.length + ' things need your attention.',
+    data.briefing && data.briefing.headline
+      ? data.briefing.headline
+      : 'Sorted by deadline, size, and how much time you actually have.'
+  );
+
+  // "Why this one" comes from the priority engine's own rationale, not from
+  // a sentence written here. If the engine had no reason to give, the line
+  // is omitted rather than filled with a plausible-sounding one.
+  const why = first.why_now ||
+    ((first.priority && first.priority.rationale || [])[0] || {}).reason || '';
+
+  const facts = [];
+  if (weekMinutes > 0) facts.push(onbHours(weekMinutes) + ' of work over the next 7 days');
+  if (heaviest && heaviest.date) {
+    const label = new Date(heaviest.date + 'T00:00:00')
+      .toLocaleDateString(undefined, { weekday: 'long' });
+    facts.push(label + ' is your heaviest day');
+  }
+  if (data.health && typeof data.health.score === 'number') {
+    facts.push('Course health ' + Math.round(data.health.score) + '/100');
+  }
+
+  document.getElementById('onbPlanBody').innerHTML = `
+    <div class="onb-plan-first">
+      <div class="onb-plan-kicker">Start here</div>
+      <div class="onb-plan-task">${onbEsc(first.title || 'Your first task')}</div>
+      <div class="onb-plan-meta">
+        ${first.course ? `<span>${onbEsc(first.course)}</span>` : ''}
+        ${first.due_date ? `<span>${onbEsc(onbDueLabel(first.due_date))}</span>` : ''}
+        ${first.est_minutes ? `<span>about ${onbEsc(onbHours(first.est_minutes))}</span>` : ''}
+      </div>
+      ${why ? `<p class="onb-plan-why">${onbEsc(why)}</p>` : ''}
+    </div>
+    ${facts.length ? `<ul class="onb-plan-facts">${
+      facts.map(f => `<li>${onbEsc(f)}</li>`).join('')}</ul>` : ''}
+    ${plan.length > 1 ? `<p class="onb-plan-rest">${plan.length - 1} more ${
+      plan.length === 2 ? 'task is' : 'tasks are'} queued behind it.</p>` : ''}`;
+
+  document.getElementById('onbPlanActions').style.display = 'flex';
+}
+
+function onbRenderPlanUnavailable() {
+  onbPlanSet(
+    'You are set up',
+    'Your account is ready.',
+    'IntelliPlan could not build your first plan just now — that is a hiccup on our side, not a problem with your setup. Your dashboard will have it.'
+  );
+  document.getElementById('onbPlanBody').innerHTML = '';
+  document.getElementById('onbPlanActions').style.display = 'flex';
+}
+
+async function onbShowFirstPlan() {
+  onbShow('plan');
+  try {
+    const resp = await fetch('/api/today', { credentials: 'same-origin' });
+    if (!resp.ok) throw new Error('today ' + resp.status);
+    onbRenderPlan(await resp.json());
+  } catch (_e) {
+    onbRenderPlanUnavailable();
+  }
 }
 
 // ── Chip toggling for the quick pills ──────────────

@@ -14823,6 +14823,44 @@ SyncOp = _setup_sync(
 # The queue flushes every op it holds in one burst on reconnect, which is a
 # legitimate spike the per-IP page-load budget would mistake for abuse.
 limiter.limit("120 per minute")(app.view_functions["ip_sync.check_ops"])
+
+# ── Keep the Today plan honest after a write ─────────────────────────
+# /api/today caches its payload for 90 seconds. That is right for repeated
+# page loads and wrong the moment a student adds an assignment: the plan
+# they are then shown was computed before the thing they just typed
+# existed, and nothing on screen says so. These are the paths that change
+# what the plan is made of.
+_PLAN_MUTATING_PATHS = (
+    "/tasks/manual/create",
+    "/tasks/manual/update",
+    "/tasks/manual/delete",
+    "/dismiss",
+    "/restore",
+    "/test/mark",
+    "/test/unmark",
+    "/api/import/csv",
+    "/api/syllabus/import",
+)
+
+
+@app.after_request
+def _invalidate_today_cache(response):
+    """Evict the cached plan after any successful plan-changing write.
+
+    A hook rather than a call in each handler for the same reason the sync
+    ledger is one: the set of writes that affect the plan grows, and the
+    failure mode of forgetting one is a stale plan nobody can reproduce.
+    """
+    if request.method == "POST" and response.status_code < 400:
+        path = request.path
+        if any(path.startswith(p) for p in _PLAN_MUTATING_PATHS):
+            try:
+                from intelliplan.api.command_center import invalidate_today
+
+                invalidate_today(current_user.id if current_user.is_authenticated else None)
+            except Exception as e:
+                print(f"[today] cache invalidation failed: {e}")
+    return response
 limiter.limit("6 per hour")(app.view_functions["notifications.send_test_notification"])
 # Heartbeats arrive roughly every 15 seconds while a session runs, so this
 # route is sized to the poll rather than to page loads — the default per-IP

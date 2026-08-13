@@ -57,6 +57,27 @@ _TODAY_CACHE_TTL = 90  # seconds
 _TODAY_CACHE_MAX = 500  # cap entries so the process can't leak memory unbounded
 
 
+def invalidate_today(user_id: int | None) -> None:
+    """Drop a student's cached Today payload.
+
+    The 90-second TTL exists to keep repeated dashboard loads off the
+    engines, and it is fine for that. It is not fine for a student who
+    adds an assignment and then looks at their plan: the plan they are
+    shown was computed before the thing they just typed existed, with no
+    indication it is stale, so the app looks like it ignored them.
+
+    Every endpoint that changes what the plan is made of calls this. It is
+    deliberately tolerant of a missing entry and of a null user — the
+    write must never fail because a cache eviction did.
+    """
+    if user_id is None:
+        return
+    try:
+        _TODAY_CACHE.pop(int(user_id), None)
+    except (TypeError, ValueError):
+        pass
+
+
 def _cache_put(uid: int, result: dict) -> None:
     """Store a payload and evict the oldest entries past the cap so the
     module-level cache can't grow without bound."""
