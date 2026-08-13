@@ -203,6 +203,10 @@
      near the bottom of <body>. That inline block parses before any deferred
      script runs, so `IP` has to already exist by then.
      Three small files, same-origin, no dependencies. #}
+  {# The offline store, shared with the service worker (which imports the
+     same file). Must load before ip-core.js: IP.queue is a thin wrapper
+     over it. #}
+  <script src="{{ url_for('static', filename='js/ip-queue-core.js') }}?v={{ asset_v }}"></script>
   <script src="{{ url_for('static', filename='js/ip-core.js') }}?v={{ asset_v }}"></script>
   <script src="{{ url_for('static', filename='js/ip-async.js') }}?v={{ asset_v }}"></script>
   <script src="{{ url_for('static', filename='js/ip-report.js') }}?v={{ asset_v }}"></script>

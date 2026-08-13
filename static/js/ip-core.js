@@ -28,8 +28,8 @@
   var BACKOFF_BASE_MS  = 400;
   var BACKOFF_CAP_MS   = 8000;
   var MAX_REPORTS_PER_LOAD = 12;
-  var QUEUE_MAX_TRIES  = 5;
-  var QUEUE_MAX_ITEMS  = 60;
+  // Queue sizing and retry limits live in ip-queue-core.js, which is the
+  // half the service worker also runs. Two copies would drift.
   var TOAST_MS         = 4200;
   // Idempotency key header. The server records the response it produced for
   // each one and returns that recording on any later arrival of the same id,
@@ -43,6 +43,7 @@
    * server would see two unrelated ops and apply both.
    */
   function newOpId() {
+    if (window.IPQueueCore) return window.IPQueueCore.newOpId();
     if (window.crypto && window.crypto.randomUUID) {
       try { return window.crypto.randomUUID(); } catch (e) {}
     }
@@ -377,82 +378,81 @@
    * reconnects, so a dropped connection never silently loses a user action.
    * Entries carry a `dedupeKey` so repeated edits to the same field collapse
    * into the latest value instead of replaying a whole edit history.
+   *
+   * The store itself is IPQueueCore (ip-queue-core.js), backed by IndexedDB
+   * rather than localStorage, because a service worker cannot read
+   * localStorage — a Background Sync wake-up therefore had nothing to flush
+   * and could only wake a tab, which is exactly the case where the queue
+   * would have flushed by itself. This layer is the page's half: the same
+   * API callers already use, plus the events and toasts the worker has no
+   * business emitting.
+   *
+   * `size()` stays synchronous because the connection pill reads it during
+   * render. It returns a count kept up to date after every operation rather
+   * than querying IndexedDB, which cannot answer synchronously.
    */
+  var Core = window.IPQueueCore || null;
+  var queueCount = 0;
+
+  function noteCount(n) {
+    queueCount = Math.max(0, n | 0);
+    IP.emit('queue:change', { size: queueCount });
+    return queueCount;
+  }
+
+  function refreshCount() {
+    if (!Core) return Promise.resolve(0);
+    return Core.size().then(noteCount);
+  }
+
   var queue = {
+    /** Everything parked, oldest first. Async — IndexedDB cannot be read
+     *  synchronously. Callers wanting only the count use size(). */
     all: function () {
-      try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]') || []; }
-      catch (e) { return []; }
+      return Core ? Core.all() : Promise.resolve([]);
     },
 
-    _save: function (items) {
-      try { localStorage.setItem(QUEUE_KEY, JSON.stringify(items.slice(-QUEUE_MAX_ITEMS))); }
-      catch (e) {}
-    },
-
+    /** Park a write. Resolves with the new queue length. */
     push: function (entry) {
-      var items = queue.all();
-      if (entry.dedupeKey) {
-        items = items.filter(function (i) { return i.dedupeKey !== entry.dedupeKey; });
-      }
-      items.push({
-        id: 'q' + Date.now() + Math.random().toString(36).slice(2, 7),
-        // Minted here, not at flush time. A write parked offline may be
-        // replayed several times across several sessions; every one of
-        // those attempts has to carry the same key or the server sees
-        // them as distinct writes and applies each.
-        opId: entry.opId || newOpId(),
-        url: entry.url,
-        method: entry.method || 'POST',
-        body: entry.body,
-        dedupeKey: entry.dedupeKey || '',
-        label: entry.label || '',
-        ts: Date.now(),
-        tries: 0
-      });
-      queue._save(items);
-      IP.emit('queue:change', { size: items.length });
-      return items.length;
+      if (!Core) return Promise.resolve(0);
+      return Core.enqueue(entry)
+        .then(refreshCount)
+        .catch(function () { return queueCount; });
     },
 
     /** Replay every parked write. Resolves with {sent, failed, kept}. */
     flush: function () {
-      var items = queue.all();
-      if (!items.length || navigator.onLine === false) {
-        return Promise.resolve({ sent: 0, failed: 0, kept: items.length });
-      }
-      var sent = 0, failed = 0, kept = [];
-
-      return items.reduce(function (chain, item) {
-        return chain.then(function () {
-          var headers = {};
-          // Older queue entries, parked before op ids existed, have none.
-          // Replaying those unkeyed is the pre-existing behaviour, not a
-          // regression — and minting one now would not help, since the
-          // server never saw a key on the attempt that may have landed.
-          if (item.opId) headers[OP_ID_HEADER] = item.opId;
-          return IP.request(item.url, {
-            method: item.method, body: item.body, retries: 1,
-            retryUnsafe: true, headers: headers
-          }).then(function () {
-            sent++;
-          }, function (err) {
-            item.tries = (item.tries || 0) + 1;
-            // A 4xx will never succeed on replay — drop it rather than loop.
-            var permanent = err.status >= 400 && err.status < 500 && err.status !== 429;
-            if (!permanent && item.tries < QUEUE_MAX_TRIES) kept.push(item);
-            else failed++;
-          });
-        });
-      }, Promise.resolve()).then(function () {
-        queue._save(kept);
-        IP.emit('queue:change', { size: kept.length });
-        if (sent) IP.emit('queue:flushed', { sent: sent, failed: failed });
-        return { sent: sent, failed: failed, kept: kept.length };
+      if (!Core) return Promise.resolve({ sent: 0, failed: 0, kept: 0 });
+      return Core.flush().then(function (r) {
+        noteCount(r.kept);
+        if (r.sent) IP.emit('queue:flushed', { sent: r.sent, failed: r.failed });
+        return r;
       });
     },
 
-    size: function () { return queue.all().length; }
+    /** Last known count. Synchronous by design — see above. */
+    size: function () { return queueCount; },
+
+    /** Re-read the count from the store. */
+    refresh: refreshCount
   };
+
+  /* One-time move of anything parked by the previous localStorage queue.
+     Dropping those on the floor would lose writes a student made offline
+     before this deploy, which is the exact failure the queue exists to
+     prevent. */
+  (function adoptLegacyQueue() {
+    if (!Core) return;
+    var raw;
+    try { raw = localStorage.getItem(QUEUE_KEY); } catch (e) { return; }
+    if (!raw) { refreshCount(); return; }
+    var items = [];
+    try { items = JSON.parse(raw) || []; } catch (e) { items = []; }
+    Core.migrateFrom(items).then(function () {
+      try { localStorage.removeItem(QUEUE_KEY); } catch (e) {}
+      return refreshCount();
+    }).catch(function () { /* keep the localStorage copy for a later try */ });
+  })();
 
   IP.queue = queue;
 

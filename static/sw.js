@@ -17,11 +17,16 @@
    cache in here competing with it produced the worst outcome available:
    data of unknown age, presented as current.
 
-   It also cannot flush the offline write queue on its own — that queue is
-   in localStorage, which a worker cannot reach. A Background Sync wake-up
-   therefore asks an open tab to flush; with no tab open the writes wait for
-   the next visit. See docs/offline-architecture.md.
+   The write queue lives in IndexedDB (ip-queue-core.js, imported below)
+   precisely so this file can flush it. An earlier version kept it in
+   localStorage, which a worker cannot read, so a Background Sync wake-up
+   could only poke an open tab — the one situation where the queue would
+   have flushed anyway. See docs/offline-architecture.md.
    ========================================================================== */
+
+// Shared with the page. Same IndexedDB connection, same replay rules, so a
+// write parked by the tab and flushed by the worker behaves identically.
+importScripts('/static/js/ip-queue-core.js');
 
 const CACHE_NAME = 'intelliplan-v5';
 const PAGE_CACHE = 'intelliplan-pages-v1';
@@ -36,6 +41,7 @@ const STATIC_ASSETS = [
   '/static/css/ip-base.css',
   '/static/css/ip-async.css',
   '/static/css/ip-premium.css',
+  '/static/js/ip-queue-core.js',
   '/static/js/ip-core.js',
   '/static/js/ip-async.js',
   '/static/js/ip-offline.js',
@@ -189,16 +195,34 @@ self.addEventListener('fetch', event => {
 self.addEventListener('sync', event => {
   if (event.tag !== 'ip-flush-queue') return;
   event.waitUntil((async () => {
-    const clientList = await self.clients.matchAll({
-      type: 'window', includeUncontrolled: true
-    });
-    // No open tab means no access to the queue. Returning cleanly lets the
-    // browser mark the sync done rather than retrying a wake-up that can
-    // never accomplish anything.
-    for (const client of clientList) {
-      client.postMessage({ type: 'ip-flush-queue' });
-    }
+    // Flush here, with no tab required. This is the whole point of moving
+    // the queue into IndexedDB: a student who completes a task on the train
+    // and closes the app gets it synced when the signal returns, rather
+    // than the next time they happen to open IntelliPlan.
+    // Tell any open tab what happened so its pending count and connection
+    // pill are not left describing a queue that has already drained.
+    await announceFlush(await self.IPQueueCore.flush());
   })());
+});
+
+/** Broadcast a flush result to every open tab. */
+async function announceFlush(result) {
+  if (!result.sent && !result.failed) return;
+  const clientList = await self.clients.matchAll({
+    type: 'window', includeUncontrolled: true
+  });
+  for (const client of clientList) {
+    client.postMessage({ type: 'ip-queue-flushed', result });
+  }
+}
+
+self.addEventListener('message', event => {
+  if (!event.data || event.data.type !== 'ip-flush-now') return;
+  // A page can hand the flush to the worker rather than running it itself.
+  // Worth having: the worker outlives the tab, so a student who marks a
+  // task done and immediately closes IntelliPlan still gets it delivered,
+  // where an in-page fetch would be cancelled mid-flight.
+  event.waitUntil(self.IPQueueCore.flush().then(announceFlush));
 });
 
 /* ── Push notifications ──────────────────────────────────────────── */

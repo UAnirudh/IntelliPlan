@@ -9,10 +9,16 @@ Four pieces, each with one job:
 
 | Piece | Lives in | Owns |
 |---|---|---|
-| Read cache | `static/js/ip-offline.js` (IndexedDB) | The last good copy of each data endpoint |
-| Write queue | `static/js/ip-core.js` (`IP.queue`, localStorage) | Writes attempted while offline |
+| Store | `static/js/ip-queue-core.js` (IndexedDB) | The connection, the queue, and the replay rules |
+| Read cache | `static/js/ip-offline.js` | The last good copy of each data endpoint |
+| Queue API | `static/js/ip-core.js` (`IP.queue`) | The page's half: events, toasts, pending count |
 | Replay ledger | `intelliplan/sync/` (Postgres/SQLite) | Making a replayed write apply exactly once |
 | Shell cache | `static/sw.js` (Cache Storage) | Pages and static assets |
+
+`ip-queue-core.js` is loaded by the page as a `<script>` and by the service
+worker via `importScripts`, so both halves share one IndexedDB connection
+(`intelliplan-offline`, v2: `reads` + `queue`) and one set of replay rules.
+That sharing is the point — see *Background flush* below.
 
 There is deliberately **one cache per kind of thing**. An earlier version of
 the service worker also cached `/api/` responses, which meant two caches of
@@ -52,6 +58,35 @@ dropped; anything else is retried up to five times.
 `IP.request` also mints an op id for any **mutating request with retries
 enabled**. Before this, `retryUnsafe: true` could apply a write twice on a
 live connection — request lands, response times out, retry fires.
+
+Replay is sequential, not parallel: these are edits to the same small set
+of objects, and replaying out of order can land an older value on top of a
+newer one.
+
+`IP.queue.size()` is synchronous — the connection pill reads it during
+render — and returns a count maintained after each operation rather than
+querying IndexedDB, which cannot answer synchronously. `IP.queue.all()`
+and `.push()` are async. Existing callers only ever used `size()`
+synchronously and ignored `push()`'s return, so the move cost them nothing.
+
+### Background flush
+
+A `sync` wake-up tagged `ip-flush-queue` flushes the queue **in the worker**,
+with no tab open. A page can also hand a flush to the worker with
+`postMessage({type: 'ip-flush-now'})`, which is worth doing when the student
+may navigate away mid-send: the worker outlives the tab, an in-page fetch
+does not. Either way the worker broadcasts `ip-queue-flushed` so open tabs
+correct their pending count instead of describing a queue that has drained.
+
+This is why the queue is in IndexedDB. It used to be in localStorage, which
+a worker cannot read, so a wake-up could only poke an open tab — the one
+case where the queue would have flushed by itself.
+
+Entries parked by the old localStorage queue are adopted into IndexedDB on
+first load and the old key is cleared. They get an op id at migration time,
+which makes their replays idempotent *with each other*; it cannot help
+against an attempt the server already saw unkeyed, and claiming otherwise
+would be worse than the gap.
 
 ## The replay ledger
 
@@ -108,12 +143,7 @@ has to actually ask for it.
 
 These are real and unfixed, recorded here rather than papered over:
 
-1. **Background Sync cannot flush the queue on its own.** The queue is in
-   localStorage, which a worker cannot read. A `sync` wake-up posts a
-   message to any open tab; with no tab open, the writes wait for the next
-   visit. Moving the queue into IndexedDB would fix this and is the obvious
-   next step.
-2. **Only the dashboard reads through the cache so far.** Scheduler,
+1. **Only the dashboard reads through the cache so far.** Scheduler,
    grades, and the study surfaces still fetch directly and will show their
    normal error states offline.
 3. **No conflict resolution beyond last-write-wins.** The server applies
@@ -127,5 +157,17 @@ These are real and unfixed, recorded here rather than papered over:
 
 - `tests/test_sync_idempotency.py` — the ledger: replay, scoping,
   what is and is not recorded, the sanitiser, and `/api/sync/ops/check`.
-- Browser-level verification of the read cache and the offline pill is
-  manual for now; the flows are listed in the roadmap.
+- `tests/test_today_cache_invalidation.py` — the plan cache is evicted by
+  plan-changing writes and survives reads and rejected writes.
+
+The client half is verified in a real browser (the preview pane cannot
+register a service worker at all). Flows confirmed by hand:
+
+| Flow | Result |
+|---|---|
+| Kill the server, reload `/dashboard` | Renders from cache, labelled with its age |
+| Restart, reload | Label disappears |
+| Queue a write, flush twice | Ledger absorbs the second; one application |
+| Park a write, `postMessage('ip-flush-now')` | Worker drains it; page count updates |
+| Seed the old localStorage queue, reload | Adopted into IndexedDB, old key cleared |
+| Read cache after the v1 → v2 upgrade | Still reads and writes |

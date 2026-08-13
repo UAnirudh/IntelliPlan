@@ -27,9 +27,12 @@
 
   var IP = window.IP || (window.IP = {});
 
-  var DB_NAME    = 'intelliplan-offline';
-  var DB_VERSION = 1;
-  var READ_STORE = 'reads';
+  //: The connection is owned by ip-queue-core.js, which the service worker
+  //: also loads. Opening a second one here at a different version would
+  //: block whichever got there second on a `versionchange` it cannot
+  //: satisfy, and the reads cache would hang instead of failing.
+  var Core = window.IPQueueCore || null;
+  var READ_STORE = Core ? Core.READ_STORE : 'reads';
 
   //: A cached read older than this is still shown — a week-old timetable
   //: beats a blank page — but it is labelled with its age so the student
@@ -38,30 +41,9 @@
 
   /* ── IndexedDB, wrapped just enough ───────────────────────────────── */
 
-  var dbPromise = null;
-
   function openDb() {
-    if (dbPromise) return dbPromise;
-    dbPromise = new Promise(function (resolve, reject) {
-      if (!window.indexedDB) { reject(new Error('IndexedDB unavailable')); return; }
-      var req = window.indexedDB.open(DB_NAME, DB_VERSION);
-      req.onupgradeneeded = function () {
-        var db = req.result;
-        if (!db.objectStoreNames.contains(READ_STORE)) {
-          db.createObjectStore(READ_STORE, { keyPath: 'url' });
-        }
-      };
-      req.onsuccess = function () { resolve(req.result); };
-      req.onerror   = function () { reject(req.error); };
-      // Private-mode Safari and a wedged upgrade both hang here rather than
-      // erroring. Without this the first read never settles and the page
-      // waits forever for a cache that will not arrive.
-      req.onblocked = function () { reject(new Error('IndexedDB blocked')); };
-    }).catch(function (err) {
-      dbPromise = null;              // let a later call try again
-      throw err;
-    });
-    return dbPromise;
+    if (!Core) return Promise.reject(new Error('IPQueueCore not loaded'));
+    return Core.openDb();
   }
 
   function tx(mode, fn) {
@@ -209,15 +191,20 @@
 
   /* ── Service-worker liaison ───────────────────────────────────────── */
 
-  // The worker cannot flush the queue itself: the queue lives in
-  // localStorage, which workers cannot reach. So a Background Sync wake-up
-  // asks any open tab to flush instead. With no tab open, the flush waits
-  // for the next visit — a real limitation, recorded in
-  // docs/offline-architecture.md rather than papered over.
+  // The worker flushes the queue itself now — both halves share the same
+  // IndexedDB store via ip-queue-core.js. What arrives here is the report
+  // of a flush that already happened, so the pending count and the pill do
+  // not sit there describing a queue that has since drained.
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', function (event) {
-      if (event.data && event.data.type === 'ip-flush-queue' && IP.queue) {
-        IP.queue.flush().then(renderStatus);
+      var data = event.data || {};
+      if (data.type === 'ip-queue-flushed' && IP.queue) {
+        IP.queue.refresh().then(renderStatus);
+        var sent = (data.result || {}).sent || 0;
+        if (sent && IP.toast) {
+          IP.toast(sent + ' offline change' + (sent === 1 ? '' : 's') +
+                   ' synced in the background.', 'success');
+        }
       }
     });
   }
