@@ -17,8 +17,8 @@
     "dist:linux": "electron-builder --linux"
   },
   "devDependencies": {
-    "electron": "^33.2.0",
-    "electron-builder": "^25.1.8"
+    "electron": "^43.4.0",
+    "electron-builder": "^26.15.3"
   },
   "build": {
     "appId": "tech.intelliplan.desktop",
@@ -35,13 +35,26 @@
     "protocols": [
       {
         "name": "IntelliPlan",
-        "schemes": ["intelliplan"]
+        "schemes": [
+          "intelliplan"
+        ]
       }
     ],
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64", "arm64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "artifactName": "IntelliPlan-Setup-${version}-${arch}.${ext}"
     },
@@ -55,8 +68,20 @@
     "mac": {
       "category": "public.app-category.education",
       "target": [
-        { "target": "dmg", "arch": ["x64", "arm64"] },
-        { "target": "zip", "arch": ["x64", "arm64"] }
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
       ],
       "artifactName": "IntelliPlan-${version}-${arch}.${ext}",
       "hardenedRuntime": true,
@@ -69,15 +94,34 @@
     "linux": {
       "category": "Education",
       "target": [
-        { "target": "AppImage", "arch": ["x64", "arm64"] },
-        { "target": "deb", "arch": ["x64", "arm64"] },
-        { "target": "rpm", "arch": ["x64"] }
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "rpm",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "artifactName": "IntelliPlan-${version}-${arch}.${ext}",
       "desktop": {
-        "Name": "IntelliPlan",
-        "Comment": "Your study planner",
-        "Keywords": "study;planner;school;homework;"
+        "entry": {
+          "Name": "IntelliPlan",
+          "Comment": "Your study planner",
+          "Keywords": "study;planner;school;homework;"
+        }
       }
     }
   }
