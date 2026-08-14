@@ -4,7 +4,6 @@
   "version": "1.0.0",
   "description": "IntelliPlan for desktop — study planner with native notifications, tray, and global shortcuts",
   "main": "src/main.js",
-  "author": "IntelliPlan",
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
@@ -136,5 +135,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/UAnirudh/IntelliPlan.git"
+  },
+  "author": {
+    "name": "IntelliPlan",
+    "email": "hello@intelliplan.tech"
   }
 }

@@ -1,6 +1,6 @@
 {# Show extended SEO links + trust badges only on public marketing pages #}
 {% set _p = request.path or '/' %}
-{% set _marketing = _p in ['/', '/faq', '/compare', '/about', '/contact', '/legal', '/install', '/blog', '/uk', '/schools', '/olympiad', '/tutor', '/api-docs', '/developers'] or _p.startswith('/blog/') or _p.startswith('/compare/') or _p.startswith('/tools/') %}
+{% set _marketing = _p in ['/', '/faq', '/compare', '/about', '/contact', '/legal', '/install', '/download', '/blog', '/uk', '/schools', '/olympiad', '/tutor', '/api-docs', '/developers'] or _p.startswith('/blog/') or _p.startswith('/compare/') or _p.startswith('/tools/') %}
 {% set _trust = _p in ['/', '/about'] %}
 
 {# Glass-calm state coverage for the footer's inline-styled links. Inline
@@ -50,6 +50,7 @@
       <a class="sk-link" href="/contact" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Contact</a>
       <a class="sk-link" href="/ambassador" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Ambassador</a>
       <a class="sk-link" href="/api-docs" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">API</a>
+      <a class="sk-link" href="/download" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Desktop app</a>
       {% if logged_in %}
       <a class="sk-link" href="/dashboard" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Dashboard</a>
       {% endif %}
