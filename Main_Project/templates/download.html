@@ -1,0 +1,383 @@
+{% extends "base.html" %}
+
+{% block page_title %}Download IntelliPlan for Windows, macOS and Linux{% endblock %}
+{% block meta_description %}IntelliPlan as a real desktop app — native reminders, a tray shortcut to what's next, and your plan readable offline.{% endblock %}
+
+{% block head_extra %}
+<style>
+  /* ── Download ──────────────────────────────────────────────────────
+     One page, one decision. The visitor's own platform gets the large
+     button and everything else is a quiet list underneath, because a
+     three-column grid of equally-weighted options asks them to work out
+     what they already know. */
+
+  .dl-wrap {
+    max-width: 62rem;
+    margin: 0 auto;
+    padding: clamp(2rem, 5vw, 4rem) clamp(1rem, 4vw, 2rem) 4rem;
+  }
+
+  .dl-head { max-width: 42rem; margin-bottom: clamp(1.75rem, 4vw, 2.5rem); }
+
+  .dl-eyebrow {
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+
+  .dl-title {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.2rem + 3vw, 3.1rem);
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    color: var(--text-primary);
+    margin: 0 0 14px;
+    text-wrap: balance;
+  }
+
+  .dl-sub {
+    font-size: 1.02rem;
+    line-height: 1.65;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  /* The primary card — the platform we think you are on. */
+  .dl-primary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: clamp(1rem, 3vw, 2rem);
+    padding: clamp(1.25rem, 3vw, 1.75rem);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-lg, 18px);
+    background: var(--bg-card);
+    box-shadow: var(--shadow);
+  }
+
+  .dl-primary__text { flex: 1 1 16rem; min-width: 0; }
+
+  .dl-primary__for {
+    font-family: var(--font-ui);
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .dl-primary__name {
+    font-family: var(--font-display);
+    font-size: clamp(1.35rem, 1.1rem + 1vw, 1.75rem);
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+    margin: 4px 0 0;
+  }
+
+  .dl-primary__meta {
+    margin-top: 6px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+
+  .dl-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 13px 26px;
+    border: 0;
+    border-radius: var(--r-full, 999px);
+    background: var(--text-primary);
+    color: var(--bg);
+    font-family: var(--font-ui);
+    font-size: 0.94rem;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform 0.16s var(--ease-out), opacity 0.16s var(--ease-out);
+  }
+  .dl-btn:hover { transform: translateY(-1px); opacity: 0.92; }
+  .dl-btn:active { transform: translateY(0); }
+  .dl-btn[aria-disabled="true"] {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  /* Everything else. */
+  .dl-others { margin-top: clamp(1.75rem, 4vw, 2.5rem); }
+
+  .dl-others__head {
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+
+  .dl-platform + .dl-platform { margin-top: 10px; }
+
+  .dl-platform {
+    border: 1px solid var(--border);
+    border-radius: var(--r-md, 14px);
+    background: var(--bg);
+    overflow: hidden;
+  }
+
+  .dl-platform__name {
+    padding: 11px 16px;
+    font-family: var(--font-ui);
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .dl-asset {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 11px 16px;
+    font-size: 0.86rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: background 0.14s var(--ease-out);
+  }
+  .dl-asset + .dl-asset { border-top: 1px solid var(--border); }
+  .dl-asset:hover { background: var(--bg-elevated); }
+  .dl-asset__size { flex: 0 0 auto; font-size: 0.78rem; color: var(--text-muted); }
+
+  /* Honest notes, not fine print nobody reads. */
+  .dl-note {
+    margin-top: clamp(1.75rem, 4vw, 2.5rem);
+    padding: 15px 18px;
+    border: 1px solid var(--warn-border);
+    border-radius: var(--r-md, 14px);
+    background: var(--warn-soft);
+  }
+  .dl-note h2 {
+    margin: 0 0 6px;
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--warn-text);
+  }
+  .dl-note p { margin: 0 0 8px; font-size: 0.87rem; line-height: 1.6; color: var(--text-secondary); }
+  .dl-note p:last-child { margin-bottom: 0; }
+
+  .dl-empty {
+    padding: clamp(1.5rem, 4vw, 2rem);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--r-lg, 18px);
+    background: var(--bg);
+    text-align: center;
+  }
+  .dl-empty p { margin: 0 0 10px; color: var(--text-secondary); line-height: 1.6; }
+  .dl-empty p:last-child { margin-bottom: 0; }
+
+  .dl-features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: 14px;
+    margin-top: clamp(2rem, 5vw, 3rem);
+  }
+  .dl-feature h3 {
+    margin: 0 0 4px;
+    font-family: var(--font-ui);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .dl-feature p { margin: 0; font-size: 0.85rem; line-height: 1.6; color: var(--text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dl-wrap">
+
+  <div class="dl-head">
+    <div class="dl-eyebrow">IntelliPlan for desktop</div>
+    <h1 class="dl-title">Your plan, in its own window.</h1>
+    <p class="dl-sub">
+      The same IntelliPlan, as a real application: native reminders, a tray
+      shortcut to whatever is next, and your schedule still readable when the
+      wifi is not.
+    </p>
+  </div>
+
+  {% if release.assets %}
+    {# Filled in by the script below once we know the visitor's platform.
+       Rendered server-side as a neutral fallback so the page is useful
+       with JavaScript off, rather than a button that never resolves. #}
+    <div class="dl-primary">
+      <div class="dl-primary__text">
+        <div class="dl-primary__for" id="dlFor">Choose your platform</div>
+        <p class="dl-primary__name" id="dlName">IntelliPlan {{ release.version }}</p>
+        <div class="dl-primary__meta" id="dlMeta">
+          {% if release.published_at %}Released {{ release.published_at[:10] }}{% endif %}
+        </div>
+      </div>
+      <a class="dl-btn" id="dlBtn" href="#all-downloads">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <use href="#i-download"/>
+        </svg>
+        <span id="dlBtnText">See all downloads</span>
+      </a>
+    </div>
+
+    <div class="dl-others" id="all-downloads">
+      <div class="dl-others__head">All downloads</div>
+
+      {% for key, label in [('windows', 'Windows'), ('mac', 'macOS'), ('linux', 'Linux')] %}
+        {% if grouped[key] %}
+        <div class="dl-platform">
+          <div class="dl-platform__name">{{ label }}</div>
+          {% for asset in grouped[key] %}
+          <a class="dl-asset" href="{{ asset.url }}">
+            <span>{{ asset.label }}{% if asset.arch %} · {{ asset.arch }}{% endif %}</span>
+            <span class="dl-asset__size">{{ human_size(asset.size) }}</span>
+          </a>
+          {% endfor %}
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    <div class="dl-note">
+      <h2>Before you install</h2>
+      <p>
+        These builds are not code-signed. Windows will show a SmartScreen
+        warning — choose <strong>More info</strong>, then <strong>Run
+        anyway</strong>. macOS will refuse the first launch — right-click the
+        app and choose <strong>Open</strong>.
+      </p>
+      <p>
+        That is what an unsigned build looks like, not a sign the download is
+        broken. Signing certificates are a running cost this project does not
+        currently carry.
+      </p>
+    </div>
+
+  {% else %}
+    <div class="dl-empty">
+      <p><strong>The desktop builds aren't published yet.</strong></p>
+      <p>
+        {% if release.unavailable %}
+          We couldn't reach GitHub to check for the latest release just now.
+          Try again in a few minutes.
+        {% else %}
+          They're built and released from CI — this page will list them as
+          soon as the first release lands.
+        {% endif %}
+      </p>
+      <p>IntelliPlan works fully in your browser in the meantime.</p>
+    </div>
+  {% endif %}
+
+  <div class="dl-features">
+    <div class="dl-feature">
+      <h3>Native reminders</h3>
+      <p>Deadline and session reminders arrive through your operating system, not a browser tab you closed.</p>
+    </div>
+    <div class="dl-feature">
+      <h3>Always one keystroke away</h3>
+      <p>A tray icon showing what's next, and a global shortcut to start a focus session.</p>
+    </div>
+    <div class="dl-feature">
+      <h3>Works offline</h3>
+      <p>Once you've opened it online, your plan and assignments stay readable without a connection, and anything you tick off syncs when you reconnect.</p>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+/* Point the big button at the build for whoever is reading.
+
+   Detection is a hint, never a gate: the full list is on the page and the
+   button falls back to it. Guessing wrong should cost a scroll, not a
+   download that will not run. */
+(function () {
+  var PLATFORMS = {{ grouped | tojson }};
+  if (!PLATFORMS) return;
+
+  function detect() {
+    var ua = navigator.userAgent || '';
+    // userAgentData is the non-deprecated source where it exists, and is
+    // the only reliable way to tell Apple silicon from Intel.
+    var uaPlat = (navigator.userAgentData && navigator.userAgentData.platform) || '';
+    var plat = (uaPlat || navigator.platform || '').toLowerCase();
+
+    if (plat.indexOf('win') === 0 || /windows/i.test(ua)) return 'windows';
+    if (/android/i.test(ua)) return null;               // no desktop build
+    if (plat.indexOf('mac') === 0 || /mac os x/i.test(ua)) {
+      if (/iphone|ipad|ipod/i.test(ua)) return null;    // iOS, not macOS
+      return 'mac';
+    }
+    if (/linux|x11|ubuntu|fedora/i.test(plat + ' ' + ua)) return 'linux';
+    return null;
+  }
+
+  var LABELS = { windows: 'Windows', mac: 'macOS', linux: 'Linux' };
+  var key = detect();
+  var assets = key ? (PLATFORMS[key] || []) : [];
+  if (!assets.length) return;   // leave the neutral "see all downloads" state
+
+  // Apple silicon and Intel need different disk images, and shipping the
+  // wrong one is a download that opens to an error. Prefer the arm64 build
+  // when the browser tells us the machine is arm64.
+  var wantArm = false;
+  try {
+    var d = navigator.userAgentData;
+    if (d && d.getHighEntropyValues) {
+      // Fire and forget: if it resolves in time we refine the choice below.
+      d.getHighEntropyValues(['architecture']).then(function (v) {
+        if (v && v.architecture === 'arm') apply(pick(assets, true));
+      }).catch(function () {});
+    }
+  } catch (e) {}
+
+  function pick(list, preferArm) {
+    var match = list.filter(function (a) {
+      return preferArm ? a.arch === 'arm64' : a.arch !== 'arm64';
+    })[0];
+    return match || list[0];
+  }
+
+  function apply(asset) {
+    if (!asset) return;
+    var btn = document.getElementById('dlBtn');
+    var txt = document.getElementById('dlBtnText');
+    var forEl = document.getElementById('dlFor');
+    var nameEl = document.getElementById('dlName');
+    var metaEl = document.getElementById('dlMeta');
+    if (!btn || !txt) return;
+
+    btn.setAttribute('href', asset.url);
+    btn.setAttribute('download', '');
+    txt.textContent = 'Download for ' + LABELS[asset.platform];
+    if (forEl) forEl.textContent = 'Detected ' + LABELS[asset.platform];
+    if (nameEl) nameEl.textContent = asset.label +
+      (asset.arch ? ' · ' + asset.arch : '');
+    if (metaEl) {
+      var bits = [];
+      if (asset.size) bits.push(Math.round(asset.size / 1048576) + ' MB');
+      bits.push('Not the right one? Pick from the list below.');
+      metaEl.textContent = bits.join(' · ');
+    }
+  }
+
+  apply(pick(assets, wantArm));
+})();
+{% endblock %}

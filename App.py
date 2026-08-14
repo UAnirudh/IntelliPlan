@@ -3237,6 +3237,7 @@ _SITEMAP_ENTRIES = [
     ("/about",                           "about.html",                    "2026-06-22", "monthly", "0.7"),
     ("/contact",                         "contact.html",                  "2026-06-22", "yearly",  "0.5"),
     ("/install",                         "install.html",                  "2026-06-22", "monthly", "0.6"),
+    ("/download",                        "download.html",                 "2026-08-14", "weekly",  "0.8"),
     ("/legal",                           "legal.html",                    "2026-06-22", "yearly",  "0.3"),
     ("/ambassador",                      "ambassador.html",               "2026-06-22", "monthly", "0.7"),
     ("/schools",                         "schools.html",                  "2026-06-22", "monthly", "0.7"),
@@ -4878,6 +4879,47 @@ def install():
 @app.route("/install/ios")
 def install_ios():
     return render_template("install_ios.html")
+
+
+@app.route("/download")
+def download_desktop():
+    """The desktop download page.
+
+    Asset links come from the latest GitHub Release rather than from
+    hardcoded filenames, because the filenames carry the version and would
+    be wrong the day after every release. See desktop_releases.py.
+    """
+    import desktop_releases
+
+    release = desktop_releases.latest_release()
+    return render_template(
+        "download.html",
+        active_page="download",
+        release=release,
+        grouped=desktop_releases.by_platform(release),
+        human_size=desktop_releases.human_size,
+    )
+
+
+@app.route("/api/desktop/latest")
+def api_desktop_latest():
+    """Machine-readable version of the same thing.
+
+    The page uses this to fill in its download button after detecting the
+    visitor's OS client-side, so the HTML itself stays cacheable and
+    identical for everyone.
+    """
+    import desktop_releases
+
+    release = desktop_releases.latest_release()
+    return flask.jsonify({
+        "status": "ok",
+        "version": release.get("version"),
+        "notes_url": release.get("notes_url"),
+        "published_at": release.get("published_at"),
+        "unavailable": bool(release.get("unavailable")),
+        "platforms": desktop_releases.by_platform(release),
+    })
 
 # ── AUTH ROUTES ───────────────────────────────────────────────
 @app.route("/login", methods=["GET", "POST"])

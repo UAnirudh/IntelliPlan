@@ -1,0 +1,128 @@
+# Build the desktop app for all three platforms and publish a release.
+#
+# Why CI rather than a laptop: electron-builder can only produce a macOS
+# .dmg on macOS and a .deb/.rpm on Linux. Building on one machine gets you
+# one platform and a download page that lies to two thirds of visitors.
+#
+# Triggered by a tag so a release is a deliberate act, and manually via
+# workflow_dispatch for a dry run that uploads nothing.
+name: Desktop release
+
+on:
+  push:
+    tags:
+      - 'desktop-v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build without publishing a release'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write        # required to create the release and upload assets
+
+jobs:
+  build:
+    strategy:
+      # One platform failing should not bin the other two — a release with
+      # Windows and Linux is better than no release at all, and the gap is
+      # obvious on the download page.
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+          - os: macos-latest
+            platform: mac
+          - os: ubuntu-latest
+            platform: linux
+
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: desktop
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # rpm needs rpmbuild present, which the Ubuntu runner does not ship.
+      - name: Install Linux packaging tools
+        if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
+      - name: Build ${{ matrix.platform }}
+        # Not `dist` (-mwl): each runner builds only its own platform.
+        # Unsigned on macOS and Windows — there is no certificate in this
+        # repo, and pretending otherwise would produce artifacts that fail
+        # verification at install time rather than at build time. The
+        # download page says so.
+        run: npx electron-builder --${{ matrix.platform }} --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Collect installers
+        shell: bash
+        # Only the installers, not the unpacked trees electron-builder
+        # leaves beside them — those are hundreds of megabytes of files
+        # nobody downloads.
+        run: |
+          mkdir -p out
+          find dist -maxdepth 1 -type f \
+            \( -name '*.exe' -o -name '*.dmg' -o -name '*.zip' \
+               -o -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' \
+               -o -name '*.blockmap' -o -name 'latest*.yml' \) \
+            -exec cp {} out/ \;
+          ls -la out/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: intelliplan-${{ matrix.platform }}
+          path: desktop/out/
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/desktop-v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten
+        run: |
+          mkdir -p release
+          find artifacts -type f -exec cp {} release/ \;
+          ls -la release/
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          draft: false
+          generate_release_notes: true
+          body: |
+            IntelliPlan for desktop.
+
+            **Windows** — download the `.exe` and run it.
+            **macOS** — download the `.dmg` for your chip (`arm64` for Apple
+            silicon, `x64` for Intel).
+            **Linux** — `.AppImage` runs anywhere; `.deb` and `.rpm` for
+            Debian/Ubuntu and Fedora.
+
+            These builds are **not code-signed**. Windows SmartScreen will
+            warn you ("More info" → "Run anyway") and macOS Gatekeeper will
+            refuse the first launch (right-click → Open). That is expected
+            for an unsigned build and not a sign anything is wrong with the
+            download — signing certificates cost money this project does
+            not currently spend.
