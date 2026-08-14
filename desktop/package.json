@@ -24,6 +24,13 @@
     "appId": "tech.intelliplan.desktop",
     "productName": "IntelliPlan",
     "copyright": "Copyright © IntelliPlan",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "UAnirudh",
+        "repo": "IntelliPlan"
+      }
+    ],
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -124,5 +131,10 @@
         }
       }
     }
+  },
+  "homepage": "https://intelliplan.tech",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/UAnirudh/IntelliPlan.git"
   }
 }
