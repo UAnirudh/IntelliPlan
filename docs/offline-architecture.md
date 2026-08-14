@@ -139,6 +139,32 @@ never sees a single navigation, so none of the above runs. App.py sends
 `Service-Worker-Allowed: /` to make the wider scope legal; the registration
 has to actually ask for it.
 
+## Desktop
+
+The Electron app loads the web app from the same origin, so it inherits all
+of the above rather than reimplementing any of it: the service worker
+registers inside the renderer, caches pages and assets, and serves them when
+the network is gone. Nothing here is desktop-specific.
+
+Verified by killing the server and relaunching the app: the real UI comes up
+from cache, not Chromium's error page and not the app's own offline card.
+
+The card in `desktop/src/main.js` is the last resort, on `did-fail-load`. It
+only fires when the worker has nothing to serve, which in practice means a
+profile that has never loaded IntelliPlan online — confirmed with a fresh
+`--user-data-dir`. Its copy says exactly that, because "your plan is safe"
+would be false on the only profile that ever sees it.
+
+Two things the desktop still does not share:
+
+* **Its own cookie jar and its own cache.** Signing in on the website does
+  not sign you in on the desktop, and each keeps a separate offline copy.
+  That is Chromium profile behaviour, not a bug, but it does mean a student
+  has to open each one online once.
+* **The tray's "what's next"** polls `/api/active/next` every 60 seconds and
+  shows nothing when that fails, rather than falling back to the cached
+  plan. Degrades quietly; could be better.
+
 ## Known limitations
 
 These are real and unfixed, recorded here rather than papered over:

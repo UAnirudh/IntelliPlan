@@ -203,11 +203,21 @@ function attachNavigationGuards(win) {
 }
 
 /**
- * Offline handling.
+ * Offline handling — the last resort, not the first.
  *
- * Without this a dropped connection shows Chromium's dinosaur error page
- * inside what is supposed to be an application, with no way back. Instead
- * the app says what happened and retries.
+ * The service worker registered by the web app runs inside this renderer
+ * too, so a launch with no connection normally never reaches here: the
+ * worker serves the cached page and the student sees their actual app.
+ * Verified by killing the server and relaunching — the real UI comes up.
+ *
+ * `did-fail-load` therefore only fires when the worker has nothing to
+ * serve, which in practice means a profile that has never once loaded
+ * IntelliPlan online. That is why the card below says there is no offline
+ * copy rather than reassuring the student their plan is safe: on the only
+ * profile that sees it, nothing has ever been saved to the device.
+ *
+ * Without it, that case would show Chromium's dinosaur inside what is
+ * supposed to be an application, with no way back.
  */
 function attachOfflineHandling(win) {
   win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
@@ -237,8 +247,10 @@ function offlinePage(reason, url) {
            border:0; background:#1a56db; color:#fff; cursor:pointer; }
   code { opacity:.55; font-size:.8rem; }
 </style></head><body><main>
-  <h1>IntelliPlan is offline</h1>
-  <p>Your plan is safe. This window will reconnect as soon as you are back online.</p>
+  <h1>IntelliPlan can't reach the server</h1>
+  <p>Nothing has been saved to this device yet, so there is no offline copy to
+     show. Once you have opened IntelliPlan here with a connection, this window
+     will keep working without one.</p>
   <button id="retry">Try again</button>
   <p><code>${safe}</code></p>
 </main>
