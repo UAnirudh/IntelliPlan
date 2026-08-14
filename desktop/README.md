@@ -43,6 +43,42 @@ Each platform's installers must be built on that platform (or in CI with
 the matching runner) — electron-builder cannot produce a signed macOS build
 from Windows.
 
+## Publishing a release
+
+Tag it. `.github/workflows/desktop-release.yml` builds all three platforms
+on their own runners and attaches the installers to a GitHub Release.
+
+```bash
+npm version patch --no-git-tag-version   # bump desktop/package.json
+git commit -am "chore(desktop): 1.0.1"
+git tag -a desktop-v1.0.1 -m "IntelliPlan desktop 1.0.1"
+git push origin main desktop-v1.0.1
+```
+
+The tag prefix matters: `desktop_releases.py` only considers tags starting
+`desktop-v`, so a web or extension tag is never mistaken for an app build.
+
+The website picks the release up on its own — `/download` reads the latest
+release from the GitHub API and lists whatever assets it finds, so there is
+nothing to update by hand and no filenames to keep in sync. A platform that
+failed to build is simply absent from the page rather than a dead link.
+
+Four fields in `package.json` are load-bearing for packaging, all of which
+this project has been bitten by:
+
+| Field | Why |
+|---|---|
+| `homepage` | deb and rpm refuse to build without it |
+| `author.email` | becomes the deb/rpm maintainer field; also required |
+| `repository` | electron-builder warns and cannot infer the publish target |
+| `build.publish` | without a provider, update-info generation dereferences null |
+
+Builds are **unsigned**. There is no certificate in this repo, and
+`CSC_IDENTITY_AUTO_DISCOVERY=false` in CI keeps electron-builder from
+hunting for one and failing. `/download` tells students what SmartScreen
+and Gatekeeper will do about that, which is the honest alternative to a
+scary warning they were not expecting.
+
 ## Security posture
 
 The renderer is sandboxed: `contextIsolation: true`, `nodeIntegration:
