@@ -362,12 +362,12 @@ For bugs or ideas, open an [Issue](https://github.com/UAnirudh/IntelliPlan/issue
 
 ## Roadmap
 
-- [ ] AI-powered grade predictions based on historical performance
+- [x] AI-powered grade predictions based on historical performance — `/api/grades/predict`
 - [x] Google Classroom, Blackboard, and Moodle assignment sync
-- [ ] Mobile app (React Native)
-- [ ] Collaborative study groups
-- [ ] Teacher/parent dashboard view
-- [ ] More SIS integrations (PowerSchool)
+- [x] Collaborative study groups — `/groups`, shared tasks and voice rooms
+- [x] Teacher/parent dashboard view — `/teacher` and `/parent`, with invite links
+- [x] More SIS integrations (PowerSchool)
+- [ ] Mobile app (React Native) — an Expo app lives in `mobile/` at v0.1.0; not released yet
 
 ---
 
