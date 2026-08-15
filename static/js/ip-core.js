@@ -620,7 +620,11 @@
     host.appendChild(el);
     requestAnimationFrame(function () { el.classList.add('is-in'); });
 
-    var timer = setTimeout(dismiss, opts.duration || TOAST_MS);
+    // `persist` waits for the student instead of the clock. For a message
+    // they only need to read, timing out is right. For one they have to act
+    // on — an update waiting to be applied — a toast that disappears while
+    // they are typing is a toast they never saw.
+    var timer = opts.persist ? null : setTimeout(dismiss, opts.duration || TOAST_MS);
     function dismiss() {
       clearTimeout(timer);
       el.classList.remove('is-in');
