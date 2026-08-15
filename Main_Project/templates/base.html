@@ -705,6 +705,10 @@ body {
         <a href="/about" class="nav-tab {% if active_page == 'about' %}active{% endif %}"><span class="nav-label">About</span></a>
         <a href="/compare" class="nav-tab {% if active_page == 'compare' %}active{% endif %}"><span class="nav-label">Compare</span></a>
         <a href="/faq"     class="nav-tab {% if active_page == 'faq' %}active{% endif %}"><span class="nav-label">FAQ</span></a>
+        {# The desktop app was reachable only from a footer link, which is
+           where links go to be ignored. It is a shipped platform, so it
+           belongs in the nav next to everything else you can actually get. #}
+        <a href="/download" class="nav-tab {% if active_page == 'download' %}active{% endif %}"><span class="nav-label">Download</span></a>
       </div>
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
