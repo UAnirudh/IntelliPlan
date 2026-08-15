@@ -9,6 +9,15 @@
      2. Keep static assets instant, without pinning a stale bundle.
      3. Deliver push notifications and route the click to the right page.
 
+   Updating
+   --------
+   Any byte changed in this file is a new worker as far as the browser is
+   concerned, which is what makes a deploy visible to an open tab. The new
+   worker installs and then waits; base.html notices, offers the student a
+   reload, and only promotes it when they accept. Nothing here should call
+   skipWaiting() outside that handshake — doing so is what produced new
+   assets under an old page.
+
    What it deliberately does not do
    --------------------------------
    It does not cache authenticated API responses. IP.offline (ip-offline.js)
@@ -96,7 +105,27 @@ self.addEventListener('install', event => {
       headers: { 'Content-Type': 'text/html; charset=utf-8' }
     }));
   })());
-  self.skipWaiting();
+  // Deliberately no skipWaiting() here.
+  //
+  // It used to activate immediately, which sounds like the helpful thing
+  // and is not: combined with clients.claim() below, a deploy handed the
+  // open tab a new worker serving new assets to a page still running the
+  // old HTML and old JS. That mismatch is invisible until something breaks
+  // oddly, and it lasts until the student happens to reload.
+  //
+  // Instead a new worker waits, the page notices and offers to reload, and
+  // the swap happens at a moment the student chose. The page asks for it
+  // with the message below.
+  //
+  // The first install is unaffected: with no controller to replace there is
+  // nothing to wait behind, so it activates straight away.
+});
+
+self.addEventListener('message', event => {
+  // Sent by the "Update" action in the page's reload prompt. This is the
+  // only thing that promotes a waiting worker, so an update can never take
+  // effect without the student asking for it.
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
