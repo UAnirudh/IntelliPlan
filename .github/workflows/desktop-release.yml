@@ -226,6 +226,70 @@ jobs:
             exit 1
           fi
 
+      # latest*.yml is what the auto-updater trusts: it names each installer
+      # and carries its sha512 and size. If they disagree with the files
+      # actually being published, every update fails the integrity check and
+      # silently rolls back — which is precisely what desktop-v1.0.0 shipped
+      # with. Its latest.yml claimed sha512 sn8fAOId… / 99918628 bytes for
+      # the x64 installer while the published asset was 1cgguo5o… /
+      # 99600123, so auto-update could never have worked from it.
+      #
+      # Nothing in the build surfaced that. It is only visible if you hash
+      # the files and compare, so the release now does exactly that and
+      # refuses to publish a set that does not agree with itself.
+      - name: Verify update metadata matches the artifacts
+        working-directory: release
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, os, sys, glob
+          try:
+              import yaml
+          except ImportError:
+              os.system(f"{sys.executable} -m pip install --quiet pyyaml")
+              import yaml
+
+          problems = []
+          manifests = sorted(glob.glob("latest*.yml"))
+          if not manifests:
+              print("No latest*.yml present; nothing to verify.")
+              sys.exit(0)
+
+          for manifest in manifests:
+              with open(manifest, encoding="utf-8") as fh:
+                  data = yaml.safe_load(fh) or {}
+              for entry in data.get("files") or []:
+                  name = entry.get("url")
+                  if not name or not os.path.exists(name):
+                      # A platform that failed to build is simply absent, and
+                      # the release job already tolerates that.
+                      print(f"{manifest}: {name} not in this release, skipping")
+                      continue
+                  raw = open(name, "rb").read()
+                  actual_sha = base64.b64encode(hashlib.sha512(raw).digest()).decode()
+                  actual_size = len(raw)
+                  if entry.get("sha512") != actual_sha:
+                      problems.append(
+                          f"{manifest}: {name} sha512 mismatch\n"
+                          f"    manifest={entry.get('sha512')}\n"
+                          f"    actual  ={actual_sha}"
+                      )
+                  if entry.get("size") is not None and entry["size"] != actual_size:
+                      problems.append(
+                          f"{manifest}: {name} size mismatch "
+                          f"(manifest={entry['size']} actual={actual_size})"
+                      )
+                  if not problems:
+                      print(f"{manifest}: {name} OK")
+
+          if problems:
+              print("::error::Update metadata does not match the artifacts. "
+                    "Publishing this would break auto-update for everyone.")
+              for p in problems:
+                  print(p)
+              sys.exit(1)
+          print("Update metadata matches every artifact.")
+          PY
+
       # An unsigned installer gives a student no way to tell a real
       # download from a tampered one. A checksum published beside it at
       # least gives them one, and it costs nothing to produce.
