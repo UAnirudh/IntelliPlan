@@ -1,0 +1,39 @@
+Hey {{ user_name or 'there' }},
+
+You've been using IntelliPlan — I want to know how it's really going.
+
+I'm the founder. You signed up a couple of weeks ago, which means you've
+had enough time to form an actual opinion, and that opinion is worth more
+to me right now than almost anything else.
+
+A few things I'd genuinely like to know:
+
+  * What made you sign up in the first place?
+  * What's the one thing that annoys you most about it?
+  * Is there something you expected it to do that it doesn't?
+  * Would you miss it if it disappeared tomorrow?
+
+Just hit reply and answer any or all of these. No form, no survey link, no
+sign-in. One email back to me is all it takes — and I read every single one.
+
+Reply to: founder@intelliplan.tech
+
+Or, if you'd rather answer in one word, reply with just a number:
+
+  1 — Disappointed
+  2 — It's okay
+  3 — Pretty good
+  4 — Love it
+  5 — It's a game-changer
+
+---
+
+Sent by the founder of IntelliPlan ({{ app_domain }}). Your reply goes
+directly to me.
+
+Unsubscribe: {{ unsubscribe_url }}
+Privacy policy: {{ app_url }}/privacy
+
+{{ postal_address }}
+
+IntelliPlan — Study smarter.
