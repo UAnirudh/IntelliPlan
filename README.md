@@ -220,9 +220,71 @@ VAPID_EMAIL=
 # Sentry (optional)
 SENTRY_DSN=
 
+# Lifecycle email (optional; required before the newsletter will send)
+RESEND_API_KEY=
+RESEND_FROM=IntelliPlan <noreply@intelliplan.tech>
+MARKETING_POSTAL_ADDRESS=
+CRON_SECRET=
+
 # App URL
 APP_BASE_URL=http://localhost:3000
 ```
+
+---
+
+## Lifecycle Email
+
+Three emails, in `intelliplan/email/`. Templates live in
+`Main_Project/templates/emails/`, plain-text bodies beside the code in
+`intelliplan/email/text/`.
+
+| Email | Key | Trigger | Consent |
+|---|---|---|---|
+| Welcome | `welcome` | Cron, signups in the last 36h | Transactional — no marketing opt-in needed |
+| Feedback request | `feedback_v1` | Cron, accounts 14–15 days old **with real activity** | Requires `marketing_emails_opt_in` |
+| Newsletter | `newsletter_YYYY_MM` | Admin only, never automatic | Requires `marketing_emails_opt_in` |
+
+Every send passes `intelliplan.email.eligibility.is_marketing_eligible`,
+which refuses on unknown age, under-13 without parental consent, undated
+consent, a non-student role, or a suppressed address. Sends are deduplicated
+on `(user_id, email_key)` in `email_sends`, so a double cron fire cannot
+double-send.
+
+### Cron
+
+Add one Railway cron entry, daily at 16:00 UTC (≈ 9am PT):
+
+```bash
+curl -X POST https://intelliplan.tech/cron/lifecycle-emails -H "X-Cron-Secret: $CRON_SECRET"
+```
+
+Railway schedule expression: `0 16 * * *`. It is safe to run more often —
+the ledger makes repeat runs no-ops.
+
+### Sending the newsletter
+
+Admin-only, and never in one step. Dry run first:
+
+```bash
+curl -X POST https://intelliplan.tech/api/admin/newsletter/preview -H 'Content-Type: application/json' -d @newsletter.json
+```
+
+That returns the recipient count and sends nothing. Then test it on
+yourself — `test: true` mails only `ADMIN_EMAILS` and does not write the
+ledger, so it is repeatable. Only a payload with `"confirm": true` sends to
+the full list; without it `/api/admin/newsletter/send` returns 409 and the
+dry-run count instead.
+
+`MARKETING_POSTAL_ADDRESS` must be set or the newsletter and feedback sends
+refuse to run — CAN-SPAM requires a physical address in commercial email.
+
+### Unsubscribe
+
+`GET|POST /email/unsubscribe/<token>` works logged-out, in one click, and
+the token never expires. Unsubscribing sets `marketing_emails_opt_in=False`
+and adds the **address** to `email_suppressions` — keyed on the address, not
+the user, so deleting and recreating an account stays suppressed. Deadline
+reminders are transactional and are deliberately unaffected.
 
 ---
 
