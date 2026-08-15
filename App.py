@@ -1467,6 +1467,53 @@ class AccessibilityPrefs(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class EmailSend(db.Model):
+    """One row per lifecycle email per user — the deduplication ledger.
+
+    The unique constraint on (user_id, email_key) is the whole point: two
+    cron fires racing each other both try to insert, one wins, the other
+    takes an IntegrityError and skips. Doing this with a SELECT-then-send
+    would leave a window where both reads miss and both sends go out, and
+    the failure mode of that bug is a student getting the same email twice.
+
+    The row is written *before* the provider call, so a crash mid-send
+    leaves a stale ``pending`` row and the user simply never gets that one
+    email. That is the right way round: a missing welcome is a small loss,
+    a duplicate is a support ticket and an unsubscribe.
+    """
+    __tablename__ = "email_sends"
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "email_key", name="uq_email_sends_user_key"),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    #: "welcome", "feedback_v1", "newsletter_2026_08" — the campaign identity.
+    #: Versioned in the key so a second feedback ask can ship later without
+    #: colliding with the first.
+    email_key = db.Column(db.String(64), nullable=False)
+    sent_at = db.Column(db.DateTime, default=datetime.utcnow)
+    #: pending | sent | failed
+    status = db.Column(db.String(16), default="pending")
+    provider_message_id = db.Column(db.String(128), nullable=True)
+
+
+class EmailSuppression(db.Model):
+    """Addresses that must never receive marketing, keyed on the address.
+
+    Deliberately not keyed on user_id. Someone who unsubscribes, deletes
+    their account and signs up again is the same person with the same
+    inbox, and a user-id suppression would quietly start mailing them
+    again. The address is the thing that received the mail and the thing
+    the complaint would come from.
+    """
+    __tablename__ = "email_suppressions"
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    #: "unsubscribe" | "bounce" | "complaint" | "manual"
+    reason = db.Column(db.String(32), default="unsubscribe")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 STREAK_TIERS = [
     {"id": "spark", "name": "Spark", "min": 1, "max": 6, "bonus": 5, "freeze_cap": 2, "color": "#ef4444"},
     {"id": "flame", "name": "Flame", "min": 7, "max": 13, "bonus": 10, "freeze_cap": 3, "color": "#f97316"},
@@ -1821,6 +1868,7 @@ from intelliplan.migrations import (
     apply_active_session_migrations,
     apply_notification_migrations,
     apply_command_center_migrations,
+    apply_email_migrations,
     apply_learning_graph_migrations,
     apply_media_balance_migrations,
     apply_sync_migrations,
@@ -1854,6 +1902,7 @@ with app.app_context():
     apply_active_session_migrations(db)
     apply_notification_migrations(db)
     apply_sync_migrations(db)
+    apply_email_migrations(db)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -12775,6 +12824,71 @@ def _admin_sms_audience_query(audience, specific_emails=None):
         return base.filter(User.sms_reminders_opt_in.is_(True))
 
 
+@app.route("/api/admin/newsletter/preview", methods=["POST"])
+@require_admin
+def admin_newsletter_preview():
+    """Dry run: how many people would get this, and what does it look like.
+
+    Sends nothing. This is the step that must happen before the real send —
+    a newsletter is not undoable, and "how many" is the one number worth
+    checking twice.
+    """
+    body = request.get_json(silent=True) or {}
+    from intelliplan.email import campaigns
+
+    try:
+        summary = campaigns.send_newsletter(body, test=False, dry_run=True)
+        return flask.jsonify({"status": "ok", "summary": summary})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
+
+
+@app.route("/api/admin/newsletter/send", methods=["POST"])
+@require_admin
+def admin_newsletter_send():
+    """Send the newsletter for real, or to the admins only.
+
+    ``test: true``  → only ADMIN_EMAILS addresses, and does not write the
+                      deduplication ledger so it can be run repeatedly.
+    ``confirm: true`` → required for a full-list send. Without it this
+                      refuses and returns the dry-run count instead, so the
+                      irreversible action is never the default.
+    """
+    body = request.get_json(silent=True) or {}
+    test = bool(body.get("test"))
+    confirm = bool(body.get("confirm"))
+
+    from intelliplan.email import campaigns
+
+    if not test and not confirm:
+        try:
+            summary = campaigns.send_newsletter(body, test=False, dry_run=True)
+        except Exception as e:
+            return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
+        return flask.jsonify({
+            "status": "confirm_required",
+            "message": (
+                f"This would email {summary['recipients']} people. "
+                "Re-send with \"confirm\": true to go ahead."
+            ),
+            "summary": summary,
+        }), 409
+
+    try:
+        summary = campaigns.send_newsletter(body, test=test, dry_run=False)
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
+
+    if summary.get("error"):
+        return flask.jsonify({"status": "error", "message": summary["error"], "summary": summary}), 400
+
+    print(
+        f"[admin-newsletter] key={summary['email_key']} test={test} "
+        f"recipients={summary['recipients']} sent={summary['sent']} failed={summary['failed']}"
+    )
+    return flask.jsonify({"status": "ok", "summary": summary})
+
+
 # ── REFERRAL TRACKING ──────────────────────────────────────────────
 
 
@@ -12820,21 +12934,34 @@ def api_referral():
 import re as _re_phone
 
 
-def _send_email_via_resend(to_addr, subject, body):
-    """Send a plain-text email through the Resend HTTP API.
-    Returns True on success, False on failure or if not configured."""
+def _send_email_via_resend(to_addr, subject, body, html=None, headers=None):
+    """Send an email through the Resend HTTP API.
+    Returns True on success, False on failure or if not configured.
+
+    ``html`` and ``headers`` are optional and only added to the payload when
+    truthy — Resend rejects a null ``html`` field, and an empty ``headers``
+    object is noise in the request log. Callers that want a plain-text send
+    keep the original three-argument shape and get the original request.
+    """
     api_key = os.getenv("RESEND_API_KEY")
     if not api_key or not to_addr:
         return False
     from_addr = os.getenv("RESEND_FROM") or "IntelliPlan <noreply@intelliplan.tech>"
     try:
         import urllib.request, urllib.error, json as _json
-        payload = _json.dumps({
+        body_payload = {
             "from": from_addr,
             "to": [to_addr],
             "subject": subject or "",
             "text": body or "",
-        }).encode()
+        }
+        if html:
+            body_payload["html"] = html
+        if headers:
+            # List-Unsubscribe and friends. Resend passes these through to
+            # the outgoing message verbatim.
+            body_payload["headers"] = dict(headers)
+        payload = _json.dumps(body_payload).encode()
         req = urllib.request.Request(
             "https://api.resend.com/emails",
             data=payload,
@@ -12845,8 +12972,12 @@ def _send_email_via_resend(to_addr, subject, body):
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             result = _json.loads(resp.read())
-            print(f"[email-resend] sent to {to_addr}, id={result.get('id')}")
-            return True
+            message_id = result.get("id")
+            print(f"[email-resend] sent to {to_addr}, id={message_id}")
+            # The provider id, when there is one, so the caller can record it
+            # against the send. Falls back to True so this stays a truthy
+            # success for every existing `if _send_email_via_resend(...)`.
+            return message_id or True
     except urllib.error.HTTPError as e:
         err = e.read().decode(errors="replace") if hasattr(e, "read") else str(e)
         print(f"[email-resend] failed to {to_addr}: {e.code} {err}")
@@ -12856,14 +12987,25 @@ def _send_email_via_resend(to_addr, subject, body):
         return False
 
 
-def _send_email(to_addr, subject, body):
-    """Send a plain-text email. Tries Resend first (RESEND_API_KEY), then
-    falls back to SMTP. If neither is configured, logs the message so the
-    parental-consent link can still be delivered manually."""
+def _send_email(to_addr, subject, body, html=None, headers=None):
+    """Send an email. Tries Resend first (RESEND_API_KEY), then falls back to
+    SMTP. If neither is configured, logs the message so the parental-consent
+    link can still be delivered manually.
+
+    ``body`` is always the plain-text part and is always required — an
+    HTML-only email is a deliverability problem and unreadable in a text
+    client. ``html``, when given, is sent as an alternative alongside it.
+
+    Returns a truthy value on success: the provider's message id when Resend
+    reports one, otherwise True. The three-positional-argument call
+    ``_send_email(addr, subject, body)`` behaves exactly as it did before —
+    ``notifications_glue`` depends on that.
+    """
     if not to_addr:
         return False
-    if _send_email_via_resend(to_addr, subject, body):
-        return True
+    sent = _send_email_via_resend(to_addr, subject, body, html=html, headers=headers)
+    if sent:
+        return sent
 
     host, port, user, pw, sender = _smtp_config()
     if not host:
@@ -12876,7 +13018,17 @@ def _send_email(to_addr, subject, body):
         msg["From"] = sender
         msg["To"] = to_addr
         msg["Subject"] = subject
+        for key, value in (headers or {}).items():
+            # List-Unsubscribe et al. Assigning over an existing key raises,
+            # so drop anything already set above rather than duplicating it.
+            if key not in msg:
+                msg[key] = value
         msg.set_content(body)
+        if html:
+            # set_content + add_alternative is what turns this into a
+            # multipart/alternative: text first, HTML second, and a text-only
+            # client renders the part it understands.
+            msg.add_alternative(html, subtype="html")
         clean_pw = "".join(pw.split()) if pw else ""
         with smtplib.SMTP(host, port, timeout=10) as s:
             s.starttls()
@@ -13735,6 +13887,98 @@ def cron_send_reminders():
             total["push"] += r["push"]
             total["tasks"] += r["tasks"]
     return flask.jsonify({"status": "ok", "summary": total})
+
+
+# ── LIFECYCLE EMAIL ───────────────────────────────────────────────
+# Welcome, feedback request, newsletter. The gate, the templates and the
+# deduplication ledger all live in intelliplan/email/ — these are the HTTP
+# edges only.
+
+
+@app.route("/cron/lifecycle-emails", methods=["GET", "POST"])
+def cron_lifecycle_emails():
+    """Daily sweep for the welcome and feedback emails.
+
+    Same CRON_SECRET + hmac.compare_digest guard as /cron/send-reminders
+    above; deliberately a copy of that pattern rather than a new scheme.
+    The newsletter is *not* here — it is admin-triggered only.
+    """
+    expected = os.getenv("CRON_SECRET", "")
+    provided = request.headers.get("X-Cron-Secret") or request.args.get("secret") or ""
+    if not expected:
+        return flask.jsonify({"status": "error", "message": "cron not configured"}), 503
+    import hmac as _hmac
+    if not _hmac.compare_digest(str(expected), str(provided)):
+        return flask.jsonify({"status": "error", "message": "unauthorized"}), 401
+
+    from intelliplan.email import campaigns
+
+    summary = {}
+    for name, sweep in (("welcome", campaigns.sweep_welcome), ("feedback", campaigns.sweep_feedback)):
+        try:
+            summary[name] = sweep()
+        except Exception as exc:
+            # One sweep failing must not stop the other. A cron that returns
+            # a 500 tells the scheduler to retry the whole thing, which for
+            # the sweep that already ran means re-walking work it finished.
+            # The full traceback goes to the log; the response gets a
+            # sanitised message. Raw exception text has leaked connection
+            # strings before — see test_error_sanitising.
+            app.logger.exception("lifecycle sweep %s failed: %s", name, exc)
+            summary[name] = {"error": safe_error_message(exc)}
+    return flask.jsonify({"status": "ok", **summary})
+
+
+@app.route("/email/unsubscribe/<token>", methods=["GET", "POST"])
+def email_unsubscribe(token):
+    """One-click unsubscribe. No login, no confirmation form.
+
+    Deliberately works logged-out: someone who cannot get into their account
+    must still be able to get off the list, and CAN-SPAM does not accept
+    "sign in first" as an unsubscribe mechanism. POST is accepted because
+    List-Unsubscribe-Post one-click sends one.
+    """
+    from intelliplan.email.eligibility import suppress
+    from intelliplan.email.sender import parse_unsubscribe_token
+
+    payload = parse_unsubscribe_token(token or "")
+    if not payload:
+        return _mini_page(
+            "Link not recognised",
+            "<h1>We couldn't read that link</h1>"
+            "<p>The unsubscribe link looks incomplete or altered. Forward the "
+            'email to <a href="mailto:support@intelliplan.tech">support@intelliplan.tech</a> '
+            "and we'll take you off the list by hand.</p>",
+        ), 400
+
+    address = (payload.get("email") or "").strip().lower()
+    suppress(address, reason="unsubscribe")
+
+    # Also clear the flag on any account with this address, so the settings
+    # page agrees with reality. The suppression list is the authority; this
+    # keeps the UI honest.
+    try:
+        for user in User.query.filter(db.func.lower(User.email) == address).all():
+            user.marketing_emails_opt_in = False
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    # One-click clients want a bare 200, not a page.
+    if request.method == "POST":
+        return flask.jsonify({"status": "ok", "unsubscribed": True})
+
+    # markupsafe, not flask.escape — the latter was removed in Flask 3.
+    from markupsafe import escape as _escape
+
+    return _mini_page(
+        "Unsubscribed",
+        "<h1>You're unsubscribed</h1>"
+        f"<p>We won't send marketing email to <strong>{_escape(address)}</strong> again.</p>"
+        "<p>Deadline reminders are separate and are unaffected — if you had those "
+        "switched on, they'll keep arriving. You can change them any time in "
+        '<a href="/settings">Settings</a>.</p>',
+    )
 
 
 # ── DAILY CHECK-IN CHEST (Duolingo-style) ─────────────────────────

@@ -1,0 +1,38 @@
+{{ issue_label }}
+
+{{ headline }}
+
+{{ intro }}
+
+Hey {{ user_name or 'there' }} — here's this month's issue.
+
+
+WHAT'S NEW
+{% for feature in features %}
+  {{ feature.tag }}
+  {{ feature.title }}
+  {{ feature.body }}
+{% endfor %}
+
+THIS MONTH'S STUDY SCIENCE
+
+{{ tip.title }}
+
+{{ tip.body }}
+{% if tip.action %}
+Try this instead: {{ tip.action }}
+{% endif %}
+
+Open IntelliPlan: {{ app_url }}
+
+---
+
+You're on the IntelliPlan newsletter list. You signed up at {{ app_domain }}.
+Questions or feedback? Reply to this email — the founder reads it personally.
+
+Unsubscribe: {{ unsubscribe_url }}
+Privacy policy: {{ app_url }}/privacy
+
+{{ postal_address }}
+
+IntelliPlan — Study smarter.
