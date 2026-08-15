@@ -62,6 +62,26 @@ function updatesSupported() {
   return true;
 }
 
+/**
+ * Optional file log for the updater.
+ *
+ * electron-updater fails quietly in a lot of places — a rejected download
+ * looks identical to no update at all from the outside. Without somewhere
+ * to look, "it did not update" is unanswerable.
+ */
+function updaterLogger() {
+  const target = process.env.IP_UPDATER_LOG;
+  if (!target) return null;
+  const fs = require('node:fs');
+  const write = (level) => (...args) => {
+    const line = `[${level}] ${args.map(a =>
+      a && a.stack ? a.stack : (typeof a === 'object' ? JSON.stringify(a) : String(a))
+    ).join(' ')}\n`;
+    try { fs.appendFileSync(target, line); } catch { /* logging must not throw */ }
+  };
+  return { info: write('info'), warn: write('warn'), error: write('error'), debug: write('debug') };
+}
+
 function setState(next, version) {
   state = next;
   if (version) readyVersion = version;
@@ -192,10 +212,18 @@ function start({ notify } = {}) {
   }
 
   autoUpdater.autoDownload = true;
+  // We publish a full installer, never a web installer. Saying so silences
+  // a warning on every check and stops electron-updater keeping a code path
+  // alive for a package that does not exist.
+  autoUpdater.disableWebInstaller = true;
   // If they never click Restart, apply it on the next quit rather than
   // making them do it twice.
   autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.logger = null;
+  // Silent by default: a student has no use for updater chatter. Set
+  // IP_UPDATER_LOG to a path to get the real reason a download failed —
+  // electron-updater swallows a lot, and "it just did not update" is
+  // otherwise impossible to diagnose from a bug report.
+  autoUpdater.logger = updaterLogger();
 
   autoUpdater.on('update-available', () => setState('downloading'));
   autoUpdater.on('update-not-available', () => setState('idle'));
