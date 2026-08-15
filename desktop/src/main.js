@@ -28,6 +28,7 @@ const {
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
+const updater = require('./updater');
 
 // ── Configuration ───────────────────────────────────────────────────
 
@@ -323,16 +324,34 @@ function createTray() {
   tray.on('click', showWindow);
 }
 
+//: The last "up next" the poll found. Remembered so the tray can be
+//: rebuilt for an unrelated reason — an update finishing, say — without
+//: blanking the line the student actually cares about.
+let lastNext = null;
+
 function refreshTrayMenu(next) {
+  lastNext = next;
   if (!tray) return;
   const nextLabel = next
     ? `${next.title}${next.time_slot ? ` · ${next.time_slot}` : ''}`
     : 'Nothing scheduled';
 
+  // A ready update earns a line in the tray. It is the one place a student
+  // sees the app when the window is closed, which is exactly the state a
+  // long-running install sits in for days.
+  const update = updater.status();
+  const updateItems = update.state === 'ready'
+    ? [
+        { label: `Update to ${update.version}`, click: () => updater.promptInstall() },
+        { type: 'separator' },
+      ]
+    : [];
+
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Up next', enabled: false },
     { label: nextLabel, enabled: false },
     { type: 'separator' },
+    ...updateItems,
     { label: 'Start study session', accelerator: SHORTCUT_START_SESSION, click: openActive },
     { label: 'Open IntelliPlan', click: showWindow },
     { label: 'Scheduler', click: () => openPath('/scheduler') },
@@ -464,6 +483,29 @@ async function pollNext() {
   }
 }
 
+/**
+ * Tell the student an update is waiting.
+ *
+ * Deliberately a notification and not a dialog: the download finishes on
+ * its own schedule, and a modal stealing focus mid-sentence to announce
+ * good news is worse than the news is good. Clicking it opens the restart
+ * prompt, where the actual decision lives.
+ */
+function notifyUpdateReady() {
+  if (!Notification.isSupported()) return;
+  const { version } = updater.status();
+  const notification = new Notification({
+    title: 'IntelliPlan update ready',
+    body: version
+      ? `Version ${version} will install when you restart.`
+      : 'An update will install when you restart.',
+    silent: true,
+    ...(iconPath('icon.png') ? { icon: iconPath('icon.png') } : {}),
+  });
+  notification.on('click', () => updater.promptInstall());
+  notification.show();
+}
+
 // ── Native notifications ────────────────────────────────────────────
 
 ipcMain.handle('notify', (_event, payload) => {
@@ -509,6 +551,7 @@ ipcMain.handle('app:setTarget', (_event, url) => {
 
 function buildMenu() {
   const isMac = process.platform === 'darwin';
+  const updateStatus = updater.status();
   const template = [
     ...(isMac ? [{ role: 'appMenu' }] : []),
     {
@@ -543,6 +586,12 @@ function buildMenu() {
     {
       role: 'help',
       submenu: [
+        // Label follows the updater, so the menu never offers a check when
+        // one has already finished and is sitting there waiting.
+        updateStatus.state === 'ready'
+          ? { label: `Restart to Update to ${updateStatus.version}`, click: () => updater.promptInstall() }
+          : { label: 'Check for Updates…', click: () => updater.check({ interactive: true }) },
+        { type: 'separator' },
         { label: 'IntelliPlan Help', click: () => shell.openExternal(targetOrigin() + '/faq') },
         { label: 'Report a Problem', click: () => shell.openExternal(targetOrigin() + '/contact') },
       ],
@@ -582,6 +631,18 @@ if (!app.requestSingleInstanceLock()) {
 
     globalShortcut.register(SHORTCUT_START_SESSION, openActive);
 
+    // Rebuild the surfaces that show update state whenever it moves, so
+    // "Update to 1.0.1" appears in the tray and menu the moment a download
+    // finishes — rather than at the next restart, which for a tray-resident
+    // app could be weeks away.
+    updater.start({
+      notify: (state) => {
+        buildMenu();
+        refreshTrayMenu(lastNext);
+        if (state === 'ready') notifyUpdateReady();
+      },
+    });
+
     pollTimer = setInterval(pollNext, POLL_INTERVAL_MS);
     setTimeout(pollNext, 8_000);   // after the first page has had time to load
 
@@ -600,6 +661,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();
     clearInterval(pollTimer);
+    updater.stop();
   });
 
   app.on('window-all-closed', () => {
