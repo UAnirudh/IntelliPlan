@@ -149,5 +149,8 @@
   "author": {
     "name": "IntelliPlan",
     "email": "hello@intelliplan.tech"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }
