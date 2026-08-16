@@ -62,7 +62,12 @@ SCOPE_LABELS = {
     "active": "Study sessions",
     "streak": "Streaks",
     "notifications": "Reminders",
-    "email": "Email",
+    # Deliberately no "email" scope. That scope covers this very subsystem —
+    # the sending plumbing, the consent gate, the dedup ledger. It is real
+    # work and it is of no interest whatsoever to a student, and left in it
+    # produced newsletter items reading "Lifecycle email — consent gate,
+    # HTML templates, dedup ledger". Anything student-visible about email
+    # lands under "notifications" instead.
     "download": "Downloads",
     "extension": "Chrome extension",
     "offline": "Offline mode",
