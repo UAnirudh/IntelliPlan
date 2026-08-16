@@ -7361,7 +7361,96 @@ def api_save_assignment_due_date():
     save_custom_description(title, json.dumps(existing))
     return flask.jsonify({"status": "ok"})
 
-def _planner_task_rows(normalized_assignments, custom_tasks):
+def _sized_estimate(assignment, kind, saved_description=None):
+    """Base minutes for one assignment, before the student's own bias model.
+
+    Order of trust, highest first:
+
+    1. **What the student told us.** A duration they typed into the clarify
+       prompt is not a guess we should overrule.
+    2. **What the work describes.** Word counts, page ranges, problem counts,
+       rubrics, quiz time limits — see
+       :mod:`intelliplan.intelligence.sizing`. This is the layer that can tell
+       "problems 12–18" from "write a 2,000-word essay" when both are worth
+       fifty points.
+    3. **What the upstream helper guessed.** Historically
+       ``points_possible × 1.5``, which is better than nothing and worse than
+       either of the above.
+
+    Returns ``(minutes, subtask_count, signal_details)``.
+    """
+    from intelliplan.intelligence.sizing import size_assignment
+
+    try:
+        declared = int(assignment.get("estimated_time") or 0)
+    except (TypeError, ValueError):
+        declared = 0
+
+    if declared > 0 and str(assignment.get("estimate_source") or "").lower() == "student":
+        return declared, 0, []
+
+    payload = {
+        **assignment,
+        "kind": kind,
+        "description": (
+            assignment.get("description")
+            or assignment.get("instructions")
+            or saved_description
+            or ""
+        ),
+    }
+    sized = size_assignment(payload)
+    details = [s.detail for s in sized.signals]
+    if sized.is_measured:
+        return sized.minutes, sized.subtask_count, details
+    # Nothing in the metadata described the work, so keep whatever the source
+    # already guessed rather than replacing one prior with another.
+    return (declared or sized.minutes), sized.subtask_count, []
+
+
+def _saved_descriptions_for(assignments):
+    """``{title: description}`` from what the student has typed themselves.
+
+    Students paste the real instructions into IntelliPlan for assignments
+    whose LMS description is empty — that text is the best sizing signal in
+    the system and until now it was only ever rendered, never read. Loaded in
+    one query rather than one per assignment.
+    """
+    titles = [
+        (a.get("title") or "").strip()
+        for a in assignments
+        if isinstance(a, dict) and (a.get("title") or "").strip()
+    ]
+    if not titles:
+        return {}
+    try:
+        query = CustomDescription.query.filter(
+            CustomDescription.assignment_title.in_(titles[:300])
+        )
+        if current_user.is_authenticated:
+            query = query.filter(CustomDescription.user_id == current_user.id)
+        else:
+            query = query.filter(
+                CustomDescription.guest_session_id == get_guest_session_id()
+            )
+        out = {}
+        for row in query.limit(300).all():
+            text = row.description or ""
+            # The notes endpoint stores a JSON blob in the same column.
+            if text.lstrip().startswith("{"):
+                try:
+                    text = (json.loads(text) or {}).get("notes") or ""
+                except Exception:
+                    pass
+            if text:
+                out[row.assignment_title] = text
+        return out
+    except Exception as e:
+        print(f"[planner] saved description load failed: {e}")
+        return {}
+
+
+def _planner_task_rows(normalized_assignments, custom_tasks, descriptions=None):
     """Flatten assignments and free-text custom tasks into planner input.
 
     Custom tasks carry no metadata at all — they are a title someone typed
@@ -7391,17 +7480,22 @@ def _planner_task_rows(normalized_assignments, custom_tasks):
     rows = []
     for a in normalized_assignments:
         title = a.get("title") or "Task"
+        kind = kind_of(title, a.get("kind") or a.get("type"))
+        est_minutes, subtasks, size_signals = _sized_estimate(
+            a, kind, (descriptions or {}).get(title)
+        )
         rows.append({
             "id": str(a.get("id") or a.get("source_ref") or title),
             "title": title,
             "course": a.get("course") or "",
-            "kind": kind_of(title, a.get("kind") or a.get("type")),
+            "kind": kind,
             "due_date": a.get("due_date") or "",
-            "est_minutes": a.get("estimated_time"),
+            "est_minutes": est_minutes,
             "difficulty": (a.get("difficulty") or "Medium").lower(),
             "priority": _priority_score_for(a),
             "points_possible": a.get("points_possible"),
-            "subtask_count": len(a.get("subtasks") or []),
+            "subtask_count": max(len(a.get("subtasks") or []), subtasks),
+            "size_signals": size_signals,
         })
     for title in custom_tasks or []:
         title = (title or "").strip()
@@ -7453,7 +7547,11 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
         from intelliplan.intelligence.planner import PlannerConfig
         from intelliplan.services.scheduling import SchedulingService, StudentContext
 
-        rows = _planner_task_rows(normalized_assignments, custom_tasks)
+        rows = _planner_task_rows(
+            normalized_assignments,
+            custom_tasks,
+            descriptions=_saved_descriptions_for(normalized_assignments),
+        )
         if not rows:
             return None
 
@@ -12967,7 +13065,7 @@ def api_referral():
 import re as _re_phone
 
 
-def _send_email_via_resend(to_addr, subject, body, html=None, headers=None):
+def _send_email_via_resend(to_addr, subject, body, html=None, headers=None, reply_to=None):
     """Send an email through the Resend HTTP API.
     Returns True on success, False on failure or if not configured.
 
@@ -12994,6 +13092,12 @@ def _send_email_via_resend(to_addr, subject, body, html=None, headers=None):
             # List-Unsubscribe and friends. Resend passes these through to
             # the outgoing message verbatim.
             body_payload["headers"] = dict(headers)
+        if reply_to:
+            # Resend's own field rather than a Reply-To in `headers` — it
+            # rejects some standard headers supplied that way. Every
+            # lifecycle email invites a reply, and the From address is a
+            # no-reply, so without this the answer goes nowhere.
+            body_payload["reply_to"] = reply_to
         payload = _json.dumps(body_payload).encode()
         req = urllib.request.Request(
             "https://api.resend.com/emails",
@@ -13020,7 +13124,7 @@ def _send_email_via_resend(to_addr, subject, body, html=None, headers=None):
         return False
 
 
-def _send_email(to_addr, subject, body, html=None, headers=None):
+def _send_email(to_addr, subject, body, html=None, headers=None, reply_to=None):
     """Send an email. Tries Resend first (RESEND_API_KEY), then falls back to
     SMTP. If neither is configured, logs the message so the parental-consent
     link can still be delivered manually.
@@ -13036,7 +13140,9 @@ def _send_email(to_addr, subject, body, html=None, headers=None):
     """
     if not to_addr:
         return False
-    sent = _send_email_via_resend(to_addr, subject, body, html=html, headers=headers)
+    sent = _send_email_via_resend(
+        to_addr, subject, body, html=html, headers=headers, reply_to=reply_to
+    )
     if sent:
         return sent
 
@@ -13051,6 +13157,8 @@ def _send_email(to_addr, subject, body, html=None, headers=None):
         msg["From"] = sender
         msg["To"] = to_addr
         msg["Subject"] = subject
+        if reply_to:
+            msg["Reply-To"] = reply_to
         for key, value in (headers or {}).items():
             # List-Unsubscribe et al. Assigning over an existing key raises,
             # so drop anything already set above rather than duplicating it.

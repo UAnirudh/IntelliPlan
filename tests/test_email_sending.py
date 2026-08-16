@@ -534,3 +534,31 @@ def test_a_pending_row_is_never_retried(ctx, resend):
     assert result.sent is False
     assert result.reason == "already_sent"
     assert [p for p in resend if p["to"] == [user.email]] == []
+
+
+# ── Reply-To ────────────────────────────────────────────────────────
+
+
+def test_lifecycle_email_carries_a_reply_to(ctx, resend):
+    """Every template says "reply to this email", but From is a no-reply
+    sender. Without Reply-To the answer lands in a mailbox nobody reads."""
+    sender.send_lifecycle_email(
+        user=make_user(), email_key="welcome", template_name="welcome",
+        subject="S", marketing=False,
+    )
+    assert resend[0]["reply_to"] == "founder@intelliplan.tech"
+
+
+def test_reply_to_is_overridable(ctx, resend, monkeypatch):
+    monkeypatch.setenv("MARKETING_REPLY_TO", "hello@intelliplan.tech")
+    sender.send_lifecycle_email(
+        user=make_user(), email_key="welcome", template_name="welcome",
+        subject="S", marketing=False,
+    )
+    assert resend[0]["reply_to"] == "hello@intelliplan.tech"
+
+
+def test_a_plain_send_has_no_reply_to(ctx, resend):
+    """The existing 3-arg callers must not suddenly grow a Reply-To."""
+    app_module._send_email("x@example.test", "S", "B")
+    assert "reply_to" not in resend[0]

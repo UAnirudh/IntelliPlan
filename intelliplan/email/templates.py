@@ -51,6 +51,19 @@ def postal_address() -> str:
     return (os.getenv("MARKETING_POSTAL_ADDRESS") or "").strip()
 
 
+def reply_to() -> str:
+    """Where a reply to a lifecycle email should land.
+
+    Every one of the three templates invites a reply, but the From address
+    is a no-reply sender, so without this the answer goes into a mailbox
+    nobody reads. Overridable because the address that should receive
+    student replies is not necessarily the one that sends.
+    """
+    import os
+
+    return (os.getenv("MARKETING_REPLY_TO") or "founder@intelliplan.tech").strip()
+
+
 def build_context(
     user: Any = None,
     unsubscribe_url: str = "",
