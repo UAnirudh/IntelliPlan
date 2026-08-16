@@ -580,3 +580,95 @@ def api_logout():
 def api_debug():
     _, User, _ = _models()
     return _ok({"total_users": User.query.count()})
+
+
+# ── Password ──────────────────────────────────────────────────
+#
+# Until this existed there was no way to set or change a password at all:
+# every generate_password_hash() in the codebase was a registration path.
+# Two groups were stuck as a result, and neither had any way out.
+#
+#   Anyone who signed up with Google has no password_hash. The desktop and
+#   mobile clients exchange email+password for a bearer token, and that
+#   exchange refuses an account without a hash — so a Google account could
+#   never sign in to them, and the error was the same "Invalid credentials"
+#   a wrong password gives, which makes it unguessable from the outside.
+#
+#   Anyone who forgot their password was locked out permanently.
+#
+# This covers the first case and half the second: a signed-in user can set
+# a password, or change one they still know. Recovering an account you are
+# locked out of needs an emailed reset token, which is a separate piece of
+# work with its own delivery and expiry concerns.
+
+#: Matches the web registration form. Changing one without the other gives
+#: a password that can be set but not used to register, or vice versa.
+_MIN_PASSWORD_LEN = 8
+
+
+@auth_bp.route("/api/auth/password", methods=["POST", "OPTIONS"])
+def api_set_password():
+    """Set or change the signed-in user's password.
+
+    Session-authenticated on purpose. A bearer token is issued *by* the
+    password exchange, so accepting one here would let a leaked token mint
+    a permanent credential — a token you can rotate becomes a password you
+    cannot.
+    """
+    if request.method == "OPTIONS":
+        return _options()
+
+    from flask_login import current_user
+
+    if not getattr(current_user, "is_authenticated", False):
+        return _err("Sign in first.", 401)
+
+    db, User, bcrypt = _models()
+    data = request.get_json(silent=True) or {}
+    current = (data.get("current_password") or "").strip()
+    new = (data.get("new_password") or "").strip()
+
+    if len(new) < _MIN_PASSWORD_LEN:
+        return _err(f"Password must be at least {_MIN_PASSWORD_LEN} characters.", 400)
+
+    user = db.session.get(User, current_user.id)
+    if user is None:
+        return _err("Sign in first.", 401)
+
+    # Changing an existing password requires proving you know it. Without
+    # this, anyone who walks up to an unlocked laptop — or rides a stolen
+    # session cookie — converts temporary access into a permanent
+    # credential that survives every logout.
+    if user.password_hash:
+        if not current:
+            return _err("Enter your current password.", 400)
+        if not bcrypt.check_password_hash(user.password_hash, current):
+            return _err("That current password is not right.", 403)
+    # No hash means a Google-only account, and there is nothing to prove.
+    # The session is the proof: it was created by Google's sign-in.
+
+    user.password_hash = bcrypt.generate_password_hash(new).decode("utf-8")
+    db.session.commit()
+    # Never log the password, and do not echo it back.
+    print(f"[auth] password set for user id={user.id}")
+    return _ok({"had_password": bool(current)})
+
+
+@auth_bp.route("/api/auth/password/status", methods=["GET"])
+def api_password_status():
+    """Whether the signed-in user has a password yet.
+
+    Lets the settings page say "Set a password" rather than "Change
+    password" to someone who has never had one, and explain why they would
+    want to.
+    """
+    from flask_login import current_user
+
+    if not getattr(current_user, "is_authenticated", False):
+        return _err("Sign in first.", 401)
+
+    db, User, _ = _models()
+    user = db.session.get(User, current_user.id)
+    if user is None:
+        return _err("Sign in first.", 401)
+    return _ok({"has_password": bool(user.password_hash)})
