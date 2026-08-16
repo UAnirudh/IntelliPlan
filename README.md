@@ -332,6 +332,43 @@ dry-run count instead.
 `MARKETING_POSTAL_ADDRESS` must be set or the newsletter and feedback sends
 refuse to run — CAN-SPAM requires a physical address in commercial email.
 
+### Setting up the domain (no DNS migration needed)
+
+Run the preflight check first — it reports exactly what is missing:
+
+```bash
+curl -X POST https://intelliplan.tech/api/admin/email/preflight
+```
+
+**Sending.** `intelliplan.tech` has a CNAME at the apex pointing at Railway,
+and DNS does not permit other records alongside a CNAME at the same name. So
+rather than fighting the apex, send from a subdomain — this is Resend's own
+recommendation anyway:
+
+1. Resend → Domains → Add **`send.intelliplan.tech`**.
+2. Publish the DKIM/SPF records it gives you as ordinary subdomain records at
+   your registrar. No apex records, no conflict, no nameserver change.
+3. Set `RESEND_FROM=IntelliPlan <noreply@send.intelliplan.tech>`.
+
+**Receiving.** A send-only domain has no MX records, so anything addressed at
+it bounces. Every lifecycle email invites a reply, so point the reply
+addresses at a mailbox that already works:
+
+```
+MARKETING_REPLY_TO=youraddress@gmail.com
+SUPPORT_EMAIL=youraddress@gmail.com
+```
+
+Both are rendered into the email body as `mailto:` links and set as the
+`Reply-To` header, so a student replying reaches a real inbox. Nothing in the
+templates is hardcoded — switching to `founder@intelliplan.tech` later is an
+environment-variable change, not a deploy.
+
+To use `@intelliplan.tech` addresses for *receiving*, the apex needs MX
+records, which means either moving DNS to a provider that flattens apex
+CNAMEs (Cloudflare does, and its Email Routing is free) or replacing the apex
+CNAME with an A record. Neither is required for any of this to work.
+
 ### Unsubscribe
 
 `GET|POST /email/unsubscribe/<token>` works logged-out, in one click, and

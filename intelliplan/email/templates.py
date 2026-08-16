@@ -64,6 +64,18 @@ def reply_to() -> str:
     return (os.getenv("MARKETING_REPLY_TO") or "founder@intelliplan.tech").strip()
 
 
+def support_email() -> str:
+    """The address the welcome email tells people to write to.
+
+    Separate from ``reply_to`` because "how do I connect Canvas" and "here
+    is my feedback on the product" are different inboxes for most people,
+    even when they happen to be the same one today.
+    """
+    import os
+
+    return (os.getenv("SUPPORT_EMAIL") or reply_to()).strip()
+
+
 def build_context(
     user: Any = None,
     unsubscribe_url: str = "",
@@ -86,6 +98,11 @@ def build_context(
         "unsubscribe_url": unsubscribe_url,
         "postal_address": postal_address(),
         "preheader": preheader,
+        # Printed in the templates as a mailto. Configurable because these
+        # must point at a mailbox that actually receives — a hardcoded
+        # address on a domain with no MX record is a reply into the void.
+        "reply_to": reply_to(),
+        "support_email": support_email(),
     }
     context.update(extra)
     return context
