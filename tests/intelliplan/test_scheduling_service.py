@@ -225,12 +225,18 @@ def test_parts_of_a_split_task_are_contiguously_numbered_on_the_calendar():
         today=TODAY, now=NOW,
     )
     data = svc.to_schedule_data(plan, now=NOW)
-    parts = sorted(
-        b["part_index"]
-        for d in data["schedule"] for b in d["blocks"]
-        if b.get("parent_title") == "Midterm"
-    )
-    assert parts == list(range(1, len(parts) + 1)), parts
+    # Grouped by task, not by parent assignment: a large exam is decomposed
+    # into stages, each of which is its own task and numbers its own sittings.
+    # "Part 2 of 3" only has to have a part 1 inside the same task.
+    by_task: dict[str, list[int]] = {}
+    for d in data["schedule"]:
+        for b in d["blocks"]:
+            if b.get("is_break"):
+                continue
+            by_task.setdefault(b["task_id"], []).append(b["part_index"])
+    assert by_task
+    for task_id, parts in by_task.items():
+        assert sorted(parts) == list(range(1, len(parts) + 1)), (task_id, parts)
 
 
 def test_a_day_never_reports_more_time_than_it_holds():
@@ -297,3 +303,100 @@ def test_no_stated_target_leaves_the_default_utilisation_alone():
     caps = service().capacities(TODAY, 7, now=NOW)
     assert caps[1].comfort_minutes is None
     assert caps[1].soft_limit(0.8) == int(round(caps[1].minutes * 0.8))
+
+
+# ── Stages ────────────────────────────────────────────────────────────
+
+
+def test_a_big_essay_becomes_named_stages_in_order():
+    """"Part 3 of 5" does not tell a student what to do when they sit down,
+    and it implies the parts are interchangeable when they are not."""
+    svc = service()
+    plan = svc.plan(
+        [rows(id="paper", title="Research paper on the New Deal", kind="project",
+              est_minutes=600, course="History",
+              due_date=(TODAY + timedelta(days=12)).isoformat())],
+        today=TODAY, now=NOW,
+    )
+    labels = [s.title for s in plan.sessions]
+    assert any("Research and gather sources" in t for t in labels)
+    assert any("Write the draft" in t for t in labels)
+
+    def first_day(fragment):
+        return min(s.day for s in plan.sessions if fragment in s.title)
+
+    assert first_day("Research and gather sources") < first_day("Write the draft")
+    assert first_day("Write the draft") <= first_day("Revise")
+
+
+def test_a_prerequisite_is_never_scheduled_after_its_dependent():
+    svc = service()
+    plan = svc.plan(
+        [rows(id="paper", title="Research paper", kind="project", est_minutes=600,
+              due_date=(TODAY + timedelta(days=12)).isoformat())],
+        today=TODAY, now=NOW,
+    )
+    by_id = {}
+    for s in plan.sessions:
+        by_id.setdefault(s.task_id, []).append(s.day)
+    tasks = {t.id: t for t in svc.tasks_from([
+        rows(id="paper", title="Research paper", kind="project", est_minutes=600,
+             due_date=(TODAY + timedelta(days=12)).isoformat())
+    ])}
+    for task_id, days in by_id.items():
+        for dep in tasks[task_id].depends_on:
+            if dep in by_id:
+                assert max(by_id[dep]) <= min(days), (dep, task_id)
+
+
+def test_a_problem_set_is_not_decomposed_end_to_end():
+    svc = service()
+    plan = svc.plan(
+        [rows(id="ps", title="Problem set 7", kind="homework", est_minutes=400,
+              due_date=(TODAY + timedelta(days=6)).isoformat())],
+        today=TODAY, now=NOW,
+    )
+    assert all(s.task_id == "ps" for s in plan.sessions)
+
+
+def test_stage_blocks_still_point_back_at_their_assignment():
+    """Enrichment, the interactive view and the calendar export all match a
+    block to its assignment by parent_title."""
+    svc = service()
+    plan = svc.plan(
+        [rows(id="paper", title="Research paper", kind="project", est_minutes=600,
+              due_date=(TODAY + timedelta(days=12)).isoformat())],
+        today=TODAY, now=NOW,
+    )
+    data = svc.to_schedule_data(plan, now=NOW)
+    work = [b for d in data["schedule"] for b in d["blocks"] if not b.get("is_break")]
+    assert work
+    assert all(b["parent_title"] == "Research paper" for b in work)
+    assert all(b["stage_title"] for b in work)
+
+
+def test_decomposition_can_be_turned_off():
+    svc = SchedulingService(
+        StudentContext(availability=FULL_WEEK), decompose_stages=False
+    )
+    tasks = svc.tasks_from(
+        [rows(id="paper", title="Research paper", kind="project", est_minutes=600)]
+    )
+    assert [t.id for t in tasks] == ["paper"]
+
+
+def test_stages_do_not_inflate_the_total_work():
+    svc = service()
+    staged = svc.tasks_from(
+        [rows(id="paper", title="Research paper", kind="project", est_minutes=600)]
+    )
+    assert sum(t.est_minutes for t in staged) == 600
+
+
+def test_work_already_done_is_not_subtracted_once_per_stage():
+    svc = service()
+    staged = svc.tasks_from(
+        [rows(id="paper", title="Research paper", kind="project", est_minutes=600,
+              done_minutes=120)]
+    )
+    assert all(t.done_minutes == 0 for t in staged)

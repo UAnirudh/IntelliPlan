@@ -31,6 +31,7 @@ from datetime import date, datetime, timedelta
 from typing import Any, Mapping, Sequence
 
 import scheduler_engine
+from intelliplan.intelligence.decomposition import decompose
 from intelliplan.intelligence.estimation import EstimationModel, build_estimation_model
 from intelliplan.intelligence.planner import (
     DayCapacity,
@@ -112,10 +113,16 @@ class StudentContext:
 class SchedulingService:
     """Builds plans for one student. Stateless between calls."""
 
-    def __init__(self, context: StudentContext, config: PlannerConfig | None = None) -> None:
+    def __init__(
+        self,
+        context: StudentContext,
+        config: PlannerConfig | None = None,
+        decompose_stages: bool = True,
+    ) -> None:
         self._ctx = context
         self._config = config or PlannerConfig()
         self._model: EstimationModel | None = None
+        self._decompose = decompose_stages
 
     # ── Model ─────────────────────────────────────────────────────────
 
@@ -185,7 +192,12 @@ class SchedulingService:
     # ── Tasks ─────────────────────────────────────────────────────────
 
     def tasks_from(self, rows: Sequence[Mapping[str, Any]]) -> list[PlannerTask]:
-        """Normalise assignment dicts and attach concept-difficulty signal."""
+        """Normalise assignment dicts and attach concept-difficulty signal.
+
+        Large work of a recognisable shape is expanded into ordered stages
+        here rather than in the planner, because the planner's job is to place
+        work, not to have opinions about what writing an essay involves.
+        """
         tasks: list[PlannerTask] = []
         for row in rows:
             try:
@@ -196,8 +208,57 @@ class SchedulingService:
             penalty = self._weak_concept_penalty(task.concepts)
             if penalty > 0:
                 task = replace(task, weak_concept_penalty=penalty)
-            tasks.append(task)
+            tasks.extend(self._staged(task, row))
         return tasks
+
+    def _staged(
+        self, task: PlannerTask, row: Mapping[str, Any]
+    ) -> list[PlannerTask]:
+        """One task, or its stages when decomposition earns its place.
+
+        Each stage becomes a first-class :class:`PlannerTask` with its own
+        minutes and a real ``depends_on`` edge, which the planner already
+        knows how to respect — it has simply never been given any. That is
+        what stops the plan from scheduling "revise the draft" on Tuesday and
+        "write the draft" on Thursday.
+        """
+        if not self._decompose:
+            return [task]
+        try:
+            result = decompose(
+                minutes=int(task.est_minutes or 0),
+                title=task.title,
+                kind=task.kind,
+                description=str(row.get("description") or ""),
+                problem_count=int(task.subtask_count or 0),
+            )
+        except Exception as exc:
+            logger.warning("decomposition failed for %r: %s", task.title, exc)
+            return [task]
+        if not result.applied:
+            return [task]
+
+        out: list[PlannerTask] = []
+        for index, stage in enumerate(result.stages, start=1):
+            out.append(
+                replace(
+                    task,
+                    id=f"{task.id}::{stage.key}",
+                    title=f"{task.title} — {stage.label}",
+                    parent_title=task.title,
+                    stage_index=index,
+                    est_minutes=stage.minutes,
+                    # The stage minutes were carved out of an estimate that
+                    # already accounted for work done, so re-subtracting it
+                    # per stage would shrink the task once per stage.
+                    done_minutes=0,
+                    depends_on=tuple(f"{task.id}::{d}" for d in stage.depends_on),
+                    # A stage that wants one unbroken sitting says so by
+                    # declaring no internal subtasks to split at.
+                    subtask_count=0,
+                )
+            )
+        return out
 
     def _weak_concept_penalty(self, concepts: Sequence[str]) -> float:
         """How shaky this task's concepts are for this student, 0..1."""
@@ -296,7 +357,11 @@ def plan_to_schedule_data(
                 {
                     "id": f"b{block_id}",
                     "assignment": session.label,
-                    "parent_title": session.title,
+                    # The assignment this block belongs to, which for a stage
+                    # is not its own title. Enrichment, the interactive view
+                    # and the calendar export all match on this.
+                    "parent_title": session.parent_title or session.title,
+                    "stage_title": session.title if session.parent_title else "",
                     "task_id": session.task_id,
                     "course": session.course,
                     "duration_minutes": session.minutes,

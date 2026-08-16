@@ -603,3 +603,81 @@ def test_the_daily_target_never_manufactures_capacity():
     )
     for d in plan.days:
         assert d.scheduled_minutes <= d.capacity_minutes
+
+
+# ── Prerequisites ─────────────────────────────────────────────────────
+
+
+def test_a_prerequisite_lands_no_later_than_what_waits_on_it():
+    """Window tightening alone never ordered anything: two stages of one
+    essay can have overlapping windows, and the optimizer happily put "write
+    the draft" on Monday and "research" on Tuesday."""
+    tasks = [
+        task("research", est_minutes=120, due_date=TODAY + timedelta(days=10)),
+        task("draft", est_minutes=120, due_date=TODAY + timedelta(days=10),
+             depends_on=("research",)),
+        task("revise", est_minutes=60, due_date=TODAY + timedelta(days=10),
+             depends_on=("draft",)),
+    ]
+    plan = build_plan(tasks, caps(240), today=TODAY)
+    day_of = {}
+    for s in plan.sessions:
+        day_of.setdefault(s.task_id, []).append(s.day)
+    assert max(day_of["research"]) <= min(day_of["draft"])
+    assert max(day_of["draft"]) <= min(day_of["revise"])
+
+
+def test_a_chain_survives_a_crowded_week():
+    """The constraint must hold when the optimizer is under pressure, which is
+    when it starts moving things."""
+    chain = [
+        task("a", est_minutes=90, due_date=TODAY + timedelta(days=6)),
+        task("b", est_minutes=90, due_date=TODAY + timedelta(days=6), depends_on=("a",)),
+        task("c", est_minutes=90, due_date=TODAY + timedelta(days=6), depends_on=("b",)),
+    ]
+    noise = [
+        task(f"n{i}", est_minutes=60, course=f"c{i}", due_date=TODAY + timedelta(days=3))
+        for i in range(6)
+    ]
+    plan = build_plan(chain + noise, caps(150), today=TODAY)
+    placed = {}
+    for s in plan.sessions:
+        placed.setdefault(s.task_id, []).append(s.day)
+    for earlier, later in (("a", "b"), ("b", "c")):
+        if earlier in placed and later in placed:
+            assert max(placed[earlier]) <= min(placed[later]), (earlier, later)
+
+
+def test_a_dependency_on_a_task_that_is_not_there_is_ignored():
+    """Stage ids reference siblings. A row referencing a task that was
+    filtered out upstream must not take the whole plan down with it."""
+    plan = build_plan(
+        [task("only", est_minutes=60, due_date=TODAY + timedelta(days=3),
+              depends_on=("vanished",))],
+        caps(120), today=TODAY,
+    )
+    assert plan.sessions
+
+
+def test_a_dependency_cycle_does_not_hang_the_planner():
+    tasks = [
+        task("x", est_minutes=60, due_date=TODAY + timedelta(days=5), depends_on=("y",)),
+        task("y", est_minutes=60, due_date=TODAY + timedelta(days=5), depends_on=("x",)),
+    ]
+    plan = build_plan(tasks, caps(180), today=TODAY)
+    assert plan is not None
+
+
+def test_stages_sharing_a_day_still_read_in_order():
+    """Stages of one assignment share a deadline and a priority, so without
+    stage_index the day would order them by task id — spelling "revise"
+    before "draft"."""
+    tasks = [
+        PlannerTask(id="p::draft", title="Paper — draft", parent_title="Paper",
+                    stage_index=2, est_minutes=40, due_date=TODAY + timedelta(days=2)),
+        PlannerTask(id="p::plan", title="Paper — plan", parent_title="Paper",
+                    stage_index=1, est_minutes=40, due_date=TODAY + timedelta(days=2)),
+    ]
+    plan = build_plan(tasks, caps(300, days=1), today=TODAY)
+    order = [s.stage_index for s in plan.days[0].sessions]
+    assert order == sorted(order)
