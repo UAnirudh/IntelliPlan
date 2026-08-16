@@ -10445,6 +10445,202 @@ def save_schedule_progress():
     return flask.jsonify({"status": "ok"})
 
 
+def _active_saved_schedule():
+    """The student's live plan row, or None. Owner-scoped."""
+    query = SavedSchedule.query
+    if current_user.is_authenticated:
+        query = query.filter_by(user_id=current_user.id, is_active=True)
+    else:
+        query = query.filter_by(guest_session_id=get_guest_session_id(), is_active=True)
+    return query.order_by(SavedSchedule.created_at.desc()).first()
+
+
+def _session_reality(task_ids, uid, gid):
+    """What Active-study sittings say about these tasks.
+
+    Checkboxes say whether a block was finished; sittings say how many minutes
+    were actually spent, including on attempts the student abandoned. Both are
+    needed — a plan that ignores abandoned time re-schedules work the student
+    has already done.
+    """
+    try:
+        from intelliplan.repositories.active_sessions import ActiveSessionRepository
+
+        repo = ActiveSessionRepository(ActiveSession, ActiveFocusSample, db.session)
+        return repo.reality_for(task_ids, user_id=uid, guest_id=gid)
+    except Exception as e:
+        print(f"[recover] session reality load failed: {e}")
+        return {"completed": {}, "abandoned": {}, "finished": set()}
+
+
+@app.route("/schedule/recover", methods=["POST"])
+@limiter.limit("30 per hour")
+def recover_schedule():
+    """Re-solve the plan from where the student actually is.
+
+    The naive recovery — push what slipped onto tomorrow — is worse than none,
+    because it builds a day nobody can do and then a second missed day. This
+    credits what was done, drops what is finished, and re-optimises the whole
+    remaining horizon under the same cost function, so balance, spacing, and
+    deadline buffer all still apply. When the remaining work genuinely does not
+    fit, the response says so instead of inventing hours.
+
+    Returns ``changed: false`` when nothing slipped. Re-solving a plan that is
+    on track is not free — it moves blocks the student has already made peace
+    with, for no gain.
+    """
+    from intelliplan.intelligence.planner import Reality
+    from intelliplan.services.recovery import build_reality, summarise_changes
+
+    data = request.json or {}
+    assignments = data.get("assignments", [])
+    custom_tasks = data.get("custom_tasks", [])
+    hours_per_day = data.get("hours_per_day", 2)
+    preferred_time = data.get("preferred_time", "evening")
+
+    row = _active_saved_schedule()
+    if not row:
+        return flask.jsonify({"status": "none", "message": "No active saved schedule."})
+
+    try:
+        before = json.loads(row.schedule_data) if row.schedule_data else {}
+    except Exception:
+        return flask.jsonify({"status": "error", "message": "Saved plan is unreadable."}), 500
+    try:
+        progress = json.loads(row.progress_json) if row.progress_json else {}
+        if not isinstance(progress, dict):
+            progress = {}
+    except Exception:
+        progress = {}
+
+    uid = current_user.id if current_user.is_authenticated else None
+    gid = None if uid else get_guest_session_id()
+
+    task_ids = {
+        str(b.get("task_id"))
+        for d in (before.get("schedule") or [])
+        for b in (d.get("blocks") or [])
+        if isinstance(b, dict) and b.get("task_id")
+    }
+    sessions = _session_reality(task_ids, uid, gid)
+
+    facts = build_reality(
+        before, progress, date.today(), abandoned_minutes=sessions.get("abandoned") or {}
+    )
+    if not facts.needs_replan:
+        return flask.jsonify({
+            "status": "ok",
+            "changed": False,
+            "message": "Your plan is still on track — nothing needed moving.",
+            "completed_minutes": facts.completed_minutes,
+        })
+
+    if not assignments and not custom_tasks:
+        return flask.jsonify({
+            "status": "error",
+            "message": "Send your current assignments so the plan can be rebuilt.",
+        }), 400
+
+    # Two sources of truth about minutes spent, and they overlap: a block the
+    # student checked off may also have an Active-study sitting. Taking the
+    # larger of the two credits the work once instead of twice.
+    completed = dict(facts.reality.completed)
+    for task_id, minutes in (sessions.get("completed") or {}).items():
+        completed[str(task_id)] = max(completed.get(str(task_id), 0), int(minutes or 0))
+    reality = Reality(
+        completed=completed,
+        abandoned=facts.reality.abandoned,
+        missed_task_ids=facts.reality.missed_task_ids,
+        finished_task_ids=facts.reality.finished_task_ids
+        | frozenset(str(t) for t in (sessions.get("finished") or ())),
+    )
+
+    normalized = []
+    for a in assignments:
+        if not isinstance(a, dict):
+            continue
+        normalized.append({
+            **a,
+            "difficulty": a.get("difficulty") or infer_task_difficulty(
+                a.get("points_possible"), a.get("priority", "Medium"), a.get("due_date")
+            ),
+        })
+
+    try:
+        from intelliplan.intelligence.planner import PlannerConfig
+        from intelliplan.services.scheduling import SchedulingService, StudentContext
+
+        dna, availability, commitments = build_scheduler_personalization(
+            user_id=uid, guest_id=gid
+        )
+        rows = _planner_task_rows(
+            normalized, custom_tasks,
+            descriptions=_saved_descriptions_for(normalized),
+        )
+        try:
+            comfort = int(round(float(hours_per_day) * 60)) or None
+        except (TypeError, ValueError):
+            comfort = None
+        service = SchedulingService(
+            StudentContext(
+                availability=availability,
+                commitments=commitments,
+                preferred_time=preferred_time,
+                feedback_rows=_planner_feedback_rows(uid, gid),
+                session_rows=_planner_session_rows(uid, gid),
+                concept_mastery=_planner_concept_mastery(uid),
+                weak_days=tuple(getattr(dna, "weak_days", ()) or ()),
+                daily_target_minutes=comfort,
+            ),
+            PlannerConfig(),
+        )
+        after = service.to_schedule_data(service.replan(rows, reality))
+        try:
+            after = enrich_schedule_data(after, normalized, preferred_time, hours_per_day)
+        except Exception as ee:
+            print(f"[recover] enrich failed (non-fatal): {ee}")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return flask.jsonify({
+            "status": "error", "message": safe_error_message(e), "retryable": True,
+        }), 500
+
+    changes = summarise_changes(before, after, facts)
+
+    # Auto-save in place. A recovery the student has to remember to save is a
+    # recovery that silently does not happen.
+    try:
+        row.schedule_data = json.dumps(after)
+        db.session.commit()
+        invalidate_schedule_cache(user_id=uid, guest_id=gid)
+    except Exception as e:
+        db.session.rollback()
+        print(f"[recover] save failed: {e}")
+
+    try:
+        notifications_glue.on_plan_rescheduled(
+            uid, len([c for c in changes if c.kind == "moved"]), "missed sessions"
+        ) if uid else None
+    except Exception as e:
+        print(f"[recover] notification failed: {e}")
+
+    return flask.jsonify({
+        "status": "ok",
+        "changed": True,
+        "data": after,
+        "missed_minutes": facts.missed_minutes,
+        "completed_minutes": facts.completed_minutes,
+        "lost_days": [d.isoformat() for d in facts.lost_days],
+        "missed": [
+            {"title": m.title, "day": m.day.isoformat(), "minutes": m.minutes}
+            for m in facts.missed
+        ],
+        "changes": [c.to_dict() for c in changes],
+        "overloaded": bool(after.get("overloaded")),
+    })
+
+
 @app.route("/schedule/update", methods=["POST"])
 def update_saved_schedule():
     """Replace the active saved schedule's data in place.
