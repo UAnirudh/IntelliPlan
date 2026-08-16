@@ -369,6 +369,7 @@ def generate_weekly_issue(now: datetime | None = None) -> dict:
     since = now - timedelta(days=7)
 
     features = changelog.recent_changes(since=since, limit=4)
+    change_count = len(features)
     tip = content.science_for(now)
     feature_tip = content.tip_for(now)
 
@@ -385,9 +386,18 @@ def generate_weekly_issue(now: datetime | None = None) -> dict:
     week = now.isocalendar()[1]
     headline = (
         "New this week, plus a tip worth stealing."
-        if len(features) > 1
+        if change_count
         else "A tip worth stealing this week."
     )
+    # Counts the actual changes, not the features list — that also holds the
+    # how-to card, and "5 things new" when four shipped is the kind of small
+    # lie a reader notices.
+    if change_count == 1:
+        preheader = f"1 thing is new, plus: {tip['title'][:80]}"
+    elif change_count:
+        preheader = f"{change_count} things are new, plus: {tip['title'][:80]}"
+    else:
+        preheader = f"This week: {tip['title'][:100]}"
 
     return {
         "issue_label": f"IntelliPlan Weekly · {now:%d %B %Y}",
@@ -400,7 +410,7 @@ def generate_weekly_issue(now: datetime | None = None) -> dict:
         "tip": tip,
         "stats": content.live_stats(),
         "subject": f"IntelliPlan Weekly — {tip['title'][:60]}",
-        "preheader": f"{len(features)} thing(s) new, plus: {tip['title'][:80]}",
+        "preheader": preheader,
         "email_key": weekly_key(now),
         "week": week,
     }
