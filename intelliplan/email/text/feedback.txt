@@ -16,7 +16,7 @@ A few things I'd genuinely like to know:
 Just hit reply and answer any or all of these. No form, no survey link, no
 sign-in. One email back to me is all it takes — and I read every single one.
 
-Reply to: founder@intelliplan.tech
+Reply to: {{ reply_to }}
 
 Or, if you'd rather answer in one word, reply with just a number:
 

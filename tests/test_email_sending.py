@@ -305,12 +305,13 @@ def test_sending_to_a_suppressed_address_is_a_clean_no_op(ctx, resend):
 def test_the_welcome_sweep_sends_exactly_once(ctx, resend):
     """Two cron fires must not mean two emails."""
     user = make_user()
-    first = campaigns.sweep_welcome()
+    campaigns.sweep_welcome()
     campaigns.sweep_welcome()
 
     mine = [p for p in resend if p["to"] == [user.email]]
     assert len(mine) == 1, f"sent {len(mine)} times, expected exactly 1"
-    assert first["sent"] >= 1
+    # Deliberately no assertion on the aggregate `sent` count: the sweep is
+    # global and other tests in this suite add users to it.
 
     row = app_module.EmailSend.query.filter_by(user_id=user.id, email_key="welcome").all()
     assert len(row) == 1, "the ledger grew a second row for the same user and key"
@@ -489,15 +490,23 @@ def test_re_opting_in_clears_a_previous_suppression(ctx):
 # ── Retry after a transient provider failure ────────────────────────
 
 
-def test_a_provider_failure_is_retried_on_the_next_sweep(ctx, monkeypatch):
+def test_a_provider_failure_is_retried_on_the_next_attempt(ctx, monkeypatch):
     """A thirty-second Resend outage must not permanently cost a user their
     welcome email. `failed` means the provider returned a definite falsy
-    result, so we know the mail did not go out and a retry cannot duplicate."""
+    result, so we know the mail did not go out and a retry cannot duplicate.
+
+    Driven through send_lifecycle_email rather than the sweep: stubbing the
+    provider to fail during a *global* sweep marks every other test's user
+    failed as a side effect, which made this suite flaky.
+    """
     user = make_user()
 
     monkeypatch.setattr(app_module, "_send_email", lambda *a, **k: False)
-    first = campaigns.sweep_welcome()
-    assert first["failed"] >= 1
+    first = sender.send_lifecycle_email(
+        user=user, email_key="welcome", template_name="welcome",
+        subject="S", marketing=False,
+    )
+    assert first.sent is False
     row = app_module.EmailSend.query.filter_by(user_id=user.id, email_key="welcome").one()
     assert row.status == "failed"
 
@@ -508,9 +517,13 @@ def test_a_provider_failure_is_retried_on_the_next_sweep(ctx, monkeypatch):
         return "msg_retry_0001"
 
     monkeypatch.setattr(app_module, "_send_email", working_send)
-    campaigns.sweep_welcome()
+    second = sender.send_lifecycle_email(
+        user=user, email_key="welcome", template_name="welcome",
+        subject="S", marketing=False,
+    )
 
-    assert user.email in sent_to, "the failed send was never retried"
+    assert second.sent is True, "the failed send was never retried"
+    assert sent_to == [user.email]
     app_module.db.session.refresh(row)
     assert row.status == "sent"
     assert app_module.EmailSend.query.filter_by(
@@ -562,3 +575,38 @@ def test_a_plain_send_has_no_reply_to(ctx, resend):
     """The existing 3-arg callers must not suddenly grow a Reply-To."""
     app_module._send_email("x@example.test", "S", "B")
     assert "reply_to" not in resend[0]
+
+
+# ── Configurable addresses ──────────────────────────────────────────
+
+
+def test_the_templates_print_no_hardcoded_addresses(ctx, monkeypatch):
+    """A hardcoded address on a domain with no MX is a reply into the void.
+    Both must come from config so they can point at a mailbox that works."""
+    monkeypatch.setenv("MARKETING_POSTAL_ADDRESS", "1 Test Way")
+    monkeypatch.setenv("MARKETING_REPLY_TO", "replies@example.test")
+    monkeypatch.setenv("SUPPORT_EMAIL", "help@example.test")
+
+    for name in ("welcome", "feedback", "newsletter"):
+        context = templates.build_context(
+            user=None, unsubscribe_url="u", preheader="p", **newsletter_content()
+        )
+        rendered = templates.render(name, "S", context)
+        for blob in (rendered.html, rendered.text):
+            assert "founder@intelliplan.tech" not in blob, f"{name} hardcodes founder@"
+            assert "support@intelliplan.tech" not in blob, f"{name} hardcodes support@"
+
+    context = templates.build_context(user=None, unsubscribe_url="u", preheader="p")
+    welcome = templates.render("welcome", "S", context)
+    assert "help@example.test" in welcome.html
+    assert "help@example.test" in welcome.text
+
+    feedback = templates.render("feedback", "S", context)
+    assert "replies@example.test" in feedback.html
+    assert "mailto:replies@example.test" in feedback.html
+
+
+def test_support_email_falls_back_to_reply_to(ctx, monkeypatch):
+    monkeypatch.delenv("SUPPORT_EMAIL", raising=False)
+    monkeypatch.setenv("MARKETING_REPLY_TO", "only@example.test")
+    assert templates.support_email() == "only@example.test"

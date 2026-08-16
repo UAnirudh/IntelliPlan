@@ -39,7 +39,7 @@ Set up your integrations: {{ app_url }}
 ---
 
 You're receiving this because you signed up at {{ app_domain }}.
-Questions? Reply to this email, or reach us at support@intelliplan.tech
+Questions? Reply to this email, or reach us at {{ support_email }}
 
 Unsubscribe: {{ unsubscribe_url }}
 Privacy policy: {{ app_url }}/privacy

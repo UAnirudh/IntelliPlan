@@ -14187,6 +14187,24 @@ def admin_weekly_newsletter_preview():
         return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 
+@app.route("/api/admin/email/preflight", methods=["GET", "POST"])
+@require_admin
+def admin_email_preflight():
+    """Can the email system actually send right now, and will replies land?
+
+    Read-only. Worth running before any blast and after any env change —
+    every failure it reports is otherwise invisible until a student does
+    not get an email.
+    """
+    from intelliplan.email import preflight
+
+    try:
+        result = preflight.check()
+        return flask.jsonify({"status": "ok", **result})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
+
+
 @app.route("/api/admin/feedback-blast/preview", methods=["POST", "GET"])
 @require_admin
 def admin_feedback_blast_preview():
