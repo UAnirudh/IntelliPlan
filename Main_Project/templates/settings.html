@@ -347,6 +347,39 @@
   </div>
 
   <!-- ── Display & Animations ──────────────────────── -->
+  {# ── Password ──────────────────────────────────────────────────────
+     Until this existed there was no way to set or change a password at
+     all — every password write in the codebase was a registration path.
+     That left anyone who signed up with Google unable to use the mobile
+     and desktop apps, because those exchange email and password for a
+     token and an account with no password is refused. The copy leads with
+     that, since "set a password" on its own does not explain why anyone
+     would want to. #}
+  <div class="settings-section" id="passwordSettings">
+    <div class="settings-section-title">Password</div>
+
+    <div class="integration-row" style="flex-direction:column;align-items:flex-start;gap:12px;">
+      <div style="width:100%;">
+        <div class="integration-label" id="ipPwHeading">Password</div>
+        <div class="integration-sub" id="ipPwSub">Checking…</div>
+      </div>
+
+      <div id="ipPwForm" hidden style="width:100%;max-width:26rem;grid-template-columns:1fr;gap:10px;">
+        <input type="password" id="ipPwCurrent" autocomplete="current-password" hidden
+               placeholder="Current password"
+               style="width:100%;padding:10px 12px;border:1px solid var(--border-strong);border-radius:10px;background:var(--glass-input-bg);color:var(--text-primary);font-size:0.9rem;">
+        <input type="password" id="ipPwNew" autocomplete="new-password"
+               placeholder="New password (8+ characters)"
+               style="width:100%;padding:10px 12px;border:1px solid var(--border-strong);border-radius:10px;background:var(--glass-input-bg);color:var(--text-primary);font-size:0.9rem;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button type="button" id="ipPwSave" class="btn-primary"
+                  style="padding:10px 18px;border:none;border-radius:999px;cursor:pointer;font-size:0.88rem;">Save password</button>
+          <span id="ipPwMsg" style="font-size:0.82rem;color:var(--text-secondary);"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="settings-section">
     <div class="settings-section-title">Display &amp; Animations</div>
 
@@ -1854,6 +1887,88 @@ async function disconnectNotion() {
 if (new URLSearchParams(location.search).get('notion') === 'connected') {
   refreshNotionStatus();
 }
+
+/* ── Password ────────────────────────────────────
+   Names are ipPw-prefixed because this script block shares a global scope
+   with base.html; a bare `form` or `save` here would collide and take the
+   whole block down with it. */
+(function () {
+  var heading = document.getElementById('ipPwHeading');
+  var sub     = document.getElementById('ipPwSub');
+  var form    = document.getElementById('ipPwForm');
+  var current = document.getElementById('ipPwCurrent');
+  var next    = document.getElementById('ipPwNew');
+  var save    = document.getElementById('ipPwSave');
+  var msg     = document.getElementById('ipPwMsg');
+  if (!form || !save) return;
+
+  var hasPassword = false;
+
+  function say(text, kind) {
+    msg.textContent = text || '';
+    msg.style.color = kind === 'error' ? 'var(--danger, #ef4444)'
+                    : kind === 'ok'    ? 'var(--success, #22c55e)'
+                    : 'var(--text-secondary)';
+  }
+
+  function render() {
+    form.hidden = false;
+    form.style.display = 'grid';
+    current.hidden = !hasPassword;
+    if (hasPassword) {
+      heading.textContent = 'Change your password';
+      sub.textContent = 'You need your current password to change it.';
+    } else {
+      // The reason matters more than the action: nobody goes looking for
+      // "set a password" on an account that already signs in fine.
+      heading.textContent = 'Set a password';
+      sub.textContent = 'You signed in with Google, so this account has no password yet. '
+                      + 'The mobile and desktop apps sign in with an email and password, '
+                      + 'so set one here to use them.';
+    }
+  }
+
+  fetch('/api/auth/password/status', { credentials: 'same-origin' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      if (!d) { sub.textContent = 'Sign in to manage your password.'; return; }
+      hasPassword = !!d.has_password;
+      render();
+    })
+    .catch(function () { sub.textContent = 'Could not load password settings.'; });
+
+  save.addEventListener('click', function () {
+    var body = { new_password: next.value };
+    if (hasPassword) body.current_password = current.value;
+
+    if (!body.new_password || body.new_password.length < 8) {
+      say('Use at least 8 characters.', 'error');
+      return;
+    }
+
+    save.disabled = true;
+    say('Saving…');
+    fetch('/api/auth/password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(body),
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok) { say(res.d && res.d.message || 'Could not save.', 'error'); return; }
+        // Clear immediately: a password left sitting in an input is one a
+        // shoulder-surfer or a screenshot can still reach.
+        next.value = '';
+        current.value = '';
+        hasPassword = true;
+        render();
+        say('Saved. You can now sign in on mobile and desktop.', 'ok');
+      })
+      .catch(function () { say('Could not reach the server.', 'error'); })
+      .finally(function () { save.disabled = false; });
+  });
+})();
 
 /* ── App Demo Tour ──────────────────────────────── */
 function startAppTour() {
