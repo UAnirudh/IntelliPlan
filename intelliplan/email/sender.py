@@ -230,6 +230,7 @@ def send_lifecycle_email(
             rendered.text,
             html=rendered.html,
             headers=unsubscribe_headers(address),
+            reply_to=templates.reply_to(),
         )
     except Exception as exc:
         logger.warning("provider raised sending %s to %s: %s", email_key, address, exc)
