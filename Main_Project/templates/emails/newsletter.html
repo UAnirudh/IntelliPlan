@@ -120,20 +120,17 @@
               </table>
 
               <!-- === SECTION 3: QUICK STATS / SOCIAL PROOF === -->
+              {# Three cells, driven by `stats`. Fixed at three because the
+                 table lays out at 33% each; the generator always supplies
+                 exactly three. #}
               <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 36px;">
                 <tr>
-                  <td width="33%" style="text-align: center; padding: 0 8px;">
-                    <p style="font-size: 28px; font-weight: 800; color: #4f46e5; letter-spacing: -1px;">4</p>
-                    <p style="font-size: 12px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Integrations</p>
+                  {% for stat in stats %}
+                  <td width="33%" style="text-align: center; padding: 0 8px;{% if not loop.first and not loop.last %} border-left: 1px solid #f3f4f6; border-right: 1px solid #f3f4f6;{% endif %}">
+                    <p style="font-size: 28px; font-weight: 800; color: #4f46e5; letter-spacing: -1px;">{{ stat.value }}</p>
+                    <p style="font-size: 12px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">{{ stat.label }}</p>
                   </td>
-                  <td width="33%" style="text-align: center; padding: 0 8px; border-left: 1px solid #f3f4f6; border-right: 1px solid #f3f4f6;">
-                    <p style="font-size: 28px; font-weight: 800; color: #4f46e5; letter-spacing: -1px;">100%</p>
-                    <p style="font-size: 12px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Free to use</p>
-                  </td>
-                  <td width="33%" style="text-align: center; padding: 0 8px;">
-                    <p style="font-size: 28px; font-weight: 800; color: #4f46e5; letter-spacing: -1px;">FERPA</p>
-                    <p style="font-size: 12px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Compliant</p>
-                  </td>
+                  {% endfor %}
                 </tr>
               </table>
 

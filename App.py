@@ -3230,12 +3230,27 @@ def enrich_schedule_data(schedule_data, assignments, preferred_time, hours_per_d
                 block["energy_level"] = "reset"
                 block["difficulty"] = "Break"
                 continue
-            assignment_meta = assignment_lookup.get(block.get("assignment", ""), {})
+            # Match on the parent title first. The planner labels a split
+            # sitting "APUSH essay (part 2 of 3)", which matches no assignment,
+            # so every split block used to fall through to Medium priority, a
+            # re-inferred difficulty, and no due date — quietly discarding the
+            # planner's own priority and the deadline the clock placer orders
+            # the day by.
+            assignment_meta = (
+                assignment_lookup.get(block.get("parent_title") or "")
+                or assignment_lookup.get(block.get("assignment", ""))
+                or {}
+            )
             priority = assignment_meta.get("priority", "Medium")
             difficulty = assignment_meta.get("difficulty") or infer_task_difficulty(assignment_meta.get("points_possible"), priority, assignment_meta.get("due_date"))
             energy_level = infer_block_energy_level(block.get("time_slot"), preferred_time, difficulty)
             if priority == "High": high_priority_count += 1
             if difficulty == "Hard": hard_task_count += 1
+            # The planner's 0..100 score is finer-grained than the three
+            # buckets the UI colours by. Keep both rather than overwriting one
+            # with the other.
+            if isinstance(block.get("priority"), (int, float)):
+                block.setdefault("priority_score", int(block["priority"]))
             block["priority"] = priority
             block["difficulty"] = difficulty
             # The real deadline off the matched assignment, not the model's
@@ -7426,7 +7441,8 @@ def _priority_score_for(assignment):
 
 
 def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
-                            availability, commitments, preferred_time, hours_per_day):
+                            availability, commitments, preferred_time, hours_per_day,
+                            dna=None):
     """Run the v2 planner and return ``schedule_data``, or None to fall back.
 
     Returning None rather than raising is deliberate: if anything here is
@@ -7441,6 +7457,11 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
         if not rows:
             return None
 
+        try:
+            comfort_minutes = int(round(float(hours_per_day) * 60)) or None
+        except (TypeError, ValueError):
+            comfort_minutes = None
+
         context = StudentContext(
             availability=availability,
             commitments=commitments,
@@ -7448,11 +7469,16 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
             feedback_rows=_planner_feedback_rows(uid, gid),
             session_rows=_planner_session_rows(uid, gid),
             concept_mastery=_planner_concept_mastery(uid),
+            # Measured under-delivery days. The planner prices them rather
+            # than banning them; without this the day_quality weight has
+            # nothing to act on and every day looks equally good.
+            weak_days=tuple(getattr(dna, "weak_days", ()) or ()),
+            # The student's stated hours-per-day is a ceiling on comfort, not
+            # on capacity: their availability windows are the hard limit, and
+            # this sets how full those windows get before the optimizer starts
+            # charging for it.
+            daily_target_minutes=comfort_minutes,
         )
-        # The student's stated hours-per-day is a ceiling on comfort, not on
-        # capacity: their availability windows are the hard limit, and this
-        # sets how full those windows get before the optimizer starts
-        # charging for it.
         config = PlannerConfig()
         service = SchedulingService(context, config)
         plan = service.plan(rows)
@@ -7631,16 +7657,6 @@ def generate_schedule():
         user_id=current_user.id if current_user.is_authenticated else None,
         guest_id=None if current_user.is_authenticated else get_guest_session_id(),
     )
-    # Re-baseline estimates against how long work actually takes THIS student,
-    # before they reach the prompt — a plan built on "60 min" for someone who
-    # reliably needs 90 is a plan they will fall behind on by lunchtime.
-    for a in normalized_assignments:
-        try:
-            raw_est = int(a.get("estimated_time") or 60)
-        except (TypeError, ValueError):
-            raw_est = 60
-        a["estimated_time"] = dna.adjust_estimate(raw_est, a.get("course", ""))
-
     # ── Deterministic planning ────────────────────────────────────
     # Day allocation — how much work exists, how it splits into sittings,
     # which day each lands on, how much buffer sits before each deadline —
@@ -7657,6 +7673,7 @@ def generate_schedule():
         planned = _build_planner_schedule(
             normalized_assignments, custom_tasks, uid, gid,
             availability, commitments, preferred_time, hours_per_day,
+            dna=dna,
         )
         if planned is not None:
             return flask.jsonify({
@@ -7664,6 +7681,22 @@ def generate_schedule():
                 "data": planned,
                 "used_presets": used_presets,
             })
+
+    # Re-baseline estimates against how long work actually takes THIS student,
+    # before they reach the prompt — a plan built on "60 min" for someone who
+    # reliably needs 90 is a plan they will fall behind on by lunchtime.
+    #
+    # This applies to the AI path *only*. The planner has its own estimation
+    # model, fit on the same TaskFeedback rows, and it applies its own learned
+    # ratio inside build_plan(). Correcting here as well multiplied the two
+    # together: a student who reliably runs 1.5x over was sized at 2.25x, and
+    # the plan they got was a third longer than the week they have.
+    for a in normalized_assignments:
+        try:
+            raw_est = int(a.get("estimated_time") or 60)
+        except (TypeError, ValueError):
+            raw_est = 60
+        a["estimated_time"] = dna.adjust_estimate(raw_est, a.get("course", ""))
 
     today_str = datetime.now().strftime("%Y-%m-%d")
     overdue = [a for a in normalized_assignments if a.get("due_date", "9999") < today_str]
@@ -13927,6 +13960,112 @@ def cron_lifecycle_emails():
             app.logger.exception("lifecycle sweep %s failed: %s", name, exc)
             summary[name] = {"error": safe_error_message(exc)}
     return flask.jsonify({"status": "ok", **summary})
+
+
+@app.route("/cron/weekly-newsletter", methods=["GET", "POST"])
+def cron_weekly_newsletter():
+    """Generate and send the weekly newsletter. Unattended, by design.
+
+    Same CRON_SECRET guard as the sweeps above. Point a weekly cron at it.
+
+    This one sends to the full marketing list with no human reviewing the
+    content first — a deliberate operator decision. What still protects it:
+    every recipient passes the marketing gate, the ISO-week email key makes
+    a repeat fire a no-op, MARKETING_POSTAL_ADDRESS is still required, and
+    the changelog section is built from an allow-list of commit types and
+    scopes so an internal commit message cannot reach a student.
+
+    Pass ?dry_run=1 to see the issue and the recipient count without
+    sending.
+    """
+    expected = os.getenv("CRON_SECRET", "")
+    provided = request.headers.get("X-Cron-Secret") or request.args.get("secret") or ""
+    if not expected:
+        return flask.jsonify({"status": "error", "message": "cron not configured"}), 503
+    import hmac as _hmac
+    if not _hmac.compare_digest(str(expected), str(provided)):
+        return flask.jsonify({"status": "error", "message": "unauthorized"}), 401
+
+    dry_run = request.args.get("dry_run") in {"1", "true", "yes"}
+
+    from intelliplan.email import campaigns
+
+    try:
+        summary = campaigns.send_weekly_newsletter(dry_run=dry_run)
+    except Exception as exc:
+        app.logger.exception("weekly newsletter failed: %s", exc)
+        return flask.jsonify({"status": "error", "message": safe_error_message(exc)}), 500
+    return flask.jsonify({"status": "ok", "summary": summary})
+
+
+@app.route("/api/admin/newsletter/weekly-preview", methods=["GET", "POST"])
+@require_admin
+def admin_weekly_newsletter_preview():
+    """What this week's automatic issue will contain, and who would get it.
+
+    Generation is deterministic for a given ISO week, so what this returns
+    is what the cron will actually send.
+    """
+    from intelliplan.email import campaigns
+
+    try:
+        issue = campaigns.generate_weekly_issue()
+        summary = campaigns.send_weekly_newsletter(dry_run=True)
+        return flask.jsonify({"status": "ok", "issue": issue, "summary": summary})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
+
+
+@app.route("/api/admin/feedback-blast/preview", methods=["POST", "GET"])
+@require_admin
+def admin_feedback_blast_preview():
+    """Dry run for the feedback ask to the whole eligible list. Sends nothing."""
+    from intelliplan.email import campaigns
+
+    try:
+        return flask.jsonify(
+            {"status": "ok", "summary": campaigns.send_feedback_now(dry_run=True)}
+        )
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
+
+
+@app.route("/api/admin/feedback-blast/send", methods=["POST"])
+@require_admin
+def admin_feedback_blast_send():
+    """Send the feedback ask to everyone who passes the marketing gate.
+
+    Ignores the 14-day window and the activity requirement — those are
+    quality heuristics. Consent, age and suppression still apply in full.
+    Requires "confirm": true, so the irreversible call is never the default.
+    """
+    body = request.get_json(silent=True) or {}
+    from intelliplan.email import campaigns
+
+    if not body.get("confirm"):
+        try:
+            summary = campaigns.send_feedback_now(dry_run=True)
+        except Exception as e:
+            return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
+        return flask.jsonify({
+            "status": "confirm_required",
+            "message": (
+                f"This would email {summary['recipients']} people who passed the "
+                "consent gate. Re-send with \"confirm\": true to go ahead."
+            ),
+            "summary": summary,
+        }), 409
+
+    try:
+        summary = campaigns.send_feedback_now(dry_run=False)
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
+
+    if summary.get("error"):
+        return flask.jsonify({"status": "error", "message": summary["error"], "summary": summary}), 400
+
+    print(f"[admin-feedback-blast] recipients={summary['recipients']} sent={summary['sent']} failed={summary['failed']}")
+    return flask.jsonify({"status": "ok", "summary": summary})
 
 
 @app.route("/email/unsubscribe/<token>", methods=["GET", "POST"])
