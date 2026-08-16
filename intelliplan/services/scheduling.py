@@ -102,6 +102,11 @@ class StudentContext:
     #: ``{concept: mastery 0..1}`` from the concept-mastery repository.
     concept_mastery: Mapping[str, float] = field(default_factory=dict)
     timezone_offset_minutes: int = 0
+    #: What the student said they want to study per day, in minutes. A
+    #: comfort ceiling, never a hard one — their availability windows are the
+    #: hard limit. ``None`` means they never said, so the planner's default
+    #: target utilisation applies.
+    daily_target_minutes: int | None = None
 
 
 class SchedulingService:
@@ -172,6 +177,7 @@ class SchedulingService:
                     # A historically weak day is not unavailable — it is
                     # expensive. Pricing it lets a deadline still use it.
                     quality=0.75 if label in weak else 1.0,
+                    comfort_minutes=self._ctx.daily_target_minutes,
                 )
             )
         return out

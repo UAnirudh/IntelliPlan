@@ -8,6 +8,8 @@ import pytest
 
 from intelliplan.intelligence.estimation import (
     CONFIDENT_SAMPLES,
+    MAX_PREDICTED_MINUTES,
+    MIN_PREDICTED_MINUTES,
     EstimationModel,
     baseline_minutes,
     build_estimation_model,
@@ -225,9 +227,21 @@ def test_summary_is_serialisable():
 
 @pytest.mark.parametrize("raw", [1, 5, 500, 10_000])
 def test_predictions_stay_in_actionable_range(raw):
+    """The ceiling is whole-task effort, not sitting length.
+
+    A term project is genuinely many hours; the planner is what splits it
+    into sittings. What must never happen is an unbounded number, because
+    every downstream capacity check is arithmetic on this figure.
+    """
     model = build_estimation_model(rows(10, 60, 200), now=NOW)
     est = model.predict(raw)
-    assert 5 <= est.minutes <= 300
+    assert MIN_PREDICTED_MINUTES <= est.minutes <= MAX_PREDICTED_MINUTES
+
+
+def test_an_ordinary_homework_estimate_is_not_inflated_by_the_ceiling():
+    """Raising the ceiling must not change anything below it."""
+    model = build_estimation_model(rows(10, 60, 90), now=NOW)
+    assert model.predict(60).minutes < 150
 
 
 def test_model_is_deterministic():

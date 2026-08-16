@@ -134,6 +134,29 @@ def get_courses(district_url, username, password):
     
     return courses
 
+def _estimate_minutes(title, description, category, points_possible):
+    """Minutes this assignment is likely to take.
+
+    Uses the shared sizing module on whatever the gradebook gave us, and falls
+    back to the old points heuristic when the description says nothing
+    measurable.
+    """
+    try:
+        from intelliplan.intelligence.sizing import size_from_metadata
+
+        sized = size_from_metadata(
+            title=title,
+            kind=(category or "").strip().lower(),
+            description=description or "",
+            points_possible=points_possible,
+        )
+        if sized.is_measured:
+            return sized.minutes
+    except Exception:
+        pass
+    return max(30, round(float(points_possible) * 1.5 / 30) * 30)
+
+
 def get_assignments(district_url, username, password):
     result = make_request(
         district_url, username, password, "Gradebook",
@@ -206,9 +229,21 @@ def get_assignments(district_url, username, password):
 
             priority = _compute_priority(days, points_possible, title)
 
-            raw_minutes = points_possible * 1.5
-            rounded_minutes = round(raw_minutes / 30) * 30
-            rounded_minutes = max(30, rounded_minutes)
+            # StudentVue's gradebook carries a description and a category on
+            # every assignment. Both were parsed nowhere and both are real
+            # sizing signals: "Read pp. 88-114, answer 1-12" in the
+            # description is worth more than any guess from the point value,
+            # and Type ("Homework", "Test") beats inferring the kind from
+            # words in the title. This is the whole of what the SOAP surface
+            # offers — there is no rubric and no word count, so anything
+            # beyond this would be invention.
+            description = " ".join(
+                p for p in (
+                    get_attr(attrs, "MeasureDescription"),
+                    get_attr(attrs, "Notes"),
+                ) if p
+            ).strip()
+            category = get_attr(attrs, "Type")
 
             assignments.append({
                 "title": title,
@@ -216,8 +251,12 @@ def get_assignments(district_url, username, password):
                 "due_date": due_date.strftime("%Y-%m-%d"),
                 "points_possible": points_possible,
                 "priority": priority,
-                "estimated_time": rounded_minutes,
-                "display_score": display_score
+                "estimated_time": _estimate_minutes(
+                    title, description, category, points_possible
+                ),
+                "display_score": display_score,
+                "description": description[:4000],
+                "category": category,
             })
 
     return sorted(assignments, key=lambda x: x["due_date"])

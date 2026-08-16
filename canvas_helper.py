@@ -28,6 +28,38 @@ def _strip_html(s):
     return re.sub(r"<[^>]+>", "", s).strip()
 
 
+def _rubric_len(rubric):
+    """Number of rubric criteria, or 0. Canvas omits the key when there is
+    no rubric and returns a list of criterion objects when there is one."""
+    return len(rubric) if isinstance(rubric, list) else 0
+
+
+def _estimate_minutes(assignment, points_possible):
+    """Minutes this assignment is likely to take.
+
+    Reads the description, submission type, and rubric via the shared sizing
+    module, and falls back to the old points heuristic only when the metadata
+    says nothing. Rounding to the nearest half hour is deliberately *not*
+    applied to a measured figure — "7 problems, 28 minutes" is information,
+    and rounding it to 30 throws that information away for tidiness.
+    """
+    try:
+        from intelliplan.intelligence.sizing import size_from_metadata
+
+        sized = size_from_metadata(
+            title=assignment.get("name") or "",
+            description=assignment.get("description") or "",
+            points_possible=points_possible,
+            submission_types=assignment.get("submission_types"),
+            rubric_rows=_rubric_len(assignment.get("rubric")),
+        )
+        if sized.is_measured:
+            return sized.minutes
+    except Exception:
+        pass
+    return max(30, round(float(points_possible) * 1.5 / 30) * 30)
+
+
 def test_login(canvas_url, token):
     try:
         r = requests.get(f"{_base(canvas_url)}/courses",
@@ -63,7 +95,10 @@ def get_assignments(canvas_url, token):
 
     for cid in course_map:
         try:
-            resp = requests.get(f"{base}/courses/{cid}/assignments",
+            # per_page matters: Canvas defaults to ten items, so a course with
+            # thirty assignments silently reported the first ten and the
+            # planner scheduled a week that was missing two thirds of the work.
+            resp = requests.get(f"{base}/courses/{cid}/assignments?per_page=100",
                                 headers=headers, timeout=15).json()
         except Exception:
             continue
@@ -94,8 +129,6 @@ def get_assignments(canvas_url, token):
                 priority = "Medium"
             else:
                 priority = "Low"
-            raw_minutes = float(points_possible) * 1.5
-            rounded_minutes = max(30, round(raw_minutes / 30) * 30)
             assignments.append({
                 "id": str(a.get("id", "")),
                 "course_id": str(a.get("course_id", cid)),
@@ -104,9 +137,18 @@ def get_assignments(canvas_url, token):
                 "due_date": due_str[:10],
                 "points_possible": points_possible,
                 "priority": priority,
-                "estimated_time": rounded_minutes,
+                "estimated_time": _estimate_minutes(a, points_possible),
                 "display_score": "",
                 "color": PRIORITY_COLORS.get(priority, "#60a5fa"),
+                # Sizing metadata. Canvas already returns all of this in the
+                # assignments index; it used to be dropped on the floor, which
+                # left "read pages 120–145" and "write a 2,000-word essay"
+                # indistinguishable whenever they were worth the same points.
+                "description": _strip_html(a.get("description"))[:4000],
+                "submission_types": a.get("submission_types") or [],
+                "rubric": _rubric_len(a.get("rubric")),
+                "quiz_id": a.get("quiz_id"),
+                "is_quiz": bool(a.get("quiz_id")),
             })
 
     return sorted(assignments, key=lambda x: x["due_date"])
