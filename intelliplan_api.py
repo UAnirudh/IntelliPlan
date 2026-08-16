@@ -422,6 +422,106 @@ def restore_assignment():
     return jsonify(data), status
 
 
+@api_bp.route("/tasks", methods=["GET"])
+@require_auth("read:assignments")
+def list_tasks():
+    """Everything the student has to do, from every source.
+
+    Distinct from /assignments, which proxies /live and therefore returns
+    only what the connected school platforms report. That leaves out manual
+    tasks and anything synced from Notion — so a task the student created a
+    minute ago was absent from the list they created it in, which reads as
+    the app having dropped it.
+
+    /assignments keeps its existing meaning rather than being widened,
+    because third-party keys already depend on it being the platform feed.
+    """
+    status, data = _call_internal("GET", "/tasks/unified")
+    if status >= 400:
+        return _fail("upstream_failed", "Could not load tasks.", 502, detail=data)
+
+    # /tasks/unified answers in three buckets — overdue, today, upcoming —
+    # because that is how the dashboard's columns are laid out. Flattened
+    # here in that order, so a client that just renders the list still
+    # shows the late work first, and each item keeps a `bucket` telling it
+    # which column it came from.
+    if isinstance(data, dict):
+        tasks = []
+        for bucket in ("overdue", "today", "upcoming"):
+            for item in (data.get(bucket) or []):
+                if isinstance(item, dict):
+                    tasks.append({**item, "bucket": bucket})
+    else:
+        tasks = data if isinstance(data, list) else []
+    return jsonify({"tasks": tasks})
+
+
+@api_bp.route("/courses", methods=["GET"])
+@require_auth("read:assignments")
+def list_courses():
+    """The courses behind the assignment list.
+
+    Lets a client group or filter by course without inferring the set from
+    whatever happens to be due this week — a course with nothing outstanding
+    would otherwise vanish.
+    """
+    status, data = _call_internal("GET", "/courses")
+    if status >= 400:
+        return _fail("upstream_failed",
+                     "Could not load courses from the connected sources.",
+                     502, detail=data)
+    return jsonify({"courses": data if isinstance(data, list) else []})
+
+
+# ── Grades ────────────────────────────────────────────────────────────
+@api_bp.route("/grades", methods=["GET"])
+@require_auth("read:grades")
+def list_grades():
+    """Course grades and GPA, straight from the connected school platform.
+
+    Its own scope rather than read:assignments: knowing what is due and
+    knowing what you scored are different levels of trust, and this is the
+    most sensitive thing the app holds.
+    """
+    status, data = _call_internal("GET", "/grades/data")
+    if status >= 400:
+        return _fail("upstream_failed",
+                     "Could not load grades from the connected sources.",
+                     502, detail=data)
+    # /grades/data returns whatever the connected provider hands back: a
+    # list of courses for the imported/StudentVue path, an object for
+    # others. Normalising to one shape here means a client writes one
+    # renderer instead of branching on which platform the student happens
+    # to use — the per-course fields are passed through untouched.
+    if isinstance(data, list):
+        courses = data
+    elif isinstance(data, dict):
+        courses = next(
+            (data[k] for k in ("grades", "courses", "classes") if isinstance(data.get(k), list)),
+            [],
+        )
+    else:
+        courses = []
+    return jsonify({"grades": courses})
+
+
+# ── Schedule (read) ───────────────────────────────────────────────────
+@api_bp.route("/schedule", methods=["GET"])
+@require_auth("read:schedule")
+def get_saved_schedule():
+    """The plan the student already has.
+
+    Distinct from POST /schedule/generate, which builds a new one. A client
+    opening to "today" wants the saved plan; regenerating on every launch
+    would quietly discard the progress ticked off against it.
+    """
+    status, data = _call_internal("GET", "/schedule/saved")
+    if status >= 400:
+        return _fail("upstream_failed", "Could not load the saved schedule.",
+                     502, detail=data)
+    return jsonify(data if isinstance(data, dict) else {"schedule": data})
+
+
 # ── Tests ─────────────────────────────────────────────────────────────
 @api_bp.route("/tests", methods=["GET"])
 @require_auth("read:tests")
