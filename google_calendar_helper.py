@@ -1,6 +1,6 @@
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from time_utils import utcnow
 import os
 import requests as http_requests
@@ -122,6 +122,82 @@ def get_free_busy(token_dict, date_str):
     body = {"timeMin": time_min, "timeMax": time_max, "items": [{"id": "primary"}]}
     result = service.freebusy().query(body=body).execute()
     return result.get("calendars", {}).get("primary", {}).get("busy", [])
+
+def busy_minutes_by_date(token_dict, start_date, days=14, utc_offset_minutes=0):
+    """``{date: [(start_minute, end_minute), ...]}`` of committed time.
+
+    The scheduler has always subtracted the weekly commitments a student typed
+    into settings, and never looked at their actual calendar — so a plan could
+    put an hour of chemistry on top of a dentist appointment that was sitting
+    right there in Google Calendar. This is the query that closes that.
+
+    One range query for the whole horizon rather than one per day: fourteen
+    round trips on the critical path of generating a plan is the difference
+    between a scheduler that feels instant and one nobody waits for.
+
+    Offsets, not timezone names, because that is what the app stores per user.
+    Times come back from Google in UTC and the planner thinks in local
+    minute-of-day, so the conversion has to happen somewhere and here is where
+    the offset is known.
+    """
+    try:
+        offset = timedelta(minutes=int(utc_offset_minutes or 0))
+    except (TypeError, ValueError):
+        offset = timedelta(0)
+
+    span_days = max(1, min(60, int(days or 1)))
+    local_start = datetime.combine(start_date, datetime.min.time())
+    local_end = local_start + timedelta(days=span_days)
+    # Local wall clock to UTC is a subtraction: 17:00 at UTC+2 is 15:00 UTC.
+    time_min = (local_start - offset).isoformat() + "Z"
+    time_max = (local_end - offset).isoformat() + "Z"
+
+    service, _ = get_calendar_service(token_dict)
+    result = service.freebusy().query(body={
+        "timeMin": time_min,
+        "timeMax": time_max,
+        "items": [{"id": "primary"}],
+    }).execute()
+    periods = result.get("calendars", {}).get("primary", {}).get("busy", []) or []
+
+    out = {}
+    for period in periods:
+        try:
+            start = _parse_rfc3339(period.get("start")) + offset
+            end = _parse_rfc3339(period.get("end")) + offset
+        except Exception:
+            continue
+        if end <= start:
+            continue
+        # An event spanning midnight is busy time on both days, and clipping it
+        # to the first would hand the student a free evening they do not have.
+        cursor = start
+        while cursor < end:
+            day = cursor.date()
+            day_end = datetime.combine(day, datetime.min.time()) + timedelta(days=1)
+            piece_end = min(end, day_end)
+            start_minute = cursor.hour * 60 + cursor.minute
+            end_minute = int((piece_end - datetime.combine(day, datetime.min.time())).total_seconds() // 60)
+            if end_minute > start_minute:
+                out.setdefault(day, []).append((start_minute, min(24 * 60, end_minute)))
+            cursor = piece_end
+    return out
+
+
+def _parse_rfc3339(value):
+    """Parse one of Google's timestamps into a naive UTC datetime.
+
+    Naive-UTC rather than aware, because everything downstream does arithmetic
+    against naive local datetimes and mixing the two raises.
+    """
+    text = str(value or "").strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    parsed = datetime.fromisoformat(text)
+    if parsed.tzinfo is None:
+        return parsed
+    return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+
 
 def find_free_slots(token_dict, date_str):
     busy = get_free_busy(token_dict, date_str)

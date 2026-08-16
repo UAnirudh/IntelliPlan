@@ -7367,6 +7367,36 @@ def api_save_assignment_due_date():
     save_custom_description(title, json.dumps(existing))
     return flask.jsonify({"status": "ok"})
 
+def _planner_busy_by_date(horizon_days=14):
+    """Dated committed time from the student's Google Calendar.
+
+    Weekly commitments typed into settings recur; a dentist appointment does
+    not. Until this was wired up the scheduler knew only about the recurring
+    kind, so it would book an hour of chemistry directly on top of an event
+    sitting right there in the calendar it already had permission to read.
+
+    Every failure path returns ``{}``. A calendar we cannot reach means we
+    know less about the student's week, not that they get no plan — and a
+    scheduler that hard-fails on a third-party outage is worse than one that
+    occasionally suggests a busy hour.
+    """
+    if not current_user.is_authenticated:
+        return {}
+    try:
+        token = get_google_token()
+        if not token or not has_calendar_scope(token):
+            return {}
+        from google_calendar_helper import busy_minutes_by_date
+
+        offset = getattr(current_user, "utc_offset_minutes", 0) or 0
+        return busy_minutes_by_date(
+            token, date.today(), days=horizon_days, utc_offset_minutes=offset
+        )
+    except Exception as e:
+        print(f"[planner] calendar busy lookup failed: {e}")
+        return {}
+
+
 def _lms_row_sizing(raw, points_possible, kind=""):
     """``(minutes, description)`` for one raw LMS payload.
 
@@ -7644,6 +7674,9 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
             # this sets how full those windows get before the optimizer starts
             # charging for it.
             daily_target_minutes=comfort_minutes,
+            # Real calendar events. Study time booked over a dentist
+            # appointment is a plan the student cannot follow.
+            busy_by_date=_planner_busy_by_date(),
         )
         config = PlannerConfig()
         service = SchedulingService(context, config)
@@ -10608,6 +10641,7 @@ def recover_schedule():
                 concept_mastery=_planner_concept_mastery(uid),
                 weak_days=tuple(getattr(dna, "weak_days", ()) or ()),
                 daily_target_minutes=comfort,
+                busy_by_date=_planner_busy_by_date(),
             ),
             PlannerConfig(),
         )

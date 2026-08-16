@@ -109,6 +109,11 @@ class StudentContext:
     #: hard limit. ``None`` means they never said, so the planner's default
     #: target utilisation applies.
     daily_target_minutes: int | None = None
+    #: Dated committed time from the student's real calendar,
+    #: ``{date: [(start_minute, end_minute)]}``. Weekly commitments recur; a
+    #: dentist appointment does not, and study time booked on top of one is a
+    #: plan the student cannot follow.
+    busy_by_date: Mapping[date, Sequence[tuple[int, int]]] = field(default_factory=dict)
 
 
 class SchedulingService:
@@ -166,6 +171,7 @@ class SchedulingService:
                     self._ctx.preferred_time,
                     self._ctx.commitments,
                     now=now,
+                    busy_by_date=self._ctx.busy_by_date,
                 )
             except Exception as exc:
                 # A malformed availability blob must not cost the student a
@@ -354,6 +360,7 @@ class SchedulingService:
             commitments=self._ctx.commitments,
             stamina_minutes=self.model.stamina_minutes,
             now=now,
+            busy_by_date=self._ctx.busy_by_date,
         )
 
 
@@ -367,6 +374,7 @@ def plan_to_schedule_data(
     commitments: str | None = None,
     stamina_minutes: int = 45,
     now: datetime | None = None,
+    busy_by_date: Mapping[date, Sequence[tuple[int, int]]] | None = None,
 ) -> dict[str, Any]:
     """Render a plan as ``{"schedule": [{date, blocks: [...]}, ...], ...}``."""
     now = now or datetime.now()
@@ -412,7 +420,8 @@ def plan_to_schedule_data(
         window_minutes = 0
         try:
             windows = scheduler_engine.windows_for_date(
-                day_plan.day, availability, preferred_time, commitments, now=now
+                day_plan.day, availability, preferred_time, commitments, now=now,
+                busy_by_date=busy_by_date,
             )
             window_minutes = sum(w.minutes for w in windows)
             placed, spilled = scheduler_engine.place_day_blocks(
