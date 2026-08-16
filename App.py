@@ -4493,6 +4493,7 @@ def _classroom_fetch_assignments(access_token):
                 continue
             pts = w.get("maxPoints") or 0
             priority = compute_priority(days, pts, title)
+            est_minutes, description = _lms_row_sizing(w, pts)
             out.append({
                 "id": f"gc-{w.get('id', '')}",
                 "course_id": str(cid),
@@ -4501,7 +4502,8 @@ def _classroom_fetch_assignments(access_token):
                 "due_date": due.strftime("%Y-%m-%d"),
                 "priority": priority,
                 "source": "google_classroom",
-                "estimated_time": max(30, round((float(pts) or 60) * 1.5 / 30) * 30),
+                "estimated_time": est_minutes,
+                "description": description,
                 "difficulty": "Medium",
                 "color": PRIORITY_COLORS.get(priority, "#f59e0b"),
             })
@@ -4646,6 +4648,7 @@ def _blackboard_fetch_assignments(institution_url, access_token, bb_user_id=None
             score = col.get("score") or {}
             possible = score.get("possible") or 0
             priority = compute_priority(days, possible, name)
+            est_minutes, description = _lms_row_sizing(col, possible)
             out.append({
                 "id": f"bb-{cid}-{col.get('id', '')}",
                 "course_id": str(cid),
@@ -4654,7 +4657,8 @@ def _blackboard_fetch_assignments(institution_url, access_token, bb_user_id=None
                 "due_date": due.strftime("%Y-%m-%d"),
                 "priority": priority,
                 "source": "blackboard",
-                "estimated_time": max(30, round((float(possible) or 60) * 1.5 / 30) * 30),
+                "estimated_time": est_minutes,
+                "description": description,
                 "difficulty": "Medium",
                 "color": PRIORITY_COLORS.get(priority, "#f59e0b"),
             })
@@ -4768,6 +4772,7 @@ def _moodle_fetch_assignments(moodle_url, ws_token, moodle_user_id=None):
                 continue
             grade = a.get("grade") or 0
             priority = compute_priority(days, grade, title)
+            est_minutes, description = _lms_row_sizing(a, grade)
             out.append({
                 "id": f"mdl-{a.get('id', '')}",
                 "course_id": str(cid or ""),
@@ -4776,7 +4781,8 @@ def _moodle_fetch_assignments(moodle_url, ws_token, moodle_user_id=None):
                 "due_date": due.strftime("%Y-%m-%d"),
                 "priority": priority,
                 "source": "moodle",
-                "estimated_time": max(30, round((float(grade) or 60) * 1.5 / 30) * 30),
+                "estimated_time": est_minutes,
+                "description": description,
                 "difficulty": "Medium",
                 "color": PRIORITY_COLORS.get(priority, "#f59e0b"),
             })
@@ -6880,7 +6886,7 @@ def get_live_schedule():
                 course_map[c["id"]] = c.get("name", "Unknown")
         assignments = []
         for course_id in course_map:
-            response = requests.get(f"{base}/courses/{course_id}/assignments", headers=headers, timeout=20)
+            response = requests.get(f"{base}/courses/{course_id}/assignments?per_page=100", headers=headers, timeout=20)
             data = response.json()
             if isinstance(data, list):
                 assignments += data
@@ -6896,8 +6902,7 @@ def get_live_schedule():
             days = (due_date - today).days
             if days < -14: continue
             priority = compute_priority(days, a["points_possible"], a.get("name", ""))
-            raw_minutes = a["points_possible"] * 1.5
-            rounded_minutes = max(30, round(raw_minutes / 30) * 30)
+            rounded_minutes, description = _lms_row_sizing(a, a["points_possible"])
             difficulty = infer_task_difficulty(a["points_possible"], priority, due_str[:10])
             title = a["name"]
             if title in excluded: continue
@@ -6911,6 +6916,7 @@ def get_live_schedule():
                 "priority": priority,
                 "difficulty": difficulty,
                 "estimated_time": rounded_minutes,
+                "description": description,
                 "color": PRIORITY_COLORS.get(priority, "#60a5fa"),
             })
         return flask.jsonify(sorted(schedule, key=lambda x: x["due_date"]))
@@ -7360,6 +7366,51 @@ def api_save_assignment_due_date():
     existing["due_date"] = due_date
     save_custom_description(title, json.dumps(existing))
     return flask.jsonify({"status": "ok"})
+
+def _lms_row_sizing(raw, points_possible, kind=""):
+    """``(minutes, description)`` for one raw LMS payload.
+
+    Every connector used to carry its own copy of ``points_possible × 1.5``
+    rounded to the half hour. That number cannot distinguish two assignments
+    inside one course, so this routes all of them through the shared sizing
+    module and keeps the old heuristic only as the fallback it always should
+    have been.
+
+    ``description`` is returned as well so the caller can put it on the task
+    dict — the planner reads it again later, and re-fetching it per assignment
+    would be a network call per row.
+    """
+    description = ""
+    if isinstance(raw, dict):
+        for key in ("description", "intro", "instructions", "body", "summary"):
+            value = raw.get(key)
+            if value:
+                description = str(value)
+                break
+    try:
+        points = float(points_possible or 0)
+    except (TypeError, ValueError):
+        points = 0.0
+    try:
+        from intelliplan.intelligence.sizing import size_from_metadata, strip_markup
+
+        clean = strip_markup(description)
+        sized = size_from_metadata(
+            title=str((raw or {}).get("name") or (raw or {}).get("title") or "")
+            if isinstance(raw, dict) else "",
+            kind=kind,
+            description=clean,
+            points_possible=points or None,
+            submission_types=(raw or {}).get("submission_types") if isinstance(raw, dict) else None,
+            rubric_rows=len(raw["rubric"]) if isinstance(raw, dict) and isinstance(raw.get("rubric"), list) else 0,
+        )
+        if sized.is_measured:
+            return sized.minutes, clean[:4000]
+        return max(30, round((points or 60) * 1.5 / 30) * 30), clean[:4000]
+    except Exception as e:
+        print(f"[sizing] fell back to the points heuristic: {e}")
+        return max(30, round((points or 60) * 1.5 / 30) * 30), ""
+
 
 def _sized_estimate(assignment, kind, saved_description=None):
     """Base minutes for one assignment, before the student's own bias model.
@@ -8430,7 +8481,7 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
                 def _fetch_course(course_id):
                     try:
                         r = requests.get(
-                            f"{base}/courses/{course_id}/assignments",
+                            f"{base}/courses/{course_id}/assignments?per_page=100",
                             headers=headers, timeout=6,
                         )
                         return course_id, r.json()
@@ -8461,6 +8512,9 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
                             if not title or title in dismissed:
                                 continue
                             priority = compute_priority(days, a.get("points_possible") or 0, title)
+                            est_minutes, description = _lms_row_sizing(
+                                a, a.get("points_possible")
+                            )
                             tasks.append({
                                 "id": str(a["id"]),
                                 "title": title,
@@ -8468,7 +8522,8 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
                                 "due_date": due_str,
                                 "priority": priority,
                                 "source": "canvas",
-                                "estimated_time": max(30, round(float(a.get("points_possible", 60) or 60) * 1.5 / 30) * 30),
+                                "estimated_time": est_minutes,
+                                "description": description,
                                 "difficulty": "Medium",
                             })
             except Exception as e:
@@ -8594,7 +8649,7 @@ def unified_tasks():
                 courses = course_response.json()
                 course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
                 for course_id in course_map:
-                    resp = requests.get(f"{base}/courses/{course_id}/assignments", headers=headers, timeout=20)
+                    resp = requests.get(f"{base}/courses/{course_id}/assignments?per_page=100", headers=headers, timeout=20)
                     data = resp.json()
                     if not isinstance(data, list):
                         continue
@@ -8613,6 +8668,9 @@ def unified_tasks():
                         priority = compute_priority(days, a.get("points_possible") or 0, title)
                         if title in dismissed:
                             continue
+                        est_minutes, description = _lms_row_sizing(
+                            a, a.get("points_possible")
+                        )
                         tasks.append({
                             "id": str(a["id"]),
                             "course_id": str(a["course_id"]),
@@ -8621,7 +8679,8 @@ def unified_tasks():
                             "due_date": due_str,
                             "priority": priority,
                             "source": "canvas",
-                            "estimated_time": max(30, round(float(a.get("points_possible", 60) or 60) * 1.5 / 30) * 30),
+                            "estimated_time": est_minutes,
+                            "description": description,
                             "difficulty": "Medium",
                             "color": PRIORITY_COLORS.get(priority, "#f59e0b")
                         })
@@ -11565,7 +11624,7 @@ def extension_tasks():
                     courses = requests.get(f"{canvas_url}/api/v1/courses", headers=headers, timeout=10).json()
                     course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
                     for course_id in course_map:
-                        resp = requests.get(f"{canvas_url}/api/v1/courses/{course_id}/assignments", headers=headers, timeout=10).json()
+                        resp = requests.get(f"{canvas_url}/api/v1/courses/{course_id}/assignments?per_page=100", headers=headers, timeout=10).json()
                         if not isinstance(resp, list):
                             continue
                         for a in resp:
@@ -11583,13 +11642,17 @@ def extension_tasks():
                             priority = compute_priority(days, a.get("points_possible") or 0, title)
                             if title in dismissed:
                                 continue
+                            est_minutes, description = _lms_row_sizing(
+                                a, a.get("points_possible")
+                            )
                             tasks.append({
                                 "title": title,
                                 "course": course_map.get(a["course_id"], "Unknown"),
                                 "due_date": due_str,
                                 "priority": priority,
                                 "source": "canvas",
-                                "estimated_time": max(30, round(float(a.get("points_possible", 60) or 60) * 1.5 / 30) * 30),
+                                "estimated_time": est_minutes,
+                                "description": description,
                                 "color": PRIORITY_COLORS.get(priority, "#f59e0b")
                             })
                 except Exception as e:

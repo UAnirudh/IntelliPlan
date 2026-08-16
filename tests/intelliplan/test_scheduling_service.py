@@ -282,3 +282,18 @@ def test_planner_order_survives_clock_placement():
     first_day = data["schedule"][0]["blocks"]
     titles = [b["parent_title"] for b in first_day if not b.get("is_break")]
     assert "Urgent" in titles
+
+
+def test_stated_daily_target_reaches_the_capacities():
+    svc = service(daily_target_minutes=90)
+    caps = svc.capacities(TODAY, 7, now=NOW)
+    assert all(c.comfort_minutes == 90 for c in caps)
+    # The window is still the hard limit — the target only lowers the soft one.
+    assert caps[1].minutes > 90
+    assert caps[1].soft_limit(0.8) == 90
+
+
+def test_no_stated_target_leaves_the_default_utilisation_alone():
+    caps = service().capacities(TODAY, 7, now=NOW)
+    assert caps[1].comfort_minutes is None
+    assert caps[1].soft_limit(0.8) == int(round(caps[1].minutes * 0.8))

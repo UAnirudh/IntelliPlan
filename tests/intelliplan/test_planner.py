@@ -556,3 +556,50 @@ def test_capacity_is_never_exceeded_without_saying_so(horizon):
     for d in plan.days:
         if d.scheduled_minutes > d.capacity_minutes:
             assert plan.overloaded
+
+
+# ── Stated daily target ───────────────────────────────────────────────
+
+
+def test_a_stated_daily_target_flattens_the_week():
+    """"Two hours a day" should shape the plan, not be decoration.
+
+    The student's availability windows are the hard ceiling; what they said
+    they want to do per day is a comfort ceiling. Above it work is priced, so
+    a plan that fits inside the target spreads out instead of piling onto the
+    first day the deadline allows.
+    """
+    tasks = [task(f"t{i}", est_minutes=60, due_date=TODAY + timedelta(days=8)) for i in range(6)]
+    loose = build_plan(tasks, caps(300), today=TODAY)
+    tight = build_plan(
+        tasks,
+        [DayCapacity(day=c.day, minutes=c.minutes, comfort_minutes=90) for c in caps(300)],
+        today=TODAY,
+    )
+    assert max(minutes_by_day(tight).values()) < max(minutes_by_day(loose).values())
+
+
+def test_the_daily_target_is_a_preference_not_a_ceiling():
+    """A deadline still overrides comfort. Refusing to schedule work the
+    student has time for, because they once said "one hour a day", is how a
+    planner ends up hiding a deadline it could have met."""
+    tasks = [task("cram", est_minutes=180, due_date=TODAY + timedelta(days=1), priority=90)]
+    plan = build_plan(
+        tasks,
+        [DayCapacity(day=c.day, minutes=c.minutes, comfort_minutes=60) for c in caps(240, days=2)],
+        today=TODAY,
+    )
+    assert not plan.deferred
+    assert plan.total_minutes >= 170
+
+
+def test_the_daily_target_never_manufactures_capacity():
+    """A target above the real free time changes nothing — the calendar wins."""
+    tasks = [task("t1", est_minutes=200, due_date=TODAY + timedelta(days=3))]
+    plan = build_plan(
+        tasks,
+        [DayCapacity(day=c.day, minutes=c.minutes, comfort_minutes=600) for c in caps(60, days=4)],
+        today=TODAY,
+    )
+    for d in plan.days:
+        assert d.scheduled_minutes <= d.capacity_minutes

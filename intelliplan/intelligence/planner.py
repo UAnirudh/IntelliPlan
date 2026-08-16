@@ -125,10 +125,22 @@ class DayCapacity:
     #: Multiplier for how well this student historically works this day.
     #: 1.0 is neutral; below 1 means "measured low output, keep it light".
     quality: float = 1.0
+    #: How much the student *wants* to do on this day, when they have said.
+    #: ``minutes`` is what the calendar allows; this is what they signed up
+    #: for. Above it, work is priced, not forbidden — a deadline still wins.
+    #: ``None`` falls back to ``config.target_utilisation`` of ``minutes``.
+    comfort_minutes: int | None = None
 
     @property
     def usable(self) -> int:
         return max(0, self.minutes)
+
+    def soft_limit(self, target_utilisation: float) -> int:
+        """The fill level above which the convex load penalty starts biting."""
+        default = int(round(self.usable * target_utilisation))
+        if self.comfort_minutes is not None:
+            default = min(default, max(0, int(self.comfort_minutes)))
+        return max(1, default)
 
 
 @dataclass(frozen=True, slots=True)
@@ -489,9 +501,7 @@ def build_plan(
     state: dict[date, _DayState] = {
         d: _DayState(
             capacity=cap_by_day[d].usable,
-            soft_capacity=max(
-                1, int(round(cap_by_day[d].usable * config.target_utilisation))
-            ),
+            soft_capacity=cap_by_day[d].soft_limit(config.target_utilisation),
             quality=cap_by_day[d].quality,
         )
         for d in days

@@ -81,8 +81,13 @@ GLOBAL_PRIOR_STRENGTH = 3.0
 LOG_RATIO_CLAMP = math.log(4.0)
 
 #: Predicted minutes are always clamped into a range a human can act on.
+#: The ceiling is *whole-task* effort, not a sitting — a term paper or a
+#: cumulative final genuinely is fifteen hours of work, and the planner is
+#: what breaks that into sittings the student can sit through. Clamping this
+#: at five hours silently told every large project it was a long afternoon,
+#: which is the one class of work where being wrong costs a grade.
 MIN_PREDICTED_MINUTES = 5
-MAX_PREDICTED_MINUTES = 300
+MAX_PREDICTED_MINUTES = 1200
 
 #: Residual spread assumed before we have enough data to measure it. 0.45 in
 #: log space ≈ estimates land within roughly ±55% of the truth, which is

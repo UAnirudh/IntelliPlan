@@ -318,6 +318,11 @@ def apply_answers(
         duration = answer("duration")
         if duration:
             t["estimated_time"] = parse_duration_answer(duration, int(t.get("estimated_time") or 60))
+            # Mark the provenance. Downstream sizing reads assignment metadata
+            # to work out how long something takes, and it must not overrule a
+            # number the student typed in themselves — asking and then
+            # ignoring the answer is worse than never asking.
+            t["estimate_source"] = "student"
             answered.add("duration")
         deadline = answer("deadline")
         if deadline:
