@@ -7528,6 +7528,19 @@ def _planner_task_rows(normalized_assignments, custom_tasks, descriptions=None):
                 return kind
         return "homework"
 
+    # One priority engine for the whole product. The scheduler used to run a
+    # three-bucket lookup while the Command Center ran the real five-component
+    # model — so the surface that *acts* on priority, deciding what gets pulled
+    # earlier and what gets dropped when the week is over capacity, was using
+    # the weaker of the two.
+    scores = {}
+    try:
+        from intelliplan.services.prioritisation import score_rows
+
+        scores = score_rows(normalized_assignments, date.today())
+    except Exception as e:
+        print(f"[planner] priority scoring failed, using labels: {e}")
+
     rows = []
     for a in normalized_assignments:
         title = a.get("title") or "Task"
@@ -7535,18 +7548,22 @@ def _planner_task_rows(normalized_assignments, custom_tasks, descriptions=None):
         est_minutes, subtasks, size_signals = _sized_estimate(
             a, kind, (descriptions or {}).get(title)
         )
+        row_id = str(a.get("id") or a.get("source_ref") or title)
+        scored = scores.get(row_id) or scores.get(title)
         rows.append({
-            "id": str(a.get("id") or a.get("source_ref") or title),
+            "id": row_id,
             "title": title,
             "course": a.get("course") or "",
             "kind": kind,
             "due_date": a.get("due_date") or "",
             "est_minutes": est_minutes,
             "difficulty": (a.get("difficulty") or "Medium").lower(),
-            "priority": _priority_score_for(a),
+            "priority": scored.score if scored else _priority_score_for(a),
+            "priority_reasons": list(scored.reasons) if scored else [],
             "points_possible": a.get("points_possible"),
             "subtask_count": max(len(a.get("subtasks") or []), subtasks),
             "size_signals": size_signals,
+            "description": (a.get("description") or (descriptions or {}).get(title) or ""),
         })
     for title in custom_tasks or []:
         title = (title or "").strip()

@@ -26,6 +26,7 @@ project replaced.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
 from typing import Any, Mapping, Sequence
@@ -205,7 +206,10 @@ class SchedulingService:
             except Exception as exc:
                 logger.warning("skipping unparseable task %r: %s", row, exc)
                 continue
-            penalty = self._weak_concept_penalty(task.concepts)
+            concepts = task.concepts or self._concepts_in(task, row)
+            if concepts != task.concepts:
+                task = replace(task, concepts=concepts)
+            penalty = self._weak_concept_penalty(concepts)
             if penalty > 0:
                 task = replace(task, weak_concept_penalty=penalty)
             tasks.extend(self._staged(task, row))
@@ -259,6 +263,31 @@ class SchedulingService:
                 )
             )
         return out
+
+    def _concepts_in(self, task: PlannerTask, row: Mapping[str, Any]) -> tuple[str, ...]:
+        """Concepts this task touches, matched against what the student studies.
+
+        The planner has priced ``concept_stack`` — the cost of piling several
+        shaky ideas into one day — since it was written, and nothing ever
+        populated ``PlannerTask.concepts``, so the weight has been dead code
+        and the concept-mastery table was loaded and then ignored.
+
+        The vocabulary is strictly the student's own tracked concepts, matched
+        on word boundaries in the title and description. That is deliberately
+        conservative: inventing concepts from an assignment title is how a
+        planner starts asserting that "Chapter 4" is about integrals.
+        """
+        mastery = self._ctx.concept_mastery
+        if not mastery:
+            return ()
+        haystack = f"{task.title} {row.get('description') or ''}".lower()
+        if not haystack.strip():
+            return ()
+        found = [
+            name for name in mastery
+            if len(name) >= 4 and re.search(rf"\b{re.escape(name)}\b", haystack)
+        ]
+        return tuple(sorted(set(found))[:8])
 
     def _weak_concept_penalty(self, concepts: Sequence[str]) -> float:
         """How shaky this task's concepts are for this student, 0..1."""

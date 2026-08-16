@@ -400,3 +400,43 @@ def test_work_already_done_is_not_subtracted_once_per_stage():
               done_minutes=120)]
     )
     assert all(t.done_minutes == 0 for t in staged)
+
+
+# ── Concepts ──────────────────────────────────────────────────────────
+
+
+def test_concepts_are_matched_from_what_the_student_studies():
+    """The concept_stack weight has been priced since the planner was written
+    and nothing ever populated PlannerTask.concepts."""
+    svc = service(concept_mastery={"integrals": 0.2, "photosynthesis": 0.9})
+    task = svc.tasks_from(
+        [rows(title="Practice with integrals", description="Definite integrals only.")]
+    )[0]
+    assert task.concepts == ("integrals",)
+    assert task.weak_concept_penalty == pytest.approx(0.8)
+
+
+def test_only_the_students_own_concepts_are_matched():
+    """Inventing concepts from a title is how a planner starts asserting that
+    "Chapter 4" is about integrals."""
+    svc = service(concept_mastery={"integrals": 0.2})
+    task = svc.tasks_from([rows(title="Chapter 4 review")])[0]
+    assert task.concepts == ()
+
+
+def test_an_explicit_concept_list_is_not_overwritten():
+    svc = service(concept_mastery={"integrals": 0.2})
+    task = svc.tasks_from(
+        [rows(title="Practice with integrals", concepts=["derivatives"])]
+    )[0]
+    assert task.concepts == ("derivatives",)
+
+
+def test_concept_matching_respects_word_boundaries():
+    svc = service(concept_mastery={"ion": 0.1})
+    assert svc.tasks_from([rows(title="Station rotation")])[0].concepts == ()
+
+
+def test_no_mastery_data_means_no_concept_work_at_all():
+    svc = service()
+    assert svc.tasks_from([rows(title="Practice with integrals")])[0].concepts == ()

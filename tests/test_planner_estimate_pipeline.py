@@ -178,3 +178,40 @@ def test_the_lms_row_sizer_reads_html_descriptions():
 def test_the_lms_row_sizer_never_raises():
     minutes, _ = App._lms_row_sizing(None, "not a number")
     assert minutes > 0
+
+
+# ── One priority engine ───────────────────────────────────────────────
+
+
+def test_planner_rows_use_the_real_priority_engine():
+    """A three-bucket label lookup cannot tell an overdue midterm from a
+    worksheet due in a fortnight. The engine can, and the scheduler is the
+    surface that acts on the answer."""
+    far = (date.today() + timedelta(days=13)).strftime("%Y-%m-%d")
+    overdue = (date.today() - timedelta(days=2)).strftime("%Y-%m-%d")
+    rows = {
+        r["title"]: r
+        for r in App._planner_task_rows(
+            [
+                _assignment(title="Midterm exam", kind="exam", priority="Medium",
+                            points_possible=100, due_date=overdue),
+                _assignment(title="Vocab worksheet", priority="Medium",
+                            points_possible=5, due_date=far),
+            ],
+            [],
+        )
+    }
+    assert rows["Midterm exam"]["priority"] > rows["Vocab worksheet"]["priority"]
+
+
+def test_priority_carries_its_reasons_for_the_ui():
+    row = App._planner_task_rows(
+        [_assignment(due_date=date.today().strftime("%Y-%m-%d"))], []
+    )[0]
+    assert row["priority_reasons"]
+
+
+def test_a_student_marked_high_priority_is_respected():
+    high = App._planner_task_rows([_assignment(priority="High")], [])[0]["priority"]
+    low = App._planner_task_rows([_assignment(priority="Low")], [])[0]["priority"]
+    assert high > low
