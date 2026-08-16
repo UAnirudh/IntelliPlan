@@ -242,7 +242,8 @@ Three emails, in `intelliplan/email/`. Templates live in
 |---|---|---|---|
 | Welcome | `welcome` | Cron, signups in the last 36h | Transactional — no marketing opt-in needed |
 | Feedback request | `feedback_v1` | Cron, accounts 14–15 days old **with real activity** | Requires `marketing_emails_opt_in` |
-| Newsletter | `newsletter_YYYY_MM` | Admin only, never automatic | Requires `marketing_emails_opt_in` |
+| Weekly newsletter | `newsletter_YYYY_wWW` | **Cron, weekly, generated and sent unattended** | Requires `marketing_emails_opt_in` |
+| One-off newsletter | `newsletter_YYYY_MM` | Admin only, hand-written payload | Requires `marketing_emails_opt_in` |
 
 Every send passes `intelliplan.email.eligibility.is_marketing_eligible`,
 which refuses on unknown age, under-13 without parental consent, undated
@@ -261,7 +262,60 @@ curl -X POST https://intelliplan.tech/cron/lifecycle-emails -H "X-Cron-Secret: $
 Railway schedule expression: `0 16 * * *`. It is safe to run more often —
 the ledger makes repeat runs no-ops.
 
-### Sending the newsletter
+### The weekly newsletter (automatic)
+
+A second cron entry, Thursdays at 16:00 UTC:
+
+```bash
+curl -X POST https://intelliplan.tech/cron/weekly-newsletter -H "X-Cron-Secret: $CRON_SECRET"
+```
+
+Railway schedule expression: `0 16 * * 4`. **This sends to the full
+marketing list with nobody reviewing the content first.** What protects it:
+
+* Every recipient still passes `is_marketing_eligible`.
+* The key is one per ISO week, so a repeat fire is a no-op.
+* `MARKETING_POSTAL_ADDRESS` is still required.
+* The "what changed" section is built from an **allow-list** of commit types
+  (`feat`, `fix` only) and an allow-list of scopes. An unrecognised scope, an
+  unparseable subject, or anything matching the secret/internal/revert
+  pattern is dropped. A deny-list would leak the first thing nobody banned.
+
+Each issue carries four sections: recent changes, a rotating how-to tip for a
+feature, a rotating study-science item with its citation, and a live stats
+row. The rotating pools key off the ISO week number, so generation is
+deterministic — the preview is exactly what gets sent.
+
+See what this week's issue will be before it goes:
+
+```bash
+curl -X POST https://intelliplan.tech/api/admin/newsletter/weekly-preview
+```
+
+**The changelog needs a snapshot.** `.git` is excluded from the Docker build
+context, so the container cannot run `git log`. Refresh the committed
+snapshot before deploying, or the "what changed" section goes stale:
+
+```bash
+python scripts/refresh_changelog.py
+```
+
+### Sending the feedback ask to everyone now
+
+Reaches everyone who passes the consent gate, ignoring the 14-day window and
+the activity requirement — those two are quality heuristics. Consent, age
+and suppression still apply in full.
+
+```bash
+curl -X POST https://intelliplan.tech/api/admin/feedback-blast/preview
+```
+
+That returns the recipient count and sends nothing. To send, repeat against
+`/api/admin/feedback-blast/send` with `{"confirm": true}`; without it the
+endpoint returns 409 and the dry-run count. Deduplicated on `feedback_v1`,
+so anyone the daily sweep already asked is not asked twice.
+
+### Sending a one-off newsletter
 
 Admin-only, and never in one step. Dry run first:
 

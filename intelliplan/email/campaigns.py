@@ -226,7 +226,17 @@ def normalise_newsletter(payload: dict, now: datetime | None = None) -> dict:
         "action": (raw_tip.get("action") or "").strip(),
     }
 
+    from . import content
+
+    stats = payload.get("stats")
+    if not (isinstance(stats, list) and len(stats) == 3):
+        # The template lays the row out at 33% per cell, so it is three or
+        # nothing. A malformed override falls back rather than breaking the
+        # layout in an email nobody can recall.
+        stats = content.live_stats()
+
     return {
+        "stats": stats,
         "issue_label": (payload.get("issue_label") or f"IntelliPlan Newsletter · {now:%B %Y}").strip(),
         "headline": (payload.get("headline") or "New features, smarter studying.").strip(),
         "intro": (payload.get("intro") or "").strip(),
@@ -317,6 +327,7 @@ def send_newsletter(
                     "intro": content["intro"],
                     "features": content["features"],
                     "tip": content["tip"],
+                    "stats": content["stats"],
                 },
                 # A test send must be repeatable, so it does not write the
                 # ledger — otherwise the first test burns the month's key and
@@ -331,4 +342,150 @@ def send_newsletter(
         time.sleep(BATCH_DELAY_SECONDS)
 
     logger.info("newsletter %s: %s", content["email_key"], summary)
+    return summary
+
+
+# ── Weekly newsletter: generated and sent without human review ──────
+
+
+def weekly_key(now: datetime | None = None) -> str:
+    """One key per ISO week, so a re-fired cron cannot send a second issue."""
+    now = now or datetime.utcnow()
+    year, week, _ = now.isocalendar()
+    return f"newsletter_{year}_w{week:02d}"
+
+
+def generate_weekly_issue(now: datetime | None = None) -> dict:
+    """Assemble this week's issue from the changelog, the tips library, the
+    study-science pool and live stats.
+
+    Deterministic for a given week: the rotating sections key off the ISO
+    week number, so generating twice produces the same issue. That matters
+    when nobody reviews it — a preview must be what actually goes out.
+    """
+    from . import changelog, content
+
+    now = now or datetime.utcnow()
+    since = now - timedelta(days=7)
+
+    features = changelog.recent_changes(since=since, limit=4)
+    tip = content.science_for(now)
+    feature_tip = content.tip_for(now)
+
+    # The how-to tip rides in as a feature card so every issue teaches
+    # something even when the changelog comes back empty.
+    features.append(
+        {
+            "tag": "How to · Tip of the week",
+            "title": feature_tip["title"],
+            "body": f"{feature_tip['body']} {feature_tip['action']}",
+        }
+    )
+
+    week = now.isocalendar()[1]
+    headline = (
+        "New this week, plus a tip worth stealing."
+        if len(features) > 1
+        else "A tip worth stealing this week."
+    )
+
+    return {
+        "issue_label": f"IntelliPlan Weekly · {now:%d %B %Y}",
+        "headline": headline,
+        "intro": (
+            "Everything that changed on IntelliPlan this week, one feature you "
+            "might not be using yet, and a study technique with evidence behind it."
+        ),
+        "features": features,
+        "tip": tip,
+        "stats": content.live_stats(),
+        "subject": f"IntelliPlan Weekly — {tip['title'][:60]}",
+        "preheader": f"{len(features)} thing(s) new, plus: {tip['title'][:80]}",
+        "email_key": weekly_key(now),
+        "week": week,
+    }
+
+
+def send_weekly_newsletter(
+    now: datetime | None = None, dry_run: bool = False
+) -> dict:
+    """Generate this week's issue and send it. Called by cron, unattended.
+
+    Sending without review is a deliberate choice by the operator. The
+    guards that remain are the ones that do not need a human: every
+    recipient still passes the marketing gate, the ISO-week key still makes
+    a double cron fire a no-op, and the postal-address check still refuses
+    a non-compliant send.
+
+    An issue whose only content is the rotating tip is still sent — that is
+    the point of having evergreen sections. An issue with no content at all
+    is skipped rather than mailed empty.
+    """
+    now = now or datetime.utcnow()
+    issue = generate_weekly_issue(now)
+
+    if not issue["features"] and not issue["tip"].get("title"):
+        logger.warning("weekly newsletter %s has no content; skipping", issue["email_key"])
+        return {"email_key": issue["email_key"], "skipped_empty": True, **_blank_summary()}
+
+    return send_newsletter(issue, test=False, dry_run=dry_run, now=now)
+
+
+# ── Feedback: send to the whole eligible list now ───────────────────
+
+
+def send_feedback_now(dry_run: bool = True, limit: int | None = None) -> dict:
+    """The feedback ask to everyone who passes the marketing gate, ignoring
+    the 14-day window and the activity requirement.
+
+    Those two are quality heuristics — they exist so the question lands on
+    someone with an opinion worth having. Consent, age and suppression are
+    not heuristics and still apply in full: this reaches nobody who
+    unsubscribed, nobody under 13 without parental consent, and nobody who
+    never opted in.
+
+    Deduplicated on the existing ``feedback_v1`` key, so anyone the cron
+    sweep already asked is not asked twice.
+    """
+    from . import templates
+
+    recipients = newsletter_recipients(limit=limit)
+    summary = {
+        "email_key": FEEDBACK_KEY,
+        "dry_run": bool(dry_run),
+        "recipients": len(recipients),
+        **_blank_summary(),
+    }
+
+    if not templates.postal_address():
+        summary["error"] = (
+            "MARKETING_POSTAL_ADDRESS is unset. CAN-SPAM requires a physical "
+            "mailing address in commercial email; refusing to send."
+        )
+        logger.error(summary["error"])
+        return summary
+
+    if dry_run:
+        summary["preview_recipients"] = [u.email for u in recipients[:20]]
+        return summary
+
+    for user in recipients:
+        try:
+            _tally(
+                summary,
+                send_lifecycle_email(
+                    user=user,
+                    email_key=FEEDBACK_KEY,
+                    template_name="feedback",
+                    subject=FEEDBACK_SUBJECT,
+                    preheader=FEEDBACK_PREHEADER,
+                    marketing=True,
+                ),
+            )
+        except Exception as exc:
+            logger.exception("feedback send failed for %s: %s", user.id, exc)
+            summary["failed"] += 1
+        time.sleep(BATCH_DELAY_SECONDS)
+
+    logger.info("feedback blast: %s", summary)
     return summary
