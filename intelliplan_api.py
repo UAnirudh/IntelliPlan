@@ -422,6 +422,70 @@ def restore_assignment():
     return jsonify(data), status
 
 
+# ── Push registration ─────────────────────────────────────────────────
+@api_bp.route("/push/register", methods=["POST"])
+@require_auth("read:profile")
+def register_push_token():
+    """Record this device's Expo push token.
+
+    Stored as a PushSubscription row, the same table browser subscriptions
+    use — one row per device install, which is what that table already
+    means. Everything that already sends a reminder then reaches the phone
+    with no change at the call site.
+
+    read:profile rather than a write scope: this writes a delivery address
+    for the account that already authenticated, not any user content. It is
+    the same trust level as knowing your own email.
+    """
+    db, User, _ = _models()
+    body = request.get_json(silent=True) or {}
+    token = (body.get("token") or "").strip()
+
+    from intelliplan.notifications import expo_push
+    if not expo_push.is_expo_token(token):
+        return _err("A valid Expo push token is required.", 400)
+
+    PushSubscription = current_app.intelliplan_push_subscription_model
+    # Upsert on the token: reopening the app hands back the same token, and
+    # a fresh row per launch would multiply notifications by the number of
+    # times the student ever opened it.
+    row = db.session.query(PushSubscription).filter_by(endpoint=token).first()
+    if row is None:
+        row = PushSubscription(
+            user_id=g.api_user.id,
+            endpoint=token,
+            subscription_json=json.dumps({"type": "expo", "token": token}),
+        )
+        db.session.add(row)
+    else:
+        # A shared device: the token follows the install, so the last
+        # student to sign in owns it. Leaving it pointed at the previous
+        # account would send them someone else's deadlines.
+        row.user_id = g.api_user.id
+        row.subscription_json = json.dumps({"type": "expo", "token": token})
+    db.session.commit()
+    return jsonify({"status": "ok", "registered": True})
+
+
+@api_bp.route("/push/unregister", methods=["POST"])
+@require_auth("read:profile")
+def unregister_push_token():
+    """Stop sending to this device. Called on sign-out, so signing out of a
+    borrowed phone does not keep pushing your deadlines to it."""
+    db, _User, _ = _models()
+    token = ((request.get_json(silent=True) or {}).get("token") or "").strip()
+    if not token:
+        return _err("token required.", 400)
+    PushSubscription = current_app.intelliplan_push_subscription_model
+    row = db.session.query(PushSubscription).filter_by(
+        endpoint=token, user_id=g.api_user.id).first()
+    if row is not None:
+        db.session.delete(row)
+        db.session.commit()
+    # Idempotent: unregistering a token that is already gone is success.
+    return jsonify({"status": "ok"})
+
+
 @api_bp.route("/tasks", methods=["GET"])
 @require_auth("read:assignments")
 def list_tasks():
