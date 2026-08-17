@@ -120,3 +120,42 @@ def register(db: Any) -> type:
             }
 
     return NotificationOutbox
+
+
+def register_lease(db: Any) -> type:
+    """Define the single-runner lease table against ``db``. Idempotent.
+
+    The sweep/flush cycle has to run on a timer, and this app runs under
+    gunicorn with several workers. Every worker ticking would mean every
+    worker sweeping, and ``Dispatcher._claim`` selects due rows and then
+    marks them — not a ``SELECT … FOR UPDATE`` — so two flushes that
+    overlap can claim the same row and send it twice. A student getting
+    the same reminder four times is worse than getting it late.
+
+    One row, one holder, one expiry. Acquiring is a single conditional
+    UPDATE, which is atomic on both SQLite and Postgres, so exactly one
+    worker wins each tick and the rest do nothing. The lease expires on
+    its own, so a worker that is killed mid-tick does not wedge the
+    timer — the next tick simply finds it stale and takes over.
+    """
+    registry = getattr(db.Model, "registry", None)
+    existing: dict[str, type] = {}
+    if registry is not None:
+        for mapper in registry.mappers:
+            cls = mapper.class_
+            existing[getattr(cls, "__tablename__", "")] = cls
+    if "cron_leases" in existing:
+        return existing["cron_leases"]
+
+    class CronLease(db.Model):
+        __tablename__ = "cron_leases"
+
+        name = db.Column(db.String(64), primary_key=True)
+        holder = db.Column(db.String(128), default="")
+        #: Whoever writes an expiry later than "now" owns the lease until
+        #: then. There is no explicit release: expiry is the release, which
+        #: is what makes a crashed holder harmless.
+        expires_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+        last_run_at = db.Column(db.DateTime, nullable=True)
+
+    return CronLease

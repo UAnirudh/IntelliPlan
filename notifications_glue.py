@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -45,6 +46,22 @@ notifications_bp = Blueprint("notifications", __name__)
 # Each returns True on success, raises PermanentDeliveryError when the
 # destination will never work, and lets anything else propagate so the
 # dispatcher can retry it.
+
+
+class DeliveryFailed(Exception):
+    """A retryable failure that knows why it failed.
+
+    Returning a bare ``False`` from a provider is also retryable, but the
+    dispatcher can only record it as "provider reported failure" — which
+    tells whoever is looking at a stuck queue nothing at all. Raising this
+    instead puts the provider's own words in ``last_error``, where they
+    are visible from /api/notifications/recent and the admin views.
+
+    Deliberately local to this module rather than added to the
+    notifications package: the subsystem's contract is "True, raise
+    PermanentDeliveryError, or raise anything else to retry", and this is
+    just a well-named instance of "anything else".
+    """
 
 
 def _push_ttl_for(row: Any) -> int | None:
@@ -95,11 +112,19 @@ def _send_sms(row: Any) -> bool:
     if ok:
         return True
     text = str(detail or "").lower()
-    # Twilio's "not a valid phone number" / "unsubscribed" family. Retrying
-    # these is billable and pointless.
-    if any(w in text for w in ("invalid", "not a valid", "unsubscribed", "blacklist", "opted out")):
+    # The "will never work" family. Retrying a malformed number or an
+    # opted-out recipient just burns attempts until the row goes dead.
+    if any(w in text for w in ("invalid", "not a valid", "unsubscribed",
+                               "blacklist", "opted out", "must be 10 digits",
+                               "no phone")):
         raise PermanentDeliveryError(str(detail)[:200])
-    return False
+    # A misconfigured sender is retryable — the key can be added without a
+    # redeploy — but it is not a transient blip, and returning a bare
+    # False recorded it in the outbox as "provider reported failure". That
+    # is the least useful sentence available: the real reason ("No email
+    # sender configured", "Resend 403: domain not verified") went to
+    # stdout and nowhere a person looking at the queue would find it.
+    raise DeliveryFailed(str(detail or "provider reported failure")[:400])
 
 
 def _send_email(row: Any) -> bool:
@@ -318,6 +343,124 @@ def _cron_authorised() -> bool:
         return False
     supplied = request.headers.get("X-Cron-Token") or request.args.get("secret") or ""
     return bool(supplied) and supplied == expected
+
+
+# ── In-process ticker ─────────────────────────────────────────────────
+#
+# /cron/notifications below sweeps and flushes, and it works. It was just
+# never called. There is no cron entry, no scheduled job, and nothing in
+# the Procfile but the web process — so the outbox was only ever swept by
+# a manual request, which in practice meant never. Every part of the
+# reminder pipeline was correct and the whole thing was inert: preferences
+# saved, phone numbers verified, events never raised, nothing delivered.
+#
+# Rather than make working reminders depend on someone remembering to
+# configure a scheduler, the app now drives its own timer. The HTTP
+# endpoint stays, so a real external cron can still drive it (and should,
+# at scale) — this is the floor, not the ceiling.
+
+#: Seconds between ticks. A reminder is scheduled to the minute, so a
+#: minute of granularity is the most precision that can matter.
+TICK_SECONDS = int(os.getenv("NOTIFICATIONS_TICK_SECONDS", "60"))
+
+#: How long a tick may hold the lease. Comfortably longer than a tick
+#: takes, comfortably shorter than the gap between ticks is unimportant —
+#: what matters is that a dead holder's lease expires promptly enough that
+#: delivery resumes without an operator.
+_LEASE_SECONDS = max(TICK_SECONDS * 3, 180)
+
+_ticker_started = False
+
+
+def _tick_once(app: Any) -> dict | None:
+    """One sweep + flush, if this process wins the lease."""
+    from App import db
+    from intelliplan.notifications.models import register_lease
+
+    CronLease = register_lease(db)
+    now = utcnow()
+    holder = f"{os.getpid()}"
+
+    # Ensure the row exists. A losing race here raises on the unique/PK
+    # constraint, which simply means someone else created it first.
+    try:
+        if db.session.get(CronLease, "notifications") is None:
+            db.session.add(CronLease(name="notifications", holder="",
+                                     expires_at=now))
+            db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    # Atomic acquire: only rows whose lease has already expired match, so
+    # exactly one caller can transition it.
+    try:
+        claimed = (
+            db.session.query(CronLease)
+            .filter(CronLease.name == "notifications",
+                    CronLease.expires_at <= now)
+            .update(
+                {"holder": holder,
+                 "expires_at": now + timedelta(seconds=_LEASE_SECONDS),
+                 "last_run_at": now},
+                synchronize_session=False,
+            )
+        )
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        logger.warning("notification lease acquire failed: %s", exc)
+        return None
+
+    if not claimed:
+        return None  # another worker owns this tick
+
+    swept = sweep_all()
+    delivered = get_dispatcher().flush()
+    return {"swept": swept, "delivered": delivered.as_dict()}
+
+
+def start_ticker(app: Any) -> bool:
+    """Start the background timer. Safe to call more than once.
+
+    Returns True if this call started it.
+    """
+    global _ticker_started
+
+    if _ticker_started:
+        return False
+    if os.getenv("NOTIFICATIONS_INPROCESS_CRON", "1") == "0":
+        logger.info("in-process notification ticker disabled by env")
+        return False
+    # Flask's reloader runs the module twice; only the child serves.
+    if app.debug and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
+        return False
+
+    import threading
+
+    def _loop() -> None:
+        # Stagger the first tick. Every worker booting at once and
+        # immediately hitting the database is a thundering herd on the one
+        # moment the process is already busiest.
+        import random
+        time.sleep(random.uniform(5, TICK_SECONDS))
+        while True:
+            try:
+                with app.app_context():
+                    result = _tick_once(app)
+                if result and (result["delivered"].get("sent")
+                               or result["swept"].get("queued")):
+                    logger.info("notification tick: %s", result)
+            except Exception as exc:
+                # This thread must outlive every possible failure. If it
+                # dies, reminders stop and nothing says so.
+                logger.warning("notification tick failed: %s", exc)
+            time.sleep(TICK_SECONDS)
+
+    threading.Thread(target=_loop, name="ip-notifications",
+                     daemon=True).start()
+    _ticker_started = True
+    logger.info("in-process notification ticker started (every %ss)", TICK_SECONDS)
+    return True
 
 
 @notifications_bp.route("/cron/notifications", methods=["GET", "POST"])

@@ -1793,6 +1793,10 @@ ActiveSession, ActiveFocusSample = _as_models.register(db)
 # Notification outbox — durable queue with dedupe, retries, and expiry.
 from intelliplan.notifications import models as _notif_models
 NotificationOutbox = _notif_models.register(db)
+# Single-runner lease for the in-process notification timer. Registered
+# here so create_all() builds it; see notifications_glue.start_ticker for
+# why more than one worker sweeping at once is not safe.
+CronLease = _notif_models.register_lease(db)
 # Offline replay ledger. Registered here, alongside the other models, so
 # the create_all() below builds the table and its unique index; the
 # request hooks that use it are installed further down, once `current_user`
@@ -14855,11 +14859,18 @@ app.register_blueprint(learning_graph_bp)
 from active_glue import active_bp
 app.register_blueprint(active_bp)
 # ── Notifications. Outbox-backed: events are queued by the sweep and
-# delivered by /cron/notifications, so no student request ever waits on
-# Twilio or an SMTP handshake.
-from notifications_glue import notifications_bp
+# delivered on a timer, so no student request ever waits on an SMS
+# gateway or an SMTP handshake.
+from notifications_glue import notifications_bp, start_ticker as _start_notification_ticker
 app.register_blueprint(notifications_bp)
 limiter.exempt(app.view_functions["notifications.cron_notifications"])
+# The sweep/flush cycle needs something to drive it. /cron/notifications
+# has always been able to, but nothing ever called it — no cron entry, no
+# scheduled job, nothing in the Procfile but the web process — so the
+# outbox was never swept and no reminder was ever delivered. The app now
+# runs its own timer; the endpoint remains for a real external scheduler.
+# Set NOTIFICATIONS_INPROCESS_CRON=0 to hand the job back to one.
+_start_notification_ticker(app)
 # ── Offline write safety. Installs before/after-request hooks that make any
 # mutating endpoint replay-safe when the client sends an X-IP-Op-Id, plus the
 # one endpoint the offline queue uses to ask "did these ops land?".
