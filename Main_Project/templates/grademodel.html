@@ -278,7 +278,49 @@ document.addEventListener('click', e => {
     dropMenu.classList.remove('open');
 });
 
+/* Normalise one assignment row coming off /gradebook/detail.
+
+   The three providers disagree about how to say "no score yet". Canvas
+   sends points_earned as an empty string and a display_score of
+   "Not Graded"; StudentVue sends an explicit graded flag; a manually
+   added row has neither. Left alone, every downstream template literal
+   that reads `a.points_earned` prints the raw value, which is where the
+   bare `undefined` in the breakdown came from.
+
+   One rule, applied once, at the boundary: after this, `points_earned`
+   is a finite number or null, and `graded` is a real boolean. Nothing
+   further down has to guess. */
+const PENDING_LABELS = new Set(['', 'not graded', 'not due', 'missing', 'pending', 'ungraded', '-', '–', 'n/a']);
+
+function _num(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = typeof v === 'number' ? v : parseFloat(String(v).trim());
+  return Number.isFinite(n) ? n : null;
+}
+
+function normalizeAssignment(a) {
+  const earned = _num(a.points_earned);
+  const possible = _num(a.points_possible);
+  const label = String(a.display_score || a.score_label || '').trim().toLowerCase();
+
+  // An explicit server-side flag wins. Otherwise a row counts as graded
+  // only when there is a real number AND the provider is not also
+  // labelling it as outstanding.
+  const graded = a.graded === true
+    ? earned !== null
+    : (earned !== null && !PENDING_LABELS.has(label));
+
+  return Object.assign({}, a, {
+    points_earned: earned,
+    points_possible: possible,
+    graded: graded
+  });
+}
+
 function selectCourse(course) {
+  course = Object.assign({}, course, {
+    assignments: (course.assignments || []).map(normalizeAssignment)
+  });
   selectedCourse = course;
   // Snapshot the original assignments so Reset can restore them exactly.
   originalAssignments = JSON.parse(JSON.stringify(course.assignments || []));
@@ -503,14 +545,20 @@ function renderBreakdown(assignments) {
     card.className = 'assignment-card ' + (a.graded ? 'low' : 'medium');
     card.style.animationDelay = `${i * 0.05}s`;
 
-    const scoreDisplay = a.graded
-      ? `${a.points_earned} / ${a.points_possible} pts`
-      : a.points_possible
-        ? `- / ${a.points_possible} pts`
-        : 'Ungraded';
+    /* Every branch here prints something a student can read. A row with
+       no score is "Not graded", never a stray `undefined` — a number the
+       app does not have should look like an absence, not like data. */
+    const earned = _num(a.points_earned);
+    const possible = _num(a.points_possible);
 
-    const pct = (a.graded && a.points_possible)
-      ? Math.round((a.points_earned / a.points_possible) * 100) + '%'
+    const scoreDisplay = (a.graded && earned !== null && possible)
+      ? `${earned} / ${possible} pts`
+      : possible
+        ? `Not graded · ${possible} pts`
+        : 'Not graded';
+
+    const pct = (a.graded && earned !== null && possible)
+      ? Math.round((earned / possible) * 100) + '%'
       : '';
 
     // Find the matching original (pre-simulation) record to decide

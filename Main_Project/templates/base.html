@@ -1467,18 +1467,64 @@ if (mobileMenuBtn) {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(map)); } catch(e){}
   }
 
-  function applyHidden() {
+  /* Order is stored separately from visibility, as a plain list of keys.
+     Anything not named in the stored list keeps its template position at
+     the end — so shipping a new sidebar item does not require touching
+     everybody's saved order, and a saved order that names a link we have
+     since removed is simply ignored. */
+  const ORDER_KEY = 'ip_sideOrder';
+  function loadOrder() {
+    try {
+      const v = JSON.parse(localStorage.getItem(ORDER_KEY) || '[]');
+      return Array.isArray(v) ? v.filter(k => typeof k === 'string') : [];
+    } catch(e) { return []; }
+  }
+  function saveOrder(list) {
+    try { localStorage.setItem(ORDER_KEY, JSON.stringify(list || [])); } catch(e){}
+  }
+
+  function applyLayout() {
     if (!side) return;
     const hidden = loadHidden();
-    navLinks().forEach(link => {
+    const links = navLinks();
+    links.forEach(link => {
       const key = link.dataset.navItem;
       link.classList.toggle('nav-hidden', !!hidden[key] && !NEVER_HIDE.has(key));
     });
+
+    const order = loadOrder();
+    if (!order.length) return;
+    const list = side.querySelector('.side-nav-list');
+    if (!list) return;
+    const byKey = new Map(links.map(l => [l.dataset.navItem, l]));
+    // Named keys first, in the saved order; everything else keeps its
+    // relative template order behind them.
+    const seen = new Set();
+    const sorted = [];
+    order.forEach(k => { const el = byKey.get(k); if (el && !seen.has(k)) { sorted.push(el); seen.add(k); } });
+    links.forEach(el => { if (!seen.has(el.dataset.navItem)) sorted.push(el); });
+    sorted.forEach(el => list.appendChild(el));
   }
 
+  // Kept as an alias: several call sites and the command palette refer to
+  // this by name, and visibility is still the common case.
+  const applyHidden = applyLayout;
+
   function labelFor(link) {
-    // Visible label = the link's text (icon is an SVG, badges are empty).
-    return (link.textContent || link.dataset.navItem || '').trim();
+    /* The link's own text, minus anything that is not part of its name.
+
+       Reading textContent wholesale was fine while the badges were empty,
+       but Streak and My Pet fill theirs in from the API — so once a user
+       had a streak the customizer started listing "Streak 4d" and
+       "My Pet L10". Walk the direct children and take only the bare text
+       nodes: the icon is an <svg> and every badge is a <span>, so what is
+       left is exactly the label. */
+    var out = '';
+    for (var n = link.firstChild; n; n = n.nextSibling) {
+      if (n.nodeType === 3) out += n.nodeValue;
+    }
+    out = out.replace(/\s+/g, ' ').trim();
+    return out || (link.dataset.navItem || '').trim();
   }
 
   function renderCustomizer() {
@@ -1535,10 +1581,11 @@ if (mobileMenuBtn) {
     if (e.target.id === 'navCustomizer') close();
   });
   document.getElementById('navCustomizerReset')?.addEventListener('click', async () => {
-    if (!await IP.confirm('Every item you hid will come back.',
+    if (!await IP.confirm('Every item you hid will come back, in the default order.',
                           { title: 'Reset the sidebar?', confirmLabel: 'Reset' })) return;
     saveHidden({});
-    applyHidden();
+    saveOrder([]);
+    applyLayout();
     renderCustomizer();
   });
   document.addEventListener('keydown', e => {
@@ -1546,9 +1593,65 @@ if (mobileMenuBtn) {
   });
 
   // Apply on load
-  applyHidden();
+  applyLayout();
   // Expose for the command palette
   window.openSidebarCustomizer = open;
+
+  /* One source of truth, published.
+
+     Settings used to carry its own hand-written list of sidebar entries
+     and its own storage key, and the two drifted: it offered Tutor,
+     Focus Timer, AP Library and Task Extractor — none of which are in
+     the sidebar — while omitting Command Center, Memories, My Pet,
+     Balance, Ideas and My Stats, which are. Nothing it saved was ever
+     read back, because the sidebar reads this module's keys.
+
+     Everything about the real nav is derived from the rendered links, so
+     any page that wants to offer sidebar customisation asks here rather
+     than describing the sidebar a second time. */
+  window.IPSidebar = {
+    /* [{key, label, icon, locked, hidden}] in current display order. */
+    items: function () {
+      const hidden = loadHidden();
+      const order = loadOrder();
+      const links = navLinks();
+      const rank = k => {
+        const i = order.indexOf(k);
+        return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+      };
+      return links
+        .map((link, i) => ({
+          key: link.dataset.navItem,
+          label: labelFor(link),
+          icon: link.querySelector('.side-icon svg')?.innerHTML || '',
+          locked: NEVER_HIDE.has(link.dataset.navItem),
+          hidden: !!hidden[link.dataset.navItem] && !NEVER_HIDE.has(link.dataset.navItem),
+          _i: i
+        }))
+        // Stable: equal ranks (both unnamed in the saved order) fall back
+        // to template position rather than to an arbitrary sort result.
+        .sort((a, b) => (rank(a.key) - rank(b.key)) || (a._i - b._i))
+        .map(({ _i, ...rest }) => rest);
+    },
+    setHidden: function (key, isHidden) {
+      if (NEVER_HIDE.has(key) && isHidden) return false;
+      const map = loadHidden();
+      if (isHidden) map[key] = true; else delete map[key];
+      saveHidden(map);
+      applyLayout();
+      return true;
+    },
+    setOrder: function (keys) {
+      saveOrder(Array.isArray(keys) ? keys : []);
+      applyLayout();
+    },
+    reset: function () {
+      saveHidden({});
+      saveOrder([]);
+      applyLayout();
+    },
+    apply: applyLayout
+  };
 })();
 
 /* ── SIDEBAR GROUP COLLAPSE/EXPAND ────────────────────────────
