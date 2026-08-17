@@ -21,6 +21,8 @@ from scheduler_engine import (
     strip_auto_breaks,
     summarize_progress,
     windows_for_date,
+    long_break_after_for,
+    slot_for_hour,
 )
 
 MONDAY = date(2026, 7, 27)  # a Monday
@@ -579,3 +581,126 @@ def test_describe_week_lists_real_hours_and_busy_periods():
     assert "Mon: evening" in text
     assert "busy" in text
     assert "Tue: no study time available" in text
+
+
+# ── Measured sittings (/active) ───────────────────────────────────────
+#
+# The app records real timed sittings: how long the student actually
+# worked, how long they held focus, how often they drifted, and whether
+# the work got done. None of it reached the scheduler — these cover the
+# wiring, and specifically the places where a measurement must beat a
+# self-report.
+
+
+def _session(**kw):
+    base = {
+        "planned_minutes": 60,
+        "active_minutes": 60,
+        "course": "",
+        "completed_work": True,
+        "distraction_events": 0,
+        "focus_streak_minutes": 0,
+        "day_of_week": "Mon",
+        "time_of_day": "evening",
+    }
+    base.update(kw)
+    return base
+
+
+def test_sessions_alone_are_enough_to_personalize():
+    """A student who has never filled in a feedback form, but has run real
+    sittings, is not a blank slate."""
+    dna = build_study_dna(session_rows=[_session() for _ in range(6)])
+    assert dna.has_signal
+    assert dna.session_samples == 6
+
+
+def test_measured_focus_beats_remembered_duration():
+    """Block size should come from how long they held focus, not from how
+    long the task took including every interruption."""
+    rows = [
+        _session(active_minutes=90, planned_minutes=90, focus_streak_minutes=25)
+        for _ in range(MIN_SAMPLES_FOR_SIGNAL)
+    ]
+    dna = build_study_dna(session_rows=rows)
+    assert dna.has_measured_focus
+    assert dna.focus_streak_minutes == 25
+    # 90 was the wall-clock effort; 25 is what they can actually sustain.
+    assert dna.block_minutes() == 25
+
+
+def test_focus_streak_ignored_when_not_measured():
+    """A zero from a session with the check-in off is an absence of
+    measurement, not a measurement of zero focus."""
+    dna = build_study_dna(session_rows=[_session(focus_streak_minutes=0) for _ in range(8)])
+    assert dna.focus_streak_minutes is None
+    assert not dna.has_measured_focus
+    assert dna.block_minutes() == dna.stamina_minutes
+
+
+def test_sessions_reveal_estimation_bias():
+    rows = [
+        _session(planned_minutes=30, active_minutes=60)
+        for _ in range(MIN_SAMPLES_FOR_SIGNAL)
+    ]
+    dna = build_study_dna(session_rows=rows)
+    assert dna.estimation_ratio == pytest.approx(2.0)
+    assert dna.adjust_estimate(30) == 60
+
+
+def test_frequent_distraction_shortens_the_run_before_a_break():
+    steady = build_study_dna(session_rows=[
+        _session(active_minutes=30, focus_streak_minutes=30) for _ in range(8)
+    ])
+    distracted = build_study_dna(session_rows=[
+        _session(active_minutes=30, focus_streak_minutes=30, distraction_events=3)
+        for _ in range(8)
+    ])
+    assert distracted.distractions_per_hour is not None
+    assert distracted.distractions_per_hour > steady.distractions_per_hour
+    assert long_break_after_for(distracted) < long_break_after_for(steady)
+
+
+def test_distraction_rate_needs_an_hour_of_evidence():
+    """One distraction in a ten-minute sitting is not six per hour."""
+    dna = build_study_dna(session_rows=[
+        _session(active_minutes=5, distraction_events=1) for _ in range(5)
+    ])
+    assert dna.distractions_per_hour is None
+
+
+def test_unfinished_sittings_are_reported():
+    rows = [_session(completed_work=(i < 2)) for i in range(10)]
+    dna = build_study_dna(session_rows=rows)
+    assert dna.session_completion == pytest.approx(0.2)
+    assert "smaller pieces" in dna.to_prompt()
+
+
+def test_late_night_is_evening_not_morning():
+    """1 AM must not be credited to the morning slot — that would steer next
+    week's hardest work into a slot they never study in."""
+    assert slot_for_hour(1) == "evening"
+    assert slot_for_hour(23) == "evening"
+    assert slot_for_hour(8) == "morning"
+    assert slot_for_hour(14) == "afternoon"
+
+
+def test_feedback_and_sessions_pool():
+    feedback = [
+        {"estimated_time": 30, "actual_time": 45, "course": "bio",
+         "day_of_week": "Mon", "time_of_day": "evening"}
+        for _ in range(2)
+    ]
+    sessions = [_session(planned_minutes=30, active_minutes=45, course="bio")
+                for _ in range(2)]
+    dna = build_study_dna(feedback, None, sessions)
+    assert dna.estimation_ratio == pytest.approx(1.5)
+    assert dna.course_ratios["bio"] == pytest.approx(1.5)
+
+
+def test_no_sessions_changes_nothing():
+    """The pre-existing contract: no history means no personalization."""
+    dna = build_study_dna([], [], [])
+    assert not dna.has_signal
+    assert dna.block_minutes() == DEFAULT_STAMINA_MINUTES
+    assert dna.to_prompt() == ""
