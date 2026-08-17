@@ -236,12 +236,38 @@ function hydrateHealth(h) {
     details.hidden = false;
     list.innerHTML = comps.map(function(c) {
       var cls = c.impact > 0 ? 'cc-delta-up' : c.impact < 0 ? 'cc-delta-down' : '';
+      /* An impact of exactly 0 is informational (see health.py — the
+         completion component is emitted with impact 0 below the bonus
+         threshold). "+0" reads like the score moved and it did not. */
+      var impact = c.impact > 0 ? '+' + c.impact : c.impact < 0 ? String(c.impact) : '—';
       return '<div class="cc-component-row">'
-        + '<span class="cc-component-label">' + escapeHtml(c.key) + '</span>'
-        + '<span class="cc-component-delta ' + cls + '">' + (c.impact > 0 ? '+' : '') + c.impact + '</span>'
+        + '<span class="cc-component-label">' + escapeHtml(healthComponentLabel(c.key)) + '</span>'
+        + '<span class="cc-component-delta ' + cls + '">' + impact + '</span>'
         + '<span class="cc-component-note">' + escapeHtml(c.reason) + '</span></div>';
     }).join('');
   }
+}
+
+/* The API's component keys are internal identifiers, and they were being
+   printed to the user as-is — "schedule_balance", "declining_courses".
+   Map the known ones to real names, and fall back to de-snake-casing
+   anything added later so a new key degrades to readable rather than to
+   raw. */
+/* Keys as emitted by intelliplan/intelligence/health.py — keep in step
+   with the key="…" arguments there. */
+var CC_HEALTH_LABELS = {
+  overdue: 'Overdue work',
+  high_stakes_soon: 'Big items due soon',
+  failing_courses: 'Failing courses',
+  declining_courses: 'Slipping grades',
+  completion_7d: 'Completion rate',
+  schedule_balance: 'Schedule balance'
+};
+function healthComponentLabel(key) {
+  if (!key) return '';
+  if (CC_HEALTH_LABELS[key]) return CC_HEALTH_LABELS[key];
+  var words = String(key).replace(/_/g, ' ').trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 /* ── Pet / Momentum data ── */
@@ -584,6 +610,70 @@ function planiHideTyping() {
   if (el) el.remove();
 }
 
+/* Navigation is a proposal, not a command.
+
+   This used to fire `window.location.href` on a 700ms timer as soon as
+   the model asked for it — so the assistant could pull the user off the
+   page mid-thought, and anything they had typed and not sent went with
+   it. Leaving the Command Center is the single most disruptive thing
+   this assistant can do, so it asks first. Declining is a real option
+   and costs nothing: the answer is already in the thread. */
+var CC_NAV_LABELS = {
+  '/scheduler': 'Scheduler',
+  '/dashboard': 'Dashboard',
+  '/gradebook': 'Grade Modeler',
+  '/grademodel': 'Grade Modeler',
+  '/memories': 'Memories',
+  '/streak': 'Streak',
+  '/pet': 'My Pet',
+  '/balance': 'Balance',
+  '/study-and-learn': 'Study & Learn',
+  '/my-stats': 'My Stats',
+  '/settings': 'Settings'
+};
+
+function planiNavLabel(url) {
+  var path = String(url || '').split('?')[0].replace(/\/$/, '') || '/';
+  return CC_NAV_LABELS[path] || path;
+}
+
+function planiOfferNavigation(url) {
+  if (!url) return;
+
+  // Same-origin, app-relative only. A navigate directive is model output,
+  // and model output must never be able to send the user off-site.
+  var target;
+  try {
+    target = new URL(url, window.location.origin);
+  } catch (e) { return; }
+  if (target.origin !== window.location.origin) return;
+  var href = target.pathname + target.search + target.hash;
+
+  var stream = document.getElementById('ccChatMessages');
+  if (!stream) return;
+
+  var row = document.createElement('div');
+  row.className = 'cc-chat-nav-offer';
+  row.setAttribute('role', 'group');
+  row.setAttribute('aria-label', 'Navigation suggestion');
+  row.innerHTML =
+    '<span class="cc-chat-nav-text">Open <strong></strong>?</span>' +
+    '<button type="button" class="cc-chat-nav-go">Take me there</button>' +
+    '<button type="button" class="cc-chat-nav-no">Stay here</button>';
+  // textContent, not innerHTML — the label can be a raw path from the model.
+  row.querySelector('strong').textContent = planiNavLabel(href);
+
+  row.querySelector('.cc-chat-nav-go').addEventListener('click', function() {
+    window.location.href = href;
+  });
+  row.querySelector('.cc-chat-nav-no').addEventListener('click', function() {
+    row.remove();
+  });
+
+  stream.appendChild(row);
+  stream.scrollTop = stream.scrollHeight;
+}
+
 function planiSend() {
   if (planiSending) return;
   var input = document.getElementById('ccChatInput');
@@ -618,8 +708,7 @@ function planiSend() {
           setTimeout(function() { ccBootstrap(); }, 400);
         }
         if (data.navigate) {
-          ccToast('Opening ' + data.navigate, 'info');
-          setTimeout(function() { window.location.href = data.navigate; }, 700);
+          planiOfferNavigation(data.navigate);
         }
         hydrateMomentum();
       } else if (res.status === 401) {

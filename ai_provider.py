@@ -19,7 +19,16 @@ Tier = Literal["standard", "fast", "vision"]
 
 # ── Model config ──────────────────────────────────────────────────
 GEMINI_STANDARD = os.getenv("GEMINI_STANDARD_MODEL", "gemini-2.5-flash")
-GEMINI_FAST = os.getenv("GEMINI_FAST_MODEL", "gemini-2.0-flash-lite")
+# gemini-2.0-flash-lite has been retired. The API's own 404 names the
+# replacement: "This model models/gemini-2.0-flash-lite is no longer
+# available. Please update your code to use models/gemini-3.5-flash-lite".
+#
+# This mattered more than a model bump: the fast tier is what generates
+# the daily briefing, so every 404 fell through to the Groq fallback,
+# and with no Groq key configured it fell through again to the static
+# template. The Command Center was quietly serving canned text while
+# reporting itself healthy — the only trace was one log line per call.
+GEMINI_FAST = os.getenv("GEMINI_FAST_MODEL", "gemini-3.5-flash-lite")
 GEMINI_VISION = os.getenv("GEMINI_VISION_MODEL", "gemini-2.5-flash")
 
 GROQ_STANDARD = os.getenv("GROQ_STANDARD_MODEL", "llama-3.3-70b-versatile")

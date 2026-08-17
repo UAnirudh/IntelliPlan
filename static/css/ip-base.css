@@ -1807,6 +1807,18 @@
     :root[data-theme="light"] { color-scheme: light; }
     :root[data-theme="dark"]  { color-scheme: dark; }
 
+    /* `hidden` is a UA-stylesheet `display: none`, which means any author
+       rule that sets `display` on the same element silently defeats it.
+       That is not a theoretical hazard here — it is what kept the Command
+       Center's error banner ("Try again", with no message) on screen
+       permanently, because the banner's own rule set `display: flex`.
+
+       This restores the attribute to meaning what everyone writing
+       `el.hidden = true` assumes it means. Anything that genuinely needs
+       to be laid out while hidden can use a class instead; nothing in the
+       app currently does. */
+    [hidden]:not([hidden="until-found"]) { display: none !important; }
+
     select.form-input option,
     select.form-input optgroup,
     body select option,

@@ -189,11 +189,28 @@ PERSONALITY: Friendly, smart, concise. Talk like a sharp friend who's also their
 
 WHAT YOU CAN DO: You have tools to read AND write the user's data. When the user asks you to do something, USE THE TOOLS. Don't explain what you would do — actually do it.
 
+WHAT YOU ALREADY KNOW: Every message arrives with a live snapshot of this
+user's account — who they are, today's prioritised plan, their academic
+health and why it moved, their grades, their workload for the next seven
+days, their saved schedule, their memories, their streak and study
+history. Read it before you reply. Answer from it directly; do not call a
+tool to look up something the snapshot already states, and never open with
+"let me check" when the answer is already in front of you. Be specific:
+name their actual courses, their actual assignments, their actual numbers.
+The whole point of this seat is that you are not a generic chatbot — you
+are the one thing in the app that can see everything at once.
+
 INTELLIGENT BEHAVIOR:
 - If the user says "mark X done", call complete_task with title="X".
 - If they say "reschedule Y to tomorrow", call update_task with title="Y" and due_date.
-- If they ask "what should I focus on", call get_today_plan and summarize the top 2-3.
-- If they ask "take me to the scheduler", call navigate_to with section="scheduler".
+- "What should I focus on" is already answered by the snapshot — answer it
+  straight away, then offer to act. Only call get_today_plan if you need
+  items beyond the ones listed.
+- If they ask to go somewhere, call navigate_to. The client ASKS the user
+  before moving them, so propose freely — but say in your reply where you
+  are offering to take them and why, because that is what they will be
+  agreeing to. Never navigate as a way of avoiding an answer you could
+  give here.
 - Chain multiple tools when needed: e.g. list_tasks → identify the target → complete_task.
 
 SCHEDULING — VERY IMPORTANT:
@@ -744,6 +761,277 @@ def _humanize_action(tool: str, args: dict, result: dict) -> str | None:
 MAX_TOOL_ROUNDS = 5
 
 
+# ── Standing context ─────────────────────────────────────────────────
+#
+# Plani used to start every conversation knowing nothing. The system
+# prompt described its tools and then handed it the raw message — so
+# "what should I work on?" cost a round-trip to get_today_plan before it
+# could say anything, and anything the model did not think to ask about
+# (the user's grade level, their streak, what they saved to memories) it
+# simply never knew. It read as a chatbot bolted onto the page rather
+# than as the centre of the app.
+#
+# This assembles what the app already knows about the user into the
+# system prompt, once, before the first token. Tools remain for depth and
+# for writes; this is the standing picture.
+#
+# Three rules hold it together:
+#   1. Every section is independently guarded. This runs on the critical
+#      path of every message, and a missing pet row must not cost the
+#      user their assistant.
+#   2. It is budgeted. Everything is truncated to a line or two — the
+#      point is to know *that* something exists so the model can ask the
+#      right follow-up tool for detail, not to inline the database.
+#   3. It is honest about absence. A section with nothing in it is
+#      omitted rather than rendered empty, so the model does not read a
+#      blank as a zero.
+
+_CTX_MAX_CHARS = 6000
+
+
+def _ctx_section(title: str, lines: list[str]) -> str:
+    lines = [l for l in lines if l]
+    if not lines:
+        return ""
+    return f"\n[{title}]\n" + "\n".join(f"  {l}" for l in lines)
+
+
+def _safe(fn, default=None):
+    """Run a context probe; never let it break the conversation."""
+    try:
+        return fn()
+    except Exception as e:  # noqa: BLE001 - context is best-effort by design
+        logger.debug("Plani context probe failed: %s", e)
+        return default
+
+
+def build_agent_context(user_id: int) -> str:
+    """Everything the app knows about this user, as a prompt block."""
+    from App import (
+        ManualTask, SavedSchedule, CourseNote, UserStreak, PlaniPet,
+        StudyPoints, StudySession, UserIdentity, db,
+        build_student_context, _ai_personalization_enabled,
+        _summarize_grade_signals, _fetch_grades_for_personalization,
+        collect_lms_assignments_for_user,
+    )
+
+    today = datetime.now().date()
+    today_str = today.strftime("%Y-%m-%d")
+    parts: list[str] = []
+
+    # ── Who they are ────────────────────────────────────────────────
+    def _identity():
+        grades_summary = None
+        if _ai_personalization_enabled():
+            grades_summary = _safe(
+                lambda: _summarize_grade_signals(_fetch_grades_for_personalization())
+            )
+        block = build_student_context(
+            user_id=user_id, grades_summary=grades_summary, depth="full"
+        )
+        # build_student_context returns its own delimited block; strip the
+        # delimiters so it nests inside this one instead of opening a
+        # second, competing "context" frame in the prompt.
+        return (block or "").replace("=== STUDENT CONTEXT (use to personalize, do NOT echo verbatim) ===", "") \
+                            .replace("=== END STUDENT CONTEXT ===", "").strip()
+
+    ident_block = _safe(_identity, "") or ""
+    if ident_block:
+        parts.append("\n[WHO THEY ARE]\n" + "\n".join(
+            "  " + l.strip() for l in ident_block.splitlines() if l.strip()
+        ))
+
+    def _profile_extras():
+        ui = db.session.get(UserIdentity, user_id) or \
+            UserIdentity.query.filter_by(user_id=user_id).first()
+        if not ui:
+            return []
+        out = []
+        if not ui.completed:
+            out.append("Onboarding questionnaire is not finished — some "
+                       "personalisation is missing. Offer to fill the gaps.")
+        cls = _safe(lambda: json.loads(ui.class_schedule or "[]"), []) or []
+        if cls:
+            out.append(f"Has a class schedule on file with {len(cls)} slots.")
+        return out
+
+    parts.append(_ctx_section("PROFILE", _safe(_profile_extras, []) or []))
+
+    # ── Today: plan, health, briefing, workload ─────────────────────
+    # One service build, reused — this is the expensive probe, so it must
+    # not be run once per section.
+    def _today():
+        from command_center_glue import _build_service
+        from intelliplan.api.serialize import today_to_dict
+        return today_to_dict(_build_service().build(user_id))
+
+    data = _safe(_today, {}) or {}
+
+    if data:
+        brief = data.get("briefing") or {}
+        health = data.get("health") or {}
+        plan = data.get("plan") or []
+        forecast = data.get("forecast") or {}
+
+        lines = []
+        if brief.get("headline"):
+            lines.append(f"Briefing: {brief['headline']} — {brief.get('body', '')}".strip(" —"))
+        if health.get("score") is not None:
+            lines.append(
+                f"Academic health: {health['score']}/100 ({health.get('tier', '')}), "
+                f"{health.get('delta_vs_yesterday', 0):+d} vs yesterday"
+            )
+        for c in (health.get("components") or [])[:5]:
+            lines.append(f"  · {c.get('key')}: {c.get('reason')} ({c.get('impact'):+})")
+        parts.append(_ctx_section("TODAY", lines))
+
+        plan_lines = []
+        for t in plan[:6]:
+            pr = t.get("priority") or {}
+            plan_lines.append(
+                f"{t.get('title')} ({t.get('course') or 'no course'}) "
+                f"due {t.get('due_date') or '—'}, {t.get('est_minutes') or '?'}min, "
+                f"priority {pr.get('tier') or '?'} — {t.get('why_now') or ''}".strip()
+            )
+        if len(plan) > 6:
+            plan_lines.append(f"…and {len(plan) - 6} more. Call get_today_plan for the full list.")
+        parts.append(_ctx_section("TODAY'S PRIORITISED PLAN", plan_lines))
+
+        f_lines = []
+        if forecast.get("summary"):
+            f_lines.append(str(forecast["summary"]))
+        if forecast.get("heaviest_day"):
+            f_lines.append(f"Heaviest day ahead: {forecast['heaviest_day']}")
+        for d in (forecast.get("days") or [])[:7]:
+            f_lines.append(
+                f"{d.get('date')}: {d.get('committed_min', 0)}min committed of "
+                f"{d.get('available_min', 0)}min available (stress {d.get('stress')})"
+            )
+        parts.append(_ctx_section("7-DAY WORKLOAD", f_lines))
+
+    # ── Work on their plate ─────────────────────────────────────────
+    def _tasks():
+        manual = ManualTask.query.filter_by(user_id=user_id, done=False).all()
+        lms = _safe(lambda: collect_lms_assignments_for_user(user_id), []) or []
+        overdue = [t for t in manual if t.due_date and t.due_date < today_str]
+        overdue += [a for a in lms if a.get("due_date") and a["due_date"] < today_str]
+        due_today = [t for t in manual if t.due_date == today_str]
+        due_today += [a for a in lms if a.get("due_date") == today_str]
+        out = [
+            f"{len(manual)} open manual tasks, {len(lms)} synced from connected LMS accounts.",
+            f"{len(overdue)} overdue, {len(due_today)} due today.",
+        ]
+        if overdue:
+            titles = [getattr(t, 'title', None) or t.get('title', '') for t in overdue[:4]]
+            out.append("Overdue: " + "; ".join(x for x in titles if x))
+        return out
+
+    parts.append(_ctx_section("WORKLOAD", _safe(_tasks, []) or []))
+
+    # ── Courses and grades ──────────────────────────────────────────
+    def _courses():
+        summary = _safe(lambda: _summarize_grade_signals(_fetch_grades_for_personalization()))
+        if not summary:
+            return []
+        out = []
+        cg = summary.get("course_grades") or []
+        if cg:
+            out.append("Grades: " + ", ".join(
+                f"{r['course']} {int(r['percent'])}%" if r.get("percent") is not None
+                else f"{r['course']} (ungraded)"
+                for r in cg[:10]
+            ))
+        if summary.get("weak"):
+            out.append("Struggling in: " + ", ".join(summary["weak"][:4]))
+        return out
+
+    parts.append(_ctx_section("COURSES & GRADES", _safe(_courses, []) or []))
+
+    # ── Their saved schedule ────────────────────────────────────────
+    def _schedule():
+        s = (SavedSchedule.query
+             .filter_by(user_id=user_id, is_active=True)
+             .order_by(SavedSchedule.created_at.desc()).first())
+        if not s:
+            return ["No active study schedule saved. generate_schedule creates one."]
+        sd = _safe(lambda: json.loads(s.schedule_data), {}) or {}
+        days = sd.get("schedule") or []
+        blocks = sum(len([b for b in (d.get("blocks") or []) if not b.get("is_break")])
+                     for d in days)
+        return [
+            f'Active schedule "{s.name}" covering {len(days)} days, {blocks} study blocks.',
+            f"Overview: {sd.get('overview', '')}"[:300],
+        ]
+
+    parts.append(_ctx_section("STUDY SCHEDULE", _safe(_schedule, []) or []))
+
+    # ── What they've told the app to remember ───────────────────────
+    def _memories():
+        notes = (CourseNote.query
+                 .filter_by(user_id=user_id)
+                 .order_by(CourseNote.id.desc()).limit(8).all())
+        if not notes:
+            return []
+        out = ["Recent memories (call up detail if relevant):"]
+        for n in notes:
+            snippet = (n.summary_cache or n.text_content or "").strip().replace("\n", " ")
+            out.append(f"  · [{n.note_date}] {n.course_name} — {n.title}: {snippet[:120]}")
+        return out
+
+    parts.append(_ctx_section("MEMORIES", _safe(_memories, []) or []))
+
+    # ── Momentum: streak, pet, sparks, study history ────────────────
+    def _momentum():
+        out = []
+        st = UserStreak.query.filter_by(user_id=user_id).first()
+        if st:
+            out.append(
+                f"Task streak: {st.current_streak} days (best {st.longest_streak}), "
+                f"{st.freezes_available} freezes left."
+            )
+        pet = PlaniPet.query.filter_by(user_id=user_id).first()
+        if pet:
+            out.append(f"Study pet: {getattr(pet, 'name', 'Pet')}, "
+                       f"level {getattr(pet, 'level', 1)}.")
+        pts = StudyPoints.query.filter_by(user_id=user_id).first()
+        if pts:
+            out.append(f"Sparks: {pts.spark_balance} balance, level {pts.level}, "
+                       f"{pts.streak_count}-day study streak.")
+        sessions = (StudySession.query
+                    .filter_by(user_id=user_id, completed=True)
+                    .order_by(StudySession.id.desc()).limit(10).all())
+        if sessions:
+            mins = sum((s.duration_seconds or 0) for s in sessions) // 60
+            asked = sum((s.questions_total or 0) for s in sessions)
+            right = sum((s.questions_correct or 0) for s in sessions)
+            acc = f", {round(right / asked * 100)}% accuracy" if asked else ""
+            out.append(f"Last {len(sessions)} study sessions: {mins} minutes{acc}.")
+        return out
+
+    parts.append(_ctx_section("MOMENTUM", _safe(_momentum, []) or []))
+
+    body = "".join(p for p in parts if p).strip()
+    if not body:
+        return ""
+
+    if len(body) > _CTX_MAX_CHARS:
+        # Truncate on a line boundary — a half-line of data reads as a
+        # fact, and a fact cut in half is a wrong fact.
+        body = body[:_CTX_MAX_CHARS].rsplit("\n", 1)[0] + \
+            "\n  …context truncated; use the read tools for anything not listed."
+
+    return (
+        "\n=== WHAT YOU ALREADY KNOW ABOUT THIS USER ===\n"
+        "This is live data from their account, assembled just now. Treat it "
+        "as true and current — you do NOT need to call a tool to re-read "
+        "anything already stated here. Use it to answer immediately and "
+        "specifically. Call the read tools only for detail this does not "
+        "cover, and never repeat this block back verbatim.\n"
+        f"{body}\n"
+        "=== END ===\n"
+    )
+
+
 @plani_agent_bp.route("/api/plani/agent", methods=["POST"])
 def plani_agent():
     user_id = _get_user_id()
@@ -777,7 +1065,8 @@ def plani_agent():
             "reply": "AI is temporarily unavailable. Try again in a moment."}), 503
 
     system = AGENT_SYSTEM_PROMPT + "\n\n" + _tool_list_prompt() + \
-        f"\n\nToday's date: {datetime.now().strftime('%A, %Y-%m-%d')}."
+        f"\n\nToday's date: {datetime.now().strftime('%A, %Y-%m-%d')}." + \
+        (build_agent_context(user_id) or "")
     recent = messages[-12:]
     llm_messages = [{"role": "system", "content": system}] + recent
     actions: list[str] = []

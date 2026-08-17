@@ -2328,6 +2328,13 @@ def _asset_version() -> str:
 
 @app.context_processor
 def inject_asset_version():
+    # In debug the fingerprint must not be cached: the lru_cache above is
+    # what makes this cheap in production (one filesystem walk per
+    # process), but it also means an edited stylesheet keeps the previous
+    # ?v= for the life of the dev server — so the browser serves the old
+    # file from cache and the edit appears not to have worked at all.
+    if app.debug:
+        _asset_version.cache_clear()
     return dict(asset_v=_asset_version())
 
 
