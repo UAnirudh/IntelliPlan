@@ -228,12 +228,21 @@ def windows_for_date(
     preferred_time: str = "evening",
     commitments: str | None = None,
     now: datetime | None = None,
+    busy_by_date: Mapping[_date, Sequence[tuple[int, int]]] | None = None,
 ) -> list[Window]:
     """Return the free study windows on ``target``, in chronological order.
 
     Falls back to the ``preferred_time`` slot when the student hasn't recorded
     availability for that weekday, so this is safe for brand-new users and
     guests. Windows on today are trimmed to start no earlier than "now".
+
+    ``busy_by_date`` is dated committed time — ``{date: [(start_minute,
+    end_minute)]}`` — from the student's real calendar. Weekly commitments
+    typed into settings recur; a dentist appointment does not, and until this
+    existed the scheduler would happily book study time on top of one. It is
+    subtracted alongside the recurring commitments, so both kinds of "I am not
+    available" are treated as what they are: time that exists on the clock and
+    is not the student's to spend.
     """
     day_key = DAY_ABBR[target.weekday()]
     slots: list[str] = []
@@ -254,7 +263,15 @@ def windows_for_date(
         slots = [fallback if fallback in SLOT_WINDOWS else "evening"]
     slots.sort(key=lambda s: SLOT_ORDER.index(s))
 
-    busy = _merge(parse_commitments(commitments).get(day_key, []))
+    dated: list[tuple[int, int]] = []
+    for start_m, end_m in (busy_by_date or {}).get(target, ()) or ():
+        try:
+            start_i, end_i = int(start_m), int(end_m)
+        except (TypeError, ValueError):
+            continue
+        if end_i > start_i:
+            dated.append((max(0, start_i), min(24 * 60, end_i)))
+    busy = _merge(list(parse_commitments(commitments).get(day_key, [])) + dated)
     bases = _merge((SLOT_WINDOWS[s][0] * 60, SLOT_WINDOWS[s][1] * 60) for s in slots)
 
     now = now or datetime.now()
@@ -1017,12 +1034,24 @@ def plan_capacity(
     availability: Mapping[str, Any] | None,
     preferred_time: str | None = None,
     commitments: str | None = None,
+    busy_by_date: Mapping[_date, Sequence[tuple[int, int]]] | None = None,
 ) -> dict[str, int]:
-    """Free minutes per day, keyed by ISO date, from the student's windows."""
+    """Free minutes per day, keyed by ISO date, from the student's windows.
+
+    ``busy_by_date`` is dated committed time from the real calendar, passed
+    straight through to :func:`windows_for_date`. It has to be threaded here
+    rather than left to the per-day placement pass: this is the number the
+    day allocator budgets against, and a capacity model that says a day has
+    three free hours when the calendar says two of them are a dentist
+    appointment will confidently place work into the appointment.
+    """
     out: dict[str, int] = {}
     for offset in range(max(0, days)):
         d = start + timedelta(days=offset)
-        windows = windows_for_date(d, availability, preferred_time, commitments)
+        windows = windows_for_date(
+            d, availability, preferred_time, commitments,
+            busy_by_date=busy_by_date,
+        )
         out[_iso(d)] = sum(w.minutes for w in windows if w.minutes >= MIN_WINDOW_MINUTES)
     return out
 

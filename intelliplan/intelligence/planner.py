@@ -94,6 +94,12 @@ class PlannerTask:
     title: str
     course: str = ""
     kind: str = "homework"
+    #: When this task is one stage of a larger assignment, the assignment's
+    #: own title. Everything downstream that matches a block back to the
+    #: assignment it came from — enrichment, the interactive view, the
+    #: calendar export — keys on this, because "Essay — Write the draft"
+    #: matches no assignment in the student's list.
+    parent_title: str = ""
     due_date: date | None = None
     est_minutes: int | None = None
     difficulty: str = "medium"
@@ -106,6 +112,10 @@ class PlannerTask:
     subtask_count: int = 0
     #: Ids of tasks that must be finished before this one starts.
     depends_on: tuple[str, ...] = ()
+    #: Position in the parent assignment's sequence of stages, 1-based. Only
+    #: used to order stages that land on the same day, where the dependency
+    #: bounds are satisfied but the day still has to read in the right order.
+    stage_index: int = 0
     #: Minutes already spent (in-progress work carries over on reschedule).
     done_minutes: int = 0
     #: Concepts this task exercises. Used to detect a week that stacks
@@ -203,6 +213,12 @@ class Session:
     #: Model bookkeeping — surfaced in the "how this was planned" panel.
     estimate_ratio: float = 1.0
     estimate_confidence: float = 0.0
+    #: The parent assignment's title when this session is one stage of a
+    #: larger piece of work. Empty otherwise; read ``parent_title or title``.
+    parent_title: str = ""
+    #: Position in the parent assignment's stage sequence, 1-based; 0 when the
+    #: work was not decomposed.
+    stage_index: int = 0
 
     @property
     def label(self) -> str:
@@ -354,6 +370,9 @@ class _Item:
     reasons: tuple[str, ...] = ()
     #: Set when the item could not be placed. Explains what blocked it.
     defer_reason: str = ""
+    #: Task ids that wait on this one. The inverse of ``task.depends_on``,
+    #: precomputed because the constraint is checked once per candidate day.
+    dependents: tuple[str, ...] = ()
 
     @property
     def load(self) -> float:
@@ -586,7 +605,83 @@ def _build_items(
             )
 
     _apply_dependencies(items, days)
+
+    # Invert the dependency edges once. Both directions are needed: a
+    # prerequisite must not be pushed past its dependent any more than a
+    # dependent may be pulled in front of its prerequisite.
+    dependents: dict[str, set[str]] = {}
+    for it in items:
+        for dep_id in it.task.depends_on:
+            dependents.setdefault(dep_id, set()).add(it.task.id)
+    for it in items:
+        it.dependents = tuple(sorted(dependents.get(it.task.id, ())))
+
     return items
+
+
+def _index_by_task(items: Sequence[_Item]) -> dict[str, list[_Item]]:
+    """``{task_id: sittings}``, rebuilt when placements may have changed."""
+    out: dict[str, list[_Item]] = {}
+    for it in items:
+        out.setdefault(it.task.id, []).append(it)
+    return out
+
+
+def _dependency_layers(items: Sequence[_Item]) -> dict[str, int]:
+    """Depth of each task in the prerequisite graph, 0 for tasks with none.
+
+    Placing in layer order is what makes the live bounds in :func:`_dep_bounds`
+    useful: by the time a dependent is placed, everything it waits on already
+    has a day. Cycles are broken by refusing to recurse rather than by raising
+    — a cycle in dependency data is a data problem, and it must not cost the
+    student their whole plan.
+    """
+    deps: dict[str, tuple[str, ...]] = {}
+    for it in items:
+        deps.setdefault(it.task.id, it.task.depends_on)
+
+    layer: dict[str, int] = {}
+
+    def depth(task_id: str, seen: frozenset[str]) -> int:
+        if task_id in layer:
+            return layer[task_id]
+        if task_id in seen:
+            return 0
+        parents = [d for d in deps.get(task_id, ()) if d in deps]
+        value = 0 if not parents else 1 + max(
+            depth(p, seen | {task_id}) for p in parents
+        )
+        layer[task_id] = value
+        return value
+
+    for task_id in deps:
+        depth(task_id, frozenset())
+    return layer
+
+
+def _dep_bounds(
+    item: _Item, by_task: Mapping[str, list[_Item]]
+) -> tuple[date | None, date | None]:
+    """``(earliest_allowed, latest_allowed)`` from where relatives actually sit.
+
+    Window tightening alone does not order anything. Two stages of one essay
+    can have overlapping windows, and then nothing stops the optimizer putting
+    "write the draft" on Monday and "research" on Tuesday — which is what it
+    did. This reads the *current placements* instead, so the constraint is
+    about where work is, not where it could have gone.
+    """
+    lo: date | None = None
+    for dep_id in item.task.depends_on:
+        for prereq in by_task.get(dep_id, ()):
+            if prereq.day is not None and (lo is None or prereq.day > lo):
+                lo = prereq.day
+
+    hi: date | None = None
+    for dependent_id in item.dependents:
+        for sitting in by_task.get(dependent_id, ()):
+            if sitting.day is not None and (hi is None or sitting.day < hi):
+                hi = sitting.day
+    return lo, hi
 
 
 def _apply_dependencies(items: list[_Item], days: Sequence[date]) -> None:
@@ -594,9 +689,9 @@ def _apply_dependencies(items: list[_Item], days: Sequence[date]) -> None:
 
     One pass of constraint propagation: a dependent's earliest day moves
     forward past its prerequisite's latest, and a prerequisite's latest
-    moves back before its dependent's. Cycles are ignored rather than
-    diagnosed — a cycle in student-entered dependencies is a data problem,
-    not something to fail a whole plan over.
+    moves back before its dependent's. This is a *hint* to the search, not
+    the guarantee — the guarantee comes from :func:`_dep_bounds`, which reads
+    real placements. Cycles are ignored rather than diagnosed.
     """
     by_task: dict[str, list[_Item]] = {}
     for it in items:
@@ -635,9 +730,16 @@ def _assign(
     than forced somewhere — the caller retries them once local search has
     rearranged what is already down.
     """
+    # Layer first: a dependent placed before its prerequisite has nothing to
+    # constrain it, and the live bounds in _dep_bounds only bite once the work
+    # they refer to has a day. Within a layer, deadline order still decides —
+    # the work with the least freedom claims its days first.
+    layers = _dependency_layers(items)
+    by_task = _index_by_task(items)
     ordered = sorted(
         items,
         key=lambda it: (
+            layers.get(it.task.id, 0),
             it.hard_latest,
             -it.task.priority,
             it.task.id,
@@ -645,7 +747,7 @@ def _assign(
         ),
     )
     for item in ordered:
-        _place_best(item, days, state, config)
+        _place_best(item, days, state, config, by_task)
 
 
 def _place_best(
@@ -653,11 +755,22 @@ def _place_best(
     days: Sequence[date],
     state: dict[date, _DayState],
     config: PlannerConfig,
+    by_task: Mapping[str, list[_Item]] | None = None,
 ) -> bool:
     """Put ``item`` on its cheapest feasible day. False when none exists."""
-    candidates = [d for d in days if item.earliest <= d <= item.hard_latest]
+    lo, hi = _dep_bounds(item, by_task) if by_task else (None, None)
+    candidates = [
+        d for d in days
+        if item.earliest <= d <= item.hard_latest
+        and (lo is None or d >= lo)
+        and (hi is None or d <= hi)
+    ]
     if not candidates:
-        item.defer_reason = "No day left before the deadline."
+        item.defer_reason = (
+            "Waiting on an earlier step that leaves no room before the deadline."
+            if lo is not None or hi is not None
+            else "No day left before the deadline."
+        )
         return False
     best_day, best_cost = None, math.inf
     for d in candidates:
@@ -680,12 +793,13 @@ def _retry_deferred(
     config: PlannerConfig,
 ) -> None:
     """Second chance for unplaced work, hardest-constrained first."""
+    by_task = _index_by_task(items)
     unplaced = sorted(
         (it for it in items if it.day is None),
         key=lambda it: (it.hard_latest, -it.task.priority, it.task.id, it.part_index),
     )
     for item in unplaced:
-        _place_best(item, days, state, config)
+        _place_best(item, days, state, config, by_task)
 
 
 def _optimise(
@@ -715,6 +829,8 @@ def _optimise(
     elif len(items) > 80:
         passes = min(passes, 4)
 
+    by_task = _index_by_task(items)
+
     for _ in range(passes):
         improved = False
         for item in items:
@@ -724,8 +840,14 @@ def _optimise(
             current.remove(item)
             base_cost = _placement_cost(item, item.day, current, horizon, config.weights)
             best_day, best_cost = item.day, base_cost
+            # Recomputed per item, because every accepted move changes the
+            # bounds of the item's relatives. A cheaper day that puts the
+            # draft before the research is not cheaper.
+            lo, hi = _dep_bounds(item, by_task)
             for d in days:
                 if d == item.day or not (item.earliest <= d <= item.hard_latest):
+                    continue
+                if (lo is not None and d < lo) or (hi is not None and d > hi):
                     continue
                 cost = _placement_cost(item, d, state[d], horizon, config.weights)
                 if cost < best_cost - 1e-9:
@@ -948,6 +1070,8 @@ def _materialise(
                 reasons=_reasons_for(item, state[item.day]),
                 estimate_ratio=item.estimate.ratio,
                 estimate_confidence=item.estimate.confidence,
+                parent_title=item.task.parent_title,
+                stage_index=item.task.stage_index,
             )
         )
 
@@ -958,6 +1082,11 @@ def _materialise(
             key=lambda s: (
                 s.due_date or date.max,
                 -s.priority,
+                # Stages of one assignment share a deadline and a priority, so
+                # without this they would order by task id — which spells
+                # "revise" before "write the draft" on any day that holds both.
+                s.parent_title,
+                s.stage_index,
                 s.task_id,
                 s.part_index,
             ),
@@ -1143,6 +1272,8 @@ def task_from_mapping(row: Mapping[str, Any]) -> PlannerTask:
         id=str(row.get("id") or row.get("task_id") or row.get("title") or "task"),
         title=str(row.get("title") or row.get("assignment") or "Task"),
         course=str(row.get("course") or ""),
+        parent_title=str(row.get("parent_title") or ""),
+        stage_index=_clamp_int(row.get("stage_index"), 0, 0, 99),
         kind=str(row.get("kind") or row.get("type") or "homework").strip().lower(),
         due_date=due,
         est_minutes=_int_or_none(row.get("est_minutes") or row.get("duration_minutes")),

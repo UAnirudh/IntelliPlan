@@ -272,6 +272,69 @@ Effect on the brief's example, both worth 50 points:
 | "Complete problems 12–18" | 75 min | 28 min |
 | "Write a 2,000-word researched essay" | 75 min | 600 min |
 
+### P2 — done (2026-08-16)
+
+`intelliplan/intelligence/decomposition.py`: stage templates for research
+paper, essay, exam, presentation, lab report, project, and reading, with
+effort shares, prerequisite edges, and notes. Work earns stages by being over
+150 minutes *and* by being a kind whose phases are different activities;
+repetitive work is never staged, and every refusal carries a reason.
+
+The stages exposed a dependency bug. `_apply_dependencies` only tightened
+windows, which orders nothing — two stages of one essay can have overlapping
+windows, and the optimizer duly placed "write the draft" before "research".
+Prerequisite edges had existed in `PlannerTask` since the planner was written
+and nothing ever populated them, so it had never been exercised. Ordering is
+now enforced against real placements: `_dependency_layers` places shallowest
+first, `_dep_bounds` clamps candidate days to where an item's prerequisites and
+dependents actually sit (both directions), local search re-checks per item, and
+`stage_index` orders the one day that holds two stages of the same work.
+
+### P3 — done (2026-08-16)
+
+`intelliplan/services/prioritisation.py` retires `App._priority_score_for`. The
+scheduler now scores with the same five-component engine as the Command Center,
+over the whole list at once because the dependency component is a property of
+the set. The student's High/Medium/Low label nudges the score by 12 rather than
+replacing it — enough that marking something high visibly pulls it earlier, not
+enough to let a "Low" label bury an overdue midterm.
+
+`PlannerTask.concepts` is populated for the first time, matched from the title
+and description against the student's own tracked concept vocabulary on word
+boundaries. `concept_stack` and `weak_concept_penalty` stop being dead code.
+
+### P4 — done (2026-08-16)
+
+`intelliplan/services/recovery.py` + `POST /schedule/recover`. `build_reality`
+reads the saved plan and its progress blob; only days strictly before today
+count as missed, and a task is finished only when every sitting it was given is
+checked off. Completed and abandoned minutes come from both the checkboxes and
+Active-study sittings, taking the larger per task so overlapping evidence
+credits the work once. The whole remaining horizon is then re-optimised under
+the same cost function, and `summarise_changes` reports what moved and why.
+Returns `changed: false` when nothing slipped, and saves in place when
+something did.
+
+### P5 — done (2026-08-16)
+
+`windows_for_date` takes `busy_by_date` and subtracts real calendar events
+alongside typed commitments. `google_calendar_helper.busy_minutes_by_date`
+reads the whole horizon in one free/busy query, converts UTC to the student's
+local minute-of-day, and splits events that span midnight across both days.
+Every failure path degrades to "no busy time known" rather than costing the
+student a plan.
+
+### Still open
+
+- **P6** — the explanation surface. Deferrals, overload, per-session reasons,
+  stage labels, priority reasons and the recovery diff all exist in the payload
+  and are not yet first-class in the UI. `/schedule/recover` has no button.
+- Availability is still three fixed slots per day. Calendar events now carve
+  into them, but a student whose free time is 16:20–17:35 cannot say so.
+- `MIN_DECOMPOSE_MINUTES`, the sizing rates, and `LABEL_NUDGE` are priors
+  chosen with reasons, not measured. They are the obvious candidates for
+  fitting against real completion data once there is enough of it.
+
 ### What StudentVue can and cannot supply
 
 Stated plainly so nobody builds on data that is not there. The Gradebook SOAP

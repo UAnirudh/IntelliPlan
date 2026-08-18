@@ -26,11 +26,13 @@ project replaced.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
 from typing import Any, Mapping, Sequence
 
 import scheduler_engine
+from intelliplan.intelligence.decomposition import decompose
 from intelliplan.intelligence.estimation import EstimationModel, build_estimation_model
 from intelliplan.intelligence.planner import (
     DayCapacity,
@@ -107,15 +109,26 @@ class StudentContext:
     #: hard limit. ``None`` means they never said, so the planner's default
     #: target utilisation applies.
     daily_target_minutes: int | None = None
+    #: Dated committed time from the student's real calendar,
+    #: ``{date: [(start_minute, end_minute)]}``. Weekly commitments recur; a
+    #: dentist appointment does not, and study time booked on top of one is a
+    #: plan the student cannot follow.
+    busy_by_date: Mapping[date, Sequence[tuple[int, int]]] = field(default_factory=dict)
 
 
 class SchedulingService:
     """Builds plans for one student. Stateless between calls."""
 
-    def __init__(self, context: StudentContext, config: PlannerConfig | None = None) -> None:
+    def __init__(
+        self,
+        context: StudentContext,
+        config: PlannerConfig | None = None,
+        decompose_stages: bool = True,
+    ) -> None:
         self._ctx = context
         self._config = config or PlannerConfig()
         self._model: EstimationModel | None = None
+        self._decompose = decompose_stages
 
     # ── Model ─────────────────────────────────────────────────────────
 
@@ -158,6 +171,7 @@ class SchedulingService:
                     self._ctx.preferred_time,
                     self._ctx.commitments,
                     now=now,
+                    busy_by_date=self._ctx.busy_by_date,
                 )
             except Exception as exc:
                 # A malformed availability blob must not cost the student a
@@ -185,7 +199,12 @@ class SchedulingService:
     # ── Tasks ─────────────────────────────────────────────────────────
 
     def tasks_from(self, rows: Sequence[Mapping[str, Any]]) -> list[PlannerTask]:
-        """Normalise assignment dicts and attach concept-difficulty signal."""
+        """Normalise assignment dicts and attach concept-difficulty signal.
+
+        Large work of a recognisable shape is expanded into ordered stages
+        here rather than in the planner, because the planner's job is to place
+        work, not to have opinions about what writing an essay involves.
+        """
         tasks: list[PlannerTask] = []
         for row in rows:
             try:
@@ -193,11 +212,88 @@ class SchedulingService:
             except Exception as exc:
                 logger.warning("skipping unparseable task %r: %s", row, exc)
                 continue
-            penalty = self._weak_concept_penalty(task.concepts)
+            concepts = task.concepts or self._concepts_in(task, row)
+            if concepts != task.concepts:
+                task = replace(task, concepts=concepts)
+            penalty = self._weak_concept_penalty(concepts)
             if penalty > 0:
                 task = replace(task, weak_concept_penalty=penalty)
-            tasks.append(task)
+            tasks.extend(self._staged(task, row))
         return tasks
+
+    def _staged(
+        self, task: PlannerTask, row: Mapping[str, Any]
+    ) -> list[PlannerTask]:
+        """One task, or its stages when decomposition earns its place.
+
+        Each stage becomes a first-class :class:`PlannerTask` with its own
+        minutes and a real ``depends_on`` edge, which the planner already
+        knows how to respect — it has simply never been given any. That is
+        what stops the plan from scheduling "revise the draft" on Tuesday and
+        "write the draft" on Thursday.
+        """
+        if not self._decompose:
+            return [task]
+        try:
+            result = decompose(
+                minutes=int(task.est_minutes or 0),
+                title=task.title,
+                kind=task.kind,
+                description=str(row.get("description") or ""),
+                problem_count=int(task.subtask_count or 0),
+            )
+        except Exception as exc:
+            logger.warning("decomposition failed for %r: %s", task.title, exc)
+            return [task]
+        if not result.applied:
+            return [task]
+
+        out: list[PlannerTask] = []
+        for index, stage in enumerate(result.stages, start=1):
+            out.append(
+                replace(
+                    task,
+                    id=f"{task.id}::{stage.key}",
+                    title=f"{task.title} — {stage.label}",
+                    parent_title=task.title,
+                    stage_index=index,
+                    est_minutes=stage.minutes,
+                    # The stage minutes were carved out of an estimate that
+                    # already accounted for work done, so re-subtracting it
+                    # per stage would shrink the task once per stage.
+                    done_minutes=0,
+                    depends_on=tuple(f"{task.id}::{d}" for d in stage.depends_on),
+                    # A stage that wants one unbroken sitting says so by
+                    # declaring no internal subtasks to split at.
+                    subtask_count=0,
+                )
+            )
+        return out
+
+    def _concepts_in(self, task: PlannerTask, row: Mapping[str, Any]) -> tuple[str, ...]:
+        """Concepts this task touches, matched against what the student studies.
+
+        The planner has priced ``concept_stack`` — the cost of piling several
+        shaky ideas into one day — since it was written, and nothing ever
+        populated ``PlannerTask.concepts``, so the weight has been dead code
+        and the concept-mastery table was loaded and then ignored.
+
+        The vocabulary is strictly the student's own tracked concepts, matched
+        on word boundaries in the title and description. That is deliberately
+        conservative: inventing concepts from an assignment title is how a
+        planner starts asserting that "Chapter 4" is about integrals.
+        """
+        mastery = self._ctx.concept_mastery
+        if not mastery:
+            return ()
+        haystack = f"{task.title} {row.get('description') or ''}".lower()
+        if not haystack.strip():
+            return ()
+        found = [
+            name for name in mastery
+            if len(name) >= 4 and re.search(rf"\b{re.escape(name)}\b", haystack)
+        ]
+        return tuple(sorted(set(found))[:8])
 
     def _weak_concept_penalty(self, concepts: Sequence[str]) -> float:
         """How shaky this task's concepts are for this student, 0..1."""
@@ -264,6 +360,7 @@ class SchedulingService:
             commitments=self._ctx.commitments,
             stamina_minutes=self.model.stamina_minutes,
             now=now,
+            busy_by_date=self._ctx.busy_by_date,
         )
 
 
@@ -277,6 +374,7 @@ def plan_to_schedule_data(
     commitments: str | None = None,
     stamina_minutes: int = 45,
     now: datetime | None = None,
+    busy_by_date: Mapping[date, Sequence[tuple[int, int]]] | None = None,
 ) -> dict[str, Any]:
     """Render a plan as ``{"schedule": [{date, blocks: [...]}, ...], ...}``."""
     now = now or datetime.now()
@@ -296,7 +394,11 @@ def plan_to_schedule_data(
                 {
                     "id": f"b{block_id}",
                     "assignment": session.label,
-                    "parent_title": session.title,
+                    # The assignment this block belongs to, which for a stage
+                    # is not its own title. Enrichment, the interactive view
+                    # and the calendar export all match on this.
+                    "parent_title": session.parent_title or session.title,
+                    "stage_title": session.title if session.parent_title else "",
                     "task_id": session.task_id,
                     "course": session.course,
                     "duration_minutes": session.minutes,
@@ -318,7 +420,8 @@ def plan_to_schedule_data(
         window_minutes = 0
         try:
             windows = scheduler_engine.windows_for_date(
-                day_plan.day, availability, preferred_time, commitments, now=now
+                day_plan.day, availability, preferred_time, commitments, now=now,
+                busy_by_date=busy_by_date,
             )
             window_minutes = sum(w.minutes for w in windows)
             placed, spilled = scheduler_engine.place_day_blocks(
