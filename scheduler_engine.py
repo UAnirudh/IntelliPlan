@@ -38,6 +38,20 @@ SLOT_WINDOWS: dict[str, tuple[int, int]] = {
 SLOT_ORDER: tuple[str, ...] = ("morning", "afternoon", "evening")
 DAY_ABBR: tuple[str, ...] = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
+
+def slot_for_hour(hour: int) -> str:
+    """Name the availability slot an hour-of-day falls in.
+
+    Late-night hours (22:00–06:00) fold into "evening": they are outside
+    every configured slot, and calling 1 AM "morning" would credit a
+    student's 1 AM sitting to a slot they never study in and steer next
+    week's hardest work there.
+    """
+    for name, (lo, hi) in SLOT_WINDOWS.items():
+        if lo <= hour < hi:
+            return name
+    return "evening" if hour >= 17 or hour < 6 else "morning"
+
 #: A free window shorter than this can't hold a useful study block.
 MIN_WINDOW_MINUTES = 20
 #: Below this many history rows a signal is noise, so we don't act on it.
@@ -85,11 +99,7 @@ class Window:
 
     def slot(self) -> str:
         """Which availability slot this window mostly sits in."""
-        hour = self.start.hour
-        for name, (lo, hi) in SLOT_WINDOWS.items():
-            if lo <= hour < hi:
-                return name
-        return "evening" if hour >= 17 else "morning"
+        return slot_for_hour(self.start.hour)
 
 
 def _parse_clock(text: str, meridiem: str | None) -> tuple[int, int] | None:
@@ -296,9 +306,55 @@ class StudyDNA:
     #: Fraction of past scheduled blocks checked off, 0..1.
     adherence: float | None = None
 
+    # ── Measured from real sittings (/active) ────────────────────────
+    #
+    # Everything above is inferred from what the student *told* us after
+    # the fact. These come from the timer: how long they actually held
+    # focus, how often they broke it, how often a sitting ended without
+    # the work being done. This is the difference between a planner that
+    # models a student and one that models a generic student.
+    #
+    #: Median longest uninterrupted focused stretch, in minutes. Measured
+    #: by the focus check-in rather than self-reported, so it is the
+    #: truest statement available of how long this person can actually
+    #: work — and a far better block size than "how long did that take".
+    focus_streak_minutes: int | None = None
+    #: Distractions per hour of active work. Drives break cadence: a
+    #: student who drifts every 12 minutes is not served by a 90-minute
+    #: run at anything.
+    distractions_per_hour: float | None = None
+    #: Share of sittings that ended with the work actually finished.
+    #: Distinct from adherence, which counts blocks ticked off a plan —
+    #: this counts sittings that achieved something.
+    session_completion: float | None = None
+    #: Number of real sittings behind the fields above.
+    session_samples: int = 0
+
     @property
     def has_signal(self) -> bool:
         return self.sample_size >= MIN_SAMPLES_FOR_SIGNAL
+
+    @property
+    def has_measured_focus(self) -> bool:
+        """True when the timer, not a self-report, is driving block size."""
+        return (
+            self.session_samples >= MIN_SAMPLES_FOR_SIGNAL
+            and self.focus_streak_minutes is not None
+        )
+
+    def block_minutes(self) -> int:
+        """The length of a single sitting this student can actually hold.
+
+        Measured focus wins over remembered duration when we have it:
+        "this task took me 90 minutes" includes every time they got up,
+        checked their phone and came back, whereas the longest focused
+        streak is the part they could actually sustain. Planning to the
+        second number produces blocks people finish.
+        """
+        if self.has_measured_focus:
+            lo, hi = STAMINA_BOUNDS
+            return int(max(lo, min(hi, self.focus_streak_minutes)))
+        return int(self.stamina_minutes or DEFAULT_STAMINA_MINUTES)
 
     def adjust_estimate(self, minutes: int, course: str = "") -> int:
         """Correct a raw estimate using the student's measured bias."""
@@ -332,11 +388,30 @@ class StudyDNA:
                 f"{sum(self.slot_counts.values())} finished tasks). "
                 f"Put the hardest work there."
             )
-        if self.stamina_minutes:
+        if self.has_measured_focus:
+            bits.append(
+                f"Measured focus: their longest uninterrupted focused stretch is "
+                f"typically {self.focus_streak_minutes} minutes (from {self.session_samples} "
+                f"timed sittings, not self-reported). Size single blocks to this — "
+                f"work scheduled past it is work they stop partway through."
+            )
+        elif self.stamina_minutes:
             bits.append(
                 f"Their typical finished block is {self.stamina_minutes} minutes — "
                 f"do not schedule single blocks much longer than this."
             )
+        if self.distractions_per_hour is not None and self.distractions_per_hour >= 1.5:
+            bits.append(
+                f"They lose focus about {self.distractions_per_hour:.1f} times per hour — "
+                f"schedule shorter runs with breaks between them rather than long stretches."
+            )
+        if self.session_completion is not None and self.session_samples >= MIN_SAMPLES_FOR_SIGNAL:
+            pct = int(round(self.session_completion * 100))
+            if pct < 50:
+                bits.append(
+                    f"Only ~{pct}% of their study sittings end with the work finished — "
+                    f"break work into smaller pieces so a sitting can actually complete one."
+                )
         if self.strong_days:
             bits.append(f"Historically productive days: {', '.join(self.strong_days)}.")
         if self.weak_days:
@@ -380,6 +455,7 @@ def _clamp_ratio(value: float) -> float | None:
 def build_study_dna(
     feedback_rows: Sequence[Mapping[str, Any]] | None = None,
     progress_records: Sequence[Mapping[str, Any]] | None = None,
+    session_rows: Sequence[Mapping[str, Any]] | None = None,
 ) -> StudyDNA:
     """Distill completion history into a :class:`StudyDNA`.
 
@@ -387,11 +463,36 @@ def build_study_dna(
     ``actual_time``, ``course``, ``day_of_week``, ``time_of_day``).
     ``progress_records`` are ``{"total": int, "done": int}`` summaries derived
     from ``SavedSchedule.progress_json``.
+    ``session_rows`` are dict views of ``ActiveSession`` — real timed sittings
+    (keys: ``planned_minutes``, ``active_minutes``, ``course``, ``day_of_week``,
+    ``time_of_day``, ``completed_work``, ``focus_streak_minutes``,
+    ``distraction_events``).
+
+    Sessions are the strongest evidence available and were previously not
+    consulted at all: the app measured how long students actually worked,
+    when they worked, and when they lost focus, and then planned their week
+    from what they had typed into an estimate box. Where a session and a
+    self-report disagree, the session wins — see :meth:`StudyDNA.block_minutes`.
 
     Returns a zeroed DNA when there is nothing to learn from, which every
     consumer treats as "no personalization".
     """
     rows = [r for r in (feedback_rows or []) if isinstance(r, Mapping)]
+    sessions = [s for s in (session_rows or []) if isinstance(s, Mapping)]
+
+    def _sess_int(s: Mapping[str, Any], key: str) -> int:
+        try:
+            return int(s.get(key) or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    # A sitting only tells us about duration if it was actually worked and
+    # was planned against something. Free-form sessions still inform slot,
+    # weekday and focus, just not estimation bias.
+    sess_timed = [
+        s for s in sessions
+        if _sess_int(s, "planned_minutes") > 0 and _sess_int(s, "active_minutes") > 0
+    ]
     timed = [
         r
         for r in rows
@@ -399,17 +500,22 @@ def build_study_dna(
         and int(r["actual_time"]) > 0 and int(r["estimated_time"]) > 0
     ]
 
+    # Estimation bias, from both sources. A timed sitting against a planned
+    # length is the same measurement as estimated-vs-actual, taken by the
+    # clock instead of by memory, so the two pool cleanly.
+    all_ratios = [
+        r for r in (
+            _clamp_ratio(int(t["actual_time"]) / int(t["estimated_time"])) for t in timed
+        ) if r is not None
+    ] + [
+        r for r in (
+            _clamp_ratio(_sess_int(s, "active_minutes") / _sess_int(s, "planned_minutes"))
+            for s in sess_timed
+        ) if r is not None
+    ]
     estimation_ratio = None
-    if len(timed) >= MIN_SAMPLES_FOR_SIGNAL:
-        ratios = [
-            r
-            for r in (
-                _clamp_ratio(int(t["actual_time"]) / int(t["estimated_time"])) for t in timed
-            )
-            if r is not None
-        ]
-        if len(ratios) >= MIN_SAMPLES_FOR_SIGNAL:
-            estimation_ratio = round(median(ratios), 3)
+    if len(all_ratios) >= MIN_SAMPLES_FOR_SIGNAL:
+        estimation_ratio = round(median(all_ratios), 3)
 
     course_ratios: dict[str, float] = {}
     by_course: dict[str, list[float]] = {}
@@ -420,12 +526,22 @@ def build_study_dna(
         ratio = _clamp_ratio(int(t["actual_time"]) / int(t["estimated_time"]))
         if ratio is not None:
             by_course.setdefault(course, []).append(ratio)
+    for s in sess_timed:
+        course = str(s.get("course") or "").strip().lower()
+        if not course:
+            continue
+        ratio = _clamp_ratio(_sess_int(s, "active_minutes") / _sess_int(s, "planned_minutes"))
+        if ratio is not None:
+            by_course.setdefault(course, []).append(ratio)
     for course, ratios in by_course.items():
         if len(ratios) >= 2:
             course_ratios[course] = round(median(ratios), 3)
 
+    # When did they work? Sessions count double-weight here in the sense
+    # that they are simply additional observations — but they are the only
+    # ones taken at the time rather than recalled afterwards.
     slot_counts: dict[str, int] = {}
-    for r in rows:
+    for r in list(rows) + list(sessions):
         slot = str(r.get("time_of_day") or "").strip().lower()
         if slot in SLOT_WINDOWS:
             slot_counts[slot] = slot_counts.get(slot, 0) + 1
@@ -434,7 +550,7 @@ def build_study_dna(
         best_slot = max(slot_counts.items(), key=lambda kv: kv[1])[0]
 
     dow_counts: dict[str, int] = {}
-    for r in rows:
+    for r in list(rows) + list(sessions):
         day = str(r.get("day_of_week") or "").strip()[:3].title()
         if day in DAY_ABBR:
             dow_counts[day] = dow_counts.get(day, 0) + 1
@@ -446,10 +562,33 @@ def build_study_dna(
         weak_days = [d for d in DAY_ABBR if dow_counts.get(d, 0) <= avg * 0.4]
 
     stamina = DEFAULT_STAMINA_MINUTES
-    actuals = [int(t["actual_time"]) for t in timed]
+    actuals = [int(t["actual_time"]) for t in timed] + \
+        [_sess_int(s, "active_minutes") for s in sess_timed]
     if len(actuals) >= MIN_SAMPLES_FOR_SIGNAL:
         lo, hi = STAMINA_BOUNDS
         stamina = int(max(lo, min(hi, median(actuals))))
+
+    # ── Signals only a timed sitting can provide ────────────────────
+    focus_streaks = [
+        m for m in (_sess_int(s, "focus_streak_minutes") for s in sessions) if m > 0
+    ]
+    focus_streak_minutes = (
+        int(round(median(focus_streaks))) if len(focus_streaks) >= MIN_SAMPLES_FOR_SIGNAL
+        else None
+    )
+
+    distractions_per_hour = None
+    focus_minutes_total = sum(_sess_int(s, "active_minutes") for s in sessions)
+    distraction_total = sum(_sess_int(s, "distraction_events") for s in sessions)
+    # An hour of observed work is the floor for a rate — below that, one
+    # distraction during a ten-minute sitting reads as "six per hour".
+    if len(sessions) >= MIN_SAMPLES_FOR_SIGNAL and focus_minutes_total >= 60:
+        distractions_per_hour = round(distraction_total / (focus_minutes_total / 60.0), 2)
+
+    session_completion = None
+    if len(sessions) >= MIN_SAMPLES_FOR_SIGNAL:
+        finished = sum(1 for s in sessions if s.get("completed_work"))
+        session_completion = round(finished / len(sessions), 3)
 
     adherence = None
     totals = sum(int(p.get("total") or 0) for p in (progress_records or []) if isinstance(p, Mapping))
@@ -458,7 +597,10 @@ def build_study_dna(
         adherence = round(min(1.0, dones / totals), 3)
 
     return StudyDNA(
-        sample_size=len(rows),
+        # Sessions are evidence too — a student who has never filled in a
+        # feedback form but has run twenty timed sittings knows more about
+        # themselves than has_signal used to admit.
+        sample_size=len(rows) + len(sessions),
         estimation_ratio=estimation_ratio,
         course_ratios=course_ratios,
         best_slot=best_slot,
@@ -467,6 +609,10 @@ def build_study_dna(
         weak_days=weak_days,
         stamina_minutes=stamina,
         adherence=adherence,
+        focus_streak_minutes=focus_streak_minutes,
+        distractions_per_hour=distractions_per_hour,
+        session_completion=session_completion,
+        session_samples=len(sessions),
     )
 
 
@@ -520,9 +666,22 @@ def long_break_after_for(dna: "StudyDNA | None") -> int:
     lands exactly on the old fixed value, so a student with no measured
     history sees no change.
     """
-    if dna is None or not dna.stamina_minutes:
+    if dna is None:
         return LONG_BREAK_AFTER_MINUTES
-    return max(45, min(120, int(round(dna.stamina_minutes * 2))))
+
+    base = dna.block_minutes()
+    if not base:
+        return LONG_BREAK_AFTER_MINUTES
+
+    run = base * 2
+    # A student the timer has watched drift several times an hour does not
+    # get two sittings before a break — the second sitting is the one they
+    # were already losing. Shorten the run toward a single sitting as the
+    # measured distraction rate climbs.
+    if dna.distractions_per_hour is not None and dna.distractions_per_hour >= 1.5:
+        run = base * (1 if dna.distractions_per_hour >= 3 else 1.5)
+
+    return max(45, min(120, int(round(run))))
 
 
 def _due_rank(block: Mapping[str, Any]) -> str:
@@ -634,7 +793,11 @@ def place_day_blocks(
     # the reflow path: those blocks are where the student just dragged them,
     # and multiplying them would undo the arrangement.
     if not preserve_order:
-        blocks = split_oversized_blocks(blocks, int(dna.stamina_minutes * 1.5))
+        # block_minutes(), not stamina_minutes: where the timer has measured
+        # how long this student actually holds focus, that is the sitting
+        # length worth splitting to. A remembered "that took 90 minutes"
+        # counts the interruptions; the focus streak does not.
+        blocks = split_oversized_blocks(blocks, int(dna.block_minutes() * 1.5))
 
     # Front-load demanding work into the student's best measured slot.
     if dna.best_slot and len(usable) > 1 and not preserve_order:

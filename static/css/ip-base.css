@@ -1499,7 +1499,16 @@
       }
     }
     @supports (backdrop-filter: blur(1px)) {
-      body .ck-drawer, body .iv-move-menu, body .dropdown-menu, body .ipd-modal,
+      /* .dropdown-menu is deliberately NOT in this list.
+
+         Glass works for a drawer or a modal, which cover most of the
+         viewport and want to signal what is behind them. A dropdown is a
+         small panel of short text lines that opens directly over dense
+         content — a course menu in the Grade Modeler opens on top of the
+         assignment table — and a blurred translucent background there
+         does not read as depth, it reads as two sets of text sharing the
+         same pixels. Menus get an opaque surface below instead. */
+      body .ck-drawer, body .iv-move-menu, body .ipd-modal,
       body .mobile-nav-drawer, body .cc-mobile-drawer, body .cc-evolve-card {
         background: var(--glass-bg);
         border-color: var(--glass-border);
@@ -1778,6 +1787,48 @@
     .form-input:focus { border-color:var(--accent); background:var(--glass-btn-hover); box-shadow:0 0 0 3px var(--accent-soft), inset 0 1px 2px rgba(0,0,0,0.04); }
     .form-input::placeholder { color:var(--text-muted); font-weight:400; }
     .form-hint { font-size:0.74rem; color:var(--text-muted); }
+
+    /* ── Native <select> popups ────────────────────────────────────────
+       The list a <select> opens is drawn by the OS, not by this page, and
+       it takes its canvas from the UA's colour scheme — which, with no
+       `color-scheme` declared, is *light* no matter what data-theme says.
+
+       That is the whole bug behind the unreadable dropdowns (Settings →
+       Grades & assignment sources, the carrier picker, the language
+       picker): in dark mode the select inherits `color: var(--text-primary)`
+       — near white — and the popup underneath it stays a light UA canvas,
+       so the options were white-on-white. The 5%-alpha --glass-input-bg
+       could not cover it because a translucent background composites over
+       that same light canvas.
+
+       Two declarations fix every select on the site at once: tell the UA
+       which scheme it is painting for, then give the options an opaque
+       surface of our own rather than a glass one they cannot render. */
+    :root[data-theme="light"] { color-scheme: light; }
+    :root[data-theme="dark"]  { color-scheme: dark; }
+
+    /* `hidden` is a UA-stylesheet `display: none`, which means any author
+       rule that sets `display` on the same element silently defeats it.
+       That is not a theoretical hazard here — it is what kept the Command
+       Center's error banner ("Try again", with no message) on screen
+       permanently, because the banner's own rule set `display: flex`.
+
+       This restores the attribute to meaning what everyone writing
+       `el.hidden = true` assumes it means. Anything that genuinely needs
+       to be laid out while hidden can use a class instead; nothing in the
+       app currently does. */
+    [hidden]:not([hidden="until-found"]) { display: none !important; }
+
+    select.form-input option,
+    select.form-input optgroup,
+    body select option,
+    body select optgroup {
+      background-color: var(--bg-elevated);
+      color: var(--text-primary);
+    }
+    /* Firefox renders the popup in-page and will happily inherit the
+       select's backdrop-filter, which smears the option list. */
+    select.form-input option { -webkit-backdrop-filter: none; backdrop-filter: none; }
 
     /* ══════════════════════════════════════
        LOGIN
@@ -2159,7 +2210,25 @@
     .dropdown-wrap { position:relative; display:inline-block; animation:fadeUp 0.5s var(--ease-out) both; z-index:300; }
     .dropdown-btn { padding:9px 18px; border-radius:var(--r-md); border:1px solid var(--border-strong); background:var(--bg-card); color:var(--text-primary); font-family:var(--font-body); font-size:0.88rem; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:8px; transition:border-color 0.16s; }
     .dropdown-btn:hover { border-color:var(--border-accent); }
-    .dropdown-menu { position:absolute; top:calc(100% + 8px); left:0; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-xl); min-width:180px; overflow:hidden; display:none; z-index:200; animation:fadeUp 0.16s var(--ease-out) both; }
+    /* Opaque on purpose — see the note on the glass @supports block above.
+       --bg-elevated falls back to --bg-card, which is itself opaque in
+       both themes; the shadow is what supplies the sense of a layer, so
+       nothing is lost by not letting the page show through. */
+    .dropdown-menu {
+      position:absolute; top:calc(100% + 8px); left:0;
+      background:var(--bg-elevated, var(--bg-card));
+      border:1px solid var(--border-strong, var(--border));
+      border-radius:var(--r-xl); min-width:180px;
+      display:none; z-index:200;
+      box-shadow: var(--shadow-lg);
+      animation:fadeUp 0.16s var(--ease-out) both;
+      /* A long course list scrolls inside the menu rather than running
+         off the bottom of the viewport. overflow-x stays hidden so the
+         rounded corners still clip the first and last row. */
+      max-height: min(60vh, 420px);
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
     .dropdown-menu.open { display:block; }
 
     /* ══════════════════════════════════════

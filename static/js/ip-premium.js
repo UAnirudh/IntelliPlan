@@ -249,9 +249,118 @@
     window.addEventListener('pageswap', function (e) {
       if (!e.viewTransition) return;
       if (reducedMotion()) { e.viewTransition.skipTransition(); return; }
+      /* 600ms was long enough to be felt as a stall on top of a request
+         that had already taken its time. The transition itself is now
+         ~240ms end to end, so anything past 300 is the browser waiting,
+         not the animation running. */
       setTimeout(function () {
         try { e.viewTransition.skipTransition(); } catch (err) { /* already done */ }
-      }, 600);
+      }, 300);
+    });
+  })();
+
+  /* ─────────────────────────────────────────────
+     6. NAVIGATION PROGRESS
+
+     Answers the complaint this file exists to answer: clicking something
+     that navigates, and watching the page sit still until the server
+     replies. Nothing here makes Flask faster — it makes the wait legible,
+     which is the part that was reading as lag.
+
+     Started from a capture-phase `click`, so it runs before any other
+     handler and before the browser has begun the navigation. Bailing on
+     modified clicks matters: ctrl/cmd-click opens a new tab and this
+     document never goes anywhere, so a bar that filled and stuck would be
+     a lie.
+     ───────────────────────────────────────────── */
+  (function navProgress() {
+    var bar = null;
+    var doneTimer = 0;
+    var creepTimer = 0;
+
+    function el() {
+      if (bar) return bar;
+      bar = document.createElement('div');
+      bar.id = 'ipNavProgress';
+      bar.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(bar);
+      return bar;
+    }
+
+    function start() {
+      var b = el();
+      clearTimeout(doneTimer);
+      clearTimeout(creepTimer);
+      b.classList.remove('is-creeping');
+      b.classList.add('is-on');
+      /* Jump to 30% immediately — the acknowledgement — then creep.
+         Two frames because the class removal above has to be committed
+         before the creep transition can pick up from the new value. */
+      b.style.transform = 'scaleX(0.3)';
+      creepTimer = setTimeout(function () { b.classList.add('is-creeping'); }, 90);
+
+      /* If the navigation never happens (a download, a blocked link, a
+         handler that called preventDefault after we started), retire the
+         bar rather than leaving it parked at 90% forever. */
+      doneTimer = setTimeout(done, 15000);
+    }
+
+    function done() {
+      if (!bar) return;
+      clearTimeout(doneTimer);
+      clearTimeout(creepTimer);
+      bar.classList.remove('is-creeping');
+      bar.style.transform = 'scaleX(1)';
+      setTimeout(function () {
+        if (!bar) return;
+        bar.classList.remove('is-on');
+        setTimeout(function () {
+          if (bar) bar.style.transform = 'scaleX(0)';
+        }, 200);
+      }, 130);
+    }
+
+    function isPlainLeftClick(e) {
+      return e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+    }
+
+    document.addEventListener('click', function (e) {
+      if (!isPlainLeftClick(e)) return;
+      var a = e.target && e.target.closest && e.target.closest('a[href]');
+      if (!a) return;
+      if (a.target && a.target !== '_self') return;
+      if (a.hasAttribute('download')) return;
+      if (a.dataset.noProgress !== undefined) return;
+
+      var href = a.getAttribute('href') || '';
+      // In-page anchors, and javascript:/mailto:/tel: — no document load.
+      if (!href || href.charAt(0) === '#') return;
+
+      var url;
+      try { url = new URL(a.href, location.href); } catch (err) { return; }
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+      if (url.origin !== location.origin) return;
+      // Same document, different hash: the browser scrolls, it does not load.
+      if (url.pathname === location.pathname &&
+          url.search === location.search &&
+          url.hash) return;
+
+      start();
+    }, true);
+
+    document.addEventListener('submit', function (e) {
+      var f = e.target;
+      if (!f || f.dataset.noProgress !== undefined) return;
+      if (f.target && f.target !== '_self') return;
+      start();
+    }, true);
+
+    /* Coming back via bfcache re-shows a document whose bar was left mid-
+       flight. Reset rather than inherit a stale 90%. */
+    window.addEventListener('pageshow', function (e) { if (e.persisted) done(); });
+    window.addEventListener('pagehide', function () {
+      clearTimeout(doneTimer);
+      clearTimeout(creepTimer);
     });
   })();
 })();

@@ -1793,6 +1793,10 @@ ActiveSession, ActiveFocusSample = _as_models.register(db)
 # Notification outbox — durable queue with dedupe, retries, and expiry.
 from intelliplan.notifications import models as _notif_models
 NotificationOutbox = _notif_models.register(db)
+# Single-runner lease for the in-process notification timer. Registered
+# here so create_all() builds it; see notifications_glue.start_ticker for
+# why more than one worker sweeping at once is not safe.
+CronLease = _notif_models.register_lease(db)
 # Offline replay ledger. Registered here, alongside the other models, so
 # the create_all() below builds the table and its unique index; the
 # request hooks that use it are installed further down, once `current_user`
@@ -2328,6 +2332,13 @@ def _asset_version() -> str:
 
 @app.context_processor
 def inject_asset_version():
+    # In debug the fingerprint must not be cached: the lru_cache above is
+    # what makes this cheap in production (one filesystem walk per
+    # process), but it also means an edited stylesheet keeps the previous
+    # ?v= for the life of the dev server — so the browser serves the old
+    # file from cache and the edit appears not to have worked at all.
+    if app.debug:
+        _asset_version.cache_clear()
     return dict(asset_v=_asset_version())
 
 
@@ -5330,7 +5341,42 @@ def build_scheduler_personalization(user_id=None, guest_id=None, feedback_limit=
             scheduler_engine.summarize_progress(s.progress_json)
             for s in recent if s.progress_json
         ]
-        dna = scheduler_engine.build_study_dna(feedback, progress)
+
+        # Real timed sittings from /active. The app has been measuring how
+        # long students actually work, when they work, and when they lose
+        # focus — and then planning their week from numbers they typed into
+        # an estimate box, because none of it was ever read back here. This
+        # is the single largest source of genuine personalization available,
+        # and it was on the floor.
+        sessions = []
+        try:
+            asq = ActiveSession.query.filter(ActiveSession.state != "running")
+            asq = (asq.filter_by(user_id=user_id) if user_id
+                   else asq.filter_by(guest_session_id=guest_id))
+            for s in asq.order_by(ActiveSession.started_at.desc()).limit(120).all():
+                started = s.started_at
+                sessions.append({
+                    "planned_minutes": s.planned_minutes or 0,
+                    "active_minutes": s.active_minutes,
+                    "course": s.course or "",
+                    "completed_work": bool(s.completed_work),
+                    "distraction_events": s.distraction_events or 0,
+                    # Only meaningful when the focus check-in actually ran —
+                    # a zero from a session without it is an absence of
+                    # measurement, not a measurement of zero.
+                    "focus_streak_minutes": (
+                        int(round((s.longest_focus_streak or 0) / 60.0))
+                        if s.focus_enabled and s.longest_focus_streak else 0
+                    ),
+                    "day_of_week": started.strftime("%a") if started else "",
+                    "time_of_day": (
+                        scheduler_engine.slot_for_hour(started.hour) if started else ""
+                    ),
+                })
+        except Exception as e:
+            print(f"[scheduler] session history unavailable (non-fatal): {e}")
+
+        dna = scheduler_engine.build_study_dna(feedback, progress, sessions)
     except Exception as e:
         print(f"[scheduler] study DNA build failed (non-fatal): {e}")
 
@@ -14848,11 +14894,18 @@ app.register_blueprint(learning_graph_bp)
 from active_glue import active_bp
 app.register_blueprint(active_bp)
 # ── Notifications. Outbox-backed: events are queued by the sweep and
-# delivered by /cron/notifications, so no student request ever waits on
-# Twilio or an SMTP handshake.
-from notifications_glue import notifications_bp
+# delivered on a timer, so no student request ever waits on an SMS
+# gateway or an SMTP handshake.
+from notifications_glue import notifications_bp, start_ticker as _start_notification_ticker
 app.register_blueprint(notifications_bp)
 limiter.exempt(app.view_functions["notifications.cron_notifications"])
+# The sweep/flush cycle needs something to drive it. /cron/notifications
+# has always been able to, but nothing ever called it — no cron entry, no
+# scheduled job, nothing in the Procfile but the web process — so the
+# outbox was never swept and no reminder was ever delivered. The app now
+# runs its own timer; the endpoint remains for a real external scheduler.
+# Set NOTIFICATIONS_INPROCESS_CRON=0 to hand the job back to one.
+_start_notification_ticker(app)
 # ── Offline write safety. Installs before/after-request hooks that make any
 # mutating endpoint replay-safe when the client sends an X-IP-Op-Id, plus the
 # one endpoint the offline queue uses to ask "did these ops land?".

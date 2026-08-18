@@ -384,10 +384,15 @@
 .shop-item-title { color:var(--text-primary); font-weight: 700; line-height:1.25; }
 .shop-item-price { color:var(--text-primary); font-family:var(--ipd-font-mono); font-weight: 700; white-space:nowrap; }
 .shop-item-desc { color:var(--text-muted); font-size:.82rem; line-height:1.45; min-height:2.35rem; }
+/* The buy button carries .no-glass in the markup so ip-base.css's blanket
+   `body button { background: var(--glass-btn-bg) !important }` leaves it
+   alone. Without that opt-out this button's own background never applied
+   and, in dark mode, --bg-coloured text ended up on a 7%-white film over
+   a near-black card — the label was there and unreadable. */
 .shop-buy {
   width:100%;
   margin-top:.8rem;
-  border:0;
+  border:1px solid transparent;
   border-radius:var(--ipd-radius-sm);
   padding:.65rem .8rem;
   color:var(--bg);
@@ -395,10 +400,23 @@
   font-family:var(--ipd-font-mono);
   font-weight: 700;
   cursor:pointer;
-  transition:opacity .2s var(--ipd-ease-out);
+  transition:background .2s var(--ipd-ease-out), color .2s var(--ipd-ease-out);
 }
-.shop-buy:hover:not(:disabled) { opacity:.88; }
-.shop-buy:disabled { opacity:.48; cursor:not-allowed; }
+.shop-buy:hover:not(:disabled) { background:var(--text-secondary); }
+
+/* Not-affordable is a *state*, not a disabled control that happens to be
+   faded out. Dimming the whole button with opacity took the label down
+   with it, which is exactly what made "Need more Sparks" unreadable in
+   dark mode: the one message the user most needs to read was the one
+   rendered at 48%. Instead: a muted surface, a full-strength label, and a
+   visible border so it still reads as a button. */
+.shop-buy:disabled {
+  cursor:not-allowed;
+  opacity:1;
+  background:var(--bg-elevated);
+  color:var(--text-secondary);
+  border-color:var(--border-strong);
+}
 .quest-list { display:grid; gap:.75rem; }
 .quest-card {
   border:1px solid var(--border);
@@ -625,7 +643,7 @@ function renderShop() {
           <div class="shop-item-price">${price} Sparks</div>
         </div>
         <div class="shop-item-desc">${esc(item.description)}</div>
-        <button class="shop-buy" ${canBuy ? '' : 'disabled'} onclick="buyItem('${id}')">${canBuy ? 'Buy' : 'Need more Sparks'}</button>
+        <button class="shop-buy no-glass" ${canBuy ? '' : 'disabled'} onclick="buyItem('${id}')">${canBuy ? 'Buy' : 'Need more Sparks'}</button>
       </div>`;
     }).join('');
 }

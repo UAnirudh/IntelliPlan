@@ -197,20 +197,62 @@ time, .date-badge {
    ═══════════════════════════════════════════ */
 @view-transition { navigation: auto; }
 
+/* Deliberately faster than the --dur tokens the rest of the app uses.
+   A cross-document transition does not begin until the new document is
+   ready to paint, so whatever this costs is spent *after* the user has
+   already waited out the request. Anything longer than ~2 frames of
+   settle reads as the app being slow rather than as polish. */
 @media (prefers-reduced-motion: no-preference) {
   ::view-transition-old(root) {
-    animation: ip-vt-exit var(--dur-quick) var(--ease-swift) both;
+    animation: ip-vt-exit 90ms var(--ease-swift) both;
   }
   ::view-transition-new(root) {
-    animation: ip-vt-enter var(--dur-base) var(--ease-swift) both;
+    animation: ip-vt-enter 150ms var(--ease-swift) both;
   }
 }
 
 @keyframes ip-vt-exit {
-  to { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 0; transform: translateY(-4px); }
 }
 @keyframes ip-vt-enter {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(6px); }
+}
+
+/* ── Navigation progress bar ──────────────────────────────────────────
+   The real source of "I clicked and nothing happened" on this app is not
+   any animation: it is that a cross-document view transition holds the
+   outgoing frame from navigation commit until the new document paints,
+   and before that the browser is simply waiting on Flask. Either way the
+   page sits still.
+
+   This is the acknowledgement for that window. It is started by the
+   click itself (see ip-premium.js), so it is already moving during the
+   request — the part of the wait that is actually long. Pure transform,
+   fixed position, above everything. */
+#ipNavProgress {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  z-index: 100030;
+  pointer-events: none;
+  transform-origin: left;
+  transform: scaleX(0);
+  opacity: 0;
+  background: linear-gradient(90deg,
+    var(--accent), color-mix(in srgb, var(--accent) 55%, #f5a524));
+  transition: transform 240ms var(--ease-swift), opacity 160ms linear;
+}
+#ipNavProgress.is-on { opacity: 1; }
+/* The tail: once the request is genuinely in flight there is no progress
+   to report, so it creeps rather than pretending to know. */
+#ipNavProgress.is-creeping {
+  transform: scaleX(0.9);
+  transition: transform 8s cubic-bezier(0, 0.7, 0.2, 1), opacity 160ms linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #ipNavProgress { transition: opacity 160ms linear; }
+  #ipNavProgress.is-creeping { transform: scaleX(0.9); transition: opacity 160ms linear; }
 }
 
 /* Persistent chrome. Named groups are matched across documents, so the

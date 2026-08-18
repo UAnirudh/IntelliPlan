@@ -44,8 +44,14 @@
      button shrinking rather than as the button being pushed, and on a
      dense toolbar it makes neighbours look like they moved too. */
   var PRESS_SCALE = 0.97;
-  var PRESS_IN    = 0.09;
-  var PRESS_OUT   = 0.34;
+  var PRESS_IN    = 0.07;
+  /* The release used to run `elastic.out(1, 0.55)` over 340ms. That is a
+     long time for a control to still be visibly moving after the click
+     that was supposed to *do* something — on a navigation it overlapped
+     the request, and the two together read as the app being slow to
+     respond. A short decel settles in a third of the time and the press
+     still reads as a press. */
+  var PRESS_OUT   = 0.16;
 
   var api = {
     /* Bumped when behaviour changes — /static is served with long-lived
@@ -149,14 +155,26 @@
     if (!g) return;
     el.__ipgPress = true;
 
+    /* Opacity, not `filter: brightness()`.
+
+       The dip used to be a filter, and a filter is the most expensive way
+       to say this. It forces a repaint of the control every frame, and on
+       this app most controls sit on `backdrop-filter` glass, so that
+       repaint drags the blurred backdrop behind them with it. It also
+       creates a containing block and a stacking context for as long as it
+       is set, which is why the old code needed a clearProps on completion
+       to avoid breaking fixed-position children.
+
+       Opacity says the same thing, stays on the compositor, and composes
+       with the scale into a single transform+opacity frame. */
     function down() {
       if (el.disabled) return;
       g.to(el, {
         scale: REDUCED ? 1 : PRESS_SCALE,
-        /* Under reduced motion the scale is gone, so the only thing left
-           to say "received" is the brightness dip. Without this the
-           control would be entirely silent for those users. */
-        filter: 'brightness(0.93)',
+        /* Under reduced motion the scale is gone, so the dip is the only
+           thing left to say "received". Without it the control would be
+           entirely silent for those users. */
+        opacity: 0.82,
         duration: PRESS_IN,
         ease: 'power2.out',
         overwrite: 'auto'
@@ -165,14 +183,14 @@
     function up() {
       g.to(el, {
         scale: 1,
-        filter: 'brightness(1)',
-        duration: REDUCED ? 0.12 : PRESS_OUT,
-        ease: REDUCED ? 'power1.out' : 'elastic.out(1, 0.55)',
+        opacity: 1,
+        duration: REDUCED ? 0.1 : PRESS_OUT,
+        ease: 'power2.out',
         overwrite: 'auto',
-        /* Leave no inline filter behind: a stuck `filter` creates a
-           containing block and a new stacking context, which quietly
-           breaks position:fixed children and z-index inside the button. */
-        onComplete: function () { g.set(el, { clearProps: 'filter' }); }
+        /* Leave no inline opacity behind — a control that a stylesheet
+           dims (`:disabled`, `.is-muted`) must be free to do so after the
+           press has finished. */
+        onComplete: function () { g.set(el, { clearProps: 'opacity' }); }
       });
     }
 
@@ -231,10 +249,23 @@
     /* The host needs a containing block for the absolutely-positioned
        ring and needs to clip it. Set both only if the element does not
        already say something else, so a deliberately-overflowing control
-       is not silently changed. */
-    var cs = getComputedStyle(el);
-    if (cs.position === 'static') el.style.position = 'relative';
-    if (cs.overflow === 'visible') el.style.overflow = 'hidden';
+       is not silently changed.
+
+       Resolved once and cached. This used to run getComputedStyle on
+       every pointerdown, and getComputedStyle forces the browser to flush
+       pending style and layout before it can answer — landing that flush
+       on the very event the user is waiting to see acknowledged. Neither
+       answer can change over the element's life for the properties we
+       ask about here, so once is enough. */
+    if (el.__ipgBloomHost === undefined) {
+      var cs = getComputedStyle(el);
+      el.__ipgBloomHost = {
+        needsPosition: cs.position === 'static',
+        needsClip: cs.overflow === 'visible'
+      };
+    }
+    if (el.__ipgBloomHost.needsPosition) el.style.position = 'relative';
+    if (el.__ipgBloomHost.needsClip) el.style.overflow = 'hidden';
 
     el.appendChild(ring);
 
@@ -257,7 +288,11 @@
       { width: 0, height: 0, opacity: 0.5 },
       {
         width: reach, height: reach, opacity: 0,
-        duration: 0.62, ease: 'power2.out',
+        /* Was 0.62s. The ring is an acknowledgement, not a scene — by the
+           time it is halfway out the action it confirms has usually
+           already happened, and the remainder is just something still
+           moving on screen. */
+        duration: 0.4, ease: 'power2.out',
         onComplete: drop,
         onInterrupt: drop
       });

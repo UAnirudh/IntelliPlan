@@ -71,25 +71,13 @@
 .sb-cust-wrap {
   display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap;
 }
+/* A single flat list, because that is what the sidebar is. The previous
+   version drew four bucket sections that the real nav never had. */
 .sb-cust-preview {
-  width:248px; flex-shrink:0;
-  background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); border:1px solid var(--glass-border); box-shadow:var(--glass-btn-shadow); border-radius:14px;
-  padding:12px 10px; display:flex; flex-direction:column; gap:4px;
-}
-.sb-cust-section {
-  display:flex; flex-direction:column; gap:3px; padding:6px 4px;
-  border-radius:10px; min-height:38px;
-  transition: background 0.15s, border-color 0.15s;
-  border:1px dashed transparent;
-}
-.sb-cust-section.is-folder {
-  margin-left:10px; padding-left:8px; border-left:1px solid var(--border);
-}
-.sb-cust-section.drop-target { background: var(--accent-soft); border-color: var(--accent); }
-.sb-cust-section-label {
-  font-family:var(--font-ui); font-size:0.62rem; font-weight:700;
-  text-transform:uppercase; letter-spacing:0.09em; color:var(--text-muted);
-  padding:6px 8px 2px;
+  width:290px; flex-shrink:0;
+  background:var(--bg-elevated); border:1px solid var(--border-strong);
+  box-shadow:var(--shadow); border-radius:14px;
+  padding:10px; display:flex; flex-direction:column; gap:4px;
 }
 .sb-cust-item {
   display:flex; align-items:center; gap:10px;
@@ -110,7 +98,31 @@
 }
 .sb-cust-item .sb-cust-icon { width:16px; height:16px; flex-shrink:0; }
 .sb-cust-item .sb-cust-icon svg { width:100%; height:100%; }
-.sb-cust-section.is-hidden .sb-cust-item { opacity:0.5; }
+.sb-cust-item .sb-cust-label { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* Hidden rows stay legible. The label is the thing being described, so
+   it keeps full contrast; the strikethrough carries the state instead of
+   fading the row into the background. */
+.sb-cust-item.is-off { background:transparent; border-style:dashed; }
+.sb-cust-item.is-off .sb-cust-label { text-decoration:line-through; color:var(--text-muted); }
+.sb-cust-item.is-off .sb-cust-icon { opacity:0.55; }
+
+.sb-cust-vis, .sb-cust-lock {
+  flex-shrink:0; font-family:var(--font-ui); font-size:0.64rem; font-weight:700;
+  text-transform:uppercase; letter-spacing:0.06em;
+  padding:3px 8px; border-radius:999px; line-height:1.6;
+}
+.sb-cust-vis {
+  cursor:pointer;
+  border:1px solid var(--border-strong);
+  background:var(--bg-card); color:var(--text-secondary);
+  transition:background 0.12s, color 0.12s, border-color 0.12s;
+}
+.sb-cust-vis[aria-pressed="true"] {
+  background:var(--accent-soft); color:var(--accent); border-color:var(--border-accent);
+}
+.sb-cust-vis:hover { border-color:var(--accent); color:var(--accent); }
+.sb-cust-lock { border:1px dashed var(--border-strong); color:var(--text-muted); }
 .sb-cust-help {
   flex:1; min-width:200px; font-size:0.84rem; color:var(--text-secondary); line-height:1.55;
 }
@@ -458,27 +470,21 @@
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:1rem;">
       <div>
         <div class="settings-section-title" style="margin-bottom:2px;">Sidebar</div>
-        <div style="font-size:0.84rem;color:var(--text-secondary);">Drag tabs between sections (or reorder within a section) to lay out your sidebar exactly how you like it.</div>
+        <div style="font-size:0.84rem;color:var(--text-secondary);">Drag to reorder, or hide anything you don't use. Changes apply to the sidebar on the left straight away.</div>
       </div>
       <button type="button" class="btn-secondary" onclick="resetNavPrefs()" style="padding:8px 14px;cursor:pointer;">Reset</button>
     </div>
     <div class="sb-cust-wrap">
-      <div class="sb-cust-preview" id="sbCustPreview" aria-label="Sidebar preview (drag to customize)">
-        <div class="sb-cust-section-label">Pinned to top</div>
-        <div class="sb-cust-section" data-bucket="pinned" id="sbBucketPinned"></div>
-        <div class="sb-cust-section-label">Plan folder</div>
-        <div class="sb-cust-section is-folder" data-bucket="plan" id="sbBucketPlan"></div>
-        <div class="sb-cust-section-label">Toolkit folder</div>
-        <div class="sb-cust-section is-folder" data-bucket="tools" id="sbBucketTools"></div>
-        <div class="sb-cust-section-label">Hidden</div>
-        <div class="sb-cust-section is-hidden" data-bucket="hidden" id="sbBucketHidden"></div>
-      </div>
+      {# Rows are generated from the live sidebar in base.html — see
+         window.IPSidebar — so this list is the sidebar by construction and
+         cannot list a page the nav does not have. #}
+      <div class="sb-cust-preview" id="sbCustList" aria-label="Sidebar items (drag to reorder)"></div>
       <div class="sb-cust-help">
         <strong style="color:var(--text-primary);">How it works</strong>
         <ul>
-          <li><strong>Pinned</strong>, appears at the top of the sidebar.</li>
-          <li><strong>Plan / Toolkit</strong>, tucked inside the collapsible folder of the same name.</li>
-          <li><strong>Hidden</strong>, completely removed from the sidebar (still accessible by URL).</li>
+          <li><strong>Drag</strong> a row by its handle to change where it sits in the sidebar.</li>
+          <li><strong>Hide</strong> removes it from the sidebar. The page still works from its URL, from search, and from ⌘K.</li>
+          <li>Command Center and Dashboard can't be hidden, so there is always a way home.</li>
         </ul>
         <span id="navCustomSaved" style="font-size:0.8rem;color:var(--low);"></span>
       </div>
@@ -1108,184 +1114,173 @@ function initA11y() {
 }
 initA11y();
 
-/* ── Sidebar customizer (drag-and-drop) ──────────── */
-/* Layout schema:
-   ip_navLayout = { pinned:[keys], plan:[keys], tools:[keys], hidden:[keys] }
-   The order of keys within a bucket determines order in the sidebar.
-   base.html reads ip_navLayout (falling back to ip_navPrefs for old users). */
-const NAV_ITEMS = [
-  // key, label, default bucket, icon-id (matches <symbol id="i-..."> in base.html)
-  ['dashboard',  'Dashboard',     'pinned', 'i-dashboard'],
-  ['scheduler',  'Scheduler',     'pinned', 'i-scheduler'],
-  ['study',      'Study',         'pinned', 'i-rocket'],
-  ['learn',      'Learn',         'pinned', 'i-study'],
-  ['streak',     'Streak',        'pinned', 'i-fire'],
-  ['tutor',      'Tutor',         'pinned', 'i-tutor'],
-  ['focus',      'Focus Timer',   'pinned', 'i-fire'],
-  ['library',    'AP Library',    'pinned', 'i-backpack'],
-  ['priority',   'Priority',      'plan',   'i-priority'],
-  ['classes',    'Classes',       'plan',   'i-classes'],
-  ['grades',     'Grades',        'plan',   'i-grades'],
-  ['gradebook',  'Grade Modeler', 'plan',   'i-modeler'],
-  ['tests',      'Tests',         'plan',   'i-test'],
-  ['dismissed',  'Done',          'plan',   'i-done'],
-  ['lessons',    'Lessons',       'tools',  'i-study'],
-  ['groups',     'Study Groups',  'tools',  'i-tutor'],
-  ['writing',    'Writing',       'tools',  'i-pencil'],
-  ['math',       'Math Explainer','tools',  'i-modeler'],
-  ['extractor',  'Task Extractor','tools',  'i-check-circle'],
-];
-const NAV_BUCKETS = ['pinned', 'plan', 'tools', 'hidden'];
-const NAV_META = Object.fromEntries(NAV_ITEMS.map(([k,l,b,i]) => [k, {label:l, defaultBucket:b, icon:i}]));
+/* ── Sidebar customizer ───────────────────────────────────────────────
+   Every row below is generated from the sidebar that is rendered on this
+   very page, via window.IPSidebar (base.html). Settings does not keep its
+   own idea of what the nav contains.
 
-function defaultNavLayout() {
-  const layout = { pinned:[], plan:[], tools:[], hidden:[] };
-  NAV_ITEMS.forEach(([k,_l,b]) => layout[b].push(k));
-  return layout;
-}
+   It used to. The old version carried a hand-written NAV_ITEMS list and
+   saved to `ip_navLayout` under four buckets — Pinned / Plan / Toolkit /
+   Hidden. None of that was true any more: the sidebar is a flat list, it
+   reads `ip_sideHidden` and `ip_sideOrder`, and the two lists had drifted
+   so far apart that this panel offered Tutor, Focus Timer, AP Library and
+   Task Extractor (not in the sidebar) while omitting Command Center,
+   Memories, My Pet, Balance, Ideas and My Stats (which are). Dragging
+   things around here wrote a key nothing ever read, so the sidebar never
+   changed — exactly the reported symptom.
 
-function getNavLayout() {
-  // Prefer new ip_navLayout; migrate from legacy ip_navPrefs if needed.
-  try {
-    const raw = localStorage.getItem('ip_navLayout');
-    if (raw) {
-      const saved = JSON.parse(raw) || {};
-      const layout = defaultNavLayout();
-      // Wipe defaults and rebuild from saved, in order, then append any new keys.
-      NAV_BUCKETS.forEach(b => layout[b] = []);
-      const placed = new Set();
-      NAV_BUCKETS.forEach(b => {
-        (saved[b] || []).forEach(k => {
-          if (NAV_META[k] && !placed.has(k)) { layout[b].push(k); placed.add(k); }
-        });
-      });
-      // Any newly-added keys go to their default bucket.
-      NAV_ITEMS.forEach(([k,_l,b]) => { if (!placed.has(k)) layout[b].push(k); });
-      return layout;
-    }
-  } catch(e) {}
-  // Migrate from legacy ip_navPrefs.
-  try {
-    const legacy = JSON.parse(localStorage.getItem('ip_navPrefs') || '{}') || {};
-    const layout = defaultNavLayout();
-    Object.entries(legacy).forEach(([k, v]) => {
-      if (!NAV_META[k]) return;
-      const target = v === 'pinned' ? 'pinned'
-                  : v === 'folder' ? 'plan'
-                  : v === 'hidden' ? 'hidden'
-                  : null;
-      if (!target) return;
-      NAV_BUCKETS.forEach(b => { layout[b] = layout[b].filter(x => x !== k); });
-      layout[target].push(k);
-    });
-    return layout;
-  } catch(e) { return defaultNavLayout(); }
-}
+   Deriving the rows from the DOM means that bug cannot come back: adding
+   a link to base.html adds a row here, and removing one removes it. */
 
-function saveNavLayout(layout) {
-  localStorage.setItem('ip_navLayout', JSON.stringify(layout));
+function _sbNote(msg) {
   const note = document.getElementById('navCustomSaved');
-  if (note) {
-    note.textContent = 'Saved. Refresh or open another page to see the sidebar update.';
-    setTimeout(() => { note.textContent = ''; }, 2200);
-  }
+  if (!note) return;
+  note.textContent = msg;
+  clearTimeout(_sbNote._t);
+  _sbNote._t = setTimeout(() => { note.textContent = ''; }, 2400);
 }
 
 function resetNavPrefs() {
-  localStorage.removeItem('ip_navLayout');
-  localStorage.removeItem('ip_navPrefs');
+  if (window.IPSidebar) window.IPSidebar.reset();
+  // Retire the dead keys from the previous implementation so an old
+  // profile stops carrying a layout nothing reads.
+  try {
+    localStorage.removeItem('ip_navLayout');
+    localStorage.removeItem('ip_navPrefs');
+  } catch (e) {}
   renderNavCustomizer();
-  const note = document.getElementById('navCustomSaved');
-  if (note) note.textContent = 'Sidebar reset to defaults.';
+  _sbNote('Sidebar reset to defaults.');
 }
 
 function renderNavCustomizer() {
-  const layout = getNavLayout();
-  NAV_BUCKETS.forEach(bucket => {
-    const el = document.getElementById('sbBucket' + bucket.charAt(0).toUpperCase() + bucket.slice(1));
-    if (!el) return;
-    el.innerHTML = layout[bucket].map(key => {
-      const meta = NAV_META[key];
-      if (!meta) return '';
-      return `<div class="sb-cust-item" draggable="true" data-key="${key}" data-bucket="${bucket}">
-        <span class="sb-cust-handle" aria-hidden="true">
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><circle cx="2" cy="2" r="1"/><circle cx="2" cy="5" r="1"/><circle cx="2" cy="8" r="1"/><circle cx="6" cy="2" r="1"/><circle cx="6" cy="5" r="1"/><circle cx="6" cy="8" r="1"/></svg>
-        </span>
-        <span class="sb-cust-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#${meta.icon}"/></svg></span>
-        <span>${meta.label}</span>
-      </div>`;
-    }).join('');
+  const host = document.getElementById('sbCustList');
+  if (!host) return;
+
+  if (!window.IPSidebar) {
+    // Only reachable if base.html's nav did not render — i.e. a page with
+    // no sidebar. Say so rather than showing an empty box.
+    host.innerHTML = '<div style="padding:14px;font-size:0.85rem;color:var(--text-muted);">The sidebar isn\'t available on this page.</div>';
+    return;
+  }
+
+  const items = window.IPSidebar.items();
+  if (!items.length) {
+    host.innerHTML = '<div style="padding:14px;font-size:0.85rem;color:var(--text-muted);">No sidebar items to customise.</div>';
+    return;
+  }
+
+  host.innerHTML = items.map(it => `
+    <div class="sb-cust-item${it.hidden ? ' is-off' : ''}" draggable="true" tabindex="0"
+         role="listitem" aria-label="${it.label}${it.hidden ? ' (hidden)' : ''}. Alt plus arrow up or down to move."
+         data-key="${it.key}">
+      <span class="sb-cust-handle" aria-hidden="true">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><circle cx="2" cy="2" r="1"/><circle cx="2" cy="5" r="1"/><circle cx="2" cy="8" r="1"/><circle cx="6" cy="2" r="1"/><circle cx="6" cy="5" r="1"/><circle cx="6" cy="8" r="1"/></svg>
+      </span>
+      <span class="sb-cust-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${it.icon}</svg></span>
+      <span class="sb-cust-label">${it.label}</span>
+      ${it.locked
+        ? '<span class="sb-cust-lock" title="This page cannot be hidden">Always on</span>'
+        : `<button type="button" class="sb-cust-vis" data-key="${it.key}" data-hide="${it.hidden ? '0' : '1'}" aria-pressed="${it.hidden ? 'false' : 'true'}">${it.hidden ? 'Hidden' : 'Shown'}</button>`}
+    </div>`).join('');
+
+  host.querySelectorAll('.sb-cust-vis').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const willHide = btn.dataset.hide === '1';
+      if (window.IPSidebar.setHidden(btn.dataset.key, willHide)) {
+        _sbNote(willHide ? 'Hidden from the sidebar.' : 'Back in the sidebar.');
+        renderNavCustomizer();
+      }
+    });
   });
+
   wireNavDragHandlers();
 }
 
 let _navDragKey = null;
-let _navDragFromBucket = null;
+
+/* Order is read back off the DOM after a drop rather than being computed
+   from indices — the rendered list is what the user just arranged, so it
+   is the least error-prone description of what they asked for. */
+function _commitOrderFromDom() {
+  const host = document.getElementById('sbCustList');
+  if (!host || !window.IPSidebar) return;
+  const keys = Array.from(host.querySelectorAll('.sb-cust-item'))
+    .map(el => el.dataset.key)
+    .filter(Boolean);
+  window.IPSidebar.setOrder(keys);
+  _sbNote('Sidebar order saved.');
+}
+
+function _clearDropMarks() {
+  document.querySelectorAll('#sbCustList .sb-cust-item')
+    .forEach(el => el.classList.remove('drop-before', 'drop-after'));
+}
 
 function wireNavDragHandlers() {
-  document.querySelectorAll('#sbCustPreview .sb-cust-item').forEach(item => {
+  document.querySelectorAll('#sbCustList .sb-cust-item').forEach(item => {
     item.addEventListener('dragstart', e => {
       _navDragKey = item.dataset.key;
-      _navDragFromBucket = item.dataset.bucket;
       item.classList.add('is-dragging');
-      try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', _navDragKey); } catch(_){}
+      try {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', _navDragKey);
+      } catch (_) {}
     });
+
     item.addEventListener('dragend', () => {
       item.classList.remove('is-dragging');
-      document.querySelectorAll('.sb-cust-item').forEach(el => el.classList.remove('drop-before','drop-after'));
-      document.querySelectorAll('.sb-cust-section').forEach(el => el.classList.remove('drop-target'));
-      _navDragKey = null; _navDragFromBucket = null;
+      _clearDropMarks();
+      _navDragKey = null;
     });
+
     item.addEventListener('dragover', e => {
       if (!_navDragKey || item.dataset.key === _navDragKey) return;
       e.preventDefault();
       const rect = item.getBoundingClientRect();
       const after = (e.clientY - rect.top) > rect.height / 2;
-      document.querySelectorAll('.sb-cust-item').forEach(el => el.classList.remove('drop-before','drop-after'));
+      _clearDropMarks();
       item.classList.add(after ? 'drop-after' : 'drop-before');
     });
+
     item.addEventListener('drop', e => {
       if (!_navDragKey || item.dataset.key === _navDragKey) return;
-      e.preventDefault(); e.stopPropagation();
+      e.preventDefault();
+      e.stopPropagation();
+      const host = document.getElementById('sbCustList');
+      const dragged = host && host.querySelector(`.sb-cust-item[data-key="${_navDragKey}"]`);
+      if (!dragged) return;
       const rect = item.getBoundingClientRect();
       const after = (e.clientY - rect.top) > rect.height / 2;
-      const layout = getNavLayout();
-      // Remove from old bucket
-      NAV_BUCKETS.forEach(b => { layout[b] = layout[b].filter(k => k !== _navDragKey); });
-      // Insert relative to target item
-      const targetBucket = item.dataset.bucket;
-      const targetIdx = layout[targetBucket].indexOf(item.dataset.key);
-      const insertAt = after ? targetIdx + 1 : targetIdx;
-      layout[targetBucket].splice(insertAt, 0, _navDragKey);
-      saveNavLayout(layout);
-      renderNavCustomizer();
-    });
-  });
-  document.querySelectorAll('#sbCustPreview .sb-cust-section').forEach(section => {
-    section.addEventListener('dragover', e => {
-      if (!_navDragKey) return;
-      // Only trigger when dragging over an empty area of the section (not over an item)
-      if (e.target.closest('.sb-cust-item')) return;
-      e.preventDefault();
-      document.querySelectorAll('.sb-cust-section').forEach(el => el.classList.remove('drop-target'));
-      section.classList.add('drop-target');
-    });
-    section.addEventListener('dragleave', e => {
-      if (e.target === section) section.classList.remove('drop-target');
-    });
-    section.addEventListener('drop', e => {
-      if (!_navDragKey) return;
-      if (e.target.closest('.sb-cust-item')) return;
-      e.preventDefault();
-      const bucket = section.dataset.bucket;
-      const layout = getNavLayout();
-      NAV_BUCKETS.forEach(b => { layout[b] = layout[b].filter(k => k !== _navDragKey); });
-      layout[bucket].push(_navDragKey);
-      saveNavLayout(layout);
+      item.parentNode.insertBefore(dragged, after ? item.nextSibling : item);
+      _clearDropMarks();
+      _commitOrderFromDom();
       renderNavCustomizer();
     });
   });
 }
+
+/* Keyboard path. Drag-and-drop is unusable without a pointer, and this
+   panel is the only place the order can be changed at all. */
+(function wireNavKeyboardReorder() {
+  const host = document.getElementById('sbCustList');
+  if (!host) return;
+  host.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    const row = e.target.closest && e.target.closest('.sb-cust-item');
+    if (!row || !(e.altKey || e.metaKey)) return;
+    e.preventDefault();
+    const sib = e.key === 'ArrowUp' ? row.previousElementSibling : row.nextElementSibling;
+    if (!sib) return;
+    if (e.key === 'ArrowUp') row.parentNode.insertBefore(row, sib);
+    else row.parentNode.insertBefore(sib, row);
+    _commitOrderFromDom();
+    const key = row.dataset.key;
+    renderNavCustomizer();
+    // Re-render replaced the node; put focus back where the user was.
+    const again = host.querySelector(`.sb-cust-item[data-key="${key}"]`);
+    if (again) again.focus();
+  });
+})();
 
 renderNavCustomizer();
 

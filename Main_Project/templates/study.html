@@ -396,8 +396,20 @@
 .quest-meta,.shop-desc,.badge-kind { font-size:0.75rem; color:var(--txm); margin-top:6px; line-height:1.4; }
 .shop-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .shop-item.deal { border-color:rgba(245,158,11,0.35); background:rgba(245,158,11,0.06); }
-.shop-buy { margin-top:10px; width:100%; padding:9px 10px; border:none; border-radius:10px; background:var(--s-grad); color:white; font-size:0.78rem; font-weight: 700; cursor:pointer; font-family:var(--font-ui); }
-.shop-buy:disabled { opacity:.48; cursor:not-allowed; }
+/* Carries .no-glass in the markup — see the same note on streak.html.
+   Without it the blanket button-glass rule in ip-base.css replaced this
+   gradient with a 7%-white film and left white text on it. */
+.shop-buy { margin-top:10px; width:100%; padding:9px 10px; border:1px solid transparent; border-radius:10px; background:var(--s-grad); color:white; font-size:0.78rem; font-weight: 700; cursor:pointer; font-family:var(--font-ui); transition:background .2s ease, color .2s ease; }
+/* Full-strength label on a muted surface rather than a 48%-opacity
+   everything: "Need more Sparks" is the state the user needs to be able
+   to read, so it is the last thing that should be dimmed. */
+.shop-buy:disabled {
+  cursor:not-allowed;
+  opacity:1;
+  background:var(--bg-elevated);
+  color:var(--text-secondary);
+  border-color:var(--border-strong);
+}
 .badge-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .badge-item { display:flex; align-items:center; gap:10px; }
 .badge-mark { width:34px; height:34px; display:grid; place-items:center; border-radius:10px; background:linear-gradient(135deg,var(--so),var(--so)); color:white; font-weight:900; flex-shrink:0; }
@@ -2335,7 +2347,7 @@ function renderShopTab() {
           <div class="shop-price">${price} Sparks</div>
         </div>
         <div class="shop-desc">${escHtml(item.description || '')}</div>
-        <button class="shop-buy" ${canBuy ? '' : 'disabled'} onclick="buyShopItem('${id}')">${canBuy ? 'Buy' : 'Need more Sparks'}</button>
+        <button class="shop-buy no-glass" ${canBuy ? '' : 'disabled'} onclick="buyShopItem('${id}')">${canBuy ? 'Buy' : 'Need more Sparks'}</button>
       </div>
     `;
   }).join('');

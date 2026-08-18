@@ -130,7 +130,19 @@
   padding: 0.5rem 0 3rem;
 }
 
-/* ── Error banner ── */
+/* ── Error banner ──
+   The markup ships this element with the `hidden` attribute and the JS
+   only ever clears it on a real failure. But `hidden` works by setting
+   `display: none` in the UA stylesheet, and *any* author `display` rule
+   beats the UA — so this `display: flex` un-hid it permanently.
+
+   That is why the Command Center has always shown a "Try again" banner
+   with no message next to it: nothing was ever wrong, the banner was
+   simply never able to hide. Restore the attribute's meaning explicitly.
+   `!important` because the shorthand below is unconditional and would
+   otherwise win on specificity ties. */
+.cc-error-banner[hidden] { display: none !important; }
+
 .cc-error-banner {
   display: flex;
   align-items: center;
@@ -461,12 +473,29 @@
   }
 }
 @media (min-width: 1200px) {
+  /* The assistant is the point of this page, so it gets the room to say
+     so. At 0.85 / 1.6 / 0.85 the three columns read as a row of three
+     panels; at 0.7 / 2.2 / 0.7 the centre reads as the page and the rails
+     read as what they are — supporting detail. */
   .cc-grid {
-    grid-template-columns: minmax(260px, 0.85fr) minmax(0, 1.6fr) minmax(260px, 0.85fr);
+    grid-template-columns: minmax(240px, 0.7fr) minmax(0, 2.2fr) minmax(240px, 0.7fr);
     grid-template-areas: "left center right";
     gap: 1.25rem;
   }
   .cc-rail-right { grid-area: right; display: flex; flex-direction: column; gap: 1rem; }
+}
+
+/* Hierarchy by recession as well as by size: the rails sit back a step so
+   the lit centre panel is unambiguously the foreground, and come fully
+   forward the moment the pointer is on them. Nothing is hidden — a rail
+   at 88% opacity is still perfectly readable, it just is not competing. */
+@media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
+  .cc-rail {
+    opacity: 0.88;
+    transition: opacity 220ms var(--ease-swift, ease), transform 220ms var(--ease-swift, ease);
+  }
+  .cc-rail:hover,
+  .cc-rail:focus-within { opacity: 1; }
 }
 
 /* ── Rail base (left = plan, right = telemetry) ── */
@@ -718,6 +747,49 @@
     0 20px 60px rgba(15,23,42,0.14),
     0 0 120px -20px color-mix(in srgb, var(--accent) 70%, transparent);
 }
+
+/* ── Navigation consent row ──
+   Rendered into the message stream when the assistant proposes moving the
+   user to another page. Deliberately not styled as a message: it is a
+   decision, and it should not be mistaken for something Plani said. */
+.cc-chat-nav-offer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg-card));
+  font-size: 0.84rem;
+  color: var(--text-primary);
+}
+.cc-chat-nav-text { flex: 1; min-width: 140px; }
+.cc-chat-nav-go,
+.cc-chat-nav-no {
+  font-family: var(--font-ui);
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+.cc-chat-nav-go {
+  border: 1px solid transparent;
+  background: var(--accent);
+  color: #fff;
+}
+.cc-chat-nav-go:hover { background: var(--accent-hover, var(--accent)); }
+/* "Stay here" must not look like the discouraged option — declining is a
+   perfectly good answer and the user should not feel nudged past it. */
+.cc-chat-nav-no {
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-secondary);
+}
+.cc-chat-nav-no:hover { border-color: var(--accent); color: var(--accent); }
 
 .cc-chat-header {
   padding: 16px 20px;
@@ -1243,17 +1315,46 @@
 .cc-health-details summary::before { content: '▸ '; transition: transform 0.2s; display: inline-block; }
 .cc-health-details[open] summary::before { transform: rotate(90deg); }
 .cc-component-list { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+/* The label column used to be a hard 96px. The labels are keys like
+   "schedule_balance" and "declining_courses" — single unbreakable words
+   wider than 96px — so they ran straight over the +5 in the next column.
+   Sizing the column to the widest label that actually exists, with a
+   ceiling so a long one cannot crowd out the reason text, keeps the three
+   columns from ever colliding. */
 .cc-component-row {
   display: grid;
-  grid-template-columns: 96px 36px 1fr;
-  gap: 6px;
-  align-items: center;
+  grid-template-columns: minmax(96px, max-content) 40px 1fr;
+  gap: 10px;
+  align-items: baseline;
   font-size: 0.76rem;
   padding: 4px 0;
 }
-.cc-component-label { font-weight: 700; color: var(--text-primary); }
-.cc-component-delta { font-family: var(--font-display, monospace); font-weight: 700; }
-.cc-component-note { color: var(--text-muted); }
+.cc-component-label {
+  font-weight: 700;
+  color: var(--text-primary);
+  max-width: 160px;
+  /* Belt and braces: if a future key is longer than the ceiling, it wraps
+     inside its own column instead of escaping it. */
+  overflow-wrap: anywhere;
+}
+.cc-component-delta {
+  font-family: var(--font-display, monospace);
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.cc-component-note { color: var(--text-muted); overflow-wrap: anywhere; }
+
+/* Below ~520px three columns cannot hold a sentence. Stack the reason
+   under its own heading rather than squeezing it to two words a line. */
+@media (max-width: 520px) {
+  .cc-component-row {
+    grid-template-columns: 1fr auto;
+    row-gap: 2px;
+  }
+  .cc-component-label { max-width: none; }
+  .cc-component-note { grid-column: 1 / -1; }
+}
 
 /* Quick links */
 .cc-quick-links {
