@@ -1483,6 +1483,53 @@ class AccessibilityPrefs(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class EmailSend(db.Model):
+    """One row per lifecycle email per user — the deduplication ledger.
+
+    The unique constraint on (user_id, email_key) is the whole point: two
+    cron fires racing each other both try to insert, one wins, the other
+    takes an IntegrityError and skips. Doing this with a SELECT-then-send
+    would leave a window where both reads miss and both sends go out, and
+    the failure mode of that bug is a student getting the same email twice.
+
+    The row is written *before* the provider call, so a crash mid-send
+    leaves a stale ``pending`` row and the user simply never gets that one
+    email. That is the right way round: a missing welcome is a small loss,
+    a duplicate is a support ticket and an unsubscribe.
+    """
+    __tablename__ = "email_sends"
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "email_key", name="uq_email_sends_user_key"),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    #: "welcome", "feedback_v1", "newsletter_2026_08" — the campaign identity.
+    #: Versioned in the key so a second feedback ask can ship later without
+    #: colliding with the first.
+    email_key = db.Column(db.String(64), nullable=False)
+    sent_at = db.Column(db.DateTime, default=datetime.utcnow)
+    #: pending | sent | failed
+    status = db.Column(db.String(16), default="pending")
+    provider_message_id = db.Column(db.String(128), nullable=True)
+
+
+class EmailSuppression(db.Model):
+    """Addresses that must never receive marketing, keyed on the address.
+
+    Deliberately not keyed on user_id. Someone who unsubscribes, deletes
+    their account and signs up again is the same person with the same
+    inbox, and a user-id suppression would quietly start mailing them
+    again. The address is the thing that received the mail and the thing
+    the complaint would come from.
+    """
+    __tablename__ = "email_suppressions"
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    #: "unsubscribe" | "bounce" | "complaint" | "manual"
+    reason = db.Column(db.String(32), default="unsubscribe")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 STREAK_TIERS = [
     {"id": "spark", "name": "Spark", "min": 1, "max": 6, "bonus": 5, "freeze_cap": 2, "color": "#ef4444"},
     {"id": "flame", "name": "Flame", "min": 7, "max": 13, "bonus": 10, "freeze_cap": 3, "color": "#f97316"},
@@ -1837,6 +1884,7 @@ from intelliplan.migrations import (
     apply_active_session_migrations,
     apply_notification_migrations,
     apply_command_center_migrations,
+    apply_email_migrations,
     apply_learning_graph_migrations,
     apply_media_balance_migrations,
     apply_sync_migrations,
@@ -1870,6 +1918,7 @@ with app.app_context():
     apply_active_session_migrations(db)
     apply_notification_migrations(db)
     apply_sync_migrations(db)
+    apply_email_migrations(db)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -3316,12 +3365,27 @@ def enrich_schedule_data(schedule_data, assignments, preferred_time, hours_per_d
                 block["energy_level"] = "reset"
                 block["difficulty"] = "Break"
                 continue
-            assignment_meta = assignment_lookup.get(block.get("assignment", ""), {})
+            # Match on the parent title first. The planner labels a split
+            # sitting "APUSH essay (part 2 of 3)", which matches no assignment,
+            # so every split block used to fall through to Medium priority, a
+            # re-inferred difficulty, and no due date — quietly discarding the
+            # planner's own priority and the deadline the clock placer orders
+            # the day by.
+            assignment_meta = (
+                assignment_lookup.get(block.get("parent_title") or "")
+                or assignment_lookup.get(block.get("assignment", ""))
+                or {}
+            )
             priority = assignment_meta.get("priority", "Medium")
             difficulty = assignment_meta.get("difficulty") or infer_task_difficulty(assignment_meta.get("points_possible"), priority, assignment_meta.get("due_date"))
             energy_level = infer_block_energy_level(block.get("time_slot"), preferred_time, difficulty)
             if priority == "High": high_priority_count += 1
             if difficulty == "Hard": hard_task_count += 1
+            # The planner's 0..100 score is finer-grained than the three
+            # buckets the UI colours by. Keep both rather than overwriting one
+            # with the other.
+            if isinstance(block.get("priority"), (int, float)):
+                block.setdefault("priority_score", int(block["priority"]))
             block["priority"] = priority
             block["difficulty"] = difficulty
             # The real deadline off the matched assignment, not the model's
@@ -4564,6 +4628,7 @@ def _classroom_fetch_assignments(access_token):
                 continue
             pts = w.get("maxPoints") or 0
             priority = compute_priority(days, pts, title)
+            est_minutes, description = _lms_row_sizing(w, pts)
             out.append({
                 "id": f"gc-{w.get('id', '')}",
                 "course_id": str(cid),
@@ -4572,7 +4637,8 @@ def _classroom_fetch_assignments(access_token):
                 "due_date": due.strftime("%Y-%m-%d"),
                 "priority": priority,
                 "source": "google_classroom",
-                "estimated_time": max(30, round((float(pts) or 60) * 1.5 / 30) * 30),
+                "estimated_time": est_minutes,
+                "description": description,
                 "difficulty": "Medium",
                 "color": PRIORITY_COLORS.get(priority, "#f59e0b"),
             })
@@ -4717,6 +4783,7 @@ def _blackboard_fetch_assignments(institution_url, access_token, bb_user_id=None
             score = col.get("score") or {}
             possible = score.get("possible") or 0
             priority = compute_priority(days, possible, name)
+            est_minutes, description = _lms_row_sizing(col, possible)
             out.append({
                 "id": f"bb-{cid}-{col.get('id', '')}",
                 "course_id": str(cid),
@@ -4725,7 +4792,8 @@ def _blackboard_fetch_assignments(institution_url, access_token, bb_user_id=None
                 "due_date": due.strftime("%Y-%m-%d"),
                 "priority": priority,
                 "source": "blackboard",
-                "estimated_time": max(30, round((float(possible) or 60) * 1.5 / 30) * 30),
+                "estimated_time": est_minutes,
+                "description": description,
                 "difficulty": "Medium",
                 "color": PRIORITY_COLORS.get(priority, "#f59e0b"),
             })
@@ -4839,6 +4907,7 @@ def _moodle_fetch_assignments(moodle_url, ws_token, moodle_user_id=None):
                 continue
             grade = a.get("grade") or 0
             priority = compute_priority(days, grade, title)
+            est_minutes, description = _lms_row_sizing(a, grade)
             out.append({
                 "id": f"mdl-{a.get('id', '')}",
                 "course_id": str(cid or ""),
@@ -4847,7 +4916,8 @@ def _moodle_fetch_assignments(moodle_url, ws_token, moodle_user_id=None):
                 "due_date": due.strftime("%Y-%m-%d"),
                 "priority": priority,
                 "source": "moodle",
-                "estimated_time": max(30, round((float(grade) or 60) * 1.5 / 30) * 30),
+                "estimated_time": est_minutes,
+                "description": description,
                 "difficulty": "Medium",
                 "color": PRIORITY_COLORS.get(priority, "#f59e0b"),
             })
@@ -6951,7 +7021,7 @@ def get_live_schedule():
                 course_map[c["id"]] = c.get("name", "Unknown")
         assignments = []
         for course_id in course_map:
-            response = requests.get(f"{base}/courses/{course_id}/assignments", headers=headers, timeout=20)
+            response = requests.get(f"{base}/courses/{course_id}/assignments?per_page=100", headers=headers, timeout=20)
             data = response.json()
             if isinstance(data, list):
                 assignments += data
@@ -6967,8 +7037,7 @@ def get_live_schedule():
             days = (due_date - today).days
             if days < -14: continue
             priority = compute_priority(days, a["points_possible"], a.get("name", ""))
-            raw_minutes = a["points_possible"] * 1.5
-            rounded_minutes = max(30, round(raw_minutes / 30) * 30)
+            rounded_minutes, description = _lms_row_sizing(a, a["points_possible"])
             difficulty = infer_task_difficulty(a["points_possible"], priority, due_str[:10])
             title = a["name"]
             if title in excluded: continue
@@ -6982,6 +7051,7 @@ def get_live_schedule():
                 "priority": priority,
                 "difficulty": difficulty,
                 "estimated_time": rounded_minutes,
+                "description": description,
                 "color": PRIORITY_COLORS.get(priority, "#60a5fa"),
             })
         return flask.jsonify(sorted(schedule, key=lambda x: x["due_date"]))
@@ -7432,7 +7502,141 @@ def api_save_assignment_due_date():
     save_custom_description(title, json.dumps(existing))
     return flask.jsonify({"status": "ok"})
 
-def _planner_task_rows(normalized_assignments, custom_tasks):
+def _lms_row_sizing(raw, points_possible, kind=""):
+    """``(minutes, description)`` for one raw LMS payload.
+
+    Every connector used to carry its own copy of ``points_possible × 1.5``
+    rounded to the half hour. That number cannot distinguish two assignments
+    inside one course, so this routes all of them through the shared sizing
+    module and keeps the old heuristic only as the fallback it always should
+    have been.
+
+    ``description`` is returned as well so the caller can put it on the task
+    dict — the planner reads it again later, and re-fetching it per assignment
+    would be a network call per row.
+    """
+    description = ""
+    if isinstance(raw, dict):
+        for key in ("description", "intro", "instructions", "body", "summary"):
+            value = raw.get(key)
+            if value:
+                description = str(value)
+                break
+    try:
+        points = float(points_possible or 0)
+    except (TypeError, ValueError):
+        points = 0.0
+    try:
+        from intelliplan.intelligence.sizing import size_from_metadata, strip_markup
+
+        clean = strip_markup(description)
+        sized = size_from_metadata(
+            title=str((raw or {}).get("name") or (raw or {}).get("title") or "")
+            if isinstance(raw, dict) else "",
+            kind=kind,
+            description=clean,
+            points_possible=points or None,
+            submission_types=(raw or {}).get("submission_types") if isinstance(raw, dict) else None,
+            rubric_rows=len(raw["rubric"]) if isinstance(raw, dict) and isinstance(raw.get("rubric"), list) else 0,
+        )
+        if sized.is_measured:
+            return sized.minutes, clean[:4000]
+        return max(30, round((points or 60) * 1.5 / 30) * 30), clean[:4000]
+    except Exception as e:
+        print(f"[sizing] fell back to the points heuristic: {e}")
+        return max(30, round((points or 60) * 1.5 / 30) * 30), ""
+
+
+def _sized_estimate(assignment, kind, saved_description=None):
+    """Base minutes for one assignment, before the student's own bias model.
+
+    Order of trust, highest first:
+
+    1. **What the student told us.** A duration they typed into the clarify
+       prompt is not a guess we should overrule.
+    2. **What the work describes.** Word counts, page ranges, problem counts,
+       rubrics, quiz time limits — see
+       :mod:`intelliplan.intelligence.sizing`. This is the layer that can tell
+       "problems 12–18" from "write a 2,000-word essay" when both are worth
+       fifty points.
+    3. **What the upstream helper guessed.** Historically
+       ``points_possible × 1.5``, which is better than nothing and worse than
+       either of the above.
+
+    Returns ``(minutes, subtask_count, signal_details)``.
+    """
+    from intelliplan.intelligence.sizing import size_assignment
+
+    try:
+        declared = int(assignment.get("estimated_time") or 0)
+    except (TypeError, ValueError):
+        declared = 0
+
+    if declared > 0 and str(assignment.get("estimate_source") or "").lower() == "student":
+        return declared, 0, []
+
+    payload = {
+        **assignment,
+        "kind": kind,
+        "description": (
+            assignment.get("description")
+            or assignment.get("instructions")
+            or saved_description
+            or ""
+        ),
+    }
+    sized = size_assignment(payload)
+    details = [s.detail for s in sized.signals]
+    if sized.is_measured:
+        return sized.minutes, sized.subtask_count, details
+    # Nothing in the metadata described the work, so keep whatever the source
+    # already guessed rather than replacing one prior with another.
+    return (declared or sized.minutes), sized.subtask_count, []
+
+
+def _saved_descriptions_for(assignments):
+    """``{title: description}`` from what the student has typed themselves.
+
+    Students paste the real instructions into IntelliPlan for assignments
+    whose LMS description is empty — that text is the best sizing signal in
+    the system and until now it was only ever rendered, never read. Loaded in
+    one query rather than one per assignment.
+    """
+    titles = [
+        (a.get("title") or "").strip()
+        for a in assignments
+        if isinstance(a, dict) and (a.get("title") or "").strip()
+    ]
+    if not titles:
+        return {}
+    try:
+        query = CustomDescription.query.filter(
+            CustomDescription.assignment_title.in_(titles[:300])
+        )
+        if current_user.is_authenticated:
+            query = query.filter(CustomDescription.user_id == current_user.id)
+        else:
+            query = query.filter(
+                CustomDescription.guest_session_id == get_guest_session_id()
+            )
+        out = {}
+        for row in query.limit(300).all():
+            text = row.description or ""
+            # The notes endpoint stores a JSON blob in the same column.
+            if text.lstrip().startswith("{"):
+                try:
+                    text = (json.loads(text) or {}).get("notes") or ""
+                except Exception:
+                    pass
+            if text:
+                out[row.assignment_title] = text
+        return out
+    except Exception as e:
+        print(f"[planner] saved description load failed: {e}")
+        return {}
+
+
+def _planner_task_rows(normalized_assignments, custom_tasks, descriptions=None):
     """Flatten assignments and free-text custom tasks into planner input.
 
     Custom tasks carry no metadata at all — they are a title someone typed
@@ -7462,17 +7666,22 @@ def _planner_task_rows(normalized_assignments, custom_tasks):
     rows = []
     for a in normalized_assignments:
         title = a.get("title") or "Task"
+        kind = kind_of(title, a.get("kind") or a.get("type"))
+        est_minutes, subtasks, size_signals = _sized_estimate(
+            a, kind, (descriptions or {}).get(title)
+        )
         rows.append({
             "id": str(a.get("id") or a.get("source_ref") or title),
             "title": title,
             "course": a.get("course") or "",
-            "kind": kind_of(title, a.get("kind") or a.get("type")),
+            "kind": kind,
             "due_date": a.get("due_date") or "",
-            "est_minutes": a.get("estimated_time"),
+            "est_minutes": est_minutes,
             "difficulty": (a.get("difficulty") or "Medium").lower(),
             "priority": _priority_score_for(a),
             "points_possible": a.get("points_possible"),
-            "subtask_count": len(a.get("subtasks") or []),
+            "subtask_count": max(len(a.get("subtasks") or []), subtasks),
+            "size_signals": size_signals,
         })
     for title in custom_tasks or []:
         title = (title or "").strip()
@@ -7512,7 +7721,8 @@ def _priority_score_for(assignment):
 
 
 def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
-                            availability, commitments, preferred_time, hours_per_day):
+                            availability, commitments, preferred_time, hours_per_day,
+                            dna=None):
     """Run the v2 planner and return ``schedule_data``, or None to fall back.
 
     Returning None rather than raising is deliberate: if anything here is
@@ -7523,9 +7733,18 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
         from intelliplan.intelligence.planner import PlannerConfig
         from intelliplan.services.scheduling import SchedulingService, StudentContext
 
-        rows = _planner_task_rows(normalized_assignments, custom_tasks)
+        rows = _planner_task_rows(
+            normalized_assignments,
+            custom_tasks,
+            descriptions=_saved_descriptions_for(normalized_assignments),
+        )
         if not rows:
             return None
+
+        try:
+            comfort_minutes = int(round(float(hours_per_day) * 60)) or None
+        except (TypeError, ValueError):
+            comfort_minutes = None
 
         context = StudentContext(
             availability=availability,
@@ -7534,11 +7753,16 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
             feedback_rows=_planner_feedback_rows(uid, gid),
             session_rows=_planner_session_rows(uid, gid),
             concept_mastery=_planner_concept_mastery(uid),
+            # Measured under-delivery days. The planner prices them rather
+            # than banning them; without this the day_quality weight has
+            # nothing to act on and every day looks equally good.
+            weak_days=tuple(getattr(dna, "weak_days", ()) or ()),
+            # The student's stated hours-per-day is a ceiling on comfort, not
+            # on capacity: their availability windows are the hard limit, and
+            # this sets how full those windows get before the optimizer starts
+            # charging for it.
+            daily_target_minutes=comfort_minutes,
         )
-        # The student's stated hours-per-day is a ceiling on comfort, not on
-        # capacity: their availability windows are the hard limit, and this
-        # sets how full those windows get before the optimizer starts
-        # charging for it.
         config = PlannerConfig()
         service = SchedulingService(context, config)
         plan = service.plan(rows)
@@ -7717,16 +7941,6 @@ def generate_schedule():
         user_id=current_user.id if current_user.is_authenticated else None,
         guest_id=None if current_user.is_authenticated else get_guest_session_id(),
     )
-    # Re-baseline estimates against how long work actually takes THIS student,
-    # before they reach the prompt — a plan built on "60 min" for someone who
-    # reliably needs 90 is a plan they will fall behind on by lunchtime.
-    for a in normalized_assignments:
-        try:
-            raw_est = int(a.get("estimated_time") or 60)
-        except (TypeError, ValueError):
-            raw_est = 60
-        a["estimated_time"] = dna.adjust_estimate(raw_est, a.get("course", ""))
-
     # ── Deterministic planning ────────────────────────────────────
     # Day allocation — how much work exists, how it splits into sittings,
     # which day each lands on, how much buffer sits before each deadline —
@@ -7743,6 +7957,7 @@ def generate_schedule():
         planned = _build_planner_schedule(
             normalized_assignments, custom_tasks, uid, gid,
             availability, commitments, preferred_time, hours_per_day,
+            dna=dna,
         )
         if planned is not None:
             return flask.jsonify({
@@ -7750,6 +7965,22 @@ def generate_schedule():
                 "data": planned,
                 "used_presets": used_presets,
             })
+
+    # Re-baseline estimates against how long work actually takes THIS student,
+    # before they reach the prompt — a plan built on "60 min" for someone who
+    # reliably needs 90 is a plan they will fall behind on by lunchtime.
+    #
+    # This applies to the AI path *only*. The planner has its own estimation
+    # model, fit on the same TaskFeedback rows, and it applies its own learned
+    # ratio inside build_plan(). Correcting here as well multiplied the two
+    # together: a student who reliably runs 1.5x over was sized at 2.25x, and
+    # the plan they got was a third longer than the week they have.
+    for a in normalized_assignments:
+        try:
+            raw_est = int(a.get("estimated_time") or 60)
+        except (TypeError, ValueError):
+            raw_est = 60
+        a["estimated_time"] = dna.adjust_estimate(raw_est, a.get("course", ""))
 
     today_str = datetime.now().strftime("%Y-%m-%d")
     overdue = [a for a in normalized_assignments if a.get("due_date", "9999") < today_str]
@@ -8385,7 +8616,7 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
                 def _fetch_course(course_id):
                     try:
                         r = requests.get(
-                            f"{base}/courses/{course_id}/assignments",
+                            f"{base}/courses/{course_id}/assignments?per_page=100",
                             headers=headers, timeout=6,
                         )
                         return course_id, r.json()
@@ -8416,6 +8647,9 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
                             if not title or title in dismissed:
                                 continue
                             priority = compute_priority(days, a.get("points_possible") or 0, title)
+                            est_minutes, description = _lms_row_sizing(
+                                a, a.get("points_possible")
+                            )
                             tasks.append({
                                 "id": str(a["id"]),
                                 "title": title,
@@ -8423,7 +8657,8 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
                                 "due_date": due_str,
                                 "priority": priority,
                                 "source": "canvas",
-                                "estimated_time": max(30, round(float(a.get("points_possible", 60) or 60) * 1.5 / 30) * 30),
+                                "estimated_time": est_minutes,
+                                "description": description,
                                 "difficulty": "Medium",
                             })
             except Exception as e:
@@ -8549,7 +8784,7 @@ def unified_tasks():
                 courses = course_response.json()
                 course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
                 for course_id in course_map:
-                    resp = requests.get(f"{base}/courses/{course_id}/assignments", headers=headers, timeout=20)
+                    resp = requests.get(f"{base}/courses/{course_id}/assignments?per_page=100", headers=headers, timeout=20)
                     data = resp.json()
                     if not isinstance(data, list):
                         continue
@@ -8568,6 +8803,9 @@ def unified_tasks():
                         priority = compute_priority(days, a.get("points_possible") or 0, title)
                         if title in dismissed:
                             continue
+                        est_minutes, description = _lms_row_sizing(
+                            a, a.get("points_possible")
+                        )
                         tasks.append({
                             "id": str(a["id"]),
                             "course_id": str(a["course_id"]),
@@ -8576,7 +8814,8 @@ def unified_tasks():
                             "due_date": due_str,
                             "priority": priority,
                             "source": "canvas",
-                            "estimated_time": max(30, round(float(a.get("points_possible", 60) or 60) * 1.5 / 30) * 30),
+                            "estimated_time": est_minutes,
+                            "description": description,
                             "difficulty": "Medium",
                             "color": PRIORITY_COLORS.get(priority, "#f59e0b")
                         })
@@ -11520,7 +11759,7 @@ def extension_tasks():
                     courses = requests.get(f"{canvas_url}/api/v1/courses", headers=headers, timeout=10).json()
                     course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
                     for course_id in course_map:
-                        resp = requests.get(f"{canvas_url}/api/v1/courses/{course_id}/assignments", headers=headers, timeout=10).json()
+                        resp = requests.get(f"{canvas_url}/api/v1/courses/{course_id}/assignments?per_page=100", headers=headers, timeout=10).json()
                         if not isinstance(resp, list):
                             continue
                         for a in resp:
@@ -11538,13 +11777,17 @@ def extension_tasks():
                             priority = compute_priority(days, a.get("points_possible") or 0, title)
                             if title in dismissed:
                                 continue
+                            est_minutes, description = _lms_row_sizing(
+                                a, a.get("points_possible")
+                            )
                             tasks.append({
                                 "title": title,
                                 "course": course_map.get(a["course_id"], "Unknown"),
                                 "due_date": due_str,
                                 "priority": priority,
                                 "source": "canvas",
-                                "estimated_time": max(30, round(float(a.get("points_possible", 60) or 60) * 1.5 / 30) * 30),
+                                "estimated_time": est_minutes,
+                                "description": description,
                                 "color": PRIORITY_COLORS.get(priority, "#f59e0b")
                             })
                 except Exception as e:
@@ -12910,6 +13153,71 @@ def _admin_sms_audience_query(audience, specific_emails=None):
         return base.filter(User.sms_reminders_opt_in.is_(True))
 
 
+@app.route("/api/admin/newsletter/preview", methods=["POST"])
+@require_admin
+def admin_newsletter_preview():
+    """Dry run: how many people would get this, and what does it look like.
+
+    Sends nothing. This is the step that must happen before the real send —
+    a newsletter is not undoable, and "how many" is the one number worth
+    checking twice.
+    """
+    body = request.get_json(silent=True) or {}
+    from intelliplan.email import campaigns
+
+    try:
+        summary = campaigns.send_newsletter(body, test=False, dry_run=True)
+        return flask.jsonify({"status": "ok", "summary": summary})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
+
+
+@app.route("/api/admin/newsletter/send", methods=["POST"])
+@require_admin
+def admin_newsletter_send():
+    """Send the newsletter for real, or to the admins only.
+
+    ``test: true``  → only ADMIN_EMAILS addresses, and does not write the
+                      deduplication ledger so it can be run repeatedly.
+    ``confirm: true`` → required for a full-list send. Without it this
+                      refuses and returns the dry-run count instead, so the
+                      irreversible action is never the default.
+    """
+    body = request.get_json(silent=True) or {}
+    test = bool(body.get("test"))
+    confirm = bool(body.get("confirm"))
+
+    from intelliplan.email import campaigns
+
+    if not test and not confirm:
+        try:
+            summary = campaigns.send_newsletter(body, test=False, dry_run=True)
+        except Exception as e:
+            return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
+        return flask.jsonify({
+            "status": "confirm_required",
+            "message": (
+                f"This would email {summary['recipients']} people. "
+                "Re-send with \"confirm\": true to go ahead."
+            ),
+            "summary": summary,
+        }), 409
+
+    try:
+        summary = campaigns.send_newsletter(body, test=test, dry_run=False)
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
+
+    if summary.get("error"):
+        return flask.jsonify({"status": "error", "message": summary["error"], "summary": summary}), 400
+
+    print(
+        f"[admin-newsletter] key={summary['email_key']} test={test} "
+        f"recipients={summary['recipients']} sent={summary['sent']} failed={summary['failed']}"
+    )
+    return flask.jsonify({"status": "ok", "summary": summary})
+
+
 # ── REFERRAL TRACKING ──────────────────────────────────────────────
 
 
@@ -12955,21 +13263,40 @@ def api_referral():
 import re as _re_phone
 
 
-def _send_email_via_resend(to_addr, subject, body):
-    """Send a plain-text email through the Resend HTTP API.
-    Returns True on success, False on failure or if not configured."""
+def _send_email_via_resend(to_addr, subject, body, html=None, headers=None, reply_to=None):
+    """Send an email through the Resend HTTP API.
+    Returns True on success, False on failure or if not configured.
+
+    ``html`` and ``headers`` are optional and only added to the payload when
+    truthy — Resend rejects a null ``html`` field, and an empty ``headers``
+    object is noise in the request log. Callers that want a plain-text send
+    keep the original three-argument shape and get the original request.
+    """
     api_key = os.getenv("RESEND_API_KEY")
     if not api_key or not to_addr:
         return False
     from_addr = os.getenv("RESEND_FROM") or "IntelliPlan <noreply@intelliplan.tech>"
     try:
         import urllib.request, urllib.error, json as _json
-        payload = _json.dumps({
+        body_payload = {
             "from": from_addr,
             "to": [to_addr],
             "subject": subject or "",
             "text": body or "",
-        }).encode()
+        }
+        if html:
+            body_payload["html"] = html
+        if headers:
+            # List-Unsubscribe and friends. Resend passes these through to
+            # the outgoing message verbatim.
+            body_payload["headers"] = dict(headers)
+        if reply_to:
+            # Resend's own field rather than a Reply-To in `headers` — it
+            # rejects some standard headers supplied that way. Every
+            # lifecycle email invites a reply, and the From address is a
+            # no-reply, so without this the answer goes nowhere.
+            body_payload["reply_to"] = reply_to
+        payload = _json.dumps(body_payload).encode()
         req = urllib.request.Request(
             "https://api.resend.com/emails",
             data=payload,
@@ -12980,8 +13307,12 @@ def _send_email_via_resend(to_addr, subject, body):
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             result = _json.loads(resp.read())
-            print(f"[email-resend] sent to {to_addr}, id={result.get('id')}")
-            return True
+            message_id = result.get("id")
+            print(f"[email-resend] sent to {to_addr}, id={message_id}")
+            # The provider id, when there is one, so the caller can record it
+            # against the send. Falls back to True so this stays a truthy
+            # success for every existing `if _send_email_via_resend(...)`.
+            return message_id or True
     except urllib.error.HTTPError as e:
         err = e.read().decode(errors="replace") if hasattr(e, "read") else str(e)
         print(f"[email-resend] failed to {to_addr}: {e.code} {err}")
@@ -12991,14 +13322,27 @@ def _send_email_via_resend(to_addr, subject, body):
         return False
 
 
-def _send_email(to_addr, subject, body):
-    """Send a plain-text email. Tries Resend first (RESEND_API_KEY), then
-    falls back to SMTP. If neither is configured, logs the message so the
-    parental-consent link can still be delivered manually."""
+def _send_email(to_addr, subject, body, html=None, headers=None, reply_to=None):
+    """Send an email. Tries Resend first (RESEND_API_KEY), then falls back to
+    SMTP. If neither is configured, logs the message so the parental-consent
+    link can still be delivered manually.
+
+    ``body`` is always the plain-text part and is always required — an
+    HTML-only email is a deliverability problem and unreadable in a text
+    client. ``html``, when given, is sent as an alternative alongside it.
+
+    Returns a truthy value on success: the provider's message id when Resend
+    reports one, otherwise True. The three-positional-argument call
+    ``_send_email(addr, subject, body)`` behaves exactly as it did before —
+    ``notifications_glue`` depends on that.
+    """
     if not to_addr:
         return False
-    if _send_email_via_resend(to_addr, subject, body):
-        return True
+    sent = _send_email_via_resend(
+        to_addr, subject, body, html=html, headers=headers, reply_to=reply_to
+    )
+    if sent:
+        return sent
 
     host, port, user, pw, sender = _smtp_config()
     if not host:
@@ -13011,7 +13355,19 @@ def _send_email(to_addr, subject, body):
         msg["From"] = sender
         msg["To"] = to_addr
         msg["Subject"] = subject
+        if reply_to:
+            msg["Reply-To"] = reply_to
+        for key, value in (headers or {}).items():
+            # List-Unsubscribe et al. Assigning over an existing key raises,
+            # so drop anything already set above rather than duplicating it.
+            if key not in msg:
+                msg[key] = value
         msg.set_content(body)
+        if html:
+            # set_content + add_alternative is what turns this into a
+            # multipart/alternative: text first, HTML second, and a text-only
+            # client renders the part it understands.
+            msg.add_alternative(html, subtype="html")
         clean_pw = "".join(pw.split()) if pw else ""
         with smtplib.SMTP(host, port, timeout=10) as s:
             s.starttls()
@@ -14083,6 +14439,222 @@ def cron_send_reminders():
             total["push"] += r["push"]
             total["tasks"] += r["tasks"]
     return flask.jsonify({"status": "ok", "summary": total})
+
+
+# ── LIFECYCLE EMAIL ───────────────────────────────────────────────
+# Welcome, feedback request, newsletter. The gate, the templates and the
+# deduplication ledger all live in intelliplan/email/ — these are the HTTP
+# edges only.
+
+
+@app.route("/cron/lifecycle-emails", methods=["GET", "POST"])
+def cron_lifecycle_emails():
+    """Daily sweep for the welcome and feedback emails.
+
+    Same CRON_SECRET + hmac.compare_digest guard as /cron/send-reminders
+    above; deliberately a copy of that pattern rather than a new scheme.
+    The newsletter is *not* here — it is admin-triggered only.
+    """
+    expected = os.getenv("CRON_SECRET", "")
+    provided = request.headers.get("X-Cron-Secret") or request.args.get("secret") or ""
+    if not expected:
+        return flask.jsonify({"status": "error", "message": "cron not configured"}), 503
+    import hmac as _hmac
+    if not _hmac.compare_digest(str(expected), str(provided)):
+        return flask.jsonify({"status": "error", "message": "unauthorized"}), 401
+
+    from intelliplan.email import campaigns
+
+    summary = {}
+    for name, sweep in (("welcome", campaigns.sweep_welcome), ("feedback", campaigns.sweep_feedback)):
+        try:
+            summary[name] = sweep()
+        except Exception as exc:
+            # One sweep failing must not stop the other. A cron that returns
+            # a 500 tells the scheduler to retry the whole thing, which for
+            # the sweep that already ran means re-walking work it finished.
+            # The full traceback goes to the log; the response gets a
+            # sanitised message. Raw exception text has leaked connection
+            # strings before — see test_error_sanitising.
+            app.logger.exception("lifecycle sweep %s failed: %s", name, exc)
+            summary[name] = {"error": safe_error_message(exc)}
+    return flask.jsonify({"status": "ok", **summary})
+
+
+@app.route("/cron/weekly-newsletter", methods=["GET", "POST"])
+def cron_weekly_newsletter():
+    """Generate and send the weekly newsletter. Unattended, by design.
+
+    Same CRON_SECRET guard as the sweeps above. Point a weekly cron at it.
+
+    This one sends to the full marketing list with no human reviewing the
+    content first — a deliberate operator decision. What still protects it:
+    every recipient passes the marketing gate, the ISO-week email key makes
+    a repeat fire a no-op, MARKETING_POSTAL_ADDRESS is still required, and
+    the changelog section is built from an allow-list of commit types and
+    scopes so an internal commit message cannot reach a student.
+
+    Pass ?dry_run=1 to see the issue and the recipient count without
+    sending.
+    """
+    expected = os.getenv("CRON_SECRET", "")
+    provided = request.headers.get("X-Cron-Secret") or request.args.get("secret") or ""
+    if not expected:
+        return flask.jsonify({"status": "error", "message": "cron not configured"}), 503
+    import hmac as _hmac
+    if not _hmac.compare_digest(str(expected), str(provided)):
+        return flask.jsonify({"status": "error", "message": "unauthorized"}), 401
+
+    dry_run = request.args.get("dry_run") in {"1", "true", "yes"}
+
+    from intelliplan.email import campaigns
+
+    try:
+        summary = campaigns.send_weekly_newsletter(dry_run=dry_run)
+    except Exception as exc:
+        app.logger.exception("weekly newsletter failed: %s", exc)
+        return flask.jsonify({"status": "error", "message": safe_error_message(exc)}), 500
+    return flask.jsonify({"status": "ok", "summary": summary})
+
+
+@app.route("/api/admin/newsletter/weekly-preview", methods=["GET", "POST"])
+@require_admin
+def admin_weekly_newsletter_preview():
+    """What this week's automatic issue will contain, and who would get it.
+
+    Generation is deterministic for a given ISO week, so what this returns
+    is what the cron will actually send.
+    """
+    from intelliplan.email import campaigns
+
+    try:
+        issue = campaigns.generate_weekly_issue()
+        summary = campaigns.send_weekly_newsletter(dry_run=True)
+        return flask.jsonify({"status": "ok", "issue": issue, "summary": summary})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
+
+
+@app.route("/api/admin/email/preflight", methods=["GET", "POST"])
+@require_admin
+def admin_email_preflight():
+    """Can the email system actually send right now, and will replies land?
+
+    Read-only. Worth running before any blast and after any env change —
+    every failure it reports is otherwise invisible until a student does
+    not get an email.
+    """
+    from intelliplan.email import preflight
+
+    try:
+        result = preflight.check()
+        return flask.jsonify({"status": "ok", **result})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
+
+
+@app.route("/api/admin/feedback-blast/preview", methods=["POST", "GET"])
+@require_admin
+def admin_feedback_blast_preview():
+    """Dry run for the feedback ask to the whole eligible list. Sends nothing."""
+    from intelliplan.email import campaigns
+
+    try:
+        return flask.jsonify(
+            {"status": "ok", "summary": campaigns.send_feedback_now(dry_run=True)}
+        )
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
+
+
+@app.route("/api/admin/feedback-blast/send", methods=["POST"])
+@require_admin
+def admin_feedback_blast_send():
+    """Send the feedback ask to everyone who passes the marketing gate.
+
+    Ignores the 14-day window and the activity requirement — those are
+    quality heuristics. Consent, age and suppression still apply in full.
+    Requires "confirm": true, so the irreversible call is never the default.
+    """
+    body = request.get_json(silent=True) or {}
+    from intelliplan.email import campaigns
+
+    if not body.get("confirm"):
+        try:
+            summary = campaigns.send_feedback_now(dry_run=True)
+        except Exception as e:
+            return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
+        return flask.jsonify({
+            "status": "confirm_required",
+            "message": (
+                f"This would email {summary['recipients']} people who passed the "
+                "consent gate. Re-send with \"confirm\": true to go ahead."
+            ),
+            "summary": summary,
+        }), 409
+
+    try:
+        summary = campaigns.send_feedback_now(dry_run=False)
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
+
+    if summary.get("error"):
+        return flask.jsonify({"status": "error", "message": summary["error"], "summary": summary}), 400
+
+    print(f"[admin-feedback-blast] recipients={summary['recipients']} sent={summary['sent']} failed={summary['failed']}")
+    return flask.jsonify({"status": "ok", "summary": summary})
+
+
+@app.route("/email/unsubscribe/<token>", methods=["GET", "POST"])
+def email_unsubscribe(token):
+    """One-click unsubscribe. No login, no confirmation form.
+
+    Deliberately works logged-out: someone who cannot get into their account
+    must still be able to get off the list, and CAN-SPAM does not accept
+    "sign in first" as an unsubscribe mechanism. POST is accepted because
+    List-Unsubscribe-Post one-click sends one.
+    """
+    from intelliplan.email.eligibility import suppress
+    from intelliplan.email.sender import parse_unsubscribe_token
+
+    payload = parse_unsubscribe_token(token or "")
+    if not payload:
+        return _mini_page(
+            "Link not recognised",
+            "<h1>We couldn't read that link</h1>"
+            "<p>The unsubscribe link looks incomplete or altered. Forward the "
+            'email to <a href="mailto:support@intelliplan.tech">support@intelliplan.tech</a> '
+            "and we'll take you off the list by hand.</p>",
+        ), 400
+
+    address = (payload.get("email") or "").strip().lower()
+    suppress(address, reason="unsubscribe")
+
+    # Also clear the flag on any account with this address, so the settings
+    # page agrees with reality. The suppression list is the authority; this
+    # keeps the UI honest.
+    try:
+        for user in User.query.filter(db.func.lower(User.email) == address).all():
+            user.marketing_emails_opt_in = False
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    # One-click clients want a bare 200, not a page.
+    if request.method == "POST":
+        return flask.jsonify({"status": "ok", "unsubscribed": True})
+
+    # markupsafe, not flask.escape — the latter was removed in Flask 3.
+    from markupsafe import escape as _escape
+
+    return _mini_page(
+        "Unsubscribed",
+        "<h1>You're unsubscribed</h1>"
+        f"<p>We won't send marketing email to <strong>{_escape(address)}</strong> again.</p>"
+        "<p>Deadline reminders are separate and are unaffected — if you had those "
+        "switched on, they'll keep arriving. You can change them any time in "
+        '<a href="/settings">Settings</a>.</p>',
+    )
 
 
 # ── DAILY CHECK-IN CHEST (Duolingo-style) ─────────────────────────

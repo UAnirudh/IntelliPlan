@@ -677,6 +677,30 @@
     </div>
   </div>
 
+  <!-- ── Marketing email ──────────────────────────────
+       Deliberately its own card, not a fourth checkbox in the reminders
+       block above. Those are transactional — the deadline reminders a
+       student asked for. This is marketing, and putting them in one list
+       invites exactly the conflation the consent model exists to prevent. -->
+  <div class="settings-section" id="marketingCard">
+    <div class="settings-section-title">Product news</div>
+    <div style="font-size:0.86rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.55;">
+      An occasional email about new features and study tips. Separate from your
+      deadline reminders — turning this off never affects those.
+    </div>
+    <label style="display:flex;align-items:flex-start;gap:10px;font-size:0.9rem;color:var(--text-primary);cursor:pointer;margin:0;">
+      <input type="checkbox" id="marketingOptIn"
+             style="margin-top:3px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;"
+             onchange="saveMarketingOptIn()">
+      <span><strong>Email me about new features and study tips.</strong>
+        <span style="display:block;font-size:0.78rem;color:var(--text-muted);margin-top:2px;">
+          Off by default. Every one of these has a one-click unsubscribe link.
+        </span>
+      </span>
+    </label>
+    <div id="marketingStatus" style="font-size:0.8rem;color:var(--text-muted);margin-top:10px;"></div>
+  </div>
+
   <!-- ── Privacy / AI personalization ─────────────────── -->
   <div class="settings-section" id="privacyCard">
     <div class="settings-section-title">AI personalization</div>
@@ -1502,6 +1526,50 @@ function saveAiPersonalization() {
       cb.checked = !enabled;
     });
 }
+// ── Marketing email opt-in ───────────────────────────────────────
+// Rides on the notification-preferences endpoint, but is never derived
+// from the `channels` list there: marketing consent and transactional
+// consent are separate, in both directions.
+function loadMarketingOptIn() {
+  const cb = document.getElementById('marketingOptIn');
+  if (!cb) return;
+  fetch('/api/notifications/preferences')
+    .then(r => (r.ok ? r.json() : null))
+    .then(d => { if (d) cb.checked = !!d.marketing_emails_opt_in; })
+    .catch(() => {});
+}
+function saveMarketingOptIn() {
+  const cb = document.getElementById('marketingOptIn');
+  const status = document.getElementById('marketingStatus');
+  if (!cb) return;
+  const enabled = !!cb.checked;
+  if (status) { status.textContent = 'Saving...'; status.style.color = 'var(--text-muted)'; }
+  fetch('/api/notifications/preferences', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ marketing_emails_opt_in: enabled }),
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (!status) return;
+      if (d && !d.error) {
+        status.textContent = enabled
+          ? "You're on the list. Every email has a one-click unsubscribe."
+          : "Off — we won't email you about new features. Reminders are unaffected.";
+        status.style.color = 'var(--low)';
+        setTimeout(() => { if (status) status.style.color = 'var(--text-muted)'; }, 3200);
+      } else {
+        status.textContent = 'Could not save. Try again.';
+        status.style.color = 'var(--high)';
+        cb.checked = !enabled;
+      }
+    })
+    .catch(() => {
+      if (status) { status.textContent = 'Network error.'; status.style.color = 'var(--high)'; }
+      cb.checked = !enabled;
+    });
+}
+document.addEventListener('DOMContentLoaded', loadMarketingOptIn);
+
 function savePhone() {
   const phone = document.getElementById('phoneInput').value.trim();
   const sms = document.getElementById('smsOptIn').checked;

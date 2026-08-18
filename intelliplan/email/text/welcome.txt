@@ -1,0 +1,47 @@
+Hey {{ user_name or 'there' }},
+
+Your AI study planner is ready to go.
+
+IntelliPlan syncs with your school's tools, reads your assignments
+automatically, and builds a personalized study schedule — so you can stop
+planning and start actually studying.
+
+Open IntelliPlan: {{ app_url }}
+
+
+STEP 1 — CONNECT YOUR SCHOOL
+
+IntelliPlan works best when it can see your real assignments. Connect any
+of these in your settings; it takes less than a minute.
+
+  * Canvas LMS       — assignments and due dates
+  * StudentVue       — grades and class schedule
+  * Schoology        — course materials and tasks
+  * Google Calendar  — sync your study blocks
+
+
+HOW IT WORKS
+
+  1. Connect your school platform.
+     IntelliPlan pulls your assignments, deadlines, and grades
+     automatically — no manual input.
+
+  2. Let the AI build your plan.
+     IntelliPlan breaks assignments into focused study sessions and
+     spaces them intelligently around your schedule.
+
+  3. Study with less stress.
+     Everything is organized, nothing slips through the cracks. Check off
+     tasks as you go and watch your week unfold.
+
+Set up your integrations: {{ app_url }}
+
+---
+
+You're receiving this because you signed up at {{ app_domain }}.
+Questions? Reply to this email, or reach us at {{ support_email }}
+
+Unsubscribe: {{ unsubscribe_url }}
+Privacy policy: {{ app_url }}/privacy
+
+IntelliPlan — Study smarter.

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IntelliPlan — What's New + This Month's Study Tip</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #f0f0f7; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; }
+  </style>
+</head>
+<body style="background:#f0f0f7; margin:0; padding:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <!-- Preheader: the grey preview line next to the subject in every
+       inbox list. Left unset it fills with whatever text comes first,
+       which here is the logo alt and reads as noise. -->
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#f0f0f7; opacity:0;">
+    {{ preheader }}
+    &#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;
+  </div>
+
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f0f0f7; padding: 40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px; width:100%;">
+
+          <!-- Logo bar -->
+          <tr>
+            <td align="center" style="padding-bottom: 28px;">
+              <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border-radius: 14px; padding: 10px 20px;">
+                    <span style="font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">✦ IntelliPlan</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Issue badge + header -->
+          <tr>
+            <td style="background: linear-gradient(140deg, #1e1b4b 0%, #312e81 55%, #4c1d95 100%); border-radius: 20px 20px 0 0; padding: 44px 48px 40px;">
+              <p style="font-size: 12px; font-weight: 600; color: #a5b4fc; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px;">
+                {{ issue_label }}
+              </p>
+              <h1 style="font-size: 32px; font-weight: 800; color: #ffffff; letter-spacing: -1px; line-height: 1.2; margin-bottom: 14px;">
+                {{ headline }}
+              </h1>
+              <p style="font-size: 15px; color: #c4b5fd; line-height: 1.7;">
+                {{ intro }}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Body card -->
+          <tr>
+            <td style="background: #ffffff; border-radius: 0 0 20px 20px; padding: 44px 48px 48px;">
+
+              <!-- === SECTION 1: WHAT'S NEW === -->
+              <p style="font-size: 13px; font-weight: 600; color: #6366f1; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 24px;">🛠 What's new</p>
+
+              {# One card per entry in `features`. The admin payload supplies the
+                 list, so an issue can carry two items or five without a template
+                 edit. `loop.last` keeps the original spacing: 20px between cards,
+                 36px before the divider. #}
+              {% for feature in features %}
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: {% if loop.last %}36{% else %}20{% endif %}px;">
+                <tr>
+                  <td style="background: #f5f3ff; border-radius: 14px; padding: 22px 24px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td>
+                          <p style="font-size: 11px; font-weight: 700; color: #7c3aed; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px;">{{ feature.tag }}</p>
+                          <h3 style="font-size: 17px; font-weight: 700; color: #1e1b4b; margin-bottom: 8px;">{{ feature.title }}</h3>
+                          <p style="font-size: 14px; color: #6b7280; line-height: 1.65;">
+                            {{ feature.body }}
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              {% endfor %}
+
+              <!-- Divider -->
+              <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 0 0 36px;" />
+
+              <!-- === SECTION 2: STUDY TIP === -->
+              <p style="font-size: 13px; font-weight: 600; color: #6366f1; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 24px;">🧠 This month's study science</p>
+
+              <!-- Tip card -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #1e1b4b 0%, #3730a3 100%); border-radius: 16px; margin-bottom: 36px;">
+                <tr>
+                  <td style="padding: 30px 32px;">
+                    <p style="font-size: 20px; margin-bottom: 14px;">⚡</p>
+                    <h3 style="font-size: 19px; font-weight: 800; color: #ffffff; margin-bottom: 12px; letter-spacing: -0.3px;">
+                      {{ tip.title }}
+                    </h3>
+                    <p style="font-size: 14px; color: #c4b5fd; line-height: 1.75; margin-bottom: 20px;">
+                      {{ tip.body }}
+                    </p>
+                    {# The "try this" box is the actionable half of the tip. An
+                       issue that has no single action worth naming omits it
+                       rather than shipping an empty grey box. #}
+                    {% if tip.action %}
+                    <table cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="background: rgba(255,255,255,0.12); border-radius: 10px; padding: 12px 18px;">
+                          <p style="font-size: 13px; font-weight: 600; color: #e0e7ff; line-height: 1.6;">
+                            <strong style="color:#fff;">Try this instead:</strong> {{ tip.action }}
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                    {% endif %}
+                  </td>
+                </tr>
+              </table>
+
+              <!-- === SECTION 3: QUICK STATS / SOCIAL PROOF === -->
+              {# Three cells, driven by `stats`. Fixed at three because the
+                 table lays out at 33% each; the generator always supplies
+                 exactly three. #}
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 36px;">
+                <tr>
+                  {% for stat in stats %}
+                  <td width="33%" style="text-align: center; padding: 0 8px;{% if not loop.first and not loop.last %} border-left: 1px solid #f3f4f6; border-right: 1px solid #f3f4f6;{% endif %}">
+                    <p style="font-size: 28px; font-weight: 800; color: #4f46e5; letter-spacing: -1px;">{{ stat.value }}</p>
+                    <p style="font-size: 12px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">{{ stat.label }}</p>
+                  </td>
+                  {% endfor %}
+                </tr>
+              </table>
+
+              <!-- Divider -->
+              <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 0 0 32px;" />
+
+              <!-- Share / Refer section -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #fafafa; border-radius: 14px; margin-bottom: 36px;">
+                <tr>
+                  <td style="padding: 24px 26px;">
+                    <h3 style="font-size: 16px; font-weight: 700; color: #111827; margin-bottom: 8px;">Know a student who'd find this useful?</h3>
+                    <p style="font-size: 14px; color: #6b7280; line-height: 1.65; margin-bottom: 18px;">
+                      IntelliPlan is completely free. Send them the link — the more students who use it, the better I can build it for everyone.
+                    </p>
+                    <a href="{{ app_url }}" style="display:inline-block; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #ffffff; font-size: 14px; font-weight: 700; text-decoration: none; padding: 12px 28px; border-radius: 50px;">
+                      Share intelliplan.tech →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center">
+                    <a href="{{ app_url }}" style="display:inline-block; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #ffffff; font-size: 16px; font-weight: 700; text-decoration: none; padding: 16px 44px; border-radius: 50px; letter-spacing: -0.2px;">
+                      Open IntelliPlan
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 32px 48px; text-align: center;">
+              <p style="font-size: 13px; color: #9ca3af; line-height: 1.7; margin-bottom: 8px;">
+                You're on the IntelliPlan newsletter list. You signed up at <a href="{{ app_url }}" style="color: #6366f1; text-decoration: none;">{{ app_domain }}</a>.
+              </p>
+              <p style="font-size: 13px; color: #9ca3af; margin-bottom: 16px;">
+                Questions or feedback? Reply to this email — the founder reads it personally.
+              </p>
+              <p style="font-size: 12px; color: #d1d5db;">
+                <a href="{{ unsubscribe_url }}" style="color: #d1d5db; text-decoration: none;">Unsubscribe</a> · <a href="{{ app_url }}/privacy" style="color: #d1d5db; text-decoration: none;">Privacy Policy</a>
+              </p>
+              {# CAN-SPAM §7704(a)(5): a physical postal address is required in
+                 any commercial email. The sender refuses to send without one
+                 rather than shipping a non-compliant message. #}
+              <p style="font-size: 11px; color: #d1d5db; margin-top: 12px; line-height: 1.6;">
+                {{ postal_address }}
+              </p>
+              <p style="font-size: 12px; color: #e5e7eb; margin-top: 12px; font-weight: 600; letter-spacing: 0.5px;">✦ IntelliPlan — Study smarter.</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>

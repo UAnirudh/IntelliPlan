@@ -1,0 +1,1457 @@
+{
+  "generated_at": "2026-08-16T05:33:31.011245",
+  "commits": [
+    {
+      "date": "2026-08-16T11:00:00+05:30",
+      "subject": "feat(email): generate and send the newsletter weekly, unattended"
+    },
+    {
+      "date": "2026-08-15T16:58:15+05:30",
+      "subject": "feat(email): wire lifecycle email to cron, admin, settings, and docs"
+    },
+    {
+      "date": "2026-08-15T16:57:56+05:30",
+      "subject": "feat(email): lifecycle email \u00e2\u20ac\u201d consent gate, HTML templates, dedup ledger"
+    },
+    {
+      "date": "2026-08-15T16:14:04+05:30",
+      "subject": "feat(web): put Download in the nav"
+    },
+    {
+      "date": "2026-08-15T16:06:47+05:30",
+      "subject": "fix(release): stop publishing update metadata that does not match the build"
+    },
+    {
+      "date": "2026-08-15T15:47:08+05:30",
+      "subject": "feat(desktop): update the app without making anyone reinstall it"
+    },
+    {
+      "date": "2026-08-15T12:59:06+05:30",
+      "subject": "docs: make the README match the code, and write a roadmap of what is left"
+    },
+    {
+      "date": "2026-08-15T12:58:53+05:30",
+      "subject": "fix(mobile): make the Expo app installable, correct, and buildable"
+    },
+    {
+      "date": "2026-08-15T11:54:31+05:30",
+      "subject": "docs: mark the roadmap items that already shipped"
+    },
+    {
+      "date": "2026-08-15T11:33:48+05:30",
+      "subject": "feat(web): offer a reload when a new version is deployed"
+    },
+    {
+      "date": "2026-08-15T11:33:39+05:30",
+      "subject": "feat(auth): desktop Google sign-in, and a newsletter opt-in at signup"
+    },
+    {
+      "date": "2026-08-15T11:33:24+05:30",
+      "subject": "fix(desktop): make the Windows app installable, iconed, and signed-in"
+    },
+    {
+      "date": "2026-08-14T10:20:11+05:30",
+      "subject": "docs(desktop): write down how a release actually gets published"
+    },
+    {
+      "date": "2026-08-14T10:16:33+05:30",
+      "subject": "fix(desktop): linux maintainer field, and publish partial releases"
+    },
+    {
+      "date": "2026-08-14T10:11:55+05:30",
+      "subject": "fix(desktop): add the metadata electron-builder needs to package"
+    },
+    {
+      "date": "2026-08-14T10:06:24+05:30",
+      "subject": "feat(download): ship the desktop app from the website"
+    },
+    {
+      "date": "2026-08-14T09:57:15+05:30",
+      "subject": "fix(desktop): stop the offline card claiming a plan that is not there"
+    },
+    {
+      "date": "2026-08-14T09:25:12+05:30",
+      "subject": "chore(desktop): clear all 43 dependency vulnerabilities"
+    },
+    {
+      "date": "2026-08-13T15:42:05+05:30",
+      "subject": "feat(offline): extend cached reads to grades and the saved schedule"
+    },
+    {
+      "date": "2026-08-13T15:19:18+05:30",
+      "subject": "feat(offline): let the service worker flush the write queue on its own"
+    },
+    {
+      "date": "2026-08-13T14:44:33+05:30",
+      "subject": "feat(onboarding): end setup by doing the work, not by opening a dashboard"
+    },
+    {
+      "date": "2026-08-13T14:06:59+05:30",
+      "subject": "style(scheduler): drop the accent tab from the capacity warning"
+    },
+    {
+      "date": "2026-08-13T14:03:00+05:30",
+      "subject": "fix(scheduler): show the student the work that did not fit"
+    },
+    {
+      "date": "2026-08-13T13:54:49+05:30",
+      "subject": "fix(push): deliver to every device, and to Edge at all"
+    },
+    {
+      "date": "2026-08-13T13:42:56+05:30",
+      "subject": "feat(offline): make the app actually usable without a connection"
+    },
+    {
+      "date": "2026-08-12T17:13:00+05:30",
+      "subject": "docs: give the cron example in PowerShell as well as bash"
+    },
+    {
+      "date": "2026-08-12T16:59:40+05:30",
+      "subject": "fix(push): usable VAPID generator, and Postgres-valid notification migration"
+    },
+    {
+      "date": "2026-08-12T16:46:10+05:30",
+      "subject": "feat(active): make the focus check-in findable, and explain it before use"
+    },
+    {
+      "date": "2026-08-12T16:41:53+05:30",
+      "subject": "feat(desktop): native app for Windows, macOS and Linux"
+    },
+    {
+      "date": "2026-08-12T15:52:45+05:30",
+      "subject": "perf(ui): stop buttons lagging on phones \u00e2\u20ac\u201d 98% less live blur"
+    },
+    {
+      "date": "2026-08-12T15:37:34+05:30",
+      "subject": "fix(security): stop 45 API handlers returning raw exception text"
+    },
+    {
+      "date": "2026-08-12T15:33:46+05:30",
+      "subject": "fix(auth): sign-in no longer bounces back to the login page on phones"
+    },
+    {
+      "date": "2026-08-12T15:13:54+05:30",
+      "subject": "perf(base): move 133KB of inline CSS out of every page; fix extension login"
+    },
+    {
+      "date": "2026-08-12T15:01:17+05:30",
+      "subject": "feat(notifications): a real outbox, and phone corrections that were measured"
+    },
+    {
+      "date": "2026-08-12T13:16:49+05:30",
+      "subject": "feat(scheduler): plan against what the student actually does, not a guess"
+    },
+    {
+      "date": "2026-08-12T13:16:19+05:30",
+      "subject": "feat(ip-ui): announcement bar, and a slider that stops thrashing layout"
+    },
+    {
+      "date": "2026-08-02T10:32:16+05:30",
+      "subject": "feat(ui): wiggling review cards on phones, and two components for the pages next"
+    },
+    {
+      "date": "2026-08-02T09:59:37+05:30",
+      "subject": "feat(scheduler): build a day by hand, and save its shape to reuse"
+    },
+    {
+      "date": "2026-08-02T06:00:37+05:30",
+      "subject": "feat(groups): a voice room you can see into before you join"
+    },
+    {
+      "date": "2026-08-02T05:51:00+05:30",
+      "subject": "feat(developers): a portal to apply for, hold, and revoke an API key"
+    },
+    {
+      "date": "2026-08-02T05:30:50+05:30",
+      "subject": "feat(motion): move the animation engine to GSAP, and give every control feedback"
+    },
+    {
+      "date": "2026-08-02T03:58:39+05:30",
+      "subject": "feat(api): scoped, revocable API keys behind a real application process"
+    },
+    {
+      "date": "2026-07-31T08:44:48-07:00",
+      "subject": "fix(a11y): dark-theme delete button had white text on a light red"
+    },
+    {
+      "date": "2026-07-31T08:35:18-07:00",
+      "subject": "feat(scheduler): time the forced break to the student, not to a constant"
+    },
+    {
+      "date": "2026-07-31T00:49:48-07:00",
+      "subject": "chore: stop calling datetime.utcnow(), which Python is removing"
+    },
+    {
+      "date": "2026-07-31T00:43:18-07:00",
+      "subject": "fix(scheduler): never backfill a plan the student arranged by hand"
+    },
+    {
+      "date": "2026-07-31T00:38:08-07:00",
+      "subject": "feat(ux): replace the last 16 window.confirm calls with a real dialog"
+    },
+    {
+      "date": "2026-07-31T00:26:34-07:00",
+      "subject": "fix(scheduler): let later work fill the gaps earlier work left behind"
+    },
+    {
+      "date": "2026-07-31T00:19:54-07:00",
+      "subject": "feat(scheduler): tell the student which assignment was split, and why"
+    },
+    {
+      "date": "2026-07-31T00:13:38-07:00",
+      "subject": "fix(scheduler): place work by deadline, with difficulty as the tie-break"
+    },
+    {
+      "date": "2026-07-31T00:07:08-07:00",
+      "subject": "fix(scheduler): split long assignments into sittings instead of deleting them"
+    },
+    {
+      "date": "2026-07-30T23:57:59-07:00",
+      "subject": "fix(landing,test): finish the CTA rename and stop pinning copy in tests"
+    },
+    {
+      "date": "2026-07-30T23:42:04-07:00",
+      "subject": "fix(blog): read articles in the reading font, not the UI font"
+    },
+    {
+      "date": "2026-07-30T23:38:51-07:00",
+      "subject": "feat(forms): password reveal, real invalid states, announced auth errors"
+    },
+    {
+      "date": "2026-07-30T23:33:45-07:00",
+      "subject": "fix(ux): route all 54 window.alert calls through the toast system"
+    },
+    {
+      "date": "2026-07-30T23:30:30-07:00",
+      "subject": "feat(marketing): stop faking a second pricing tier"
+    },
+    {
+      "date": "2026-07-30T23:27:19-07:00",
+      "subject": "feat(app): empty states that offer a next step, and a shaped loader"
+    },
+    {
+      "date": "2026-07-30T23:22:47-07:00",
+      "subject": "feat(landing): name what the click does, and label the logo row"
+    },
+    {
+      "date": "2026-07-30T23:19:42-07:00",
+      "subject": "fix(a11y,cache): one skip link, and version the last three static assets"
+    },
+    {
+      "date": "2026-07-30T23:18:11-07:00",
+      "subject": "feat(design): spotlight borders, condensed header, reading progress"
+    },
+    {
+      "date": "2026-07-30T23:12:20-07:00",
+      "subject": "feat(design): add the premium finishing layer"
+    },
+    {
+      "date": "2026-07-30T17:46:29-07:00",
+      "subject": "fix(motion): drop the height transition on autoscale inputs, and dead CSS"
+    },
+    {
+      "date": "2026-07-30T17:39:22-07:00",
+      "subject": "feat(motion): rebuild five Pro-tier interaction patterns from scratch"
+    },
+    {
+      "date": "2026-07-30T16:56:31-07:00",
+      "subject": "feat(motion): make the motion system sitewide, and fix stale static assets"
+    },
+    {
+      "date": "2026-07-30T16:27:01-07:00",
+      "subject": "feat(ui): port four Skiper UI components to the vanilla stack"
+    },
+    {
+      "date": "2026-07-30T11:21:51-07:00",
+      "subject": "test(login): target the guest buttons by role, not by page text"
+    },
+    {
+      "date": "2026-07-30T11:10:54-07:00",
+      "subject": "perf(motion): animate transforms, not layout properties; drop the bounce curve"
+    },
+    {
+      "date": "2026-07-30T11:06:12-07:00",
+      "subject": "feat(async): shimmering load label, with a guard against invisible text"
+    },
+    {
+      "date": "2026-07-30T11:03:11-07:00",
+      "subject": "fix(landing): make the step numerals readable, and give the page motion"
+    },
+    {
+      "date": "2026-07-30T10:55:57-07:00",
+      "subject": "fix(plani): stop the assistant inventing who built IntelliPlan"
+    },
+    {
+      "date": "2026-07-30T10:54:45-07:00",
+      "subject": "feat(tutor): put Plani in the assistant page, matching the corner robot"
+    },
+    {
+      "date": "2026-07-30T10:50:34-07:00",
+      "subject": "feat(plani): bring the robot back, in its own palette"
+    },
+    {
+      "date": "2026-07-30T10:46:39-07:00",
+      "subject": "feat(auth): horizontal split layout on laptops, single column on phones"
+    },
+    {
+      "date": "2026-07-30T10:38:46-07:00",
+      "subject": "feat(motion): premium motion layer \u00e2\u20ac\u201d vendored Motion, springs, floats, magnetics"
+    },
+    {
+      "date": "2026-07-30T10:34:58-07:00",
+      "subject": "fix(chrome,a11y): un-trap the mobile drawer from the header's backdrop-filter"
+    },
+    {
+      "date": "2026-07-29T16:11:20-07:00",
+      "subject": "feat: give every async region designed loading, empty, error and retry states"
+    },
+    {
+      "date": "2026-07-28T09:07:25-07:00",
+      "subject": "feat(scheduler): ask before planning a vague request, and remember the answers"
+    },
+    {
+      "date": "2026-07-28T08:49:21-07:00",
+      "subject": "fix(scheduler): stop the time column overlapping the title, and de-lag the drag"
+    },
+    {
+      "date": "2026-07-27T22:57:28-07:00",
+      "subject": "fix(scheduler): stop thinking tokens truncating the schedule JSON"
+    },
+    {
+      "date": "2026-07-27T22:37:14-07:00",
+      "subject": "feat(scheduler): drag blocks between days, with live conflict recalculation"
+    },
+    {
+      "date": "2026-07-27T19:38:11-07:00",
+      "subject": "perf: index hot owner lookups and kill three N+1 query paths"
+    },
+    {
+      "date": "2026-07-27T19:30:53-07:00",
+      "subject": "feat(scheduler): place blocks in the student's real week, not a fixed anchor hour"
+    },
+    {
+      "date": "2026-07-27T16:13:55-07:00",
+      "subject": "feat(glass): real glass on mobile chrome, and two contrast fixes"
+    },
+    {
+      "date": "2026-07-27T15:54:15-07:00",
+      "subject": "feat(ux): designed tooltip system, and adopt every native title"
+    },
+    {
+      "date": "2026-07-27T15:49:26-07:00",
+      "subject": "feat(icons): adopt Phosphor Icons sitewide"
+    },
+    {
+      "date": "2026-07-27T10:55:13-06:00",
+      "subject": "feat(scroll-top): make the \"Back to top\" button small and unobtrusive"
+    },
+    {
+      "date": "2026-07-27T10:49:16-06:00",
+      "subject": "fix(wellness): throttle the \"Healthy Use\" nudges so they stop spamming"
+    },
+    {
+      "date": "2026-07-27T10:39:28-06:00",
+      "subject": "feat(tutor): declutter the message composer"
+    },
+    {
+      "date": "2026-07-23T11:35:54-07:00",
+      "subject": "refactor(copy): de-slop the \"doing well\" messages"
+    },
+    {
+      "date": "2026-07-23T11:26:13-07:00",
+      "subject": "fix(control-center): stop the hero covering the page + compact it"
+    },
+    {
+      "date": "2026-07-23T11:16:34-07:00",
+      "subject": "feat(mobile-header): tighten the app top bar to 54px"
+    },
+    {
+      "date": "2026-07-23T11:11:06-07:00",
+      "subject": "feat(landing-mobile): compact, non-overlapping sticky CTA"
+    },
+    {
+      "date": "2026-07-23T10:41:29-07:00",
+      "subject": "fix(mobile,a11y): stop iOS scroll rubber-band + label fields + AA contrast"
+    },
+    {
+      "date": "2026-07-22T22:51:41-07:00",
+      "subject": "fix(notion): keep DB selection on reconnect + paginate task pull"
+    },
+    {
+      "date": "2026-07-22T22:47:48-07:00",
+      "subject": "fix(sidebar): make the customizer mirror the real sidebar exactly"
+    },
+    {
+      "date": "2026-07-22T22:40:10-07:00",
+      "subject": "style(my-pet): make the 'View streak milestones' link a proper glass button"
+    },
+    {
+      "date": "2026-07-22T22:38:32-07:00",
+      "subject": "fix(mobile): restore page scrolling \u00e2\u20ac\u201d remove the body scroll-container trap"
+    },
+    {
+      "date": "2026-07-22T22:31:04-07:00",
+      "subject": "style(my-pet): recolor the pet palette from purple to blue"
+    },
+    {
+      "date": "2026-07-22T16:48:45-07:00",
+      "subject": "fix(widgets): unstack feedback from the assistant + add hide control"
+    },
+    {
+      "date": "2026-07-22T16:46:02-07:00",
+      "subject": "fix(command-center): resolve 'We couldn't load your day' \u00e2\u20ac\u201d app-context crash"
+    },
+    {
+      "date": "2026-07-22T16:35:29-07:00",
+      "subject": "feat(ui): reusable sitewide skeleton-loader system"
+    },
+    {
+      "date": "2026-07-22T16:34:01-07:00",
+      "subject": "a11y(register): associate the phone label with its input"
+    },
+    {
+      "date": "2026-07-22T16:31:44-07:00",
+      "subject": "copy(landing): professionalize corny/third-person feature copy"
+    },
+    {
+      "date": "2026-07-22T16:30:21-07:00",
+      "subject": "style(de-ai): monochrome feature icons + accent hero glow on the homepage"
+    },
+    {
+      "date": "2026-07-22T16:28:34-07:00",
+      "subject": "style(de-ai): remove purple/blue AI gradients from the shared shell"
+    },
+    {
+      "date": "2026-07-22T16:24:55-07:00",
+      "subject": "feat(favicon): use the IntelliPlan logo as the site favicon"
+    },
+    {
+      "date": "2026-07-22T15:55:44-07:00",
+      "subject": "fix(deploy): read \\ in gunicorn config, not the start command"
+    },
+    {
+      "date": "2026-07-22T15:51:42-07:00",
+      "subject": "style(my-pet): glass stat cards, stage rows and dialog panels"
+    },
+    {
+      "date": "2026-07-22T15:50:34-07:00",
+      "subject": "chore: force LF on deploy files via .gitattributes"
+    },
+    {
+      "date": "2026-07-22T15:50:01-07:00",
+      "subject": "fix(deploy): build with a Dockerfile to kill the broken-venv crash"
+    },
+    {
+      "date": "2026-07-22T10:50:20-07:00",
+      "subject": "style(dashboard): glass on inline Notion/syllabus controls"
+    },
+    {
+      "date": "2026-07-22T10:49:33-07:00",
+      "subject": "style(settings): glass Notion-integration inputs"
+    },
+    {
+      "date": "2026-07-22T10:48:51-07:00",
+      "subject": "style(meetings): glass on the remaining flat control"
+    },
+    {
+      "date": "2026-07-22T10:48:21-07:00",
+      "subject": "style(streak): glass tabs, balance pill and shop controls"
+    },
+    {
+      "date": "2026-07-22T10:47:22-07:00",
+      "subject": "style(study-groups): glass notes, chat log and compose surfaces"
+    },
+    {
+      "date": "2026-07-22T10:45:07-07:00",
+      "subject": "style(task-extractor): glass paste input and extracted task rows"
+    },
+    {
+      "date": "2026-07-22T10:44:34-07:00",
+      "subject": "style(writing-assistant): glass editor, suggestions and revised box"
+    },
+    {
+      "date": "2026-07-22T10:43:55-07:00",
+      "subject": "style(math-explainer): glass input, step rows and similar-question card"
+    },
+    {
+      "date": "2026-07-22T10:43:04-07:00",
+      "subject": "style(buttons): keep primary/CTA buttons dominant in the glass system"
+    },
+    {
+      "date": "2026-07-22T10:39:47-07:00",
+      "subject": "style(study): glass segmented tab track and reward pills"
+    },
+    {
+      "date": "2026-07-22T10:14:40-07:00",
+      "subject": "fix(deploy): run gunicorn as a module to survive a broken venv shebang"
+    },
+    {
+      "date": "2026-07-22T10:04:00-07:00",
+      "subject": "style(glass): sweep the last flat surfaces sitewide"
+    },
+    {
+      "date": "2026-07-22T10:02:38-07:00",
+      "subject": "style(compare): frosted glass on comparison cards and CTAs"
+    },
+    {
+      "date": "2026-07-22T10:02:17-07:00",
+      "subject": "style(blog): frosted glass on guide hub cards and CTAs"
+    },
+    {
+      "date": "2026-07-22T10:00:20-07:00",
+      "subject": "style(marketing): frosted glass on schools, UK and FAQ pages"
+    },
+    {
+      "date": "2026-07-22T09:59:34-07:00",
+      "subject": "style(contact+a11y): frosted glass on contact and accessibility panels"
+    },
+    {
+      "date": "2026-07-22T09:58:57-07:00",
+      "subject": "style(pet): frosted glass on study-pet panels"
+    },
+    {
+      "date": "2026-07-22T09:58:34-07:00",
+      "subject": "style(focus): frosted glass on focus timer panels and stats"
+    },
+    {
+      "date": "2026-07-22T09:58:02-07:00",
+      "subject": "style(settings): glass sub-nav and pill controls"
+    },
+    {
+      "date": "2026-07-22T09:57:06-07:00",
+      "subject": "style(dashboard): glass stat cards and section tabs"
+    },
+    {
+      "date": "2026-07-22T09:56:08-07:00",
+      "subject": "style(math): glass inputs on the math explainer"
+    },
+    {
+      "date": "2026-07-22T09:55:36-07:00",
+      "subject": "style(balance): frosted glass on balance cards"
+    },
+    {
+      "date": "2026-07-22T09:55:16-07:00",
+      "subject": "style(library): frosted glass on AP library cards and panels"
+    },
+    {
+      "date": "2026-07-22T09:54:48-07:00",
+      "subject": "style(tools): real glass fill across the free calculators"
+    },
+    {
+      "date": "2026-07-22T09:53:52-07:00",
+      "subject": "style(tools): real glass fill on the study-schedule-maker cards"
+    },
+    {
+      "date": "2026-07-22T09:53:21-07:00",
+      "subject": "style(features): frosted glass on feature cards and chips"
+    },
+    {
+      "date": "2026-07-22T09:52:49-07:00",
+      "subject": "style(meetings): frosted glass on platform, quick-join, link cards and modal"
+    },
+    {
+      "date": "2026-07-22T09:52:20-07:00",
+      "subject": "style(streak): frosted glass on streak cards and panels"
+    },
+    {
+      "date": "2026-07-22T09:51:54-07:00",
+      "subject": "style(groups): frosted glass on study-group cards, panels and modal"
+    },
+    {
+      "date": "2026-07-22T09:51:28-07:00",
+      "subject": "style(grade-modeler): glass panels on the gradebook view"
+    },
+    {
+      "date": "2026-07-22T09:50:53-07:00",
+      "subject": "style(study): glass active tabs and celebration card"
+    },
+    {
+      "date": "2026-07-22T00:31:14-07:00",
+      "subject": "style(classes): frosted glass on class cards and panels"
+    },
+    {
+      "date": "2026-07-22T00:30:42-07:00",
+      "subject": "style(deep-study): frosted glass across the study shell"
+    },
+    {
+      "date": "2026-07-22T00:29:49-07:00",
+      "subject": "style(tutor): frosted glass chat surfaces"
+    },
+    {
+      "date": "2026-07-22T00:28:44-07:00",
+      "subject": "style(grade-modeler): glass trend pills and overview/add-assignment panels"
+    },
+    {
+      "date": "2026-07-22T00:27:28-07:00",
+      "subject": "style(scheduler): glass tabs, duration pills and move controls"
+    },
+    {
+      "date": "2026-07-22T00:25:47-07:00",
+      "subject": "style(connect): frosted glass on the LMS connection cards"
+    },
+    {
+      "date": "2026-07-21T22:39:11-07:00",
+      "subject": "feat(onboarding): premium glass onboarding, no flow changes"
+    },
+    {
+      "date": "2026-07-21T22:35:50-07:00",
+      "subject": "fix(command-center): harden the Today API backend"
+    },
+    {
+      "date": "2026-07-21T16:03:50-07:00",
+      "subject": "feat(glass): universal glass buttons - every button shares the material"
+    },
+    {
+      "date": "2026-07-21T15:08:31-07:00",
+      "subject": "fix(glass): make cards actually frosted - defeat opaque override + aurora backdrop"
+    },
+    {
+      "date": "2026-07-21T10:56:34-07:00",
+      "subject": "Update .gitignore"
+    },
+    {
+      "date": "2026-07-21T10:38:15-07:00",
+      "subject": "feat(glass): unify every interactive element on one glass system"
+    },
+    {
+      "date": "2026-07-21T10:37:46-07:00",
+      "subject": "refactor(home): remove the badges above the headline, let it lead"
+    },
+    {
+      "date": "2026-07-21T09:29:30-07:00",
+      "subject": "feat(home): React Bits GlassIcons on the feature tiles"
+    },
+    {
+      "date": "2026-07-21T09:26:25-07:00",
+      "subject": "feat(glass): make the glass unmistakable - stronger atmosphere, sheen, tinted depth"
+    },
+    {
+      "date": "2026-07-20T23:46:17-07:00",
+      "subject": "fix(glass): readable opacity for unblurred surfaces + glass on auth card"
+    },
+    {
+      "date": "2026-07-20T23:42:03-07:00",
+      "subject": "feat(glass): extend frosted glass to every page-specific surface"
+    },
+    {
+      "date": "2026-07-20T23:37:38-07:00",
+      "subject": "feat(glass): sitewide frosted-glass material system"
+    },
+    {
+      "date": "2026-07-20T23:23:47-07:00",
+      "subject": "content(seo): purge the last paid-tier reference from AI-facing content"
+    },
+    {
+      "date": "2026-07-20T23:23:13-07:00",
+      "subject": "style(app): neo-glass surfaces + a11y polish across the planner pages"
+    },
+    {
+      "date": "2026-07-20T23:22:28-07:00",
+      "subject": "style(auth): unify login/register on the glass card system"
+    },
+    {
+      "date": "2026-07-20T23:21:59-07:00",
+      "subject": "style(marketing): neo-glass surfaces + free-first copy on content pages"
+    },
+    {
+      "date": "2026-07-20T23:21:10-07:00",
+      "subject": "feat(a11y+design-system): accessible focus rings, AA contrast, shared tokens"
+    },
+    {
+      "date": "2026-07-20T23:20:12-07:00",
+      "subject": "feat(ambassador): finish the referral workflow + correct reward tiers"
+    },
+    {
+      "date": "2026-07-20T23:19:16-07:00",
+      "subject": "feat(pricing): single free plan, no paid tiers or paywall language"
+    },
+    {
+      "date": "2026-07-20T23:17:57-07:00",
+      "subject": "fix(landing): make the closing CTA readable in light mode"
+    },
+    {
+      "date": "2026-07-20T23:06:03-07:00",
+      "subject": "chore: harden gitignore against customer-data leaks"
+    },
+    {
+      "date": "2026-07-12T13:20:33-07:00",
+      "subject": "feat(ui): neo-glass surface system sitewide + Command Center realignment"
+    },
+    {
+      "date": "2026-07-12T10:57:01-07:00",
+      "subject": "style: shared page-kicker gives legacy pages the IPD header anatomy"
+    },
+    {
+      "date": "2026-07-12T10:54:31-07:00",
+      "subject": "style: kill faux-bold serif type and dark-mode color breaks across all pages"
+    },
+    {
+      "date": "2026-07-11T22:12:04-07:00",
+      "subject": "feat(scheduler): reschedule blocks from the Interactive View"
+    },
+    {
+      "date": "2026-07-11T16:34:59-07:00",
+      "subject": "feat(a11y+ux): keyboard-first Interactive View, honest empty states"
+    },
+    {
+      "date": "2026-07-11T16:31:40-07:00",
+      "subject": "feat(scheduler): cross-device progress sync for the Interactive View"
+    },
+    {
+      "date": "2026-07-11T10:06:14-07:00",
+      "subject": "fix(dashboard): welcome state for signed-out visitors instead of a blank page"
+    },
+    {
+      "date": "2026-07-11T09:59:29-07:00",
+      "subject": "fix(scheduler): drop duplicated charset on .ics response"
+    },
+    {
+      "date": "2026-07-11T09:56:02-07:00",
+      "subject": "feat(ux): distinct browser-tab titles for seven app pages"
+    },
+    {
+      "date": "2026-07-11T09:53:14-07:00",
+      "subject": "feat(dashboard): surface today's study plan in the sidebar"
+    },
+    {
+      "date": "2026-07-11T09:47:08-07:00",
+      "subject": "feat(plani): archive generated schedules to Memories deterministically"
+    },
+    {
+      "date": "2026-07-11T09:44:49-07:00",
+      "subject": "feat(focus): drift-free timer engine, session persistence, sparks integration"
+    },
+    {
+      "date": "2026-07-11T09:41:47-07:00",
+      "subject": "fix(security+ux): XSS-safe rendering on priority/tests/memories, priority search"
+    },
+    {
+      "date": "2026-07-10T23:39:53-07:00",
+      "subject": "feat(scheduler): universal .ics export, saved-plan resume, inline errors, today highlighting"
+    },
+    {
+      "date": "2026-07-07T11:00:54-07:00",
+      "subject": "feat(ui): Apple-clean minimal uplift of the app shell (scoped to body.has-side)"
+    },
+    {
+      "date": "2026-07-07T10:32:11-07:00",
+      "subject": "feat: add Launchpadly \"listed-on\" directory badge to footer trust row"
+    },
+    {
+      "date": "2026-07-06T19:30:16-07:00",
+      "subject": "perf+ui: compress responses, fix static caching, frost the shared chrome"
+    },
+    {
+      "date": "2026-06-29T19:20:48-07:00",
+      "subject": "stuff"
+    },
+    {
+      "date": "2026-06-26T11:46:37-07:00",
+      "subject": "feat: restyle streak page to IPD design system"
+    },
+    {
+      "date": "2026-06-26T11:42:12-07:00",
+      "subject": "feat: restyle tutor page to IPD design system"
+    },
+    {
+      "date": "2026-06-26T11:40:33-07:00",
+      "subject": "feat: restyle scheduler page to IPD design system"
+    },
+    {
+      "date": "2026-06-26T11:38:05-07:00",
+      "subject": "feat: add shared IPD design system tokens to base.html"
+    },
+    {
+      "date": "2026-06-26T11:31:11-07:00",
+      "subject": "fix: dashboard script leak, grade data endpoint, dark mode colors"
+    },
+    {
+      "date": "2026-06-26T11:22:33-07:00",
+      "subject": "feat: redesign dashboard with Claude Design layout"
+    },
+    {
+      "date": "2026-06-23T10:55:40-07:00",
+      "subject": "Seo Fixes"
+    },
+    {
+      "date": "2026-06-22T20:38:05-07:00",
+      "subject": "some stuff"
+    },
+    {
+      "date": "2026-06-22T16:31:11-07:00",
+      "subject": "fix(seo): pricing routing collision, header hardening, sitemap rebuild, schema dates, title polish"
+    },
+    {
+      "date": "2026-06-22T12:00:00-07:00",
+      "subject": "feat: AI grade predictions, LMS sync framework, teacher/parent dashboards, collab study tasks, React Native scaffold"
+    },
+    {
+      "date": "2026-06-22T11:02:54-07:00",
+      "subject": "feat: design polish \u00e2\u20ac\u201d ambient atmosphere, refined typography, depth cues"
+    },
+    {
+      "date": "2026-06-21T21:57:03-07:00",
+      "subject": "feat: UI polish \u00e2\u20ac\u201d refined design tokens, sidebar active states, remaining emoji cleanup"
+    },
+    {
+      "date": "2026-06-21T21:38:19-07:00",
+      "subject": "fix: replace all emojis with SVGs site-wide, harden command center API"
+    },
+    {
+      "date": "2026-06-21T08:46:32-07:00",
+      "subject": "feat: professional design system overhaul \u00e2\u20ac\u201d rebrand Plani to IntelliPlan"
+    },
+    {
+      "date": "2026-06-21T08:33:58-07:00",
+      "subject": "fix: resolve three Sentry issues \u00e2\u20ac\u201d failed SQL transactions, missing DB column, quota noise"
+    },
+    {
+      "date": "2026-06-20T16:08:03-07:00",
+      "subject": "Some fixes"
+    },
+    {
+      "date": "2026-06-20T13:08:02-07:00",
+      "subject": "Fixes"
+    },
+    {
+      "date": "2026-06-20T12:33:56-07:00",
+      "subject": "ReVamp"
+    },
+    {
+      "date": "2026-06-18T21:22:06-07:00",
+      "subject": "fix: SEO audit fixes, command center perf, offline mode"
+    },
+    {
+      "date": "2026-06-18T10:36:55-07:00",
+      "subject": "fixes"
+    },
+    {
+      "date": "2026-06-17T21:56:21-07:00",
+      "subject": "New Stuff"
+    },
+    {
+      "date": "2026-06-17T15:55:31-07:00",
+      "subject": "fix(command-center): repair Plani composer layout + mobile polish"
+    },
+    {
+      "date": "2026-06-17T15:55:20-07:00",
+      "subject": "fix(security): ownership checks on manual task update/delete (IDOR)"
+    },
+    {
+      "date": "2026-06-17T15:55:06-07:00",
+      "subject": "fix(command-center): persist task completion + drop dead chat FAB"
+    },
+    {
+      "date": "2026-06-16T19:53:12-07:00",
+      "subject": "fix: restore Command Center Plani chat by namespacing to ccChat*"
+    },
+    {
+      "date": "2026-06-16T18:57:35-07:00",
+      "subject": "style: make Command Center Plani panel the visual centerpiece"
+    },
+    {
+      "date": "2026-06-16T18:56:57-07:00",
+      "subject": "fix: Command Center completion persistence + streak on visit"
+    },
+    {
+      "date": "2026-06-16T06:55:25-07:00",
+      "subject": "perf: index dismissed_assignments and test_marks by owner"
+    },
+    {
+      "date": "2026-06-16T06:53:40-07:00",
+      "subject": "perf: stop Balance page double-polling and pause when tab hidden"
+    },
+    {
+      "date": "2026-06-15T21:41:31-07:00",
+      "subject": "Even more fixes hooray"
+    },
+    {
+      "date": "2026-06-15T21:14:59-07:00",
+      "subject": "Fixes"
+    },
+    {
+      "date": "2026-06-15T19:38:33-07:00",
+      "subject": "More fixes"
+    },
+    {
+      "date": "2026-06-15T19:31:41-07:00",
+      "subject": "More stuff"
+    },
+    {
+      "date": "2026-06-15T19:13:40-07:00",
+      "subject": "Couple things added"
+    },
+    {
+      "date": "2026-06-15T16:40:18-07:00",
+      "subject": "Remove AEO"
+    },
+    {
+      "date": "2026-06-14T16:41:30-07:00",
+      "subject": "Imrpovemetns in command center"
+    },
+    {
+      "date": "2026-06-14T10:02:21-07:00",
+      "subject": "Button fixes"
+    },
+    {
+      "date": "2026-06-14T09:41:02-07:00",
+      "subject": "Fixes"
+    },
+    {
+      "date": "2026-06-13T19:27:03-07:00",
+      "subject": "Aura Gora Pakora"
+    },
+    {
+      "date": "2026-06-13T18:28:38-07:00",
+      "subject": "Internal Changes"
+    },
+    {
+      "date": "2026-06-13T16:04:53-07:00",
+      "subject": "More Changes"
+    },
+    {
+      "date": "2026-06-13T14:07:12-07:00",
+      "subject": "Fixes"
+    },
+    {
+      "date": "2026-06-13T13:33:48-07:00",
+      "subject": "A couple changes"
+    },
+    {
+      "date": "2026-06-13T08:42:00-07:00",
+      "subject": "fix: enable guest browsing + unblock all app pages for search engine indexing"
+    },
+    {
+      "date": "2026-06-12T19:12:02-07:00",
+      "subject": "feat(command-center): M5 Command Center UI + default-page redirect"
+    },
+    {
+      "date": "2026-06-12T19:09:11-07:00",
+      "subject": "Additions"
+    },
+    {
+      "date": "2026-06-12T19:03:09-07:00",
+      "subject": "feat(command-center): M4 API endpoints + blueprint factory"
+    },
+    {
+      "date": "2026-06-12T18:42:46-07:00",
+      "subject": "feat(command-center): M3 narrator, briefing cache, today service, signals"
+    },
+    {
+      "date": "2026-06-12T07:06:05-07:00",
+      "subject": "feat(command-center): M2 intelligence engine \u00e2\u20ac\u201d priority, workload, health"
+    },
+    {
+      "date": "2026-06-12T06:47:00-07:00",
+      "subject": "feat(command-center): M1 foundation \u00e2\u20ac\u201d domain types, ORM models, AssignmentRepository"
+    },
+    {
+      "date": "2026-06-11T21:41:35-07:00",
+      "subject": "docs(command-center): Phase 0-6 design dossier"
+    },
+    {
+      "date": "2026-06-11T17:46:31-07:00",
+      "subject": "Predict Grades"
+    },
+    {
+      "date": "2026-06-11T17:17:52-07:00",
+      "subject": "Fixes"
+    },
+    {
+      "date": "2026-06-11T17:09:50-07:00",
+      "subject": "Updating Privacy Policy and Paid Plan"
+    },
+    {
+      "date": "2026-06-10T21:14:57-07:00",
+      "subject": "fix: rate-limit 429 on public pages + security hardening"
+    },
+    {
+      "date": "2026-06-10T15:26:12-07:00",
+      "subject": "Hotfix: pin Python 3.13.13 (Railway builds failing on 3.13.14)"
+    },
+    {
+      "date": "2026-06-10T15:13:47-07:00",
+      "subject": "UI revamp: legacy blog articles \u00e2\u20ac\u201d gradient titles, CTA hover, focus outlines"
+    },
+    {
+      "date": "2026-06-10T15:12:17-07:00",
+      "subject": "UI revamp: about page \u00e2\u20ac\u201d gradient title + card hover polish"
+    },
+    {
+      "date": "2026-06-10T15:12:17-07:00",
+      "subject": "UI revamp: pricing page \u00e2\u20ac\u201d gradient title + plan card hover lift"
+    },
+    {
+      "date": "2026-06-10T15:12:16-07:00",
+      "subject": "UI revamp: FAQ page \u00e2\u20ac\u201d gradient title, item hover lift, open-state accent"
+    },
+    {
+      "date": "2026-06-10T15:08:43-07:00",
+      "subject": "UI revamp: connect page \u00e2\u20ac\u201d premium card + hover lift on LMS options"
+    },
+    {
+      "date": "2026-06-10T15:07:27-07:00",
+      "subject": "UI revamp: sign-in page \u00e2\u20ac\u201d premium card, accent bar, input focus rings"
+    },
+    {
+      "date": "2026-06-10T07:02:22-07:00",
+      "subject": "UI revamp: register page \u00e2\u20ac\u201d premium card, input focus rings, CTA polish"
+    },
+    {
+      "date": "2026-06-10T07:01:18-07:00",
+      "subject": "UI revamp: login page \u00e2\u20ac\u201d premium card, brand accent bar, refined hover/focus states"
+    },
+    {
+      "date": "2026-06-10T06:59:00-07:00",
+      "subject": "UI revamp: landing page \u00e2\u20ac\u201d cinematic dark hero, gradient stats, card hovers, scroll reveals"
+    },
+    {
+      "date": "2026-06-09T16:54:16-07:00",
+      "subject": "CI: add import smoke test + deploy-wait guard (prevent 6/9 outage class)"
+    },
+    {
+      "date": "2026-06-09T16:32:20-07:00",
+      "subject": "Hotfix: remove duplicate /uk, /schools, /compare/intelliplan-vs-mystudylife routes (production boot)"
+    },
+    {
+      "date": "2026-06-09T07:00:08-07:00",
+      "subject": "Fix: Grade Modeler can now add hypothetical/future assignments manually"
+    },
+    {
+      "date": "2026-06-08T19:19:23-07:00",
+      "subject": "Fix: register routes for ambassador, schools, uk, mystudylife (live 404 fix)"
+    },
+    {
+      "date": "2026-06-07T11:40:28-07:00",
+      "subject": "Stuff"
+    },
+    {
+      "date": "2026-06-07T10:14:25-07:00",
+      "subject": "fix(nav): collapse top nav to match sidebar to stop clumping on default page"
+    },
+    {
+      "date": "2026-06-06T17:22:23-07:00",
+      "subject": "Fix onboarding chat hang on long schedules + properly cascade account delete"
+    },
+    {
+      "date": "2026-06-06T14:42:58-07:00",
+      "subject": "Onboarding revamp: Quick vs Custom paths, AI-assisted chat, embedded importer, resume-from-anywhere fix"
+    },
+    {
+      "date": "2026-06-06T14:20:53-07:00",
+      "subject": "AI personalization (opt-in) + CSV/smart-paste/extension import for unsupported LMSes"
+    },
+    {
+      "date": "2026-06-06T12:18:14-07:00",
+      "subject": "Fix double-quote typo in register.html Google button"
+    },
+    {
+      "date": "2026-06-05T17:44:50-07:00",
+      "subject": "Full UI redesign: Refined Scholar design system"
+    },
+    {
+      "date": "2026-06-05T16:21:39-07:00",
+      "subject": "\u00ef\u00bb\u00bfFix scheduler JSON errors, streamline onboarding, harden Groq fallback"
+    },
+    {
+      "date": "2026-06-04T21:27:01-07:00",
+      "subject": "Fixws"
+    },
+    {
+      "date": "2026-06-04T21:26:12-07:00",
+      "subject": "Fixing some issues."
+    },
+    {
+      "date": "2026-06-04T21:12:00-07:00",
+      "subject": "More Fixes"
+    },
+    {
+      "date": "2026-06-04T20:44:00-07:00",
+      "subject": "More stuff"
+    },
+    {
+      "date": "2026-06-04T20:18:05-07:00",
+      "subject": "More Fixes"
+    },
+    {
+      "date": "2026-06-04T20:12:38-07:00",
+      "subject": "Fixes"
+    },
+    {
+      "date": "2026-06-04T19:50:51-07:00",
+      "subject": "Codex Fixes"
+    },
+    {
+      "date": "2026-06-04T19:11:50-07:00",
+      "subject": "Codex Fixes"
+    },
+    {
+      "date": "2026-06-04T17:55:45-07:00",
+      "subject": "Feature: Blackboard Learn + Moodle integrations (international LMS expansion)"
+    },
+    {
+      "date": "2026-06-04T17:49:27-07:00",
+      "subject": "Feature: Google Classroom integration (largest US K-12 LMS, ~31% share)"
+    },
+    {
+      "date": "2026-06-03T16:59:36-07:00",
+      "subject": "A11y: fix light-theme muted text contrast to pass WCAG AA"
+    },
+    {
+      "date": "2026-06-03T16:58:14-07:00",
+      "subject": "A11y: add skip-to-content link for keyboard users"
+    },
+    {
+      "date": "2026-06-03T16:57:23-07:00",
+      "subject": "Perf: add 7-day Cache-Control for static assets (excludes service worker)"
+    },
+    {
+      "date": "2026-06-03T16:52:56-07:00",
+      "subject": "Feature: AP Study Planner guide (targets AP student audience)"
+    },
+    {
+      "date": "2026-06-03T16:51:25-07:00",
+      "subject": "Feature: surface free tools section on the landing page"
+    },
+    {
+      "date": "2026-06-03T16:50:03-07:00",
+      "subject": "Feature: free Study Schedule Maker (interactive tool + product teaser)"
+    },
+    {
+      "date": "2026-06-03T16:47:45-07:00",
+      "subject": "Feature: 'What Is a Good GPA?' guide (high-volume AEO content)"
+    },
+    {
+      "date": "2026-06-03T16:46:23-07:00",
+      "subject": "Feature: IntelliPlan vs Quizlet comparison page"
+    },
+    {
+      "date": "2026-06-03T16:31:45-07:00",
+      "subject": "Feature: Test Grade Calculator (EZ grader) free tool"
+    },
+    {
+      "date": "2026-06-03T16:21:54-07:00",
+      "subject": "Pro polish: scroll-reveal animation system + Contact page"
+    },
+    {
+      "date": "2026-06-03T06:56:19-07:00",
+      "subject": "Content polish: reading progress, scroll-to-top, read time, drop cap + /blog hub"
+    },
+    {
+      "date": "2026-06-02T21:17:15-07:00",
+      "subject": "Polish round 2: form labels, autocomplete, toggle labels, link security"
+    },
+    {
+      "date": "2026-06-02T21:03:08-07:00",
+      "subject": "Polish: accessibility, lazy-loading, and link security (no behavior change)"
+    },
+    {
+      "date": "2026-06-02T17:09:08-07:00",
+      "subject": "Add weighted grade calculator, finals countdown + cumulative GPA mode"
+    },
+    {
+      "date": "2026-06-02T17:02:35-07:00",
+      "subject": "Add free Final Grade + GPA calculator tools (SEO link magnets)"
+    },
+    {
+      "date": "2026-06-02T16:45:42-07:00",
+      "subject": "SEO + AEO: Turbo AI comparison, notetaker guide, FAQ/schema, YouTube fallback UX"
+    },
+    {
+      "date": "2026-06-02T16:25:02-07:00",
+      "subject": "Add lecture/audio recording transcription + YouTube proxy support"
+    },
+    {
+      "date": "2026-06-01T20:17:38-07:00",
+      "subject": "Add YouTube-to-study-materials (Turbo AI style)"
+    },
+    {
+      "date": "2026-06-01T19:02:40-07:00",
+      "subject": "AI presence: add new comparison + guide pages to llms.txt"
+    },
+    {
+      "date": "2026-06-01T17:48:54-07:00",
+      "subject": "SEO content: add 2 guide articles + 2 comparison pages"
+    },
+    {
+      "date": "2026-06-01T17:43:07-07:00",
+      "subject": "SEO: make aggregateRating honest (412 to 8, matching visible reviews)"
+    },
+    {
+      "date": "2026-06-01T07:01:48-07:00",
+      "subject": "SEO: link structured-data entities into one graph + enrich Organization"
+    },
+    {
+      "date": "2026-06-01T06:59:13-07:00",
+      "subject": "Fix landing horizontal overflow on narrow landscape"
+    },
+    {
+      "date": "2026-05-31T21:57:17-07:00",
+      "subject": "Landing: fix hero squish/misalignment + premium UI polish"
+    },
+    {
+      "date": "2026-05-31T21:41:08-07:00",
+      "subject": "Responsive nav: scale sidebar width + smooth header nav breakpoints"
+    },
+    {
+      "date": "2026-05-31T21:38:08-07:00",
+      "subject": "Stop tracking the friend handoff bundle"
+    },
+    {
+      "date": "2026-05-31T21:36:39-07:00",
+      "subject": "SEO + responsive: fix sitemap spec, scale desktop layout"
+    },
+    {
+      "date": "2026-05-31T18:36:39-07:00",
+      "subject": "Stuff"
+    },
+    {
+      "date": "2026-05-31T17:01:31-07:00",
+      "subject": "stuff"
+    },
+    {
+      "date": "2026-05-31T09:23:05-07:00",
+      "subject": "Extension fixes"
+    },
+    {
+      "date": "2026-05-31T06:35:25-07:00",
+      "subject": "Fix test_intelliplan.py \u00e2\u20ac\u201d align test expectations with real site behavior"
+    },
+    {
+      "date": "2026-05-31T06:27:43-07:00",
+      "subject": "Add Study & Learn hub page, restore Dashboard nav, comprehensive E2E tests"
+    },
+    {
+      "date": "2026-05-31T06:00:25-07:00",
+      "subject": "Simplify sidebar nav hierarchy; premium extension v1.3.0"
+    },
+    {
+      "date": "2026-05-30T09:41:39-07:00",
+      "subject": "Fix broken buttons from bad em-dash cleanup; redo safely"
+    },
+    {
+      "date": "2026-05-29T23:13:20-07:00",
+      "subject": "Remove em-dashes, sharpen copy, improve Android UX, fold Apple docs into one folder"
+    },
+    {
+      "date": "2026-05-29T23:03:07-07:00",
+      "subject": "Mini Change"
+    },
+    {
+      "date": "2026-05-29T22:59:00-07:00",
+      "subject": "Add Trustpilot review-collector widget to the footer (all pages)"
+    },
+    {
+      "date": "2026-05-29T22:56:48-07:00",
+      "subject": "Add Trustpilot review-collector widget"
+    },
+    {
+      "date": "2026-05-29T22:53:24-07:00",
+      "subject": "Remove old AppStore-Handoff folder and zip (superseded by APPLE_APP_STORE.md)"
+    },
+    {
+      "date": "2026-05-29T22:51:43-07:00",
+      "subject": "Improve mobile/Android UX, fix hero wrapping, consolidate Apple docs"
+    },
+    {
+      "date": "2026-05-29T22:44:58-07:00",
+      "subject": "IOS"
+    },
+    {
+      "date": "2026-05-29T22:39:53-07:00",
+      "subject": "Fix hero title clipping on landing page"
+    },
+    {
+      "date": "2026-05-29T22:38:37-07:00",
+      "subject": "Fix hero title clipping and rewrite About page"
+    },
+    {
+      "date": "2026-05-29T15:56:24-07:00",
+      "subject": "Some code"
+    },
+    {
+      "date": "2026-05-28T19:20:19-07:00",
+      "subject": "Mobile Work"
+    },
+    {
+      "date": "2026-05-28T17:56:42-07:00",
+      "subject": "Trustpilot"
+    },
+    {
+      "date": "2026-05-28T17:37:22-07:00",
+      "subject": "More Stuff"
+    },
+    {
+      "date": "2026-05-25T16:14:31-07:00",
+      "subject": "More fixes"
+    },
+    {
+      "date": "2026-05-25T16:10:39-07:00",
+      "subject": "More fixes"
+    },
+    {
+      "date": "2026-05-25T16:06:01-07:00",
+      "subject": "Privacy Policy Update."
+    },
+    {
+      "date": "2026-05-25T12:23:06-07:00",
+      "subject": "SEO fixes"
+    },
+    {
+      "date": "2026-05-25T12:16:31-07:00",
+      "subject": "FIxes"
+    },
+    {
+      "date": "2026-05-24T18:11:52-07:00",
+      "subject": "fixes"
+    },
+    {
+      "date": "2026-05-24T09:00:25-07:00",
+      "subject": "Couple fixes"
+    },
+    {
+      "date": "2026-05-24T08:44:27-07:00",
+      "subject": "Calude Fixes"
+    },
+    {
+      "date": "2026-05-23T15:20:35-07:00",
+      "subject": "Claude Fixes"
+    },
+    {
+      "date": "2026-05-22T19:43:48-07:00",
+      "subject": "fix(embed): Google OAuth iframe 403 + return_to + ping/pong + embedded class"
+    },
+    {
+      "date": "2026-05-22T18:45:35-07:00",
+      "subject": "feat(sms): switch to Resend API, keep SMTP as fallback"
+    },
+    {
+      "date": "2026-05-22T18:39:24-07:00",
+      "subject": "fix(smtp): strip all whitespace from App Password, not just spaces"
+    },
+    {
+      "date": "2026-05-22T18:31:59-07:00",
+      "subject": "debug(smtp): log password length after space-strip to verify fix is live"
+    },
+    {
+      "date": "2026-05-22T18:29:01-07:00",
+      "subject": "fix(smtp): strip spaces from App Password before login"
+    },
+    {
+      "date": "2026-05-22T18:24:55-07:00",
+      "subject": "fix(sms): surface real error from send instead of generic SMTP message"
+    },
+    {
+      "date": "2026-05-22T18:17:28-07:00",
+      "subject": "fix(smtp): robust env var detection + Gmail auto-detect + debug endpoint"
+    },
+    {
+      "date": "2026-05-22T18:05:15-07:00",
+      "subject": "fix(smtp): fall back to HOST / USERNAME / PASSWORD env var names"
+    },
+    {
+      "date": "2026-05-22T18:02:45-07:00",
+      "subject": "feat(admin): SMS blast tool \u00e2\u20ac\u201d send messages to all or filtered users"
+    },
+    {
+      "date": "2026-05-22T17:35:12-07:00",
+      "subject": "feat(sms): swap Twilio for carrier email-to-SMS gateway (T-Mobile default)"
+    },
+    {
+      "date": "2026-05-22T07:19:23-07:00",
+      "subject": "fix(register): drop HTML5 required from birth_year so tests pass"
+    },
+    {
+      "date": "2026-05-22T07:16:47-07:00",
+      "subject": "feat(nsd): COPPA/FERPA gates, accessibility prefs, expanded privacy policy"
+    },
+    {
+      "date": "2026-05-22T07:11:36-07:00",
+      "subject": "feat(reminders): wire up working SMS + browser-push reminder pipeline"
+    },
+    {
+      "date": "2026-05-22T07:08:03-07:00",
+      "subject": "feat(tutor): Solvely-style multi-problem image solver + TTS toggle"
+    },
+    {
+      "date": "2026-05-22T07:05:12-07:00",
+      "subject": "feat(gcal): multi-account Google Calendar with switch + add + remove"
+    },
+    {
+      "date": "2026-05-22T07:02:47-07:00",
+      "subject": "feat(sidebar): replace customizer dropdowns with drag-and-drop sidebar mirror"
+    },
+    {
+      "date": "2026-05-21T20:05:30-07:00",
+      "subject": "fix: add Lotus embed support - CSP frame-ancestors and ping/pong handshake"
+    },
+    {
+      "date": "2026-05-21T19:59:11-07:00",
+      "subject": "fix: allow all origins in CORS and add X-Permitted-Cross-Domain-Policies"
+    },
+    {
+      "date": "2026-05-21T19:49:57-07:00",
+      "subject": "fix: allow cross-origin iframe embedding with session cookies"
+    },
+    {
+      "date": "2026-05-21T19:26:07-07:00",
+      "subject": "fix: increase gunicorn workers to 4, add request recycling, pin itsdangerous"
+    },
+    {
+      "date": "2026-05-21T18:43:21-07:00",
+      "subject": "feat: allow site to be embedded in iframes on any domain"
+    },
+    {
+      "date": "2026-05-20T20:25:33-07:00",
+      "subject": "feat: split Study/Learn into separate tabs, add Deep Study Pipeline"
+    },
+    {
+      "date": "2026-05-20T16:43:35-07:00",
+      "subject": "fix: focus & library now show sidebar; add saved flashcard sets"
+    },
+    {
+      "date": "2026-05-20T16:09:35-07:00",
+      "subject": "feat: AP library, LMS expansion stubs, prominent voice/snap UI, seeded SRS"
+    },
+    {
+      "date": "2026-05-20T15:45:04-07:00",
+      "subject": "fix: correct syllabus import bugs in dashboard"
+    },
+    {
+      "date": "2026-05-19T21:01:39-07:00",
+      "subject": "Fix"
+    },
+    {
+      "date": "2026-05-19T19:52:37-07:00",
+      "subject": "feat: voice tutor, snap & solve, SM-2 SRS, pomodoro timer, PDF syllabus import"
+    },
+    {
+      "date": "2026-05-19T19:30:03-07:00",
+      "subject": "redesign: Fortune 500 UI overhaul \u00e2\u20ac\u201d fonts, color, layout, depth"
+    },
+    {
+      "date": "2026-05-19T06:59:45-07:00",
+      "subject": "Promote Scheduler to top-level nav, consolidate Plan dropdown, expand SEO/AEO and gradebook polish"
+    },
+    {
+      "date": "2026-05-18T20:18:28-07:00",
+      "subject": "Testimony changes"
+    },
+    {
+      "date": "2026-05-18T19:59:19-07:00",
+      "subject": "Replace review stars with testimonials"
+    },
+    {
+      "date": "2026-05-18T19:47:27-07:00",
+      "subject": "Improve landing page SEO for AI search"
+    },
+    {
+      "date": "2026-05-18T18:05:37-07:00",
+      "subject": "feat: grade modeler caps + realistic forecast, smart time predict, chest lockout"
+    },
+    {
+      "date": "2026-05-18T07:04:34-07:00",
+      "subject": "fix: real grade-modeler ceiling + first-class Notion setup + AI tune"
+    }
+  ]
+}

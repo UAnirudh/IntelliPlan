@@ -508,6 +508,12 @@ def notification_preferences():
                 "end": prefs.quiet_hours.end_hour,
             },
             "all_kinds": [k.value for k in EventKind],
+            # Marketing consent rides along on this endpoint for the settings
+            # page's convenience, but it is NOT a notification channel and is
+            # never derived from `channels`. See _apply_preferences.
+            "marketing_emails_opt_in": bool(
+                getattr(current_user, "marketing_emails_opt_in", False)
+            ),
         }
     )
 
@@ -519,7 +525,32 @@ def _apply_preferences(user: Any, body: dict) -> None:
         wanted = {str(c).lower() for c in channels}
         user.push_reminders_opt_in = "push" in wanted
         user.sms_reminders_opt_in = "sms" in wanted
+        # "email" here is the transactional deadline reminder the student
+        # asked for. It is deliberately not read as marketing consent — see
+        # the comment on User.marketing_emails_opt_in. The marketing flag is
+        # only ever set from its own explicit key below.
         user.email_reminders_opt_in = "email" in wanted
+
+    if "marketing_emails_opt_in" in body:
+        from datetime import datetime
+
+        wants_marketing = bool(body["marketing_emails_opt_in"])
+        if wants_marketing and not getattr(user, "marketing_emails_opt_in", False):
+            # Stamp the date only on the off→on edge. Re-saving the settings
+            # page must not keep moving the consent date forward: the whole
+            # value of the timestamp is that it records when they actually
+            # agreed, and a date that drifts evidences nothing.
+            user.marketing_opt_in_at = datetime.utcnow()
+            # Clear any suppression for this address. Without this the
+            # toggle silently does nothing for anyone who ever clicked
+            # unsubscribe — the flag would flip on and the gate would keep
+            # refusing. A signed-in person asking for the mail again is
+            # stronger, fresher evidence than the old unsubscribe.
+            _clear_suppression(getattr(user, "email", None))
+        user.marketing_emails_opt_in = wants_marketing
+        # Turning it off leaves marketing_opt_in_at alone on purpose. It is
+        # the record of a consent that did happen; erasing it destroys the
+        # evidence trail for the period when mail was legitimately sent.
 
     kinds = body.get("kinds")
     if isinstance(kinds, list):
@@ -602,3 +633,23 @@ def send_test_notification():
             "delivered": result.as_dict(),
         }
     )
+
+
+def _clear_suppression(address: str | None) -> None:
+    """Remove an address from the marketing suppression list.
+
+    Only ever called for a signed-in user re-enabling marketing on their own
+    settings page. There is no other route back off the suppression list,
+    which is deliberate: it must not be possible to un-suppress someone
+    without them asking, in their own account.
+    """
+    if not address:
+        return
+    from App import EmailSuppression, db
+
+    try:
+        rows = EmailSuppression.query.filter_by(email=address.strip().lower()).all()
+        for row in rows:
+            db.session.delete(row)
+    except Exception as exc:
+        logger.warning("could not clear suppression for %s: %s", address, exc)

@@ -175,3 +175,21 @@ def apply_learning_graph_migrations(db: Any) -> list[str]:
     target = {"student_profiles", "concept_mastery", "learning_events"}
     db.create_all()
     return sorted(target & existing)
+
+
+def apply_email_migrations(db: Any) -> list[str]:
+    """Ensure the lifecycle-email tables exist.
+
+    Same idempotent ``create_all`` pattern as the tables above. The unique
+    constraint on ``(user_id, email_key)`` and the unique index on
+    ``email_suppressions.email`` both come from the models' table args, so
+    they are created with the table rather than bolted on after — a
+    deduplication ledger without its constraint looks fine right up until
+    two cron fires race and a student gets the same email twice.
+    """
+
+    inspector = inspect(db.engine)
+    existing = set(inspector.get_table_names())
+    target = {"email_sends", "email_suppressions"}
+    db.create_all()
+    return sorted(target & existing)
