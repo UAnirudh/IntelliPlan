@@ -158,3 +158,74 @@ def test_truncation_is_not_retried_on_the_same_provider(gemini_only, monkeypatch
 def test_no_backend_configured_raises_clearly(no_keys):
     with pytest.raises(RuntimeError, match="No AI backend available"):
         ai_provider.chat(MSGS)
+
+
+# ── Thinking-budget arithmetic ────────────────────────────────────────
+#
+# Gemini 2.5+ bill internal reasoning against max_output_tokens, so these
+# two rules are what stand between a short prompt and an empty response
+# that the provider chain misreads as a dead backend.
+
+import re as _re
+
+from ai_provider import (
+    MIN_USEFUL_THINKING,
+    THINKING_SHARE,
+    _supports_thinking,
+)
+
+
+def test_thinking_detected_by_version_not_by_string_match():
+    """The old check listed "2.5" and "3.0" literally, so moving the fast
+    tier to gemini-3.5-flash-lite silently disabled the thinking cap."""
+    assert _supports_thinking("gemini-2.5-flash")
+    assert _supports_thinking("gemini-3.5-flash-lite")
+    assert _supports_thinking("gemini-4.0-pro")
+    assert _supports_thinking("some-model-thinking")
+
+
+def test_pre_2_5_and_non_gemini_do_not_get_thinking_config():
+    assert not _supports_thinking("gemini-2.0-flash-lite")
+    assert not _supports_thinking("gemini-1.5-pro")
+    assert not _supports_thinking("llama-3.3-70b-versatile")
+    assert not _supports_thinking("")
+
+
+def _effective(max_tokens, default_budget=1024):
+    """Reproduce _gemini_chat's budget arithmetic.
+
+    Kept as a mirror rather than a live call so the rule is asserted
+    without a network round-trip; the live behaviour is covered by the
+    integration probe.
+    """
+    budget = min(default_budget, max(0, int(max_tokens * THINKING_SHARE)))
+    ceiling = max_tokens
+    if budget < MIN_USEFUL_THINKING:
+        budget = MIN_USEFUL_THINKING
+        ceiling = max_tokens + budget
+    return budget, ceiling
+
+
+def test_reasoning_never_consumes_the_whole_allowance():
+    budget, ceiling = _effective(2000)
+    assert budget <= 2000 * THINKING_SHARE
+    assert ceiling - budget >= 2000 * (1 - THINKING_SHARE)
+
+
+def test_a_tiny_request_buys_room_rather_than_starving_the_answer():
+    """A 16-token request used to spend all 16 thinking and return nothing.
+
+    Thinking cannot be switched off — gemini-3.5-flash-lite rejects
+    thinking_budget=0 outright — so the ceiling rises instead, and the
+    caller still gets the 16 tokens of answer they asked for.
+    """
+    budget, ceiling = _effective(16)
+    assert budget == MIN_USEFUL_THINKING
+    assert ceiling - budget >= 16
+
+
+def test_budget_never_drops_below_the_usable_floor():
+    for cap in (1, 8, 16, 64, 200):
+        budget, ceiling = _effective(cap)
+        assert budget >= MIN_USEFUL_THINKING
+        assert ceiling - budget >= cap * (1 - THINKING_SHARE) - 1

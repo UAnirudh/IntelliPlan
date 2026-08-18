@@ -10,6 +10,7 @@ import base64
 import json
 import logging
 import os
+import re
 import time
 from typing import Any, Literal
 
@@ -51,6 +52,13 @@ _groq_client_cache = None
 # request). Override with GEMINI_THINKING_BUDGET; -1 disables the cap.
 DEFAULT_THINKING_BUDGET = int(os.getenv("GEMINI_THINKING_BUDGET", "1024"))
 
+#: Largest share of max_output_tokens that internal reasoning may consume.
+#: The remainder is reserved for the response itself, so a small max_tokens
+#: can never produce an empty body — see _gemini_chat.
+THINKING_SHARE = 0.4
+#: Below this many tokens, reasoning is not worth the room it costs.
+MIN_USEFUL_THINKING = 128
+
 
 class AITruncatedError(RuntimeError):
     """The model hit its token ceiling and returned a partial response.
@@ -63,9 +71,26 @@ class AITruncatedError(RuntimeError):
 
 
 def _supports_thinking(model: str) -> bool:
-    """Thinking config is only valid on the 2.5+ families."""
+    """Thinking config is valid on the Gemini 2.5+ families.
+
+    Parsed from the version number rather than matched against a list of
+    known strings. The list version silently stopped working the moment
+    the fast tier moved to gemini-3.5-flash-lite: "3.5" was in neither
+    "2.5" nor "3.0", so the model was treated as non-thinking, the
+    thinking cap was never applied, and reasoning tokens were free to eat
+    the entire output budget — the exact failure DEFAULT_THINKING_BUDGET
+    exists to prevent. Every future 3.x/4.x release would have landed the
+    same way.
+    """
     m = (model or "").lower()
-    return "2.5" in m or "3.0" in m or "-thinking" in m
+    if "-thinking" in m:
+        return True
+    match = re.search(r"gemini-(\d+)(?:\.(\d+))?", m)
+    if not match:
+        return False
+    major = int(match.group(1))
+    minor = int(match.group(2) or 0)
+    return (major, minor) >= (2, 5)
 
 
 def gemini_api_key() -> str | None:
@@ -172,6 +197,28 @@ def _gemini_chat(
 
     budget = DEFAULT_THINKING_BUDGET if thinking_budget is None else thinking_budget
     if budget >= 0 and _supports_thinking(model):
+        # Thinking tokens are drawn from max_output_tokens, so a caller who
+        # asks for a short answer can end up with no answer at all: the
+        # model spends the whole allowance reasoning, returns MAX_TOKENS
+        # with an empty body, and the provider chain reads that as a dead
+        # backend and falls through to the static template. A caller asking
+        # for 16 tokens is not asking for a 1024-token deliberation.
+        #
+        # Scale the reasoning to fit inside what was actually granted,
+        # always leaving the larger share for the response. Below the floor
+        # there is no room to think usefully, so thinking is switched off
+        # rather than squeezed — a direct answer beats a truncated one.
+        usable = max(0, int(max_tokens * THINKING_SHARE))
+        budget = min(budget, usable)
+        if budget < MIN_USEFUL_THINKING:
+            # Thinking cannot simply be switched off: gemini-3.5-flash-lite
+            # rejects thinking_budget=0 with a bare INVALID_ARGUMENT. So
+            # hold the floor and buy the room instead — raise the ceiling
+            # so the reasoning overhead comes out of a bigger allowance
+            # rather than out of the caller's answer. The caller asked for
+            # N tokens of response and still gets N tokens of response.
+            budget = MIN_USEFUL_THINKING
+            config_kwargs["max_output_tokens"] = max_tokens + budget
         config_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=budget)
 
     client = _gemini_client()
@@ -188,7 +235,13 @@ def _gemini_chat(
     except Exception as exc:
         # Some model families reject thinking_config outright. Losing the cap
         # is far better than losing the request, so retry once without it.
-        if "thinking" not in str(exc).lower() or "thinking_config" not in config_kwargs:
+        # INVALID_ARGUMENT is included deliberately: a model that refuses a
+        # thinking budget it does not support reports it as a bare 400 with
+        # no mention of thinking anywhere in the message, so keying purely
+        # on the word "thinking" left the request dead with a generic error.
+        text = str(exc).lower()
+        retryable = "thinking" in text or "invalid_argument" in text
+        if not retryable or "thinking_config" not in config_kwargs:
             raise
         logger.info("Model %s rejected thinking_config, retrying without it", model)
         config_kwargs.pop("thinking_config", None)
