@@ -927,3 +927,42 @@ def test_a_genuinely_busy_day_has_no_capacity():
         commitments="Mon 5pm-10pm practice",
     )
     assert cap[ALLOC_MON.isoformat()] == 0
+
+
+def test_real_calendar_events_remove_allocator_capacity():
+    """The day allocator budgets against plan_capacity, so a calendar event
+    has to reach it — not just the per-day placement pass.
+
+    Without this the two halves disagree: windows_for_date knows about the
+    dentist appointment and the allocator deciding which day work lands on
+    does not, so it hands that day its full free time and places work
+    straight into the appointment.
+    """
+    avail = {d: ["evening"] for d in
+             ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")}
+    tuesday = ALLOC_MON + timedelta(days=1)
+
+    free = plan_capacity(ALLOC_MON, 3, avail)
+    assert free[tuesday.isoformat()] == 300
+
+    blocked = plan_capacity(
+        ALLOC_MON, 3, avail,
+        busy_by_date={tuesday: [(17 * 60, 22 * 60)]},
+    )
+    assert blocked[tuesday.isoformat()] == 0
+    # Only that day moves.
+    assert blocked[ALLOC_MON.isoformat()] == 300
+
+
+def test_work_avoids_a_day_the_calendar_has_taken():
+    avail = {d: ["evening"] for d in
+             ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")}
+    tuesday = ALLOC_MON + timedelta(days=1)
+    capacity = plan_capacity(
+        ALLOC_MON, 5, avail,
+        busy_by_date={tuesday: [(17 * 60, 22 * 60)]},
+    )
+    tasks = [_task(f"T{i}", 60, due_offset=4) for i in range(4)]
+    placed, unplaced = allocate_across_days(tasks, capacity, ALLOC_MON)
+    assert not unplaced
+    assert placed[tuesday.isoformat()] == [], "scheduled over a calendar event"
