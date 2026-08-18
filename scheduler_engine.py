@@ -20,6 +20,7 @@ engine is unit-testable without an app context or a database.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from datetime import date as _date
@@ -969,3 +970,254 @@ def describe_week(
         + "\n".join(lines)
         + "\n=== END REAL WEEK ===\n"
     )
+
+
+# ── Day allocation ────────────────────────────────────────────────────
+#
+# Which day each piece of work lands on used to be decided by the language
+# model, and place_day_blocks() only arranged what it was handed *within*
+# a day. That is why plans did not space out: a model asked to schedule
+# nine assignments will cheerfully stack five of them on Monday, leave
+# Thursday empty, and put a big essay the night before it is due. It has
+# no view of how many free minutes each day actually holds, and no reason
+# to prefer three 40-minute sittings across three days over one two-hour
+# block — which, for anything being *learned* rather than merely finished,
+# is the difference between remembering it and not.
+#
+# This decides the day, deterministically, from four things the model
+# cannot see:
+#
+#   1. Real capacity. Each day's free minutes come from the student's own
+#      windows, after classes and commitments are removed.
+#   2. The deadline, with a buffer. Work aims to finish the day *before*
+#      it is due. Finishing on the due date means any slip is a miss.
+#   3. Distributed practice. Sittings on the same assignment are pushed
+#      apart rather than run back to back.
+#   4. Even load. Given a free choice of day, the emptiest one wins, so
+#      the week comes out level instead of front-loaded.
+
+#: Days before the deadline we aim to be finished. One day of slack
+#: absorbs a missed session without turning it into a late submission.
+DEADLINE_BUFFER_DAYS = 1
+#: Preferred minimum gap, in days, between two sittings on the same task.
+#: Compressed automatically when the deadline does not allow it.
+IDEAL_SPACING_DAYS = 1
+#: A day loaded past this share of its free time is "full enough" — the
+#: allocator looks elsewhere first. Not a hard cap: a deadline still wins.
+SOFT_LOAD_CEILING = 0.85
+
+
+def _iso(d: _date) -> str:
+    return d.isoformat()
+
+
+def plan_capacity(
+    start: _date,
+    days: int,
+    availability: Mapping[str, Any] | None,
+    preferred_time: str | None = None,
+    commitments: str | None = None,
+) -> dict[str, int]:
+    """Free minutes per day, keyed by ISO date, from the student's windows."""
+    out: dict[str, int] = {}
+    for offset in range(max(0, days)):
+        d = start + timedelta(days=offset)
+        windows = windows_for_date(d, availability, preferred_time, commitments)
+        out[_iso(d)] = sum(w.minutes for w in windows if w.minutes >= MIN_WINDOW_MINUTES)
+    return out
+
+
+def _sittings_for(task: Mapping[str, Any], dna: "StudyDNA") -> list[int]:
+    """Split one task into sitting lengths this student can actually hold."""
+    total = int(task.get("est_minutes") or task.get("duration_minutes") or 30)
+    total = dna.adjust_estimate(total, str(task.get("course") or ""))
+    # The same per-sitting ceiling place_day_blocks() hands to
+    # split_oversized_blocks(): block_minutes() x SPLIT_THRESHOLD_RATIO.
+    # It has to be identical, or the two split paths disagree about how
+    # many sittings a task becomes and the plan says one thing while the
+    # explanation says another.
+    #
+    # The 1.5x margin is why a 60-minute task does not become two 30s for
+    # a student whose sitting is 45: the overrun must be worth the cost of
+    # a second sitting before it is worth breaking up.
+    cap = max(MIN_WINDOW_MINUTES, int(dna.block_minutes() * SPLIT_THRESHOLD_RATIO))
+    if total <= cap:
+        return [max(MIN_WINDOW_MINUTES, total)]
+
+    count = max(1, math.ceil(total / cap))
+    base, extra = divmod(total, count)
+    # Even sittings rather than n full ones plus a stub: a 15-minute
+    # remainder tacked on the end is a session nobody bothers to start.
+    return [base + (1 if i < extra else 0) for i in range(count)]
+
+
+def _parse_due(task: Mapping[str, Any]) -> "_date | None":
+    raw = str(task.get("due_date") or "").strip()[:10]
+    if not raw:
+        return None
+    try:
+        return _date.fromisoformat(raw)
+    except ValueError:
+        return None
+
+
+def allocate_across_days(
+    tasks: Sequence[Mapping[str, Any]],
+    capacity: Mapping[str, int],
+    today: _date,
+    dna: "StudyDNA | None" = None,
+) -> tuple[dict[str, list[dict[str, Any]]], list[dict[str, Any]]]:
+    """Spread ``tasks`` over the days in ``capacity``.
+
+    Returns ``({iso_date: [block, ...]}, unplaced)``. A block carries the
+    task's own fields plus ``duration_minutes`` and, when a task was split,
+    the same ``part_index``/``part_total``/``parent_title``/``split_note``
+    quartet that :func:`split_oversized_blocks` produces — so a sitting
+    looks identical whichever path split it.
+
+    Tasks are placed most-urgent-first, where urgency is *slack* — days
+    available divided by sittings needed — rather than simply the nearest
+    due date. A big assignment due Friday is more urgent than a small one
+    due Thursday, and ordering on the date alone gets that backwards.
+    """
+    dna = dna or StudyDNA()
+    day_keys = sorted(capacity.keys())
+    if not day_keys:
+        return {}, [dict(t) for t in tasks]
+
+    load: dict[str, int] = {k: 0 for k in day_keys}
+    out: dict[str, list[dict[str, Any]]] = {k: [] for k in day_keys}
+    unplaced: list[dict[str, Any]] = []
+
+    prepared = []
+    for task in tasks:
+        sittings = _sittings_for(task, dna)
+        due = _parse_due(task)
+        # Aim to be done a day early. If that target is already behind us,
+        # fall back to the deadline itself; a deadline in the past means
+        # today, because the work still has to happen.
+        target = due - timedelta(days=DEADLINE_BUFFER_DAYS) if due else None
+        if target is not None and target < today:
+            target = max(due, today) if due else today
+        eligible = [k for k in day_keys if (target is None or k <= _iso(target))]
+        if not eligible:
+            # Past its buffer but not past its deadline: use whatever days
+            # remain up to the due date rather than dropping the task.
+            eligible = [k for k in day_keys if due and k <= _iso(due)] or day_keys[:1]
+        slack = len(eligible) / max(1, len(sittings))
+        prepared.append((slack, _iso(due) if due else "9999-12-31", task, sittings, eligible))
+
+    prepared.sort(key=lambda p: (p[0], p[1]))
+
+    for _slack, _due_key, task, sittings, eligible in prepared:
+        placed_days: list[str] = []
+        for part_index, minutes in enumerate(sittings):
+            choice = _pick_day(
+                eligible, load, capacity, minutes, placed_days,
+                part_index=part_index, part_total=len(sittings),
+            )
+            block = dict(task)
+            block["duration_minutes"] = minutes
+            if len(sittings) > 1:
+                # Same field names split_oversized_blocks() uses, so the
+                # placement-note builder and the UI grouping keep working
+                # regardless of which of the two paths did the splitting.
+                title = str(task.get("title") or task.get("assignment") or "")
+                block["part_index"] = part_index + 1
+                block["part_total"] = len(sittings)
+                block["parent_title"] = title
+                block["split_note"] = (
+                    f"Split into {len(sittings)} sittings across different days "
+                    f"to match your usual focus length."
+                )
+            if choice is None:
+                unplaced.append(block)
+                continue
+            out[choice].append(block)
+            load[choice] += minutes
+            placed_days.append(choice)
+
+    return out, unplaced
+
+
+def _pick_day(
+    eligible: Sequence[str],
+    load: Mapping[str, int],
+    capacity: Mapping[str, int],
+    minutes: int,
+    already_used: Sequence[str],
+    spacing: int = IDEAL_SPACING_DAYS,
+    part_index: int = 0,
+    part_total: int = 1,
+) -> "str | None":
+    """Best day for one sitting, or None when nothing has room.
+
+    Preference order, strongest first: leave a gap after the last sitting
+    on this task; stay under the soft load ceiling; then take the emptiest
+    day. The preferences are relaxed one at a time rather than all at once,
+    so a tight deadline gives up its spacing before it gives up being
+    scheduled at all.
+    """
+    def _fits(day: str) -> bool:
+        return load.get(day, 0) + minutes <= capacity.get(day, 0)
+
+    def _gap_ok(day: str) -> bool:
+        if not already_used:
+            return True
+        try:
+            d = _date.fromisoformat(day)
+            return all(
+                abs((d - _date.fromisoformat(u)).days) >= spacing for u in already_used
+            )
+        except ValueError:
+            return True
+
+    def _headroom(day: str) -> float:
+        cap = capacity.get(day, 0)
+        return (load.get(day, 0) + minutes) / cap if cap else 1.0
+
+    fitting = [d for d in eligible if _fits(d)]
+    if not fitting:
+        return None
+
+    # Where this sitting *wants* to sit: sittings are spread evenly across
+    # the whole window up to the deadline rather than packed against its
+    # front. Two reasons, and they point the same way.
+    #
+    # Spacing: three sittings with four days available should land on days
+    # 0, 2 and 3 — not 0, 1, 2 with day 3 left empty, which is the
+    # front-packing this allocator exists to stop.
+    #
+    # Contention: the early days are the only days a *tighter* deadline can
+    # use. A task with room to breathe that greedily takes them starves the
+    # task that had no choice, and the tight one ends up unplaceable even
+    # though the week had capacity for both.
+    # A single-sitting task has no position to spread to, so it must not
+    # express a preference here at all. Giving every such task an ideal of
+    # day 0 made the positional term outrank load balancing and pulled the
+    # whole week onto its first few days — the exact cramming this is meant
+    # to prevent. For those, load decides and the date only breaks ties.
+    spread = part_total > 1 and len(eligible) > 1
+    position = {day: i for i, day in enumerate(eligible)}
+    if spread:
+        stride = (len(eligible) - 1) / (part_total - 1)
+        ideal = min(int(round(part_index * stride)), len(eligible) - 1)
+
+    def _score(day: str):
+        cap = max(1, capacity.get(day, 1))
+        return (
+            abs(position.get(day, 0) - ideal) if spread else 0,
+            load.get(day, 0) / cap,                 # then the emptiest
+            day,                                    # then the earliest
+        )
+
+    for predicate in (
+        lambda d: _gap_ok(d) and _headroom(d) <= SOFT_LOAD_CEILING,
+        _gap_ok,
+        lambda d: _headroom(d) <= SOFT_LOAD_CEILING,
+        lambda _d: True,
+    ):
+        pool = [d for d in fitting if predicate(d)]
+        if pool:
+            return min(pool, key=_score)
+    return None

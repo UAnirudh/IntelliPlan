@@ -704,3 +704,226 @@ def test_no_sessions_changes_nothing():
     assert not dna.has_signal
     assert dna.block_minutes() == DEFAULT_STAMINA_MINUTES
     assert dna.to_prompt() == ""
+
+
+# ── Day allocation ────────────────────────────────────────────────────
+#
+# Deciding *which day* work lands on used to be the language model's job,
+# and it is the thing that made plans feel unspaced: five assignments on
+# Monday, an empty Thursday, and the essay the night before it is due.
+# These cover the four rules that replaced it.
+
+from datetime import date as _date, timedelta
+
+from scheduler_engine import (
+    DEADLINE_BUFFER_DAYS,
+    allocate_across_days,
+    plan_capacity,
+)
+
+ALLOC_MON = _date(2026, 3, 2)   # a real Monday
+# Deliberately not named MONDAY: this module already defines one, and
+# shadowing it silently retimes every window test above.
+
+
+def _week(minutes_per_day=180, days=7, start=ALLOC_MON):
+    return {(start + timedelta(days=i)).isoformat(): minutes_per_day
+            for i in range(days)}
+
+
+def _task(title, est, due_offset=None, course="", start=ALLOC_MON):
+    t = {"title": title, "est_minutes": est, "course": course}
+    if due_offset is not None:
+        t["due_date"] = (start + timedelta(days=due_offset)).isoformat()
+    return t
+
+
+def _totals(placed):
+    return {day: sum(b["duration_minutes"] for b in blocks)
+            for day, blocks in placed.items()}
+
+
+def test_work_spreads_instead_of_stacking_on_day_one():
+    """The headline behaviour: a week of work should use the week."""
+    tasks = [_task(f"Task {i}", 60, due_offset=6) for i in range(6)]
+    placed, unplaced = allocate_across_days(tasks, _week(), ALLOC_MON)
+    assert not unplaced
+    used = [d for d, m in _totals(placed).items() if m > 0]
+    assert len(used) >= 4, f"work crammed into {len(used)} day(s): {_totals(placed)}"
+
+
+def test_load_stays_even_across_the_week():
+    tasks = [_task(f"Task {i}", 60, due_offset=6) for i in range(6)]
+    placed, _ = allocate_across_days(tasks, _week(), ALLOC_MON)
+    loads = [m for m in _totals(placed).values()]
+    # No day should carry more than double the lightest *used* day.
+    used = [m for m in loads if m > 0]
+    assert max(used) <= min(used) * 2 + 1, f"lopsided: {loads}"
+
+
+def test_a_long_task_is_split_across_separate_days():
+    """Distributed practice: four hours of one subject is not one sitting,
+    and it is not four sittings on the same afternoon either."""
+    dna_free = allocate_across_days(
+        [_task("Essay", 240, due_offset=6)], _week(), ALLOC_MON)[0]
+    days_used = [d for d, b in dna_free.items() if b]
+    assert len(days_used) > 1, "a 4-hour task was placed on a single day"
+    for blocks in dna_free.values():
+        titles = [b["title"] for b in blocks]
+        assert titles.count("Essay") <= 1, "two sittings of one task on one day"
+
+
+def test_split_parts_are_labelled():
+    placed, _ = allocate_across_days(
+        [_task("Essay", 240, due_offset=6)], _week(), ALLOC_MON)
+    parts = [b for blocks in placed.values() for b in blocks]
+    assert all(b["part_total"] == len(parts) for b in parts)
+    assert sorted(b["part_index"] for b in parts) == list(range(1, len(parts) + 1))
+    # Same shape split_oversized_blocks() emits, so downstream cannot tell
+    # which path did the splitting.
+    assert all(b["parent_title"] == "Essay" for b in parts)
+    assert all(b["split_note"] for b in parts)
+
+
+def test_nothing_is_scheduled_after_its_deadline():
+    tasks = [_task("Quiz prep", 90, due_offset=2)]
+    placed, unplaced = allocate_across_days(tasks, _week(), ALLOC_MON)
+    assert not unplaced
+    due = (ALLOC_MON + timedelta(days=2)).isoformat()
+    for day, blocks in placed.items():
+        if blocks:
+            assert day <= due, f"scheduled {day}, due {due}"
+
+
+def test_work_aims_to_finish_before_the_due_date():
+    """Finishing *on* the deadline means any slip is a miss."""
+    placed, _ = allocate_across_days(
+        [_task("Report", 60, due_offset=4)], _week(), ALLOC_MON)
+    scheduled = [d for d, b in placed.items() if b]
+    target = (ALLOC_MON + timedelta(days=4 - DEADLINE_BUFFER_DAYS)).isoformat()
+    assert max(scheduled) <= target
+
+
+def test_urgency_is_slack_not_just_the_nearest_date():
+    """A big task due Friday is more urgent than a small one due Thursday.
+
+    Ordering purely by due date starts the worksheet first and leaves the
+    project without enough days. Slack — days available per sitting — puts
+    the project first, which is the only order in which both finish.
+    """
+    cap = {(ALLOC_MON + timedelta(days=i)).isoformat(): 120 for i in range(5)}
+    big = _task("Big project", 180, due_offset=4)
+    small = _task("Worksheet", 60, due_offset=3)
+    placed, unplaced = allocate_across_days([small, big], cap, ALLOC_MON)
+    assert not unplaced, f"could not fit: {unplaced}"
+
+    def _days_for(title):
+        return sorted(d for d, b in placed.items()
+                      if any(x["title"] == title for x in b))
+
+    # The project starts no later than the worksheet despite being due after
+    # it, because it is the one that cannot afford to wait.
+    assert min(_days_for("Big project")) <= min(_days_for("Worksheet"))
+
+
+def test_a_long_task_spreads_across_its_window_not_its_first_days():
+    """Four sittings with a week available should use the week.
+
+    Front-packing is the failure this allocator exists to fix: it both
+    clusters the work and eats the early days that a tighter deadline is
+    the only one able to use.
+    """
+    # 120 minutes is ~3 sittings against a 6-day window, so there is real
+    # room to choose. Front-packing would give days 0,1,2; spreading uses
+    # the far end of the window too.
+    placed, unplaced = allocate_across_days(
+        [_task("Project", 120, due_offset=6)], _week(), ALLOC_MON)
+    assert not unplaced
+    days = sorted(d for d, b in placed.items() if b)
+    assert len(days) > 1
+
+    window_start, window_end = ALLOC_MON, ALLOC_MON + timedelta(days=5)
+    span = (_date.fromisoformat(days[-1]) - _date.fromisoformat(days[0])).days
+    available = (window_end - window_start).days
+    # It reaches at least two-thirds of the way down the window rather than
+    # bunching against its start.
+    assert span >= available * 2 / 3, f"clustered: {days}"
+
+
+def test_overflow_is_reported_not_silently_dropped():
+    cap = {ALLOC_MON.isoformat(): 60}
+    tasks = [_task("A", 60, due_offset=0), _task("B", 60, due_offset=0)]
+    placed, unplaced = allocate_across_days(tasks, cap, ALLOC_MON)
+    assert len(unplaced) == 1
+    assert sum(len(b) for b in placed.values()) == 1
+
+
+def test_undated_work_still_gets_placed():
+    placed, unplaced = allocate_across_days(
+        [_task("Read ahead", 60)], _week(), ALLOC_MON)
+    assert not unplaced
+    assert sum(len(b) for b in placed.values()) == 1
+
+
+def test_overdue_work_is_scheduled_today_not_dropped():
+    overdue = _task("Late lab", 60, due_offset=-3)
+    placed, unplaced = allocate_across_days([overdue], _week(), ALLOC_MON)
+    assert not unplaced
+    assert placed[ALLOC_MON.isoformat()], "overdue work was not brought forward"
+
+
+def test_a_day_with_no_free_time_gets_nothing():
+    cap = _week()
+    busy = (ALLOC_MON + timedelta(days=2)).isoformat()
+    cap[busy] = 0
+    tasks = [_task(f"T{i}", 60, due_offset=6) for i in range(5)]
+    placed, _ = allocate_across_days(tasks, cap, ALLOC_MON)
+    assert placed[busy] == []
+
+
+def test_estimates_are_corrected_by_measured_bias():
+    """A student who runs 50% over their own estimates gets blocks sized
+    to what the work actually takes them."""
+    from scheduler_engine import build_study_dna
+    dna = build_study_dna([
+        {"estimated_time": 40, "actual_time": 60, "course": "",
+         "day_of_week": "Mon", "time_of_day": "evening"}
+        for _ in range(6)
+    ])
+    assert dna.estimation_ratio == 1.5
+    placed, _ = allocate_across_days(
+        [_task("Homework", 40, due_offset=6)], _week(), ALLOC_MON, dna)
+    total = sum(b["duration_minutes"] for blocks in placed.values() for b in blocks)
+    assert total == 60
+
+
+def test_empty_inputs_are_safe():
+    assert allocate_across_days([], _week(), ALLOC_MON) == (
+        {d: [] for d in _week()}, [])
+    placed, unplaced = allocate_across_days([_task("X", 60)], {}, ALLOC_MON)
+    assert placed == {} and len(unplaced) == 1
+
+
+def test_plan_capacity_reads_real_availability():
+    """Capacity comes from the student's own windows.
+
+    Note what an empty entry means: windows_for_date treats "no slots
+    recorded for this weekday" as *unknown*, not as *unavailable*, and
+    falls back to the preferred slot. So Tuesday below is a full evening,
+    not a blank day — a distinction that matters, because reading it the
+    other way would silently refuse to schedule anything for a student who
+    never filled in their availability.
+    """
+    cap = plan_capacity(ALLOC_MON, 3, {"Mon": ["evening"], "Tue": [], "Wed": ["morning"]})
+    assert cap[ALLOC_MON.isoformat()] == 300               # 17:00-22:00
+    assert cap[(ALLOC_MON + timedelta(days=1)).isoformat()] == 300   # fallback
+    assert cap[(ALLOC_MON + timedelta(days=2)).isoformat()] == 360   # 06:00-12:00
+
+
+def test_a_genuinely_busy_day_has_no_capacity():
+    """Commitments, unlike a blank availability entry, really do remove time."""
+    cap = plan_capacity(
+        ALLOC_MON, 1, {"Mon": ["evening"]},
+        commitments="Mon 5pm-10pm practice",
+    )
+    assert cap[ALLOC_MON.isoformat()] == 0

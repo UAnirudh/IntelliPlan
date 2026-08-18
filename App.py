@@ -2704,6 +2704,103 @@ def build_block_checklist(block, kind, assignment_meta):
     return templates.get(kind, templates["general"])
 
 
+def reallocate_days(schedule_data, availability, preferred_time,
+                    commitments, dna, today=None):
+    """Decide which day each block belongs on, deterministically.
+
+    The model is good at naming the work, sizing it roughly, and writing
+    the "what to actually do" notes. It is bad at the calendar: it cannot
+    see how many free minutes each day holds, so it stacks several
+    assignments on the first day, leaves later days empty, and puts long
+    work the night before it is due. That is the whole reason plans did
+    not feel spaced out.
+
+    So the model's *day* assignment is discarded and recomputed here from
+    real capacity, deadlines, distributed practice and load balance —
+    while everything else it produced is kept intact and travels with the
+    block. See scheduler_engine.allocate_across_days.
+
+    Operates in place on ``schedule_data``. Returns the number of blocks
+    that could not be placed inside the student's real free time.
+
+    No-ops when there is no schedule, no day has a parseable date, or the
+    student has no availability signal at all — in that last case there is
+    no capacity model to allocate against, and the legacy behaviour is
+    better than a guess.
+    """
+    days = schedule_data.get("schedule") or []
+    if not days:
+        return 0
+
+    today = today or datetime.now().date()
+
+    # Map each day entry to a real date, keeping the model's own ordering
+    # as the fallback for entries it left undated.
+    dated = []
+    for idx, day in enumerate(days):
+        d = _parse_schedule_day_date(day.get("date"), idx)
+        if d is None:
+            return 0
+        dated.append((d, day))
+
+    horizon = [d for d, _ in dated]
+    capacity = scheduler_engine.plan_capacity(
+        min(horizon), (max(horizon) - min(horizon)).days + 1,
+        availability, preferred_time, commitments,
+    )
+    if not any(capacity.values()):
+        return 0
+
+    # Flatten. Breaks are dropped: they are a property of how a day is laid
+    # out, and the day is about to be laid out again — keeping them would
+    # carry yesterday's rhythm onto a different set of blocks.
+    tasks = []
+    for _d, day in dated:
+        for block in day.get("blocks") or []:
+            if block.get("is_break"):
+                continue
+            task = dict(block)
+            task.setdefault("title", block.get("assignment") or "")
+            task["est_minutes"] = int(block.get("duration_minutes") or 30)
+            tasks.append(task)
+    if not tasks:
+        return 0
+
+    placed, unplaced = scheduler_engine.allocate_across_days(
+        tasks, capacity, today, dna,
+    )
+
+    by_date = {d.isoformat(): day for d, day in dated}
+    for iso, blocks in placed.items():
+        day = by_date.get(iso)
+        if day is None:
+            continue
+        rebuilt = []
+        for b in blocks:
+            out = dict(b)
+            out["assignment"] = out.get("assignment") or out.get("title") or ""
+            # "Essay (part 2 of 3)" reads as progress; "Essay" three times
+            # reads as the planner repeating itself. Wording and fields match
+            # split_oversized_blocks() so both split paths look the same.
+            if out.get("part_total", 1) > 1:
+                out["assignment"] = (
+                    f"{out['parent_title']} (part {out['part_index']} "
+                    f"of {out['part_total']})"
+                )
+            out.pop("est_minutes", None)
+            out["time_slot"] = ""          # place_day_blocks assigns the clock
+            rebuilt.append(out)
+        day["blocks"] = rebuilt
+
+    # Days the allocator gave nothing to must be emptied, not left holding
+    # the model's original guess.
+    for iso, day in by_date.items():
+        if iso not in placed:
+            day["blocks"] = []
+
+    return len(unplaced)
+
+
 def humanize_schedule(schedule_data, preferred_time, hours_per_day,
                       availability=None, commitments=None, dna=None):
     """Make the AI output look and feel like a real human study plan:
@@ -2733,6 +2830,28 @@ def humanize_schedule(schedule_data, preferred_time, hours_per_day,
     # 25-minute blocks to work an hour and a half straight is the opposite of
     # planning around their habits. Falls back to 90 with no measured history.
     long_break_after = scheduler_engine.long_break_after_for(dna)
+
+    # Take the calendar away from the model before laying anything out.
+    # It chose which day each block sits on, and it chose badly — it has no
+    # view of how many free minutes a day actually holds, so it front-loads
+    # the week and leaves long work until the night before it is due.
+    # reallocate_days() recomputes that from real capacity, deadlines,
+    # spacing and load; the loop below then only has to arrange each day.
+    if personalized:
+        try:
+            spilled = reallocate_days(
+                schedule_data, availability, preferred_time, commitments, dna,
+            )
+            if spilled:
+                overflow_notes.append(
+                    f"{spilled} block(s) had no room in your free time this week."
+                )
+            schedule = schedule_data.get("schedule", []) or []
+        except Exception as e:
+            # Never let allocation take down plan generation: the model's
+            # own day assignment is worse, but it is not nothing.
+            print(f"[scheduler] day reallocation failed (non-fatal): {e}")
+
     next_block_id = 1
     for day_idx, day in enumerate(schedule):
         blocks = day.get("blocks", []) or []
