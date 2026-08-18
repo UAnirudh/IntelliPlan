@@ -1075,7 +1075,25 @@ function setThemeMode(mode, opts) {
 
   try {
     const vt = document.startViewTransition(applyTheme);
-    vt.finished.finally(() => html.classList.remove('ip-vt-busy'));
+    /* `finished` REJECTS when the transition is aborted — a second toggle
+       before the first settles, a navigation mid-wipe, skipTransition().
+       `.finally()` does not handle a rejection, it passes it through, so
+       every interrupted theme change logged an uncaught
+       "InvalidStateError: Transition was aborted". Harmless in itself, but
+       it filled the console with noise that hides real errors, and a page
+       whose console is already noisy is a page nobody reads the console on.
+       Abort is an expected outcome here, so it is caught and ignored — the
+       cleanup still has to run either way. */
+    /* All three of a ViewTransition's promises reject when it is aborted,
+       and each one rejects independently — handling `finished` alone still
+       leaves `ready` and `updateCallbackDone` unhandled, which is why the
+       console kept reporting "InvalidStateError: Transition was aborted"
+       after the first attempt at this fix. */
+    vt.ready.catch(() => {});
+    if (vt.updateCallbackDone) vt.updateCallbackDone.catch(() => {});
+    vt.finished
+      .catch(() => {})
+      .finally(() => html.classList.remove('ip-vt-busy'));
     /* startViewTransition defers the callback until it has snapshotted, so
        the swap is now asynchronous. If that never happens — a backgrounded
        tab, a stalled compositor — the user would be left on the old theme

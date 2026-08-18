@@ -770,3 +770,72 @@
   else document.addEventListener('DOMContentLoaded', function () { queue.flush(); });
 
 })(window, document);
+
+/* ── Loading states, announced ────────────────────────────────────────
+   Every `.loading` block in the app was visual-only. A sighted user sees
+   a spinner and knows to wait; a screen-reader user got silence, then a
+   page that had quietly filled itself in — with nothing said at either
+   end. That is the whole gap this closes.
+
+   Done here rather than in each template for two reasons: there are a
+   dozen of these across the app and they would drift, and several are
+   built in JavaScript at the moment they are needed ("Could not connect
+   to backend"), so there is no markup to edit.
+
+   `role="status"` (an implicit aria-live="polite") is the right politeness
+   for this. `assertive` would interrupt whatever the reader was in the
+   middle of saying, and "loading" is never worth cutting someone off for.
+
+   The spinner itself is marked aria-hidden: it carries no information the
+   adjacent text does not already carry, and an unlabelled decorative
+   element is one more thing to tab past. */
+(function announceLoadingStates() {
+  'use strict';
+
+  function mark(el) {
+    if (!el || el.nodeType !== 1 || el.__ipLoadingMarked) return;
+    el.__ipLoadingMarked = true;
+    if (!el.hasAttribute('role')) el.setAttribute('role', 'status');
+    if (!el.hasAttribute('aria-live')) el.setAttribute('aria-live', 'polite');
+    // Announce the whole block when it changes, not just the diff — these
+    // swap wholesale from "Loading…" to an error line, and a partial
+    // announcement of that reads as nonsense.
+    if (!el.hasAttribute('aria-atomic')) el.setAttribute('aria-atomic', 'true');
+
+    var spinner = el.querySelector('.spinner');
+    if (spinner && !spinner.hasAttribute('aria-hidden')) {
+      spinner.setAttribute('aria-hidden', 'true');
+    }
+    // A spinner with no text beside it says nothing at all. Give it a name
+    // rather than leaving the region silent.
+    if (!el.textContent.trim()) el.setAttribute('aria-label', 'Loading');
+  }
+
+  function scan(root) {
+    if (!root || root.nodeType !== 1) return;
+    if (root.classList && root.classList.contains('loading')) mark(root);
+    var found = root.querySelectorAll ? root.querySelectorAll('.loading') : [];
+    for (var i = 0; i < found.length; i++) mark(found[i]);
+  }
+
+  function start() {
+    scan(document.body);
+
+    // Several of these are injected after a failed fetch, so a one-shot
+    // pass at load would miss exactly the cases that matter most — the
+    // ones telling somebody something went wrong.
+    if (!window.MutationObserver) return;
+    new MutationObserver(function (records) {
+      for (var i = 0; i < records.length; i++) {
+        var added = records[i].addedNodes;
+        for (var j = 0; j < added.length; j++) scan(added[j]);
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start);
+  } else {
+    start();
+  }
+})();

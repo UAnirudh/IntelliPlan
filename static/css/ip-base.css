@@ -665,12 +665,26 @@
     }
     body {
       font-family: var(--font-body);
-      background: var(--bg);
+      background-color: var(--bg);
       color: var(--text-primary);
       min-height: 100dvh;
       display: flex;
       flex-direction: column;
-      transition: background 0.25s ease, color 0.25s ease;
+      /* background-COLOR, not the `background` shorthand.
+
+         `background: var(--bg)` is a pending-substitution value: the browser
+         cannot resolve the shorthand until the variable is substituted, and
+         it cannot interpolate one. Transitioning the shorthand therefore
+         never starts AND never commits — so switching theme left the body
+         painting the previous theme's colour indefinitely while `color`
+         (a longhand, which interpolates fine) went ahead and changed.
+         The result was light text on a light background until the next
+         page load. Measured: with the transition forced off the body
+         resolved to the correct #101012; with it on it stayed #f5f4f1
+         three seconds later.
+
+         Both properties are longhands now, so both interpolate. */
+      transition: background-color 0.25s ease, color 0.25s ease;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       line-height: 1.6;
@@ -1660,6 +1674,19 @@
     }
     .loading { text-align:center; padding:3rem; color:var(--text-muted); }
     .spinner { width:28px; height:28px; border:2.5px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.75s linear infinite; margin:0 auto 1rem; }
+
+    /* The spinner was the one looping animation in the app with no
+       reduced-motion guard — everything else here honours it. A 0.75s
+       rotation running indefinitely is exactly the kind of thing the
+       setting exists to stop, and "content is loading" does not need
+       motion to be communicated: the ring still reads as a progress
+       indicator standing still, and the text beside it does the rest. */
+    @media (prefers-reduced-motion: reduce) {
+      .spinner, .spin { animation: none; }
+      /* Without the spin, a ring with one accent-coloured edge looks like
+         a rendering glitch. Even it out so it reads as a deliberate mark. */
+      .spinner { border-color: var(--border-strong); border-top-color: var(--accent); opacity: 0.8; }
+    }
 
     /* ══════════════════════════════════════
        BUTTONS
