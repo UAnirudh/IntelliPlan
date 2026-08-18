@@ -81,8 +81,34 @@ def _classify(asset: dict) -> dict | None:
     # person to click.
     if lower.endswith((".blockmap", ".yml", ".yaml", ".sha256", ".sig")):
         return None
+    # A .zip is a macOS build by default, but Windows ships one too — it is
+    # the native ARM64 build, which has no installer because electron-builder
+    # cannot currently produce a working ARM64 NSIS package (see
+    # desktop/README.md). Both would otherwise be called
+    # IntelliPlan-<version>-arm64.zip and land in the same release, so the
+    # Windows one carries a -win- marker and is matched before the table.
+    if lower.endswith(".zip") and "-win-" in lower:
+        return {
+            "name": name,
+            "url": asset.get("browser_download_url"),
+            "size": int(asset.get("size") or 0),
+            "platform": "windows",
+            "label": "Windows (zip, no installer)",
+            "rank": 1,
+            "arch": _arch_of(name),
+        }
+
     for ext, (platform, label, rank) in _KINDS.items():
         if lower.endswith(ext):
+            arch = _arch_of(name)
+            # electron-builder builds one NSIS installer per architecture
+            # *and* a combined one carrying all of them, and only the
+            # per-arch names get a suffix. Left unlabelled the combined
+            # build reads as the vaguest option on the page — an unnamed
+            # file twice the size of the others — when it is in fact the
+            # one that runs anywhere. Say so.
+            if not arch and platform == "windows":
+                arch = "universal"
             return {
                 "name": name,
                 "url": asset.get("browser_download_url"),
@@ -90,7 +116,7 @@ def _classify(asset: dict) -> dict | None:
                 "platform": platform,
                 "label": label,
                 "rank": rank,
-                "arch": _arch_of(name),
+                "arch": arch,
             }
     return None
 

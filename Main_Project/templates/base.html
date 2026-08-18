@@ -705,6 +705,10 @@ body {
         <a href="/about" class="nav-tab {% if active_page == 'about' %}active{% endif %}"><span class="nav-label">About</span></a>
         <a href="/compare" class="nav-tab {% if active_page == 'compare' %}active{% endif %}"><span class="nav-label">Compare</span></a>
         <a href="/faq"     class="nav-tab {% if active_page == 'faq' %}active{% endif %}"><span class="nav-label">FAQ</span></a>
+        {# The desktop app was reachable only from a footer link, which is
+           where links go to be ignored. It is a shipped platform, so it
+           belongs in the nav next to everything else you can actually get. #}
+        <a href="/download" class="nav-tab {% if active_page == 'download' %}active{% endif %}"><span class="nav-label">Download</span></a>
       </div>
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
@@ -1801,8 +1805,63 @@ document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); 
 if ('serviceWorker' in navigator && window.self === window.top) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/static/sw.js', { scope: '/' })
+      .then(reg => { if (reg) watchForUpdate(reg); })
       .catch(() => { /* unsupported or blocked: the app works, just online-only */ });
   });
+}
+
+/* ── UPDATE PROMPT ──────────────────────────────────────────────────
+   A deployed release does not reach an open tab on its own. The worker
+   deliberately waits rather than seizing control (see sw.js), so without
+   this the student sits on the old build until they happen to reload.
+
+   Reloading for them is the wrong instinct: it would discard whatever
+   they were typing. So the update waits behind a prompt they can ignore,
+   and the swap happens when they say so.
+   ─────────────────────────────────────────────────────────────────── */
+function watchForUpdate(reg) {
+  let prompted = false;
+
+  const offer = (worker) => {
+    // `controller` is null on a first install. There is no previous version
+    // to replace then, so announcing an update would be a lie.
+    if (prompted || !navigator.serviceWorker.controller) return;
+    prompted = true;
+
+    const apply = () => {
+      // controllerchange fires once the waiting worker takes over, which is
+      // the earliest moment a reload actually yields the new build.
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
+      }, { once: true });
+      worker.postMessage({ type: 'SKIP_WAITING' });
+    };
+
+    if (window.IP && typeof IP.toast === 'function') {
+      IP.toast('A new version of IntelliPlan is ready.', 'info', {
+        action: 'Update',
+        onAction: apply,
+        persist: true,
+      });
+    }
+  };
+
+  // Already waiting when the page loaded — the worker updated during a
+  // previous visit and has been sitting there since.
+  if (reg.waiting) offer(reg.waiting);
+
+  reg.addEventListener('updatefound', () => {
+    const installing = reg.installing;
+    if (!installing) return;
+    installing.addEventListener('statechange', () => {
+      if (installing.state === 'installed') offer(installing);
+    });
+  });
+
+  // The browser only re-checks the worker on navigation, so a tab left open
+  // for hours would never learn about a release. Hourly is often enough to
+  // be useful and rare enough to be invisible.
+  setInterval(() => { reg.update().catch(() => {}); }, 60 * 60 * 1000);
 }
 
 /* ── LOTUS EMBED HANDSHAKE ──────────────────────────────────────────

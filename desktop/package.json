@@ -38,6 +38,16 @@
       "src/**/*",
       "!**/*.map"
     ],
+    "extraResources": [
+      {
+        "from": "build/icon.png",
+        "to": "icon.png"
+      },
+      {
+        "from": "build/tray.png",
+        "to": "tray.png"
+      }
+    ],
     "protocols": [
       {
         "name": "IntelliPlan",
@@ -51,25 +61,25 @@
         {
           "target": "nsis",
           "arch": [
-            "x64",
-            "arm64"
+            "x64"
           ]
         },
         {
-          "target": "portable",
+          "target": "zip",
           "arch": [
-            "x64"
+            "arm64"
           ]
         }
       ],
-      "artifactName": "IntelliPlan-Setup-${version}-${arch}.${ext}"
+      "artifactName": "IntelliPlan-${version}-win-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "IntelliPlan"
+      "shortcutName": "IntelliPlan",
+      "artifactName": "IntelliPlan-Setup-${version}-${arch}.${ext}"
     },
     "mac": {
       "category": "public.app-category.education",
@@ -139,5 +149,8 @@
   "author": {
     "name": "IntelliPlan",
     "email": "hello@intelliplan.tech"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }

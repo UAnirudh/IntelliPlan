@@ -27,6 +27,8 @@ const {
 } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
+const crypto = require('node:crypto');
+const updater = require('./updater');
 
 // ── Configuration ───────────────────────────────────────────────────
 
@@ -83,8 +85,26 @@ function writeSetting(key, value) {
 // ── Window ──────────────────────────────────────────────────────────
 
 function iconPath(name) {
-  const candidate = path.join(__dirname, '..', 'build', name);
-  return fs.existsSync(candidate) ? candidate : null;
+  // The icons live in two places depending on how the app was started.
+  //
+  // Packaged, extraResources puts them next to app.asar, because build/ is
+  // electron-builder's buildResources directory and is never copied into
+  // the app itself. Looking only in build/ — as this did — silently found
+  // nothing in every installed copy: the window fell back to Electron's
+  // default icon and createTray() returned early, so the tray feature was
+  // missing from the shipped app while working perfectly in development.
+  //
+  // Run from source there is no resourcesPath worth reading, so build/ is
+  // still the answer. Check both rather than branching on app.isPackaged,
+  // which is one more thing to get wrong.
+  const candidates = [
+    process.resourcesPath ? path.join(process.resourcesPath, name) : null,
+    path.join(__dirname, '..', 'build', name),
+  ];
+  for (const candidate of candidates) {
+    if (candidate && fs.existsSync(candidate)) return candidate;
+  }
+  return null;
 }
 
 function createWindow() {
@@ -173,21 +193,50 @@ function attachNavigationGuards(win) {
     try {
       const parsed = new URL(url);
       if (parsed.origin === origin) return true;
-      // OAuth round-trips have to happen somewhere the session cookie lives;
-      // the providers below are the ones the app actually uses.
-      return /(^|\.)accounts\.google\.com$|(^|\.)instructure\.com$/.test(parsed.hostname);
+      // Canvas finishes its OAuth in place and is happy to do so in an
+      // embedded view. Google is not, and used to be allowed here: it
+      // loaded accounts.google.com in this window, where Google's
+      // embedded-browser check rejected it — fatally for the supervised
+      // Family Link accounts that cannot fall back to anything else.
+      // Google now goes out to the system browser via startGoogleSignIn().
+      return /(^|\.)instructure\.com$/.test(parsed.hostname);
+    } catch {
+      return false;
+    }
+  };
+
+  /**
+   * Is this the app's own "Sign in with Google" link?
+   *
+   * Catching it by URL means the website's login page needs no knowledge of
+   * the desktop client — the same button works in both, and a future change
+   * to that template cannot silently reintroduce the embedded flow.
+   */
+  const isGoogleSignIn = (url) => {
+    try {
+      const parsed = new URL(url);
+      return parsed.origin === origin && parsed.pathname === '/login/google';
     } catch {
       return false;
     }
   };
 
   win.webContents.setWindowOpenHandler(({ url }) => {
+    if (isGoogleSignIn(url)) {
+      startGoogleSignIn();
+      return { action: 'deny' };
+    }
     if (isInternal(url)) return { action: 'allow' };
     shell.openExternal(url);
     return { action: 'deny' };
   });
 
   win.webContents.on('will-navigate', (event, url) => {
+    if (isGoogleSignIn(url)) {
+      event.preventDefault();
+      startGoogleSignIn();
+      return;
+    }
     if (isInternal(url)) return;
     event.preventDefault();
     shell.openExternal(url);
@@ -275,16 +324,34 @@ function createTray() {
   tray.on('click', showWindow);
 }
 
+//: The last "up next" the poll found. Remembered so the tray can be
+//: rebuilt for an unrelated reason — an update finishing, say — without
+//: blanking the line the student actually cares about.
+let lastNext = null;
+
 function refreshTrayMenu(next) {
+  lastNext = next;
   if (!tray) return;
   const nextLabel = next
     ? `${next.title}${next.time_slot ? ` · ${next.time_slot}` : ''}`
     : 'Nothing scheduled';
 
+  // A ready update earns a line in the tray. It is the one place a student
+  // sees the app when the window is closed, which is exactly the state a
+  // long-running install sits in for days.
+  const update = updater.status();
+  const updateItems = update.state === 'ready'
+    ? [
+        { label: `Update to ${update.version}`, click: () => updater.promptInstall() },
+        { type: 'separator' },
+      ]
+    : [];
+
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Up next', enabled: false },
     { label: nextLabel, enabled: false },
     { type: 'separator' },
+    ...updateItems,
     { label: 'Start study session', accelerator: SHORTCUT_START_SESSION, click: openActive },
     { label: 'Open IntelliPlan', click: showWindow },
     { label: 'Scheduler', click: () => openPath('/scheduler') },
@@ -318,6 +385,80 @@ function openActive() {
   openPath('/active');
 }
 
+// ── Google sign-in ──────────────────────────────────────────────────
+//
+// Google refuses to run OAuth inside an embedded browser view, and polices
+// that hardest against supervised Family Link accounts — which is most of
+// the students this app is for. So the sign-in page cannot be shown here.
+// It goes to the real system browser, and the finished session comes back
+// through the intelliplan:// handler as a one-time code.
+//
+// The code is only half a credential. The other half is the PKCE verifier
+// below, which never leaves this process — any other local program can
+// register intelliplan:// and read the code off the deep link, but without
+// the verifier it cannot spend it. server-side rules live in
+// desktop_auth.py.
+
+/** The verifier for the sign-in currently in flight, if any. */
+let pendingVerifier = null;
+
+function b64url(raw) {
+  return raw.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function startGoogleSignIn() {
+  const verifier = b64url(crypto.randomBytes(32));
+  const challenge = b64url(crypto.createHash('sha256').update(verifier).digest());
+  // Replacing any previous attempt is deliberate: only the most recent
+  // sign-in the student actually started should be redeemable.
+  pendingVerifier = verifier;
+  const url = `${targetOrigin()}/login/google?desktop=${encodeURIComponent(challenge)}`;
+  shell.openExternal(url);
+}
+
+/**
+ * Redeem the code the browser handed back.
+ *
+ * The exchange runs as a fetch inside the window rather than from the main
+ * process, so the session cookie the server sets lands in the jar the app
+ * actually browses with. Doing it here would mean copying cookies between
+ * sessions, which is fiddly and a good way to leak a session into a log.
+ */
+async function completeGoogleSignIn(code) {
+  const verifier = pendingVerifier;
+  // Single use on this side too. A second deep link carrying a replayed
+  // code finds nothing to spend it with.
+  pendingVerifier = null;
+
+  if (!verifier || !code) {
+    showWindow();
+    return;
+  }
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  try {
+    const ok = await mainWindow.webContents.executeJavaScript(
+      `fetch('/api/desktop/auth/exchange', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         credentials: 'same-origin',
+         body: ${JSON.stringify(JSON.stringify({ code, verifier }))},
+       }).then(r => r.ok).catch(() => false)`,
+      true,
+    );
+    showWindow();
+    if (ok) {
+      mainWindow.loadURL(targetOrigin() + '/command-center', { userAgent: userAgent() });
+    } else {
+      // Expired or already spent. Sending them back to the login page is
+      // more use than a dialog explaining PKCE.
+      mainWindow.loadURL(targetOrigin() + '/login', { userAgent: userAgent() });
+    }
+  } catch {
+    showWindow();
+  }
+}
+
 // ── "What's next" polling ───────────────────────────────────────────
 //
 // Runs in the renderer's session so it carries the signed-in cookie, then
@@ -340,6 +481,29 @@ async function pollNext() {
     // A window that is mid-navigation cannot run script. Not worth logging
     // once a minute.
   }
+}
+
+/**
+ * Tell the student an update is waiting.
+ *
+ * Deliberately a notification and not a dialog: the download finishes on
+ * its own schedule, and a modal stealing focus mid-sentence to announce
+ * good news is worse than the news is good. Clicking it opens the restart
+ * prompt, where the actual decision lives.
+ */
+function notifyUpdateReady() {
+  if (!Notification.isSupported()) return;
+  const { version } = updater.status();
+  const notification = new Notification({
+    title: 'IntelliPlan update ready',
+    body: version
+      ? `Version ${version} will install when you restart.`
+      : 'An update will install when you restart.',
+    silent: true,
+    ...(iconPath('icon.png') ? { icon: iconPath('icon.png') } : {}),
+  });
+  notification.on('click', () => updater.promptInstall());
+  notification.show();
 }
 
 // ── Native notifications ────────────────────────────────────────────
@@ -485,6 +649,7 @@ ipcMain.handle('app:setTarget', (_event, url) => {
 
 function buildMenu() {
   const isMac = process.platform === 'darwin';
+  const updateStatus = updater.status();
   const template = [
     ...(isMac ? [{ role: 'appMenu' }] : []),
     {
@@ -519,6 +684,12 @@ function buildMenu() {
     {
       role: 'help',
       submenu: [
+        // Label follows the updater, so the menu never offers a check when
+        // one has already finished and is sitting there waiting.
+        updateStatus.state === 'ready'
+          ? { label: `Restart to Update to ${updateStatus.version}`, click: () => updater.promptInstall() }
+          : { label: 'Check for Updates…', click: () => updater.check({ interactive: true }) },
+        { type: 'separator' },
         { label: 'IntelliPlan Help', click: () => shell.openExternal(targetOrigin() + '/faq') },
         { label: 'Report a Problem', click: () => shell.openExternal(targetOrigin() + '/contact') },
       ],
@@ -541,11 +712,34 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(() => {
+    // Claim intelliplan:// ourselves rather than trusting the installer to
+    // have done it. Google sign-in now depends on this handler existing —
+    // the browser finishes the round-trip and hands the result back through
+    // it — so a copy that was moved, unpacked by hand, or installed by an
+    // installer that half-failed would otherwise have no way to complete a
+    // login. Cheap to repeat, and it makes `npm start` behave like the
+    // packaged app.
+    if (!app.isDefaultProtocolClient('intelliplan')) {
+      app.setAsDefaultProtocolClient('intelliplan');
+    }
+
     createWindow();
     createTray();
     buildMenu();
 
     globalShortcut.register(SHORTCUT_START_SESSION, openActive);
+
+    // Rebuild the surfaces that show update state whenever it moves, so
+    // "Update to 1.0.1" appears in the tray and menu the moment a download
+    // finishes — rather than at the next restart, which for a tray-resident
+    // app could be weeks away.
+    updater.start({
+      notify: (state) => {
+        buildMenu();
+        refreshTrayMenu(lastNext);
+        if (state === 'ready') notifyUpdateReady();
+      },
+    });
 
     pollTimer = setInterval(pollNext, POLL_INTERVAL_MS);
     setTimeout(pollNext, 8_000);   // after the first page has had time to load
@@ -565,6 +759,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();
     clearInterval(pollTimer);
+    updater.stop();
   });
 
   app.on('window-all-closed', () => {
@@ -582,6 +777,14 @@ if (!app.requestSingleInstanceLock()) {
 function handleDeepLink(url) {
   try {
     const parsed = new URL(url);
+    // intelliplan://auth?code=… is the browser handing back a finished
+    // Google sign-in. It is not a page to open — the host carries the
+    // meaning here, because a custom scheme puts "auth" in hostname rather
+    // than pathname.
+    if (parsed.hostname === 'auth') {
+      completeGoogleSignIn(parsed.searchParams.get('code'));
+      return;
+    }
     const target = parsed.pathname && parsed.pathname !== '/' ? parsed.pathname : '/active';
     openPath(target);
   } catch {

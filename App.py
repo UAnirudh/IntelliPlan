@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
 import time
 from time_utils import utcnow
+import desktop_auth
 from studentvue_helper import (
     test_login,
     get_assignments as get_sv_assignments,
@@ -486,6 +487,23 @@ class User(UserMixin, db.Model):
     # for the scheduler, tutor, and other AI features. Default OFF to
     # respect privacy — the toggle lives in Settings → Privacy.
     ai_personalization_opt_in = db.Column(db.Boolean, default=False)
+    # ── Marketing email: onboarding sequence and newsletters, sent from
+    # an external tool rather than by this app.
+    #
+    # Separate from email_reminders_opt_in on purpose. That one is
+    # transactional — the deadline reminders the student signed up for.
+    # This is marketing, and conflating the two means an unsubscribe from
+    # a newsletter silently kills the reminders the planner exists to
+    # send, or worse, a reminders opt-in is read as permission to market.
+    #
+    # Default OFF, and it stays off unless the student ticked the box on
+    # a form. A pre-ticked box is not consent under GDPR, and CAN-SPAM
+    # makes the sender responsible either way.
+    marketing_emails_opt_in = db.Column(db.Boolean, default=False)
+    # When they agreed. Consent you cannot date is consent you cannot
+    # evidence, and "when did this person opt in" is the first question
+    # asked in any complaint.
+    marketing_opt_in_at = db.Column(db.DateTime, nullable=True)
     # ── Role: student | teacher | parent. Drives /teacher and /parent
     # dashboards plus the StudentLink consent flow.
     role = db.Column(db.String(16), default="student")
@@ -616,6 +634,29 @@ class GoogleIntegration(db.Model):
     account_name = db.Column(db.String(255), nullable=True)
     is_active = db.Column(db.Boolean, default=True)
     connected_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class DesktopAuthCode(db.Model):
+    """A one-time ticket letting the desktop app claim a browser sign-in.
+
+    Minted at the end of a Google callback that the desktop client started,
+    spent once by /api/desktop/auth/exchange, and worthless after two
+    minutes. See desktop_auth.py for why each column is here — in short,
+    only the hash of the code is kept, and redeeming it also requires the
+    PKCE verifier that never leaves the app.
+    """
+    __tablename__ = "desktop_auth_codes"
+    id = db.Column(db.Integer, primary_key=True)
+    # Unique so a repeat insert collides rather than quietly creating a
+    # second live ticket for the same code.
+    code_hash = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    code_challenge = db.Column(db.String(64), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    # Set the moment it is spent. Presence here, not deletion, is what
+    # makes a replay fail: the row has to stick around long enough to say
+    # "already used" rather than "never existed".
+    used_at = db.Column(db.DateTime, nullable=True)
+
 
 class NotionIntegration(db.Model):
     __tablename__ = "notion_integrations"
@@ -5142,6 +5183,18 @@ def register():
                     sms_optin = False  # can't reminder without a number
                 under_13 = (age is not None and age < 13)
                 consent_token = secrets_module.token_urlsafe(24) if under_13 else None
+                # Newsletters and onboarding email. Unticked means absent
+                # from the form, which is the only reading of "no" a
+                # checkbox has.
+                marketing_optin = bool(request.form.get("marketing_emails_opt_in"))
+                if under_13:
+                    # COPPA: marketing to a child needs verifiable parental
+                    # consent, and the consent gate below covers using the
+                    # planner, not being sold to. Refusing here rather than
+                    # deferring keeps a flag from sitting true and being
+                    # picked up by an export later. Same shape as sms_optin
+                    # above: no prerequisite, no opt-in.
+                    marketing_optin = False
                 user = User(
                     email=email, password_hash=pw_hash,
                     phone=phone_norm, sms_reminders_opt_in=sms_optin,
@@ -5149,6 +5202,8 @@ def register():
                     parent_email=parent_email_raw if under_13 else None,
                     parent_consent_granted=not under_13,  # adults skip the gate
                     parent_consent_token=consent_token,
+                    marketing_emails_opt_in=marketing_optin,
+                    marketing_opt_in_at=utcnow() if marketing_optin else None,
                 )
                 db.session.add(user)
                 db.session.commit()
@@ -5879,6 +5934,18 @@ def login_google():
     return_to = _safe_return_to(request.args.get("return_to", "").strip())
     if return_to:
         session["oauth_return_to"] = return_to
+    # A desktop-initiated sign-in arrives here in the system browser, not in
+    # the app, carrying the PKCE challenge the app generated. Remember it so
+    # the callback knows to hand the result back over intelliplan:// instead
+    # of just landing this browser tab on the command centre. Anything
+    # malformed is dropped rather than trusted — see desktop_auth.py.
+    desktop_challenge = request.args.get("desktop", "").strip()
+    session.pop("desktop_auth_challenge", None)
+    if desktop_challenge:
+        if desktop_auth.is_valid_challenge(desktop_challenge):
+            session["desktop_auth_challenge"] = desktop_challenge
+        else:
+            print("[DESKTOP AUTH] rejected malformed challenge on /login/google")
     state = secrets_module.token_urlsafe(32)
     session["oauth_state"] = state
     session["oauth_purpose"] = "login"
@@ -5889,6 +5956,62 @@ def login_google():
     session.modified = True
     print(f"[GOOGLE LOGIN] state={state[:8]}..., return_to={return_to!r}")
     return redirect(auth_url)
+
+@app.route("/api/desktop/auth/exchange", methods=["POST"])
+@limiter.limit("10 per minute;40 per hour")
+def desktop_auth_exchange():
+    """Spend a one-time code for a real session in the desktop app.
+
+    The app calls this itself, so the ``Set-Cookie`` on the response lands
+    in the app's own cookie jar — which is the entire point of the dance:
+    the browser that actually did the Google sign-in has a session the app
+    could never read.
+
+    Every failure returns the same flat 400. Distinguishing "no such code"
+    from "expired" from "wrong verifier" would tell someone grinding at the
+    endpoint which half of their guess was right.
+    """
+    payload = request.get_json(silent=True) or {}
+    code = (payload.get("code") or "").strip()
+    verifier = (payload.get("verifier") or "").strip()
+
+    def refuse():
+        return jsonify({"status": "error", "error": "invalid_code"}), 400
+
+    if not code or not desktop_auth.is_valid_verifier(verifier):
+        return refuse()
+
+    row = DesktopAuthCode.query.filter_by(
+        code_hash=desktop_auth.hash_code(code)
+    ).first()
+    if row is None or row.used_at is not None:
+        return refuse()
+    if desktop_auth.is_expired(row.created_at, datetime.utcnow()):
+        return refuse()
+    if not desktop_auth.verifier_matches(verifier, row.code_challenge):
+        # A valid code with the wrong verifier is the signature of a stolen
+        # deep link, so burn it rather than letting them try again.
+        row.used_at = datetime.utcnow()
+        db.session.commit()
+        print("[DESKTOP AUTH] verifier mismatch — code burned")
+        return refuse()
+
+    user = User.query.get(row.user_id)
+    if user is None:
+        return refuse()
+
+    # Burn before issuing. If the commit below fails the student retries a
+    # sign-in; if it succeeded and we crashed after, the code must not still
+    # be live.
+    row.used_at = datetime.utcnow()
+    db.session.commit()
+
+    login_user(user, remember=True)
+    session.permanent = True
+    session.modified = True
+    print(f"[DESKTOP AUTH] exchanged code for session, user id={user.id}")
+    return jsonify({"status": "ok"})
+
 
 @app.route("/login/account", methods=["GET", "POST"])
 @limiter.limit("10 per minute;60 per hour", methods=["POST"])
@@ -6400,6 +6523,22 @@ def _handle_google_callback():
 
     # ── Redirect ──
     if purpose == "login":
+        # A desktop-initiated sign-in finishes in the system browser, which
+        # is the wrong place for the session to stop: the app has its own
+        # cookie jar and cannot see this one. Mint a one-time code and bounce
+        # through the protocol handler so the app can claim it.
+        desktop_challenge = session.pop("desktop_auth_challenge", None)
+        if desktop_challenge and desktop_auth.is_valid_challenge(desktop_challenge):
+            code = desktop_auth.new_code()
+            db.session.add(DesktopAuthCode(
+                code_hash=desktop_auth.hash_code(code),
+                code_challenge=desktop_challenge,
+                user_id=user.id,
+            ))
+            db.session.commit()
+            # The code itself is deliberately not logged.
+            print(f"[DESKTOP AUTH] minted code for user id={user.id}")
+            return redirect(desktop_auth.deep_link_for(code))
         return_to = _safe_return_to(session.pop("oauth_return_to", None))
         if return_to:
             print(f"[GOOGLE CALLBACK] redirecting to partner return_to={return_to!r}")
@@ -15370,6 +15509,8 @@ def _migrate_user_columns():
         ("users", "parent_consent_token", "VARCHAR(64)"),
         ("users", "lms_preferences", "TEXT DEFAULT '{}'"),
         ("users", "ai_personalization_opt_in", "BOOLEAN DEFAULT FALSE"),
+        ("users", "marketing_emails_opt_in", "BOOLEAN DEFAULT FALSE"),
+        ("users", "marketing_opt_in_at", "TIMESTAMP"),
         ("users", "role", "VARCHAR(16) DEFAULT 'student'"),
         # users — Active-study focus enforcement
         ("users", "focus_enforcement", "VARCHAR(16) DEFAULT 'off'"),

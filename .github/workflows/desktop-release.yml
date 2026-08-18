@@ -60,16 +60,124 @@ jobs:
         if: matrix.platform == 'linux'
         run: sudo apt-get update && sudo apt-get install -y rpm
 
+      # Signing is opt-in and driven entirely by repository secrets. With
+      # none configured this resolves to no extra flags and the build is
+      # exactly what it always was: unsigned, and the download page says
+      # so. Add the secrets and the same workflow starts signing — there
+      # is no second pipeline to keep in step.
+      #
+      # Windows has two routes because they cost very different things:
+      #
+      #   Azure Trusted Signing — ~$10/month, and Microsoft treats the
+      #   certificate as reputable immediately, so SmartScreen stops
+      #   warning from the first release. This is the one to want.
+      #
+      #   A .pfx from a CA (CSC_LINK) — signs the binary, but an OV
+      #   certificate starts with no SmartScreen reputation and keeps
+      #   warning until enough people have installed it anyway. Only an
+      #   EV certificate skips that, and those need a hardware token a CI
+      #   runner cannot hold.
+      - name: Resolve signing configuration
+        id: signing
+        shell: bash
+        env:
+          AZ_ACCOUNT: ${{ secrets.AZURE_CODE_SIGNING_ACCOUNT }}
+          AZ_PROFILE: ${{ secrets.AZURE_CODE_SIGNING_PROFILE }}
+          AZ_ENDPOINT: ${{ secrets.AZURE_CODE_SIGNING_ENDPOINT }}
+          AZ_PUBLISHER: ${{ secrets.AZURE_CODE_SIGNING_PUBLISHER }}
+          HAS_CSC: ${{ secrets.CSC_LINK != '' }}
+          HAS_APPLE_ID: ${{ secrets.APPLE_ID != '' }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          flags=""
+          mode="unsigned"
+
+          if [ "$PLATFORM" = "win" ]; then
+            if [ -n "$AZ_ACCOUNT" ] && [ -n "$AZ_PROFILE" ]; then
+              flags="-c.win.azureSignOptions.endpoint=${AZ_ENDPOINT:-https://eus.codesigning.azure.net}"
+              flags="$flags -c.win.azureSignOptions.codeSigningAccountName=$AZ_ACCOUNT"
+              flags="$flags -c.win.azureSignOptions.certificateProfileName=$AZ_PROFILE"
+              if [ -n "$AZ_PUBLISHER" ]; then
+                flags="$flags -c.win.azureSignOptions.publisherName=$AZ_PUBLISHER"
+              fi
+              mode="azure-trusted-signing"
+            elif [ "$HAS_CSC" = "true" ]; then
+              # electron-builder picks CSC_LINK/CSC_KEY_PASSWORD up from
+              # the environment on its own; nothing to pass here.
+              mode="certificate"
+            fi
+          fi
+
+          if [ "$PLATFORM" = "mac" ] && [ "$HAS_CSC" = "true" ]; then
+            mode="certificate"
+            # Notarisation is a separate credential from the signing
+            # identity. Asking for it without one fails the build after
+            # the slow part, so it stays off until the Apple ID is there.
+            if [ "$HAS_APPLE_ID" = "true" ]; then
+              flags="$flags -c.mac.notarize=true"
+              mode="certificate+notarized"
+            fi
+          fi
+
+          echo "SIGN_FLAGS=$flags" >> "$GITHUB_ENV"
+          echo "Signing mode for $PLATFORM: $mode"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+
       - name: Build ${{ matrix.platform }}
         # Not `dist` (-mwl): each runner builds only its own platform.
-        # Unsigned on macOS and Windows — there is no certificate in this
-        # repo, and pretending otherwise would produce artifacts that fail
-        # verification at install time rather than at build time. The
-        # download page says so.
-        run: npx electron-builder --${{ matrix.platform }} --publish never
+        shell: bash
+        run: npx electron-builder --${{ matrix.platform }} --publish never $SIGN_FLAGS
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: false
+          # Empty when no certificate is configured, which is the same as
+          # not signing.
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          # Without this electron-builder goes hunting the runner's
+          # keychain for an identity that is not there and fails the
+          # build. Only let it look when we actually supplied one.
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      # The bug this exists for: an NSIS installer that exited 0, reported
+      # success, wrote every .pak and locale — and silently omitted
+      # IntelliPlan.exe and all eight DLLs. Users got a Start Menu shortcut
+      # pointing at a file that was never installed. Nothing in the build
+      # log hinted at it, and it shipped in 1.0.0.
+      #
+      # So the build no longer trusts the installer's exit code. It runs the
+      # thing and looks for the executable.
+      - name: Smoke-test the Windows installer
+        if: matrix.platform == 'win'
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem dist -Filter 'IntelliPlan-Setup-*.exe' |
+                       Select-Object -First 1
+          if (-not $installer) { throw 'No Windows installer was produced.' }
+
+          $target = Join-Path $env:RUNNER_TEMP 'installer-smoke-test'
+          Remove-Item $target -Recurse -Force -ErrorAction SilentlyContinue
+          # /D must be last and unquoted — that is NSIS's rule, not ours.
+          $proc = Start-Process $installer.FullName -ArgumentList '/S', "/D=$target" -PassThru -Wait
+          Write-Host "installer exit code: $($proc.ExitCode)"
+
+          $exe = Join-Path $target 'IntelliPlan.exe'
+          $dlls = @(Get-ChildItem $target -Filter *.dll -File -ErrorAction SilentlyContinue).Count
+          $files = @(Get-ChildItem $target -Recurse -File -ErrorAction SilentlyContinue).Count
+          Write-Host "installed: $files files, $dlls dlls, IntelliPlan.exe=$(Test-Path $exe)"
+
+          if (-not (Test-Path $exe)) {
+            throw "Installer completed but did not write IntelliPlan.exe. The package is broken - do not publish it."
+          }
+          if ($dlls -lt 1) {
+            throw "Installer wrote no DLLs. The package is incomplete - do not publish it."
+          }
+          Write-Host 'Installer smoke test passed.'
 
       - name: Collect installers
         shell: bash
@@ -118,6 +226,85 @@ jobs:
             exit 1
           fi
 
+      # latest*.yml is what the auto-updater trusts: it names each installer
+      # and carries its sha512 and size. If they disagree with the files
+      # actually being published, every update fails the integrity check and
+      # silently rolls back — which is precisely what desktop-v1.0.0 shipped
+      # with. Its latest.yml claimed sha512 sn8fAOId… / 99918628 bytes for
+      # the x64 installer while the published asset was 1cgguo5o… /
+      # 99600123, so auto-update could never have worked from it.
+      #
+      # Nothing in the build surfaced that. It is only visible if you hash
+      # the files and compare, so the release now does exactly that and
+      # refuses to publish a set that does not agree with itself.
+      - name: Verify update metadata matches the artifacts
+        working-directory: release
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, os, sys, glob
+          try:
+              import yaml
+          except ImportError:
+              os.system(f"{sys.executable} -m pip install --quiet pyyaml")
+              import yaml
+
+          problems = []
+          manifests = sorted(glob.glob("latest*.yml"))
+          if not manifests:
+              print("No latest*.yml present; nothing to verify.")
+              sys.exit(0)
+
+          for manifest in manifests:
+              with open(manifest, encoding="utf-8") as fh:
+                  data = yaml.safe_load(fh) or {}
+              for entry in data.get("files") or []:
+                  name = entry.get("url")
+                  if not name or not os.path.exists(name):
+                      # A platform that failed to build is simply absent, and
+                      # the release job already tolerates that.
+                      print(f"{manifest}: {name} not in this release, skipping")
+                      continue
+                  raw = open(name, "rb").read()
+                  actual_sha = base64.b64encode(hashlib.sha512(raw).digest()).decode()
+                  actual_size = len(raw)
+                  if entry.get("sha512") != actual_sha:
+                      problems.append(
+                          f"{manifest}: {name} sha512 mismatch\n"
+                          f"    manifest={entry.get('sha512')}\n"
+                          f"    actual  ={actual_sha}"
+                      )
+                  if entry.get("size") is not None and entry["size"] != actual_size:
+                      problems.append(
+                          f"{manifest}: {name} size mismatch "
+                          f"(manifest={entry['size']} actual={actual_size})"
+                      )
+                  if not problems:
+                      print(f"{manifest}: {name} OK")
+
+          if problems:
+              print("::error::Update metadata does not match the artifacts. "
+                    "Publishing this would break auto-update for everyone.")
+              for p in problems:
+                  print(p)
+              sys.exit(1)
+          print("Update metadata matches every artifact.")
+          PY
+
+      # An unsigned installer gives a student no way to tell a real
+      # download from a tampered one. A checksum published beside it at
+      # least gives them one, and it costs nothing to produce.
+      #
+      # Generated after Flatten so it covers every platform that actually
+      # built, and excludes the updater metadata, which is not something
+      # anyone downloads by hand.
+      - name: Checksums
+        working-directory: release
+        run: |
+          find . -maxdepth 1 -type f \
+            ! -name '*.blockmap' ! -name 'latest*.yml' ! -name 'SHA256SUMS.txt' \
+            -printf '%P\n' | sort | xargs -r sha256sum > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
       - uses: softprops/action-gh-release@v2
         with:
           files: release/*
@@ -126,15 +313,28 @@ jobs:
           body: |
             IntelliPlan for desktop.
 
-            **Windows** — download the `.exe` and run it.
+            **Windows** — download the `.exe` and run it. It works on every
+            PC, Intel/AMD and Snapdragon/Copilot+ alike. On ARM machines it
+            runs through Windows' translation layer; the `win-arm64.zip` is
+            the native build if you prefer it, with no installer and no
+            auto-update.
             **macOS** — download the `.dmg` for your chip (`arm64` for Apple
             silicon, `x64` for Intel).
             **Linux** — `.AppImage` runs anywhere; `.deb` and `.rpm` for
             Debian/Ubuntu and Fedora.
 
-            These builds are **not code-signed**. Windows SmartScreen will
-            warn you ("More info" → "Run anyway") and macOS Gatekeeper will
-            refuse the first launch (right-click → Open). That is expected
-            for an unsigned build and not a sign anything is wrong with the
-            download — signing certificates cost money this project does
-            not currently spend.
+            If these builds are **not code-signed**, Windows SmartScreen
+            will warn you ("More info" → "Run anyway") and macOS Gatekeeper
+            will refuse the first launch (right-click → Open). That is what
+            an unsigned build looks like, not a sign the download is broken.
+
+            `SHA256SUMS.txt` lists the checksum of every file in this
+            release. To confirm a download arrived intact:
+
+            ```
+            # Windows (PowerShell)
+            Get-FileHash .\IntelliPlan-Setup-*.exe -Algorithm SHA256
+
+            # macOS / Linux
+            shasum -a 256 IntelliPlan-*
+            ```

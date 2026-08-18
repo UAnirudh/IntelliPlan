@@ -74,8 +74,9 @@ Full light/dark theme support with preference saved across sessions.
 | **Google Calendar** | One-click export of AI-generated study schedules; OAuth 2.0 with PKCE |
 | **Notion** | Two-way task sync with your Notion databases via integration token |
 | **Chrome Extension** | Badge count showing pending assignments; injects into Canvas and StudentVue pages |
-| **PWA (Android)** | Installable as a native app via APK or browser prompt |
+| **PWA (Android)** | Installable from Chrome's install prompt, or Menu → Add to Home screen |
 | **PWA (iOS)** | Installable via Safari Add to Home Screen |
+| **Desktop app** | Native Windows, macOS and Linux builds — tray, global shortcut, OS notifications, offline plan. See [desktop/README.md](desktop/README.md) |
 
 ---
 
@@ -225,6 +226,32 @@ APP_BASE_URL=http://localhost:3000
 
 ---
 
+## Mobile App (Expo / React Native)
+
+An Expo app lives in `mobile/`. It authenticates with a bearer token from
+`/api/v1/auth/token` and reads `/api/today` and `/api/grade-predictions`.
+
+```bash
+cd mobile
+npm install
+npm start          # then press a for Android, i for iOS
+```
+
+It points at production by default. Under `__DEV__` it uses the dev server
+— `10.0.2.2:5000` on an Android emulator, `localhost:5000` on iOS — and
+`EXPO_PUBLIC_API_BASE` overrides both.
+
+```bash
+npx expo-doctor                          # 17/17 should pass
+npx tsc --noEmit                         # typecheck
+npx expo export --platform android       # verify it bundles
+```
+
+Not on the app stores yet. `eas.json` has development, preview (APK) and
+production (AAB) profiles ready for `eas build`.
+
+---
+
 ## API Overview
 
 ### School Data
@@ -262,8 +289,12 @@ APP_BASE_URL=http://localhost:3000
 | `/oauth/google` | GET | Start Google OAuth flow |
 | `/api/lms/connect/<provider>` | POST | Start Google Classroom/Blackboard OAuth or return Moodle manual-connect metadata |
 | `/api/lms/connect/moodle/manual` | POST | Connect Moodle with site URL + web-services token |
-| `/api/lms/status/<provider>` | GET | Check Google Classroom, Blackboard, or Moodle connection status |
-| `/api/lms/disconnect/<provider>` | POST | Disconnect Google Classroom, Blackboard, or Moodle |
+| `/api/lms/status/google_classroom` · `/blackboard` · `/moodle` | GET | Per-provider connection status (one route each, not a wildcard) |
+| `/api/lms/disconnect/google_classroom` · `/blackboard` · `/moodle` | POST | Disconnect that provider |
+| `/api/lms/providers` | GET | Every provider the registry knows about |
+| `/api/lms/status` | GET | Which providers this user is connected to |
+| `/api/lms/<key>/sync` | POST | Sync one provider through the registry |
+| `/api/lms/<key>/disconnect` | POST | Disconnect one provider through the registry |
 | `/<INDEXNOW_KEY>.txt` | GET | Host the IndexNow verification key at the site root |
 | `/indexnow` | GET | IndexNow protocol documentation and IntelliPlan setup |
 | `/api/admin/indexnow/status` | GET | Admin-only — show key, host, endpoint, sitemap count |
@@ -362,12 +393,40 @@ For bugs or ideas, open an [Issue](https://github.com/UAnirudh/IntelliPlan/issue
 
 ## Roadmap
 
-- [ ] AI-powered grade predictions based on historical performance
-- [x] Google Classroom, Blackboard, and Moodle assignment sync
-- [ ] Mobile app (React Native)
-- [ ] Collaborative study groups
-- [ ] Teacher/parent dashboard view
-- [ ] More SIS integrations (PowerSchool)
+Everything the previous roadmap listed has shipped and moved up into
+**Features** and **Integrations**. What is left is what has not been done
+yet — each item says what specifically is missing, so it is obvious when it
+can be ticked.
+
+### Next
+
+- [ ] **Ship the mobile app.** The Expo app in `mobile/` builds and bundles
+      for Android and passes all 17 expo-doctor checks; `eas.json` is in
+      place. What remains is an Apple Developer and Google Play account,
+      store listings, and a first submission.
+- [ ] **Desktop auto-update.** `electron-updater` fits the existing
+      electron-builder config and the release feed already exists. It was
+      blocked on the installer bug, which is now fixed.
+- [ ] **Code-sign the desktop builds.** The CI plumbing is written and
+      driven by repository secrets; what is missing is a certificate. Azure
+      Trusted Signing (~$10/month) is the route that actually stops the
+      SmartScreen warning — an OV certificate does not. macOS needs a
+      Developer ID before Gatekeeper stops refusing the first launch.
+- [ ] **Onboarding and newsletter email.** Signup now records marketing
+      consent with a timestamp; nothing sends to it yet.
+
+### Later
+
+- [ ] **Native ARM64 Windows installer.** Blocked upstream: electron-builder
+      26.15.3 produces an ARM64 NSIS package that installs no executable.
+      Snapdragon and Copilot+ PCs currently run the x64 build under
+      translation. Revisit when upstream fixes it — see
+      [desktop/README.md](desktop/README.md) for what was ruled out.
+- [ ] **More SIS coverage.** The provider registry makes each new one small;
+      Infinite Campus and Skyward are the most asked for.
+- [ ] **Accessibility audit.** No WCAG pass has been done end to end.
+- [ ] **Study-group depth.** Shared tasks and voice rooms exist; shared
+      schedules and group progress do not.
 
 ---
 

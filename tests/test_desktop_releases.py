@@ -65,6 +65,43 @@ def test_installers_are_classified(name, platform, arch):
     assert out["arch"] == arch
 
 
+def test_the_multi_arch_windows_installer_is_labelled_universal():
+    """electron-builder suffixes the per-arch NSIS builds and leaves the
+    combined one bare. Unlabelled it is the least appealing row on the page
+    — an unnamed file twice the size — despite being the one that always
+    works."""
+    out = dr._classify(asset("IntelliPlan-Setup-1.0.0.exe"))
+    assert out["platform"] == "windows"
+    assert out["arch"] == "universal"
+
+
+def test_the_windows_zip_is_not_mistaken_for_a_mac_one():
+    """Both platforms ship IntelliPlan-<version>-...-arm64.zip into the same
+    release. Without the -win- marker the Windows native ARM64 build would be
+    offered to Mac users and absent from the Windows list."""
+    win = dr._classify(asset("IntelliPlan-1.0.0-win-arm64.zip"))
+    assert win["platform"] == "windows"
+    assert win["arch"] == "arm64"
+
+    mac = dr._classify(asset("IntelliPlan-1.0.0-arm64.zip"))
+    assert mac["platform"] == "mac"
+
+
+def test_the_windows_installer_still_outranks_the_windows_zip():
+    """The zip exists because ARM64 has no installer, not because it is a
+    better download. An installer must stay the lead option."""
+    exe = dr._classify(asset("IntelliPlan-Setup-1.0.0-x64.exe"))
+    zip_ = dr._classify(asset("IntelliPlan-1.0.0-win-arm64.zip"))
+    assert exe["rank"] < zip_["rank"]
+
+
+def test_other_platforms_keep_an_empty_arch_when_it_is_unknown():
+    """Only Windows ships a combined installer. Guessing 'universal' for a
+    dmg or a deb would put a claim on the page we cannot support."""
+    assert dr._classify(asset("IntelliPlan-1.0.0.dmg"))["arch"] == ""
+    assert dr._classify(asset("IntelliPlan-1.0.0.AppImage"))["arch"] == ""
+
+
 @pytest.mark.parametrize("name", [
     "IntelliPlan-Setup-1.0.0-x64.exe.blockmap",
     "latest.yml",
