@@ -133,7 +133,7 @@
       <div style="background:var(--glass-bg); -webkit-backdrop-filter:blur(18px) saturate(1.6); backdrop-filter:blur(18px) saturate(1.6); border:1px solid var(--glass-border); box-shadow:var(--glass-shadow); border-radius:16px; padding:1.5rem; ">
         <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1rem;">Target Grade</div>
         <div style="display:flex; gap:8px; align-items:center; margin-bottom:1rem;">
-          <input type="number" id="targetInput" class="form-input" min="0" max="100" step="0.1" placeholder="e.g. 97" style="max-width:110px;" />
+          <input type="number" id="targetInput" class="form-input" min="0" max="100" step="0.1" placeholder="e.g. 97" style="max-width:110px;"  aria-label="Target grade percentage"/>
           <button class="btn-primary" onclick="runModel()" style="padding:10px 20px; border:none; cursor:pointer; font-size:0.88rem;">Model It</button>
           <button onclick="forecastRealistic()" title="Predict remaining scores using your historical category averages" style="display:inline-flex; align-items:center; gap:6px; padding:10px 16px; background:var(--accent-soft); border:1px solid var(--border-accent); border-radius:10px; cursor:pointer; font-size:0.82rem; color:var(--accent); font-family:var(--font-ui); font-weight:600;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
@@ -350,10 +350,12 @@ function renderCategoryWeights(categories) {
       <div style="min-width:160px; font-size:0.88rem; font-weight:600; color:var(--text-primary);">${cat.type}</div>
       <div style="display:flex; align-items:center; gap:6px; flex:1;">
         <input type="range" min="0" max="100" step="1" value="${currentWeight}"
+          aria-label="${cat.type} weight, percent of final grade"
           style="flex:1; accent-color:var(--accent);"
           oninput="updateCategoryWeight('${cat.type}', this.value, this)"
           id="wSlider_${key}" />
         <input type="number" min="0" max="100" step="1" value="${currentWeight}"
+          aria-label="${cat.type} weight, percent of final grade"
           style="width:60px; padding:4px 8px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text-primary); font-family:var(--font-ui); font-size:0.85rem; text-align:center;"
           oninput="updateCategoryWeight('${cat.type}', this.value, this)"
           id="wInput_${key}" />
@@ -453,6 +455,7 @@ function renderBreakdown(assignments) {
           <input type="number" min="0" max="${maxPossibleForInput}" step="0.5"
             value="${earned !== null ? earned : ''}"
             placeholder="Earned"
+            aria-label="Points earned on ${a.title}"
             style="width:72px; padding:4px 8px; border-radius:8px; border:1px solid var(--border);
               background:var(--bg); color:var(--text-primary); font-family:var(--font-ui);
               font-size:0.85rem; text-align:center;"
@@ -463,6 +466,7 @@ function renderBreakdown(assignments) {
           <input type="number" min="0" max="9999" step="0.5"
             value="${possible !== null ? possible : ''}"
             placeholder="Possible"
+            aria-label="Points possible on ${a.title}"
             style="width:82px; padding:4px 8px; border-radius:8px; border:1px solid var(--border);
               background:var(--bg); color:var(--text-primary); font-family:var(--font-ui);
               font-size:0.85rem; text-align:center;"
@@ -474,11 +478,13 @@ function renderBreakdown(assignments) {
         ${possible !== null ? `
         <input type="range" min="0" max="${maxPossibleForInput}" step="0.5"
           value="${earned !== null ? earned : 0}"
+          aria-label="Points earned on ${a.title}"
           style="width:100%; accent-color:var(--accent);"
           oninput="updateScore('${key}', this.value);"
           data-range-for="${key}" />` : `
         <input type="range" min="0" max="200" step="0.5"
           value="${earned !== null ? earned : 0}"
+          aria-label="Points earned on ${a.title}"
           style="width:100%; accent-color:var(--accent);"
           oninput="updateScore('${key}', this.value);"
           data-range-for="${key}" />`}

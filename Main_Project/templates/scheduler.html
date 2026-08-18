@@ -990,7 +990,7 @@
       <div class="input-group" style="flex:1;">
         <label class="form-label">Add custom tasks (optional)</label>
         <div class="custom-tasks-wrap">
-          <input type="text" id="customTaskInput" class="form-input" placeholder="e.g. Study for math test" />
+          <input type="text" id="customTaskInput" class="form-input" aria-label="Add a task of your own" placeholder="e.g. Study for math test" />
           <button class="btn-secondary btn-control" type="button" onclick="addCustomTask()" style="padding:0 16px; white-space:nowrap;">+ Add</button>
         </div>
         <div id="customTasksList" class="custom-tasks-list"></div>
@@ -999,7 +999,7 @@
     <div style="display:flex; gap:10px; align-items:center; margin-top:1.5rem; flex-wrap:wrap;">
       <button class="btn-primary" id="generateBtn" type="button" onclick="generateSchedule()" style="padding:14px 32px; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:8px;"><svg width="16" height="16"><use href="#i-robot"/></svg> Generate my study plan</button>
       <div id="savePanel" style="display:none; gap:8px; align-items:center; flex-wrap:wrap;">
-        <input type="text" id="scheduleName" class="form-input" placeholder="Schedule name..." style="max-width:200px;" />
+        <input type="text" id="scheduleName" class="form-input" aria-label="Name for this schedule" placeholder="Schedule name..." style="max-width:200px;" />
         <button type="button" onclick="saveSchedule()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--low); background:var(--low-bg); color:var(--low); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-save"/></svg> Save to dashboard</button>
         <button type="button" onclick="saveToMemories()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--accent); background:var(--accent-soft); color:var(--accent); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-save"/></svg> Save to memories</button>
         <button type="button" onclick="openInteractive()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--accent); background:var(--accent); color:#fff; cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-arrow-right"/></svg> Open interactive view</button>

@@ -81,9 +81,9 @@
         <div class="notes-label">Upload Notes</div>
 
         <div class="notes-upload-grid">
-          <input type="date" id="notesDate" class="form-input" />
-          <input type="text" id="notesTitle" class="form-input" placeholder="Optional title" />
-          <input type="file" id="notesFile" class="form-input" accept=".txt,.md,.csv,.pdf,.docx,.png,.jpg,.jpeg" />
+          <input type="date" id="notesDate" class="form-input"  aria-label="Note date"/>
+          <input type="text" id="notesTitle" class="form-input" placeholder="Optional title"  aria-label="Note title"/>
+          <input type="file" id="notesFile" class="form-input" accept=".txt,.md,.csv,.pdf,.docx,.png,.jpg,.jpeg"  aria-label="Note file to upload"/>
           <textarea id="notesText" class="form-input" style="min-height:110px; resize:vertical;" placeholder="Or paste notes here..."></textarea>
           <button class="btn-primary" type="button" onclick="uploadCourseNote()" style="padding:12px 16px; border:none; cursor:pointer;">
             Save Notes

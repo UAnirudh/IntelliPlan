@@ -3769,6 +3769,19 @@ _NOINDEX_EXACT = {
     "/login/canvas", "/login/studentvue", "/login/schoology",
     "/onboarding", "/connect", "/settings", "/dismissed", "/profiles",
     "/features", "/accessibility",
+    # The signed-in product surface. These were missing, which meant every
+    # one of them advertised itself as indexable — so a crawler spends
+    # budget on pages that, logged out, are a redirect to /login, and any
+    # that render for a guest are thin by construction: a dashboard with no
+    # data is a shell. Neither is a page worth ranking, and the marketing
+    # pages that *are* worth ranking compete with them for attention.
+    "/dashboard", "/command-center", "/scheduler", "/gradebook",
+    "/grademodel", "/grades", "/classes", "/priority", "/tests",
+    "/streak", "/pet", "/balance", "/memories", "/my-stats",
+    "/active", "/study-and-learn", "/study", "/deep-study", "/focus",
+    "/lessons", "/library", "/groups", "/tutor", "/meetings",
+    "/writing", "/math", "/extractor", "/text-dissector", "/olympiad",
+    "/parent-dashboard", "/teacher-dashboard", "/ambassador-dashboard",
 }
 
 
