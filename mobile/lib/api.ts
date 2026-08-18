@@ -51,3 +51,105 @@ export async function login(email: string, password: string): Promise<string> {
   await setToken(data.token);
   return data.token;
 }
+
+/* ── Domain calls ──────────────────────────────────────────────────────
+   One place per endpoint, so a screen never builds a URL. The v1 API
+   proxies each of these to the same view the website renders, which is
+   what makes the phone show data from whichever platforms the student
+   actually connected — Canvas, StudentVue, Schoology, Classroom — rather
+   than a separate half-implementation that drifts.
+   ─────────────────────────────────────────────────────────────────── */
+
+export type Assignment = {
+  title: string;
+  course?: string;
+  due_date?: string;
+  points?: number | string;
+  priority?: string;
+  estimated_time?: number;
+  platform?: string;
+  dismissed?: boolean;
+};
+
+export type Course = { name?: string; id?: string | number; [k: string]: unknown };
+
+export type CourseGrade = {
+  course?: string;
+  name?: string;
+  grade?: string | number;
+  percent?: number | string;
+  letter?: string;
+  [k: string]: unknown;
+};
+
+export type ScheduleBlock = {
+  title?: string;
+  course?: string;
+  start?: string;
+  end?: string;
+  time_slot?: string;
+  day?: string;
+  date?: string;
+  [k: string]: unknown;
+};
+
+export async function logout(): Promise<void> {
+  await setToken(null);
+}
+
+/**
+ * Everything due, from every source.
+ *
+ * /api/v1/tasks rather than /api/v1/assignments: the latter proxies the
+ * live platform feed only, so a manual task the student just added — or
+ * anything synced from Notion — would be missing from the list they added
+ * it in.
+ */
+export async function getAssignments(): Promise<Assignment[]> {
+  const d = await apiFetch<{ tasks?: Assignment[] }>("/api/v1/tasks");
+  return d?.tasks || [];
+}
+
+export async function getCourses(): Promise<Course[]> {
+  const d = await apiFetch<{ courses?: Course[] }>("/api/v1/courses");
+  return d?.courses || [];
+}
+
+export async function getGrades(): Promise<any> {
+  return apiFetch<any>("/api/v1/grades");
+}
+
+export async function getSchedule(): Promise<any> {
+  return apiFetch<any>("/api/v1/schedule");
+}
+
+/**
+ * Tick an assignment off.
+ *
+ * Keyed by title because that is what the web `/dismiss` view takes —
+ * assignments arrive from several platforms and have no shared id, so the
+ * title is the only key every source agrees on.
+ */
+export async function dismissAssignment(title: string): Promise<void> {
+  await apiFetch("/api/v1/assignments/dismiss", {
+    method: "POST",
+    body: JSON.stringify({ title }),
+  });
+}
+
+export async function restoreAssignment(title: string): Promise<void> {
+  await apiFetch("/api/v1/assignments/restore", {
+    method: "POST",
+    body: JSON.stringify({ title }),
+  });
+}
+
+export async function generateSchedule(
+  hoursPerDay: number,
+  preferredTime: string,
+): Promise<any> {
+  return apiFetch<any>("/api/v1/schedule/generate", {
+    method: "POST",
+    body: JSON.stringify({ hours_per_day: hoursPerDay, preferred_time: preferredTime }),
+  });
+}

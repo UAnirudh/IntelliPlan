@@ -53,6 +53,11 @@ SCOPES = {
                          "desc": "Saved study plans and their progress."},
     "read:streak":      {"label": "Read streak",       "write": False,
                          "desc": "Sparks, streak length, level, and quest state."},
+    # Deliberately not folded into read:assignments. A third party that wants
+    # to show what is due does not thereby need to know what the student
+    # scored, and grades are the most sensitive thing this app holds.
+    "read:grades":      {"label": "Read grades",       "write": False,
+                         "desc": "Course grades and GPA from the connected school platform."},
     "read:identity":    {"label": "Read learning profile", "write": False,
                          "desc": "Grade level, focus areas, goals, availability."},
     "write:tasks":      {"label": "Create tasks",      "write": True,

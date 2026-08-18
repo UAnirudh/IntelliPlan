@@ -13421,16 +13421,46 @@ def _send_push_to_user(user_id, payload, ttl=None):
     subs = PushSubscription.query.filter_by(user_id=user_id).all()
     if not subs:
         return 0
+
+    # The phone app registers an Expo token in the same table — one row per
+    # device install, which is what these rows already mean. Splitting them
+    # out here rather than at every call site means every existing reminder
+    # reaches the phone without its sender knowing phones exist.
+    from intelliplan.notifications import expo_push
+
+    expo_subs = [s for s in subs if expo_push.is_expo_token(s.endpoint)]
+    subs = [s for s in subs if not expo_push.is_expo_token(s.endpoint)]
+
+    ok = 0
+    if expo_subs:
+        result = expo_push.send([s.endpoint for s in expo_subs], payload)
+        ok += result.get("sent", 0)
+        # A token Expo calls DeviceNotRegistered will never work again —
+        # the app was uninstalled. Same treatment as a 410 below.
+        for dead in result.get("invalid") or []:
+            for s in expo_subs:
+                if s.endpoint == dead:
+                    try:
+                        db.session.delete(s)
+                        db.session.commit()
+                    except Exception:
+                        db.session.rollback()
+
+    if not subs:
+        return ok
     try:
         from pywebpush import webpush, WebPushException
     except ImportError:
-        return 0
+        return ok
     private_key = os.getenv("VAPID_PRIVATE_KEY")
     if not private_key:
-        return 0
+        # No VAPID configured is a browser-push problem. Anything already
+        # delivered to a phone still counts — returning 0 here would report
+        # a successful send as a failure.
+        return ok
     claims = {"sub": f"mailto:{os.getenv('VAPID_EMAIL', 'hello@intelliplan.tech')}"}
     ttl_seconds = PUSH_DEFAULT_TTL if ttl is None else max(PUSH_MIN_TTL, int(ttl))
-    ok = 0
+    # Deliberately not reset: `ok` already carries the Expo deliveries.
     for sub in list(subs):
         try:
             webpush(
@@ -14846,6 +14876,10 @@ app.intelliplan_voice_seat_model = VoiceSeat
 app.intelliplan_manual_preset_model = ManualPlanPreset
 app.intelliplan_saved_schedule_model = SavedSchedule
 app.intelliplan_api_key_model = ApiKey
+# Needed by the v1 push-registration endpoints, which store a phone's
+# Expo token as another subscription row rather than inventing a
+# second table for the same idea.
+app.intelliplan_push_subscription_model = PushSubscription
 from intelliplan_api import api_bp as intelliplan_api_bp, api_rate_limit_key, api_rate_limit_value
 app.register_blueprint(intelliplan_api_bp)
 

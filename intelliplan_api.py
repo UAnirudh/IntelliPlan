@@ -422,6 +422,170 @@ def restore_assignment():
     return jsonify(data), status
 
 
+# ── Push registration ─────────────────────────────────────────────────
+@api_bp.route("/push/register", methods=["POST"])
+@require_auth("read:profile")
+def register_push_token():
+    """Record this device's Expo push token.
+
+    Stored as a PushSubscription row, the same table browser subscriptions
+    use — one row per device install, which is what that table already
+    means. Everything that already sends a reminder then reaches the phone
+    with no change at the call site.
+
+    read:profile rather than a write scope: this writes a delivery address
+    for the account that already authenticated, not any user content. It is
+    the same trust level as knowing your own email.
+    """
+    db, User, _ = _models()
+    body = request.get_json(silent=True) or {}
+    token = (body.get("token") or "").strip()
+
+    from intelliplan.notifications import expo_push
+    if not expo_push.is_expo_token(token):
+        return _err("A valid Expo push token is required.", 400)
+
+    PushSubscription = current_app.intelliplan_push_subscription_model
+    # Upsert on the token: reopening the app hands back the same token, and
+    # a fresh row per launch would multiply notifications by the number of
+    # times the student ever opened it.
+    row = db.session.query(PushSubscription).filter_by(endpoint=token).first()
+    if row is None:
+        row = PushSubscription(
+            user_id=g.api_user.id,
+            endpoint=token,
+            subscription_json=json.dumps({"type": "expo", "token": token}),
+        )
+        db.session.add(row)
+    else:
+        # A shared device: the token follows the install, so the last
+        # student to sign in owns it. Leaving it pointed at the previous
+        # account would send them someone else's deadlines.
+        row.user_id = g.api_user.id
+        row.subscription_json = json.dumps({"type": "expo", "token": token})
+    db.session.commit()
+    return jsonify({"status": "ok", "registered": True})
+
+
+@api_bp.route("/push/unregister", methods=["POST"])
+@require_auth("read:profile")
+def unregister_push_token():
+    """Stop sending to this device. Called on sign-out, so signing out of a
+    borrowed phone does not keep pushing your deadlines to it."""
+    db, _User, _ = _models()
+    token = ((request.get_json(silent=True) or {}).get("token") or "").strip()
+    if not token:
+        return _err("token required.", 400)
+    PushSubscription = current_app.intelliplan_push_subscription_model
+    row = db.session.query(PushSubscription).filter_by(
+        endpoint=token, user_id=g.api_user.id).first()
+    if row is not None:
+        db.session.delete(row)
+        db.session.commit()
+    # Idempotent: unregistering a token that is already gone is success.
+    return jsonify({"status": "ok"})
+
+
+@api_bp.route("/tasks", methods=["GET"])
+@require_auth("read:assignments")
+def list_tasks():
+    """Everything the student has to do, from every source.
+
+    Distinct from /assignments, which proxies /live and therefore returns
+    only what the connected school platforms report. That leaves out manual
+    tasks and anything synced from Notion — so a task the student created a
+    minute ago was absent from the list they created it in, which reads as
+    the app having dropped it.
+
+    /assignments keeps its existing meaning rather than being widened,
+    because third-party keys already depend on it being the platform feed.
+    """
+    status, data = _call_internal("GET", "/tasks/unified")
+    if status >= 400:
+        return _fail("upstream_failed", "Could not load tasks.", 502, detail=data)
+
+    # /tasks/unified answers in three buckets — overdue, today, upcoming —
+    # because that is how the dashboard's columns are laid out. Flattened
+    # here in that order, so a client that just renders the list still
+    # shows the late work first, and each item keeps a `bucket` telling it
+    # which column it came from.
+    if isinstance(data, dict):
+        tasks = []
+        for bucket in ("overdue", "today", "upcoming"):
+            for item in (data.get(bucket) or []):
+                if isinstance(item, dict):
+                    tasks.append({**item, "bucket": bucket})
+    else:
+        tasks = data if isinstance(data, list) else []
+    return jsonify({"tasks": tasks})
+
+
+@api_bp.route("/courses", methods=["GET"])
+@require_auth("read:assignments")
+def list_courses():
+    """The courses behind the assignment list.
+
+    Lets a client group or filter by course without inferring the set from
+    whatever happens to be due this week — a course with nothing outstanding
+    would otherwise vanish.
+    """
+    status, data = _call_internal("GET", "/courses")
+    if status >= 400:
+        return _fail("upstream_failed",
+                     "Could not load courses from the connected sources.",
+                     502, detail=data)
+    return jsonify({"courses": data if isinstance(data, list) else []})
+
+
+# ── Grades ────────────────────────────────────────────────────────────
+@api_bp.route("/grades", methods=["GET"])
+@require_auth("read:grades")
+def list_grades():
+    """Course grades and GPA, straight from the connected school platform.
+
+    Its own scope rather than read:assignments: knowing what is due and
+    knowing what you scored are different levels of trust, and this is the
+    most sensitive thing the app holds.
+    """
+    status, data = _call_internal("GET", "/grades/data")
+    if status >= 400:
+        return _fail("upstream_failed",
+                     "Could not load grades from the connected sources.",
+                     502, detail=data)
+    # /grades/data returns whatever the connected provider hands back: a
+    # list of courses for the imported/StudentVue path, an object for
+    # others. Normalising to one shape here means a client writes one
+    # renderer instead of branching on which platform the student happens
+    # to use — the per-course fields are passed through untouched.
+    if isinstance(data, list):
+        courses = data
+    elif isinstance(data, dict):
+        courses = next(
+            (data[k] for k in ("grades", "courses", "classes") if isinstance(data.get(k), list)),
+            [],
+        )
+    else:
+        courses = []
+    return jsonify({"grades": courses})
+
+
+# ── Schedule (read) ───────────────────────────────────────────────────
+@api_bp.route("/schedule", methods=["GET"])
+@require_auth("read:schedule")
+def get_saved_schedule():
+    """The plan the student already has.
+
+    Distinct from POST /schedule/generate, which builds a new one. A client
+    opening to "today" wants the saved plan; regenerating on every launch
+    would quietly discard the progress ticked off against it.
+    """
+    status, data = _call_internal("GET", "/schedule/saved")
+    if status >= 400:
+        return _fail("upstream_failed", "Could not load the saved schedule.",
+                     502, detail=data)
+    return jsonify(data if isinstance(data, dict) else {"schedule": data})
+
+
 # ── Tests ─────────────────────────────────────────────────────────────
 @api_bp.route("/tests", methods=["GET"])
 @require_auth("read:tests")
