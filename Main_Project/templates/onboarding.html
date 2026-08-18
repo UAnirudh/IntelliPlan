@@ -207,6 +207,26 @@
 .onb-pill:hover { border-color: var(--border-accent); color: var(--accent); transform: translateY(-1px); }
 .onb-pill.on { background: var(--glass-primary-bg); color: var(--glass-primary-text); border-color: rgba(255,255,255,0.16); }
 
+
+/* Focus-enforcement options. Same anatomy as the Settings card so the
+   choice looks identical in both places — someone changing their mind
+   later should recognise the control immediately. */
+.fe-options { display:grid; gap:10px; text-align:left; margin:0 0 1.25rem; }
+.fe-option {
+  display:flex; align-items:flex-start; gap:12px;
+  padding:12px 14px; border-radius:12px;
+  border:1px solid var(--border-strong); background:var(--bg-card);
+  cursor:pointer; transition:border-color .14s ease, background .14s ease;
+}
+.fe-option:hover { border-color:var(--border-accent); }
+.fe-option input { margin-top:3px; accent-color:var(--accent); width:16px; height:16px; flex-shrink:0; }
+.fe-options:has(input:checked) .fe-option:has(input:checked) {
+  border-color:var(--accent); background:var(--accent-soft);
+}
+.fe-option__body { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.fe-option__name { font-weight:700; font-size:0.9rem; color:var(--text-primary); }
+.fe-option__desc { font-size:0.82rem; color:var(--text-secondary); line-height:1.45; }
+
 /* Import step */
 .onb-import-grid { display: grid; gap: 10px; }
 .onb-import-card {
@@ -401,6 +421,59 @@
          the same engines the Command Center runs on. When there is no
          data yet there is no plan to show, and this step says so plainly
          rather than inventing an encouraging one. ── -->
+    <!-- ── Focus enforcement ──────────────────────────────────────────
+         Asked here, once, because the honest moment to agree to being
+         interrupted is before the session starts — not the first time the
+         alarm goes off. Every option is opt-in and every one is
+         changeable in Settings, so nothing chosen here is permanent. ── -->
+    <section id="onbFocus" class="onb-section" style="display:none;">
+      <div class="onb-eyebrow">Staying honest</div>
+      <h1 class="onb-title">What should happen if you drift?</h1>
+      <p class="onb-sub">
+        During a study session IntelliPlan can use your camera to notice when you have actually
+        left &mdash; not just glanced away. Face detection runs on your device; no video is ever
+        uploaded or stored. Pick what happens when it notices.
+      </p>
+
+      <div class="fe-options" id="onbFeOptions" role="radiogroup" aria-label="Focus enforcement">
+        <label class="fe-option">
+          <input type="radio" name="onbFeMode" value="off" checked>
+          <span class="fe-option__body">
+            <span class="fe-option__name">Just a nudge</span>
+            <span class="fe-option__desc">A quiet line of text you can dismiss. Nothing else.</span>
+          </span>
+        </label>
+        <label class="fe-option">
+          <input type="radio" name="onbFeMode" value="alarm">
+          <span class="fe-option__body">
+            <span class="fe-option__name">Sound the alarm</span>
+            <span class="fe-option__desc">A loud sound until you are back. You can upload your own later.</span>
+          </span>
+        </label>
+        <label class="fe-option">
+          <input type="radio" name="onbFeMode" value="takeover">
+          <span class="fe-option__body">
+            <span class="fe-option__name">Take over the screen</span>
+            <span class="fe-option__desc">Fills the screen with something you cannot read past. Clears when you return.</span>
+          </span>
+        </label>
+        <label class="fe-option">
+          <input type="radio" name="onbFeMode" value="stakes">
+          <span class="fe-option__body">
+            <span class="fe-option__name">Put sparks on the line</span>
+            <span class="fe-option__desc">Silent, but it costs you: the session forfeits the sparks it has earned while you are away. Your overall balance is never touched.</span>
+          </span>
+        </label>
+      </div>
+
+      <div class="onb-actions">
+        <button type="button" class="btn-secondary" onclick="onbSaveFocus(true)"
+                style="padding:11px 20px;cursor:pointer;">Decide later</button>
+        <button type="button" class="btn-primary" onclick="onbSaveFocus(false)"
+                style="padding:11px 24px;border:none;cursor:pointer;font-size:0.92rem;">Continue</button>
+      </div>
+    </section>
+
     <section id="onbPlan" class="onb-section" style="display:none;">
       <div class="onb-eyebrow" id="onbPlanEyebrow">Reading your week</div>
       <h1 class="onb-title" id="onbPlanTitle">Working out what matters first…</h1>
@@ -431,7 +504,7 @@ const ONB = {
 function onbProgressFor(step) {
   // 'plan' fills every pip: setup is finished by the time it renders, and
   // a progress bar still showing a gap would suggest otherwise.
-  const order = { intro: 1, quick: 3, custom: 2, import: 3, plan: 3 };
+  const order = { intro: 1, quick: 3, custom: 2, import: 3, focus: 3, plan: 3 };
   const n = order[step] || 1;
   document.querySelectorAll('#onbProgress .onb-pip').forEach((el, i) => {
     el.classList.toggle('on', i < n);
@@ -442,7 +515,7 @@ function onbShow(step) {
   ONB.step = step;
   document.querySelectorAll('.onb-section').forEach((s) => { s.style.display = 'none'; });
   const map = { intro: 'onbIntro', quick: 'onbQuick', custom: 'onbCustom',
-                import: 'onbImport', plan: 'onbPlan' };
+                import: 'onbImport', focus: 'onbFocus', plan: 'onbPlan' };
   const el = document.getElementById(map[step]);
   if (el) el.style.display = '';
   onbProgressFor(step);
@@ -454,6 +527,23 @@ function onbShow(step) {
   if (step === 'custom' && !ONB.messages.length) {
     onbBootstrapChat();
   }
+}
+
+
+/* ── Focus enforcement (onboarding) ─────────────────
+   Saved server-side immediately so the choice survives the redirect into
+   the app. "Decide later" is a real answer, not a disguised no: it stores
+   nothing and leaves the default in place. */
+function onbSaveFocus(skip) {
+  const picked = document.querySelector('input[name="onbFeMode"]:checked');
+  const mode = skip ? null : (picked ? picked.value : 'off');
+  const done = () => onbShow('plan');
+  if (!mode) { done(); return; }
+  fetch('/api/focus/enforcement', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode })
+  }).then(done).catch(done);   // never trap someone in onboarding
 }
 
 function onbPickMode(mode) {
@@ -779,7 +869,10 @@ function onbRenderPlanUnavailable() {
 }
 
 async function onbShowFirstPlan() {
-  onbShow('plan');
+  // The focus question sits between setup and the finished plan: it is
+  // about how sessions will behave, so it belongs before the first one,
+  // and it must not be the last thing before "Open my plan" either.
+  onbShow('focus');
   try {
     const resp = await fetch('/api/today', { credentials: 'same-origin' });
     if (!resp.ok) throw new Error('today ' + resp.status);

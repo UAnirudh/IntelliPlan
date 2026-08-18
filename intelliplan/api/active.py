@@ -211,6 +211,40 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
 
         return jsonify({"session": row.to_dict()})
 
+    @bp.route("/api/active/<int:session_id>/forfeit", methods=["POST"])
+    def forfeit(session_id: int):
+        """Record sparks this session has given up to focus enforcement.
+
+        The number is a running total for the session, not a delta, so a
+        dropped request costs nothing: the next one carries the true figure.
+        That matters because these arrive once a second while a student is
+        away from the desk, which is exactly when the network is least
+        likely to be someone's priority.
+
+        Clamped to what the session could plausibly have earned. The client
+        is the one counting, and a client-supplied number that reaches the
+        spark ledger unbounded is a way to zero somebody's balance.
+        """
+        _require_flag()
+        row = _session_or_404(session_id)
+        if row.is_terminal:
+            return jsonify({"error": "Session already ended."}), 409
+
+        body = _payload()
+        try:
+            claimed = int(body.get("sparks") or 0)
+        except (TypeError, ValueError):
+            claimed = 0
+
+        # A session cannot forfeit more than it could have earned, and it
+        # can never go negative.
+        ceiling = max(0, int((row.active_seconds or 0) / 60))
+        deps.get_repository().record_forfeit(row, min(claimed, ceiling))
+        return jsonify({
+            "session_id": row.id,
+            "sparks_forfeited": row.sparks_forfeited,
+        })
+
     @bp.route("/api/active/<int:session_id>/finish", methods=["POST"])
     def finish(session_id: int):
         _require_flag()

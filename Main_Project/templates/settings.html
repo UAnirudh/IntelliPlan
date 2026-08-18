@@ -1,4 +1,11 @@
 {% extends "base.html" %}
+{% block head_extra %}
+{# Loaded so "Preview it" runs the real escalation rather than a mockup of
+   one. Deciding what an alarm or a screen takeover means should not
+   require discovering it twenty minutes into a session. #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ip-enforce.css') }}?v={{ asset_v }}">
+<script src="{{ url_for('static', filename='js/ip-enforce.js') }}?v={{ asset_v }}" defer></script>
+{% endblock %}
 {% block content %}
 <style>
 /* ── Settings page ──────────────────────────────── */
@@ -67,6 +74,27 @@
 .profile-tab:hover:not(.active) { color: var(--text-primary); background: var(--border); }
 .profile-pane { display: none; }
 .profile-pane.visible { display: block; }
+
+/* ── Focus enforcement options ── */
+.fe-options { display:grid; gap:10px; }
+.fe-option {
+  display:flex; align-items:flex-start; gap:12px;
+  padding:12px 14px; border-radius:12px;
+  border:1px solid var(--border-strong); background:var(--bg-card);
+  cursor:pointer; transition:border-color .14s ease, background .14s ease;
+}
+.fe-option:hover { border-color:var(--border-accent); }
+.fe-option input { margin-top:3px; accent-color:var(--accent); width:16px; height:16px; flex-shrink:0; }
+/* :has is what lets the whole row respond to its own radio without a JS
+   class toggle. Browsers without it simply do not get the selected tint —
+   the radio itself still shows the state, so nothing is lost. */
+.fe-options:has(input:checked) .fe-option:has(input:checked) {
+  border-color:var(--accent); background:var(--accent-soft);
+}
+.fe-option__body { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.fe-option__name { font-weight:700; font-size:0.9rem; color:var(--text-primary); }
+.fe-option__desc { font-size:0.82rem; color:var(--text-secondary); line-height:1.45; }
+
 /* ── Sidebar customizer (drag-and-drop, mirrors real sidebar) ── */
 .sb-cust-wrap {
   display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap;
@@ -575,6 +603,77 @@
       <button class="btn-secondary" onclick="enablePushNotifications()" id="pushEnableBtn" style="padding:9px 16px;cursor:pointer;font-size:0.84rem;">Enable browser push</button>
       <button class="btn-secondary" onclick="previewReminders()" id="previewBtn" style="padding:9px 16px;cursor:pointer;font-size:0.84rem;">Send me a sample reminder now</button>
       <span id="phoneStatus" style="font-size:0.82rem;color:var(--text-muted);"></span>
+    </div>
+  </div>
+
+  <!-- ── Focus enforcement ────────────────────────────── -->
+  <div class="settings-section" id="focusEnforceCard">
+    <div class="settings-section-title">If you drift during a study session</div>
+    <div style="font-size:0.86rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.55;">
+      Active study can use your camera to notice when you have actually left, not just glanced away.
+      Choose what should happen when it does. Face detection runs on your device and no video is
+      ever uploaded or stored. Off by default, and you can change this any time.
+    </div>
+
+    <div class="fe-options" id="feOptions" role="radiogroup" aria-label="Focus enforcement">
+      <label class="fe-option">
+        <input type="radio" name="feMode" value="off">
+        <span class="fe-option__body">
+          <span class="fe-option__name">Just a nudge</span>
+          <span class="fe-option__desc">A quiet line of text you can dismiss. Nothing else happens.</span>
+        </span>
+      </label>
+      <label class="fe-option">
+        <input type="radio" name="feMode" value="alarm">
+        <span class="fe-option__body">
+          <span class="fe-option__name">Sound the alarm</span>
+          <span class="fe-option__desc">Plays a loud sound until you are back. Upload your own below, or use the built-in tone.</span>
+        </span>
+      </label>
+      <label class="fe-option">
+        <input type="radio" name="feMode" value="takeover">
+        <span class="fe-option__body">
+          <span class="fe-option__name">Take over the screen</span>
+          <span class="fe-option__desc">Fills the whole screen with something you cannot read past. It clears the moment you return.</span>
+        </span>
+      </label>
+      <label class="fe-option">
+        <input type="radio" name="feMode" value="stakes">
+        <span class="fe-option__body">
+          <span class="fe-option__name">Put sparks on the line</span>
+          <span class="fe-option__desc">Silent, but it costs you. The session starts forfeiting the sparks it has earned, and you watch the number climb. Only this session&rsquo;s sparks &mdash; your balance is never touched.</span>
+        </span>
+      </label>
+    </div>
+
+    <div class="form-group" style="margin:1rem 0 0.75rem;">
+      <label class="form-label" for="feGrace">Wait this long before reacting</label>
+      <select id="feGrace" class="form-input" style="max-width:240px;">
+        <option value="10">10 seconds</option>
+        <option value="25" selected>25 seconds</option>
+        <option value="45">45 seconds</option>
+        <option value="60">1 minute</option>
+        <option value="120">2 minutes</option>
+      </select>
+      <span class="form-hint">Long enough that reaching for a textbook does not set it off.</span>
+    </div>
+
+    <div id="feAlarmRow" hidden style="margin-bottom:0.75rem;">
+      <label class="form-label" for="feSound">Your alarm sound</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input type="file" id="feSound" accept="audio/*" class="form-input" style="max-width:300px;padding:7px 10px;">
+        <button type="button" class="btn-secondary" onclick="feRemoveSound()" id="feRemoveBtn" hidden
+                style="padding:8px 14px;cursor:pointer;font-size:0.84rem;">Remove</button>
+      </div>
+      <span class="form-hint">MP3, WAV, OGG, M4A or AAC, up to 2&nbsp;MB. Leave empty for the built-in tone.</span>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <button type="button" class="btn-primary" onclick="feSave()" id="feSaveBtn"
+              style="padding:9px 18px;border:none;cursor:pointer;">Save</button>
+      <button type="button" class="btn-secondary" onclick="fePreview()" id="fePreviewBtn"
+              style="padding:9px 16px;cursor:pointer;font-size:0.84rem;">Preview it</button>
+      <span id="feStatus" style="font-size:0.82rem;color:var(--text-muted);"></span>
     </div>
   </div>
 
@@ -1910,4 +2009,113 @@ function startAppTour() {
     window.dispatchEvent(new CustomEvent('start-tour'));
   }
 }
+
+/* ── Focus enforcement ─────────────────────────────
+   What Active study does when the camera check-in decides the student has
+   genuinely left. Stored server-side (not localStorage) because the phone
+   app and the desktop build read the same preference. */
+var _feCurrent = null;
+
+function _feStatus(msg, ok) {
+  var el = document.getElementById('feStatus');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = ok === false ? 'var(--high)' : (ok ? 'var(--low)' : 'var(--text-muted)');
+  clearTimeout(_feStatus._t);
+  if (msg) _feStatus._t = setTimeout(function () { el.textContent = ''; }, 3200);
+}
+
+function _feMode() {
+  var picked = document.querySelector('input[name="feMode"]:checked');
+  return picked ? picked.value : 'off';
+}
+
+function _fePaint(d) {
+  _feCurrent = d;
+  var radio = document.querySelector('input[name="feMode"][value="' + (d.mode || 'off') + '"]');
+  if (radio) radio.checked = true;
+  var grace = document.getElementById('feGrace');
+  if (grace) grace.value = String(d.grace_seconds || 25);
+
+  // The sound picker only exists for the one mode that plays a sound.
+  var row = document.getElementById('feAlarmRow');
+  if (row) row.hidden = _feMode() !== 'alarm';
+  var remove = document.getElementById('feRemoveBtn');
+  if (remove) remove.hidden = !d.alarm_url;
+}
+
+function feLoad() {
+  if (!document.getElementById('feOptions')) return;
+  fetch('/api/focus/enforcement', { credentials: 'same-origin' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) { if (d && d.status === 'ok') _fePaint(d); })
+    .catch(function () {});
+}
+
+function feSave() {
+  var btn = document.getElementById('feSaveBtn');
+  btn.disabled = true;
+  var grace = document.getElementById('feGrace');
+  fetch('/api/focus/enforcement', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      mode: _feMode(),
+      grace_seconds: parseInt(grace ? grace.value : 25, 10)
+    })
+  })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      btn.disabled = false;
+      if (d.status === 'ok') { _fePaint(d); _feStatus('Saved.', true); }
+      else _feStatus(d.message || 'Could not save.', false);
+    })
+    .catch(function () { btn.disabled = false; _feStatus('Could not save.', false); });
+
+  // Upload the sound in the same click, if one was picked.
+  var file = document.getElementById('feSound');
+  if (file && file.files && file.files[0]) {
+    var form = new FormData();
+    form.append('sound', file.files[0]);
+    fetch('/api/focus/alarm', { method: 'POST', credentials: 'same-origin', body: form })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.status === 'ok') { _fePaint(d); file.value = ''; _feStatus('Saved, with your sound.', true); }
+        else _feStatus(d.message || 'That sound was rejected.', false);
+      })
+      .catch(function () { _feStatus('Sound upload failed.', false); });
+  }
+}
+
+function feRemoveSound() {
+  fetch('/api/focus/alarm', { method: 'DELETE', credentials: 'same-origin' })
+    .then(function (r) { return r.json(); })
+    .then(function (d) { if (d.status === 'ok') { _fePaint(d); _feStatus('Back to the built-in tone.', true); } })
+    .catch(function () { _feStatus('Could not remove it.', false); });
+}
+
+/* A real escalation, briefly. Nobody should discover what "take over the
+   screen" means for the first time twenty minutes into a session. */
+function fePreview() {
+  var mode = _feMode();
+  if (mode === 'off') { _feStatus('Nothing to preview — that is the quiet one.'); return; }
+  if (!window.IPEnforce) { _feStatus('Preview is unavailable here.'); return; }
+  _feStatus('Previewing for 3 seconds…');
+  window.IPEnforce.preview({
+    mode: mode,
+    grace_seconds: 0,
+    alarm_url: (_feCurrent && _feCurrent.alarm_url) || ''
+  }, 3);
+}
+
+document.addEventListener('change', function (e) {
+  if (e.target && e.target.name === 'feMode') {
+    var row = document.getElementById('feAlarmRow');
+    if (row) row.hidden = _feMode() !== 'alarm';
+  }
+});
+
+feLoad();
+
 {% endblock %}

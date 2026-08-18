@@ -337,7 +337,18 @@
   function startTracker() {
     if (!window.IPFocus || IPA.tracker) return;
     IPA.tracker = new window.IPFocus.Tracker({
-      onState: function (evt) { paintFocus(evt.state); },
+      onState: function (evt) {
+        paintFocus(evt.state);
+        // The tracker's state is the enforcer's only input. "present" is
+        // the all-clear; anything else is the student not being here.
+        // Driving it from state rather than from onDistraction matters:
+        // onDistraction is rate-limited to one nudge every five minutes,
+        // which is right for a suggestion and useless for enforcement.
+        if (IPA.enforcer) {
+          if (evt.state === 'present') IPA.enforcer.onReturn();
+          else IPA.enforcer.onAway();
+        }
+      },
       onBucket: function (bucket) {
         if (!IPA.session) return;
         api('/api/active/' + IPA.session.id + '/heartbeat', {
@@ -357,9 +368,41 @@
     });
     $('ipaFocusState').hidden = false;
     IPA.tracker.start(true);
+    startEnforcer();
+  }
+
+  /* Enforcement is configured per student and defaults to off, so this
+     resolves to a no-op controller for anyone who never chose a mode. */
+  function startEnforcer() {
+    if (!window.IPEnforce || IPA.enforcer) return;
+    window.IPEnforce.load().then(function (settings) {
+      if (!settings || settings.mode === 'off') return;
+      IPA.enforcer = new window.IPEnforce.Enforcer({
+        settings: settings,
+        stakesHost: $('ipaStakesHost') || $('ipaNudge').parentNode,
+        onForfeit: function (_amount, total) {
+          // Report the running forfeit so the session record reflects it.
+          // Fire-and-forget: this is bookkeeping, and a failed write must
+          // not interrupt enforcement.
+          if (!IPA.session) return;
+          api('/api/active/' + IPA.session.id + '/forfeit', {
+            method: 'POST',
+            body: JSON.stringify({ sparks: total })
+          }).catch(function () {});
+        }
+      });
+      // Decode the alarm now, while they are still at the desk. Doing it
+      // when the alarm is needed means a fetch and a decode at the one
+      // moment latency is unacceptable.
+      IPA.enforcer.prime();
+    });
   }
 
   function stopTracker() {
+    // Always tear the enforcer down, even if the tracker is already gone —
+    // an alarm that outlives the session it belongs to is the single worst
+    // failure this feature can have.
+    if (IPA.enforcer) { IPA.enforcer.stop(); IPA.enforcer = null; }
     if (!IPA.tracker) return;
     IPA.tracker.stop();
     IPA.tracker = null;

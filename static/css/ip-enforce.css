@@ -1,0 +1,137 @@
+/* ═══════════════════════════════════════════════════════════════════
+   ip-enforce.css — the visible half of focus enforcement.
+
+   Loaded only by /active and by Settings (for the preview). Nothing here
+   renders unless ip-enforce.js puts an element on the page, so a student
+   with enforcement off never pays for any of it.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── Takeover ──────────────────────────────────────────────────────
+   Covers the viewport. Deliberately has no dismiss control: a dismiss
+   button is a thing to click without reading, and this leaves when the
+   student comes back, which is the only exit that means anything.
+
+   Fixed + full-viewport with a very high z-index so it sits above the
+   header, the sidebar and any modal the page had open. */
+.ipe-takeover {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  display: grid;
+  place-items: center;
+  padding: 6vmin;
+  text-align: center;
+  color: #fff;
+  background: #7f1d1d;
+  opacity: 0;
+  transition: opacity 220ms ease;
+  overscroll-behavior: contain;
+  /* Nothing behind it should be reachable while it is up. */
+  touch-action: none;
+  user-select: none;
+}
+.ipe-takeover.is-on { opacity: 1; }
+
+/* The moving layer. Two conic sweeps at different rates, so the pattern
+   never quite repeats and the eye cannot settle on it. Transform and
+   opacity only — this runs while a camera loop is also running, and a
+   layout-animating background would fight it for frame budget. */
+.ipe-takeover__noise {
+  position: absolute;
+  inset: -50%;
+  pointer-events: none;
+  background:
+    repeating-conic-gradient(from 0deg, rgba(255,255,255,0.11) 0deg 10deg, transparent 10deg 20deg);
+  animation: ipeSpin 7s linear infinite;
+  will-change: transform;
+}
+
+.ipe-takeover__inner { position: relative; max-width: 34rem; }
+
+.ipe-takeover__eyebrow {
+  font-family: var(--font-ui, system-ui), sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  margin-bottom: 0.75rem;
+}
+.ipe-takeover__title {
+  font-size: clamp(2rem, 7vw, 3.4rem);
+  line-height: 1.05;
+  margin: 0 0 0.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.ipe-takeover__body {
+  font-size: clamp(1rem, 2.2vw, 1.2rem);
+  line-height: 1.5;
+  margin: 0 0 1.4rem;
+  opacity: 0.92;
+}
+.ipe-takeover__hint {
+  font-size: 0.82rem;
+  opacity: 0.7;
+}
+
+/* Escalation. Each level is louder than the last — faster sweep, harder
+   colour, and from level 2 a pulse the peripheral vision cannot ignore. */
+.ipe-takeover[data-level="1"] { background: #991b1b; }
+.ipe-takeover[data-level="1"] .ipe-takeover__noise { animation-duration: 4s; }
+.ipe-takeover[data-level="2"] { background: #b91c1c; animation: ipePulse 0.75s steps(2, end) infinite; }
+.ipe-takeover[data-level="2"] .ipe-takeover__noise { animation-duration: 2s; }
+
+@keyframes ipeSpin { to { transform: rotate(360deg); } }
+@keyframes ipePulse {
+  0%, 100% { background-color: #b91c1c; }
+  50%      { background-color: #450a0a; }
+}
+
+/* Reduced motion still gets a takeover — it is a safety-critical message,
+   not decoration — but without the spin or the strobe, which are exactly
+   the things a motion-sensitive or photosensitive student must not be
+   shown. The colour and the words carry it instead. */
+@media (prefers-reduced-motion: reduce) {
+  .ipe-takeover,
+  .ipe-takeover__noise { animation: none !important; }
+  .ipe-takeover__noise { opacity: 0.25; }
+  .ipe-takeover { transition: none; }
+}
+
+/* ── Stakes ────────────────────────────────────────────────────────
+   A running count of what this session is giving up. Sits in the flow of
+   the Active page rather than covering it: the point is to be seen and
+   understood, not to obstruct. */
+.ipe-stakes {
+  margin: 12px 0;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, #f59e0b 45%, var(--border, #ddd));
+  background: color-mix(in srgb, #f59e0b 10%, var(--bg-card, #fff));
+  color: var(--text-primary, #111);
+}
+.ipe-stakes__title {
+  font-family: var(--font-ui, system-ui), sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #b45309;
+  margin-bottom: 6px;
+}
+.ipe-stakes__count {
+  font-size: 1.6rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.ipe-stakes__num { color: #b45309; }
+.ipe-stakes__hint {
+  font-size: 0.78rem;
+  color: var(--text-muted, #666);
+  margin-top: 4px;
+}
+
+[data-theme="dark"] .ipe-stakes__title,
+[data-theme="dark"] .ipe-stakes__num { color: #fbbf24; }

@@ -105,6 +105,11 @@ def register(db: Any) -> tuple[type, type]:
         #: Number of times the system decided the student had genuinely
         #: drifted — after thresholding, not per-frame.
         distraction_events = db.Column(db.Integer, default=0)
+        #: Sparks this session gave up to focus enforcement in "stakes"
+        #: mode. Scoped to the session on purpose: enforcement can cost a
+        #: student what they earned in this sitting and nothing more, so a
+        #: bad afternoon can never reach a balance built up over weeks.
+        sparks_forfeited = db.Column(db.Integer, default=0)
 
         created_at = db.Column(db.DateTime, default=_utcnow)
         updated_at = db.Column(db.DateTime, default=_utcnow, onupdate=_utcnow)

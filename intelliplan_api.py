@@ -98,19 +98,50 @@ def _stamp_response(response):
     return response
 
 
-# Blueprint-scoped handlers, so a bad path or verb inside the API returns
-# the same JSON shape as everything else instead of the site's HTML 404.
+# Handlers for a bad path or verb inside the API, so it returns the same
+# JSON shape as everything else instead of the site's HTML 404.
+#
+# These have to be `app_errorhandler`, not `errorhandler`: a request for a
+# URL that matches no route never enters a blueprint, so a blueprint-scoped
+# handler would never see the very case this exists for.
+#
+# The catch is that app_errorhandler registers app-*wide* and replaces the
+# site's own handler for that code. The original code dealt with a
+# non-API path by re-raising, which does not work: re-raising inside an
+# error handler does not fall through to another handler, it propagates to
+# the catch-all Exception handler. So every 404 anywhere on the site —
+# every mistyped URL, every stale inbound link, every crawler probe —
+# rendered as a 500. Delegate to the site's handler instead of re-raising.
+
+
+def _site_handler(name):
+    """The App-level error handler this one displaced, if it exists."""
+    import App  # lazy: App imports this module, so this cannot be top-level
+
+    return getattr(App, name, None)
+
+
+def _delegate(e, site_handler_name):
+    """Hand a non-API error back to the page the site would have shown."""
+    handler = _site_handler(site_handler_name)
+    if handler is not None:
+        return handler(e)
+    # No site handler for this code — Werkzeug's own page is correct and
+    # is still infinitely better than a 500.
+    return e.get_response()
+
+
 @api_bp.app_errorhandler(404)
 def _api_404(e):
     if not request.path.startswith("/api/v1"):
-        raise e
+        return _delegate(e, "error_404")
     return _fail("not_found", "No such endpoint. See GET /api/v1/docs.", 404)
 
 
 @api_bp.app_errorhandler(405)
 def _api_405(e):
     if not request.path.startswith("/api/v1"):
-        raise e
+        return _delegate(e, "error_405")
     return _fail("method_not_allowed",
                  f"{request.method} is not allowed here.", 405,
                  allowed=sorted(getattr(e, "valid_methods", []) or []))
@@ -119,7 +150,7 @@ def _api_405(e):
 @api_bp.app_errorhandler(429)
 def _api_429(e):
     if not request.path.startswith("/api/v1"):
-        raise e
+        return _delegate(e, "error_429")
     return _fail("rate_limited",
                  "Too many requests. Slow down and retry shortly.", 429,
                  retry_after=getattr(e, "retry_after", None))

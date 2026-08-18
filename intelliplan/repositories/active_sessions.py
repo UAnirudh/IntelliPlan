@@ -149,6 +149,19 @@ class ActiveSessionRepository:
         self._session.commit()
         return row
 
+    def record_forfeit(self, row: Any, sparks: int) -> Any:
+        """Store sparks this session gave up to focus enforcement.
+
+        Monotonic, like every other counter here: the client sends a
+        running total once a second while the student is away, and those
+        requests arrive out of order often enough that taking the newest
+        value would let the count go backwards.
+        """
+        row.sparks_forfeited = max(int(row.sparks_forfeited or 0), max(0, int(sparks)))
+        row.updated_at = utcnow()
+        self._session.commit()
+        return row
+
     def finish(
         self,
         row: Any,

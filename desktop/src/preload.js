@@ -47,4 +47,29 @@ contextBridge.exposeInMainWorld('intelliplan', {
   retry() {
     return ipcRenderer.invoke('app:retry');
   },
+
+  /**
+   * Raise the operating system's output volume, 0..1.
+   *
+   * Exists for one caller: the Active-study focus alarm, which the
+   * student opted into precisely so it could not be missed — and which a
+   * browser tab cannot make louder than the machine is already set to.
+   * Resolves false rather than rejecting when the platform has no mixer
+   * we can drive, so the caller falls back to in-page gain.
+   */
+  setSystemVolume(level) {
+    const n = Number(level);
+    return ipcRenderer.invoke('system:setVolume', Number.isFinite(n) ? n : 1);
+  },
+});
+
+/* ip-enforce.js looks for window.IPDesktop. Exposed as a second, smaller
+   surface rather than teaching that module the whole `intelliplan` bridge:
+   it needs one capability, and this is the only one it can reach. */
+contextBridge.exposeInMainWorld('IPDesktop', {
+  isDesktop: true,
+  setSystemVolume(level) {
+    const n = Number(level);
+    return ipcRenderer.invoke('system:setVolume', Number.isFinite(n) ? n : 1);
+  },
 });

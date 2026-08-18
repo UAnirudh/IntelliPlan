@@ -489,6 +489,22 @@ class User(UserMixin, db.Model):
     # ── Role: student | teacher | parent. Drives /teacher and /parent
     # dashboards plus the StudentLink consent flow.
     role = db.Column(db.String(16), default="student")
+
+    # ── Focus enforcement (Active study) ──────────────────────────────
+    #: What happens when the camera check-in decides the student has
+    #: genuinely drifted: "off" (a dismissible nudge, the old behaviour),
+    #: "alarm", "takeover", or "stakes". Chosen during onboarding and
+    #: changeable in Settings. Default is off — an app that starts blaring
+    #: at someone who never asked it to is an app they uninstall.
+    focus_enforcement = db.Column(db.String(16), default="off")
+    #: Path under /uploads/focus_alarms for a sound the student uploaded,
+    #: or empty for the built-in tone.
+    focus_alarm_file = db.Column(db.String(255), nullable=True)
+    #: Seconds of continuous distraction before enforcement fires. A short
+    #: grace period is the difference between "you looked away" and "you
+    #: left" — without it the alarm goes off every time someone reaches for
+    #: a textbook.
+    focus_grace_seconds = db.Column(db.Integer, default=25)
     linked_accounts = db.relationship("LinkedAccount", backref="user", lazy=True, cascade="all, delete-orphan")
     dismissed = db.relationship("DismissedAssignment", backref="user", lazy=True, cascade="all, delete-orphan")
     descriptions = db.relationship("CustomDescription", backref="user", lazy=True, cascade="all, delete-orphan")
@@ -13215,6 +13231,189 @@ def _profile_payload(u):
     }
 
 
+# ── Focus enforcement (Active study) ─────────────────────────────────
+#
+# The camera check-in already knows when a student has drifted; until now
+# the only response was a dismissible line of text, which is easy to
+# ignore and therefore does not do the job it exists to do. These endpoints
+# store what should actually happen instead.
+#
+# Three escalations, chosen by the student — never imposed:
+#
+#   alarm     a sound at full volume, theirs if they upload one
+#   takeover  the screen fills with something impossible to read past
+#   stakes    the session forfeits the sparks it has earned so far
+#
+# "off" keeps the old gentle nudge and stays the default.
+
+FOCUS_ENFORCEMENT_MODES = ("off", "alarm", "takeover", "stakes")
+
+#: Grace period bounds, in seconds. Below ~10s the alarm fires when someone
+#: reaches for a textbook; past two minutes it is no longer enforcing
+#: anything.
+FOCUS_GRACE_BOUNDS = (10, 120)
+
+ALARM_UPLOAD_FOLDER = os.path.join(app.root_path, "uploads", "focus_alarms")
+os.makedirs(ALARM_UPLOAD_FOLDER, exist_ok=True)
+
+#: Audio only, and only formats a browser will actually play. The extension
+#: is checked against this AND the magic bytes are sniffed below — an
+#: extension is a claim by the uploader, not evidence.
+ALARM_ALLOWED_EXTENSIONS = {".mp3", ".wav", ".ogg", ".m4a", ".aac"}
+ALARM_MAX_BYTES = 2 * 1024 * 1024      # 2 MB — an alarm, not an album
+
+#: Leading bytes for the container formats above. Anything that does not
+#: start like audio is rejected regardless of what it is named, so a
+#: renamed script cannot be parked in the uploads directory.
+_ALARM_MAGIC = (
+    b"ID3",              # mp3 with an ID3 tag
+    b"\xff\xfb", b"\xff\xf3", b"\xff\xf2",   # bare mp3 frame syncs
+    b"RIFF",             # wav
+    b"OggS",             # ogg
+    b"fLaC",
+    b"\xff\xf1",         # aac (ADTS)
+)
+
+
+def _looks_like_audio(head: bytes) -> bool:
+    if any(head.startswith(sig) for sig in _ALARM_MAGIC):
+        return True
+    # m4a/mp4: "ftyp" at offset 4.
+    return len(head) >= 12 and head[4:8] == b"ftyp"
+
+
+def _focus_settings_payload(u):
+    return {
+        "status": "ok",
+        "mode": (getattr(u, "focus_enforcement", "off") or "off"),
+        "grace_seconds": int(getattr(u, "focus_grace_seconds", 25) or 25),
+        "alarm_url": (
+            flask.url_for("focus_alarm_file", user_id=u.id)
+            if getattr(u, "focus_alarm_file", None) else ""
+        ),
+        "modes": list(FOCUS_ENFORCEMENT_MODES),
+        "grace_bounds": list(FOCUS_GRACE_BOUNDS),
+    }
+
+
+@app.route("/api/focus/enforcement", methods=["GET", "POST"])
+def api_focus_enforcement():
+    """Read or write how Active study responds to a detected distraction."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error", "error": "login required"}), 401
+
+    if request.method == "POST":
+        body = request.get_json(silent=True) or {}
+
+        mode = str(body.get("mode") or "").strip().lower()
+        if mode:
+            if mode not in FOCUS_ENFORCEMENT_MODES:
+                return flask.jsonify({
+                    "status": "error",
+                    "message": "Unknown enforcement mode.",
+                }), 400
+            current_user.focus_enforcement = mode
+
+        if "grace_seconds" in body:
+            try:
+                lo, hi = FOCUS_GRACE_BOUNDS
+                current_user.focus_grace_seconds = max(lo, min(hi, int(body["grace_seconds"])))
+            except (TypeError, ValueError):
+                return flask.jsonify({
+                    "status": "error",
+                    "message": "Grace period must be a number of seconds.",
+                }), 400
+
+        db.session.commit()
+
+    return flask.jsonify(_focus_settings_payload(current_user))
+
+
+@app.route("/api/focus/alarm", methods=["POST", "DELETE"])
+def api_focus_alarm():
+    """Upload or remove the student's own alarm sound."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error", "error": "login required"}), 401
+
+    stored_name = f"user_{current_user.id}"
+
+    def _existing():
+        name = getattr(current_user, "focus_alarm_file", None)
+        return os.path.join(ALARM_UPLOAD_FOLDER, name) if name else None
+
+    if request.method == "DELETE":
+        path = _existing()
+        if path and os.path.isfile(path):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+        current_user.focus_alarm_file = None
+        db.session.commit()
+        return flask.jsonify(_focus_settings_payload(current_user))
+
+    upload = request.files.get("sound")
+    if not upload or not upload.filename:
+        return flask.jsonify({"status": "error", "message": "No file was sent."}), 400
+
+    ext = os.path.splitext(secure_filename(upload.filename))[1].lower()
+    if ext not in ALARM_ALLOWED_EXTENSIONS:
+        return flask.jsonify({
+            "status": "error",
+            "message": "Use an MP3, WAV, OGG, M4A or AAC file.",
+        }), 400
+
+    # Read with a hard ceiling rather than trusting Content-Length, which is
+    # supplied by the client. One byte over the limit is enough to know.
+    blob = upload.read(ALARM_MAX_BYTES + 1)
+    if len(blob) > ALARM_MAX_BYTES:
+        return flask.jsonify({
+            "status": "error",
+            "message": "That file is over 2 MB. Pick something shorter.",
+        }), 400
+    if not _looks_like_audio(blob[:16]):
+        return flask.jsonify({
+            "status": "error",
+            "message": "That file does not look like audio.",
+        }), 400
+
+    # One file per user, named by id — an uploaded filename never reaches
+    # the filesystem, so there is nothing to traverse with.
+    old = _existing()
+    if old and os.path.isfile(old) and os.path.basename(old) != stored_name + ext:
+        try:
+            os.remove(old)
+        except OSError:
+            pass
+
+    with open(os.path.join(ALARM_UPLOAD_FOLDER, stored_name + ext), "wb") as fh:
+        fh.write(blob)
+    current_user.focus_alarm_file = stored_name + ext
+    db.session.commit()
+    return flask.jsonify(_focus_settings_payload(current_user))
+
+
+@app.route("/uploads/focus-alarm/<int:user_id>")
+def focus_alarm_file(user_id):
+    """Serve a student their own alarm sound.
+
+    Scoped to the owner deliberately. These are arbitrary user uploads, and
+    the id in the URL is guessable, so without this check the route would
+    hand any logged-in user any other user's uploaded file.
+    """
+    if not current_user.is_authenticated or current_user.id != user_id:
+        flask.abort(404)
+    name = getattr(current_user, "focus_alarm_file", None)
+    if not name:
+        flask.abort(404)
+    return flask.send_from_directory(
+        ALARM_UPLOAD_FOLDER, name,
+        # Never let an upload be rendered as anything but a download/media
+        # source, whatever its bytes turn out to contain.
+        mimetype="application/octet-stream",
+    )
+
+
 @app.route("/api/profile/ai_personalization", methods=["POST"])
 def api_profile_ai_personalization():
     """Toggle the AI personalization opt-in. Body: {"enabled": true|false}.
@@ -15172,6 +15371,12 @@ def _migrate_user_columns():
         ("users", "lms_preferences", "TEXT DEFAULT '{}'"),
         ("users", "ai_personalization_opt_in", "BOOLEAN DEFAULT FALSE"),
         ("users", "role", "VARCHAR(16) DEFAULT 'student'"),
+        # users — Active-study focus enforcement
+        ("users", "focus_enforcement", "VARCHAR(16) DEFAULT 'off'"),
+        ("users", "focus_alarm_file", "VARCHAR(255)"),
+        ("users", "focus_grace_seconds", "INTEGER DEFAULT 25"),
+        # active_sessions — sparks given up to focus enforcement
+        ("active_sessions", "sparks_forfeited", "INTEGER DEFAULT 0"),
         # users — notification preferences. These are listed here as well as
         # in apply_notification_migrations() on purpose: that one runs once,
         # at import, inside an app context. If the database is not reachable

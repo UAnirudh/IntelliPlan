@@ -367,6 +367,104 @@ ipcMain.handle('notify', (_event, payload) => {
   return true;
 });
 
+
+/* ── System volume ────────────────────────────────────────────────────
+ *
+ * A web page cannot change the operating system's volume, and no browser
+ * is going to let it. That is the right call almost everywhere — and it
+ * is exactly wrong for a study alarm the student explicitly asked to be
+ * unmissable, which is useless if they turned the volume down before
+ * getting distracted.
+ *
+ * The desktop build can do it properly, so it does. Each platform gets
+ * the mechanism it actually has:
+ *
+ *   macOS    osascript, which is present on every install
+ *   Linux    pactl or amixer, whichever the box has
+ *   Windows  PowerShell driving the keyboard volume-up key
+ *
+ * Windows deserves a note. There is no supported command-line volume API
+ * without shipping a native module or a binary like nircmd, and adding a
+ * compiled dependency to a study planner for one feature is a bad trade.
+ * Sending volume-up keystrokes reaches the same place: each press is
+ * ~2% on a default mixer, so fifty presses saturate it from any starting
+ * point. It is inelegant and it works with nothing installed.
+ *
+ * Everything here is fire-and-forget. A student whose machine has no
+ * mixer we recognise still gets the in-page alarm at full gain — the
+ * volume raise is an enhancement, never a prerequisite.
+ */
+const { execFile } = require('child_process');
+
+/** Longest any volume command may run before it is abandoned. */
+const VOLUME_TIMEOUT_MS = 4000;
+
+function runVolumeCommand(cmd, args) {
+  return new Promise((resolve) => {
+    try {
+      const child = execFile(cmd, args, { timeout: VOLUME_TIMEOUT_MS }, (err) => {
+        resolve(!err);
+      });
+      child.on('error', () => resolve(false));
+    } catch (e) {
+      resolve(false);
+    }
+  });
+}
+
+async function setSystemVolume(level) {
+  // 0..1, clamped. Anything outside that is a caller bug, not an instruction.
+  const value = Math.max(0, Math.min(1, Number(level) || 0));
+
+  if (process.platform === 'darwin') {
+    // 0-100 scale, and unmute: a muted machine ignores the level entirely.
+    const pct = Math.round(value * 100);
+    return runVolumeCommand('osascript', [
+      '-e', `set volume output volume ${pct}`,
+      '-e', 'set volume without output muted',
+    ]);
+  }
+
+  if (process.platform === 'linux') {
+    const pct = Math.round(value * 100);
+    if (await runVolumeCommand('pactl', ['set-sink-mute', '@DEFAULT_SINK@', '0'])) {
+      if (await runVolumeCommand('pactl', ['set-sink-volume', '@DEFAULT_SINK@', `${pct}%`])) {
+        return true;
+      }
+    }
+    await runVolumeCommand('amixer', ['-q', 'sset', 'Master', 'unmute']);
+    return runVolumeCommand('amixer', ['-q', 'sset', 'Master', `${pct}%`]);
+  }
+
+  if (process.platform === 'win32') {
+    // 0xAF = volume up, 0xAD = mute toggle. Unmute first by pressing the
+    // mute key only if we are raising the volume — pressing it blind would
+    // mute an already-unmuted machine, which is the opposite of the point.
+    // Raising from a muted state is handled by the volume-up presses
+    // themselves, which unmute on Windows.
+    const presses = Math.ceil(value * 50);
+    const script =
+      '$w = New-Object -ComObject WScript.Shell; ' +
+      `1..${presses} | ForEach-Object { $w.SendKeys([char]175) }`;
+    return runVolumeCommand('powershell', [
+      '-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden',
+      '-Command', script,
+    ]);
+  }
+
+  return false;
+}
+
+ipcMain.handle('system:setVolume', async (_event, level) => {
+  try {
+    return await setSystemVolume(level);
+  } catch (e) {
+    // Never let a mixer quirk propagate into the renderer as a rejection.
+    return false;
+  }
+});
+
+
 ipcMain.handle('app:info', () => ({
   platform: process.platform,
   version: app.getVersion(),
