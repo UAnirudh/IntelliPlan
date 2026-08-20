@@ -22,9 +22,12 @@
   footer details > summary:focus-visible {
     outline: 2px solid var(--focus-ring, var(--accent)); outline-offset: 2px; border-radius: 5px;
   }
-  footer .launchfeeds-badge--dark { display: none; }
-  :root[data-theme="dark"] footer .launchfeeds-badge--light { display: none; }
-  :root[data-theme="dark"] footer .launchfeeds-badge--dark { display: block; }
+  /* Directory badges ship as a light/dark pair. Only one of each pair is
+     ever in the flow; the theme attribute swaps which. Generic so every
+     badge vendor uses the same two classes instead of one rule per vendor. */
+  footer .ip-badge--dark { display: none; }
+  :root[data-theme="dark"] footer .ip-badge--light { display: none; }
+  :root[data-theme="dark"] footer .ip-badge--dark { display: block; }
 </style>
 
 <footer style="
@@ -100,8 +103,20 @@
       <img src="https://r2.direasy-multi-tenant.focusapps.app/uploads/616d0b1a-3979-4b8c-94d1-b4f1fedd3ead/1783232960041/17rsshdhmati/featured-on-dark.svg" alt="Featured on There's A Tool For" width="180" height="44" loading="lazy" decoding="async" style="display:block;border:0;height:44px;width:auto;opacity:0.85;" />
     </a>
     <a href="https://launchfeeds.com/projects/intelliplan?utm_source=badge" target="_blank" rel="noopener noreferrer" aria-label="IntelliPlan featured on Launch Feeds">
-      <img class="launchfeeds-badge--light" src="https://launchfeeds.com/launchfeeds/images/badges/featured-on-light.svg" alt="Featured on Launch Feeds" width="180" height="44" loading="lazy" decoding="async" style="display:block;border:0;height:44px;width:auto;opacity:0.85;" />
-      <img class="launchfeeds-badge--dark" src="https://launchfeeds.com/launchfeeds/images/badges/featured-on-dark.svg" alt="Featured on Launch Feeds" width="180" height="44" loading="lazy" decoding="async" style="display:none;border:0;height:44px;width:auto;opacity:0.85;" />
+      <img class="ip-badge--light" src="https://launchfeeds.com/launchfeeds/images/badges/featured-on-light.svg" alt="Featured on Launch Feeds" width="180" height="44" loading="lazy" decoding="async" style="display:block;border:0;height:44px;width:auto;opacity:0.85;" />
+      <img class="ip-badge--dark" src="https://launchfeeds.com/launchfeeds/images/badges/featured-on-dark.svg" alt="Featured on Launch Feeds" width="180" height="44" loading="lazy" decoding="async" style="display:none;border:0;height:44px;width:auto;opacity:0.85;" />
+    </a>
+    <a href="https://indiepocket.com/projects/intelliplan?utm_source=badge" target="_blank" rel="noopener noreferrer" aria-label="IntelliPlan featured on Indie Pocket">
+      <img class="ip-badge--light" src="https://indiepocket.com/indiepocket/images/badges/featured-on-light.svg" alt="Featured on Indie Pocket" width="180" height="44" loading="lazy" decoding="async" style="display:block;border:0;height:44px;width:auto;opacity:0.85;" />
+      <img class="ip-badge--dark" src="https://indiepocket.com/indiepocket/images/badges/featured-on-dark.svg" alt="Featured on Indie Pocket" width="180" height="44" loading="lazy" decoding="async" style="display:none;border:0;height:44px;width:auto;opacity:0.85;" />
+    </a>
+    <a href="https://discovernewtools.com/projects/intelliplan?utm_source=badge" target="_blank" rel="noopener noreferrer" aria-label="IntelliPlan featured on Discover New Tools">
+      <img class="ip-badge--light" src="https://discovernewtools.com/discovernewtools/images/badges/featured-on-light.svg" alt="Featured on Discover New Tools" width="180" height="44" loading="lazy" decoding="async" style="display:block;border:0;height:44px;width:auto;opacity:0.85;" />
+      <img class="ip-badge--dark" src="https://discovernewtools.com/discovernewtools/images/badges/featured-on-dark.svg" alt="Featured on Discover New Tools" width="180" height="44" loading="lazy" decoding="async" style="display:none;border:0;height:44px;width:auto;opacity:0.85;" />
+    </a>
+    <a href="https://devlanz.com/projects/intelliplan?utm_source=badge" target="_blank" rel="noopener noreferrer" aria-label="IntelliPlan featured on Dev Lanz">
+      <img class="ip-badge--light" src="https://devlanz.com/devlanz/images/badges/featured-on-light.svg" alt="Featured on Dev Lanz" width="180" height="44" loading="lazy" decoding="async" style="display:block;border:0;height:44px;width:auto;opacity:0.85;" />
+      <img class="ip-badge--dark" src="https://devlanz.com/devlanz/images/badges/featured-on-dark.svg" alt="Featured on Dev Lanz" width="180" height="44" loading="lazy" decoding="async" style="display:none;border:0;height:44px;width:auto;opacity:0.85;" />
     </a>
   </div>
   {% endif %}
