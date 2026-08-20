@@ -25,5 +25,12 @@
     "@types/react": "~19.1.0",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "postcss": "^8.5.26",
+    "react-dom": "19.1.0",
+    "xcode": {
+      "uuid": "^11.1.1"
+    }
+  }
 }
