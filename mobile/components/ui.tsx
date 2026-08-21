@@ -237,8 +237,27 @@ export function SegmentedRow<V extends string | number>({
   onChange: (v: V) => void;
 }) {
   const { colors } = useTheme();
+  const scroller = React.useRef<ScrollView>(null);
+  // Each chip's x-offset and width, filled in as they lay out. Needed
+  // because a row can open with a selection that is already off-screen —
+  // a task estimated at 90 minutes preselects the last chip — and a
+  // selected option the student cannot see reads as nothing being chosen.
+  const spans = React.useRef<Record<string, { x: number; w: number }>>({});
+  const revealed = React.useRef(false);
+
+  const reveal = React.useCallback(() => {
+    if (revealed.current) return;
+    const span = spans.current[String(value)];
+    if (!span) return;
+    revealed.current = true;
+    // Left-aligned rather than centred: the chips before it are context,
+    // and scrolling further than necessary loses them.
+    if (span.x > 0) scroller.current?.scrollTo({ x: Math.max(0, span.x - space.lg), animated: false });
+  }, [value]);
+
   return (
     <ScrollView
+      ref={scroller}
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={{ gap: space.sm, paddingRight: space.lg }}
@@ -249,6 +268,13 @@ export function SegmentedRow<V extends string | number>({
           <Pressable
             key={String(o.value)}
             onPress={() => onChange(o.value)}
+            onLayout={(e) => {
+              spans.current[String(o.value)] = {
+                x: e.nativeEvent.layout.x,
+                w: e.nativeEvent.layout.width,
+              };
+              if (on) reveal();
+            }}
             accessibilityRole="button"
             accessibilityState={{ selected: on }}
             style={{

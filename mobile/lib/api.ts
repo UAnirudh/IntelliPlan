@@ -431,6 +431,31 @@ export async function getConversations(): Promise<Conversation[]> {
   return d?.conversations || [];
 }
 
+export async function getConversation(
+  id: number,
+): Promise<{ id: number; title: string; messages: ChatMessage[] }> {
+  const d = await apiFetch<{ id: number; title: string; messages?: unknown[] }>(
+    `/api/tutor/conversations/${id}`,
+  );
+  // The stored history includes system-side entries and image markers that
+  // are not chat turns; anything without a role we recognise is dropped
+  // rather than rendered as a blank bubble.
+  const messages = (d?.messages || [])
+    .filter(
+      (m): m is ChatMessage =>
+        !!m &&
+        typeof m === "object" &&
+        ((m as ChatMessage).role === "user" || (m as ChatMessage).role === "assistant") &&
+        typeof (m as ChatMessage).content === "string",
+    )
+    .map((m) => ({ role: m.role, content: m.content }));
+  return { id: d.id, title: d.title, messages };
+}
+
+export async function deleteConversation(id: number): Promise<void> {
+  await apiFetch(`/api/tutor/conversations/${id}`, { method: "DELETE" });
+}
+
 /* ── Push ─────────────────────────────────────────────────────────── */
 
 export async function registerPushToken(token: string): Promise<void> {
@@ -476,4 +501,189 @@ export async function askPlaniVision(args: {
       ...(args.conversationId ? { conversation_id: args.conversationId } : {}),
     }),
   });
+}
+
+/* ── Focus sessions (Active) ──────────────────────────────────────── */
+
+export type FocusSession = {
+  id: number;
+  block_id?: string | null;
+  task_id?: string | null;
+  title: string;
+  course?: string;
+  kind?: string;
+  difficulty?: string;
+  planned_minutes: number;
+  due_date?: string | null;
+  state: "running" | "paused" | "finished" | "abandoned" | string;
+  started_at?: string | null;
+  ended_at?: string | null;
+  active_seconds: number;
+  paused_seconds: number;
+  pause_count: number;
+  completed_work: boolean;
+  progress_percent: number;
+  perceived_difficulty?: number | null;
+  focus?: {
+    enabled: boolean;
+    samples: number;
+    ratio: number | null;
+    distraction_events: number;
+    longest_streak_seconds: number;
+  };
+};
+
+export type FocusStats = {
+  sessions: number;
+  completed: number;
+  completion_rate: number | null;
+  total_minutes: number;
+  median_minutes: number | null;
+  mean_focus_ratio: number | null;
+};
+
+/**
+ * The session already in progress, if any.
+ *
+ * Called on launch so closing the app mid-session and reopening it picks
+ * the timer back up rather than silently losing the work — the server is
+ * the clock of record, not the phone.
+ */
+export async function getCurrentSession(): Promise<FocusSession | null> {
+  const d = await apiFetch<{ session: FocusSession | null }>("/api/active/current");
+  return d?.session ?? null;
+}
+
+export async function startSession(args: {
+  title: string;
+  plannedMinutes: number;
+  course?: string;
+  taskId?: string;
+  blockId?: string;
+  dueDate?: string | null;
+  kind?: string;
+  difficulty?: string;
+}): Promise<FocusSession> {
+  const d = await apiFetch<{ session: FocusSession }>("/api/active/start", {
+    method: "POST",
+    body: JSON.stringify({
+      title: args.title,
+      planned_minutes: args.plannedMinutes,
+      course: args.course || "",
+      task_id: args.taskId,
+      block_id: args.blockId,
+      due_date: args.dueDate,
+      kind: args.kind || "homework",
+      difficulty: args.difficulty || "medium",
+      // Attention tracking is a webcam feature on the desktop site. There
+      // is no phone equivalent, so the session is started without it
+      // rather than sending focus samples the app cannot measure.
+      focus_enabled: false,
+    }),
+  });
+  return d.session;
+}
+
+/**
+ * Push elapsed time to the server.
+ *
+ * `active_seconds` is a running total rather than a delta, so a heartbeat
+ * lost to a dead spot costs nothing — the next one carries the true
+ * figure. The server clamps it against wall-clock time, so a phone whose
+ * clock is wrong cannot inflate a session.
+ */
+export async function heartbeatSession(
+  id: number,
+  args: { activeSeconds: number; pausedSeconds: number; pauseCount: number; state: "running" | "paused" },
+): Promise<FocusSession> {
+  const d = await apiFetch<{ session: FocusSession }>(`/api/active/${id}/heartbeat`, {
+    method: "POST",
+    body: JSON.stringify({
+      active_seconds: Math.round(args.activeSeconds),
+      paused_seconds: Math.round(args.pausedSeconds),
+      pause_count: args.pauseCount,
+      state: args.state,
+    }),
+  });
+  return d.session;
+}
+
+export async function finishSession(
+  id: number,
+  args: {
+    completed: boolean;
+    activeSeconds: number;
+    progressPercent?: number;
+    perceivedDifficulty?: number | null;
+    notes?: string;
+  },
+): Promise<{ session: FocusSession; learned?: unknown }> {
+  return apiFetch(`/api/active/${id}/finish`, {
+    method: "POST",
+    body: JSON.stringify({
+      completed: args.completed,
+      active_seconds: Math.round(args.activeSeconds),
+      progress_percent: args.progressPercent,
+      perceived_difficulty: args.perceivedDifficulty,
+      notes: args.notes || "",
+    }),
+  });
+}
+
+export async function getFocusStats(): Promise<{ stats: FocusStats; recent: FocusSession[] }> {
+  return apiFetch("/api/active/stats");
+}
+
+/* ── Connected school platforms ───────────────────────────────────── */
+
+export type Provider = {
+  key: string;
+  display_name: string;
+  docs_url?: string;
+  configured: boolean;
+  connected?: boolean;
+  last_synced_at?: string | null;
+  last_sync_count?: number;
+};
+
+export async function getProviders(): Promise<Provider[]> {
+  const d = await apiFetch<{ providers: Provider[] }>("/api/lms/status");
+  return d?.providers || [];
+}
+
+export async function syncProvider(key: string): Promise<{ synced: number }> {
+  return apiFetch(`/api/lms/${encodeURIComponent(key)}/sync`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function disconnectProvider(key: string): Promise<void> {
+  await apiFetch(`/api/lms/${encodeURIComponent(key)}/disconnect`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+/* ── Quests ───────────────────────────────────────────────────────── */
+
+export type Quest = {
+  id?: string | number;
+  key?: string;
+  title?: string;
+  label?: string;
+  description?: string;
+  progress?: number;
+  target?: number;
+  goal?: number;
+  reward?: number;
+  claimed?: boolean;
+  complete?: boolean;
+  [k: string]: unknown;
+};
+
+export async function getQuests(): Promise<Quest[]> {
+  const d = await apiFetch<{ quests?: Quest[] } | Quest[]>("/study/quests");
+  if (Array.isArray(d)) return d;
+  return d?.quests || [];
 }

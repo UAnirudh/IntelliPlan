@@ -1,9 +1,10 @@
 import React, { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
+  Modal,
+  ScrollView,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -14,10 +15,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import { askPlani, askPlaniVision, ChatMessage } from "../../lib/api";
+import {
+  askPlani,
+  askPlaniVision,
+  ChatMessage,
+  Conversation,
+  deleteConversation,
+  getConversation,
+  getConversations,
+} from "../../lib/api";
 import { useTheme } from "../../theme/ThemeProvider";
 import { radius, space } from "../../theme/tokens";
-import { Card, Chip, Label, Screen, T } from "../../components/ui";
+import { Card, Chip, EmptyState, Label, Loading, Notice, Screen, T } from "../../components/ui";
+import { useConfirm } from "../../components/Confirm";
 import { Header, IconButton } from "../../components/Header";
 
 type Bubble = ChatMessage & { pending?: boolean; failed?: boolean; imageUri?: string };
@@ -40,11 +50,16 @@ export default function PlaniScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<Bubble>>(null);
+  const confirm = useConfirm();
 
   const [messages, setMessages] = useState<Bubble[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [conversationId, setConversationId] = useState<number | null>(null);
+  const [history, setHistory] = useState<Conversation[] | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const send = useCallback(
     async (text: string) => {
@@ -111,12 +126,14 @@ export default function PlaniScreen() {
           ? await ImagePicker.requestCameraPermissionsAsync()
           : await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert(
-          "Permission needed",
-          from === "camera"
-            ? "Allow camera access to photograph a problem."
-            : "Allow photo access to pick a problem.",
-        );
+        await confirm({
+          title: "Permission needed",
+          message:
+            from === "camera"
+              ? "Allow camera access in your phone's settings to photograph a problem."
+              : "Allow photo access in your phone's settings to pick a problem.",
+          actions: [{ label: "OK", cancel: true }],
+        });
         return;
       }
 
@@ -173,13 +190,72 @@ export default function PlaniScreen() {
     [busy, conversationId],
   );
 
-  const askForPhoto = useCallback(() => {
-    Alert.alert("Snap & Solve", "Show Plani the problem and it'll work through it.", [
-      { text: "Take a photo", onPress: () => snap("camera") },
-      { text: "Choose from library", onPress: () => snap("library") },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  }, [snap]);
+  const askForPhoto = useCallback(async () => {
+    const choice = await confirm({
+      title: "Snap & Solve",
+      message: "Show Plani the problem and it'll work through every part it can see.",
+      actions: [
+        { label: "Take a photo" },
+        { label: "Choose from library" },
+        { label: "Cancel", cancel: true },
+      ],
+    });
+    if (choice === 0) snap("camera");
+    else if (choice === 1) snap("library");
+  }, [snap, confirm]);
+
+  const openHistory = useCallback(async () => {
+    setHistoryOpen(true);
+    setLoadingHistory(true);
+    try {
+      setHistory(await getConversations());
+    } catch {
+      setHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, []);
+
+  const loadConversation = useCallback(async (id: number) => {
+    setHistoryOpen(false);
+    setBusy(true);
+    try {
+      const convo = await getConversation(id);
+      setMessages(convo.messages);
+      setConversationId(convo.id);
+    } catch (e: any) {
+      setLoadError(e?.message || "That chat wouldn't open. Try again in a moment.");
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  const removeConversation = useCallback(
+    async (c: Conversation) => {
+      const choice = await confirm({
+        title: "Delete this chat?",
+        message: c.title,
+        actions: [
+          { label: "Delete", destructive: true },
+          { label: "Cancel", cancel: true },
+        ],
+      });
+      if (choice !== 0) return;
+      // Removed from the list first: the request is a formality and waiting
+      // on it makes a delete feel broken on a slow connection.
+      setHistory((prev) => (prev || []).filter((x) => x.id !== c.id));
+      try {
+        await deleteConversation(c.id);
+      } catch {
+        setHistory(await getConversations().catch(() => []));
+      }
+      if (conversationId === c.id) {
+        setMessages([]);
+        setConversationId(null);
+      }
+    },
+    [conversationId, confirm],
+  );
 
   const reset = useCallback(() => {
     setMessages([]);
@@ -192,9 +268,12 @@ export default function PlaniScreen() {
         title="Plani"
         subtitle="Your study tutor"
         right={
-          messages.length ? (
-            <IconButton icon="create-outline" label="Start a new chat" onPress={reset} />
-          ) : undefined
+          <View style={{ flexDirection: "row", gap: space.md, alignItems: "center" }}>
+            <IconButton icon="time-outline" label="Past chats" onPress={openHistory} />
+            {messages.length ? (
+              <IconButton icon="create-outline" label="Start a new chat" onPress={reset} />
+            ) : null}
+          </View>
         }
       />
 
@@ -215,6 +294,13 @@ export default function PlaniScreen() {
           }}
           keyboardDismissMode="interactive"
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+          ListHeaderComponent={
+            loadError ? (
+              <View style={{ marginBottom: space.sm }}>
+                <Notice text={loadError} icon="alert-circle-outline" />
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
             <View style={{ flex: 1, justifyContent: "center", gap: space.lg }}>
               <View style={{ alignItems: "center", gap: space.sm }}>
@@ -335,6 +421,92 @@ export default function PlaniScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={historyOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setHistoryOpen(false)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: colors.scrim }}
+          onPress={() => setHistoryOpen(false)}
+          accessibilityRole="button"
+          accessibilityLabel="Close past chats"
+        />
+        <View
+          style={{
+            maxHeight: "68%",
+            backgroundColor: colors.bg,
+            borderTopLeftRadius: radius.xl,
+            borderTopRightRadius: radius.xl,
+            paddingTop: space.lg,
+            paddingBottom: insets.bottom + space.lg,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              paddingHorizontal: space.lg,
+              paddingBottom: space.md,
+            }}
+          >
+            <T variant="md" weight="700" style={{ flex: 1 }}>
+              Past chats
+            </T>
+            <Pressable
+              onPress={() => setHistoryOpen(false)}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+            >
+              <Ionicons name="close" size={24} color={colors.textSecondary} />
+            </Pressable>
+          </View>
+
+          {loadingHistory ? (
+            <View style={{ paddingVertical: space.xxl }}>
+              <Loading />
+            </View>
+          ) : history?.length ? (
+            <ScrollView contentContainerStyle={{ paddingHorizontal: space.lg, gap: space.sm }}>
+              {history.map((c) => (
+                <Pressable key={c.id} onPress={() => loadConversation(c.id)} accessibilityRole="button">
+                  <Card
+                    style={{
+                      padding: space.md,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: space.md,
+                      borderColor: c.id === conversationId ? colors.borderAccent : colors.border,
+                    }}
+                  >
+                    <Ionicons name="chatbubble-outline" size={17} color={colors.textMuted} />
+                    <T variant="sm" style={{ flex: 1 }} numberOfLines={1}>
+                      {c.title || "Untitled chat"}
+                    </T>
+                    <Pressable
+                      onPress={() => removeConversation(c)}
+                      hitSlop={10}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Delete ${c.title}`}
+                    >
+                      <Ionicons name="trash-outline" size={17} color={colors.textMuted} />
+                    </Pressable>
+                  </Card>
+                </Pressable>
+              ))}
+            </ScrollView>
+          ) : (
+            <EmptyState
+              icon="chatbubbles-outline"
+              title="No past chats"
+              body="Conversations you have with Plani show up here."
+            />
+          )}
+        </View>
+      </Modal>
     </Screen>
   );
 }

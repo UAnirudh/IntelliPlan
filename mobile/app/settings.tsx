@@ -1,10 +1,20 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, Switch, View } from "react-native";
+import { Pressable, ScrollView, Switch, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
-import { getIdentity, getStreak, Identity, patchIdentity, Streak } from "../lib/api";
+import {
+  FocusStats,
+  getFocusStats,
+  getIdentity,
+  getQuests,
+  getStreak,
+  Identity,
+  patchIdentity,
+  Quest,
+  Streak,
+} from "../lib/api";
 import { API_BASE } from "../lib/config";
 import { useQuery } from "../lib/useQuery";
 import { useAuth } from "../lib/auth";
@@ -12,6 +22,7 @@ import { disablePush, enablePush, isPushEnabled } from "../lib/push";
 import { useTheme, ThemeMode } from "../theme/ThemeProvider";
 import { radius, space } from "../theme/tokens";
 import { Button, Card, Chip, Field, Label, Notice, Screen, SegmentedRow, T } from "../components/ui";
+import { useConfirm } from "../components/Confirm";
 
 const THEMES: { label: string; value: ThemeMode }[] = [
   { label: "System", value: "system" },
@@ -24,9 +35,12 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const confirm = useConfirm();
 
   const streak = useQuery<Streak>("streak", getStreak);
   const identity = useQuery<Identity>("identity", getIdentity);
+  const focus = useQuery<{ stats: FocusStats; recent: unknown[] }>("focus-stats", getFocusStats);
+  const quests = useQuery<Quest[]>("quests", getQuests);
 
   const [gradeLevel, setGradeLevel] = useState("");
   const [goals, setGoals] = useState("");
@@ -81,19 +95,19 @@ export default function SettingsScreen() {
     }
   }, [gradeLevel, goals]);
 
-  const confirmSignOut = useCallback(() => {
-    Alert.alert("Sign out?", "You'll need your email and password to get back in.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign out",
-        style: "destructive",
-        onPress: async () => {
-          await signOut();
-          router.replace("/login");
-        },
-      },
-    ]);
-  }, [signOut, router]);
+  const confirmSignOut = useCallback(async () => {
+    const choice = await confirm({
+      title: "Sign out?",
+      message: "You'll need your email and password to get back in.",
+      actions: [
+        { label: "Sign out", destructive: true },
+        { label: "Cancel", cancel: true },
+      ],
+    });
+    if (choice !== 0) return;
+    await signOut();
+    router.replace("/login");
+  }, [signOut, router, confirm]);
 
   const s = streak.data;
   const version = Constants.expoConfig?.version ?? "—";
@@ -170,6 +184,104 @@ export default function SettingsScreen() {
             {s.at_risk ? (
               <Notice text="Your streak is at risk today — finish one thing to keep it." icon="flame-outline" />
             ) : null}
+          </Card>
+        ) : null}
+
+        {/* ── Connected platforms ── */}
+        <Pressable onPress={() => router.push("/connect")} accessibilityRole="button">
+          <Card style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: radius.md,
+                backgroundColor: colors.accentSoft,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="school-outline" size={19} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <T variant="base" weight="600">
+                Your school
+              </T>
+              <T variant="sm" tone="muted">
+                Connect Canvas, StudentVue, Schoology and more
+              </T>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Card>
+        </Pressable>
+
+        {/* ── Focus history ──
+            Shown as plain counts rather than a chart: with a handful of
+            sessions a sparkline is noise pretending to be a trend. */}
+        {focus.data?.stats?.sessions ? (
+          <Card style={{ gap: space.md }}>
+            <Label>Focus sessions</Label>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+              <Chip label={`${focus.data.stats.sessions} sessions`} icon="timer-outline" />
+              <Chip
+                label={`${Math.round(focus.data.stats.total_minutes / 60)}h focused`}
+                icon="hourglass-outline"
+              />
+              {focus.data.stats.median_minutes ? (
+                <Chip label={`${focus.data.stats.median_minutes}m typical`} />
+              ) : null}
+              {focus.data.stats.completion_rate !== null ? (
+                <Chip
+                  label={`${Math.round((focus.data.stats.completion_rate ?? 0) * 100)}% finished`}
+                  icon="checkmark-circle-outline"
+                  fg={colors.ok}
+                  bg={colors.okSoft}
+                />
+              ) : null}
+            </View>
+          </Card>
+        ) : null}
+
+        {/* ── Weekly quests ── */}
+        {quests.data?.length ? (
+          <Card style={{ gap: space.md }}>
+            <Label>This week's quests</Label>
+            {quests.data.slice(0, 4).map((qu, i) => {
+              const target = Number(qu.target ?? qu.goal ?? 0);
+              const progress = Number(qu.progress ?? 0);
+              const pct = target > 0 ? Math.min(1, progress / target) : 0;
+              const doneQ = !!qu.complete || (target > 0 && progress >= target);
+              return (
+                <View key={String(qu.id ?? qu.key ?? i)} style={{ gap: 6 }}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", gap: space.sm }}>
+                    <T variant="sm" weight="600" style={{ flex: 1 }} numberOfLines={2}>
+                      {String(qu.title || qu.label || qu.description || "Quest")}
+                    </T>
+                    <T variant="sm" tone={doneQ ? "ok" : "muted"} weight="600">
+                      {target > 0 ? `${Math.min(progress, target)}/${target}` : ""}
+                      {qu.reward ? ` · ${qu.reward}✦` : ""}
+                    </T>
+                  </View>
+                  {target > 0 ? (
+                    <View
+                      style={{
+                        height: 5,
+                        borderRadius: radius.pill,
+                        backgroundColor: colors.bgElevated,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: `${pct * 100}%`,
+                          height: "100%",
+                          backgroundColor: doneQ ? colors.ok : colors.accent,
+                        }}
+                      />
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })}
           </Card>
         ) : null}
 

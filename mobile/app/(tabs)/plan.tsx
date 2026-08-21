@@ -1,6 +1,8 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { RefreshControl, ScrollView, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, View } from "react-native";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Block, generateSchedule, getSchedule, SavedSchedule, ScheduleDay } from "../../lib/api";
 import { useQuery } from "../../lib/useQuery";
@@ -81,6 +83,7 @@ function blockTime(b: Block): string {
 export default function PlanScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   const q = useQuery<SavedSchedule>("schedule", getSchedule);
   const [hours, setHours] = useState(2);
@@ -191,7 +194,25 @@ export default function PlanScreen() {
                 {d.day || shortDate(d.date) || `Day ${i + 1}`}
               </Label>
               {(d.blocks || []).map((b, j) => (
-                <Card key={j} style={{ padding: space.md, flexDirection: "row", gap: space.md }}>
+                <Pressable
+                  key={j}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Focus on ${b.title || b.course || "this block"}`}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/focus",
+                      params: {
+                        title: String(b.title || b.course || "Study block"),
+                        course: String(b.course || ""),
+                        blockId: String((b as any).id || ""),
+                        minutes: String(
+                          Math.min(60, Math.max(15, Math.round(Number(b.duration) || 25))),
+                        ),
+                      },
+                    })
+                  }
+                >
+                <Card style={{ padding: space.md, flexDirection: "row", gap: space.md }}>
                   <View
                     style={{
                       width: 4,
@@ -210,7 +231,9 @@ export default function PlanScreen() {
                       {b.kind ? <Chip label={String(b.kind)} /> : null}
                     </View>
                   </View>
+                  <Ionicons name="play-circle-outline" size={22} color={colors.accent} />
                 </Card>
+                </Pressable>
               ))}
             </View>
           ))

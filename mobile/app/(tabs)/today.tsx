@@ -1,10 +1,11 @@
 import React, { useCallback, useState } from "react";
-import { RefreshControl, ScrollView, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import {
   dismissTask,
+  getCurrentSession,
   getStreak,
   getTasks,
   getToday,
@@ -17,6 +18,7 @@ import { useAuth } from "../../lib/auth";
 import { useTheme } from "../../theme/ThemeProvider";
 import { space } from "../../theme/tokens";
 import { Button, Card, Chip, EmptyState, Label, Loading, Notice, Screen, T } from "../../components/ui";
+import { Ionicons } from "@expo/vector-icons";
 import { Header, IconButton } from "../../components/Header";
 import { Ring } from "../../components/Ring";
 import { ForecastBars } from "../../components/Bars";
@@ -38,6 +40,11 @@ export default function TodayScreen() {
    * the plain version of the same question.
    */
   const fallback = useQuery<Task[]>("today-fallback", getTasks, { enabled: today.missing });
+
+  const live = useQuery<Awaited<ReturnType<typeof getCurrentSession>>>(
+    "current-session",
+    getCurrentSession,
+  );
 
   const [busyTitle, setBusyTitle] = useState<string | null>(null);
   const [done, setDone] = useState<Set<string>>(new Set());
@@ -118,6 +125,27 @@ export default function TodayScreen() {
           />
         }
       >
+        {live.data && !live.data.ended_at ? (
+          <Pressable
+            onPress={() => router.push("/focus")}
+            accessibilityRole="button"
+            accessibilityLabel="Resume your focus session"
+          >
+            <Card style={{ backgroundColor: colors.accent, borderColor: colors.accent, flexDirection: "row", alignItems: "center", gap: space.md }}>
+              <Ionicons name="timer-outline" size={22} color={colors.onAccent} />
+              <View style={{ flex: 1 }}>
+                <T variant="sm" tone="onAccent" weight="700">
+                  Session in progress
+                </T>
+                <T variant="xs" tone="onAccent" numberOfLines={1} style={{ opacity: 0.85 }}>
+                  {live.data.title}
+                </T>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.onAccent} />
+            </Card>
+          </Pressable>
+        ) : null}
+
         {today.stale || fallback.stale ? (
           <Notice text="Offline — showing the last version that loaded." icon="cloud-offline-outline" />
         ) : null}
@@ -231,6 +259,9 @@ export default function TodayScreen() {
                     task={t}
                     busy={busyTitle === t.title}
                     onToggle={() => complete(t.title)}
+                    onPress={() =>
+                      router.push({ pathname: "/task", params: { data: JSON.stringify(t) } })
+                    }
                   />
                 ))
             ) : (
@@ -255,6 +286,24 @@ export default function TodayScreen() {
                 }}
                 busy={busyTitle === t.title}
                 onToggle={() => complete(t.title)}
+                onPress={() =>
+                  router.push({
+                    pathname: "/task",
+                    params: {
+                      data: JSON.stringify({
+                        title: t.title,
+                        course: t.course,
+                        due_date: t.due_date,
+                        est_minutes: t.est_minutes,
+                        priority: t.priority?.tier,
+                        source: t.source,
+                        why_now: t.why_now,
+                        rationale: t.priority?.rationale,
+                        score: t.priority?.score,
+                      }),
+                    },
+                  })
+                }
               />
             ))
           ) : (
@@ -273,6 +322,29 @@ export default function TodayScreen() {
             />
           )}
         </View>
+
+        {!live.data && (today.missing ? fallbackTasks : plan).length ? (
+          <Button
+            title="Start on the top one"
+            icon="play"
+            onPress={() => {
+              const first = today.missing ? fallbackTasks[0] : plan[0];
+              const est = today.missing
+                ? (fallbackTasks[0] as any)?.estimated_time
+                : plan[0]?.est_minutes;
+              router.push({
+                pathname: "/focus",
+                params: {
+                  title: first.title,
+                  course: String(first.course || ""),
+                  taskId: first.title,
+                  dueDate: String(first.due_date || ""),
+                  minutes: String(Math.min(60, Math.max(15, Math.round(Number(est) || 25)))),
+                },
+              });
+            }}
+          />
+        ) : null}
 
         {(today.missing ? fallbackTasks : plan).length > 8 ? (
           <Button

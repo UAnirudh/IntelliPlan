@@ -22,10 +22,27 @@ Five tabs, in the order a school day happens:
 | **Due** | Every assignment from every connected platform, grouped Overdue / Today / This week / Later, filterable by window and by course. Tap the circle to complete; the Done filter undoes it. |
 | **Plan** | The saved study plan, plus a generator (hours per day × when you focus best). Generating is a button — never automatic on open, so it can't quietly discard progress ticked off against the existing plan. |
 | **Grades** | Course grades with a percentage bar per course, and a Forecast tab with per-course predictions, trend, and the confidence behind each number. |
-| **Plani** | The AI tutor, plus Snap & Solve: photograph a worksheet and it works through every problem it can see. |
+| **Plani** | The AI tutor with conversation history, plus Snap & Solve: photograph a worksheet and it works through every problem it can see. |
 
-Plus a profile sheet (streak, sparks, level, learning profile, push
-notifications, light/dark/system) and an add-task modal.
+Four modals sit over the tabs:
+
+* **Focus** — a study timer against one piece of work. Start it from Today,
+  from a task, or from a block in the plan; pause, resume, and finish with
+  "finished it / made progress". The server is the clock of record: elapsed
+  time is sent as a running total every 15 seconds, so a lost heartbeat
+  costs nothing and the server clamps the figure against wall-clock time.
+  Closing the app and reopening it resumes the session *paused* rather than
+  claiming the gap as study time.
+* **Task** — the ranking's own working: `why_now`, a weighted breakdown of
+  what pushed the task up the list, and the actions (focus, complete, mark
+  as a test).
+* **Your school** — connect, sync and disconnect Canvas, StudentVue,
+  Schoology and the rest.
+* **New task** — add something the platforms don't know about.
+
+Plus a profile sheet: streak, sparks, level and freezes, weekly quests,
+focus-session history, the learning profile, push notifications, and
+light/dark/system.
 
 ## How it talks to the server
 
@@ -50,6 +67,25 @@ Two behaviours worth knowing about, both in `lib/useQuery.ts`:
 
 A network failure at launch does *not* sign you out — only a credential the
 server actively rejects does. See `lib/auth.tsx`.
+
+### Connecting a school platform
+
+Sync and disconnect are plain JSON calls, so the things a student does
+repeatedly stay in the app. **Connecting** opens the website in an in-app
+browser instead. That is deliberate: the OAuth providers need a real
+browser redirect to be secure at all, and the credential providers (Canvas
+tokens, StudentVue passwords) already have a hardened form on the site — a
+second implementation here would be a second place for school credentials
+to leak.
+
+### Confirmations
+
+`components/Confirm.tsx`, not `Alert.alert()`. React Native's own Alert is
+a no-op on react-native-web — the implementation is an empty method — so
+every confirmation built on it silently did nothing in the browser build.
+One themed sheet renders on all three platforms instead: it matches the
+rest of the app, it can be driven in a test, and there is only one
+implementation to keep correct.
 
 ## Configuration
 
@@ -114,9 +150,12 @@ the phone app carries the same mark as the website. Regenerate them with
 app/                 expo-router file routes
   (tabs)/            the five tabs
   login.tsx          sign in + sign up
+  focus.tsx          study timer (full-screen modal)
+  task.tsx           task detail + actions (modal)
+  connect.tsx        school platforms (modal)
   settings.tsx       profile sheet (modal)
   new-task.tsx       add a task (modal)
-components/          UI kit — Card, Button, Chip, TaskRow, Ring, Bars…
+components/          UI kit — Card, Button, Chip, TaskRow, Ring, Bars, Confirm…
 theme/               design tokens ported from static/css/ip-base.css
 lib/                 api client, auth, query cache, push, formatting
 ```

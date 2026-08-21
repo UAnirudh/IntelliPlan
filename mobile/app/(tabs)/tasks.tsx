@@ -219,6 +219,12 @@ export default function TasksScreen() {
             task={{ ...item, done: isDone(item) }}
             busy={busyTitle === item.title}
             onToggle={() => toggle(item)}
+            onPress={() =>
+              router.push({
+                pathname: "/task",
+                params: { data: JSON.stringify({ ...item, dismissed: isDone(item) }) },
+              })
+            }
           />
         )}
         ListEmptyComponent={

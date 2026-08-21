@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { View } from "react-native";
 import { AuthProvider } from "../lib/auth";
+import { ConfirmProvider } from "../components/Confirm";
 import { ThemeProvider, useTheme } from "../theme/ThemeProvider";
 
 function Shell() {
@@ -24,6 +25,12 @@ function Shell() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="settings" options={{ presentation: "modal" }} />
         <Stack.Screen name="new-task" options={{ presentation: "modal" }} />
+        <Stack.Screen name="task" options={{ presentation: "modal" }} />
+        <Stack.Screen name="connect" options={{ presentation: "modal" }} />
+        {/* Full screen, not a card: a session should not have a dismiss
+            gesture sitting under the student's thumb, and the timer is the
+            only thing that matters while it runs. */}
+        <Stack.Screen name="focus" options={{ presentation: "fullScreenModal" }} />
       </Stack>
     </View>
   );
@@ -34,7 +41,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ThemeProvider>
         <AuthProvider>
-          <Shell />
+          <ConfirmProvider>
+            <Shell />
+          </ConfirmProvider>
         </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>
