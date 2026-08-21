@@ -13,22 +13,19 @@
 .na-card {
   position: relative;
   margin-bottom: 18px;
-  padding: 18px 18px 16px 22px;
+  padding: 20px 18px 16px;
   border: 1px solid var(--border);
   border-radius: 24px;
   background: var(--bg-card);
   overflow: hidden;
 }
 
-/* The accent bar carries the card's whole "this is the decision" weight.
-   A coloured background would fight the rest of the rail. */
-.na-card::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  background: var(--accent);
-}
+/* Emphasis comes from hierarchy, not decoration. This card already outranks
+   the rest of the rail three ways: its title is set at 1.22rem against the
+   0.84rem uppercase labels the other cards use, its eyebrow is the only
+   accent-coloured text in the column, and it holds the only filled button.
+   A coloured bar down one edge would be a fourth signal saying the same
+   thing, and it is the one that reads as templated rather than designed. */
 
 .na-head {
   display: flex;
@@ -288,7 +285,7 @@
 }
 
 @media (max-width: 720px) {
-  .na-card { padding: 16px 15px 14px 19px; border-radius: 20px; }
+  .na-card { padding: 18px 15px 14px; border-radius: 20px; }
   .na-title { font-size: 1.12rem; }
   .na-actions { gap: 6px; }
   .na-btn { flex: 1 1 auto; text-align: center; }
