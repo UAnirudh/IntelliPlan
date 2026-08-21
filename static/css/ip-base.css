@@ -893,22 +893,30 @@
     .dropdown-item:hover  { background:var(--accent-soft); color:var(--accent); transform:translateX(3px); }
     .dropdown-item.active { background:var(--accent-soft); color:var(--accent); font-weight:600; }
 
+    /* A full-radius pill only reads as a pill while its label stays on one
+       line. Let "Fri, Aug 21" wrap to three lines and the 9999px radius
+       renders it as a circle instead. So: never wrap, and never let a flex
+       sibling squeeze it below its content width. Sizing is em-based off a
+       fluid font size, so the padding, gap, and dot keep their proportions
+       to the text at every viewport rather than drifting apart — the pill
+       looks identical on a 13" laptop and a 4K monitor. */
     .date-badge {
-      font-family:var(--font-ui); font-size:0.74rem; font-weight:600;
+      font-family:var(--font-ui); font-size:var(--fs-micro, 0.74rem); font-weight:600;
       color:var(--accent); background:var(--accent-soft);
-      padding:4px 12px; border-radius:var(--r-full);
-      display:inline-flex; align-items:center; gap:6px;
+      padding:0.34em 0.92em; border-radius:var(--r-full);
+      display:inline-flex; align-items:center; gap:0.46em;
       border:1px solid var(--border-accent);
+      white-space:nowrap; flex-shrink:0;
     }
     .date-badge::before {
-      content:''; width:6px; height:6px; border-radius:50%;
+      content:''; width:0.46em; height:0.46em; border-radius:50%;
       background:var(--accent); flex-shrink:0;
-      box-shadow:0 0 0 3px var(--accent-soft);
+      box-shadow:0 0 0 0.23em var(--accent-soft);
       animation:datePulse 2.4s ease-in-out infinite;
     }
     @keyframes datePulse {
-      0%, 100% { box-shadow:0 0 0 3px var(--accent-soft); }
-      50%      { box-shadow:0 0 0 5px transparent; }
+      0%, 100% { box-shadow:0 0 0 0.23em var(--accent-soft); }
+      50%      { box-shadow:0 0 0 0.38em transparent; }
     }
     .toggle-wrap { display:flex; align-items:center; gap:7px; font-size:0.75rem; color:var(--text-muted); font-weight:500; }
     .toggle { position:relative; width:46px; height:24px; cursor:pointer; flex-shrink:0; }
@@ -1295,14 +1303,14 @@
       display: flex; flex-direction: column; gap: 4px;
     }
     .side-foot-row {
-      display: flex; align-items: center; gap: 8px;
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap; row-gap: 6px;
       padding: 8px 10px; border-radius: var(--r-sm);
       color: var(--text-muted); font-size: 0.78rem; font-family: var(--font-ui); font-weight: 600;
     }
     .side-foot-row .toggle { width: 38px; height: 20px; }
     .side-foot-row .toggle-knob { width: 14px; height: 14px; top: 3px; left: 3px; }
     .side-foot-row .toggle input:checked ~ .toggle-knob { transform: translateX(18px); }
-    .side-foot-row .date-badge { padding: 3px 9px; font-size: 0.68rem; }
+    .side-foot-row .date-badge { font-size: calc(var(--fs-micro, 0.74rem) * 0.92); }
     .side-logout {
       background: none; border: none; cursor: pointer;
       width: 100%; text-align: left;
@@ -2212,7 +2220,7 @@
     .day-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-lg); padding:1.4rem; animation:fadeUp 0.4s var(--ease-out) both; }
     .day-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:1px solid var(--border); }
     .day-name { font-family:var(--font-display); font-size:1.05rem; color:var(--text-primary); }
-    .day-hours { font-family:var(--font-ui); font-size:0.82rem; color:var(--accent); font-weight:600; background:var(--accent-soft); padding:4px 12px; border-radius:var(--r-full); }
+    .day-hours { font-family:var(--font-ui); font-size:0.82rem; color:var(--accent); font-weight:600; background:var(--accent-soft); padding:4px 12px; border-radius:var(--r-full); white-space:nowrap; }
     .day-blocks { display:flex; flex-direction:column; gap:8px; }
     .time-block { display:flex; align-items:flex-start; gap:1rem; padding:0.7rem; background:var(--bg); border-radius:var(--r-sm); border:1px solid var(--border); }
     .time-slot { font-family:var(--font-ui); font-size:0.75rem; color:var(--accent); font-weight:600; white-space:nowrap; min-width:130px; }
@@ -2548,7 +2556,11 @@
 
     /* ── Tablet wide (900–1100px): reduce padding, hide date ── */
     @media (max-width:1100px) {
-      .date-badge { display:none; }
+      /* Scoped to the header: that is the crowded row this rule was written
+         for. Unscoped, it also blanked the sidebar's copy on any 769-1100px
+         screen, where the sidebar row has room to spare — the badge simply
+         disappeared on a common laptop width. */
+      .header-actions .date-badge { display:none; }
       #themeLabel { display:none; }
     }
 
