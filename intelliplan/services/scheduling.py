@@ -29,7 +29,7 @@ import logging
 import re
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
-from typing import Any, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
 import scheduler_engine
 from intelliplan.intelligence.decomposition import decompose
@@ -46,6 +46,9 @@ from intelliplan.intelligence.planner import (
 )
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:  # pragma: no cover - import cycle guard for annotations only
+    from intelliplan.intelligence import counterfactual
 
 __all__ = [
     "StudentContext",
@@ -341,6 +344,47 @@ class SchedulingService:
             model=self.model,
             today=today,
             config=self._config,
+        )
+
+    # ── Counterfactuals ───────────────────────────────────────────────
+
+    def plan_candidates(
+        self,
+        task_rows: Sequence[Mapping[str, Any]],
+        today: date | None = None,
+        horizon_days: int = DEFAULT_HORIZON_DAYS,
+        now: datetime | None = None,
+        objective: "counterfactual.ObjectiveWeights | None" = None,
+        completion_probability: Any = None,
+    ) -> list["counterfactual.Candidate"]:
+        """Build one plan per objective profile and score them all.
+
+        This is the same work :meth:`plan` does, four times, under different
+        weights — which is affordable precisely because planning is
+        deterministic and local. The point is not to find a better optimum
+        than :meth:`plan` finds; it is that "front-load and be safe" and
+        "spread it out and remember it" are different plans for different
+        weeks, and picking between them needs both on the table.
+
+        Returns candidates ranked best-first. An empty list means every
+        profile failed, which the caller must treat as "fall back to
+        :meth:`plan`" rather than as "no work to do".
+        """
+        from intelliplan.intelligence import counterfactual
+
+        now = now or datetime.now()
+        today = today or now.date()
+        tasks = self.tasks_from(task_rows)
+        if not tasks:
+            return []
+        return counterfactual.generate_candidates(
+            tasks,
+            self.capacities(today, horizon_days, now=now),
+            model=self.model,
+            today=today,
+            base_config=self._config,
+            objective=objective,
+            completion_probability=completion_probability,
         )
 
     # ── Rendering ─────────────────────────────────────────────────────

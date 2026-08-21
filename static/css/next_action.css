@@ -1,0 +1,304 @@
+/* Next Best Action card.
+ *
+ * Loads after command_center.css and owns only the `.na-` namespace, so it
+ * cannot affect a student outside the rollout even if the file is served to
+ * them — the card is `hidden` until the API answers.
+ *
+ * Visual intent: this is the one thing on the page that is telling the
+ * student what to do, so it reads as a decision rather than as another card
+ * in a grid — a left accent bar, a heavier title, and the supporting reasons
+ * set quiet underneath it. Everything else on the rail stays as it was.
+ */
+
+.na-card {
+  position: relative;
+  margin-bottom: 18px;
+  padding: 18px 18px 16px 22px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--bg-card);
+  overflow: hidden;
+}
+
+/* The accent bar carries the card's whole "this is the decision" weight.
+   A coloured background would fight the rest of the rail. */
+.na-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--accent);
+}
+
+.na-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.na-eyebrow {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.na-conf {
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* Confidence is stated, never implied. A recommendation we are unsure of
+   should not look identical to one we are sure of. */
+.na-conf[data-level="low"] { color: var(--warn-text, #b4780a); }
+
+.na-title {
+  margin: 0 0 4px;
+  font-family: var(--font-display, inherit);
+  font-size: 1.22rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.na-meta {
+  margin: 0 0 12px;
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.na-why {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 5px;
+}
+
+.na-why li {
+  position: relative;
+  padding-left: 15px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.na-why li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 0.62em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.na-method {
+  margin: 0 0 12px;
+  padding: 9px 11px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  font-family: var(--font-ui);
+  font-size: 0.79rem;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
+.na-narration {
+  margin: 0 0 12px;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.na-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.na-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+
+.na-btn:hover { background: color-mix(in srgb, var(--text-primary) 6%, transparent); }
+.na-btn:active { transform: translateY(1px); }
+
+.na-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.na-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.na-btn-primary:hover {
+  background: color-mix(in srgb, var(--accent) 88%, #000);
+}
+
+.na-btn-ghost {
+  border-color: transparent;
+  color: var(--text-secondary);
+  padding-inline: 8px;
+}
+
+.na-btn[disabled] { opacity: 0.55; cursor: default; }
+
+/* The score breakdown. Advanced-only by design: a student who asks "why?"
+   gets the arithmetic, and a student who does not never sees it. */
+.na-breakdown {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  display: grid;
+  gap: 4px;
+}
+
+.na-bd-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-ui);
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+}
+
+.na-bd-bar {
+  grid-column: 1 / -1;
+  height: 3px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text-secondary) 14%, transparent);
+  overflow: hidden;
+}
+
+.na-bd-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.na-bd-row[data-sign="negative"] .na-bd-val { color: var(--danger-text, #b91c1c); }
+
+.na-consequence {
+  margin-top: 12px;
+  padding: 11px 13px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--warn, #c8890f) 7%, transparent);
+  font-family: var(--font-ui);
+  font-size: 0.79rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.na-consequence ul {
+  margin: 7px 0 0;
+  padding-left: 16px;
+  display: grid;
+  gap: 3px;
+}
+
+.na-consequence .na-cost { color: var(--danger-text, #b91c1c); }
+.na-consequence .na-gain { color: var(--text-secondary); }
+
+.na-consequence-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.na-next {
+  margin-top: 12px;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+}
+
+.na-next > summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-weight: 600;
+  list-style: none;
+}
+
+.na-next > summary::-webkit-details-marker { display: none; }
+
+.na-next > summary::after {
+  content: " ›";
+  display: inline-block;
+  transition: transform 140ms ease;
+}
+
+.na-next[open] > summary::after { transform: rotate(90deg); }
+
+.na-next-list {
+  margin: 9px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+
+.na-next-list li > b {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.na-risk {
+  margin: 12px 0 0;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--danger-text, #b91c1c);
+}
+
+/* Reduced motion: the card's only motion is the button press, which is
+   already tiny — but honour the preference rather than assuming. */
+@media (prefers-reduced-motion: reduce) {
+  .na-btn,
+  .na-next > summary::after {
+    transition: none;
+  }
+  .na-btn:active { transform: none; }
+}
+
+@media (max-width: 720px) {
+  .na-card { padding: 16px 15px 14px 19px; border-radius: 20px; }
+  .na-title { font-size: 1.12rem; }
+  .na-actions { gap: 6px; }
+  .na-btn { flex: 1 1 auto; text-align: center; }
+}
+
+/* The `hidden` attribute is only as strong as the UA sheet, and any later
+   `display` rule on the same element beats it. Everything in this card that
+   toggles does so through `hidden`, so make it authoritative here rather than
+   discovering a stranded panel in production. */
+.na-card [hidden],
+.na-card[hidden] {
+  display: none !important;
+}

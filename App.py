@@ -1880,6 +1880,7 @@ def apply_study_schema_migrations():
 from intelliplan.models import command_center as _cc_models
 from intelliplan.models import learning_graph as _lg_models
 from intelliplan.models import active_session as _as_models
+from intelliplan.models import scheduler_decisions as _sched_models
 from intelliplan.migrations import (
     apply_active_session_migrations,
     apply_notification_migrations,
@@ -1887,10 +1888,15 @@ from intelliplan.migrations import (
     apply_email_migrations,
     apply_learning_graph_migrations,
     apply_media_balance_migrations,
+    apply_scheduler_audit_migrations,
     apply_sync_migrations,
 )
 BriefingCache, HealthSnapshot, StudentSignal = _cc_models.register(db)
 StudentProfile, ConceptMastery, LearningEvent = _lg_models.register(db)
+# Adaptive-scheduler audit trail: every plan version and every
+# recommendation, so "why did my week change?" has an answer and the
+# behavioural model has a training signal.
+ScheduleVersion, ScheduleDecision = _sched_models.register(db)
 # Active study sessions — the table the scheduler's estimation model learns
 # from. See intelliplan/models/active_session.py for the privacy contract
 # covering the focus-sample rows.
@@ -1919,6 +1925,7 @@ with app.app_context():
     apply_notification_migrations(db)
     apply_sync_migrations(db)
     apply_email_migrations(db)
+    apply_scheduler_audit_migrations(db)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -7838,8 +7845,10 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
         )
         config = PlannerConfig()
         service = SchedulingService(context, config)
-        plan = service.plan(rows)
+        plan, chosen = _choose_plan(service, rows, uid)
         data = service.to_schedule_data(plan)
+        if uid:
+            _record_plan_version(uid, plan, chosen, data)
 
         # Reuse the existing enrichment so the Interactive View, checklists,
         # and redirects keep working exactly as they do on the AI path.
@@ -7855,6 +7864,89 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
         print(f"[planner] v2 planning failed, falling back to AI path: {pe}")
         traceback.print_exc()
         return None
+
+
+def _choose_plan(service, rows, uid):
+    """The plan to ship, and the candidate it came from.
+
+    Outside the adaptive-scheduler cohort this is exactly the old behaviour:
+    one planner run, no comparison, no extra cost. Inside it, four objective
+    profiles are planned and scored, and the best *feasible* one wins.
+
+    "Feasible" is checked rather than assumed. A candidate is only vetoed on
+    a hard violation — overlapping blocks, work after its own deadline, study
+    on top of a calendar commitment — because a soft violation is a plan that
+    is merely worse, and refusing to ship those would mean refusing to ship
+    anything in a genuinely overloaded week.
+
+    Returns ``(plan, candidate_or_None)``. Any failure falls back to the
+    single-plan path: this is a ranking improvement, and a ranking
+    improvement must never be the reason a student gets no schedule.
+    """
+    if not uid or not feature_enabled_for_user("adaptive_scheduler", uid):
+        return service.plan(rows), None
+    try:
+        from intelliplan.intelligence import constraints as _constraints
+        from intelliplan.intelligence import counterfactual as _cf
+
+        candidates = service.plan_candidates(rows)
+        if not candidates:
+            return service.plan(rows), None
+
+        def _feasible(candidate):
+            try:
+                data = service.to_schedule_data(candidate.plan)
+                return _constraints.check_schedule(data).feasible
+            except Exception:
+                # An unverifiable candidate is not a rejected one. Vetoing on
+                # a checker crash would silently prefer whichever plan the
+                # checker happened to cope with.
+                return True
+
+        winner = _cf.choose(candidates, require_feasible=_feasible)
+        if winner is None:
+            return service.plan(rows), None
+        return winner.plan, winner
+    except Exception as exc:
+        print(f"[planner] candidate comparison failed, using single plan: {exc}")
+        return service.plan(rows), None
+
+
+def _record_plan_version(uid, plan, chosen, data, trigger="generated"):
+    """Write one ``schedule_versions`` row. Never raises.
+
+    The audit trail is not allowed to cost a student their schedule, so every
+    failure here is swallowed after logging — the plan has already been built
+    by the time this runs.
+    """
+    try:
+        from intelliplan.intelligence import constraints as _constraints
+        from intelliplan.repositories.schedule_audit import ScheduleAuditRepository
+
+        report = _constraints.check_schedule(data)
+        metrics = chosen.metrics if chosen is not None else None
+        ScheduleAuditRepository(ScheduleVersion, ScheduleDecision, db.session).record_version(
+            uid,
+            trigger=trigger,
+            objective_key=(chosen.profile.key if chosen is not None else "balanced"),
+            candidate_count=(1 if chosen is None else len(_cf_profiles())),
+            selected_score=(chosen.normalised_score if chosen is not None else 0.0),
+            deadline_risk=(metrics.deadline_risk if metrics else 0.0),
+            stress=(metrics.stress if metrics else 0.0),
+            completion_odds=(metrics.completion_odds if metrics else 0.0),
+            feasible=report.feasible,
+            violation_keys=[v.key for v in report.hard],
+            scheduled_minutes=plan.total_minutes,
+            deferred_minutes=sum(d.minutes for d in plan.deferred),
+        )
+    except Exception as exc:
+        print(f"[planner] version audit failed (non-fatal): {exc}")
+
+
+def _cf_profiles():
+    from intelliplan.intelligence.counterfactual import PROFILES
+
+    return PROFILES
 
 
 def _planner_feedback_rows(uid, gid):
@@ -10803,7 +10895,13 @@ def recover_schedule():
             ),
             PlannerConfig(),
         )
-        after = service.to_schedule_data(service.replan(rows, reality))
+        replanned = service.replan(rows, reality)
+        after = service.to_schedule_data(replanned)
+        if uid:
+            # A recovery is a new version of the plan, and the reason it
+            # exists is the whole point of recording it: "v15, because you
+            # missed two sessions" is an answer, "your week changed" is not.
+            _record_plan_version(uid, replanned, None, after, trigger="session_missed")
         try:
             after = enrich_schedule_data(after, normalized, preferred_time, hours_per_day)
         except Exception as ee:
@@ -13195,6 +13293,7 @@ DEFAULT_FLAGS = {
     "command_center": "AI Daily Command Center (kill switch — default page)",
     "active_study":  "Active study sessions (timer, focus check-in, feedback loop)",
     "planner_v2":    "Deterministic scheduling engine (kill switch — falls back to the AI path)",
+    "adaptive_scheduler": "Adaptive scheduler v3 — Next Best Action, counterfactual plans, overrides",
 }
 
 
@@ -13204,6 +13303,34 @@ def feature_enabled(key):
     try:
         row = FeatureFlag.query.filter_by(key=key).first()
         return True if row is None else bool(row.enabled)
+    except Exception:
+        return True
+
+
+def feature_enabled_for_user(key, user_id):
+    """``feature_enabled`` plus the flag's percentage rollout.
+
+    Assignment is a deterministic hash of ``(key, user_id)``, so a student
+    stays on the same side of a partial rollout across sessions and does not
+    drift as other people sign up — a feature that flickers on and off is
+    worse than one that is off.
+
+    Anonymous users (``user_id`` falsy) fall back to the plain flag: there is
+    no stable identity to bucket them by, and bucketing them randomly would
+    make every page load a coin flip.
+    """
+    if not user_id:
+        return feature_enabled(key)
+    try:
+        row = FeatureFlag.query.filter_by(key=key).first()
+        if row is None:
+            return True
+        if not row.enabled:
+            return False
+        pct = row.rollout_percentage if row.rollout_percentage is not None else 100
+        if pct >= 100:
+            return True
+        return streak_engine.is_user_in_rollout(int(user_id), key, pct)
     except Exception:
         return True
 
@@ -13222,6 +13349,10 @@ def inject_admin():
 
 _FLAG_OVERRIDES = {
     "streak_v1": {"enabled": False, "rollout_percentage": 0},
+    # The adaptive scheduler ships dark and is widened from the admin panel.
+    # It changes what students are told to do next, so the first cohort is
+    # small enough to read every complaint from.
+    "adaptive_scheduler": {"enabled": True, "rollout_percentage": 10},
 }
 
 def _seed_default_flags():
@@ -16226,6 +16357,11 @@ app.register_blueprint(learning_graph_bp)
 # resolves App lazily. The `active_study` flag is a kill switch (default on).
 from active_glue import active_bp
 app.register_blueprint(active_bp)
+# Adaptive scheduler v3 — Next Best Action, feasibility, overrides, versions.
+# Percentage-rolled-out; every route 404s outside the cohort. Nothing on an
+# existing surface depends on it.
+from next_action_glue import next_action_bp
+app.register_blueprint(next_action_bp)
 # ── Notifications. Outbox-backed: events are queued by the sweep and
 # delivered on a timer, so no student request ever waits on an SMS
 # gateway or an SMTP handshake.

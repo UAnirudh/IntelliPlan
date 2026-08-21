@@ -193,3 +193,20 @@ def apply_email_migrations(db: Any) -> list[str]:
     target = {"email_sends", "email_suppressions"}
     db.create_all()
     return sorted(target & existing)
+
+
+def apply_scheduler_audit_migrations(db: Any) -> list[str]:
+    """Ensure the adaptive scheduler's audit tables exist.
+
+    Same idempotent ``create_all`` pattern as the tables above. The unique
+    constraint on ``(user_id, version)`` comes from the model's table args and
+    is load-bearing rather than decorative: it is what makes concurrent plan
+    generations fail one insert instead of silently producing two rows both
+    called v15.
+    """
+
+    inspector = inspect(db.engine)
+    existing = set(inspector.get_table_names())
+    target = {"schedule_versions", "schedule_decisions"}
+    db.create_all()
+    return sorted(target & existing)

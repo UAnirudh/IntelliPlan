@@ -106,8 +106,42 @@
   {# ─────────────────────────── MAIN GRID ─────────────────────────── #}
   <div class="cc-grid">
 
-    {# ── LEFT: Today's Plan ── #}
+    {# ── LEFT: Next Best Action, then Today's Plan ── #}
     <section class="cc-rail cc-rail-left" aria-label="Today's plan">
+
+      {# Adaptive scheduler. Stays hidden until /api/next-action answers, so
+         students outside the rollout see exactly the page they saw before. #}
+      <section class="na-card" id="naCard" aria-label="What to do next" hidden>
+        <header class="na-head">
+          <span class="na-eyebrow">Do this next</span>
+          <span class="na-conf" id="naConfidence" title="How sure we are"></span>
+        </header>
+
+        <h3 class="na-title" id="naTitle"></h3>
+        <p class="na-meta" id="naMeta"></p>
+
+        <ul class="na-why" id="naWhy" aria-label="Why this"></ul>
+        <p class="na-method" id="naMethod" hidden></p>
+        <p class="na-narration" id="naNarration" hidden></p>
+
+        <div class="na-actions">
+          <button type="button" class="na-btn na-btn-primary" id="naStart">Start this</button>
+          <button type="button" class="na-btn" id="naNotNow">Not now</button>
+          <button type="button" class="na-btn na-btn-ghost" id="naWhyBtn"
+                  aria-expanded="false" aria-controls="naBreakdown">Why this?</button>
+        </div>
+
+        <div class="na-breakdown" id="naBreakdown" hidden></div>
+        <div class="na-consequence" id="naConsequence" hidden role="status"></div>
+
+        <details class="na-next" id="naUpcomingWrap" hidden>
+          <summary>What comes after</summary>
+          <ol class="na-next-list" id="naUpcoming"></ol>
+        </details>
+
+        <p class="na-risk" id="naRisk" hidden></p>
+      </section>
+
       <header class="cc-rail-head">
         <h2 class="cc-rail-title">Today's Plan</h2>
         <span class="cc-rail-meta" id="ccPlanMeta"></span>
@@ -321,4 +355,6 @@
 </div>
 
 <script src="/static/js/command_center.js?v={{ asset_v }}" defer></script>
+<link rel="stylesheet" href="/static/css/next_action.css?v={{ asset_v }}">
+<script src="/static/js/next_action.js?v={{ asset_v }}" defer></script>
 {% endblock %}
