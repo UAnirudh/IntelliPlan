@@ -2,7 +2,15 @@ import React, { useMemo, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { getGrades, getPredictions, GradeRow, Prediction } from "../../lib/api";
+import {
+  Concept,
+  getGrades,
+  getLearningDashboard,
+  getPredictions,
+  GradeRow,
+  LearningDashboard,
+  Prediction,
+} from "../../lib/api";
 import { useQuery } from "../../lib/useQuery";
 import { useTheme } from "../../theme/ThemeProvider";
 import { radius, space } from "../../theme/tokens";
@@ -41,7 +49,7 @@ function band(colors: ReturnType<typeof useTheme>["colors"], p: number | null) {
 export default function GradesScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const [tab, setTab] = useState<"current" | "forecast">("current");
+  const [tab, setTab] = useState<"current" | "forecast" | "learning">("current");
 
   const grades = useQuery<GradeRow[]>("grades", getGrades);
   // Predictions are an AI call, so they are only made once the student
@@ -51,6 +59,9 @@ export default function GradesScreen() {
     getPredictions,
     { enabled: tab === "forecast" },
   );
+  const learning = useQuery<LearningDashboard>("learning", getLearningDashboard, {
+    enabled: tab === "learning",
+  });
 
   const rows = useMemo(() => grades.data || [], [grades.data]);
 
@@ -90,6 +101,7 @@ export default function GradesScreen() {
           options={[
             { label: "Current", value: "current" as const },
             { label: "Forecast", value: "forecast" as const },
+            { label: "What you know", value: "learning" as const },
           ]}
           value={tab}
           onChange={setTab}
@@ -104,8 +116,20 @@ export default function GradesScreen() {
         }}
         refreshControl={
           <RefreshControl
-            refreshing={tab === "current" ? grades.refreshing : preds.refreshing}
-            onRefresh={tab === "current" ? grades.refresh : preds.refresh}
+            refreshing={
+              tab === "current"
+                ? grades.refreshing
+                : tab === "forecast"
+                  ? preds.refreshing
+                  : learning.refreshing
+            }
+            onRefresh={
+              tab === "current"
+                ? grades.refresh
+                : tab === "forecast"
+                  ? preds.refresh
+                  : learning.refresh
+            }
             tintColor={colors.accent}
           />
         }
@@ -171,24 +195,36 @@ export default function GradesScreen() {
               body="Connect Canvas, StudentVue, Schoology or Blackboard on the website and your grades appear here."
             />
           )
-        ) : preds.loading ? (
+        ) : tab === "forecast" && preds.loading ? (
           <Loading label="Working out where each course is heading…" />
-        ) : preds.missing ? (
+        ) : tab === "forecast" && preds.missing ? (
           <EmptyState
             icon="telescope-outline"
             title="Forecasts aren't enabled"
             body="Your account doesn't have grade prediction switched on yet."
           />
-        ) : preds.error ? (
+        ) : tab === "forecast" && preds.error ? (
           <ErrorState message={preds.error} onRetry={preds.reload} />
-        ) : preds.data?.predictions?.length ? (
+        ) : tab === "forecast" && preds.data?.predictions?.length ? (
           preds.data.predictions.map((p) => <PredictionCard key={p.course} p={p} />)
-        ) : (
+        ) : tab === "forecast" ? (
           <EmptyState
             icon="telescope-outline"
             title="Not enough to go on"
             body={preds.data?.message || "There aren't enough graded assignments yet to forecast anything honestly."}
           />
+        ) : learning.loading ? (
+          <Loading label="Reading what you've studied…" />
+        ) : learning.missing ? (
+          <EmptyState
+            icon="bulb-outline"
+            title="Learning insights aren't enabled"
+            body="Your account doesn't have the learning graph switched on yet."
+          />
+        ) : learning.error ? (
+          <ErrorState message={learning.error} onRetry={learning.reload} />
+        ) : (
+          <LearningPanel data={learning.data} />
         )}
       </ScrollView>
     </Screen>
@@ -258,3 +294,157 @@ function PredictionCard({ p }: { p: Prediction }) {
   );
 }
 
+
+/**
+ * What the student actually knows, as opposed to what they scored.
+ *
+ * Led by "review these before you lose them" rather than by the mastery
+ * table: a ranked list of strengths is interesting, but the only part of
+ * this that changes what someone does this evening is the decay list.
+ */
+function LearningPanel({ data }: { data: LearningDashboard | null }) {
+  const { colors } = useTheme();
+
+  const forgetting = data?.forgetting_soon || [];
+  const subjects = data?.mastery_by_subject || [];
+  const weakest = data?.weakest_concepts || [];
+
+  if (!forgetting.length && !subjects.length && !weakest.length) {
+    return (
+      <EmptyState
+        icon="bulb-outline"
+        title="Nothing tracked yet"
+        body="Study with Plani or work through a few sessions, and IntelliPlan starts building a picture of what's sticking."
+      />
+    );
+  }
+
+  return (
+    <View style={{ gap: space.sm }}>
+      {data?.profile ? (
+        <Card style={{ gap: space.sm }}>
+          <Label>Your profile</Label>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+            {data.profile.learning_pace ? (
+              <Chip label={`${data.profile.learning_pace} pace`} icon="speedometer-outline" />
+            ) : null}
+            {typeof data.profile.retention_score === "number" ? (
+              <Chip
+                label={`${Math.round(data.profile.retention_score * 100)}% retention`}
+                icon="save-outline"
+              />
+            ) : null}
+            {data.event_count_7d ? (
+              <Chip label={`${data.event_count_7d} sessions this week`} icon="pulse-outline" />
+            ) : null}
+          </View>
+          {data.profile.weakest_subjects?.length ? (
+            <T variant="sm" tone="secondary">
+              Weakest right now: {data.profile.weakest_subjects.join(", ")}.
+            </T>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {forgetting.length ? (
+        <Card style={{ gap: space.md, borderColor: colors.borderAccent }}>
+          <View>
+            <Label>Review before you lose these</Label>
+            <T variant="sm" tone="secondary" style={{ marginTop: 4 }}>
+              Ranked by how likely each one has slipped since you last looked at it.
+            </T>
+          </View>
+          {forgetting.slice(0, 5).map((c, i) => (
+            <ConceptRow key={`${c.subject}-${c.concept}-${i}`} c={c} metric="risk" />
+          ))}
+        </Card>
+      ) : null}
+
+      {subjects.length ? (
+        <Card style={{ gap: space.md }}>
+          <Label>Mastery by subject</Label>
+          {subjects.map((sub) => (
+            <View key={sub.subject} style={{ gap: 6 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", gap: space.sm }}>
+                <T variant="sm" weight="600" style={{ flex: 1 }} numberOfLines={1}>
+                  {sub.subject}
+                </T>
+                <T variant="sm" tone="muted" weight="600">
+                  {Math.round(sub.avg_mastery * 100)}% · {sub.concept_count}
+                </T>
+              </View>
+              <View
+                style={{
+                  height: 6,
+                  borderRadius: radius.pill,
+                  backgroundColor: colors.bgElevated,
+                  overflow: "hidden",
+                }}
+              >
+                <View
+                  style={{
+                    width: `${Math.max(0, Math.min(100, sub.avg_mastery * 100))}%`,
+                    height: "100%",
+                    backgroundColor: band(colors, sub.avg_mastery * 100),
+                  }}
+                />
+              </View>
+              {sub.weakest_concept ? (
+                <T variant="xs" tone="muted" numberOfLines={1}>
+                  Weakest: {sub.weakest_concept}
+                </T>
+              ) : null}
+            </View>
+          ))}
+        </Card>
+      ) : null}
+
+      {weakest.length ? (
+        <Card style={{ gap: space.md }}>
+          <Label>Shakiest concepts</Label>
+          {weakest.slice(0, 5).map((c, i) => (
+            <ConceptRow key={`${c.subject}-${c.concept}-${i}`} c={c} metric="mastery" />
+          ))}
+        </Card>
+      ) : null}
+    </View>
+  );
+}
+
+function ConceptRow({ c, metric }: { c: Concept; metric: "risk" | "mastery" }) {
+  const { colors } = useTheme();
+  const risk = metric === "risk";
+  const value = risk ? c.forgetting_risk : c.mastery_score;
+  // Risk reads the other way round from mastery: high risk is bad, high
+  // mastery is good, and the same colour ramp cannot serve both.
+  const colour = risk
+    ? value >= 0.66
+      ? colors.danger
+      : value >= 0.33
+        ? colors.warn
+        : colors.textMuted
+    : band(colors, value * 100);
+
+  return (
+    <View style={{ gap: 6 }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", gap: space.sm }}>
+        <T variant="sm" weight="600" style={{ flex: 1 }} numberOfLines={2}>
+          {c.concept}
+        </T>
+        <T variant="sm" weight="600" style={{ color: colour }}>
+          {Math.round(value * 100)}%
+        </T>
+      </View>
+      <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+        <Chip label={c.subject} />
+        {c.days_since_review > 0 ? (
+          <Chip
+            label={`${c.days_since_review}d since review`}
+            icon="calendar-outline"
+          />
+        ) : null}
+        {c.times_seen ? <Chip label={`seen ${c.times_seen}×`} /> : null}
+      </View>
+    </View>
+  );
+}

@@ -19,9 +19,11 @@ import { API_BASE } from "../lib/config";
 import { useQuery } from "../lib/useQuery";
 import { useAuth } from "../lib/auth";
 import { disablePush, enablePush, isPushEnabled } from "../lib/push";
+import { areRemindersEnabled, setRemindersEnabled, syncReminders } from "../lib/reminders";
+import { getTasks } from "../lib/api";
 import { useTheme, ThemeMode } from "../theme/ThemeProvider";
 import { radius, space } from "../theme/tokens";
-import { Button, Card, Chip, Field, Label, Notice, Screen, SegmentedRow, T } from "../components/ui";
+import { Button, Card, Chip, Divider, Field, Label, Notice, Screen, SegmentedRow, T } from "../components/ui";
 import { useConfirm } from "../components/Confirm";
 
 const THEMES: { label: string; value: ThemeMode }[] = [
@@ -51,6 +53,10 @@ export default function SettingsScreen() {
   const [pushBusy, setPushBusy] = useState(false);
   const [pushNote, setPushNote] = useState<string | null>(null);
 
+  const [local, setLocal] = useState(false);
+  const [localBusy, setLocalBusy] = useState(false);
+  const [localNote, setLocalNote] = useState<string | null>(null);
+
   // Seeded once the server copy lands. Without the guard, a re-render
   // while the student is typing would overwrite what they just entered.
   const [seeded, setSeeded] = useState(false);
@@ -63,6 +69,7 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     isPushEnabled().then(setPush).catch(() => {});
+    areRemindersEnabled().then(setLocal).catch(() => {});
   }, []);
 
   const togglePush = useCallback(async (on: boolean) => {
@@ -79,6 +86,34 @@ export default function SettingsScreen() {
       }
     } finally {
       setPushBusy(false);
+    }
+  }, []);
+
+  const toggleLocal = useCallback(async (on: boolean) => {
+    setLocalBusy(true);
+    setLocalNote(null);
+    try {
+      const granted = await setRemindersEnabled(on);
+      setLocal(granted);
+      if (on && !granted) {
+        setLocalNote("Notifications are turned off for IntelliPlan in your phone's settings.");
+        return;
+      }
+      if (granted) {
+        // Scheduled from the current list rather than whatever was cached
+        // whenever the student last opened the Due tab — turning reminders
+        // on should reflect what is actually due now.
+        const n = await syncReminders(await getTasks());
+        setLocalNote(
+          n
+            ? `${n} reminder${n === 1 ? "" : "s"} set for the next week.`
+            : "Nothing due in the next week to remind you about.",
+        );
+      }
+    } catch (e: any) {
+      setLocalNote(e?.message || "Couldn't set those up.");
+    } finally {
+      setLocalBusy(false);
     }
   }, []);
 
@@ -317,13 +352,36 @@ export default function SettingsScreen() {
           <Button title="Save profile" kind="secondary" busy={savingProfile} onPress={saveProfile} />
         </Card>
 
-        {/* ── Notifications ── */}
+        {/* ── Notifications ──
+            Two switches, not one, because they are genuinely different
+            things and collapsing them would mean the toggle silently does
+            nothing in Expo Go. */}
         <Card style={{ gap: space.md }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
             <View style={{ flex: 1 }}>
               <Label>Deadline reminders</Label>
               <T variant="sm" tone="secondary" style={{ marginTop: 4 }}>
-                Push a nudge before something is due and when a streak is at risk.
+                Your phone reminds you the evening before something is due. Works
+                offline, and in Expo Go.
+              </T>
+            </View>
+            <Switch
+              value={local}
+              onValueChange={toggleLocal}
+              disabled={localBusy}
+              trackColor={{ true: colors.accent, false: colors.bgElevated }}
+            />
+          </View>
+          {localNote ? <Notice text={localNote} tone="accent" icon="information-circle-outline" /> : null}
+
+          <Divider />
+
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+            <View style={{ flex: 1 }}>
+              <Label>Server nudges</Label>
+              <T variant="sm" tone="secondary" style={{ marginTop: 4 }}>
+                IntelliPlan pushes when a streak is at risk or a deadline moves,
+                even with the app closed. Needs a development build.
               </T>
             </View>
             <Switch

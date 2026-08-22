@@ -1,9 +1,10 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshControl, SectionList, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { dismissTask, getTasks, restoreTask, Task } from "../../lib/api";
+import { syncReminders } from "../../lib/reminders";
 import { useQuery } from "../../lib/useQuery";
 import { useTheme } from "../../theme/ThemeProvider";
 import { space } from "../../theme/tokens";
@@ -64,6 +65,16 @@ export default function TasksScreen() {
   );
 
   const tasks = useMemo(() => q.data || [], [q.data]);
+
+  // The reminder schedule is rebuilt whenever this list changes. This screen
+  // is the only place holding the full task list, so it is the only place
+  // that can keep on-device reminders honest — a deadline that moved, or
+  // work that got ticked off, is reflected the next time the list loads
+  // rather than firing a reminder for something already finished.
+  useEffect(() => {
+    if (!tasks.length) return;
+    syncReminders(tasks).catch(() => {});
+  }, [tasks]);
 
   const isDone = useCallback(
     (t: Task) => !!t.dismissed || locallyDone.has(t.title),

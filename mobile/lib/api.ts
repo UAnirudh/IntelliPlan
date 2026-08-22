@@ -687,3 +687,49 @@ export async function getQuests(): Promise<Quest[]> {
   if (Array.isArray(d)) return d;
   return d?.quests || [];
 }
+
+/* ── Learning graph ───────────────────────────────────────────────── */
+
+export type Concept = {
+  subject: string;
+  topic: string;
+  concept: string;
+  mastery_score: number;
+  confidence_score: number;
+  times_seen: number;
+  accuracy: number;
+  days_since_review: number;
+  /** 0..1 — how likely this has slipped since it was last looked at. */
+  forgetting_risk: number;
+};
+
+export type SubjectMastery = {
+  subject: string;
+  avg_mastery: number;
+  concept_count: number;
+  weakest_concept: string | null;
+  strongest_concept: string | null;
+};
+
+export type LearningDashboard = {
+  profile?: {
+    learning_pace?: string;
+    strongest_subjects?: string[];
+    weakest_subjects?: string[];
+    retention_score?: number;
+    engagement_score?: number;
+    gpa_snapshot?: number | null;
+  };
+  strongest_concepts?: Concept[];
+  weakest_concepts?: Concept[];
+  /** Ordered by forgetting risk — what to review before it goes. */
+  forgetting_soon?: Concept[];
+  mastery_by_subject?: SubjectMastery[];
+  study_trend?: number[];
+  retention_trend?: number[];
+  event_count_7d?: number;
+};
+
+export async function getLearningDashboard(): Promise<LearningDashboard> {
+  return apiFetch<LearningDashboard>("/api/learning/dashboard");
+}

@@ -21,7 +21,7 @@ Five tabs, in the order a school day happens:
 | **Today** | The Command Center — AI briefing, Academic Health dial, a 7-day workload forecast, and the ranked "do this first" list with `why_now` on each item. Falls back to a plain due-list if the briefing feature isn't enabled for the account. |
 | **Due** | Every assignment from every connected platform, grouped Overdue / Today / This week / Later, filterable by window and by course. Tap the circle to complete; the Done filter undoes it. |
 | **Plan** | The saved study plan, plus a generator (hours per day × when you focus best). Generating is a button — never automatic on open, so it can't quietly discard progress ticked off against the existing plan. |
-| **Grades** | Course grades with a percentage bar per course, and a Forecast tab with per-course predictions, trend, and the confidence behind each number. |
+| **Grades** | Three segments: **Current** (a percentage bar per course), **Forecast** (per-course predictions with trend and the confidence behind each number), and **What you know** (mastery by subject, and the concepts most likely to have slipped since you last reviewed them). |
 | **Plani** | The AI tutor with conversation history, plus Snap & Solve: photograph a worksheet and it works through every problem it can see. |
 
 Four modals sit over the tabs:
@@ -87,6 +87,28 @@ One themed sheet renders on all three platforms instead: it matches the
 rest of the app, it can be driven in a test, and there is only one
 implementation to keep correct.
 
+## Running it on your phone
+
+```bash
+cd mobile
+npm install
+npm run start:prod        # points at https://intelliplan.tech
+```
+
+Scan the QR with **Expo Go** (Android: in-app scanner; iOS: the Camera app).
+Phone and laptop must be on the same wifi. If they are not — or the network
+blocks peer traffic, which school and café wifi routinely does — use:
+
+```bash
+npm run start:tunnel
+```
+
+`npm start` on its own points at a **local** Flask server instead. That now
+works from a real phone too: the app reads the LAN address Expo served the
+bundle from and talks to port 5000 on that same machine, so
+`python App.py` on your laptop is reachable with no configuration. Emulators
+still fall back to `10.0.2.2` / `localhost`.
+
 ## Configuration
 
 `lib/config.ts` defaults to production and only uses dev-machine addresses
@@ -112,9 +134,19 @@ a reminder reaches the phone with no change at the call site. Signing out
 unregisters the token first, so a borrowed phone stops receiving the
 previous student's deadlines.
 
-**Remote push does not work in Expo Go on Android** (SDK 53+). The toggle
-in the profile sheet will say so rather than failing silently. Use a
-development build to test it:
+There are **two** reminder switches in the profile sheet, because they are
+genuinely different mechanisms and collapsing them would mean one of them
+silently does nothing:
+
+* **Deadline reminders** (`lib/reminders.ts`) are scheduled on the device
+  from the task list the app already fetched, for the evening before each
+  deadline. They fire in Expo Go, they fire offline, and they cost nothing
+  to deliver — the trade is that they only know about deadlines as of the
+  last time you opened the app. The schedule is rebuilt from scratch every
+  time the Due list loads, so finished work stops nagging you.
+* **Server nudges** (`lib/push.ts`) are remote push, and **do not work in
+  Expo Go on Android** (SDK 53+). The toggle says so rather than failing
+  silently. Use a development build to test it:
 
 ```bash
 npx eas build --profile development --platform android
@@ -157,7 +189,7 @@ app/                 expo-router file routes
   new-task.tsx       add a task (modal)
 components/          UI kit — Card, Button, Chip, TaskRow, Ring, Bars, Confirm…
 theme/               design tokens ported from static/css/ip-base.css
-lib/                 api client, auth, query cache, push, formatting
+lib/                 api client, auth, query cache, push, reminders, formatting
 ```
 
 `theme/tokens.ts` is copied literally from the web palette rather than
