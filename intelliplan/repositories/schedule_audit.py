@@ -273,6 +273,24 @@ class ScheduleAuditRepository:
                 pass
             return False
 
+    def override_count(self, user_id: int, since: datetime | None = None) -> int:
+        """How many times this student has moved, skipped, or shortened work.
+
+        Feeds the behavioural model's reschedule rate. Counted from the
+        decision log rather than inferred from plan diffs, because a plan
+        diff cannot tell "the student moved this" apart from "the optimiser
+        moved this", and only the first says anything about the student.
+        """
+        try:
+            q = self._decisions.query.filter_by(
+                user_id=user_id, decision_type="override",
+            )
+            if since is not None:
+                q = q.filter(self._decisions.created_at >= since)
+            return int(q.count())
+        except Exception:
+            return 0
+
     def acceptance_rate(self, user_id: int, since: datetime | None = None) -> float | None:
         """Share of answered recommendations the student took.
 

@@ -4,7 +4,7 @@ Companion to [01-architecture-audit.md](01-architecture-audit.md), which
 records what the scheduler was before this work. This document records what
 was added, why each piece exists, and what is deliberately still missing.
 
-Tests: **1479 passing** (baseline was 1295 — 184 new, zero regressions).
+Tests: **1571 passing** (baseline was 1295 — 276 new, zero regressions).
 
 ## 1. What was added, and what was left alone
 
@@ -179,14 +179,42 @@ The engines are nowhere near the budget; the cost in production is loading
 the student's data, which is why every load sits behind an injectable
 provider the caller can cache.
 
+## 10a. Accessibility
+
+The card is covered by [../accessibility/POLICY.md](../accessibility/POLICY.md)
+and by the contracts in `tests/test_accessibility_contract.py`, which this
+work extended from 4 checks to 8 — adding button accessible names, live
+regions that must not contain controls, `aria-controls` targets that must
+exist, and disclosure buttons that must declare `aria-expanded`.
+
+Those new contracts immediately found three pre-existing defects, all fixed:
+an icon-only "New conversation" button with only a `title`, and two
+`role="alert"` containers (Command Center's error banner, the scheduler's
+generate error) that wrapped their retry buttons — so a screen reader
+announced the button label as prose and focus never moved there. In both the
+role moved onto the message span.
+
+Contrast was measured rather than eyeballed, which found two failures in the
+new card: `--warn-text` at 0.68rem was 3.73:1 on the light card, and white on
+`var(--accent)` was 3.03:1 in dark mode. Both fixed. The second is a
+**pre-existing app-wide pattern** — `color: #fff` on the accent is hardcoded
+at ~20 other call sites and fails in all six dark themes, bottoming out at
+1.74:1. `next_action.css` pairs `--accent` with `--bg-card` instead, which
+measures ≥5.02:1 across all 13 shipped themes; the sweep is logged as open in
+the policy.
+
 ## 11. Known limits
 
 Stated rather than hidden:
 
-* **Overrides do not re-optimise.** By design (§6), but it means a student
-  who moves five things gets five literal moves and no rebalancing until they
-  run recovery. The next step is offering re-optimisation as an explicit
-  second choice after an override.
+* **Overrides do not re-optimise automatically.** By design (§6). The gap
+  that mattered — a literal move can leave a day nobody can do, and the
+  product said nothing — is closed: `overrides.rebalance_worth_offering`
+  decides whether re-solving would actually help, and the card offers it
+  with the reason. It deliberately stays quiet when the move was harmless,
+  because prompting every time trains people to dismiss the prompt. What is
+  still missing is an in-place rebalance endpoint: the offer currently routes
+  to the scheduler, where regeneration already lives.
 * **Mastery decay is a heuristic.** `next_action_glue._mastery` applies the
   row's own `decay_rate` with a floor. It is defensible and it is not fitted
   — there is not yet enough labelled review data to fit it.

@@ -387,3 +387,114 @@ def test_explaining_nothing_is_not_an_error(harness):
     state["schedule"] = None
     body = client.get("/api/next-action/explain").get_json()
     assert body["explanation"] is None
+
+
+# ── work is never lost ───────────────────────────────────────────────
+
+
+def test_moving_off_the_last_day_defers_the_work_rather_than_dropping_it(harness):
+    """The regression this exists for: the block vanished from the saved
+    plan entirely. The Plan object recorded a deferral, but schedule_data —
+    the thing that is stored and rendered — silently lost it."""
+    client, state, _ = harness
+    # A one-day plan: there is nowhere later to move to.
+    state["schedule"] = {"schedule": [{
+        "date": TODAY.isoformat(),
+        "day_name": TODAY.strftime("%A"),
+        "blocks": [a_block()],
+        "capacity_minutes": 180,
+        "total_minutes": 45,
+    }]}
+    data = client.post("/api/schedule/override/apply",
+                       json={"action": "move", "task_id": "t1",
+                             "day": TODAY.isoformat()}).get_json()["data"]
+
+    assert sum(len(d["blocks"]) for d in data["schedule"]) == 0
+    deferred = data.get("deferred") or []
+    assert [d["task_id"] for d in deferred] == ["t1"]
+    assert deferred[0]["minutes"] == 45
+    assert data["overloaded"] is True
+
+
+def test_skipping_records_the_work_as_deferred(harness):
+    client, _, _ = harness
+    data = client.post("/api/schedule/override/apply",
+                       json={"action": "skip", "task_id": "t1",
+                             "day": TODAY.isoformat()}).get_json()["data"]
+    deferred = data.get("deferred") or []
+    assert [d["task_id"] for d in deferred] == ["t1"]
+    assert "skip" in deferred[0]["reason"].lower()
+
+
+def test_shortening_defers_only_the_trimmed_remainder(harness):
+    client, _, _ = harness
+    data = client.post("/api/schedule/override/apply",
+                       json={"action": "shorten", "task_id": "t1",
+                             "day": TODAY.isoformat(), "minutes": 30}).get_json()["data"]
+    kept = data["schedule"][0]["blocks"]
+    assert len(kept) == 1
+    assert kept[0]["duration_minutes"] == 30
+    deferred = data.get("deferred") or []
+    assert sum(d["minutes"] for d in deferred) == 15
+
+
+def test_an_existing_deferral_list_is_appended_to_not_replaced(harness):
+    client, state, _ = harness
+    state["schedule"]["deferred"] = [
+        {"task_id": "older", "title": "Older", "minutes": 20, "reason": "earlier"}
+    ]
+    data = client.post("/api/schedule/override/apply",
+                       json={"action": "skip", "task_id": "t1",
+                             "day": TODAY.isoformat()}).get_json()["data"]
+    assert [d["task_id"] for d in data["deferred"]] == ["older", "t1"]
+
+
+def test_a_successful_move_does_not_invent_a_deferral(harness):
+    client, _, _ = harness
+    data = client.post("/api/schedule/override/apply",
+                       json={"action": "move", "task_id": "t1",
+                             "day": TODAY.isoformat()}).get_json()["data"]
+    assert not data.get("deferred")
+    assert not data.get("overloaded")
+
+
+# ── override target bounds ───────────────────────────────────────────
+
+
+def test_a_target_day_beyond_the_horizon_is_refused(harness):
+    client, _, _ = harness
+    far = (TODAY + timedelta(days=400)).isoformat()
+    resp = client.post("/api/schedule/override",
+                       json={"action": "move", "task_id": "t1",
+                             "day": TODAY.isoformat(), "to_day": far})
+    assert resp.status_code == 400
+
+
+def test_a_target_day_in_the_past_is_refused(harness):
+    client, _, _ = harness
+    resp = client.post("/api/schedule/override",
+                       json={"action": "move", "task_id": "t1",
+                             "day": TODAY.isoformat(),
+                             "to_day": (TODAY - timedelta(days=2)).isoformat()})
+    assert resp.status_code == 400
+
+
+def test_moving_work_backwards_is_refused(harness):
+    """"Move it to tomorrow" is the whole feature. Moving it *earlier* is a
+    different operation with different consequences, and silently accepting
+    it here would report the wrong ones."""
+    client, _, _ = harness
+    resp = client.post("/api/schedule/override",
+                       json={"action": "move", "task_id": "t1",
+                             "day": TOMORROW.isoformat(),
+                             "to_day": TODAY.isoformat()})
+    assert resp.status_code == 400
+
+
+def test_a_target_day_inside_the_horizon_is_accepted(harness):
+    client, _, _ = harness
+    resp = client.post("/api/schedule/override",
+                       json={"action": "move", "task_id": "t1",
+                             "day": TODAY.isoformat(),
+                             "to_day": (TODAY + timedelta(days=3)).isoformat()})
+    assert resp.status_code == 200

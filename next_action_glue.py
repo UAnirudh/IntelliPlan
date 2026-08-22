@@ -441,6 +441,12 @@ def _resolve_decision(user_id: int, task_id: str, accepted: bool) -> bool:
     return _audit().resolve(user_id, task_id, accepted)
 
 
+def _reschedule_count(user_id: int) -> int:
+    from datetime import timedelta
+
+    return _audit().override_count(user_id, datetime.now() - timedelta(days=HISTORY_DAYS))
+
+
 def _versions_for(user_id: int, limit: int) -> list:
     return _audit().versions_for(user_id, limit)
 
@@ -485,6 +491,7 @@ def _build_service() -> NextActionService:
         get_daily_minutes=_daily_minutes,
         get_in_progress=_in_progress,
         get_remaining_minutes=_remaining_minutes,
+        get_reschedule_count=_reschedule_count,
     )
 
 

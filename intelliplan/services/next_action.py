@@ -182,6 +182,10 @@ class NextActionService:
         lambda uid: (frozenset(), "", 0)
     )
     get_remaining_minutes: Callable[[int, datetime], int] = lambda uid, now: 0
+    #: How many overrides this student has made. Without it the behavioural
+    #: model's reschedule rate is permanently zero — a number that looks
+    #: measured and never is.
+    get_reschedule_count: Callable[[int], int] = lambda uid: 0
     weights: nba.NBAWeights = field(default_factory=nba.NBAWeights)
 
     # ── snapshot ─────────────────────────────────────────────────────
@@ -207,6 +211,9 @@ class NextActionService:
                 session_rows,
                 self._safe(self.get_feedback_rows, user_id, default=[]),
                 daily_minutes=self._safe(self.get_daily_minutes, user_id, default={}),
+                reschedule_events=int(
+                    self._safe(self.get_reschedule_count, user_id, default=0)
+                ),
                 now=now,
             )
         except Exception as exc:
@@ -574,6 +581,13 @@ def preview_override(
         completion_probability=probability,
         affected_days=tuple(d for d in (day, target) if d is not None),
     )
+    _, offer = overrides_engine.rebalance_worth_offering(
+        after, touched=tuple(d for d in (day, target) if d is not None)
+    )
     return overrides_engine.OverrideOutcome(
-        plan=after, report=report, moved_minutes=moved, target_day=target
+        plan=after,
+        report=report,
+        moved_minutes=moved,
+        target_day=target,
+        rebalance_offer=offer,
     )

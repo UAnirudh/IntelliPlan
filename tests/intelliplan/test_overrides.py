@@ -206,3 +206,67 @@ def test_consequences_use_the_behavioural_odds_when_they_are_supplied():
 
     overrides.evaluate(before, after, tasks, TODAY, completion_probability=odds)
     assert calls
+
+
+# ── rebalance offer ──────────────────────────────────────────────────
+
+
+def test_a_harmless_move_does_not_prompt_a_rebalance():
+    """Prompting after every move trains people to dismiss the prompt.
+
+    "Harmless" has to mean genuinely harmless: a roomy week where the
+    receiving day absorbs the work without going over. The default fixture
+    is *not* that — moving t1 there pushes tomorrow past its capacity, which
+    is precisely when the student should be told.
+    """
+    tasks = [task("t1", days=5, minutes=60)]
+    before = build_plan(tasks, caps(days=7, minutes=400), today=TODAY)
+    after, moved, target = overrides.move_task(before, task_id="t1", from_day=TODAY)
+    assert moved > 0
+    worth, message = overrides.rebalance_worth_offering(after, touched=(TODAY, target))
+    assert worth is False
+    assert message == ""
+
+
+def test_a_move_that_overloads_the_receiving_day_does_prompt():
+    """The default fixture: 80 minutes moved onto a day that then holds 168
+    against a 150-minute capacity."""
+    before, _ = a_plan()
+    after, moved, target = overrides.move_task(before, task_id="t1", from_day=TODAY)
+    assert moved > 0
+    worth, message = overrides.rebalance_worth_offering(after, touched=(TODAY, target))
+    assert worth is True
+    assert "over what you have free" in message
+
+
+def test_work_with_nowhere_to_go_prompts_a_rebalance():
+    tasks = [task("t1", days=1, minutes=90)]
+    before = build_plan(tasks, caps(days=1), today=TODAY)
+    after, _, _ = overrides.move_task(before, task_id="t1", from_day=TODAY)
+    worth, message = overrides.rebalance_worth_offering(after)
+    assert worth is True
+    assert "no longer has a place" in message
+
+
+def test_an_empty_plan_is_never_offered_a_rebalance():
+    from intelliplan.intelligence.planner import Plan
+
+    worth, message = overrides.rebalance_worth_offering(Plan(days=()))
+    assert worth is False
+    assert message == ""
+
+
+def test_the_offer_rides_along_on_the_outcome_payload():
+    tasks = [task("t1", days=1, minutes=90)]
+    before = build_plan(tasks, caps(days=1), today=TODAY)
+    after, moved, target = overrides.move_task(before, task_id="t1", from_day=TODAY)
+    _, offer = overrides.rebalance_worth_offering(after)
+    outcome = overrides.OverrideOutcome(
+        plan=after,
+        report=overrides.evaluate(before, after, tasks, TODAY),
+        moved_minutes=moved,
+        target_day=target,
+        rebalance_offer=offer,
+    )
+    assert outcome.to_dict()["rebalance_offer"] == offer
+    assert offer

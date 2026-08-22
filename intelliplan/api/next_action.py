@@ -42,6 +42,13 @@ FLAG_KEY = "adaptive_scheduler"
 #: Bounded so one client cannot pin a worker re-measuring the same plan.
 MAX_OVERRIDE_MINUTES = 600
 
+#: How far ahead an override may push work. The planner's horizon is 14 days;
+#: beyond that there is no plan to move into, and accepting an arbitrary date
+#: would let a client mint calendar days years out that every later read has
+#: to cope with. Rejected loudly rather than clamped: silently retargeting
+#: someone's move to a date they did not choose is worse than refusing it.
+MAX_OVERRIDE_HORIZON_DAYS = 30
+
 
 @dataclass(frozen=True)
 class NextActionDeps:
@@ -184,8 +191,15 @@ def create_next_action_blueprint(deps: NextActionDeps) -> Blueprint:
         task_id = str(body.get("task_id") or "").strip()
         if not task_id:
             abort(400, description="task_id is required.")
-        day = _as_date(body.get("day")) or deps.now().date()
+        today = deps.now().date()
+        day = _as_date(body.get("day")) or today
         to_day = _as_date(body.get("to_day"))
+        if to_day is not None:
+            offset = (to_day - today).days
+            if offset < 0 or offset > MAX_OVERRIDE_HORIZON_DAYS:
+                abort(400, description="to_day is outside the planning horizon.")
+            if to_day <= day:
+                abort(400, description="to_day must be after the day being moved from.")
         try:
             minutes = int(body.get("minutes") or 0)
         except (TypeError, ValueError):
@@ -353,6 +367,14 @@ def _apply_to_schedule_data(
     That is correct and deliberate: 7 PM on Tuesday is not 7 PM on Wednesday,
     and carrying the old times over would produce a block that looks placed
     and is not. The next placement pass re-times them.
+
+    **Work never leaves the blob silently.** Anything this removes and cannot
+    re-place — a move with nowhere to go, a skip, the trimmed tail of a
+    shorten — is appended to ``deferred`` and flips ``overloaded``, the same
+    two fields ``plan_to_schedule_data`` uses for the same purpose. A block
+    that disappears from the calendar and is recorded only in a ``Plan``
+    object the student never sees is work they have been told about in a way
+    they will never see.
     """
     data = dict(schedule_data or {})
     days = [dict(d) for d in (data.get("schedule") or []) if isinstance(d, dict)]
@@ -366,21 +388,38 @@ def _apply_to_schedule_data(
     if not matched:
         return data
     kept = [b for b in blocks if _block_task(b) != task_id]
+    dropped: list[dict] = []
 
     if action == "shorten":
         remaining = max(0, minutes)
         trimmed = []
         for b in matched:
-            take = min(int(b.get("duration_minutes") or 0), remaining)
+            full = int(b.get("duration_minutes") or 0)
+            take = min(full, remaining)
             remaining -= take
             if take > 0:
                 trimmed.append({**b, "duration_minutes": take})
+            if full - take > 0:
+                dropped.append(_deferral(b, full - take, "You shortened this sitting."))
         src["blocks"] = _reorder(kept + trimmed)
     elif action == "skip":
         src["blocks"] = _reorder(kept)
+        dropped = [
+            _deferral(b, int(b.get("duration_minutes") or 0), "You chose to skip this.")
+            for b in matched
+        ]
     else:  # move
         src["blocks"] = _reorder(kept)
-        if to_day is not None:
+        if to_day is None:
+            dropped = [
+                _deferral(
+                    b,
+                    int(b.get("duration_minutes") or 0),
+                    "You moved this out of the last day in the plan.",
+                )
+                for b in matched
+            ]
+        else:
             dst = next(
                 (d for d in days if str(d.get("date") or "")[:10] == to_day.isoformat()),
                 None,
@@ -406,7 +445,28 @@ def _apply_to_schedule_data(
         )
     days.sort(key=lambda d: str(d.get("date") or ""))
     data["schedule"] = days
+
+    if dropped:
+        existing = [x for x in (data.get("deferred") or []) if isinstance(x, dict)]
+        data["deferred"] = existing + dropped
+        data["overloaded"] = True
+
     return data
+
+
+def _deferral(block: dict, minutes: int, reason: str) -> dict:
+    """One entry in ``schedule_data["deferred"]``.
+
+    Same shape ``plan_to_schedule_data`` writes, so the surfaces that already
+    render deferrals pick these up with no change.
+    """
+    return {
+        "task_id": block.get("task_id"),
+        "title": block.get("parent_title") or block.get("assignment") or "Task",
+        "minutes": int(minutes),
+        "due_date": block.get("due_date") or None,
+        "reason": reason,
+    }
 
 
 def _block_task(block: dict) -> str:

@@ -38,9 +38,12 @@
 
 <div class="cc-page" id="ccPage">
 
-  <div class="cc-error-banner" id="ccErrorBanner" role="alert" hidden>
+  {# role="alert" sits on the message, not on this container. A live region
+     that also holds the retry button gets announced wholesale, so the label
+     is read out as prose while focus stays nowhere near the control. #}
+  <div class="cc-error-banner" id="ccErrorBanner" hidden>
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-warning"/></svg>
-    <span id="ccErrorMsg"></span>
+    <span id="ccErrorMsg" role="alert"></span>
     <button type="button" onclick="location.reload()" class="cc-error-retry">Try again</button>
   </div>
 
@@ -132,7 +135,17 @@
         </div>
 
         <div class="na-breakdown" id="naBreakdown" hidden></div>
-        <div class="na-consequence" id="naConsequence" hidden role="status"></div>
+
+        {# The consequence panel is split deliberately. Only the *message* is
+           a live region: a status region that also contains buttons gets
+           announced wholesale, so a screen-reader user hears the button
+           labels read at them as prose before they can reach the controls.
+           The buttons sit outside it, and focus is moved to the confirm
+           button when the panel opens. #}
+        <div class="na-consequence" id="naConsequence" hidden>
+          <div id="naConsequenceMsg" role="status" aria-live="polite"></div>
+          <div class="na-consequence-actions" id="naConsequenceActions"></div>
+        </div>
 
         <details class="na-next" id="naUpcomingWrap" hidden>
           <summary>What comes after</summary>
@@ -165,7 +178,7 @@
           <div class="cc-chat-header-title">IntelliPlan</div>
           <div class="cc-chat-header-sub" id="ccChatSub"><span class="cc-chat-status-dot"></span>connecting&hellip;</div>
         </div>
-        <button type="button" class="cc-chat-newbtn" onclick="planiNew()" title="New conversation">
+        <button type="button" class="cc-chat-newbtn" onclick="planiNew()" title="New conversation" aria-label="New conversation">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
       </header>

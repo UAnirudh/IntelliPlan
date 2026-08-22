@@ -27,6 +27,8 @@
     whyBtn: document.getElementById("naWhyBtn"),
     breakdown: document.getElementById("naBreakdown"),
     consequence: document.getElementById("naConsequence"),
+    consequenceMsg: document.getElementById("naConsequenceMsg"),
+    consequenceActions: document.getElementById("naConsequenceActions"),
     upcomingWrap: document.getElementById("naUpcomingWrap"),
     upcoming: document.getElementById("naUpcoming"),
     risk: document.getElementById("naRisk")
@@ -41,8 +43,18 @@
   }
 
   function show(node, on) {
-    if (on) node.removeAttribute("hidden");
-    else node.setAttribute("hidden", "");
+    if (on) {
+      node.removeAttribute("hidden");
+      return;
+    }
+    // Hiding a node that currently holds focus drops the caret to <body>,
+    // which for a keyboard user means losing their place in the page
+    // entirely. Move focus somewhere meaningful first.
+    if (node.contains(document.activeElement)) {
+      var fallback = el.start && !el.start.hasAttribute("hidden") ? el.start : card;
+      try { fallback.focus({ preventScroll: true }); } catch (e) { /* older browsers */ }
+    }
+    node.setAttribute("hidden", "");
   }
 
   function minutesLabel(mins) {
@@ -75,12 +87,12 @@
       });
   }
 
-  function postJSON(url, body) {
-    return json(url, {
+  function postJSON(url, body, extra) {
+    return json(url, Object.assign({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body || {})
-    });
+    }, extra || {}));
   }
 
   // ── rendering ──────────────────────────────────────────────────────
@@ -177,6 +189,9 @@
 
       var bar = document.createElement("div");
       bar.className = "na-bd-bar";
+      // The number is already in the row as text; the bar restates it
+      // visually and has nothing of its own to announce.
+      bar.setAttribute("aria-hidden", "true");
       var fill = document.createElement("span");
       fill.style.width = Math.round((Math.abs(value) / peak) * 100) + "%";
       if (value < 0) fill.style.background = "var(--danger, #dc2626)";
@@ -230,11 +245,12 @@
   // ── override consequences ──────────────────────────────────────────
 
   function renderConsequence(preview) {
-    el.consequence.innerHTML = "";
+    el.consequenceMsg.innerHTML = "";
+    el.consequenceActions.innerHTML = "";
 
     var summary = document.createElement("div");
     summary.textContent = preview.summary || "";
-    el.consequence.appendChild(summary);
+    el.consequenceMsg.appendChild(summary);
 
     var entries = []
       .concat((preview.gains || []).map(function (g) { return { c: g, good: true }; }))
@@ -245,22 +261,22 @@
       entries.slice(0, 5).forEach(function (entry) {
         var li = document.createElement("li");
         li.className = entry.good ? "na-gain" : "na-cost";
-        li.textContent = (entry.good ? "+ " : "− ") + describeDelta(entry.c);
+        // The sign is carried in words as well as in the glyph and the
+        // colour. A screen reader announcing a bare minus sign, and a
+        // colour-blind reader seeing none, both still get "costs you".
+        li.textContent =
+          (entry.good ? "Gains: " : "Costs: ") + describeDelta(entry.c);
         list.appendChild(li);
       });
-      el.consequence.appendChild(list);
+      el.consequenceMsg.appendChild(list);
     }
 
     if (preview.infeasible_reason) {
       var warn = document.createElement("div");
-      warn.className = "na-cost";
-      warn.style.marginTop = "7px";
+      warn.className = "na-cost na-consequence-warn";
       warn.textContent = preview.infeasible_reason;
-      el.consequence.appendChild(warn);
+      el.consequenceMsg.appendChild(warn);
     }
-
-    var actions = document.createElement("div");
-    actions.className = "na-consequence-actions";
 
     var confirm = document.createElement("button");
     confirm.type = "button";
@@ -275,12 +291,17 @@
     cancel.addEventListener("click", function () {
       state.pendingOverride = null;
       show(el.consequence, false);
+      try { el.notNow.focus({ preventScroll: true }); } catch (e) { /* older browsers */ }
     });
 
-    actions.appendChild(confirm);
-    actions.appendChild(cancel);
-    el.consequence.appendChild(actions);
+    el.consequenceActions.appendChild(confirm);
+    el.consequenceActions.appendChild(cancel);
     show(el.consequence, true);
+
+    // A panel of consequences that appears without taking focus is one a
+    // keyboard user has to go looking for, and they have no way to know it
+    // is there. Land them on the affirmative choice.
+    try { confirm.focus({ preventScroll: true }); } catch (e) { /* older browsers */ }
   }
 
   function describeDelta(consequence) {
@@ -337,8 +358,10 @@
   function applyOverride() {
     if (!state.pendingOverride) return;
     var body = state.pendingOverride;
+    var offer = "";
     postJSON("/api/schedule/override/apply", body)
-      .then(function () {
+      .then(function (data) {
+        offer = (data && data.rebalance_offer) || "";
         return postJSON("/api/next-action/respond", {
           task_id: body.task_id,
           accepted: false
@@ -347,9 +370,42 @@
       .catch(function () { /* the plan write is the part that matters */ })
       .finally(function () {
         state.pendingOverride = null;
-        show(el.consequence, false);
         load();
+        // An override is applied literally, which is what the student asked
+        // for and can sometimes leave a day that no longer works. Saying
+        // nothing about that is how the plan quietly becomes wrong; saying
+        // it every time would train them to dismiss it. The server decides
+        // whether it is worth raising.
+        if (offer) renderRebalanceOffer(offer);
+        else show(el.consequence, false);
       });
+  }
+
+  function renderRebalanceOffer(message) {
+    el.consequenceMsg.innerHTML = "";
+    el.consequenceActions.innerHTML = "";
+
+    var line = document.createElement("div");
+    line.textContent = message;
+    el.consequenceMsg.appendChild(line);
+
+    var rebalance = document.createElement("a");
+    rebalance.className = "na-btn na-btn-primary";
+    rebalance.href = "/scheduler";
+    rebalance.textContent = "Rebalance my week";
+
+    var dismiss = document.createElement("button");
+    dismiss.type = "button";
+    dismiss.className = "na-btn";
+    dismiss.textContent = "Leave it";
+    dismiss.addEventListener("click", function () {
+      show(el.consequence, false);
+    });
+
+    el.consequenceActions.appendChild(rebalance);
+    el.consequenceActions.appendChild(dismiss);
+    show(el.consequence, true);
+    try { rebalance.focus({ preventScroll: true }); } catch (e) { /* older browsers */ }
   }
 
   // ── wiring ─────────────────────────────────────────────────────────
@@ -366,10 +422,16 @@
     if (!state.headline) return;
     var action = state.headline;
     if (action.task_id) {
+      // `keepalive` matters here: the next statement navigates away, and a
+      // normal fetch is cancelled when the document unloads. Without it the
+      // *accepted* half of the feedback loop is dropped almost every time,
+      // while rejections — which never navigate — record fine. That skew
+      // would quietly teach the model that nobody takes its advice.
       postJSON("/api/next-action/respond", {
         task_id: action.task_id,
         accepted: true
-      }).catch(function () { /* telemetry must never block the student */ });
+      }, { keepalive: true })
+        .catch(function () { /* telemetry must never block the student */ });
     }
     if (action.kind === "break") return;
     // Hand off to the Active-study surface, which is where a sitting is

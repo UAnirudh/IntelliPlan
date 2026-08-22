@@ -35,6 +35,7 @@ from intelliplan.intelligence.planner import DayPlan, Deferral, Plan, PlannerTas
 
 __all__ = [
     "OverrideOutcome",
+    "rebalance_worth_offering",
     "move_task",
     "skip_task",
     "shorten_task",
@@ -56,10 +57,13 @@ class OverrideOutcome:
     report: ConsequenceReport
     moved_minutes: int = 0
     target_day: date | None = None
+    #: Whether re-solving the week afterwards is worth offering, and why.
+    rebalance_offer: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "accepted_possible": self.report.accepted_possible,
+            "rebalance_offer": self.rebalance_offer,
             "summary": self.report.summary,
             "moved_minutes": self.moved_minutes,
             "target_day": self.target_day.isoformat() if self.target_day else None,
@@ -250,6 +254,50 @@ def shorten_task(
         )
     ]
     return _rebuild(days, plan, deferred), original - minutes
+
+
+def rebalance_worth_offering(plan: Plan, touched: Sequence[date] = ()) -> tuple[bool, str]:
+    """Would re-solving the week actually help after this override?
+
+    An override is applied literally, which is right — the student sees the
+    move they asked for and nothing else. But a literal move can leave a day
+    that no longer works: 80 minutes pushed onto an already-full Wednesday is
+    a plan nobody follows, and saying nothing about it is how a scheduler
+    quietly becomes wrong.
+
+    So the student is *offered* a rebalance rather than given one. This
+    decides whether the offer is worth making, and returns the reason to show
+    with it. Returning ``False`` matters as much as returning ``True``:
+    prompting after every harmless move trains people to dismiss the prompt.
+    """
+    days = [d for d in plan.days if d.capacity_minutes > 0]
+    if not days:
+        return False, ""
+
+    if plan.deferred:
+        minutes = sum(d.minutes for d in plan.deferred)
+        return True, (
+            f"{minutes} minutes of work no longer has a place in your plan. "
+            f"Rebalancing would try to fit it back in."
+        )
+
+    watched = [d for d in days if not touched or d.day in set(touched)]
+    over = [d for d in watched if d.scheduled_minutes > d.capacity_minutes]
+    if over:
+        worst = max(over, key=lambda d: d.scheduled_minutes - d.capacity_minutes)
+        excess = worst.scheduled_minutes - worst.capacity_minutes
+        return True, (
+            f"{worst.day.strftime('%A')} is now {excess} minutes over what you "
+            f"have free. Rebalancing would spread it out."
+        )
+
+    # A day pushed far past the others is not infeasible, just unpleasant.
+    # Worth mentioning, not worth alarming anyone about.
+    loads = [d.utilisation for d in days]
+    if loads and max(loads) - (sum(loads) / len(loads)) > 0.35:
+        return True, "Your week is lopsided now. Rebalancing would even it out."
+
+    return False, ""
 
 
 # ── Consequences ─────────────────────────────────────────────────────

@@ -4,10 +4,13 @@
  * cannot affect a student outside the rollout even if the file is served to
  * them — the card is `hidden` until the API answers.
  *
- * Visual intent: this is the one thing on the page that is telling the
- * student what to do, so it reads as a decision rather than as another card
- * in a grid — a left accent bar, a heavier title, and the supporting reasons
- * set quiet underneath it. Everything else on the rail stays as it was.
+ * Visual intent: this is the one thing on the page telling the student what
+ * to do, so it reads as a decision rather than as another card in a grid —
+ * a heavier title, an accent eyebrow, one filled button, and the supporting
+ * reasons set quiet underneath. Everything else on the rail stays as it was.
+ *
+ * Colour pairings here are measured, not eyeballed. See the note on
+ * `.na-btn-primary` and docs/accessibility/POLICY.md.
  */
 
 .na-card {
@@ -53,8 +56,18 @@
 }
 
 /* Confidence is stated, never implied. A recommendation we are unsure of
-   should not look identical to one we are sure of. */
-.na-conf[data-level="low"] { color: var(--warn-text, #b4780a); }
+   should not look identical to one we are sure of.
+
+   This deliberately does *not* use `--warn-text`: at 0.68rem that token
+   measures 3.73:1 on the light card, under the 4.5:1 small-text floor. The
+   label already says "best guess" in words, so the colour was carrying no
+   information the text did not — and it was the half that failed. Promoting
+   it to primary text makes an uncertain recommendation more prominent than
+   a confident one, which is the right way round. */
+.na-conf[data-level="low"] {
+  color: var(--text-primary);
+  font-weight: 700;
+}
 
 .na-title {
   margin: 0 0 4px;
@@ -147,10 +160,17 @@
   outline-offset: 2px;
 }
 
+/* The label colour is `--bg-card`, not `#fff`.
+   `--accent` and `--bg-card` sit at opposite ends of every theme's lightness
+   range, so pairing them is legible in all of them without hardcoding a
+   colour per theme. Measured across the 13 shipped themes: worst case
+   5.02:1 (forest-light). Hardcoding `#fff` — which is what the rest of the
+   app currently does — fails in all six dark themes, bottoming out at
+   1.74:1 white-on-green in forest-dark. See docs/accessibility/POLICY.md. */
 .na-btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--bg-card);
 }
 
 .na-btn-primary:hover {
@@ -298,4 +318,18 @@
 .na-card [hidden],
 .na-card[hidden] {
   display: none !important;
+}
+
+/* The "this pushes work out of the plan entirely" line. Sits inside the
+   consequence message rather than beside the buttons, so it is part of what
+   the live region announces before a decision is made. */
+.na-consequence-warn { margin-top: 7px; }
+
+/* The rebalance offer reuses the button shapes, but its primary action is a
+   link (it navigates to the scheduler). Anchors do not inherit the button
+   box model, so restate the parts that matter. */
+a.na-btn {
+  display: inline-block;
+  text-decoration: none;
+  line-height: normal;
 }
