@@ -91,6 +91,21 @@ Two behaviours worth knowing about, both in `lib/useQuery.ts`:
   404 means "your school hasn't switched this on", which gets its own
   screen instead of "something broke".
 
+Writes get the same treatment, in `lib/queue.ts`. Ticking an assignment
+off with no signal used to fail with a buzz and no record, so the student
+either did it twice or lost it — reads and writes degrading differently is
+worse than either behaviour alone, because it makes the offline story
+unpredictable. Now the row updates, the write is persisted, and it replays
+when a list next loads successfully or the app is foregrounded.
+
+Only failures that say nothing about the request are queued: status 0 (never
+reached the server) and 502/503/504. A 400 means the server understood and
+refused, so it is surfaced and the row rolls back — retrying that forever
+would hide a real bug. Opposing edits made offline cancel out rather than
+being sent as two requests the server might apply backwards, and signing
+out clears the queue so a shared phone never replays one student's edits
+into the next student's account.
+
 A network failure at launch does *not* sign you out — only a credential the
 server actively rejects does. See `lib/auth.tsx`.
 
@@ -217,8 +232,8 @@ app/                 expo-router file routes
 components/          UI kit — Card, Button, Chip, TaskRow, Ring, Bars, Confirm,
                      ErrorBoundary…
 theme/               design tokens ported from static/css/ip-base.css
-lib/                 api client, auth, query cache, push, reminders, onboarding,
-                     formatting
+lib/                 api client, auth, query cache, write queue, push, reminders,
+                     onboarding, formatting
 ```
 
 `theme/tokens.ts` is copied literally from the web palette rather than

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { dismissTask, markTest, restoreTask, unmarkTest } from "../lib/api";
+import { enqueue, isRetryable } from "../lib/queue";
 import { useTheme } from "../theme/ThemeProvider";
 import { priorityColour, radius, space } from "../theme/tokens";
 import { dueLabel, minutes, shortDate } from "../lib/format";
@@ -61,16 +62,18 @@ export default function TaskScreen() {
     setBusy("done");
     setNote(null);
     try {
-      if (done) {
-        await restoreTask(task.title);
-        setDone(false);
-      } else {
-        await dismissTask(task.title);
-        setDone(true);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      }
+      if (done) await restoreTask(task.title);
+      else await dismissTask(task.title);
+      setDone(!done);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     } catch (e: any) {
-      setNote(e?.message || "That didn't save.");
+      if (isRetryable(e)) {
+        await enqueue({ kind: done ? "restore" : "dismiss", title: task.title });
+        setDone(!done);
+        setNote("Saved on this phone — it'll sync when you're back online.");
+      } else {
+        setNote(e?.message || "That didn't save.");
+      }
     } finally {
       setBusy(null);
     }
@@ -81,15 +84,17 @@ export default function TaskScreen() {
     setBusy("test");
     setNote(null);
     try {
-      if (isTest) {
-        await unmarkTest(task.title);
-        setIsTest(false);
-      } else {
-        await markTest(task.title);
-        setIsTest(true);
-      }
+      if (isTest) await unmarkTest(task.title);
+      else await markTest(task.title);
+      setIsTest(!isTest);
     } catch (e: any) {
-      setNote(e?.message || "That didn't save.");
+      if (isRetryable(e)) {
+        await enqueue({ kind: isTest ? "unmarkTest" : "markTest", title: task.title });
+        setIsTest(!isTest);
+        setNote("Saved on this phone — it'll sync when you're back online.");
+      } else {
+        setNote(e?.message || "That didn't save.");
+      }
     } finally {
       setBusy(null);
     }

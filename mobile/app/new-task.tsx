@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { createTask } from "../lib/api";
+import { enqueue, isRetryable } from "../lib/queue";
 import { useTheme } from "../theme/ThemeProvider";
 import { space } from "../theme/tokens";
 import { Button, Field, Label, Notice, Screen, SegmentedRow, T } from "../components/ui";
@@ -59,18 +60,27 @@ export default function NewTaskScreen() {
     }
     setBusy(true);
     setError(null);
+    const task = {
+      title: title.trim(),
+      course: course.trim() || "Personal",
+      due_date: isoIn(due),
+      priority,
+      estimated_time: estimate,
+      notes: notes.trim(),
+    };
     try {
-      await createTask({
-        title: title.trim(),
-        course: course.trim() || "Personal",
-        due_date: isoIn(due),
-        priority,
-        estimated_time: estimate,
-        notes: notes.trim(),
-      });
+      await createTask(task);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       router.back();
     } catch (e: any) {
+      if (isRetryable(e)) {
+        // Someone who has just typed out a task and picked four options
+        // should not lose all of it because they walked into a lift.
+        await enqueue({ kind: "createTask", task });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+        router.back();
+        return;
+      }
       setError(e?.message || "Couldn't save that. Try again.");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
     } finally {

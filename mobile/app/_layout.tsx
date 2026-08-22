@@ -2,14 +2,27 @@ import React from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { View } from "react-native";
+import { AppState, View } from "react-native";
 import { AuthProvider } from "../lib/auth";
 import { ConfirmProvider } from "../components/Confirm";
+import { flushQueue } from "../lib/queue";
 import { AppErrorBoundary } from "../components/ErrorBoundary";
 import { ThemeProvider, useTheme } from "../theme/ThemeProvider";
 
 function Shell() {
   const { colors, scheme } = useTheme();
+
+  // Foregrounding is the other moment the network may have come back —
+  // the Due tab flushes when its list loads, but the student may not open
+  // that tab, and the edits should not wait for them to.
+  React.useEffect(() => {
+    const sub = AppState.addEventListener("change", (s) => {
+      if (s === "active") flushQueue().catch(() => {});
+    });
+    flushQueue().catch(() => {});
+    return () => sub.remove();
+  }, []);
+
   return (
     // The stack animates between screens over whatever is behind it; without
     // a painted root that is white, which flashes on every push in dark mode.

@@ -11,6 +11,7 @@ import {
   register as apiRegister,
 } from "./api";
 import { clearQueryCache } from "./useQuery";
+import { clearQueue } from "./queue";
 import { disablePush } from "./push";
 
 type AuthState = {
@@ -64,6 +65,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await apiLogout();
     await cacheUser(null);
     await clearQueryCache().catch(() => {});
+    // Unsent edits belong to the account that made them. On a shared phone
+    // replaying them after the next student signs in would tick off their
+    // assignments instead.
+    await clearQueue().catch(() => {});
     setUser(null);
   }, []);
 

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { dismissTask, getTasks, restoreTask, Task } from "../../lib/api";
 import { syncReminders } from "../../lib/reminders";
+import { enqueue, flushQueue, isRetryable, onQueueChange, pendingCount } from "../../lib/queue";
 import { useQuery } from "../../lib/useQuery";
 import { useTheme } from "../../theme/ThemeProvider";
 import { space } from "../../theme/tokens";
@@ -76,6 +77,24 @@ export default function TasksScreen() {
     syncReminders(tasks).catch(() => {});
   }, [tasks]);
 
+  const [pending, setPending] = useState(0);
+  useEffect(() => {
+    pendingCount().then(setPending).catch(() => {});
+    return onQueueChange(setPending);
+  }, []);
+
+  // A list that loaded is proof the network is back, which is the cheapest
+  // signal available — no connectivity listener, no polling.
+  useEffect(() => {
+    if (q.error || !q.data) return;
+    flushQueue()
+      .then((sent) => {
+        if (sent) q.refresh();
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q.data, q.error]);
+
   const isDone = useCallback(
     (t: Task) => !!t.dismissed || locallyDone.has(t.title),
     [locallyDone],
@@ -91,30 +110,49 @@ export default function TasksScreen() {
     );
   }, [tasks]);
 
+  /**
+   * Tick something off, or put it back.
+   *
+   * The row updates first and the request follows. If the request cannot
+   * reach the server it is queued rather than rolled back: the student
+   * made a decision, and reverting the checkbox under their thumb because
+   * the bus went through a tunnel is the app losing their work, not
+   * protecting it. Anything the server actively refused *is* rolled back,
+   * because then the app genuinely does not know better.
+   */
   const toggle = useCallback(
     async (t: Task) => {
       const done = isDone(t);
       setBusyTitle(t.title);
+
+      const applyLocal = (nowDone: boolean) => {
+        setLocallyDone((prev) => {
+          const next = new Set(prev);
+          if (nowDone) next.add(t.title);
+          else next.delete(t.title);
+          return next;
+        });
+        // The server copy still carries the old flag; clear it so a row the
+        // student just changed does not snap back on the next render.
+        q.setData((prev) =>
+          (prev || []).map((x) => (x.title === t.title ? { ...x, dismissed: nowDone } : x)),
+        );
+      };
+
+      applyLocal(!done);
+
       try {
-        if (done) {
-          await restoreTask(t.title);
-          setLocallyDone((prev) => {
-            const next = new Set(prev);
-            next.delete(t.title);
-            return next;
-          });
-          // The server copy still says dismissed; clear it so a row the
-          // student just restored does not snap back on the next render.
-          q.setData((prev) =>
-            (prev || []).map((x) => (x.title === t.title ? { ...x, dismissed: false } : x)),
-          );
+        if (done) await restoreTask(t.title);
+        else await dismissTask(t.title);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      } catch (e) {
+        if (isRetryable(e)) {
+          await enqueue({ kind: done ? "restore" : "dismiss", title: t.title });
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
         } else {
-          await dismissTask(t.title);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-          setLocallyDone((prev) => new Set(prev).add(t.title));
+          applyLocal(done);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
         }
-      } catch {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       } finally {
         setBusyTitle(null);
       }
@@ -211,9 +249,18 @@ export default function TasksScreen() {
           <RefreshControl refreshing={q.refreshing} onRefresh={q.refresh} tintColor={colors.accent} />
         }
         ListHeaderComponent={
-          q.stale ? (
-            <View style={{ marginBottom: space.sm }}>
-              <Notice text="Offline — showing the last list that loaded." icon="cloud-offline-outline" />
+          q.stale || pending ? (
+            <View style={{ marginBottom: space.sm, gap: space.sm }}>
+              {q.stale ? (
+                <Notice text="Offline — showing the last list that loaded." icon="cloud-offline-outline" />
+              ) : null}
+              {pending ? (
+                <Notice
+                  tone="accent"
+                  icon="cloud-upload-outline"
+                  text={`${pending} change${pending === 1 ? "" : "s"} saved on this phone — they'll sync when you're back online.`}
+                />
+              ) : null}
             </View>
           ) : null
         }
