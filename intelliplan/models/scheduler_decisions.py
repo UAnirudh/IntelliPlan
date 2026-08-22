@@ -125,6 +125,11 @@ def register(db: Any) -> tuple[type, type]:
         #: For NBA rows, the ``ActionKind``. For overrides, "move"/"skip"/"shorten".
         action_kind = db.Column(db.String(32), nullable=False, default="")
         task_id = db.Column(db.String(128), nullable=False, default="")
+        #: Hash of (title, course) — see ``domain.student.identity_key``.
+        #: Lets a decision recorded against one ingest path's id be honoured
+        #: when the same work reappears under another's, without storing a
+        #: readable assignment title anywhere in this table.
+        identity_key = db.Column(db.String(64), nullable=False, default="", index=True)
         course = db.Column(db.String(160), nullable=False, default="")
         score = db.Column(db.Float, nullable=False, default=0.0)
         confidence = db.Column(db.Float, nullable=False, default=0.0)

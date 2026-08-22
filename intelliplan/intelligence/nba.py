@@ -45,6 +45,7 @@ from intelliplan.domain.student import (
     ActionKind,
     MasteryEstimate,
     NextAction,
+    identity_key,
 )
 from intelliplan.intelligence import methods as methods_engine
 from intelliplan.intelligence.behavior import (
@@ -158,6 +159,10 @@ class NBAContext:
     current_course: str = ""
     #: Task ids the student has started but not finished.
     in_progress_task_ids: frozenset[str] = frozenset()
+    #: Task ids the student has already declined today. "Not now" has to
+    #: mean something, or the card re-offers the thing they just pushed away
+    #: and the student is arguing with a machine that does not listen.
+    dismissed_task_ids: frozenset[str] = frozenset()
     weights: NBAWeights = field(default_factory=NBAWeights)
 
     @property
@@ -442,7 +447,7 @@ def score(candidate: ActionCandidate, ctx: NBAContext) -> NextAction:
         assessment_days_away=candidate.assessment_days_away,
     )
 
-    ordered = _dedupe(reasons)
+    ordered = _rank_reasons(reasons)
     return NextAction(
         candidate=candidate,
         score=round(normalised, 4),
@@ -580,14 +585,52 @@ def _method_kind(candidate: ActionCandidate) -> str:
     return meta_kind or "homework"
 
 
-def _dedupe(values: Sequence[str]) -> tuple[str, ...]:
+#: Reasons in the order a student cares about them. The card shows the first
+#: four, so this decides what they actually read.
+#:
+#: The scorer appends reasons in the order it happens to compute them, which
+#: put "there is not much of today's study time left" above "this is due
+#: tomorrow" — schedule mechanics ahead of the deadline that is the actual
+#: reason to start. Ordering by how the arithmetic runs is not ordering.
+_REASON_RANK: dict[str, int] = {
+    # 1. Something is about to go wrong.
+    "overdue": 0,
+    "due_today": 1,
+    "due_tomorrow": 2,
+    "assessment_near": 3,
+    # 2. Why this is worth the time.
+    "high_academic_value": 10,
+    "low_mastery": 11,
+    "decaying": 12,
+    # 3. Why now specifically.
+    "already_started": 20,
+    "same_subject": 21,
+    "your_best_time": 22,
+    "fits_the_gap": 23,
+    "plan_says_today": 24,
+    # 4. Caveats — true, and never the headline.
+    "long_stretch": 30,
+    "over_capacity": 31,
+    "low_completion_odds": 32,
+    "little_time_left": 33,
+}
+
+#: An unknown code sorts between "why it matters" and "why now" rather than
+#: last, so a newly added reason is visible instead of silently buried.
+_REASON_RANK_DEFAULT = 15
+
+
+def _rank_reasons(values: Sequence[str]) -> tuple[str, ...]:
+    """Deduplicate, then order by how much the student needs to hear it."""
     seen: set[str] = set()
-    out: list[str] = []
+    unique: list[str] = []
     for v in values:
         if v not in seen:
             seen.add(v)
-            out.append(v)
-    return tuple(out)
+            unique.append(v)
+    return tuple(
+        sorted(unique, key=lambda v: _REASON_RANK.get(v, _REASON_RANK_DEFAULT))
+    )
 
 
 # ── Decision ─────────────────────────────────────────────────────────
@@ -618,19 +661,84 @@ def decide(
         key=lambda a: (a.score, a.candidate.deadline_pressure),
         reverse=True,
     )
-    return _dedupe_actions(ranked)[: max(1, limit)]
+    # Dedupe *before* honouring dismissals, not after. The two ingest paths
+    # mint different ids for the same work, so filtering first removes the
+    # plan candidate and leaves the assignment one standing — the student
+    # declines their Physics set and it comes straight back wearing a
+    # different id. Collapsing to one candidate first means the id the
+    # student acted on is the id that survives, so the instruction lands.
+    return _honour_dismissals(_dedupe_actions(ranked), ctx)[: max(1, limit)]
+
+
+def _honour_dismissals(
+    actions: Sequence[NextAction], ctx: NBAContext
+) -> list[NextAction]:
+    """Drop what the student has already said no to today.
+
+    With one exception: work that is genuinely *past* its due date comes
+    back. Declining something does not make its deadline go away, and
+    silently dropping an overdue item because it was dismissed this morning
+    would be the scheduler helping a student miss it.
+
+    The exception tests the date, not the urgency score. Those are not the
+    same thing: ``_deadline_pressure`` returns 1.0 for both "due today" and
+    "three days late", and using it here would refuse to let a student defer
+    something due tonight to this evening — which is a completely reasonable
+    thing to want, and the whole point of the override.
+
+    Everything else stays gone until tomorrow. "Not now" is an instruction,
+    not a preference to be weighed.
+    """
+    if not ctx.dismissed_task_ids:
+        return list(actions)
+    today = ctx.today
+
+    def dismissed(c: ActionCandidate) -> bool:
+        # Either identifier matches. The id says "this exact row"; the
+        # identity key says "this piece of work, whichever row it arrived
+        # on" — and after an override moves the plan block, only the second
+        # one still lines up.
+        if c.task_id and c.task_id in ctx.dismissed_task_ids:
+            return True
+        return identity_key(c.title, c.course) in ctx.dismissed_task_ids
+
+    return [
+        a
+        for a in actions
+        if not dismissed(a.candidate)
+        or (a.candidate.due_date is not None and a.candidate.due_date < today)
+    ]
 
 
 def _dedupe_actions(actions: Sequence[NextAction]) -> list[NextAction]:
-    """One row per task. The plan and the assignment list overlap by design;
-    showing a student the same essay twice makes the list look broken."""
-    seen: set[str] = set()
+    """One row per piece of work.
+
+    Matching on ``task_id`` alone is not enough, and this is the bug that
+    reached a browser: the plan block and the assignment row for the *same*
+    essay carry ids minted by different ingest paths ("t-physics" versus
+    "manual:412"), so an id-only check happily showed the student their
+    Physics set as both the headline and the first thing after it.
+
+    So identity is "same id" **or** "same title in the same course". The
+    second is a heuristic and it is the right one here: two genuinely
+    different pieces of work with an identical title in an identical course
+    are indistinguishable to the student too, and collapsing them costs less
+    than showing the same row twice.
+    """
+    seen_ids: set[str] = set()
+    seen_names: set[tuple[str, str]] = set()
     out: list[NextAction] = []
     for a in actions:
-        key = a.candidate.task_id or f"{a.candidate.kind}:{a.candidate.title.lower()}"
-        if key in seen:
+        c = a.candidate
+        name_key = (c.title.strip().lower(), c.course.strip().lower())
+        if c.task_id and c.task_id in seen_ids:
             continue
-        seen.add(key)
+        # A break has no title worth matching on and there is only ever one.
+        if c.kind is not ActionKind.BREAK and name_key in seen_names:
+            continue
+        if c.task_id:
+            seen_ids.add(c.task_id)
+        seen_names.add(name_key)
         out.append(a)
     return out
 

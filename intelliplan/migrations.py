@@ -209,4 +209,16 @@ def apply_scheduler_audit_migrations(db: Any) -> list[str]:
     existing = set(inspector.get_table_names())
     target = {"schedule_versions", "schedule_decisions"}
     db.create_all()
+
+    # create_all() builds new tables but never alters existing ones, so a
+    # column added after the first deploy needs saying out loud.
+    if "schedule_decisions" in existing:
+        columns = {c["name"] for c in inspector.get_columns("schedule_decisions")}
+        if "identity_key" not in columns:
+            db.session.execute(text(
+                "ALTER TABLE schedule_decisions "
+                "ADD COLUMN identity_key VARCHAR(64) DEFAULT ''"
+            ))
+            db.session.commit()
+
     return sorted(target & existing)

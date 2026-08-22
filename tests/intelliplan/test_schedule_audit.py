@@ -57,6 +57,10 @@ class FakeCandidate:
     kind: FakeKind
     task_id: str
     course: str
+    #: Mirrors the real ``ActionCandidate``. The repository hashes
+    #: (title, course) into ``identity_key``, so a fake without a title
+    #: silently exercised a different contract than production.
+    title: str = "Physics problem set"
 
 
 @dataclass(frozen=True)
@@ -68,9 +72,10 @@ class FakeAction:
     reason_codes: tuple[str, ...]
 
 
-def an_action(task_id="t1", course="Physics", codes=("due_today",)):
+def an_action(task_id="t1", course="Physics", codes=("due_today",),
+              title="Physics problem set"):
     return FakeAction(
-        candidate=FakeCandidate(FakeKind("start_task"), task_id, course),
+        candidate=FakeCandidate(FakeKind("start_task"), task_id, course, title),
         score=0.81,
         confidence=0.7,
         completion_probability=0.66,
@@ -233,7 +238,8 @@ def test_acceptance_rate_is_scoped_to_the_student(audit):
 def test_long_fields_are_truncated_rather_than_failing_the_insert(audit):
     repo, _ = audit
     long_action = FakeAction(
-        candidate=FakeCandidate(FakeKind("start_task"), "x" * 400, "c" * 400),
+        candidate=FakeCandidate(FakeKind("start_task"), "x" * 400, "c" * 400,
+                                "t" * 400),
         score=0.5, confidence=0.5, completion_probability=0.5,
         reason_codes=tuple(f"code_{i}" for i in range(200)),
     )
@@ -241,3 +247,49 @@ def test_long_fields_are_truncated_rather_than_failing_the_insert(audit):
     assert len(written[0].task_id) <= 128
     assert len(written[0].course) <= 160
     assert len(written[0].reason_codes) <= 255
+
+
+# ── identity across ingest paths ─────────────────────────────────────
+
+
+def test_a_decision_records_an_identity_key_not_a_title(audit):
+    """The audit trail must stay unreadable as an academic record, while
+    still being able to recognise the same work twice."""
+    from intelliplan.domain.student import identity_key
+
+    repo, _ = audit
+    written = repo.record_decisions(1, [an_action(title="Physics problem set")])
+    assert written[0].identity_key == identity_key("Physics problem set", "Physics")
+    assert "Physics problem set" not in written[0].identity_key
+
+
+def test_declining_one_ingest_path_is_honoured_for_the_other(audit):
+    """The bug browser testing found: after the plan block moves, the same
+    work reappears from the assignment list under a different id, and an
+    id-only dismissal set no longer matches it."""
+    repo, db = audit
+    written = repo.record_decisions(
+        1, [an_action(task_id="t-physics", title="Physics problem set")]
+    )
+    repo.resolve(1, "t-physics", False)
+
+    dismissed = repo.dismissed_task_ids(1, written[0].created_at)
+    from intelliplan.domain.student import identity_key
+
+    assert "t-physics" in dismissed
+    # The identity key is what lets "manual:412" be recognised as the same work.
+    assert identity_key("Physics problem set", "Physics") in dismissed
+
+
+def test_identity_is_case_and_whitespace_insensitive():
+    from intelliplan.domain.student import identity_key
+
+    assert identity_key("Physics Problem Set", "Physics") == identity_key(
+        "  physics problem set ", "  PHYSICS "
+    )
+
+
+def test_the_same_title_in_a_different_course_is_different_work():
+    from intelliplan.domain.student import identity_key
+
+    assert identity_key("Chapter 3", "Physics") != identity_key("Chapter 3", "History")

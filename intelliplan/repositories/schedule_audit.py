@@ -17,6 +17,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any, Iterable, Sequence
 
+from intelliplan.domain.student import identity_key
 from time_utils import utcnow
 
 logger = logging.getLogger(__name__)
@@ -183,6 +184,7 @@ class ScheduleAuditRepository:
                         decision_type=decision_type[:32],
                         action_kind=str(getattr(candidate.kind, "value", candidate.kind))[:32],
                         task_id=str(candidate.task_id or "")[:128],
+                        identity_key=identity_key(candidate.title, candidate.course),
                         course=str(candidate.course or "")[:160],
                         score=float(action.score),
                         confidence=float(action.confidence),
@@ -212,6 +214,7 @@ class ScheduleAuditRepository:
         action_kind: str,
         task_id: str = "",
         course: str = "",
+        title: str = "",
         accepted: bool = True,
         schedule_version_id: int | None = None,
     ) -> Any | None:
@@ -221,6 +224,7 @@ class ScheduleAuditRepository:
                 decision_type="override",
                 action_kind=str(action_kind)[:32],
                 task_id=str(task_id or "")[:128],
+                identity_key=identity_key(title, course) if title else "",
                 course=str(course or "")[:160],
                 reason_codes="",
                 rank=0,
@@ -272,6 +276,37 @@ class ScheduleAuditRepository:
             except Exception:
                 pass
             return False
+
+    def dismissed_task_ids(self, user_id: int, since: datetime) -> set[str]:
+        """Tasks the student declined or moved since ``since``.
+
+        Both signals count. Explicitly rejecting a recommendation and moving
+        the work off today are the same statement — "not this, not now" — and
+        honouring one but not the other would make the card's memory depend
+        on which button they happened to press.
+
+        Returns task ids *and* identity keys in one set. The caller matches a
+        candidate on either, because the id a decision was recorded against
+        belongs to whichever ingest path produced the candidate that day, and
+        the same work reappears under a different id once the plan moves on.
+        """
+        try:
+            rows = (
+                self._decisions.query
+                .filter_by(user_id=user_id)
+                .filter(self._decisions.created_at >= since)
+                .filter(
+                    (self._decisions.accepted.is_(False))
+                    | (self._decisions.decision_type == "override")
+                )
+                .all()
+            )
+            ids = {r.task_id for r in rows if r.task_id}
+            keys = {r.identity_key for r in rows if getattr(r, "identity_key", "")}
+            return ids | keys
+        except Exception as exc:
+            logger.warning("dismissed-task lookup failed: %s", exc)
+            return set()
 
     def override_count(self, user_id: int, since: datetime | None = None) -> int:
         """How many times this student has moved, skipped, or shortened work.

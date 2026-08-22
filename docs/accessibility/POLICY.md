@@ -168,8 +168,8 @@ Recorded rather than hidden. Nothing here is acceptable long-term.
 
 | Issue | Severity | Notes |
 |---|---|---|
-| `color: #fff` hardcoded on `var(--accent)` across ~20 call sites in `command_center.css` and `ip-base.css` | **High** | Fails in all six dark themes; 1.74:1 at worst. `next_action.css` is fixed and shows the pattern. Needs a sweep. |
-| No automated contrast checking over rendered pages | Medium | The token-pair test covers the worst class; full coverage needs an axe/Playwright pass in CI. |
+| `color: #fff` hardcoded on `var(--accent)` in `command_center.css` | **Unquantified** | 7 rules pair the two. Most are superseded by a later unscoped block that repaints them `--text-primary` on `--bg`, so the live count is far smaller than the grep suggests — an earlier revision of this file said "~20 call sites", which was wrong. Two (`.cc-chat-nav-go`, `.cc-fallback-link`) look genuinely exposed. Confirming this needs contrast measured on *rendered* elements; a detached-probe measurement was attempted and gave meaningless numbers, because gradients and inherited context do not resolve off-DOM. Blocked on the row below. |
+| No automated contrast checking over rendered pages | **High** | The token-pair test covers the worst class, and the new card was measured by hand. Neither substitutes for axe (or equivalent) run against real rendered DOM in CI — which is the only way to settle the row above, and the only way this policy's §1.2 is actually enforced rather than asserted. |
 | No screen-reader regression testing | Medium | Manual only today. |
 
 ---

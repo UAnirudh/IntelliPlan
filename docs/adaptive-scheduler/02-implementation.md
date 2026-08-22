@@ -4,7 +4,7 @@ Companion to [01-architecture-audit.md](01-architecture-audit.md), which
 records what the scheduler was before this work. This document records what
 was added, why each piece exists, and what is deliberately still missing.
 
-Tests: **1571 passing** (baseline was 1295 — 276 new, zero regressions).
+Tests: **1588 passing** (baseline was 1295 — 293 new, zero regressions).
 
 ## 1. What was added, and what was left alone
 
@@ -202,6 +202,42 @@ at ~20 other call sites and fails in all six dark themes, bottoming out at
 1.74:1. `next_action.css` pairs `--accent` with `--bg-card` instead, which
 measures ≥5.02:1 across all 13 shipped themes; the sweep is logged as open in
 the policy.
+
+## 10b. What driving it in a browser found
+
+The engines were unit-tested and the API was covered before any of this ran
+in a real page. Running it anyway found five defects that tests had not,
+which is the argument for doing it:
+
+1. **The same assignment appeared twice** — as the headline and as the first
+   "next" item. The plan block and the assignment row are the same work with
+   ids minted by different ingest paths, and the dedupe matched only on id.
+   The unit test used the same id on both sides, so it passed.
+2. **Reason ordering was arbitrary** — "there is not much of today's study
+   time left" led, ahead of "this is due tomorrow", because the scorer
+   appends reasons in the order it computes them. Ordering by how the
+   arithmetic runs is not ordering. There is now an explicit rank table, and
+   a test that every reason code appears in it.
+3. **"Not now" did nothing.** Declined work came straight back. Two causes,
+   found one after the other: dismissals were filtered before deduping (so
+   the plan candidate was removed and the assignment candidate survived),
+   and the lookup compared a *local* midnight against a *naive UTC* column.
+   The machine is UTC+5:30, so every dismissal made before 05:30 local was
+   silently excluded — a bug that would have shipped broken for every user
+   east of UTC and worked fine for everyone testing west of it.
+4. **The card rendered 34px tall.** The left rail is a flex column with a
+   `max-height` and `overflow: hidden`; a default flex item gets shrunk and
+   then clipped. All 342 characters of content were in the DOM and none of
+   it was visible.
+5. **A dangling possessive** — "45 min less on today's" — from stripping
+   " workload" off a label and lowercasing the rest. Phrasing is now derived
+   from the date in the key.
+
+The identity problem behind (1) and (3) is fixed properly rather than
+patched twice: `domain.student.identity_key` hashes (title, course) into a
+stable key that both the dedupe and the dismissal lookup use, so the same
+work is recognised across ingest paths. It is hashed, not stored as text,
+so the audit table still holds no readable assignment title.
 
 ## 11. Known limits
 

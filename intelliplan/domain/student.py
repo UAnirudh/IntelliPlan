@@ -12,11 +12,14 @@ Pure data. No ORM, no Flask, no clock.
 
 from __future__ import annotations
 
+import hashlib
+
 from dataclasses import dataclass, field
 from datetime import date
 from enum import Enum
 
 __all__ = [
+    "identity_key",
     "Evidence",
     "EvidenceSource",
     "SlotStat",
@@ -28,6 +31,25 @@ __all__ = [
     "Consequence",
     "ConsequenceReport",
 ]
+
+
+def identity_key(title: str, course: str = "") -> str:
+    """A stable id for "the same piece of work", across ingest paths.
+
+    The plan block and the assignment row for one Physics set carry ids
+    minted by different systems ("t-physics", "manual:412"), so an id is not
+    an identity. Title-and-course is: two pieces of work a student cannot
+    tell apart are, for scheduling purposes, the same thing.
+
+    Hashed rather than stored as text on purpose. The audit tables must not
+    become a second copy of a student's academic record, and a digest lets
+    rows be *matched* without any of them holding a readable assignment
+    title. Truncated to 32 hex characters — collisions at that width are far
+    less likely than the title collisions the function is already choosing
+    to treat as identity.
+    """
+    normalised = f"{(title or '').strip().lower()}|{(course or '').strip().lower()}"
+    return hashlib.sha256(normalised.encode("utf-8")).hexdigest()[:32]
 
 
 class EvidenceSource(str, Enum):

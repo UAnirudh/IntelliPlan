@@ -20,7 +20,13 @@
   border: 1px solid var(--border);
   border-radius: 24px;
   background: var(--bg-card);
-  overflow: hidden;
+
+  /* The left rail is a flex column with a max-height and `overflow: hidden`,
+     so a default flex item here gets shrunk to whatever space is left after
+     the plan list and then silently clipped — the card rendered 34px tall
+     with all of its content still in the DOM. This card sizes to its content
+     and lets the plan list below it take the remaining space and scroll. */
+  flex: 0 0 auto;
 }
 
 /* Emphasis comes from hierarchy, not decoration. This card already outranks
@@ -160,13 +166,19 @@
   outline-offset: 2px;
 }
 
-/* The label colour is `--bg-card`, not `#fff`.
-   `--accent` and `--bg-card` sit at opposite ends of every theme's lightness
-   range, so pairing them is legible in all of them without hardcoding a
-   colour per theme. Measured across the 13 shipped themes: worst case
-   5.02:1 (forest-light). Hardcoding `#fff` — which is what the rest of the
-   app currently does — fails in all six dark themes, bottoming out at
-   1.74:1 white-on-green in forest-dark. See docs/accessibility/POLICY.md. */
+/* In practice this rule does not decide the button's colours: `ip-base.css`
+   carries a global glass treatment matching `button[class*="primary"]` with
+   `!important`, and it wins. That is the intended house style and the card
+   should look like the rest of the app, so this is left as-is rather than
+   opted out of with `.no-glass`. Measured on the live page: 21:1 in both
+   the light and dark themes.
+
+   The declaration stays as a correct fallback for when the glass layer is
+   absent (a CSP failure, a partial asset load). `--bg-card` rather than
+   `#fff` because `--accent` and `--bg-card` sit at opposite ends of every
+   theme's lightness range: measured across the 13 shipped themes that
+   pairing is worst-case 5.02:1, where `#fff` on the accent drops to 1.74:1
+   in forest-dark. See docs/accessibility/POLICY.md. */
 .na-btn-primary {
   background: var(--accent);
   border-color: var(--accent);

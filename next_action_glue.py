@@ -17,6 +17,8 @@ from datetime import date, datetime, timedelta
 
 from flask_login import current_user
 
+from time_utils import utcnow
+
 from intelliplan.api.next_action import NextActionDeps, create_next_action_blueprint
 from intelliplan.domain.student import MasteryEstimate
 from intelliplan.repositories.schedule_audit import ScheduleAuditRepository
@@ -442,9 +444,29 @@ def _resolve_decision(user_id: int, task_id: str, accepted: bool) -> bool:
 
 
 def _reschedule_count(user_id: int) -> int:
-    from datetime import timedelta
+    # utcnow(), not datetime.now(): the column is naive UTC. The window is
+    # months wide so an offset would not change the answer much, but a
+    # timestamp comparison that is only approximately right is the kind that
+    # becomes exactly wrong when someone shortens the window.
+    return _audit().override_count(user_id, utcnow() - timedelta(days=HISTORY_DAYS))
 
-    return _audit().override_count(user_id, datetime.now() - timedelta(days=HISTORY_DAYS))
+
+def _dismissed(user_id: int, since_local: datetime) -> frozenset[str]:
+    """Work declined since local midnight.
+
+    ``since_local`` is a *local* wall-clock instant, because "today" is a
+    question about the student's day. ``schedule_decisions.created_at`` is
+    naive UTC, like every other timestamp in this schema. Comparing the two
+    directly is wrong by the machine's UTC offset, and it fails in the
+    direction that hides the bug: east of UTC, local midnight is *ahead* of
+    the stored timestamp, so every dismissal made in the local early morning
+    was silently excluded and "not now" did nothing.
+
+    Converting through the elapsed interval rather than by naming a timezone
+    keeps this correct without the process needing to know its own offset.
+    """
+    elapsed = datetime.now() - since_local
+    return frozenset(_audit().dismissed_task_ids(user_id, utcnow() - elapsed))
 
 
 def _versions_for(user_id: int, limit: int) -> list:
@@ -492,6 +514,7 @@ def _build_service() -> NextActionService:
         get_in_progress=_in_progress,
         get_remaining_minutes=_remaining_minutes,
         get_reschedule_count=_reschedule_count,
+        get_dismissed=_dismissed,
     )
 
 

@@ -75,6 +75,7 @@ class StudentSnapshot:
     continuous_minutes: int = 0
     current_course: str = ""
     in_progress_task_ids: frozenset[str] = frozenset()
+    dismissed_task_ids: frozenset[str] = frozenset()
 
     @property
     def today(self) -> date:
@@ -186,6 +187,10 @@ class NextActionService:
     #: model's reschedule rate is permanently zero — a number that looks
     #: measured and never is.
     get_reschedule_count: Callable[[int], int] = lambda uid: 0
+    #: Tasks the student has declined or moved today. ``(user_id, since)``.
+    get_dismissed: Callable[[int, datetime], frozenset[str]] = (
+        lambda uid, since: frozenset()
+    )
     weights: nba.NBAWeights = field(default_factory=nba.NBAWeights)
 
     # ── snapshot ─────────────────────────────────────────────────────
@@ -236,6 +241,14 @@ class NextActionService:
             continuous_minutes=int(continuous or 0),
             current_course=str(current_course or ""),
             in_progress_task_ids=frozenset(in_progress or ()),
+            dismissed_task_ids=frozenset(
+                self._safe2(
+                    self.get_dismissed,
+                    user_id,
+                    datetime.combine(today, datetime.min.time()),
+                    default=frozenset(),
+                )
+            ),
         )
 
     # ── the decision ─────────────────────────────────────────────────
@@ -253,6 +266,7 @@ class NextActionService:
             continuous_minutes=snap.continuous_minutes,
             current_course=snap.current_course,
             in_progress_task_ids=snap.in_progress_task_ids,
+            dismissed_task_ids=snap.dismissed_task_ids,
             weights=self.weights,
         )
         actions = nba.decide(

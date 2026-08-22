@@ -304,12 +304,28 @@
     try { confirm.focus({ preventScroll: true }); } catch (e) { /* older browsers */ }
   }
 
+  function dayPhrase(iso) {
+    var d = new Date(iso + "T00:00:00");
+    if (isNaN(d.getTime())) return "";
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var days = Math.round((d - today) / 86400000);
+    if (days === 0) return "today";
+    if (days === 1) return "tomorrow";
+    if (days === -1) return "yesterday";
+    return "on " + d.toLocaleDateString(undefined, { weekday: "long" });
+  }
+
   function describeDelta(consequence) {
     var key = String(consequence.key || "");
     var delta = Number(consequence.delta) || 0;
     if (key.indexOf("minutes:") === 0) {
-      return minutesLabel(Math.abs(delta)) + " " + (delta > 0 ? "more" : "less") +
-        " on " + consequence.label.replace(/ workload$/, "").toLowerCase();
+      // Phrasing comes from the date in the key, not from surgery on the
+      // label. Stripping " workload" off "Today's workload" and lowercasing
+      // it produced "45 min less on today's" — a dangling possessive.
+      var when = dayPhrase(key.slice("minutes:".length));
+      var direction = delta > 0 ? " more" : " less";
+      return minutesLabel(Math.abs(delta)) + direction + (when ? " " + when : "");
     }
     if (key === "deferred") {
       return minutesLabel(Math.abs(delta)) + " of work with nowhere left to go";

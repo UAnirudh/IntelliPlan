@@ -304,6 +304,8 @@ def create_next_action_blueprint(deps: NextActionDeps) -> Blueprint:
                 uid,
                 action_kind=action,
                 task_id=task_id,
+                title=_block_title(schedule, task_id),
+                course=_block_course(schedule, task_id),
                 schedule_version_id=getattr(version, "id", None),
             )
         except Exception as exc:
@@ -467,6 +469,26 @@ def _deferral(block: dict, minutes: int, reason: str) -> dict:
         "due_date": block.get("due_date") or None,
         "reason": reason,
     }
+
+
+def _find_block(schedule_data: dict | None, task_id: str) -> dict:
+    """The first block matching ``task_id``, or an empty dict."""
+    for day in (schedule_data or {}).get("schedule") or []:
+        if not isinstance(day, dict):
+            continue
+        for b in day.get("blocks") or []:
+            if isinstance(b, dict) and _block_task(b) == task_id:
+                return b
+    return {}
+
+
+def _block_title(schedule_data: dict | None, task_id: str) -> str:
+    b = _find_block(schedule_data, task_id)
+    return str(b.get("parent_title") or b.get("assignment") or "")
+
+
+def _block_course(schedule_data: dict | None, task_id: str) -> str:
+    return str(_find_block(schedule_data, task_id).get("course") or "")
 
 
 def _block_task(block: dict) -> str:

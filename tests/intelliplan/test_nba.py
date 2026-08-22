@@ -265,3 +265,155 @@ def test_a_block_with_an_unparseable_due_date_is_treated_as_undated():
     bad = {**block("t1", "Physics set"), "due_date": "next tuesday"}
     candidate = generate(ctx(), planned_today=[bad])[0]
     assert candidate.due_date is None
+
+
+# ── the same work must never appear twice ────────────────────────────
+
+
+def test_the_same_work_from_two_ingest_paths_is_shown_once():
+    """The defect that reached a browser.
+
+    The plan block and the assignment row for one Physics set carry ids
+    minted by different ingest paths, so an id-only dedupe showed it as the
+    headline *and* as the first thing after it.
+    """
+    plan_block = block("t-physics", "Physics problem set", course="Physics", due_in=1)
+    same_work = {
+        "id": "manual:412",              # different id, same real assignment
+        "title": "Physics problem set",
+        "course": "Physics",
+        "due_date": (TODAY + timedelta(days=1)).isoformat(),
+        "priority": 80, "est_minutes": 45, "status": "not_started",
+    }
+    actions = decide(ctx(), planned_today=[plan_block], assignments=[same_work])
+    titles = [a.candidate.title for a in actions]
+    assert titles.count("Physics problem set") == 1
+
+
+def test_matching_titles_in_different_courses_are_kept_apart():
+    """"Chapter 3 questions" exists in half a student's subjects. Course is
+    what tells them apart, so the dedupe must not collapse them."""
+    actions = decide(ctx(available_minutes=180), planned_today=[
+        block("a", "Chapter 3 questions", course="Physics", due_in=1),
+        block("b", "Chapter 3 questions", course="History", due_in=1),
+    ])
+    assert len(actions) == 2
+
+
+def test_a_break_is_never_deduped_against_work():
+    actions = decide(
+        ctx(continuous_minutes=200),
+        planned_today=[block("t1", "Take a break", course="", due_in=1)],
+    )
+    kinds = {a.candidate.kind for a in actions}
+    assert ActionKind.BREAK in kinds
+
+
+# ── reason ordering ──────────────────────────────────────────────────
+
+
+def test_the_deadline_leads_ahead_of_schedule_mechanics():
+    """"There is not much of today's study time left" outranked "this is due
+    tomorrow" purely because the scorer computed it first. Ordering by how
+    the arithmetic runs is not ordering."""
+    action = decide(
+        ctx(available_minutes=0),
+        planned_today=[block("t1", "Physics set", due_in=1, priority=90)],
+    )[0]
+    codes = list(action.reason_codes)
+    assert "due_tomorrow" in codes
+    assert "little_time_left" in codes
+    assert codes.index("due_tomorrow") < codes.index("little_time_left")
+
+
+def test_overdue_beats_every_other_reason():
+    action = decide(
+        ctx(),
+        planned_today=[block("t1", "Late lab", due_in=-2, priority=90)],
+    )[0]
+    assert action.reason_codes[0] == "overdue"
+
+
+def test_caveats_never_lead():
+    action = decide(
+        ctx(worked_today_minutes=900),
+        planned_today=[block("t1", "Physics set", due_in=0)],
+    )[0]
+    caveats = {"over_capacity", "low_completion_odds", "little_time_left"}
+    assert action.reason_codes[0] not in caveats
+
+
+def test_the_explanation_follows_the_same_order_as_the_codes():
+    action = decide(
+        ctx(available_minutes=0),
+        planned_today=[block("t1", "Physics set", due_in=1)],
+    )[0]
+    expected = [REASON_LABELS[c] for c in action.reason_codes if c in REASON_LABELS]
+    assert list(action.explanation) == expected
+
+
+def test_every_reason_code_has_an_explicit_rank():
+    """An unranked code sorts to a default and is easy to miss. Keep the two
+    tables in step."""
+    from intelliplan.intelligence.nba import _REASON_RANK
+
+    assert set(REASON_LABELS) == set(_REASON_RANK)
+
+
+# ── "not now" has to mean not now ────────────────────────────────────
+
+
+def test_declined_work_is_not_re_offered_the_same_day():
+    """Re-offering what the student just pushed away is the app arguing
+    with them, which is exactly what the override flow exists to avoid."""
+    plan = [block("t1", "Physics set", due_in=2), block("t2", "Essay",
+                                                        course="English", due_in=3)]
+    kept = decide(ctx(dismissed_task_ids=frozenset({"t1"})), planned_today=plan)
+    assert [a.candidate.task_id for a in kept] == ["t2"]
+
+
+def test_overdue_work_comes_back_even_after_being_declined():
+    """Declining something does not make its deadline go away. Silently
+    dropping overdue work would be the scheduler helping them miss it."""
+    plan = [block("t1", "Late lab", due_in=-1)]
+    kept = decide(ctx(dismissed_task_ids=frozenset({"t1"})), planned_today=plan)
+    assert [a.candidate.task_id for a in kept] == ["t1"]
+    assert "overdue" in kept[0].reason_codes
+
+
+def test_work_due_today_can_still_be_declined():
+    """Due today is urgent, not yet overdue. The student is allowed to say
+    they will do it later this evening."""
+    plan = [block("t1", "Physics set", due_in=0)]
+    assert decide(ctx(dismissed_task_ids=frozenset({"t1"})), planned_today=plan) == []
+
+
+def test_no_dismissals_changes_nothing():
+    plan = [block("t1", "Physics set", due_in=2)]
+    assert len(decide(ctx(), planned_today=plan)) == 1
+
+
+def test_declining_work_sticks_even_when_two_sources_describe_it():
+    """The bug that survived the first fix.
+
+    The plan block and the assignment row are the same Physics set with
+    different ids. Filtering dismissals before deduping removed the plan
+    candidate and left the assignment one, so the declined work came back
+    wearing a different id.
+    """
+    plan_block = block("t-physics", "Physics problem set", course="Physics", due_in=2)
+    same_work = {
+        "id": "manual:412", "title": "Physics problem set", "course": "Physics",
+        "due_date": (TODAY + timedelta(days=2)).isoformat(),
+        "priority": 80, "est_minutes": 45, "status": "not_started",
+    }
+    # The student declined whatever the card showed them, which is the
+    # top-ranked candidate after deduping.
+    shown = decide(ctx(), planned_today=[plan_block], assignments=[same_work])
+    dismissed = frozenset({shown[0].candidate.task_id})
+
+    after = decide(
+        ctx(dismissed_task_ids=dismissed),
+        planned_today=[plan_block], assignments=[same_work],
+    )
+    assert [a.candidate.title for a in after] == []
