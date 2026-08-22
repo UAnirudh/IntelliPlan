@@ -41,8 +41,34 @@ Four modals sit over the tabs:
 * **New task** — add something the platforms don't know about.
 
 Plus a profile sheet: streak, sparks, level and freezes, weekly quests,
-focus-session history, the learning profile, push notifications, and
+focus-session history, the learning profile, reminders, and
 light/dark/system.
+
+## First run
+
+Signing **up** goes to a three-step setup (`app/onboarding.tsx`): what the
+app does, connect your school, and your grade level plus goals. Every step
+is skippable — manual tasks, Plani and the focus timer all work with
+nothing connected, so blocking entry on a Canvas login would be charging
+admission for a door that is already open.
+
+Signing **in** skips it. The onboarded flag is per-account and stored on
+the device, so it is set at sign-in too: a student who has used
+IntelliPlan for months and just installed it on a new phone does not need
+the tour. The flag stays unset between sign-up and finishing setup, so
+force-quitting halfway resumes there rather than dropping someone into an
+app they have not configured.
+
+## When something throws
+
+`components/ErrorBoundary.tsx` is exported from the root layout as
+`ErrorBoundary`, which is the name expo-router looks for. Without it a
+release build shows a blank white screen with no way forward — the red box
+with the stack trace is a development-only courtesy and the store build
+has nothing in its place. It offers a retry (most of what can throw is a
+render against an unexpected payload shape, which a refetch clears) and
+shows the error message, which is the one thing that makes a student's bug
+report reproducible.
 
 ## How it talks to the server
 
@@ -182,14 +208,17 @@ the phone app carries the same mark as the website. Regenerate them with
 app/                 expo-router file routes
   (tabs)/            the five tabs
   login.tsx          sign in + sign up
+  onboarding.tsx     three-step first run
   focus.tsx          study timer (full-screen modal)
   task.tsx           task detail + actions (modal)
   connect.tsx        school platforms (modal)
   settings.tsx       profile sheet (modal)
   new-task.tsx       add a task (modal)
-components/          UI kit — Card, Button, Chip, TaskRow, Ring, Bars, Confirm…
+components/          UI kit — Card, Button, Chip, TaskRow, Ring, Bars, Confirm,
+                     ErrorBoundary…
 theme/               design tokens ported from static/css/ip-base.css
-lib/                 api client, auth, query cache, push, reminders, formatting
+lib/                 api client, auth, query cache, push, reminders, onboarding,
+                     formatting
 ```
 
 `theme/tokens.ts` is copied literally from the web palette rather than

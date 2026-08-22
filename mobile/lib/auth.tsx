@@ -17,8 +17,8 @@ type AuthState = {
   user: Me | null;
   /** Still deciding whether there is a session — render nothing until false. */
   booting: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name?: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<Me>;
+  signUp: (email: string, password: string, name?: string) => Promise<Me>;
   signOut: () => Promise<void>;
 };
 
@@ -47,8 +47,8 @@ async function cachedUser(): Promise<Me | null> {
 const Ctx = createContext<AuthState>({
   user: null,
   booting: true,
-  signIn: async () => {},
-  signUp: async () => {},
+  signIn: async () => ({ id: -1, email: "" }),
+  signUp: async () => ({ id: -1, email: "" }),
   signOut: async () => {},
 });
 
@@ -112,12 +112,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const me = await apiLogin(email.trim().toLowerCase(), password);
     setUser(me);
     cacheUser(me);
+    return me;
   }, []);
 
   const signUp = useCallback(async (email: string, password: string, name?: string) => {
     const me = await apiRegister(email.trim().toLowerCase(), password, name?.trim() || undefined);
     setUser(me);
     cacheUser(me);
+    return me;
   }, []);
 
   const value = useMemo<AuthState>(

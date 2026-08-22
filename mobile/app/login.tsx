@@ -10,6 +10,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../lib/auth";
+import { markOnboarded } from "../lib/onboarding";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius, space } from "../theme/tokens";
 import { Button, Field, Notice, Screen, T } from "../components/ui";
@@ -46,9 +47,24 @@ export default function LoginScreen() {
     }
     setBusy(true);
     try {
-      if (signup) await signUp(email, password, name);
-      else await signIn(email, password);
-      router.replace("/(tabs)/today");
+      if (signup) {
+        // A brand-new account has nothing connected and nothing due, so
+        // it goes straight to setup rather than to five empty tabs. The
+        // onboarded flag stays unset until they finish or skip, so
+        // force-quitting mid-setup resumes there rather than dropping
+        // them into an app they have not configured.
+        await signUp(email, password, name);
+        router.replace("/onboarding");
+      } else {
+        // Signing in means the account already exists, so the tour has
+        // nothing to tell them — they are only here on this device for
+        // the first time. Marking it now stops the per-device flag from
+        // re-running setup for someone who has been using IntelliPlan
+        // for months.
+        const me = await signIn(email, password);
+        if (me?.id !== undefined) await markOnboarded(me.id);
+        router.replace("/(tabs)/today");
+      }
     } catch (e: any) {
       setError(e?.message || "That didn't work. Try again.");
     } finally {

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useRouter } from "expo-router";
 import { useAuth } from "../lib/auth";
+import { hasOnboarded } from "../lib/onboarding";
 import { Loading, Screen } from "../components/ui";
 
 /**
@@ -13,7 +14,16 @@ export default function Index() {
 
   useEffect(() => {
     if (booting) return;
-    router.replace(user ? "/(tabs)/today" : "/login");
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+    // Onboarding is per-account, so a shared phone gives the second
+    // student the tour rather than dropping them into someone else's
+    // finished setup.
+    hasOnboarded(user.id)
+      .then((done) => router.replace(done ? "/(tabs)/today" : "/onboarding"))
+      .catch(() => router.replace("/(tabs)/today"));
   }, [booting, user, router]);
 
   return (

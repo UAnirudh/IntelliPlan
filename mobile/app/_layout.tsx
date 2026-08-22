@@ -5,6 +5,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { View } from "react-native";
 import { AuthProvider } from "../lib/auth";
 import { ConfirmProvider } from "../components/Confirm";
+import { AppErrorBoundary } from "../components/ErrorBoundary";
 import { ThemeProvider, useTheme } from "../theme/ThemeProvider";
 
 function Shell() {
@@ -22,6 +23,7 @@ function Shell() {
       >
         <Stack.Screen name="index" />
         <Stack.Screen name="login" />
+        <Stack.Screen name="onboarding" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="settings" options={{ presentation: "modal" }} />
         <Stack.Screen name="new-task" options={{ presentation: "modal" }} />
@@ -45,6 +47,22 @@ export default function RootLayout() {
             <Shell />
           </ConfirmProvider>
         </AuthProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
+  );
+}
+
+/**
+ * expo-router picks this up by name. Exported from the root layout so it
+ * covers every screen, and wrapped in ThemeProvider because the boundary
+ * renders outside the tree the providers below it set up — without that it
+ * would throw looking up a theme while handling a throw.
+ */
+export function ErrorBoundary(props: { error: Error; retry: () => Promise<void> }) {
+  return (
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <AppErrorBoundary {...props} />
       </ThemeProvider>
     </SafeAreaProvider>
   );
