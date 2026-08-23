@@ -16270,6 +16270,27 @@ def error_503(e):
 @app.errorhandler(Exception)
 def handle_unhandled_exception(e):
     import traceback
+
+    from werkzeug.exceptions import HTTPException
+
+    # An HTTPException is a *deliberate* answer — abort(400) for bad input,
+    # abort(401) for "sign in first". Catching Exception catches those too,
+    # so without this branch every one of them was reported to the client as
+    # a 500: a caller could not tell "you sent nonsense" from "the server
+    # fell over", and every validation failure looked like an outage worth
+    # paging someone about. Codes with their own handler (404, 403, 429,
+    # 503) never reached here; everything else did.
+    #
+    # Returned, never re-raised: re-raising inside a handler re-enters this
+    # function and the second pass has no error page to fall back to.
+    if isinstance(e, HTTPException):
+        if request.path.startswith(("/extension/", "/api/")) or request.is_json:
+            return flask.jsonify({
+                "status": "error",
+                "message": e.description or e.name,
+            }), e.code or 500
+        return e
+
     err_id = make_error_id()
     print(f"[{err_id}] Unhandled exception:\n{traceback.format_exc()}")
     if os.getenv("SENTRY_DSN"):

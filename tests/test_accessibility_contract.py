@@ -357,3 +357,43 @@ def test_accent_is_legible_as_text_on_the_card(theme, card, accent):
     assert ratio >= AA_SMALL_TEXT, (
         f"{theme}: --accent {accent} text on --bg-card {card} is {ratio:.2f}:1"
     )
+
+
+# ── error semantics ──────────────────────────────────────────────────
+#
+# Not accessibility, but the same class of contract: a promise the app makes
+# to its callers that nothing else asserts.
+
+
+def test_a_bad_request_is_reported_as_a_bad_request(client):
+    """``abort(400)`` must reach the client as a 400.
+
+    The catch-all ``errorhandler(Exception)`` also catches HTTPException, so
+    every deliberate 4xx without its own handler was being reported as a
+    500 — a caller could not tell bad input from an outage, and every
+    validation failure looked like something worth paging about.
+    """
+    response = client.post(
+        "/api/schedule/override",
+        json={"action": "detonate", "task_id": "x"},
+    )
+    # 404 when the caller is outside the rollout cohort, which is also fine —
+    # what must not happen is a 500.
+    assert response.status_code in (400, 404), response.status_code
+
+
+def test_an_unauthenticated_api_call_is_a_401_not_a_500(client):
+    with client.session_transaction() as sess:
+        sess.clear()
+    response = client.get("/api/next-action")
+    assert response.status_code in (401, 404), response.status_code
+
+
+def test_http_errors_on_api_paths_answer_in_json(client):
+    """An HTML error page returned to a fetch() is a parse error at the
+    other end, not an error message."""
+    response = client.post(
+        "/api/schedule/override", json={"action": "detonate", "task_id": "x"}
+    )
+    if response.status_code < 500:
+        assert response.is_json, response.headers.get("Content-Type")
