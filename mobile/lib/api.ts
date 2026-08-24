@@ -147,6 +147,11 @@ export async function logout(): Promise<void> {
   await setToken(null);
 }
 
+export async function deleteAccount(): Promise<void> {
+  await apiFetch("/account/delete", { method: "POST", body: JSON.stringify({}) });
+  await setToken(null);
+}
+
 /* ── Today / Command Center ───────────────────────────────────────── */
 
 export type PriorityTier = "critical" | "high" | "medium" | "low" | string;

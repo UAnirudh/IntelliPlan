@@ -14,6 +14,7 @@ import {
   patchIdentity,
   Quest,
   Streak,
+  deleteAccount,
 } from "../lib/api";
 import { API_BASE } from "../lib/config";
 import { useQuery } from "../lib/useQuery";
@@ -143,6 +144,25 @@ export default function SettingsScreen() {
     await signOut();
     router.replace("/login");
   }, [signOut, router, confirm]);
+
+  const confirmDeleteAccount = useCallback(async () => {
+    const choice = await confirm({
+      title: "Delete your account?",
+      message: "This permanently removes your account, tasks, connections, and learning history.",
+      actions: [
+        { label: "Delete everything", destructive: true },
+        { label: "Cancel", cancel: true },
+      ],
+    });
+    if (choice !== 0) return;
+    try {
+      await deleteAccount();
+      await signOut();
+      router.replace("/login");
+    } catch (e: any) {
+      setProfileNote(e?.message || "Couldn't delete your account. Try again.");
+    }
+  }, [confirm, router, signOut]);
 
   const s = streak.data;
   const version = Constants.expoConfig?.version ?? "—";
@@ -438,6 +458,7 @@ export default function SettingsScreen() {
         </Card>
 
         <Button title="Sign out" kind="danger" icon="log-out-outline" onPress={confirmSignOut} />
+        <Button title="Delete account" kind="danger" icon="trash-outline" onPress={confirmDeleteAccount} />
       </ScrollView>
     </Screen>
   );
