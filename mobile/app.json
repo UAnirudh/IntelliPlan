@@ -2,16 +2,70 @@
   "expo": {
     "name": "IntelliPlan",
     "slug": "intelliplan",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "automatic",
-    "splash": {
-      "backgroundColor": "#f5f4f1"
-    },
+    "icon": "./assets/icon.png",
     "scheme": "intelliplan",
-    "plugins": ["expo-router", "expo-secure-store"],
-    "ios": { "supportsTablet": true, "bundleIdentifier": "tech.intelliplan.app" },
-    "android": { "package": "tech.intelliplan.app" },
-    "web": { "bundler": "metro" }
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f5f4f1",
+      "dark": {
+        "image": "./assets/splash-icon.png",
+        "backgroundColor": "#101012"
+      }
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "tech.intelliplan.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Attach a photo of a problem so Plani can walk you through it.",
+        "NSCameraUsageDescription": "Snap a photo of a problem so Plani can walk you through it.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "tech.intelliplan.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#f5f4f1"
+      },
+      "edgeToEdgeEnabled": true,
+      "permissions": ["android.permission.POST_NOTIFICATIONS"]
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#1a56db"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Attach a photo of a problem so Plani can walk you through it.",
+          "cameraPermission": "Snap a photo of a problem so Plani can walk you through it."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    },
+    "extra": {
+      "router": {},
+      "eas": {}
+    }
   }
 }
