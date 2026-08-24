@@ -665,6 +665,28 @@ export async function disconnectProvider(key: string): Promise<void> {
   });
 }
 
+export type GoogleCalendarAccount = {
+  id: number;
+  email?: string;
+  name?: string;
+  is_active?: boolean;
+};
+
+export type GoogleCalendarStatus = {
+  connected: boolean;
+  accounts: GoogleCalendarAccount[];
+  active_id?: number | null;
+  active_email?: string;
+};
+
+export async function getGoogleCalendarStatus(): Promise<GoogleCalendarStatus> {
+  return apiFetch<GoogleCalendarStatus>("/gcal/status");
+}
+
+export async function disconnectGoogleCalendar(): Promise<void> {
+  await apiFetch("/oauth/google/disconnect", { method: "POST", body: JSON.stringify({}) });
+}
+
 /* ── Quests ───────────────────────────────────────────────────────── */
 
 export type Quest = {

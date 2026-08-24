@@ -249,6 +249,32 @@ export default function SettingsScreen() {
           </Card>
         </Pressable>
 
+        <Pressable onPress={() => router.push("/accounts")} accessibilityRole="button">
+          <Card style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: radius.md,
+                backgroundColor: colors.accentSoft,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="cloud-outline" size={19} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <T variant="base" weight="600">
+                Accounts &amp; calendar
+              </T>
+              <T variant="sm" tone="muted">
+                Canvas handoff and Google Calendar sync
+              </T>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Card>
+        </Pressable>
+
         {/* ── Focus history ──
             Shown as plain counts rather than a chart: with a handful of
             sessions a sparkline is noise pretending to be a trend. */}
