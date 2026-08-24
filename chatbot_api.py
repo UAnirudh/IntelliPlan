@@ -1027,12 +1027,58 @@ def rename_tutor_conversation(convo_id):
         return jsonify({'error': 'rename failed'}), 500
 
 
+def _check_and_increment_tutor_limit():
+    """Return (allowed, remaining, limit) and increment the monthly counter.
+
+    Pro users bypass the counter entirely.  Guests are always allowed (no
+    account to track).  The counter is reset on the 1st of each month.
+    """
+    if not current_user.is_authenticated:
+        return True, None, None
+    from datetime import timedelta
+    db = _get_db()
+    now = datetime.utcnow()
+    # Monthly reset
+    if current_user.tutor_reset_date is None or now >= current_user.tutor_reset_date:
+        current_user.monthly_tutor_messages = 0
+        if now.month == 12:
+            current_user.tutor_reset_date = datetime(now.year + 1, 1, 1)
+        else:
+            current_user.tutor_reset_date = datetime(now.year, now.month + 1, 1)
+        db.session.commit()
+    # Pro bypass
+    try:
+        if current_user.pro_active:
+            return True, None, None
+    except AttributeError:
+        pass
+    limit = int(current_app.config.get('FREE_TUTOR_MESSAGES_PER_MONTH', 50))
+    used = current_user.monthly_tutor_messages or 0
+    if used >= limit:
+        return False, 0, limit
+    # Increment
+    current_user.monthly_tutor_messages = used + 1
+    db.session.commit()
+    return True, limit - used - 1, limit
+
+
 @chatbot_bp.route('/api/tutor', methods=['POST'])
 def tutor():
     try:
         data = request.get_json()
         if not data:
             return jsonify({'error': 'Invalid JSON'}), 400
+
+        # ── Usage limit check (free tier: 50 messages/month) ──
+        allowed, remaining, limit = _check_and_increment_tutor_limit()
+        if not allowed:
+            return jsonify({
+                'error': 'limit_reached',
+                'limit_type': 'tutor_messages',
+                'message': f'You have used all {limit} free Plani messages this month.',
+                'remaining': 0,
+                'limit': limit,
+            }), 429
 
         incoming_messages = _normalize_tutor_messages(data.get('messages', []))
         if not incoming_messages:
