@@ -23,13 +23,16 @@ from ai_provider import ai_available, chat as ai_chat, vision as ai_vision
 # Env vars:
 #   OLLAMA_BASE_URL     — e.g. http://localhost:11434 (presence flips the switch)
 #   OLLAMA_MODEL        — default model name (e.g. llama3.3, llama3.1:8b)
-#   OLLAMA_MODEL_MAP    — optional JSON {"llama-3.3-70b-versatile": "llama3.3", ...}
+#   OLLAMA_MODEL_MAP    — optional JSON {"openai/gpt-oss-120b": "gpt-oss:120b", ...}
 #                         to translate Groq model names into Ollama tags.
 
 _DEFAULT_OLLAMA_MODEL_MAP = {
     'llama-3.3-70b-versatile': 'llama3.3',
     'llama-3.1-8b-instant':    'llama3.1:8b',
     'llama-3.1-70b-versatile': 'llama3.1:70b',
+    'openai/gpt-oss-120b':      'gpt-oss:120b',
+    'openai/gpt-oss-20b':       'gpt-oss:20b',
+    'qwen/qwen3.6-27b':         'qwen3.6:27b',
 }
 
 
@@ -275,7 +278,7 @@ def _classify_text(text: str):
 # Llama-3.3 is natively multilingual, so we let it handle language detection + classification
 # in a single call instead of running a separate translate→classify pipeline.
 
-_MODERATION_MODEL = os.getenv('PLANI_MODERATION_MODEL', 'llama-3.1-8b-instant')
+_MODERATION_MODEL = os.getenv('PLANI_MODERATION_MODEL', 'openai/gpt-oss-20b')
 _VALID_MODERATION_CATEGORIES = {
     'sexual', 'drugs', 'alcohol', 'violence',
     'self_harm', 'profanity', 'jailbreak', 'safe',
@@ -1123,13 +1126,13 @@ def tutor():
             system_messages.append({'role': 'system', 'content': personalization_prompt})
 
         reply = _llm_chat(
-            model='llama-3.3-70b-versatile',
+            model='openai/gpt-oss-120b',
             messages=system_messages + recent,
             temperature=0.35,
             max_tokens=1800,
         ).strip()
 
-        # Output-side safety: audit Llama's own reply to catch jailbreak-compliant or unsafe output.
+        # Output-side safety: audit the model reply to catch jailbreak-compliant or unsafe output.
         out_category = _safety_check_assistant_reply(reply)
         if out_category:
             print(f'[moderation/output] Blocking reply, category={out_category}')
@@ -1283,7 +1286,7 @@ def chatbot():
             system_messages.append({'role': 'system', 'content': personalization_prompt})
 
         reply = _llm_chat(
-            model='llama-3.3-70b-versatile',
+            model='openai/gpt-oss-120b',
             messages=system_messages + recent,
             temperature=0.45,
             max_tokens=320,

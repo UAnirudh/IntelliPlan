@@ -168,11 +168,18 @@ def test_no_backend_configured_raises_clearly(no_keys):
 
 import re as _re
 
+import ai_provider
 from ai_provider import (
     MIN_USEFUL_THINKING,
     THINKING_SHARE,
     _supports_thinking,
 )
+
+
+def test_groq_defaults_use_supported_post_llama_models():
+    assert ai_provider.GROQ_STANDARD == "openai/gpt-oss-120b"
+    assert ai_provider.GROQ_FAST == "openai/gpt-oss-20b"
+    assert ai_provider.GROQ_VISION == "qwen/qwen3.6-27b"
 
 
 def test_thinking_detected_by_version_not_by_string_match():

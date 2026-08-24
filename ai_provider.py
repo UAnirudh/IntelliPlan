@@ -32,9 +32,14 @@ GEMINI_STANDARD = os.getenv("GEMINI_STANDARD_MODEL", "gemini-2.5-flash")
 GEMINI_FAST = os.getenv("GEMINI_FAST_MODEL", "gemini-3.5-flash-lite")
 GEMINI_VISION = os.getenv("GEMINI_VISION_MODEL", "gemini-2.5-flash")
 
-GROQ_STANDARD = os.getenv("GROQ_STANDARD_MODEL", "llama-3.3-70b-versatile")
-GROQ_FAST = os.getenv("GROQ_FAST_MODEL", "llama-3.1-8b-instant")
-GROQ_VISION = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+# Groq decommissioned the Llama 3.3 70B and Llama 3.1 8B models on
+# 2026-08-16. Keep the environment variables so deployments can override
+# these defaults, but make the supported replacements the out-of-box path.
+GROQ_STANDARD = os.getenv("GROQ_STANDARD_MODEL", "openai/gpt-oss-120b")
+GROQ_FAST = os.getenv("GROQ_FAST_MODEL", "openai/gpt-oss-20b")
+# Qwen 3.6 27B is the recommended multimodal replacement for deprecated
+# Llama vision models on Groq.
+GROQ_VISION = os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.6-27b")
 GROQ_WHISPER = os.getenv("GROQ_WHISPER_MODEL", "whisper-large-v3-turbo")
 
 _TIER_GEMINI = {"standard": GEMINI_STANDARD, "fast": GEMINI_FAST, "vision": GEMINI_VISION}
