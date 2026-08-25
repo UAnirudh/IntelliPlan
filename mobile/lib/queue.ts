@@ -1,5 +1,15 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { ApiError, createTask, dismissTask, markTest, NewTask, restoreTask, unmarkTest } from "./api";
+import {
+  ApiError,
+  createTask,
+  deleteManualTask,
+  dismissTask,
+  markTest,
+  NewTask,
+  restoreTask,
+  unmarkTest,
+  updateManualTask,
+} from "./api";
 
 /**
  * Writes that could not be sent, kept until they can be.
@@ -30,7 +40,13 @@ export type NewWrite =
   | { kind: "restore"; title: string }
   | { kind: "markTest"; title: string }
   | { kind: "unmarkTest"; title: string }
-  | { kind: "createTask"; task: NewTask };
+  | { kind: "createTask"; task: NewTask }
+  // `taskId`, not `id`: PendingWrite intersects NewWrite with the queue's
+  // own `id: string`, so a member carrying `id` would have it narrowed to
+  // string and then overwritten by the generated one in `enqueue` — the
+  // task id would be silently lost on the way to disk.
+  | { kind: "updateTask"; taskId: number | string; patch: Partial<NewTask> }
+  | { kind: "deleteTask"; taskId: number | string };
 
 export type PendingWrite = NewWrite & { id: string; at: number };
 
@@ -132,6 +148,10 @@ async function send(item: PendingWrite): Promise<void> {
     case "createTask":
       await createTask(item.task);
       return;
+    case "updateTask":
+      return updateManualTask(item.taskId, item.patch);
+    case "deleteTask":
+      return deleteManualTask(item.taskId);
   }
 }
 

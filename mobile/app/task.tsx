@@ -20,6 +20,8 @@ import { Button, Card, Chip, Label, Notice, Screen, T } from "../components/ui";
  * places and a silent drop when one is forgotten.
  */
 type TaskParam = {
+  /** Present for manual tasks, which are the only ones editable here. */
+  id?: number | string;
   title: string;
   course?: string;
   due_date?: string;
@@ -111,6 +113,14 @@ export default function TaskScreen() {
   }
 
   const est = task.est_minutes ?? task.estimated_time;
+  // Only a task the student typed themselves can be edited. An assignment
+  // from Canvas is a copy of the teacher's record, so a rewrite here would
+  // just be undone by the next sync — offering the button would be a lie.
+  const editable =
+    (task.source || "").toLowerCase() === "manual" &&
+    task.id !== undefined &&
+    task.id !== null &&
+    task.id !== "";
   const pri = priorityColour(colors, task.priority);
   const platform = task.platform || task.source;
 
@@ -246,6 +256,17 @@ export default function TaskScreen() {
             busy={busy === "done"}
             onPress={toggleDone}
           />
+
+          {editable ? (
+            <Button
+              title="Edit task"
+              kind="secondary"
+              icon="create-outline"
+              onPress={() =>
+                router.push({ pathname: "/edit-task", params: { data: JSON.stringify(task) } })
+              }
+            />
+          ) : null}
 
           <Button
             title={isTest ? "Not a test" : "This is a test"}

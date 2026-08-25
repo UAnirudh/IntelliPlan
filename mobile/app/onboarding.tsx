@@ -4,8 +4,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
-import { getProviders, patchIdentity, Provider } from "../lib/api";
-import { API_BASE } from "../lib/config";
+import { getProviders, patchIdentity, Provider, startLinkSession } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { markOnboarded } from "../lib/onboarding";
 import { setRemindersEnabled } from "../lib/reminders";
@@ -196,11 +195,19 @@ export default function OnboardingScreen() {
                     <Pressable
                       key={p.key}
                       accessibilityRole="button"
-                      onPress={() =>
-                        WebBrowser.openBrowserAsync(
-                          `${API_BASE}/integrations?provider=${encodeURIComponent(p.key)}`,
-                        ).catch(() => setNote("Couldn't open the browser."))
-                      }
+                      onPress={async () => {
+                        setNote(null);
+                        try {
+                          // Same one-time hand-off the Connect screen uses:
+                          // the browser opens already signed in and returns
+                          // here on its own.
+                          const session = await startLinkSession(p.key);
+                          await WebBrowser.openAuthSessionAsync(session.url, session.return_url);
+                          setProviders(await getProviders());
+                        } catch (e: any) {
+                          setNote(e?.message || "Couldn't open the browser.");
+                        }
+                      }}
                     >
                       <Card style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
                         <Ionicons name="link-outline" size={20} color={colors.textMuted} />

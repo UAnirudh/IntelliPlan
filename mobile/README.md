@@ -20,11 +20,11 @@ Five tabs, in the order a school day happens:
 | --- | --- |
 | **Today** | The Command Center — AI briefing, Academic Health dial, a 7-day workload forecast, and the ranked "do this first" list with `why_now` on each item. Falls back to a plain due-list if the briefing feature isn't enabled for the account. |
 | **Due** | Every assignment from every connected platform, grouped Overdue / Today / This week / Later, filterable by window and by course. Tap the circle to complete; the Done filter undoes it. |
-| **Plan** | The saved study plan, plus a generator (hours per day × when you focus best). Generating is a button — never automatic on open, so it can't quietly discard progress ticked off against the existing plan. |
+| **Plan** | The saved study plan, plus a generator (hours per day × when you focus best). Generating is a button — never automatic on open, so it can't quietly discard progress ticked off against the existing plan. Blocks tick off against the plan and the progress follows the account rather than one device. **Catch me up** re-solves the remaining week around the sessions that slipped, crediting what was actually done. **Set my own hours** opens the manual scheduler: hand-placed blocks, saved as named routines and applied to whichever days they fit — the real shape of a week is one or two routines repeated, not seven bespoke days. |
 | **Grades** | Three segments: **Current** (a percentage bar per course), **Forecast** (per-course predictions with trend and the confidence behind each number), and **What you know** (mastery by subject, and the concepts most likely to have slipped since you last reviewed them). |
 | **Plani** | The AI tutor with conversation history, plus Snap & Solve: photograph a worksheet and it works through every problem it can see. |
 
-Four modals sit over the tabs:
+The modals over the tabs:
 
 * **Focus** — a study timer against one piece of work. Start it from Today,
   from a task, or from a block in the plan; pause, resume, and finish with
@@ -35,10 +35,30 @@ Four modals sit over the tabs:
   claiming the gap as study time.
 * **Task** — the ranking's own working: `why_now`, a weighted breakdown of
   what pushed the task up the list, and the actions (focus, complete, mark
-  as a test).
+  as a test). A task you typed yourself also offers **Edit**, which is
+  where it can be renamed, re-dated, re-estimated or deleted. An
+  assignment from Canvas does not: it is a copy of the teacher's record,
+  so a rewrite here would only be undone by the next sync.
 * **Your school** — connect, sync and disconnect Canvas, StudentVue,
   Schoology and the rest.
 * **New task** — add something the platforms don't know about.
+* **Accounts & calendar** — the connected Google accounts, and the school
+  profiles. A student with more than one school account has exactly one
+  active, and it decides whose assignments and grades every other screen
+  is showing — so switching clears the response cache with it, or the
+  previous school's work would sit under the new profile's name until each
+  screen happened to refetch.
+* **Study tools** — paste notes, pick a PDF, or drop a YouTube link, and
+  get flashcards and a quiz. Three ways in, one pipeline: each source only
+  produces the study text that `/study/generate` turns into key concepts
+  and questions, so the cards and the quiz are two views of one result
+  rather than two generations that could disagree. Answers are typed in
+  the student's own words and marked semantically — an exact match would
+  fail a correct answer for its wording.
+* **Streak & shop** — the streak, the Sparks balance, and what Sparks buy.
+  The catalogue and the week's discounted item come from the server with
+  the balance, so nothing here holds a copy of a price. A broken streak
+  can be bought back while the repair window is open.
 
 Plus a profile sheet: streak, sparks, level and freezes, weekly quests,
 focus-session history, the learning profile, reminders, and
@@ -109,15 +129,36 @@ into the next student's account.
 A network failure at launch does *not* sign you out — only a credential the
 server actively rejects does. See `lib/auth.tsx`.
 
-### Connecting a school platform
+### Connecting a school platform, or Google
 
 Sync and disconnect are plain JSON calls, so the things a student does
-repeatedly stay in the app. **Connecting** opens the website in an in-app
-browser instead. That is deliberate: the OAuth providers need a real
-browser redirect to be secure at all, and the credential providers (Canvas
-tokens, StudentVue passwords) already have a hardened form on the site — a
-second implementation here would be a second place for school credentials
-to leak.
+repeatedly never leave the app. **Connecting** opens the website. That is
+deliberate: the OAuth providers need a real browser redirect to be secure
+at all — Google refuses to run its flow inside an embedded web view,
+hardest of all against the supervised Family Link accounts these students
+often have — and the credential providers already have a hardened form on
+the site. A second implementation here would be a second place for school
+credentials to leak.
+
+What makes it one tap rather than a scavenger hunt is that the browser no
+longer opens logged out. `POST /api/v1/link/session` mints a one-time
+code; the app opens `/link/<code>`; the server signs that browser in as
+the code's owner and forwards straight to the provider's OAuth start. When
+the flow finishes the site redirects to `intelliplan://connected`, which
+closes the browser and returns to the app, which refreshes and runs a
+first sync so something actually appears.
+
+Without that hand-off the browser arrives with no session — both OAuth
+starts read the session cookie, not the bearer token the phone holds — and
+the connection attaches to nobody.
+
+The code is a bearer credential travelling in a URL, so `app_link.py`
+makes it worth as little as possible: single use, ninety-second life,
+stored only as a SHA-256, compared in constant time, and forwarded only to
+an allow-listed internal path. That last one matters most — the endpoint
+redirects *while authenticated*, so a caller-chosen destination would be
+an open redirect that also hands over a live session. `tests/test_app_link.py`
+covers each of those.
 
 ### Confirmations
 
@@ -226,7 +267,8 @@ app/                 expo-router file routes
   onboarding.tsx     three-step first run
   focus.tsx          study timer (full-screen modal)
   task.tsx           task detail + actions (modal)
-  connect.tsx        school platforms (modal)
+  connect.tsx        school platforms + Google Calendar (modal)
+  plan-custom.tsx    hand-placed study blocks (modal)
   settings.tsx       profile sheet (modal)
   new-task.tsx       add a task (modal)
 components/          UI kit — Card, Button, Chip, TaskRow, Ring, Bars, Confirm,

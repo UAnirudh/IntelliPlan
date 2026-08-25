@@ -41,7 +41,11 @@ function Shell() {
         <Stack.Screen name="settings" options={{ presentation: "modal" }} />
         <Stack.Screen name="new-task" options={{ presentation: "modal" }} />
         <Stack.Screen name="task" options={{ presentation: "modal" }} />
+        <Stack.Screen name="edit-task" options={{ presentation: "modal" }} />
         <Stack.Screen name="connect" options={{ presentation: "modal" }} />
+        <Stack.Screen name="plan-custom" options={{ presentation: "modal" }} />
+        <Stack.Screen name="study" options={{ presentation: "modal" }} />
+        <Stack.Screen name="streak" options={{ presentation: "modal" }} />
         <Stack.Screen name="accounts" options={{ presentation: "modal" }} />
         {/* Full screen, not a card: a session should not have a dismiss
             gesture sitting under the student's thumb, and the timer is the

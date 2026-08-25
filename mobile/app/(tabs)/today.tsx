@@ -291,6 +291,10 @@ export default function TodayScreen() {
                     pathname: "/task",
                     params: {
                       data: JSON.stringify({
+                        // Deliberately `source_ref` and not `t.id`: the
+                        // latter is the plan's hash, which the manual
+                        // task endpoints would not recognise.
+                        id: t.source_ref,
                         title: t.title,
                         course: t.course,
                         due_date: t.due_date,

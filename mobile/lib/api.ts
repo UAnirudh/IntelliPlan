@@ -69,7 +69,13 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   const token = await getToken();
   const headers = new Headers(init.headers || {});
   headers.set("Accept", "application/json");
-  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  // FormData sets its own Content-Type, including the multipart boundary.
+  // Setting one here — even an empty one — replaces that boundary and the
+  // server sees a body it cannot parse, which surfaces as "no file".
+  const isForm = typeof FormData !== "undefined" && init.body instanceof FormData;
+  if (init.body && !isForm && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   const controller = new AbortController();
@@ -107,6 +113,17 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   } catch {
     throw new ApiError(res.status, "The server sent something that wasn't JSON.");
   }
+}
+
+/**
+ * The same request, with a file.
+ *
+ * A thin wrapper so call sites read the same as the JSON ones; `apiFetch`
+ * recognises FormData and leaves its Content-Type — and so its multipart
+ * boundary — alone.
+ */
+export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+  return apiFetch<T>(path, { method: "POST", body: form as unknown as BodyInit });
 }
 
 /* ── Auth ─────────────────────────────────────────────────────────── */
@@ -157,7 +174,12 @@ export async function deleteAccount(): Promise<void> {
 export type PriorityTier = "critical" | "high" | "medium" | "low" | string;
 
 export type PlannedTask = {
+  /** The plan's own stable id — a hash of source and row, not a row id.
+   *  Editing a manual task needs `source_ref`, which is the row id. */
   id: string;
+  /** The id in the system the task came from. For `source: "manual"` this
+   *  is the ManualTask row id the update and delete endpoints take. */
+  source_ref?: string;
   title: string;
   course?: string | null;
   due_date?: string | null;
@@ -322,19 +344,53 @@ export async function getPredictions(): Promise<{ predictions: Prediction[]; mes
 /* ── Schedule ─────────────────────────────────────────────────────── */
 
 export type Block = {
+  /** The generator writes `assignment`; older saved plans wrote `title`. */
+  assignment?: string;
   title?: string;
   course?: string;
   time_slot?: string;
   start?: string;
   end?: string;
+  /** Minutes. `duration_minutes` is what the generator emits. */
+  duration_minutes?: number | string;
   duration?: number | string;
   kind?: string;
+  /** Stable per-block key the progress map is written against. */
+  block_id?: string;
+  task_id?: string | number;
+  is_break?: boolean;
+  /** Set when the block could not be placed in the stated free hours. */
+  unplaced?: boolean;
   [k: string]: unknown;
 };
 
 export type ScheduleDay = { day?: string; date?: string; blocks?: Block[] };
 
+/** What a block is called, whichever field the plan was written with. */
+export function blockTitle(b: Block): string {
+  return String(b.assignment || b.title || b.course || "Study block");
+}
+
+/** How long a block runs, in minutes, or 0 when it does not say. */
+export function blockMinutes(b: Block): number {
+  const raw = b.duration_minutes ?? b.duration;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/** Per-block state the student ticked off, keyed by `block_id`. */
+export type ScheduleProgress = Record<string, { done?: boolean; checked?: number[] }>;
+
 export type SavedSchedule = {
+  /**
+   * Both schedule endpoints answer `{status, data: {schedule: [...]}}`, so
+   * the days are a level deeper than the top-level `schedule`/`days` keys
+   * older callers looked for. Reading only those found nothing and rendered
+   * "no plan saved" over a plan that existed.
+   */
+  status?: string;
+  data?: { schedule?: ScheduleDay[]; [k: string]: unknown };
+  progress?: ScheduleProgress;
   schedule?: ScheduleDay[] | Record<string, Block[]>;
   days?: ScheduleDay[];
   name?: string;
@@ -350,10 +406,81 @@ export async function generateSchedule(
   hoursPerDay: number,
   preferredTime: string,
 ): Promise<SavedSchedule> {
-  return apiFetch<SavedSchedule>("/api/v1/schedule/generate", {
+  const d = await apiFetch<SavedSchedule>("/api/v1/schedule/generate", {
     method: "POST",
     body: JSON.stringify({ hours_per_day: hoursPerDay, preferred_time: preferredTime }),
   });
+  // "No assignments to schedule." and "The AI returned an invalid schedule."
+  // both come back as HTTP 200 with status: "error". Left unchecked the app
+  // reports a successful rebuild and then shows an empty plan.
+  if (d?.status === "error") {
+    throw new ApiError(400, String((d as any).message || "Couldn't build a plan just now."));
+  }
+  return d;
+}
+
+/**
+ * Record which blocks are done.
+ *
+ * The whole map is sent, not a delta: the endpoint replaces
+ * `progress_json` wholesale, so sending one block would erase the rest.
+ */
+export async function saveScheduleProgress(progress: ScheduleProgress): Promise<void> {
+  await apiFetch("/schedule/progress", {
+    method: "POST",
+    body: JSON.stringify({ progress }),
+  });
+}
+
+export type ScheduleChange = {
+  kind?: string;
+  title?: string;
+  from?: string;
+  to?: string;
+  detail?: string;
+  [k: string]: unknown;
+};
+
+export type Recovery = {
+  status?: string;
+  changed?: boolean;
+  message?: string;
+  data?: { schedule?: ScheduleDay[]; [k: string]: unknown };
+  missed_minutes?: number;
+  completed_minutes?: number;
+  missed?: { title?: string; day?: string; minutes?: number }[];
+  changes?: ScheduleChange[];
+  overloaded?: boolean;
+};
+
+/**
+ * Re-solve the plan from where the student actually is.
+ *
+ * The server needs the current assignments passed in — it will not re-fetch
+ * them — because a recovery has to be solved against the same work the
+ * student is looking at, not whatever a later sync happens to return.
+ *
+ * Answers `changed: false` when nothing slipped, which is a real answer and
+ * not a failure: re-solving an on-track plan just moves blocks the student
+ * has already made peace with.
+ */
+export async function recoverSchedule(args: {
+  assignments: Task[];
+  hoursPerDay?: number;
+  preferredTime?: string;
+}): Promise<Recovery> {
+  const d = await apiFetch<Recovery>("/schedule/recover", {
+    method: "POST",
+    body: JSON.stringify({
+      assignments: args.assignments,
+      hours_per_day: args.hoursPerDay ?? 2,
+      preferred_time: args.preferredTime || "evening",
+    }),
+  });
+  if (d?.status === "error") {
+    throw new ApiError(400, String(d.message || "Couldn't catch the plan up."));
+  }
+  return d;
 }
 
 /* ── Streak / sparks ──────────────────────────────────────────────── */
@@ -371,12 +498,201 @@ export type Streak = {
   freeze_capacity?: number;
   last_active_date?: string;
   at_risk?: boolean;
+  longest_streak?: number;
+  total_sessions?: number;
+  /** True only while the window to buy a broken streak back is still open. */
+  repair_available?: boolean;
+  repair_eligible_until?: string | null;
+  /** Sparks the repair would cost, scaled to how long the streak was. */
+  repair_cost?: number;
   streak_tier?: { name?: string; freeze_cap?: number; [k: string]: unknown };
   [k: string]: unknown;
 };
 
 export async function getStreak(): Promise<Streak> {
   return apiFetch<Streak>("/api/v1/streak");
+}
+
+/**
+ * One item in the Sparks shop.
+ *
+ * The catalogue is not fetched separately — `/study/points` already
+ * returns it under `shop.items`, keyed by id, along with the week's
+ * discounted item. Hard-coding a copy in the app would drift the moment a
+ * price changed on the server.
+ */
+export type ShopItem = {
+  name: string;
+  price: number;
+  kind: "protection" | "booster" | "inventory" | "cosmetic" | string;
+  description?: string;
+  slot?: string;
+  value?: number | string;
+  multiplier?: number;
+  [k: string]: unknown;
+};
+
+export type Shop = {
+  items?: Record<string, ShopItem>;
+  weekly_deal?: { item_id?: string; discount_percent?: number; price?: number };
+};
+
+export type Purchase = {
+  status?: string;
+  message?: string;
+  item_id?: string;
+  price?: number;
+  spark_balance?: number;
+  streak_freeze_count?: number;
+  badges_unlocked?: string[];
+};
+
+export async function buyShopItem(itemId: string): Promise<Purchase> {
+  const d = await apiFetch<Purchase>("/study/shop/buy", {
+    method: "POST",
+    body: JSON.stringify({ item_id: itemId }),
+  });
+  // The catch-all branch answers HTTP 200 with status "error", so a
+  // purchase that failed would otherwise look like one that worked — and
+  // the app would show a balance it never actually spent.
+  if (d?.status === "error") throw new ApiError(400, String(d.message || "Couldn't buy that."));
+  return d;
+}
+
+export type Repair = {
+  status?: string;
+  message?: string;
+  streak_count?: number;
+  spark_balance?: number;
+  repair_cost?: number;
+  used_repair_credit?: boolean;
+};
+
+/**
+ * Buy back a streak that broke.
+ *
+ * Only inside the window the server opened (`repair_eligible_until`), once
+ * every 30 days, and it costs Sparks scaled to how long the streak was.
+ */
+export async function repairStreak(): Promise<Repair> {
+  const d = await apiFetch<Repair>("/study/repair", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  if (d?.status === "error") {
+    throw new ApiError(400, String(d.message || "Couldn't repair that streak."));
+  }
+  return d;
+}
+
+/* ── Study tools ──────────────────────────────────────────────────── */
+
+/**
+ * One pipeline, three ways in.
+ *
+ * Pasting text, a PDF, and a YouTube link all end at the same place: a
+ * string of study material handed to `/study/generate`, which returns the
+ * key concepts (the flashcards) and the questions (the quiz). The two
+ * extractors exist only to produce that string, and both answer in the
+ * same `{status, text}` shape.
+ */
+export type StudyCard = { term: string; definition: string };
+
+export type StudyQuestion = {
+  id: number;
+  type?: string;
+  question: string;
+  answer: string;
+  hint?: string;
+};
+
+export type StudySet = {
+  title?: string;
+  key_concepts?: StudyCard[];
+  questions?: StudyQuestion[];
+};
+
+/** These endpoints report failure as `{status: "error"}` over HTTP 200 in
+ *  several branches, so the status is checked rather than the response code. */
+function studyOk<T extends { status?: string; message?: string }>(d: T, fallback: string): T {
+  if (!d || d.status === "error") {
+    throw new ApiError(400, String(d?.message || fallback));
+  }
+  return d;
+}
+
+export async function generateStudySet(
+  content: string,
+  numQuestions = 8,
+): Promise<StudySet> {
+  const d = await apiFetch<{ status?: string; message?: string; data?: StudySet }>(
+    "/study/generate",
+    { method: "POST", body: JSON.stringify({ content, num_questions: numQuestions }) },
+  );
+  return studyOk(d, "Couldn't build a study set from that.").data || {};
+}
+
+export async function extractPdfText(file: {
+  uri: string;
+  name?: string;
+  mimeType?: string;
+}): Promise<string> {
+  const form = new FormData();
+  // React Native's FormData takes this {uri, name, type} shape rather than a
+  // Blob; the field name has to be `file`, which is what the endpoint reads.
+  form.append("file", {
+    uri: file.uri,
+    name: file.name || "notes.pdf",
+    type: file.mimeType || "application/pdf",
+  } as unknown as Blob);
+  const d = await apiUpload<{ status?: string; message?: string; text?: string }>(
+    "/study/extract-pdf",
+    form,
+  );
+  return studyOk(d, "Couldn't read that PDF.").text || "";
+}
+
+export async function extractYoutubeText(url: string): Promise<string> {
+  const d = await apiFetch<{ status?: string; message?: string; text?: string }>(
+    "/study/youtube",
+    { method: "POST", body: JSON.stringify({ url }) },
+  );
+  return studyOk(d, "Couldn't fetch that video's transcript.").text || "";
+}
+
+export type Evaluation = {
+  verdict?: "correct" | "partial" | "incorrect";
+  score?: number;
+  what_was_right?: string;
+  what_was_missing?: string;
+  critique?: string;
+  memory_anchor?: string;
+  better_answer?: string;
+  points_earned?: number;
+};
+
+/** Marks a typed answer against the expected one, semantically rather than
+ *  by string match — so "cells make energy" counts for a mitochondria
+ *  question. */
+export async function evaluateAnswer(args: {
+  question: string;
+  correctAnswer: string;
+  userAnswer: string;
+  confidence?: "low" | "medium" | "high";
+}): Promise<Evaluation> {
+  const d = await apiFetch<{ status?: string; message?: string; evaluation?: Evaluation }>(
+    "/study/evaluate",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        question: args.question,
+        correct_answer: args.correctAnswer,
+        user_answer: args.userAnswer,
+        confidence: args.confidence || "medium",
+      }),
+    },
+  );
+  return studyOk(d, "Couldn't mark that answer.").evaluation || {};
 }
 
 /* ── Learning profile ─────────────────────────────────────────────── */
@@ -692,6 +1008,70 @@ export async function disconnectGoogleCalendar(): Promise<void> {
   await apiFetch("/oauth/google/disconnect", { method: "POST", body: JSON.stringify({}) });
 }
 
+/** Make one of several connected Google accounts the one that counts. */
+export async function activateGoogleAccount(id: number): Promise<void> {
+  await apiFetch("/gcal/activate", { method: "POST", body: JSON.stringify({ id }) });
+}
+
+/** Drop a single Google account, leaving any others connected. */
+export async function removeGoogleAccount(id: number): Promise<void> {
+  await apiFetch("/gcal/remove", { method: "POST", body: JSON.stringify({ id }) });
+}
+
+/* ── School profiles ──────────────────────────────────────────────── */
+
+/**
+ * A student can have more than one school account linked — a district
+ * StudentVue and a college Canvas, or two Canvas instances. Exactly one is
+ * active at a time, and it decides whose assignments every other endpoint
+ * answers with. Switching is therefore not a cosmetic setting: it changes
+ * what the whole app is about.
+ */
+export type SchoolProfile = {
+  id: string;
+  name: string;
+  login_type: string;
+  is_active: boolean;
+};
+
+export type SchoolProfiles = {
+  is_guest: boolean;
+  email?: string;
+  profiles: SchoolProfile[];
+  active: string | null;
+};
+
+/**
+ * These four endpoints answer `{"status": "error"}` with HTTP 200, so a
+ * plain `apiFetch` would report success on every failure — a rename that
+ * silently did nothing, a switch that left the old profile active. Each
+ * one is checked here rather than at four call sites.
+ */
+async function profileWrite(path: string, body: Record<string, unknown>, failure: string) {
+  const d = await apiFetch<{ status?: string; message?: string }>(path, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  if (d?.status && d.status !== "ok") throw new ApiError(400, d.message || failure);
+}
+
+export async function getSchoolProfiles(): Promise<SchoolProfiles> {
+  const d = await apiFetch<SchoolProfiles>("/profiles/list");
+  return { is_guest: !!d?.is_guest, profiles: d?.profiles || [], active: d?.active ?? null, email: d?.email };
+}
+
+export async function switchSchoolProfile(id: string): Promise<void> {
+  await profileWrite("/profiles/switch", { id }, "Couldn't switch profile.");
+}
+
+export async function renameSchoolProfile(id: string, name: string): Promise<void> {
+  await profileWrite("/profiles/rename", { id, name }, "Couldn't rename that profile.");
+}
+
+export async function removeSchoolProfile(id: string): Promise<void> {
+  await profileWrite("/profiles/delete", { id }, "Couldn't remove that profile.");
+}
+
 /* ── Quests ───────────────────────────────────────────────────────── */
 
 export type Quest = {
@@ -759,4 +1139,139 @@ export type LearningDashboard = {
 
 export async function getLearningDashboard(): Promise<LearningDashboard> {
   return apiFetch<LearningDashboard>("/api/learning/dashboard");
+}
+
+/* ── Connecting an account from the phone ─────────────────────────── */
+
+export type LinkSession = {
+  /** Open this in the system browser; it arrives already signed in. */
+  url: string;
+  expires_in: number;
+  provider: string;
+  /** The redirect that means "done" — watch for it to close the browser. */
+  return_url: string;
+};
+
+/**
+ * Mint a one-time URL that opens the browser already signed in as you.
+ *
+ * Connecting Canvas or Google cannot happen inside the app: both flows
+ * start at a Flask route that reads the session cookie rather than the
+ * bearer token, and Google refuses to run OAuth in an embedded web view
+ * at all — hardest of all against the supervised accounts these students
+ * often have. Without this the browser opens logged out and the
+ * connection attaches to nobody.
+ */
+export async function startLinkSession(provider: string): Promise<LinkSession> {
+  return apiFetch<LinkSession>("/api/v1/link/session", {
+    method: "POST",
+    body: JSON.stringify({ provider }),
+  });
+}
+
+/* ── Google Calendar ──────────────────────────────────────────────── */
+
+export type CalendarEvent = {
+  summary?: string;
+  start?: string;
+  end?: string;
+  id?: string;
+  [k: string]: unknown;
+};
+
+export async function getCalendarEvents(): Promise<{ connected: boolean; events: CalendarEvent[] }> {
+  const d = await apiFetch<{ connected?: boolean; events?: CalendarEvent[] }>("/calendar/events");
+  return { connected: !!d?.connected, events: d?.events || [] };
+}
+
+/**
+ * Push the study plan into Google Calendar.
+ *
+ * `skipOverlaps` defaults on: the plan is generated around the student's
+ * free time, but their calendar moves after the plan is built, and
+ * double-booking someone onto an event they already accepted is worse
+ * than skipping a block.
+ */
+export async function exportPlanToCalendar(
+  scheduleData: unknown,
+  skipOverlaps = true,
+): Promise<{ status: string; created?: number; skipped?: number; message?: string }> {
+  return apiFetch("/calendar/export", {
+    method: "POST",
+    body: JSON.stringify({ schedule_data: scheduleData, skip_overlaps: skipOverlaps }),
+  });
+}
+
+/* ── Manual scheduler ─────────────────────────────────────────────── */
+
+export type ManualBlock = {
+  /** "HH:MM", 24-hour. */
+  start: string;
+  end: string;
+  label?: string;
+  kind?: string;
+  [k: string]: unknown;
+};
+
+export type ManualPreset = {
+  id: number;
+  name: string;
+  blocks: ManualBlock[];
+  [k: string]: unknown;
+};
+
+export async function getPresets(): Promise<ManualPreset[]> {
+  const d = await apiFetch<{ presets?: ManualPreset[] }>("/api/scheduler/manual/presets");
+  return d?.presets || [];
+}
+
+export async function savePreset(name: string, blocks: ManualBlock[]): Promise<ManualPreset> {
+  const d = await apiFetch<{ preset: ManualPreset }>("/api/scheduler/manual/presets", {
+    method: "POST",
+    body: JSON.stringify({ name, blocks }),
+  });
+  return d.preset;
+}
+
+export async function deletePreset(id: number): Promise<void> {
+  await apiFetch(`/api/scheduler/manual/presets/${id}`, { method: "DELETE" });
+}
+
+/**
+ * Turn hand-placed blocks into a plan the rest of the app renders.
+ *
+ * `presetId` applies a saved routine to every date given, which is the
+ * common case — one routine, five weekdays.
+ */
+export async function buildManualPlan(args: {
+  days: { date: string; blocks?: ManualBlock[] }[];
+  presetId?: number;
+  name?: string;
+  save?: boolean;
+}): Promise<unknown> {
+  return apiFetch("/api/scheduler/manual/build", {
+    method: "POST",
+    body: JSON.stringify({
+      days: args.days,
+      ...(args.presetId ? { preset_id: args.presetId } : {}),
+      ...(args.name ? { name: args.name } : {}),
+      ...(args.save ? { save: true } : {}),
+    }),
+  });
+}
+
+/* ── Editing a manual task ────────────────────────────────────────── */
+
+export async function updateManualTask(
+  id: number | string,
+  patch: Partial<NewTask>,
+): Promise<void> {
+  await apiFetch("/tasks/manual/update", {
+    method: "POST",
+    body: JSON.stringify({ id, ...patch }),
+  });
+}
+
+export async function deleteManualTask(id: number | string): Promise<void> {
+  await apiFetch("/tasks/manual/delete", { method: "POST", body: JSON.stringify({ id }) });
 }
