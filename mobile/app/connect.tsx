@@ -5,10 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import {
-  disconnectGoogle,
   disconnectProvider,
-  GcalStatus,
-  getGcalStatus,
   getProviders,
   Provider,
   startLinkSession,
@@ -50,9 +47,6 @@ export default function ConnectScreen() {
   const confirm = useConfirm();
 
   const q = useQuery<Provider[]>("providers", getProviders);
-  // Google is not an LMS, so it is not in /api/lms/status — it is the
-  // calendar the plan gets written into, and it has its own status route.
-  const gcal = useQuery<GcalStatus>("gcal", getGcalStatus);
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
 
@@ -106,42 +100,6 @@ export default function ConnectScreen() {
     },
     [q],
   );
-
-  const connectGoogle = useCallback(async () => {
-    setNote(null);
-    setBusy("google");
-    try {
-      const session = await startLinkSession("google");
-      const result = await WebBrowser.openAuthSessionAsync(session.url, session.return_url);
-      if (result.type === "success") setNote("Google Calendar connected.");
-      await gcal.refresh();
-    } catch (e: any) {
-      setNote(e?.message || "Couldn't start connecting Google Calendar.");
-    } finally {
-      setBusy(null);
-    }
-  }, [gcal]);
-
-  const unlinkGoogle = useCallback(async () => {
-    const choice = await confirm({
-      title: "Disconnect Google Calendar?",
-      message: "Your plan stays. It just stops working around your calendar, and can no longer write blocks into it.",
-      actions: [
-        { label: "Disconnect", destructive: true },
-        { label: "Cancel", cancel: true },
-      ],
-    });
-    if (choice !== 0) return;
-    setBusy("google");
-    try {
-      await disconnectGoogle();
-      await gcal.refresh();
-    } catch (e: any) {
-      setNote(e?.message || "That didn't work.");
-    } finally {
-      setBusy(null);
-    }
-  }, [gcal, confirm]);
 
   const sync = useCallback(
     async (p: Provider) => {
@@ -205,9 +163,7 @@ export default function ConnectScreen() {
             Your school
           </T>
           <T variant="sm" tone="muted">
-            {connected.length + (gcal.data?.connected ? 1 : 0)
-              ? `${connected.length + (gcal.data?.connected ? 1 : 0)} connected`
-              : "Nothing connected yet"}
+            {connected.length ? `${connected.length} connected` : "Nothing connected yet"}
           </T>
         </View>
         <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
@@ -228,82 +184,6 @@ export default function ConnectScreen() {
         >
           {note ? <Notice text={note} tone="accent" icon="information-circle-outline" /> : null}
 
-          {/* ── Google Calendar ──
-              Placed above the school platforms because it is the one that
-              changes what the plan looks like: with it connected the
-              scheduler works around what is already in the student's day
-              instead of assuming every evening is free. */}
-          <Card style={{ gap: space.md }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-              <View
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: radius.md,
-                  backgroundColor: gcal.data?.connected ? colors.accentSoft : colors.bgElevated,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Ionicons
-                  name="calendar"
-                  size={19}
-                  color={gcal.data?.connected ? colors.accent : colors.textMuted}
-                />
-              </View>
-              <View style={{ flex: 1, gap: 4 }}>
-                <T variant="base" weight="600">
-                  Google Calendar
-                </T>
-                <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
-                  {gcal.data?.connected ? (
-                    <Chip label="Connected" icon="checkmark-circle" fg={colors.ok} bg={colors.okSoft} />
-                  ) : (
-                    <Chip label="Not connected" />
-                  )}
-                  {gcal.data?.accounts?.length ? (
-                    <Chip
-                      label={`${gcal.data.accounts.length} account${gcal.data.accounts.length === 1 ? "" : "s"}`}
-                      icon="person-outline"
-                    />
-                  ) : null}
-                </View>
-                <T variant="xs" tone="muted">
-                  Reads your busy time so the plan fits around it, and can write
-                  study blocks back.
-                </T>
-              </View>
-            </View>
-
-            {gcal.data?.connected ? (
-              <View style={{ flexDirection: "row", gap: space.sm }}>
-                <Button
-                  title="Add another"
-                  kind="secondary"
-                  icon="add"
-                  busy={busy === "google"}
-                  onPress={() => connectGoogle()}
-                  style={{ flex: 1 }}
-                />
-                <Button
-                  title="Disconnect"
-                  kind="danger"
-                  busy={busy === "google"}
-                  onPress={() => unlinkGoogle()}
-                  style={{ flex: 1 }}
-                />
-              </View>
-            ) : (
-              <Button
-                title="Connect Google Calendar"
-                icon="open-outline"
-                busy={busy === "google"}
-                onPress={() => connectGoogle()}
-              />
-            )}
-          </Card>
-
-          <Label style={{ marginTop: space.md }}>Your school</Label>
 
           {providers.length ? (
             providers.map((p) => (

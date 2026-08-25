@@ -4,15 +4,31 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
-import { disconnectGoogleCalendar, getGoogleCalendarStatus, GoogleCalendarStatus } from "../lib/api";
-import { API_BASE } from "../lib/config";
+import {
+  disconnectGoogleCalendar,
+  getGoogleCalendarStatus,
+  GoogleCalendarStatus,
+  startLinkSession,
+} from "../lib/api";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius, space } from "../theme/tokens";
 import { Button, Card, Chip, ErrorState, Loading, Notice, Screen, T } from "../components/ui";
 import { useConfirm } from "../components/Confirm";
 
 /** Native-friendly account connections. OAuth stays in a real browser, where
- * Google and Canvas can enforce their security policies safely. */
+ * Google and Canvas can enforce their security policies safely.
+ *
+ * The browser is opened *already signed in*. Both providers' flows begin at
+ * a Flask route guarded by `current_user` — they read the session cookie,
+ * not the bearer token this app holds — so a plain `openBrowserAsync` lands
+ * on the login page and the connection attaches to nobody. Instead the app
+ * mints a one-time hand-off code (`POST /api/v1/link/session`) and opens
+ * `/link/<code>`, which signs that browser in and forwards to the provider.
+ *
+ * `openAuthSessionAsync` rather than `openBrowserAsync` for the same reason
+ * it matters elsewhere: it watches for the `intelliplan://connected`
+ * redirect and closes the browser itself, instead of leaving the student on
+ * the website with no way back. */
 export default function AccountsScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -36,17 +52,28 @@ export default function AccountsScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  async function open(url: string) {
+  async function connect(provider: "google" | "canvas", label: string) {
     setNote(null);
+    setBusy(true);
     try {
-      await WebBrowser.openBrowserAsync(url);
+      const session = await startLinkSession(provider);
+      try {
+        const result = await WebBrowser.openAuthSessionAsync(session.url, session.return_url);
+        if (result.type === "success") setNote(`${label} connected.`);
+      } catch {
+        // Some Android builds ship no custom-tab handler. The hand-off URL
+        // still works in any browser; it just cannot close itself, so the
+        // student comes back with the system gesture and the refresh below
+        // picks the connection up.
+        const supported = await Linking.canOpenURL(session.url);
+        if (supported) await Linking.openURL(session.url);
+        else setNote("This device could not open a browser.");
+      }
       await load();
-    } catch {
-      // Some Android builds do not ship a custom-tab handler; fall back to
-      // the system URL opener so the student still has a path forward.
-      const supported = await Linking.canOpenURL(url);
-      if (supported) await Linking.openURL(url);
-      else setNote("This device could not open a browser.");
+    } catch (e: any) {
+      setNote(e?.message || `Couldn't start connecting ${label}.`);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -103,7 +130,12 @@ export default function AccountsScreen() {
                 <Button title="Disconnect" kind="danger" busy={busy} onPress={disconnect} />
               </>
             ) : (
-              <Button title="Connect Google Calendar" icon="open-outline" onPress={() => open(`${API_BASE}/oauth/google?return=settings`)} />
+              <Button
+                title="Connect Google Calendar"
+                icon="open-outline"
+                busy={busy}
+                onPress={() => connect("google", "Google Calendar")}
+              />
             )}
           </Card>
 
@@ -117,7 +149,12 @@ export default function AccountsScreen() {
                 <T variant="sm" tone="muted">Open the secure Canvas connection page without typing a long URL.</T>
               </View>
             </View>
-            <Button title="Connect Canvas" icon="open-outline" onPress={() => open(`${API_BASE}/login/canvas`)} />
+            <Button
+              title="Connect Canvas"
+              icon="open-outline"
+              busy={busy}
+              onPress={() => connect("canvas", "Canvas")}
+            />
           </Card>
 
           <Notice tone="accent" icon="shield-checkmark-outline" text="Connections open in a real browser so Google and Canvas credentials never pass through the app UI." />

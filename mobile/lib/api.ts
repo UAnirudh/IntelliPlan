@@ -791,23 +791,6 @@ export async function startLinkSession(provider: string): Promise<LinkSession> {
 
 /* ── Google Calendar ──────────────────────────────────────────────── */
 
-export type GoogleAccount = { id: number; email?: string; is_active?: boolean; [k: string]: unknown };
-
-export type GcalStatus = {
-  connected: boolean;
-  accounts: GoogleAccount[];
-  active_id: number | null;
-};
-
-export async function getGcalStatus(): Promise<GcalStatus> {
-  const d = await apiFetch<Partial<GcalStatus>>("/gcal/status");
-  return {
-    connected: !!d?.connected,
-    accounts: d?.accounts || [],
-    active_id: d?.active_id ?? null,
-  };
-}
-
 export type CalendarEvent = {
   summary?: string;
   start?: string;
@@ -837,10 +820,6 @@ export async function exportPlanToCalendar(
     method: "POST",
     body: JSON.stringify({ schedule_data: scheduleData, skip_overlaps: skipOverlaps }),
   });
-}
-
-export async function disconnectGoogle(): Promise<void> {
-  await apiFetch("/oauth/google/disconnect", { method: "POST", body: JSON.stringify({}) });
 }
 
 /* ── Manual scheduler ─────────────────────────────────────────────── */
