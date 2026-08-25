@@ -591,6 +591,9 @@ body {
     <a href="/scheduler" data-nav-item="scheduler" class="side-link {% if active_page == 'scheduler' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-scheduler"/></svg></span>Scheduler
     </a>
+    <a href="/active" data-nav-item="active" class="side-link {% if active_page == 'active' %}active{% endif %}">
+      <span class="side-icon"><svg><use href="#i-video"/></svg></span>Active Study
+    </a>
     <a href="/memories" data-nav-item="memories" class="side-link {% if active_page == 'memories' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-save"/></svg></span>Memories
     </a>
@@ -1192,6 +1195,7 @@ if (mobileMenuBtn) {
     { section:'Plan',    label:'Grade Modeler',  href:'/gradebook',  icon:'i-modeler',   keys:'what if predict' },
     { section:'Plan',    label:'Tests',          href:'/tests',      icon:'i-test',      keys:'exam quiz' },
     { section:'Plan',    label:'Done',           href:'/dismissed',  icon:'i-done',      keys:'completed dismissed' },
+    { section:'Study',   label:'Active Study',   href:'/active',     icon:'i-video',     keys:'camera webcam focus check work on it do the work' },
     { section:'Study',   label:'Deep Study',     href:'/study',      icon:'i-rocket',    keys:'focus session' },
     { section:'Study',   label:'Learn',          href:'/learn',      icon:'i-study',     keys:'practice flashcards' },
     { section:'Study',   label:'Focus Timer',    href:'/focus',      icon:'i-clock',     keys:'pomodoro' },

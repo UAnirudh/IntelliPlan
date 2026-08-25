@@ -135,6 +135,11 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
         (``static/js/ip-active.js``) drives both and cannot drift.
         """
         _require_flag()
+        # No ``active_page``: this page deliberately renders without the app
+        # sidebar. Its whole job is holding attention on one task, and the
+        # blueprint is also mounted standalone in tests, where the chrome's
+        # ``current_user`` is not available. The slim top nav still carries
+        # every app link, so nothing is stranded here.
         return render_template(
             "active_mobile.html" if _wants_phone_layout() else "active.html"
         )

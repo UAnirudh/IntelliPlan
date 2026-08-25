@@ -4218,6 +4218,7 @@ def study_hub_recommend():
         ("grades",    "/grades",    "Grades",          ["grades","grade","gpa","report card","marks","score"]),
         ("tests",     "/tests",     "Tests & Quizzes", ["test","exam","quiz","midterm","final","prep","practice"]),
         ("dismissed", "/dismissed", "Completed Work",  ["done","completed","finished","dismissed","archive","past"]),
+        ("active",    "/active",    "Active Study",    ["active","work on it","do the work","one task","camera","webcam","focus check","distracted","drifting","keep me on task","accountability"]),
         ("study",     "/study",     "Deep Study",      ["deep","focus","session","intensive","study session","encoding","sprint"]),
         ("learn",     "/learn",     "Learn",           ["learn","flashcards","quiz me","review","mastery","memorize","practice","cards"]),
         ("focus",     "/focus",     "Focus Timer",     ["timer","pomodoro","focus time","25 minutes","countdown","stopwatch"]),

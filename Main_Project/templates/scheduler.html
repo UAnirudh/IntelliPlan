@@ -948,10 +948,20 @@
 {% endblock %}
 
 {% block content %}
-<div class="ipd-page-header ipd-anim ipd-d1">
-  <div class="ipd-kicker">Planner</div>
-  <h1 class="ipd-page-title">Study scheduler</h1>
-  <p class="ipd-page-subtitle">Build a plan, then work through it with an interactive checklist.</p>
+<div class="ipd-page-header ipd-anim ipd-d1"
+     style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
+  <div>
+    <div class="ipd-kicker">Planner</div>
+    <h1 class="ipd-page-title">Study scheduler</h1>
+    <p class="ipd-page-subtitle">Build a plan, then work through it with an interactive checklist.</p>
+  </div>
+  <!-- The plan is only half of it. This is the other half, and it was
+       previously reachable only by typing the URL. -->
+  <a href="/active" class="btn-secondary"
+     style="display:inline-flex;align-items:center;gap:8px;padding:11px 20px;text-decoration:none;font-size:0.88rem;font-weight:600;white-space:nowrap;">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-video"/></svg>
+    Start an Active Study session
+  </a>
 </div>
 
 <!-- ── TAB BAR ───────────────────────────────────────── -->
