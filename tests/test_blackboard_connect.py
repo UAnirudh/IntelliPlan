@@ -69,6 +69,15 @@ def test_app_key_naming_is_accepted(monkeypatch):
     assert App._blackboard_credentials() == ("key", "secret")
 
 
+def test_current_app_key_wins_over_stale_client_id(monkeypatch):
+    """A stale alias must not cause Blackboard's invalid-client_id error."""
+    monkeypatch.setenv("BLACKBOARD_CLIENT_ID", "old-client-id")
+    monkeypatch.setenv("BLACKBOARD_CLIENT_SECRET", "old-secret")
+    monkeypatch.setenv("BLACKBOARD_APP_KEY", "current-app-key")
+    monkeypatch.setenv("BLACKBOARD_APP_SECRET", "current-app-secret")
+    assert App._blackboard_credentials() == ("current-app-key", "current-app-secret")
+
+
 def test_the_package_provider_reads_the_same_credentials(monkeypatch):
     from intelliplan.integrations.lms.blackboard import BlackboardProvider
     monkeypatch.setenv("BLACKBOARD_BASE_URL", "https://learn.school.edu")

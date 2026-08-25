@@ -4829,8 +4829,13 @@ def _blackboard_credentials():
     A deployment that set only one pair had Blackboard silently report itself
     as unconfigured, so accept either.
     """
-    cid = (os.getenv("BLACKBOARD_CLIENT_ID") or os.getenv("BLACKBOARD_APP_KEY") or "").strip()
-    sec = (os.getenv("BLACKBOARD_CLIENT_SECRET") or os.getenv("BLACKBOARD_APP_SECRET") or "").strip()
+    # Blackboard calls these values an *application key* and secret.  Prefer
+    # that pair when both naming conventions are present: an old
+    # BLACKBOARD_CLIENT_ID left in a deployment can otherwise override the
+    # current Developer Portal app key and produce ``invalid client_id`` at
+    # the authorization endpoint.
+    cid = (os.getenv("BLACKBOARD_APP_KEY") or os.getenv("BLACKBOARD_CLIENT_ID") or "").strip()
+    sec = (os.getenv("BLACKBOARD_APP_SECRET") or os.getenv("BLACKBOARD_CLIENT_SECRET") or "").strip()
     return cid, sec
 
 
