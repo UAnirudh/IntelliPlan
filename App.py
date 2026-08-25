@@ -5471,6 +5471,10 @@ def register():
                     _grant_referral_bonus(user)
                 except Exception as _ref_e:
                     print(f"[referral] grant failed: {_ref_e}")
+                # Day-zero welcome. Fired for under-13 signups too: the
+                # eligibility gate holds it back until a parent consents,
+                # which is the same answer it would give the daily sweep.
+                send_welcome_email_on_signup(user.id)
                 # Under-13 accounts stay logged-out until the parent clicks
                 # the consent link. Show a friendly "waiting for parent" page.
                 if under_13:
@@ -6686,6 +6690,7 @@ def _handle_google_callback():
         return redirect(url_for("settings") if session.pop("oauth_return_to_settings", False) else "/command-center")
 
     # ── Find or create User (defensive — see login_account for rationale) ──
+    _is_new_signup = False
     try:
         user = User.query.filter_by(google_id=google_id).first()
     except Exception as _e:
@@ -6718,11 +6723,19 @@ def _handle_google_callback():
                 password_hash="",
             )
             db.session.add(user)
+            _is_new_signup = True
             print(f"[GOOGLE CALLBACK] created new user email={email}")
     else:
         print(f"[GOOGLE CALLBACK] found existing google user id={user.id}")
 
     db.session.commit()
+
+    # Welcome only a genuinely new account. Linking Google to an existing
+    # login is not a signup, and the returning user has had this email
+    # already. (Deduplication would catch a repeat anyway; not sending is
+    # still the correct behaviour to express here.)
+    if _is_new_signup:
+        send_welcome_email_on_signup(user.id)
 
     # ── Persist the Google token for calendar use ──
     if has_calendar_scope(token_dict):
@@ -12433,6 +12446,11 @@ def extension_register():
         token = secrets_module.token_hex(32)
         db.session.add(ExtensionToken(user_id=user.id, token=token))
         db.session.commit()
+        # Extension signups collect no birth year, so the eligibility gate
+        # holds this back as unknown_age until the account is completed on
+        # the web. Called anyway rather than special-cased: a signup path
+        # that quietly skips the welcome is how it gets forgotten.
+        send_welcome_email_on_signup(user.id)
         resp = flask.jsonify({"status": "ok", "token": token, "email": user.email})
         resp.headers["Access-Control-Allow-Origin"] = "*"
         return resp
@@ -14163,6 +14181,70 @@ def _send_email(to_addr, subject, body, html=None, headers=None, reply_to=None):
     except Exception as e:
         print(f"[email-smtp] send failed: {e}")
         return False
+
+
+def send_welcome_email_on_signup(user_id):
+    """Send the day-zero welcome as soon as an account is created.
+
+    The welcome email already existed, but it only went out through
+    ``campaigns.sweep_welcome`` — a daily cron behind ``CRON_SECRET``. On a
+    deployment where that cron is not wired (or the secret is unset, which
+    makes ``/cron/lifecycle-emails`` answer 503) nobody was ever welcomed,
+    and even with it running the mail arrived up to a day after signup. The
+    moment someone signs up is exactly when a setup email is worth reading.
+
+    Off the request thread on purpose: the provider call has a 10s timeout,
+    and a slow or hanging mail provider must not be able to hold a signup
+    open — the account already exists and the user is already being
+    redirected. Delivery is best effort.
+
+    Takes an id rather than the instance because the caller's SQLAlchemy
+    session belongs to the request and is gone by the time this runs.
+
+    Deduplication lives in ``send_lifecycle_email``, which claims an
+    ``EmailSend`` row per (user, key) before sending, so this and the sweep
+    cannot both deliver. If this attempt fails, the row is left ``failed``
+    and the sweep retries it — the two paths compose rather than compete.
+    """
+    import threading
+
+    def _deliver():
+        try:
+            with app.app_context():
+                from intelliplan.email import campaigns
+                from intelliplan.email.sender import send_lifecycle_email
+
+                user = db.session.get(User, user_id)
+                if user is None:
+                    return
+                result = send_lifecycle_email(
+                    user=user,
+                    email_key=campaigns.WELCOME_KEY,
+                    template_name="welcome",
+                    subject=campaigns.WELCOME_SUBJECT,
+                    preheader=campaigns.WELCOME_PREHEADER,
+                    # Transactional: it explains a service this person just
+                    # signed up for. The gate still enforces age, parental
+                    # consent, and suppression.
+                    marketing=False,
+                )
+                # Both outcomes are logged. A silent "not sent" here is
+                # indistinguishable from a provider outage, and the reason
+                # (unknown_age, suppressed, already_sent) is the whole
+                # diagnosis when someone reports never getting the email.
+                if result.sent:
+                    print(f"[welcome] sent to user {user_id}")
+                else:
+                    print(f"[welcome] not sent to user {user_id}: {result.reason}")
+        except Exception as exc:
+            # A failed welcome must never surface anywhere near signup.
+            print(f"[welcome] delivery thread failed for user {user_id}: {exc}")
+
+    try:
+        threading.Thread(target=_deliver, name=f"ip-welcome-{user_id}",
+                         daemon=True).start()
+    except Exception as exc:
+        print(f"[welcome] could not start delivery thread for user {user_id}: {exc}")
 
 
 def _mini_page(title: str, body_html: str) -> str:
