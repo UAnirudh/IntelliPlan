@@ -349,8 +349,8 @@ def test_the_ledger_records_the_send(ctx, resend):
 
 def test_a_second_claim_on_the_same_key_is_refused(ctx, resend):
     user = make_user()
-    assert sender._claim(user.id, "feedback_v1") is not None
-    assert sender._claim(user.id, "feedback_v1") is None
+    assert sender._claim(user.id, campaigns.FEEDBACK_KEY) is not None
+    assert sender._claim(user.id, campaigns.FEEDBACK_KEY) is None
 
 
 # ── The postal-address refusal ──────────────────────────────────────
@@ -360,7 +360,7 @@ def test_marketing_refuses_to_send_without_a_postal_address(ctx, resend, monkeyp
     monkeypatch.delenv("MARKETING_POSTAL_ADDRESS", raising=False)
     user = make_user()
     result = sender.send_lifecycle_email(
-        user=user, email_key="feedback_v1", template_name="feedback", subject="S", marketing=True
+        user=user, email_key=campaigns.FEEDBACK_KEY, template_name="feedback", subject="S", marketing=True
     )
     assert result.sent is False
     assert result.reason == "no_postal_address"
@@ -384,7 +384,8 @@ def test_the_welcome_email_sends_without_a_postal_address(ctx, resend, monkeypat
 
 def test_the_feedback_sweep_skips_users_who_never_came_back(ctx, resend):
     user = make_user()
-    user.created_at = datetime.utcnow() - timedelta(days=14, hours=6)
+    user.created_at = datetime.utcnow() - timedelta(
+        days=campaigns.FEEDBACK_MIN_DAYS, hours=6)
     app_module.db.session.commit()
 
     summary = campaigns.sweep_feedback()
@@ -395,7 +396,8 @@ def test_the_feedback_sweep_skips_users_who_never_came_back(ctx, resend):
 
 def test_the_feedback_sweep_mails_a_user_with_a_linked_account(ctx, resend):
     user = make_user()
-    user.created_at = datetime.utcnow() - timedelta(days=14, hours=6)
+    user.created_at = datetime.utcnow() - timedelta(
+        days=campaigns.FEEDBACK_MIN_DAYS, hours=6)
     app_module.db.session.add(
         app_module.LinkedAccount(user_id=user.id, login_type="canvas", credentials="{}")
     )

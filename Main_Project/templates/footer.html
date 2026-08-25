@@ -24,10 +24,15 @@
   }
   /* Directory badges ship as a light/dark pair. Only one of each pair is
      ever in the flow; the theme attribute swaps which. Generic so every
-     badge vendor uses the same two classes instead of one rule per vendor. */
-  footer .ip-badge--dark { display: none; }
-  :root[data-theme="dark"] footer .ip-badge--light { display: none; }
-  :root[data-theme="dark"] footer .ip-badge--dark { display: block; }
+     badge vendor uses the same two classes instead of one rule per vendor.
+
+     !important is load-bearing, not decoration. Every badge img also carries
+     an inline `display:` — the vendors' own snippets do, and the inline
+     declaration outranks a plain class rule. Without this the swap silently
+     never happened and every pair showed its light variant in dark mode. */
+  footer .ip-badge--dark  { display: none !important; }
+  :root[data-theme="dark"] footer .ip-badge--light { display: none !important; }
+  :root[data-theme="dark"] footer .ip-badge--dark  { display: block !important; }
 </style>
 
 <footer style="
@@ -142,6 +147,10 @@
     <a href="https://makerpocket.com/projects/intelliplan-3298?utm_source=badge" target="_blank" rel="noopener noreferrer" aria-label="IntelliPlan featured on Maker Pocket">
       <img class="ip-badge--light" src="https://makerpocket.com/makerpocket/images/badges/featured-on-light.svg" alt="Featured on Maker Pocket" width="180" height="44" loading="lazy" decoding="async" style="display:block;border:0;height:44px;width:auto;opacity:0.85;" />
       <img class="ip-badge--dark" src="https://makerpocket.com/makerpocket/images/badges/featured-on-dark.svg" alt="Featured on Maker Pocket" width="180" height="44" loading="lazy" decoding="async" style="display:none;border:0;height:44px;width:auto;opacity:0.85;" />
+    </a>
+    <a href="https://apptooling.com/projects/intelliplan?utm_source=badge" target="_blank" rel="noopener noreferrer" aria-label="IntelliPlan featured on App Tooling">
+      <img class="ip-badge--light" src="https://apptooling.com/apptooling/images/badges/featured-on-light.svg" alt="Featured on App Tooling" width="180" height="44" loading="lazy" decoding="async" style="display:block;border:0;height:44px;width:auto;opacity:0.85;" />
+      <img class="ip-badge--dark" src="https://apptooling.com/apptooling/images/badges/featured-on-dark.svg" alt="Featured on App Tooling" width="180" height="44" loading="lazy" decoding="async" style="display:none;border:0;height:44px;width:auto;opacity:0.85;" />
     </a>
   </div>
   {% endif %}

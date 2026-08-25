@@ -14,6 +14,7 @@ sweep that misses a day catches up on the next run without anyone noticing.
 from __future__ import annotations
 
 import logging
+import os
 import time
 from datetime import datetime, timedelta
 from typing import Any
@@ -23,23 +24,39 @@ from .sender import send_lifecycle_email
 logger = logging.getLogger(__name__)
 
 WELCOME_KEY = "welcome"
-FEEDBACK_KEY = "feedback_v1"
+#: Versioned because the ask changed shape: v1 was a pure reply-to-me email
+#: at the two-week mark, v2 asks at one week and leads with a form. Nobody
+#: can receive both — v1 only ever went out at day 14, and v2's window closes
+#: at day 8.5 — but the ledger should still say which one was sent.
+FEEDBACK_KEY = "feedback_v2"
 
 WELCOME_SUBJECT = "Welcome to IntelliPlan — here's how to set it up"
 WELCOME_PREHEADER = "Connect your school in under a minute and let the AI plan your week."
 
-FEEDBACK_SUBJECT = "How's IntelliPlan going? (I read every reply)"
-FEEDBACK_PREHEADER = "Two weeks in — I'd like to know what's working and what isn't."
+FEEDBACK_SUBJECT = "How's IntelliPlan going? (2 minutes, and I read every one)"
+FEEDBACK_PREHEADER = "A week in — I'd like to know what's working and what isn't."
+
+#: Where the feedback form lives. Env-overridable because form URLs move and
+#: a dead link in a sent email cannot be fixed after the fact.
+FEEDBACK_FORM_URL = os.getenv(
+    "FEEDBACK_FORM_URL", "https://forms.fillout.com/t/xtrY6DUrNGus"
+)
 
 #: How far back a welcome sweep looks. Wider than the daily cadence on
 #: purpose: a missed cron run must be caught by the next one, not silently
 #: skip a day's worth of signups.
 WELCOME_WINDOW_HOURS = 36
 
-#: The feedback ask lands at the two-week mark. The window is a day and a
-#: half rather than exactly one so a late cron run does not skip a cohort.
-FEEDBACK_MIN_DAYS = 14
-FEEDBACK_MAX_DAYS = 15.5
+#: The feedback ask lands one week in: long enough to have used the planner
+#: through a real school week, early enough that the reasons someone bounced
+#: are still fresh. The window is a day and a half rather than exactly one so
+#: a late cron run does not skip a cohort.
+#:
+#: Moving this from 14 leaves a one-time gap: accounts currently between 8.5
+#: and 14 days old pass through neither window and are never asked. That is a
+#: single cohort on the changeover and not worth backfilling into.
+FEEDBACK_MIN_DAYS = float(os.getenv("FEEDBACK_AFTER_DAYS", "7"))
+FEEDBACK_MAX_DAYS = FEEDBACK_MIN_DAYS + 1.5
 
 #: Seconds between sends in a batch. Small, but enough that a few hundred
 #: newsletter recipients arrive as a stream rather than a burst that trips
@@ -174,6 +191,7 @@ def sweep_feedback(now: datetime | None = None, limit: int = 500) -> dict:
             subject=FEEDBACK_SUBJECT,
             preheader=FEEDBACK_PREHEADER,
             marketing=True,
+            context_extra={"feedback_form_url": FEEDBACK_FORM_URL},
         )
         _tally(summary, result)
 

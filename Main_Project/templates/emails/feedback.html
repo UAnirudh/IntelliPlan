@@ -69,7 +69,7 @@
                 I'm the founder of IntelliPlan, and I built this as a student myself. I'm not a big company — there's no support team or feedback department. It's just me, reading every reply.
               </p>
               <p style="font-size: 15px; color: #374151; line-height: 1.75; margin-bottom: 32px;">
-                If IntelliPlan has helped you stay on top of schoolwork, I'd love to hear it. And if something isn't working — I genuinely want to know that too. Your answer directly shapes what I build next.
+                You've had about a week with it now — long enough to have a real opinion. If IntelliPlan has helped you stay on top of schoolwork, I'd love to hear it. And if something isn't working, I genuinely want to know that too.
               </p>
 
               <!-- Divider -->
@@ -114,20 +114,27 @@
                 </tr>
               </table>
 
-              <!-- CTA -->
+              <!-- CTA. The form is primary because it takes two minutes and
+                   asks the questions in an order that is actually useful to
+                   read back; replying is kept as the no-friction alternative
+                   for anyone who would rather just write a sentence. -->
               <p style="font-size: 15px; color: #374151; line-height: 1.75; margin-bottom: 24px;">
-                <strong>Just hit reply and answer any or all of these.</strong> No form, no survey link, no sign-in. One email back to me is all it takes — and I read every single one.
+                <strong>Two minutes, and it genuinely shapes what I build next.</strong> No sign-in needed.
               </p>
 
-              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 36px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 20px;">
                 <tr>
                   <td align="center">
-                    <a href="mailto:{{ reply_to }}?subject=My IntelliPlan Feedback" style="display:inline-block; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #ffffff; font-size: 15px; font-weight: 700; text-decoration: none; padding: 14px 36px; border-radius: 50px; letter-spacing: -0.2px;">
-                      Reply with my feedback
+                    <a href="{{ feedback_form_url }}" style="display:inline-block; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #ffffff; font-size: 15px; font-weight: 700; text-decoration: none; padding: 14px 36px; border-radius: 50px; letter-spacing: -0.2px;">
+                      Answer the 2-minute form
                     </a>
                   </td>
                 </tr>
               </table>
+
+              <p style="font-size: 14px; color: #6b7280; line-height: 1.7; text-align: center; margin-bottom: 36px;">
+                Would rather just write back? <a href="mailto:{{ reply_to }}?subject=My IntelliPlan Feedback" style="color: #6366f1; font-weight: 600; text-decoration: none;">Hit reply</a> — that reaches me too.
+              </p>
 
               <!-- Divider -->
               <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 0 0 28px;" />

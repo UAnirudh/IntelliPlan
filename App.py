@@ -6872,6 +6872,16 @@ def _handle_google_callback():
     return redirect("/command-center")
 
 
+def _google_oauth_unverified():
+    """True while Google's unverified-app interstitial is still expected.
+
+    Calendar is a sensitive scope, so Google shows that screen until the
+    OAuth consent screen passes review. This is a display decision only — it
+    changes nothing about the flow itself.
+    """
+    return os.getenv("GOOGLE_OAUTH_UNVERIFIED", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 @app.route("/oauth/google")
 def google_oauth_start():
     """Start the OAuth flow from the calendar-linking UI.
@@ -6881,6 +6891,23 @@ def google_oauth_start():
         return redirect(url_for("login"))
     if not GCAL_AVAILABLE:
         return "Google Calendar not configured", 500
+
+    # Until this app passes Google's OAuth verification, Google shows a full
+    # "Google hasn't verified this app" interstitial naming the developer's
+    # personal address and advising against continuing. Sending a student
+    # into that with no warning is where this flow loses people. Explain it
+    # first, once per session. Unset GOOGLE_OAUTH_UNVERIFIED after
+    # verification is granted and this stops rendering.
+    if _google_oauth_unverified() and request.args.get("ack") != "1":
+        args = request.args.to_dict()
+        args["ack"] = "1"
+        return render_template(
+            "google_unverified.html",
+            active_page="settings",
+            continue_url=url_for("google_oauth_start", **args),
+            cancel_url=url_for("settings") if request.args.get("return") == "settings" else "/dashboard",
+        )
+
     state = secrets_module.token_urlsafe(32)
     session["oauth_state"] = state
     session["oauth_purpose"] = "calendar"

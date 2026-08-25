@@ -2,9 +2,9 @@ Hey {{ user_name or 'there' }},
 
 You've been using IntelliPlan — I want to know how it's really going.
 
-I'm the founder. You signed up a couple of weeks ago, which means you've
-had enough time to form an actual opinion, and that opinion is worth more
-to me right now than almost anything else.
+I'm the founder. You signed up about a week ago, which means you've had it
+through a real school week, and what you make of it is worth more to me
+right now than almost anything else.
 
 A few things I'd genuinely like to know:
 
@@ -13,18 +13,14 @@ A few things I'd genuinely like to know:
   * Is there something you expected it to do that it doesn't?
   * Would you miss it if it disappeared tomorrow?
 
-Just hit reply and answer any or all of these. No form, no survey link, no
-sign-in. One email back to me is all it takes — and I read every single one.
+It's a 2-minute form, no sign-in:
+
+  {{ feedback_form_url }}
+
+Would rather just write back? Hit reply — that reaches me too, and I read
+every one.
 
 Reply to: {{ reply_to }}
-
-Or, if you'd rather answer in one word, reply with just a number:
-
-  1 — Disappointed
-  2 — It's okay
-  3 — Pretty good
-  4 — Love it
-  5 — It's a game-changer
 
 ---
 

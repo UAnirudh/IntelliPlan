@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block page_title %}Connecting Google Calendar | IntelliPlan{% endblock %}
+{% block content %}
+{#
+  Shown only while GOOGLE_OAUTH_UNVERIFIED is set.
+
+  Google shows an interstitial warning for any app requesting a sensitive
+  scope until that app passes OAuth verification, and Calendar access is a
+  sensitive scope. The warning names the developer's personal Gmail address
+  and says "you shouldn't use it", which is alarming without context and is
+  the single biggest drop-off point in this flow.
+
+  This page does not hide the warning — it cannot, and should not. It says
+  what is about to appear, why, and exactly what the app does with the
+  access, so the student can make an informed choice. Delete the env var
+  once verification is granted and this page stops rendering.
+#}
+<div class="login-wrap">
+  <div class="login-card" style="max-width:560px;">
+    <div class="login-header">
+      <div style="margin-bottom:0.75rem;color:var(--accent);">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>
+      </div>
+      <h1 class="login-title">Google will show you a warning</h1>
+      <p class="login-subtitle">It's expected. Here's what it means before you see it.</p>
+    </div>
+
+    <div style="padding:16px 18px;border:1px solid var(--border-strong);border-radius:14px;background:var(--bg-secondary);margin-bottom:1.25rem;">
+      <p style="font-size:0.88rem;line-height:1.65;color:var(--text-secondary);margin:0 0 12px;">
+        On the next screen Google will say <strong style="color:var(--text-primary);">“Google hasn't verified this app”</strong>.
+        That is Google's standard notice for any app requesting calendar access that
+        has not yet completed their review. It is a statement about our review
+        status, not about anything Google found wrong.
+      </p>
+      <p style="font-size:0.88rem;line-height:1.65;color:var(--text-secondary);margin:0;">
+        To continue past it, choose <strong style="color:var(--text-primary);">Advanced</strong>, then
+        <strong style="color:var(--text-primary);">Go to IntelliPlan (unsafe)</strong>. If you would rather not,
+        that is completely reasonable — everything below still works without it.
+      </p>
+    </div>
+
+    <div style="margin-bottom:1.25rem;">
+      <div style="font-size:0.86rem;font-weight:700;margin-bottom:8px;">What IntelliPlan does with your calendar</div>
+      <ul style="font-size:0.83rem;color:var(--text-secondary);line-height:1.7;margin:0 0 0 1.1rem;padding:0;">
+        <li>Reads when you are busy, so study blocks are not planned over your existing events.</li>
+        <li>Adds study blocks you explicitly choose to push, and nothing else.</li>
+        <li>Never reads event contents for any other purpose, and never shares them.</li>
+      </ul>
+      <p style="font-size:0.8rem;color:var(--text-muted);line-height:1.6;margin:12px 0 0;">
+        You can disconnect at any time in Settings, or revoke access directly from your
+        <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener" style="color:var(--accent);">Google account permissions</a>.
+        Full detail is in our <a href="/privacy" style="color:var(--accent);">privacy policy</a>.
+      </p>
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <a href="{{ continue_url }}" class="btn-primary"
+         style="flex:1;min-width:200px;text-align:center;padding:12px 20px;text-decoration:none;font-weight:700;font-size:0.9rem;">
+        Continue to Google
+      </a>
+      <a href="{{ cancel_url }}" class="btn-secondary"
+         style="padding:12px 20px;text-decoration:none;font-weight:600;font-size:0.9rem;">
+        Not now
+      </a>
+    </div>
+
+    <p style="font-size:0.78rem;color:var(--text-muted);line-height:1.6;margin:1.1rem 0 0;text-align:center;">
+      Prefer to skip it entirely? The scheduler works without Google Calendar —
+      you just enter your busy times by hand.
+    </p>
+  </div>
+</div>
+{% endblock %}
