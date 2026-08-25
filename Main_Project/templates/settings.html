@@ -827,6 +827,56 @@
     </div>
   </div>
 
+  <!-- ── Manual classes ───────────────────────────── -->
+  <div class="settings-section">
+    <div class="settings-section-title">My classes</div>
+    <p style="font-size:0.86rem;color:var(--text-secondary);margin:0 0 1rem;line-height:1.55;">
+      Classes you enter here work without any connected account. They appear in
+      your course lists, the Classes page, and the scheduler alongside anything
+      synced from an LMS.
+    </p>
+
+    <div id="ipClassList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:1rem;">
+      <span class="settings-loading">Loading…</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:12px;">
+      <div class="form-group" style="margin:0;">
+        <label class="form-label" for="ipClassName">Class name</label>
+        <input id="ipClassName" class="form-input" type="text" placeholder="AP Biology" autocomplete="off">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label" for="ipClassTeacher">Teacher <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+        <input id="ipClassTeacher" class="form-input" type="text" placeholder="Ms. Whitfield" autocomplete="off">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label" for="ipClassPeriod">Period <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+        <input id="ipClassPeriod" class="form-input" type="text" placeholder="4th" autocomplete="off">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label" for="ipClassRoom">Room <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+        <input id="ipClassRoom" class="form-input" type="text" placeholder="B-212" autocomplete="off">
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+      <button type="button" id="ipClassAddBtn" class="btn-primary"
+        style="padding:10px 20px;border:none;cursor:pointer;font-size:0.86rem;">Add class</button>
+      <button type="button" id="ipClassBulkBtn" class="btn-secondary"
+        style="padding:10px 20px;cursor:pointer;font-size:0.86rem;">Add several at once</button>
+      <span id="ipClassStatus" style="font-size:0.8rem;color:var(--text-muted);min-height:1.1em;"></span>
+    </div>
+
+    <div id="ipClassBulkWrap" style="display:none;margin-top:12px;">
+      <label class="form-label" for="ipClassBulk">One class per line</label>
+      <textarea id="ipClassBulk" class="form-input" rows="4"
+        placeholder="Algebra II&#10;AP Biology&#10;World History"
+        style="resize:vertical;"></textarea>
+      <button type="button" id="ipClassBulkSaveBtn" class="btn-primary"
+        style="margin-top:10px;padding:9px 18px;border:none;cursor:pointer;font-size:0.84rem;">Save all</button>
+    </div>
+  </div>
+
   <!-- ── LMS data sources ─────────────────────────── -->
   <div class="settings-section">
     <div class="settings-section-title">Grades &amp; assignment sources</div>
@@ -1771,6 +1821,166 @@ async function disconnectLms(provider) {
 }
 
 refreshLmsStatuses();
+
+/* ── Manual classes ─────────────────────────────────
+   Names are ipClass*-prefixed: this block shares a global scope with
+   base.html and the rest of settings.js. */
+let ipClassRows = [];
+
+function ipClassSetStatus(text, isError) {
+  const el = document.getElementById('ipClassStatus');
+  if (!el) return;
+  el.textContent = text || '';
+  el.style.color = isError ? 'var(--high)' : 'var(--text-muted)';
+}
+
+function ipClassDetail(cls) {
+  /* Only the fields the student actually filled in — an empty row of
+     separators reads as missing data rather than as "not applicable". */
+  return [cls.teacher, cls.period ? 'Period ' + cls.period : '', cls.room]
+    .filter(Boolean).join(' · ');
+}
+
+function ipClassRender() {
+  const host = document.getElementById('ipClassList');
+  if (!host) return;
+  host.innerHTML = '';
+  if (!ipClassRows.length) {
+    host.innerHTML = '<div class="integration-sub">No classes added yet.</div>';
+    return;
+  }
+  ipClassRows.forEach(cls => {
+    const row = document.createElement('div');
+    row.className = 'integration-row';
+    const info = document.createElement('div');
+    const label = document.createElement('div');
+    label.className = 'integration-label';
+    label.textContent = cls.name;
+    info.appendChild(label);
+    const detail = ipClassDetail(cls);
+    if (detail) {
+      const sub = document.createElement('div');
+      sub.className = 'integration-sub';
+      sub.textContent = detail;
+      info.appendChild(sub);
+    }
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.textContent = 'Remove';
+    del.style.cssText = 'padding:6px 14px;border-radius:10px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:var(--font-ui);font-size:0.78rem;font-weight:600;';
+    del.onclick = () => ipClassRemove(cls, del);
+    row.appendChild(info);
+    row.appendChild(del);
+    host.appendChild(row);
+  });
+}
+
+async function ipClassLoad() {
+  try {
+    const r = await fetch('/api/classes/manual');
+    const d = await r.json();
+    ipClassRows = Array.isArray(d.classes) ? d.classes : [];
+    ipClassRender();
+  } catch (e) {
+    const host = document.getElementById('ipClassList');
+    if (host) host.innerHTML = '<div class="integration-sub">Could not load your classes.</div>';
+  }
+}
+
+async function ipClassPost(payload) {
+  const r = await fetch('/api/classes/manual', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const d = await r.json();
+  if (!r.ok || d.status !== 'ok') throw new Error(d.message || 'Could not save that class.');
+  ipClassRows = Array.isArray(d.classes) ? d.classes : [];
+  ipClassRender();
+  return d;
+}
+
+async function ipClassAdd() {
+  const name = (document.getElementById('ipClassName').value || '').trim();
+  if (!name) { ipClassSetStatus('Enter a class name.', true); return; }
+  const btn = document.getElementById('ipClassAddBtn');
+  btn.disabled = true;
+  ipClassSetStatus('Saving…');
+  try {
+    const d = await ipClassPost({
+      name: name,
+      teacher: (document.getElementById('ipClassTeacher').value || '').trim(),
+      period: (document.getElementById('ipClassPeriod').value || '').trim(),
+      room: (document.getElementById('ipClassRoom').value || '').trim(),
+    });
+    ['ipClassName', 'ipClassTeacher', 'ipClassPeriod', 'ipClassRoom']
+      .forEach(id => { document.getElementById(id).value = ''; });
+    ipClassSetStatus(d.created.length ? 'Added ' + name + '.' : name + ' was already added.');
+    document.getElementById('ipClassName').focus();
+  } catch (e) {
+    ipClassSetStatus(e.message, true);
+  }
+  btn.disabled = false;
+}
+
+async function ipClassAddBulk() {
+  const box = document.getElementById('ipClassBulk');
+  const names = (box.value || '').split('\n').map(s => s.trim()).filter(Boolean);
+  if (!names.length) { ipClassSetStatus('Type at least one class name.', true); return; }
+  const btn = document.getElementById('ipClassBulkSaveBtn');
+  btn.disabled = true;
+  ipClassSetStatus('Saving…');
+  try {
+    const d = await ipClassPost({ names: names });
+    box.value = '';
+    const added = d.created.length;
+    const dupes = d.skipped.length;
+    ipClassSetStatus(added
+      ? 'Added ' + added + ' class' + (added === 1 ? '' : 'es') + '.' + (dupes ? ' ' + dupes + ' already existed.' : '')
+      : 'Those classes were already added.');
+  } catch (e) {
+    ipClassSetStatus(e.message, true);
+  }
+  btn.disabled = false;
+}
+
+async function ipClassRemove(cls, btn) {
+  if (!await IP.confirm('"' + cls.name + '" will stop appearing in your course lists.',
+                        { title: 'Remove this class?', confirmLabel: 'Remove', danger: true })) return;
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/classes/manual/' + cls.id, { method: 'DELETE' });
+    const d = await r.json();
+    if (!r.ok || d.status !== 'ok') throw new Error(d.message || 'Could not remove that class.');
+    ipClassRows = Array.isArray(d.classes) ? d.classes : [];
+    ipClassRender();
+    ipClassSetStatus('Removed ' + cls.name + '.');
+  } catch (e) {
+    ipClassSetStatus(e.message, true);
+    btn.disabled = false;
+  }
+}
+
+(function ipClassInit() {
+  const add = document.getElementById('ipClassAddBtn');
+  if (!add) return;  // section not on this render
+  add.addEventListener('click', ipClassAdd);
+  document.getElementById('ipClassBulkSaveBtn').addEventListener('click', ipClassAddBulk);
+  document.getElementById('ipClassBulkBtn').addEventListener('click', () => {
+    const wrap = document.getElementById('ipClassBulkWrap');
+    const opening = wrap.style.display === 'none';
+    wrap.style.display = opening ? 'block' : 'none';
+    if (opening) document.getElementById('ipClassBulk').focus();
+  });
+  // Enter anywhere in the single-class form submits it — the whole point of
+  // this section is typing a timetable quickly.
+  ['ipClassName', 'ipClassTeacher', 'ipClassPeriod', 'ipClassRoom'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); ipClassAdd(); }
+    });
+  });
+  ipClassLoad();
+})();
 
 const ASSIGNMENT_SOURCE_OPTS = [
   { id: 'active', label: 'Active connected school (Canvas / StudentVue / Schoology)' },

@@ -58,6 +58,28 @@ def test_a_guest_can_add_a_class_without_linking_an_account(client):
     assert [c["name"] for c in body["classes"]] == ["Algebra II"]
 
 
+def test_a_single_class_keeps_its_teacher_period_and_room(client):
+    """The Integrations form collects more than a name; those fields have to
+    survive, because they are what makes two similarly-named classes tellable
+    apart in a course list."""
+    r = client.post("/api/classes/manual", json={
+        "name": "AP Biology", "teacher": "Ms. Whitfield",
+        "period": "4th", "room": "B-212",
+    })
+    cls = r.get_json()["classes"][0]
+    assert (cls["teacher"], cls["period"], cls["room"]) == ("Ms. Whitfield", "4th", "B-212")
+
+
+def test_details_can_be_edited_after_the_fact(client):
+    created = client.post("/api/classes/manual", json={"name": "AP Biology"})
+    cid = created.get_json()["classes"][0]["id"]
+    r = client.patch(f"/api/classes/manual/{cid}", json={"teacher": "Mr. Adeyemi", "room": "C-4"})
+    cls = r.get_json()["classes"][0]
+    assert cls["teacher"] == "Mr. Adeyemi"
+    assert cls["room"] == "C-4"
+    assert cls["name"] == "AP Biology"
+
+
 def test_a_whole_timetable_saves_in_one_request(client):
     r = client.post("/api/classes/manual",
                     json={"names": ["Algebra II", "AP Biology", "World History"]})
