@@ -230,3 +230,79 @@ def test_every_indexable_page_has_exactly_one_h1(client):
         if count != 1:
             problems.append(f"{path}: {count} h1 tags")
     assert not problems, "; ".join(problems)
+
+
+# ── Internal links must actually go somewhere ───────────────────────
+#
+# `/compare/intelliplan-vs-todoist` was linked from the MyStudyLife
+# comparison page's "See also" line and had no route and no template. It
+# never showed up as a 404 in casual checking, because App's 404 handler
+# deliberately bounces a visitor with no internal referrer to /dashboard —
+# so the dead link looked like a working redirect.
+#
+# These match hrefs against the app's URL map rather than fetching them, so
+# the handler's redirect cannot hide a link that points at nothing.
+
+SCRIPT_RE = re.compile(r"(?is)<script.*?</script>|<style.*?</style>")
+HREF_RE = re.compile(r'href="(/[^"#?][^"]*?)"')
+
+
+def _resolves(path: str) -> bool:
+    """True when some route in the app matches this path."""
+    from werkzeug.exceptions import HTTPException
+
+    adapter = app_module.app.url_map.bind("intelliplan.tech")
+    try:
+        adapter.match(path)
+        return True
+    except HTTPException:
+        # A 405 means the rule exists but not for GET; that is still a real
+        # destination, so only a genuine 404 counts as dead.
+        try:
+            adapter.match(path, method="POST")
+            return True
+        except HTTPException:
+            return False
+
+
+def _internal_links(client, path: str) -> set[str]:
+    """Every real anchor on a page.
+
+    Scripts and styles are stripped first: base.html carries CSS selectors
+    like `a[href="/schedule"]` inside a JavaScript tooltip config, and those
+    are not links. Reading them as links produces false positives that train
+    people to ignore this test.
+    """
+    body = SCRIPT_RE.sub(" ", client.get(path).get_data(as_text=True))
+    links = set()
+    for href in HREF_RE.findall(body):
+        # Drop the query string and fragment: /login?next=/developers is a
+        # link to /login, and matching the whole thing against the URL map
+        # reports a working link as dead.
+        href = href.split("?", 1)[0].split("#", 1)[0]
+        links.add(href.rstrip("/") or "/")
+    return links
+
+
+def test_no_indexable_page_links_to_a_url_with_no_route(client):
+    dead = {}
+    for page in sitemap_paths(client):
+        for href in _internal_links(client, page):
+            if not _resolves(href):
+                dead.setdefault(href, set()).add(page)
+    assert not dead, "links pointing at no route: " + "; ".join(
+        f"{href} (from {sorted(pages)})" for href, pages in sorted(dead.items())
+    )
+
+
+def test_every_comparison_link_points_at_a_real_comparison_page(client):
+    """The specific shape of the bug: a plausible-looking competitor slug
+    that was never built."""
+    real = {f"/compare/intelliplan-vs-{s}" for s in COMPARE_SLUGS}
+    referenced = set()
+    for page in sitemap_paths(client):
+        referenced |= {
+            h for h in _internal_links(client, page) if h.startswith("/compare/")
+        }
+    unknown = sorted(referenced - real - {"/compare"})
+    assert not unknown, f"links to comparison pages that do not exist: {unknown}"
