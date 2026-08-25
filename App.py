@@ -7330,6 +7330,7 @@ def _account_delete_impl():
         ("api_keys", "DELETE FROM api_keys WHERE user_id = :uid"),
         ("extension_tokens", "DELETE FROM extension_tokens WHERE user_id = :uid"),
         ("desktop_auth_codes", "DELETE FROM desktop_auth_codes WHERE user_id = :uid"),
+        ("app_link_codes", "DELETE FROM app_link_codes WHERE user_id = :uid"),
         ("accessibility_prefs", "DELETE FROM accessibility_prefs WHERE user_id = :uid"),
         ("student_profiles", "DELETE FROM student_profiles WHERE user_id = :uid"),
 
