@@ -15447,18 +15447,59 @@ def api_reminders_preview():
     return flask.jsonify({"status": "ok", "result": result, "message": msg})
 
 
+def _cron_unauthorised():
+    """The body for a rejected cron call.
+
+    A bare "unauthorized" cannot tell the two failures apart, and they have
+    opposite fixes. Sending *no* credential is nearly always an unset shell
+    variable — ``$CRON_SECRET`` in PowerShell rather than
+    ``$env:CRON_SECRET``, or a value that only ever lived in .env and was
+    never exported. Sending the wrong one is a genuinely wrong secret.
+
+    Saying which happened leaks nothing: whether a header arrived is
+    something the caller already knows.
+    """
+    if not _cron_secret_from_request():
+        return {
+            "status": "error",
+            "message": "unauthorized: no cron secret was sent. Set X-Cron-Secret "
+                       "(or X-Cron-Token) — in PowerShell the variable is "
+                       "$env:CRON_SECRET, not $CRON_SECRET.",
+        }
+    return {"status": "error", "message": "unauthorized: that cron secret does not match."}
+
+
+def _cron_secret_from_request():
+    """The caller's cron secret, under whichever header name they used.
+
+    ``/cron/notifications`` shipped reading ``X-Cron-Token`` while these
+    endpoints read ``X-Cron-Secret``. One secret, two spellings, and using
+    the wrong one for an endpoint returns an auth error that points at the
+    secret rather than the header. Both are accepted everywhere now.
+
+    The ``?secret=`` query fallback stays for schedulers that cannot set a
+    header, but a header is preferable — query strings reach access logs.
+    """
+    return (
+        request.headers.get("X-Cron-Secret")
+        or request.headers.get("X-Cron-Token")
+        or request.args.get("secret")
+        or ""
+    )
+
+
 @app.route("/cron/send-reminders", methods=["GET", "POST"])
 def cron_send_reminders():
     """Hit by Railway cron / external scheduler. Requires CRON_SECRET in the
     X-Cron-Secret header (preferred) or a `secret` query param to prevent abuse.
     Uses hmac.compare_digest to avoid timing attacks on the secret."""
     expected = os.getenv("CRON_SECRET", "")
-    provided = request.headers.get("X-Cron-Secret") or request.args.get("secret") or ""
+    provided = _cron_secret_from_request()
     if not expected:
         return flask.jsonify({"status": "error", "message": "cron not configured"}), 503
     import hmac as _hmac
     if not _hmac.compare_digest(str(expected), str(provided)):
-        return flask.jsonify({"status": "error", "message": "unauthorized"}), 401
+        return flask.jsonify(_cron_unauthorised()), 401
     total = {"users": 0, "sms": 0, "push": 0, "tasks": 0}
     candidates = User.query.filter(
         (User.sms_reminders_opt_in.is_(True)) | (User.push_reminders_opt_in.is_(True))
@@ -15497,12 +15538,12 @@ def cron_lifecycle_emails():
                    account actually has something unfinished.
     """
     expected = os.getenv("CRON_SECRET", "")
-    provided = request.headers.get("X-Cron-Secret") or request.args.get("secret") or ""
+    provided = _cron_secret_from_request()
     if not expected:
         return flask.jsonify({"status": "error", "message": "cron not configured"}), 503
     import hmac as _hmac
     if not _hmac.compare_digest(str(expected), str(provided)):
-        return flask.jsonify({"status": "error", "message": "unauthorized"}), 401
+        return flask.jsonify(_cron_unauthorised()), 401
 
     from intelliplan.email import campaigns, drafts, onboarding
 
@@ -15549,12 +15590,12 @@ def cron_weekly_newsletter():
     sending.
     """
     expected = os.getenv("CRON_SECRET", "")
-    provided = request.headers.get("X-Cron-Secret") or request.args.get("secret") or ""
+    provided = _cron_secret_from_request()
     if not expected:
         return flask.jsonify({"status": "error", "message": "cron not configured"}), 503
     import hmac as _hmac
     if not _hmac.compare_digest(str(expected), str(provided)):
-        return flask.jsonify({"status": "error", "message": "unauthorized"}), 401
+        return flask.jsonify(_cron_unauthorised()), 401
 
     dry_run = request.args.get("dry_run") in {"1", "true", "yes"}
 

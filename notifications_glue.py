@@ -17,6 +17,7 @@ This module owns three things the pure subsystem deliberately does not:
 from __future__ import annotations
 
 import logging
+import hmac
 import os
 import time
 from datetime import date, datetime, timedelta
@@ -337,12 +338,32 @@ def on_plan_rescheduled(user_id: int, moved_count: int, reason: str) -> None:
 # ── Routes ────────────────────────────────────────────────────────────
 
 
+def _supplied_cron_secret() -> str:
+    """The credential the caller sent, under whichever name they used."""
+    return (
+        request.headers.get("X-Cron-Token")
+        or request.headers.get("X-Cron-Secret")
+        or request.args.get("secret")
+        or ""
+    )
+
+
 def _cron_authorised() -> bool:
+    """One secret, either header name.
+
+    This endpoint originally read ``X-Cron-Token`` while the endpoints in
+    App.py read ``X-Cron-Secret``. Same secret, same purpose, different
+    spelling — and getting it wrong returns an auth error, which sends you
+    looking at the secret instead of the header. Accept both rather than
+    document the difference.
+    """
     expected = os.getenv("CRON_SECRET") or os.getenv("CRON_TOKEN") or ""
     if not expected:
         return False
-    supplied = request.headers.get("X-Cron-Token") or request.args.get("secret") or ""
-    return bool(supplied) and supplied == expected
+    supplied = _supplied_cron_secret()
+    # compare_digest so a wrong secret cannot be recovered by timing the
+    # response, the same guard the App.py endpoints use.
+    return bool(supplied) and hmac.compare_digest(str(supplied), str(expected))
 
 
 # ── In-process ticker ─────────────────────────────────────────────────
@@ -472,7 +493,25 @@ def cron_notifications():
     and the flush claims.
     """
     if not _cron_authorised():
-        abort(403)
+        # JSON, not abort(403). This is a machine endpoint: abort renders the
+        # site's HTML error page, so a scheduler's log filled up with a
+        # stylesheet and the reason was nowhere in it.
+        if not os.getenv("CRON_SECRET") and not os.getenv("CRON_TOKEN"):
+            return jsonify({
+                "status": "error",
+                "message": "cron not configured: CRON_SECRET is unset on the server.",
+            }), 503
+        if not _supplied_cron_secret():
+            return jsonify({
+                "status": "error",
+                "message": "unauthorized: no cron secret was sent. Set X-Cron-Token "
+                           "(or X-Cron-Secret) — in PowerShell the variable is "
+                           "$env:CRON_SECRET, not $CRON_SECRET.",
+            }), 401
+        return jsonify({
+            "status": "error",
+            "message": "unauthorized: that cron secret does not match.",
+        }), 401
     swept = sweep_all()
     delivered = get_dispatcher().flush()
     return jsonify({"status": "ok", "swept": swept, "delivered": delivered.as_dict()})

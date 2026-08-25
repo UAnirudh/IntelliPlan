@@ -40,17 +40,15 @@ fixes it. Get to no `fail` before scheduling anything.
 
 ## 3. The endpoints
 
-All accept `GET` or `POST`, and all read the same `CRON_SECRET`. **The
-header name differs by endpoint** — this is easy to get wrong and the
-failure looks like an auth problem rather than a typo:
+All accept `GET` or `POST`, and all read the same `CRON_SECRET` under
+either header name — `X-Cron-Secret` or `X-Cron-Token`, whichever you
+prefer. They also accept `?secret=…` as a fallback for schedulers that
+cannot set a header, though a header is better: query strings reach access
+logs.
 
-| Endpoint | Header |
-|---|---|
-| `/cron/notifications` | `X-Cron-Token` (403 when wrong) |
-| everything else | `X-Cron-Secret` (401 when wrong) |
-
-All of them also accept `?secret=…` as a fallback. Prefer the header —
-query strings end up in access logs.
+(The two header names are historical. They used to be per-endpoint, which
+meant using the wrong one returned an auth error and sent you looking at
+the secret. Both work everywhere now.)
 
 | Endpoint | Cadence | What it does |
 |---|---|---|
@@ -115,17 +113,17 @@ $env:CRON_SECRET = "paste-the-real-secret-here"
 Then either of these works:
 
 ```powershell
-curl.exe -fsS -X POST -H "X-Cron-Token: $env:CRON_SECRET" https://intelliplan.tech/cron/notifications
+curl.exe -fsS -X POST -H "X-Cron-Secret: $env:CRON_SECRET" https://intelliplan.tech/cron/notifications
 ```
 
 ```powershell
-Invoke-RestMethod -Method Post -Uri "https://intelliplan.tech/cron/notifications" -Headers @{ "X-Cron-Token" = $env:CRON_SECRET }
+Invoke-RestMethod -Method Post -Uri "https://intelliplan.tech/cron/notifications" -Headers @{ "X-Cron-Secret" = $env:CRON_SECRET }
 ```
 
 `Invoke-RestMethod` is the better one on Windows: it parses the JSON reply
 into an object instead of printing a blob.
 
-Remember the header differs per endpoint:
+The same shape works for every endpoint:
 
 ```powershell
 curl.exe -fsS -X POST -H "X-Cron-Secret: $env:CRON_SECRET" https://intelliplan.tech/cron/lifecycle-emails
@@ -151,7 +149,7 @@ curl -fsS -X POST -H "X-Cron-Secret: $CRON_SECRET" https://intelliplan.tech/cron
 ```
 
 ```bash
-curl -fsS -X POST -H "X-Cron-Token: $CRON_SECRET" https://intelliplan.tech/cron/notifications
+curl -fsS -X POST -H "X-Cron-Secret: $CRON_SECRET" https://intelliplan.tech/cron/notifications
 ```
 
 Schedules: `*/10 * * * *` for notifications, `*/20 * * * *` for reminders,
@@ -168,7 +166,7 @@ Any scheduler that can make an authenticated HTTP request works. With
 system cron:
 
 ```bash
-*/10 * * * * curl -fsS -X POST -H "X-Cron-Token: REDACTED"  https://intelliplan.tech/cron/notifications
+*/10 * * * * curl -fsS -X POST -H "X-Cron-Secret: REDACTED" https://intelliplan.tech/cron/notifications
 */20 * * * * curl -fsS -X POST -H "X-Cron-Secret: REDACTED" https://intelliplan.tech/cron/send-reminders
 0 14 * * *   curl -fsS -X POST -H "X-Cron-Secret: REDACTED" https://intelliplan.tech/cron/lifecycle-emails
 ```
@@ -194,5 +192,10 @@ Each endpoint returns a JSON summary of what it did:
 | `suppressed` | The user unsubscribed or a send hard-bounced. |
 | `provider_failed` | Resend rejected it or is unreachable. The row stays `failed` and the next run retries. |
 
-A 503 means `CRON_SECRET` is unset. A 401 (or 403 on `/cron/notifications`)
-means the secret or the header name does not match — see the table above.
+Refusals are JSON and say which of the two things went wrong:
+
+| Status | Body says | Fix |
+|---|---|---|
+| 503 | `cron not configured` | `CRON_SECRET` is unset **on the server**. |
+| 401 | `no cron secret was sent` | Your shell variable is empty. In PowerShell it is `$env:CRON_SECRET`, not `$CRON_SECRET`; `.env` is read by the app, never exported into your shell. |
+| 401 | `that cron secret does not match` | Genuinely the wrong value. |
