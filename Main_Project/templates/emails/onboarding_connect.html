@@ -1,0 +1,69 @@
+{% extends "emails/_base.html" %}
+{% block title %}Connect your school{% endblock %}
+{% block eyebrow %}Step one{% endblock %}
+{% block headline %}{% if user_name %}{{ user_name }}, let{% else %}Let{% endif %} IntelliPlan<br/>read your assignments.{% endblock %}
+{% block hero_body %}
+  Right now you're typing your work in by hand. Connect your school account once and IntelliPlan pulls in your assignments, due dates, and grades on its own — and keeps them current.
+{% endblock %}
+{% block hero_cta %}
+  <a href="{{ app_url }}/settings" style="display:inline-block; background: #ffffff; color: #4f46e5; font-size: 15px; font-weight: 700; text-decoration: none; padding: 14px 36px; border-radius: 50px; letter-spacing: -0.2px;">
+    Connect my school &rarr;
+  </a>
+{% endblock %}
+
+{% block content %}
+  <p style="font-size: 13px; font-weight: 600; color: #6366f1; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 20px;">Pick whichever one your school uses</p>
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 32px;">
+    <tr>
+      <td width="50%" style="padding-right: 8px; padding-bottom: 12px;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f3ff; border-radius: 12px; border: 1px solid #e0e7ff;">
+          <tr><td style="padding: 16px 18px;">
+            <p style="font-size: 20px; margin-bottom: 6px;">&#128203;</p>
+            <p style="font-size: 14px; font-weight: 700; color: #1e1b4b; margin-bottom: 2px;">Canvas LMS</p>
+            <p style="font-size: 12px; color: #6b7280;">Assignments &amp; due dates</p>
+          </td></tr>
+        </table>
+      </td>
+      <td width="50%" style="padding-left: 8px; padding-bottom: 12px;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f3ff; border-radius: 12px; border: 1px solid #e0e7ff;">
+          <tr><td style="padding: 16px 18px;">
+            <p style="font-size: 20px; margin-bottom: 6px;">&#127979;</p>
+            <p style="font-size: 14px; font-weight: 700; color: #1e1b4b; margin-bottom: 2px;">StudentVue</p>
+            <p style="font-size: 12px; color: #6b7280;">Grades &amp; class schedule</p>
+          </td></tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td width="50%" style="padding-right: 8px;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f3ff; border-radius: 12px; border: 1px solid #e0e7ff;">
+          <tr><td style="padding: 16px 18px;">
+            <p style="font-size: 20px; margin-bottom: 6px;">&#128218;</p>
+            <p style="font-size: 14px; font-weight: 700; color: #1e1b4b; margin-bottom: 2px;">Schoology</p>
+            <p style="font-size: 12px; color: #6b7280;">Course materials &amp; tasks</p>
+          </td></tr>
+        </table>
+      </td>
+      <td width="50%" style="padding-left: 8px;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f3ff; border-radius: 12px; border: 1px solid #e0e7ff;">
+          <tr><td style="padding: 16px 18px;">
+            <p style="font-size: 20px; margin-bottom: 6px;">&#128197;</p>
+            <p style="font-size: 14px; font-weight: 700; color: #1e1b4b; margin-bottom: 2px;">Google Calendar</p>
+            <p style="font-size: 12px; color: #6b7280;">Sync your study blocks</p>
+          </td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 0 0 28px;" />
+
+  <p style="font-size: 15px; color: #6b7280; line-height: 1.7; margin-bottom: 24px;">
+    It takes under a minute, and you can disconnect at any time from Settings. Your school password is never stored in plain text, and IntelliPlan only ever reads — it never posts or submits anything on your behalf.
+  </p>
+
+  <p style="font-size: 14px; color: #9ca3af; line-height: 1.7;">
+    School not on the list? You can still add tasks by hand, import a CSV, or paste your assignment list and let IntelliPlan sort it out.
+  </p>
+{% endblock %}

@@ -22,7 +22,11 @@ import os
 from typing import Any, NamedTuple
 
 from . import templates
-from .eligibility import is_marketing_eligible, is_transactional_eligible
+from .eligibility import (
+    is_marketing_eligible,
+    is_reminder_eligible,
+    is_transactional_eligible,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -172,24 +176,43 @@ def send_lifecycle_email(
     marketing: bool = True,
     context_extra: dict | None = None,
     dedupe: bool = True,
+    gate: str | None = None,
 ) -> SendResult:
     """Gate, deduplicate, render, and send one lifecycle email.
 
-    ``marketing=False`` selects the transactional gate — used only by the
-    welcome email, which explains a service the user just signed up for.
-    It still respects age and suppression, and still carries an unsubscribe
-    link.
+    ``marketing=False`` selects the transactional gate — used by the welcome
+    email and the onboarding sequence, which explain a service the user
+    signed up for. It still respects age and suppression, and still carries
+    an unsubscribe link.
+
+    ``gate`` names the check explicitly and wins over ``marketing`` when
+    given: ``"marketing"``, ``"transactional"``, or ``"reminder"``. The
+    boolean was fine while there were two gates and stops being expressive
+    at three — ``marketing=False`` cannot say *which* non-marketing gate is
+    meant. An unrecognised name falls back to the marketing gate, the
+    strictest of the three, so a typo under-sends rather than over-sends.
 
     ``dedupe=False`` is for admin test sends, which must be repeatable.
     """
-    gate = is_marketing_eligible if marketing else is_transactional_eligible
-    ok, reason = gate(user)
+    gates = {
+        "marketing": is_marketing_eligible,
+        "transactional": is_transactional_eligible,
+        "reminder": is_reminder_eligible,
+    }
+    if gate is None:
+        gate = "marketing" if marketing else "transactional"
+    elif gate not in gates:
+        logger.error(
+            "unknown gate %r for %s; falling back to the marketing gate", gate, email_key
+        )
+        gate = "marketing"
+    ok, reason = gates[gate](user)
     if not ok:
         return SendResult(False, reason)
 
     address = (user.email or "").strip()
 
-    if marketing and not templates.postal_address():
+    if gate == "marketing" and not templates.postal_address():
         # Refusing beats sending a non-compliant commercial email. Loud,
         # because the fix is one environment variable and the failure is
         # otherwise invisible until someone complains.

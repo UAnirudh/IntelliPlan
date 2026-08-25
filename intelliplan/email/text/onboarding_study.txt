@@ -1,0 +1,39 @@
+Hey {{ user_name or 'there' }},
+
+Start one session. That's the whole ask.
+
+A plan you never sit down to is just a list. Pick one block, start the
+timer, and let IntelliPlan learn how long your work actually takes.
+
+Start a session: {{ app_url }}/active
+
+
+WHY IT'S WORTH DOING ONCE
+
+Everyone is bad at estimating how long homework takes — consistently, in
+the same direction. Active study times your real sittings, so after a few
+sessions the schedule stops being a guess and starts matching how you
+actually work.
+
+
+OPTIONAL: THE FOCUS CHECK-IN
+
+If you turn it on, your camera can nudge you when you drift. It runs
+entirely in your browser — no images, no video, and nothing that identifies
+you ever leaves your device. Only a count of how many moments read as
+focused is saved, and it's off unless you switch it on.
+
+Short counts. Twenty minutes on the thing you've been avoiding is a real
+session, and it's usually the one that unsticks the week.
+
+---
+
+You're receiving this because you signed up at {{ app_domain }}.
+Questions? Reply to this email, or reach us at {{ support_email }}
+
+Unsubscribe: {{ unsubscribe_url }}
+Privacy policy: {{ app_url }}/privacy
+{% if postal_address %}
+{{ postal_address }}
+{% endif %}
+IntelliPlan — Study smarter.

@@ -1,0 +1,35 @@
+Hey {{ user_name or 'there' }},
+
+Right now you're typing your work into IntelliPlan by hand.
+
+Connect your school account once and it pulls in your assignments, due
+dates, and grades on its own — and keeps them current.
+
+Connect your school: {{ app_url }}/settings
+
+
+PICK WHICHEVER ONE YOUR SCHOOL USES
+
+  * Canvas LMS       — assignments and due dates
+  * StudentVue       — grades and class schedule
+  * Schoology        — course materials and tasks
+  * Google Calendar  — sync your study blocks
+
+It takes under a minute, and you can disconnect at any time from Settings.
+Your school password is never stored in plain text, and IntelliPlan only
+ever reads — it never posts or submits anything on your behalf.
+
+School not on the list? You can still add tasks by hand, import a CSV, or
+paste your assignment list and let IntelliPlan sort it out.
+
+---
+
+You're receiving this because you signed up at {{ app_domain }}.
+Questions? Reply to this email, or reach us at {{ support_email }}
+
+Unsubscribe: {{ unsubscribe_url }}
+Privacy policy: {{ app_url }}/privacy
+{% if postal_address %}
+{{ postal_address }}
+{% endif %}
+IntelliPlan — Study smarter.

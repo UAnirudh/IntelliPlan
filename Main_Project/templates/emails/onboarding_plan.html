@@ -1,0 +1,58 @@
+{% extends "emails/_base.html" %}
+{% block title %}Build your first plan{% endblock %}
+{% block eyebrow %}Step two{% endblock %}
+{% block headline %}You have the work.<br/>Now get the plan.{% endblock %}
+{% block hero_body %}
+  IntelliPlan takes everything on your list and lays it out across the days you actually have — big assignments split into sessions, spaced so nothing lands the night before.
+{% endblock %}
+{% block hero_cta %}
+  <a href="{{ app_url }}/schedule" style="display:inline-block; background: #ffffff; color: #4f46e5; font-size: 15px; font-weight: 700; text-decoration: none; padding: 14px 36px; border-radius: 50px; letter-spacing: -0.2px;">
+    Build my schedule &rarr;
+  </a>
+{% endblock %}
+
+{% block content %}
+  <p style="font-size: 13px; font-weight: 600; color: #6366f1; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 20px;">What the planner does for you</p>
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 20px;">
+    <tr>
+      <td width="40" valign="top" style="padding-right: 16px;">
+        <div style="width:36px; height:36px; background: linear-gradient(135deg, #4f46e5, #7c3aed); border-radius: 50%; text-align:center; line-height:36px; font-size:14px; font-weight:800; color:#fff;">1</div>
+      </td>
+      <td valign="top">
+        <p style="font-size: 15px; font-weight: 700; color: #111827; margin-bottom: 4px;">Splits the big things up</p>
+        <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">A ten-page paper becomes four sittings with an outline first, not one panicked evening.</p>
+      </td>
+    </tr>
+  </table>
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 20px;">
+    <tr>
+      <td width="40" valign="top" style="padding-right: 16px;">
+        <div style="width:36px; height:36px; background: linear-gradient(135deg, #4f46e5, #7c3aed); border-radius: 50%; text-align:center; line-height:36px; font-size:14px; font-weight:800; color:#fff;">2</div>
+      </td>
+      <td valign="top">
+        <p style="font-size: 15px; font-weight: 700; color: #111827; margin-bottom: 4px;">Works around your week</p>
+        <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">Tell it when you have practice, a shift, or simply no intention of studying, and it plans around all of it.</p>
+      </td>
+    </tr>
+  </table>
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 32px;">
+    <tr>
+      <td width="40" valign="top" style="padding-right: 16px;">
+        <div style="width:36px; height:36px; background: linear-gradient(135deg, #4f46e5, #7c3aed); border-radius: 50%; text-align:center; line-height:36px; font-size:14px; font-weight:800; color:#fff;">3</div>
+      </td>
+      <td valign="top">
+        <p style="font-size: 15px; font-weight: 700; color: #111827; margin-bottom: 4px;">Reshuffles when you fall behind</p>
+        <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">Miss a block and the rest of the week moves to absorb it. Falling behind stops meaning starting over.</p>
+      </td>
+    </tr>
+  </table>
+
+  <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 0 0 28px;" />
+
+  <p style="font-size: 15px; color: #6b7280; line-height: 1.7;">
+    You don't need a full list to start. Two or three assignments is enough to see what it does — and you can edit or drag anything it suggests.
+  </p>
+{% endblock %}
