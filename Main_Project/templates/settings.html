@@ -2193,9 +2193,24 @@ async function disconnectNotion() {
 /* If the user just returned from the OAuth callback we get a flag in
    the query string (?notion=connected). Refresh status to pick up the
    newly-stored workspace metadata. */
-if (new URLSearchParams(location.search).get('notion') === 'connected') {
-  refreshNotionStatus();
-}
+(function ipNotionReturn() {
+  var q = new URLSearchParams(location.search);
+  if (q.get('notion') === 'connected') {
+    refreshNotionStatus();
+    ipSetNotify('Notion connected. Pick a database below to sync your tasks into.');
+    return;
+  }
+  /* A cancelled install used to land on a 400 error page. It is a choice,
+     not a fault, so say what happened and leave them where they were. */
+  var err = q.get('notion_error');
+  if (!err) return;
+  var reasons = {
+    access_denied: 'You cancelled the Notion install — nothing was connected.',
+    no_code: 'Notion did not finish the install. Please try again.',
+  };
+  ipSetNotify(reasons[err] || 'Could not finish connecting Notion. Please try again.',
+              err !== 'access_denied');
+})();
 
 /* ── Password ────────────────────────────────────
    Names are ipPw-prefixed because this script block shares a global scope

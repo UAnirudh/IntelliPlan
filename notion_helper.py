@@ -11,7 +11,21 @@ import requests as http_requests
 # ── OAuth ────────────────────────────────────────────────────────────
 NOTION_OAUTH_AUTHORIZE_URL = "https://api.notion.com/v1/oauth/authorize"
 NOTION_OAUTH_TOKEN_URL = "https://api.notion.com/v1/oauth/token"
-NOTION_API_VERSION = "2022-06-28"
+
+#: Version header for the OAuth endpoints only.
+#:
+#: The data plane is not versioned here — ``notion_client`` pins its own
+#: ``Notion-Version`` for every ``databases``/``pages`` call, and that pin is
+#: what the property parsing below is written against. Bumping the two
+#: together would silently change request *and* response shapes at once;
+#: Notion's 2025-09-03 release, for one, moved database queries to data
+#: sources. The OAuth token endpoints are stable across versions, so this
+#: constant tracks the current documented version and nothing else reads it.
+NOTION_API_VERSION = os.getenv("NOTION_API_VERSION", "2026-03-11")
+
+#: Refresh this many seconds before the token actually expires, so a request
+#: that starts just under the wire does not finish just over it.
+TOKEN_REFRESH_SKEW_SECONDS = 300
 
 
 def _notion_redirect_uri(redirect_uri=None):
@@ -42,46 +56,117 @@ def get_notion_auth_url(state, redirect_uri=None):
     return f"{NOTION_OAUTH_AUTHORIZE_URL}?{urllib.parse.urlencode(params)}"
 
 
-def exchange_notion_code(code, redirect_uri=None):
-    """Exchange an OAuth `code` for a long-lived workspace access token.
-
-    Notion access tokens don't expire unless the user revokes them, so
-    no refresh flow is needed (unlike Google). Returns the JSON payload
-    from Notion which already contains workspace metadata.
-    """
+def _basic_auth_header():
+    """HTTP Basic credential for the token endpoints: ``client_id:client_secret``."""
     client_id = os.getenv("NOTION_CLIENT_ID")
     client_secret = os.getenv("NOTION_CLIENT_SECRET")
     if not client_id or not client_secret:
         raise RuntimeError("Notion OAuth credentials missing.")
     basic = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
+    return f"Basic {basic}"
+
+
+def _token_request(payload):
+    """POST to Notion's token endpoint and normalise the response.
+
+    Shared by the authorization-code exchange and the refresh, which differ
+    only in their grant type and are otherwise the same request with the same
+    response shape.
+    """
     resp = http_requests.post(
         NOTION_OAUTH_TOKEN_URL,
         headers={
-            "Authorization": f"Basic {basic}",
+            "Authorization": _basic_auth_header(),
             "Content-Type": "application/json",
             "Notion-Version": NOTION_API_VERSION,
         },
-        json={
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": _notion_redirect_uri(redirect_uri),
-        },
+        json=payload,
         timeout=20,
     )
-    data = resp.json()
+    try:
+        data = resp.json()
+    except ValueError:
+        raise Exception(
+            f"Notion token endpoint returned non-JSON (HTTP {resp.status_code}): "
+            f"{resp.text[:200]}"
+        )
     if resp.status_code >= 400 or "error" in data:
-        raise Exception(f"Notion token exchange failed: {data}")
-    # Normalise the fields we care about; keep the full payload too.
+        raise Exception(f"Notion token request failed: {data}")
+
+    expires_at = None
+    expires_in = data.get("expires_in")
+    if expires_in:
+        try:
+            expires_at = utcnow() + timedelta(seconds=int(expires_in))
+        except (TypeError, ValueError):
+            expires_at = None
+
     return {
         "access_token": data.get("access_token"),
+        # Notion now returns a refresh token alongside the access token, and
+        # refreshing rotates *both*. Storing only the access token meant a
+        # rotated credential could not be renewed and the connection died
+        # silently the first time Notion expired one.
+        "refresh_token": data.get("refresh_token"),
+        "expires_at": expires_at,
         "workspace_id": data.get("workspace_id"),
         "workspace_name": data.get("workspace_name"),
         "workspace_icon": data.get("workspace_icon"),
         "bot_id": data.get("bot_id"),
         "owner": data.get("owner"),
+        # The page Notion created when the user chose to duplicate our
+        # template during the install. It is the obvious default task
+        # database, so it is worth keeping rather than making them pick.
         "duplicated_template_id": data.get("duplicated_template_id"),
         "raw": data,
     }
+
+
+def exchange_notion_code(code, redirect_uri=None):
+    """Exchange an OAuth ``code`` for a workspace access token.
+
+    ``redirect_uri`` must match the one used to build the authorization URL.
+    Notion requires it whenever the connection has more than one registered
+    redirect URI, or when it was supplied as a query parameter — which it
+    always is here.
+    """
+    return _token_request({
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": _notion_redirect_uri(redirect_uri),
+    })
+
+
+def refresh_notion_token(refresh_token):
+    """Trade a refresh token for a new access token.
+
+    Both tokens rotate: the response carries a fresh ``refresh_token`` that
+    replaces the one passed in, so callers must persist the whole result and
+    not just the access token.
+    """
+    if not refresh_token:
+        raise RuntimeError("No Notion refresh token to refresh with.")
+    return _token_request({
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token,
+    })
+
+
+def token_needs_refresh(expires_at, now=None):
+    """True when ``expires_at`` is inside the refresh skew.
+
+    A row with no expiry is treated as still valid: connections made before
+    Notion issued expiring tokens have none, and they keep working until
+    Notion says otherwise.
+    """
+    if not expires_at:
+        return False
+    now = now or utcnow()
+    if expires_at.tzinfo is None and now.tzinfo is not None:
+        now = now.replace(tzinfo=None)
+    elif expires_at.tzinfo is not None and now.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=None)
+    return expires_at <= now + timedelta(seconds=TOKEN_REFRESH_SKEW_SECONDS)
 
 
 def get_notion_client(token):

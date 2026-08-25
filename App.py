@@ -101,6 +101,7 @@ try:
         update_notion_task, complete_notion_task,
         get_notion_auth_url, exchange_notion_code,
         get_upcoming_notion_tasks, add_schedule_to_notion,
+        refresh_notion_token, token_needs_refresh,
     )
     NOTION_AVAILABLE = True
 except Exception as e:
@@ -686,6 +687,14 @@ class NotionIntegration(db.Model):
     workspace_name = db.Column(db.String(256), nullable=True)
     workspace_icon = db.Column(db.String(512), nullable=True)
     bot_id = db.Column(db.String(64), nullable=True)
+    # Notion issues expiring, rotating tokens: a refresh returns a new access
+    # token *and* a new refresh token. Storing only the access token meant a
+    # connection had no way back once one expired.
+    refresh_token = db.Column(db.String(512), nullable=True)
+    token_expires_at = db.Column(db.DateTime, nullable=True)
+    # The page Notion created if the user duplicated our template during the
+    # install. The obvious default task database, so it is worth keeping.
+    duplicated_template_id = db.Column(db.String(64), nullable=True)
     connected_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -2421,11 +2430,47 @@ def get_google_token():
                 return None
     return session.get("google_token")
 
+def _refresh_notion_row(ni):
+    """Renew ``ni``'s access token in place when it is close to expiring.
+
+    Notion rotates both tokens on refresh, so the new refresh token is stored
+    too — keeping the old one would leave the connection unable to renew a
+    second time.
+
+    A failure here is deliberately not fatal. The stored access token may
+    still have minutes left on it, and returning it gives the caller a chance
+    to succeed; if it really has expired, the API call fails with Notion's own
+    error rather than this function inventing one.
+    """
+    if not ni or not ni.refresh_token:
+        return ni.token if ni else None
+    if not token_needs_refresh(ni.token_expires_at):
+        return ni.token
+    try:
+        fresh = refresh_notion_token(ni.refresh_token)
+    except Exception as e:
+        print(f"[notion] token refresh failed for user {ni.user_id}: {e}")
+        return ni.token
+    if not fresh.get("access_token"):
+        print(f"[notion] refresh returned no access token for user {ni.user_id}")
+        return ni.token
+    ni.token = fresh["access_token"]
+    if fresh.get("refresh_token"):
+        ni.refresh_token = fresh["refresh_token"]
+    ni.token_expires_at = fresh.get("expires_at")
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[notion] could not persist refreshed token for user {ni.user_id}: {e}")
+    return ni.token
+
+
 def get_notion_token_and_db():
     if current_user.is_authenticated:
         ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
         if ni and ni.token:
-            return ni.token, ni.database_id
+            return _refresh_notion_row(ni), ni.database_id
     return session.get("notion_token"), session.get("notion_database_id")
 
 def get_study_profile(user_id=None, guest_id=None):
@@ -8782,10 +8827,21 @@ def oauth_notion_callback():
     code = request.args.get("code")
     state = request.args.get("state")
     expected_state = session.pop("notion_oauth_state", None)
-    if not code or not state or state != expected_state:
+
+    # Cancelling the install is a choice, not a fault. Notion sends the user
+    # back with ?error=access_denied and no code; a 400 error page for that
+    # reads as "something broke".
+    denied = request.args.get("error")
+    if denied:
+        print(f"[notion] install not completed: {denied}")
+        return redirect(url_for("settings") + f"?notion_error={urllib.parse.quote(denied[:40])}")
+
+    if not state or state != expected_state:
         return render_template("error.html", active_page="error", error_code=400,
                                error_id="NOTION-OAUTH-STATE",
                                message="Notion OAuth state did not match. Try again."), 400
+    if not code:
+        return redirect(url_for("settings") + "?notion_error=no_code")
     redirect_uri = os.getenv("NOTION_REDIRECT_URI") or (
         APP_BASE_URL.rstrip("/") + "/oauth/notion/callback"
     )
@@ -8807,6 +8863,7 @@ def oauth_notion_callback():
     session.modified = True
     if current_user.is_authenticated:
         existing = NotionIntegration.query.filter_by(user_id=current_user.id).first()
+        template_id = tokens.get("duplicated_template_id")
         if existing:
             existing.token = access_token
             existing.auth_type = "oauth"
@@ -8814,8 +8871,13 @@ def oauth_notion_callback():
             existing.workspace_name = tokens.get("workspace_name")
             existing.workspace_icon = tokens.get("workspace_icon")
             existing.bot_id = tokens.get("bot_id")
+            existing.refresh_token = tokens.get("refresh_token") or existing.refresh_token
+            existing.token_expires_at = tokens.get("expires_at")
+            existing.duplicated_template_id = template_id or existing.duplicated_template_id
             existing.connected_at = utcnow()
             # Don't clobber database_id if the user already chose one.
+            if template_id and not existing.database_id:
+                existing.database_id = template_id
         else:
             db.session.add(NotionIntegration(
                 user_id=current_user.id,
@@ -8825,6 +8887,13 @@ def oauth_notion_callback():
                 workspace_name=tokens.get("workspace_name"),
                 workspace_icon=tokens.get("workspace_icon"),
                 bot_id=tokens.get("bot_id"),
+                refresh_token=tokens.get("refresh_token"),
+                token_expires_at=tokens.get("expires_at"),
+                duplicated_template_id=template_id,
+                # Duplicating the template is the user saying "use this one".
+                # Making them pick it from a list afterwards would be asking a
+                # question they just answered.
+                database_id=template_id,
             ))
         db.session.commit()
     return redirect(url_for("settings") + "?notion=connected")
@@ -17181,6 +17250,9 @@ def _migrate_user_columns():
         ("notion_integrations", "workspace_icon", "VARCHAR(512)"),
         ("notion_integrations", "bot_id", "VARCHAR(64)"),
         ("notion_integrations", "connected_at", "TIMESTAMP"),
+        ("notion_integrations", "refresh_token", "VARCHAR(512)"),
+        ("notion_integrations", "token_expires_at", "TIMESTAMP"),
+        ("notion_integrations", "duplicated_template_id", "VARCHAR(64)"),
         # daily check-in chest tracking
         ("study_points", "last_daily_claim", "VARCHAR(16) DEFAULT ''"),
         # google_integrations — multi-account support
