@@ -3535,30 +3535,51 @@ _SITEMAP_ENTRIES = [
     ("/tools/test-grade-calculator",     "tool_test_grade.html",          "2026-06-22", "monthly", "0.9"),
     ("/tools/study-schedule-maker",      "tool_schedule_maker.html",      "2026-06-22", "monthly", "0.9"),
     ("/tools/text-dissector",            "text_dissector.html",           "2026-06-22", "monthly", "0.8"),
-    # App pages
+    # Public product pages. The signed-in surface — /dashboard, /scheduler,
+    # /gradebook, /streak and the rest — used to be listed here while
+    # _NOINDEX_EXACT simultaneously told crawlers not to index it. A sitemap
+    # is a request to index, so those 22 URLs asked Google for one thing and
+    # the X-Robots-Tag header answered with another. Google resolves that in
+    # the crawler's favour (it obeys the noindex) but spends crawl budget
+    # reaching the page to find out, and Ahrefs flags it as an error.
+    #
+    # Only pages that pass _should_noindex belong here. sitemap_xml filters
+    # on exactly that, so this list can no longer drift out of agreement
+    # with it — see test_sitemap_seo.py.
     ("/olympiad",                        "olympiad.html",                 "2026-06-22", "monthly", "0.85"),
-    ("/dashboard",                       "dashboard.html",                "2026-06-22", "daily",   "0.9"),
-    ("/scheduler",                       "scheduler.html",                "2026-06-22", "daily",   "0.8"),
-    ("/study",                           "study.html",                    "2026-06-22", "weekly",  "0.8"),
     ("/learn",                           "study.html",                    "2026-06-22", "weekly",  "0.8"),
-    ("/study-and-learn",                 "study.html",                    "2026-06-22", "weekly",  "0.8"),
-    ("/grademodel",                      "grademodel.html",               "2026-06-22", "weekly",  "0.8"),
-    ("/grades",                          "gradebook.html",                "2026-06-22", "weekly",  "0.7"),
-    ("/gradebook",                       "gradebook.html",                "2026-06-22", "weekly",  "0.7"),
-    ("/classes",                         None,                            "2026-06-22", "weekly",  "0.7"),
-    ("/streak",                          "streak.html",                   "2026-06-22", "weekly",  "0.7"),
     ("/focus",                           "focus.html",                    "2026-06-22", "weekly",  "0.7"),
-    ("/lessons",                         None,                            "2026-06-22", "weekly",  "0.7"),
-    ("/groups",                          "groups.html",                   "2026-06-22", "weekly",  "0.7"),
-    ("/meetings",                        "meetings.html",                 "2026-06-22", "weekly",  "0.7"),
-    ("/priority",                        None,                            "2026-06-22", "weekly",  "0.6"),
-    ("/writing",                         None,                            "2026-06-22", "weekly",  "0.7"),
-    ("/math",                            None,                            "2026-06-22", "weekly",  "0.7"),
-    ("/extractor",                       None,                            "2026-06-22", "weekly",  "0.6"),
-    ("/tests",                           None,                            "2026-06-22", "weekly",  "0.7"),
-    ("/memories",                        None,                            "2026-06-22", "weekly",  "0.6"),
     ("/library",                         "library.html",                  "2026-06-22", "weekly",  "0.7"),
 ]
+
+
+def _indexable_sitemap_entries():
+    """``_SITEMAP_ENTRIES`` minus anything that serves noindex.
+
+    Both the sitemap and IndexNow go through here, because both are ways of
+    saying "please index this" and neither may disagree with the header the
+    page actually sends. IndexNow is the sharper edge of the two: a sitemap
+    entry is a passive suggestion, while IndexNow actively pushes the URL at
+    Bing, Yandex and Seznam — so a noindexed URL there spends someone's
+    crawl budget on a page that will be thrown away on arrival.
+
+    A guard, not the mechanism: ``_SITEMAP_ENTRIES`` should already be free
+    of these. It exists because the failure is silent — a noindexed URL in a
+    sitemap looks exactly like a working one until an external crawl report
+    says otherwise, months later. That is precisely how 22 of them
+    accumulated.
+    """
+    keep = []
+    for entry in _SITEMAP_ENTRIES:
+        path = entry[0]
+        if _should_noindex(path):
+            app.logger.warning(
+                "sitemap: %s is noindex and was skipped; remove it from "
+                "_SITEMAP_ENTRIES or from _NOINDEX_EXACT", path
+            )
+            continue
+        keep.append(entry)
+    return keep
 
 
 @app.route("/sitemap.xml")
@@ -3566,7 +3587,7 @@ def sitemap_xml():
     base = APP_BASE_URL.rstrip("/")
     parts = ['<?xml version="1.0" encoding="UTF-8"?>',
              '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
-    for path, tpl, default_lm, changefreq, priority in _SITEMAP_ENTRIES:
+    for path, tpl, default_lm, changefreq, priority in _indexable_sitemap_entries():
         lastmod = _sitemap_lastmod_for(tpl, default_lm)
         parts.append(
             f"  <url><loc>{base}{path}</loc>"
@@ -3599,10 +3620,14 @@ def _indexnow_sitemap_urls(limit=10000):
     """IndexNow source-of-truth: the same URL list the dynamic sitemap emits.
 
     Previously we re-read static/sitemap.xml; now that the sitemap is
-    generated at request time we pull straight from _SITEMAP_ENTRIES so
-    the two surfaces can never drift."""
+    generated at request time we pull from the same filtered entry list so
+    the two surfaces can never drift.
+
+    That promise used to be only half true: this read _SITEMAP_ENTRIES raw
+    while nothing filtered it, so every noindexed page in that list was
+    being pushed at Bing and Yandex as a "crawl this now" signal."""
     base = APP_BASE_URL.rstrip("/")
-    urls = [f"{base}{path}" for path, *_ in _SITEMAP_ENTRIES]
+    urls = [f"{base}{path}" for path, *_ in _indexable_sitemap_entries()]
     return urls[:limit]
 
 
@@ -3806,10 +3831,18 @@ _NOINDEX_EXACT = {
     "/dashboard", "/command-center", "/scheduler", "/gradebook",
     "/grademodel", "/grades", "/classes", "/priority", "/tests",
     "/streak", "/pet", "/balance", "/memories", "/my-stats",
-    "/active", "/study-and-learn", "/study", "/deep-study", "/focus",
-    "/lessons", "/library", "/groups", "/tutor", "/meetings",
-    "/writing", "/math", "/extractor", "/text-dissector", "/olympiad",
+    "/active", "/study-and-learn", "/study", "/deep-study",
+    "/lessons", "/groups", "/meetings",
+    "/writing", "/math", "/extractor", "/text-dissector",
     "/parent-dashboard", "/teacher-dashboard", "/ambassador-dashboard",
+    # Deliberately NOT here, though an earlier pass swept them in:
+    # /tutor, /olympiad, /library and /focus. Those four are full public
+    # content pages — each has a hand-written meta description, each renders
+    # the same complete page to a logged-out visitor, and /focus and
+    # /library in particular target real queries ("pomodoro focus timer",
+    # "AP exam library"). They are not the thin signed-in shells the rest of
+    # this list describes, and noindexing them threw away the only pages
+    # here worth ranking.
 }
 
 
