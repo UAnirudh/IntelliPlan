@@ -10,10 +10,31 @@
   </div>
 
   <div class="class-toolbar">
+    <button id="ipmcToggleBtn" class="notes-action-btn" type="button" onclick="ipmcTogglePanel()">
+      Add class
+    </button>
     <button id="notesActionBtn" class="notes-action-btn" type="button" onclick="openSelectedCourseNotes()" disabled>
       Retrieve Notes
     </button>
   </div>
+</div>
+
+<!-- display is set inline (not via [hidden]) because a stylesheet display rule
+     outranks the hidden attribute and would leave this panel permanently open. -->
+<div id="ipmcPanel"
+     style="display:none;margin:0 0 1.25rem;padding:16px 18px;border:1px solid var(--border);border-radius:16px;background:var(--bg-secondary);">
+  <div style="font-weight:700;font-size:0.95rem;margin-bottom:4px;">Add your classes</div>
+  <p style="font-size:0.8rem;color:var(--text-muted);line-height:1.5;margin:0 0 12px;">
+    Type one class per line. These show up everywhere a course list does — no LMS connection needed.
+  </p>
+  <textarea id="ipmcInput" rows="4" placeholder="Algebra II&#10;AP Biology&#10;World History"
+    style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-primary);color:var(--text-primary);font-family:inherit;font-size:0.88rem;resize:vertical;margin-bottom:10px;"></textarea>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+    <button type="button" id="ipmcSaveBtn" onclick="ipmcSave()"
+      style="padding:9px 18px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;font-size:0.85rem;">Save classes</button>
+    <span id="ipmcMsg" style="font-size:0.8rem;color:var(--text-muted);"></span>
+  </div>
+  <div id="ipmcList" style="margin-top:14px;display:flex;flex-direction:column;gap:8px;"></div>
 </div>
 
 <div class="stats-bar" id="statsBar">
@@ -1245,4 +1266,131 @@ fetch('/courses')
   .then(courses => {
     populateDropdown(courses);
   });
+
+/* ── MANUAL CLASSES ──────────────────────────────────────────
+   Names are ipmc*-prefixed: this page's script shares a global scope
+   with base.html, and a bare `panel`/`save` would collide. */
+let ipmcClasses = [];
+
+function ipmcTogglePanel() {
+  const panel = document.getElementById('ipmcPanel');
+  if (!panel) return;
+  const opening = panel.style.display === 'none';
+  panel.style.display = opening ? 'block' : 'none';
+  document.getElementById('ipmcToggleBtn').textContent = opening ? 'Close' : 'Add class';
+  if (opening) {
+    ipmcLoad();
+    document.getElementById('ipmcInput').focus();
+  }
+}
+
+function ipmcSetMsg(text, isError) {
+  const msg = document.getElementById('ipmcMsg');
+  if (!msg) return;
+  msg.textContent = text || '';
+  msg.style.color = isError ? 'var(--danger)' : 'var(--text-muted)';
+}
+
+function ipmcRender() {
+  const host = document.getElementById('ipmcList');
+  if (!host) return;
+  host.innerHTML = '';
+  if (!ipmcClasses.length) {
+    host.innerHTML = '<div style="font-size:0.8rem;color:var(--text-muted);">No manually added classes yet.</div>';
+    return;
+  }
+  ipmcClasses.forEach(cls => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;';
+    const label = document.createElement('span');
+    label.style.cssText = 'flex:1;font-size:0.86rem;';
+    label.textContent = cls.name;
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.textContent = 'Remove';
+    del.style.cssText = 'padding:5px 12px;border-radius:8px;border:1px solid var(--border-strong);background:transparent;color:var(--text-muted);font-family:inherit;font-size:0.78rem;cursor:pointer;';
+    del.onclick = () => ipmcDelete(cls.id, del);
+    row.appendChild(label);
+    row.appendChild(del);
+    host.appendChild(row);
+  });
+}
+
+async function ipmcLoad() {
+  try {
+    const r = await fetch('/api/classes/manual');
+    const d = await r.json();
+    ipmcClasses = Array.isArray(d.classes) ? d.classes : [];
+    ipmcRender();
+  } catch (e) {
+    ipmcSetMsg('Could not load your classes.', true);
+  }
+}
+
+/* Re-pull /courses so the filter dropdown reflects the change immediately
+   instead of waiting for a page reload. */
+function ipmcRefreshDropdown() {
+  fetch('/courses')
+    .then(r => r.json())
+    .then(courses => populateDropdown(courses))
+    .catch(() => {});
+}
+
+async function ipmcSave() {
+  const input = document.getElementById('ipmcInput');
+  const btn = document.getElementById('ipmcSaveBtn');
+  const names = (input.value || '')
+    .split('\n')
+    .map(s => s.trim())
+    .filter(Boolean);
+  if (!names.length) { ipmcSetMsg('Type at least one class name.', true); return; }
+  btn.disabled = true;
+  ipmcSetMsg('Saving...');
+  try {
+    const r = await fetch('/api/classes/manual', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ names: names })
+    });
+    const d = await r.json();
+    if (!r.ok || d.status !== 'ok') {
+      ipmcSetMsg(d.message || 'Could not save your classes.', true);
+    } else {
+      ipmcClasses = Array.isArray(d.classes) ? d.classes : [];
+      input.value = '';
+      ipmcRender();
+      ipmcRefreshDropdown();
+      const added = (d.created || []).length;
+      const dupes = (d.skipped || []).length;
+      ipmcSetMsg(
+        added
+          ? `Added ${added} class${added === 1 ? '' : 'es'}.${dupes ? ` ${dupes} already existed.` : ''}`
+          : 'Those classes were already added.'
+      );
+    }
+  } catch (e) {
+    ipmcSetMsg('Network error, please try again.', true);
+  }
+  btn.disabled = false;
+}
+
+async function ipmcDelete(id, btn) {
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/classes/manual/' + id, { method: 'DELETE' });
+    const d = await r.json();
+    if (!r.ok || d.status !== 'ok') {
+      ipmcSetMsg(d.message || 'Could not remove that class.', true);
+      btn.disabled = false;
+      return;
+    }
+    ipmcClasses = Array.isArray(d.classes) ? d.classes : [];
+    ipmcRender();
+    ipmcRefreshDropdown();
+    ipmcSetMsg('Class removed.');
+  } catch (e) {
+    ipmcSetMsg('Network error, please try again.', true);
+    btn.disabled = false;
+  }
+}
 {% endblock %}

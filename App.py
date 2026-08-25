@@ -10,6 +10,21 @@ import sys as _sys
 # `App` makes both import paths resolve to the same module object.
 if __name__ == "__main__":
     _sys.modules.setdefault("App", _sys.modules[__name__])
+
+# ── Logging must never be able to kill a request ──────────────
+# On Windows, stdout defaults to cp1252. A single non-ASCII character in a
+# print() — an arrow in a log line, an accented name, an em dash in a
+# traceback — raises UnicodeEncodeError *inside the view*, which Flask turns
+# into a 500. Worse, the unhandled-exception handler prints the traceback
+# too, so it crashed as well and the real cause never reached the log. This
+# is why clicking "Blackboard Learn" returned "Internal server error" with
+# nothing useful behind it. Make the streams total: encode as UTF-8 and
+# replace anything the terminal cannot render.
+for _stream in (_sys.stdout, _sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass  # non-reconfigurable stream (captured pipe, pytest, WSGI host)
 from flask import render_template, request, redirect, session, url_for
 import requests
 import os
@@ -774,6 +789,40 @@ class ImportedGrade(db.Model):
     source_label = db.Column(db.String(64), default="")    # human-friendly e.g. "Aeries (Riverside)"
     last_synced = db.Column(db.DateTime, default=datetime.utcnow)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class ManualCourse(db.Model):
+    """A class the student typed in themselves.
+
+    Exists because every sync path (Canvas, StudentVue, Blackboard, the
+    CSV/paste importers) derives the course list from an external account.
+    A student whose school is unsupported — or who is still waiting on an
+    LMS connection — previously had no way to name their classes at all,
+    which left the course dropdown, grades page, and scheduler empty.
+    """
+    __tablename__ = "manual_courses"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    guest_session_id = db.Column(db.String(64), nullable=True, index=True)
+    name = db.Column(db.String(256), nullable=False)
+    teacher = db.Column(db.String(256), default="")
+    period = db.Column(db.String(64), default="")
+    room = db.Column(db.String(64), default="")
+    color = db.Column(db.String(16), default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "class_name": self.name,
+            "course": self.name,
+            "teacher": self.teacher or "",
+            "period": self.period or "",
+            "room": self.room or "",
+            "color": self.color or "",
+            "source": "manual",
+        }
+
 
 class SavedSchedule(db.Model):
     __tablename__ = "saved_schedules"
@@ -4483,29 +4532,24 @@ def api_lms_connect(provider):
     # know where to redirect the user. If the institution URL is missing, ask
     # the UI to prompt for it instead of failing silently.
     if provider == "blackboard":
-        client_id = os.getenv("BLACKBOARD_CLIENT_ID")
-        client_secret = os.getenv("BLACKBOARD_CLIENT_SECRET")
+        client_id, client_secret = _blackboard_credentials()
         if not client_id or not client_secret:
-            print(f"[lms waitlist] {current_user.email} → blackboard")
+            print(f"[lms waitlist] {current_user.email} -> blackboard")
             return jsonify({"status": "pending", "provider": "blackboard",
-                            "message": "Blackboard support is launching soon. We'll email you when it's ready."})
+                            "message": "Blackboard support is launching soon. We'll email you when it's ready.",
+                            "fallback": "manual"})
         body = request.get_json(silent=True) or {}
         institution = (body.get("institution_url") or "").strip()
         if not institution:
             return jsonify({"status": "need_institution", "provider": "blackboard",
                             "message": "Enter your school's Blackboard URL (e.g. https://learn.myschool.edu)."})
-        # Normalize and validate the institution URL.
-        if not institution.startswith(("http://", "https://")):
-            institution = "https://" + institution
-        institution = institution.rstrip("/")
-        try:
-            parsed = urllib.parse.urlparse(institution)
-            if not parsed.netloc or "." not in parsed.netloc:
-                raise ValueError("bad host")
-        except Exception:
+        # Students paste deep Ultra links and bare hostnames; keep the origin.
+        institution = normalize_institution_url(institution)
+        if not institution:
             return jsonify({"status": "error",
-                            "message": "That doesn't look like a valid Blackboard URL."}), 400
-        redirect_uri = APP_BASE_URL + "/api/lms/callback/blackboard"
+                            "message": "That doesn't look like a valid Blackboard URL. "
+                                       "Use your school's Blackboard address, e.g. https://learn.myschool.edu."}), 400
+        redirect_uri = _blackboard_redirect_uri()
         state = secrets_module.token_urlsafe(24)
         session["lms_oauth_state"] = state
         session["lms_oauth_provider"] = "blackboard"
@@ -4539,7 +4583,7 @@ def api_lms_connect(provider):
         # Record a waitlist signup so we can notify the user once the
         # integration is live (table reuses email_subscribers from the
         # marketing waitlist if available; otherwise we just log).
-        print(f"[lms waitlist] {current_user.email} → {provider}")
+        print(f"[lms waitlist] {current_user.email} -> {provider}")
         return jsonify({
             "status": "pending",
             "provider": provider,
@@ -4697,36 +4741,98 @@ def _classroom_fetch_assignments(access_token):
 
 
 # ── BLACKBOARD LEARN HELPERS ──────────────────────────────────
+def _blackboard_credentials():
+    """Return ``(client_id, client_secret)`` for the registered Blackboard app.
+
+    Two naming conventions shipped historically — ``BLACKBOARD_CLIENT_ID`` /
+    ``BLACKBOARD_CLIENT_SECRET`` here and ``BLACKBOARD_APP_KEY`` /
+    ``BLACKBOARD_APP_SECRET`` in ``intelliplan.integrations.lms.blackboard``.
+    A deployment that set only one pair had Blackboard silently report itself
+    as unconfigured, so accept either.
+    """
+    cid = (os.getenv("BLACKBOARD_CLIENT_ID") or os.getenv("BLACKBOARD_APP_KEY") or "").strip()
+    sec = (os.getenv("BLACKBOARD_CLIENT_SECRET") or os.getenv("BLACKBOARD_APP_SECRET") or "").strip()
+    return cid, sec
+
+
+def _blackboard_redirect_uri():
+    """The redirect URI registered in the Anthology developer portal.
+
+    Blackboard rejects the token exchange with ``invalid_redirect_uri`` unless
+    this matches the registration byte-for-byte. ``APP_BASE_URL`` differs from
+    the registered host on any non-canonical deploy (staging, www vs apex), so
+    an explicit override wins when present.
+    """
+    override = (os.getenv("BLACKBOARD_REDIRECT_URI") or "").strip()
+    return override or (APP_BASE_URL + "/api/lms/callback/blackboard")
+
+
+def normalize_institution_url(raw):
+    """Reduce a pasted LMS URL to ``scheme://host``.
+
+    Students paste whatever is in the address bar — deep Ultra links like
+    ``https://learn.school.edu/ultra/courses/_1234_1/outline``, or a bare
+    ``learn.school.edu``. Appending the API path to those produces a 404 and
+    an opaque failure, so keep only the origin. Returns ``None`` when the
+    string has no usable host.
+    """
+    value = (raw or "").strip()
+    if not value:
+        return None
+    if not value.startswith(("http://", "https://")):
+        value = "https://" + value
+    try:
+        parsed = urllib.parse.urlparse(value)
+    except Exception:
+        return None
+    host = (parsed.netloc or "").strip().rstrip("/")
+    if not host or "." not in host or " " in host:
+        return None
+    scheme = parsed.scheme if parsed.scheme in ("http", "https") else "https"
+    return f"{scheme}://{host}"
+
+
 def _blackboard_basic_auth_header():
-    cid = os.getenv("BLACKBOARD_CLIENT_ID", "")
-    sec = os.getenv("BLACKBOARD_CLIENT_SECRET", "")
+    cid, sec = _blackboard_credentials()
     raw = f"{cid}:{sec}".encode("utf-8")
     return "Basic " + base64.b64encode(raw).decode("ascii")
+
+def _blackboard_token_request(institution_url, payload):
+    """POST to the Blackboard token endpoint and return parsed JSON.
+
+    ``raise_for_status`` alone threw away the response body, which is where
+    Blackboard puts the only useful part (``invalid_redirect_uri``,
+    ``unauthorized_client``, …). Surface it in the exception message so the
+    callback can log and report a real reason instead of "FAILED".
+    """
+    r = requests.post(
+        f"{institution_url}/learn/api/public/v1/oauth2/token",
+        headers={"Authorization": _blackboard_basic_auth_header(),
+                 "Content-Type": "application/x-www-form-urlencoded"},
+        data=payload,
+        timeout=20,
+    )
+    if r.status_code != 200:
+        raise RuntimeError(f"Blackboard token endpoint HTTP {r.status_code}: {r.text[:300]}")
+    try:
+        return r.json()
+    except ValueError:
+        raise RuntimeError(f"Blackboard token endpoint returned non-JSON: {r.text[:200]}")
 
 def _blackboard_exchange_code(institution_url, code):
     """Exchange an auth code for a Blackboard access + refresh token. Blackboard
     uses Basic auth with the client credentials and form-encoded body."""
-    redirect_uri = APP_BASE_URL + "/api/lms/callback/blackboard"
-    r = requests.post(
-        f"{institution_url}/learn/api/public/v1/oauth2/token",
-        headers={"Authorization": _blackboard_basic_auth_header(),
-                 "Content-Type": "application/x-www-form-urlencoded"},
-        data={"code": code, "redirect_uri": redirect_uri, "grant_type": "authorization_code"},
-        timeout=20,
-    )
-    r.raise_for_status()
-    return r.json()
+    return _blackboard_token_request(institution_url, {
+        "code": code,
+        "redirect_uri": _blackboard_redirect_uri(),
+        "grant_type": "authorization_code",
+    })
 
 def _blackboard_refresh_token(institution_url, refresh_token):
-    r = requests.post(
-        f"{institution_url}/learn/api/public/v1/oauth2/token",
-        headers={"Authorization": _blackboard_basic_auth_header(),
-                 "Content-Type": "application/x-www-form-urlencoded"},
-        data={"refresh_token": refresh_token, "grant_type": "refresh_token"},
-        timeout=20,
-    )
-    r.raise_for_status()
-    return r.json()
+    return _blackboard_token_request(institution_url, {
+        "refresh_token": refresh_token,
+        "grant_type": "refresh_token",
+    })
 
 def _blackboard_access_token_for(user_id):
     row = BlackboardIntegration.query.filter_by(user_id=user_id).order_by(BlackboardIntegration.id.desc()).first()
@@ -5072,17 +5178,22 @@ def api_lms_callback(provider):
     state = request.args.get("state", "")
     expected = session.pop("lms_oauth_state", None)
     if not state or state != expected:
-        return render_template("error.html", error_code=400, error_id="LMS-STATE-MISMATCH",
-                               message="OAuth state mismatch — please retry the connection."), 400
+        # Still refuse the exchange (this is the CSRF guard), but send the
+        # student back to a page they can retry from instead of a dead-end
+        # 400. The usual cause is a stale tab or a session that rolled over
+        # while they were on the school's sign-in page.
+        print(f"[lms callback] state mismatch for {provider} (expected={bool(expected)})")
+        return redirect(f"/connect?lms_error=1&lms_provider={provider}&reason=state_mismatch")
     code = request.args.get("code", "")
     if not code:
-        return redirect("/connect?lms_error=1")
+        denied = request.args.get("error") or "no_code"
+        return redirect(f"/connect?lms_error=1&lms_provider={provider}&reason={urllib.parse.quote(denied[:40])}")
 
     if provider == "blackboard":
         institution = session.pop("blackboard_institution_url", None)
         if not institution:
             print("[blackboard callback] missing institution_url in session")
-            return redirect("/connect?lms_error=1")
+            return redirect("/connect?lms_error=1&lms_provider=blackboard&reason=session_expired")
         try:
             tok = _blackboard_exchange_code(institution, code)
             access = tok.get("access_token")
@@ -5090,7 +5201,7 @@ def api_lms_callback(provider):
             ttl = int(tok.get("expires_in", 3600))
             if not access:
                 print(f"[blackboard callback] no access_token: {tok}")
-                return redirect("/connect?lms_error=1")
+                return redirect("/connect?lms_error=1&lms_provider=blackboard&reason=no_token")
             info = _blackboard_get_userinfo(institution, access)
             row = BlackboardIntegration.query.filter_by(user_id=current_user.id).order_by(BlackboardIntegration.id.desc()).first()
             now = utcnow()
@@ -5109,7 +5220,8 @@ def api_lms_callback(provider):
             print(f"[blackboard callback] connected {row.bb_username or current_user.email}")
         except Exception as e:
             print(f"[blackboard callback] FAILED: {e}")
-            return redirect("/connect?lms_error=1")
+            reason = "redirect_mismatch" if "redirect" in str(e).lower() else "token_exchange"
+            return redirect(f"/connect?lms_error=1&lms_provider=blackboard&reason={reason}")
         return redirect("/connect?lms_connected=blackboard")
 
     if provider == "google_classroom":
@@ -7013,6 +7125,7 @@ def _account_delete_impl():
 
         # ── Tasks + scheduling ─────────────────────────────────────────
         ("manual_tasks", "DELETE FROM manual_tasks WHERE user_id = :uid"),
+        ("manual_courses", "DELETE FROM manual_courses WHERE user_id = :uid"),
         ("saved_schedules", "DELETE FROM saved_schedules WHERE user_id = :uid"),
         ("scheduler_presets", "DELETE FROM scheduler_presets WHERE user_id = :uid"),
         ("manual_plan_presets", "DELETE FROM manual_plan_presets WHERE user_id = :uid"),
@@ -7219,27 +7332,166 @@ def get_live_schedule():
         print(f"Canvas live error: {e}")
         return flask.jsonify([])
 
+# ── MANUAL CLASSES ────────────────────────────────────────────
+def _manual_courses_query():
+    """Rows owned by the current user, or by this guest session."""
+    q = ManualCourse.query
+    if current_user.is_authenticated:
+        return q.filter(ManualCourse.user_id == current_user.id)
+    return q.filter(ManualCourse.guest_session_id == get_guest_session_id())
+
+
+def manual_courses_payload():
+    """Manually added classes in the same shape ``/courses`` returns."""
+    try:
+        rows = _manual_courses_query().order_by(ManualCourse.created_at.asc()).all()
+    except Exception as e:
+        print(f"[manual classes] read failed: {e}")
+        return []
+    return [r.to_dict() for r in rows]
+
+
+@app.route("/api/classes/manual", methods=["GET"])
+def api_manual_classes_list():
+    return flask.jsonify({"status": "ok", "classes": manual_courses_payload()})
+
+
+@app.route("/api/classes/manual", methods=["POST"])
+def api_manual_classes_create():
+    """Add one class, or a batch via ``{"names": ["Algebra II", "Biology"]}``.
+
+    Accepting a batch matters because the realistic first-run action is
+    typing a whole timetable at once, and one round-trip per class made the
+    form feel broken on a slow connection.
+    """
+    data = request.get_json(silent=True) or {}
+    raw_names = data.get("names")
+    if not isinstance(raw_names, list):
+        raw_names = [data.get("name") or data.get("class_name") or data.get("course") or ""]
+
+    names, seen = [], set()
+    for candidate in raw_names:
+        name = str(candidate or "").strip()[:256]
+        if not name or name.lower() in seen:
+            continue
+        seen.add(name.lower())
+        names.append(name)
+    if not names:
+        return flask.jsonify({"status": "error", "message": "Enter a class name."}), 400
+
+    existing = {(r.name or "").strip().lower() for r in _manual_courses_query().all()}
+    owner = {"user_id": current_user.id} if current_user.is_authenticated else {"guest_session_id": get_guest_session_id()}
+    created, skipped = [], []
+    for name in names:
+        if name.lower() in existing:
+            skipped.append(name)
+            continue
+        row = ManualCourse(
+            name=name,
+            teacher=str(data.get("teacher") or "").strip()[:256] if len(names) == 1 else "",
+            period=str(data.get("period") or "").strip()[:64] if len(names) == 1 else "",
+            room=str(data.get("room") or "").strip()[:64] if len(names) == 1 else "",
+            color=str(data.get("color") or "").strip()[:16] if len(names) == 1 else "",
+            **owner,
+        )
+        db.session.add(row)
+        existing.add(name.lower())
+        created.append(row)
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[manual classes] create failed: {e}")
+        return flask.jsonify({"status": "error", "message": "Could not save your classes. Please try again."}), 500
+
+    if current_user.is_authenticated:
+        try:
+            invalidate_lms_cache_for_user(current_user.id)
+        except Exception:
+            pass
+    return flask.jsonify({
+        "status": "ok",
+        "created": [r.to_dict() for r in created],
+        "skipped": skipped,
+        "classes": manual_courses_payload(),
+    })
+
+
+@app.route("/api/classes/manual/<int:class_id>", methods=["PATCH", "DELETE"])
+def api_manual_classes_modify(class_id):
+    row = _manual_courses_query().filter(ManualCourse.id == class_id).first()
+    if not row:
+        return flask.jsonify({"status": "error", "message": "Class not found."}), 404
+    if request.method == "DELETE":
+        db.session.delete(row)
+    else:
+        data = request.get_json(silent=True) or {}
+        if "name" in data:
+            name = str(data.get("name") or "").strip()[:256]
+            if not name:
+                return flask.jsonify({"status": "error", "message": "Class name cannot be empty."}), 400
+            row.name = name
+        for field, limit in (("teacher", 256), ("period", 64), ("room", 64), ("color", 16)):
+            if field in data:
+                setattr(row, field, str(data.get(field) or "").strip()[:limit])
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[manual classes] update failed: {e}")
+        return flask.jsonify({"status": "error", "message": "Could not save that change."}), 500
+    if current_user.is_authenticated:
+        try:
+            invalidate_lms_cache_for_user(current_user.id)
+        except Exception:
+            pass
+    return flask.jsonify({"status": "ok", "classes": manual_courses_payload()})
+
+
 @app.route("/courses")
 def get_courses():
+    """Course list for the dropdowns — LMS courses plus manually added ones.
+
+    Manual classes are merged in rather than returned only when no account
+    is linked: a student can have Canvas connected and still teach the app
+    about a class it cannot see (an off-platform elective, a study block).
+    """
+    manual = manual_courses_payload()
+    synced = []
     acct = get_active_account()
-    if not acct:
-        return flask.jsonify([])
-    login_type = acct["login_type"]
-    if login_type == "studentvue":
-        from studentvue_helper import get_courses as get_sv_courses
-        return flask.jsonify(get_sv_courses(acct["sv_district_url"], acct["sv_username"], acct["sv_password"]))
-    if login_type == "schoology":
+    if acct:
+        login_type = acct["login_type"]
         try:
-            from schoology_helper import get_schoology_courses
-            return flask.jsonify(get_schoology_courses(acct["schoology_key"], acct["schoology_secret"]))
-        except Exception:
-            return flask.jsonify([])
-    token = acct["canvas_token"]
-    canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
-    headers = {"Authorization": f"Bearer {token}"}
-    course_response = requests.get(f"{canvas_url}/api/v1/courses", headers=headers, timeout=20)
-    courses = course_response.json()
-    return flask.jsonify([{"name": c.get("name", "Unknown")} for c in courses if isinstance(c, dict) and "id" in c])
+            if login_type == "studentvue":
+                from studentvue_helper import get_courses as get_sv_courses
+                synced = get_sv_courses(acct["sv_district_url"], acct["sv_username"], acct["sv_password"]) or []
+            elif login_type == "schoology":
+                from schoology_helper import get_schoology_courses
+                synced = get_schoology_courses(acct["schoology_key"], acct["schoology_secret"]) or []
+            else:
+                canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
+                headers = {"Authorization": f"Bearer {acct['canvas_token']}"}
+                course_response = requests.get(f"{canvas_url}/api/v1/courses", headers=headers, timeout=20)
+                courses = course_response.json()
+                synced = [{"name": c.get("name", "Unknown")}
+                          for c in courses if isinstance(c, dict) and "id" in c]
+        except Exception as e:
+            print(f"[courses] {login_type} fetch failed: {e}")
+            synced = []
+
+    def _label(entry):
+        if isinstance(entry, dict):
+            return str(entry.get("name") or entry.get("class_name") or entry.get("course") or "").strip()
+        return str(entry or "").strip()
+
+    out, seen = [], set()
+    for entry in list(synced) + manual:
+        label = _label(entry)
+        if not label or label.lower() in seen:
+            continue
+        seen.add(label.lower())
+        out.append(entry if isinstance(entry, dict) else {"name": label})
+    return flask.jsonify(out)
 
 def _imported_grades_payload():
     """Read ImportedGrade rows (CSV / smart-paste / extension scraper) and

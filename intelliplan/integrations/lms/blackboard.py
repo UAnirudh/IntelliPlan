@@ -24,6 +24,19 @@ def _base_url() -> str:
     return (os.getenv("BLACKBOARD_BASE_URL", "") or "").rstrip("/")
 
 
+def _credentials() -> tuple[str, str]:
+    """App key/secret, accepting either env naming convention.
+
+    ``App.py`` provisions ``BLACKBOARD_CLIENT_ID`` / ``BLACKBOARD_CLIENT_SECRET``
+    (the names used in ``.env.example``); this module originally read
+    ``BLACKBOARD_APP_KEY`` / ``BLACKBOARD_APP_SECRET``. A deployment that set
+    only one pair reported Blackboard as unconfigured here.
+    """
+    key = (os.getenv("BLACKBOARD_APP_KEY") or os.getenv("BLACKBOARD_CLIENT_ID") or "").strip()
+    secret = (os.getenv("BLACKBOARD_APP_SECRET") or os.getenv("BLACKBOARD_CLIENT_SECRET") or "").strip()
+    return key, secret
+
+
 class BlackboardProvider(LMSProvider):
     key = "blackboard"
     display_name = "Blackboard Learn"
@@ -31,16 +44,13 @@ class BlackboardProvider(LMSProvider):
 
     @classmethod
     def is_configured(cls) -> bool:
-        return all([
-            os.getenv("BLACKBOARD_BASE_URL"),
-            os.getenv("BLACKBOARD_APP_KEY"),
-            os.getenv("BLACKBOARD_APP_SECRET"),
-        ])
+        key, secret = _credentials()
+        return bool(_base_url() and key and secret)
 
     def get_authorize_url(self, *, user_id: int, redirect_uri: str, state: str) -> str:
         params = {
             "response_type": "code",
-            "client_id": os.getenv("BLACKBOARD_APP_KEY", ""),
+            "client_id": _credentials()[0],
             "redirect_uri": redirect_uri,
             "scope": "read",
             "state": state,
@@ -55,7 +65,7 @@ class BlackboardProvider(LMSProvider):
                 "code": code,
                 "redirect_uri": redirect_uri,
             },
-            auth=(os.getenv("BLACKBOARD_APP_KEY", ""), os.getenv("BLACKBOARD_APP_SECRET", "")),
+            auth=_credentials(),
             timeout=15,
         )
         resp.raise_for_status()

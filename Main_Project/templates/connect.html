@@ -139,7 +139,22 @@
       function formHost() {
         return document.getElementById('lmsInlineForms') || document.querySelector('.login-card');
       }
-      async function connectBlackboard() { showBlackboardForm(); }
+      /* Ask the server whether Blackboard is actually wired up before showing
+         the URL form. Otherwise a student types their school URL, hits
+         Continue, and gets a red "launching soon" message that reads as a
+         failure on their end. */
+      async function connectBlackboard() {
+        try {
+          const res = await fetch('/api/lms/connect/blackboard', { method: 'POST' });
+          const data = await res.json();
+          if (data.status === 'pending') {
+            lmsBanner(data.message || 'Blackboard support is launching soon.');
+            ipShowImport('manual');
+            return;
+          }
+        } catch (e) { /* fall through to the form — the POST is only a probe */ }
+        showBlackboardForm();
+      }
       function showBlackboardForm() {
         if (document.getElementById('blackboardForm')) { document.getElementById('blackboardForm').scrollIntoView({behavior:'smooth'}); return; }
         const wrap = document.createElement('div');
@@ -242,7 +257,7 @@
     <div style="margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border);">
       <div style="font-size:0.86rem;font-weight:700;color:var(--text-primary);margin-bottom:6px;">School not listed?</div>
       <p style="font-size:0.8rem;color:var(--text-muted);line-height:1.55;margin:0 0 12px;">
-        IntelliPlan can still pull your assignments and grades through any of these three options.
+        IntelliPlan can still track your classes, assignments, and grades without a supported LMS.
       </p>
       <div style="display:flex;flex-direction:column;gap:10px;">
         <button type="button" onclick="ipShowImport('paste')"
@@ -262,6 +277,16 @@
             <span style="display:block;font-size:0.88rem;font-weight:600;">CSV template</span>
             <span style="display:block;font-size:0.74rem;color:var(--text-muted);margin-top:1px;">
               Download the template, fill in Excel, re-upload
+            </span>
+          </span>
+        </button>
+        <button type="button" onclick="ipShowImport('manual')"
+          style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid var(--glass-border);box-shadow:var(--glass-btn-shadow);background:var(--glass-btn-bg);-webkit-backdrop-filter:blur(12px) saturate(1.5);backdrop-filter:blur(12px) saturate(1.5);color:var(--text-primary);text-align:left;cursor:pointer;font-family:inherit;width:100%;">
+          <span style="display:inline-flex;width:1.2rem;height:1.2rem;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-pencil"/></svg></span>
+          <span style="flex:1;">
+            <span style="display:block;font-size:0.88rem;font-weight:600;">Add classes manually</span>
+            <span style="display:block;font-size:0.74rem;color:var(--text-muted);margin-top:1px;">
+              Type your classes — no account linking needed
             </span>
           </span>
         </button>
@@ -314,6 +339,20 @@
                 style="padding:9px 18px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;font-size:0.85rem;">Import with AI</button>
               <div id="ipPasteMsg" style="margin-top:8px;font-size:0.8rem;"></div>
             </div>`;
+        } else if (kind === 'manual') {
+          host.innerHTML = `
+            <div style="padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--glass-btn-bg);-webkit-backdrop-filter:blur(12px) saturate(1.5);backdrop-filter:blur(12px) saturate(1.5);">
+              <div style="font-weight:600;font-size:0.9rem;margin-bottom:6px;">Add classes manually</div>
+              <p style="font-size:0.78rem;color:var(--text-muted);line-height:1.5;margin:0 0 10px;">
+                One class per line. They appear in your course lists, grades page, and scheduler right away.
+              </p>
+              <textarea id="ipManualClasses" rows="5" placeholder="Algebra II&#10;AP Biology&#10;World History"
+                style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-secondary);color:var(--text-primary);font-family:inherit;font-size:0.85rem;margin-bottom:10px;resize:vertical;"></textarea>
+              <button type="button" onclick="ipSaveManualClasses()" id="ipManualBtn"
+                style="padding:9px 18px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;font-size:0.85rem;">Save classes</button>
+              <div id="ipManualMsg" style="margin-top:8px;font-size:0.8rem;"></div>
+            </div>`;
+          ipLoadManualClasses();
         } else if (kind === 'extension') {
           host.innerHTML = `
             <div style="padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--glass-btn-bg);-webkit-backdrop-filter:blur(12px) saturate(1.5);backdrop-filter:blur(12px) saturate(1.5);">
@@ -333,6 +372,83 @@
             </div>`;
         }
       }
+      async function ipLoadManualClasses() {
+        const msg = document.getElementById('ipManualMsg');
+        if (!msg) return;
+        try {
+          const r = await fetch('/api/classes/manual');
+          const d = await r.json();
+          const n = (d.classes || []).length;
+          if (n) {
+            msg.style.color = 'var(--text-muted)';
+            msg.textContent = `${n} class${n === 1 ? '' : 'es'} added so far. Manage them on the Classes page.`;
+          }
+        } catch (e) { /* first-run with no classes is the normal case */ }
+      }
+
+      async function ipSaveManualClasses() {
+        const box = document.getElementById('ipManualClasses');
+        const msg = document.getElementById('ipManualMsg');
+        const btn = document.getElementById('ipManualBtn');
+        const names = (box.value || '').split('\n').map(s => s.trim()).filter(Boolean);
+        if (!names.length) {
+          msg.style.color = 'var(--danger)';
+          msg.textContent = 'Type at least one class name.';
+          return;
+        }
+        btn.disabled = true; btn.textContent = 'Saving...';
+        try {
+          const r = await fetch('/api/classes/manual', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ names: names })
+          });
+          const d = await r.json();
+          if (!r.ok || d.status !== 'ok') {
+            msg.style.color = 'var(--danger)';
+            msg.textContent = d.message || 'Could not save your classes.';
+          } else {
+            const added = (d.created || []).length;
+            const total = (d.classes || []).length;
+            box.value = '';
+            msg.style.color = 'var(--low)';
+            msg.textContent = added
+              ? `Saved. You now have ${total} class${total === 1 ? '' : 'es'}.`
+              : 'Those classes were already added.';
+          }
+        } catch (e) {
+          msg.style.color = 'var(--danger)';
+          msg.textContent = 'Network error, please try again.';
+        }
+        btn.disabled = false; btn.textContent = 'Save classes';
+      }
+
+      /* Surface the callback result. Before this, a failed OAuth round-trip
+         redirected to /connect?lms_error=1 and the page said nothing at all,
+         so a connection that silently failed looked identical to one the
+         student never started. */
+      (function ipShowLmsResult() {
+        const q = new URLSearchParams(window.location.search);
+        const connected = q.get('lms_connected');
+        if (connected) {
+          lmsBanner(`Connected to ${connected.replace(/_/g, ' ')}. Your assignments will sync shortly.`);
+          return;
+        }
+        if (!q.get('lms_error')) return;
+        const provider = (q.get('lms_provider') || 'your LMS').replace(/_/g, ' ');
+        const reasons = {
+          state_mismatch: 'the sign-in link expired — please try again in this tab',
+          session_expired: 'your session expired mid-sign-in — please try again',
+          no_token: 'your school did not return an access token',
+          token_exchange: 'your school rejected the token request',
+          redirect_mismatch: "this site's redirect URL is not registered with your school yet",
+          access_denied: 'access was declined on the sign-in screen',
+          no_code: 'the sign-in was cancelled before it finished',
+        };
+        const why = reasons[q.get('reason')] || 'something went wrong on the way back';
+        lmsBanner(`Could not finish connecting ${provider} — ${why}.`);
+      })();
+
       async function ipUploadCsv() {
         const file = document.getElementById('ipCsvFile').files[0];
         const msg = document.getElementById('ipCsvMsg');
