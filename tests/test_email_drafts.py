@@ -326,3 +326,58 @@ def test_all_three_kinds_render_together(ctx, resend):
     for expected in ("Lab writeup", "My Schedule", "Read chapters 4-6"):
         assert expected in body, expected
     assert "{{" not in resend[0]["html"]
+
+
+# ── Cadence: how often one item is allowed to come up ───────────────
+#
+# Both of these came out of a day-by-day simulation of a student's first
+# three weeks rather than from reasoning about the code, and both were real:
+# the same abandoned plan produced four weekly emails, and a student got
+# "One focused session is all it takes" and "You left a few things
+# unfinished" on the same morning.
+
+
+def test_one_abandoned_item_is_mentioned_twice_and_then_stops(ctx, resend):
+    """Weekly email + a fortnight-long window = at most two mentions."""
+    user = make_user()
+    add_plan(user, days_ago=drafts.PLAN_UNTOUCHED_DAYS)
+    start = datetime.utcnow()
+
+    mentions = 0
+    for week in range(6):
+        summary = drafts.sweep_drafts(now=start + timedelta(weeks=week))
+        mentions += summary["sent"]
+    assert mentions == 2, f"the same plan was mentioned {mentions} times"
+
+
+def test_an_item_past_the_window_is_not_mentioned_at_all(ctx):
+    user = make_user()
+    add_plan(user, days_ago=drafts.ITEM_MAX_AGE_DAYS + 1)
+    add_task(user, due_days_ago=drafts.ITEM_MAX_AGE_DAYS + 1)
+    add_stale_session(user, hours_ago=24 * (drafts.ITEM_MAX_AGE_DAYS + 1))
+    assert drafts.find_drafts(user.id) == []
+
+
+def test_an_account_still_being_onboarded_is_left_out(ctx, resend):
+    """A student four days in has unfinished work by definition — that is
+    what being four days in looks like. The onboarding sequence owns those
+    days, and two campaigns mailing the same morning say opposite things
+    about the same account."""
+    user = make_user(created_at=datetime.utcnow() - timedelta(days=4))
+    add_task(user)
+    assert drafts.find_drafts(user.id), "fixture should have produced a draft"
+    summary = drafts.sweep_drafts()
+    assert summary["sent"] == 0
+    assert resend == []
+
+
+def test_an_account_past_the_onboarding_window_is_mailed(ctx, resend):
+    """The other side of the same boundary, so the guard cannot silently
+    become 'never send'."""
+    from intelliplan.email import onboarding
+
+    user = make_user(
+        created_at=datetime.utcnow() - timedelta(days=onboarding.MAX_AGE_DAYS + 1)
+    )
+    add_task(user)
+    assert drafts.sweep_drafts()["sent"] == 1

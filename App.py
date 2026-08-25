@@ -15097,8 +15097,14 @@ def admin_onboarding_preview():
     """
     from intelliplan.email import onboarding
 
-    raw_id = request.args.get("user_id") or (request.json or {}).get("user_id")
-    email = request.args.get("email") or (request.json or {}).get("email")
+    # get_json(silent=True), not request.json: these are GET-friendly
+    # endpoints, and request.json aborts with a 415 when the request carries
+    # no JSON body. The `or` above only short-circuits when the query arg is
+    # present, so a plain GET?user_id=... still reached it on the `email`
+    # line and 415'd the whole request.
+    payload = request.get_json(silent=True) or {}
+    raw_id = request.args.get("user_id") or payload.get("user_id")
+    email = request.args.get("email") or payload.get("email")
     if raw_id:
         user = User.query.get(raw_id)
     elif email:
@@ -15154,8 +15160,11 @@ def admin_drafts_preview():
     from intelliplan.email import drafts as drafts_mod
     from intelliplan.email.eligibility import is_reminder_eligible
 
-    raw_id = request.args.get("user_id") or (request.json or {}).get("user_id")
-    email = request.args.get("email") or (request.json or {}).get("email")
+    # See the note in admin_onboarding_preview: request.json 415s on a
+    # bodyless GET.
+    payload = request.get_json(silent=True) or {}
+    raw_id = request.args.get("user_id") or payload.get("user_id")
+    email = request.args.get("email") or payload.get("email")
 
     try:
         if raw_id or email:

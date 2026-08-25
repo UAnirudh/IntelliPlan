@@ -24,6 +24,11 @@ message listing them, not nine. The ledger key is per-week, not per-item.
 student set themselves, defaulting to off. Unfinished work is a sensitive
 thing to be chased about; a planner that nags by default is a planner people
 delete.
+
+**Twice about anything, never four times.** Items age out after a fortnight
+(``ITEM_MAX_AGE_DAYS``), so a given abandoned plan can appear in two of these
+emails and then stops, and brand-new accounts are excluded entirely while the
+onboarding sequence still has the floor.
 """
 
 from __future__ import annotations
@@ -49,16 +54,41 @@ BATCH_DELAY_SECONDS = 0.1
 #: did is the kind of wrong that gets an app muted.
 SESSION_STALE_HOURS = 6
 
-#: Beyond this a stale session stops being a useful reminder and starts
-#: being archaeology.
-SESSION_MAX_AGE_DAYS = 21
+#: How long an item stays mentionable after it goes stale.
+#:
+#: Two weeks, deliberately, and the same for all three kinds: the email goes
+#: out weekly, so a fourteen-day window means any one item appears in at most
+#: two of them and then stops. Earlier this was 21-30 days, and a
+#: day-by-day simulation showed the consequence — one plan abandoned in week
+#: one produced the same nudge about the same plan four weeks running. Two
+#: reminders is a reminder; four is nagging, and the item is sitting in the
+#: app the whole time regardless.
+ITEM_MAX_AGE_DAYS = 14
+
+SESSION_MAX_AGE_DAYS = ITEM_MAX_AGE_DAYS
 
 #: A saved plan is "never started" only after it has had a fair chance to be.
 PLAN_UNTOUCHED_DAYS = 2
-PLAN_MAX_AGE_DAYS = 30
+PLAN_MAX_AGE_DAYS = ITEM_MAX_AGE_DAYS
 
 #: How long a task stays worth mentioning after its due date passes.
-TASK_OVERDUE_MAX_DAYS = 30
+TASK_OVERDUE_MAX_DAYS = ITEM_MAX_AGE_DAYS
+
+#: Accounts younger than this are left out entirely.
+#:
+#: The onboarding sequence is still talking to them about setup, and a
+#: student four days in has "unfinished work" by definition — that is what
+#: being four days in looks like. Without this the two campaigns collide:
+#: the simulation had a student receiving "One focused session is all it
+#: takes" and "You left a few things unfinished" on the same morning, which
+#: is two emails saying opposite things about the same account.
+#:
+#: Derived from the onboarding window rather than hardcoded, so extending the
+#: sequence pushes this out with it.
+def _min_account_age_days() -> int:
+    from . import onboarding
+
+    return onboarding.MAX_AGE_DAYS
 
 #: Never list more than this many items. The point is to make starting easy;
 #: a wall of forty rows does the opposite.
@@ -341,9 +371,14 @@ def sweep_drafts(
     summary["email_key"] = key
     summary["dry_run"] = bool(dry_run)
 
+    oldest_new_account = now - timedelta(days=_min_account_age_days())
     try:
         candidates = (
-            User.query.filter(User.email_reminders_opt_in.is_(True))
+            User.query.filter(
+                User.email_reminders_opt_in.is_(True),
+                # Still being onboarded? Then not yet. See _min_account_age_days.
+                User.created_at <= oldest_new_account,
+            )
             .limit(limit)
             .all()
         )
