@@ -81,11 +81,70 @@ One call runs four sweeps in order:
 
 One sweep failing does not stop the others.
 
-## 4. Scheduling it
+## 4. Firing one by hand (Windows / PowerShell)
+
+Do this first, before scheduling anything — it proves the secret and the
+header are right.
+
+Two things bite here, and they bite together:
+
+**`curl` is not curl.** In PowerShell `curl` is an alias for
+`Invoke-WebRequest`, whose `-H` takes a hashtable, not a string. A bash
+curl line pasted into PowerShell fails at parameter binding before any
+request is sent:
+
+```
+Invoke-WebRequest : Cannot bind parameter 'Headers'. Cannot convert the
+"X-Cron-Token: " value of type "System.String" to type "System.Collections.IDictionary".
+```
+
+Use `curl.exe` — the real binary — or a native cmdlet.
+
+**`$CRON_SECRET` is empty on your machine.** `.env` is read by the app at
+runtime; it is not exported into your shell. In PowerShell the prefix is
+`$env:`, and even then it is only set if you set it. Note the empty value
+after the colon in the error above — that is this, not a header problem.
+
+The secret lives on the host (Railway/Render), so for a local test either
+paste the literal value or set it for the session first:
+
+```powershell
+$env:CRON_SECRET = "paste-the-real-secret-here"
+```
+
+Then either of these works:
+
+```powershell
+curl.exe -fsS -X POST -H "X-Cron-Token: $env:CRON_SECRET" https://intelliplan.tech/cron/notifications
+```
+
+```powershell
+Invoke-RestMethod -Method Post -Uri "https://intelliplan.tech/cron/notifications" -Headers @{ "X-Cron-Token" = $env:CRON_SECRET }
+```
+
+`Invoke-RestMethod` is the better one on Windows: it parses the JSON reply
+into an object instead of printing a blob.
+
+Remember the header differs per endpoint:
+
+```powershell
+curl.exe -fsS -X POST -H "X-Cron-Secret: $env:CRON_SECRET" https://intelliplan.tech/cron/lifecycle-emails
+```
+
+A healthy notifications reply looks like:
+
+```json
+{"status":"ok","swept":{"queued":0,"users":2},
+ "delivered":{"sent":0,"skipped":0,"failed":0,"expired":0,"dead":0}}
+```
+
+## 5. Scheduling it
 
 ### Railway
 
-Project → **Settings → Cron Jobs**. Railway cron runs a command, so use curl:
+Project → **Settings → Cron Jobs**. Railway cron runs the command in a
+Linux container, so the bash form is correct there — the PowerShell caveats
+above apply only to your own machine:
 
 ```bash
 curl -fsS -X POST -H "X-Cron-Secret: $CRON_SECRET" https://intelliplan.tech/cron/lifecycle-emails
@@ -94,9 +153,6 @@ curl -fsS -X POST -H "X-Cron-Secret: $CRON_SECRET" https://intelliplan.tech/cron
 ```bash
 curl -fsS -X POST -H "X-Cron-Token: $CRON_SECRET" https://intelliplan.tech/cron/notifications
 ```
-
-On Windows use `curl.exe`, not `curl` — in PowerShell `curl` is an alias for
-`Invoke-WebRequest`, whose `-H` binds differently and fails before sending.
 
 Schedules: `*/10 * * * *` for notifications, `*/20 * * * *` for reminders,
 `0 14 * * *` for lifecycle emails (14:00 UTC — pick an hour that lands
@@ -117,7 +173,7 @@ system cron:
 0 14 * * *   curl -fsS -X POST -H "X-Cron-Secret: REDACTED" https://intelliplan.tech/cron/lifecycle-emails
 ```
 
-## 5. Verifying
+## 6. Verifying
 
 Each endpoint returns a JSON summary of what it did:
 
