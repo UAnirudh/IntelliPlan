@@ -157,3 +157,76 @@ def test_the_comparison_pages_are_in_the_sitemap(client):
     paths = set(sitemap_paths(client))
     for slug in COMPARE_SLUGS:
         assert f"/compare/intelliplan-vs-{slug}" in paths, slug
+
+
+# ── On-page basics for every indexable page ─────────────────────────
+#
+# Falling through to base.html's defaults is silent: the page renders, the
+# title is present, and nothing looks wrong — but two URLs now claim to be
+# the same page. /install and /learn were doing exactly that, sharing the
+# homepage's title and description with each other.
+
+TITLE_RE = re.compile(r"<title>(.*?)</title>", re.S)
+DESC_RE = re.compile(r'<meta name="description" content="(.*?)"', re.S)
+
+#: base.html's fallbacks. A page still serving these has no metadata of its
+#: own, whatever the crawler sees.
+DEFAULT_TITLE = "IntelliPlan | Free AI Study Planner and Homework Organizer"
+
+
+def _page_meta(client, path):
+    body = client.get(path).get_data(as_text=True)
+    title = TITLE_RE.search(body)
+    desc = DESC_RE.search(body)
+    return (title.group(1).strip() if title else ""), (desc.group(1).strip() if desc else "")
+
+
+def test_every_indexable_page_has_a_title_and_description(client):
+    missing = []
+    for path in sitemap_paths(client):
+        title, desc = _page_meta(client, path)
+        if not title:
+            missing.append(f"{path}: no title")
+        if len(desc) < 50:
+            missing.append(f"{path}: description is {len(desc)} chars")
+    assert not missing, "; ".join(missing)
+
+
+def test_no_two_indexable_pages_share_a_title_or_description(client):
+    """Duplicate titles are a ranking problem and a user problem: two
+    identical blue links in a result list."""
+    import collections
+
+    titles = collections.defaultdict(list)
+    descs = collections.defaultdict(list)
+    for path in sitemap_paths(client):
+        title, desc = _page_meta(client, path)
+        titles[title].append(path)
+        descs[desc].append(path)
+
+    dupe_titles = {t: p for t, p in titles.items() if len(p) > 1}
+    dupe_descs = {d[:50]: p for d, p in descs.items() if len(p) > 1}
+    assert not dupe_titles, f"pages sharing a title: {dupe_titles}"
+    assert not dupe_descs, f"pages sharing a description: {dupe_descs}"
+
+
+def test_only_the_homepage_may_use_the_default_title(client):
+    """Any other page serving it has simply not set one."""
+    offenders = [
+        path
+        for path in sitemap_paths(client)
+        if path != "/" and _page_meta(client, path)[0] == DEFAULT_TITLE
+    ]
+    assert not offenders, (
+        "these pages fall through to base.html's default title: " + ", ".join(offenders)
+    )
+
+
+def test_every_indexable_page_has_exactly_one_h1(client):
+    problems = []
+    for path in sitemap_paths(client):
+        body = client.get(path).get_data(as_text=True)
+        count = len(re.findall(r"<h1[^>]*>", body))
+        if count != 1:
+            problems.append(f"{path}: {count} h1 tags")
+    assert not problems, "; ".join(problems)

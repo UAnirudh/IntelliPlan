@@ -41,10 +41,17 @@ def test_a_completely_unconfigured_app_fails(ctx, clean):
     assert status_of(result, "cron_secret") == "fail"
 
 
-def test_missing_postal_address_is_a_failure_not_a_warning(ctx, clean):
+def test_missing_postal_address_is_a_failure_not_a_warning(ctx, clean, monkeypatch):
     """It stops the newsletter and feedback sends outright."""
     clean.setenv("RESEND_API_KEY", "re_x")
     clean.setenv("CRON_SECRET", "s")
+    # Stub the provider lookup, as every other test here does. Without it,
+    # setting RESEND_API_KEY makes check() issue a real HTTPS request to
+    # api.resend.com with this fake key on every run — a live third-party
+    # call from a unit test, which is slow, flaky, and not this test's
+    # subject. It passed either way, because an unreachable provider is
+    # correctly only a warning, so nothing ever surfaced it.
+    monkeypatch.setattr(preflight, "_resend_domains", lambda key: [])
     assert status_of(preflight.check(), "postal_address") == "fail"
 
 

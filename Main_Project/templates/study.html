@@ -1,4 +1,14 @@
 {% extends "base.html" %}
+
+{# See the note in install.html: this template was serving base.html's
+   default title and description. It backs /learn, /study and
+   /study-and-learn, but only /learn is indexable — the other two are
+   noindexed precisely so the three URLs do not compete — so this metadata
+   is written for /learn. #}
+{% block page_title %}Turn Notes into Flashcards & Quizzes — Free | IntelliPlan{% endblock %}
+{% block meta_description %}Paste notes, upload a PDF, or drop in a lecture recording and get flashcards, quizzes and spaced review built for you. Free active-recall study tool with a focus timer.{% endblock %}
+{% block og_title %}Turn Your Notes into Flashcards and Quizzes{% endblock %}
+{% block og_description %}Paste text, upload a PDF, or record a lecture — IntelliPlan builds the flashcards, quizzes and review schedule.{% endblock %}
 {% block content %}
 <style>
 /* DM Mono already ships in base.html's font link — the duplicate @import here
