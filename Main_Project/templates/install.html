@@ -1,5 +1,15 @@
 {% extends "base.html" %}
 
+{# This page and /learn were the only two in the sitemap still falling
+   through to base.html's default title and description, so Google saw two
+   URLs claiming to be the same page as the homepage — a duplicate-title and
+   duplicate-description pair, and neither able to rank for what it is
+   actually about. #}
+{% block page_title %}Install the IntelliPlan App on Your Phone | IntelliPlan{% endblock %}
+{% block meta_description %}How to install IntelliPlan on Android or iPhone — add the free study planner to your home screen in three taps, no app store needed. Desktop apps for Windows, macOS and Linux too.{% endblock %}
+{% block og_title %}Install IntelliPlan on Your Phone{% endblock %}
+{% block og_description %}Add the free AI study planner to your home screen in three taps — no app store required.{% endblock %}
+
 {% block content %}
 <div class="login-wrap">
   <div class="login-card">
