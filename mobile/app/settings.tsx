@@ -295,6 +295,58 @@ export default function SettingsScreen() {
           </Card>
         </Pressable>
 
+        <Pressable onPress={() => router.push("/study")} accessibilityRole="button">
+          <Card style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: radius.md,
+                backgroundColor: colors.accentSoft,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="school-outline" size={19} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <T variant="base" weight="600">
+                Study tools
+              </T>
+              <T variant="sm" tone="muted">
+                Flashcards and a quiz from notes, a PDF or a video
+              </T>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Card>
+        </Pressable>
+
+        <Pressable onPress={() => router.push("/streak")} accessibilityRole="button">
+          <Card style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: radius.md,
+                backgroundColor: colors.accentSoft,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="flame-outline" size={19} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <T variant="base" weight="600">
+                Streak &amp; shop
+              </T>
+              <T variant="sm" tone="muted">
+                Spend sparks, and repair a streak you dropped
+              </T>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Card>
+        </Pressable>
+
         {/* ── Focus history ──
             Shown as plain counts rather than a chart: with a handful of
             sessions a sparkline is noise pretending to be a trend. */}

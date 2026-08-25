@@ -20,11 +20,11 @@ Five tabs, in the order a school day happens:
 | --- | --- |
 | **Today** | The Command Center — AI briefing, Academic Health dial, a 7-day workload forecast, and the ranked "do this first" list with `why_now` on each item. Falls back to a plain due-list if the briefing feature isn't enabled for the account. |
 | **Due** | Every assignment from every connected platform, grouped Overdue / Today / This week / Later, filterable by window and by course. Tap the circle to complete; the Done filter undoes it. |
-| **Plan** | The saved study plan, plus a generator (hours per day × when you focus best). Generating is a button — never automatic on open, so it can't quietly discard progress ticked off against the existing plan. **Set my own hours** opens the manual scheduler: hand-placed blocks, saved as named routines and applied to whichever days they fit — the real shape of a week is one or two routines repeated, not seven bespoke days. |
+| **Plan** | The saved study plan, plus a generator (hours per day × when you focus best). Generating is a button — never automatic on open, so it can't quietly discard progress ticked off against the existing plan. Blocks tick off against the plan and the progress follows the account rather than one device. **Catch me up** re-solves the remaining week around the sessions that slipped, crediting what was actually done. **Set my own hours** opens the manual scheduler: hand-placed blocks, saved as named routines and applied to whichever days they fit — the real shape of a week is one or two routines repeated, not seven bespoke days. |
 | **Grades** | Three segments: **Current** (a percentage bar per course), **Forecast** (per-course predictions with trend and the confidence behind each number), and **What you know** (mastery by subject, and the concepts most likely to have slipped since you last reviewed them). |
 | **Plani** | The AI tutor with conversation history, plus Snap & Solve: photograph a worksheet and it works through every problem it can see. |
 
-Four modals sit over the tabs:
+The modals over the tabs:
 
 * **Focus** — a study timer against one piece of work. Start it from Today,
   from a task, or from a block in the plan; pause, resume, and finish with
@@ -35,10 +35,30 @@ Four modals sit over the tabs:
   claiming the gap as study time.
 * **Task** — the ranking's own working: `why_now`, a weighted breakdown of
   what pushed the task up the list, and the actions (focus, complete, mark
-  as a test).
+  as a test). A task you typed yourself also offers **Edit**, which is
+  where it can be renamed, re-dated, re-estimated or deleted. An
+  assignment from Canvas does not: it is a copy of the teacher's record,
+  so a rewrite here would only be undone by the next sync.
 * **Your school** — connect, sync and disconnect Canvas, StudentVue,
   Schoology and the rest.
 * **New task** — add something the platforms don't know about.
+* **Accounts & calendar** — the connected Google accounts, and the school
+  profiles. A student with more than one school account has exactly one
+  active, and it decides whose assignments and grades every other screen
+  is showing — so switching clears the response cache with it, or the
+  previous school's work would sit under the new profile's name until each
+  screen happened to refetch.
+* **Study tools** — paste notes, pick a PDF, or drop a YouTube link, and
+  get flashcards and a quiz. Three ways in, one pipeline: each source only
+  produces the study text that `/study/generate` turns into key concepts
+  and questions, so the cards and the quiz are two views of one result
+  rather than two generations that could disagree. Answers are typed in
+  the student's own words and marked semantically — an exact match would
+  fail a correct answer for its wording.
+* **Streak & shop** — the streak, the Sparks balance, and what Sparks buy.
+  The catalogue and the week's discounted item come from the server with
+  the balance, so nothing here holds a copy of a price. A broken streak
+  can be bought back while the repair window is open.
 
 Plus a profile sheet: streak, sparks, level and freezes, weekly quests,
 focus-session history, the learning profile, reminders, and
