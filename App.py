@@ -3756,6 +3756,27 @@ def terms_alias_redirect():
     return redirect("/legal#terms", code=301)
 
 
+@app.route("/delete-account")
+@app.route("/account-deletion")
+def delete_account_info():
+    """The public account-deletion page.
+
+    Google Play requires a URL that explains how to delete an account and
+    what happens to the data, reachable without installing the app and
+    without signing in — the in-app button alone does not satisfy the
+    policy. This is the URL that goes in the Play Console's Data deletion
+    field, so it must never require a session.
+
+    Two paths because reviewers and users guess differently, and a 404 on
+    the one they tried is a rejection.
+    """
+    return render_template(
+        "delete_account.html",
+        active_page="legal",
+        support_email=os.getenv("SUPPORT_EMAIL", "support@intelliplan.tech"),
+    )
+
+
 # ── SEO: canonical + noindex helpers ────────────────────────────
 # Public canonical host. Lock it to the apex HTTPS domain so any
 # www./http variants are consolidated by the <link rel="canonical">
@@ -7022,7 +7043,11 @@ def _account_delete_impl():
         ("session_messages", "DELETE FROM session_messages WHERE user_id = :uid"),
         ("syllabus_records", "DELETE FROM syllabus_records WHERE user_id = :uid"),
         ("saved_meetings", "DELETE FROM saved_meetings WHERE user_id = :uid"),
-        ("live_sessions", "DELETE FROM live_sessions WHERE user_id = :uid"),
+        # owner_id, not user_id — the original list had this one filtering on
+        # a column that does not exist, so it never deleted anything and the
+        # per-statement except hid it. A live room is a real-time thing with
+        # no host once its owner is gone, so unlike a study group it goes.
+        ("live_sessions", "DELETE FROM live_sessions WHERE owner_id = :uid"),
         ("media_balance_sessions", "DELETE FROM media_balance_sessions WHERE user_id = :uid"),
         ("media_balance_prefs", "DELETE FROM media_balance_prefs WHERE user_id = :uid"),
 
