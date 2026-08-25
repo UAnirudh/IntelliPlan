@@ -16,13 +16,32 @@ jobs:
       # DATABASE_URL are safe ephemeral CI values; the app's db.create_all()
       # runs cleanly against in-memory SQLite at import time.
       - name: Install app dependencies
-        run: pip install -r requirements.txt
+        # pytest explicitly: the unit-test step below runs before the
+        # Playwright install that used to be the only thing pulling it in.
+        run: pip install -r requirements.txt pytest
       - name: Import smoke test (catches dup routes, syntax errors, missing imports)
         env:
           DATABASE_URL: "sqlite:///:memory:"
           SECRET_KEY: "ci-smoke-test-key"
         run: |
           python -c "import App; import sys; n = len(list(App.app.url_map.iter_rules())); print(f'OK: {n} routes registered'); sys.exit(0 if n > 0 else 1)"
+
+      # ── The unit suite. This ran nowhere until now: the only pytest
+      # invocation in this workflow was the Playwright file at the bottom,
+      # which drives *live* intelliplan.tech and so tests whatever is
+      # currently deployed rather than the diff under review. Every test
+      # under tests/ — around 1500 of them, including the guard that stops
+      # account deletion silently missing a table — was invisible to CI, so
+      # a PR could go green while breaking any of them.
+      #
+      # Placed before the Playwright steps deliberately: it is the fast,
+      # hermetic one, and a failure here should not wait on a browser
+      # download and a deploy poll to be reported.
+      - name: Unit tests
+        env:
+          DATABASE_URL: "sqlite:///:memory:"
+          SECRET_KEY: "ci-unit-test-key"
+        run: pytest tests/ -q
 
       # ── Playwright deps
       - run: pip install playwright pytest-playwright

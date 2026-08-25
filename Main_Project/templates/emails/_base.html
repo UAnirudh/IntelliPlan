@@ -1,0 +1,103 @@
+{#
+  Shared chrome for lifecycle emails: preheader, logo bar, hero, body card,
+  footer. Everything an email client needs and nothing it cannot render —
+  tables for layout, inline styles, no external CSS.
+
+  The three original templates (welcome, feedback, newsletter) predate this
+  and still carry their own copy of the chrome. They are working, sent mail;
+  they are deliberately left alone rather than migrated in the same change
+  that introduces the layout.
+
+  Blocks:
+    eyebrow    — small uppercase line above the hero headline
+    headline   — the hero headline (HTML allowed)
+    hero_body  — supporting paragraph inside the hero
+    hero_cta   — the white pill button; omit for a hero without one
+    content    — the white card below the hero
+#}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}IntelliPlan{% endblock %}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #f0f0f7; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; }
+  </style>
+</head>
+<body style="background:#f0f0f7; margin:0; padding:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <!-- Preheader: the grey preview line next to the subject in every inbox
+       list. Left unset it fills with whatever text comes first, which here
+       is the logo and reads as noise. -->
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#f0f0f7; opacity:0;">
+    {{ preheader }}
+    &#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;
+  </div>
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f0f0f7; padding: 40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px; width:100%;">
+
+          <!-- Header / Logo bar -->
+          <tr>
+            <td align="center" style="padding-bottom: 28px;">
+              <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border-radius: 14px; padding: 10px 20px;">
+                    <span style="font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">&#10022; IntelliPlan</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Hero card -->
+          <tr>
+            <td style="background: linear-gradient(140deg, #1e1b4b 0%, #312e81 55%, #4c1d95 100%); border-radius: 20px 20px 0 0; padding: 52px 48px 44px; text-align: center;">
+              <p style="font-size: 13px; font-weight: 600; color: #a5b4fc; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px;">{% block eyebrow %}{% endblock %}</p>
+              <h1 style="font-size: 34px; font-weight: 800; color: #ffffff; line-height: 1.18; letter-spacing: -1px; margin-bottom: 20px;">
+                {% block headline %}{% endblock %}
+              </h1>
+              <p style="font-size: 16px; color: #c4b5fd; line-height: 1.7; max-width: 440px; margin: 0 auto 32px;">
+                {% block hero_body %}{% endblock %}
+              </p>
+              {% block hero_cta %}{% endblock %}
+            </td>
+          </tr>
+
+          <!-- Body card -->
+          <tr>
+            <td style="background: #ffffff; border-radius: 0 0 20px 20px; padding: 44px 48px 48px;">
+              {% block content %}{% endblock %}
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 32px 48px; text-align: center;">
+              <p style="font-size: 13px; color: #9ca3af; line-height: 1.7; margin-bottom: 8px;">
+                You're receiving this because you signed up at <a href="{{ app_url }}" style="color: #6366f1; text-decoration: none;">{{ app_domain }}</a>.
+              </p>
+              <p style="font-size: 13px; color: #9ca3af;">
+                Questions? Reply to this email or reach us at <a href="mailto:{{ support_email }}" style="color: #6366f1; text-decoration: none;">{{ support_email }}</a>
+              </p>
+              <p style="font-size: 12px; color: #d1d5db; margin-top: 16px;">
+                <a href="{{ unsubscribe_url }}" style="color: #d1d5db; text-decoration: none;">Unsubscribe</a> &middot; <a href="{{ app_url }}/privacy" style="color: #d1d5db; text-decoration: none;">Privacy Policy</a>
+              </p>
+              {% if postal_address %}
+              <p style="font-size: 11px; color: #d1d5db; margin-top: 10px; line-height: 1.6;">{{ postal_address }}</p>
+              {% endif %}
+              <p style="font-size: 12px; color: #e5e7eb; margin-top: 12px; font-weight: 600; letter-spacing: 0.5px;">&#10022; IntelliPlan — Study smarter.</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>

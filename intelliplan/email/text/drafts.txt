@@ -1,0 +1,33 @@
+Hey {{ user_name or 'there' }},
+
+You have {{ draft_summary }} still open in IntelliPlan.
+
+Not a telling-off — just the list, so it isn't sitting in the back of your
+head. Close one out and the rest gets easier.
+
+
+WHERE YOU LEFT OFF
+{% for draft in drafts %}
+  * {{ draft.title }}
+    {{ draft.detail }}
+    {{ app_url }}{{ draft.path }}
+{% endfor %}
+
+If some of these are genuinely done with, mark them off or delete them —
+the planner works better when the list is honest, and so does this email.
+
+This goes out at most once a week, and only when there's something on it.
+You can turn it off in Settings → Reminders without affecting anything
+else: {{ app_url }}/settings
+
+---
+
+You're receiving this because you turned on email reminders at {{ app_domain }}.
+Questions? Reply to this email, or reach us at {{ support_email }}
+
+Unsubscribe: {{ unsubscribe_url }}
+Privacy policy: {{ app_url }}/privacy
+{% if postal_address %}
+{{ postal_address }}
+{% endif %}
+IntelliPlan — Study smarter.

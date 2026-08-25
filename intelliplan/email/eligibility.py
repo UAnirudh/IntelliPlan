@@ -8,11 +8,14 @@ newsletter. Getting a false positive means marketing mail in a 12-year-old's
 inbox, which is a COPPA violation and — while IntelliPlan is in a district
 Digital Resource Review — a materially bad thing to explain.
 
-Two gates, sharing a base:
+Three gates, sharing a base:
 
-* ``is_transactional_eligible`` — the welcome email. It explains a service
-  the user just signed up for, so it does not require marketing consent, but
-  it still respects age and suppression.
+* ``is_transactional_eligible`` — the welcome email and the onboarding
+  sequence. They explain a service the user signed up for, so they do not
+  require marketing consent, but they still respect age and suppression.
+* ``is_reminder_eligible`` — nudges about the student's own unfinished
+  work. Adds ``email_reminders_opt_in``, the switch the student set
+  themselves.
 * ``is_marketing_eligible`` — everything else. Adds consent, consent
   evidence, and the student-only restriction.
 
@@ -169,5 +172,33 @@ def is_marketing_eligible(user: Any, now: datetime | None = None) -> tuple[bool,
         # person opt in" is the first question asked in any complaint, and
         # the only safe answer to "we don't know" is to not send.
         return False, "consent_not_dated"
+
+    return True, "ok"
+
+
+def is_reminder_eligible(user: Any, now: datetime | None = None) -> tuple[bool, str]:
+    """The gate for reminders about the student's *own* unfinished work.
+
+    A third gate rather than a reuse of either existing one, because this
+    class of mail sits between them and both alternatives are wrong.
+
+    It is not marketing: nothing is being sold, and the entire content is
+    the student's own data read back to them. Putting it behind
+    ``marketing_emails_opt_in`` would mean a planner that cannot remind you
+    about the plan you made, which is the product.
+
+    It is also not the welcome mail. That one is a single message answering
+    a signup. This is recurring, unprompted, and about work the student may
+    have abandoned deliberately — so it requires the reminder opt-in they
+    set explicitly, ``email_reminders_opt_in``, rather than riding in on the
+    transactional gate. The student's own switch decides, and the default
+    for that switch is off.
+    """
+    ok, reason = _base_gates(user, now)
+    if not ok:
+        return False, reason
+
+    if getattr(user, "email_reminders_opt_in", False) is not True:
+        return False, "no_reminder_consent"
 
     return True, "ok"

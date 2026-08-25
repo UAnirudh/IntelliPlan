@@ -1,0 +1,37 @@
+{% extends "emails/_base.html" %}
+{% block title %}Your first focused session{% endblock %}
+{% block eyebrow %}Step three{% endblock %}
+{% block headline %}Start one session.<br/>That's the whole ask.{% endblock %}
+{% block hero_body %}
+  A plan you never sit down to is just a list. Pick one block, start the timer, and let IntelliPlan learn how long your work actually takes.
+{% endblock %}
+{% block hero_cta %}
+  <a href="{{ app_url }}/active" style="display:inline-block; background: #ffffff; color: #4f46e5; font-size: 15px; font-weight: 700; text-decoration: none; padding: 14px 36px; border-radius: 50px; letter-spacing: -0.2px;">
+    Start a session &rarr;
+  </a>
+{% endblock %}
+
+{% block content %}
+  <p style="font-size: 13px; font-weight: 600; color: #6366f1; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 20px;">Why it's worth doing once</p>
+
+  <p style="font-size: 15px; color: #6b7280; line-height: 1.7; margin-bottom: 28px;">
+    Everyone is bad at estimating how long homework takes — consistently, in the same direction. Active study times your real sittings, so after a few sessions the schedule stops being a guess and starts matching how you actually work.
+  </p>
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f3ff; border-radius: 12px; border: 1px solid #e0e7ff; margin-bottom: 28px;">
+    <tr>
+      <td style="padding: 22px 24px;">
+        <p style="font-size: 14px; font-weight: 700; color: #1e1b4b; margin-bottom: 8px;">Optional: the focus check-in</p>
+        <p style="font-size: 13px; color: #6b7280; line-height: 1.7;">
+          If you turn it on, your camera can nudge you when you drift. It runs entirely in your browser — no images, no video, and nothing that identifies you ever leaves your device. Only a count of how many moments read as focused is saved, and it's off unless you switch it on.
+        </p>
+      </td>
+    </tr>
+  </table>
+
+  <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 0 0 28px;" />
+
+  <p style="font-size: 15px; color: #6b7280; line-height: 1.7;">
+    Short counts. Twenty minutes on the thing you've been avoiding is a real session, and it's usually the one that unsticks the week.
+  </p>
+{% endblock %}

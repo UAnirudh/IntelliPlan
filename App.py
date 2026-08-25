@@ -3756,6 +3756,27 @@ def terms_alias_redirect():
     return redirect("/legal#terms", code=301)
 
 
+@app.route("/delete-account")
+@app.route("/account-deletion")
+def delete_account_info():
+    """The public account-deletion page.
+
+    Google Play requires a URL that explains how to delete an account and
+    what happens to the data, reachable without installing the app and
+    without signing in — the in-app button alone does not satisfy the
+    policy. This is the URL that goes in the Play Console's Data deletion
+    field, so it must never require a session.
+
+    Two paths because reviewers and users guess differently, and a 404 on
+    the one they tried is a rejection.
+    """
+    return render_template(
+        "delete_account.html",
+        active_page="legal",
+        support_email=os.getenv("SUPPORT_EMAIL", "support@intelliplan.tech"),
+    )
+
+
 # ── SEO: canonical + noindex helpers ────────────────────────────
 # Public canonical host. Lock it to the apex HTTPS domain so any
 # www./http variants are consolidated by the <link rel="canonical">
@@ -6942,26 +6963,137 @@ def _account_delete_impl():
         logout_user()
     except Exception as _e:
         print(f"[account_delete] logout warning: {_e}")
-    # Every table that holds a user_id FK. Keep this list in sync with
-    # any new model that adds `user_id = db.Column(... ForeignKey("users.id"))`.
-    user_owned_tables = [
-        # Integrations
-        "google_integrations", "notion_integrations", "canvas_integrations",
-        "classroom_integrations", "blackboard_integrations", "moodle_integrations",
-        # Identity / profile data
-        "user_identities",
-        # Tasks + scheduling
-        "manual_tasks", "saved_schedules", "day_archive", "task_feedback",
-        # Imports (new)
-        "imported_grades",
-        # Notes / lessons / study
-        "course_notes", "lessons", "study_sessions", "study_points",
-        "study_mastery", "session_messages", "syllabus_records",
-        "saved_meetings", "live_sessions",
-        # Push / reminders / groups / extension
-        "push_subscriptions", "reminders_sent", "extension_tokens",
-        "study_group_members", "test_marks", "custom_descriptions",
-        "dismissed_assignments", "linked_accounts",
+    # Every statement needed to remove this user, in an order that respects
+    # foreign keys: children before parents, and the `users` row last.
+    #
+    # This used to be a flat list of table names, and it was missing roughly
+    # half of them. On SQLite (no FK enforcement) that only leaked orphan
+    # rows, so it looked fine in development; on the Postgres that production
+    # actually runs, every unlisted table held a reference that made the
+    # final `DELETE FROM users` raise, and account deletion returned a 500.
+    # Google Play requires in-app account deletion to actually work, so a
+    # missing table here is a store-policy problem as well as a privacy one.
+    #
+    # Keep this in sync with any new model carrying a ForeignKey("users.id").
+    # `tests/test_account_deletion.py` walks the model registry and fails if
+    # a table with such a foreign key is not named here.
+    deletion_plan: list[tuple[str, str]] = [
+        # ── Rows that reference *other* rows this user owns ────────────
+        # Focus samples hang off active_sessions with ON DELETE CASCADE, but
+        # only on databases that actually created the constraint. Deleting
+        # them explicitly first costs one statement and does not rely on it.
+        ("active_focus_samples", """
+            DELETE FROM active_focus_samples
+             WHERE session_id IN (SELECT id FROM active_sessions WHERE user_id = :uid)
+        """),
+        # Other people's votes on this user's feature requests, which would
+        # otherwise block the feature_requests delete below.
+        ("feature_request_votes (on own requests)", """
+            DELETE FROM feature_request_votes
+             WHERE request_id IN (SELECT id FROM feature_requests WHERE user_id = :uid)
+        """),
+
+        # ── Integrations ───────────────────────────────────────────────
+        ("google_integrations", "DELETE FROM google_integrations WHERE user_id = :uid"),
+        ("notion_integrations", "DELETE FROM notion_integrations WHERE user_id = :uid"),
+        ("canvas_integrations", "DELETE FROM canvas_integrations WHERE user_id = :uid"),
+        ("classroom_integrations", "DELETE FROM classroom_integrations WHERE user_id = :uid"),
+        ("blackboard_integrations", "DELETE FROM blackboard_integrations WHERE user_id = :uid"),
+        ("moodle_integrations", "DELETE FROM moodle_integrations WHERE user_id = :uid"),
+        ("lms_tokens", "DELETE FROM lms_tokens WHERE user_id = :uid"),
+        ("linked_accounts", "DELETE FROM linked_accounts WHERE user_id = :uid"),
+
+        # ── Identity / profile / credentials ───────────────────────────
+        ("user_identities", "DELETE FROM user_identities WHERE user_id = :uid"),
+        ("api_keys", "DELETE FROM api_keys WHERE user_id = :uid"),
+        ("extension_tokens", "DELETE FROM extension_tokens WHERE user_id = :uid"),
+        ("desktop_auth_codes", "DELETE FROM desktop_auth_codes WHERE user_id = :uid"),
+        ("accessibility_prefs", "DELETE FROM accessibility_prefs WHERE user_id = :uid"),
+        ("student_profiles", "DELETE FROM student_profiles WHERE user_id = :uid"),
+
+        # ── Tasks + scheduling ─────────────────────────────────────────
+        ("manual_tasks", "DELETE FROM manual_tasks WHERE user_id = :uid"),
+        ("saved_schedules", "DELETE FROM saved_schedules WHERE user_id = :uid"),
+        ("scheduler_presets", "DELETE FROM scheduler_presets WHERE user_id = :uid"),
+        ("manual_plan_presets", "DELETE FROM manual_plan_presets WHERE user_id = :uid"),
+        ("schedule_decisions", "DELETE FROM schedule_decisions WHERE user_id = :uid"),
+        ("schedule_versions", "DELETE FROM schedule_versions WHERE user_id = :uid"),
+        # "day_archive" here was a typo for "day_archives" and had been
+        # silently swallowed by the per-table except for as long as it existed.
+        ("day_archives", "DELETE FROM day_archives WHERE user_id = :uid"),
+        ("task_feedback", "DELETE FROM task_feedback WHERE user_id = :uid"),
+        ("dismissed_assignments", "DELETE FROM dismissed_assignments WHERE user_id = :uid"),
+        ("test_marks", "DELETE FROM test_marks WHERE user_id = :uid"),
+        ("custom_descriptions", "DELETE FROM custom_descriptions WHERE user_id = :uid"),
+
+        # ── Imports / grades ───────────────────────────────────────────
+        ("imported_grades", "DELETE FROM imported_grades WHERE user_id = :uid"),
+
+        # ── Notes / lessons / study history ────────────────────────────
+        ("course_notes", "DELETE FROM course_notes WHERE user_id = :uid"),
+        ("lessons", "DELETE FROM lessons WHERE user_id = :uid"),
+        ("study_sessions", "DELETE FROM study_sessions WHERE user_id = :uid"),
+        ("active_sessions", "DELETE FROM active_sessions WHERE user_id = :uid"),
+        ("study_points", "DELETE FROM study_points WHERE user_id = :uid"),
+        ("study_mastery", "DELETE FROM study_mastery WHERE user_id = :uid"),
+        ("concept_mastery", "DELETE FROM concept_mastery WHERE user_id = :uid"),
+        ("learning_events", "DELETE FROM learning_events WHERE user_id = :uid"),
+        ("user_streaks", "DELETE FROM user_streaks WHERE user_id = :uid"),
+        ("plani_pets", "DELETE FROM plani_pets WHERE user_id = :uid"),
+        ("session_messages", "DELETE FROM session_messages WHERE user_id = :uid"),
+        ("syllabus_records", "DELETE FROM syllabus_records WHERE user_id = :uid"),
+        ("saved_meetings", "DELETE FROM saved_meetings WHERE user_id = :uid"),
+        # owner_id, not user_id — the original list had this one filtering on
+        # a column that does not exist, so it never deleted anything and the
+        # per-statement except hid it. A live room is a real-time thing with
+        # no host once its owner is gone, so unlike a study group it goes.
+        ("live_sessions", "DELETE FROM live_sessions WHERE owner_id = :uid"),
+        ("media_balance_sessions", "DELETE FROM media_balance_sessions WHERE user_id = :uid"),
+        ("media_balance_prefs", "DELETE FROM media_balance_prefs WHERE user_id = :uid"),
+
+        # ── Command centre / briefings ─────────────────────────────────
+        ("briefing_cache", "DELETE FROM briefing_cache WHERE user_id = :uid"),
+        ("health_snapshots", "DELETE FROM health_snapshots WHERE user_id = :uid"),
+        ("student_signals", "DELETE FROM student_signals WHERE user_id = :uid"),
+
+        # ── Notifications / reminders / lifecycle email ────────────────
+        ("push_subscriptions", "DELETE FROM push_subscriptions WHERE user_id = :uid"),
+        ("reminders_sent", "DELETE FROM reminders_sent WHERE user_id = :uid"),
+        ("notification_outbox", "DELETE FROM notification_outbox WHERE user_id = :uid"),
+        # The lifecycle-email ledger is keyed by user_id. The suppression
+        # list is deliberately *not* touched here: it is keyed by address
+        # precisely so that unsubscribing survives the account, and clearing
+        # it would let a deleted-then-recreated address be mailed again.
+        ("email_sends", "DELETE FROM email_sends WHERE user_id = :uid"),
+
+        # ── Feedback ───────────────────────────────────────────────────
+        ("feature_request_votes", "DELETE FROM feature_request_votes WHERE user_id = :uid"),
+        ("feature_requests", "DELETE FROM feature_requests WHERE user_id = :uid"),
+        ("site_feedback", "DELETE FROM site_feedback WHERE user_id = :uid"),
+        ("client_error_logs", "DELETE FROM client_error_logs WHERE user_id = :uid"),
+
+        # ── Study groups ───────────────────────────────────────────────
+        # Membership and presence go. Group *content* does not: a study group
+        # is other students' workspace too, so deleting one member must not
+        # delete the group out from under everyone else.
+        ("voice_seats", "DELETE FROM voice_seats WHERE user_id = :uid"),
+        ("study_group_members", "DELETE FROM study_group_members WHERE user_id = :uid"),
+        # created_by_user_id is NOT NULL, so tasks this user authored have to
+        # go rather than be orphaned.
+        ("study_group_tasks (authored)", "DELETE FROM study_group_tasks WHERE created_by_user_id = :uid"),
+        # A claim is just an assignment — release it and leave the task.
+        ("study_group_tasks (claimed)", """
+            UPDATE study_group_tasks SET claimed_by_user_id = NULL WHERE claimed_by_user_id = :uid
+        """),
+        # Same reasoning: the group outlives its creator, ownerless.
+        ("study_groups (owner)", "UPDATE study_groups SET owner_id = NULL WHERE owner_id = :uid"),
+
+        # ── Parent/teacher links, in both directions ───────────────────
+        ("student_links (as linker)", "DELETE FROM student_links WHERE linker_user_id = :uid"),
+        ("student_links (as student)", "DELETE FROM student_links WHERE student_user_id = :uid"),
+
+        # ── Referrals: never cascade into another user's account ───────
+        ("users.referred_by_id", "UPDATE users SET referred_by_id = NULL WHERE referred_by_id = :uid"),
     ]
     # Per-statement connections so one failing table (missing on older DBs,
     # or a constraint we haven't enumerated) can't poison the whole
@@ -6972,25 +7104,20 @@ def _account_delete_impl():
         db.session.close()  # release any session-bound transaction
     except Exception:
         pass
-    deleted_any = False
-    for table in user_owned_tables:
+    skipped: list[str] = []
+    for label, statement in deletion_plan:
         try:
             with db.engine.connect() as conn:
-                conn.execute(_t(f"DELETE FROM {table} WHERE user_id = :uid"), {"uid": user_id})
+                conn.execute(_t(statement), {"uid": user_id})
                 try: conn.commit()
                 except Exception: pass
-            deleted_any = True
         except Exception as _de:
-            # Most often: table doesn't exist on this DB. Safe to skip.
-            print(f"[account_delete] skip {table}: {_de}")
-    # Null out outgoing referrals so we don't cascade-delete other users.
-    try:
-        with db.engine.connect() as conn:
-            conn.execute(_t("UPDATE users SET referred_by_id = NULL WHERE referred_by_id = :uid"), {"uid": user_id})
-            try: conn.commit()
-            except Exception: pass
-    except Exception as _re:
-        print(f"[account_delete] referral null-out failed: {_re}")
+            # Usually: the table does not exist on this database (an older
+            # deployment, or a feature whose models were never registered).
+            # Recorded rather than only printed, so the failure path below
+            # can say which tables were skipped when the user delete fails.
+            skipped.append(label)
+            print(f"[account_delete] skip {label}: {_de}")
     # Finally drop the user row itself. This is the one delete we
     # actually require to succeed.
     try:
@@ -6999,7 +7126,10 @@ def _account_delete_impl():
             try: conn.commit()
             except Exception: pass
     except Exception as e:
-        print(f"[account_delete] FAILED for user {user_id}: {e}")
+        # If we get here it is almost always a foreign key from a table that
+        # is not in the plan above. Log the skips too — that list is where
+        # the missing table will be.
+        print(f"[account_delete] FAILED for user {user_id}: {e}; skipped={skipped}")
         return flask.jsonify({
             "status": "error",
             "message": "Could not delete your account right now. Try again or email support@intelliplan.tech.",
@@ -14850,11 +14980,20 @@ def cron_send_reminders():
 
 @app.route("/cron/lifecycle-emails", methods=["GET", "POST"])
 def cron_lifecycle_emails():
-    """Daily sweep for the welcome and feedback emails.
+    """Daily sweep for the welcome, onboarding, feedback and drafts emails.
 
     Same CRON_SECRET + hmac.compare_digest guard as /cron/send-reminders
     above; deliberately a copy of that pattern rather than a new scheme.
     The newsletter is *not* here — it is admin-triggered only.
+
+    All four are safe to run daily. Each one owns its own deduplication key,
+    so running this hourly, or twice in a minute, sends nothing extra:
+
+    * welcome    — once per account, ever.
+    * onboarding — at most one step per account per run, each step once.
+    * feedback   — once per account, at the two-week mark.
+    * drafts     — at most one per account per ISO week, and only when that
+                   account actually has something unfinished.
     """
     expected = os.getenv("CRON_SECRET", "")
     provided = request.headers.get("X-Cron-Secret") or request.args.get("secret") or ""
@@ -14864,14 +15003,24 @@ def cron_lifecycle_emails():
     if not _hmac.compare_digest(str(expected), str(provided)):
         return flask.jsonify({"status": "error", "message": "unauthorized"}), 401
 
-    from intelliplan.email import campaigns
+    from intelliplan.email import campaigns, drafts, onboarding
 
     summary = {}
-    for name, sweep in (("welcome", campaigns.sweep_welcome), ("feedback", campaigns.sweep_feedback)):
+    sweeps = (
+        # Ordered the way a student experiences them. Welcome runs before
+        # onboarding so a signup from the last few hours gets the day-zero
+        # mail first, rather than having a day-2 step land ahead of it after
+        # a cron outage.
+        ("welcome", campaigns.sweep_welcome),
+        ("onboarding", onboarding.sweep_onboarding),
+        ("feedback", campaigns.sweep_feedback),
+        ("drafts", drafts.sweep_drafts),
+    )
+    for name, sweep in sweeps:
         try:
             summary[name] = sweep()
         except Exception as exc:
-            # One sweep failing must not stop the other. A cron that returns
+            # One sweep failing must not stop the rest. A cron that returns
             # a 500 tells the scheduler to retry the whole thing, which for
             # the sweep that already ran means re-walking work it finished.
             # The full traceback goes to the log; the response gets a
@@ -14932,6 +15081,117 @@ def admin_weekly_newsletter_preview():
         issue = campaigns.generate_weekly_issue()
         summary = campaigns.send_weekly_newsletter(dry_run=True)
         return flask.jsonify({"status": "ok", "issue": issue, "summary": summary})
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
+
+
+@app.route("/api/admin/email/onboarding-preview", methods=["GET", "POST"])
+@require_admin
+def admin_onboarding_preview():
+    """What the onboarding sequence thinks about one account.
+
+    Takes ?user_id= or ?email=, defaulting to the calling admin. Returns the
+    three goals as the sweep reads them and the step that would be sent
+    right now — which is the fastest way to answer "why did/didn't this
+    student get that email", without sending anything.
+    """
+    from intelliplan.email import onboarding
+
+    # get_json(silent=True), not request.json: these are GET-friendly
+    # endpoints, and request.json aborts with a 415 when the request carries
+    # no JSON body. The `or` above only short-circuits when the query arg is
+    # present, so a plain GET?user_id=... still reached it on the `email`
+    # line and 415'd the whole request.
+    payload = request.get_json(silent=True) or {}
+    raw_id = request.args.get("user_id") or payload.get("user_id")
+    email = request.args.get("email") or payload.get("email")
+    if raw_id:
+        user = User.query.get(raw_id)
+    elif email:
+        user = User.query.filter(db.func.lower(User.email) == email.strip().lower()).first()
+    else:
+        user = current_user
+    if user is None:
+        return flask.jsonify({"status": "error", "message": "no such user"}), 404
+
+    try:
+        now = datetime.utcnow()
+        created = user.created_at or now
+        age_days = (now - created).total_seconds() / 86400.0
+        progress = onboarding.onboarding_progress(user.id)
+        sent = {
+            row.email_key
+            for row in EmailSend.query.filter(
+                EmailSend.user_id == user.id, EmailSend.status != "failed"
+            ).all()
+        }
+        step = onboarding.due_step(age_days, sent, progress)
+        return flask.jsonify(
+            {
+                "status": "ok",
+                "user_id": user.id,
+                "age_days": round(age_days, 2),
+                "progress": progress,
+                "already_sent": sorted(k for k in sent if k.startswith("onboarding_")),
+                "due_step": None
+                if step is None
+                else {"key": step.key, "subject": step.subject, "goal": step.goal},
+                "steps": [
+                    {"key": st.key, "day": st.day, "goal": st.goal} for st in onboarding.STEPS
+                ],
+            }
+        )
+    except Exception as e:
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
+
+
+@app.route("/api/admin/email/drafts-preview", methods=["GET", "POST"])
+@require_admin
+def admin_drafts_preview():
+    """What the unfinished-work nudge would say, and to how many people.
+
+    ?user_id= or ?email= shows one account's actual draft list — the exact
+    items that would appear in the email. With neither, it dry-runs the
+    whole sweep and reports how many students would be mailed this week.
+    Nothing is sent either way.
+    """
+    from dataclasses import asdict
+
+    from intelliplan.email import drafts as drafts_mod
+    from intelliplan.email.eligibility import is_reminder_eligible
+
+    # See the note in admin_onboarding_preview: request.json 415s on a
+    # bodyless GET.
+    payload = request.get_json(silent=True) or {}
+    raw_id = request.args.get("user_id") or payload.get("user_id")
+    email = request.args.get("email") or payload.get("email")
+
+    try:
+        if raw_id or email:
+            if raw_id:
+                user = User.query.get(raw_id)
+            else:
+                user = User.query.filter(
+                    db.func.lower(User.email) == email.strip().lower()
+                ).first()
+            if user is None:
+                return flask.jsonify({"status": "error", "message": "no such user"}), 404
+            found = drafts_mod.find_drafts(user.id)
+            eligible, reason = is_reminder_eligible(user)
+            return flask.jsonify(
+                {
+                    "status": "ok",
+                    "user_id": user.id,
+                    "email_key": drafts_mod.weekly_key(),
+                    "eligible": eligible,
+                    "reason": reason,
+                    "summary_line": drafts_mod.summarise(found),
+                    "drafts": [asdict(d) for d in found],
+                }
+            )
+        return flask.jsonify(
+            {"status": "ok", "summary": drafts_mod.sweep_drafts(dry_run=True)}
+        )
     except Exception as e:
         return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
 

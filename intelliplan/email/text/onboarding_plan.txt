@@ -1,0 +1,39 @@
+Hey {{ user_name or 'there' }},
+
+You have the work in IntelliPlan. Now get the plan.
+
+IntelliPlan takes everything on your list and lays it out across the days
+you actually have — big assignments split into sessions, spaced so nothing
+lands the night before.
+
+Build your schedule: {{ app_url }}/schedule
+
+
+WHAT THE PLANNER DOES FOR YOU
+
+  1. Splits the big things up.
+     A ten-page paper becomes four sittings with an outline first, not one
+     panicked evening.
+
+  2. Works around your week.
+     Tell it when you have practice, a shift, or simply no intention of
+     studying, and it plans around all of it.
+
+  3. Reshuffles when you fall behind.
+     Miss a block and the rest of the week moves to absorb it. Falling
+     behind stops meaning starting over.
+
+You don't need a full list to start. Two or three assignments is enough to
+see what it does — and you can edit or drag anything it suggests.
+
+---
+
+You're receiving this because you signed up at {{ app_domain }}.
+Questions? Reply to this email, or reach us at {{ support_email }}
+
+Unsubscribe: {{ unsubscribe_url }}
+Privacy policy: {{ app_url }}/privacy
+{% if postal_address %}
+{{ postal_address }}
+{% endif %}
+IntelliPlan — Study smarter.

@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{#
+  The public account-deletion page.
+
+  Google Play requires a URL, reachable without installing the app and
+  without signing in, that explains how to delete an account and what
+  happens to the data. The in-app button in Settings satisfies the "in-app
+  route" half of that policy; this page is the other half, and it is the URL
+  that goes in the Play Console's Data deletion field.
+
+  Kept deliberately plain and self-contained: a reviewer opens it cold, and
+  anything that needs a session or a JavaScript bundle to render reads as a
+  missing page.
+#}
+{% block page_title %}Delete your IntelliPlan account{% endblock %}
+{% block meta_description %}How to delete your IntelliPlan account and what happens to your data, including what is removed immediately and what is retained.{% endblock %}
+
+{% block head_extra %}
+<style>
+  .del-wrap { max-width: 760px; margin: 0 auto; }
+  .del-card {
+    background: var(--glass-bg); border: 1px solid var(--glass-border);
+    border-radius: var(--r-lg); padding: 2rem; margin-bottom: 1.5rem;
+    box-shadow: var(--neu-shadow-sm);
+  }
+  .del-card h1 {
+    font-family: var(--font-display); font-size: 1.9rem; font-weight: 400;
+    color: var(--text-primary); letter-spacing: -0.01em; line-height: 1.15;
+    margin-bottom: 0.5rem; text-wrap: balance;
+  }
+  .del-card h2 {
+    font-family: var(--font-ui); font-size: 1rem; font-weight: 700;
+    color: var(--text-primary); margin: 1.75rem 0 0.5rem;
+  }
+  .del-body { font-size: 0.94rem; color: var(--text-secondary); line-height: 1.7; }
+  .del-body p, .del-body li { max-width: 65ch; }
+  .del-body p { margin-bottom: 0.75rem; }
+  .del-body ol, .del-body ul { margin: 0.5rem 0 0.75rem 1.25rem; }
+  .del-body li { margin-bottom: 0.45rem; }
+  .del-body strong { color: var(--text-primary); }
+  .del-body a { color: var(--accent); text-decoration: none; }
+  .del-body a:hover { text-decoration: underline; }
+  .del-callout {
+    background: var(--accent-soft); border: 1px solid var(--accent-mid);
+    border-radius: var(--r-md); padding: 14px 18px; margin: 1rem 0;
+    font-size: 0.92rem; line-height: 1.65;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="del-wrap">
+  <div class="del-card">
+    <h1>Delete your IntelliPlan account</h1>
+    <div class="del-body">
+      <p>
+        You can delete your IntelliPlan account yourself, at any time, from either
+        the mobile app or the website. You do not need to contact us first, and you
+        do not need to give a reason.
+      </p>
+
+      <div class="del-callout">
+        <strong>Deletion is permanent.</strong> There is no undo and no recovery
+        window. If you only want to stop the emails or reminders, you can turn those
+        off in Settings without deleting anything.
+      </div>
+
+      <h2>From the app</h2>
+      <ol>
+        <li>Open <strong>IntelliPlan</strong> on your phone.</li>
+        <li>Go to <strong>Settings</strong> (the gear icon).</li>
+        <li>Scroll to the bottom and tap <strong>Delete account</strong>.</li>
+        <li>Confirm when asked. You will be signed out immediately.</li>
+      </ol>
+
+      <h2>From the website</h2>
+      <ol>
+        <li>Sign in at <a href="{{ url_for('landing', _external=True) }}">intelliplan.tech</a>.</li>
+        <li>Go to <strong>Settings &rarr; Account</strong>.</li>
+        <li>Choose <strong>Delete Account</strong> and confirm.</li>
+      </ol>
+
+      <h2>If you cannot sign in</h2>
+      <p>
+        Email <a href="mailto:{{ support_email }}">{{ support_email }}</a> from the
+        address on the account and ask us to delete it. We verify ownership of the
+        address before acting, and we complete verified requests within 30 days —
+        usually within a few business days.
+      </p>
+      <p>
+        Schools and parents may request deletion of a student's records on that
+        student's behalf using the same address. We respond to those within 10
+        business days.
+      </p>
+
+      <h2>What gets deleted</h2>
+      <p>Deleting your account removes, immediately and permanently:</p>
+      <ul>
+        <li>Your profile — name, email address, password, and account settings.</li>
+        <li>Every connected integration and its access tokens — Canvas, StudentVue,
+            Schoology, Google Classroom, Google Calendar, Blackboard, Moodle, and Notion.
+            Disconnecting also revokes IntelliPlan's access on the provider's side.</li>
+        <li>Your tasks, assignments, saved schedules, and day archives.</li>
+        <li>Your grades, imported or synced, and any predictions built from them.</li>
+        <li>Your study sessions, focus check-in summaries, streaks, points, and
+            mastery history.</li>
+        <li>Your tutor conversations, lessons, notes, and uploaded files.</li>
+        <li>Your notifications, reminder preferences, push registrations, and API keys.</li>
+        <li>Your membership in any study group, and any tasks you created in one.</li>
+      </ul>
+
+      <h2>What is kept, and why</h2>
+      <ul>
+        <li><strong>Study groups you created</strong> are not deleted — they belong to
+            the other students in them too. The group stays, without an owner, and
+            your posts and membership are removed.</li>
+        <li><strong>Your email address on our unsubscribe list</strong>, if you ever
+            unsubscribed. It is kept precisely so that unsubscribing outlives the
+            account: without it, re-registering the same address would start the
+            emails again.</li>
+        <li><strong>Aggregated, de-identified usage statistics.</strong> These carry no
+            identifiers and cannot be linked back to you or to any student.</li>
+        <li><strong>Encrypted backups</strong> age out on their own rolling schedule and
+            are fully expired within 90 days. They are never used to restore a deleted
+            account.</li>
+      </ul>
+
+      <p>
+        Full detail is in our <a href="{{ url_for('legal') }}#p-retention">privacy
+        policy</a>. Questions about any of this go to
+        <a href="mailto:{{ support_email }}">{{ support_email }}</a>.
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
