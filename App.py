@@ -8156,18 +8156,49 @@ def _planner_task_rows(normalized_assignments, custom_tasks, descriptions=None):
             "size_signals": size_signals,
             "description": (a.get("description") or (descriptions or {}).get(title) or ""),
         })
-    for title in custom_tasks or []:
-        title = (title or "").strip()
+    for entry in custom_tasks or []:
+        # Two shapes arrive here. A bare string is a title someone typed and
+        # nothing else is known about it. A dict is that same task *after*
+        # the clarification pass folded in the student's answers — deadline,
+        # subject, and how long they say it takes.
+        #
+        # The dict shape used to be flattened back to its title before it got
+        # here, so an answered deadline never reached the planner. The planner
+        # then did the right thing with what it had: a task with no deadline
+        # belongs on the lightest day, so five tasks all due tomorrow were
+        # dealt out one per day across the following week. Asking the student
+        # for a deadline and then planning as if they had not given one is the
+        # worst of both.
+        if isinstance(entry, dict):
+            task = entry
+            title = str(task.get("title") or "").strip()
+        else:
+            task = {}
+            title = str(entry or "").strip()
         if not title:
             continue
+
+        kind = kind_of(title, task.get("kind") or task.get("type"))
+        # Only size through the estimator when the student did not answer.
+        # Their own number wins — see _sized_estimate's order of trust.
+        est_minutes, subtasks, size_signals = _sized_estimate(
+            {**task, "title": title}, kind,
+            (descriptions or {}).get(title),
+        )
         rows.append({
             "id": f"custom:{title}",
             "title": title,
-            "course": "",
-            "kind": kind_of(title),
-            "due_date": "",
-            "difficulty": "medium",
-            "priority": 50,
+            "course": task.get("course") or "",
+            "kind": kind,
+            # Still empty when unanswered: a missing deadline is the truth,
+            # and inventing one would be worse than having none.
+            "due_date": task.get("due_date") or "",
+            "est_minutes": est_minutes,
+            "difficulty": str(task.get("difficulty") or "medium").lower(),
+            "priority": _priority_score_for(task) if task.get("priority") else 50,
+            "subtask_count": max(len(task.get("subtasks") or []), subtasks),
+            "size_signals": size_signals,
+            "description": task.get("description") or (descriptions or {}).get(title) or "",
         })
     return rows
 
@@ -8465,11 +8496,17 @@ def generate_schedule():
             })
 
     used_presets = []
+    # The clarified custom tasks, as dicts carrying the student's answers.
+    # Kept alongside the title-only list because the two consumers want
+    # different things: the planner needs the deadline, subject, and duration,
+    # while the AI prompt path and enrich_schedule_data still match on titles.
+    custom_task_rows = normalized_custom_task_views(custom_tasks)
     if effective_answers:
         applied = scheduler_clarify.apply_answers(task_views, effective_answers)
-        # Split back out: custom tasks stay strings, assignments stay dicts.
         n_custom = len(custom_tasks)
-        custom_tasks = [t.get("title", "") for t in applied[:n_custom]]
+        custom_task_rows = applied[:n_custom]
+        # Titles only, for the AI path and for downstream title matching.
+        custom_tasks = [t.get("title", "") for t in custom_task_rows]
         assignments = applied[n_custom:]
         matched = {k for k in presets if any(
             scheduler_clarify.preset_key(t.get("title") or "") == k for t in task_views)}
@@ -8516,7 +8553,7 @@ def generate_schedule():
     # Flag-gated so the previous behaviour is one toggle away.
     if feature_enabled("planner_v2"):
         planned = _build_planner_schedule(
-            normalized_assignments, custom_tasks, uid, gid,
+            normalized_assignments, custom_task_rows, uid, gid,
             availability, commitments, preferred_time, hours_per_day,
             dna=dna,
         )
