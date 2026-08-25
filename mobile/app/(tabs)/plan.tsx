@@ -180,6 +180,16 @@ export default function PlanScreen() {
             busy={busy}
             onPress={build}
           />
+          {/* The generator answers "fit my work into my free time". Some
+              students need the other question — "here is when I actually
+              study, work around it" — and no hours-per-day dial expresses
+              swimming on Tuesdays. */}
+          <Button
+            title="Set my own hours instead"
+            kind="secondary"
+            icon="create-outline"
+            onPress={() => router.push("/plan-custom")}
+          />
           {totalBlocks ? (
             <T variant="xs" tone="muted" style={{ textAlign: "center" }}>
               Rebuilding replaces the plan below.

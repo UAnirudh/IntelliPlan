@@ -33,6 +33,7 @@ from datetime import datetime, timezone, timedelta
 import time
 from time_utils import utcnow
 import desktop_auth
+import app_link
 from studentvue_helper import (
     test_login,
     get_assignments as get_sv_assignments,
@@ -667,6 +668,32 @@ class DesktopAuthCode(db.Model):
     code_hash = db.Column(db.String(64), nullable=False, unique=True, index=True)
     code_challenge = db.Column(db.String(64), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    # Set the moment it is spent. Presence here, not deletion, is what
+    # makes a replay fail: the row has to stick around long enough to say
+    # "already used" rather than "never existed".
+    used_at = db.Column(db.DateTime, nullable=True)
+
+
+class AppLinkCode(db.Model):
+    """A one-time ticket letting the mobile app hand its session to a browser.
+
+    Minted by POST /api/v1/link/session against a bearer token, spent once
+    by GET /link/<code>, and worthless after ninety seconds. See
+    app_link.py for why each column is here — in short, only the hash is
+    kept, and the destination is chosen from an allow-list rather than
+    from the request.
+    """
+    __tablename__ = "app_link_codes"
+    id = db.Column(db.Integer, primary_key=True)
+    # Unique so a repeat insert collides rather than quietly creating a
+    # second live ticket for the same code.
+    code_hash = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    # The resolved internal path, stored at mint time. Keeping it here
+    # rather than reading it back off the redemption URL means the
+    # destination cannot be swapped after the code is issued.
+    next_path = db.Column(db.String(128), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     # Set the moment it is spent. Presence here, not deletion, is what
     # makes a replay fail: the row has to stick around long enough to say
@@ -6428,6 +6455,54 @@ def login_canvas():
 # ── CANVAS OAUTH ──────────────────────────────────────────────
 # Lets students connect Canvas with one click instead of finding and
 # pasting a personal access token. Backed by canvas_oauth.py.
+@app.route("/link/<code>")
+def app_link_redeem(code):
+    """Spend a hand-off code: log this browser in, then go where the app asked.
+
+    The app opened this URL in the system browser precisely because the
+    browser has no session. Redeeming logs it in as the code's owner and
+    forwards to the OAuth start the code was minted for, so the connection
+    attaches to the right account.
+
+    Every failure lands on /login rather than explaining itself. A code is
+    either valid or it is somebody probing, and the two deserve the same
+    reply.
+    """
+    now = datetime.utcnow()
+
+    if not app_link.is_valid_code(code):
+        return redirect(url_for("login"))
+
+    row = AppLinkCode.query.filter_by(code_hash=app_link.hash_code(code)).first()
+    if row is None or row.used_at is not None:
+        return redirect(url_for("login"))
+    if app_link.is_expired(row.created_at, now):
+        return redirect(url_for("login"))
+    # Constant-time even though the lookup was by hash: the row was found
+    # by an indexed equality match, and this is the comparison that
+    # actually authorises.
+    if not app_link.codes_match(code, row.code_hash):
+        return redirect(url_for("login"))
+
+    user = db.session.get(User, row.user_id)
+    if user is None:
+        return redirect(url_for("login"))
+
+    # Burned before the session is granted, so a crash between the two
+    # leaves a spent code rather than a live one.
+    row.used_at = now
+    db.session.commit()
+
+    login_user(user, remember=True)
+    session.permanent = True
+    # Tells the OAuth callbacks to bounce back to the app instead of
+    # rendering a web page the student cannot get out of.
+    session["app_link_return"] = True
+    session.modified = True
+
+    return redirect(row.next_path)
+
+
 @app.route("/oauth/canvas/check")
 def oauth_canvas_check():
     """Lightweight probe used by the login page to decide whether to show
@@ -6556,6 +6631,12 @@ def oauth_canvas_callback():
         session["canvas_refresh_token"] = refresh_token
         session["canvas_oauth"] = True
         session["login_type"] = "canvas"
+    if session.pop("app_link_return", None):
+        # Started from the phone: hand control back rather than leaving the
+        # student staring at the website inside an in-app browser with no
+        # obvious way home.
+        session.modified = True
+        return redirect(app_link.deep_link("connected", provider="canvas"))
     return redirect("/command-center")
 
 
@@ -6770,6 +6851,11 @@ def _handle_google_callback():
             session["google_token"] = token_dict
             session.permanent = True
             session.modified = True
+        if session.pop("app_link_return", None):
+            # Started from the phone — hand control back to the app.
+            session.pop("oauth_return_to_settings", None)
+            session.modified = True
+            return redirect(app_link.deep_link("connected", provider="google"))
         return redirect(url_for("settings") if session.pop("oauth_return_to_settings", False) else "/command-center")
 
     # ── Find or create User (defensive — see login_account for rationale) ──
@@ -17138,6 +17224,9 @@ app.intelliplan_api_key_model = ApiKey
 # Expo token as another subscription row rather than inventing a
 # second table for the same idea.
 app.intelliplan_push_subscription_model = PushSubscription
+# Needed by POST /api/v1/link/session, which mints the one-time code that
+# lets the phone hand its session to the system browser for OAuth.
+app.intelliplan_app_link_code_model = AppLinkCode
 from intelliplan_api import api_bp as intelliplan_api_bp, api_rate_limit_key, api_rate_limit_value
 app.register_blueprint(intelliplan_api_bp)
 

@@ -4,8 +4,16 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
-import { disconnectProvider, getProviders, Provider, syncProvider } from "../lib/api";
-import { API_BASE } from "../lib/config";
+import {
+  disconnectGoogle,
+  disconnectProvider,
+  GcalStatus,
+  getGcalStatus,
+  getProviders,
+  Provider,
+  startLinkSession,
+  syncProvider,
+} from "../lib/api";
 import { useQuery } from "../lib/useQuery";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius, space } from "../theme/tokens";
@@ -15,16 +23,25 @@ import { useConfirm } from "../components/Confirm";
 /**
  * Connecting a school platform, from the phone.
  *
- * The connect step opens the website in an in-app browser rather than
- * reimplementing each provider's flow here. Two reasons, and neither is
- * laziness: the OAuth providers require a real browser redirect to be
- * secure at all, and the credential providers (Canvas tokens, StudentVue
- * passwords) already have a hardened, tested form on the site — a second
+ * The connect step opens the website rather than reimplementing each
+ * provider's flow here. Two reasons, and neither is laziness: the OAuth
+ * providers require a real browser redirect to be secure at all — Google
+ * refuses to run its flow in an embedded web view, hardest of all against
+ * the supervised accounts these students often have — and the credential
+ * providers already have a hardened, tested form on the site. A second
  * implementation in a mobile client would be a second place for school
  * credentials to leak.
  *
+ * What is new is that the browser no longer opens logged out. The app
+ * mints a one-time hand-off code (`POST /api/v1/link/session`), opens the
+ * browser at a URL carrying it, and the server signs that browser in and
+ * forwards straight to the provider. When the flow finishes the site
+ * redirects to `intelliplan://connected`, which closes the browser and
+ * brings the student back here with the list already refreshing. One tap,
+ * no copy-pasting a token, no "now go and log in again".
+ *
  * Sync and disconnect are plain JSON calls, so the things a student does
- * repeatedly stay in the app.
+ * repeatedly never leave the app at all.
  */
 export default function ConnectScreen() {
   const { colors } = useTheme();
@@ -33,6 +50,9 @@ export default function ConnectScreen() {
   const confirm = useConfirm();
 
   const q = useQuery<Provider[]>("providers", getProviders);
+  // Google is not an LMS, so it is not in /api/lms/status — it is the
+  // calendar the plan gets written into, and it has its own status route.
+  const gcal = useQuery<GcalStatus>("gcal", getGcalStatus);
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
 
@@ -51,14 +71,77 @@ export default function ConnectScreen() {
     }, []),
   );
 
-  const connect = useCallback(async (p: Provider) => {
+  const connect = useCallback(
+    async (p: Provider) => {
+      setNote(null);
+      setBusy(p.key);
+      try {
+        const session = await startLinkSession(p.key);
+
+        // openAuthSessionAsync, not openBrowserAsync: it watches for the
+        // return URL and closes the browser itself. With the plain opener
+        // the student lands back on the website with no way out but the
+        // system back gesture, which on iOS does not exist.
+        const result = await WebBrowser.openAuthSessionAsync(session.url, session.return_url);
+
+        if (result.type === "success") {
+          setNote(`${p.display_name} connected. Pulling your work in…`);
+          await q.refresh();
+          // The first sync is what actually fills the app, and a student
+          // who just connected should not have to find a second button to
+          // make anything appear.
+          await syncProvider(p.key).catch(() => {});
+          await q.refresh();
+        } else {
+          // Dismissed or cancelled. The connection may still have gone
+          // through — the student may simply have closed the tab after
+          // the redirect — so ask the server rather than assuming.
+          await q.refresh();
+        }
+      } catch (e: any) {
+        setNote(e?.message || `Couldn't start connecting ${p.display_name}.`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [q],
+  );
+
+  const connectGoogle = useCallback(async () => {
     setNote(null);
+    setBusy("google");
     try {
-      await WebBrowser.openBrowserAsync(`${API_BASE}/integrations?provider=${encodeURIComponent(p.key)}`);
-    } catch {
-      setNote(`Couldn't open the browser to connect ${p.display_name}.`);
+      const session = await startLinkSession("google");
+      const result = await WebBrowser.openAuthSessionAsync(session.url, session.return_url);
+      if (result.type === "success") setNote("Google Calendar connected.");
+      await gcal.refresh();
+    } catch (e: any) {
+      setNote(e?.message || "Couldn't start connecting Google Calendar.");
+    } finally {
+      setBusy(null);
     }
-  }, []);
+  }, [gcal]);
+
+  const unlinkGoogle = useCallback(async () => {
+    const choice = await confirm({
+      title: "Disconnect Google Calendar?",
+      message: "Your plan stays. It just stops working around your calendar, and can no longer write blocks into it.",
+      actions: [
+        { label: "Disconnect", destructive: true },
+        { label: "Cancel", cancel: true },
+      ],
+    });
+    if (choice !== 0) return;
+    setBusy("google");
+    try {
+      await disconnectGoogle();
+      await gcal.refresh();
+    } catch (e: any) {
+      setNote(e?.message || "That didn't work.");
+    } finally {
+      setBusy(null);
+    }
+  }, [gcal, confirm]);
 
   const sync = useCallback(
     async (p: Provider) => {
@@ -122,8 +205,8 @@ export default function ConnectScreen() {
             Your school
           </T>
           <T variant="sm" tone="muted">
-            {connected.length
-              ? `${connected.length} connected`
+            {connected.length + (gcal.data?.connected ? 1 : 0)
+              ? `${connected.length + (gcal.data?.connected ? 1 : 0)} connected`
               : "Nothing connected yet"}
           </T>
         </View>
@@ -144,6 +227,83 @@ export default function ConnectScreen() {
           }
         >
           {note ? <Notice text={note} tone="accent" icon="information-circle-outline" /> : null}
+
+          {/* ── Google Calendar ──
+              Placed above the school platforms because it is the one that
+              changes what the plan looks like: with it connected the
+              scheduler works around what is already in the student's day
+              instead of assuming every evening is free. */}
+          <Card style={{ gap: space.md }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: radius.md,
+                  backgroundColor: gcal.data?.connected ? colors.accentSoft : colors.bgElevated,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons
+                  name="calendar"
+                  size={19}
+                  color={gcal.data?.connected ? colors.accent : colors.textMuted}
+                />
+              </View>
+              <View style={{ flex: 1, gap: 4 }}>
+                <T variant="base" weight="600">
+                  Google Calendar
+                </T>
+                <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+                  {gcal.data?.connected ? (
+                    <Chip label="Connected" icon="checkmark-circle" fg={colors.ok} bg={colors.okSoft} />
+                  ) : (
+                    <Chip label="Not connected" />
+                  )}
+                  {gcal.data?.accounts?.length ? (
+                    <Chip
+                      label={`${gcal.data.accounts.length} account${gcal.data.accounts.length === 1 ? "" : "s"}`}
+                      icon="person-outline"
+                    />
+                  ) : null}
+                </View>
+                <T variant="xs" tone="muted">
+                  Reads your busy time so the plan fits around it, and can write
+                  study blocks back.
+                </T>
+              </View>
+            </View>
+
+            {gcal.data?.connected ? (
+              <View style={{ flexDirection: "row", gap: space.sm }}>
+                <Button
+                  title="Add another"
+                  kind="secondary"
+                  icon="add"
+                  busy={busy === "google"}
+                  onPress={() => connectGoogle()}
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  title="Disconnect"
+                  kind="danger"
+                  busy={busy === "google"}
+                  onPress={() => unlinkGoogle()}
+                  style={{ flex: 1 }}
+                />
+              </View>
+            ) : (
+              <Button
+                title="Connect Google Calendar"
+                icon="open-outline"
+                busy={busy === "google"}
+                onPress={() => connectGoogle()}
+              />
+            )}
+          </Card>
+
+          <Label style={{ marginTop: space.md }}>Your school</Label>
 
           {providers.length ? (
             providers.map((p) => (
@@ -222,8 +382,9 @@ export default function ConnectScreen() {
           )}
 
           <T variant="xs" tone="muted" style={{ textAlign: "center", marginTop: space.md }}>
-            Connecting opens IntelliPlan in your browser so your school credentials
-            go straight to the site, never through this app.
+            Connecting opens IntelliPlan in your browser, already signed in, so
+            your school password goes straight to the site and never through
+            this app. You'll come back here automatically.
           </T>
         </ScrollView>
       )}

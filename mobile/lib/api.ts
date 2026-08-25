@@ -760,3 +760,159 @@ export type LearningDashboard = {
 export async function getLearningDashboard(): Promise<LearningDashboard> {
   return apiFetch<LearningDashboard>("/api/learning/dashboard");
 }
+
+/* ── Connecting an account from the phone ─────────────────────────── */
+
+export type LinkSession = {
+  /** Open this in the system browser; it arrives already signed in. */
+  url: string;
+  expires_in: number;
+  provider: string;
+  /** The redirect that means "done" — watch for it to close the browser. */
+  return_url: string;
+};
+
+/**
+ * Mint a one-time URL that opens the browser already signed in as you.
+ *
+ * Connecting Canvas or Google cannot happen inside the app: both flows
+ * start at a Flask route that reads the session cookie rather than the
+ * bearer token, and Google refuses to run OAuth in an embedded web view
+ * at all — hardest of all against the supervised accounts these students
+ * often have. Without this the browser opens logged out and the
+ * connection attaches to nobody.
+ */
+export async function startLinkSession(provider: string): Promise<LinkSession> {
+  return apiFetch<LinkSession>("/api/v1/link/session", {
+    method: "POST",
+    body: JSON.stringify({ provider }),
+  });
+}
+
+/* ── Google Calendar ──────────────────────────────────────────────── */
+
+export type GoogleAccount = { id: number; email?: string; is_active?: boolean; [k: string]: unknown };
+
+export type GcalStatus = {
+  connected: boolean;
+  accounts: GoogleAccount[];
+  active_id: number | null;
+};
+
+export async function getGcalStatus(): Promise<GcalStatus> {
+  const d = await apiFetch<Partial<GcalStatus>>("/gcal/status");
+  return {
+    connected: !!d?.connected,
+    accounts: d?.accounts || [],
+    active_id: d?.active_id ?? null,
+  };
+}
+
+export type CalendarEvent = {
+  summary?: string;
+  start?: string;
+  end?: string;
+  id?: string;
+  [k: string]: unknown;
+};
+
+export async function getCalendarEvents(): Promise<{ connected: boolean; events: CalendarEvent[] }> {
+  const d = await apiFetch<{ connected?: boolean; events?: CalendarEvent[] }>("/calendar/events");
+  return { connected: !!d?.connected, events: d?.events || [] };
+}
+
+/**
+ * Push the study plan into Google Calendar.
+ *
+ * `skipOverlaps` defaults on: the plan is generated around the student's
+ * free time, but their calendar moves after the plan is built, and
+ * double-booking someone onto an event they already accepted is worse
+ * than skipping a block.
+ */
+export async function exportPlanToCalendar(
+  scheduleData: unknown,
+  skipOverlaps = true,
+): Promise<{ status: string; created?: number; skipped?: number; message?: string }> {
+  return apiFetch("/calendar/export", {
+    method: "POST",
+    body: JSON.stringify({ schedule_data: scheduleData, skip_overlaps: skipOverlaps }),
+  });
+}
+
+export async function disconnectGoogle(): Promise<void> {
+  await apiFetch("/oauth/google/disconnect", { method: "POST", body: JSON.stringify({}) });
+}
+
+/* ── Manual scheduler ─────────────────────────────────────────────── */
+
+export type ManualBlock = {
+  /** "HH:MM", 24-hour. */
+  start: string;
+  end: string;
+  label?: string;
+  kind?: string;
+  [k: string]: unknown;
+};
+
+export type ManualPreset = {
+  id: number;
+  name: string;
+  blocks: ManualBlock[];
+  [k: string]: unknown;
+};
+
+export async function getPresets(): Promise<ManualPreset[]> {
+  const d = await apiFetch<{ presets?: ManualPreset[] }>("/api/scheduler/manual/presets");
+  return d?.presets || [];
+}
+
+export async function savePreset(name: string, blocks: ManualBlock[]): Promise<ManualPreset> {
+  const d = await apiFetch<{ preset: ManualPreset }>("/api/scheduler/manual/presets", {
+    method: "POST",
+    body: JSON.stringify({ name, blocks }),
+  });
+  return d.preset;
+}
+
+export async function deletePreset(id: number): Promise<void> {
+  await apiFetch(`/api/scheduler/manual/presets/${id}`, { method: "DELETE" });
+}
+
+/**
+ * Turn hand-placed blocks into a plan the rest of the app renders.
+ *
+ * `presetId` applies a saved routine to every date given, which is the
+ * common case — one routine, five weekdays.
+ */
+export async function buildManualPlan(args: {
+  days: { date: string; blocks?: ManualBlock[] }[];
+  presetId?: number;
+  name?: string;
+  save?: boolean;
+}): Promise<unknown> {
+  return apiFetch("/api/scheduler/manual/build", {
+    method: "POST",
+    body: JSON.stringify({
+      days: args.days,
+      ...(args.presetId ? { preset_id: args.presetId } : {}),
+      ...(args.name ? { name: args.name } : {}),
+      ...(args.save ? { save: true } : {}),
+    }),
+  });
+}
+
+/* ── Editing a manual task ────────────────────────────────────────── */
+
+export async function updateManualTask(
+  id: number | string,
+  patch: Partial<NewTask>,
+): Promise<void> {
+  await apiFetch("/tasks/manual/update", {
+    method: "POST",
+    body: JSON.stringify({ id, ...patch }),
+  });
+}
+
+export async function deleteManualTask(id: number | string): Promise<void> {
+  await apiFetch("/tasks/manual/delete", { method: "POST", body: JSON.stringify({ id }) });
+}

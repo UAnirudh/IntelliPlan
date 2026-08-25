@@ -25,6 +25,7 @@ collisions with App.py's web routes).
 """
 
 import json
+import os
 import uuid
 from datetime import datetime
 from time_utils import utcnow
@@ -671,6 +672,68 @@ def generate_schedule():
 def streak_info():
     status, data = _call_internal("GET", "/study/points")
     return jsonify(data), status
+
+
+# ── Browser hand-off ──────────────────────────────────────────────────
+@api_bp.route("/link/session", methods=["POST"])
+@require_auth("read:profile")
+def mint_link_session():
+    """A one-time URL that opens the browser already signed in as this user.
+
+    Connecting Canvas or Google cannot happen inside the app: both flows
+    start at a Flask route that reads the session cookie rather than the
+    bearer token, and Google refuses to run OAuth in an embedded web view
+    at all. So the app opens the system browser — which arrives with no
+    session, and would otherwise attach the connection to nobody.
+
+    Body: {"provider": "canvas" | "google" | "notion"}
+    Returns: {"url": "https://…/link/<code>", "expires_in": 90}
+
+    read:profile rather than a write scope: this proves who the caller is
+    and hands that identity to a browser. It grants nothing the caller does
+    not already hold — the bearer token it was minted from can reach every
+    one of these routes directly.
+    """
+    import app_link
+
+    db, User, _ = _models()
+    body = request.get_json(silent=True) or {}
+    provider = (body.get("provider") or "").strip().lower()
+
+    next_path = app_link.resolve_next(provider)
+    if next_path is None:
+        return _err(
+            "provider must be one of: " + ", ".join(app_link.LINKABLE) + ".", 400)
+
+    AppLinkCode = current_app.intelliplan_app_link_code_model
+    code = app_link.new_code()
+    db.session.add(AppLinkCode(
+        code_hash=app_link.hash_code(code),
+        user_id=g.api_user.id,
+        next_path=next_path,
+    ))
+
+    # Codes this account already minted and never spent are burned here.
+    # A student who taps Connect, backs out, and taps again should not
+    # leave a live credential behind for every attempt.
+    (db.session.query(AppLinkCode)
+        .filter(AppLinkCode.user_id == g.api_user.id,
+                AppLinkCode.used_at.is_(None),
+                AppLinkCode.code_hash != app_link.hash_code(code))
+        .update({"used_at": utcnow()}, synchronize_session=False))
+    db.session.commit()
+
+    base = (current_app.config.get("APP_BASE_URL")
+            or os.getenv("APP_BASE_URL")
+            or "https://intelliplan.tech").rstrip("/")
+    return jsonify({
+        "url": f"{base}/link/{code}",
+        "expires_in": app_link.CODE_TTL_SECONDS,
+        "provider": provider,
+        # What the browser redirects to when the flow finishes, so the app
+        # knows which URL means "done" without hard-coding the scheme.
+        "return_url": app_link.deep_link("connected", provider=provider),
+    })
 
 
 # ── Identity / profile ────────────────────────────────────────────────
