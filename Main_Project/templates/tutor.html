@@ -537,6 +537,111 @@ main {
   .tutor-chip { padding: 6px 12px; font-size: 0.78rem; }
   .tutor-input-wrap::before { display: none; }
 }
+
+/* ════ ADAPTIVE TUTOR ════════════════════════════════════════════
+   Interactive artifacts, the modality switcher, and the learning
+   profile panel that surfaces the persistent student model. */
+
+.tutor-artifact {
+  margin: 12px 0;
+  border: 1px solid var(--border-accent, var(--border));
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface-2, var(--glass-bg));
+  box-shadow: var(--shadow-sm, 0 2px 10px rgba(0,0,0,0.08));
+}
+.tutor-artifact-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  font-size: 0.76rem; font-weight: 600; letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--border);
+}
+.tutor-artifact-kind {
+  margin-left: auto; text-transform: uppercase;
+  font-size: 0.64rem; letter-spacing: 0.09em; opacity: 0.75;
+}
+.tutor-artifact iframe {
+  display: block; width: 100%; border: 0; background: transparent;
+  min-height: 120px;
+}
+
+.tutor-modality {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 10px; flex-wrap: wrap;
+}
+.tutor-modality-btn {
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text-secondary); cursor: pointer;
+  border-radius: 999px; padding: 4px 10px; font-size: 0.72rem;
+  transition: background var(--duration-fast, 150ms) ease,
+              color var(--duration-fast, 150ms) ease,
+              border-color var(--duration-fast, 150ms) ease;
+}
+.tutor-modality-btn:hover { border-color: var(--border-accent, var(--accent)); }
+.tutor-modality-btn.active {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+}
+.tutor-modality-note {
+  width: 100%; font-size: 0.68rem; color: var(--text-muted); margin: 2px 0 0;
+}
+
+.tutor-profile-btn {
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; margin-bottom: 8px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: transparent; color: var(--text-secondary);
+  font-size: 0.78rem; cursor: pointer;
+}
+.tutor-profile-btn:hover { border-color: var(--border-accent, var(--accent)); }
+
+.tutor-panel-backdrop {
+  display: none; position: fixed; inset: 0; z-index: 2200;
+  background: rgba(0,0,0,0.62); backdrop-filter: blur(6px);
+  align-items: center; justify-content: center; padding: 1rem;
+}
+.tutor-panel-backdrop.open { display: flex; }
+.tutor-panel {
+  background: var(--glass-bg, var(--surface));
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  backdrop-filter: blur(16px) saturate(1.6);
+  border: 1px solid var(--border); border-radius: 18px;
+  box-shadow: var(--shadow-lg); width: 100%; max-width: 640px;
+  max-height: 86vh; overflow-y: auto; padding: 1.25rem;
+}
+.tutor-panel h3 { margin: 0; font-family: var(--ipd-font-display); font-size: 1.1rem; }
+.tutor-panel h4 {
+  margin: 1.25rem 0 0.5rem; font-size: 0.82rem; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--text-muted);
+}
+.tutor-panel label { display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px; }
+.tutor-panel input[type="text"],
+.tutor-panel textarea,
+.tutor-panel select {
+  width: 100%; padding: 8px 10px; margin-bottom: 10px;
+  border: 1px solid var(--border); border-radius: 9px;
+  background: var(--surface-2, transparent); color: var(--text-primary);
+  font: inherit; font-size: 0.85rem;
+}
+.tutor-panel-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.tutor-panel-row > * { flex: 1 1 160px; }
+
+.tutor-mastery-row { margin-bottom: 9px; }
+.tutor-mastery-label {
+  display: flex; justify-content: space-between; gap: 8px;
+  font-size: 0.76rem; color: var(--text-secondary); margin-bottom: 3px;
+}
+.tutor-mastery-track {
+  height: 6px; border-radius: 999px; background: var(--border); overflow: hidden;
+}
+.tutor-mastery-fill { height: 100%; border-radius: 999px; background: var(--accent); }
+.tutor-mistake {
+  border-left: 3px solid var(--high, var(--accent));
+  padding: 4px 0 4px 9px; margin-bottom: 8px; font-size: 0.78rem;
+}
+.tutor-mistake-meta { color: var(--text-muted); font-size: 0.7rem; }
+.tutor-panel-empty { font-size: 0.78rem; color: var(--text-muted); }
 </style>
 {% endblock %}
 
@@ -561,6 +666,13 @@ main {
     </div>
 
     <div class="tutor-side-foot">
+      <button class="tutor-profile-btn" onclick="openLearningPanel()" aria-label="Open your learning profile">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
+        Learning profile
+      </button>
+      <div class="tutor-modality" id="tutorModality" role="group" aria-label="Learning style">
+        <p class="tutor-modality-note" id="tutorModalityNote">Plani adapts to how you learn.</p>
+      </div>
       <div class="tutor-side-tip">
         <strong>Tip:</strong> Be specific, "explain quadratic equations" beats "help with math".
       </div>
@@ -766,6 +878,97 @@ main {
   </div>
 </div>
 
+<!-- Learning profile: onboarding answers + the student model Plani has built -->
+<div class="tutor-panel-backdrop" id="learningPanel" role="dialog" aria-modal="true" aria-labelledby="learningPanelTitle">
+  <div class="tutor-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h3 id="learningPanelTitle">Your learning profile</h3>
+      <button type="button" onclick="closeLearningPanel()" aria-label="Close learning profile"
+              style="background:none;border:none;font-size:1.3rem;color:var(--text-muted);cursor:pointer;">×</button>
+    </div>
+    <p style="font-size:0.8rem;color:var(--text-muted);margin:6px 0 0;">
+      Plani uses this to shape every explanation. It keeps learning from your sessions too.
+    </p>
+
+    <h4>About you</h4>
+    <div class="tutor-panel-row">
+      <div>
+        <label for="lpGrade">Grade level</label>
+        <input type="text" id="lpGrade" placeholder="e.g. 10th grade, freshman">
+      </div>
+      <div>
+        <label for="lpSubjects">Subjects (comma separated)</label>
+        <input type="text" id="lpSubjects" placeholder="Algebra 2, Chemistry, US History">
+      </div>
+    </div>
+    <label for="lpInterests">Interests &amp; hobbies (used for examples)</label>
+    <input type="text" id="lpInterests" placeholder="basketball, music production, video games">
+    <label for="lpShortGoals">Short-term goals</label>
+    <textarea id="lpShortGoals" rows="2" placeholder="Pass the unit test on quadratics"></textarea>
+    <label for="lpLongGoals">Long-term goals</label>
+    <textarea id="lpLongGoals" rows="2" placeholder="Get a 5 on AP Calc"></textarea>
+
+    <h4>How you like explanations</h4>
+    <div class="tutor-panel-row">
+      <div>
+        <label for="lpStyle">Style</label>
+        <select id="lpStyle">
+          <option value="concise">Concise</option>
+          <option value="balanced" selected>Balanced</option>
+          <option value="detailed">Detailed</option>
+        </select>
+      </div>
+      <div>
+        <label for="lpLength">Length</label>
+        <select id="lpLength">
+          <option value="short">Short</option>
+          <option value="medium" selected>Medium</option>
+          <option value="long">Long</option>
+        </select>
+      </div>
+      <div>
+        <label for="lpDifficulty">Difficulty</label>
+        <select id="lpDifficulty">
+          <option value="easy">Easy</option>
+          <option value="medium" selected>Medium</option>
+          <option value="hard">Hard</option>
+          <option value="adaptive">Adaptive</option>
+        </select>
+      </div>
+    </div>
+    <button type="button" class="btn-primary" onclick="saveLearningProfile()"
+            style="padding:9px 16px;border:none;cursor:pointer;">Save profile</button>
+    <span id="lpSaveStatus" style="font-size:0.76rem;color:var(--text-muted);margin-left:8px;"></span>
+
+    <h4>What Plani has learned</h4>
+    <div id="lpMemory" class="tutor-panel-empty">Ask a few questions and this fills in.</div>
+
+    <h4>Mastery</h4>
+    <div id="lpMastery" class="tutor-panel-empty">No topics tracked yet.</div>
+
+    <h4>Recurring mistakes</h4>
+    <div id="lpMistakes" class="tutor-panel-empty">Nothing recurring yet.</div>
+
+    <h4>Recommended next</h4>
+    <div id="lpRecommendations" class="tutor-panel-empty">Finish a session to get recommendations.</div>
+
+    <h4>Import memory from another AI</h4>
+    <p style="font-size:0.76rem;color:var(--text-muted);margin:0 0 8px;">
+      Paste an export or summary from another assistant and Plani will fold it into your learner model.
+    </p>
+    <div class="tutor-panel-row">
+      <div>
+        <label for="lpImportProvider">Source</label>
+        <input type="text" id="lpImportProvider" placeholder="ChatGPT, Claude, Gemini…">
+      </div>
+    </div>
+    <textarea id="lpImportText" rows="4" placeholder="Paste the conversation or memory summary here"></textarea>
+    <button type="button" class="btn-secondary" onclick="importLearnerMemory()"
+            style="padding:9px 16px;cursor:pointer;">Import memory</button>
+    <span id="lpImportStatus" style="font-size:0.76rem;color:var(--text-muted);margin-left:8px;"></span>
+  </div>
+</div>
+
 <script>
 const SUGGESTIONS = {
   General: [
@@ -822,9 +1025,16 @@ let chatStarted      = false;
 let conversationId   = null;
 let conversationList = [];
 
+/* Adaptive student model — the mode Plani answers in, and the modality
+   weights it has detected from how this student actually learns. */
+let modalityMode    = 'auto';
+let modalityWeights = null;
+let learningProfile = null;
+
 document.addEventListener('DOMContentLoaded', async () => {
   renderSuggestions('General');
   await loadConversations();
+  loadAdaptiveProfile();
   document.getElementById('tutorInput').focus();
 });
 
@@ -871,6 +1081,7 @@ function renderHistory() {
 }
 
 async function loadConversation(id) {
+  if (id !== conversationId) summarizeConversation(conversationId, tutorHistory);
   if (isProcessing) return;
   try {
     const res = await fetch(`/api/tutor/conversations/${id}`);
@@ -917,6 +1128,9 @@ async function deleteConversation(id) {
 
 async function startNewChat() {
   if (isProcessing) return;
+  // Close out the conversation being left so its summary, mistakes, and
+  // mastery movement land in the student model before it scrolls away.
+  summarizeConversation(conversationId, tutorHistory);
   conversationId = null;
   tutorHistory = [];
   document.getElementById('tutorMessages').innerHTML = '';
@@ -1182,6 +1396,382 @@ function speakReply(text) {
   window.speechSynthesis.speak(utt);
 }
 
+/* ════ ADAPTIVE STUDENT MODEL ════════════════════════════════════ */
+
+const MODALITY_ORDER = ['auto', 'auditory', 'visual', 'reading', 'blended'];
+const MODALITY_LABELS = {
+  auto:     { label: '✨ Auto',     hint: 'Plani detects your best learning style' },
+  auditory: { label: '🎧 Auditory', hint: 'Spoken explanations, read aloud' },
+  visual:   { label: '📊 Visual',   hint: 'Interactive diagrams and quizzes' },
+  reading:  { label: '📖 Reading',  hint: 'Text-based explanations' },
+  blended:  { label: '🔀 Blended',  hint: 'All modes at once' },
+};
+
+async function loadAdaptiveProfile() {
+  try {
+    const res = await fetch('/api/tutor/adaptive/profile');
+    if (!res.ok) return;
+    const data = await res.json();
+    learningProfile = data.profile || null;
+    modalityMode    = (data.modality && data.modality.mode) || 'auto';
+    modalityWeights = (data.modality && data.modality.weights) || null;
+    renderModalitySwitcher();
+  } catch (err) { /* the tutor still works without the adaptive layer */ }
+}
+
+function renderModalitySwitcher() {
+  const wrap = document.getElementById('tutorModality');
+  if (!wrap) return;
+
+  const buttons = MODALITY_ORDER.map(mode => {
+    const meta = MODALITY_LABELS[mode];
+    const active = mode === modalityMode ? ' active' : '';
+    return `<button type="button" class="tutor-modality-btn${active}"
+      onclick="setModality('${mode}')" title="${escHtml(meta.hint)}"
+      aria-pressed="${mode === modalityMode}">${meta.label}</button>`;
+  }).join('');
+
+  wrap.innerHTML = buttons + `<p class="tutor-modality-note" id="tutorModalityNote"></p>`;
+  document.getElementById('tutorModalityNote').textContent = modalityNote();
+}
+
+function modalityNote() {
+  if (modalityMode !== 'auto') return MODALITY_LABELS[modalityMode].hint;
+  if (!modalityWeights) return 'Plani adapts to how you learn.';
+  const top = Object.entries(modalityWeights)
+    .sort((a, b) => b[1] - a[1])[0];
+  if (!top) return 'Plani adapts to how you learn.';
+  return `Detected: ${top[0]} (${Math.round(top[1] * 100)}%)`;
+}
+
+async function setModality(mode) {
+  const previous = modalityMode;
+  modalityMode = mode;
+  renderModalitySwitcher();
+  try {
+    const res = await fetch('/api/tutor/adaptive/modality', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    modalityWeights = data.weights || modalityWeights;
+    renderModalitySwitcher();
+  } catch (err) {
+    modalityMode = previous;
+    renderModalitySwitcher();
+  }
+}
+
+/* Close-out: summary, mistake extraction, and mastery movement. Fire and
+   forget — the student has already moved on to the next chat. */
+function summarizeConversation(convoId, messages) {
+  if (!convoId || !messages || messages.length < 2) return;
+  try {
+    fetch('/api/tutor/adaptive/summarize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversation_id: convoId }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch (err) { /* ignore */ }
+}
+
+window.addEventListener('pagehide', () => {
+  summarizeConversation(conversationId, tutorHistory);
+});
+
+function openLearningPanel() {
+  const panel = document.getElementById('learningPanel');
+  if (!panel) return;
+  panel.classList.add('open');
+  closeTutorDrawer();
+  fillProfileForm();
+  loadDashboard();
+}
+
+function closeLearningPanel() {
+  const panel = document.getElementById('learningPanel');
+  if (panel) panel.classList.remove('open');
+}
+
+function fillProfileForm() {
+  const p = learningProfile;
+  if (!p) return;
+  const set = (id, value) => { const el = document.getElementById(id); if (el) el.value = value ?? ''; };
+  set('lpGrade', p.grade_level);
+  set('lpSubjects', (p.subjects || []).join(', '));
+  set('lpInterests', (p.interests || []).join(', '));
+  set('lpShortGoals', p.short_term_goals);
+  set('lpLongGoals', p.long_term_goals);
+  set('lpStyle', p.explanation_style || 'balanced');
+  set('lpLength', p.explanation_length || 'medium');
+  set('lpDifficulty', p.difficulty_level || 'medium');
+}
+
+function splitCsv(value) {
+  return String(value || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+
+async function saveLearningProfile() {
+  const status = document.getElementById('lpSaveStatus');
+  status.textContent = 'Saving…';
+  const payload = {
+    grade_level: document.getElementById('lpGrade').value,
+    subjects: splitCsv(document.getElementById('lpSubjects').value),
+    interests: splitCsv(document.getElementById('lpInterests').value),
+    short_term_goals: document.getElementById('lpShortGoals').value,
+    long_term_goals: document.getElementById('lpLongGoals').value,
+    explanation_style: document.getElementById('lpStyle').value,
+    explanation_length: document.getElementById('lpLength').value,
+    difficulty_level: document.getElementById('lpDifficulty').value,
+    onboarding_completed: true,
+  };
+  try {
+    const res = await fetch('/api/tutor/adaptive/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    learningProfile = data.profile;
+    status.textContent = 'Saved — Plani will use this from your next message.';
+  } catch (err) {
+    status.textContent = 'Could not save. Try again.';
+  }
+}
+
+async function loadDashboard() {
+  try {
+    const res = await fetch('/api/tutor/adaptive/dashboard');
+    if (!res.ok) return;
+    renderDashboard(await res.json());
+  } catch (err) { /* ignore */ }
+}
+
+function renderDashboard(data) {
+  const memoryEl = document.getElementById('lpMemory');
+  const memory = data.learner_memory;
+  if (memory && (memory.summary || memory.learner_type)) {
+    const bullets = [
+      ['Strengths', memory.strengths],
+      ['Friction points', memory.friction_points],
+      ['What works for you', memory.preferred_patterns],
+    ].filter(([, list]) => list && list.length)
+     .map(([label, list]) => `<div style="font-size:0.76rem;margin-top:5px;">
+        <strong>${label}:</strong> ${escHtml(list.join('; '))}</div>`).join('');
+    memoryEl.className = '';
+    memoryEl.innerHTML = `
+      <div style="font-size:0.8rem;">
+        <strong>${escHtml(memory.learner_type || 'Learner')}</strong>
+        <span style="color:var(--text-muted);">
+          · ${Math.round((memory.confidence || 0) * 100)}% confidence
+          · ${memory.evidence_count || 0} sessions of evidence
+        </span>
+      </div>
+      <p style="font-size:0.79rem;margin:6px 0 0;">${escHtml(memory.summary || '')}</p>
+      ${bullets}`;
+  }
+
+  const masteryEl = document.getElementById('lpMastery');
+  if (data.mastery && data.mastery.length) {
+    masteryEl.className = '';
+    masteryEl.innerHTML = data.mastery.map(m => `
+      <div class="tutor-mastery-row">
+        <div class="tutor-mastery-label">
+          <span>${escHtml(m.subject)} › ${escHtml(m.topic)}</span>
+          <span>${Math.round(m.mastery_score)}%</span>
+        </div>
+        <div class="tutor-mastery-track">
+          <div class="tutor-mastery-fill" style="width:${Math.max(2, Math.min(100, m.mastery_score))}%"></div>
+        </div>
+      </div>`).join('');
+  }
+
+  const mistakesEl = document.getElementById('lpMistakes');
+  if (data.mistakes && data.mistakes.length) {
+    mistakesEl.className = '';
+    mistakesEl.innerHTML = data.mistakes.map(m => `
+      <div class="tutor-mistake">
+        <div>${escHtml(m.description)}</div>
+        <div class="tutor-mistake-meta">
+          ${escHtml(m.subject)} › ${escHtml(m.topic)} · ${escHtml(m.mistake_type)} · seen ${m.frequency}×
+        </div>
+      </div>`).join('');
+  }
+
+  const recEl = document.getElementById('lpRecommendations');
+  if (data.recommendations && data.recommendations.length) {
+    recEl.className = '';
+    recEl.innerHTML = '<ul style="margin:0;padding-left:18px;font-size:0.79rem;">'
+      + data.recommendations.map(r => `<li>${escHtml(r)}</li>`).join('') + '</ul>';
+  }
+
+  if (data.modality) {
+    modalityMode    = data.modality.mode || modalityMode;
+    modalityWeights = data.modality.weights || modalityWeights;
+    renderModalitySwitcher();
+  }
+}
+
+async function importLearnerMemory() {
+  const status = document.getElementById('lpImportStatus');
+  const text = document.getElementById('lpImportText').value.trim();
+  if (!text) { status.textContent = 'Paste something to import first.'; return; }
+
+  status.textContent = 'Importing…';
+  try {
+    const res = await fetch('/api/tutor/adaptive/memory-imports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider: document.getElementById('lpImportProvider').value || 'unknown',
+        raw_text: text,
+      }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    document.getElementById('lpImportText').value = '';
+    status.textContent = 'Imported — Plani folded it into your learner model.';
+    loadDashboard();
+  } catch (err) {
+    status.textContent = 'Import failed. Try again.';
+  }
+}
+
+/* ── Interactive artifacts ──────────────────────────────────────
+   Plani can emit :::artifact{type="quiz" title="…"} … ::: blocks. Each one
+   renders in its own sandboxed iframe so the artifact's inline scripts can
+   run without touching the page. */
+
+const ARTIFACT_RE = /:::artifact\{([^}]*)\}\n([\s\S]*?):::/g;
+
+function parseArtifactAttrs(raw) {
+  const attrs = {};
+  const re = /(\w+)="([^"]*)"/g;
+  let m;
+  while ((m = re.exec(raw)) !== null) attrs[m[1]] = m[2];
+  return attrs;
+}
+
+function parseArtifacts(content) {
+  const segments = [];
+  let lastIndex = 0;
+  let match;
+  ARTIFACT_RE.lastIndex = 0;
+
+  while ((match = ARTIFACT_RE.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      const text = content.slice(lastIndex, match.index).trim();
+      if (text) segments.push({ kind: 'text', text });
+    }
+    const attrs = parseArtifactAttrs(match[1]);
+    segments.push({
+      kind: 'artifact',
+      type: attrs.type || 'html',
+      title: attrs.title || `Interactive ${attrs.type || 'content'}`,
+      content: match[2].trim(),
+    });
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < content.length) {
+    const text = content.slice(lastIndex).trim();
+    if (text) segments.push({ kind: 'text', text });
+  }
+  if (!segments.length) segments.push({ kind: 'text', text: content });
+  return segments;
+}
+
+const ARTIFACT_CSS = `
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0; padding: 14px;
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: #e8ecf4; background: #131722;
+  }
+  h1, h2, h3 { margin: 0 0 10px; font-size: 1.05rem; line-height: 1.3; }
+  p { margin: 0 0 10px; }
+  .card { background:#1b2231; border:1px solid #2b3446; border-radius:12px; padding:12px; margin-bottom:10px; }
+  .quiz-option {
+    display:block; width:100%; text-align:left; margin-bottom:8px; padding:10px 12px;
+    background:#1b2231; color:#e8ecf4; border:1px solid #2b3446; border-radius:10px;
+    cursor:pointer; font: inherit; transition: background .15s ease, border-color .15s ease;
+  }
+  .quiz-option:hover { border-color:#4f7cff; }
+  .quiz-option.correct { background:#123524; border-color:#2ea36a; }
+  .quiz-option.incorrect { background:#3a1620; border-color:#c2455e; }
+  .feedback { margin-top:8px; padding:9px 11px; border-radius:9px; font-size:0.9rem; }
+  .feedback.correct { background:#123524; color:#8ff0bd; }
+  .feedback.incorrect { background:#3a1620; color:#ffb3c0; }
+  .progress-bar { height:7px; border-radius:999px; background:#2b3446; overflow:hidden; margin:8px 0; }
+  .progress-fill { height:100%; background:#4f7cff; border-radius:999px; transition: width .3s ease; }
+  .chart-container { width:100%; overflow-x:auto; }
+  button:not(.quiz-option) {
+    padding:8px 14px; border-radius:9px; border:1px solid #4f7cff;
+    background:#4f7cff; color:#fff; cursor:pointer; font: inherit;
+  }
+  input, select, textarea {
+    padding:8px 10px; border-radius:8px; border:1px solid #2b3446;
+    background:#1b2231; color:#e8ecf4; font: inherit;
+  }
+  table { width:100%; border-collapse:collapse; font-size:0.9rem; }
+  th, td { border:1px solid #2b3446; padding:7px 9px; text-align:left; }
+  canvas, svg { max-width:100%; }
+`;
+
+function renderArtifact(segment) {
+  const wrap = document.createElement('div');
+  wrap.className = 'tutor-artifact';
+
+  const head = document.createElement('div');
+  head.className = 'tutor-artifact-head';
+  head.innerHTML = `<span>${escHtml(segment.title)}</span>
+    <span class="tutor-artifact-kind">${escHtml(segment.type)}</span>`;
+
+  const frame = document.createElement('iframe');
+  frame.setAttribute('sandbox', 'allow-scripts');
+  frame.setAttribute('title', segment.title);
+  frame.setAttribute('loading', 'lazy');
+  frame.srcdoc = `<!doctype html><html><head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <style>${ARTIFACT_CSS}</style></head><body>${segment.content}
+    <script>
+      function _postHeight() {
+        parent.postMessage({ type: 'artifact-height',
+          height: document.documentElement.scrollHeight }, '*');
+      }
+      window.addEventListener('load', _postHeight);
+      new MutationObserver(_postHeight).observe(document.body,
+        { childList: true, subtree: true, attributes: true });
+      document.addEventListener('click', () => setTimeout(_postHeight, 60));
+    <\/script></body></html>`;
+
+  frame.addEventListener('load', () => {
+    frame.dataset.artifactFrame = '1';
+  });
+
+  wrap.appendChild(head);
+  wrap.appendChild(frame);
+  return wrap;
+}
+
+/* Artifacts report their own height so nothing is clipped or over-padded. */
+window.addEventListener('message', (event) => {
+  if (!event.data || event.data.type !== 'artifact-height') return;
+  document.querySelectorAll('.tutor-artifact iframe').forEach(frame => {
+    if (frame.contentWindow === event.source) {
+      frame.style.height = Math.min(900, Math.max(120, event.data.height + 8)) + 'px';
+    }
+  });
+});
+
+function stripArtifacts(text) {
+  ARTIFACT_RE.lastIndex = 0;
+  return String(text).replace(ARTIFACT_RE, ' ').trim();
+}
+
 async function sendTutorMessage() {
   const input = document.getElementById('tutorInput');
   const text  = input.value.trim();
@@ -1224,7 +1814,11 @@ async function sendTutorMessage() {
   let refusal = null;
   try {
     let endpoint = '/api/tutor';
-    let body = { messages: tutorHistory, conversation_id: conversationId };
+    let body = {
+      messages: tutorHistory,
+      conversation_id: conversationId,
+      modality_mode: modalityMode,
+    };
     if (hasImage) {
       endpoint = '/api/tutor/vision';
       const defaultQ = solveAll
@@ -1248,6 +1842,10 @@ async function sendTutorMessage() {
     const data = await res.json();
     reply   = (data.reply || '').trim() || 'Sorry, I hit a snag. Try again.';
     refusal = data.refusal || null;
+    if (data.modality) {
+      modalityWeights = data.modality.weights || modalityWeights;
+      renderModalitySwitcher();
+    }
     if (data.conversation_id) {
       const isNew = data.conversation_id !== conversationId;
       conversationId = data.conversation_id;
@@ -1264,7 +1862,7 @@ async function sendTutorMessage() {
   setPlaniState('responding');
   addTutorMsg('bot', reply, refusal);
   tutorHistory.push({ role: 'assistant', content: reply });
-  speakReply(reply);
+  speakReply(stripArtifacts(reply));
   setTimeout(() => setPlaniState('idle'), 650);
 
   isProcessing = false;
@@ -1351,14 +1949,28 @@ function addTutorMsg(role, text, refusal) {
   const bubble = document.createElement('div');
   bubble.className = 'tutor-bubble';
   try {
-    let body = role === 'bot' ? renderMd(text) : `<p>${escHtml(text)}</p>`;
-    if (refusal && refusal.label) {
-      body = `<div class="tutor-refusal">
-        <span class="tutor-refusal-cat">Blocked: ${escHtml(refusal.label)}</span>
-        ${body}
-      </div>`;
+    if (role === 'bot' && !refusal) {
+      // Interleave prose and interactive artifacts in the order Plani sent them.
+      const segments = parseArtifacts(text);
+      for (const segment of segments) {
+        if (segment.kind === 'artifact') {
+          bubble.appendChild(renderArtifact(segment));
+        } else {
+          const block = document.createElement('div');
+          block.innerHTML = renderMd(segment.text);
+          bubble.appendChild(block);
+        }
+      }
+    } else {
+      let body = role === 'bot' ? renderMd(text) : `<p>${escHtml(text)}</p>`;
+      if (refusal && refusal.label) {
+        body = `<div class="tutor-refusal">
+          <span class="tutor-refusal-cat">Blocked: ${escHtml(refusal.label)}</span>
+          ${body}
+        </div>`;
+      }
+      bubble.innerHTML = body;
     }
-    bubble.innerHTML = body;
   } catch(e) {
     console.error('renderMd error:', e);
     bubble.innerHTML = `<p>${escHtml(text)}</p>`;

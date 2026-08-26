@@ -1065,6 +1065,32 @@ def _check_and_increment_tutor_limit():
     return True, limit - used - 1, limit
 
 
+def _prepare_adaptive_turn(modality_mode=None):
+    """Load the adaptive student model for this turn.
+
+    Returns None when the layer is unavailable (missing tables, DB trouble,
+    an import error) so the tutor falls back to the legacy heuristic memory
+    instead of failing the request.
+    """
+    try:
+        from adaptive_tutor.engine import prepare_turn
+        return prepare_turn(modality_mode)
+    except Exception as e:
+        print(f'[adaptive-tutor] prepare failed: {e}')
+        return None
+
+
+def _record_adaptive_turn(adaptive_turn, history, user_message, reply):
+    """Fold this exchange back into the durable learner memory."""
+    if not adaptive_turn:
+        return
+    try:
+        from adaptive_tutor.engine import record_turn
+        record_turn(_llm_chat, adaptive_turn, history, user_message, reply)
+    except Exception as e:
+        print(f'[adaptive-tutor] record failed: {e}')
+
+
 @chatbot_bp.route('/api/tutor', methods=['POST'])
 def tutor():
     try:
@@ -1116,10 +1142,18 @@ def tutor():
         identity_prompt = _build_identity_prompt(_load_user_identity())
         personalization_prompt = _build_personalization_prompt(depth='tutor')
 
+        # Adaptive student model — the persistent profile, mastery scores,
+        # mistake patterns, durable learner memory, and modality routing ported
+        # from the adaptive-ai-tutor architecture. Failure here degrades to the
+        # legacy heuristic memory rather than breaking the reply.
+        adaptive_turn = _prepare_adaptive_turn(data.get('modality_mode'))
+
         system_messages = [
             {'role': 'system', 'content': TUTOR_SYSTEM_PROMPT},
             {'role': 'system', 'content': memory_prompt},
         ]
+        if adaptive_turn:
+            system_messages.append({'role': 'system', 'content': adaptive_turn['prompt']})
         if identity_prompt:
             system_messages.append({'role': 'system', 'content': identity_prompt})
         if personalization_prompt:
@@ -1129,7 +1163,7 @@ def tutor():
             model='openai/gpt-oss-120b',
             messages=system_messages + recent,
             temperature=0.35,
-            max_tokens=1800,
+            max_tokens=2600 if adaptive_turn and adaptive_turn['active']['use_artifacts'] else 1800,
         ).strip()
 
         # Output-side safety: audit the model reply to catch jailbreak-compliant or unsafe output.
@@ -1169,12 +1203,22 @@ def tutor():
             new_title = _auto_title(latest_user)
         _save_conversation(convo_row['id'], messages, new_title)
 
-        return jsonify({
+        # Refresh the durable learner memory from this exchange.
+        _record_adaptive_turn(adaptive_turn, messages[:-2], latest_user, reply)
+
+        payload = {
             'reply': reply,
             'profile': profile,
             'conversation_id': convo_row['id'],
             'title': new_title or convo_row['title'],
-        })
+        }
+        if adaptive_turn:
+            payload['modality'] = {
+                'mode': adaptive_turn['mode'],
+                'weights': adaptive_turn['weights'],
+                'active': adaptive_turn['active'],
+            }
+        return jsonify(payload)
 
     except Exception as e:
         import traceback

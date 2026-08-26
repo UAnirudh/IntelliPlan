@@ -242,6 +242,11 @@ app.register_blueprint(plani_agent_bp)
 from extra_features import extras_bp
 app.register_blueprint(extras_bp)
 
+# Adaptive tutor: the persistent student model behind Plani (profile, mastery,
+# mistake patterns, durable learner memory, modality routing).
+from adaptive_tutor.api import adaptive_tutor_bp
+app.register_blueprint(adaptive_tutor_bp)
+
 #: Cookies whose SameSite attribute we manage. Anything else Flask or an
 #: extension sets is left exactly as it was.
 _SAMESITE_MANAGED_COOKIES = ("session", "remember_token")

@@ -53,6 +53,19 @@ GPA overview pulled live from your school platform. The **Grade Modeler** lets y
 ### 🤖 Plani — AI Tutor
 A dedicated AI tutor (separate from the assistant chatbot) that teaches subjects step by step — math, science, history, English, computer science, languages, economics, and test prep. It never just hands over answers; it builds understanding and checks comprehension with follow-up questions.
 
+Plani runs on an **adaptive student model** rather than a plain chat wrapper. Every reply is shaped by a persistent profile of the student:
+
+- **Learning profile** — grade level, subjects, goals, interests, and how they like explanations (style, length, difficulty). Editable from the tutor sidebar.
+- **Subject mastery** — per-topic scores on a weighted moving average (70% history, 30% newest evidence), with confidence that grows as attempts accumulate.
+- **Mistake patterns** — recurring misconceptions extracted from transcripts and tracked by frequency, so Plani watches for them instead of re-explaining blind.
+- **Durable learner memory** — an LLM-built model of how this person learns: strengths, friction points, explanation patterns that land, and strategies the tutor should use.
+- **Session summaries** — what was covered, understood, struggled with, and should be reviewed next. These also drive mastery movement.
+- **Modality routing** — auditory / visual / reading detection with an `auto` mode. Auditory learners get spoken-optimized phrasing; visual learners get more interactive artifacts.
+- **Interactive artifacts** — Plani can emit quizzes, visualizations, and interactive exercises that render in sandboxed iframes inside the chat.
+- **Memory import** — paste an export from another AI assistant and Plani folds it into the learner model.
+
+The layer lives in [`adaptive_tutor/`](adaptive_tutor) and degrades gracefully: if the analysis passes or the database are unavailable, the tutor falls back to its legacy heuristic memory rather than failing the reply.
+
 ### 🔔 Push Notifications
 Assignment deadline reminders sent as push notifications, even when the app is closed. Supports notification silencing for custom durations.
 
@@ -421,6 +434,12 @@ production (AAB) profiles ready for `eas build`.
 |---|---|---|
 | `/generate_schedule` | POST | Generate AI study schedule from assignments |
 | `/api/tutor` | POST | Plani tutor — multi-turn academic tutoring |
+| `/api/tutor/adaptive/profile` | GET/POST | Learning profile (grade, subjects, goals, explanation preferences) |
+| `/api/tutor/adaptive/dashboard` | GET | Mastery scores, mistake patterns, learner memory, recommendations |
+| `/api/tutor/adaptive/modality` | POST | Set learning modality (`auto`/`auditory`/`visual`/`reading`/`blended`) |
+| `/api/tutor/adaptive/summarize` | POST | Close a conversation — summary, mistake extraction, mastery update |
+| `/api/tutor/adaptive/memory-imports` | GET/POST | Import learner context from another AI assistant |
+| `/api/tutor/adaptive/mistakes/<id>/resolve` | POST | Mark a recurring mistake resolved |
 | `/api/chatbot` | POST | Plani assistant — IntelliPlan feature help |
 | `/study/generate` | POST | Generate flashcards + quiz from notes |
 | `/study/evaluate` | POST | AI-evaluate a student's quiz answer |
