@@ -127,7 +127,8 @@
         <li><strong>Academic data you provide or sync</strong> &mdash; assignment titles, due dates, class names, grades, test scores, course names, and notes you save.</li>
         <li><strong>Integration tokens</strong> &mdash; OAuth tokens for Google Calendar, Notion, Canvas, Schoology, and StudentVue so we can read and write the resources you connect. Tokens are stored encrypted at rest and are never shared or exposed to any third party. They are used only for actions you initiate.</li>
         <li><strong>Optional reminders data</strong> &mdash; phone number, carrier (for SMS-gateway delivery), and browser push-notification subscription, only if you opt in. You can revoke either at any time.</li>
-        <li><strong>Usage telemetry</strong> &mdash; anonymous error logs and basic event counts (e.g. &ldquo;schedule generated&rdquo;). We do <em>not</em> use session-replay, screen recording, keystroke loggers, or third-party advertising trackers.</li>
+        <li><strong>Usage telemetry</strong> &mdash; anonymous error logs and basic event counts (e.g. &ldquo;schedule generated&rdquo;). We do <em>not</em> use keystroke loggers, third-party advertising trackers, retargeting pixels, or any cross-site tracking.</li>
+        <li><strong>Product analytics (only if you allow it)</strong> &mdash; if you accept analytics cookies, we use Microsoft Clarity to see how pages are used, which includes click and scroll heatmaps and session replays of your visit. This is <em>off until you agree</em>, you can withdraw at any time on our <a href="/cookies">Cookie Policy</a> page, and it <em>never</em> runs for a student under 13. It is used only to find broken or confusing parts of IntelliPlan &mdash; never for advertising, and never sold.</li>
       </ul>
 
       <h3 id="p-use" class="anchor-target">2. How we use information</h3>
@@ -189,7 +190,9 @@
         <li><strong>Canvas</strong> (Instructure) &mdash; <a href="https://www.instructure.com/policies/privacy" target="_blank" rel="noopener noreferrer">instructure.com/policies/privacy</a></li>
         <li><strong>Resend</strong> (email and SMS gateway) &mdash; <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer">resend.com/legal/privacy-policy</a></li>
         <li><strong>Railway</strong> (hosting) &mdash; <a href="https://railway.com/legal/privacy" target="_blank" rel="noopener noreferrer">railway.com/legal/privacy</a></li>
+        <li><strong>Microsoft</strong> (Clarity product analytics, <em>only if you accept analytics cookies</em>; never for under-13s) &mdash; <a href="https://privacy.microsoft.com/privacystatement" target="_blank" rel="noopener noreferrer">privacy.microsoft.com/privacystatement</a></li>
       </ul>
+      <p>See the <a href="/cookies">Cookie Policy</a> for the full list of what is stored in your browser, what each item does, how long it lasts, and how to change your choice.</p>
       <p>You decide which integrations to connect. Disconnecting an integration in Settings revokes its token locally. We recommend you also revoke access in the provider's own security settings for completeness.</p>
       <p><strong>Google Workspace API limited-use disclosure:</strong> Our use of any raw or derived user data received from Google Workspace APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements.</p>
 
@@ -217,6 +220,16 @@
         <li><strong>Keyboard navigation</strong> &mdash; all primary navigation, the command palette, the scheduler checklist, and modal dialogs are reachable and operable by keyboard alone.</li>
         <li><strong>Screen-reader compatibility</strong> &mdash; UI elements use semantic HTML and ARIA labels where appropriate.</li>
       </ul>
+
+      <h3 id="p-cookies" class="anchor-target">10a. Cookies &amp; browser storage</h3>
+      <p>We use cookies to keep you signed in and to remember your settings. Anything that is not strictly necessary is <strong>off until you agree to it</strong>, and refusing takes exactly one click, the same as accepting.</p>
+      <ul>
+        <li><strong>Strictly necessary</strong> &mdash; your sign-in session, the &ldquo;stay signed in&rdquo; token, and the cookie that records your cookie choice. These cannot be switched off, because without them there is no sign-in.</li>
+        <li><strong>On-device preferences</strong> &mdash; your theme, accessibility settings, study-session progress and dismissed prompts are kept in your browser's <code>localStorage</code>. These never reach our servers. We list them anyway, because the law covers storage on your device whatever it is called.</li>
+        <li><strong>Analytics (optional)</strong> &mdash; Microsoft Clarity, described in &sect;1. Off unless you allow it, withdrawable at any time, and never active for a student under 13 regardless of what was clicked.</li>
+        <li><strong>No advertising cookies</strong> &mdash; we run no ad tech, no retargeting pixels, and no cross-site tracking of any kind.</li>
+      </ul>
+      <p>The complete list &mdash; every name, its purpose, who sets it, and how long it lasts &mdash; is on the <a href="/cookies">Cookie Policy</a> page, along with the controls to change your mind. That page is generated from the same list our code checks before storing anything, so it cannot silently fall out of date.</p>
 
       <h3 id="nsd" class="anchor-target">11. Northshore SD Digital Resource Review compliance</h3>
       <p>This section maps IntelliPlan's behavior directly to the NSD Digital Resource Review checklist so reviewers can verify each requirement quickly.</p>

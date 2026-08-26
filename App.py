@@ -32,6 +32,7 @@ from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
 import time
 from time_utils import utcnow
+import cookie_policy
 import policy_versions
 import desktop_auth
 import app_link
@@ -3750,6 +3751,7 @@ _SITEMAP_ENTRIES = [
     ("/install",                         "install.html",                  "2026-06-22", "monthly", "0.6"),
     ("/download",                        "download.html",                 "2026-08-14", "weekly",  "0.8"),
     ("/legal",                           "legal.html",                    "2026-06-22", "yearly",  "0.3"),
+    ("/cookies",                         "cookies.html",                  "2026-08-26", "yearly",  "0.3"),
     ("/ambassador",                      "ambassador.html",               "2026-06-22", "monthly", "0.7"),
     ("/schools",                         "schools.html",                  "2026-06-22", "monthly", "0.7"),
     ("/uk",                              "uk.html",                       "2026-06-22", "monthly", "0.7"),
@@ -7959,6 +7961,107 @@ def api_manual_classes_create():
         "skipped": skipped,
         "classes": manual_courses_payload(),
     })
+
+
+# ── Cookie consent ────────────────────────────────────────────
+#
+# Microsoft Clarity — session replay and heatmaps — used to load on every
+# page, before anyone was asked, for every visitor including children. That
+# is a non-essential tracker under ePrivacy, it needs consent first, and
+# behavioural tracking of an under-13 without verified parental consent is
+# exactly what COPPA prohibits. It now loads only when all three are true:
+# a project is configured, the visitor has said yes, and they are not a
+# child we are holding for parental consent.
+
+def _analytics_allowed():
+    """Whether a tracking script may run for this request."""
+    if not cookie_policy.analytics_available():
+        return False
+    if not cookie_policy.has_analytics_consent(
+            request.cookies.get(cookie_policy.CONSENT_COOKIE)):
+        return False
+    # A child's consent is not theirs to give. Until a parent has verified,
+    # and for anyone we know to be under 13, no analytics at all.
+    try:
+        if current_user.is_authenticated:
+            if current_user.birth_year:
+                if (utcnow().year - int(current_user.birth_year)) < 13:
+                    return False
+            if current_user.parent_email and not current_user.parent_consent_granted:
+                return False
+    except Exception:
+        return False
+    return True
+
+
+@app.context_processor
+def _inject_cookie_consent():
+    """Expose the gate to every template."""
+    try:
+        raw = request.cookies.get(cookie_policy.CONSENT_COOKIE)
+        return {
+            "analytics_allowed": _analytics_allowed(),
+            "clarity_project_id": cookie_policy.clarity_project_id(),
+            "cookie_consent_given": cookie_policy.parse_consent(raw) is not None,
+            # The banner is pointless when there is nothing to consent to.
+            "analytics_available_for_banner": cookie_policy.analytics_available(),
+        }
+    except Exception:
+        # A failure here must not blank the page; the safe default is no
+        # tracking and no banner.
+        return {"analytics_allowed": False, "clarity_project_id": "",
+                "cookie_consent_given": True,
+                "analytics_available_for_banner": False}
+
+
+@app.route("/api/cookies/consent", methods=["GET"])
+def api_cookie_consent_state():
+    raw = request.cookies.get(cookie_policy.CONSENT_COOKIE)
+    parsed = cookie_policy.parse_consent(raw)
+    return flask.jsonify({
+        "status": "ok",
+        "asked": parsed is not None,
+        "granted": parsed["granted"] if parsed else [],
+        "categories": cookie_policy.categories_payload(),
+        "analytics_available": cookie_policy.analytics_available(),
+    })
+
+
+@app.route("/api/cookies/consent", methods=["POST"])
+def api_cookie_consent_save():
+    """Record a choice. Rejecting must be exactly as easy as accepting."""
+    data = request.get_json(silent=True) or {}
+    granted = data.get("granted")
+    if not isinstance(granted, list):
+        return flask.jsonify({"status": "error",
+                              "message": "Send the categories you allow."}), 400
+
+    value = cookie_policy.serialize_consent([str(g) for g in granted])
+    response = flask.make_response(flask.jsonify({
+        "status": "ok",
+        "granted": cookie_policy.parse_consent(value)["granted"],
+    }))
+    response.set_cookie(
+        cookie_policy.CONSENT_COOKIE,
+        value,
+        max_age=cookie_policy.CONSENT_MAX_AGE,
+        samesite="Lax",
+        secure=APP_BASE_URL.startswith("https://"),
+        httponly=False,  # the banner reads it client-side to stay quiet
+    )
+    print(f"[cookies] consent recorded: {value}")
+    return response
+
+
+@app.route("/cookies")
+def cookies_page():
+    """The cookie policy, rendered from the same list the code enforces."""
+    return render_template(
+        "cookies.html",
+        categories=cookie_policy.categories_payload(),
+        analytics_available=cookie_policy.analytics_available(),
+        cookie_policy_updated=cookie_policy.LAST_UPDATED,
+    )
 
 
 # ── Policy change acknowledgement ─────────────────────────────

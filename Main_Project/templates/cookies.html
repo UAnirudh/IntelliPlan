@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block page_title %}Cookie Policy | IntelliPlan{% endblock %}
+{% block meta_description %}Exactly what IntelliPlan stores in your browser, why, for how long, and how to change your mind. No advertising trackers, ever.{% endblock %}
+{% block og_title %}Cookie Policy | IntelliPlan{% endblock %}
+{% block og_description %}Every cookie and storage key IntelliPlan uses, what it does, and how long it lasts.{% endblock %}
+
+{% block content %}
+<div class="cookie-page">
+  <h1 class="cookie-title">Cookie Policy</h1>
+  <p class="cookie-lede">
+    This lists everything IntelliPlan stores in your browser. It is generated
+    from the same list the code checks before storing anything, so it cannot
+    quietly fall out of date.
+  </p>
+  <p class="cookie-meta">Last updated {{ cookie_policy_updated }}</p>
+
+  <h2>The short version</h2>
+  <ul class="cookie-summary">
+    <li>We use cookies to keep you signed in. Those cannot be turned off, because
+      without them there is no sign-in.</li>
+    <li>Anything that is not strictly necessary is <strong>off until you say
+      yes</strong>, and you can change your mind at any time.</li>
+    <li>We run <strong>no advertising cookies, no retargeting pixels, and no
+      cross-site tracking</strong>. We do not sell data.</li>
+    <li>If you are under 13, analytics never runs, regardless of what any
+      banner was clicked.</li>
+  </ul>
+
+  {% for category in categories %}
+  <h2>{{ category.name }}{% if category.required %} <span class="cookie-tag">Always on</span>{% endif %}</h2>
+  <p class="cookie-category-summary">{{ category.summary }}</p>
+
+  <div class="cookie-table-scroll">
+    <table class="cookie-table">
+      <thead>
+        <tr>
+          <th scope="col">Name</th>
+          <th scope="col">Type</th>
+          <th scope="col">Set by</th>
+          <th scope="col">What it does</th>
+          <th scope="col">How long</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cookie in category.cookies %}
+        <tr>
+          <td><code>{{ cookie.name }}</code></td>
+          <td>{{ cookie.storage }}</td>
+          <td>
+            {% if cookie.policy_url %}
+              <a href="{{ cookie.policy_url }}" target="_blank" rel="noopener noreferrer">{{ cookie.provider }}</a>
+            {% else %}{{ cookie.provider }}{% endif %}
+          </td>
+          <td>{{ cookie.purpose }}</td>
+          <td>{{ cookie.duration }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endfor %}
+
+  <h2>Changing your mind</h2>
+  {% if analytics_available %}
+  <p>
+    Your current choice is stored in the <code>ip_cookie_consent</code> cookie.
+    Use the buttons below to change it — this takes effect immediately.
+  </p>
+  <div class="cookie-controls">
+    <button type="button" class="cookie-btn cookie-btn-secondary"
+            onclick="ipCookieSet([])">Essential only</button>
+    <button type="button" class="cookie-btn cookie-btn-primary"
+            onclick="ipCookieSet(['analytics'])">Allow analytics</button>
+    <span id="cookieChoiceMsg" role="status" aria-live="polite" class="cookie-choice-msg"></span>
+  </div>
+  {% else %}
+  <p>
+    Analytics is currently switched off for everyone, so there is nothing
+    optional to change. Only the strictly necessary items above are in use.
+  </p>
+  {% endif %}
+  <p class="cookie-note">
+    You can also clear cookies and site data in your browser settings. Doing so
+    signs you out and resets your on-device preferences.
+  </p>
+
+  <h2>Storage that never leaves your device</h2>
+  <p>
+    Several items above are <code>localStorage</code>, not cookies. They are
+    never transmitted to our servers — they exist so a refresh does not lose
+    your theme, your place in a study session, or an accessibility setting. We
+    list them anyway, because privacy law covers storage on your device
+    regardless of what it is called.
+  </p>
+
+  <h2>Questions</h2>
+  <p>
+    Email <a href="mailto:uanirudh0811@gmail.com">uanirudh0811@gmail.com</a>.
+    See also the <a href="/legal#privacy">Privacy Policy</a> and
+    <a href="/legal#terms">Terms of Service</a>.
+  </p>
+</div>
+
+<style>
+  .cookie-page {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: var(--space-6) var(--space-4) var(--space-8);
+  }
+  .cookie-title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(1.9rem, 1.4rem + 2.2vw, 2.8rem);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+    margin: 0 0 0.6rem;
+  }
+  .cookie-lede {
+    font-size: 1rem; line-height: 1.7; color: var(--text-secondary);
+    max-width: 62ch; margin: 0 0 0.4rem;
+  }
+  .cookie-meta { font-size: 0.78rem; color: var(--text-muted); margin: 0 0 var(--space-6); }
+  .cookie-page h2 {
+    font-family: var(--font-display, inherit);
+    font-size: 1.15rem; font-weight: 600; color: var(--text-primary);
+    margin: var(--space-6) 0 0.5rem;
+  }
+  .cookie-tag {
+    font-family: var(--font-body, inherit);
+    font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--text-muted); border: 1px solid var(--border);
+    border-radius: 999px; padding: 2px 8px; vertical-align: middle;
+  }
+  .cookie-summary, .cookie-page p {
+    font-size: 0.9rem; line-height: 1.7; color: var(--text-secondary);
+  }
+  .cookie-summary { padding-left: 1.2rem; margin: 0 0 var(--space-4); }
+  .cookie-summary li { margin-bottom: 6px; }
+  .cookie-category-summary { margin: 0 0 0.75rem; }
+  /* Wide content scrolls inside its own container rather than making the
+     page scroll sideways on a phone. */
+  .cookie-table-scroll { overflow-x: auto; margin-bottom: var(--space-4); }
+  .cookie-table {
+    width: 100%; border-collapse: collapse; min-width: 620px;
+    font-size: 0.82rem;
+  }
+  .cookie-table th, .cookie-table td {
+    border: 1px solid var(--border);
+    padding: 9px 11px; text-align: left; vertical-align: top;
+    line-height: 1.55;
+  }
+  .cookie-table th {
+    background: var(--bg-secondary); color: var(--text-primary);
+    font-weight: 600;
+  }
+  .cookie-table code { font-size: 0.78rem; word-break: break-word; }
+  .cookie-controls {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    margin: 0 0 var(--space-4);
+  }
+  .cookie-btn {
+    min-height: 44px; padding: 10px 18px; border-radius: 10px;
+    font-family: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+  }
+  .cookie-btn-primary { border: 1px solid var(--accent); background: var(--accent); color: #fff; }
+  .cookie-btn-secondary {
+    border: 1px solid var(--border-strong); background: transparent;
+    color: var(--text-primary);
+  }
+  .cookie-choice-msg { font-size: 0.8rem; color: var(--text-muted); }
+  .cookie-note { font-size: 0.84rem; color: var(--text-muted); }
+</style>
+
+<script>
+  async function ipCookieSet(granted) {
+    const msg = document.getElementById('cookieChoiceMsg');
+    msg.textContent = 'Saving…';
+    try {
+      const r = await fetch('/api/cookies/consent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ granted: granted }),
+      });
+      if (!r.ok) throw new Error('failed');
+      msg.textContent = granted.length
+        ? 'Analytics allowed. Reloading…'
+        : 'Analytics off. Reloading…';
+      /* Reload either way: the tracking script is injected server-side, so
+         withdrawing consent has to re-render the page to actually remove it. */
+      setTimeout(() => window.location.reload(), 500);
+    } catch (e) {
+      msg.textContent = 'Could not save that. Please try again.';
+    }
+  }
+</script>
+{% endblock %}

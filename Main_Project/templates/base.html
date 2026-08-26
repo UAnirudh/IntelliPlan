@@ -414,13 +414,23 @@ body {
   }
 }
 </style>
+{# Microsoft Clarity — session replay and heatmaps.
+   This used to load unconditionally, with the project id hardcoded here, for
+   every visitor including children and before anyone was asked. Clarity is a
+   non-essential tracker: ePrivacy requires consent before it runs, and COPPA
+   forbids behavioural tracking of an under-13 without verified parental
+   consent. It now renders only when a project is configured, the visitor has
+   consented, and they are not a child awaiting a parent. Set
+   CLARITY_PROJECT_ID empty to switch it off product-wide. #}
+{% if analytics_allowed and clarity_project_id %}
 <script type="text/javascript">
     (function(c,l,a,r,i,t,y){
         c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
         t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
         y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-    })(window, document, "clarity", "script", "x22981gfva");
+    })(window, document, "clarity", "script", {{ clarity_project_id|tojson }});
 </script>
+{% endif %}
 </head>
 
 {% set _app_pages = ['dashboard','scheduler','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','olympiad','memories','pet','command_center','balance','features','accessibility','text_dissector','my_stats'] %}
@@ -3348,6 +3358,82 @@ window.addEventListener('load',()=>{
   else init();
 })();
 </script>
+
+{# ── Cookie consent ────────────────────────────────────────────
+   Rendered only when there is something to consent to and we have not asked.
+   "Reject" sits beside "Accept" at equal weight: a refusal that takes more
+   clicks than agreement is not freely given consent. #}
+{% if analytics_available_for_banner and not cookie_consent_given %}
+<div id="ipCookieBanner" class="ip-cookie-banner" role="region"
+     aria-label="Cookie choices">
+  <div class="ip-cookie-inner">
+    <div class="ip-cookie-text">
+      <strong>We use cookies to keep you signed in.</strong>
+      We would also like to see which parts of IntelliPlan are confusing or
+      broken, which uses Microsoft Clarity. That is your call, and nothing
+      here is used for advertising or sold.
+      <a href="/cookies">What we store</a>
+    </div>
+    <div class="ip-cookie-actions">
+      <button type="button" class="ip-cookie-btn ip-cookie-secondary"
+              onclick="ipCookieChoose([])">Essential only</button>
+      <button type="button" class="ip-cookie-btn ip-cookie-primary"
+              onclick="ipCookieChoose(['analytics'])">Allow analytics</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .ip-cookie-banner {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 2900;
+    padding: 0.9rem 1rem;
+    background: var(--bg-primary, var(--surface));
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 24px rgba(15, 23, 42, 0.12);
+  }
+  .ip-cookie-inner {
+    max-width: 1000px; margin: 0 auto;
+    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  }
+  .ip-cookie-text {
+    flex: 1 1 320px;
+    font-size: 0.82rem; line-height: 1.6; color: var(--text-secondary);
+  }
+  .ip-cookie-text strong { color: var(--text-primary); }
+  .ip-cookie-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ip-cookie-btn {
+    min-height: 44px; padding: 10px 18px;
+    border-radius: 10px; font-family: inherit; font-size: 0.83rem;
+    font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+  .ip-cookie-primary { border: 1px solid var(--accent); background: var(--accent); color: #fff; }
+  .ip-cookie-secondary {
+    border: 1px solid var(--border-strong); background: transparent;
+    color: var(--text-primary);
+  }
+  @media (max-width: 560px) {
+    .ip-cookie-actions { width: 100%; }
+    .ip-cookie-btn { flex: 1; }
+  }
+</style>
+
+<script>
+  function ipCookieChoose(granted) {
+    const banner = document.getElementById('ipCookieBanner');
+    fetch('/api/cookies/consent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ granted: granted }),
+    }).then(() => {
+      if (banner) banner.remove();
+      /* Analytics is injected server-side on the next render, so allowing it
+         needs a reload to take effect. Declining needs nothing — the script
+         was never sent. */
+      if (granted.length) window.location.reload();
+    }).catch(() => { if (banner) banner.remove(); });
+  }
+</script>
+{% endif %}
 
 {# ── Policy change notice ──────────────────────────────────────
    When the Terms or Privacy Policy change, the people bound by them get
