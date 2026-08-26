@@ -637,8 +637,8 @@ main {
 }
 .tutor-mastery-fill { height: 100%; border-radius: 999px; background: var(--accent); }
 .tutor-mistake {
-  border-left: 3px solid var(--high, var(--accent));
-  padding: 4px 0 4px 9px; margin-bottom: 8px; font-size: 0.78rem;
+  border-left: 1px solid var(--border);
+  padding: 4px 0 4px 10px; margin-bottom: 8px; font-size: 0.78rem;
 }
 .tutor-mistake-meta { color: var(--text-muted); font-size: 0.7rem; }
 .tutor-panel-empty { font-size: 0.78rem; color: var(--text-muted); }
@@ -1706,7 +1706,9 @@ const ARTIFACT_CSS = `
   .feedback.correct { background:#123524; color:#8ff0bd; }
   .feedback.incorrect { background:#3a1620; color:#ffb3c0; }
   .progress-bar { height:7px; border-radius:999px; background:#2b3446; overflow:hidden; margin:8px 0; }
-  .progress-fill { height:100%; background:#4f7cff; border-radius:999px; transition: width .3s ease; }
+  /* Width is the sizing mechanism artifacts set inline; it is deliberately
+     not transitioned — animating width thrashes layout inside the frame. */
+  .progress-fill { height:100%; background:#4f7cff; border-radius:999px; }
   .chart-container { width:100%; overflow-x:auto; }
   button:not(.quiz-option) {
     padding:8px 14px; border-radius:9px; border:1px solid #4f7cff;
