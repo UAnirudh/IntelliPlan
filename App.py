@@ -4661,21 +4661,36 @@ def api_lms_connect(provider):
                             "message": "That doesn't look like a valid Blackboard URL. "
                                        "Use your school's Blackboard address, e.g. https://learn.myschool.edu."}), 400
         redirect_uri = _blackboard_redirect_uri()
+
+        # Check the key against this institution *before* sending the student
+        # away. Without this the flow fails on Blackboard's own host, after
+        # sign-in, on a raw JSON error page the student cannot act on or
+        # navigate back from.
+        verdict, detail = _blackboard_preflight(institution, client_id, redirect_uri)
+        if verdict == "not_registered":
+            print(f"[blackboard] {institution} rejected our application key: {detail}")
+            if client_id and client_id == _blackboard_application_id():
+                # The two portal values were swapped. Blackboard rejects the
+                # Application ID as a client_id on every instance, so this
+                # looks like "no school has approved us" until someone checks.
+                print("[blackboard] MISCONFIGURED: the application key equals the "
+                      "Application ID. client_id must be the application *key* "
+                      "from the developer portal.")
+            return jsonify(_blackboard_not_registered_payload(institution)), 200
+        if verdict == "unreachable":
+            print(f"[blackboard] {institution} unreachable during preflight: {detail}")
+            return jsonify({
+                "status": "error",
+                "message": "Could not reach that Blackboard address. Check the URL "
+                           "with your school — it should look like "
+                           "https://learn.myschool.edu.",
+            }), 400
+
         state = secrets_module.token_urlsafe(24)
         session["lms_oauth_state"] = state
         session["lms_oauth_provider"] = "blackboard"
         session["blackboard_institution_url"] = institution
-        # Blackboard's standard scope grants read access to the user's courses
-        # and gradebook columns (assignments).
-        scope = "read"
-        auth_url = (
-            f"{institution}/learn/api/public/v1/oauth2/authorizationcode"
-            f"?client_id={urllib.parse.quote(client_id, safe='')}"
-            f"&redirect_uri={urllib.parse.quote(redirect_uri, safe='')}"
-            f"&response_type=code"
-            f"&scope={urllib.parse.quote(scope, safe='')}"
-            f"&state={urllib.parse.quote(state, safe='')}"
-        )
+        auth_url = _blackboard_authorize_url(institution, client_id, redirect_uri, state)
         return jsonify({"status": "ok", "url": auth_url})
 
     # Remaining provider: google_classroom (already implemented above).
@@ -4871,6 +4886,157 @@ def _blackboard_credentials():
     return cid, sec
 
 
+def _blackboard_application_id():
+    """The Application ID a Learn admin registers on their instance.
+
+    Distinct from the application *key* sent as ``client_id``. The admin pastes
+    this into System Admin -> Integrations -> REST API Integrations; until they
+    do, that Learn instance rejects our key with ``invalid client_id``. Surface
+    it so the student can hand their admin the exact value.
+    """
+    return (os.getenv("BLACKBOARD_APPLICATION_ID") or "").strip()
+
+
+def _blackboard_scope():
+    """OAuth scopes requested from Blackboard.
+
+    ``offline`` is not optional: without it Blackboard returns no refresh
+    token, so the connection dies at the first token expiry (about an hour)
+    and ``_blackboard_refresh_token`` can never run. The original ``read``-only
+    scope made every Blackboard connection silently temporary.
+    """
+    return (os.getenv("BLACKBOARD_SCOPE") or "read offline").strip()
+
+
+#: Blackboard's wording when the application key is not valid on that instance.
+_BB_INVALID_CLIENT_MARKERS = ("invalid client_id", "invalid_client", "illegalargument")
+
+#: The subset that specifically means "this key is unknown here". A bare
+#: ``invalid_client`` at the token step is more often our own bad secret, and
+#: telling the student to go find an administrator would send them nowhere.
+_BB_UNREGISTERED_MARKERS = ("invalid client_id", "illegalargument")
+
+
+def _blackboard_authorize_url(institution_url, client_id, redirect_uri, state):
+    """Build the 3LO authorization URL for one institution's Learn host."""
+    return (
+        f"{institution_url}/learn/api/public/v1/oauth2/authorizationcode"
+        f"?client_id={urllib.parse.quote(client_id, safe='')}"
+        f"&redirect_uri={urllib.parse.quote(redirect_uri, safe='')}"
+        f"&response_type=code"
+        f"&scope={urllib.parse.quote(_blackboard_scope(), safe='')}"
+        f"&state={urllib.parse.quote(state, safe='')}"
+    )
+
+
+def _resolves_to_public_host(url):
+    """True when every address behind ``url`` is publicly routable.
+
+    The Blackboard preflight makes a *server-side* request to a host the user
+    typed, which is an SSRF primitive unless the target is checked: a pasted
+    ``http://169.254.169.254`` or an internal hostname would otherwise have
+    IntelliPlan fetch it and report what came back. Loopback, link-local,
+    private, and other reserved ranges are refused.
+    """
+    import ipaddress
+    import socket
+
+    try:
+        host = urllib.parse.urlparse(url).hostname
+    except Exception:
+        return False
+    if not host:
+        return False
+
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except OSError:
+        # Unresolvable — let the caller report it as an unreachable host.
+        return False
+
+    for info in infos:
+        try:
+            addr = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            return False
+        if (addr.is_private or addr.is_loopback or addr.is_link_local
+                or addr.is_reserved or addr.is_multicast or addr.is_unspecified):
+            return False
+    return True
+
+
+def _blackboard_preflight(institution_url, client_id, redirect_uri):
+    """Ask the school's Learn host whether it will accept our application key.
+
+    The reported failure: the student reaches their school's sign-in page,
+    authenticates, and then lands on a raw Blackboard JSON body reading
+    ``{"code":"illegalArgument","message":"invalid client_id"}``. That comes
+    from the authorization endpoint, on the school's host, after login — so
+    nothing in our callback ever runs and the student is left staring at an
+    API error with no way back.
+
+    Blackboard rejects the key like that when the institution has not
+    registered our Application ID (System Admin -> Integrations -> REST API
+    Integrations, End User Access = Yes), or when the configured value is the
+    Application ID rather than the application *key*. Both are detectable
+    before we redirect: the same GET returns that JSON immediately for an
+    unknown key, and a redirect to the sign-in page for a good one.
+
+    Returns ``("ok", None)``, ``("not_registered", detail)``, or
+    ``("unreachable", detail)``. Fails open — a probe that cannot reach the
+    host in time must not block a connection that would have worked.
+    """
+    if not _resolves_to_public_host(institution_url):
+        return "unreachable", "host is not a public address"
+
+    probe_state = secrets_module.token_urlsafe(8)
+    url = _blackboard_authorize_url(institution_url, client_id, redirect_uri, probe_state)
+    try:
+        r = requests.get(url, allow_redirects=False, timeout=8)
+    except requests.exceptions.RequestException as e:
+        return "unreachable", str(e)[:200]
+
+    # A valid key sends the student to the institution's sign-in page.
+    if r.status_code in (301, 302, 303, 307, 308):
+        return "ok", None
+
+    body = (r.text or "")[:500]
+    lowered = body.lower()
+    if r.status_code >= 400 and any(m in lowered for m in _BB_INVALID_CLIENT_MARKERS):
+        return "not_registered", body
+
+    if r.status_code >= 400:
+        # Unknown rejection — log it, but let the student proceed rather than
+        # blocking on a response shape we do not recognise.
+        print(f"[blackboard preflight] HTTP {r.status_code} from {institution_url}: {body[:200]}")
+    return "ok", None
+
+
+def _blackboard_not_registered_payload(institution_url):
+    """What to tell a student whose school has not enabled the integration."""
+    app_id = _blackboard_application_id()
+    steps = [
+        "Ask your Blackboard administrator to open System Admin -> Integrations "
+        "-> REST API Integrations.",
+        f"Add the Application ID {app_id}." if app_id
+        else "Add IntelliPlan's Application ID (contact support@intelliplan.tech for it).",
+        "Set End User Access to Yes so students can sign in with their own account.",
+    ]
+    return {
+        "status": "not_registered",
+        "provider": "blackboard",
+        "institution_url": institution_url,
+        "application_id": app_id or None,
+        "message": (
+            "Your school's Blackboard has not enabled IntelliPlan yet, so the "
+            "sign-in ends with \"invalid client_id\". A Blackboard administrator "
+            "needs to approve the integration first."
+        ),
+        "admin_steps": steps,
+        "fallback": "manual",
+    }
+
+
 def _blackboard_redirect_uri():
     """The redirect URI registered in the Anthology developer portal.
 
@@ -4921,13 +5087,27 @@ def _blackboard_token_request(institution_url, payload):
     ``unauthorized_client``, …). Surface it in the exception message so the
     callback can log and report a real reason instead of "FAILED".
     """
+    endpoint = f"{institution_url}/learn/api/public/v1/oauth2/token"
     r = requests.post(
-        f"{institution_url}/learn/api/public/v1/oauth2/token",
+        endpoint,
         headers={"Authorization": _blackboard_basic_auth_header(),
                  "Content-Type": "application/x-www-form-urlencoded"},
         data=payload,
         timeout=20,
     )
+
+    # Some Learn instances reject the Basic header and want the credentials in
+    # the form body instead. Both are legal OAuth 2.0; retry the other way
+    # before giving up, rather than reporting a working integration as broken.
+    if r.status_code in (400, 401) and "invalid_client" in (r.text or "").lower():
+        cid, sec = _blackboard_credentials()
+        r = requests.post(
+            endpoint,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data={**payload, "client_id": cid, "client_secret": sec},
+            timeout=20,
+        )
+
     if r.status_code != 200:
         raise RuntimeError(f"Blackboard token endpoint HTTP {r.status_code}: {r.text[:300]}")
     try:
@@ -5303,6 +5483,9 @@ def api_lms_callback(provider):
     code = request.args.get("code", "")
     if not code:
         denied = request.args.get("error") or "no_code"
+        described = f"{denied} {request.args.get('error_description', '')}".lower()
+        if any(m in described for m in _BB_UNREGISTERED_MARKERS):
+            denied = "not_registered"
         return redirect(f"/connect?lms_error=1&lms_provider={provider}&reason={urllib.parse.quote(denied[:40])}")
 
     if provider == "blackboard":
@@ -5318,7 +5501,10 @@ def api_lms_callback(provider):
             if not access:
                 print(f"[blackboard callback] no access_token: {tok}")
                 return redirect("/connect?lms_error=1&lms_provider=blackboard&reason=no_token")
-            info = _blackboard_get_userinfo(institution, access)
+            # Blackboard returns the user's UUID with the token; prefer it over
+            # a second call to /users/me, which some instances restrict.
+            info = {"id": tok.get("user_id")} if tok.get("user_id") else {}
+            info = {**_blackboard_get_userinfo(institution, access), **{k: v for k, v in info.items() if v}}
             row = BlackboardIntegration.query.filter_by(user_id=current_user.id).order_by(BlackboardIntegration.id.desc()).first()
             now = utcnow()
             if not row:
@@ -5336,7 +5522,16 @@ def api_lms_callback(provider):
             print(f"[blackboard callback] connected {row.bb_username or current_user.email}")
         except Exception as e:
             print(f"[blackboard callback] FAILED: {e}")
-            reason = "redirect_mismatch" if "redirect" in str(e).lower() else "token_exchange"
+            lowered = str(e).lower()
+            if "redirect" in lowered:
+                reason = "redirect_mismatch"
+            elif any(m in lowered for m in _BB_UNREGISTERED_MARKERS):
+                # The school has not approved the integration (or approved a
+                # different Application ID). Name it so the student knows this
+                # is an admin action, not something they did wrong.
+                reason = "not_registered"
+            else:
+                reason = "token_exchange"
             return redirect(f"/connect?lms_error=1&lms_provider=blackboard&reason={reason}")
         return redirect("/connect?lms_connected=blackboard")
 

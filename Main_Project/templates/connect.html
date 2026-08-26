@@ -189,6 +189,12 @@
           const d = await r.json();
           if (d.status === 'ok' && d.url) {
             window.location.href = d.url;
+          } else if (d.status === 'not_registered') {
+            /* The school has not approved the integration. Sending the student
+               on anyway ends at a raw Blackboard JSON error after they have
+               already typed their password — show the admin steps instead. */
+            showBlackboardAdminSteps(d);
+            btn.disabled = false; btn.textContent = 'Continue to Blackboard';
           } else {
             msg.style.display='block'; msg.style.color='var(--danger)';
             msg.textContent = d.message || 'Could not start Blackboard sign-in.';
@@ -200,6 +206,49 @@
           btn.disabled = false; btn.textContent = 'Continue to Blackboard';
         }
       }
+      /* Blackboard rejects our application key until the school's admin
+         registers it. That failure used to surface as a raw API error on
+         Blackboard's own host — after sign-in, with no way back. Render the
+         exact steps their administrator needs instead. */
+      function showBlackboardAdminSteps(data) {
+        const host = document.getElementById('blackboardForm') || formHost();
+        let box = document.getElementById('bbAdminSteps');
+        if (!box) {
+          box = document.createElement('div');
+          box.id = 'bbAdminSteps';
+          box.style.cssText = 'margin-top:12px;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--bg-secondary);';
+          host.appendChild(box);
+        }
+        const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const steps = (data.admin_steps || []).map(s => `<li>${esc(s)}</li>`).join('');
+        const appId = data.application_id
+          ? `<div style="margin-top:10px;font-size:0.78rem;">
+               Application ID:
+               <code id="bbAppId" style="user-select:all;padding:2px 6px;border-radius:6px;background:var(--glass-btn-bg);">${esc(data.application_id)}</code>
+               <button type="button" onclick="bbCopyAppId()"
+                 style="margin-left:6px;padding:3px 9px;border-radius:7px;border:1px solid var(--border-strong);background:transparent;color:var(--text-primary);font:inherit;font-size:0.74rem;cursor:pointer;">Copy</button>
+             </div>`
+          : '';
+        box.innerHTML = `
+          <div style="font-weight:600;font-size:0.9rem;margin-bottom:6px;">Your school hasn't approved IntelliPlan yet</div>
+          <p style="font-size:0.79rem;color:var(--text-muted);line-height:1.55;margin:0 0 10px;">${esc(data.message || '')}</p>
+          <ol style="margin:0;padding-left:18px;font-size:0.79rem;line-height:1.6;">${steps}</ol>
+          ${appId}
+          <p style="font-size:0.76rem;color:var(--text-muted);margin:12px 0 0;">
+            In the meantime you can add your classes manually and IntelliPlan will still plan your week.
+          </p>`;
+        box.scrollIntoView({behavior:'smooth'});
+      }
+
+      function bbCopyAppId() {
+        const el = document.getElementById('bbAppId');
+        if (!el) return;
+        navigator.clipboard?.writeText(el.textContent.trim())
+          .then(() => lmsBanner('Application ID copied — send it to your Blackboard admin.'))
+          .catch(() => {});
+      }
+
       function showMoodleForm() {
         if (document.getElementById('moodleForm')) { document.getElementById('moodleForm').scrollIntoView({behavior:'smooth'}); return; }
         const wrap = document.createElement('div');
@@ -444,6 +493,8 @@
           redirect_mismatch: "this site's redirect URL is not registered with your school yet",
           access_denied: 'access was declined on the sign-in screen',
           no_code: 'the sign-in was cancelled before it finished',
+          not_registered: 'your school has not approved the IntelliPlan integration yet — '
+                          + 'a Blackboard administrator needs to enable it',
         };
         const why = reasons[q.get('reason')] || 'something went wrong on the way back';
         lmsBanner(`Could not finish connecting ${provider} — ${why}.`);

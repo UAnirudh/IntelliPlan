@@ -82,7 +82,7 @@ Full light/dark theme support with preference saved across sessions.
 | **Google Classroom** | Auto-imports active courses and coursework via Google OAuth |
 | **StudentVue** | Auto-imports assignments and missing work via the StudentVue API |
 | **Schoology** | Auto-imports assignments via API key + secret |
-| **Blackboard Learn** | Connects to an institution's Learn URL with OAuth 2.0 and imports gradebook due dates |
+| **Blackboard Learn** | Connects to an institution's Learn URL with OAuth 2.0 (3LO) and imports gradebook due dates. Each school's Blackboard administrator must first register IntelliPlan's Application ID under System Admin → Integrations → REST API Integrations with End User Access enabled; until they do, `/connect` shows the student the exact steps instead of starting a sign-in that cannot finish |
 | **Moodle** | Connects to a Moodle URL plus web-services token and imports assignments/events |
 | **Google Calendar** | One-click export of AI-generated study schedules; OAuth 2.0 with PKCE |
 | **Notion** | Two-way task sync with your Notion databases via integration token |
@@ -214,8 +214,15 @@ GOOGLE_CLASSROOM_CLIENT_ID=
 GOOGLE_CLASSROOM_CLIENT_SECRET=
 
 # Blackboard Learn OAuth (optional)
-BLACKBOARD_CLIENT_ID=
-BLACKBOARD_CLIENT_SECRET=
+# The developer portal shows three values and they are NOT interchangeable.
+# The application *key* goes here; putting the Application ID in this slot
+# makes Blackboard reject the sign-in with "invalid client_id".
+BLACKBOARD_APP_KEY=
+BLACKBOARD_APP_SECRET=
+# The Application ID each school's Blackboard admin registers under
+# System Admin -> Integrations -> REST API Integrations (End User Access: Yes).
+BLACKBOARD_APPLICATION_ID=
+BLACKBOARD_SCOPE=read offline
 
 # Moodle web services (optional; enabled by default)
 MOODLE_ENABLED=1

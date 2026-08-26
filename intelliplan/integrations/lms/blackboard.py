@@ -3,8 +3,12 @@
 API reference: https://developer.blackboard.com/portal/displayApi
 Required env vars:
   BLACKBOARD_BASE_URL    — e.g. https://blackboard.myschool.edu
-  BLACKBOARD_APP_KEY     — from Blackboard Developer Portal
-  BLACKBOARD_APP_SECRET  — from Blackboard Developer Portal
+  BLACKBOARD_APP_KEY     — the application *key* from the Developer Portal.
+                           NOT the Application ID: Blackboard answers the
+                           authorization endpoint with
+                           ``{"code":"illegalArgument","message":"invalid
+                           client_id"}`` when the ID is sent as client_id.
+  BLACKBOARD_APP_SECRET  — the matching secret
 """
 
 from __future__ import annotations
@@ -48,11 +52,13 @@ class BlackboardProvider(LMSProvider):
         return bool(_base_url() and key and secret)
 
     def get_authorize_url(self, *, user_id: int, redirect_uri: str, state: str) -> str:
+        # ``offline`` is required for a refresh token; with ``read`` alone the
+        # connection expires within the hour and cannot be renewed.
         params = {
             "response_type": "code",
             "client_id": _credentials()[0],
             "redirect_uri": redirect_uri,
-            "scope": "read",
+            "scope": os.getenv("BLACKBOARD_SCOPE", "read offline").strip(),
             "state": state,
         }
         return f"{_base_url()}/learn/api/public/v1/oauth2/authorizationcode?{urllib.parse.urlencode(params)}"
