@@ -32,6 +32,7 @@ from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
 import time
 from time_utils import utcnow
+import policy_versions
 import desktop_auth
 import app_link
 from studentvue_helper import (
@@ -863,6 +864,122 @@ class ManualCourse(db.Model):
             "color": self.color or "",
             "source": "manual",
         }
+
+
+class SchoolOutreachLead(db.Model):
+    """A student telling us their school has not enabled IntelliPlan.
+
+    Every LMS that uses OAuth — Blackboard, Google Classroom, and Canvas or
+    Schoology at districts that lock down API access — requires the school to
+    approve IntelliPlan before a student can connect. Nothing in the product
+    could act on that: the student hit a wall, and we never learned which
+    school it was. This is the record that lets us contact the district.
+    """
+    __tablename__ = "school_outreach_leads"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    guest_session_id = db.Column(db.String(64), nullable=True, index=True)
+
+    school_name = db.Column(db.String(256), nullable=False)
+    district = db.Column(db.String(256), default="")
+    platform = db.Column(db.String(64), default="")       # canvas, blackboard, ...
+    school_url = db.Column(db.String(512), default="")    # their LMS address
+    country_region = db.Column(db.String(128), default="")
+
+    #: Optional — a student who knows who to ask can hand us the contact
+    #: directly, which shortcuts weeks of finding the right person.
+    it_contact_name = db.Column(db.String(256), default="")
+    it_contact_email = db.Column(db.String(255), default="")
+    it_contact_phone = db.Column(db.String(64), default="")
+
+    student_email = db.Column(db.String(255), default="")  # to notify on approval
+    notes = db.Column(db.Text, default="")
+
+    status = db.Column(db.String(32), default="new", index=True)  # new/contacted/approved/declined
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "school_name": self.school_name,
+            "district": self.district or "",
+            "platform": self.platform or "",
+            "school_url": self.school_url or "",
+            "status": self.status,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class ManualEntryReason(db.Model):
+    """Why a student typed their classes instead of connecting an account.
+
+    Manual entry is the fallback, so a spike in it is the clearest early
+    signal that a school's integration is broken or unapproved — but only if
+    we ask. Answering is optional and the question is asked once.
+    """
+    __tablename__ = "manual_entry_reasons"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    guest_session_id = db.Column(db.String(64), nullable=True, index=True)
+
+    #: One of MANUAL_ENTRY_REASONS below, or "other".
+    reason = db.Column(db.String(64), nullable=False, index=True)
+    detail = db.Column(db.Text, default="")
+    platform = db.Column(db.String(64), default="")
+    school_name = db.Column(db.String(256), default="")
+    #: Set when the student went on to fill in the school outreach form.
+    outreach_lead_id = db.Column(db.Integer, db.ForeignKey("school_outreach_leads.id"), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+
+#: Offered on the manual-entry questionnaire. Kept as data so the API, the
+#: UI, and the analytics rollup cannot drift apart.
+MANUAL_ENTRY_REASONS = [
+    ("connect_error", "I got an error connecting my school account"),
+    ("school_not_approved", "My school has not approved IntelliPlan"),
+    ("platform_unsupported", "My school uses a platform you do not support"),
+    ("no_school_account", "I do not have a school login"),
+    ("prefer_manual", "I would rather type my classes in myself"),
+    ("other", "Something else"),
+]
+
+#: Platforms offered on both forms.
+OUTREACH_PLATFORMS = [
+    ("canvas", "Canvas"),
+    ("blackboard", "Blackboard Learn"),
+    ("schoology", "Schoology"),
+    ("google_classroom", "Google Classroom"),
+    ("studentvue", "StudentVue"),
+    ("moodle", "Moodle"),
+    ("powerschool", "PowerSchool"),
+    ("infinite_campus", "Infinite Campus"),
+    ("aeries", "Aeries"),
+    ("brightspace", "D2L Brightspace"),
+    ("other", "Something else"),
+]
+
+
+class PolicyAcknowledgement(db.Model):
+    """A record that this person accepted a specific version of a document.
+
+    Consent that cannot be evidenced is not much use if it is ever
+    questioned, so each row keeps who, which document, which version, and
+    when. One row per (owner, doc) — the latest accepted version wins.
+    """
+    __tablename__ = "policy_acknowledgements"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    guest_session_id = db.Column(db.String(64), nullable=True, index=True)
+    doc = db.Column(db.String(32), nullable=False, index=True)   # terms | privacy
+    version = db.Column(db.Integer, nullable=False)
+    acknowledged_at = db.Column(db.DateTime, default=datetime.utcnow)
+    #: Truncated for evidence without keeping a precise location history.
+    user_agent = db.Column(db.String(256), default="")
+
+    __table_args__ = (
+        db.Index("ix_policy_ack_owner_doc", "user_id", "guest_session_id", "doc"),
+    )
 
 
 class SavedSchedule(db.Model):
@@ -7162,8 +7279,8 @@ def _handle_google_callback():
         if return_to:
             print(f"[GOOGLE CALLBACK] redirecting to partner return_to={return_to!r}")
             return redirect(return_to)
-        return redirect("/command-center")
-    return redirect("/command-center")
+        return redirect(_post_google_destination(user, "/command-center"))
+    return redirect(_post_google_destination(user, "/command-center"))
 
 
 def _google_oauth_unverified():
@@ -7536,6 +7653,19 @@ def _account_delete_impl():
         ("app_link_codes", "DELETE FROM app_link_codes WHERE user_id = :uid"),
         ("accessibility_prefs", "DELETE FROM accessibility_prefs WHERE user_id = :uid"),
         ("student_profiles", "DELETE FROM student_profiles WHERE user_id = :uid"),
+        # The record of accepting a policy version dies with the account: the
+        # only reason to hold it is to evidence one specific person's consent,
+        # and once they are gone there is nobody to evidence it for.
+        ("policy_acknowledgements", "DELETE FROM policy_acknowledgements WHERE user_id = :uid"),
+        # Survey answers and school leads are unlinked rather than dropped.
+        # "three students at Lincoln High could not connect" stays true and
+        # useful after one of them leaves, and with user_id cleared the row no
+        # longer identifies anybody. it_contact_email is a school's work
+        # address, not the departing student's personal data.
+        ("school_outreach_leads",
+         "UPDATE school_outreach_leads SET user_id = NULL, student_email = '' WHERE user_id = :uid"),
+        ("manual_entry_reasons",
+         "UPDATE manual_entry_reasons SET user_id = NULL WHERE user_id = :uid"),
 
         # ── Tasks + scheduling ─────────────────────────────────────────
         ("manual_tasks", "DELETE FROM manual_tasks WHERE user_id = :uid"),
@@ -7828,6 +7958,240 @@ def api_manual_classes_create():
         "created": [r.to_dict() for r in created],
         "skipped": skipped,
         "classes": manual_courses_payload(),
+    })
+
+
+# ── Policy change acknowledgement ─────────────────────────────
+
+def _policy_ack_row(doc):
+    query = PolicyAcknowledgement.query.filter(PolicyAcknowledgement.doc == doc)
+    if current_user.is_authenticated:
+        query = query.filter(PolicyAcknowledgement.user_id == current_user.id)
+    else:
+        query = query.filter(
+            PolicyAcknowledgement.guest_session_id == get_guest_session_id())
+    return query.order_by(PolicyAcknowledgement.version.desc()).first()
+
+
+def _policy_accepted_version(doc):
+    """The version this person has accepted.
+
+    Someone with no record predates the acknowledgement system, so they are
+    credited with the baseline. Shipping this must not confront every
+    existing user with a notice about a document that has not changed.
+    """
+    row = _policy_ack_row(doc)
+    if row:
+        return int(row.version or 0)
+    return policy_versions.baseline_version(doc)
+
+
+@app.route("/api/policy/pending", methods=["GET"])
+def api_policy_pending():
+    """Which documents this person still needs to read and accept."""
+    try:
+        pending = []
+        for doc in policy_versions.all_docs():
+            described = policy_versions.describe(doc, _policy_accepted_version(doc))
+            if described:
+                pending.append(described)
+        return flask.jsonify({"status": "ok", "pending": pending})
+    except Exception as e:
+        # A notice that fails to render must never take the page with it.
+        print(f"[policy] pending failed: {e}")
+        return flask.jsonify({"status": "ok", "pending": []})
+
+
+@app.route("/api/policy/acknowledge", methods=["POST"])
+def api_policy_acknowledge():
+    data = request.get_json(silent=True) or {}
+    doc = str(data.get("doc") or "").strip().lower()[:32]
+    if doc not in policy_versions.POLICY_DOCS:
+        return flask.jsonify({"status": "error", "message": "Unknown document."}), 400
+
+    try:
+        version = int(data.get("version"))
+    except (TypeError, ValueError):
+        return flask.jsonify({"status": "error", "message": "Missing version."}), 400
+
+    current = policy_versions.current_version(doc)
+    if version > current:
+        return flask.jsonify({"status": "error",
+                              "message": "That version does not exist."}), 400
+
+    row = _policy_ack_row(doc)
+    if row and int(row.version or 0) >= version:
+        return flask.jsonify({"status": "ok", "version": row.version})
+
+    owner = ({"user_id": current_user.id} if current_user.is_authenticated
+             else {"guest_session_id": get_guest_session_id()})
+    db.session.add(PolicyAcknowledgement(
+        doc=doc,
+        version=version,
+        user_agent=(request.headers.get("User-Agent") or "")[:256],
+        **owner,
+    ))
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[policy] acknowledge failed: {e}")
+        return flask.jsonify({"status": "error",
+                              "message": "Could not record that. Please try again."}), 500
+
+    print(f"[policy] {doc} v{version} acknowledged")
+    return flask.jsonify({"status": "ok", "version": version})
+
+
+# ── School outreach + manual-entry survey ─────────────────────
+#
+# Both answer the same question from two directions: which schools are
+# blocking their students from connecting, and how do we reach them.
+
+def _outreach_owner():
+    if current_user.is_authenticated:
+        return {"user_id": current_user.id}
+    return {"guest_session_id": get_guest_session_id()}
+
+
+def _outreach_owner_filter(model):
+    if current_user.is_authenticated:
+        return model.user_id == current_user.id
+    return model.guest_session_id == get_guest_session_id()
+
+
+def _has_submitted_outreach():
+    return db.session.query(
+        SchoolOutreachLead.query.filter(_outreach_owner_filter(SchoolOutreachLead)).exists()
+    ).scalar()
+
+
+@app.route("/api/school-outreach/options", methods=["GET"])
+def api_school_outreach_options():
+    """Form vocabulary, so the client never hardcodes a divergent copy."""
+    return flask.jsonify({
+        "status": "ok",
+        "platforms": [{"value": v, "label": l} for v, l in OUTREACH_PLATFORMS],
+        "reasons": [{"value": v, "label": l} for v, l in MANUAL_ENTRY_REASONS],
+        "already_submitted": _has_submitted_outreach(),
+    })
+
+
+@app.route("/api/school-outreach", methods=["POST"])
+def api_school_outreach_create():
+    """Record a school that has not enabled IntelliPlan.
+
+    Only the school name is required. A student who knows their IT contact
+    can hand it over; one who does not still gives us enough to find the
+    district ourselves, which is the whole point of asking.
+    """
+    data = request.get_json(silent=True) or {}
+
+    school_name = str(data.get("school_name") or "").strip()[:256]
+    if not school_name:
+        return flask.jsonify({"status": "error",
+                              "message": "Tell us your school's name."}), 400
+
+    contact_email = str(data.get("it_contact_email") or "").strip().lower()[:255]
+    if contact_email and "@" not in contact_email:
+        return flask.jsonify({"status": "error",
+                              "message": "That IT contact email does not look right."}), 400
+
+    student_email = str(data.get("student_email") or "").strip().lower()[:255]
+    if not student_email and current_user.is_authenticated:
+        student_email = (current_user.email or "")[:255]
+    if student_email and "@" not in student_email:
+        return flask.jsonify({"status": "error",
+                              "message": "That email does not look right."}), 400
+
+    platform = str(data.get("platform") or "").strip().lower()[:64]
+    if platform and platform not in {v for v, _ in OUTREACH_PLATFORMS}:
+        platform = "other"
+
+    lead = SchoolOutreachLead(
+        school_name=school_name,
+        district=str(data.get("district") or "").strip()[:256],
+        platform=platform,
+        school_url=str(data.get("school_url") or "").strip()[:512],
+        country_region=str(data.get("country_region") or "").strip()[:128],
+        it_contact_name=str(data.get("it_contact_name") or "").strip()[:256],
+        it_contact_email=contact_email,
+        it_contact_phone=str(data.get("it_contact_phone") or "").strip()[:64],
+        student_email=student_email,
+        notes=str(data.get("notes") or "").strip()[:4000],
+        **_outreach_owner(),
+    )
+    db.session.add(lead)
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[outreach] save failed: {e}")
+        return flask.jsonify({"status": "error",
+                              "message": "Could not save that. Please try again."}), 500
+
+    print(f"[outreach] {school_name} ({platform or 'platform unknown'}) "
+          f"contact={'yes' if contact_email else 'no'}")
+    return flask.jsonify({
+        "status": "ok",
+        "lead": lead.to_dict(),
+        "message": "Thanks — we'll reach out to your school. "
+                   "You can keep using IntelliPlan with your classes typed in.",
+    })
+
+
+@app.route("/api/manual-entry-reason", methods=["GET", "POST"])
+def api_manual_entry_reason():
+    """Ask, once, why the student is typing classes instead of connecting.
+
+    GET reports whether we still need to ask, so the UI can stay quiet for
+    anyone who has already answered or already told us about their school.
+    """
+    if request.method == "GET":
+        answered = db.session.query(
+            ManualEntryReason.query.filter(
+                _outreach_owner_filter(ManualEntryReason)).exists()
+        ).scalar()
+        return flask.jsonify({
+            "status": "ok",
+            "should_ask": not (answered or _has_submitted_outreach()),
+            "reasons": [{"value": v, "label": l} for v, l in MANUAL_ENTRY_REASONS],
+        })
+
+    data = request.get_json(silent=True) or {}
+    reason = str(data.get("reason") or "").strip().lower()[:64]
+    if reason not in {v for v, _ in MANUAL_ENTRY_REASONS}:
+        return flask.jsonify({"status": "error",
+                              "message": "Pick one of the listed reasons."}), 400
+
+    platform = str(data.get("platform") or "").strip().lower()[:64]
+    if platform and platform not in {v for v, _ in OUTREACH_PLATFORMS}:
+        platform = "other"
+
+    row = ManualEntryReason(
+        reason=reason,
+        detail=str(data.get("detail") or "").strip()[:2000],
+        platform=platform,
+        school_name=str(data.get("school_name") or "").strip()[:256],
+        **_outreach_owner(),
+    )
+    db.session.add(row)
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[manual reason] save failed: {e}")
+        return flask.jsonify({"status": "error", "message": "Could not save that."}), 500
+
+    print(f"[manual reason] {reason} platform={platform or 'n/a'}")
+
+    # These two answers mean a school is blocking its students, so the
+    # outreach form is the useful next step rather than a dead end.
+    prompt_outreach = reason in ("connect_error", "school_not_approved",
+                                 "platform_unsupported")
+    return flask.jsonify({
+        "status": "ok",
+        "prompt_outreach": prompt_outreach and not _has_submitted_outreach(),
     })
 
 
@@ -14748,6 +15112,140 @@ def _mini_page(title: str, body_html: str) -> str:
         "</style></head><body><main>"
         f"{body_html}"
         "</main></body></html>"
+    )
+
+
+# ── COPPA: age gate for OAuth signups ─────────────────────────
+#
+# The password signup form asks for a birth year and refuses to activate an
+# under-13 account until a parent approves. Google sign-in skipped all of
+# that: Google does not return a birthdate, so those accounts were created
+# with birth_year NULL and parent_consent_granted False, and nothing ever
+# asked. That is the same account type the password flow gates, created
+# through a door with no gate on it — including for marketing email, which
+# is exactly what COPPA restricts.
+#
+# Google *can* release a birthday through the People API, but only with an
+# extra sensitive scope, app verification, and a birthday the user has both
+# set and made visible. It is absent often enough that it cannot be the
+# gate. Asking directly, once, is both more reliable and more honest.
+
+def _safe_next_path(raw, fallback="/command-center"):
+    """Accept only a same-site absolute path as a post-gate destination.
+
+    ``_safe_return_to`` validates a full URL against a host allowlist and so
+    rejects a relative path outright. This is the relative counterpart: a
+    single leading slash, never ``//host`` (which a browser reads as
+    protocol-relative and would send the user off-site).
+    """
+    value = (raw or "").strip()
+    if not value.startswith("/") or value.startswith("//") or "\\" in value:
+        return fallback
+    return value[:512]
+
+
+def _needs_age_gate(user):
+    """True when we have never established this user's age."""
+    try:
+        return user is not None and user.birth_year is None
+    except Exception:
+        return False
+
+
+def _post_google_destination(user, default_path):
+    """Where a Google sign-in lands.
+
+    Sends a user we have no birth year for to the age step first, carrying
+    their intended destination so the detour costs them one screen.
+    """
+    if _needs_age_gate(user):
+        return f"/account/age?next={urllib.parse.quote(default_path, safe='')}"
+    return default_path
+
+
+@app.route("/account/age", methods=["GET", "POST"])
+def account_age_gate():
+    """Collect the birth year we could not get from an OAuth provider."""
+    if not current_user.is_authenticated:
+        return redirect(url_for("login"))
+
+    next_path = _safe_next_path(request.values.get("next"))
+    if not _needs_age_gate(current_user):
+        return redirect(next_path)
+
+    error = None
+    if request.method == "POST":
+        birth_year_raw = (request.form.get("birth_year") or "").strip()
+        parent_email_raw = (request.form.get("parent_email") or "").strip().lower()
+        age = None
+        try:
+            birth_year_val = int(birth_year_raw)
+            current_year = utcnow().year
+            if birth_year_val < 1900 or birth_year_val > current_year:
+                error = "Please enter a valid birth year."
+            else:
+                age = current_year - birth_year_val
+        except ValueError:
+            error = "Please enter a valid birth year."
+
+        under_13 = (age is not None and age < 13)
+        if not error and under_13:
+            if not parent_email_raw or "@" not in parent_email_raw:
+                error = ("Because you're under 13, a parent or guardian's email is "
+                         "required. We'll send them a one-time consent link.")
+            elif parent_email_raw == (current_user.email or "").lower():
+                error = "Your parent or guardian's email must be different from your own."
+
+        if not error:
+            current_user.birth_year = birth_year_val
+            current_user.parent_consent_granted = not under_13
+            if under_13:
+                current_user.parent_email = parent_email_raw
+                current_user.parent_consent_token = secrets_module.token_urlsafe(24)
+                # COPPA: no marketing to a child without verified consent.
+                current_user.marketing_emails_opt_in = False
+                current_user.marketing_opt_in_at = None
+            db.session.commit()
+
+            if under_13:
+                try:
+                    consent_url = (f"{APP_BASE_URL}/parent/consent"
+                                   f"?token={current_user.parent_consent_token}")
+                    deny_url = (f"{APP_BASE_URL}/parent/deny"
+                                f"?token={current_user.parent_consent_token}")
+                    body = (
+                        f"Your child ({current_user.email}) signed up for IntelliPlan, a free "
+                        f"study planner. Because they're under 13, COPPA requires your consent "
+                        f"before their account is activated.\n\n"
+                        f"Approve the account:\n{consent_url}\n\n"
+                        f"Decline and delete it:\n{deny_url}\n"
+                    )
+                    _send_email(current_user.parent_email,
+                                "Consent needed: your child's IntelliPlan account", body)
+                    print(f"[coppa] consent link emailed to {current_user.parent_email}")
+                except Exception as _e:
+                    print(f"[coppa] consent email failed: {_e}")
+                return redirect("/account/age/pending")
+
+            print(f"[coppa] birth year recorded for user id={current_user.id}")
+            return redirect(next_path)
+
+    return render_template("age_gate.html", error=error, next_path=next_path,
+                           current_year=utcnow().year)
+
+
+@app.route("/account/age/pending")
+def account_age_pending():
+    """Shown to an under-13 user waiting on a parent."""
+    if not current_user.is_authenticated:
+        return redirect(url_for("login"))
+    return _mini_page(
+        "Waiting for a parent",
+        "<h1>Almost there</h1>"
+        "<p>We've emailed your parent or guardian a link to approve your account. "
+        "Once they do, everything unlocks.</p>"
+        "<p>Nothing else is needed from you right now.</p>"
+        "<p><a href='/'>Back to IntelliPlan</a></p>"
     )
 
 

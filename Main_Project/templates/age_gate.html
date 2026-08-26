@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block page_title %}One quick question | IntelliPlan{% endblock %}
+{% block meta_description %}Confirm your birth year to finish setting up your IntelliPlan account.{% endblock %}
+
+{% block content %}
+<div class="age-gate">
+  <h1 class="age-gate-title">One quick question</h1>
+  <p class="age-gate-sub">
+    Signing in with Google doesn't tell us your age, and we need it to follow
+    the rules that protect younger students. This is the only time we'll ask.
+  </p>
+
+  {% if error %}
+  <div class="age-gate-error" role="alert">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/account/age" class="age-gate-form">
+    <input type="hidden" name="next" value="{{ next_path }}">
+
+    <label for="birthYear">What year were you born?</label>
+    <input type="number" id="birthYear" name="birth_year" required
+           min="1900" max="{{ current_year }}" inputmode="numeric"
+           placeholder="e.g. 2010" autocomplete="bday-year"
+           oninput="ageGateToggleParent(this.value)">
+
+    {# Revealed by the year, not always shown: asking every student for a
+       parent's email would collect an address we have no basis to hold. #}
+    <div id="parentBlock" class="age-gate-parent" hidden>
+      <label for="parentEmail">A parent or guardian's email</label>
+      <p class="age-gate-hint">
+        Because you're under 13, we need a parent or guardian to approve your
+        account before it's active. We'll email them a one-time link and use
+        the address for nothing else.
+      </p>
+      <input type="email" id="parentEmail" name="parent_email"
+             placeholder="parent@example.com" autocomplete="off">
+    </div>
+
+    <button type="submit" class="age-gate-submit">Continue</button>
+  </form>
+
+  <p class="age-gate-foot">
+    We use your birth year to decide which protections apply to your account.
+    Read the <a href="/privacy">Privacy Policy</a>.
+  </p>
+</div>
+
+<style>
+  .age-gate {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: var(--space-7) var(--space-4) var(--space-8);
+  }
+  .age-gate-title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(1.7rem, 1.3rem + 1.8vw, 2.4rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+    margin: 0 0 0.6rem;
+  }
+  .age-gate-sub {
+    font-size: 0.92rem;
+    line-height: 1.65;
+    color: var(--text-secondary);
+    margin: 0 0 var(--space-5);
+  }
+  .age-gate-error {
+    padding: 11px 13px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 0.84rem;
+    line-height: 1.5;
+    margin-bottom: var(--space-4);
+  }
+  .age-gate-form label {
+    display: block;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 5px;
+  }
+  .age-gate-form input {
+    width: 100%;
+    padding: 11px 13px;
+    border-radius: 10px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.95rem;
+  }
+  .age-gate-parent { margin-top: var(--space-4); }
+  .age-gate-hint {
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: var(--text-muted);
+    margin: 0 0 8px;
+  }
+  .age-gate-submit {
+    width: 100%;
+    margin-top: var(--space-5);
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+  .age-gate-foot {
+    margin-top: var(--space-4);
+    font-size: 0.76rem;
+    line-height: 1.6;
+    color: var(--text-muted);
+  }
+</style>
+
+<script>
+  function ageGateToggleParent(value) {
+    const year = parseInt(value, 10);
+    const block = document.getElementById('parentBlock');
+    const input = document.getElementById('parentEmail');
+    if (!block || !input) return;
+    const under13 = Number.isFinite(year) && ({{ current_year }} - year) < 13
+      && year > 1900;
+    block.hidden = !under13;
+    input.required = under13;
+  }
+</script>
+{% endblock %}

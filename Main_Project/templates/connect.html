@@ -361,6 +361,34 @@
       <div id="ipImportHost" style="margin-top:14px;"></div>
     </div>
 
+    {# ── School not registered ────────────────────────────────────
+       Every OAuth-based LMS requires the school to approve IntelliPlan
+       before a student can connect. When they have not, the student hits a
+       wall the product cannot clear for them — and we never learned which
+       school it was. This is the one place a student can hand us that,
+       which is what turns a dead end into a lead we can act on. #}
+    <div style="margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border);">
+      <div style="font-size:0.86rem;font-weight:700;color:var(--text-primary);margin-bottom:6px;">
+        Does your school need to approve IntelliPlan?
+      </div>
+      <p style="font-size:0.8rem;color:var(--text-muted);line-height:1.55;margin:0 0 12px;">
+        Canvas, Blackboard, Schoology and Google Classroom all let a school decide which
+        outside apps its students may connect. If yours has not approved IntelliPlan yet,
+        sign-in fails no matter what you do — tell us who they are and we will ask them.
+      </p>
+      <button type="button" onclick="ipShowSchoolOutreach()" id="ipOutreachOpenBtn"
+        style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid var(--glass-border);box-shadow:var(--glass-btn-shadow);background:var(--glass-btn-bg);-webkit-backdrop-filter:blur(12px) saturate(1.5);backdrop-filter:blur(12px) saturate(1.5);color:var(--text-primary);text-align:left;cursor:pointer;font-family:inherit;width:100%;">
+        <span style="display:inline-flex;width:1.2rem;height:1.2rem;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-graduation"/></svg></span>
+        <span style="flex:1;">
+          <span style="display:block;font-size:0.88rem;font-weight:600;">Tell us about your school</span>
+          <span style="display:block;font-size:0.74rem;color:var(--text-muted);margin-top:1px;">
+            Takes a minute — we handle the conversation with your IT department
+          </span>
+        </span>
+      </button>
+      <div id="ipOutreachHost" style="margin-top:12px;"></div>
+    </div>
+
     <script>
       function ipShowImport(kind) {
         const host = document.getElementById('ipImportHost');
@@ -472,12 +500,266 @@
             msg.textContent = added
               ? `Saved. You now have ${total} class${total === 1 ? '' : 'es'}.`
               : 'Those classes were already added.';
+            /* Asked only after the classes are safely saved, so the question
+               never stands between a student and the thing they came to do. */
+            ipMaybeAskWhyManual();
           }
         } catch (e) {
           msg.style.color = 'var(--danger)';
           msg.textContent = 'Network error, please try again.';
         }
         btn.disabled = false; btn.textContent = 'Save classes';
+      }
+
+      /* ── Why manual? ─────────────────────────────────────────────
+         Manual entry is the fallback, so a student choosing it is usually
+         telling us something went wrong upstream — a broken integration, a
+         school that has not approved us, a platform we do not support. None
+         of that reached us before. Asked once, skippable, and only of people
+         who have not already told us about their school. */
+
+      async function ipMaybeAskWhyManual() {
+        try {
+          const r = await fetch('/api/manual-entry-reason');
+          const d = await r.json();
+          if (d.should_ask) ipShowWhyManual(d.reasons || []);
+        } catch (e) { /* the survey is never worth an error */ }
+      }
+
+      function ipShowWhyManual(reasons) {
+        const host = document.getElementById('ipImportHost');
+        if (!host || document.getElementById('ipWhyManual')) return;
+        /* min-height 44px: a radio row is a touch target, and a 30px one is
+           below the mobile minimum. */
+        const options = reasons.map(r => `
+          <label style="display:flex;align-items:center;gap:9px;min-height:44px;padding:4px 0;font-size:0.82rem;cursor:pointer;">
+            <input type="radio" name="ipWhyReason" value="${ipEsc(r.value)}" style="width:17px;height:17px;flex-shrink:0;accent-color:var(--accent);">
+            <span>${ipEsc(r.label)}</span>
+          </label>`).join('');
+
+        const box = document.createElement('div');
+        box.id = 'ipWhyManual';
+        box.style.cssText = 'margin-top:12px;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--bg-secondary);';
+        /* fieldset + legend, so a screen reader reads the question with each
+           option instead of six unattached labels. */
+        box.innerHTML = `
+          <fieldset style="border:0;padding:0;margin:0;">
+            <legend style="padding:0;font-weight:600;font-size:0.88rem;margin-bottom:4px;">
+              One question, if you don't mind
+            </legend>
+            <p style="font-size:0.78rem;color:var(--text-muted);line-height:1.55;margin:0 0 4px;">
+              Why are you typing your classes instead of connecting your school account?
+              It tells us which schools to go fix.
+            </p>
+            ${options}
+          </fieldset>
+          <label for="ipWhyDetail" style="display:block;font-size:0.78rem;font-weight:600;margin:8px 0 4px;">
+            Anything else? <span style="font-weight:400;color:var(--text-muted);">(optional)</span>
+          </label>
+          <textarea id="ipWhyDetail" rows="2" placeholder="It said invalid client_id after I signed in"
+            style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--border-strong);background:var(--bg-primary);color:var(--text-primary);font-family:inherit;font-size:0.82rem;resize:vertical;"></textarea>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+            <button type="button" onclick="ipSendWhyManual()" id="ipWhyBtn"
+              style="min-height:44px;padding:8px 18px;border:none;border-radius:9px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;font-size:0.82rem;">Send</button>
+            <button type="button" onclick="document.getElementById('ipWhyManual').remove()"
+              style="min-height:44px;padding:8px 16px;border:1px solid var(--border-strong);border-radius:9px;background:transparent;color:var(--text-secondary);cursor:pointer;font-family:inherit;font-size:0.82rem;">No thanks</button>
+            <span id="ipWhyMsg" role="alert" style="font-size:0.78rem;color:var(--text-muted);"></span>
+          </div>`;
+        host.appendChild(box);
+        box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      async function ipSendWhyManual() {
+        const picked = document.querySelector('input[name="ipWhyReason"]:checked');
+        const msg = document.getElementById('ipWhyMsg');
+        if (!picked) { msg.textContent = 'Pick one first.'; return; }
+        const btn = document.getElementById('ipWhyBtn');
+        btn.disabled = true; btn.textContent = 'Sending...';
+        try {
+          const r = await fetch('/api/manual-entry-reason', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              reason: picked.value,
+              detail: (document.getElementById('ipWhyDetail').value || '').trim(),
+            })
+          });
+          const d = await r.json();
+          document.getElementById('ipWhyManual').remove();
+          if (d.prompt_outreach) {
+            /* They told us a school is the blocker, so the useful next step
+               is the details that let us contact it — not a thank-you. */
+            ipShowSchoolOutreach(true);
+          } else {
+            lmsBanner('Thanks — that helps us prioritise which schools to fix.');
+          }
+        } catch (e) {
+          btn.disabled = false; btn.textContent = 'Send';
+          msg.textContent = 'Could not send. Try again.';
+        }
+      }
+
+      function ipEsc(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      /* ── School outreach ─────────────────────────────────────────
+         The IT contact is optional on purpose. Most students have no idea
+         who runs their LMS, and demanding it would lose the ones who can
+         still give us a school name and a district — which is enough for us
+         to find the right person ourselves. */
+
+      let ipOutreachPlatforms = null;
+
+      async function ipShowSchoolOutreach(fromSurvey) {
+        const host = document.getElementById('ipOutreachHost');
+        if (!host) return;
+        if (document.getElementById('ipOutreachForm')) {
+          document.getElementById('ipOutreachForm').scrollIntoView({ behavior: 'smooth' });
+          return;
+        }
+
+        if (!ipOutreachPlatforms) {
+          try {
+            const r = await fetch('/api/school-outreach/options');
+            const d = await r.json();
+            ipOutreachPlatforms = d.platforms || [];
+            if (d.already_submitted && !fromSurvey) {
+              lmsBanner('You already told us about your school — we are on it.');
+              return;
+            }
+          } catch (e) { ipOutreachPlatforms = []; }
+        }
+
+        const platformOptions = ['<option value="">Select…</option>']
+          .concat(ipOutreachPlatforms.map(p =>
+            `<option value="${ipEsc(p.value)}">${ipEsc(p.label)}</option>`)).join('');
+
+        const field = 'width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-secondary);color:var(--text-primary);font-family:inherit;font-size:0.85rem;margin-bottom:10px;';
+        const label = 'display:block;font-size:0.78rem;font-weight:600;margin-bottom:4px;color:var(--text-primary);';
+
+        const wrap = document.createElement('div');
+        wrap.id = 'ipOutreachForm';
+        wrap.style.cssText = 'padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--glass-btn-bg);-webkit-backdrop-filter:blur(12px) saturate(1.5);backdrop-filter:blur(12px) saturate(1.5);';
+        wrap.innerHTML = `
+          <div style="font-weight:600;margin-bottom:6px;font-size:0.95rem;">Tell us about your school</div>
+          <p style="font-size:0.78rem;color:var(--text-muted);line-height:1.55;margin:0 0 12px;">
+            We will contact them about approving IntelliPlan. Only the school name is required —
+            everything else just makes it faster.
+          </p>
+
+          <label style="${label}" for="ipoSchool">
+            School name <span style="font-weight:400;color:var(--text-muted);">(required)</span>
+          </label>
+          <input id="ipoSchool" type="text" style="${field}" required aria-required="true"
+            placeholder="Lincoln High School" autocomplete="off"
+            oninput="ipOutreachValidate()">
+
+          <label style="${label}" for="ipoDistrict">District or college</label>
+          <input id="ipoDistrict" type="text" style="${field}" placeholder="Springfield Unified School District" autocomplete="off">
+
+          <label style="${label}" for="ipoPlatform">Which platform does your school use?</label>
+          <select id="ipoPlatform" style="${field}">${platformOptions}</select>
+
+          <label style="${label}" for="ipoUrl">Your school's login address</label>
+          <input id="ipoUrl" type="text" style="${field}" placeholder="https://learn.myschool.edu" autocomplete="off">
+
+          <label style="${label}" for="ipoRegion">State / country</label>
+          <input id="ipoRegion" type="text" style="${field}" placeholder="California, USA" autocomplete="off">
+
+          <div style="margin:14px 0 10px;padding-top:12px;border-top:1px solid var(--border);">
+            <div style="font-size:0.82rem;font-weight:600;margin-bottom:3px;">Know who runs your school's IT?</div>
+            <p style="font-size:0.75rem;color:var(--text-muted);line-height:1.5;margin:0 0 10px;">
+              Optional. If you don't, leave it blank — we'll find them.
+            </p>
+          </div>
+
+          <label style="${label}" for="ipoContactName">IT contact name</label>
+          <input id="ipoContactName" type="text" style="${field}" placeholder="Ms. Rivera, Director of Technology" autocomplete="off">
+
+          <label style="${label}" for="ipoContactEmail">IT contact email</label>
+          <input id="ipoContactEmail" type="email" style="${field}" placeholder="it@myschool.edu" autocomplete="off">
+
+          <label style="${label}" for="ipoContactPhone">IT contact phone</label>
+          <input id="ipoContactPhone" type="tel" style="${field}" placeholder="(555) 123-4567" autocomplete="off">
+
+          <label style="${label}" for="ipoStudentEmail">Your email, so we can tell you when it's approved</label>
+          <input id="ipoStudentEmail" type="email" style="${field}" placeholder="you@example.com" autocomplete="email">
+
+          <label style="${label}" for="ipoNotes">Anything else</label>
+          <textarea id="ipoNotes" rows="2" style="${field}resize:vertical;" placeholder="What happened when you tried to connect?"></textarea>
+
+          <button type="button" onclick="ipSendSchoolOutreach()" id="ipoBtn" disabled
+            style="width:100%;min-height:44px;padding:12px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-family:inherit;font-weight:700;cursor:pointer;font-size:0.9rem;">Send to IntelliPlan</button>
+          <div id="ipoMsg" role="alert" style="margin-top:8px;font-size:0.8rem;display:none;"></div>
+          <p style="font-size:0.72rem;color:var(--text-muted);line-height:1.5;margin:10px 0 0;">
+            We use this only to contact your school about IntelliPlan. See the
+            <a href="/privacy">Privacy Policy</a>.
+          </p>`;
+        host.appendChild(wrap);
+        ipOutreachValidate();
+        document.getElementById('ipoSchool').focus({ preventScroll: true });
+        wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      /* Validated as they type rather than only on submit, so nobody fills a
+         long form and is then sent back to the first field. */
+      function ipOutreachValidate() {
+        const school = document.getElementById('ipoSchool');
+        const btn = document.getElementById('ipoBtn');
+        if (!school || !btn) return;
+        const ok = !!(school.value || '').trim();
+        btn.disabled = !ok;
+        btn.style.opacity = ok ? '1' : '0.45';
+        btn.style.cursor = ok ? 'pointer' : 'not-allowed';
+      }
+
+      async function ipSendSchoolOutreach() {
+        const val = (id) => (document.getElementById(id).value || '').trim();
+        const msg = document.getElementById('ipoMsg');
+        const btn = document.getElementById('ipoBtn');
+        if (!val('ipoSchool')) {
+          msg.style.display = 'block'; msg.style.color = 'var(--danger)';
+          msg.textContent = "Your school's name is the one thing we need.";
+          document.getElementById('ipoSchool').focus();
+          return;
+        }
+        btn.disabled = true; btn.textContent = 'Sending...';
+        try {
+          const r = await fetch('/api/school-outreach', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              school_name: val('ipoSchool'),
+              district: val('ipoDistrict'),
+              platform: val('ipoPlatform'),
+              school_url: val('ipoUrl'),
+              country_region: val('ipoRegion'),
+              it_contact_name: val('ipoContactName'),
+              it_contact_email: val('ipoContactEmail'),
+              it_contact_phone: val('ipoContactPhone'),
+              student_email: val('ipoStudentEmail'),
+              notes: val('ipoNotes'),
+            })
+          });
+          const d = await r.json();
+          if (!r.ok || d.status !== 'ok') {
+            msg.style.display = 'block'; msg.style.color = 'var(--danger)';
+            msg.textContent = d.message || 'Could not send that.';
+            btn.disabled = false; btn.textContent = 'Send to IntelliPlan';
+            return;
+          }
+          document.getElementById('ipOutreachForm').innerHTML = `
+            <div style="font-weight:600;font-size:0.92rem;margin-bottom:6px;">Got it — thank you</div>
+            <p style="font-size:0.8rem;color:var(--text-muted);line-height:1.6;margin:0;">
+              ${ipEsc(d.message || '')}
+            </p>`;
+        } catch (e) {
+          msg.style.display = 'block'; msg.style.color = 'var(--danger)';
+          msg.textContent = 'Network error, please try again.';
+          btn.disabled = false; btn.textContent = 'Send to IntelliPlan';
+        }
       }
 
       /* Surface the callback result. Before this, a failed OAuth round-trip

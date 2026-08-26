@@ -10,21 +10,51 @@
 {% block twitter_description %}IntelliPlan is free for students. Connect school tools, auto-prioritize assignments, and build a study schedule with AI at no cost.{% endblock %}
 
 {% block head_extra %}
+{# Typed as SoftwareApplication, not Product.
+   Google validates a `Product` as a merchant listing, so it asked for
+   shippingDetails, hasMerchantReturnPolicy and a gtin — fields that cannot
+   honestly be answered for a free web app that ships nothing and refunds
+   nothing. Supplying them to silence the warnings would be misrepresenting
+   the listing. SoftwareApplication is what IntelliPlan actually is, drops
+   the merchant-only requirements, and is eligible for software rich results.
+   The fields that *do* apply — image, description, offer availability — are
+   filled in properly below. #}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "Product",
+  "@type": "SoftwareApplication",
+  "@id": "https://intelliplan.tech/#software",
   "name": "IntelliPlan Student Study Planner",
   "url": "https://intelliplan.tech/pricing",
-  "offers": [
-    {
-      "@type": "Offer",
-      "name": "Free Plan",
-      "price": "0",
-      "priceCurrency": "USD",
-      "description": "Free forever for students. Connect Canvas, StudentVue, or Schoology and automate your study plan."
-    }
-  ]
+  "applicationCategory": "EducationalApplication",
+  "applicationSubCategory": "Study Planner",
+  "operatingSystem": "Web, iOS, Android",
+  "image": "https://intelliplan.tech/static/icons/icon-512.png",
+  "screenshot": "https://intelliplan.tech/static/icons/icon-512.png",
+  "description": "IntelliPlan is a free AI study planner for students. It syncs assignments from Canvas, StudentVue, Schoology, Blackboard, Google Classroom and Moodle, prioritizes them automatically, builds a weekly study schedule, models grade outcomes, and includes a built-in AI tutor.",
+  "inLanguage": "en-US",
+  "isAccessibleForFree": true,
+  "publisher": { "@id": "https://intelliplan.tech/#organization" },
+  "author": { "@id": "https://intelliplan.tech/#organization" },
+  "featureList": [
+    "Automatic assignment import from Canvas, StudentVue, Schoology, Blackboard, Google Classroom and Moodle",
+    "AI-generated weekly study schedules",
+    "Assignment prioritization",
+    "Grade tracking and what-if grade modeling",
+    "Built-in AI tutor",
+    "Google Calendar and Notion sync"
+  ],
+  "offers": {
+    "@type": "Offer",
+    "name": "Free Plan",
+    "price": "0",
+    "priceCurrency": "USD",
+    "availability": "https://schema.org/InStock",
+    "url": "https://intelliplan.tech/pricing",
+    "category": "free",
+    "description": "Free forever for students. Connect Canvas, StudentVue, or Schoology and automate your study plan.",
+    "seller": { "@id": "https://intelliplan.tech/#organization" }
+  }
 }
 </script>
 {% endblock %}

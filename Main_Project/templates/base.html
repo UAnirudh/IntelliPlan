@@ -3349,5 +3349,239 @@ window.addEventListener('load',()=>{
 })();
 </script>
 
+{# ── Policy change notice ──────────────────────────────────────
+   When the Terms or Privacy Policy change, the people bound by them get
+   told before they carry on using the product. The card gives the summary
+   and the changed clauses word for word, and the Accept button stays
+   disabled until they have actually reached the bottom of the text — a
+   consent you can evidence is worth more than one you cannot. #}
+<div id="ipPolicyNotice" class="ip-policy-backdrop" hidden role="dialog"
+     aria-modal="true" aria-labelledby="ipPolicyTitle">
+  <div class="ip-policy-card">
+    <div class="ip-policy-head">
+      <h2 id="ipPolicyTitle" class="ip-policy-title">We've updated our policies</h2>
+      <p id="ipPolicyIntro" class="ip-policy-intro"></p>
+    </div>
+    <div id="ipPolicyBody" class="ip-policy-body" tabindex="0"></div>
+    <div class="ip-policy-foot">
+      {# Announced, so a screen reader user learns the button became usable
+         rather than discovering it by chance on a later pass. #}
+      <p id="ipPolicyHint" class="ip-policy-hint" role="status" aria-live="polite">
+        Scroll to the end to continue.
+      </p>
+      <button type="button" id="ipPolicyAccept" class="ip-policy-accept" disabled>
+        Read to the end to accept
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .ip-policy-backdrop {
+    position: fixed; inset: 0; z-index: 3000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.6);
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  }
+  .ip-policy-backdrop[hidden] { display: none; }
+  .ip-policy-card {
+    display: flex; flex-direction: column;
+    width: 100%; max-width: 640px; max-height: 88vh;
+    border: 1px solid var(--border); border-radius: 18px;
+    background: var(--bg-primary, var(--surface));
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+  }
+  .ip-policy-head { padding: 1.25rem 1.25rem 0.75rem; }
+  .ip-policy-title {
+    margin: 0 0 6px; font-family: var(--font-display, inherit);
+    font-size: 1.25rem; font-weight: 600; color: var(--text-primary);
+  }
+  .ip-policy-intro {
+    margin: 0; font-size: 0.84rem; line-height: 1.55; color: var(--text-muted);
+  }
+  .ip-policy-body {
+    flex: 1; min-height: 0; overflow-y: auto;
+    padding: 0.5rem 1.25rem 1rem;
+    font-size: 0.85rem; line-height: 1.65; color: var(--text-secondary);
+  }
+  .ip-policy-body h3 {
+    margin: 1.1rem 0 0.4rem; font-size: 0.83rem; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--text-muted);
+  }
+  .ip-policy-body ul { margin: 0 0 0.5rem; padding-left: 1.1rem; }
+  .ip-policy-body li { margin-bottom: 5px; }
+  .ip-policy-clause {
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 10px;
+    background: var(--bg-secondary);
+  }
+  .ip-policy-clause-heading {
+    font-weight: 600; font-size: 0.8rem; color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+  .ip-policy-verbatim {
+    white-space: pre-wrap; font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.78rem; line-height: 1.6; margin: 0;
+  }
+  .ip-policy-label {
+    display: inline-block; font-size: 0.68rem; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px;
+  }
+  .ip-policy-foot {
+    padding: 0.9rem 1.25rem 1.1rem;
+    border-top: 1px solid var(--border);
+  }
+  .ip-policy-hint {
+    margin: 0 0 8px; font-size: 0.75rem; color: var(--text-muted);
+  }
+  .ip-policy-accept {
+    width: 100%; padding: 11px; border: none; border-radius: 10px;
+    background: var(--accent); color: #fff;
+    font-family: inherit; font-weight: 700; font-size: 0.9rem; cursor: pointer;
+  }
+  .ip-policy-accept:disabled { opacity: 0.45; cursor: not-allowed; }
+</style>
+
+<script>
+(function ipPolicyNotice() {
+  const backdrop = document.getElementById('ipPolicyNotice');
+  if (!backdrop) return;
+
+  const body = document.getElementById('ipPolicyBody');
+  const accept = document.getElementById('ipPolicyAccept');
+  const hint = document.getElementById('ipPolicyHint');
+  const intro = document.getElementById('ipPolicyIntro');
+  let queue = [];
+
+  const esc = (s) => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+  function renderClause(clause) {
+    const before = clause.before
+      ? `<div><span class="ip-policy-label">Previously</span>
+           <p class="ip-policy-verbatim">${esc(clause.before)}</p></div>` : '';
+    const after = clause.after
+      ? `<div style="margin-top:8px;"><span class="ip-policy-label">Now reads</span>
+           <p class="ip-policy-verbatim">${esc(clause.after)}</p></div>` : '';
+    const text = clause.text
+      ? `<p class="ip-policy-verbatim">${esc(clause.text)}</p>` : '';
+    return `<div class="ip-policy-clause">
+      ${clause.heading ? `<div class="ip-policy-clause-heading">${esc(clause.heading)}</div>` : ''}
+      ${before}${after}${text}
+    </div>`;
+  }
+
+  /* Keyboard focus must not escape a modal to the page behind it, which is
+     inert to the eye but still tabbable. Without this a keyboard or screen
+     reader user tabs straight out of a notice they cannot see past. */
+  const FOCUSABLE = 'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+  function trapFocus(event) {
+    if (event.key !== 'Tab' || backdrop.hidden) return;
+    const items = Array.from(backdrop.querySelectorAll(FOCUSABLE))
+      .filter(el => el.offsetParent !== null || el === document.activeElement);
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault(); last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault(); first.focus();
+    }
+  }
+  document.addEventListener('keydown', trapFocus);
+
+  function show(doc) {
+    /* "Make it easy to identify a modal view's task" — when two updates are
+       queued, say so, rather than letting a second card look like a bug. */
+    const remaining = queue.length;
+    intro.textContent =
+      `Our ${doc.name} changed${doc.effective ? ', effective ' + doc.effective : ''}. `
+      + `Here is what moved, in summary and word for word.`
+      + (remaining ? ` (1 of ${remaining + 1})` : '');
+
+    const summary = (doc.summary || []).map(s => `<li>${esc(s)}</li>`).join('');
+    const clauses = (doc.clauses || []).map(renderClause).join('');
+
+    body.innerHTML = `
+      ${summary ? `<h3>What changed</h3><ul>${summary}</ul>` : ''}
+      ${clauses ? `<h3>The exact wording</h3>${clauses}` : ''}
+      <h3>The full document</h3>
+      <p>You can read the complete
+         <a href="${esc(doc.url)}" target="_blank" rel="noopener">${esc(doc.name)}</a>
+         at any time.</p>
+      <p style="margin-top:1.5rem;padding-top:0.75rem;border-top:1px solid var(--border);">
+         By continuing to use IntelliPlan you accept the updated ${esc(doc.name)}.</p>`;
+
+    accept.disabled = true;
+    accept.textContent = 'Read to the end to accept';
+    hint.textContent = 'Scroll to the end to continue.';
+    body.scrollTop = 0;
+    backdrop.hidden = false;
+    /* The page behind must not scroll under the notice. */
+    document.documentElement.style.overflow = 'hidden';
+    /* Land focus on the text, not on a disabled button: the reading is the
+       task, and the scrollable region is where a keyboard user needs to be. */
+    body.focus({ preventScroll: true });
+    /* Measured after layout — scrollHeight before paint can under-report and
+       leave a short notice permanently un-acceptable. */
+    requestAnimationFrame(checkScrolled);
+    accept.onclick = () => acknowledge(doc);
+  }
+
+  function checkScrolled() {
+    /* A short update can fit without scrolling; that still counts as read. */
+    const atEnd = body.scrollHeight - body.scrollTop - body.clientHeight <= 24;
+    if (!atEnd) return;
+    if (!accept.disabled) return;   // already announced
+    accept.disabled = false;
+    accept.textContent = 'I have read and accept';
+    hint.textContent = 'You can now accept.';
+  }
+
+  body.addEventListener('scroll', checkScrolled, { passive: true });
+  window.addEventListener('resize', checkScrolled);
+
+  async function acknowledge(doc) {
+    accept.disabled = true;
+    accept.textContent = 'Saving...';
+    try {
+      const r = await fetch('/api/policy/acknowledge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ doc: doc.doc, version: doc.version }),
+      });
+      if (!r.ok) throw new Error('save failed');
+    } catch (e) {
+      accept.disabled = false;
+      accept.textContent = 'I have read and accept';
+      hint.textContent = 'Could not save that. Please try again.';
+      return;
+    }
+    backdrop.hidden = true;
+    next();
+  }
+
+  function next() {
+    const doc = queue.shift();
+    if (doc) { show(doc); return; }
+    /* Nothing left — give the page back its scrollbar and its focus. */
+    document.documentElement.style.overflow = '';
+    document.removeEventListener('keydown', trapFocus);
+  }
+
+  fetch('/api/policy/pending')
+    .then(r => r.json())
+    .then(d => {
+      queue = d.pending || [];
+      next();
+    })
+    .catch(() => { /* a notice that cannot load must not block the page */ });
+})();
+</script>
+
 </body>
 </html>
