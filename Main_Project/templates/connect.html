@@ -235,9 +235,13 @@
           <p style="font-size:0.79rem;color:var(--text-muted);line-height:1.55;margin:0 0 10px;">${esc(data.message || '')}</p>
           <ol style="margin:0;padding-left:18px;font-size:0.79rem;line-height:1.6;">${steps}</ol>
           ${appId}
-          <p style="font-size:0.76rem;color:var(--text-muted);margin:12px 0 0;">
+          <p style="font-size:0.76rem;color:var(--text-muted);margin:12px 0 6px;">
             In the meantime you can add your classes manually and IntelliPlan will still plan your week.
-          </p>`;
+          </p>
+          <button type="button" onclick="ipShowImport('manual')"
+            style="padding:9px 14px;border-radius:9px;border:1px solid var(--border-strong);background:transparent;color:var(--text-primary);font:inherit;font-size:0.8rem;font-weight:600;cursor:pointer;">
+            Add classes manually
+          </button>`;
         box.scrollIntoView({behavior:'smooth'});
       }
 
@@ -304,9 +308,13 @@
 
     <!-- ── Unsupported LMS fallback ───────────────────── -->
     <div style="margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border);">
-      <div style="font-size:0.86rem;font-weight:700;color:var(--text-primary);margin-bottom:6px;">School not listed?</div>
+      {# Headed "School not listed?" until a Blackboard user reported he could
+         not add classes manually: his school *was* listed, so he had no reason
+         to read a section addressed to people whose school is not. These
+         options work for anyone whose connection failed, for any reason. #}
+      <div style="font-size:0.86rem;font-weight:700;color:var(--text-primary);margin-bottom:6px;">School not listed, or the connection did not work?</div>
       <p style="font-size:0.8rem;color:var(--text-muted);line-height:1.55;margin:0 0 12px;">
-        IntelliPlan can still track your classes, assignments, and grades without a supported LMS.
+        IntelliPlan can still track your classes, assignments, and grades without connecting an LMS.
       </p>
       <div style="display:flex;flex-direction:column;gap:10px;">
         <button type="button" onclick="ipShowImport('paste')"
