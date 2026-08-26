@@ -221,8 +221,11 @@ BLACKBOARD_APP_KEY=
 BLACKBOARD_APP_SECRET=
 # The Application ID each school's Blackboard admin registers under
 # System Admin -> Integrations -> REST API Integrations (End User Access: Yes).
+# This is the same value the portal calls the LTI "Client ID".
 BLACKBOARD_APPLICATION_ID=
 BLACKBOARD_SCOPE=read offline
+# Check the configuration (prints no secrets):
+#   python scripts/blackboard_doctor.py [https://learn.myschool.edu]
 
 # Moodle web services (optional; enabled by default)
 MOODLE_ENABLED=1

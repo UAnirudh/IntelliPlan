@@ -4987,7 +4987,10 @@ def _blackboard_preflight(institution_url, client_id, redirect_uri):
     host in time must not block a connection that would have worked.
     """
     if not _resolves_to_public_host(institution_url):
-        return "unreachable", "host is not a public address"
+        # Covers both a name that does not resolve and one that resolves to an
+        # address we refuse to fetch. Either way the student gets the same
+        # "check the URL with your school" message.
+        return "unreachable", "host did not resolve to a public address"
 
     probe_state = secrets_module.token_urlsafe(8)
     url = _blackboard_authorize_url(institution_url, client_id, redirect_uri, probe_state)
