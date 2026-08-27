@@ -34,6 +34,7 @@ import time
 from time_utils import utcnow
 import bot_protection
 import cookie_policy
+import fallback_scheduler
 import request_guards
 import secret_box
 import policy_versions
@@ -9813,6 +9814,65 @@ def _planner_concept_mastery(uid):
         return {}
 
 
+def _schedule_without_ai(assignments, preferred_time, hours_per_day,
+                         availability, commitments, dna, *, reason,
+                         fallback_message, error_message, error_status=200):
+    """Last resort when the AI cannot produce a plan.
+
+    Generating a schedule is the product. An outage at Google or Groq used to
+    mean a student who sat down to plan their week got "please try again",
+    which for them is the same as "no". The deterministic allocator already
+    exists for the manual and reflow paths, so the honest answer is to use it
+    and say plainly that the writing is missing.
+
+    Falls through to the original error only when even this cannot run — with
+    no assignments there is nothing to schedule, and an empty plan presented
+    as a success would be worse than the error.
+    """
+    print(f"[scheduler] AI path failed ({reason}); building without it")
+
+    if not fallback_scheduler.is_usable(assignments):
+        return flask.jsonify({"status": "error", "message": error_message,
+                              "retryable": True}), error_status
+
+    try:
+        data = fallback_scheduler.build_schedule(
+            assignments,
+            hours_per_day=hours_per_day,
+            preferred_time=preferred_time,
+            availability=availability,
+            commitments=commitments,
+            dna=dna,
+        )
+    except Exception as exc:
+        print(f"[scheduler] fallback planner also failed: {exc}")
+        return flask.jsonify({"status": "error", "message": error_message,
+                              "retryable": True}), error_status
+
+    if not data.get("schedule"):
+        # Nothing fit. Saying so beats returning an empty week as a success.
+        return flask.jsonify({"status": "error", "message": error_message,
+                              "retryable": True}), error_status
+
+    try:
+        data = enrich_schedule_data(data, assignments, preferred_time, hours_per_day)
+    except Exception as exc:
+        print(f"[scheduler] fallback enrich failed (non-fatal): {exc}")
+
+    try:
+        log_security_event("scheduler_degraded", detail=reason[:200])
+    except Exception:
+        pass
+
+    return flask.jsonify({
+        "status": "ok",
+        "data": data,
+        "degraded": True,
+        "degraded_message": fallback_message,
+        "used_presets": [],
+    })
+
+
 @app.route("/generate_schedule", methods=["GET", "POST"])
 # 10/hour was sized for a route whose every call cost an AI round trip.
 # Planning is now deterministic and free, and re-planning is something a
@@ -10108,16 +10168,44 @@ Return ONLY valid JSON:
             print(f"[scheduler] humanize_schedule failed (non-fatal): {he}")
         return flask.jsonify({"status": "ok", "data": schedule_data,
                               "used_presets": used_presets})
-    except json.JSONDecodeError:
-        return flask.jsonify({"status": "error", "message": "The AI returned an invalid schedule. Please try again.", "retryable": True})
+    except json.JSONDecodeError as e:
+        return _schedule_without_ai(
+            normalized_assignments, preferred_time, hours_per_day,
+            availability, commitments, dna, reason=f"unparseable ({e})",
+            fallback_message="The AI couldn't write a plan just now, so we "
+                             "built one from your deadlines and free time.",
+            error_message="The AI returned an invalid schedule. Please try again.",
+        )
     except Exception as e:
         err_str = str(e).lower()
         if "rate" in err_str or "429" in err_str:
-            return flask.jsonify({"status": "error", "message": "AI usage limit reached. Please wait a minute and try again.", "retryable": True}), 429
+            return _schedule_without_ai(
+                normalized_assignments, preferred_time, hours_per_day,
+                availability, commitments, dna, reason="rate limited",
+                fallback_message="The AI is busy right now, so we built this "
+                                 "plan from your deadlines and free time.",
+                error_message="AI usage limit reached. Please wait a minute "
+                              "and try again.",
+                error_status=429,
+            )
         if "timeout" in err_str:
-            return flask.jsonify({"status": "error", "message": "The AI took too long to respond. Please try again.", "retryable": True}), 504
+            return _schedule_without_ai(
+                normalized_assignments, preferred_time, hours_per_day,
+                availability, commitments, dna, reason="timeout",
+                fallback_message="The AI took too long, so we built this plan "
+                                 "from your deadlines and free time.",
+                error_message="The AI took too long to respond. Please try again.",
+                error_status=504,
+            )
         print(f"Schedule generation error: {e}")
-        return flask.jsonify({"status": "error", "message": API_ERROR_MESSAGES["ai"], "retryable": True}), 503
+        return _schedule_without_ai(
+            normalized_assignments, preferred_time, hours_per_day,
+            availability, commitments, dna, reason=str(e)[:200],
+            fallback_message="The AI is unavailable right now, so we built "
+                             "this plan from your deadlines and free time.",
+            error_message=API_ERROR_MESSAGES["ai"],
+            error_status=503,
+        )
 
 @app.route("/static/sw.js")
 def service_worker():

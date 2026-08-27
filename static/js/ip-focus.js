@@ -47,8 +47,15 @@
  * -------
  * The only thing that ever crosses the network is a per-minute integer
  * summary: how many samples looked present, away, or absent, plus a mean
- * confidence. No frames, no landmarks, no descriptors. The <video> element
- * is never attached to the document, and the capture canvas is 160px wide.
+ * confidence. No frames, no landmarks, no descriptors. The capture canvas is
+ * 160px wide.
+ *
+ * The capture element is created detached and is never added to the page by
+ * this module. A student can opt into a self-view, which attaches that same
+ * stream to a <video> they control — deliberately the same stream, not a
+ * second capture, so what they see is exactly the input being examined.
+ * That turns "frames stay on this device" from a paragraph they have to
+ * believe into something they can watch.
  */
 (function (window, document) {
   'use strict';
@@ -80,6 +87,10 @@
   var PIXEL_NOISE_FLOOR = 12;        // 0-255 luma difference
   var MOTION_PRESENT_RATIO = 0.02;   // 2% of sampled pixels
   var DARK_FRAME_LUMA = 18;          // covered lens or closed lid
+
+  //: The monitor currently running, if any. One camera, one stream: a
+  //: preview must show the frames being examined, not a second capture.
+  var _activeCamera = null;
 
   var STATE = { FOCUSED: 'present', AWAY: 'away', ABSENT: 'absent', UNKNOWN: 'unknown' };
 
@@ -183,6 +194,7 @@
         if (self.mode === 'face') {
           self.detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
         }
+        _activeCamera = self;
         return self.video.play().then(function () { return true; });
       })
       .catch(function () {
@@ -332,6 +344,32 @@
     return { state: STATE.FOCUSED, confidence: confidence, source: 'camera' };
   };
 
+  /**
+   * Show the student the frames being examined.
+   *
+   * The camera element is created detached and never appended, which is what
+   * keeps anything else on the page from reading it. That also meant nobody
+   * could see what the check-in was looking at — they were asked to trust a
+   * paragraph. Attaching the *same* stream to a preview they control is the
+   * one way to make "frames stay on this device" checkable rather than
+   * asserted: what they see is the input, and there is no second capture.
+   *
+   * Returns false when there is no stream to show yet.
+   */
+  CameraMonitor.prototype.attachPreview = function (element) {
+    if (!element || !this.stream) return false;
+    element.srcObject = this.stream;
+    element.muted = true;
+    element.playsInline = true;
+    var playing = element.play();
+    if (playing && playing.catch) playing.catch(function () {});
+    return true;
+  };
+
+  CameraMonitor.prototype.detachPreview = function (element) {
+    if (element) element.srcObject = null;
+  };
+
   CameraMonitor.prototype.stop = function () {
     if (this.stream) {
       this.stream.getTracks().forEach(function (t) { t.stop(); });
@@ -344,6 +382,7 @@
     // Drop the reference frame too, or a resumed session compares the first
     // new frame against a scene from before the break and reads as motion.
     this.prevFrame = null;
+    if (_activeCamera === this) _activeCamera = null;
   };
 
   /**
@@ -562,6 +601,9 @@
     // one piece here with real arithmetic in it, and it decides whether the
     // camera says anything at all.
     CameraMonitor: CameraMonitor,
+    // The running monitor, so the page can attach a self-view to the same
+    // stream the detector reads. Null when the camera is not on.
+    activeCamera: function () { return _activeCamera; },
     cameraSupported: function () {
       return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
     },

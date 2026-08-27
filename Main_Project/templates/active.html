@@ -262,6 +262,29 @@
 .ipa-btn--ghost:hover { color: var(--text-primary); }
 
 /* ── Focus check-in ── */
+.ipa-selfview-toggle {
+  margin-top: 8px;
+  padding: 7px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.ipa-selfview {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  margin-top: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #000;
+  /* Mirrored: an unmirrored self-view reads as someone else looking back,
+     which is the opposite of reassuring. */
+  transform: scaleX(-1);
+}
 /* ── Focus check-in ──
    Presented as its own card rather than a footnote under the timer. It was
    a toggle at the bottom of a scrolling page, which meant the feature was
@@ -492,6 +515,24 @@
          matters to what the feature can honestly claim. Filled in by
          ip-active.js once the camera actually starts. #}
       <p class="ipa-focus-note" id="ipaFocusMethod" hidden></p>
+
+      {# Self-view. Off by default — a camera preview that appears uninvited
+         is startling — but one click away, because being told frames never
+         leave your device is weaker than watching the frames. It shows the
+         same stream the detector reads, not a second capture. #}
+      <div id="ipaSelfViewWrap" hidden>
+        <button type="button" class="ipa-selfview-toggle" id="ipaSelfViewBtn"
+                onclick="toggleSelfView()" aria-expanded="false"
+                aria-controls="ipaSelfView">
+          Show me what the camera sees
+        </button>
+        <video id="ipaSelfView" class="ipa-selfview" playsinline muted hidden
+               aria-label="Live preview of your camera"></video>
+        <p class="ipa-focus-note" id="ipaSelfViewNote" hidden>
+          This is the picture being checked, on your device. It is not
+          recorded and never leaves this browser.
+        </p>
+      </div>
 
       <button type="button" class="ipa-focus-privacy" id="ipaFocusPrivacy"
               aria-expanded="false" aria-controls="ipaFocusPrivacyText">

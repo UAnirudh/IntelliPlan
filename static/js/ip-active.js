@@ -462,6 +462,13 @@
            A failure now turns it off, which is what actually happened. */
         if (!info.ok) $('ipaFocusToggle').checked = false;
 
+        /* Offer the self-view only once a camera is actually running.
+           A "show me what the camera sees" button with no camera behind it
+           is worse than none. */
+        var selfWrap = $('ipaSelfViewWrap');
+        if (selfWrap) selfWrap.hidden = !info.ok;
+        if (!info.ok) hideSelfView();
+
         var method = $('ipaFocusMethod');
         if (!method) return;
         if (info.ok && info.mode === 'motion') {
@@ -601,4 +608,57 @@
 
     loadNext();
   });
+
+  /* ── Self-view ────────────────────────────────────────────────────────
+     Shows the student the frames being examined. Deliberately the same
+     stream the detector reads rather than a second capture: the point is to
+     make "nothing leaves your device" checkable instead of asserted, and a
+     separate capture would prove nothing about the first. */
+
+  function hideSelfView() {
+    var video = $('ipaSelfView');
+    var note = $('ipaSelfViewNote');
+    var btn = $('ipaSelfViewBtn');
+    if (!video) return;
+    var camera = window.IPFocus && window.IPFocus.activeCamera();
+    if (camera) camera.detachPreview(video);
+    video.hidden = true;
+    if (note) note.hidden = true;
+    if (btn) {
+      btn.textContent = 'Show me what the camera sees';
+      btn.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  function toggleSelfView() {
+    var video = $('ipaSelfView');
+    var note = $('ipaSelfViewNote');
+    var btn = $('ipaSelfViewBtn');
+    if (!video || !btn) return;
+
+    if (!video.hidden) { hideSelfView(); return; }
+
+    var camera = window.IPFocus && window.IPFocus.activeCamera();
+    if (!camera || !camera.attachPreview(video)) {
+      /* The camera stopped between the button appearing and being pressed.
+         Say so rather than showing a black rectangle. */
+      if (note) {
+        note.textContent = 'The camera is not running right now.';
+        note.hidden = false;
+      }
+      return;
+    }
+
+    video.hidden = false;
+    if (note) {
+      note.textContent = 'This is the picture being checked, on your device. '
+        + 'It is not recorded and never leaves this browser.';
+      note.hidden = false;
+    }
+    btn.textContent = 'Hide the camera view';
+    btn.setAttribute('aria-expanded', 'true');
+  }
+
+  window.toggleSelfView = toggleSelfView;
+
 })();
