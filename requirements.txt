@@ -20,9 +20,10 @@ groq>=0.4.0
 youtube-transcript-api>=0.6.2,<1.0
 
 # PDF/Document Processing
-pypdf>=3.0.0
+# pypdf only. PyPDF2 was the old name, stopped at 3.0.1, and
+# carries PYSEC-2026-1835 — pip-audit fails the build on it.
+pypdf>=3.9.0
 python-docx>=1.1.0
-PyPDF2>=3.0.0
 
 # Google Calendar Integration
 google-auth>=2.23.0

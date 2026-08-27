@@ -5,7 +5,9 @@ SCHOOLOGY_BASE = "https://api.schoology.com/v1"
 
 def make_schoology_request(key, secret, endpoint):
     auth = OAuth1(key, secret)
-    response = requests.get(f"{SCHOOLOGY_BASE}{endpoint}", auth=auth)
+    # Bounded: a school LMS that accepts the connection and then goes quiet
+    # would otherwise hold this worker until the process is restarted.
+    response = requests.get(f"{SCHOOLOGY_BASE}{endpoint}", auth=auth, timeout=20)
     return response.json()
 
 def test_schoology_login(key, secret):

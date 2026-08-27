@@ -58,7 +58,11 @@ def exchange_code_for_token(code, code_verifier=None, redirect_uri=None):
     }
     if code_verifier:
         data["code_verifier"] = code_verifier
-    resp = http_requests.post("https://oauth2.googleapis.com/token", data=data)
+    # A token exchange with no ceiling can hold a worker open indefinitely
+    # if Google stops answering mid-connection, which takes the whole site
+    # down rather than this one sign-in.
+    resp = http_requests.post("https://oauth2.googleapis.com/token",
+                              data=data, timeout=15)
     data = resp.json()
     if "error" in data:
         raise Exception(f"Token exchange failed: {data}")
@@ -90,6 +94,7 @@ def refresh_access_token(token_dict):
     """Refresh an expired access token."""
     resp = http_requests.post(
         "https://oauth2.googleapis.com/token",
+        timeout=15,
         data={
             "refresh_token": token_dict["refresh_token"],
             "client_id": os.getenv("GOOGLE_CLIENT_ID"),

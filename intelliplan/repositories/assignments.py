@@ -86,7 +86,10 @@ def parse_due_date(raw: Any) -> date | None:
 
 def stable_id(prefix: str, *parts: Any) -> str:
     """Produce a short, stable string id from a prefix + arbitrary parts."""
-    digest = hashlib.sha1("|".join(str(p) for p in parts).encode("utf-8")).hexdigest()
+    # An identifier, not a security digest: this only has to be stable and
+    # short. Marked so a scanner does not read it as password hashing.
+    digest = hashlib.sha1("|".join(str(p) for p in parts).encode("utf-8"),
+                          usedforsecurity=False).hexdigest()
     return f"{prefix}-{digest[:12]}"
 
 

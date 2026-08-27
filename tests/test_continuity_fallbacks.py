@@ -70,9 +70,23 @@ def task(title, course, due_in_days, minutes):
 
 @pytest.fixture
 def ai_down(monkeypatch):
+    """The provider is configured but the call fails."""
     def dead(*args, **kwargs):
         raise RuntimeError("all AI providers unavailable")
     monkeypatch.setattr(App, "ai_chat", dead)
+    monkeypatch.setattr(App, "ai_available", lambda: True)
+
+
+@pytest.fixture
+def ai_unconfigured(monkeypatch):
+    """No provider at all — no keys, nothing reachable.
+
+    This is the likeliest way the AI is "down", and the route used to return
+    503 before the fallback was reached, so the one case it existed for was
+    the one case it missed. CI runs without API keys and caught it; every
+    local run had a key in .env and did not.
+    """
+    monkeypatch.setattr(App, "ai_available", lambda: False)
 
 
 @pytest.fixture
@@ -122,6 +136,22 @@ def test_with_nothing_to_schedule_it_says_so(client, student, ai_down,
     """An empty week returned as a success would be worse than the error."""
     response = generate(client, [])
     assert response.get_json()["status"] == "error"
+
+
+def test_a_plan_arrives_with_no_ai_provider_configured(client, student,
+                                                       ai_unconfigured,
+                                                       planner_abstains):
+    """The no-keys case, which bypassed the fallback entirely."""
+    body = generate(client, [task("Problem set", "Math", 1, 45),
+                             task("Essay", "English", 3, 90)]).get_json()
+    assert body["status"] == "ok"
+    assert body["degraded"] is True
+    assert body["data"]["schedule"]
+
+
+def test_with_no_provider_and_nothing_to_schedule_it_still_errors(
+        client, student, ai_unconfigured, planner_abstains):
+    assert generate(client, []).get_json()["status"] == "error"
 
 
 # ── The planner itself ───────────────────────────────────────

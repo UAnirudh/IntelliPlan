@@ -2989,7 +2989,11 @@ def _asset_version() -> str:
                         stamps.append(str(int(os.path.getmtime(os.path.join(root, f)))))
         if not stamps:
             return "0"
-        return hashlib.md5("|".join(sorted(stamps)).encode()).hexdigest()[:10]
+        # A cache-busting fingerprint over file mtimes, not a security
+        # digest. Saying so is more accurate than suppressing the warning,
+        # and stops the next reader wondering whether it matters.
+        return hashlib.md5("|".join(sorted(stamps)).encode(),
+                           usedforsecurity=False).hexdigest()[:10]
     except Exception:
         # A missing fingerprint must never take down a page render.
         return "0"
@@ -10026,7 +10030,19 @@ def generate_schedule():
     upcoming = [a for a in normalized_assignments if a.get("due_date", "9999") >= today_str]
     upcoming.sort(key=lambda x: x.get("due_date", "9999"))
     if not ai_available():
-        return flask.jsonify({"status": "error", "message": API_ERROR_MESSAGES["ai"], "retryable": True}), 503
+        # No provider configured or reachable. This is the *most* likely way
+        # the AI is "down", and it returned an error before the fallback below
+        # was ever reached — so the one case the fallback exists for was the
+        # one case it did not cover. CI caught it: it runs without API keys,
+        # which is exactly this state.
+        return _schedule_without_ai(
+            normalized_assignments, preferred_time, hours_per_day,
+            availability, commitments, dna, reason="no AI provider available",
+            fallback_message="The AI is unavailable right now, so we built "
+                             "this plan from your deadlines and free time.",
+            error_message=API_ERROR_MESSAGES["ai"],
+            error_status=503,
+        )
     overdue_text = ""
     if overdue:
         overdue_text = f"\nOVERDUE — MUST BE SCHEDULED TODAY ({len(overdue)} assignments):\n" + "\n".join([
@@ -13868,10 +13884,10 @@ def extract_text_from_note_file(file_path):
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 return f.read().strip()
         if ext == ".pdf":
-            try:
-                from pypdf import PdfReader
-            except Exception:
-                from PyPDF2 import PdfReader
+            # PyPDF2 is no longer a fallback: it stopped at 3.0.1 and carries
+            # PYSEC-2026-1835, so keeping it installed for a fallback that
+            # almost never fires means shipping a known-vulnerable package.
+            from pypdf import PdfReader
             reader = PdfReader(file_path)
             pages = []
             for page in reader.pages:
@@ -14915,8 +14931,10 @@ def study_extract_pdf():
         if usage["uploads"] >= GUEST_STUDY_LIMITS["uploads"]:
             return _guest_limit_response()
     try:
-        import PyPDF2
-        reader = PyPDF2.PdfReader(io.BytesIO(f.read()))
+        # pypdf, not PyPDF2: the latter stopped at 3.0.1 and carries
+        # PYSEC-2026-1835. pypdf is the same project under its current name.
+        from pypdf import PdfReader
+        reader = PdfReader(io.BytesIO(f.read()))
         text = " ".join(page.extract_text() or "" for page in reader.pages)
         if _is_guest():
             usage = _get_guest_usage()

@@ -1,0 +1,48 @@
+# Bandit configuration.
+#
+# Every skip here is a decision with a reason, not a way to get the build
+# green. Anything genuinely actionable was fixed rather than listed:
+#
+#   B324  MD5/SHA1 flagged as weak hashing. Both uses are identifiers — an
+#         asset cache-busting fingerprint and a stable row id — and are now
+#         marked usedforsecurity=False, which says so in the code rather
+#         than hiding the warning.
+#   B113  requests calls with no timeout. Three of them, all real: a
+#         provider that accepts the connection and then goes quiet holds a
+#         worker open until the process restarts, which takes the site down
+#         rather than the one request. All three now have ceilings.
+#
+# Skipped:
+#
+#   B310  "Audit url open for permitted schemes." Flags every
+#         urllib.request.urlopen. All eight call sites target hardcoded
+#         https endpoints (Resend, Expo, Google reCAPTCHA, our own release
+#         feed) or an operator-configured base URL. None accepts a URL from
+#         a user, which is the risk the check is about.
+#
+#         The trade-off worth stating: with this skipped, a *future*
+#         user-controlled urlopen would not be caught here. The control for
+#         that case is App._resolves_to_public_host, which refuses loopback,
+#         link-local, private and reserved addresses before any server-side
+#         fetch of a user-supplied host. If another such fetch is added, it
+#         must go through that guard — bandit will not remind you.
+#
+#   B104  "Possible binding to all interfaces." One occurrence, the
+#         development server bind. Containers have to listen on 0.0.0.0 to
+#         receive traffic at all; in production gunicorn does the binding.
+#
+skips: ['B310', 'B104']
+
+# local_ai_server.py is an optional developer convenience for running a
+# model on your own machine. It is referenced by nothing, ships in no
+# deployment, and its B615 findings (Hugging Face downloads without a
+# pinned revision) are about a dev box pulling a model, not about anything
+# a student ever reaches.
+exclude_dirs:
+  - './tests'
+  - './AppStore-Launch'
+  - './node_modules'
+  - './.venv'
+  - './mobile'
+  - './desktop'
+  - './build'

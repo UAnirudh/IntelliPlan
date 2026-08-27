@@ -63,5 +63,7 @@ jobs:
 
       # -ll: report medium severity and above. Every finding below that on a
       # codebase this size is noise, and a scan nobody reads catches nothing.
+      # Skips and their reasons live in .bandit, next to the code, rather
+      # than as flags here where nobody would find them.
       - name: Scan for insecure patterns
-        run: bandit -r . -ll --exclude ./tests,./AppStore-Launch,./node_modules,./.venv
+        run: bandit -r . -ll -c .bandit --exclude ./tests,./AppStore-Launch,./node_modules,./.venv,./mobile,./desktop,./local_ai_server.py
