@@ -156,9 +156,19 @@
         if (data.session) return resume(data.session);
         return api('/api/active/next').then(function (next) {
           if (!next.next) {
-            $('ipaEmptyMsg').textContent =
-              'Nothing scheduled right now. Build a plan and your next session shows up here.';
-            $('ipaEmptyCta').hidden = false;
+            /* Three different situations used to share one message telling
+               the student to go build a plan — including the case where they
+               had a plan and had finished it, which reads as the app having
+               lost their work. Say which one it is, and offer a session
+               either way rather than only a link away from here. */
+            var hasPlan = !!next.has_plan;
+            var finished = hasPlan && !!next.all_done;
+            $('ipaEmptyMsg').textContent = finished
+              ? 'Everything in your plan is done. Start another session if you want to keep going.'
+              : hasPlan
+                ? 'Nothing left scheduled for now. You can still start a session below.'
+                : 'No schedule yet — you do not need one. Start a session below, or build a plan.';
+            showAdhoc(!hasPlan);
             setControls('none');
             return;
           }
@@ -168,9 +178,92 @@
       })
       .catch(function (err) {
         $('ipaEmptyMsg').textContent = 'Could not load your session: ' + err.message;
+        /* A failed lookup should not also cost the student the ability to
+           study. The ad-hoc form does not depend on the plan. */
+        showAdhoc(true);
         setControls('none');
       });
   }
+
+  // ── Ad-hoc sessions ─────────────────────────────────────────────────
+  //
+  // Active was unusable without a generated plan. Studying for twenty
+  // minutes is not a thing that should require a schedule first.
+
+  var adhocMinutes = 25;
+
+  function showAdhoc(offerScheduleLink) {
+    var form = $('ipaAdhoc');
+    if (form) form.hidden = false;
+    var cta = $('ipaEmptyCta');
+    if (cta) cta.hidden = !offerScheduleLink;
+  }
+
+  function adhocValidate() {
+    var field = $('ipaAdhocTitle');
+    var start = $('ipaAdhocStart');
+    if (!field || !start) return false;
+    var ok = field.value.trim().length > 0;
+    // Gate the action on the one field that is required, rather than letting
+    // them press Start and then explaining what was missing.
+    start.disabled = !ok;
+    return ok;
+  }
+
+  function adhocPick(button) {
+    var group = button.parentNode;
+    Array.prototype.forEach.call(group.querySelectorAll('.ipa-chip'), function (chip) {
+      chip.classList.remove('is-selected');
+      chip.setAttribute('aria-pressed', 'false');
+    });
+    button.classList.add('is-selected');
+    button.setAttribute('aria-pressed', 'true');
+    adhocMinutes = parseInt(button.getAttribute('data-minutes'), 10) || 25;
+  }
+
+  function adhocError(message) {
+    var box = $('ipaAdhocError');
+    if (!box) return;
+    box.textContent = message || '';
+    box.hidden = !message;
+  }
+
+  function adhocStart() {
+    if (!adhocValidate()) return;
+    var start = $('ipaAdhocStart');
+    var title = $('ipaAdhocTitle').value.trim();
+    start.disabled = true;
+    start.textContent = 'Starting…';
+    adhocError('');
+
+    api('/api/active/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: title,
+        planned_minutes: adhocMinutes,
+        course: '',
+        kind: 'study',
+      }),
+    }).then(function (data) {
+      if (!data.session) throw new Error('No session came back.');
+      var form = $('ipaAdhoc');
+      if (form) form.hidden = true;
+      resume(data.session);
+    }).catch(function (err) {
+      adhocError('Could not start that session: ' + err.message);
+      start.disabled = false;
+      start.textContent = 'Start session';
+    });
+  }
+
+  // The markup calls these from inline handlers, so they need a home on the
+  // window rather than staying private to the IIFE.
+  window.IPActive = {
+    adhocValidate: adhocValidate,
+    adhocPick: adhocPick,
+    adhocStart: adhocStart,
+  };
 
   function resume(session) {
     IPA.session = session;

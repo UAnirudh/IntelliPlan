@@ -414,23 +414,17 @@ body {
   }
 }
 </style>
-{# Microsoft Clarity — session replay and heatmaps.
-   This used to load unconditionally, with the project id hardcoded here, for
-   every visitor including children and before anyone was asked. Clarity is a
-   non-essential tracker: ePrivacy requires consent before it runs, and COPPA
-   forbids behavioural tracking of an under-13 without verified parental
-   consent. It now renders only when a project is configured, the visitor has
-   consented, and they are not a child awaiting a parent. Set
-   CLARITY_PROJECT_ID empty to switch it off product-wide. #}
-{% if analytics_allowed and clarity_project_id %}
-<script type="text/javascript">
-    (function(c,l,a,r,i,t,y){
-        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-    })(window, document, "clarity", "script", {{ clarity_project_id|tojson }});
-</script>
-{% endif %}
+{# No third-party analytics script is loaded here.
+
+   Microsoft Clarity (session replay + heatmaps) used to sit at this spot,
+   running for every visitor including children, before anyone was asked,
+   while the Privacy Policy stated in writing that IntelliPlan does not use
+   session replay. It has been removed rather than merely gated: the promise
+   made to schools and parents is worth more than the heatmaps.
+
+   Product usage is measured server-side via PostHog, which sets nothing in
+   the browser. Anything added here in future must be declared in
+   cookie_policy.py and gated on consent first. #}
 </head>
 
 {% set _app_pages = ['dashboard','scheduler','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','olympiad','memories','pet','command_center','balance','features','accessibility','text_dissector','my_stats'] %}

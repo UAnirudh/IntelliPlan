@@ -312,12 +312,26 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
         """
         _require_flag()
         plan = deps.get_plan() or {}
-        for day in plan.get("schedule", []) or []:
+        # "No next block" has three causes and they need different words:
+        # no plan at all, a plan whose blocks are all finished, or a plan
+        # holding nothing but breaks. Reporting only ``next: null`` made the
+        # client tell a student who had finished their plan to go and make
+        # one, which reads as the app having lost their schedule.
+        days = plan.get("schedule", []) or []
+        has_plan = bool(days)
+        saw_workable_block = False
+
+        for day in days:
             for block in day.get("blocks", []) or []:
-                if block.get("is_break") or block.get("done"):
+                if block.get("is_break"):
+                    continue
+                saw_workable_block = True
+                if block.get("done"):
                     continue
                 return jsonify(
                     {
+                        "has_plan": True,
+                        "all_done": False,
                         "next": {
                             "block_id": block.get("id"),
                             "task_id": block.get("task_id"),
@@ -334,7 +348,11 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
                         }
                     }
                 )
-        return jsonify({"next": None})
+        return jsonify({
+            "next": None,
+            "has_plan": has_plan,
+            "all_done": has_plan and saw_workable_block,
+        })
 
     return bp
 

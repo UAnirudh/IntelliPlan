@@ -9,15 +9,17 @@ Two categories, and the split is the whole point:
 
 ``essential``   Needed for the site to work at all. No consent required
                 under ePrivacy, and nothing here tracks anyone.
-``analytics``   Everything else. Loaded only after the visitor says yes, and
-                never for a child under 13.
+``analytics``   Anything non-essential. Currently EMPTY: IntelliPlan loads no
+                third-party analytics script at all. The category and its
+                consent gate are kept deliberately, so that anything added
+                later is declared here and gated before it can ship — which
+                is exactly what did not happen with Microsoft Clarity.
 
 Adding anything that writes to a browser means adding it here first.
 """
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 ESSENTIAL = "essential"
@@ -99,32 +101,18 @@ COOKIES: list[dict[str, Any]] = [
                    "so it does not reappear on every page.",
         "duration": "Until you clear your browser data",
     },
-    {
-        "name": "_clck, _clsk, CLID",
-        "category": ANALYTICS,
-        "storage": "cookie",
-        "provider": "Microsoft Clarity",
-        "purpose": "Records how pages are used — clicks, scrolling, and "
-                   "session replays — so we can find what is broken or "
-                   "confusing. Not used for advertising.",
-        "duration": "Up to 12 months",
-        "policy_url": "https://privacy.microsoft.com/privacystatement",
-    },
 ]
 
 
-def clarity_project_id() -> str:
-    """The Microsoft Clarity project, or empty to disable it entirely.
-
-    Was hardcoded in the page template, which meant the only way to stop
-    session recording was to edit and redeploy HTML. As an env var, turning
-    analytics off across the whole product is a config change.
-    """
-    return (os.getenv("CLARITY_PROJECT_ID") or "").strip()
-
-
 def analytics_available() -> bool:
-    return bool(clarity_project_id())
+    """Whether anything non-essential exists to ask about.
+
+    Derived from the registry rather than a config flag, so the banner and
+    the consent gate switch on by declaring a cookie and cannot be switched
+    on any other way. Today there is nothing here, so no banner shows and
+    there is nothing to consent to.
+    """
+    return bool(cookies_for(ANALYTICS))
 
 
 def cookies_for(category: str) -> list[dict[str, Any]]:

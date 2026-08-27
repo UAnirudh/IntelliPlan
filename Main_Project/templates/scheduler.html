@@ -1850,6 +1850,12 @@ function generateSchedule(extra) {
     }));
     try { localStorage.setItem(CK_STATE_KEY, JSON.stringify(_checklistState)); } catch(e) {}
     renderSchedule(response.data);
+    /* Persist it immediately. "Generated" and "saved" were two different
+       states, and only saved plans are visible to Active, the dashboard and
+       progress sync — so a student who generated a plan and did not notice
+       the Save button was told by Active that they had no schedule. Nobody
+       thinks of generating a plan as a draft, so stop treating it as one. */
+    autoSaveSchedule();
     document.getElementById('scheduleResults').style.display = 'block';
     document.getElementById('savePanel').style.display = 'flex';
     const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -1920,6 +1926,28 @@ async function downloadIcs() {
 function printSchedule() {
   switchTab('creator');
   setTimeout(() => window.print(), 60);
+}
+
+/* Save a freshly generated plan without the student having to ask.
+
+   Quiet on success — the plan is already on screen and a toast for something
+   they did not do is noise. Quiet on failure too: the manual "Save to
+   dashboard" button is still there, and an error about a save they never
+   requested would be more confusing than the retry. */
+async function autoSaveSchedule() {
+  if (!_lastScheduleData) return;
+  const nameField = document.getElementById('scheduleName');
+  const name = (nameField && nameField.value.trim()) || 'My Schedule';
+  try {
+    const res = await fetch('/schedule/save', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ schedule_data: _lastScheduleData, name })
+    }).then(r => r.json());
+    if (res.status === 'ok') {
+      _progressSyncEnabled = true;
+      pushProgress();
+    }
+  } catch (e) { /* the manual save button remains */ }
 }
 
 async function saveSchedule() {

@@ -383,17 +383,18 @@ def add_cors_headers(response):
         # 'unsafe-inline' on script-src is required today because most
         # templates ship inline <script> blocks. Migrate to nonces in a
         # follow-up; CSP_ENFORCE stays off until then.
+        # No analytics or session-replay origins are permitted. Clarity was
+        # removed from the product; leaving its origin allowed here would let
+        # it (or anything on that host) load again unnoticed.
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
-            "https://www.googletagmanager.com https://www.google-analytics.com "
-            "https://www.clarity.ms https://*.clarity.ms "
             "https://browser.sentry-cdn.com https://*.sentry.io "
             "https://js.stripe.com https://challenges.cloudflare.com "
             "https://meet.jit.si; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "img-src 'self' data: blob: https:; "
         "font-src 'self' data: https://fonts.gstatic.com; "
-        "connect-src 'self' https://www.google-analytics.com "
-            "https://*.clarity.ms https://*.sentry.io https://api.stripe.com "
+        "connect-src 'self' "
+            "https://*.sentry.io https://api.stripe.com "
             "https://*.googleapis.com https://meet.jit.si; "
         "media-src 'self' blob:; "
         "object-src 'none'; "
@@ -8001,7 +8002,6 @@ def _inject_cookie_consent():
         raw = request.cookies.get(cookie_policy.CONSENT_COOKIE)
         return {
             "analytics_allowed": _analytics_allowed(),
-            "clarity_project_id": cookie_policy.clarity_project_id(),
             "cookie_consent_given": cookie_policy.parse_consent(raw) is not None,
             # The banner is pointless when there is nothing to consent to.
             "analytics_available_for_banner": cookie_policy.analytics_available(),
@@ -8009,7 +8009,7 @@ def _inject_cookie_consent():
     except Exception:
         # A failure here must not blank the page; the safe default is no
         # tracking and no banner.
-        return {"analytics_allowed": False, "clarity_project_id": "",
+        return {"analytics_allowed": False,
                 "cookie_consent_given": True,
                 "analytics_available_for_banner": False}
 

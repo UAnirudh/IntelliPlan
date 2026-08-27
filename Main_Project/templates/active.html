@@ -49,6 +49,88 @@
 }
 .ipa-empty p { margin: 0 auto 1.5rem; max-width: 46ch; font-size: var(--fs-sm); }
 
+/* ── Ad-hoc session ──────────────────────────────────────────
+   Left-aligned inside a centred card: a form reads as a form, and
+   centred labels above centred fields are harder to scan. */
+.ipa-adhoc {
+  max-width: 26rem;
+  margin: 0 auto;
+  padding: 1.35rem;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg-elevated, var(--glass-bg));
+}
+.ipa-adhoc-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-md, 1.05rem);
+  font-weight: 400;
+  color: var(--text-primary);
+  margin: 0 0 1rem;
+}
+.ipa-adhoc-label {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: var(--fs-xs, 0.78rem);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: .4rem;
+}
+.ipa-adhoc-input {
+  width: 100%;
+  min-height: 44px;                  /* touch target */
+  padding: .6rem .8rem;
+  margin-bottom: 1.1rem;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--bg-primary, transparent);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 1rem;                   /* >=16px stops iOS zooming on focus */
+}
+.ipa-adhoc-input:focus-visible,
+.ipa-chip:focus-visible,
+.ipa-adhoc-actions .ipa-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.ipa-adhoc-durations {
+  display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1.1rem;
+}
+.ipa-chip {
+  min-height: 44px;
+  padding: .5rem 1rem;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur-micro, 120ms) ease,
+              border-color var(--dur-micro, 120ms) ease;
+}
+.ipa-chip:hover { border-color: var(--text-muted); background: var(--bg-elevated); }
+/* Selection is carried by fill *and* border weight, not colour alone, so it
+   survives a colour-blind or high-contrast reading. */
+.ipa-chip.is-selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.ipa-adhoc-error {
+  margin: 0 0 .75rem;
+  font-size: var(--fs-xs, 0.78rem);
+  color: var(--high, #c2455e);
+}
+.ipa-adhoc-actions { display: flex; gap: .6rem; flex-wrap: wrap; }
+.ipa-adhoc-actions .ipa-btn { flex: 1 1 auto; }
+.ipa-btn[disabled] { opacity: .5; cursor: not-allowed; }
+@media (max-width: 420px) {
+  .ipa-adhoc-actions .ipa-btn { flex: 1 1 100%; }
+}
+
 /* ── The card holding the current session ── */
 .ipa-card {
   background: var(--bg-card);
@@ -330,7 +412,35 @@
   <section class="ipa-empty" id="ipaEmpty">
     <h1>Active</h1>
     <p id="ipaEmptyMsg">Loading your next session…</p>
-    <a class="ipa-btn ipa-btn--primary" href="/scheduler" id="ipaEmptyCta" hidden>Build a schedule</a>
+
+    {# Active used to be a dead end without a plan: the only thing offered was
+       a link away to the scheduler. Wanting to sit down and study for twenty
+       minutes does not require having generated a schedule first, so the
+       session can be started right here. Duration is a set of choices rather
+       than a number field — picking beats typing, and it removes the chance
+       of entering something invalid. #}
+    <form class="ipa-adhoc" id="ipaAdhoc" hidden onsubmit="return false;">
+      <h2 class="ipa-adhoc-title">Start a session now</h2>
+      <label class="ipa-adhoc-label" for="ipaAdhocTitle">What are you working on?</label>
+      <input class="ipa-adhoc-input" id="ipaAdhocTitle" type="text" maxlength="120"
+             placeholder="e.g. Biology reading, Chapter 4"
+             autocomplete="off" oninput="IPActive.adhocValidate()">
+
+      <span class="ipa-adhoc-label" id="ipaAdhocDurationLabel">How long?</span>
+      <div class="ipa-adhoc-durations" role="group" aria-labelledby="ipaAdhocDurationLabel">
+        <button type="button" class="ipa-chip" data-minutes="15" onclick="IPActive.adhocPick(this)">15 min</button>
+        <button type="button" class="ipa-chip is-selected" data-minutes="25" aria-pressed="true" onclick="IPActive.adhocPick(this)">25 min</button>
+        <button type="button" class="ipa-chip" data-minutes="45" onclick="IPActive.adhocPick(this)">45 min</button>
+        <button type="button" class="ipa-chip" data-minutes="60" onclick="IPActive.adhocPick(this)">60 min</button>
+      </div>
+
+      <p class="ipa-adhoc-error" id="ipaAdhocError" role="alert" hidden></p>
+      <div class="ipa-adhoc-actions">
+        <button type="button" class="ipa-btn ipa-btn--primary" id="ipaAdhocStart"
+                onclick="IPActive.adhocStart()" disabled>Start session</button>
+        <a class="ipa-btn" href="/scheduler" id="ipaEmptyCta" hidden>Build a schedule</a>
+      </div>
+    </form>
   </section>
 
   <!-- The session -->
