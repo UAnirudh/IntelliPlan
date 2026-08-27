@@ -53,6 +53,70 @@ PRIVACY_VERSIONS: list[dict[str, Any]] = [
         "summary": ["The original Privacy Policy."],
         "clauses": [],
     },
+    {
+        # Microsoft Clarity — session replay and heatmaps — had been loading
+        # on every page while §1 stated we did not use session replay. The
+        # tracker was removed rather than disclosed, so the original promise
+        # is true again. Telling people is the other half of that: a policy
+        # that changes silently is not a policy anyone can rely on, and this
+        # is exactly the change the notice mechanism was built for.
+        "version": 2,
+        "effective": "2026-08-26",
+        "summary": [
+            "We removed a third-party analytics tool (Microsoft Clarity) that "
+            "had been loading in your browser. No third-party analytics script "
+            "runs on IntelliPlan any more.",
+            "We were already telling you we do not use session replay. For a "
+            "period that was not accurate, and we are telling you rather than "
+            "quietly correcting it.",
+            "We added a Cookie Policy listing everything stored in your "
+            "browser, what each item does, and how long it lasts.",
+            "Nothing new is collected. This change only removes things and "
+            "describes what remains more precisely.",
+        ],
+        "clauses": [
+            {
+                "heading": "1. Information we collect — Usage telemetry",
+                "before": (
+                    "Usage telemetry — anonymous error logs and basic event "
+                    "counts (e.g. “schedule generated”). We do not use "
+                    "session-replay, screen recording, keystroke loggers, or "
+                    "third-party advertising trackers."
+                ),
+                "after": (
+                    "Usage telemetry — anonymous error logs and basic event "
+                    "counts (e.g. “schedule generated”), recorded on our "
+                    "own servers. We do not use session-replay, screen "
+                    "recording, heatmaps, keystroke loggers, third-party "
+                    "advertising trackers, retargeting pixels, or any "
+                    "cross-site tracking. No third-party analytics script runs "
+                    "in your browser."
+                ),
+            },
+            {
+                "heading": "10a. Cookies & browser storage (new section)",
+                "before": "No cookie section existed.",
+                "after": (
+                    "We use cookies to keep you signed in and to remember your "
+                    "settings. We run no analytics, advertising or tracking "
+                    "cookies of any kind, so there is nothing optional to "
+                    "consent to and no cookie banner to dismiss.\n\n"
+                    "Strictly necessary — your sign-in session, the “stay "
+                    "signed in” token, and the cookie that records your "
+                    "cookie choice. These cannot be switched off, because "
+                    "without them there is no sign-in.\n\n"
+                    "On-device preferences — your theme, accessibility "
+                    "settings, study-session progress and dismissed prompts "
+                    "are kept in your browser's localStorage. These never "
+                    "reach our servers. We list them anyway, because the law "
+                    "covers storage on your device whatever it is called.\n\n"
+                    "No advertising cookies — we run no ad tech, no "
+                    "retargeting pixels, and no cross-site tracking of any "
+                    "kind."
+                ),
+            },
+        ],
+    },
 ]
 
 _VERSIONS: dict[str, list[dict[str, Any]]] = {

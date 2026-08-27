@@ -289,26 +289,47 @@ def test_only_a_same_site_path_survives(raw, expected):
 
 # ── Policy acknowledgement ───────────────────────────────────
 
+#: Stand-in version number, kept clear of anything really published so
+#: these tests describe the mechanism rather than whatever the current
+#: policy happens to say.
+TEST_VERSION = 9001
+
+
 @pytest.fixture
-def new_privacy_version():
+def only_baselines(monkeypatch):
+    """Strip published versions so "nothing has changed" can be tested.
+
+    Real versions ship in ``policy_versions``; asserting against an empty
+    registry would break every time the policy legitimately changes.
+    """
+    monkeypatch.setattr(policy_versions, "PRIVACY_VERSIONS",
+                        [v for v in policy_versions.PRIVACY_VERSIONS
+                         if v.get("baseline")])
+    monkeypatch.setattr(policy_versions, "TERMS_VERSIONS",
+                        [v for v in policy_versions.TERMS_VERSIONS
+                         if v.get("baseline")])
+    monkeypatch.setattr(policy_versions, "_VERSIONS", {
+        policy_versions.TERMS: policy_versions.TERMS_VERSIONS,
+        policy_versions.PRIVACY: policy_versions.PRIVACY_VERSIONS,
+    })
+
+
+@pytest.fixture
+def new_privacy_version(only_baselines, monkeypatch):
     """Publish a version so there is something to acknowledge."""
     policy_versions.PRIVACY_VERSIONS.append({
-        "version": 2,
+        "version": TEST_VERSION,
         "effective": "2026-09-01",
         "summary": ["We now record which school you ask us to contact."],
         "clauses": [{"heading": "3. Information we collect",
                      "before": "We collect your name and email.",
                      "after": "We collect your name, email, and school details."}],
     })
-    yield
-    policy_versions.PRIVACY_VERSIONS[:] = [
-        v for v in policy_versions.PRIVACY_VERSIONS if v["version"] != 2
-    ]
 
 
-def test_an_unchanged_policy_prompts_nobody(client):
-    """Shipping this must not confront every existing user with a notice
-    about a document that has not actually changed for them."""
+def test_an_unchanged_policy_prompts_nobody(client, only_baselines):
+    """Shipping the mechanism must not confront every existing user with a
+    notice about a document that has not actually changed for them."""
     assert client.get("/api/policy/pending").get_json()["pending"] == []
 
 
@@ -319,7 +340,7 @@ def test_a_new_version_is_surfaced_with_summary_and_verbatim_text(
 
     notice = pending[0]
     assert notice["doc"] == "privacy"
-    assert notice["version"] == 2
+    assert notice["version"] == TEST_VERSION
     assert notice["summary"] == ["We now record which school you ask us to contact."]
     assert notice["clauses"][0]["before"] == "We collect your name and email."
     assert notice["clauses"][0]["after"] == \
@@ -327,17 +348,17 @@ def test_a_new_version_is_surfaced_with_summary_and_verbatim_text(
 
 
 def test_accepting_clears_the_notice(client, new_privacy_version):
-    r = client.post("/api/policy/acknowledge", json={"doc": "privacy", "version": 2})
+    r = client.post("/api/policy/acknowledge", json={"doc": "privacy", "version": TEST_VERSION})
     assert r.status_code == 200
     assert client.get("/api/policy/pending").get_json()["pending"] == []
 
 
 def test_the_acceptance_is_recorded_as_evidence(client, new_privacy_version):
     signed_in(client, email="outreach+p@example.com")
-    client.post("/api/policy/acknowledge", json={"doc": "privacy", "version": 2})
+    client.post("/api/policy/acknowledge", json={"doc": "privacy", "version": TEST_VERSION})
     with App.app.app_context():
         row = PolicyAcknowledgement.query.filter_by(doc="privacy").one()
-        assert row.version == 2
+        assert row.version == TEST_VERSION
         assert row.acknowledged_at is not None
 
 
@@ -353,25 +374,20 @@ def test_an_unknown_document_is_refused(client):
 
 def test_missing_two_updates_shows_both_in_order(client, new_privacy_version):
     policy_versions.PRIVACY_VERSIONS.append({
-        "version": 3, "effective": "2026-10-01",
+        "version": TEST_VERSION + 1, "effective": "2026-10-01",
         "summary": ["We added a data export tool."], "clauses": [],
     })
-    try:
-        notice = client.get("/api/policy/pending").get_json()["pending"][0]
-        assert notice["version"] == 3
-        assert notice["summary"] == [
-            "We now record which school you ask us to contact.",
-            "We added a data export tool.",
-        ]
-    finally:
-        policy_versions.PRIVACY_VERSIONS[:] = [
-            v for v in policy_versions.PRIVACY_VERSIONS if v["version"] != 3
-        ]
+    notice = client.get("/api/policy/pending").get_json()["pending"][0]
+    assert notice["version"] == TEST_VERSION + 1
+    assert notice["summary"] == [
+        "We now record which school you ask us to contact.",
+        "We added a data export tool.",
+    ]
 
 
 def test_re_accepting_an_older_version_does_not_undo_a_newer_one(
         client, new_privacy_version):
-    client.post("/api/policy/acknowledge", json={"doc": "privacy", "version": 2})
+    client.post("/api/policy/acknowledge", json={"doc": "privacy", "version": TEST_VERSION})
     client.post("/api/policy/acknowledge", json={"doc": "privacy", "version": 1})
     assert client.get("/api/policy/pending").get_json()["pending"] == []
 
