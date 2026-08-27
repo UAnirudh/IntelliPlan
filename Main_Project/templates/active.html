@@ -488,6 +488,10 @@
         <li>You get a nudge only after you've clearly been away &mdash; never for glancing at your notes.</li>
         <li>Turn it off at any time and the camera stops immediately.</li>
       </ul>
+      {# Which method is running depends on the browser, and the difference
+         matters to what the feature can honestly claim. Filled in by
+         ip-active.js once the camera actually starts. #}
+      <p class="ipa-focus-note" id="ipaFocusMethod" hidden></p>
 
       <button type="button" class="ipa-focus-privacy" id="ipaFocusPrivacy"
               aria-expanded="false" aria-controls="ipaFocusPrivacyText">

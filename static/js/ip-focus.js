@@ -9,10 +9,19 @@
  *   1. Presence signals the browser gives us for free — tab visibility,
  *      window focus, and input idleness. Always available, cheap, exact
  *      about what they measure, and worth more than people expect.
- *   2. An optional camera check-in using the browser's built-in, on-device
- *      FaceDetector. Frames never leave the machine. Nothing is recorded,
- *      nothing is uploaded, and no identity information is derived — we ask
- *      only "is there a face, and is it roughly pointed this way".
+ *   2. An optional camera check-in, entirely on-device. Frames never leave
+ *      the machine, nothing is recorded, nothing is uploaded, and no
+ *      identity information is derived. Two methods, depending on browser:
+ *        - FaceDetector where it exists: "is there a face, roughly pointed
+ *          this way". Rare in practice — absent in Firefox and Safari,
+ *          flagged off in Chrome. Requiring it left the whole feature dead
+ *          for almost everyone who tried to turn it on.
+ *        - Frame-to-frame movement everywhere else. This can confirm that
+ *          somebody is there; it cannot prove nobody is, because a still
+ *          reader and an empty chair produce identical frames. So it
+ *          reports presence and stays quiet otherwise, and its real job is
+ *          to stop the idle-input heuristic deciding you left while you sat
+ *          reading.
  *
  * WHAT THIS IS NOT
  * ----------------
@@ -65,6 +74,12 @@
   // A face this far off-centre or this small is probably not looking here.
   var MAX_OFFSET_RATIO = 0.34;
   var MIN_FACE_AREA_RATIO = 0.012;
+  //: Motion fallback. A pixel counts as changed only above sensor noise,
+  //: and enough of the frame must change before movement is called real —
+  //: otherwise a flickering light or auto-exposure reads as a person.
+  var PIXEL_NOISE_FLOOR = 12;        // 0-255 luma difference
+  var MOTION_PRESENT_RATIO = 0.02;   // 2% of sampled pixels
+  var DARK_FRAME_LUMA = 18;          // covered lens or closed lid
 
   var STATE = { FOCUSED: 'present', AWAY: 'away', ABSENT: 'absent', UNKNOWN: 'unknown' };
 
@@ -122,9 +137,14 @@
   };
 
   /**
-   * Camera check-in via the browser's native on-device FaceDetector.
-   * Returns null from start() when the API is unavailable, which the caller
-   * must surface honestly rather than silently substituting something else.
+   * Camera check-in, on-device either way: native FaceDetector when the
+   * browser has it, frame-to-frame movement when it does not.
+   *
+   * ``start()`` resolves false when there is no camera or access is refused,
+   * and the caller must surface which of those happened rather than
+   * silently substituting something else. The active method is reported too
+   * — telling someone "face detection" when it is watching for movement
+   * would be the same class of lie.
    */
   function CameraMonitor() {
     this.stream = null;
@@ -132,16 +152,19 @@
     this.canvas = null;
     this.ctx = null;
     this.detector = null;
-    this.available = typeof window.FaceDetector === 'function';
+    this.prevFrame = null;
+    /* Which of the two methods below is actually running. FaceDetector is
+       the better signal but has effectively never shipped: it is absent in
+       Firefox and Safari and flagged off in Chrome, so requiring it meant
+       the camera check-in was permanently unavailable for almost everyone
+       who turned it on. Motion is the fallback that works everywhere. */
+    this.mode = typeof window.FaceDetector === 'function' ? 'face' : 'motion';
+    this.available = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
   }
 
   CameraMonitor.prototype.start = function () {
     var self = this;
     if (!this.available) return Promise.resolve(false);
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      this.available = false;
-      return Promise.resolve(false);
-    }
     return navigator.mediaDevices
       .getUserMedia({ video: { width: 320, height: 240, facingMode: 'user' }, audio: false })
       .then(function (stream) {
@@ -157,7 +180,9 @@
         self.canvas.width = CAPTURE_WIDTH;
         self.canvas.height = Math.round(CAPTURE_WIDTH * 0.75);
         self.ctx = self.canvas.getContext('2d', { willReadFrequently: true });
-        self.detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+        if (self.mode === 'face') {
+          self.detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+        }
         return self.video.play().then(function () { return true; });
       })
       .catch(function () {
@@ -168,7 +193,7 @@
 
   CameraMonitor.prototype.sample = function () {
     var self = this;
-    if (!this.detector || !this.video || this.video.readyState < 2) {
+    if (!this.video || this.video.readyState < 2) {
       return Promise.resolve({ state: STATE.UNKNOWN, confidence: 0, source: 'camera' });
     }
     try {
@@ -176,6 +201,9 @@
     } catch (err) {
       return Promise.resolve({ state: STATE.UNKNOWN, confidence: 0, source: 'camera' });
     }
+
+    if (this.mode === 'motion') return Promise.resolve(this._sampleMotion());
+
     return this.detector
       .detect(this.canvas)
       .then(function (faces) {
@@ -187,6 +215,74 @@
       .catch(function () {
         return { state: STATE.UNKNOWN, confidence: 0, source: 'camera' };
       });
+  };
+
+  /**
+   * Presence from frame-to-frame movement.
+   *
+   * The honest boundary of this method: movement in front of the lens is
+   * good evidence somebody is there, but stillness is NOT evidence that
+   * nobody is. An empty desk and a student reading without shifting produce
+   * the same near-identical frames. So this reports PRESENT on motion and
+   * UNKNOWN on stillness — it never claims absence, and the fusion step
+   * discards UNKNOWN rather than counting it against the student.
+   *
+   * That sounds like a weak signal, and as an absence detector it is. Its
+   * actual job is the opposite one, and it does that well: it stops the
+   * idle-input heuristic concluding you left when you have been sitting
+   * still reading for ten minutes.
+   *
+   * A very dark frame is the one absence-ish case worth reporting, and even
+   * then only at low confidence: a closed lid or covered lens is more often
+   * "stopped studying" than "camera fault", but it is a guess either way.
+   */
+  CameraMonitor.prototype._sampleMotion = function () {
+    var w = this.canvas.width;
+    var h = this.canvas.height;
+    var frame;
+    try {
+      frame = this.ctx.getImageData(0, 0, w, h).data;
+    } catch (err) {
+      // A tainted canvas cannot be read. Nothing useful to say.
+      return { state: STATE.UNKNOWN, confidence: 0, source: 'camera' };
+    }
+
+    // Luminance only, sampled every 4th pixel: enough for a movement
+    // signal, a quarter of the work, and it never reconstructs an image.
+    var step = 16;                       // 4 pixels * 4 channels
+    var luma = new Uint8Array(Math.ceil(frame.length / step));
+    var total = 0;
+    var n = 0;
+    for (var i = 0; i < frame.length; i += step) {
+      var value = (frame[i] * 0.299 + frame[i + 1] * 0.587 + frame[i + 2] * 0.114) | 0;
+      luma[n++] = value;
+      total += value;
+    }
+    var brightness = total / n;
+
+    var previous = this.prevFrame;
+    this.prevFrame = luma;
+
+    if (brightness < DARK_FRAME_LUMA) {
+      return { state: STATE.ABSENT, confidence: 0.4, source: 'camera' };
+    }
+    if (!previous || previous.length !== luma.length) {
+      return { state: STATE.UNKNOWN, confidence: 0, source: 'camera' };
+    }
+
+    var changed = 0;
+    for (var j = 0; j < n; j++) {
+      if (Math.abs(luma[j] - previous[j]) > PIXEL_NOISE_FLOOR) changed++;
+    }
+    var ratio = changed / n;
+
+    if (ratio >= MOTION_PRESENT_RATIO) {
+      // Scale confidence with how much moved, capped: a lot of movement is
+      // not proportionally stronger evidence of studying.
+      var confidence = Math.min(0.75, 0.5 + ratio);
+      return { state: STATE.FOCUSED, confidence: confidence, source: 'camera' };
+    }
+    return { state: STATE.UNKNOWN, confidence: 0, source: 'camera' };
   };
 
   /**
@@ -245,6 +341,9 @@
     this.canvas = null;
     this.ctx = null;
     this.detector = null;
+    // Drop the reference frame too, or a resumed session compares the first
+    // new frame against a scene from before the break and reads as motion.
+    this.prevFrame = null;
   };
 
   /**
@@ -292,14 +391,27 @@
         this.onCameraStatus({
           ok: false,
           reason: 'unsupported',
-          message: 'This browser has no on-device face detection, so the camera check-in is off. Presence tracking still works.'
+          message: 'This browser will not give any site camera access, so the check-in is off. Presence tracking still works.'
         });
       } else {
+        var mode = this.camera.mode;
         cameraReady = this.camera.start().then(function (ok) {
           self.onCameraStatus(
             ok
-              ? { ok: true, message: 'Camera check-in on. Frames stay on this device.' }
-              : { ok: false, reason: 'denied', message: 'Camera unavailable, so the check-in is off. Presence tracking still works.' }
+              ? {
+                  ok: true,
+                  mode: mode,
+                  // Name the method rather than implying one. Motion knows
+                  // someone moved; it does not know it was a face.
+                  message: mode === 'face'
+                    ? 'Camera check-in on, using face detection. Frames stay on this device.'
+                    : 'Camera check-in on, watching for movement. Frames stay on this device.'
+                }
+              : {
+                  ok: false,
+                  reason: 'denied',
+                  message: 'No camera access, so the check-in is off. Presence tracking still works.'
+                }
           );
           if (!ok) { self.camera.stop(); self.camera = null; }
           return ok;
@@ -441,6 +553,22 @@
   window.IPFocus = {
     Tracker: FocusTracker,
     STATE: STATE,
-    cameraSupported: function () { return typeof window.FaceDetector === 'function'; }
+    // Whether the toggle can do anything at all. This asked for
+    // FaceDetector, an API that never shipped in Firefox or Safari and is
+    // flagged off in Chrome — so the switch reported itself unsupported for
+    // very nearly everyone who tried to turn it on. What the check-in
+    // actually needs is a camera.
+    // Exposed so the motion classifier can be exercised directly. It is the
+    // one piece here with real arithmetic in it, and it decides whether the
+    // camera says anything at all.
+    CameraMonitor: CameraMonitor,
+    cameraSupported: function () {
+      return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    },
+    // Which method would run: 'face' where the browser has on-device face
+    // detection, otherwise 'motion'.
+    cameraMode: function () {
+      return typeof window.FaceDetector === 'function' ? 'face' : 'motion';
+    }
   };
 })(window, document);

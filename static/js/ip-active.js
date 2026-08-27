@@ -456,7 +456,27 @@
       },
       onCameraStatus: function (info) {
         $('ipaFocusNote').textContent = info.message;
-        if (!info.ok) $('ipaFocusToggle').checked = window.IPFocus.cameraSupported();
+        /* The toggle used to be forced back on whenever the camera failed,
+           because cameraSupported() asked for an API that is almost never
+           present — so a refusal left the switch on with nothing behind it.
+           A failure now turns it off, which is what actually happened. */
+        if (!info.ok) $('ipaFocusToggle').checked = false;
+
+        var method = $('ipaFocusMethod');
+        if (!method) return;
+        if (info.ok && info.mode === 'motion') {
+          method.textContent = 'Your browser has no on-device face detection, '
+            + 'so this watches for movement instead. It can tell that someone '
+            + 'is there; it cannot tell that nobody is, so it will never nudge '
+            + 'you for sitting still.';
+          method.hidden = false;
+        } else if (info.ok) {
+          method.textContent = 'Using your browser\'s on-device face detection. '
+            + 'Frames are examined and discarded, never stored or sent.';
+          method.hidden = false;
+        } else {
+          method.hidden = true;
+        }
       }
     });
     $('ipaFocusState').hidden = false;

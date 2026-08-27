@@ -427,6 +427,10 @@ body {
    cookie_policy.py and gated on consent first. #}
 </head>
 
+{# 'active' is deliberately absent: the Active page runs on slim chrome so a
+   session holds attention on one task, and its blueprint is mounted
+   standalone in tests where the sidebar's ``current_user`` does not exist.
+   Its slim top nav still carries the app links. #}
 {% set _app_pages = ['dashboard','scheduler','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','olympiad','memories','pet','command_center','balance','features','accessibility','text_dissector','my_stats'] %}
 {# Reading progress belongs on long-form pages only. On an app screen the
    scroll length is the size of a list, not the length of an argument, so a
@@ -678,6 +682,10 @@ body {
       <div class="nav-group">
         <a href="/dashboard"       class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-dashboard"/></svg></span><span class="nav-label">Dashboard</span></a>
         <a href="/scheduler"       class="nav-tab {% if active_page == 'scheduler' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-scheduler"/></svg></span><span class="nav-label">Scheduler</span></a>
+        {# Active sits next to Scheduler because that is the order the two are
+           used in: build the plan, then do the work. It was in the sidebar but
+           missing from this bar entirely, so on a phone it was unreachable. #}
+        <a href="/active"          class="nav-tab {% if active_page == 'active' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-video"/></svg></span><span class="nav-label">Active</span></a>
         <a href="/memories"        class="nav-tab {% if active_page == 'memories' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-save"/></svg></span><span class="nav-label">Memories</span></a>
         <a href="/gradebook"       class="nav-tab {% if active_page in ['gradebook','grademodel'] %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-modeler"/></svg></span><span class="nav-label">Grades</span></a>
         <a href="/study-and-learn" class="nav-tab {% if active_page in _study_sub %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-study"/></svg></span><span class="nav-label">Study &amp; Learn</span></a>
