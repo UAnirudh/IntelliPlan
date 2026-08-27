@@ -32,6 +32,7 @@ from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
 import time
 from time_utils import utcnow
+import bot_protection
 import cookie_policy
 import request_guards
 import secret_box
@@ -396,7 +397,12 @@ def add_cors_headers(response):
         # No analytics or session-replay origins are permitted. Clarity was
         # removed from the product; leaving its origin allowed here would let
         # it (or anything on that host) load again unnoticed.
+        # reCAPTCHA loads its script from google.com and runs the challenge
+        # in a frame on gstatic.com. Both origins are required or the widget
+        # silently fails to render and every protected form becomes
+        # unsubmittable.
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
+            "https://www.google.com https://www.gstatic.com "
             "https://browser.sentry-cdn.com https://*.sentry.io "
             "https://js.stripe.com https://challenges.cloudflare.com "
             "https://meet.jit.si; "
@@ -413,12 +419,19 @@ def add_cors_headers(response):
     )
     if _is_frame_sensitive(path):
         response.headers["X-Frame-Options"] = "DENY"
-        csp_value = _common_csp + "frame-src 'none'; frame-ancestors 'none'"
+        # reCAPTCHA runs its challenge in an iframe on google.com. These
+        # pages are exactly the ones it protects, so frame-src 'none' here
+        # would leave a widget that cannot draw and a form nobody can submit.
+        csp_value = _common_csp + (
+            "frame-src https://www.google.com https://recaptcha.google.com; "
+            "frame-ancestors 'none'"
+        )
     else:
         # Embeddable surface — Lotus + our own origin + local dev.
         response.headers.pop("X-Frame-Options", None)
         csp_value = _common_csp + (
-            "frame-src https://meet.jit.si https://challenges.cloudflare.com; "
+            "frame-src https://meet.jit.si https://challenges.cloudflare.com "
+                "https://www.google.com https://recaptcha.google.com; "
             "frame-ancestors 'self' https://lotus-72e3e.web.app "
             "https://intelliplan.tech http://localhost:5000"
         )
@@ -1018,6 +1031,37 @@ PASSWORD_RESET_MAX_PER_HOUR = 4
 def _hash_reset_token(raw):
     """Reset tokens are stored hashed, like passwords, for the same reason."""
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+#: Failed sign-ins on an account before the form starts demanding a
+#: challenge. Putting one on every sign-in taxes every honest student daily
+#: to slow an attacker who has not yet guessed anything; after a few misses
+#: the balance flips.
+RECAPTCHA_LOGIN_AFTER_FAILURES = 3
+
+
+def check_recaptcha(action, required=True):
+    """Verify the submitted challenge. Returns an error string, or None.
+
+    The message shown is deliberately vague. Naming which check failed —
+    missing, expired, low score — is free tuning feedback for whoever is
+    trying to get past it.
+    """
+    if not required or not bot_protection.is_enabled():
+        return None
+
+    token = (request.form.get("g-recaptcha-response")
+             or (request.get_json(silent=True) or {}).get("g-recaptcha-response")
+             or "")
+    ok, reason = bot_protection.verify(token, remote_ip=_client_ip(),
+                                       expected_action=action)
+    if ok:
+        return None
+
+    print(f"[recaptcha] {action} refused: {reason}")
+    log_security_event("recaptcha_failed", detail=f"{action} — {reason}")
+    return ("We couldn't confirm you're not a robot. "
+            "Please tick the box and try again.")
 
 
 def _client_ip():
@@ -6055,7 +6099,10 @@ def register():
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "").strip()
         confirm = request.form.get("confirm_password", "").strip()
-        if not email or not password:
+        error = check_recaptcha("register")
+        if error:
+            pass
+        elif not email or not password:
             error = "Please fill in all fields."
         elif password != confirm:
             error = "Passwords do not match."
@@ -6973,6 +7020,18 @@ def login_account():
                 print(f"[login] retry also failed: {_e2}")
                 user = None
                 error = "Login is briefly unavailable. Please try again in a moment."
+        # Only once this account has been missed a few times. Demanding a
+        # challenge on every sign-in taxes every honest student daily to slow
+        # an attacker who has not guessed anything yet.
+        if not error and user is not None:
+            failures = int(getattr(user, "failed_login_count", 0) or 0)
+            if failures >= RECAPTCHA_LOGIN_AFTER_FAILURES:
+                error = check_recaptcha("login")
+                if error:
+                    return render_template(
+                        "login_account.html", active_page="login",
+                        error=error, recaptcha_required=True)
+
         # A locked account stops checking passwords at all. Checking first and
         # reporting afterwards would leak, through timing, whether the guess
         # was right — which is the one thing a lockout is meant to withhold.
@@ -7018,7 +7077,11 @@ def login_account():
                 # "no such account" from "wrong password" hands an attacker a
                 # free list of who has an account here.
                 error = "Invalid email or password."
-    return render_template("login_account.html", active_page="login", error=error)
+    # Show the widget from the first failure, though it is not enforced until
+    # the third. If it only appeared once enforcement began, that attempt
+    # would be refused for a missing token the form never offered.
+    return render_template("login_account.html", active_page="login",
+                           error=error, recaptcha_required=bool(error))
 
 @app.route("/forgot-password", methods=["GET", "POST"])
 @limiter.limit("5 per hour;20 per day", methods=["POST"])
@@ -7031,6 +7094,11 @@ def forgot_password():
     """
     if request.method == "GET":
         return render_template("forgot_password.html", active_page="login")
+
+    captcha_error = check_recaptcha("forgot_password")
+    if captcha_error:
+        return render_template("forgot_password.html", active_page="login",
+                               error=captcha_error)
 
     email = (request.form.get("email") or "").strip().lower()
     # Said in every case, including a blank submission, so that timing and
@@ -8429,6 +8497,16 @@ def _analytics_allowed():
     except Exception:
         return False
     return True
+
+
+@app.context_processor
+def _inject_recaptcha():
+    """Widget config for every template. Renders nothing when unconfigured."""
+    try:
+        return bot_protection.widget_context()
+    except Exception:
+        return {"recaptcha_enabled": False, "recaptcha_site_key": "",
+                "recaptcha_version": "v2"}
 
 
 @app.context_processor

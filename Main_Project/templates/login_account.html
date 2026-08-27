@@ -78,6 +78,13 @@
         <label class="form-label" for="loginPassword">Password</label>
         <input type="password" id="loginPassword" name="password" class="form-input" autocomplete="current-password" placeholder="••••••••" required />
       </div>
+      {# Appears once a sign-in has failed, and is enforced from the
+         third failure. See RECAPTCHA_LOGIN_AFTER_FAILURES. #}
+      {% if recaptcha_required %}
+        {% set recaptcha_action = "login" %}
+        {% include "_recaptcha.html" with context %}
+      {% endif %}
+
       <button type="submit" class="btn-primary" style="width:100%;padding:14px;border:none;cursor:pointer;font-size:0.95rem;">
         Sign In →
       </button>

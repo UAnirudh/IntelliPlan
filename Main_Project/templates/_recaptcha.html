@@ -1,0 +1,60 @@
+{# reCAPTCHA widget. Include inside a <form>, passing the action name:
+
+     {% include "_recaptcha.html" with context %}
+
+   Renders nothing at all when keys are unconfigured, so development and CI
+   need no special case and no form is left with a dead placeholder.
+
+   v2 draws the checkbox. v3 is invisible: it hooks the form's submit,
+   fetches a token, drops it into a hidden field and submits for real. Both
+   end up posting `g-recaptcha-response`, so the server side is identical. #}
+
+{% if recaptcha_enabled %}
+  {% if recaptcha_version == 'v3' %}
+    <input type="hidden" name="g-recaptcha-response" value="">
+    <script src="https://www.google.com/recaptcha/api.js?render={{ recaptcha_site_key }}"></script>
+    <script>
+      (function () {
+        var form = document.currentScript.closest('form');
+        if (!form) return;
+        var field = form.querySelector('input[name="g-recaptcha-response"]');
+        var submitted = false;
+
+        form.addEventListener('submit', function (event) {
+          /* Second pass: the token is in, let the real submit through. */
+          if (submitted) return;
+          event.preventDefault();
+
+          /* If reCAPTCHA never loaded — blocked, offline, script error —
+             submit anyway. The server fails open on an unreachable verifier
+             for the same reason: a third party being down must not mean
+             nobody can sign in. */
+          if (!window.grecaptcha || !grecaptcha.ready) {
+            submitted = true;
+            form.submit();
+            return;
+          }
+
+          grecaptcha.ready(function () {
+            grecaptcha
+              .execute('{{ recaptcha_site_key }}',
+                       { action: '{{ recaptcha_action|default("submit") }}' })
+              .then(function (token) {
+                if (field) field.value = token;
+                submitted = true;
+                form.submit();
+              })
+              .catch(function () {
+                submitted = true;
+                form.submit();
+              });
+          });
+        });
+      })();
+    </script>
+  {% else %}
+    <div class="g-recaptcha" data-sitekey="{{ recaptcha_site_key }}"
+         style="margin: 0 0 1rem;"></div>
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+  {% endif %}
+{% endif %}
