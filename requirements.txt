@@ -50,3 +50,5 @@ stripe>=8.0.0
 
 # Analytics
 posthog>=3.0.0
+# Encryption at rest for third-party OAuth tokens (secret_box.py).
+cryptography>=42.0.0

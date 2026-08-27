@@ -34,6 +34,7 @@ import time
 from time_utils import utcnow
 import cookie_policy
 import request_guards
+import secret_box
 import policy_versions
 import desktop_auth
 import app_link
@@ -667,7 +668,8 @@ class GoogleIntegration(db.Model):
     __tablename__ = "google_integrations"
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    token_data = db.Column(db.Text, nullable=False)
+    # Google OAuth tokens: calendar + Classroom access for this student.
+    token_data = db.Column(secret_box.EncryptedText, nullable=False)
     # Multi-account support — each row is one connected Google Account.
     # `is_active=True` marks the account currently used for calendar sync.
     account_email = db.Column(db.String(255), nullable=True)
@@ -728,7 +730,7 @@ class NotionIntegration(db.Model):
     __tablename__ = "notion_integrations"
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    token = db.Column(db.String(512), nullable=False)
+    token = db.Column(secret_box.EncryptedText, nullable=False)
     database_id = db.Column(db.String(256), nullable=True)
     # New OAuth metadata — populated by /oauth/notion/callback. Older
     # rows from the manual-token flow leave these as NULL.
@@ -740,7 +742,7 @@ class NotionIntegration(db.Model):
     # Notion issues expiring, rotating tokens: a refresh returns a new access
     # token *and* a new refresh token. Storing only the access token meant a
     # connection had no way back once one expired.
-    refresh_token = db.Column(db.String(512), nullable=True)
+    refresh_token = db.Column(secret_box.EncryptedText, nullable=True)
     token_expires_at = db.Column(db.DateTime, nullable=True)
     # The page Notion created if the user duplicated our template during the
     # install. The obvious default task database, so it is worth keeping.
@@ -755,8 +757,8 @@ class CanvasIntegration(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     canvas_base = db.Column(db.String(256), nullable=False)
-    access_token = db.Column(db.String(2048), nullable=False)
-    refresh_token = db.Column(db.String(2048), nullable=True)
+    access_token = db.Column(secret_box.EncryptedText, nullable=False)
+    refresh_token = db.Column(secret_box.EncryptedText, nullable=True)
     token_expires_at = db.Column(db.DateTime, nullable=True)
     canvas_user_id = db.Column(db.String(64), nullable=True)
     canvas_user_name = db.Column(db.String(256), nullable=True)
@@ -769,8 +771,8 @@ class ClassroomIntegration(db.Model):
     __tablename__ = "classroom_integrations"
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    access_token = db.Column(db.String(2048), nullable=False)
-    refresh_token = db.Column(db.String(2048), nullable=True)
+    access_token = db.Column(secret_box.EncryptedText, nullable=False)
+    refresh_token = db.Column(secret_box.EncryptedText, nullable=True)
     token_expires_at = db.Column(db.DateTime, nullable=True)
     account_email = db.Column(db.String(255), nullable=True)
     account_name = db.Column(db.String(255), nullable=True)
@@ -784,8 +786,8 @@ class BlackboardIntegration(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     institution_url = db.Column(db.String(512), nullable=False)
-    access_token = db.Column(db.String(2048), nullable=False)
-    refresh_token = db.Column(db.String(2048), nullable=True)
+    access_token = db.Column(secret_box.EncryptedText, nullable=False)
+    refresh_token = db.Column(secret_box.EncryptedText, nullable=True)
     token_expires_at = db.Column(db.DateTime, nullable=True)
     bb_user_id = db.Column(db.String(64), nullable=True)
     bb_username = db.Column(db.String(255), nullable=True)
@@ -800,7 +802,7 @@ class MoodleIntegration(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     moodle_url = db.Column(db.String(512), nullable=False)
-    ws_token = db.Column(db.String(512), nullable=False)
+    ws_token = db.Column(secret_box.EncryptedText, nullable=False)
     moodle_user_id = db.Column(db.String(64), nullable=True)
     moodle_username = db.Column(db.String(255), nullable=True)
     moodle_fullname = db.Column(db.String(255), nullable=True)
@@ -2259,6 +2261,7 @@ from intelliplan.migrations import (
     apply_media_balance_migrations,
     apply_scheduler_audit_migrations,
     apply_sync_migrations,
+    widen_encrypted_columns,
 )
 BriefingCache, HealthSnapshot, StudentSignal = _cc_models.register(db)
 StudentProfile, ConceptMastery, LearningEvent = _lg_models.register(db)
@@ -2293,6 +2296,9 @@ with app.app_context():
     apply_active_session_migrations(db)
     apply_notification_migrations(db)
     apply_sync_migrations(db)
+    # Must run before anything writes a credential: ciphertext does not fit
+    # the old VARCHAR widths.
+    widen_encrypted_columns(db)
     apply_email_migrations(db)
     apply_scheduler_audit_migrations(db)
 

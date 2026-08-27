@@ -226,3 +226,47 @@ def apply_scheduler_audit_migrations(db: Any) -> list[str]:
             db.session.commit()
 
     return sorted(target & existing)
+
+#: Columns holding third-party credentials, now encrypted at rest. Ciphertext
+#: runs roughly 1.4x the plaintext plus a version prefix, so a token that fit
+#: in VARCHAR(2048) does not fit once encrypted. Widening to TEXT has to land
+#: before anything writes, or the first encrypted write fails on Postgres.
+_ENCRYPTED_COLUMNS = [
+    ("google_integrations", "token_data"),
+    ("notion_integrations", "token"),
+    ("canvas_integrations", "access_token"),
+    ("canvas_integrations", "refresh_token"),
+    ("classroom_integrations", "access_token"),
+    ("classroom_integrations", "refresh_token"),
+    ("blackboard_integrations", "access_token"),
+    ("blackboard_integrations", "refresh_token"),
+    ("moodle_integrations", "ws_token"),
+]
+
+
+def widen_encrypted_columns(db: Any) -> list[str]:
+    """Convert credential columns to TEXT so ciphertext fits.
+
+    SQLite ignores column widths entirely, so this is a no-op there and the
+    statement is skipped rather than failed on.
+    """
+    widened: list[str] = []
+    if db.engine.dialect.name == "sqlite":
+        return widened
+
+    inspector = inspect(db.engine)
+    tables = set(inspector.get_table_names())
+    for table, column in _ENCRYPTED_COLUMNS:
+        if table not in tables:
+            continue
+        try:
+            db.session.execute(
+                text(f"ALTER TABLE {table} ALTER COLUMN {column} TYPE TEXT")
+            )
+            db.session.commit()
+            widened.append(f"{table}.{column}")
+        except Exception:
+            # Already TEXT, or another worker got there first. Neither is
+            # worth failing a boot over.
+            db.session.rollback()
+    return widened
