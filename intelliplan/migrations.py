@@ -132,6 +132,10 @@ def apply_notification_migrations(db: Any) -> list[str]:
             "quiet_hours_start": "INTEGER DEFAULT 22",
             "quiet_hours_end": "INTEGER DEFAULT 7",
             "notification_kinds": "VARCHAR(512)",
+            # Per-account brute-force counters. Without these the lockout
+            # silently never engages on an existing deployment.
+            "failed_login_count": "INTEGER DEFAULT 0",
+            "login_locked_until": "TIMESTAMP",
         }
         for name, ddl in additions.items():
             if name in columns:

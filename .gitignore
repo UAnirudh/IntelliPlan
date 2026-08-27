@@ -31,3 +31,10 @@ contacts.csv
 customers.csv
 leads.csv
 export_hubspot_contacts.py
+
+# Local databases. Both were tracked while empty; the moment anyone runs the
+# app locally they fill with real accounts and password hashes, and the next
+# commit ships them.
+*.db
+*.sqlite
+*.sqlite3

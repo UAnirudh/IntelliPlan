@@ -33,6 +33,7 @@ from datetime import datetime, timezone, timedelta
 import time
 from time_utils import utcnow
 import cookie_policy
+import request_guards
 import policy_versions
 import desktop_auth
 import app_link
@@ -353,8 +354,16 @@ def add_cors_headers(response):
         if origin and (origin.rstrip("/") in ALLOWED_WEB_ORIGINS or is_extension or is_local):
             response.headers["Access-Control-Allow-Origin"] = origin
             response.headers["Vary"] = "Origin"
+        elif not origin:
+            # No Origin means a non-browser client, which CORS does not
+            # govern. Nothing to grant.
+            pass
         else:
-            response.headers["Access-Control-Allow-Origin"] = "*"
+            # An origin we do not recognise. Previously this fell back to
+            # "*", which let any site on the internet read every unauthenticated
+            # API response. Withholding the header is what a refusal looks
+            # like in CORS — the browser blocks the read.
+            response.headers["Vary"] = "Origin"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Extension-Token"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     else:
@@ -500,6 +509,12 @@ class User(UserMixin, db.Model):
     quiet_hours_end = db.Column(db.Integer, default=7)
     # Comma-separated EventKind values; empty means "the defaults".
     notification_kinds = db.Column(db.String(512), nullable=True)
+    # ── Brute-force resistance ──
+    # Rate limiting caps attempts per IP; these cap them per account, which
+    # is what a distributed guess actually runs into.
+    failed_login_count = db.Column(db.Integer, default=0)
+    login_locked_until = db.Column(db.DateTime, nullable=True)
+
     # ── COPPA: under-13 gating ──
     birth_year = db.Column(db.Integer, nullable=True)          # collected at signup
     parent_email = db.Column(db.String(255), nullable=True)    # for under-13 accounts
@@ -960,6 +975,151 @@ OUTREACH_PLATFORMS = [
     ("brightspace", "D2L Brightspace"),
     ("other", "Something else"),
 ]
+
+
+class SecurityEvent(db.Model):
+    """An audit trail for the things worth being able to reconstruct later.
+
+    Sign-ins, failed attempts, lockouts, permission refusals. Prints to a log
+    file are fine until the moment someone asks "was this account accessed on
+    the 14th", and then a rotated stdout log on a rebuilt container is no
+    answer at all.
+
+    Deliberately narrow: no request bodies, no headers beyond a truncated
+    user agent, and the IP is stored because an audit trail without one
+    cannot distinguish a user's own second device from somebody else.
+    """
+    __tablename__ = "security_events"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    #: The address the attempt named, kept even when no such user exists —
+    #: a run of failures against unknown addresses is itself the signal.
+    email = db.Column(db.String(255), nullable=True, index=True)
+    event = db.Column(db.String(64), nullable=False, index=True)
+    detail = db.Column(db.String(512), default="")
+    ip = db.Column(db.String(64), default="")
+    user_agent = db.Column(db.String(256), default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    __table_args__ = (
+        db.Index("ix_security_events_event_time", "event", "created_at"),
+    )
+
+
+#: Failed sign-ins allowed before an account stops accepting passwords.
+LOGIN_LOCKOUT_THRESHOLD = 8
+#: How long it stays shut. Long enough to make online guessing pointless,
+#: short enough that a student who mistyped is not locked out of their
+#: homework for the evening.
+LOGIN_LOCKOUT_MINUTES = 15
+
+
+def log_security_event(event, user=None, email=None, detail=""):
+    """Record one security-relevant thing that happened.
+
+    Never raises: an audit write that takes down a sign-in has made the
+    system less safe, not more.
+    """
+    try:
+        db.session.add(SecurityEvent(
+            user_id=getattr(user, "id", None),
+            email=(email or getattr(user, "email", None) or "")[:255] or None,
+            event=str(event)[:64],
+            detail=str(detail or "")[:512],
+            ip=(get_remote_address() or "")[:64],
+            user_agent=(request.headers.get("User-Agent") or "")[:256],
+        ))
+        db.session.commit()
+    except Exception as exc:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        print(f"[security] could not record {event}: {exc}")
+
+
+#: Session keys worth carrying across a sign-in. Everything else is dropped,
+#: because the point of rotating is to keep nothing an attacker planted.
+_SESSION_KEYS_SURVIVING_LOGIN = (
+    "pending_group_join",
+    "oauth_return_to",
+    "lms_oauth_state",
+    "lms_oauth_provider",
+    "blackboard_institution_url",
+    "desktop_auth_challenge",
+)
+
+
+def _rotate_session_on_login():
+    """Drop any pre-authentication session state, keeping only what the
+    sign-in flow itself put there.
+
+    Without this, a session id planted before sign-in stays valid after it,
+    which is session fixation: the attacker holds a cookie that is now
+    authenticated as the victim.
+    """
+    try:
+        carried = {k: session[k] for k in _SESSION_KEYS_SURVIVING_LOGIN
+                   if k in session}
+        session.clear()
+        session.update(carried)
+        session.modified = True
+    except Exception as exc:
+        print(f"[security] session rotation failed: {exc}")
+
+
+def account_lock_remaining(user):
+    """Minutes left on a lockout, or 0 when the account is usable."""
+    locked_until = getattr(user, "login_locked_until", None)
+    if not locked_until:
+        return 0
+    remaining = (locked_until - datetime.utcnow()).total_seconds()
+    return max(0, int(remaining // 60) + 1) if remaining > 0 else 0
+
+
+def register_failed_login(user, email):
+    """Count a failed attempt and lock the account once they stack up.
+
+    Rate limiting alone caps attempts per IP, which a distributed attempt
+    steps around while a single user's account absorbs the whole guess
+    budget. This bounds it per account instead.
+    """
+    if user is None:
+        log_security_event("login_failed_unknown_account", email=email)
+        return
+    try:
+        count = int(getattr(user, "failed_login_count", 0) or 0) + 1
+        user.failed_login_count = count
+        if count >= LOGIN_LOCKOUT_THRESHOLD:
+            user.login_locked_until = datetime.utcnow() + timedelta(
+                minutes=LOGIN_LOCKOUT_MINUTES)
+            user.failed_login_count = 0
+            db.session.commit()
+            log_security_event("account_locked", user=user,
+                               detail=f"{count} consecutive failures")
+            return
+        db.session.commit()
+        log_security_event("login_failed", user=user, detail=f"attempt {count}")
+    except Exception as exc:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        print(f"[security] failed-login bookkeeping failed: {exc}")
+
+
+def clear_failed_logins(user):
+    """A correct password ends the streak."""
+    try:
+        if getattr(user, "failed_login_count", 0) or getattr(user, "login_locked_until", None):
+            user.failed_login_count = 0
+            user.login_locked_until = None
+            db.session.commit()
+    except Exception:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
 
 
 class PolicyAcknowledgement(db.Model):
@@ -6711,6 +6871,19 @@ def login_account():
                 print(f"[login] retry also failed: {_e2}")
                 user = None
                 error = "Login is briefly unavailable. Please try again in a moment."
+        # A locked account stops checking passwords at all. Checking first and
+        # reporting afterwards would leak, through timing, whether the guess
+        # was right — which is the one thing a lockout is meant to withhold.
+        if not error and user is not None:
+            locked_for = account_lock_remaining(user)
+            if locked_for:
+                log_security_event("login_blocked_locked", user=user)
+                error = (f"Too many failed sign-ins. Try again in {locked_for} "
+                         f"minute{'s' if locked_for != 1 else ''}, or reset your "
+                         "password if you are not sure of it.")
+                return render_template("login_account.html", active_page="login",
+                                       error=error)
+
         if not error:
             if user and user.password_hash and bcrypt.check_password_hash(user.password_hash, password):
                 # COPPA: block sign-in for under-13 accounts that haven't been approved yet.
@@ -6719,7 +6892,13 @@ def login_account():
                              f"{user.parent_email} a consent link — once they click it, "
                              "you'll be able to sign in.")
                     return render_template("login_account.html", active_page="login", error=error)
+                clear_failed_logins(user)
+                # Session fixation: an attacker who can plant a session id
+                # before sign-in would otherwise still hold a valid one after.
+                # Everything worth keeping across the boundary is re-derived.
+                _rotate_session_on_login()
                 login_user(user, remember=True)
+                log_security_event("login_success", user=user)
                 # Auto-join any group whose invite link was clicked pre-login.
                 joined_gid = _apply_pending_group_join()
                 if joined_gid:
@@ -6732,6 +6911,10 @@ def login_account():
                     return redirect(url_for("connect_account"))
                 return redirect("/command-center")
             else:
+                register_failed_login(user, email)
+                # One message for both causes, deliberately: distinguishing
+                # "no such account" from "wrong password" hands an attacker a
+                # free list of who has an account here.
                 error = "Invalid email or password."
     return render_template("login_account.html", active_page="login", error=error)
 
@@ -7660,6 +7843,13 @@ def _account_delete_impl():
         # only reason to hold it is to evidence one specific person's consent,
         # and once they are gone there is nobody to evidence it for.
         ("policy_acknowledgements", "DELETE FROM policy_acknowledgements WHERE user_id = :uid"),
+        # The audit trail goes with the account. There is a real argument for
+        # keeping security events after a deletion — attack patterns outlive
+        # the accounts they targeted — but the Privacy Policy says associated
+        # records are removed, and a carve-out nobody was told about is not
+        # one we get to make. Rows for failed attempts against addresses that
+        # never had an account are not touched: they belong to no one.
+        ("security_events", "DELETE FROM security_events WHERE user_id = :uid"),
         # Survey answers and school leads are unlinked rather than dropped.
         # "three students at Lincoln High could not connect" stays true and
         # useful after one of them leaves, and with user_id cleared the row no
@@ -18472,6 +18662,40 @@ def health_check():
     expected = {"id", "email", "password_hash", "referral_code", "referred_by_id"}
     out["users_schema_ok"] = expected.issubset(set(out["users_columns"]))
     return flask.jsonify(out)
+
+
+@app.before_request
+def _block_cross_site_writes():
+    """Refuse state-changing requests that came from somebody else's page.
+
+    Second layer behind ``SameSite=Lax``, which already stops the cookie
+    being sent cross-site. See ``request_guards`` for why this is an
+    Origin/Referer check rather than per-form tokens.
+
+    Set ``CSRF_GUARD=0`` to disable if a legitimate integration is caught;
+    the reason is logged either way, so a false positive is diagnosable
+    rather than mysterious.
+    """
+    if os.getenv("CSRF_GUARD", "1").strip().lower() in {"0", "false", "no", "off"}:
+        return None
+    try:
+        reason = request_guards.cross_site_violation()
+    except Exception as exc:
+        # A broken guard must not take the site down.
+        print(f"[security] CSRF guard error: {exc}")
+        return None
+    if not reason:
+        return None
+
+    print(f"[security] blocked {request.method} {request.path}: {reason}")
+    try:
+        log_security_event("csrf_blocked", detail=f"{request.path} — {reason}")
+    except Exception:
+        pass
+    return flask.jsonify({
+        "status": "error",
+        "message": "This request did not come from IntelliPlan, so it was blocked.",
+    }), 403
 
 
 @app.before_request

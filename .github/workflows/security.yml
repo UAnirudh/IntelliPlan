@@ -1,0 +1,67 @@
+name: Security
+
+# Dependency and secret scanning. Runs on every push and weekly, because a
+# dependency that is safe today is not safe forever — most vulnerable
+# dependencies become vulnerable while sitting untouched in requirements.txt,
+# so scanning only on change would miss exactly the case that matters.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Mondays, 06:00 UTC.
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  dependencies:
+    name: Vulnerable dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      # Reports against the pinned requirements rather than the resolved
+      # environment, so the finding names something that can be edited.
+      - name: Audit requirements
+        run: pip-audit --requirement requirements.txt --strict --progress-spinner off
+
+  secrets:
+    name: Committed secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Whole history: a key removed in a later commit is still a leaked
+          # key, and scanning only the tip would call that clean.
+          fetch-depth: 0
+
+      - name: Scan history with gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  static-analysis:
+    name: Python static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install bandit
+        run: pip install bandit
+
+      # -ll: report medium severity and above. Every finding below that on a
+      # codebase this size is noise, and a scan nobody reads catches nothing.
+      - name: Scan for insecure patterns
+        run: bandit -r . -ll --exclude ./tests,./AppStore-Launch,./node_modules,./.venv
