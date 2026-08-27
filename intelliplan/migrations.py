@@ -136,6 +136,8 @@ def apply_notification_migrations(db: Any) -> list[str]:
             # silently never engages on an existing deployment.
             "failed_login_count": "INTEGER DEFAULT 0",
             "login_locked_until": "TIMESTAMP",
+            # Bumped on password change to end sessions held elsewhere.
+            "session_epoch": "INTEGER DEFAULT 0",
         }
         for name, ddl in additions.items():
             if name in columns:

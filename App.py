@@ -510,6 +510,10 @@ class User(UserMixin, db.Model):
     quiet_hours_end = db.Column(db.Integer, default=7)
     # Comma-separated EventKind values; empty means "the defaults".
     notification_kinds = db.Column(db.String(512), nullable=True)
+    # Bumped when a password changes, which invalidates sessions held
+    # elsewhere: a session carrying an older stamp is refused.
+    session_epoch = db.Column(db.Integer, default=0)
+
     # ── Brute-force resistance ──
     # Rate limiting caps attempts per IP; these cap them per account, which
     # is what a distributed guess actually runs into.
@@ -979,6 +983,98 @@ OUTREACH_PLATFORMS = [
 ]
 
 
+class PasswordResetToken(db.Model):
+    """A single-use, expiring link that lets someone set a new password.
+
+    There was no reset flow at all: a student who forgot their password had
+    no route back into their own account.
+
+    Only a hash of the token is stored. A database read must not yield
+    working reset links for every account that has one outstanding — that
+    would make this table a better target than the password column it
+    protects.
+    """
+    __tablename__ = "password_reset_tokens"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    token_hash = db.Column(db.String(128), nullable=False, unique=True, index=True)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    requested_ip = db.Column(db.String(64), default="")
+
+    def is_usable(self):
+        return self.used_at is None and self.expires_at > datetime.utcnow()
+
+
+#: Short enough that a link left in an inbox or a shared browser stops
+#: working, long enough to survive an email that took a few minutes.
+PASSWORD_RESET_TTL_MINUTES = 60
+#: Requests allowed per address per hour. Above this it is either a mistake
+#: or someone using our mail server to bother a stranger.
+PASSWORD_RESET_MAX_PER_HOUR = 4
+
+
+def _hash_reset_token(raw):
+    """Reset tokens are stored hashed, like passwords, for the same reason."""
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _client_ip():
+    """The caller's address, or empty outside a request.
+
+    These helpers are also reachable from a shell or a management script,
+    where there is no request and a hard dependency on one would turn an
+    audit field into a crash.
+    """
+    try:
+        return (get_remote_address() or "")[:64]
+    except Exception:
+        return ""
+
+
+def issue_password_reset(user):
+    """Create a reset link for a user, invalidating any earlier one.
+
+    Returns the raw token, which exists only in the email. Nothing anywhere
+    else can reconstruct it.
+    """
+    # An earlier link staying valid means a stolen inbox has more than one
+    # chance, and revoking by requesting again is behaviour people expect.
+    PasswordResetToken.query.filter_by(user_id=user.id, used_at=None).update(
+        {"used_at": datetime.utcnow()})
+
+    raw = secrets_module.token_urlsafe(32)
+    db.session.add(PasswordResetToken(
+        user_id=user.id,
+        token_hash=_hash_reset_token(raw),
+        expires_at=datetime.utcnow() + timedelta(minutes=PASSWORD_RESET_TTL_MINUTES),
+        requested_ip=_client_ip(),
+    ))
+    db.session.commit()
+    return raw
+
+
+def consume_password_reset(raw):
+    """Return the user for a valid token and burn it, else None."""
+    if not raw:
+        return None
+    row = PasswordResetToken.query.filter_by(
+        token_hash=_hash_reset_token(raw)).first()
+    if row is None or not row.is_usable():
+        return None
+    row.used_at = datetime.utcnow()
+    db.session.commit()
+    return db.session.get(User, row.user_id)
+
+
+def recent_reset_requests(user_id):
+    since = datetime.utcnow() - timedelta(hours=1)
+    return PasswordResetToken.query.filter(
+        PasswordResetToken.user_id == user_id,
+        PasswordResetToken.created_at >= since).count()
+
+
 class SecurityEvent(db.Model):
     """An audit trail for the things worth being able to reconstruct later.
 
@@ -1028,7 +1124,7 @@ def log_security_event(event, user=None, email=None, detail=""):
             email=(email or getattr(user, "email", None) or "")[:255] or None,
             event=str(event)[:64],
             detail=str(detail or "")[:512],
-            ip=(get_remote_address() or "")[:64],
+            ip=_client_ip(),
             user_agent=(request.headers.get("User-Agent") or "")[:256],
         ))
         db.session.commit()
@@ -6924,6 +7020,145 @@ def login_account():
                 error = "Invalid email or password."
     return render_template("login_account.html", active_page="login", error=error)
 
+@app.route("/forgot-password", methods=["GET", "POST"])
+@limiter.limit("5 per hour;20 per day", methods=["POST"])
+def forgot_password():
+    """Ask for a reset link.
+
+    The response is identical whether or not the address has an account. A
+    form that says "no account with that email" is a free membership oracle,
+    and this one is reachable without signing in.
+    """
+    if request.method == "GET":
+        return render_template("forgot_password.html", active_page="login")
+
+    email = (request.form.get("email") or "").strip().lower()
+    # Said in every case, including a blank submission, so that timing and
+    # wording give nothing away.
+    sent_message = ("If an account exists for that address, we've sent a "
+                    "reset link. It expires in an hour.")
+
+    if not email or "@" not in email:
+        return render_template("forgot_password.html", active_page="login",
+                               sent=True, message=sent_message)
+
+    user = User.query.filter_by(email=email).first()
+    if user is None:
+        log_security_event("password_reset_unknown_address", email=email)
+        return render_template("forgot_password.html", active_page="login",
+                               sent=True, message=sent_message)
+
+    # Per-account ceiling on top of the per-IP rate limit: without it, our
+    # mail server becomes a way to flood somebody else's inbox.
+    if recent_reset_requests(user.id) >= PASSWORD_RESET_MAX_PER_HOUR:
+        log_security_event("password_reset_throttled", user=user)
+        return render_template("forgot_password.html", active_page="login",
+                               sent=True, message=sent_message)
+
+    if not user.password_hash:
+        # A Google-only account has no password to reset. Telling them to
+        # check their inbox for a link that will never arrive is worse than
+        # the small amount this discloses to someone who already guessed the
+        # address — and it is the difference between them getting in or not.
+        log_security_event("password_reset_oauth_only", user=user)
+        return render_template(
+            "forgot_password.html", active_page="login", sent=True,
+            message="If an account exists for that address, we've sent a reset "
+                    "link. If you signed up with Google, use "
+                    "“Continue with Google” instead — that "
+                    "account has no password to reset.")
+
+    raw = issue_password_reset(user)
+    link = f"{APP_BASE_URL}/reset-password?token={urllib.parse.quote(raw, safe='')}"
+    try:
+        _send_email(
+            user.email,
+            "Reset your IntelliPlan password",
+            "Someone asked to reset the password for your IntelliPlan account.\n\n"
+            f"Set a new one here (the link works once, and expires in "
+            f"{PASSWORD_RESET_TTL_MINUTES} minutes):\n{link}\n\n"
+            "If this wasn't you, you can ignore this email — your password "
+            "has not changed.\n",
+        )
+        log_security_event("password_reset_requested", user=user)
+    except Exception as exc:
+        # The link is already issued; failing loudly here would tell an
+        # attacker the address exists.
+        print(f"[reset] could not send to {user.email}: {exc}")
+
+    return render_template("forgot_password.html", active_page="login",
+                           sent=True, message=sent_message)
+
+
+@app.route("/reset-password", methods=["GET", "POST"])
+@limiter.limit("10 per hour", methods=["POST"])
+def reset_password():
+    """Set a new password from a link."""
+    token = (request.values.get("token") or "").strip()
+    expired_message = ("That reset link has expired or has already been used. "
+                       "Request a new one below.")
+
+    if request.method == "GET":
+        row = PasswordResetToken.query.filter_by(
+            token_hash=_hash_reset_token(token)).first() if token else None
+        if row is None or not row.is_usable():
+            return render_template("reset_password.html", active_page="login",
+                                   invalid=True, error=expired_message)
+        return render_template("reset_password.html", active_page="login",
+                               token=token)
+
+    password = request.form.get("password") or ""
+    confirm = request.form.get("confirm_password") or ""
+
+    if len(password) < 8:
+        return render_template("reset_password.html", active_page="login",
+                               token=token,
+                               error="Use at least 8 characters.")
+    if password != confirm:
+        return render_template("reset_password.html", active_page="login",
+                               token=token, error="Those don't match.")
+
+    user = consume_password_reset(token)
+    if user is None:
+        log_security_event("password_reset_invalid_token")
+        return render_template("reset_password.html", active_page="login",
+                               invalid=True, error=expired_message)
+
+    user.password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
+    # A reset is how someone recovers an account that may be compromised, so
+    # it has to end whatever access the other party had. Clearing the lockout
+    # too: they have just proved control of the inbox.
+    user.failed_login_count = 0
+    user.login_locked_until = None
+    db.session.commit()
+
+    _invalidate_other_sessions(user)
+    log_security_event("password_reset_completed", user=user)
+
+    _rotate_session_on_login()
+    login_user(user, remember=True)
+    return redirect("/command-center")
+
+
+def _invalidate_other_sessions(user):
+    """End sessions held elsewhere after a password change.
+
+    Server-side sessions live in the table flask-session manages, and the
+    reliable way to reach them without a per-user index is to bump a value
+    the session carries. Anything presenting an older stamp is refused by
+    ``_check_session_stamp`` below.
+    """
+    try:
+        user.session_epoch = int((user.session_epoch or 0)) + 1
+        db.session.commit()
+    except Exception as exc:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        print(f"[security] could not rotate session epoch: {exc}")
+
+
 @app.route("/connect", methods=["GET"])
 def connect_account():
     return render_template("connect.html", active_page="login")
@@ -7856,6 +8091,11 @@ def _account_delete_impl():
         # one we get to make. Rows for failed attempts against addresses that
         # never had an account are not touched: they belong to no one.
         ("security_events", "DELETE FROM security_events WHERE user_id = :uid"),
+        # Outstanding reset links die with the account. Leaving one live would
+        # mean a link in an old inbox still names a user id that a future
+        # account could be issued.
+        ("password_reset_tokens",
+         "DELETE FROM password_reset_tokens WHERE user_id = :uid"),
         # Survey answers and school leads are unlinked rather than dropped.
         # "three students at Lincoln High could not connect" stays true and
         # useful after one of them leaves, and with user_id cleared the row no
@@ -18668,6 +18908,33 @@ def health_check():
     expected = {"id", "email", "password_hash", "referral_code", "referred_by_id"}
     out["users_schema_ok"] = expected.issubset(set(out["users_columns"]))
     return flask.jsonify(out)
+
+
+@app.before_request
+def _check_session_stamp():
+    """Sign out sessions that predate the current password.
+
+    A password change has to end access held by whoever the user was
+    changing it away from. Without this, a session captured before the reset
+    keeps working and the reset achieves nothing.
+    """
+    try:
+        if not current_user.is_authenticated:
+            return None
+        current = int(getattr(current_user, "session_epoch", 0) or 0)
+        seen = session.get("session_epoch")
+        if seen is None:
+            # Stamp existing sessions on first sight rather than logging
+            # everyone out the moment this ships.
+            session["session_epoch"] = current
+            return None
+        if int(seen) < current:
+            logout_user()
+            session.clear()
+            return redirect(url_for("login"))
+    except Exception as exc:
+        print(f"[security] session stamp check failed: {exc}")
+    return None
 
 
 @app.before_request
