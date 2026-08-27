@@ -6104,15 +6104,26 @@ def register():
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "").strip()
         confirm = request.form.get("confirm_password", "").strip()
-        error = check_recaptcha("register")
-        if error:
-            pass
-        elif not email or not password:
+        # Field checks first, challenge last. Verifying the captcha before
+        # looking at the form meant someone who mistyped their password and
+        # had not ticked the box was told about the robot check, fixed that,
+        # resubmitted, and only then learned the passwords did not match —
+        # two round trips for two problems, and the second one invisible
+        # until the first was solved. It also spent a verification call on
+        # submissions that were never going to be accepted.
+        #
+        # Nothing is weakened: a bot gets the same validation errors either
+        # way, and the challenge still stands between it and an account.
+        if not email or not password:
             error = "Please fill in all fields."
         elif password != confirm:
             error = "Passwords do not match."
         elif len(password) < 8:
             error = "Password must be at least 8 characters."
+        elif (captcha_error := check_recaptcha("register")):
+            # Assigned, not re-called: a reCAPTCHA token verifies once, so a
+            # second call would fail on a token the first already spent.
+            error = captcha_error
         else:
             # Same defensive lookup as login — re-run the migration if
             # the SELECT trips on a missing column.

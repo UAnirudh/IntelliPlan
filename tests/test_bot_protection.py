@@ -174,6 +174,27 @@ def test_a_failed_challenge_blocks_registration(client, keys, fails):
     assert _user_count() == before
 
 
+def test_form_errors_are_reported_before_the_challenge(client, keys, fails):
+    """Checking the captcha first meant a mistyped password was hidden
+    behind the robot check: fix that, resubmit, and only then learn the
+    passwords did not match."""
+    body = client.post("/register", data={
+        "email": "cap+mismatch@example.com", "password": "abcdefgh",
+        "confirm_password": "different", "birth_year": "2005",
+    }, headers=HEADERS).data
+    assert b"Passwords do not match" in body
+    assert b"not a robot" not in body
+
+
+def test_a_short_password_is_reported_before_the_challenge(client, keys, fails):
+    body = client.post("/register", data={
+        "email": "cap+short@example.com", "password": "abc",
+        "confirm_password": "abc", "birth_year": "2005",
+    }, headers=HEADERS).data
+    assert b"at least 8 characters" in body
+    assert b"not a robot" not in body
+
+
 def test_a_failed_challenge_blocks_a_reset_request(client, keys, fails, account):
     with App.app.app_context():
         before = App.PasswordResetToken.query.filter_by(user_id=account).count()
