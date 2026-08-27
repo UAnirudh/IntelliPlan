@@ -12,11 +12,13 @@ published version to what actually changed, and hold the summary to the part
 that is uncomfortable to say.
 """
 
+from datetime import datetime
+
 import pytest
 
 import App
 import policy_versions
-from App import db
+from App import User, db
 
 
 @pytest.fixture
@@ -46,7 +48,22 @@ def test_the_privacy_policy_is_past_its_baseline(client):
     assert policy_versions.current_version(policy_versions.PRIVACY) == 2
 
 
+def _sign_in(client, email, created_at):
+    with App.app.app_context():
+        User.query.filter_by(email=email).delete(synchronize_session=False)
+        db.session.commit()
+        user = User(email=email, password_hash="", created_at=created_at)
+        db.session.add(user)
+        db.session.commit()
+        uid = user.id
+    with client.session_transaction() as s:
+        s["_user_id"] = str(uid)
+        s["_fresh"] = True
+    return uid
+
+
 def test_an_existing_user_is_asked_to_read_it(client):
+    _sign_in(client, "polv2+old@example.com", datetime(2025, 1, 5))
     pending = client.get("/api/policy/pending").get_json()["pending"]
     privacy = [p for p in pending if p["doc"] == "privacy"]
     assert len(privacy) == 1
@@ -54,7 +71,24 @@ def test_an_existing_user_is_asked_to_read_it(client):
     assert privacy[0]["version"] == 2
 
 
+def test_a_visitor_with_no_account_is_not_stopped(client):
+    """The notice is a full-screen dialog that intercepts every click. Shown
+    to someone landing on the marketing page for the first time, it made the
+    whole site unusable until they accepted a document about a relationship
+    they had not entered into. Playwright caught it: every link on the live
+    site had become unclickable."""
+    assert client.get("/api/policy/pending").get_json()["pending"] == []
+
+
+def test_somebody_who_signed_up_after_the_change_is_not_asked(client):
+    """They agreed to this version at signup. "We've updated our terms" is
+    not true for them."""
+    _sign_in(client, "polv2+new@example.com", datetime.utcnow())
+    assert client.get("/api/policy/pending").get_json()["pending"] == []
+
+
 def test_accepting_it_settles_the_notice(client):
+    _sign_in(client, "polv2+ack@example.com", datetime(2025, 1, 5))
     assert client.post("/api/policy/acknowledge",
                        json={"doc": "privacy", "version": 2}).status_code == 200
     assert client.get("/api/policy/pending").get_json()["pending"] == []
@@ -63,6 +97,7 @@ def test_accepting_it_settles_the_notice(client):
 def test_the_terms_are_untouched_and_prompt_nobody(client):
     """Only the Privacy Policy changed. Bundling an unrelated document into
     the same notice would train people to click through both."""
+    _sign_in(client, "polv2+terms@example.com", datetime(2025, 1, 5))
     pending = client.get("/api/policy/pending").get_json()["pending"]
     assert [p for p in pending if p["doc"] == "terms"] == []
 

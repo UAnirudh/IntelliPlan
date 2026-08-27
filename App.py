@@ -8608,14 +8608,42 @@ def _policy_accepted_version(doc):
     return policy_versions.baseline_version(doc)
 
 
+def _accepted_at_signup(described):
+    """Whether this version was already current when the account was made.
+
+    Somebody who signed up yesterday agreed to yesterday's policy. Asking
+    them to re-accept a change that predates their account presents a
+    "we've updated our terms" notice to a person for whom nothing updated.
+    """
+    effective = (described or {}).get("effective")
+    created = getattr(current_user, "created_at", None)
+    if not effective or not created:
+        return False
+    try:
+        return created.date() >= datetime.fromisoformat(effective).date()
+    except (TypeError, ValueError):
+        return False
+
+
 @app.route("/api/policy/pending", methods=["GET"])
 def api_policy_pending():
-    """Which documents this person still needs to read and accept."""
+    """Which documents this person still needs to read and accept.
+
+    Only people with an account. A blocking dialog about a change to a policy
+    was being shown to every visitor, including someone landing on the
+    marketing page for the first time — who has no account, no data, and
+    nothing to re-consent to. It also intercepted every click on the page,
+    so the whole site was unusable until they scrolled through and accepted
+    a document about a relationship they had not entered into.
+    """
     try:
+        if not current_user.is_authenticated:
+            return flask.jsonify({"status": "ok", "pending": []})
+
         pending = []
         for doc in policy_versions.all_docs():
             described = policy_versions.describe(doc, _policy_accepted_version(doc))
-            if described:
+            if described and not _accepted_at_signup(described):
                 pending.append(described)
         return flask.jsonify({"status": "ok", "pending": pending})
     except Exception as e:

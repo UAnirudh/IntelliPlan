@@ -10,6 +10,8 @@ policy change reached nobody.
 import json
 import re
 
+from datetime import datetime
+
 import pytest
 
 import App
@@ -335,6 +337,10 @@ def test_an_unchanged_policy_prompts_nobody(client, only_baselines):
 
 def test_a_new_version_is_surfaced_with_summary_and_verbatim_text(
         client, new_privacy_version):
+    # The notice is for people with an account. A blocking dialog shown to
+    # an anonymous visitor was making the whole site unclickable.
+    signed_in(client, email="outreach+notice@example.com",
+              created_at=datetime(2025, 1, 5))
     pending = client.get("/api/policy/pending").get_json()["pending"]
     assert len(pending) == 1
 
@@ -373,6 +379,8 @@ def test_an_unknown_document_is_refused(client):
 
 
 def test_missing_two_updates_shows_both_in_order(client, new_privacy_version):
+    signed_in(client, email="outreach+two@example.com",
+              created_at=datetime(2025, 1, 5))
     policy_versions.PRIVACY_VERSIONS.append({
         "version": TEST_VERSION + 1, "effective": "2026-10-01",
         "summary": ["We added a data export tool."], "clauses": [],
