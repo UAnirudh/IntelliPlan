@@ -15374,6 +15374,65 @@ def _seed_default_flags():
         except Exception: pass
 
 
+@app.route(ADMIN_PATH + "/db-info", methods=["GET"])
+@require_admin
+def admin_db_info():
+    """Reports which database this process is actually connected to.
+
+    Added because the landing strip reported 185 signups while the Railway
+    Postgres console showed 194 in the users table, with the same
+    User.query.count() behind both the strip and the admin tile. A count
+    that disagrees with the table it supposedly reads means the process is
+    not reading that table, so this prints the live connection -- host,
+    database, and schema -- next to the row counts it sees. The password is
+    never included.
+    """
+    from sqlalchemy import text as _sql_text
+    from sqlalchemy.engine import make_url as _make_url
+
+    info = {}
+    try:
+        url = _make_url(str(db.engine.url))
+        info["backend"] = url.get_backend_name()
+        info["host"] = url.host
+        info["port"] = url.port
+        info["database"] = url.database
+        info["username"] = url.username
+        info["database_url_env_set"] = bool(os.getenv("DATABASE_URL"))
+    except Exception as e:
+        info["url_error"] = str(e)
+
+    try:
+        with db.engine.connect() as conn:
+            if info.get("backend", "").startswith("postgres"):
+                info["server_database"] = conn.execute(_sql_text("select current_database()")).scalar()
+                info["schema"] = conn.execute(_sql_text("select current_schema()")).scalar()
+                info["search_path"] = conn.execute(_sql_text("show search_path")).scalar()
+                info["users_rows_raw"] = conn.execute(_sql_text("select count(*) from users")).scalar()
+            else:
+                info["users_rows_raw"] = conn.execute(_sql_text("select count(*) from users")).scalar()
+    except Exception as e:
+        info["connection_error"] = str(e)
+
+    counts = {}
+    for label, model in (
+        ("users_via_orm", User),
+        ("dismissed_assignments", DismissedAssignment),
+        ("study_sessions_total", StudySession),
+    ):
+        try:
+            counts[label] = model.query.count()
+        except Exception as e:
+            counts[label] = f"error: {e}"
+    try:
+        counts["study_sessions_completed"] = StudySession.query.filter_by(completed=True).count()
+    except Exception as e:
+        counts["study_sessions_completed"] = f"error: {e}"
+    info["counts"] = counts
+
+    return _no_store(jsonify(info))
+
+
 @app.route(ADMIN_PATH, methods=["GET"])
 @require_admin
 def admin_panel():
