@@ -2149,22 +2149,37 @@
   // ── Animated count-up ────────────────────────────────────────
   function animateCount(el, target, suffix) {
     if (!el) return;
+    // The final value is written up front and again when the run ends. Every
+    // intermediate frame is a rounded-down fraction of the target, so an
+    // animation that stops early -- a hidden tab freezing rAF, reduced-motion
+    // preferences, a slow frame past the deadline -- used to leave the strip
+    // parked on whatever fraction it had reached and never correct itself.
+    // That is how a real count of 194 could sit on screen reading 185.
+    const settle = function () { el.textContent = target.toLocaleString() + suffix; };
+    if (document.hidden || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      settle();
+      return;
+    }
     const duration = 1400;
     const start = performance.now();
     function step(now) {
       const progress = Math.min((now - start) / duration, 1);
+      if (progress >= 1) { settle(); return; }
       // Ease-out cubic
       const eased = 1 - Math.pow(1 - progress, 3);
-      const value = Math.floor(eased * target);
-      el.textContent = value.toLocaleString() + suffix;
-      if (progress < 1) requestAnimationFrame(step);
+      el.textContent = Math.floor(eased * target).toLocaleString() + suffix;
+      requestAnimationFrame(step);
     }
     requestAnimationFrame(step);
+    // Backstop for the frame that never arrives.
+    setTimeout(settle, duration + 250);
   }
 
   // ── Fetch live stats from Flask backend ──────────────────────
   function loadStats() {
-    fetch('/api/stats')
+    // no-store plus a unique query string: the count has to come from the
+    // database on every load, not from the browser's or an edge's copy.
+    fetch('/api/stats?t=' + Date.now(), { cache: 'no-store' })
       .then(function(r) { return r.json(); })
       .then(function(data) {
         animateCount(document.getElementById('statStudents'),    data.students,            '+');

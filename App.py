@@ -3991,6 +3991,21 @@ def enrich_schedule_data(schedule_data, assignments, preferred_time, hours_per_d
 
 # ── PAGE ROUTES ───────────────────────────────────────────────
 
+def _no_store(resp):
+    """Marks a response as never cacheable, by the browser or by an edge.
+
+    /api/stats carries no Cache-Control of its own, so the signup count it
+    reports was free to be held by any layer between the database and the
+    landing page -- which is how the strip came to read 185 while the users
+    table held 194. CDN-Cache-Control is the header Cloudflare and Fastly
+    honour ahead of the plain one, so both are set.
+    """
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["CDN-Cache-Control"] = "no-store"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
+
+
 @app.route("/api/stats")
 def public_stats():
     """Returns live site stats for the landing page. No auth required."""
@@ -4007,20 +4022,20 @@ def public_stats():
         display_assignments = max(total_assignments, 200)
         display_hours = max(hours_saved, 120)
         
-        return jsonify({
+        return _no_store(jsonify({
             "students": display_users,
             "assignments_tracked": display_assignments,
             "hours_saved": display_hours,
             "study_sessions": total_study_sessions,
-        })
+        }))
     except Exception as e:
         print(f"Stats error: {e}")
-        return jsonify({
+        return _no_store(jsonify({
             "students": 50,
             "assignments_tracked": 200,
             "hours_saved": 120,
             "study_sessions": 0,
-        })
+        }))
 
 @app.route("/")
 def landing():
