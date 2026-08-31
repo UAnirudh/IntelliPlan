@@ -4013,29 +4013,34 @@ def public_stats():
         total_users = User.query.count()
         total_assignments = DismissedAssignment.query.count()  # assignments completed
         total_study_sessions = StudySession.query.filter_by(completed=True).count()
-        
-        # Estimate hours saved: avg 8 min saved per assignment (not having to manually sort)
+
+        # Estimate hours saved: avg 8 min saved per assignment (not having to
+        # manually sort). The only figure here that is an estimate rather than
+        # a row count, and it is labelled as hours saved on the page.
         hours_saved = round((total_assignments * 8) / 60)
-        
-        # Pad slightly for display (early traction looks better rounded up)
-        display_users = max(total_users, 50)         # show at least 50
-        display_assignments = max(total_assignments, 200)
-        display_hours = max(hours_saved, 120)
-        
+
+        # No floors. These used to be padded -- students to 50, assignments to
+        # 200, hours to 120 -- so the strip published 200 assignments against
+        # 175 real ones and 120 hours against 23. Numbers shown to students on
+        # a public page have to be the numbers in the database, and a young
+        # product counts honestly or not at all: a stat that reads zero is
+        # hidden by the page rather than inflated here.
         return _no_store(jsonify({
-            "students": display_users,
-            "assignments_tracked": display_assignments,
-            "hours_saved": display_hours,
+            "students": total_users,
+            "assignments_tracked": total_assignments,
+            "hours_saved": hours_saved,
             "study_sessions": total_study_sessions,
         }))
     except Exception as e:
         print(f"Stats error: {e}")
+        # Nulls, not invented traction. The page drops any stat it cannot
+        # read, and drops the whole strip when it can read none of them.
         return _no_store(jsonify({
-            "students": 50,
-            "assignments_tracked": 200,
-            "hours_saved": 120,
-            "study_sessions": 0,
-        }))
+            "students": None,
+            "assignments_tracked": None,
+            "hours_saved": None,
+            "study_sessions": None,
+        })), 200
 
 @app.route("/")
 def landing():

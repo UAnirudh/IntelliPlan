@@ -1534,6 +1534,13 @@
     font-weight: 600;
   }
 
+  /* .stat-item and .stats-strip-inner set display, which outranks the
+     hidden attribute on its own -- a stat the script drops for having no
+     number would otherwise stay on screen. */
+  .stats-strip[hidden],
+  .stat-item[hidden],
+  .stat-divider[hidden] { display: none !important; }
+
   .stat-divider {
     width: 1px;
     height: 40px;
@@ -2176,32 +2183,53 @@
   }
 
   // ── Fetch live stats from Flask backend ──────────────────────
+  // Every figure here is a row count from the database. A stat that has no
+  // number yet is removed from the strip rather than shown as a zero or
+  // padded up to a friendlier one, and if none of them can be read the strip
+  // takes itself off the page. The old code did the opposite: floors of 50
+  // students, 200 assignments, 120 hours and 10 sessions, applied both here
+  // and server-side, so the page published 200 assignments while the table
+  // held 175 and 120 hours against a real 23.
+  function showStat(el, value, suffix) {
+    if (!el) return false;
+    var item = el.closest('.stat-item');
+    if (typeof value !== 'number' || !isFinite(value) || value <= 0) {
+      if (item) item.hidden = true;
+      return false;
+    }
+    if (item) item.hidden = false;
+    animateCount(el, value, suffix);
+    return true;
+  }
+
+  function renderStats(data) {
+    var shown = 0;
+    shown += showStat(document.getElementById('statStudents'),    data.students,            '+');
+    shown += showStat(document.getElementById('statAssignments'), data.assignments_tracked, '+');
+    shown += showStat(document.getElementById('statHours'),       data.hours_saved,         'h');
+    shown += showStat(document.getElementById('statSessions'),    data.study_sessions,      '+');
+    var strip = document.querySelector('.stats-strip');
+    if (strip) strip.hidden = shown === 0;
+    // Dividers between two hidden neighbours would leave stray lines.
+    document.querySelectorAll('.stats-strip .stat-divider').forEach(function (d) {
+      var prev = d.previousElementSibling, next = d.nextElementSibling;
+      d.hidden = !prev || !next || prev.hidden || next.hidden;
+    });
+  }
+
   function loadStats() {
     // no-store plus a unique query string: the count has to come from the
     // database on every load, not from the browser's or an edge's copy.
     fetch('/api/stats?t=' + Date.now(), { cache: 'no-store' })
       .then(function(r) { return r.json(); })
-      .then(function(data) {
-        animateCount(document.getElementById('statStudents'),    data.students,            '+');
-        animateCount(document.getElementById('statAssignments'), data.assignments_tracked, '+');
-        animateCount(document.getElementById('statHours'),       data.hours_saved,         'h');
-        animateCount(document.getElementById('statSessions'),    Math.max(data.study_sessions, 10), '+');
-      })
+      .then(renderStats)
       .catch(function() {
-        // Graceful fallback, show reasonable static numbers if API is down
-        var s = document.getElementById('statStudents');
-        var a = document.getElementById('statAssignments');
-        var h = document.getElementById('statHours');
-        var ss = document.getElementById('statSessions');
-        if (s)  s.textContent  = '50+';
-        if (a)  a.textContent  = '200+';
-        if (h)  h.textContent  = '120h';
-        if (ss) ss.textContent = '-';
+        // The API is unreachable, so there is nothing true to show.
+        renderStats({});
       });
   }
 
   // ── Trigger stats load when the strip scrolls into view ──────
-  // NOTE: study_sessions floor is handled in the animateCount fallback below
   // (Feels more alive than loading on page load before anyone sees it)
   if ('IntersectionObserver' in window) {
     var statsObserver = new IntersectionObserver(function(entries) {
