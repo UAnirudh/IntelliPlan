@@ -19,15 +19,15 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&family=Syne:wght@600&family=DM+Mono&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
   <style>
     /* Mirrors base.html's light palette so a 500 does not look like it came
        from a different product than the page the user just left. */
     :root {
-      --font-display:'DM Serif Display', Georgia, serif;
-      --font-body:   'DM Sans', system-ui, -apple-system, sans-serif;
-      --font-ui:     'Syne', 'DM Sans', system-ui, sans-serif;
-      --font-mono:   'DM Mono', ui-monospace, monospace;
+      --font-display:-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', system-ui, sans-serif;
+      --font-body:   -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif;
+      --font-ui:     -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif;
+      --font-mono:   ui-monospace, 'SF Mono', SFMono-Regular, Menlo, 'Cascadia Mono', Consolas, monospace;
 
       --bg:            #f5f4f1;
       --bg-card:       #ffffff;
@@ -104,7 +104,7 @@
     .err-code {
       font-family:var(--font-display);
       font-size:3.6rem;
-      font-weight:400;
+      font-weight:600;
       line-height:1;
       letter-spacing:-0.03em;
       color:var(--text-primary);

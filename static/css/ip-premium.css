@@ -730,7 +730,7 @@ body[data-reading-progress] .ip-progress { display: block; }
 .ip-confirm__title {
   font-family: var(--font-display);
   font-size: var(--fs-lg, 1.3rem);
-  font-weight: 400;
+  font-weight:600;
   letter-spacing: var(--tr-lg, -0.016em);
   line-height: 1.2;
   color: var(--text-primary);

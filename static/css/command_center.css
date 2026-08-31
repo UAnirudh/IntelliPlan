@@ -1793,12 +1793,12 @@
 ═══════════════════════════════════════════════════════════════ */
 
 /* Typography — match the app's serif display voice */
-.cc-hero-headline { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.01em; }
-.cc-chat-welcome h3 { font-family: var(--font-display); font-weight: 400; }
-.cc-evolve-card h2 { font-weight: 400; }
-.cc-learning-title { font-weight: 400; font-size: 1.15rem; }
+.cc-hero-headline { font-family: var(--font-display); font-weight:600; letter-spacing: -0.01em; }
+.cc-chat-welcome h3 { font-family: var(--font-display); font-weight:600; }
+.cc-evolve-card h2 { font-weight:600; }
+.cc-learning-title { font-weight:600; font-size: 1.15rem; }
 .cc-orb-num, .cc-health-num, .cc-lg-pred-value,
-.cc-score-num, .cc-empty-title { font-weight: 400; }
+.cc-score-num, .cc-empty-title { font-weight:600; }
 .cc-hero-line {
   font-family: var(--ipd-font-mono, monospace);
   font-weight: 500;

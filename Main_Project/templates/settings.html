@@ -730,7 +730,7 @@
       Share your link with friends to help them discover IntelliPlan.
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <input type="text" id="refLink" class="form-input" readonly aria-label="Your referral link" style="flex:1;min-width:240px;font-family:'DM Mono',monospace;font-size:0.84rem;" value="Loading...">
+      <input type="text" id="refLink" class="form-input" readonly aria-label="Your referral link" style="flex:1;min-width:240px;font-family:var(--font-mono);font-size:0.84rem;" value="Loading...">
       <button class="btn-primary" onclick="copyReferralLink()" id="refCopyBtn" style="padding:9px 18px;border:none;cursor:pointer;">Copy link</button>
     </div>
     <div id="refStats" style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:1rem;font-size:0.84rem;color:var(--text-secondary);"></div>
@@ -1141,7 +1141,7 @@ function renderGcalStatus(d) {
       ? '<span style="font-size:0.7rem;background:var(--low);color:white;padding:2px 8px;border-radius:10px;font-weight:600;">Active</span>'
       : `<button onclick="gcalActivate(${a.id})" class="btn-secondary" style="padding:4px 10px;font-size:0.74rem;cursor:pointer;">Use this</button>`;
     return `<div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px;">
-      <span style="font-size:0.78rem;color:var(--text-secondary);font-family:'DM Mono',monospace;">${label}</span>
+      <span style="font-size:0.78rem;color:var(--text-secondary);font-family:var(--font-mono);">${label}</span>
       ${activeBadge}
       <button onclick="gcalRemove(${a.id})" title="Disconnect this account" style="padding:3px 9px;border-radius:8px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:var(--font-ui);font-size:0.74rem;font-weight:600;">Remove</button>
     </div>`;
@@ -2064,7 +2064,7 @@ function connectNotionToken() {
       <li>Copy the <strong>Internal Integration Secret</strong> (starts with <code>secret_</code> or <code>ntn_</code>).</li>
       <li>Paste it below, then in Notion share a database with the integration (<strong>•••</strong> → Connections → IntelliPlan).</li>
     </ol>
-    <input id="ipNotionTokenInput" type="password" placeholder="secret_…" style="width:100%;padding:9px 11px;border:1px solid var(--border-strong);border-radius:10px;background:var(--glass-input-bg);-webkit-backdrop-filter:blur(8px) saturate(1.3);backdrop-filter:blur(8px) saturate(1.3);color:var(--text-primary);font-family:'DM Mono',monospace;font-size:0.85rem;" aria-label="Notion integration token">
+    <input id="ipNotionTokenInput" type="password" placeholder="secret_…" style="width:100%;padding:9px 11px;border:1px solid var(--border-strong);border-radius:10px;background:var(--glass-input-bg);-webkit-backdrop-filter:blur(8px) saturate(1.3);backdrop-filter:blur(8px) saturate(1.3);color:var(--text-primary);font-family:var(--font-mono);font-size:0.85rem;" aria-label="Notion integration token">
     <div id="ipNotionTokenErr" style="font-size:0.8rem;color:var(--high);min-height:1.1rem;margin-top:4px;"></div>
     <button id="ipNotionTokenSubmit" class="btn-primary" style="margin-top:10px;width:100%;padding:10px 14px;border:none;cursor:pointer;font-size:0.88rem;">Connect</button>
   `);

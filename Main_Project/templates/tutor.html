@@ -295,14 +295,14 @@ main {
 .tutor-bubble code {
   background: rgba(79,70,229,0.09); color: var(--accent);
   padding: 2px 6px; border-radius: 4px;
-  font-family: 'DM Mono', ui-monospace, monospace; font-size: 0.84em;
+  font-family: var(--font-mono); font-size: 0.84em;
 }
 .tutor-msg-group.user .tutor-bubble code { background: rgba(255,255,255,0.2); color: white; }
 .tutor-bubble pre {
   background: var(--bg); border: 1px solid var(--border);
   border-radius: var(--ipd-radius-sm); padding: 0.85rem 1rem;
   overflow-x: auto; margin: 8px 0;
-  font-family: 'DM Mono', ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 0.82rem; line-height: 1.6;
 }
 .tutor-bubble pre code { background: none; padding: 0; color: var(--text-primary); font-size: 0.82rem; }
@@ -310,7 +310,7 @@ main {
 .tutor-bubble ul { padding-left: 1.4rem; margin: 6px 0; display: flex; flex-direction: column; gap: 3px; }
 .tutor-bubble li { line-height: 1.65; }
 .tutor-bubble .md-h3 {
-  font-family: var(--ipd-font-display); font-size: 1rem; font-weight: 400;
+  font-family: var(--ipd-font-display); font-size: 1rem; font-weight:600;
   color: var(--text-primary); margin: 12px 0 4px; letter-spacing: -0.01em;
 }
 .tutor-bubble .md-hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
