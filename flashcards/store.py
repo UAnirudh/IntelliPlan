@@ -262,6 +262,37 @@ def _remaining_new_today(db, user_id: int, deck_id: int | None) -> int:
     return max(0, cap - int(started))
 
 
+def due_forecast(db, user_id: int, start: datetime, days: int = 7) -> dict[str, int]:
+    """Cards falling due on each of the next ``days``, keyed by ISO date.
+
+    FSRS stores a real due date per card, so this is a forecast rather than
+    a guess -- which is what makes it safe for the planner to reserve time
+    against. Anything already overdue is counted on the first day, because
+    that is when the student will actually face it.
+    """
+    ensure_tables(db)
+    first = start.date()
+    last = first + timedelta(days=max(1, days) - 1)
+    rows = db.session.execute(
+        select(CARDS.c.due, func.count()).where(
+            CARDS.c.user_id == user_id,
+            CARDS.c.suspended.is_(False),
+            CARDS.c.state != STATE_NEW,
+            CARDS.c.due.isnot(None),
+            CARDS.c.due < datetime.combine(last + timedelta(days=1), datetime.min.time()),
+        ).group_by(CARDS.c.due)
+    ).all()
+    out: dict[str, int] = {}
+    for due, count in rows:
+        day = due.date() if hasattr(due, "date") else None
+        if day is None:
+            continue
+        if day < first:
+            day = first
+        out[day.isoformat()] = out.get(day.isoformat(), 0) + int(count)
+    return out
+
+
 def grade_card(db, user_id: int, card_id: int, rating: int) -> dict | None:
     """Apply a grade and persist both the new schedule and the review row."""
     row = db.session.execute(

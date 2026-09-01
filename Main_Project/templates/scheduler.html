@@ -471,6 +471,16 @@
     color: var(--danger-text);
     display: flex; align-items: center; gap: 5px;
   }
+  .cap-planner-extras {
+    margin-top: 0.7rem;
+    padding-top: 0.7rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.79rem;
+    color: var(--text-muted);
+    line-height: 1.55;
+  }
+  .cap-planner-extras p { margin: 0 0 3px; }
+
   .iv-block.unplaced .iv-time {
     color: var(--danger-text); font-weight: 600;
   }
@@ -2060,7 +2070,12 @@ function fmtMinutes(mins) {
    calendar hiding it is worse than no calendar. */
 function renderCapacitySummary(data) {
   const deferred = Array.isArray(data.deferred) ? data.deferred : [];
-  if (!data.overloaded && !deferred.length) return '';
+  // The planner now reports what it reserved and what it could not fit, in
+  // minutes and in words. "3 tasks could not be placed" is not something a
+  // student can act on; "your week is 2h10m short, Sunday has 3h free" is.
+  const report = data.capacity_report || null;
+  const extras = renderPlannerExtras(report);
+  if (!data.overloaded && !deferred.length && (!report || report.fits)) return extras;
 
   const total = Number(data.total_minutes) || 0;
   const capacity = Number(data.capacity_minutes) || 0;
@@ -2090,6 +2105,13 @@ function renderCapacitySummary(data) {
           </li>`).join('')}
       </ul>` : '';
 
+  if (report && !report.fits && report.message) headline = report.message;
+  const advice = (report && report.suggestions && report.suggestions.length)
+    ? `<ul class="cap-deferred">${report.suggestions.map(x =>
+         `<li><span class="cap-deferred__title">${escapeText(x)}</span></li>`).join('')}</ul>`
+    : `<p class="cap-next">What helps: move a due date, add free hours in
+        <a href="/settings">Settings</a>, or start the tightest one today.</p>`;
+
   return `
     <div class="capacity-warning" role="status">
       <div class="cap-head">
@@ -2098,9 +2120,28 @@ function renderCapacitySummary(data) {
       </div>
       <p class="cap-headline">${escapeText(headline)}</p>
       ${list}
-      <p class="cap-next">What helps: move a due date, add free hours in
-        <a href="/settings">Settings</a>, or start the tightest one today.</p>
-    </div>`;
+      ${advice}
+    </div>` + extras;
+}
+
+/* What the planner did that is not visible in the blocks themselves: time
+   held back for flashcards that fall due, and revision it added for an exam.
+   Both are decisions the student should be able to see and argue with. */
+function renderPlannerExtras(report) {
+  if (!report) return '';
+  const bits = [];
+  const reserved = report.reserved_review_minutes || {};
+  const reservedTotal = Object.values(reserved).reduce((a, b) => a + (Number(b) || 0), 0);
+  if (reservedTotal >= 10) {
+    bits.push(`Held back ${escapeText(fmtMinutes(reservedTotal))} across the week for
+               flashcards that come due.`);
+  }
+  (report.exam_prep || []).forEach(e => {
+    bits.push(`Added ${e.sittings} revision session${e.sittings === 1 ? '' : 's'}
+               before ${escapeText(e.exam)}.`);
+  });
+  if (!bits.length) return '';
+  return `<div class="cap-planner-extras">${bits.map(b => `<p>${b}</p>`).join('')}</div>`;
 }
 
 /* ────────── CREATOR: render plain schedule preview ────────── */

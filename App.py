@@ -82,7 +82,9 @@ import streak_engine
 import pet_engine
 import analytics as app_analytics
 import scheduler_engine
+import scheduler_depth
 import scheduler_clarify
+from flashcards import store as fc_store
 
 # ── FIX: Use database-backed sessions so Railway container restarts
 #         don't wipe the OAuth state between redirect hops.
@@ -3434,6 +3436,22 @@ def reallocate_days(schedule_data, availability, preferred_time,
     if not any(capacity.values()):
         return 0
 
+    # Flashcards due on a day are real work claiming that day. FSRS knows the
+    # due date of every card, so this is a forecast rather than an estimate --
+    # and a week budgeted as if it were free is a week that overbooks the
+    # student on the days their reviews land.
+    reserved_reviews = {}
+    try:
+        if current_user.is_authenticated:
+            fc_due = fc_store.due_forecast(
+                db, int(current_user.get_id()),
+                datetime.combine(min(horizon), datetime.min.time()),
+                (max(horizon) - min(horizon)).days + 1)
+            capacity, reserved_reviews = scheduler_depth.reserve_review_time(
+                capacity, fc_due)
+    except Exception as exc:
+        print(f"[planner] flashcard forecast unavailable: {exc}")
+
     # Flatten. Breaks are dropped: they are a property of how a day is laid
     # out, and the day is about to be laid out again — keeping them would
     # carry yesterday's rhythm onto a different set of blocks.
@@ -3449,9 +3467,27 @@ def reallocate_days(schedule_data, availability, preferred_time,
     if not tasks:
         return 0
 
+    # An exam is not homework: one sitting the night before is how a unit
+    # test gets failed. Each one grows its own spaced revision ladder, which
+    # then competes for time like any other work.
+    tasks, exam_plans = scheduler_depth.expand_exams(tasks, today)
+
     placed, unplaced = scheduler_engine.allocate_across_days(
         tasks, capacity, today, dna,
     )
+
+    # A count of dropped blocks is not something a student can act on. Say how
+    # short the week is and which day still has room.
+    shortfall = scheduler_depth.diagnose(tasks, capacity, placed, unplaced)
+    schedule_data["capacity_report"] = {
+        **shortfall.as_dict(),
+        "reserved_review_minutes": reserved_reviews,
+        "exam_prep": [
+            {"exam": p.exam_title, "date": p.exam_date.isoformat(),
+             "sittings": len(p.sittings)}
+            for p in exam_plans
+        ],
+    }
 
     by_date = {d.isoformat(): day for d, day in dated}
     for iso, blocks in placed.items():
