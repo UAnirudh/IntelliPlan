@@ -597,6 +597,13 @@ main {
 .tutor-profile-btn:hover { border-color: var(--border-accent, var(--accent)); }
 
 .tutor-modality-btn { display: inline-flex; align-items: center; gap: 5px; }
+.tutor-voice-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.tutor-voice-row label { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+.tutor-voice-row select {
+  flex: 1; min-width: 0; padding: 5px 8px; font-family: var(--font-ui); font-size: 0.75rem;
+  color: var(--text-primary); background: var(--bg-elevated);
+  border: 1px solid var(--border-strong); border-radius: var(--r-sm); cursor: pointer;
+}
 .tutor-modality-icon { flex: none; }
 
 .tutor-panel-backdrop {
@@ -681,6 +688,10 @@ main {
       </button>
       <div class="tutor-modality" id="tutorModality" role="group" aria-label="Learning style">
         <p class="tutor-modality-note" id="tutorModalityNote">Plani adapts to how you learn.</p>
+      </div>
+      <div class="tutor-voice-row">
+        <label for="ttsVoiceSelect">Reading voice</label>
+        <select id="ttsVoiceSelect" onchange="setTtsVoice(this.value)"></select>
       </div>
       <div class="tutor-side-tip">
         <strong>Tip:</strong> Be specific, "explain quadratic equations" beats "help with math".
@@ -1427,7 +1438,7 @@ function toggleTts() {
   ttsEnabled = !ttsEnabled;
   try { localStorage.setItem('ip_tutor_tts', ttsEnabled ? '1' : '0'); } catch(e){}
   // If we're turning it off mid-speech, stop immediately.
-  if (!ttsEnabled && window.speechSynthesis) window.speechSynthesis.cancel();
+  if (!ttsEnabled) stopSpeaking();
   _renderTtsState();
 }
 document.addEventListener('DOMContentLoaded', _renderTtsState);
@@ -1453,8 +1464,57 @@ if (window.speechSynthesis) {
   _ttsVoice = _pickNaturalVoice();
 }
 
-function speakReply(text) {
-  if (!ttsEnabled || !window.speechSynthesis) return;
+// ── Server voices ────────────────────────────────────────────────
+// The browser's own speechSynthesis is a robot on most machines, and a
+// student listening to an explanation on the bus will not tolerate it. Plani
+// reads through Fish Audio instead, with speechSynthesis kept only as the
+// fallback for when that call fails or the key is unset.
+let ttsVoiceId = null;
+let _ttsAudio = null;
+try { ttsVoiceId = localStorage.getItem('ip_tutor_voice') || null; } catch (e) {}
+
+function stopSpeaking() {
+  if (_ttsAudio) { try { _ttsAudio.pause(); } catch (e) {} _ttsAudio = null; }
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+}
+
+async function loadVoiceOptions() {
+  const sel = document.getElementById('ttsVoiceSelect');
+  if (!sel) return;
+  try {
+    const res = await fetch('/api/tutor/voices');
+    const data = await res.json();
+    const voices = data.voices || [];
+    if (!voices.length) { sel.closest('.tutor-voice-row')?.remove(); return; }
+    sel.innerHTML = voices.map(v =>
+      `<option value="${escHtml(v.id)}" title="${escHtml(v.description || '')}">${escHtml(v.name)}</option>`
+    ).join('');
+    const stored = voices.find(v => v.id === ttsVoiceId);
+    const chosen = stored || voices.find(v => v.default) || voices[0];
+    ttsVoiceId = chosen.id;
+    sel.value = chosen.id;
+  } catch (err) {
+    sel.closest('.tutor-voice-row')?.remove();
+  }
+}
+
+function setTtsVoice(id) {
+  ttsVoiceId = id;
+  try { localStorage.setItem('ip_tutor_voice', id); } catch (e) {}
+}
+
+function _browserSpeak(clean) {
+  if (!window.speechSynthesis) return;
+  const utt = new SpeechSynthesisUtterance(clean);
+  utt.rate = 0.98;
+  utt.pitch = 1.02;
+  if (_ttsVoice) utt.voice = _ttsVoice;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utt);
+}
+
+async function speakReply(text) {
+  if (!ttsEnabled) return;
   const clean = text
     .replace(/```[\s\S]*?```/g, ' ')
     .replace(/[#*`_~\[\]]/g, '')
@@ -1462,12 +1522,25 @@ function speakReply(text) {
     .trim()
     .slice(0, 1200);
   if (!clean) return;
-  const utt = new SpeechSynthesisUtterance(clean);
-  utt.rate = 0.98;
-  utt.pitch = 1.02;
-  if (_ttsVoice) utt.voice = _ttsVoice;
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(utt);
+  stopSpeaking();
+  try {
+    const res = await fetch('/api/tutor/speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: clean, voice: ttsVoiceId || undefined }),
+    });
+    if (!res.ok) throw new Error('tts ' + res.status);
+    const blob = await res.blob();
+    // Only one reply is ever spoken at a time, and the object URL is revoked
+    // when it ends so a long session does not leak a blob per answer.
+    const url = URL.createObjectURL(blob);
+    _ttsAudio = new Audio(url);
+    _ttsAudio.onended = _ttsAudio.onerror = () => { URL.revokeObjectURL(url); _ttsAudio = null; };
+    await _ttsAudio.play();
+    return;
+  } catch (err) {
+    _browserSpeak(clean);
+  }
 }
 
 /* ════ ADAPTIVE STUDENT MODEL ════════════════════════════════════ */
@@ -1482,6 +1555,8 @@ const MODALITY_LABELS = {
   reading:  { label: 'Reading',  icon: 'i-book',      hint: 'Text-based explanations' },
   blended:  { label: 'Blended',  icon: 'i-repeat',    hint: 'All modes at once' },
 };
+
+loadVoiceOptions();
 
 async function loadAdaptiveProfile() {
   try {
@@ -1762,41 +1837,46 @@ function parseArtifacts(content) {
 }
 
 const ARTIFACT_CSS = `
+  /* The artifact frame is sandboxed, so it cannot read the app's CSS
+     variables and has to restate them. These are the dark-theme values:
+     the frame used to be navy (#131722) with a #4f7cff accent, which meant
+     every quiz Plani generated opened a window onto a different, bluer
+     product in the middle of the tutor. */
   :root { color-scheme: light dark; }
   body {
     margin: 0; padding: 14px;
     font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
-    color: #e8ecf4; background: #131722;
+    color: #ece7df; background: #161512;
   }
   h1, h2, h3 { margin: 0 0 10px; font-size: 1.05rem; line-height: 1.3; }
   p { margin: 0 0 10px; }
-  .card { background:#1b2231; border:1px solid #2b3446; border-radius:12px; padding:12px; margin-bottom:10px; }
+  .card { background:#1f1d1a; border:1px solid #2e2b26; border-radius:12px; padding:12px; margin-bottom:10px; }
   .quiz-option {
     display:block; width:100%; text-align:left; margin-bottom:8px; padding:10px 12px;
-    background:#1b2231; color:#e8ecf4; border:1px solid #2b3446; border-radius:10px;
+    background:#1f1d1a; color:#ece7df; border:1px solid #2e2b26; border-radius:10px;
     cursor:pointer; font: inherit; transition: background .15s ease, border-color .15s ease;
   }
-  .quiz-option:hover { border-color:#4f7cff; }
-  .quiz-option.correct { background:#123524; border-color:#2ea36a; }
-  .quiz-option.incorrect { background:#3a1620; border-color:#c2455e; }
+  .quiz-option:hover { border-color:#729ce0; }
+  .quiz-option.correct { background:#17301f; border-color:#67c3a1; }
+  .quiz-option.incorrect { background:#331a18; border-color:#e8776f; }
   .feedback { margin-top:8px; padding:9px 11px; border-radius:9px; font-size:0.9rem; }
-  .feedback.correct { background:#123524; color:#8ff0bd; }
-  .feedback.incorrect { background:#3a1620; color:#ffb3c0; }
-  .progress-bar { height:7px; border-radius:999px; background:#2b3446; overflow:hidden; margin:8px 0; }
+  .feedback.correct { background:#17301f; color:#9fdcc2; }
+  .feedback.incorrect { background:#331a18; color:#f3b3ad; }
+  .progress-bar { height:7px; border-radius:999px; background:#2e2b26; overflow:hidden; margin:8px 0; }
   /* Width is the sizing mechanism artifacts set inline; it is deliberately
      not transitioned — animating width thrashes layout inside the frame. */
-  .progress-fill { height:100%; background:#4f7cff; border-radius:999px; }
+  .progress-fill { height:100%; background:#729ce0; border-radius:999px; }
   .chart-container { width:100%; overflow-x:auto; }
   button:not(.quiz-option) {
-    padding:8px 14px; border-radius:9px; border:1px solid #4f7cff;
-    background:#4f7cff; color:#fff; cursor:pointer; font: inherit;
+    padding:8px 14px; border-radius:9px; border:1px solid #729ce0;
+    background:#729ce0; color:#17150f; cursor:pointer; font: inherit;
   }
   input, select, textarea {
-    padding:8px 10px; border-radius:8px; border:1px solid #2b3446;
-    background:#1b2231; color:#e8ecf4; font: inherit;
+    padding:8px 10px; border-radius:8px; border:1px solid #2e2b26;
+    background:#1f1d1a; color:#ece7df; font: inherit;
   }
   table { width:100%; border-collapse:collapse; font-size:0.9rem; }
-  th, td { border:1px solid #2b3446; padding:7px 9px; text-align:left; }
+  th, td { border:1px solid #2e2b26; padding:7px 9px; text-align:left; }
   canvas, svg { max-width:100%; }
 `;
 

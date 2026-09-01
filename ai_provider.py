@@ -657,31 +657,121 @@ def vision(
     )
 
 
-def speak(text: str, *, voice: str | None = None, fmt: str = "wav") -> bytes:
-    """Text to speech for a voice session with Plani.
+# ── Speech (Fish Audio) ───────────────────────────────────────────
 
-    Groq only: Gemini's speech models are not in this deployment's chain, and
-    a student mid-conversation would rather hear nothing and read the answer
-    than wait on a third provider. Callers treat a raise as "show the text".
+FISH_AUDIO_URL = os.getenv("FISH_AUDIO_URL", "https://api.fish.audio/v1/tts")
+FISH_AUDIO_MODEL = os.getenv("FISH_AUDIO_MODEL", "s2.1-pro-free")
+
+#: The voices a student can pick between. Every one is an AI-designed voice
+#: rather than a clone of a real person, so nobody's likeness is being used to
+#: read homework aloud. Four rather than forty: a list long enough to find a
+#: voice you can stand for an hour, short enough to choose from in one glance.
+FISH_VOICES = (
+    {"id": "536d3a5e000945adb7038665781a4aca", "name": "Ethan",
+     "description": "Clear and professional. The default for explanations."},
+    {"id": "933563129e564b19a115bedd57b7406a", "name": "Sarah",
+     "description": "Young and conversational, like a friend talking you through it."},
+    {"id": "b347db033a6549378b48d00acb0d06cd", "name": "Selene",
+     "description": "Soft and calm. Easiest to listen to late at night."},
+    {"id": "bf322df2096a46f18c579d0baa36f41d", "name": "Adrian",
+     "description": "Deep and measured. Suits long readings."},
+)
+DEFAULT_FISH_VOICE = os.getenv("FISH_AUDIO_VOICE", FISH_VOICES[0]["id"])
+
+#: Fish bills per character, and a student who pastes an essay into the read
+#: aloud button should get an error rather than a bill.
+MAX_SPEECH_CHARS = int(os.getenv("MAX_SPEECH_CHARS", "4000"))
+
+
+def fish_audio_key() -> str | None:
+    return os.getenv("FISH_AUDIO_KEY")
+
+
+def speech_voices() -> list[dict]:
+    """Voice options for the picker, with the current default marked."""
+    return [{**v, "default": v["id"] == resolve_voice(None)} for v in FISH_VOICES]
+
+
+def resolve_voice(voice: str | None) -> str:
+    """Accept either a voice id or one of the names above, case-insensitively.
+
+    The page sends whatever the student picked; being liberal here means a
+    stored preference from an older build, or a name typed into config, still
+    resolves instead of silently reading in the wrong voice.
     """
-    key = groq_audio_key()
-    if not key:
-        raise AIUnavailable("No speech backend configured. Set GROQ_AUDIO_KEY.")
+    wanted = (voice or "").strip()
+    if not wanted:
+        return DEFAULT_FISH_VOICE
+    for v in FISH_VOICES:
+        if wanted == v["id"] or wanted.lower() == v["name"].lower():
+            return v["id"]
+    # An unknown id may still be a valid Fish model the operator configured.
+    return wanted
+
+
+def speak(text: str, *, voice: str | None = None,
+          fmt: str = "mp3") -> tuple[bytes, str]:
+    """Read text aloud. Returns ``(audio_bytes, mime_type)``.
+
+    Fish Audio rather than a chat provider's bolted-on speech: the voices are
+    the point of the feature. A student listening to an explanation on the bus
+    will not tolerate a robot reading, and the browser's own speechSynthesis
+    is exactly that on most machines.
+
+    Callers treat a raise as "show the text": speech is an enhancement, and a
+    tutor that refuses to answer because a voice failed is worse than one that
+    answers in writing.
+    """
+    key = fish_audio_key()
     clean = (text or "").strip()
     if not clean:
         raise ValueError("Nothing to speak.")
+    if len(clean) > MAX_SPEECH_CHARS:
+        raise ValueError(f"That is longer than {MAX_SPEECH_CHARS} characters to read aloud.")
+    if not key:
+        # Groq's TTS stays as a fallback for a deployment that has that key
+        # and not this one; neither being set is a configuration problem.
+        return _groq_speak(clean, voice, fmt)
+
+    import requests as _http
+
+    resp = _http.post(
+        FISH_AUDIO_URL,
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+            "model": FISH_AUDIO_MODEL,
+        },
+        json={"text": clean, "reference_id": resolve_voice(voice), "format": fmt},
+        timeout=60,
+    )
+    if resp.status_code == 402 or resp.status_code == 429:
+        raise AIQuotaExhausted(f"Fish Audio is out of credit or rate limited: {resp.status_code}")
+    if resp.status_code >= 400:
+        raise RuntimeError(f"Fish Audio returned {resp.status_code}: {resp.text[:200]}")
+    if not resp.content:
+        raise RuntimeError("Fish Audio returned no audio.")
+    return resp.content, {"mp3": "audio/mpeg", "wav": "audio/wav",
+                          "opus": "audio/opus"}.get(fmt, "audio/mpeg")
+
+
+def _groq_speak(clean: str, voice: str | None, fmt: str) -> tuple[bytes, str]:
+    key = groq_audio_key()
+    if not key:
+        raise AIUnavailable(
+            "No speech backend configured. Set FISH_AUDIO_KEY (or GROQ_AUDIO_KEY).")
     client = _groq_client(key)
     resp = client.audio.speech.create(
         model=GROQ_TTS,
         voice=voice or GROQ_TTS_VOICE,
-        input=clean[:4000],
-        response_format=fmt,
+        input=clean,
+        response_format="wav",
     )
     data = getattr(resp, "read", None)
     audio = data() if callable(data) else getattr(resp, "content", None)
     if not audio:
         raise RuntimeError("Speech synthesis returned no audio.")
-    return audio
+    return audio, "audio/wav"
 
 
 def _mime_for_audio(filename: str) -> str:

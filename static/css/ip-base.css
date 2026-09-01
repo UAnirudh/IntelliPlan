@@ -159,27 +159,58 @@
       --neu-inset:     inset 2px 2px 5px rgba(28,25,20,0.06), inset -2px -2px 5px rgba(255,255,255,0.90);
     }
 
+    /* ── Dark theme ───────────────────────────────────────────────
+       Rebuilt away from the default AI dark. What made it read that way was
+       not one choice but five, and they compound:
+
+       The greys were cool with a violet tilt (#101012 → #242428) while the
+       light theme is warm (#f5f4f1). The app changed personality between
+       themes, and cool-violet charcoal is the charcoal every generated
+       interface ships with. Dark now descends from the same warm family the
+       light theme uses, so it reads as the lights going down in the same
+       room rather than a different product.
+
+       The accent was #5b93f5 with `0 0 48px` of blue bloom behind it. A
+       saturated blue glowing on near-black is the single most recognisable
+       generated-UI signature. The hue stays -- it is the brand -- but
+       desaturated to sit in a warm room, and the bloom is gone.
+
+       Shadows were pure black on a tinted background, which reads as a hole
+       rather than a shadow. They are tinted with the surface hue now, from
+       one consistent direction.
+
+       Glass was 26px of blur and 1.8 saturation with white rim-lighting on
+       every surface -- frosted-card default, and at 42% opacity it washed
+       text out. Halved, single faint top edge, opaque enough to read.
+
+       And the whole thing was perfectly flat. There is grain over it now
+       (see .ip-grain below), a few thousandths of an opacity, which is what
+       stops large dark fields looking like vector fill. */
     :root[data-theme="dark"] {
-      --bg:            #101012;
-      --bg-secondary:  #17171a;
-      --bg-card:       #1c1c20;
-      --bg-elevated:   #242428;
+      --bg:            #121110;
+      --bg-secondary:  #171614;
+      --bg-card:       #1c1a18;
+      --bg-elevated:   #242220;
       --bg-dot:        transparent;
-      --accent:        #5b93f5;
-      --accent-hover:  #7aabf8;
-      --accent-soft:   rgba(91,147,245,0.09);
-      --accent-mid:    rgba(91,147,245,0.22);
-      --accent-glow:   0 0 48px rgba(91,147,245,0.14);
-      --ink:           #e6e6e2;
-      --on-ink:        #161616;
-      --text-primary:  #e6e6e2;
-      --text-secondary:#9e9e9a;
+      /* Same brand hue, pulled back from 90% saturation to about 60% so it
+         belongs to the room instead of hovering above it. */
+      --accent:        #729ce0;
+      --accent-hover:  #8fb6e8;
+      --accent-soft:   rgba(114,156,224,0.10);
+      --accent-mid:    rgba(114,156,224,0.24);
+      /* Was a 48px blue bloom. A tight warm-black lift reads as a raised
+         surface; the bloom read as a screensaver. */
+      --accent-glow:   0 1px 0 rgba(255,246,232,0.05), 0 18px 40px -22px rgba(0,0,0,0.9);
+      --ink:           #ece7df;
+      --on-ink:        #17150f;
+      --text-primary:  #ece7df;
+      --text-secondary:#a8a199;
       /* Muted was #5e5e5a (~2.9:1 on --bg) — lightened to clear WCAG AA 4.5:1.
          #7c7c76 cleared 4.5 on --bg (4.53) but only managed 4.05 on --bg-card
          (#1c1c20), so muted text on every dark card failed AA — the same
          wrong-surface mistake the light token had. #878780 clears both
          (4.70 on card, 5.26 on bg) and stays dimmer than --text-secondary. */
-      --text-muted:    #878780;
+      --text-muted:    #948b7f;
       /* Dark-theme danger. The light theme's #b91c1c is far too dark to read
          on a dark surface, so the text token goes lighter rather than darker
          (~9.7:1 on --bg). See the light-theme note for why these are split. */
@@ -191,47 +222,58 @@
       --warn-text:     #f0c477;
       --warn-soft:     rgba(224,169,74,0.10);
       --warn-border:   rgba(224,169,74,0.30);
-      --border:        rgba(255,255,255,0.06);
-      --border-strong: rgba(255,255,255,0.10);
-      --border-accent: rgba(91,147,245,0.26);
-      --shadow-sm:  0 1px 3px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.35);
-      --shadow:     0 1px 4px rgba(0,0,0,0.4), 0 6px 20px rgba(0,0,0,0.3);
-      --shadow-hover:0 2px 8px rgba(0,0,0,0.4), 0 16px 40px rgba(0,0,0,0.35);
-      --shadow-lg:  0 4px 12px rgba(0,0,0,0.45), 0 24px 56px rgba(0,0,0,0.45);
-      --shadow-xl:  0 8px 24px rgba(0,0,0,0.5), 0 32px 72px rgba(0,0,0,0.5);
-      --nav-bg:     rgba(16,16,18,0.92);
-      --nav-border: rgba(255,255,255,0.05);
-      --high:        #f07070; --high-bg:   rgba(240,112,112,0.10);
-      --medium:      #f0b429; --medium-bg: rgba(240,180,41,0.10);
-      --low:         #3dd4a0; --low-bg:    rgba(61,212,160,0.10);
-      --toggle-bg:   rgba(255,255,255,0.07);
-      --toggle-knob: #e6e6e2;
-      --nav-divider: rgba(255,255,255,0.08);
-      --footer-bg:   #17171a;
-      --footer-text: #6a6a66;
-      --footer-border:rgba(255,255,255,0.05);
-      --footer-link: #5b93f5;
-      --scrim:       rgba(0,0,0,0.62);
-      --accent-shadow: 91,147,245;
-      --glass-bg:      rgba(30,30,36,0.42);
-      --glass-border:  rgba(255,255,255,0.14);
-      --glass-blur:    26px;
-      --glass-saturate: 1.8;
-      --glass-shadow:  inset 1px 1px 2px rgba(255,255,255,0.16), inset -1px -1px 2px rgba(255,255,255,0.10), inset 0 1px 0 rgba(255,255,255,0.20), 0 18px 46px -14px rgba(0,0,0,0.6), 0 4px 14px rgba(0,0,0,0.35);
-      --glass-highlight: linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.03) 36%, rgba(255,255,255,0) 58%);
-      --glass-btn-bg:       rgba(255,255,255,0.07);
-      --glass-btn-border:   rgba(255,255,255,0.16);
-      --glass-btn-hover:    rgba(255,255,255,0.15);
-      --glass-btn-shadow:   inset 0 1px 0 rgba(255,255,255,0.14), 0 1px 2px rgba(0,0,0,0.35), 0 4px 12px -4px rgba(0,0,0,0.4);
-      --glass-btn-shadow-hover: inset 0 1px 0 rgba(255,255,255,0.20), 0 2px 6px rgba(0,0,0,0.4), 0 10px 24px -8px rgba(0,0,0,0.5);
-      --glass-primary-bg:   rgba(240,240,236,0.84);
-      --glass-primary-hover: rgba(255,255,255,0.92);
-      --glass-primary-text: #16161a;
-      --glass-input-bg:     rgba(255,255,255,0.05);
-      --glass-input-border: rgba(255,255,255,0.14);
-      --neu-shadow:    7px 7px 16px rgba(0,0,0,0.50), -5px -5px 14px rgba(255,255,255,0.025);
-      --neu-shadow-sm: 3px 3px 8px rgba(0,0,0,0.45), -3px -3px 8px rgba(255,255,255,0.02);
-      --neu-inset:     inset 2px 2px 5px rgba(0,0,0,0.50), inset -2px -2px 5px rgba(255,255,255,0.03);
+      /* Warm-tinted hairlines. Pure white at 6% over a warm surface reads
+         blue, which is how a warm palette drifts cool one border at a time. */
+      --border:        rgba(255,244,230,0.07);
+      --border-strong: rgba(255,244,230,0.12);
+      --border-accent: rgba(114,156,224,0.28);
+      /* Tinted with the surface hue and lit from a single direction above.
+         Pure black on a tinted ground reads as a hole punched in the page. */
+      --shadow-sm:  0 1px 2px rgba(8,6,4,0.55), 0 2px 6px rgba(8,6,4,0.30);
+      --shadow:     0 2px 6px rgba(8,6,4,0.45), 0 8px 22px -6px rgba(8,6,4,0.40);
+      --shadow-hover:0 3px 10px rgba(8,6,4,0.50), 0 18px 44px -12px rgba(8,6,4,0.48);
+      --shadow-lg:  0 6px 16px rgba(8,6,4,0.52), 0 28px 60px -16px rgba(8,6,4,0.58);
+      --shadow-xl:  0 10px 28px rgba(8,6,4,0.58), 0 40px 88px -24px rgba(8,6,4,0.66);
+      --nav-bg:     rgba(18,17,16,0.93);
+      --nav-border: rgba(255,244,230,0.06);
+      /* Priority colours, pulled toward the warm neutral they sit on. The
+         mint #3dd4a0 in particular was the one hue in the palette that
+         belonged to a different product. */
+      --high:        #e8776f; --high-bg:   rgba(232,119,111,0.11);
+      --medium:      #dfa445; --medium-bg: rgba(223,164,69,0.11);
+      --low:         #67c3a1; --low-bg:    rgba(103,195,161,0.11);
+      --toggle-bg:   rgba(255,244,230,0.08);
+      --toggle-knob: #ece7df;
+      --nav-divider: rgba(255,244,230,0.09);
+      --footer-bg:   #171614;
+      --footer-text: #8a8278;
+      --footer-border:rgba(255,244,230,0.06);
+      --footer-link: #729ce0;
+      --scrim:       rgba(10,8,6,0.66);
+      --accent-shadow: 114,156,224;
+      /* Readable first, frosted second. 42% opacity with 26px of blur is why
+         a dialog's own text competed with the page behind it. */
+      --glass-bg:      rgba(30,28,25,0.72);
+      --glass-border:  rgba(255,244,230,0.10);
+      --glass-blur:    14px;
+      --glass-saturate: 1.15;
+      /* One faint top edge, where a light above would actually catch, rather
+         than rim-lighting all four sides of every card. */
+      --glass-shadow:  inset 0 1px 0 rgba(255,246,232,0.08), 0 2px 6px rgba(8,6,4,0.40), 0 18px 44px -16px rgba(8,6,4,0.60);
+      --glass-highlight: linear-gradient(180deg, rgba(255,246,232,0.06) 0%, rgba(255,246,232,0.015) 40%, rgba(255,246,232,0) 62%);
+      --glass-btn-bg:       rgba(255,244,230,0.06);
+      --glass-btn-border:   rgba(255,244,230,0.12);
+      --glass-btn-hover:    rgba(255,244,230,0.12);
+      --glass-btn-shadow:   inset 0 1px 0 rgba(255,246,232,0.08), 0 1px 2px rgba(8,6,4,0.40), 0 4px 12px -6px rgba(8,6,4,0.45);
+      --glass-btn-shadow-hover: inset 0 1px 0 rgba(255,246,232,0.12), 0 2px 6px rgba(8,6,4,0.45), 0 10px 24px -10px rgba(8,6,4,0.55);
+      --glass-primary-bg:   rgba(236,231,223,0.92);
+      --glass-primary-hover: rgba(248,244,238,0.96);
+      --glass-primary-text: #17150f;
+      --glass-input-bg:     rgba(255,244,230,0.045);
+      --glass-input-border: rgba(255,244,230,0.12);
+      --neu-shadow:    7px 7px 16px rgba(8,6,4,0.50), -5px -5px 14px rgba(255,246,232,0.02);
+      --neu-shadow-sm: 3px 3px 8px rgba(8,6,4,0.45), -3px -3px 8px rgba(255,246,232,0.018);
+      --neu-inset:     inset 2px 2px 5px rgba(8,6,4,0.50), inset -2px -2px 5px rgba(255,246,232,0.025);
     }
 
     /* ───── Extra themes ──────────────────────────────────────
@@ -715,7 +757,29 @@
         radial-gradient(52rem 46rem at 104% 110%, rgba(var(--accent-shadow),0.06) 0%, transparent 54%);
       opacity: 1;
     }
-    [data-theme="dark"] body::before { opacity: 0.9; }
+    /* Brand marks that are black by design disappear on a dark ground.
+       Notion's mark is published in black or white depending on the
+       background, so inverting it in dark is the correct use rather than a
+       hack; the monogram tiles keep their colour and gain a hairline so a
+       black tile still has an edge against a near-black page. */
+    [data-theme="dark"] img[src*="/logos/notion.svg"] { filter: invert(1) brightness(1.05); }
+    [data-theme="dark"] img[src*="/logos/blackboard.svg"] {
+      box-shadow: 0 0 0 1px rgba(255,244,230,0.16);
+    }
+
+    /* Dark gets its own atmosphere rather than the light theme's tinted
+       corners at 90% strength. Two symmetric accent-coloured washes on
+       near-black is the "ambient glow" every generated dark UI ships with,
+       and with a blue accent it was the loudest tell in the theme. This is
+       one warm light source high on the left and a slight settling of the
+       dark toward the bottom -- a lit room, not a gradient. */
+    [data-theme="dark"] body::before {
+      opacity: 1;
+      background:
+        radial-gradient(70rem 52rem at 6% -18%, rgba(255,238,214,0.045) 0%, transparent 58%),
+        radial-gradient(60rem 60rem at 108% 8%, rgba(var(--accent-shadow),0.05) 0%, transparent 60%),
+        linear-gradient(180deg, transparent 55%, rgba(6,5,4,0.35) 100%);
+    }
     /* Fine-grain noise overlay — adds tactile warmth so surfaces don't
        feel like a clinical CSS gradient. Heavy on light theme, lighter on dark. */
     body::after {
@@ -726,7 +790,9 @@
       opacity: 0.025;
       mix-blend-mode: multiply;
     }
-    [data-theme="dark"] body::after { opacity: 0.04; mix-blend-mode: screen; }
+    /* Large dark fields show banding and read as vector fill without it, so
+       dark carries slightly more grain than light. */
+    [data-theme="dark"] body::after { opacity: 0.05; mix-blend-mode: screen; }
     body > * { position: relative; z-index: 1; }
 
     h1, h2, h3 {
@@ -1353,7 +1419,7 @@
        marketing chrome — a calm, focused workspace.
     ══════════════════════════════════════ */
     [data-theme="light"] body.has-side { --bg: #f6f6f8; --bg-elevated: #ececef; }
-    [data-theme="dark"]  body.has-side { --bg: #0d0d0f; --bg-elevated: #1a1a1e; }
+    [data-theme="dark"]  body.has-side { --bg: #0f0e0d; --bg-elevated: #1e1c1a; }
     /* Calm the ambient wash + grain — Apple surfaces read clean, not textured. */
     body.has-side::before { opacity: 0.55; }
     body.has-side::after  { opacity: 0.012; }
@@ -2072,7 +2138,7 @@
       background: #101215;
       color: #fff;
     }
-    [data-theme="dark"] .auth-aside { background: #0b0d10; }
+    [data-theme="dark"] .auth-aside { background: #0e0d0b; }
     /* Fine grid texture. Two 1px gradients beat a background-image here:
        no request, and it scales with the panel instead of tiling visibly. */
     .auth-aside::before {
@@ -2416,11 +2482,11 @@
     .plani-msg { display:flex; gap:8px; animation:fadeUp 0.22s var(--ease-out) both; }
     .plani-msg.user { flex-direction:row-reverse; }
     .plani-msg-avatar { width:25px; height:25px; border-radius:7px; background:var(--ink, #161616); display:flex; align-items:center; justify-content:center; font-size:9px; font-family:var(--font-ui); font-weight:700; color:var(--on-ink); letter-spacing:0.02em; flex-shrink:0; margin-top:2px; }
-    :root[data-theme="dark"] .plani-msg-avatar { background:#e8e8e4; color:#161616; }
+    :root[data-theme="dark"] .plani-msg-avatar { background:var(--ink); color:var(--on-ink); }
     .plani-msg.user .plani-msg-avatar { background:var(--accent-soft); color:var(--accent); }
     .plani-msg-bubble { max-width:76%; padding:8px 12px; border-radius:15px; font-size:0.84rem; line-height:1.55; color:var(--text-primary); background:var(--bg-elevated); border:1px solid var(--border); }
     .plani-msg.user .plani-msg-bubble { background:var(--ink, #161616); color:var(--on-ink); border-color:transparent; border-radius:15px 15px 3px 15px; }
-    :root[data-theme="dark"] .plani-msg.user .plani-msg-bubble { background:#e8e8e4; color:#161616; }
+    :root[data-theme="dark"] .plani-msg.user .plani-msg-bubble { background:var(--ink); color:var(--on-ink); }
     .plani-msg.bot  .plani-msg-bubble { border-radius:3px 15px 15px 15px; }
 
     #planiTyping { display:none; align-items:center; gap:8px; padding:0 0 3px; }
@@ -2448,7 +2514,7 @@
     #planiInput::placeholder { color:var(--text-muted); }
     #planiSendBtn { width:35px; height:35px; background:var(--ink, #161616); border:none; border-radius:var(--r-sm); color:var(--on-ink); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; transition:all 0.16s; flex-shrink:0; }
     #planiSendBtn:hover { background:#2a2a2a; transform:scale(1.06); }
-    :root[data-theme="dark"] #planiSendBtn { background:#e8e8e4; color:#161616; }
+    :root[data-theme="dark"] #planiSendBtn { background:var(--ink); color:var(--on-ink); }
     :root[data-theme="dark"] #planiSendBtn:hover { background:#ffffff; }
     #planiSendBtn:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
 

@@ -3196,7 +3196,7 @@ window.addEventListener('load',()=>{
 ─────────────────────────────────────────────────────────────────────── #}
 <style>
   :root { --tip-bg: #1c1c1f; --tip-fg: #f4f4f2; }
-  :root[data-theme="dark"] { --tip-bg: #f0f0ec; --tip-fg: #17171a; }
+  :root[data-theme="dark"] { --tip-bg: var(--ink); --tip-fg: var(--on-ink); }
   #ipTip {
     position: fixed; top: 0; left: 0; z-index: 2147483647;
     pointer-events: none; max-width: 250px;

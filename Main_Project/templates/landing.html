@@ -941,16 +941,19 @@
 
 <script>
   /* ── Testimonials grid, runs after DOM is fully parsed ── */
+  // Avatar colours: the same six hues, desaturated. Fully saturated
+  // primaries glared against the warm dark surface and read as a default
+  // palette rather than a chosen one.
   function initTestimonialsGrid() {
     var testimonials = [
-      { name: "Jack",   role: "AP student",    color: "#2563eb", text: "I used to spend 20 minutes every morning figuring out what to do first. IntelliPlan just tells me. That alone is worth it." },
-      { name: "Max",    role: "College student",           color: "#2563eb", text: "Canvas dumps everything on you with zero order. IntelliPlan sorts it by what's actually urgent. I haven't missed a deadline since." },
-      { name: "Sai",    role: "IB student",    color: "#0891b2", text: "The grade modeler is insane. I can simulate what score I need on my next test to keep my GPA exactly where I want it." },
-      { name: "Ram",    role: "High school student",         color: "#059669", text: "My study sessions used to be random. Now IntelliPlan builds the whole week and exports it to Google Calendar. I just follow the plan." },
-      { name: "Suhrit", role: "AP & dual enrollment",      color: "#dc2626", text: "I'm in 6 APs and dual enrollment. Before IntelliPlan I was constantly anxious about what I was forgetting. Now I feel in control." },
-      { name: "Rachel", role: "Honors student", color: "#db2777", text: "The flashcard generator from my own notes is a game changer. Upload after class, get quiz questions automatically. Saves an hour a night." },
-      { name: "Aayush", role: "College student",         color: "#d97706", text: "I recommended this to my entire study group. We all use it now. Having the same priority system made group studying actually productive." },
-      { name: "Trish",  role: "High school student",        color: "#2563eb", text: "The AI scheduler feels like having a personal planner who knows exactly how much time you have and what needs to get done first." }
+      { name: "Jack",   role: "AP student",    color: "#5b7fb9", text: "I used to spend 20 minutes every morning figuring out what to do first. IntelliPlan just tells me. That alone is worth it." },
+      { name: "Max",    role: "College student",           color: "#5b7fb9", text: "Canvas dumps everything on you with zero order. IntelliPlan sorts it by what's actually urgent. I haven't missed a deadline since." },
+      { name: "Sai",    role: "IB student",    color: "#4c8b98", text: "The grade modeler is insane. I can simulate what score I need on my next test to keep my GPA exactly where I want it." },
+      { name: "Ram",    role: "High school student",         color: "#4f9070", text: "My study sessions used to be random. Now IntelliPlan builds the whole week and exports it to Google Calendar. I just follow the plan." },
+      { name: "Suhrit", role: "AP & dual enrollment",      color: "#b8564f", text: "I'm in 6 APs and dual enrollment. Before IntelliPlan I was constantly anxious about what I was forgetting. Now I feel in control." },
+      { name: "Rachel", role: "Honors student", color: "#ad5b80", text: "The flashcard generator from my own notes is a game changer. Upload after class, get quiz questions automatically. Saves an hour a night." },
+      { name: "Aayush", role: "College student",         color: "#b1803c", text: "I recommended this to my entire study group. We all use it now. Having the same priority system made group studying actually productive." },
+      { name: "Trish",  role: "High school student",        color: "#5b7fb9", text: "The AI scheduler feels like having a personal planner who knows exactly how much time you have and what needs to get done first." }
     ];
 
     var track = document.getElementById('reviewsTrack');
