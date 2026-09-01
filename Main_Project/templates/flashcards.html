@@ -1,0 +1,394 @@
+{% extends "base.html" %}
+{% block title %}Flashcards | IntelliPlan{% endblock %}
+{% block meta_description %}Import your Anki decks and Quizlet sets, then study them with FSRS scheduling that plans each review for the day you are about to forget.{% endblock %}
+
+{% block content %}
+<style>
+/* ── Flashcards ──────────────────────────────────────────────────
+   Namespaced fc- throughout: base.html shares one global script and
+   style scope, so unprefixed ids collide across pages. */
+.fc-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1.5rem; }
+.fc-stats { display:flex; gap:1.5rem; flex-wrap:wrap; }
+.fc-stat-num { font-family:var(--font-display); font-size:1.6rem; font-weight:600; color:var(--text-primary); line-height:1; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; }
+.fc-stat-label { font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:600; margin-top:4px; }
+
+.fc-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.fc-btn { display:inline-flex; align-items:center; gap:6px; padding:9px 16px; border-radius:var(--r-md); border:1px solid var(--border-strong); background:var(--bg-card); color:var(--text-primary); font-family:var(--font-ui); font-size:0.83rem; font-weight:600; cursor:pointer; transition:border-color var(--t-fast), transform var(--t-fast), background var(--t-fast); }
+.fc-btn:hover { border-color:var(--border-accent); transform:translateY(-1px); }
+.fc-btn-primary { background:var(--ink); color:var(--on-ink); border-color:transparent; }
+.fc-btn-primary:hover { background:var(--ink); }
+.fc-btn svg { width:14px; height:14px; }
+
+.fc-decks { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:14px; }
+.fc-deck { border:1px solid var(--border); border-radius:var(--r-lg); background:var(--bg-card); padding:1.1rem 1.2rem; display:flex; flex-direction:column; gap:10px; transition:border-color var(--t-fast), box-shadow var(--t-base), transform var(--t-fast); }
+.fc-deck:hover { border-color:var(--border-accent); box-shadow:var(--shadow); transform:translateY(-2px); }
+.fc-deck-name { font-family:var(--font-display); font-size:1.02rem; font-weight:600; color:var(--text-primary); line-height:1.25; }
+.fc-deck-meta { display:flex; gap:10px; font-size:0.74rem; color:var(--text-muted); font-weight:600; }
+.fc-pill { padding:2px 9px; border-radius:var(--r-full); font-size:0.7rem; font-weight:700; }
+.fc-pill-due { background:var(--accent-soft); color:var(--accent); }
+.fc-pill-new { background:var(--bg-elevated); color:var(--text-secondary); }
+.fc-deck-foot { display:flex; gap:8px; margin-top:auto; }
+.fc-source { font-size:0.66rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:700; }
+
+.fc-empty { border:1px dashed var(--border-strong); border-radius:var(--r-lg); padding:3rem 1.5rem; text-align:center; }
+.fc-empty h2 { font-family:var(--font-display); font-size:1.2rem; font-weight:600; margin:0 0 0.4rem; color:var(--text-primary); }
+.fc-empty p { font-size:0.88rem; color:var(--text-muted); max-width:46ch; margin:0 auto 1.2rem; line-height:1.6; }
+
+/* ── Import panel ── */
+.fc-panel { position:fixed; inset:0; z-index:2400; display:none; align-items:center; justify-content:center; padding:1rem; background:var(--scrim); }
+.fc-panel.open { display:flex; }
+.fc-panel-inner { width:100%; max-width:560px; max-height:88vh; overflow-y:auto; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--r-xl); box-shadow:var(--shadow-lg); padding:1.4rem; }
+.fc-panel h2 { font-family:var(--font-display); font-size:1.15rem; font-weight:600; margin:0 0 0.3rem; color:var(--text-primary); }
+.fc-panel p.fc-sub { font-size:0.83rem; color:var(--text-muted); margin:0 0 1.1rem; line-height:1.55; }
+.fc-field { margin-bottom:0.9rem; }
+.fc-field label { display:block; font-size:0.76rem; font-weight:600; color:var(--text-secondary); margin-bottom:5px; }
+.fc-input, .fc-textarea { width:100%; padding:9px 11px; border:1px solid var(--border-strong); border-radius:var(--r-sm); background:var(--bg); color:var(--text-primary); font-family:var(--font-body); font-size:0.86rem; }
+.fc-textarea { min-height:150px; resize:vertical; font-family:var(--font-mono); font-size:0.8rem; line-height:1.5; }
+.fc-tabs { display:flex; gap:6px; margin-bottom:1rem; }
+.fc-tab { flex:1; padding:8px; border-radius:var(--r-sm); border:1px solid var(--border); background:transparent; font-family:var(--font-ui); font-size:0.78rem; font-weight:600; color:var(--text-secondary); cursor:pointer; }
+.fc-tab.active { background:var(--accent-soft); border-color:var(--border-accent); color:var(--accent); }
+.fc-note { font-size:0.75rem; color:var(--text-muted); line-height:1.5; margin-top:6px; }
+
+/* ── Study session ── */
+.fc-study { max-width:680px; margin:0 auto; }
+.fc-progress { display:flex; justify-content:space-between; font-size:0.74rem; color:var(--text-muted); font-weight:600; margin-bottom:0.8rem; }
+.fc-card { border:1px solid var(--border-strong); border-radius:var(--r-xl); background:var(--bg-card); padding:2.2rem 1.6rem; min-height:200px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1.2rem; text-align:center; box-shadow:var(--shadow-sm); }
+.fc-card-front { font-size:1.15rem; font-weight:600; color:var(--text-primary); line-height:1.5; white-space:pre-wrap; }
+.fc-card-back { font-size:0.98rem; color:var(--text-secondary); line-height:1.6; white-space:pre-wrap; border-top:1px solid var(--border); padding-top:1.2rem; width:100%; }
+.fc-grades { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-top:1rem; }
+.fc-grade { padding:11px 6px; border-radius:var(--r-md); border:1px solid var(--border-strong); background:var(--bg-card); cursor:pointer; font-family:var(--font-ui); font-weight:700; font-size:0.8rem; color:var(--text-primary); display:flex; flex-direction:column; gap:3px; align-items:center; transition:transform var(--t-fast), border-color var(--t-fast); }
+.fc-grade:hover { transform:translateY(-2px); border-color:var(--border-accent); }
+.fc-grade small { font-size:0.66rem; font-weight:600; color:var(--text-muted); font-variant-numeric:tabular-nums; }
+.fc-grade-1 { color:var(--high); } .fc-grade-2 { color:var(--medium); }
+.fc-grade-3 { color:var(--accent); } .fc-grade-4 { color:var(--low); }
+.fc-hidden { display:none !important; }
+@media (max-width:520px) { .fc-grades { grid-template-columns:repeat(2,1fr); } }
+</style>
+
+<div class="page-header">
+  <div class="page-kicker">Flashcards</div>
+  <h1 class="page-title">Your decks</h1>
+  <p class="page-subtitle">
+    Bring in what you already have from Anki or Quizlet, then study on a schedule
+    that plans each card for the day you are about to forget it.
+  </p>
+</div>
+
+<!-- ── Deck list ─────────────────────────────────────────────── -->
+<div id="fcHome">
+  <div class="fc-head">
+    <div class="fc-stats" id="fcStats"></div>
+    <div class="fc-actions">
+      <button class="fc-btn fc-btn-primary" onclick="fcStudyAll()" id="fcStudyAllBtn">
+        <svg viewBox="0 0 256 256" fill="currentColor"><use href="#i-lightning"/></svg>
+        Study everything due
+      </button>
+      <button class="fc-btn" onclick="fcOpenImport()">
+        <svg viewBox="0 0 256 256" fill="currentColor"><use href="#i-download"/></svg>
+        Import
+      </button>
+      <button class="fc-btn" onclick="fcNewDeck()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><use href="#i-plus"/></svg>
+        New deck
+      </button>
+    </div>
+  </div>
+  <div class="fc-decks" id="fcDecks"></div>
+  <div class="fc-empty fc-hidden" id="fcEmpty">
+    <h2>No decks yet</h2>
+    <p>
+      Export a deck from Anki as an .apkg, or copy a Quizlet set with Export,
+      and IntelliPlan will read it and schedule every card for you.
+    </p>
+    <button class="fc-btn fc-btn-primary" onclick="fcOpenImport()">Import a deck</button>
+  </div>
+</div>
+
+<!-- ── Study session ─────────────────────────────────────────── -->
+<div id="fcSession" class="fc-study fc-hidden">
+  <div class="fc-progress">
+    <span id="fcProgress"></span>
+    <button class="fc-btn" style="padding:4px 10px;font-size:0.74rem;" onclick="fcEndSession()">Done</button>
+  </div>
+  <div class="fc-card" id="fcCardEl" onclick="fcReveal()">
+    <div class="fc-card-front" id="fcFront"></div>
+    <div class="fc-card-back fc-hidden" id="fcBack"></div>
+  </div>
+  <div id="fcRevealRow" style="text-align:center;margin-top:1rem;">
+    <button class="fc-btn fc-btn-primary" onclick="fcReveal()">Show answer</button>
+  </div>
+  <div class="fc-grades fc-hidden" id="fcGrades">
+    <button class="fc-grade fc-grade-1" onclick="fcGrade(1)">Again<small id="fcIvl1">·</small></button>
+    <button class="fc-grade fc-grade-2" onclick="fcGrade(2)">Hard<small id="fcIvl2">·</small></button>
+    <button class="fc-grade fc-grade-3" onclick="fcGrade(3)">Good<small id="fcIvl3">·</small></button>
+    <button class="fc-grade fc-grade-4" onclick="fcGrade(4)">Easy<small id="fcIvl4">·</small></button>
+  </div>
+  <p class="fc-note" style="text-align:center;margin-top:1rem;">
+    Space reveals the answer, then 1–4 grades it.
+  </p>
+</div>
+
+<!-- ── Import panel ──────────────────────────────────────────── -->
+<div class="fc-panel" id="fcImport" role="dialog" aria-modal="true" aria-labelledby="fcImportTitle">
+  <div class="fc-panel-inner">
+    <h2 id="fcImportTitle">Import a deck</h2>
+    <p class="fc-sub">Nothing is overwritten: an import always creates a new deck.</p>
+
+    <div class="fc-tabs">
+      <button class="fc-tab active" id="fcTabPaste" onclick="fcSetImportMode('paste')">Paste a set</button>
+      <button class="fc-tab" id="fcTabFile" onclick="fcSetImportMode('file')">Upload a file</button>
+    </div>
+
+    <div id="fcPasteMode">
+      <div class="fc-field">
+        <label for="fcDeckName">Deck name</label>
+        <input class="fc-input" id="fcDeckName" placeholder="AP Bio unit 3" value="Imported deck">
+      </div>
+      <div class="fc-field">
+        <label for="fcPasteText">Terms and definitions</label>
+        <textarea class="fc-textarea" id="fcPasteText" placeholder="mitosis	cell division producing identical cells
+meiosis	cell division producing gametes"></textarea>
+        <p class="fc-note">
+          In Quizlet: open the set, choose Export, keep the defaults, copy, paste here.
+          Tabs, dashes, semicolons and pipes all work as the separator.
+        </p>
+      </div>
+    </div>
+
+    <div id="fcFileMode" class="fc-hidden">
+      <div class="fc-field">
+        <label for="fcFile">Anki .apkg or a CSV</label>
+        <input class="fc-input" type="file" id="fcFile" accept=".apkg,.colpkg,.csv,.txt,.tsv">
+        <p class="fc-note">
+          In Anki: File → Export → Anki Deck Package, and tick
+          <strong>Support older Anki versions</strong> so the file is readable here.
+        </p>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:1.2rem;">
+      <button class="fc-btn" onclick="fcCloseImport()">Cancel</button>
+      <button class="fc-btn fc-btn-primary" id="fcImportBtn" onclick="fcRunImport()">Import</button>
+    </div>
+    <p class="fc-note" id="fcImportStatus" style="margin-top:0.8rem;"></p>
+  </div>
+</div>
+
+<script>
+/* ── Flashcards page ──────────────────────────────────────────────
+   All state is namespaced under fc* — base.html evaluates every page's
+   script in one shared scope, so a bare `cards` or `queue` here would
+   collide with another page's globals and kill this block. */
+let fcQueue = [];
+let fcIndex = 0;
+let fcRevealed = false;
+let fcImportMode = 'paste';
+
+function fcEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function fcHumanInterval(days) {
+  if (days == null) return '·';
+  const mins = days * 1440;
+  if (mins < 60) return Math.max(1, Math.round(mins)) + 'm';
+  if (days < 1) return Math.round(mins / 60) + 'h';
+  if (days < 30) return Math.round(days) + 'd';
+  if (days < 365) return (days / 30).toFixed(1) + 'mo';
+  return (days / 365).toFixed(1) + 'y';
+}
+
+async function fcLoadDecks() {
+  const res = await fetch('/api/flashcards/decks');
+  if (res.status === 401) { window.location = '/login'; return; }
+  const data = await res.json();
+  const decks = data.decks || [];
+  const s = data.stats || {};
+
+  document.getElementById('fcStats').innerHTML = [
+    ['due', s.due || 0, 'due now'],
+    ['new', s.new || 0, 'unseen'],
+    ['cards', s.cards || 0, 'cards'],
+    ['recall', s.recall_rate == null ? '—' : Math.round(s.recall_rate * 100) + '%', 'recall this week'],
+  ].map(([, value, label]) =>
+    `<div><div class="fc-stat-num">${fcEsc(value)}</div><div class="fc-stat-label">${fcEsc(label)}</div></div>`
+  ).join('');
+
+  const wrap = document.getElementById('fcDecks');
+  document.getElementById('fcEmpty').classList.toggle('fc-hidden', decks.length > 0);
+  wrap.innerHTML = decks.map(d => `
+    <div class="fc-deck">
+      <div>
+        <div class="fc-deck-name">${fcEsc(d.name)}</div>
+        <div class="fc-source">${fcEsc(d.source)}</div>
+      </div>
+      <div class="fc-deck-meta">
+        <span class="fc-pill fc-pill-due">${d.due} due</span>
+        <span class="fc-pill fc-pill-new">${d.new} new</span>
+        <span style="align-self:center;">${d.total} total</span>
+      </div>
+      <div class="fc-deck-foot">
+        <button class="fc-btn fc-btn-primary" style="flex:1;justify-content:center;"
+                onclick="fcStudyDeck(${d.id})">Study</button>
+        <button class="fc-btn" onclick="fcDeleteDeck(${d.id}, ${JSON.stringify(d.name)})"
+                aria-label="Delete ${fcEsc(d.name)}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#i-trash"/></svg>
+        </button>
+      </div>
+    </div>`).join('');
+}
+
+async function fcNewDeck() {
+  const name = await IP.prompt ? await IP.prompt('Name this deck') : window.prompt('Name this deck');
+  if (!name) return;
+  await fetch('/api/flashcards/decks', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  fcLoadDecks();
+}
+
+async function fcDeleteDeck(id, name) {
+  const ok = window.confirm(`Delete "${name}" and every card in it? This cannot be undone.`);
+  if (!ok) return;
+  await fetch('/api/flashcards/decks/' + id, { method: 'DELETE' });
+  fcLoadDecks();
+}
+
+/* ── Import ── */
+function fcOpenImport() { document.getElementById('fcImport').classList.add('open'); }
+function fcCloseImport() { document.getElementById('fcImport').classList.remove('open'); }
+
+function fcSetImportMode(mode) {
+  fcImportMode = mode;
+  document.getElementById('fcTabPaste').classList.toggle('active', mode === 'paste');
+  document.getElementById('fcTabFile').classList.toggle('active', mode === 'file');
+  document.getElementById('fcPasteMode').classList.toggle('fc-hidden', mode !== 'paste');
+  document.getElementById('fcFileMode').classList.toggle('fc-hidden', mode !== 'file');
+}
+
+async function fcRunImport() {
+  const status = document.getElementById('fcImportStatus');
+  const btn = document.getElementById('fcImportBtn');
+  btn.disabled = true;
+  status.textContent = 'Reading…';
+  try {
+    let res;
+    if (fcImportMode === 'file') {
+      const file = document.getElementById('fcFile').files[0];
+      if (!file) { status.textContent = 'Choose a file first.'; btn.disabled = false; return; }
+      const body = new FormData();
+      body.append('file', file);
+      res = await fetch('/api/flashcards/import', { method: 'POST', body });
+    } else {
+      res = await fetch('/api/flashcards/import', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: document.getElementById('fcPasteText').value,
+          name: document.getElementById('fcDeckName').value,
+        }),
+      });
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { status.textContent = data.message || 'That could not be imported.'; return; }
+    status.textContent = `Imported ${data.added} cards into "${data.name}".`
+      + (data.warnings && data.warnings.length ? ' ' + data.warnings.join(' ') : '');
+    document.getElementById('fcPasteText').value = '';
+    fcLoadDecks();
+    setTimeout(fcCloseImport, 1400);
+  } catch (err) {
+    status.textContent = 'That could not be sent. Check your connection.';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ── Study ── */
+async function fcStudyAll() { fcStartSession(null); }
+async function fcStudyDeck(deckId) { fcStartSession(deckId); }
+
+async function fcStartSession(deckId) {
+  const url = '/api/flashcards/study' + (deckId ? '?deck_id=' + deckId : '');
+  const res = await fetch(url);
+  const data = await res.json();
+  fcQueue = data.cards || [];
+  fcIndex = 0;
+  if (!fcQueue.length) {
+    IP.alert ? IP.alert('Nothing is due right now. Come back later, or import more cards.')
+             : window.alert('Nothing is due right now.');
+    return;
+  }
+  document.getElementById('fcHome').classList.add('fc-hidden');
+  document.getElementById('fcSession').classList.remove('fc-hidden');
+  fcShowCard();
+}
+
+function fcShowCard() {
+  const card = fcQueue[fcIndex];
+  if (!card) return fcEndSession();
+  fcRevealed = false;
+  document.getElementById('fcFront').textContent = card.front;
+  document.getElementById('fcBack').textContent = card.back;
+  document.getElementById('fcBack').classList.add('fc-hidden');
+  document.getElementById('fcGrades').classList.add('fc-hidden');
+  document.getElementById('fcRevealRow').classList.remove('fc-hidden');
+  document.getElementById('fcProgress').textContent =
+    `${fcIndex + 1} / ${fcQueue.length} · ${card.state}`;
+}
+
+async function fcReveal() {
+  if (fcRevealed) return;
+  fcRevealed = true;
+  document.getElementById('fcBack').classList.remove('fc-hidden');
+  document.getElementById('fcRevealRow').classList.add('fc-hidden');
+  document.getElementById('fcGrades').classList.remove('fc-hidden');
+  // The interval each button would schedule. Anki shows this and students
+  // rely on it: seeing Good → 6d beside Easy → 15d is what stops them
+  // pressing Easy on everything.
+  try {
+    const res = await fetch(`/api/flashcards/cards/${fcQueue[fcIndex].id}/preview`);
+    const data = await res.json();
+    [1, 2, 3, 4].forEach(g => {
+      document.getElementById('fcIvl' + g).textContent =
+        fcHumanInterval((data.intervals || {})[g]);
+    });
+  } catch (err) { /* the buttons still work without their labels */ }
+}
+
+async function fcGrade(rating) {
+  if (!fcRevealed) return;
+  const card = fcQueue[fcIndex];
+  try {
+    await fetch(`/api/flashcards/cards/${card.id}/grade`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating }),
+    });
+  } catch (err) { /* keep the session moving; the card stays due */ }
+  // Again and Hard put the card back at the end of this session rather than
+  // dropping it: a card you just failed should be seen again today.
+  if (rating <= 2) fcQueue.push(card);
+  fcIndex += 1;
+  if (fcIndex >= fcQueue.length) return fcEndSession();
+  fcShowCard();
+}
+
+function fcEndSession() {
+  document.getElementById('fcSession').classList.add('fc-hidden');
+  document.getElementById('fcHome').classList.remove('fc-hidden');
+  fcQueue = [];
+  fcIndex = 0;
+  fcLoadDecks();
+}
+
+document.addEventListener('keydown', e => {
+  if (document.getElementById('fcSession').classList.contains('fc-hidden')) return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea') return;
+  if (e.code === 'Space' || e.key === 'Enter') { e.preventDefault(); fcReveal(); }
+  else if (['1', '2', '3', '4'].includes(e.key)) { e.preventDefault(); fcGrade(Number(e.key)); }
+});
+
+fcLoadDecks();
+</script>
+{% endblock %}

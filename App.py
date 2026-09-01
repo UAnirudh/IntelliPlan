@@ -248,6 +248,10 @@ app.register_blueprint(plani_agent_bp)
 from extra_features import extras_bp
 app.register_blueprint(extras_bp)
 
+# Flashcards: decks, FSRS scheduling, and imports from Anki and Quizlet.
+from flashcards.api import flashcards_bp
+app.register_blueprint(flashcards_bp)
+
 # Adaptive tutor: the persistent student model behind Plani (profile, mastery,
 # mistake patterns, durable learner memory, modality routing).
 from adaptive_tutor.api import adaptive_tutor_bp
@@ -4691,6 +4695,20 @@ def settings():
         grade_choices=GRADE_LEVEL_CHOICES,
         focus_choices=FOCUS_AREA_CHOICES,
     )
+
+@app.route("/flashcards")
+def flashcards_page():
+    """Decks, imports and the study session.
+
+    Behind a sign-in because the schedule is per student: FSRS state that
+    cannot be tied to an account is the localStorage feature this replaces.
+    The redirect matches how the rest of the app gates pages -- flask_login's
+    login_required is not imported here.
+    """
+    if not current_user.is_authenticated:
+        return flask.redirect(flask.url_for("login", next="/flashcards"))
+    return render_template("flashcards.html", active_page="flashcards")
+
 
 @app.route("/dashboard")
 def dashboard():
