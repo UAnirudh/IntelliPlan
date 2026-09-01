@@ -2680,13 +2680,95 @@ def get_grade_account():
     return get_active_account()
 
 
+#: Refresh a Canvas token this long before it actually expires. A request
+#: that starts inside the window would otherwise be issued with a token that
+#: dies mid-flight.
+CANVAS_REFRESH_SKEW_SECONDS = 120
+
+
+def _refresh_canvas_if_stale(creds):
+    """Keep an OAuth Canvas connection alive.
+
+    Canvas access tokens last about an hour. The OAuth callback stored one
+    and mirrored it onto the linked account, and nothing ever refreshed it --
+    refresh_canvas_token was imported and never called. An hour after a
+    student connected, every Canvas sync started failing with a 401 that the
+    page reported as "no assignments found", which reads as the integration
+    being broken rather than a token having aged out.
+
+    Every Canvas read goes through get_active_account(), so this is the one
+    place that has to be right. A refresh that fails because the student
+    revoked access marks the connection for reconnect rather than retrying
+    forever against a grant that no longer exists.
+    """
+    if not creds or creds.get("login_type") != "canvas" or not creds.get("canvas_oauth"):
+        return creds
+    if not CANVAS_OAUTH_AVAILABLE or not current_user.is_authenticated:
+        return creds
+    row = CanvasIntegration.query.filter_by(user_id=current_user.id).first()
+    if not row or not row.refresh_token:
+        return creds
+
+    now = utcnow()
+    fresh_enough = (row.token_expires_at
+                    and row.token_expires_at > now + timedelta(seconds=CANVAS_REFRESH_SKEW_SECONDS))
+    if fresh_enough and creds.get("canvas_token"):
+        return creds
+
+    try:
+        tokens = refresh_canvas_token(row.refresh_token, row.canvas_base)
+    except Exception as exc:
+        msg = str(exc)
+        # invalid_grant means the student revoked IntelliPlan in Canvas, or an
+        # admin rotated the developer key. Retrying cannot fix either.
+        if "invalid_grant" in msg or "refresh_token" in msg:
+            # Cron and CLI paths reach this without a request context, where
+            # touching the session raises. The flag is a UI nicety; losing it
+            # must not take the refresh attempt down with it.
+            try:
+                session["canvas_needs_reconnect"] = True
+                session.modified = True
+            except Exception:
+                pass
+        print(f"[canvas] token refresh failed: {msg}")
+        return creds
+
+    access_token = tokens.get("access_token")
+    if not access_token:
+        return creds
+    ttl = tokens.get("expires_in")
+    row.access_token = access_token
+    row.token_expires_at = now + timedelta(seconds=int(ttl)) if ttl else None
+
+    # The linked account is what the fetch paths actually read, so the fresh
+    # token has to land there too or the refresh changes nothing.
+    acct = LinkedAccount.query.filter_by(
+        user_id=current_user.id, is_active=True, login_type="canvas").first()
+    if acct:
+        stored = acct.get_credentials()
+        stored["canvas_token"] = access_token
+        stored["canvas_token_expires_at"] = (
+            row.token_expires_at.isoformat() if row.token_expires_at else None)
+        acct.set_credentials(stored)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    try:
+        session.pop("canvas_needs_reconnect", None)
+    except Exception:
+        pass
+    creds["canvas_token"] = access_token
+    return creds
+
+
 def get_active_account():
     if current_user.is_authenticated:
         acct = LinkedAccount.query.filter_by(user_id=current_user.id, is_active=True).first()
         if acct:
             creds = acct.get_credentials()
             creds["login_type"] = acct.login_type
-            return creds
+            return _refresh_canvas_if_stale(creds)
         return None
     login_type = session.get("login_type")
     if not login_type:
@@ -7543,6 +7625,31 @@ def oauth_canvas_callback():
         session.modified = True
         return redirect(app_link.deep_link("connected", provider="canvas"))
     return redirect("/command-center")
+
+
+@app.route("/oauth/canvas/status")
+def oauth_canvas_status():
+    """Whether this student's Canvas connection is alive.
+
+    The page needs a way to tell "not connected" from "connected but the
+    grant was revoked": the first calls for the connect button, the second
+    for a reconnect prompt, and showing the wrong one sends a student
+    hunting for a problem that is not theirs.
+    """
+    if not current_user.is_authenticated:
+        return flask.jsonify({"connected": False, "reason": "signed_out"})
+    row = CanvasIntegration.query.filter_by(user_id=current_user.id).first()
+    if not row:
+        return flask.jsonify({"connected": False, "oauth": False})
+    return flask.jsonify({
+        "connected": True,
+        "oauth": True,
+        "canvas_base": row.canvas_base,
+        "canvas_user": row.canvas_user_name,
+        "expires_at": row.token_expires_at.isoformat() + "Z" if row.token_expires_at else None,
+        "needs_reconnect": bool(session.get("canvas_needs_reconnect")),
+        "connected_at": row.connected_at.isoformat() + "Z" if row.connected_at else None,
+    })
 
 
 @app.route("/oauth/canvas/disconnect", methods=["POST"])

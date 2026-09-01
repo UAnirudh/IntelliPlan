@@ -37,6 +37,22 @@
     outline-offset: 2px;
     border-radius: 12px;
   }
+  .cx-reconnect {
+    display: none;
+    margin-bottom: 1rem;
+    padding: 12px 14px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--border-accent);
+    background: var(--accent-soft);
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--text-secondary);
+  }
+  /* A display rule outranks the hidden attribute, so the shown state has to
+     be selected explicitly rather than relying on [hidden] alone. */
+  .cx-reconnect:not([hidden]) { display: block; }
+  .cx-reconnect strong { display: block; color: var(--text-primary); margin-bottom: 2px; }
+
   @media (prefers-reduced-motion: reduce) {
     .login-wrap .login-card a[style*="gap:14px"],
     .login-wrap .login-card button[style*="gap:14px"] { transition: none !important; }
@@ -49,6 +65,17 @@
       <h1 class="login-title">Connect your school</h1>
       <p class="login-subtitle">Link your LMS so IntelliPlan can pull your assignments</p>
     </div>
+    {# Canvas access tokens last about an hour and are refreshed silently. A
+       student who revoked IntelliPlan in Canvas, or whose school rotated its
+       developer key, cannot be refreshed back -- and "no assignments found"
+       reads as a broken app rather than a grant that needs granting again.
+       This says which it is. #}
+    <div id="cxReconnect" class="cx-reconnect" hidden role="status">
+      <strong>Canvas needs reconnecting.</strong>
+      <span>Your school's connection was revoked or expired, so assignments stopped syncing.
+      Reconnecting takes a few seconds and keeps everything you have already planned.</span>
+    </div>
+
     <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:1.5rem;">
       <a href="/oauth/canvas" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;border:1px solid var(--glass-border);box-shadow:var(--glass-btn-shadow);background:var(--glass-btn-bg);-webkit-backdrop-filter:blur(12px) saturate(1.5);backdrop-filter:blur(12px) saturate(1.5);text-decoration:none;color:var(--text-primary);transition:all 0.2s;"
         onmouseover="this.style.borderColor='#e66000'" onmouseout="this.style.borderColor='var(--border)'">
@@ -843,4 +870,21 @@
     </div>
   </div>
 </div>
+
+<script>
+/* Only asks once per page load, and only says anything when the answer is
+   "connected but no longer authorised". */
+(function () {
+  fetch('/oauth/canvas/status')
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      if (d && d.connected && d.needs_reconnect) {
+        var el = document.getElementById('cxReconnect');
+        if (el) el.hidden = false;
+      }
+    })
+    .catch(function () { /* the connect buttons work regardless */ });
+})();
+</script>
+
 {% endblock %}
