@@ -1547,6 +1547,19 @@ def tutor_vision():
         if e.retry_after:
             payload['retry_after'] = e.retry_after
         return jsonify(payload), e.status
+    except AIQuotaExhausted as e:
+        # "Couldn't analyse that image" sends the student off to retake a
+        # photo that was never the problem.
+        wait = getattr(e, 'retry_after', None)
+        when = f' Try again in about {wait} seconds.' if wait else ' Try again shortly.'
+        print(f'Snap & Solve out of quota: {e}')
+        return jsonify({'reply': "Plani has reached today's image limit." + when,
+                        'error': 'ai_quota_exhausted', 'retry_after': wait}), 503
+    except AIUnavailable as e:
+        print(f'Snap & Solve has no vision backend: {e}')
+        return jsonify({'reply': "Image reading is not reachable right now. "
+                                 "This is on our side, not your photo.",
+                        'error': 'ai_unavailable'}), 503
     except Exception as e:
         import traceback; traceback.print_exc()
         return jsonify({'reply': "I couldn't analyse that image. Try a clearer photo or describe the problem in text."})

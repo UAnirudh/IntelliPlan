@@ -565,17 +565,28 @@ def vision(
     temperature: float = 0.5,
     max_tokens: int = 1200,
 ) -> str:
-    """Multimodal image analysis — Gemini first, Groq on failure."""
-    errors: list[str] = []
+    """Multimodal image analysis, walking the same kind of chain chat() does.
 
-    if gemini_api_key():
+    Snap & Solve used to be one Gemini model with one Groq fallback, so the
+    day gemini-2.5-flash spent its 20 free requests the camera button stopped
+    working entirely on a deployment with no Groq key -- and said only that
+    vision was "temporarily unavailable". Gemini counts quota per model, so
+    the vision model steps down to the lite model before leaving Google.
+    """
+    errors: list[str] = []
+    quota_hits = 0
+    attempted = 0
+    retry_after: int | None = None
+
+    for gem_model in ([_TIER_GEMINI[tier], GEMINI_FAST] if gemini_api_key() else []):
+        attempted += 1
         try:
             from google.genai import types
 
             image_bytes = base64.b64decode(image_b64)
             client = _gemini_client()
             resp = client.models.generate_content(
-                model=_TIER_GEMINI[tier],
+                model=gem_model,
                 contents=[
                     types.Content(
                         role="user",
@@ -596,13 +607,16 @@ def vision(
                 return text
             raise RuntimeError("Gemini vision returned empty text.")
         except Exception as exc:
-            errors.append(f"Gemini: {exc}")
+            errors.append(f"Gemini/{gem_model}: {exc}")
             if _is_quota_error(exc):
-                logger.info("Gemini quota/rate limit hit for vision, falling back to Groq")
+                quota_hits += 1
+                retry_after = retry_after or _retry_after_seconds(exc)
+                logger.info("Gemini %s out of quota for vision, trying the next model", gem_model)
             else:
-                logger.warning("Gemini vision failed (%s), trying Groq fallback", exc)
+                logger.warning("Gemini %s vision failed (%s), trying the next model", gem_model, exc)
 
     if groq_vision_key():
+        attempted += 1
         try:
             client = _groq_client(groq_vision_key())
             resp = client.chat.completions.create(
@@ -625,11 +639,20 @@ def vision(
             )
             return resp.choices[0].message.content.strip()
         except Exception as exc:
-            errors.append(f"Groq: {exc}")
-            logger.error("Groq vision fallback failed: %s", exc)
+            errors.append(f"Groq/{_TIER_GROQ[tier]}: {exc}")
+            if _is_quota_error(exc):
+                quota_hits += 1
+                retry_after = retry_after or _retry_after_seconds(exc)
+            logger.error("Groq vision failed: %s", exc)
 
-    raise RuntimeError(
-        "Vision analysis unavailable. Set GEMINI_API_KEY or GROQ_API_KEY. "
+    if quota_hits and quota_hits == attempted:
+        raise AIQuotaExhausted(
+            "No AI backend available for vision: every model is out of quota. "
+            + "; ".join(errors),
+            retry_after=retry_after,
+        )
+    raise AIUnavailable(
+        "Vision analysis unavailable. Set GEMINI_API_KEY (or GROQ_VISUAL_API_KEY). "
         + ("; ".join(errors) if errors else "")
     )
 
@@ -675,11 +698,22 @@ def _mime_for_audio(filename: str) -> str:
 
 
 def transcribe_audio(filename: str, audio_bytes: bytes) -> str:
-    """Speech-to-text — Gemini first, Groq Whisper on failure."""
+    """Speech-to-text: Gemini first, then Groq Whisper on the audio key.
+
+    Whisper is the better transcriber of the two and its key is separate, so
+    a student talking to Plani keeps working through a Gemini quota day. The
+    typed errors matter here as much as in chat(): "your allowance is spent"
+    and "speech recognition is unreachable" call for different words on the
+    page, and the caller cannot tell them apart from a RuntimeError.
+    """
     errors: list[str] = []
+    quota_hits = 0
+    attempted = 0
+    retry_after: int | None = None
     mime = _mime_for_audio(filename)
 
     if gemini_api_key():
+        attempted += 1
         try:
             from google.genai import types
 
@@ -707,13 +741,16 @@ def transcribe_audio(filename: str, audio_bytes: bytes) -> str:
                 return text
             raise RuntimeError("Gemini transcription returned empty text.")
         except Exception as exc:
-            errors.append(f"Gemini: {exc}")
+            errors.append(f"Gemini/{GEMINI_FAST}: {exc}")
             if _is_quota_error(exc):
-                logger.info("Gemini quota/rate limit hit for transcription, falling back to Groq Whisper")
+                quota_hits += 1
+                retry_after = retry_after or _retry_after_seconds(exc)
+                logger.info("Gemini out of quota for transcription, trying Groq Whisper")
             else:
                 logger.warning("Gemini transcription failed (%s), trying Groq Whisper", exc)
 
     if groq_audio_key():
+        attempted += 1
         try:
             client = _groq_client(groq_audio_key())
             resp = client.audio.transcriptions.create(
@@ -727,11 +764,20 @@ def transcribe_audio(filename: str, audio_bytes: bytes) -> str:
                 return text
             raise RuntimeError("Groq Whisper returned empty text.")
         except Exception as exc:
-            errors.append(f"Groq: {exc}")
-            logger.error("Groq Whisper fallback failed: %s", exc)
+            errors.append(f"Groq/{GROQ_WHISPER}: {exc}")
+            if _is_quota_error(exc):
+                quota_hits += 1
+                retry_after = retry_after or _retry_after_seconds(exc)
+            logger.error("Groq Whisper failed: %s", exc)
 
-    raise RuntimeError(
-        "Transcription unavailable. Set GEMINI_API_KEY or GROQ_API_KEY. "
+    if quota_hits and quota_hits == attempted:
+        raise AIQuotaExhausted(
+            "No AI backend available for transcription: every model is out of quota. "
+            + "; ".join(errors),
+            retry_after=retry_after,
+        )
+    raise AIUnavailable(
+        "Transcription unavailable. Set GEMINI_API_KEY (or GROQ_AUDIO_KEY). "
         + ("; ".join(errors) if errors else "")
     )
 
