@@ -10,7 +10,8 @@ import urllib.error
 from datetime import datetime
 from time_utils import utcnow
 
-from ai_provider import ai_available, chat as ai_chat, vision as ai_vision
+from ai_provider import (AIQuotaExhausted, AIUnavailable, ai_available,
+                         chat as ai_chat, vision as ai_vision)
 
 
 # ── LLM client routing ─────────────────────────────────────────────
@@ -1220,11 +1221,30 @@ def tutor():
             }
         return jsonify(payload)
 
+    except AIQuotaExhausted as e:
+        # Every model in the chain is out of allowance. Saying so, with the
+        # wait, is worth more to the student than "hit a snag" -- and it is
+        # the signal that tells the operator to add a second provider key.
+        wait = getattr(e, 'retry_after', None)
+        when = f' Try again in about {wait} seconds.' if wait else ' Try again shortly.'
+        print(f'Plani tutor quota exhausted: {e}')
+        return jsonify({
+            'reply': "Plani has reached today's AI limit." + when,
+            'error': 'ai_quota_exhausted',
+            'retry_after': wait,
+        }), 503
+    except AIUnavailable as e:
+        print(f'Plani tutor has no AI backend: {e}')
+        return jsonify({
+            'reply': "Plani's AI is not reachable right now. This is on our side, not yours.",
+            'error': 'ai_unavailable',
+        }), 503
     except Exception as e:
         import traceback
         print(f'Plani tutor error: {e}')
         traceback.print_exc()
-        return jsonify({'reply': "Sorry, I hit a snag. Try again in a moment."})
+        return jsonify({'reply': "Sorry, I hit a snag. Try again in a moment.",
+                        'error': 'tutor_failed'}), 500
 
 
 @chatbot_bp.route('/api/tutor/vision', methods=['POST'])

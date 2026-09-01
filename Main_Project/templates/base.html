@@ -466,7 +466,10 @@ body {
     <p class="ipui-announce__text">
       The IntelliPlan API is open — read assignments, build plans, and sync study data from your own app.
     </p>
-    <a class="ipui-announce__cta" href="/developers">
+    {# no-glass opts this out of the blanket a[class*="cta"] glass-pill rule in
+       ip-base.css, which was painting a dark filled box behind what is meant
+       to read as an inline link with a wipe underline. #}
+    <a class="ipui-announce__cta no-glass" href="/developers">
       <span>Apply for a key</span>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
            stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

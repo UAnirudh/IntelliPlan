@@ -1,4 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Schoology">
-  <rect width="48" height="48" rx="10" fill="#47B058"/>
-  <path fill="#fff" d="M24 8L8 16v16l16 8 16-8V16L24 8zm0 4.8l10.4 5.2v10.4L24 34l-10.4-5.6V18l10.4-5.2z"/>
+<!-- Schoology has no openly licensed vector mark, so this is a neutral monogram
+     tile in the platform colour rather than an invented pictogram. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="Schoology">
+  <title>Schoology</title>
+  <rect width="24" height="24" rx="5" fill="#47B0ED"/>
+  <text x="12" y="12" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, 'Segoe UI', system-ui, sans-serif" font-size="13" font-weight="600" text-anchor="middle" dominant-baseline="central">S</text>
 </svg>

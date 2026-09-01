@@ -45,6 +45,66 @@ GROQ_WHISPER = os.getenv("GROQ_WHISPER_MODEL", "whisper-large-v3-turbo")
 _TIER_GEMINI = {"standard": GEMINI_STANDARD, "fast": GEMINI_FAST, "vision": GEMINI_VISION}
 _TIER_GROQ = {"standard": GROQ_STANDARD, "fast": GROQ_FAST, "vision": GROQ_VISION}
 
+# Claude is the paid-plan model. It is never reachable on a free account, and
+# an unset ANTHROPIC_API_KEY simply drops it out of the chain.
+CLAUDE_STANDARD = os.getenv("CLAUDE_STANDARD_MODEL", "claude-sonnet-5")
+CLAUDE_FAST = os.getenv("CLAUDE_FAST_MODEL", "claude-haiku-4-5-20251001")
+CLAUDE_VISION = os.getenv("CLAUDE_VISION_MODEL", "claude-sonnet-5")
+_TIER_CLAUDE = {"standard": CLAUDE_STANDARD, "fast": CLAUDE_FAST, "vision": CLAUDE_VISION}
+
+
+def anthropic_api_key() -> str | None:
+    return os.getenv("ANTHROPIC_API_KEY")
+
+
+#: Ordered model chain per tier. Gemini's free-tier quota is counted *per
+#: model* -- a 429 on gemini-2.5-flash says nothing about the lite model's
+#: allowance -- so the standard tier drops to the lite model before it leaves
+#: Google at all. That single step is what kept the tutor answering after the
+#: 20-requests-a-day cap on 2.5-flash was spent; before it, one exhausted
+#: model took every AI feature in the product down with it.
+_CHAINS: dict[str, list[tuple[str, str]]] = {
+    "standard": [
+        ("gemini", GEMINI_STANDARD),
+        ("gemini", GEMINI_FAST),
+        ("groq", GROQ_STANDARD),
+        ("groq", GROQ_FAST),
+    ],
+    "fast": [
+        ("gemini", GEMINI_FAST),
+        ("gemini", GEMINI_STANDARD),
+        ("groq", GROQ_FAST),
+        ("groq", GROQ_STANDARD),
+    ],
+    "vision": [
+        ("gemini", GEMINI_VISION),
+        ("gemini", GEMINI_FAST),
+        ("groq", GROQ_VISION),
+    ],
+}
+
+
+def model_chain(tier: Tier = "standard", plan: str = "free") -> list[tuple[str, str]]:
+    """The ordered (provider, model) list this request may try.
+
+    Paid plans lead with Claude; everyone shares the free ladder underneath it,
+    so a paid student whose Claude call fails still gets an answer rather than
+    an error. Providers with no key are dropped here rather than attempted.
+    """
+    chain: list[tuple[str, str]] = []
+    if plan == "paid" and anthropic_api_key():
+        chain.append(("claude", _TIER_CLAUDE[tier]))
+    chain.extend(_CHAINS.get(tier, _CHAINS["standard"]))
+    have = {"gemini": bool(gemini_api_key()), "groq": bool(groq_api_key()),
+            "claude": bool(anthropic_api_key())}
+    seen: set[tuple[str, str]] = set()
+    out: list[tuple[str, str]] = []
+    for step in chain:
+        if have.get(step[0]) and step not in seen:
+            seen.add(step)
+            out.append(step)
+    return out
+
 _gemini_client_cache = None
 _groq_client_cache = None
 
@@ -63,6 +123,23 @@ DEFAULT_THINKING_BUDGET = int(os.getenv("GEMINI_THINKING_BUDGET", "1024"))
 THINKING_SHARE = 0.4
 #: Below this many tokens, reasoning is not worth the room it costs.
 MIN_USEFUL_THINKING = 128
+
+
+class AIQuotaExhausted(RuntimeError):
+    """Every configured model refused the call for quota or rate-limit reasons.
+
+    Distinct from AIUnavailable: the keys are fine and the request was well
+    formed, the allowance is simply spent. Callers surface this to the student
+    as "the AI is at today's limit", never as a generic failure.
+    """
+
+    def __init__(self, message: str, retry_after: int | None = None):
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+class AIUnavailable(RuntimeError):
+    """No AI backend is configured at all, or every one failed for other reasons."""
 
 
 class AITruncatedError(RuntimeError):
@@ -183,6 +260,7 @@ def _gemini_chat(
     max_tokens: int,
     response_format: dict | None,
     thinking_budget: int | None = None,
+    model: str | None = None,
 ) -> str:
     from google.genai import types
 
@@ -190,7 +268,7 @@ def _gemini_chat(
     if not chat_messages:
         chat_messages = messages
 
-    model = _TIER_GEMINI[tier]
+    model = model or _TIER_GEMINI[tier]
     config_kwargs: dict[str, Any] = {
         "temperature": temperature,
         "max_output_tokens": max_tokens,
@@ -280,10 +358,11 @@ def _groq_chat(
     temperature: float,
     max_tokens: int,
     response_format: dict | None,
+    model: str | None = None,
 ) -> str:
     client = _groq_client()
     kwargs: dict[str, Any] = {
-        "model": _TIER_GROQ[tier],
+        "model": model or _TIER_GROQ[tier],
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
@@ -319,6 +398,48 @@ def _is_transient_error(exc: Exception) -> bool:
     return "503" in msg or "unavailable" in msg or "overloaded" in msg or "internal error" in msg
 
 
+def _claude_chat(
+    messages: list[dict],
+    tier: Tier,
+    temperature: float,
+    max_tokens: int,
+    response_format: dict | None,
+    model: str | None = None,
+) -> str:
+    """Paid-plan path. The anthropic package is an optional dependency, so an
+    install without it drops Claude from the chain instead of erroring."""
+    try:
+        import anthropic
+    except ImportError as exc:
+        raise RuntimeError("anthropic package is not installed") from exc
+
+    key = anthropic_api_key()
+    if not key:
+        raise RuntimeError("ANTHROPIC_API_KEY is not set.")
+    system, chat_messages = _split_messages(messages)
+    if not chat_messages:
+        chat_messages = messages
+    client = anthropic.Anthropic(api_key=key)
+    kwargs: dict[str, Any] = {
+        "model": model or _TIER_CLAUDE[tier],
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "messages": [{"role": m["role"], "content": m["content"]} for m in chat_messages],
+    }
+    if system:
+        kwargs["system"] = system
+    resp = client.messages.create(**kwargs)
+    text = "".join(getattr(b, "text", "") for b in resp.content).strip()
+    if resp.stop_reason == "max_tokens":
+        raise AITruncatedError(f"Claude hit max_tokens ({max_tokens}); response is partial.")
+    if not text:
+        raise RuntimeError("Claude returned an empty response.")
+    return text
+
+
+_DISPATCH = {"gemini": _gemini_chat, "groq": _groq_chat, "claude": _claude_chat}
+
+
 def chat(
     messages: list[dict],
     *,
@@ -327,49 +448,75 @@ def chat(
     max_tokens: int = 512,
     response_format: dict | None = None,
     thinking_budget: int | None = None,
+    plan: str = "free",
 ) -> str:
-    """Chat completion — Gemini first, Groq on failure.
+    """Chat completion, walking this tier's model chain until one answers.
+
+    Gemini counts its free-tier quota per model, so a 429 on gemini-2.5-flash
+    says nothing about the lite model's remaining allowance. The old code read
+    any Gemini failure as "Gemini is down" and jumped straight to Groq, which
+    on a deployment with no GROQ_API_KEY meant every AI feature in the product
+    died the moment one model hit its daily cap. Walking the chain keeps the
+    tutor answering on the next model instead.
 
     ``thinking_budget`` caps Gemini's internal reasoning tokens, which are
     billed against ``max_tokens``. ``None`` uses DEFAULT_THINKING_BUDGET;
     ``-1`` removes the cap; ``0`` disables thinking entirely.
-    """
-    errors: list[str] = []
 
-    if gemini_api_key():
+    Raises AIQuotaExhausted when every model refused on quota, and
+    AIUnavailable when nothing is configured or everything failed for some
+    other reason. Callers can tell the student which of the two happened.
+    """
+    chain = model_chain(tier, plan)
+    if not chain:
+        raise AIUnavailable(
+            "No AI backend configured. Set GEMINI_API_KEY (primary) or GROQ_API_KEY (fallback)."
+        )
+
+    errors: list[str] = []
+    quota_hits = 0
+    retry_after: int | None = None
+
+    for provider, model in chain:
+        fn = _DISPATCH[provider]
+        kwargs: dict[str, Any] = {"response_format": response_format, "model": model}
+        if provider == "gemini":
+            kwargs["thinking_budget"] = thinking_budget
         try:
             try:
-                return _gemini_chat(messages, tier, temperature, max_tokens,
-                                    response_format, thinking_budget)
+                return fn(messages, tier, temperature, max_tokens, **kwargs)
             except Exception as exc:
-                # A 503 under load clears in seconds. One quick retry beats
-                # dropping to the fallback model for a momentary blip.
+                # A 503 under load clears in seconds. One quick retry on the
+                # same model beats stepping down to a weaker one.
                 if not _is_transient_error(exc) or isinstance(exc, AITruncatedError):
                     raise
-                logger.info("Gemini transient error (%s), retrying once", exc)
+                logger.info("%s/%s transient error (%s), retrying once", provider, model, exc)
                 time.sleep(1.5)
-                return _gemini_chat(messages, tier, temperature, max_tokens,
-                                    response_format, thinking_budget)
+                return fn(messages, tier, temperature, max_tokens, **kwargs)
         except Exception as exc:
-            errors.append(f"Gemini: {exc}")
-            if isinstance(exc, AITruncatedError):
-                logger.warning("Gemini response truncated, falling back to Groq: %s", exc)
-            elif _is_quota_error(exc):
-                logger.info("Gemini quota/rate limit hit, falling back to Groq")
+            errors.append(f"{provider}/{model}: {exc}")
+            if _is_quota_error(exc):
+                quota_hits += 1
+                retry_after = retry_after or _retry_after_seconds(exc)
+                logger.info("%s/%s out of quota, trying next model", provider, model)
             else:
-                logger.warning("Gemini chat failed (%s), trying Groq fallback", exc)
+                logger.warning("%s/%s failed (%s), trying next model", provider, model, exc)
 
-    if groq_api_key():
-        try:
-            return _groq_chat(messages, tier, temperature, max_tokens, response_format)
-        except Exception as exc:
-            errors.append(f"Groq: {exc}")
-            logger.error("Groq chat fallback failed: %s", exc)
+    if quota_hits and quota_hits == len(chain):
+        raise AIQuotaExhausted(
+            "Every configured model is out of quota. " + "; ".join(errors),
+            retry_after=retry_after,
+        )
+    raise AIUnavailable("No AI backend answered. " + "; ".join(errors))
 
-    raise RuntimeError(
-        "No AI backend available. Set GEMINI_API_KEY (primary) or GROQ_API_KEY (fallback). "
-        + ("; ".join(errors) if errors else "")
-    )
+
+def _retry_after_seconds(exc: Exception) -> int | None:
+    """Pull Gemini's retryDelay out of a 429 body so callers can say when."""
+    m = re.search(r"['\"]retryDelay['\"]:\s*['\"](\d+)s", str(exc))
+    if m:
+        return int(m.group(1))
+    m = re.search(r"retry in (\d+)", str(exc), re.I)
+    return int(m.group(1)) if m else None
 
 
 def vision(

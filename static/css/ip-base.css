@@ -64,6 +64,10 @@
       --accent-mid:    rgba(26,86,219,0.18);
       --accent-glow:   0 0 48px rgba(26,86,219,0.10);
       --ink:           #1a1a1a;
+      /* Text that sits on an --ink-filled surface. --ink flips with the theme,
+         so anything painting text on it has to flip too: hardcoded white on a
+         dark-theme --ink pill (#e6e6e2) was white on near-white. */
+      --on-ink:        #ffffff;
       --text-primary:  #1a1a1a;
       --text-secondary:#4a4a46;
       /* Muted was #8c8c87 (~3.1:1 on --bg) — darkened to clear WCAG AA 4.5:1.
@@ -167,6 +171,7 @@
       --accent-mid:    rgba(91,147,245,0.22);
       --accent-glow:   0 0 48px rgba(91,147,245,0.14);
       --ink:           #e6e6e2;
+      --on-ink:        #161616;
       --text-primary:  #e6e6e2;
       --text-secondary:#9e9e9a;
       /* Muted was #5e5e5a (~2.9:1 on --bg) — lightened to clear WCAG AA 4.5:1.
@@ -369,7 +374,7 @@
     .ipd-page-title {
       font-family: var(--ipd-font-display);
       font-size: clamp(1.5rem, 1rem + 2vw, 2.25rem);
-      font-weight: 400;
+      font-weight:600;
       color: var(--text-primary);
       line-height: 1.15;
       text-wrap: balance;
@@ -478,7 +483,7 @@
     .ipd-modal h3 {
       font-family: var(--ipd-font-display);
       font-size: 1.35rem;
-      font-weight: 400;
+      font-weight:600;
       color: var(--text-primary);
       margin: 0 0 1.25rem;
     }
@@ -541,7 +546,7 @@
     .ipd-stat-value {
       font-family: var(--ipd-font-display);
       font-size: 2rem;
-      font-weight: 400;
+      font-weight:600;
       color: var(--text-primary);
       line-height: 1.1;
       font-variant-numeric: tabular-nums;
@@ -837,21 +842,19 @@
     .nav-tab-icon { width:14px; height:14px; display:inline-flex; align-items:center; justify-content:center; color:currentColor; }
     .nav-tab-icon svg { width:100%; height:100%; }
     .nav-tab:hover  { background:var(--bg-elevated); color:var(--text-primary); }
-    .nav-tab.active { background:var(--ink, #161616); color:white; font-weight:500; }
+    .nav-tab.active { background:var(--ink); color:var(--on-ink); font-weight:500; }
     .nav-tab:active { transform:scale(0.97); }
     .nav-tab.logout-btn { background:transparent; border:none; font:inherit; cursor:pointer; }
     .nav-tab.logout-btn:hover { background:var(--high-bg); color:var(--high); }
-    .nav-tab-tutor { background:rgba(22,22,22,0.07); color:var(--ink, #161616) !important; font-weight:600; }
-    .nav-tab-tutor:hover { background:var(--ink, #161616) !important; color:#fff !important; }
-    .nav-tab-tutor.active { background:var(--ink, #161616) !important; color:#fff !important; }
-    [data-theme="dark"] .nav-tab-tutor { background:rgba(232,232,228,0.1); color:var(--ink, #e8e8e4) !important; }
-    [data-theme="dark"] .nav-tab-tutor:hover { background:var(--ink, #e8e8e4) !important; color:#161616 !important; }
+    /* The tinted rest state is derived from --ink so it inverts with the theme
+       instead of needing a duplicate [data-theme="dark"] rule for each state. */
+    .nav-tab-tutor { background:color-mix(in srgb, var(--ink) 8%, transparent); color:var(--ink) !important; font-weight:600; }
+    .nav-tab-tutor:hover,
+    .nav-tab-tutor.active { background:var(--ink) !important; color:var(--on-ink) !important; }
     /* Marketing "Get started" CTA, filled accent button, the conversion
        anchor every leading SaaS marketing nav ends with. */
-    .nav-cta { background:var(--ink, #161616); color:#fff !important; font-weight:600; padding:7px 18px; border-radius:var(--r-full); box-shadow:var(--shadow); letter-spacing:-0.01em; }
-    .nav-cta:hover { background:#2a2a2a; color:#fff !important; box-shadow:var(--shadow-hover); }
-    :root[data-theme="dark"] .nav-cta { background:#e8e8e4; color:#161616 !important; }
-    :root[data-theme="dark"] .nav-cta:hover { background:#ffffff; }
+    .nav-cta { background:var(--ink); color:var(--on-ink) !important; font-weight:600; padding:7px 18px; border-radius:var(--r-full); box-shadow:var(--shadow); letter-spacing:-0.01em; }
+    .nav-cta:hover { background:color-mix(in srgb, var(--ink) 88%, var(--on-ink)); color:var(--on-ink) !important; box-shadow:var(--shadow-hover); }
 
     .nav-dropdown { position:relative; }
     .dropdown-toggle {
@@ -1140,13 +1143,13 @@
     .side-link.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
     .side-link.active .side-icon { color: var(--accent); }
     .side-link.tutor { color: var(--ink, #161616); font-weight: 600; }
-    .side-link.tutor:hover { background: var(--ink, #161616); color: white; }
+    .side-link.tutor:hover { background: var(--ink, #161616); color:var(--on-ink); }
     /* "side-pop", soft accent background to draw eye (used for Meetings). */
     .side-link.side-pop {
       background: var(--accent-soft); color: var(--accent); font-weight: 600;
     }
-    .side-link.side-pop:hover { background: var(--ink, #161616); color: white; }
-    .side-link.side-pop.active { background: var(--ink, #161616); color: white; }
+    .side-link.side-pop:hover { background: var(--ink, #161616); color:var(--on-ink); }
+    .side-link.side-pop.active { background: var(--ink, #161616); color:var(--on-ink); }
     .side-icon {
       width: 18px; height: 18px; flex-shrink: 0;
       display: inline-flex; align-items: center; justify-content: center;
@@ -2412,11 +2415,11 @@
 
     .plani-msg { display:flex; gap:8px; animation:fadeUp 0.22s var(--ease-out) both; }
     .plani-msg.user { flex-direction:row-reverse; }
-    .plani-msg-avatar { width:25px; height:25px; border-radius:7px; background:var(--ink, #161616); display:flex; align-items:center; justify-content:center; font-size:9px; font-family:var(--font-ui); font-weight:700; color:#fff; letter-spacing:0.02em; flex-shrink:0; margin-top:2px; }
+    .plani-msg-avatar { width:25px; height:25px; border-radius:7px; background:var(--ink, #161616); display:flex; align-items:center; justify-content:center; font-size:9px; font-family:var(--font-ui); font-weight:700; color:var(--on-ink); letter-spacing:0.02em; flex-shrink:0; margin-top:2px; }
     :root[data-theme="dark"] .plani-msg-avatar { background:#e8e8e4; color:#161616; }
     .plani-msg.user .plani-msg-avatar { background:var(--accent-soft); color:var(--accent); }
     .plani-msg-bubble { max-width:76%; padding:8px 12px; border-radius:15px; font-size:0.84rem; line-height:1.55; color:var(--text-primary); background:var(--bg-elevated); border:1px solid var(--border); }
-    .plani-msg.user .plani-msg-bubble { background:var(--ink, #161616); color:white; border-color:transparent; border-radius:15px 15px 3px 15px; }
+    .plani-msg.user .plani-msg-bubble { background:var(--ink, #161616); color:var(--on-ink); border-color:transparent; border-radius:15px 15px 3px 15px; }
     :root[data-theme="dark"] .plani-msg.user .plani-msg-bubble { background:#e8e8e4; color:#161616; }
     .plani-msg.bot  .plani-msg-bubble { border-radius:3px 15px 15px 15px; }
 
@@ -2443,7 +2446,7 @@
     }
     #planiInput:focus { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft); }
     #planiInput::placeholder { color:var(--text-muted); }
-    #planiSendBtn { width:35px; height:35px; background:var(--ink, #161616); border:none; border-radius:var(--r-sm); color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; transition:all 0.16s; flex-shrink:0; }
+    #planiSendBtn { width:35px; height:35px; background:var(--ink, #161616); border:none; border-radius:var(--r-sm); color:var(--on-ink); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; transition:all 0.16s; flex-shrink:0; }
     #planiSendBtn:hover { background:#2a2a2a; transform:scale(1.06); }
     :root[data-theme="dark"] #planiSendBtn { background:#e8e8e4; color:#161616; }
     :root[data-theme="dark"] #planiSendBtn:hover { background:#ffffff; }

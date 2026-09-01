@@ -1,4 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Blackboard">
-  <rect width="48" height="48" rx="10" fill="#000"/>
-  <path fill="#fff" d="M14 12h20v24H14V12zm4 4v16h12V16H18zm2 2h8v2h-8v-2zm0 4h8v2h-8v-2zm0 4h5v2h-5v-2z"/>
+<!-- Blackboard has no openly licensed vector mark, so this is a neutral monogram
+     tile in the platform colour rather than an invented pictogram. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="Blackboard">
+  <title>Blackboard</title>
+  <rect width="24" height="24" rx="5" fill="#000000"/>
+  <text x="12" y="12" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, 'Segoe UI', system-ui, sans-serif" font-size="9" font-weight="600" text-anchor="middle" dominant-baseline="central">Bb</text>
 </svg>

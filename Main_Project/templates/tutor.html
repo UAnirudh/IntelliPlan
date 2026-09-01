@@ -187,7 +187,7 @@ main {
 
 .tutor-empty-title {
   font-family: var(--ipd-font-display);
-  font-size: clamp(1.5rem, 1rem + 2vw, 2rem); font-weight: 400;
+  font-size: clamp(1.5rem, 1rem + 2vw, 2rem); font-weight:600;
   line-height: 1.15;
   color: var(--text-primary); margin-bottom: 0.5rem;
 }
@@ -596,6 +596,9 @@ main {
 }
 .tutor-profile-btn:hover { border-color: var(--border-accent, var(--accent)); }
 
+.tutor-modality-btn { display: inline-flex; align-items: center; gap: 5px; }
+.tutor-modality-icon { flex: none; }
+
 .tutor-panel-backdrop {
   display: none; position: fixed; inset: 0; z-index: 2200;
   background: rgba(0,0,0,0.62); backdrop-filter: blur(6px);
@@ -603,9 +606,15 @@ main {
 }
 .tutor-panel-backdrop.open { display: flex; }
 .tutor-panel {
-  background: var(--glass-bg, var(--surface));
-  -webkit-backdrop-filter: blur(16px) saturate(1.6);
-  backdrop-filter: blur(16px) saturate(1.6);
+  /* --glass-bg is 40% alpha on desktop, which is fine for a card sitting on
+     the page and wrong for a dialog: stacked on the backdrop's own blur it
+     left the whole profile -- headings, labels, the answers themselves --
+     washed out to the point of looking transparent. A dialog carries its own
+     opaque surface; the blur stays only as a faint edge treatment. */
+  background: var(--bg-card);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: var(--text-primary);
   border: 1px solid var(--border); border-radius: 18px;
   box-shadow: var(--shadow-lg); width: 100%; max-width: 640px;
   max-height: 86vh; overflow-y: auto; padding: 1.25rem;
@@ -1399,12 +1408,14 @@ function speakReply(text) {
 /* ════ ADAPTIVE STUDENT MODEL ════════════════════════════════════ */
 
 const MODALITY_ORDER = ['auto', 'auditory', 'visual', 'reading', 'blended'];
+// Sprite marks, not emoji: an emoji renders as whichever face the student's
+// OS ships, ignores the button's colour, and sits off the text baseline.
 const MODALITY_LABELS = {
-  auto:     { label: '✨ Auto',     hint: 'Plani detects your best learning style' },
-  auditory: { label: '🎧 Auditory', hint: 'Spoken explanations, read aloud' },
-  visual:   { label: '📊 Visual',   hint: 'Interactive diagrams and quizzes' },
-  reading:  { label: '📖 Reading',  hint: 'Text-based explanations' },
-  blended:  { label: '🔀 Blended',  hint: 'All modes at once' },
+  auto:     { label: 'Auto',     icon: 'i-sparkle',   hint: 'Plani detects your best learning style' },
+  auditory: { label: 'Auditory', icon: 'i-mic',       hint: 'Spoken explanations, read aloud' },
+  visual:   { label: 'Visual',   icon: 'i-chart-bar', hint: 'Interactive diagrams and quizzes' },
+  reading:  { label: 'Reading',  icon: 'i-book',      hint: 'Text-based explanations' },
+  blended:  { label: 'Blended',  icon: 'i-repeat',    hint: 'All modes at once' },
 };
 
 async function loadAdaptiveProfile() {
@@ -1428,7 +1439,8 @@ function renderModalitySwitcher() {
     const active = mode === modalityMode ? ' active' : '';
     return `<button type="button" class="tutor-modality-btn${active}"
       onclick="setModality('${mode}')" title="${escHtml(meta.hint)}"
-      aria-pressed="${mode === modalityMode}">${meta.label}</button>`;
+      aria-pressed="${mode === modalityMode}"><svg class="tutor-modality-icon" viewBox="0 0 256 256" width="13" height="13"
+      fill="currentColor" stroke="none" aria-hidden="true"><use href="#${meta.icon}"/></svg>${escHtml(meta.label)}</button>`;
   }).join('');
 
   wrap.innerHTML = buttons + `<p class="tutor-modality-note" id="tutorModalityNote"></p>`;
@@ -1840,8 +1852,11 @@ async function sendTutorMessage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    // A 429/503 from the tutor carries a written explanation -- the AI is at
+    // today's quota, or no backend is reachable. Throwing on !ok discarded it
+    // and showed the generic snag line for every one of those cases.
+    const data = await res.json().catch(function () { return {}; });
+    if (!res.ok && !(data && data.reply)) throw new Error(`HTTP ${res.status}`);
     reply   = (data.reply || '').trim() || 'Sorry, I hit a snag. Try again.';
     refusal = data.refusal || null;
     if (data.modality) {

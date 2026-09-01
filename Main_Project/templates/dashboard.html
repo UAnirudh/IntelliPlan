@@ -59,10 +59,25 @@
   color: var(--text-muted);
   margin-bottom: 6px;
 }
+/* Sprite mark for the signed-out and first-run states. A tinted disc gives
+   the glyph the presence the old emoji had without depending on whichever
+   emoji font the student's OS ships. */
+.ipd-signed-out-mark {
+  width: 68px;
+  height: 68px;
+  margin: 0 auto 1.15rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-mid);
+}
+
 .ipd-greeting {
   font-family: var(--ipd-font-display);
   font-size: clamp(1.75rem, 1.2rem + 2.5vw, 2.75rem);
-  font-weight: 400;
+  font-weight:600;
   color: var(--text-primary);
   line-height: 1.15;
 }
@@ -131,7 +146,7 @@
 .ipd-stat-value {
   font-family: var(--ipd-font-display);
   font-size: 2rem;
-  font-weight: 400;
+  font-weight:600;
   color: var(--text-primary);
   line-height: 1.1;
 }
@@ -628,7 +643,7 @@
 .ipd-modal h3 {
   font-family: var(--ipd-font-display);
   font-size: 1.35rem;
-  font-weight: 400;
+  font-weight:600;
   color: var(--text-primary);
   margin: 0 0 1.25rem;
 }
@@ -985,7 +1000,9 @@
 {% if needs_onboarding %}
 <div id="onboardingModal" class="ipd-modal-overlay" style="display:flex;">
   <div class="ipd-modal" style="max-width:520px;text-align:center;">
-    <div style="font-size:3rem;margin-bottom:1rem;">📚</div>
+    <div class="ipd-signed-out-mark" aria-hidden="true">
+      <svg viewBox="0 0 256 256" width="34" height="34" fill="currentColor" stroke="none"><use href="#i-graduation"/></svg>
+    </div>
     <h3>Welcome to IntelliPlan</h3>
     <p style="font-size:0.88rem;color:var(--text-secondary);line-height:1.6;margin:0 0 1.5rem;">Your AI-powered study planner. Let's set you up — it only takes a minute.</p>
     <a href="/onboarding" class="ipd-btn ipd-btn-primary" style="text-decoration:none;display:inline-flex;padding:12px 28px;font-size:0.92rem;">Get started</a>
@@ -999,7 +1016,12 @@
 {% else %}
 {# ── Signed-out state: never show a blank page ──────────────── #}
 <div class="ipd-anim ipd-d1" style="max-width:560px;margin:10vh auto 0;text-align:center;padding:0 1rem;">
-  <div style="font-size:2.6rem;margin-bottom:1rem;">📚</div>
+  {# Emoji render as whatever face the student's OS ships and sit off the
+     baseline at display sizes. The sprite mark is one glyph everywhere and
+     inherits the accent colour. #}
+  <div class="ipd-signed-out-mark" aria-hidden="true">
+    <svg viewBox="0 0 256 256" width="34" height="34" fill="currentColor" stroke="none"><use href="#i-book"/></svg>
+  </div>
   <h1 class="ipd-greeting" style="margin-bottom:0.6rem;">Your dashboard is waiting</h1>
   <p style="font-family:var(--ipd-font-body);font-size:0.95rem;color:var(--text-muted);line-height:1.65;margin:0 0 1.75rem;">
     Sign in or connect your school account to see your assignments, build
