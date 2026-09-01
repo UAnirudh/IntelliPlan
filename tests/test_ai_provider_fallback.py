@@ -71,7 +71,9 @@ def test_truncation_makes_the_fallback_engage(both_keys, monkeypatch):
                         lambda *a, **k: (_ for _ in ()).throw(AITruncatedError("partial")))
     called = {}
 
-    def fake_groq(messages, tier, temperature, max_tokens, response_format):
+    # chat() names the model explicitly now: the chain picks which one, the
+    # provider function no longer looks it up from the tier alone.
+    def fake_groq(messages, tier, temperature, max_tokens, response_format, model=None):
         called["yes"] = True
         return '{"schedule": [{"blocks": [1]}]}'
 

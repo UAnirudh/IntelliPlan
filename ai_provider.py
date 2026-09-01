@@ -437,7 +437,9 @@ def _claude_chat(
     return text
 
 
-_DISPATCH = {"gemini": _gemini_chat, "groq": _groq_chat, "claude": _claude_chat}
+#: Resolved by name at call time rather than bound here, so a test (or a
+#: caller) that patches ai_provider._gemini_chat actually changes what runs.
+_DISPATCH = {"gemini": "_gemini_chat", "groq": "_groq_chat", "claude": "_claude_chat"}
 
 
 def chat(
@@ -470,15 +472,24 @@ def chat(
     chain = model_chain(tier, plan)
     if not chain:
         raise AIUnavailable(
-            "No AI backend configured. Set GEMINI_API_KEY (primary) or GROQ_API_KEY (fallback)."
+            "No AI backend available. Set GEMINI_API_KEY (primary) or GROQ_API_KEY (fallback)."
         )
 
     errors: list[str] = []
     quota_hits = 0
+    attempted = 0
     retry_after: int | None = None
+    #: Truncation is not a sick model, it is an answer that did not fit. The
+    #: same provider's other models will cut it off in the same place, so the
+    #: chain skips the rest of that provider rather than burning quota to be
+    #: truncated again.
+    skip_providers: set[str] = set()
 
     for provider, model in chain:
-        fn = _DISPATCH[provider]
+        if provider in skip_providers:
+            continue
+        attempted += 1
+        fn = globals()[_DISPATCH[provider]]
         kwargs: dict[str, Any] = {"response_format": response_format, "model": model}
         if provider == "gemini":
             kwargs["thinking_budget"] = thinking_budget
@@ -495,19 +506,24 @@ def chat(
                 return fn(messages, tier, temperature, max_tokens, **kwargs)
         except Exception as exc:
             errors.append(f"{provider}/{model}: {exc}")
-            if _is_quota_error(exc):
+            if isinstance(exc, AITruncatedError):
+                skip_providers.add(provider)
+                logger.warning("%s/%s truncated, moving to the next provider: %s",
+                               provider, model, exc)
+            elif _is_quota_error(exc):
                 quota_hits += 1
                 retry_after = retry_after or _retry_after_seconds(exc)
                 logger.info("%s/%s out of quota, trying next model", provider, model)
             else:
                 logger.warning("%s/%s failed (%s), trying next model", provider, model, exc)
 
-    if quota_hits and quota_hits == len(chain):
+    if quota_hits and quota_hits == attempted:
         raise AIQuotaExhausted(
-            "Every configured model is out of quota. " + "; ".join(errors),
+            "No AI backend available: every configured model is out of quota. "
+            + "; ".join(errors),
             retry_after=retry_after,
         )
-    raise AIUnavailable("No AI backend answered. " + "; ".join(errors))
+    raise AIUnavailable("No AI backend available. " + "; ".join(errors))
 
 
 def _retry_after_seconds(exc: Exception) -> int | None:

@@ -34,7 +34,10 @@ from typing import Any
 from flask import Blueprint, jsonify, request
 from flask_login import current_user
 
-from ai_provider import ai_available, chat as ai_chat
+from ai_provider import (AIQuotaExhausted, AIUnavailable, ai_available,
+                         chat as ai_chat)
+import ai_firewall
+from ai_firewall import AIBlocked
 
 logger = logging.getLogger(__name__)
 
@@ -1064,6 +1067,23 @@ def plani_agent():
         return jsonify({"status": "error",
             "reply": "AI is temporarily unavailable. Try again in a moment."}), 503
 
+    # The agent loop can make MAX_TOOL_ROUNDS model calls for one message, so
+    # it is the most expensive surface in the product per request and goes
+    # through the same allowance as the tutor.
+    try:
+        from flask_login import current_user
+        decision = ai_firewall.guard(
+            current_user,
+            prompts=[m.get("content", "") for m in messages if m.get("role") == "user"],
+            want_output_tokens=1400,
+            feature="agent",
+        )
+    except AIBlocked as e:
+        payload = {"status": "error", "error": e.reason, "reply": e.message}
+        if e.retry_after:
+            payload["retry_after"] = e.retry_after
+        return jsonify(payload), e.status
+
     system = AGENT_SYSTEM_PROMPT + "\n\n" + _tool_list_prompt() + \
         f"\n\nToday's date: {datetime.now().strftime('%A, %Y-%m-%d')}." + \
         (build_agent_context(user_id) or "")
@@ -1077,7 +1097,27 @@ def plani_agent():
     for _round in range(MAX_TOOL_ROUNDS):
         try:
             reply = ai_chat(llm_messages, tier="standard",
-                temperature=0.3, max_tokens=1400).strip()
+                temperature=0.3,
+                max_tokens=min(1400, decision.max_output_tokens),
+                plan=decision.plan).strip()
+            ai_firewall.record_tokens(
+                decision,
+                sum(len(m.get("content", "")) for m in llm_messages),
+                len(reply),
+            )
+        except AIQuotaExhausted as e:
+            wait = getattr(e, "retry_after", None)
+            when = f" Try again in about {wait} seconds." if wait else " Try again shortly."
+            logger.info("Plani agent out of AI quota: %s", e)
+            return jsonify({"status": "error", "error": "ai_quota_exhausted",
+                "reply": "Plani has reached today's AI limit." + when,
+                "retry_after": wait,
+                "actions": actions, "tool_log": tool_log}), 503
+        except AIUnavailable as e:
+            logger.error("Plani agent has no AI backend: %s", e)
+            return jsonify({"status": "error", "error": "ai_unavailable",
+                "reply": "Plani's AI is not reachable right now. This is on our side, not yours.",
+                "actions": actions, "tool_log": tool_log}), 503
         except Exception as e:
             logger.error("Plani LLM call failed: %s", e)
             return jsonify({"status": "error",
@@ -1120,7 +1160,8 @@ def plani_agent():
     # Fell through: too many tool rounds
     try:
         final = ai_chat(llm_messages, tier="standard",
-            temperature=0.3, max_tokens=600).strip()
+            temperature=0.3, max_tokens=min(600, decision.max_output_tokens),
+            plan=decision.plan).strip()
         final = re.sub(r"```tool_call.*?```", "", final, flags=re.DOTALL).strip()
     except Exception:
         final = "Done — I completed the actions above."

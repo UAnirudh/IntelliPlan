@@ -12,6 +12,8 @@ from time_utils import utcnow
 
 from ai_provider import (AIQuotaExhausted, AIUnavailable, ai_available,
                          chat as ai_chat, vision as ai_vision)
+import ai_firewall
+from ai_firewall import AIBlocked
 
 
 # ── LLM client routing ─────────────────────────────────────────────
@@ -93,7 +95,8 @@ def _model_tier(model: str) -> str:
     return 'standard'
 
 
-def _llm_chat(model, messages, temperature=0.7, max_tokens=512, response_format=None):
+def _llm_chat(model, messages, temperature=0.7, max_tokens=512, response_format=None,
+              plan='free'):
     """Route a chat completion to Ollama (if configured) or Gemini/Groq.
 
     Returns the plain string reply. Raises if the backing call fails so callers
@@ -111,9 +114,20 @@ def _llm_chat(model, messages, temperature=0.7, max_tokens=512, response_format=
         temperature=temperature,
         max_tokens=max_tokens,
         response_format=response_format,
+        plan=plan,
     )
 
 chatbot_bp = Blueprint('chatbot', __name__)
+
+
+@chatbot_bp.after_request
+def _ai_guest_cookie(response):
+    """Hand a guest the signed device id the firewall minted for them, so the
+    next call counts against the same subject instead of a fresh one."""
+    try:
+        return ai_firewall.attach_guest_cookie(response)
+    except Exception:
+        return response
 _TUTOR_MEMORY_READY = False
 _TUTOR_MEMORY_META = MetaData()
 _TUTOR_MEMORY_TABLE = Table(
@@ -1114,6 +1128,17 @@ def tutor():
         if not incoming_messages:
             return jsonify({'error': 'No messages provided'}), 400
 
+        # Cost and abuse gate. Runs before any provider call and before the
+        # monthly counter, because the monthly counter only knows about signed
+        # in students -- this is what stands between an anonymous script and
+        # the whole day's Gemini allowance.
+        decision = ai_firewall.guard(
+            current_user,
+            prompts=[m.get('content', '') for m in incoming_messages if m.get('role') == 'user'],
+            want_output_tokens=2600,
+            feature='tutor',
+        )
+
         memory_row = _load_tutor_memory()
         profile = _safe_json(memory_row.get('profile_json'), _default_tutor_profile())
 
@@ -1160,12 +1185,20 @@ def tutor():
         if personalization_prompt:
             system_messages.append({'role': 'system', 'content': personalization_prompt})
 
+        wanted = 2600 if adaptive_turn and adaptive_turn['active']['use_artifacts'] else 1800
         reply = _llm_chat(
             model='openai/gpt-oss-120b',
             messages=system_messages + recent,
             temperature=0.35,
-            max_tokens=2600 if adaptive_turn and adaptive_turn['active']['use_artifacts'] else 1800,
+            # The firewall's ceiling wins over the feature's preference.
+            max_tokens=min(wanted, decision.max_output_tokens),
+            plan=decision.plan,
         ).strip()
+        ai_firewall.record_tokens(
+            decision,
+            sum(len(m.get('content', '')) for m in system_messages + recent),
+            len(reply),
+        )
 
         # Output-side safety: audit the model reply to catch jailbreak-compliant or unsafe output.
         out_category = _safety_check_assistant_reply(reply)
@@ -1221,6 +1254,15 @@ def tutor():
             }
         return jsonify(payload)
 
+    except AIBlocked as e:
+        # A refusal the student can act on: which limit, and when it lifts.
+        payload = {'reply': e.message, 'error': e.reason}
+        if e.retry_after:
+            payload['retry_after'] = e.retry_after
+        resp = jsonify(payload)
+        if e.retry_after:
+            resp.headers['Retry-After'] = str(e.retry_after)
+        return resp, e.status
     except AIQuotaExhausted as e:
         # Every model in the chain is out of allowance. Saying so, with the
         # wait, is worth more to the student than "hit a snag" -- and it is
@@ -1247,6 +1289,20 @@ def tutor():
                         'error': 'tutor_failed'}), 500
 
 
+@chatbot_bp.route('/api/ai/usage', methods=['GET'])
+def ai_usage():
+    """What this caller has spent against the AI allowance, and the ceilings.
+
+    Honest counters beat a surprise refusal: the page can show a student how
+    much is left before they type the question that gets blocked.
+    """
+    try:
+        return jsonify(ai_firewall.usage_snapshot(current_user))
+    except Exception as e:
+        print(f'ai usage snapshot failed: {e}')
+        return jsonify({'error': 'unavailable'}), 503
+
+
 @chatbot_bp.route('/api/tutor/vision', methods=['POST'])
 def tutor_vision():
     """Snap & Solve — accepts a base64 image + question, returns an AI
@@ -1265,6 +1321,11 @@ def tutor_vision():
 
         if not image_b64:
             return jsonify({'error': 'No image provided'}), 400
+
+        # Vision costs several times a text turn, so it goes through the same
+        # gate rather than being the cheap way around it.
+        vision_decision = ai_firewall.guard(
+            current_user, prompts=[question], want_output_tokens=1800, feature='vision')
 
         if not ai_available():
             return jsonify({'reply': 'Vision analysis is temporarily unavailable. Please try again later.'}), 503
@@ -1305,7 +1366,7 @@ def tutor_vision():
             image_b64=image_b64,
             image_mime=image_mime,
             temperature=0.4 if mode == 'multi' else 0.5,
-            max_tokens=max_tok,
+            max_tokens=min(max_tok, vision_decision.max_output_tokens),
         )
 
         # Persist to conversation history so context carries forward
@@ -1319,6 +1380,11 @@ def tutor_vision():
 
         return jsonify({'reply': reply, 'conversation_id': convo_row['id']})
 
+    except AIBlocked as e:
+        payload = {'reply': e.message, 'error': e.reason}
+        if e.retry_after:
+            payload['retry_after'] = e.retry_after
+        return jsonify(payload), e.status
     except Exception as e:
         import traceback; traceback.print_exc()
         return jsonify({'reply': "I couldn't analyse that image. Try a clearer photo or describe the problem in text."})
