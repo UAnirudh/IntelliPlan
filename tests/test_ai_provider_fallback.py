@@ -181,7 +181,8 @@ from ai_provider import (
 def test_groq_defaults_use_supported_post_llama_models():
     assert ai_provider.GROQ_STANDARD == "openai/gpt-oss-120b"
     assert ai_provider.GROQ_FAST == "openai/gpt-oss-20b"
-    assert ai_provider.GROQ_VISION == "qwen/qwen3.6-27b"
+    # Bumped to 3.8 with the split vision key; 3.6 is the deprecated tag.
+    assert ai_provider.GROQ_VISION == "qwen/qwen3.8-27b"
 
 
 def test_thinking_detected_by_version_not_by_string_match():

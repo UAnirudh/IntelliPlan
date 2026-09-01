@@ -39,8 +39,11 @@ GROQ_STANDARD = os.getenv("GROQ_STANDARD_MODEL", "openai/gpt-oss-120b")
 GROQ_FAST = os.getenv("GROQ_FAST_MODEL", "openai/gpt-oss-20b")
 # Qwen 3.6 27B is the recommended multimodal replacement for deprecated
 # Llama vision models on Groq.
-GROQ_VISION = os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.6-27b")
+GROQ_VISION = os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.8-27b")
 GROQ_WHISPER = os.getenv("GROQ_WHISPER_MODEL", "whisper-large-v3-turbo")
+#: Text to speech, so Plani can answer out loud in a voice session.
+GROQ_TTS = os.getenv("GROQ_TTS_MODEL", "canopylabs/orpheus-v1-english")
+GROQ_TTS_VOICE = os.getenv("GROQ_TTS_VOICE", "tara")
 
 _TIER_GEMINI = {"standard": GEMINI_STANDARD, "fast": GEMINI_FAST, "vision": GEMINI_VISION}
 _TIER_GROQ = {"standard": GROQ_STANDARD, "fast": GROQ_FAST, "vision": GROQ_VISION}
@@ -183,6 +186,18 @@ def groq_api_key() -> str | None:
     return os.getenv("GROQ_API_KEY")
 
 
+def groq_audio_key() -> str | None:
+    """Speech key. Separate from the chat key so transcription and speech run
+    on their own allowance -- a student holding a voice conversation cannot
+    exhaust the key the tutor's text answers depend on."""
+    return os.getenv("GROQ_AUDIO_KEY") or os.getenv("GROQ_API_KEY")
+
+
+def groq_vision_key() -> str | None:
+    """Image-reading key, separate for the same reason."""
+    return os.getenv("GROQ_VISUAL_API_KEY") or os.getenv("GROQ_API_KEY")
+
+
 def ai_available() -> bool:
     return bool(gemini_api_key() or groq_api_key())
 
@@ -201,16 +216,21 @@ def _gemini_client():
     return _gemini_client_cache
 
 
-def _groq_client():
-    global _groq_client_cache
-    if _groq_client_cache is None:
-        from groq import Groq
+_groq_clients: dict[str, Any] = {}
 
-        key = groq_api_key()
-        if not key:
-            raise RuntimeError("GROQ_API_KEY is not set.")
-        _groq_client_cache = Groq(api_key=key)
-    return _groq_client_cache
+
+def _groq_client(key: str | None = None):
+    """One client per key. Chat, speech and vision can hold different keys, so
+    a single cached client would send every call on whichever key happened to
+    be used first."""
+    from groq import Groq
+
+    key = key or groq_api_key()
+    if not key:
+        raise RuntimeError("GROQ_API_KEY is not set.")
+    if key not in _groq_clients:
+        _groq_clients[key] = Groq(api_key=key)
+    return _groq_clients[key]
 
 
 def _split_messages(messages: list[dict]) -> tuple[str | None, list[dict]]:
@@ -582,9 +602,9 @@ def vision(
             else:
                 logger.warning("Gemini vision failed (%s), trying Groq fallback", exc)
 
-    if groq_api_key():
+    if groq_vision_key():
         try:
-            client = _groq_client()
+            client = _groq_client(groq_vision_key())
             resp = client.chat.completions.create(
                 model=_TIER_GROQ[tier],
                 messages=[
@@ -612,6 +632,33 @@ def vision(
         "Vision analysis unavailable. Set GEMINI_API_KEY or GROQ_API_KEY. "
         + ("; ".join(errors) if errors else "")
     )
+
+
+def speak(text: str, *, voice: str | None = None, fmt: str = "wav") -> bytes:
+    """Text to speech for a voice session with Plani.
+
+    Groq only: Gemini's speech models are not in this deployment's chain, and
+    a student mid-conversation would rather hear nothing and read the answer
+    than wait on a third provider. Callers treat a raise as "show the text".
+    """
+    key = groq_audio_key()
+    if not key:
+        raise AIUnavailable("No speech backend configured. Set GROQ_AUDIO_KEY.")
+    clean = (text or "").strip()
+    if not clean:
+        raise ValueError("Nothing to speak.")
+    client = _groq_client(key)
+    resp = client.audio.speech.create(
+        model=GROQ_TTS,
+        voice=voice or GROQ_TTS_VOICE,
+        input=clean[:4000],
+        response_format=fmt,
+    )
+    data = getattr(resp, "read", None)
+    audio = data() if callable(data) else getattr(resp, "content", None)
+    if not audio:
+        raise RuntimeError("Speech synthesis returned no audio.")
+    return audio
 
 
 def _mime_for_audio(filename: str) -> str:
@@ -666,9 +713,9 @@ def transcribe_audio(filename: str, audio_bytes: bytes) -> str:
             else:
                 logger.warning("Gemini transcription failed (%s), trying Groq Whisper", exc)
 
-    if groq_api_key():
+    if groq_audio_key():
         try:
-            client = _groq_client()
+            client = _groq_client(groq_audio_key())
             resp = client.audio.transcriptions.create(
                 model=GROQ_WHISPER,
                 file=(filename, audio_bytes),

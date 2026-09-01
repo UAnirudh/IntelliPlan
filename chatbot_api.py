@@ -11,8 +11,10 @@ from datetime import datetime
 from time_utils import utcnow
 
 from ai_provider import (AIQuotaExhausted, AIUnavailable, ai_available,
-                         chat as ai_chat, vision as ai_vision)
+                         chat as ai_chat, speak as ai_speak,
+                         transcribe_audio as ai_transcribe, vision as ai_vision)
 import ai_firewall
+import pollinations_client
 from ai_firewall import AIBlocked
 
 
@@ -1287,6 +1289,166 @@ def tutor():
         traceback.print_exc()
         return jsonify({'reply': "Sorry, I hit a snag. Try again in a moment.",
                         'error': 'tutor_failed'}), 500
+
+
+#: Formats a browser MediaRecorder actually produces, plus the phone ones.
+_VOICE_EXTS = ('.webm', '.ogg', '.oga', '.mp3', '.m4a', '.mp4', '.wav', '.flac')
+#: Whisper bills by audio length, so the ceiling is on duration in practice.
+#: 25 MB is roughly 20 minutes of compressed speech -- far past a question.
+_VOICE_MAX_BYTES = 25 * 1024 * 1024
+
+
+@chatbot_bp.route('/api/tutor/voice', methods=['POST'])
+def tutor_voice():
+    """Turn a recorded question into text so a student can talk to Plani.
+
+    The page had voice input already, but through the browser's
+    SpeechRecognition API, which exists in Chrome and Edge and nowhere else --
+    every Safari and Firefox user got told to switch browsers. Recording to a
+    blob and transcribing here works in all of them, and it is the same
+    Whisper path the lecture uploads use.
+    """
+    if 'file' not in request.files:
+        return jsonify({'error': 'no_audio', 'message': 'No audio was uploaded.'}), 400
+    f = request.files['file']
+    name = (f.filename or 'speech.webm').lower()
+    if not name.endswith(_VOICE_EXTS):
+        return jsonify({'error': 'bad_format',
+                        'message': 'Record as webm, ogg, mp3, m4a, wav or flac.'}), 400
+    try:
+        decision = ai_firewall.guard(current_user, prompts=[], want_output_tokens=0,
+                                     feature='voice')
+    except AIBlocked as e:
+        payload = {'error': e.reason, 'message': e.message}
+        if e.retry_after:
+            payload['retry_after'] = e.retry_after
+        return jsonify(payload), e.status
+
+    data = f.read()
+    if not data:
+        return jsonify({'error': 'empty', 'message': 'That recording was empty.'}), 400
+    if len(data) > _VOICE_MAX_BYTES:
+        return jsonify({'error': 'too_large',
+                        'message': 'That clip is too long. Keep it under a couple of minutes.'}), 413
+    try:
+        text = (ai_transcribe(name, data) or '').strip()
+    except AIQuotaExhausted as e:
+        return jsonify({'error': 'ai_quota_exhausted',
+                        'message': "Plani has reached today's AI limit.",
+                        'retry_after': getattr(e, 'retry_after', None)}), 503
+    except AIUnavailable:
+        return jsonify({'error': 'ai_unavailable',
+                        'message': 'Speech recognition is not reachable right now.'}), 503
+    except Exception as e:
+        print(f'voice transcription failed: {e}')
+        return jsonify({'error': 'transcription_failed',
+                        'message': "That recording could not be transcribed."}), 502
+    if not text:
+        return jsonify({'error': 'no_speech',
+                        'message': "No speech was audible in that recording."}), 422
+    # Charged as audio rather than tokens: length of speech, not of prose.
+    ai_firewall.record_tokens(decision, len(data) // 64, len(text))
+    return jsonify({'text': text[:8000]})
+
+
+@chatbot_bp.route('/api/tutor/speak', methods=['POST'])
+def tutor_speak():
+    """Speak a reply aloud for browsers whose built-in voices are unusable.
+
+    The page prefers window.speechSynthesis, which costs nothing and starts
+    instantly. This is the fallback for the browsers that ship no English
+    voice at all, so a student on one of them still gets a spoken answer.
+    """
+    data = request.get_json(silent=True) or {}
+    text = (data.get('text') or '').strip()
+    if not text:
+        return jsonify({'error': 'empty', 'message': 'Nothing to read out.'}), 400
+    try:
+        decision = ai_firewall.guard(current_user, prompts=[text], want_output_tokens=0,
+                                     feature='speak')
+    except AIBlocked as e:
+        payload = {'error': e.reason, 'message': e.message}
+        if e.retry_after:
+            payload['retry_after'] = e.retry_after
+        return jsonify(payload), e.status
+    try:
+        audio = ai_speak(text)
+    except AIUnavailable as e:
+        return jsonify({'error': 'tts_unavailable', 'message': str(e)}), 503
+    except Exception as e:
+        print(f'speech synthesis failed: {e}')
+        return jsonify({'error': 'tts_failed',
+                        'message': 'That reply could not be read aloud.'}), 502
+    ai_firewall.record_tokens(decision, len(text), 0)
+    from flask import Response
+    return Response(audio, mimetype='audio/wav',
+                    headers={'Cache-Control': 'no-store'})
+
+
+@chatbot_bp.route('/api/media/generate', methods=['POST'])
+def media_generate():
+    """Generate a study visual: an image, a short clip, or a 3D mesh.
+
+    Behind the same firewall as every other AI call, and deliberately behind
+    an account: media costs several times a text answer, so guests do not get
+    it at all. The key never leaves the server.
+    """
+    if not current_user.is_authenticated:
+        return jsonify({'error': 'auth_required',
+                        'message': 'Sign in to generate study visuals.'}), 401
+
+    data = request.get_json(silent=True) or {}
+    kind = (data.get('kind') or 'image').strip().lower()
+    prompt = (data.get('prompt') or '').strip()
+    if kind not in ('image', 'video', '3d'):
+        return jsonify({'error': 'bad_kind',
+                        'message': 'kind must be image, video or 3d.'}), 400
+    if not pollinations_client.available():
+        return jsonify({'error': 'media_unavailable',
+                        'message': 'Media generation is not configured.'}), 503
+
+    try:
+        decision = ai_firewall.guard(current_user, prompts=[prompt],
+                                     want_output_tokens=0, feature=f'media:{kind}')
+    except AIBlocked as e:
+        payload = {'error': e.reason, 'message': e.message}
+        if e.retry_after:
+            payload['retry_after'] = e.retry_after
+        return jsonify(payload), e.status
+
+    try:
+        if kind == 'image':
+            blob, mime = pollinations_client.generate_image(
+                prompt, model=data.get('model'),
+                width=data.get('width'), height=data.get('height'))
+        elif kind == 'video':
+            blob, mime = pollinations_client.generate_video(
+                prompt, model=data.get('model'),
+                duration=data.get('duration') or 4,
+                image_url=data.get('image_url'))
+        else:
+            blob, mime = pollinations_client.generate_3d(
+                data.get('image_url') or '', model=data.get('model'),
+                resolution=data.get('resolution') or 'low')
+    except ValueError as e:
+        return jsonify({'error': 'bad_request', 'message': str(e)}), 400
+    except pollinations_client.PollinationsUnavailable as e:
+        return jsonify({'error': 'media_unavailable', 'message': str(e)}), 503
+    except pollinations_client.PollinationsError as e:
+        # 402 means the balance is out; everything else is the service's fault.
+        status = 503 if e.status == 402 else 502
+        print(f'media generation failed: {e}')
+        return jsonify({'error': 'media_failed',
+                        'message': ('Media generation is out of balance.'
+                                    if e.status == 402
+                                    else 'That visual could not be generated.')}), status
+
+    # Charged against the day's budget at a flat rate per medium: media has no
+    # token count, and a free-for-all here would empty the balance in an hour.
+    ai_firewall.record_tokens(decision, len(prompt),
+                              {'image': 4000, 'video': 20000, '3d': 20000}[kind] * 4)
+    from flask import Response
+    return Response(blob, mimetype=mime, headers={'Cache-Control': 'no-store'})
 
 
 @chatbot_bp.route('/api/ai/usage', methods=['GET'])

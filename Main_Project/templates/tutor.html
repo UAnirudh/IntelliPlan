@@ -1309,12 +1309,77 @@ function clearSnapImage() {
 }
 
 // ── Voice input ────────────────────────────────────────────────
+async function recordAndTranscribe() {
+  const btn = document.getElementById('micBtn');
+  const input = document.getElementById('tutorInput');
+
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+    return;
+  }
+  if (!navigator.mediaDevices || !window.MediaRecorder) {
+    IP.alert('This browser cannot record audio. Type your question instead.');
+    return;
+  }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    IP.alert('Microphone access was blocked. Allow it in your browser settings to talk to Plani.');
+    return;
+  }
+  recordedChunks = [];
+  mediaRecorder = new MediaRecorder(stream);
+  mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) recordedChunks.push(e.data); };
+  mediaRecorder.onstart = () => {
+    isRecording = true;
+    btn.classList.add('recording');
+    btn.title = 'Stop recording';
+    input.placeholder = 'Listening… press the mic again when you are done.';
+  };
+  mediaRecorder.onstop = async () => {
+    isRecording = false;
+    btn.classList.remove('recording');
+    btn.title = 'Voice input';
+    input.placeholder = 'Ask anything…';
+    stream.getTracks().forEach(t => t.stop());
+    const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+    if (!blob.size) return;
+    const body = new FormData();
+    body.append('file', blob, 'speech.webm');
+    input.disabled = true;
+    try {
+      const res = await fetch('/api/tutor/voice', { method: 'POST', body });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        IP.alert(data.message || 'That recording could not be transcribed.');
+        return;
+      }
+      input.value = (input.value ? input.value.trim() + ' ' : '') + data.text;
+      autoResizeTutor(input);
+    } catch (err) {
+      IP.alert('That recording could not be sent. Check your connection.');
+    } finally {
+      input.disabled = false;
+      input.focus();
+    }
+  };
+  mediaRecorder.start();
+}
+
+
 let recognition = null;
 let isRecording = false;
 
+let mediaRecorder = null;
+let recordedChunks = [];
+
 function toggleVoice() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { IP.alert('Voice input requires Chrome or Edge.'); return; }
+  // SpeechRecognition exists in Chrome and Edge and nowhere else, so this
+  // used to tell every Safari and Firefox student to change browser. When it
+  // is missing, record the clip and let Whisper transcribe it server-side.
+  if (!SR) { return recordAndTranscribe(); }
   if (isRecording) { recognition && recognition.stop(); return; }
   recognition = new SR();
   recognition.lang = 'en-US';
