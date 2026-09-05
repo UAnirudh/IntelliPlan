@@ -804,6 +804,46 @@ def test_work_aims_to_finish_before_the_due_date():
     assert max(scheduled) <= target
 
 
+def test_the_finish_early_buffer_is_spent_before_the_work_is_dropped():
+    """A nearly-spent today must not delete tomorrow's homework.
+
+    The buffer above pulls a task due tomorrow back onto today, which leaves
+    exactly one eligible day. When that day is almost gone -- the 9pm
+    planning session this scheduler exists to serve -- the sitting fits
+    nowhere and the task was dropped, while the deadline itself sat empty.
+
+    That is the one outcome worse than scheduling it late: the work is off
+    the plan *and* still due, so the student is worse off than if they had
+    never asked. Finishing early is a preference; being scheduled at all is
+    not, so the preference is what gives way.
+    """
+    cap = {
+        ALLOC_MON.isoformat(): 35,                          # nearly spent
+        (ALLOC_MON + timedelta(days=1)).isoformat(): 300,   # the deadline
+    }
+    placed, unplaced = allocate_across_days(
+        [_task("Problem set", 45, due_offset=1)], cap, ALLOC_MON)
+
+    assert not unplaced, "work due tomorrow was dropped"
+    due = (ALLOC_MON + timedelta(days=1)).isoformat()
+    assert [d for d, b in placed.items() if b] == [due]
+
+
+def test_the_urgent_task_is_not_the_one_that_gets_dropped():
+    """Sanity on the ordering the bug exposed: when today is nearly spent,
+    it was the task due *tomorrow* that vanished while the essay due in
+    three days was placed comfortably. Both fit; neither is dropped."""
+    cap = {(ALLOC_MON + timedelta(days=i)).isoformat(): (35 if i == 0 else 300)
+           for i in range(7)}
+    placed, unplaced = allocate_across_days(
+        [_task("Problem set", 45, due_offset=1),
+         _task("Essay", 90, due_offset=3)], cap, ALLOC_MON)
+
+    assert not unplaced
+    titles = {b["title"] for blocks in placed.values() for b in blocks}
+    assert titles == {"Problem set", "Essay"}
+
+
 def test_urgency_is_slack_not_just_the_nearest_date():
     """A big task due Friday is more urgent than a small one due Thursday.
 

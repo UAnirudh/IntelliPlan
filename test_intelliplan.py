@@ -30,6 +30,18 @@ import os
 import re
 
 import pytest
+
+# Skip rather than explode when Playwright is not installed. A bare ImportError
+# here is a *collection* error, and one collection error aborts the entire run
+# -- so a contributor without a browser toolchain could not run the hermetic
+# suite either, and saw a wall of errors instead of "this one suite is opt-in".
+# CI installs Playwright before it invokes this file, so nothing is skipped there.
+pytest.importorskip(
+    "playwright.sync_api",
+    reason="the live-site end-to-end suite needs Playwright: "
+           "pip install playwright pytest-playwright && playwright install chromium",
+)
+
 from playwright.sync_api import Page, TimeoutError as PWTimeoutError, expect
 
 # Defaults to production, which is what CI checks. Override to point the suite

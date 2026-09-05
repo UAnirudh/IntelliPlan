@@ -91,6 +91,35 @@ def test_a_pasted_quizlet_set_becomes_a_deck(client):
     assert decks[0]["total"] == 2 and decks[0]["new"] == 2
 
 
+def test_a_card_with_a_null_suspended_flag_is_still_visible(client):
+    """NULL is not "suspended", and it is not "archived" either.
+
+    Every read path filters on those two flags, so a row that reaches the
+    table with NULL in one of them vanishes from the deck counts, the study
+    queue and the forecast simultaneously -- present in the database and
+    gone from the product. Any insert that bypasses the column default does
+    it: a hand-written migration, a backfill, a bulk load. The reads are
+    what has to be forgiving, so this writes the NULLs directly.
+    """
+    _login(client)
+    body = client.post("/api/flashcards/import", json={
+        "text": "sodium\tNa\npotassium\tK", "name": "Symbols",
+    }).get_json()
+
+    with App.app.app_context():
+        db.session.execute(text("UPDATE fc_cards SET suspended = NULL"))
+        db.session.execute(text("UPDATE fc_decks SET archived = NULL"))
+        db.session.commit()
+
+    decks = client.get("/api/flashcards/decks").get_json()["decks"]
+    deck = next((d for d in decks if d["id"] == body["deck_id"]), None)
+    assert deck is not None, "a deck with a NULL archived flag disappeared"
+    assert deck["total"] == 2 and deck["new"] == 2
+
+    queued = client.get("/api/flashcards/study").get_json()["cards"]
+    assert len(queued) == 2, "cards with a NULL suspended flag left the queue"
+
+
 def test_an_unreadable_import_explains_itself(client):
     _login(client)
     res = client.post("/api/flashcards/import", json={"text": "no separators here"})

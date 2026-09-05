@@ -37,11 +37,18 @@ jobs:
       # Placed before the Playwright steps deliberately: it is the fast,
       # hermetic one, and a failure here should not wait on a browser
       # download and a deploy poll to be reported.
+      #
+      # Bare `pytest`, not `pytest tests/`: pytest.ini's testpaths names the
+      # hermetic suites, which is tests/ plus test_streak_engine.py and
+      # test_streak_e2e.py. Those two predate tests/ and live at the root, so
+      # naming a directory here quietly left 25 tests running in no job at
+      # all. It still excludes test_intelliplan.py, which the step at the
+      # bottom runs on purpose against the live site.
       - name: Unit tests
         env:
           DATABASE_URL: "sqlite:///:memory:"
           SECRET_KEY: "ci-unit-test-key"
-        run: pytest tests/ -q
+        run: pytest -q
 
       # ── Playwright deps
       - run: pip install playwright pytest-playwright
