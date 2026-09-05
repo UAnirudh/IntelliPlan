@@ -161,7 +161,10 @@ class AIBlocked(Exception):
 # ── Identity ──────────────────────────────────────────────────────
 
 def _sign(value: str) -> str:
-    key = (current_app.secret_key or "intelliplan-dev-key")
+    # No hardcoded fallback: App.py refuses to boot without a real
+    # SECRET_KEY, so current_app.secret_key is always set here. A fallback
+    # to a value published in this repo would let anyone forge guest ids.
+    key = current_app.secret_key
     if isinstance(key, str):
         key = key.encode()
     return hmac.new(key, value.encode(), hashlib.sha256).hexdigest()[:16]

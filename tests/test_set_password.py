@@ -10,6 +10,7 @@ desktop clients, and anyone who forgot a password locked out for good.
 
 from __future__ import annotations
 
+import time
 import uuid
 
 import pytest
@@ -50,10 +51,16 @@ def make_user(password: str | None):
 
 def sign_in(client, user_id):
     """Establish a session without going through a password, which is the
-    situation a Google user is actually in."""
+    situation a Google user is actually in.
+
+    Also stamps ``auth_time`` as App.py's ``user_logged_in`` receiver would
+    on a real login (password or Google) — the passwordless branch of
+    /api/auth/password requires a recent one, since there is no password
+    to prove knowledge of otherwise."""
     with client.session_transaction() as sess:
         sess["_user_id"] = str(user_id)
         sess["_fresh"] = True
+        sess["auth_time"] = time.time()
 
 
 def hash_of(user_id):
@@ -93,6 +100,40 @@ def test_an_account_with_no_password_can_set_one(client):
 
     assert res.status_code == 200
     assert hash_of(user_id)
+
+
+def test_a_session_that_never_actually_signed_in_cannot_set_one(client):
+    """A session cookie with no recent login behind it — stolen, forged,
+    or restored from a long-lived remember cookie — is not a Google
+    sign-in. Without a password to check, this is the only guard the
+    Google-only case has."""
+    user_id, _ = make_user(None)
+    with client.session_transaction() as sess:
+        sess["_user_id"] = str(user_id)
+        sess["_fresh"] = True
+        # Deliberately no auth_time: this is what a session hijacked
+        # without ever calling login_user() looks like.
+
+    res = client.post(ENDPOINT, json={"new_password": GOOD})
+
+    assert res.status_code == 401
+    assert res.get_json().get("reason") == "reauth_required"
+    assert not hash_of(user_id)
+
+
+def test_a_stale_login_cannot_set_one(client):
+    """auth_time exists but is old — same requirement, phrased as a
+    timeout rather than a total absence."""
+    user_id, _ = make_user(None)
+    with client.session_transaction() as sess:
+        sess["_user_id"] = str(user_id)
+        sess["_fresh"] = True
+        sess["auth_time"] = time.time() - (60 * 60)  # an hour ago
+
+    res = client.post(ENDPOINT, json={"new_password": GOOD})
+
+    assert res.status_code == 401
+    assert not hash_of(user_id)
 
 
 def test_the_new_password_actually_works_for_a_token(client):

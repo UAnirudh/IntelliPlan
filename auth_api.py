@@ -400,12 +400,22 @@ with App.py's web routes (/login, /register, /logout).
 """
 
 import os
-from flask import Blueprint, jsonify, request, current_app
+import time
+import urllib.parse
+from flask import Blueprint, jsonify, request, current_app, session
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 auth_bp = Blueprint("auth_api_bp", __name__)
 
 TOKEN_MAX_AGE_SECONDS = int(os.getenv("INTELLIPLAN_TOKEN_AGE", str(60 * 60 * 24 * 30)))
+
+#: How recently the session must have actually signed in (password or
+#: Google — see App.py's user_logged_in receiver, which stamps
+#: session["auth_time"]) to perform an identity-sensitive action that has
+#: no other proof attached. A long-lived session cookie is normally enough
+#: to act as the user; this narrows the window for the one action where
+#: that alone is not enough.
+REAUTH_WINDOW_SECONDS = 15 * 60
 APP_BASE_URL = os.getenv("APP_BASE_URL", "https://intelliplan.tech").rstrip("/")
 APP_DOMAIN = APP_BASE_URL.replace("https://", "").replace("http://", "").split("/", 1)[0]
 LEGACY_ALLOWED_ORIGINS = [
@@ -464,6 +474,23 @@ def user_to_dict(user):
 
 
 # ── CORS ──────────────────────────────────────────────────────
+def _is_local_dev_origin(origin: str) -> bool:
+    """Whether ``origin`` is really http://localhost or http://127.0.0.1.
+
+    A ``.startswith("http://localhost")`` prefix check also matches an
+    attacker-registered host like ``http://localhost.evil.com`` — a DNS
+    label boundary is a dot, not a prefix match. Some routes on this
+    blueprint (e.g. /api/auth/password) are session-cookie authenticated
+    and this check gates Access-Control-Allow-Credentials, so a spoofed
+    match here is a real cross-origin credential leak / CSRF path.
+    """
+    try:
+        parsed = urllib.parse.urlsplit(origin)
+    except ValueError:
+        return False
+    return parsed.scheme == "http" and parsed.hostname in ("localhost", "127.0.0.1")
+
+
 def _corsify(response):
     origin = request.headers.get("Origin", "")
     allowed_web = {
@@ -471,11 +498,8 @@ def _corsify(response):
         f"https://www.{APP_DOMAIN}" if not APP_DOMAIN.startswith("www.") else APP_BASE_URL,
         *LEGACY_ALLOWED_ORIGINS,
     }
-    if any(origin.startswith(p) for p in (
-        "chrome-extension://",
-        "http://localhost",
-        "http://127.0.0.1",
-    )) or origin.rstrip("/") in allowed_web:
+    if origin.startswith("chrome-extension://") or _is_local_dev_origin(origin) \
+            or origin.rstrip("/") in allowed_web:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Vary"] = "Origin"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
@@ -500,8 +524,10 @@ def _ok(data=None, status=200):
     return jsonify(p), status
 
 
-def _err(msg, status=400):
-    return jsonify({"status": "error", "message": msg}), status
+def _err(msg, status=400, **extra):
+    payload = {"status": "error", "message": msg}
+    payload.update(extra)
+    return jsonify(payload), status
 
 
 # ── Routes ────────────────────────────────────────────────────
@@ -644,8 +670,22 @@ def api_set_password():
             return _err("Enter your current password.", 400)
         if not bcrypt.check_password_hash(user.password_hash, current):
             return _err("That current password is not right.", 403)
-    # No hash means a Google-only account, and there is nothing to prove.
-    # The session is the proof: it was created by Google's sign-in.
+    else:
+        # No hash means a Google-only account, and there is no password to
+        # prove knowledge of. "The session is the proof" is only true if
+        # that session was recently and actually created by signing in —
+        # otherwise a stolen or forged session cookie (long-lived by
+        # design; see REMEMBER_COOKIE in App.py) could silently mint a
+        # brand-new, permanent credential on someone else's account with
+        # nothing else required. Require a sign-in inside the last 15
+        # minutes, same as any "step-up" / sudo-mode check.
+        auth_time = session.get("auth_time")
+        if not auth_time or (time.time() - auth_time) > REAUTH_WINDOW_SECONDS:
+            return _err(
+                "Please sign in again to set a password on this account.",
+                401,
+                reason="reauth_required",
+            )
 
     user.password_hash = bcrypt.generate_password_hash(new).decode("utf-8")
     db.session.commit()

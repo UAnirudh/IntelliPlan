@@ -74,7 +74,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import inspect, text
 from flask_login import (
     LoginManager, UserMixin, login_user, logout_user,
-    current_user
+    current_user, user_logged_in
 )
 from flask_bcrypt import Bcrypt
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -145,7 +145,16 @@ app = flask.Flask(
     template_folder="Main_Project/templates",
 )
 
-app.secret_key = os.getenv("SECRET_KEY", "intelliplan-dev-key")
+_secret_key = os.getenv("SECRET_KEY")
+if not _secret_key:
+    # A hardcoded fallback here would sign every session cookie and auth
+    # token (see auth_api.py) with a value published in this public repo,
+    # letting anyone forge sessions or password-reset/magic-link tokens for
+    # any account. Fail loudly instead of booting insecurely.
+    raise RuntimeError(
+        "SECRET_KEY environment variable is required and must not be empty."
+    )
+app.secret_key = _secret_key
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
 # ── Response compression ──────────────────────────────────────────────
@@ -182,6 +191,22 @@ ALLOWED_WEB_ORIGINS = [
     f"https://www.{APP_DOMAIN}" if not APP_DOMAIN.startswith("www.") else APP_BASE_URL,
     *LEGACY_ALLOWED_ORIGINS,
 ]
+
+
+def _is_local_dev_origin(origin: str) -> bool:
+    """Whether ``origin`` is really http://localhost or http://127.0.0.1.
+
+    A plain ``.startswith("http://localhost")`` also matches an
+    attacker-registered host like ``http://localhost.evil.com`` — DNS
+    labels can precede a dot freely, so a prefix check is not a host
+    check. Parsing the origin and comparing the hostname exactly closes
+    that spoof while still accepting any port on either loopback host.
+    """
+    try:
+        parsed = urllib.parse.urlsplit(origin)
+    except ValueError:
+        return False
+    return parsed.scheme == "http" and parsed.hostname in ("localhost", "127.0.0.1")
 
 # ── FIX: Switch SESSION_TYPE from "filesystem" to "sqlalchemy".
 #   Filesystem sessions are stored in /tmp on Railway — ephemeral containers
@@ -233,6 +258,18 @@ db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
+
+
+@user_logged_in.connect_via(app)
+def _stamp_auth_time(sender, user):
+    # When this session last proved identity via an actual sign-in (password
+    # or Google), not just "has a valid session cookie". Fires for every
+    # login_user() call regardless of method, so it covers password login
+    # and the Google OAuth callback alike. A sensitive action that a stolen
+    # or forged session cookie alone should not be able to do — like setting
+    # a first password on a Google-only account — can require this to be
+    # recent instead of trusting the cookie forever.
+    session["auth_time"] = time.time()
 
 # ── FIX: Point flask-session at the SQLAlchemy db so sessions are durable.
 app.config["SESSION_SQLALCHEMY"] = db
@@ -350,7 +387,7 @@ app.wsgi_app = _EmbedSameSiteMiddleware(app.wsgi_app, _SAMESITE_MANAGED_COOKIES)
 def add_cors_headers(response):
     origin = request.headers.get("Origin", "")
     is_extension = origin.startswith("chrome-extension://")
-    is_local = origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1")
+    is_local = _is_local_dev_origin(origin)
     # HTML documents do not need CORS — only XHR/fetch endpoints. Limiting
     # CORS to /api/* removes a wildcard from every HTML response while
     # keeping the programmatic surfaces working.
@@ -8542,7 +8579,7 @@ def get_live_schedule():
                 course_map[c["id"]] = c.get("name", "Unknown")
         assignments = []
         for course_id in course_map:
-            response = requests.get(f"{base}/courses/{course_id}/assignments?per_page=100", headers=headers, timeout=20)
+            response = requests.get(f"{base}/courses/{course_id}/assignments?per_page=100&include[]=submission", headers=headers, timeout=20)
             data = response.json()
             if isinstance(data, list):
                 assignments += data
@@ -8551,6 +8588,7 @@ def get_live_schedule():
         for a in assignments:
             if not isinstance(a, dict): continue
             if a.get("due_at") is None: continue
+            if _canvas_submission_done_or_pending_grade(a): continue
             if a.get("points_possible") is None:
                 a["points_possible"] = 60
             due_str = a["due_at"]
@@ -9607,6 +9645,29 @@ def _lms_row_sizing(raw, points_possible, kind=""):
     except Exception as e:
         print(f"[sizing] fell back to the points heuristic: {e}")
         return max(30, round((points or 60) * 1.5 / 30) * 30), ""
+
+
+def _canvas_submission_done_or_pending_grade(canvas_assignment):
+    """True once the student's own part is finished, whether or not a
+    grade has posted yet.
+
+    StudentVue's ``get_assignments`` already drops an assignment the
+    moment it's turned in — "Not Graded" means submitted and awaiting a
+    grade, not something still to do — so it never shows up as overdue
+    just because the teacher hasn't graded it yet. Canvas's assignments
+    endpoint carries no such signal unless the request asks for
+    ``include[]=submission``; without it, every past-due Canvas
+    assignment reads as overdue forever, submitted or not. This mirrors
+    the StudentVue behavior once that submission data is present.
+    """
+    if not isinstance(canvas_assignment, dict):
+        return False
+    submission = canvas_assignment.get("submission")
+    if not isinstance(submission, dict):
+        return False
+    if submission.get("workflow_state") == "graded":
+        return True
+    return bool(submission.get("submitted_at"))
 
 
 def _sized_estimate(assignment, kind, saved_description=None):
@@ -10943,7 +11004,7 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
                 def _fetch_course(course_id):
                     try:
                         r = requests.get(
-                            f"{base}/courses/{course_id}/assignments?per_page=100",
+                            f"{base}/courses/{course_id}/assignments?per_page=100&include[]=submission",
                             headers=headers, timeout=6,
                         )
                         return course_id, r.json()
@@ -10961,6 +11022,8 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
                             continue
                         for a in data:
                             if not isinstance(a, dict) or not a.get("due_at"):
+                                continue
+                            if _canvas_submission_done_or_pending_grade(a):
                                 continue
                             due_str = a["due_at"][:10]
                             try:
@@ -11111,12 +11174,14 @@ def unified_tasks():
                 courses = course_response.json()
                 course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
                 for course_id in course_map:
-                    resp = requests.get(f"{base}/courses/{course_id}/assignments?per_page=100", headers=headers, timeout=20)
+                    resp = requests.get(f"{base}/courses/{course_id}/assignments?per_page=100&include[]=submission", headers=headers, timeout=20)
                     data = resp.json()
                     if not isinstance(data, list):
                         continue
                     for a in data:
                         if not isinstance(a, dict) or not a.get("due_at"):
+                            continue
+                        if _canvas_submission_done_or_pending_grade(a):
                             continue
                         due_str = a["due_at"][:10]
                         try:
@@ -14294,11 +14359,13 @@ def extension_tasks():
                     courses = requests.get(f"{canvas_url}/api/v1/courses", headers=headers, timeout=10).json()
                     course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
                     for course_id in course_map:
-                        resp = requests.get(f"{canvas_url}/api/v1/courses/{course_id}/assignments?per_page=100", headers=headers, timeout=10).json()
+                        resp = requests.get(f"{canvas_url}/api/v1/courses/{course_id}/assignments?per_page=100&include[]=submission", headers=headers, timeout=10).json()
                         if not isinstance(resp, list):
                             continue
                         for a in resp:
                             if not isinstance(a, dict) or not a.get("due_at"):
+                                continue
+                            if _canvas_submission_done_or_pending_grade(a):
                                 continue
                             due_str = a["due_at"][:10]
                             try:
@@ -14422,11 +14489,19 @@ def extension_session_token():
     origin = request.headers.get("Origin", "")
 
     def _cors(resp):
+        # This endpoint hands back a permanent extension bearer token for
+        # whoever the session cookie belongs to, with credentials enabled
+        # — so unlike a plain read-only CORS check, a loose match here
+        # (substring/prefix instead of exact origin) lets any site whose
+        # hostname merely contains "intelliplan.tech" or starts with
+        # "localhost"/"127.0.0.1" (e.g. https://intelliplan.tech.evil.com,
+        # http://localhost.evil.com — both valid, attacker-registerable
+        # hostnames) read another user's token. Match the real allowlist
+        # exactly instead.
         allowed = (
             origin.startswith("chrome-extension://") or
-            origin.startswith("http://localhost") or
-            origin.startswith("http://127.0.0.1") or
-            "intelliplan.tech" in origin
+            _is_local_dev_origin(origin) or
+            origin.rstrip("/") in ALLOWED_WEB_ORIGINS
         )
         if allowed and origin:
             resp.headers["Access-Control-Allow-Origin"] = origin

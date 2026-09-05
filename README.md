@@ -7,6 +7,23 @@
 💬 **Community:** [discord.gg/34FYWhJQMU](https://discord.gg/34FYWhJQMU)  
 📱 **Installable** as a PWA on Android & iOS · Chrome Extension available
 
+<p>
+  <a href="https://devlanz.com/projects/intelliplan" target="_blank" title="Dev Lanz Top 1 Daily Winner">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://devlanz.com/devlanz/images/badges/top1-dark.svg" />
+      <source media="(prefers-color-scheme: light)" srcset="https://devlanz.com/devlanz/images/badges/top1-light.svg" />
+      <img src="https://devlanz.com/devlanz/images/badges/top1-light.svg" alt="Dev Lanz Top 1 Daily Winner" style="width: 195px; height: auto;" />
+    </picture>
+  </a>
+  <a href="https://launchfinds.com/projects/intelliplan" target="_blank" title="Launch Finds Top 1 Daily Winner">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://launchfinds.com/launchfinds/images/badges/top1-dark.svg" />
+      <source media="(prefers-color-scheme: light)" srcset="https://launchfinds.com/launchfinds/images/badges/top1-light.svg" />
+      <img src="https://launchfinds.com/launchfinds/images/badges/top1-light.svg" alt="Launch Finds Top 1 Daily Winner" style="width: 195px; height: auto;" />
+    </picture>
+  </a>
+</p>
+
 ---
 
 ## The Problem
