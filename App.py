@@ -74,7 +74,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import inspect, text
 from flask_login import (
     LoginManager, UserMixin, login_user, logout_user,
-    current_user
+    current_user, user_logged_in
 )
 from flask_bcrypt import Bcrypt
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -258,6 +258,18 @@ db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
+
+
+@user_logged_in.connect_via(app)
+def _stamp_auth_time(sender, user):
+    # When this session last proved identity via an actual sign-in (password
+    # or Google), not just "has a valid session cookie". Fires for every
+    # login_user() call regardless of method, so it covers password login
+    # and the Google OAuth callback alike. A sensitive action that a stolen
+    # or forged session cookie alone should not be able to do — like setting
+    # a first password on a Google-only account — can require this to be
+    # recent instead of trusting the cookie forever.
+    session["auth_time"] = time.time()
 
 # ── FIX: Point flask-session at the SQLAlchemy db so sessions are durable.
 app.config["SESSION_SQLALCHEMY"] = db
