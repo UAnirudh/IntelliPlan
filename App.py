@@ -8579,7 +8579,7 @@ def get_live_schedule():
                 course_map[c["id"]] = c.get("name", "Unknown")
         assignments = []
         for course_id in course_map:
-            response = requests.get(f"{base}/courses/{course_id}/assignments?per_page=100", headers=headers, timeout=20)
+            response = requests.get(f"{base}/courses/{course_id}/assignments?per_page=100&include[]=submission", headers=headers, timeout=20)
             data = response.json()
             if isinstance(data, list):
                 assignments += data
@@ -8588,6 +8588,7 @@ def get_live_schedule():
         for a in assignments:
             if not isinstance(a, dict): continue
             if a.get("due_at") is None: continue
+            if _canvas_submission_done_or_pending_grade(a): continue
             if a.get("points_possible") is None:
                 a["points_possible"] = 60
             due_str = a["due_at"]
@@ -9644,6 +9645,29 @@ def _lms_row_sizing(raw, points_possible, kind=""):
     except Exception as e:
         print(f"[sizing] fell back to the points heuristic: {e}")
         return max(30, round((points or 60) * 1.5 / 30) * 30), ""
+
+
+def _canvas_submission_done_or_pending_grade(canvas_assignment):
+    """True once the student's own part is finished, whether or not a
+    grade has posted yet.
+
+    StudentVue's ``get_assignments`` already drops an assignment the
+    moment it's turned in — "Not Graded" means submitted and awaiting a
+    grade, not something still to do — so it never shows up as overdue
+    just because the teacher hasn't graded it yet. Canvas's assignments
+    endpoint carries no such signal unless the request asks for
+    ``include[]=submission``; without it, every past-due Canvas
+    assignment reads as overdue forever, submitted or not. This mirrors
+    the StudentVue behavior once that submission data is present.
+    """
+    if not isinstance(canvas_assignment, dict):
+        return False
+    submission = canvas_assignment.get("submission")
+    if not isinstance(submission, dict):
+        return False
+    if submission.get("workflow_state") == "graded":
+        return True
+    return bool(submission.get("submitted_at"))
 
 
 def _sized_estimate(assignment, kind, saved_description=None):
@@ -10980,7 +11004,7 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
                 def _fetch_course(course_id):
                     try:
                         r = requests.get(
-                            f"{base}/courses/{course_id}/assignments?per_page=100",
+                            f"{base}/courses/{course_id}/assignments?per_page=100&include[]=submission",
                             headers=headers, timeout=6,
                         )
                         return course_id, r.json()
@@ -10998,6 +11022,8 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
                             continue
                         for a in data:
                             if not isinstance(a, dict) or not a.get("due_at"):
+                                continue
+                            if _canvas_submission_done_or_pending_grade(a):
                                 continue
                             due_str = a["due_at"][:10]
                             try:
@@ -11148,12 +11174,14 @@ def unified_tasks():
                 courses = course_response.json()
                 course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
                 for course_id in course_map:
-                    resp = requests.get(f"{base}/courses/{course_id}/assignments?per_page=100", headers=headers, timeout=20)
+                    resp = requests.get(f"{base}/courses/{course_id}/assignments?per_page=100&include[]=submission", headers=headers, timeout=20)
                     data = resp.json()
                     if not isinstance(data, list):
                         continue
                     for a in data:
                         if not isinstance(a, dict) or not a.get("due_at"):
+                            continue
+                        if _canvas_submission_done_or_pending_grade(a):
                             continue
                         due_str = a["due_at"][:10]
                         try:
@@ -14331,11 +14359,13 @@ def extension_tasks():
                     courses = requests.get(f"{canvas_url}/api/v1/courses", headers=headers, timeout=10).json()
                     course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
                     for course_id in course_map:
-                        resp = requests.get(f"{canvas_url}/api/v1/courses/{course_id}/assignments?per_page=100", headers=headers, timeout=10).json()
+                        resp = requests.get(f"{canvas_url}/api/v1/courses/{course_id}/assignments?per_page=100&include[]=submission", headers=headers, timeout=10).json()
                         if not isinstance(resp, list):
                             continue
                         for a in resp:
                             if not isinstance(a, dict) or not a.get("due_at"):
+                                continue
+                            if _canvas_submission_done_or_pending_grade(a):
                                 continue
                             due_str = a["due_at"][:10]
                             try:
