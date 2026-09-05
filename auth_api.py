@@ -400,6 +400,7 @@ with App.py's web routes (/login, /register, /logout).
 """
 
 import os
+import urllib.parse
 from flask import Blueprint, jsonify, request, current_app
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
@@ -464,6 +465,23 @@ def user_to_dict(user):
 
 
 # ── CORS ──────────────────────────────────────────────────────
+def _is_local_dev_origin(origin: str) -> bool:
+    """Whether ``origin`` is really http://localhost or http://127.0.0.1.
+
+    A ``.startswith("http://localhost")`` prefix check also matches an
+    attacker-registered host like ``http://localhost.evil.com`` — a DNS
+    label boundary is a dot, not a prefix match. Some routes on this
+    blueprint (e.g. /api/auth/password) are session-cookie authenticated
+    and this check gates Access-Control-Allow-Credentials, so a spoofed
+    match here is a real cross-origin credential leak / CSRF path.
+    """
+    try:
+        parsed = urllib.parse.urlsplit(origin)
+    except ValueError:
+        return False
+    return parsed.scheme == "http" and parsed.hostname in ("localhost", "127.0.0.1")
+
+
 def _corsify(response):
     origin = request.headers.get("Origin", "")
     allowed_web = {
@@ -471,11 +489,8 @@ def _corsify(response):
         f"https://www.{APP_DOMAIN}" if not APP_DOMAIN.startswith("www.") else APP_BASE_URL,
         *LEGACY_ALLOWED_ORIGINS,
     }
-    if any(origin.startswith(p) for p in (
-        "chrome-extension://",
-        "http://localhost",
-        "http://127.0.0.1",
-    )) or origin.rstrip("/") in allowed_web:
+    if origin.startswith("chrome-extension://") or _is_local_dev_origin(origin) \
+            or origin.rstrip("/") in allowed_web:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Vary"] = "Origin"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"

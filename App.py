@@ -145,7 +145,16 @@ app = flask.Flask(
     template_folder="Main_Project/templates",
 )
 
-app.secret_key = os.getenv("SECRET_KEY", "intelliplan-dev-key")
+_secret_key = os.getenv("SECRET_KEY")
+if not _secret_key:
+    # A hardcoded fallback here would sign every session cookie and auth
+    # token (see auth_api.py) with a value published in this public repo,
+    # letting anyone forge sessions or password-reset/magic-link tokens for
+    # any account. Fail loudly instead of booting insecurely.
+    raise RuntimeError(
+        "SECRET_KEY environment variable is required and must not be empty."
+    )
+app.secret_key = _secret_key
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
 # ── Response compression ──────────────────────────────────────────────
@@ -182,6 +191,22 @@ ALLOWED_WEB_ORIGINS = [
     f"https://www.{APP_DOMAIN}" if not APP_DOMAIN.startswith("www.") else APP_BASE_URL,
     *LEGACY_ALLOWED_ORIGINS,
 ]
+
+
+def _is_local_dev_origin(origin: str) -> bool:
+    """Whether ``origin`` is really http://localhost or http://127.0.0.1.
+
+    A plain ``.startswith("http://localhost")`` also matches an
+    attacker-registered host like ``http://localhost.evil.com`` — DNS
+    labels can precede a dot freely, so a prefix check is not a host
+    check. Parsing the origin and comparing the hostname exactly closes
+    that spoof while still accepting any port on either loopback host.
+    """
+    try:
+        parsed = urllib.parse.urlsplit(origin)
+    except ValueError:
+        return False
+    return parsed.scheme == "http" and parsed.hostname in ("localhost", "127.0.0.1")
 
 # ── FIX: Switch SESSION_TYPE from "filesystem" to "sqlalchemy".
 #   Filesystem sessions are stored in /tmp on Railway — ephemeral containers
@@ -350,7 +375,7 @@ app.wsgi_app = _EmbedSameSiteMiddleware(app.wsgi_app, _SAMESITE_MANAGED_COOKIES)
 def add_cors_headers(response):
     origin = request.headers.get("Origin", "")
     is_extension = origin.startswith("chrome-extension://")
-    is_local = origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1")
+    is_local = _is_local_dev_origin(origin)
     # HTML documents do not need CORS — only XHR/fetch endpoints. Limiting
     # CORS to /api/* removes a wildcard from every HTML response while
     # keeping the programmatic surfaces working.
@@ -14422,11 +14447,19 @@ def extension_session_token():
     origin = request.headers.get("Origin", "")
 
     def _cors(resp):
+        # This endpoint hands back a permanent extension bearer token for
+        # whoever the session cookie belongs to, with credentials enabled
+        # — so unlike a plain read-only CORS check, a loose match here
+        # (substring/prefix instead of exact origin) lets any site whose
+        # hostname merely contains "intelliplan.tech" or starts with
+        # "localhost"/"127.0.0.1" (e.g. https://intelliplan.tech.evil.com,
+        # http://localhost.evil.com — both valid, attacker-registerable
+        # hostnames) read another user's token. Match the real allowlist
+        # exactly instead.
         allowed = (
             origin.startswith("chrome-extension://") or
-            origin.startswith("http://localhost") or
-            origin.startswith("http://127.0.0.1") or
-            "intelliplan.tech" in origin
+            _is_local_dev_origin(origin) or
+            origin.rstrip("/") in ALLOWED_WEB_ORIGINS
         )
         if allowed and origin:
             resp.headers["Access-Control-Allow-Origin"] = origin
