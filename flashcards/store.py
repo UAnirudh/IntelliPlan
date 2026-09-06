@@ -96,6 +96,10 @@ def create_deck(db, user_id: int, name: str, *, description: str = "",
     res = db.session.execute(DECKS.insert().values(
         user_id=user_id, name=name.strip()[:200] or "Untitled deck",
         description=(description or "")[:2000], source=source,
+        # Explicit for the same reason add_cards writes ``suspended``:
+        # list_decks filters on "not archived", so a NULL here would hide a
+        # deck the student just made.
+        archived=False,
         created_at=_now(), updated_at=_now(),
     ))
     db.session.commit()
@@ -107,7 +111,7 @@ def list_decks(db, user_id: int) -> list[dict]:
     cards are due right now, and how many have never been seen."""
     now = _now()
     rows = db.session.execute(
-        select(DECKS).where(DECKS.c.user_id == user_id, DECKS.c.archived.is_(False))
+        select(DECKS).where(DECKS.c.user_id == user_id, DECKS.c.archived.isnot(True))
         .order_by(DECKS.c.updated_at.desc())
     ).mappings().all()
     out = []
@@ -117,11 +121,11 @@ def list_decks(db, user_id: int) -> list[dict]:
                 func.count().label("total"),
                 func.sum(func.coalesce(
                     (CARDS.c.state == STATE_NEW).cast(Integer), 0)).label("new"),
-            ).where(CARDS.c.deck_id == row["id"], CARDS.c.suspended.is_(False))
+            ).where(CARDS.c.deck_id == row["id"], CARDS.c.suspended.isnot(True))
         ).mappings().first() or {}
         due = db.session.execute(
             select(func.count()).where(
-                CARDS.c.deck_id == row["id"], CARDS.c.suspended.is_(False),
+                CARDS.c.deck_id == row["id"], CARDS.c.suspended.isnot(True),
                 CARDS.c.state != STATE_NEW, CARDS.c.due <= now)
         ).scalar() or 0
         out.append({
@@ -191,6 +195,13 @@ def add_cards(db, user_id: int, deck_id: int, cards: list) -> int:
             "card_type": get("card_type") or "basic",
             "state": STATE_NEW, "stability": 0.0, "difficulty": 0.0,
             "reps": 0, "lapses": 0, "step": 0,
+            # Written rather than left to the column default. Every read path
+            # filters on "not suspended", so a row that reaches the table
+            # with NULL here is invisible to the deck counts, the study
+            # queue and the forecast at once -- the card is in the database
+            # and gone from the product, which is the worst way to lose one.
+            # The reads tolerate NULL too; this stops it being written.
+            "suspended": False,
             # New cards are due immediately; the per-day cap in due_queue is
             # what stops an 800-card import burying the student on day one.
             "due": now, "created_at": now,
@@ -211,7 +222,7 @@ def due_queue(db, user_id: int, deck_id: int | None = None, limit: int = 60) -> 
     undone, which is exactly the backlog spaced repetition exists to prevent.
     """
     now = _now()
-    where = [CARDS.c.user_id == user_id, CARDS.c.suspended.is_(False)]
+    where = [CARDS.c.user_id == user_id, CARDS.c.suspended.isnot(True)]
     if deck_id:
         where.append(CARDS.c.deck_id == deck_id)
 
@@ -276,7 +287,7 @@ def due_forecast(db, user_id: int, start: datetime, days: int = 7) -> dict[str, 
     rows = db.session.execute(
         select(CARDS.c.due, func.count()).where(
             CARDS.c.user_id == user_id,
-            CARDS.c.suspended.is_(False),
+            CARDS.c.suspended.isnot(True),
             CARDS.c.state != STATE_NEW,
             CARDS.c.due.isnot(None),
             CARDS.c.due < datetime.combine(last + timedelta(days=1), datetime.min.time()),
@@ -363,7 +374,7 @@ def stats(db, user_id: int) -> dict:
         select(func.count()).where(CARDS.c.user_id == user_id)).scalar() or 0
     due = db.session.execute(
         select(func.count()).where(
-            CARDS.c.user_id == user_id, CARDS.c.suspended.is_(False),
+            CARDS.c.user_id == user_id, CARDS.c.suspended.isnot(True),
             CARDS.c.state != STATE_NEW, CARDS.c.due <= now)).scalar() or 0
     new = db.session.execute(
         select(func.count()).where(

@@ -1129,22 +1129,41 @@ def allocate_across_days(
         if target is not None and target < today:
             target = max(due, today) if due else today
         eligible = [k for k in day_keys if (target is None or k <= _iso(target))]
+        # The deadline itself, which the buffer above deliberately stops
+        # short of. Kept as a second tier rather than folded into
+        # ``eligible``: finishing a day early is a preference, and a
+        # preference must never be able to make the work undoable.
+        deadline_days = [
+            k for k in day_keys if (due is None or k <= _iso(due))
+        ] or day_keys[:1]
         if not eligible:
             # Past its buffer but not past its deadline: use whatever days
             # remain up to the due date rather than dropping the task.
-            eligible = [k for k in day_keys if due and k <= _iso(due)] or day_keys[:1]
+            eligible = deadline_days
         slack = len(eligible) / max(1, len(sittings))
-        prepared.append((slack, _iso(due) if due else "9999-12-31", task, sittings, eligible))
+        prepared.append((slack, _iso(due) if due else "9999-12-31", task,
+                         sittings, eligible, deadline_days))
 
     prepared.sort(key=lambda p: (p[0], p[1]))
 
-    for _slack, _due_key, task, sittings, eligible in prepared:
+    for _slack, _due_key, task, sittings, eligible, deadline_days in prepared:
         placed_days: list[str] = []
         for part_index, minutes in enumerate(sittings):
             choice = _pick_day(
                 eligible, load, capacity, minutes, placed_days,
                 part_index=part_index, part_total=len(sittings),
             )
+            if choice is None and deadline_days != eligible:
+                # Nothing inside the finish-early window has room. Spend the
+                # buffer rather than the work: a 45-minute task due tomorrow
+                # must land tomorrow morning, not vanish, when the student
+                # plans at 9pm and today has 35 minutes left. Dropping it is
+                # the one outcome that leaves them worse off than not having
+                # asked -- the task is gone from the plan *and* still due.
+                choice = _pick_day(
+                    deadline_days, load, capacity, minutes, placed_days,
+                    part_index=part_index, part_total=len(sittings),
+                )
             block = dict(task)
             block["duration_minutes"] = minutes
             if len(sittings) > 1:
