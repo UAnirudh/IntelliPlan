@@ -178,3 +178,18 @@ def test_offer_hidden_when_plenty_of_time():
         now_local=_at(8, year=2026, month=6, day=14),
     )
     assert offer is None
+
+
+def test_a_date_ahead_of_local_today_reads_as_safe_not_at_risk():
+    """A westward flight puts the stored qualifying date ahead of local
+    today. The banner used to read that as "not done yet" and start
+    counting down a streak the student had already banked."""
+    now = datetime(2025, 6, 7, 21, 0, tzinfo=ZoneInfo("America/Los_Angeles"))
+    risk = assess_streak_risk(
+        current_streak=27,
+        last_qualifying_local_date=date(2025, 6, 8),
+        user_tz="America/Los_Angeles",
+        now_local=now,
+    )
+    assert risk.level == "safe"
+    assert risk.urgency_score == 0

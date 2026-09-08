@@ -239,3 +239,47 @@ def test_one_students_plan_is_never_recovered_for_another(client):
     saved_plan(owner, progress={})
     login(client, other)
     assert recover(client).get_json()["status"] == "none"
+
+
+# ── Telling the student it happened ───────────────────────────────────
+
+
+def test_a_recovery_notifies_the_student_that_their_plan_moved(client, monkeypatch):
+    """The call site referenced ``notifications_glue`` without importing it,
+    so every recovery raised NameError straight into a bare except and the
+    "we moved N sessions" notification was silently never sent. A recovery
+    the student is not told about is a plan that changed behind their back."""
+    import notifications_glue
+
+    seen = []
+    monkeypatch.setattr(
+        notifications_glue,
+        "on_plan_rescheduled",
+        lambda uid, moved, reason: seen.append((uid, moved, reason)),
+    )
+
+    uid = make_user()
+    login(client, uid)
+    saved_plan(uid, progress={"b2": {"done": True}})
+    assert recover(client).get_json()["changed"] is True
+
+    assert len(seen) == 1
+    assert seen[0][0] == uid
+    assert seen[0][2] == "missed sessions"
+
+
+def test_a_plan_left_alone_does_not_notify(client, monkeypatch):
+    import notifications_glue
+
+    seen = []
+    monkeypatch.setattr(
+        notifications_glue,
+        "on_plan_rescheduled",
+        lambda uid, moved, reason: seen.append(uid),
+    )
+
+    uid = make_user()
+    login(client, uid)
+    saved_plan(uid, progress={"b1": {"done": True}, "b2": {"done": True}})
+    assert recover(client).get_json()["changed"] is False
+    assert seen == []

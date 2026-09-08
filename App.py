@@ -2233,6 +2233,20 @@ def level_for_sparks(sparks_total):
             current = level
     return {"level": current[0], "title": current[1], "next": next(({"level": l, "title": t, "required": req} for l, t, req in LEVELS if req > sparks_total), None)}
 
+def _coerce_local_hour(raw):
+    """The student's local hour 0-23, or the server's when we can't tell.
+
+    Clients that predate ``local_hour`` (and the mobile/extension callers)
+    omit it entirely, so the fallback matters: it decides which time-of-day
+    badges a session is eligible for.
+    """
+    try:
+        hour = int(raw)
+    except (TypeError, ValueError):
+        return datetime.now().hour
+    return hour if 0 <= hour <= 23 else datetime.now().hour
+
+
 def add_badges(p, badge_ids):
     badges = safe_json_load(p.badges, [])
     changed = []
@@ -13152,12 +13166,20 @@ def recover_schedule():
         db.session.rollback()
         print(f"[recover] save failed: {e}")
 
-    try:
-        notifications_glue.on_plan_rescheduled(
-            uid, len([c for c in changes if c.kind == "moved"]), "missed sessions"
-        ) if uid else None
-    except Exception as e:
-        print(f"[recover] notification failed: {e}")
+    if uid:
+        try:
+            # Imported here, not at module scope: notifications_glue imports
+            # App, so a top-level import is a cycle -- which is why the
+            # blueprint registration lives at the bottom of this file. Without
+            # this line the call below raised NameError into the except and
+            # every "we moved N sessions" notification was silently dropped.
+            import notifications_glue
+
+            notifications_glue.on_plan_rescheduled(
+                uid, len([c for c in changes if c.kind == "moved"]), "missed sessions"
+            )
+        except Exception as e:
+            print(f"[recover] notification failed: {e}")
 
     return flask.jsonify({
         "status": "ok",
@@ -14999,10 +15021,17 @@ def study_session_complete():
             badges_to_add.append("perfect_week")
         if duration_seconds and duration_seconds < 300:
             badges_to_add.append("speed_demon")
-        local_hour = int(data.get("local_hour", datetime.now().hour) or 0)
-        if local_hour < 7:
+        # ``or 0`` used to sit on the end of this, which turned every client
+        # that omits local_hour -- and every one that sends a literal 0 --
+        # into midnight, handing out Night Owl for a 4pm session. Fall back
+        # to the server hour explicitly and only when the value is unusable.
+        local_hour = _coerce_local_hour(data.get("local_hour"))
+        # 4-7am is getting up early; 11pm-4am is staying up late. The old
+        # bounds (`< 7` and `== 0`) called a 1am session an Early Bird and
+        # made Night Owl reachable only in the single hour after midnight.
+        if 4 <= local_hour < 8:
             badges_to_add.append("early_bird")
-        if local_hour == 0:
+        if local_hour >= 23 or local_hour < 4:
             badges_to_add.append("night_owl")
         new_badges = add_badges(p, badges_to_add)
         quest_rewards = update_quest_progress(p, {
@@ -15178,6 +15207,11 @@ GUEST_STUDY_LIMITS = {
     "max_questions": 5
 }
 
+# The three cards under "Step 2, Choose Mode" on the study page. They differ
+# in how the session is run, not in what is generated: casual is untimed,
+# serious adds a Pomodoro and hides the nav, extreme takes over the screen.
+STUDY_MODES = ("casual", "serious", "extreme")
+
 def _get_guest_usage():
     if "guest_study_usage" not in session:
         session["guest_study_usage"] = {"uploads": 0, "generations": 0}
@@ -15342,7 +15376,18 @@ def study_generate():
     data = request.json or {}
     content = data.get("content", "").strip()
     mode = data.get("mode", "casual")
-    num_questions = int(data.get("num_questions", 8))
+    if mode not in STUDY_MODES:
+        mode = "casual"
+    # Bare ``int()`` on unvalidated input, outside the try below, meant
+    # {"num_questions": "eight"} returned Flask's HTML 500 page -- which the
+    # client then tried to parse as JSON, so the student saw a parser error
+    # instead of "try again". The upper bound is new too: nothing stopped a
+    # request for 500 questions from being billed as 500 questions.
+    try:
+        num_questions = int(data.get("num_questions", 8))
+    except (TypeError, ValueError):
+        num_questions = 8
+    num_questions = max(1, min(num_questions, 20))
     if not content:
         return flask.jsonify({"status": "error", "message": "No content provided"}), 400
     if _is_guest():
@@ -15401,6 +15446,12 @@ Be accurate, but keep the tone supportive and student-friendly.'''
             usage = _get_guest_usage()
             usage["generations"] += 1
             _save_guest_usage(usage)
+        # The mode the session will actually run in, which is not always the
+        # one that was asked for: a guest gets downgraded to casual above.
+        # Until this was returned, that downgrade changed nothing the student
+        # could see -- the page had already decided locally to launch the
+        # fullscreen lock, so the limit existed only in this function.
+        result["mode"] = mode
         return flask.jsonify({"status": "ok", "data": result})
     except Exception as e:
         print(f"Study generate error: {e}")

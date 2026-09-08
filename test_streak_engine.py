@@ -362,3 +362,47 @@ def test_miss_exactly_2_days_with_2_freezes():
     assert result.freezes_available == 0
     assert result.event == "streak_freeze_consumed"
     assert result.event_props["days_covered"] == 2
+
+
+# ── Flying west: local date moves backwards, streak must survive
+
+def test_flying_west_does_not_break_the_streak():
+    """Qualify on the 8th in London, land in Los Angeles where it is still
+    the 7th. The stored date is now ahead of local today. That used to fall
+    past every branch to the reset at the bottom and cost the student their
+    whole streak for taking a flight."""
+    result = compute_streak_update(
+        current_streak=27,
+        longest_streak=27,
+        last_qualifying_local_date=date(2025, 6, 8),
+        freezes_available=0,
+        freezes_used_total=0,
+        user_tz="America/Los_Angeles",
+        now_local_date=date(2025, 6, 7),
+    )
+    assert result.current_streak == 27
+    assert result.event is None
+    assert result.freezes_available == 0
+
+
+def test_flying_west_does_not_spend_a_freeze():
+    result = compute_streak_update(
+        current_streak=10,
+        longest_streak=12,
+        last_qualifying_local_date=date(2025, 6, 9),
+        freezes_available=3,
+        freezes_used_total=0,
+        user_tz="Pacific/Honolulu",
+        now_local_date=date(2025, 6, 8),
+    )
+    assert result.freezes_available == 3
+    assert result.event is None
+
+
+def test_nudge_silent_when_qualifying_date_is_ahead_of_local_today():
+    assert should_show_nudge(
+        current_streak=5,
+        last_qualifying_local_date=date.today() + timedelta(days=1),
+        user_tz="America/Los_Angeles",
+        nudge_shown_today=False,
+    ) is False

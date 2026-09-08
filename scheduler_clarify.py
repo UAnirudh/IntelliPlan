@@ -1,4 +1,4 @@
-﻿"""Ask before planning, when the request is too vague to plan well.
+"""Ask before planning, when the request is too vague to plan well.
 
 A task called "Study" with no subject and no goal can only ever produce a
 block that says "Study" back at the student. No amount of prompt engineering

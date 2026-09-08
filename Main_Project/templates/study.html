@@ -1320,6 +1320,10 @@ async function startSession() {
     G.questions = d.data.questions || [];
     G.keyConcepts = d.data.key_concepts || [];
     G.title = d.data.title || 'Study Session';
+    // The server decides the mode we actually run in — a guest who picked
+    // Extreme is downgraded to Casual there. Reading it back is what makes
+    // that limit real; before this the page just launched what it liked.
+    if (d.data.mode && d.data.mode !== G.mode) selMode(d.data.mode);
     G.curQ = 0; G.sesPts = 0; G.sesCorrect = 0; G.sesPartial = 0; G.sesAnswered = 0;
     G.mistakes = []; G.sesStart = Date.now(); G.activeSecs = 0;
     G.currentConf = 'medium';

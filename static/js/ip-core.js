@@ -148,9 +148,27 @@
       }, timeout);
 
       // Let callers cancel too (page navigation, block teardown).
+      //
+      // `once`, and unhooked when the attempt settles. `attempt` recurses on
+      // every retry, so an un-removed listener meant a caller's long-lived
+      // signal -- one page-level controller shared by every request on the
+      // screen -- accumulated a listener per attempt for the life of the
+      // page, each one holding a dead AbortController.
+      var onCallerAbort = null;
       if (opts.signal) {
         if (opts.signal.aborted) controller.abort();
-        else opts.signal.addEventListener('abort', function () { controller.abort(); });
+        else {
+          onCallerAbort = function () { controller.abort(); };
+          opts.signal.addEventListener('abort', onCallerAbort, { once: true });
+        }
+      }
+
+      function settled() {
+        clearTimeout(timer);
+        if (onCallerAbort) {
+          opts.signal.removeEventListener('abort', onCallerAbort);
+          onCallerAbort = null;
+        }
       }
 
       var headers = Object.assign({
@@ -180,7 +198,7 @@
         signal: controller.signal,
         cache: opts.cache || 'no-store'
       }).then(function (res) {
-        clearTimeout(timer);
+        settled();
         return readBody(res).then(function (parsed) {
           if (res.ok) {
             // Some endpoints answer 200 with {status:"error"}. Treat as failure.
@@ -209,7 +227,7 @@
           throw err;
         });
       }, function (err) {
-        clearTimeout(timer);
+        settled();
         if (timedOut) {
           throw new ApiError('Request timed out', {
             code: 'timeout', url: url, retriable: true
