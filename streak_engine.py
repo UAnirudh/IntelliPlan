@@ -53,8 +53,16 @@ def compute_streak_update(
     """
     today = now_local_date or resolve_local_date(user_tz)
 
-    # ── Same day: no streak change ───────────────────────────────
-    if last_qualifying_local_date == today:
+    # ── Same day (or later): no streak change ────────────────────
+    #
+    # ``>=``, not ``==``. A stored date ahead of today is not a corrupt row,
+    # it is a student who flew west: they qualified on the 8th in London,
+    # landed in Los Angeles, and their local date is now the 7th. With ``==``
+    # that fell through every branch below to the reset at the bottom --
+    # days_missed clamps to 0, the freeze branch needs it > 0 -- and cost
+    # them the whole streak for taking a flight. Treating a future date as
+    # already-qualified holds the streak until local time catches up.
+    if last_qualifying_local_date is not None and last_qualifying_local_date >= today:
         return StreakResult(
             current_streak=current_streak,
             longest_streak=longest_streak,
@@ -188,7 +196,9 @@ def should_show_nudge(
     if current_streak <= 0:
         return False
     today = resolve_local_date(user_tz)
-    if last_qualifying_local_date == today:
+    # ``>=`` for the same reason as compute_streak_update: a date ahead of
+    # local today means already qualified, so there is nothing to nudge about.
+    if last_qualifying_local_date is not None and last_qualifying_local_date >= today:
         return False
     now = datetime.now(ZoneInfo(user_tz))
     if now.hour < 18:
@@ -259,7 +269,10 @@ def assess_streak_risk(
             urgency_score=40,
         )
 
-    if last_qualifying_local_date == today:
+    # ``>=``: a date ahead of local today is a westward traveller, not a
+    # student at risk. Telling them their streak ends in 3 hours when it is
+    # already banked is the banner crying wolf.
+    if last_qualifying_local_date is not None and last_qualifying_local_date >= today:
         return StreakRisk(
             level="safe",
             hours_until_break=24,

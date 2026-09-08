@@ -10,7 +10,7 @@
      IP.offline.cachedAt(url)  when that copy was taken, or null
      IP.offline.forget(url)    drop one entry (sign-out, account switch)
      IP.offline.clear()        drop everything
-     IP.offline.status()       { online, pending, staleSince }
+     IP.offline.status()       { online, pending }
 
    Storage is IndexedDB, not localStorage: a term's worth of assignments is
    far past what a 5MB string store should hold, and localStorage writes are
