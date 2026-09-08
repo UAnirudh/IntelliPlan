@@ -22,6 +22,9 @@
       <img src="https://launchfinds.com/launchfinds/images/badges/top1-light.svg" alt="Launch Finds Top 1 Daily Winner" style="width: 195px; height: auto;" />
     </picture>
   </a>
+  <a href="https://launchit.fast" target="_blank" rel="noopener" title="Featured on LaunchIt">
+    <img src="https://launchit.fast/img/launching.svg" alt="Featured on LaunchIt" style="width: 195px; height: auto;" />
+  </a>
 </p>
 
 ---
