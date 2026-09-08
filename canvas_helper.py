@@ -28,6 +28,52 @@ def _strip_html(s):
     return re.sub(r"<[^>]+>", "", s).strip()
 
 
+#: Canvas caps per_page at 100 regardless of what you ask for, so a course
+#: with more than 100 assignments needs the Link header followed. The cap
+#: below is a runaway guard, not a product limit: 50 pages is 5000 items.
+_MAX_PAGES = 50
+
+
+def _get_list(url, headers, timeout=15):
+    """GET a Canvas list endpoint and return *every* page of it.
+
+    Canvas defaults to **ten** items per page. Asking for per_page=100 moves
+    that cliff but does not remove it, and every list endpoint here was
+    written as a single un-paginated GET -- so a course past the limit had
+    the rest of its assignments silently dropped. The symptom is not an
+    error: it is a gradebook that renders cleanly while missing the
+    assignment you were looking for, which is much harder to notice than a
+    failure would be.
+
+    Returns [] on any failure, matching what the callers already expect.
+    """
+    out = []
+    sep = "&" if "?" in url else "?"
+    next_url = f"{url}{sep}per_page=100"
+
+    for _ in range(_MAX_PAGES):
+        try:
+            resp = requests.get(next_url, headers=headers, timeout=timeout)
+            page = resp.json()
+        except Exception:
+            break
+        if not isinstance(page, list):
+            # An error body ({"errors": [...]}) rather than a list of items.
+            break
+        out.extend(page)
+
+        # Canvas paginates via RFC 5988 Link headers; requests parses them.
+        try:
+            nxt = resp.links.get("next", {}).get("url")
+        except Exception:
+            nxt = None
+        if not nxt or nxt == next_url:
+            break
+        next_url = nxt
+
+    return out
+
+
 def _rubric_len(rubric):
     """Number of rubric criteria, or 0. Canvas omits the key when there is
     no rubric and returns a list of criterion objects when there is one."""
@@ -70,13 +116,8 @@ def test_login(canvas_url, token):
 
 
 def _fetch_courses(canvas_url, token):
-    try:
-        r = requests.get(f"{_base(canvas_url)}/courses",
-                         headers=_headers(token), timeout=15)
-        data = r.json()
-        return [c for c in data if isinstance(c, dict) and "id" in c]
-    except Exception:
-        return []
+    data = _get_list(f"{_base(canvas_url)}/courses", _headers(token))
+    return [c for c in data if isinstance(c, dict) and "id" in c]
 
 
 def get_courses(canvas_url, token):
@@ -95,14 +136,12 @@ def get_assignments(canvas_url, token):
 
     for cid in course_map:
         try:
-            # per_page matters: Canvas defaults to ten items, so a course with
-            # thirty assignments silently reported the first ten and the
-            # planner scheduled a week that was missing two thirds of the work.
-            resp = requests.get(f"{base}/courses/{cid}/assignments?per_page=100",
-                                headers=headers, timeout=15).json()
+            # Canvas defaults to ten items per page, so a course with thirty
+            # assignments silently reported the first ten and the planner
+            # scheduled a week that was missing two thirds of the work.
+            # _get_list follows the Link header, so >100 works too.
+            resp = _get_list(f"{base}/courses/{cid}/assignments", headers)
         except Exception:
-            continue
-        if not isinstance(resp, list):
             continue
         for a in resp:
             if not isinstance(a, dict):
@@ -175,17 +214,13 @@ def get_grades(canvas_url, token):
     """Return per-course current grades in StudentVue-compatible shape."""
     base = _base(canvas_url)
     headers = _headers(token)
-    try:
-        resp = requests.get(
-            f"{base}/courses?include[]=total_scores&include[]=teachers&enrollment_state=active",
-            headers=headers, timeout=15
-        ).json()
-    except Exception:
-        return []
+    resp = _get_list(
+        f"{base}/courses?include[]=total_scores&include[]=teachers"
+        f"&enrollment_state=active",
+        headers,
+    )
 
     grades = []
-    if not isinstance(resp, list):
-        return []
 
     for c in resp:
         if not isinstance(c, dict) or "id" not in c:
@@ -242,56 +277,56 @@ def get_gradebook_detail(canvas_url, token):
         cid = c["id"]
         course_name = c.get("name", "Unknown")
 
-        try:
-            assignments_raw = requests.get(
-                f"{base}/courses/{cid}/assignments",
-                headers=headers, timeout=15
-            ).json()
-        except Exception:
-            assignments_raw = []
-        try:
-            submissions = requests.get(
-                f"{base}/courses/{cid}/students/submissions?student_ids[]=self&per_page=100",
-                headers=headers, timeout=15
-            ).json()
-        except Exception:
-            submissions = []
+        assignments_raw = _get_list(f"{base}/courses/{cid}/assignments", headers)
+        submissions = _get_list(
+            f"{base}/courses/{cid}/students/submissions?student_ids[]=self",
+            headers,
+        )
 
         sub_map = {}
-        if isinstance(submissions, list):
-            for s in submissions:
-                if isinstance(s, dict) and "assignment_id" in s:
-                    sub_map[s["assignment_id"]] = s
+        for s in submissions:
+            if isinstance(s, dict) and "assignment_id" in s:
+                sub_map[s["assignment_id"]] = s
 
         course_assignments = []
-        if isinstance(assignments_raw, list):
-            for a in assignments_raw:
-                if not isinstance(a, dict):
-                    continue
-                aid = a.get("id")
-                points_possible = a.get("points_possible") or 0
-                sub = sub_map.get(aid, {})
-                score = sub.get("score")
-                try:
-                    score_val = float(score) if score is not None else None
-                except Exception:
-                    score_val = None
+        for a in assignments_raw:
+            if not isinstance(a, dict):
+                continue
+            aid = a.get("id")
+            points_possible = a.get("points_possible") or 0
+            sub = sub_map.get(aid, {})
+            score = sub.get("score")
+            try:
+                score_val = float(score) if score is not None else None
+            except Exception:
+                score_val = None
 
-                course_assignments.append({
-                    "title": a.get("name", ""),
-                    "due_date": (a.get("due_at") or "")[:10],
-                    "points_possible": points_possible,
-                    "points_earned": score_val if score_val is not None else "",
-                    "score_label": (
-                        f"{score_val:g}/{points_possible:g}"
-                        if score_val is not None and points_possible
-                        else (sub.get("grade") or "")
-                    ),
-                    "display_score": sub.get("grade") or ("Not Graded" if score_val is None else ""),
-                    "type": a.get("assignment_group_id", ""),
-                    "weight": "",
-                    "calculated_mark": "",
-                })
+            course_assignments.append({
+                "title": a.get("name", ""),
+                "due_date": (a.get("due_at") or "")[:10],
+                "points_possible": points_possible,
+                "points_earned": score_val if score_val is not None else "",
+                "score_label": (
+                    f"{score_val:g}/{points_possible:g}"
+                    if score_val is not None and points_possible
+                    else (sub.get("grade") or "")
+                ),
+                # Never "" for something that has a score. Canvas leaves
+                # `grade` empty whenever there is no letter to report -- an
+                # assignment graded on points alone, a course with no grading
+                # scheme -- while still sending a real `score`. This fell to
+                # "", and both gradebook.html and grademodel.html count "" as
+                # a pending label, so a graded assignment was classified
+                # ungraded and dropped out of the graded view. The score was
+                # fetched, carried, and then thrown away at the last step.
+                "display_score": (
+                    sub.get("grade")
+                    or (f"{score_val:g}" if score_val is not None else "Not Graded")
+                ),
+                "type": a.get("assignment_group_id", ""),
+                "weight": "",
+                "calculated_mark": "",
+            })
 
         detail.append({
             "course": course_name,
@@ -310,17 +345,11 @@ def get_missing_assignments(canvas_url, token):
 
     missing = []
     for cid, course_name in course_map.items():
-        try:
-            assignments_raw = requests.get(
-                f"{base}/courses/{cid}/assignments",
-                headers=headers, timeout=15
-            ).json()
-            submissions = requests.get(
-                f"{base}/courses/{cid}/students/submissions?student_ids[]=self&per_page=100",
-                headers=headers, timeout=15
-            ).json()
-        except Exception:
-            continue
+        assignments_raw = _get_list(f"{base}/courses/{cid}/assignments", headers)
+        submissions = _get_list(
+            f"{base}/courses/{cid}/students/submissions?student_ids[]=self",
+            headers,
+        )
 
         sub_map = {}
         if isinstance(submissions, list):
