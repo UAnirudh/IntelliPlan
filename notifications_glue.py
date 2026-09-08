@@ -162,6 +162,22 @@ def get_dispatcher() -> Dispatcher:
     return Dispatcher(NotificationOutbox, db.session, _senders())
 
 
+def _timezone_for(user_id: int) -> str:
+    """The student's IANA timezone, or "" when none has been recorded.
+
+    It lives on the streak row rather than the user row -- that is where the
+    browser's timezone gets captured -- which is why notifications never saw
+    it and fell back to a utc_offset_minutes no client ever sets.
+    """
+    from App import UserStreak
+
+    try:
+        row = UserStreak.query.filter_by(user_id=user_id).first()
+    except Exception:
+        return ""
+    return (row.timezone or "") if row else ""
+
+
 def _preferences_for(user: Any):
     from App import PushSubscription
 
@@ -172,7 +188,9 @@ def _preferences_for(user: Any):
         )
     except Exception:
         pass
-    return preferences_from_user(user, push_subscribed=subscribed)
+    return preferences_from_user(
+        user, push_subscribed=subscribed, tz_name=_timezone_for(user.id)
+    )
 
 
 def _plan_for(user_id: int) -> dict | None:
