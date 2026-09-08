@@ -19811,10 +19811,48 @@ def _session_msg_owner_filter(context_type, context_id):
     return q.order_by(SessionMessage.created_at.asc()).limit(500)
 
 
+def _session_chat_denial(context_type, context_id):
+    """``None`` when the caller may read and post in this room, else a response.
+
+    The name ``_session_msg_owner_filter`` above promises an owner filter it
+    does not apply -- it scopes to the room and nothing else. Without this
+    check, the chat endpoints were the only room-scoped surface in the app
+    with no membership gate at all: every other /api/groups/<id>/... endpoint
+    answers 403 "not a member", while a chat message could be read or posted
+    by anyone willing to count upwards through group ids. Private groups
+    included.
+
+    Live sessions are deliberately different and are left open: /live/<id> is
+    a public-by-link landing page, and the invite URL it hands out is that
+    same integer id, so the id is the share token rather than a secret to
+    protect. Gating it would change the product, not fix a bug. Only the
+    room's existence is checked, so a wrong id 404s instead of silently
+    reading as an empty room.
+    """
+    if context_type == "group":
+        if not current_user.is_authenticated:
+            return jsonify({"status": "error", "message": "login required"}), 401
+        if not StudyGroup.query.get(context_id):
+            return jsonify({"status": "error", "message": "not found"}), 404
+        member = StudyGroupMember.query.filter_by(
+            group_id=context_id, user_id=current_user.id).first()
+        if not member:
+            return jsonify({"status": "error", "message": "not a member"}), 403
+        return None
+
+    # context_type == "live"
+    if not LiveSession.query.get(context_id):
+        return jsonify({"status": "error", "message": "not found"}), 404
+    return None
+
+
 @app.route("/api/sessions/<context_type>/<int:context_id>/messages", methods=["GET", "POST"])
 def api_session_messages(context_type, context_id):
     if context_type not in ("live", "group"):
         return jsonify({"status": "error", "message": "Invalid context"}), 400
+    denial = _session_chat_denial(context_type, context_id)
+    if denial is not None:
+        return denial
     if request.method == "GET":
         rows = _session_msg_owner_filter(context_type, context_id).all()
         return jsonify({"status": "ok", "messages": [{
@@ -19855,6 +19893,12 @@ def api_save_session_message(msg_id):
         return jsonify({"status": "error", "message": "Not found"}), 404
     if not current_user.is_authenticated:
         return jsonify({"status": "error", "message": "login required"}), 401
+    # Same gate as reading the room. Without it any signed-in student could
+    # copy the body of any message in the app into their own notes by walking
+    # message ids -- the message never had to be in a room they belong to.
+    denial = _session_chat_denial(msg.context_type, msg.context_id)
+    if denial is not None:
+        return denial
     msg.saved_to_library = True
     note = CourseNote(
         user_id=current_user.id,
