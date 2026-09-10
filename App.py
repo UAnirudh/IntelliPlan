@@ -35,6 +35,7 @@ from time_utils import utcnow
 import bot_protection
 import cookie_policy
 import fallback_scheduler
+import ics_feed
 import request_guards
 import secret_box
 import policy_versions
@@ -2830,6 +2831,11 @@ def get_active_account():
             "login_type": "canvas",
             "canvas_token": session.get("canvas_token"),
             "canvas_url": session.get("canvas_url"),
+        }
+    if login_type == "calendar_feed":
+        return {
+            "login_type": "calendar_feed",
+            "feed_url": session.get("feed_url"),
         }
     if login_type == "studentvue":
         return {
@@ -7515,6 +7521,64 @@ def login_canvas():
         canvas_oauth_available=(CANVAS_OAUTH_AVAILABLE and canvas_oauth_any_configured()),
     )
 
+@app.route("/login/calendar-feed", methods=["POST"])
+def login_calendar_feed():
+    """Connect using the calendar feed URL every Canvas user already has.
+
+    The path that needs nothing from anybody: no Developer Key (which only a
+    school's own Canvas admin can issue, per school), no access token, no
+    settings page. Canvas -> Calendar -> Calendar Feed is one URL, and the
+    same shape of link is what Blackboard, Moodle and Google Calendar hand
+    out, so one importer covers all of them.
+
+    It carries due dates, not grades. That is stated on the page rather than
+    left for a student to discover when the gradebook is empty.
+    """
+    feed_url = (request.form.get("feed_url") or "").strip()
+    profile_name = (request.form.get("profile_name") or "").strip() or "Calendar Feed"
+
+    try:
+        # Validate by importing: a URL that parses to nothing is a URL the
+        # student should fix now, not after it has been saved.
+        assignments = ics_feed.import_assignments(feed_url)
+        stored_url = ics_feed.normalize_feed_url(feed_url)
+    except ics_feed.FeedError as e:
+        return render_template(
+            "login_canvas.html", active_page="login", error=str(e),
+            canvas_oauth_available=(CANVAS_OAUTH_AVAILABLE and canvas_oauth_any_configured()),
+        )
+    except Exception as e:
+        print(f"[calendar-feed] import failed: {e}")
+        return render_template(
+            "login_canvas.html", active_page="login",
+            error="Could not read that calendar feed. Copy the link again from Canvas.",
+            canvas_oauth_available=(CANVAS_OAUTH_AVAILABLE and canvas_oauth_any_configured()),
+        )
+
+    if not assignments:
+        return render_template(
+            "login_canvas.html", active_page="login",
+            error=("That feed loaded but has no upcoming assignments in it. "
+                   "Check you copied the Calendar Feed link and that your "
+                   "courses are showing in the Canvas calendar."),
+            canvas_oauth_available=(CANVAS_OAUTH_AVAILABLE and canvas_oauth_any_configured()),
+        )
+
+    creds = {"feed_url": stored_url}
+    if current_user.is_authenticated:
+        LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
+        acct = LinkedAccount(user_id=current_user.id, name=profile_name,
+                             login_type="calendar_feed", is_active=True)
+        acct.set_credentials(creds)
+        db.session.add(acct)
+        db.session.commit()
+    else:
+        session.permanent = True
+        session["feed_url"] = stored_url
+        session["login_type"] = "calendar_feed"
+    return redirect("/command-center")
+
+
 # ── CANVAS OAUTH ──────────────────────────────────────────────
 # Lets students connect Canvas with one click instead of finding and
 # pasting a personal access token. Backed by canvas_oauth.py.
@@ -11026,6 +11090,15 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
                             tasks.append(a)
             except Exception as e:
                 print(f"[lms-collect] SV missing err: {e}")
+        elif login_type == "calendar_feed":
+            try:
+                for a in ics_feed.import_assignments(acct_dict.get("feed_url")):
+                    if a.get("title") in dismissed:
+                        continue
+                    a.setdefault("color", PRIORITY_COLORS.get(a.get("priority", "Medium"), "#f59e0b"))
+                    tasks.append(a)
+            except Exception as e:
+                print(f"[lms-collect] calendar feed err: {e}")
         elif login_type == "canvas":
             try:
                 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -11203,6 +11276,19 @@ def unified_tasks():
                             tasks.append(a)
             except Exception as e:
                 print(f"Missing assignments error: {e}")
+        elif login_type == "calendar_feed":
+            # No token, no Developer Key, no admin: the student pasted the
+            # feed URL Canvas already gives every user. Carries what is due
+            # and when, which is all the planner needs; grades come from a
+            # token, and the grade surfaces correctly show nothing here.
+            try:
+                for a in ics_feed.import_assignments(acct.get("feed_url"), today=today):
+                    if a.get("title") in dismissed:
+                        continue
+                    a.setdefault("color", PRIORITY_COLORS.get(a.get("priority", "Medium"), "#f59e0b"))
+                    tasks.append(a)
+            except Exception as e:
+                print(f"Calendar feed error: {e}")
         elif login_type == "canvas":
             try:
                 token = acct["canvas_token"]
