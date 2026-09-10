@@ -194,3 +194,31 @@ def oauth_is_configured(canvas_base=None):
     show the "Continue with Canvas" button vs. the token-paste fallback."""
     cid, sec = _client_credentials(canvas_base)
     return bool(cid and sec)
+
+
+def oauth_any_configured():
+    """True when *some* Canvas Developer Key exists -- global or for any
+    single school.
+
+    The login page needs this rather than ``oauth_is_configured()`` with no
+    argument. That call only sees the global key, so a deploy carrying only
+    per-instance keys reported False and the template hid the entire OAuth
+    block -- including the probe script whose whole job is to ask, per URL,
+    whether that school is registered. The per-instance feature could
+    therefore never light up for anyone unless a global key happened to
+    exist too, which is the opposite of what it is for.
+
+    Rendering the block on this looser test is safe: the button starts
+    disabled and the probe enables it only for a base that really is
+    registered, so a student at an unregistered school still sees the
+    token instructions.
+    """
+    if oauth_is_configured():
+        return True
+    for name in os.environ:
+        if not name.startswith("CANVAS_CLIENT_ID_"):
+            continue
+        suffix = name[len("CANVAS_CLIENT_ID_"):]
+        if os.getenv(name) and os.getenv(f"CANVAS_CLIENT_SECRET_{suffix}"):
+            return True
+    return False

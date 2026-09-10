@@ -22,7 +22,19 @@
     {% endif %}
     {% if request.args.get('reason') == 'oauth_unavailable' %}
     <div class="login-error" style="background:rgba(217,119,6,0.12);border-color:rgba(217,119,6,0.4);color:#d97706;">
-      One-click Canvas sign-in isn't configured on this IntelliPlan instance. Use the personal access token method below.
+      <strong>One-click Canvas sign-in isn't set up for this school yet.</strong><br>
+      Canvas only allows it once a school's Canvas admin registers IntelliPlan
+      as a Developer Key, which has to be done per school — there is no way for
+      us to enable it from our side. <strong>The access token method below works
+      today and gives IntelliPlan exactly the same access.</strong>
+      <details style="margin-top:0.6rem;">
+        <summary style="cursor:pointer;font-size:0.8rem;font-weight:600;">For your Canvas admin</summary>
+        <div style="font-size:0.78rem;opacity:0.9;margin-top:0.4rem;line-height:1.5;">
+          In Canvas: <em>Admin → Developer Keys → + Key → API Key</em>, then send
+          us the Key ID and Secret.
+          <br>Redirect URI: <code>https://intelliplan.tech/oauth/canvas/callback</code>
+        </div>
+      </details>
     </div>
     {% endif %}
 
