@@ -122,6 +122,7 @@ try:
         get_canvas_auth_url, exchange_canvas_code,
         refresh_canvas_token, revoke_canvas_token,
         oauth_is_configured as canvas_oauth_configured,
+        oauth_any_configured as canvas_oauth_any_configured,
         DEFAULT_CANVAS_BASE,
     )
     CANVAS_OAUTH_AVAILABLE = True
@@ -7466,8 +7467,24 @@ def login_canvas():
         if not token or not canvas_url:
             error = "Please fill in both fields."
         else:
-            test = requests.get(f"{canvas_url}/api/v1/courses", headers={"Authorization": f"Bearer {token}"}, timeout=20)
-            if test.status_code == 200:
+            # A typo'd school URL, a Canvas that is down, or a network blip
+            # used to raise straight out of the view and render a 500 page.
+            # The student's next move is the same in all three cases -- check
+            # the address and try again -- so say that instead of crashing.
+            try:
+                test = requests.get(
+                    f"{canvas_url}/api/v1/courses",
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=20,
+                )
+            except requests.RequestException:
+                test = None
+                error = (
+                    f"Could not reach {canvas_url}. Check the address is your "
+                    "school's Canvas (it usually looks like "
+                    "https://yourschool.instructure.com) and try again."
+                )
+            if test is not None and test.status_code == 200:
                 creds = {"canvas_token": token, "canvas_url": canvas_url}
                 if current_user.is_authenticated:
                     LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
@@ -7481,13 +7498,21 @@ def login_canvas():
                     session["canvas_url"] = canvas_url
                     session["login_type"] = "canvas"
                 return redirect("/command-center")
-            else:
+            elif test is not None:
+                # `elif`, not `else`: when the request never completed, error
+                # already holds the "could not reach" message above, and
+                # "Invalid token" would be both wrong and a worse hint.
                 error = "Invalid token or Canvas URL."
     return render_template(
         "login_canvas.html",
         active_page="login",
         error=error,
-        canvas_oauth_available=(CANVAS_OAUTH_AVAILABLE and canvas_oauth_configured()),
+        # any_configured, not configured(): the latter sees only the global
+        # key, so a deploy holding only per-school keys hid the OAuth block
+        # entirely -- including the probe that decides, per URL, whether that
+        # school is registered. The probe leaves the button disabled for a
+        # school without a key, so the looser test costs nothing.
+        canvas_oauth_available=(CANVAS_OAUTH_AVAILABLE and canvas_oauth_any_configured()),
     )
 
 # ── CANVAS OAUTH ──────────────────────────────────────────────
