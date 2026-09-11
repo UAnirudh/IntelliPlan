@@ -165,10 +165,16 @@ def user_cohort(user_id: int, flag_key: str, percentage: int) -> str:
 
 # ── Week dots helper ─────────────────────────────────────────────────
 
-def week_dots(user_tz: str, qualified_dates: set[date]) -> list[dict]:
-    """Return Mon-Sun dot data for the current local week."""
+def week_dots(user_tz: str, qualified_dates: set[date], weeks_back: int = 0) -> list[dict]:
+    """Return Mon-Sun dot data for the current local week.
+
+    ``weeks_back=1`` gives the week that has just finished, every day of
+    which is in the past. That matters because ``perfect_week_bonus`` can
+    only call a week perfect once all seven days have happened, so on the
+    current week it is answerable on Sunday and no other day.
+    """
     today = resolve_local_date(user_tz)
-    monday = today - timedelta(days=today.weekday())
+    monday = today - timedelta(days=today.weekday() + 7 * max(0, weeks_back))
     dots = []
     day_labels = ["M", "T", "W", "T", "F", "S", "S"]
     for i in range(7):

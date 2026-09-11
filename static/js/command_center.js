@@ -319,7 +319,11 @@ function hydrateStreakRisk(d) {
     banner.hidden = false; banner.style.display = 'flex';
     banner.className = 'cc-risk-banner cc-risk-' + d.level;
     banner.innerHTML = '<span class="cc-risk-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-warning"/></svg></span><span>' + d.message + '</span><a href="/dashboard" class="cc-risk-cta">Save it</a>';
-  } else if (d.perfect_week && d.perfect_week.perfect && d.perfect_week_paid) {
+  // perfect_week_paid alone is the signal. It used to also require
+  // perfect_week.perfect, which describes the *current* week -- so a bonus
+  // paid for the week that just finished landed in the student's XP with no
+  // banner at all, which is the half of the reward that drives the habit.
+  } else if (d.perfect_week_paid) {
     banner.hidden = false; banner.style.display = 'flex';
     banner.className = 'cc-risk-banner cc-risk-celebrate';
     banner.innerHTML = '<span class="cc-risk-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg></span><span>Perfect week · +' + d.perfect_week_paid + ' XP</span>';
