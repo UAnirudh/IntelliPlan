@@ -2133,6 +2133,10 @@ STREAK_MILESTONES = {
     365: {"sparks": 2000, "freezes": 3, "badge": "year_of_fire", "title": "Eternal"},
 }
 
+# A perfect run of one question is not an achievement; five is the shortest
+# session the generator will produce that still takes real work.
+PERFECT_SESSION_MIN_QUESTIONS = 5
+
 BADGE_CATALOG = {
     "first_flame": {"name": "First Flame", "kind": "streak"},
     "week_warrior": {"name": "Week Warrior", "kind": "streak"},
@@ -2150,6 +2154,7 @@ BADGE_CATALOG = {
     "sharp": {"name": "Sharp", "kind": "accuracy"},
     "precise": {"name": "Precise", "kind": "accuracy"},
     "flawless": {"name": "Flawless", "kind": "accuracy"},
+    "perfect_session": {"name": "Perfect Session", "kind": "accuracy"},
     "perfect_week": {"name": "Perfect Week", "kind": "special"},
     "speed_demon": {"name": "Speed Demon", "kind": "special"},
     "night_owl": {"name": "Night Owl", "kind": "special"},
@@ -12136,17 +12141,38 @@ def streak_risk():
     dots = streak_engine.week_dots(tz_name, qualified)
     perfect = streak_engine.perfect_week_bonus(dots)
 
-    # Pay out the perfect-week bonus exactly once per ISO week
-    iso_year, iso_week, _ = pet_engine.datetime.now(pet_engine.ZoneInfo(tz_name)).date().isocalendar()
+    # A week can only be called perfect once all seven of its days have
+    # happened, so the current week answers "perfect" on Sunday and on no
+    # other day. That made the bonus claimable only by students who opened
+    # the app during the last few hours of a week they had already earned --
+    # miss Sunday and a flawless week paid nothing, forever. Fall back to the
+    # week that has just finished, which is settled every day it is checked.
+    payout_dots = dots
+    if not perfect.get("perfect"):
+        prior = streak_engine.week_dots(tz_name, qualified, weeks_back=1)
+        if streak_engine.perfect_week_bonus(prior).get("perfect"):
+            payout_dots = prior
+    payout = streak_engine.perfect_week_bonus(payout_dots)
+
+    # Key the payout to the week being judged, not to today, so Sunday and
+    # the Monday after settle the same week and it is paid exactly once.
+    anchor = date.fromisoformat(payout_dots[0]["date"])
+    iso_year, iso_week, _ = anchor.isocalendar()
     week_key = f"{iso_year}-W{iso_week:02d}"
     paid_bonus = None
-    if perfect.get("perfect"):
+    if payout.get("perfect"):
         pet = _get_or_create_pet(current_user.id)
         if pet.perfect_week_paid != week_key:
-            pet.xp = (pet.xp or 0) + perfect["bonus_xp"]
+            pet.xp = (pet.xp or 0) + payout["bonus_xp"]
             pet.perfect_week_paid = week_key
-            db.session.commit()
-            paid_bonus = perfect["bonus_xp"]
+            paid_bonus = payout["bonus_xp"]
+        # Award the badge whenever the week is perfect, not only on the week
+        # it is first paid: the XP payout is once-per-week and the badge is
+        # once-per-lifetime, so tying the badge to the payout meant a student
+        # whose first perfect week predated this code could never collect it.
+        # add_badges is already a no-op when they have it.
+        add_badges(get_study_profile(current_user.id), ["perfect_week"])
+        db.session.commit()
 
     return flask.jsonify({
         "status": "ok",
@@ -12156,6 +12182,7 @@ def streak_risk():
         "urgency_score": risk.urgency_score,
         "perfect_week": perfect,
         "perfect_week_paid": paid_bonus,
+        "perfect_week_paid_for": week_key if paid_bonus else None,
         "freeze_offer": streak_engine.streak_freeze_offer(
             current_streak=row.current_streak,
             last_qualifying_local_date=last_date,
@@ -15128,8 +15155,14 @@ def study_session_complete():
             badges_to_add.append("precise")
         if accuracy >= 95 and len(sessions) >= 20:
             badges_to_add.append("flawless")
-        if questions_total > 0 and questions_correct >= questions_total:
-            badges_to_add.append("perfect_week")
+        # This is one all-correct session, not a week. It used to award
+        # ``perfect_week`` -- the rarest-sounding badge in the catalog --
+        # which a student could collect on their very first session, while
+        # the badge for an actually-perfect week (see /api/streak/risk) was
+        # never awarded at all. The minimum length keeps a one-question
+        # session from earning it.
+        if questions_total >= PERFECT_SESSION_MIN_QUESTIONS and questions_correct >= questions_total:
+            badges_to_add.append("perfect_session")
         if duration_seconds and duration_seconds < 300:
             badges_to_add.append("speed_demon")
         # ``or 0`` used to sit on the end of this, which turned every client
