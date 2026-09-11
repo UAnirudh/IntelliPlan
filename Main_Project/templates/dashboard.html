@@ -930,20 +930,17 @@
 <div id="integrationsModal" class="ipd-modal-overlay">
   <div class="ipd-modal">
     <h3>Integrations</h3>
-    <div style="display:flex;flex-direction:column;gap:16px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);">
-        <div>
-          <div style="font-weight:600;font-size:0.88rem;color:var(--text-primary);font-family:var(--ipd-font-body);">Google Calendar</div>
-          <div id="gcalStatus" style="font-size:0.76rem;color:var(--text-muted);margin-top:2px;">Checking…</div>
-        </div>
-        <div id="gcalActions"></div>
-      </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;">
-        <div>
-          <div style="font-weight:600;font-size:0.88rem;color:var(--text-primary);font-family:var(--ipd-font-body);">Notion</div>
-          <div id="notionStatus" style="font-size:0.76rem;color:var(--text-muted);margin-top:2px;">Checking…</div>
-        </div>
-        <div id="notionActions"></div>
+    {# Rendered from /api/integrations/status rather than written out here.
+       This modal used to hardcode two of the ten integrations IntelliPlan
+       offers, so a student who opened it concluded we connect to two
+       things. #}
+    <p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 1rem;line-height:1.5;">
+      Connect your school platform to pull in what's due. Each one lists every
+      way to connect it, cheapest first.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:4px;">
+      <div id="ipIntegrationsList">
+        <div style="font-size:0.8rem;color:var(--text-muted);padding:12px 0;">Loading…</div>
       </div>
       <div id="notionSetup" style="display:none;">
         <label>Notion integration token</label>
@@ -1781,50 +1778,135 @@ async function deleteManualTask() {
 // ── INTEGRATIONS ─────────────────────────────────────────────
 function openIntegrationsModal() {
   document.getElementById('integrationsModal').style.display = 'flex';
-  checkGCalStatus();
-  checkNotionStatus();
+  loadIntegrations();
+}
+
+/* ── The integrations list ──────────────────────────────────────────
+   Rendered from the server's catalogue so this modal cannot drift out of
+   date the way it did: it listed Google Calendar and Notion while the app
+   supported ten. */
+var IP_FRICTION_LABEL = {
+  instant: 'One click',
+  low: 'Paste one link',
+  medium: 'A few steps',
+  high: 'Needs an API key'
+};
+
+function ipEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function ipMethodRow(m) {
+  var admin = m.needs_school_admin
+    ? '<span style="color:var(--ipd-priority-high);font-weight:600;">Needs your school to set this up</span> · '
+    : '';
+  var target = m.start_url
+    ? 'href="' + ipEsc(m.start_url) + '"'
+    : 'href="#" onclick="ipStartIntegration(event, \'' + ipEsc(m.start_post || '') + '\')"';
+  return '' +
+    '<a ' + target + ' style="display:block;text-decoration:none;color:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--border);margin-top:6px;">' +
+      '<div style="display:flex;align-items:center;gap:8px;">' +
+        '<span style="font-weight:600;font-size:0.8rem;">' + ipEsc(m.label) + '</span>' +
+        '<span style="font-size:0.68rem;color:var(--text-muted);border:1px solid var(--border);border-radius:99px;padding:1px 7px;">' +
+          ipEsc(IP_FRICTION_LABEL[m.friction] || m.friction) + '</span>' +
+      '</div>' +
+      '<div style="font-size:0.73rem;color:var(--text-muted);margin-top:3px;line-height:1.45;">' +
+        admin + ipEsc(m.how) + (m.note ? ' ' + ipEsc(m.note) : '') +
+      '</div>' +
+    '</a>';
+}
+
+function ipIntegrationCard(it) {
+  var badge = '';
+  if (it.connected) {
+    badge = '<span style="color:var(--ipd-priority-low);font-size:0.74rem;font-weight:600;">Connected' +
+            (it.detail ? ' · ' + ipEsc(it.detail) : '') + '</span>';
+  } else if (it.coming_soon) {
+    badge = '<span style="color:var(--text-muted);font-size:0.74rem;">Coming soon</span>';
+  }
+
+  var body = '';
+  if (it.connected && it.disconnect_url) {
+    body = '<button class="ipd-btn" style="font-size:0.75rem;padding:6px 12px;margin-top:8px;" ' +
+           'onclick="ipDisconnectIntegration(\'' + ipEsc(it.disconnect_url) + '\')">Disconnect</button>';
+  } else if (!it.connected) {
+    body = (it.methods || []).map(ipMethodRow).join('');
+  }
+
+  return '' +
+    '<div style="padding:14px 0;border-bottom:1px solid var(--border);">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">' +
+        '<div style="font-weight:600;font-size:0.88rem;color:var(--text-primary);font-family:var(--ipd-font-body);">' +
+          ipEsc(it.name) + '</div>' +
+        badge +
+      '</div>' +
+      '<div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;line-height:1.45;">' +
+        ipEsc(it.brings) +
+        (it.no_grades ? ' <span style="opacity:0.8;">(due dates only, no grades)</span>' : '') +
+      '</div>' +
+      body +
+    '</div>';
+}
+
+async function loadIntegrations() {
+  var host = document.getElementById('ipIntegrationsList');
+  if (!host) return;
+  var data;
+  try {
+    data = await fetch('/api/integrations/status').then(function(r) { return r.json(); });
+  } catch (e) {
+    host.innerHTML = '<div style="font-size:0.8rem;color:var(--text-muted);padding:12px 0;">' +
+      'Could not load integrations. Check your connection and reopen this.</div>';
+    return;
+  }
+  var list = (data && data.integrations) || [];
+  if (!list.length) {
+    host.innerHTML = '<div style="font-size:0.8rem;color:var(--text-muted);padding:12px 0;">Nothing to show.</div>';
+    return;
+  }
+  /* Connected first: what a student already has is what they came to
+     check on, and the rest is a menu. */
+  var connected = list.filter(function(i) { return i.connected; });
+  var rest = list.filter(function(i) { return !i.connected; });
+  host.innerHTML = connected.concat(rest).map(ipIntegrationCard).join('');
+
+  /* Notion's token form lives in the modal markup; reveal it under the
+     Notion card when Notion is the one being connected. */
+  var notion = list.find(function(i) { return i.id === 'notion'; });
+  var setup = document.getElementById('notionSetup');
+  if (setup) setup.style.display = (notion && !notion.connected) ? 'block' : 'none';
+}
+
+async function ipStartIntegration(ev, url) {
+  ev.preventDefault();
+  if (!url) return;
+  try {
+    var data = await fetch(url, { method: 'POST' }).then(function(r) { return r.json(); });
+    if (data.url) { window.location.href = data.url; return; }
+    IP.alert(data.message || 'Finish connecting this from the Connect page.');
+    if (data.status !== 'ok') window.location.href = '/connect';
+  } catch (e) {
+    IP.alert('Could not start that connection. Please try again.');
+  }
+}
+
+async function ipDisconnectIntegration(url) {
+  try {
+    await fetch(url, { method: 'POST' });
+  } catch (e) { /* reload below reports the real state either way */ }
+  loadIntegrations();
+  loadDashboard();
 }
 function closeIntegrationsModal() {
   document.getElementById('integrationsModal').style.display = 'none';
 }
 
-async function checkGCalStatus() {
-  var res = await fetch('/calendar/events').then(function(r) { return r.json(); }).catch(function() { return { connected: false }; });
-  var status = document.getElementById('gcalStatus');
-  var actions = document.getElementById('gcalActions');
-  if (res.connected) {
-    status.innerHTML = '<span style="color:var(--ipd-priority-low);">Connected</span>';
-    actions.innerHTML = '<button onclick="disconnectGCal()" class="ipd-btn" style="font-size:0.75rem;padding:6px 12px;">Disconnect</button>';
-  } else {
-    status.textContent = 'Not connected';
-    actions.innerHTML = '<a href="/oauth/google" class="ipd-btn ipd-btn-primary" style="text-decoration:none;padding:8px 16px;font-size:0.82rem;">Connect</a>';
-  }
-}
-
 async function disconnectGCal() {
   await fetch('/oauth/google/disconnect', { method: 'POST' });
-  checkGCalStatus();
+  loadIntegrations();
   loadDashboard();
-}
-
-async function checkNotionStatus() {
-  var res = await fetch('/notion/tasks').then(function(r) { return r.json(); }).catch(function() { return { connected: false }; });
-  var status = document.getElementById('notionStatus');
-  var actions = document.getElementById('notionActions');
-  var setup = document.getElementById('notionSetup');
-  var dbSelect = document.getElementById('notionDbSelect');
-
-  if (res.connected) {
-    status.innerHTML = '<span style="color:var(--ipd-priority-low);">Connected · ' + res.tasks.length + ' tasks</span>';
-    setup.style.display = 'none';
-    dbSelect.style.display = 'none';
-    actions.innerHTML = '<button onclick="disconnectNotion()" class="ipd-btn" style="font-size:0.75rem;padding:6px 12px;">Disconnect</button>';
-  } else {
-    status.textContent = 'Not connected';
-    setup.style.display = 'block';
-    dbSelect.style.display = 'none';
-    actions.innerHTML = '';
-  }
 }
 
 async function connectNotion() {
@@ -1857,13 +1939,13 @@ async function setNotionDatabase(dbId) {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ database_id: dbId })
   });
-  checkNotionStatus();
+  loadIntegrations();
   loadDashboard();
 }
 
 async function disconnectNotion() {
   await fetch('/notion/disconnect', { method: 'POST' });
-  checkNotionStatus();
+  loadIntegrations();
   loadDashboard();
 }
 
