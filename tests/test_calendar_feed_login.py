@@ -184,3 +184,81 @@ def test_the_token_path_is_still_offered(client):
     body = client.get("/login/canvas").get_data(as_text=True)
     assert 'action="/login/canvas"' in body
     assert 'name="canvas_token"' in body
+
+
+# ── Signed in, where credentials take a different route ──────────────
+
+
+@pytest.fixture
+def student(request):
+    """A real account, so credentials go through LinkedAccount rather than
+    the session. Both paths reach get_active_account, and only the signed-out
+    one was covered when this feature landed."""
+    from App import LinkedAccount, User, db
+    with App.app.app_context():
+        User.query.filter(User.email.like("feeduser+%")).delete(synchronize_session=False)
+        db.session.commit()
+        u = User(email="feeduser+a@example.com",
+                 password_hash=App.bcrypt.generate_password_hash("hunter2ok").decode(),
+                 name="Feed User")
+        db.session.add(u)
+        db.session.commit()
+        uid = u.id
+
+    def cleanup():
+        with App.app.app_context():
+            LinkedAccount.query.filter_by(user_id=uid).delete()
+            User.query.filter_by(id=uid).delete()
+            db.session.commit()
+    request.addfinalizer(cleanup)
+    return uid
+
+
+def login(client, user_id):
+    with client.session_transaction() as sess:
+        sess["_user_id"] = str(user_id)
+        sess["_fresh"] = True
+
+
+def test_a_signed_in_student_gets_a_linked_account(client, student, future_feed):
+    from App import LinkedAccount
+    login(client, student)
+    assert client.post("/login/calendar-feed",
+                       data={"feed_url": FEED_URL}).status_code == 302
+    with App.app.app_context():
+        acct = LinkedAccount.query.filter_by(user_id=student, is_active=True).first()
+        assert acct is not None
+        assert acct.login_type == "calendar_feed"
+        assert acct.get_credentials()["feed_url"] == FEED_URL
+
+
+def test_a_signed_in_students_feed_reaches_the_planner(client, student, future_feed):
+    """The stored-credential route, not just the session one."""
+    login(client, student)
+    client.post("/login/calendar-feed", data={"feed_url": FEED_URL})
+    titles = [t["title"] for t in _all_tasks(client.get("/tasks/unified").get_json())]
+    assert "Essay 3" in titles
+
+
+# ── A new login type must not break the surfaces it does not serve ───
+
+
+@pytest.mark.parametrize("path", [
+    "/tasks/unified", "/gradebook", "/grades/data", "/missing/data",
+    "/scheduler", "/streak", "/priority", "/classes",
+])
+def test_no_surface_errors_for_a_feed_account(client, future_feed, path):
+    """Adding a login type is exactly how unrelated pages start 500ing: every
+    `elif login_type == ...` chain that has no branch for it falls through to
+    whatever comes last. Nothing here needs to *serve* feed data -- it needs
+    to not break."""
+    client.post("/login/calendar-feed", data={"feed_url": FEED_URL})
+    assert client.get(path).status_code < 500
+
+
+def test_the_gradebook_is_empty_rather_than_wrong(client, future_feed):
+    """A feed carries no grades. Empty is the honest answer; a fabricated 0%
+    would read as a real average and drag a student's own maths off."""
+    client.post("/login/calendar-feed", data={"feed_url": FEED_URL})
+    assert client.get("/grades/data").get_json() == []
+    assert client.get("/missing/data").get_json() == []
