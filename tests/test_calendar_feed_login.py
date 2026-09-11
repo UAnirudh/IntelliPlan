@@ -10,8 +10,6 @@ nothing into the planner is worse than not offering it.
 
 from __future__ import annotations
 
-import types
-
 import pytest
 
 import App
@@ -41,6 +39,18 @@ class _Resp:
     def __init__(self, content=b"", status=200):
         self.status_code = status
         self.content = content
+        self.headers = {}
+
+
+def allow_hosts(monkeypatch):
+    """The route refuses any host that does not resolve to a public address.
+
+    lakesideschool.instructure.com is a real host, but resolving it would put
+    these tests on DNS and on the sandbox's network policy. The guard has its
+    own tests in tests/test_net_guard.py, and that it is wired into this
+    route is asserted below.
+    """
+    monkeypatch.setattr(ics_feed.net_guard, "resolves_to_public_host", lambda url: True)
 
 
 def serve(monkeypatch, content, status=200):
@@ -50,6 +60,7 @@ def serve(monkeypatch, content, status=200):
     and fetch_feed catches on that -- so the module's own error handling
     would break and the test would be measuring the stub, not the code.
     """
+    allow_hosts(monkeypatch)
     monkeypatch.setattr(ics_feed.requests, "get", lambda *a, **k: _Resp(content, status))
 
 
@@ -122,6 +133,8 @@ def test_the_course_name_survives_into_the_planner(client, future_feed):
 
 def test_an_unreachable_feed_explains_rather_than_crashing(client, monkeypatch):
     import requests as real_requests
+
+    allow_hosts(monkeypatch)
 
     def boom(*a, **k):
         raise real_requests.ConnectionError("nope")
@@ -262,3 +275,49 @@ def test_the_gradebook_is_empty_rather_than_wrong(client, future_feed):
     client.post("/login/calendar-feed", data={"feed_url": FEED_URL})
     assert client.get("/grades/data").get_json() == []
     assert client.get("/missing/data").get_json() == []
+
+
+# ── The form is unauthenticated and the fetch is server-side ─────────
+
+
+@pytest.mark.parametrize("url", [
+    "http://169.254.169.254/latest/meta-data/",   # cloud credentials
+    "http://127.0.0.1:80/admin",
+    "http://10.0.0.5/internal.ics",
+    "file:///etc/passwd",
+])
+def test_the_connect_form_will_not_fetch_an_internal_url(client, monkeypatch, url):
+    """Anyone can POST here without signing in, and the request is made from
+    our server. Without the guard this form is an SSRF primitive."""
+    fetched = []
+    monkeypatch.setattr(ics_feed.requests, "get",
+                        lambda u, *a, **k: fetched.append(u) or _Resp(b"", 200))
+    r = client.post("/login/calendar-feed", data={"feed_url": url})
+    assert r.status_code == 200
+    assert fetched == [], f"must not fetch {url}"
+    with client.session_transaction() as sess:
+        assert sess.get("login_type") != "calendar_feed"
+
+
+def test_an_internal_url_gets_the_same_message_as_an_unreachable_one(client, monkeypatch):
+    """Otherwise the two messages together are a port scanner: one means the
+    host exists, the other that it does not."""
+    monkeypatch.setattr(ics_feed.requests, "get", lambda *a, **k: _Resp(b"", 200))
+    blocked = client.post("/login/calendar-feed",
+                          data={"feed_url": "http://127.0.0.1/a.ics"}).get_data(as_text=True)
+    assert "Could not reach that calendar feed" in blocked
+
+
+def test_the_canvas_token_form_will_not_probe_an_internal_url(client, monkeypatch):
+    """Same shape of bug on the sibling form: the URL is typed by the user
+    and fetched by us, and 'Invalid token' versus 'Could not reach' would
+    report whether the internal host answered."""
+    import App as app_module
+    fetched = []
+    monkeypatch.setattr(app_module.requests, "get",
+                        lambda u, *a, **k: fetched.append(u) or _Resp(b"", 200))
+    r = client.post("/login/canvas", data={
+        "canvas_url": "http://169.254.169.254", "canvas_token": "x"})
+    assert r.status_code == 200
+    assert fetched == []
+    assert "Could not reach" in r.get_data(as_text=True)

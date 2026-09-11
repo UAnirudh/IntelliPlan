@@ -38,8 +38,11 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime, timedelta, timezone
+from urllib.parse import urljoin
 
 import requests
+
+import net_guard
 
 #: Feeds are small (a term of assignments), so a low ceiling is safe and
 #: stops a hostile or misconfigured URL from streaming forever into memory.
@@ -274,19 +277,46 @@ def normalize_feed_url(url):
     return url
 
 
-def fetch_feed(url, timeout=20, session=None):
+#: The same message for a URL we refuse and one that does not resolve. A
+#: student's next move is identical, and any finer distinction would report
+#: back whether an internal host exists.
+_UNREACHABLE = "Could not reach that calendar feed. Check the link and try again."
+
+
+def fetch_feed(url, timeout=20, session=None, host_check=None):
     """Download a calendar feed and return its text.
+
+    The URL comes from whoever is at the keyboard and we fetch it from the
+    server, so every hop is checked against ``host_check`` before the
+    request. Redirects are followed by hand rather than by requests: a
+    perfectly public host is free to 302 to 169.254.169.254, and automatic
+    redirects would follow it with no second look.
 
     Errors are phrased for the student, not the log: at this point they have
     pasted something and want to know whether it worked.
     """
     url = normalize_feed_url(url)
+    check = net_guard.resolves_to_public_host if host_check is None else host_check
     getter = (session or requests).get
-    try:
-        resp = getter(url, timeout=timeout, stream=True)
-    except requests.RequestException:
+
+    resp = None
+    for _ in range(net_guard.MAX_REDIRECTS + 1):
+        if not check(url):
+            raise FeedError(_UNREACHABLE)
+        try:
+            resp = getter(url, timeout=timeout, stream=True, allow_redirects=False)
+        except requests.RequestException:
+            raise FeedError(_UNREACHABLE)
+        if resp.status_code not in (301, 302, 303, 307, 308):
+            break
+        location = (getattr(resp, "headers", None) or {}).get("Location")
+        if not location:
+            break
+        url = normalize_feed_url(urljoin(url, location))
+    else:
         raise FeedError(
-            "Could not reach that calendar feed. Check the link and try again."
+            "That calendar feed redirected too many times. Copy the link "
+            "again from your school's calendar."
         )
 
     if resp.status_code == 404:
@@ -310,8 +340,9 @@ def fetch_feed(url, timeout=20, session=None):
     return text
 
 
-def import_assignments(url, today=None, session=None):
+def import_assignments(url, today=None, session=None, host_check=None):
     """Fetch a feed and return planner-ready assignments."""
     return events_to_assignments(
-        parse_events(fetch_feed(url, session=session)), today=today
+        parse_events(fetch_feed(url, session=session, host_check=host_check)),
+        today=today,
     )

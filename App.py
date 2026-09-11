@@ -36,6 +36,7 @@ import bot_protection
 import cookie_policy
 import fallback_scheduler
 import ics_feed
+import net_guard
 import request_guards
 import secret_box
 import policy_versions
@@ -5580,39 +5581,14 @@ def _blackboard_authorize_url(institution_url, client_id, redirect_uri, state):
 
 
 def _resolves_to_public_host(url):
-    """True when every address behind ``url`` is publicly routable.
+    """True when ``url`` is safe for the server to fetch.
 
-    The Blackboard preflight makes a *server-side* request to a host the user
-    typed, which is an SSRF primitive unless the target is checked: a pasted
-    ``http://169.254.169.254`` or an internal hostname would otherwise have
-    IntelliPlan fetch it and report what came back. Loopback, link-local,
-    private, and other reserved ranges are refused.
+    Three login flows fetch a URL the user typed -- the Blackboard preflight,
+    the Canvas token check, and the calendar-feed connect -- and each is an
+    SSRF primitive without this. The implementation lives in ``net_guard`` so
+    there is one of it; this name stays because callers here use it.
     """
-    import ipaddress
-    import socket
-
-    try:
-        host = urllib.parse.urlparse(url).hostname
-    except Exception:
-        return False
-    if not host:
-        return False
-
-    try:
-        infos = socket.getaddrinfo(host, None)
-    except OSError:
-        # Unresolvable — let the caller report it as an unreachable host.
-        return False
-
-    for info in infos:
-        try:
-            addr = ipaddress.ip_address(info[4][0])
-        except ValueError:
-            return False
-        if (addr.is_private or addr.is_loopback or addr.is_link_local
-                or addr.is_reserved or addr.is_multicast or addr.is_unspecified):
-            return False
-    return True
+    return net_guard.resolves_to_public_host(url)
 
 
 def _blackboard_preflight(institution_url, client_id, redirect_uri):
@@ -7467,6 +7443,7 @@ def connect_account():
     return render_template("connect.html", active_page="login")
 
 @app.route("/login/canvas", methods=["GET", "POST"])
+@limiter.limit("12 per minute;60 per hour", methods=["POST"])
 def login_canvas():
     error = None
     if request.method == "POST":
@@ -7477,6 +7454,18 @@ def login_canvas():
             canvas_url = "https://" + canvas_url
         if not token or not canvas_url:
             error = "Please fill in both fields."
+        elif not _resolves_to_public_host(canvas_url):
+            # The address is typed by whoever is at the keyboard and fetched
+            # by the server, so an internal one would make this an SSRF
+            # probe -- and the difference between "unreachable" and "invalid
+            # token" below would report whether the host answered. Same
+            # message as a genuinely unreachable host: the student's next
+            # move is the same either way.
+            error = (
+                f"Could not reach {canvas_url}. Check the address is your "
+                "school's Canvas (it usually looks like "
+                "https://yourschool.instructure.com) and try again."
+            )
         else:
             # A typo'd school URL, a Canvas that is down, or a network blip
             # used to raise straight out of the view and render a 500 page.
@@ -7527,6 +7516,7 @@ def login_canvas():
     )
 
 @app.route("/login/calendar-feed", methods=["POST"])
+@limiter.limit("12 per minute;60 per hour")
 def login_calendar_feed():
     """Connect using the calendar feed URL every Canvas user already has.
 
