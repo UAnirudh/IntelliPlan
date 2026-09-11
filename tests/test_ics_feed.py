@@ -224,7 +224,7 @@ def test_an_empty_calendar_is_not_an_error():
     ("20260925", "Low"),     # far out
 ])
 def test_priority_tracks_urgency(due, expected):
-    assert imported(feed(event(f"T [C]", due)))[0]["priority"] == expected
+    assert imported(feed(event("T [C]", due)))[0]["priority"] == expected
 
 
 # ── The URL a student actually pastes ────────────────────────────────
@@ -256,25 +256,38 @@ def test_an_empty_url_asks_for_one():
 
 
 class _Resp:
-    def __init__(self, status=200, content=b""):
+    def __init__(self, status=200, content=b"", headers=None):
         self.status_code = status
         self.content = content
+        self.headers = headers or {}
 
 
 class _Session:
     def __init__(self, result):
         self._result = result
+        self.urls = []
 
-    def get(self, *a, **k):
-        if isinstance(self._result, Exception):
-            raise self._result
-        return self._result
+    def get(self, url, *a, **k):
+        self.urls.append(url)
+        result = self._result
+        if isinstance(result, list):
+            result = result[min(len(self.urls) - 1, len(result) - 1)]
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+
+#: fetch_feed refuses any host that does not resolve to a public address, and
+#: the hosts in these tests deliberately do not resolve at all. Passing the
+#: check explicitly keeps the parser tests off DNS; the guard itself has its
+#: own tests, in tests/test_net_guard.py and below.
+ALLOW = lambda url: True  # noqa: E731
 
 
 def test_an_unreachable_feed_explains_itself():
     with pytest.raises(ics_feed.FeedError, match="Could not reach"):
         ics_feed.fetch_feed("https://x.test/a.ics",
-                            session=_Session(requests.ConnectionError()))
+                            host_check=ALLOW, session=_Session(requests.ConnectionError()))
 
 
 def test_a_stale_feed_link_says_it_was_reset():
@@ -282,12 +295,12 @@ def test_a_stale_feed_link_says_it_was_reset():
     one 404s. "Something went wrong" would leave them re-pasting the dead
     link forever."""
     with pytest.raises(ics_feed.FeedError, match="no longer valid"):
-        ics_feed.fetch_feed("https://x.test/a.ics", session=_Session(_Resp(404)))
+        ics_feed.fetch_feed("https://x.test/a.ics", host_check=ALLOW, session=_Session(_Resp(404)))
 
 
 def test_a_server_error_names_the_status():
     with pytest.raises(ics_feed.FeedError, match="500"):
-        ics_feed.fetch_feed("https://x.test/a.ics", session=_Session(_Resp(500)))
+        ics_feed.fetch_feed("https://x.test/a.ics", host_check=ALLOW, session=_Session(_Resp(500)))
 
 
 def test_a_page_that_is_not_a_calendar_is_caught():
@@ -295,23 +308,124 @@ def test_a_page_that_is_not_a_calendar_is_caught():
     mistake, and it returns a cheerful 200 of HTML."""
     with pytest.raises(ics_feed.FeedError, match="did not return a calendar"):
         ics_feed.fetch_feed("https://x.test/calendar",
-                            session=_Session(_Resp(200, b"<html>Calendar</html>")))
+                            host_check=ALLOW, session=_Session(_Resp(200, b"<html>Calendar</html>")))
 
 
 def test_a_real_feed_is_accepted():
     body = feed(event("Essay [Hist]", "20260915")).encode()
     assert "BEGIN:VCALENDAR" in ics_feed.fetch_feed(
-        "https://x.test/a.ics", session=_Session(_Resp(200, body)))
+        "https://x.test/a.ics", host_check=ALLOW, session=_Session(_Resp(200, body)))
 
 
 def test_an_oversized_feed_is_truncated_rather_than_swallowed():
     huge = b"BEGIN:VCALENDAR\r\n" + b"X" * (ics_feed.MAX_FEED_BYTES * 2)
-    text = ics_feed.fetch_feed("https://x.test/a.ics", session=_Session(_Resp(200, huge)))
+    text = ics_feed.fetch_feed("https://x.test/a.ics", host_check=ALLOW, session=_Session(_Resp(200, huge)))
     assert len(text) <= ics_feed.MAX_FEED_BYTES
 
 
 def test_import_assignments_goes_end_to_end():
     body = feed(event("Essay 3 [AP US History]", "20260915")).encode()
     rows = ics_feed.import_assignments(
-        "webcal://x.test/a.ics", today=TODAY, session=_Session(_Resp(200, body)))
+        "webcal://x.test/a.ics", today=TODAY, host_check=ALLOW, session=_Session(_Resp(200, body)))
     assert [r["title"] for r in rows] == ["Essay 3"]
+
+
+# ── The URL is fetched by the server, so the target is checked ───────
+
+
+def test_an_internal_url_is_refused_before_any_request_is_made():
+    """The connect form is unauthenticated and the fetch happens on our
+    server, so without this anyone can point it at cloud metadata."""
+    session = _Session(_Resp(200, feed().encode()))
+    with pytest.raises(ics_feed.FeedError, match="Could not reach"):
+        ics_feed.fetch_feed("http://169.254.169.254/latest/meta-data/", session=session)
+    assert session.urls == [], "must not be fetched at all"
+
+
+@pytest.mark.parametrize("url", [
+    "http://127.0.0.1/a.ics",
+    "http://10.0.0.5/a.ics",
+    "http://192.168.1.1/a.ics",
+    "https://[::1]/a.ics",
+    "http://93.184.216.34:6379/a.ics",
+])
+def test_internal_targets_are_all_refused(url):
+    session = _Session(_Resp(200, feed().encode()))
+    with pytest.raises(ics_feed.FeedError):
+        ics_feed.fetch_feed(url, session=session)
+    assert session.urls == []
+
+
+def test_the_refusal_is_indistinguishable_from_an_unreachable_host():
+    """Any finer distinction reports back whether an internal host exists,
+    which is the port scanner this guard exists to close."""
+    blocked = refusal("http://127.0.0.1/a.ics", _Resp(200, feed().encode()))
+    unreachable = refusal("https://x.test/a.ics", requests.ConnectionError())
+    assert blocked == unreachable
+
+
+def refusal(url, result):
+    session = _Session(result)
+    try:
+        ics_feed.fetch_feed(url, host_check=(
+            ics_feed.net_guard.resolves_to_public_host), session=session)
+    except ics_feed.FeedError as e:
+        return str(e)
+    raise AssertionError("expected a FeedError")
+
+
+# ── Redirects are followed by hand, and each hop is checked ──────────
+
+
+def test_a_redirect_into_the_internal_network_is_refused():
+    """A perfectly public host is free to 302 to 169.254.169.254. Letting
+    requests follow redirects would take it there with no second look."""
+    hops = []
+
+    def check(url):
+        hops.append(url)
+        return "169.254" not in url
+
+    session = _Session([
+        _Resp(302, b"", {"Location": "http://169.254.169.254/latest/meta-data/"}),
+        _Resp(200, feed(event("Essay [Hist]", "20260915")).encode()),
+    ])
+    with pytest.raises(ics_feed.FeedError, match="Could not reach"):
+        ics_feed.fetch_feed("https://x.test/a.ics", host_check=check, session=session)
+    assert len(session.urls) == 1, "must stop at the redirect, not follow it"
+    assert hops[-1].startswith("http://169.254.169.254")
+
+
+def test_a_redirect_to_another_public_url_is_followed():
+    """The inverse guard: schools really do redirect their feed hosts."""
+    session = _Session([
+        _Resp(301, b"", {"Location": "https://y.test/b.ics"}),
+        _Resp(200, feed(event("Essay [Hist]", "20260915")).encode()),
+    ])
+    text = ics_feed.fetch_feed("https://x.test/a.ics", host_check=ALLOW, session=session)
+    assert "BEGIN:VCALENDAR" in text
+    assert session.urls == ["https://x.test/a.ics", "https://y.test/b.ics"]
+
+
+def test_a_relative_redirect_resolves_against_the_current_url():
+    session = _Session([
+        _Resp(302, b"", {"Location": "/feeds/moved.ics"}),
+        _Resp(200, feed(event("Essay [Hist]", "20260915")).encode()),
+    ])
+    ics_feed.fetch_feed("https://x.test/a.ics", host_check=ALLOW, session=session)
+    assert session.urls[1] == "https://x.test/feeds/moved.ics"
+
+
+def test_a_redirect_loop_gives_up_rather_than_spinning():
+    session = _Session(_Resp(302, b"", {"Location": "https://x.test/a.ics"}))
+    with pytest.raises(ics_feed.FeedError, match="redirected too many times"):
+        ics_feed.fetch_feed("https://x.test/a.ics", host_check=ALLOW, session=session)
+    assert len(session.urls) == ics_feed.net_guard.MAX_REDIRECTS + 1
+
+
+def test_a_redirect_with_no_location_is_treated_as_the_response():
+    """Nothing to follow, so it falls through to the usual status handling
+    rather than looping or raising something unhelpful."""
+    session = _Session(_Resp(302, b"", {}))
+    with pytest.raises(ics_feed.FeedError, match="did not return a calendar"):
+        ics_feed.fetch_feed("https://x.test/a.ics", host_check=ALLOW, session=session)
