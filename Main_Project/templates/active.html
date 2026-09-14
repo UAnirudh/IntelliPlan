@@ -31,6 +31,8 @@
   margin: 0 auto;
   padding: 1.5rem 1.25rem 4rem;
   min-height: 100dvh;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* ── Empty / loading ── */
@@ -138,6 +140,7 @@
   border-radius: 18px;
   box-shadow: var(--shadow);
   padding: 1.75rem 1.5rem;
+  min-width: 0;
 }
 
 .ipa-eyebrow {
@@ -325,6 +328,7 @@
   display: flex; align-items: center; justify-content: space-between;
   gap: 1rem; flex-wrap: wrap;
 }
+.ipa-focus-row > div { min-width: 0; flex: 1 1 16rem; }
 .ipa-focus-label { font-size: var(--fs-sm); color: var(--text-primary); font-weight: 600; }
 .ipa-focus-note {
   font-size: var(--fs-micro); color: var(--text-muted);
@@ -374,6 +378,7 @@
   font-size: var(--fs-xs);
   color: var(--text-secondary);
   display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+  flex-wrap: wrap;
 }
 .ipa-nudge[hidden] { display: none; }
 
@@ -423,7 +428,11 @@
 @media (max-width: 560px) {
   .ipa-shell { padding: 1rem .9rem 3rem; }
   .ipa-card { padding: 1.25rem 1rem; border-radius: 14px; }
+  .ipa-controls { width: 100%; }
   .ipa-controls .ipa-btn { flex: 1 1 44%; }
+  .ipa-controls .ipa-btn--primary { flex-basis: 100%; }
+  .ipa-focus-row { align-items: flex-start; }
+  .ipa-focus-row .ipa-switch { margin-top: .15rem; }
 }
 </style>
 {% endblock %}
