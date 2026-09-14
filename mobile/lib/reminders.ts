@@ -48,9 +48,9 @@ export async function setRemindersEnabled(on: boolean): Promise<boolean> {
   }
 
   const existing = await Notifications.getPermissionsAsync();
-  let status = existing.status;
-  if (status !== "granted") status = (await Notifications.requestPermissionsAsync()).status;
-  if (status !== "granted") {
+  let granted = existing.granted;
+  if (!granted) granted = (await Notifications.requestPermissionsAsync()).granted;
+  if (!granted) {
     await AsyncStorage.setItem(ENABLED_KEY, "0");
     return false;
   }

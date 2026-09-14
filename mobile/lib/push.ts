@@ -68,11 +68,11 @@ export async function enablePush(): Promise<PushResult> {
   }
 
   const existing = await Notifications.getPermissionsAsync();
-  let status = existing.status;
-  if (status !== "granted") {
-    status = (await Notifications.requestPermissionsAsync()).status;
+  let granted = existing.granted;
+  if (!granted) {
+    granted = (await Notifications.requestPermissionsAsync()).granted;
   }
-  if (status !== "granted") {
+  if (!granted) {
     return { ok: false, reason: "Notifications are turned off for IntelliPlan in your phone's settings." };
   }
 
