@@ -4199,6 +4199,7 @@ def public_stats():
         total_users = User.query.count()
         total_assignments = DismissedAssignment.query.count()  # assignments completed
         total_study_sessions = StudySession.query.filter_by(completed=True).count()
+        integrations_supported = 5
 
         # Estimate hours saved: avg 8 min saved per assignment (not having to
         # manually sort). The only figure here that is an estimate rather than
@@ -4213,7 +4214,7 @@ def public_stats():
         # hidden by the page rather than inflated here.
         return _no_store(jsonify({
             "students": total_users,
-            "assignments_tracked": total_assignments,
+            "integrations_supported": integrations_supported,
             "hours_saved": hours_saved,
             "study_sessions": total_study_sessions,
         }))
@@ -4223,7 +4224,7 @@ def public_stats():
         # read, and drops the whole strip when it can read none of them.
         return _no_store(jsonify({
             "students": None,
-            "assignments_tracked": None,
+            "integrations_supported": None,
             "hours_saved": None,
             "study_sessions": None,
         })), 200

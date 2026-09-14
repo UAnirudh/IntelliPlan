@@ -370,8 +370,8 @@
     </div>
     <div class="stat-divider"></div>
     <div class="stat-item">
-      <div class="stat-number" id="statAssignments">-</div>
-      <div class="stat-label">assignments tracked</div>
+      <div class="stat-number" id="statIntegrations">-</div>
+      <div class="stat-label">school tools connected</div>
     </div>
     <div class="stat-divider"></div>
     <div class="stat-item">
@@ -2208,7 +2208,7 @@
   function renderStats(data) {
     var shown = 0;
     shown += showStat(document.getElementById('statStudents'),    data.students,            '+');
-    shown += showStat(document.getElementById('statAssignments'), data.assignments_tracked, '+');
+    shown += showStat(document.getElementById('statIntegrations'), data.integrations_supported, '+');
     shown += showStat(document.getElementById('statHours'),       data.hours_saved,         'h');
     shown += showStat(document.getElementById('statSessions'),    data.study_sessions,      '+');
     var strip = document.querySelector('.stats-strip');
