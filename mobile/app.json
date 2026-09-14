@@ -17,7 +17,9 @@
         "backgroundColor": "#101012"
       }
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "tech.intelliplan.app",
@@ -68,7 +70,10 @@
           "photosPermission": "Attach a photo of a problem so Plani can walk you through it.",
           "cameraPermission": "Snap a photo of a problem so Plani can walk you through it."
         }
-      ]
+      ],
+      "expo-font",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": false
