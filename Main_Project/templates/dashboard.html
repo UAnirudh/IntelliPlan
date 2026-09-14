@@ -51,6 +51,16 @@
 
 /* ── Page header ──────────────────────────────────────────── */
 .ipd-header { margin-bottom: 2rem; }
+.ipd-header,
+.ipd-stats-row,
+.ipd-columns,
+.ipd-columns > *,
+.ipd-card,
+.ipd-stat-card,
+.ipd-task-card,
+.ipd-sched-card,
+.ipd-grade-card,
+.ipd-upcoming-card { min-width: 0; }
 .ipd-kicker {
   font-family: var(--ipd-font-mono);
   font-size: 0.78rem;
@@ -160,7 +170,7 @@
 /* ── Two-column layout ────────────────────────────────────── */
 .ipd-columns {
   display: grid;
-  grid-template-columns: 1fr 360px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
   gap: 20px;
   align-items: start;
 }
@@ -212,6 +222,7 @@
   cursor: pointer;
   transition: all 0.18s ease;
   position: relative;
+  min-width: 0;
 }
 .ipd-task-card:hover {
   border-color: var(--text-muted);
@@ -307,6 +318,8 @@
   border-radius: var(--ipd-radius-sm);
   padding: 3px;
   border: 1px solid var(--border);
+  min-width: 0;
+  overflow-x: auto;
 }
 .ipd-section-tab {
   flex: 1;
@@ -568,6 +581,9 @@
 }
 @media (max-width: 560px) {
   .ipd-stats-row { grid-template-columns: 1fr; }
+  .ipd-card-title { align-items: flex-start; flex-direction: column; gap: .7rem; }
+  .ipd-section-tabs { width: 100%; }
+  .ipd-section-tab { flex: 0 0 auto; min-width: 92px; }
 }
 
 /* ── Featured-on badge strip ──────────────────────────────── */
