@@ -17,7 +17,7 @@ from sqlalchemy import text
 
 import App
 import secret_box
-from App import GoogleIntegration, User, db
+from App import GoogleIntegration, LMSToken, User, db
 
 SECRET = "ya29.a0AfB_very-real-looking-google-token"
 
@@ -55,6 +55,8 @@ def _wipe():
     if ids:
         GoogleIntegration.query.filter(
             GoogleIntegration.user_id.in_(ids)).delete(synchronize_session=False)
+        LMSToken.query.filter(
+            LMSToken.user_id.in_(ids)).delete(synchronize_session=False)
     User.query.filter(User.email.like("enc+%")).delete(synchronize_session=False)
     db.session.commit()
 
@@ -75,6 +77,24 @@ def raw_stored(row_id):
     """What is actually in the column, bypassing transparent decryption."""
     return db.session.execute(
         text("SELECT token_data FROM google_integrations WHERE id = :i"),
+        {"i": row_id}).scalar()
+
+
+def store_lms_tokens(value='{"access_token":"lms-access","refresh_token":"lms-refresh"}',
+                     email="enc+lms@example.com"):
+    """Write generic LMS credentials through the ORM and return its row id."""
+    user = User(email=email, password_hash="")
+    db.session.add(user)
+    db.session.commit()
+    row = LMSToken(user_id=user.id, provider="moodle", tokens_json=value)
+    db.session.add(row)
+    db.session.commit()
+    return row.id
+
+
+def raw_lms_tokens(row_id):
+    return db.session.execute(
+        text("SELECT tokens_json FROM lms_tokens WHERE id = :i"),
         {"i": row_id}).scalar()
 
 
@@ -99,6 +119,18 @@ def test_it_round_trips_through_the_orm(client, key):
 def test_the_stored_value_is_marked_as_ours(client, key):
     with App.app.app_context():
         assert raw_stored(store_token()).startswith(secret_box.PREFIX)
+
+
+def test_generic_lms_tokens_are_encrypted_at_rest(client, key):
+    with App.app.app_context():
+        row_id = store_lms_tokens()
+        raw = raw_lms_tokens(row_id)
+        assert secret_box.is_encrypted(raw)
+        assert "lms-access" not in raw
+        db.session.expire_all()
+        assert db.session.get(LMSToken, row_id).tokens_json == (
+            '{"access_token":"lms-access","refresh_token":"lms-refresh"}'
+        )
 
 
 # ── Turning it on without breaking existing students ─────────
@@ -227,6 +259,7 @@ def test_every_token_column_uses_the_encrypted_type():
         "ClassroomIntegration": ["access_token", "refresh_token"],
         "BlackboardIntegration": ["access_token", "refresh_token"],
         "MoodleIntegration": ["ws_token"],
+        "LMSToken": ["tokens_json"],
     }
     for model_name, columns in expected.items():
         model = getattr(App, model_name)

@@ -1708,7 +1708,7 @@ class LMSToken(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     provider = db.Column(db.String(32), nullable=False, index=True)
-    tokens_json = db.Column(db.Text, default="{}")
+    tokens_json = db.Column(secret_box.EncryptedText, default="{}")
     last_synced_at = db.Column(db.DateTime, nullable=True)
     last_sync_count = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

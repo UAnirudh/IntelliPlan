@@ -41,6 +41,7 @@ TARGETS = [
     ("ClassroomIntegration", ["access_token", "refresh_token"]),
     ("BlackboardIntegration", ["access_token", "refresh_token"]),
     ("MoodleIntegration", ["ws_token"]),
+    ("LMSToken", ["tokens_json"]),
 ]
 
 
