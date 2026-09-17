@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block page_title %}Growth | IntelliPlan admin{% endblock %}
+{% block head_extra %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block content %}
+<style>
+  .gr { max-width: 980px; margin: 0 auto; padding: var(--space-6) var(--space-4) var(--space-8); font-family: var(--font-ui); color: var(--text-primary); }
+  .gr h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.7rem, 1.2rem + 1.6vw, 2.3rem); letter-spacing: -0.02em; margin: 0.3rem 0 0.25rem; }
+  .gr-meta { color: var(--text-secondary); font-size: 0.88rem; margin: 0 0 var(--space-6); }
+  .gr h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.2rem; margin: var(--space-6) 0 var(--space-3); }
+  .gr-leak { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 0.8rem 0; margin-bottom: var(--space-5); }
+  .gr-leak strong { display: block; font-size: 1.05rem; color: var(--danger, #c2410c); }
+  .gr-leak span { color: var(--text-secondary); font-size: 0.9rem; }
+  .gr-funnel { display: grid; gap: 0.55rem; }
+  .gr-step { display: grid; grid-template-columns: minmax(0, 14rem) minmax(0, 1fr) 7rem; gap: 1rem; align-items: center; }
+  .gr-step-label { font-size: 0.92rem; }
+  .gr-step-bar { height: 22px; background: var(--border); border-radius: 6px; overflow: hidden; }
+  .gr-step-bar i { display: block; height: 100%; background: var(--accent); }
+  .gr-step-num { text-align: right; font-variant-numeric: tabular-nums; font-size: 0.9rem; }
+  .gr-step-num small { display: block; color: var(--text-secondary); font-size: 0.75rem; }
+  @media (max-width: 640px) { .gr-step { grid-template-columns: 1fr 5.5rem; } .gr-step-bar { grid-column: 1 / -1; order: 3; } }
+  .gr-table-wrap { overflow-x: auto; }
+  .gr table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 0.9rem; }
+  .gr th, .gr td { padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+  .gr th:first-child, .gr td:first-child { text-align: left; }
+  .gr th { color: var(--text-secondary); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .gr td small { color: var(--text-secondary); margin-left: 0.3rem; }
+  .gr-na { color: var(--text-secondary); }
+  .gr-foot { color: var(--text-secondary); font-size: 0.82rem; line-height: 1.6; margin-top: var(--space-5); max-width: 70ch; }
+</style>
+<div class="gr">
+  <p class="u-label">Admin</p>
+  <h1>Activation and retention</h1>
+  <p class="gr-meta">{{ report.signups }} signups in the last {{ report.window_weeks }} weeks · generated {{ report.generated_at }} UTC · <a href="?format=json&weeks={{ report.window_weeks }}">JSON</a></p>
+
+  {% if report.biggest_leak %}
+  <div class="gr-leak">
+    <strong>Biggest leak: {{ '%.0f'|format(report.biggest_leak.lost_share * 100) }}% don't reach “{{ report.biggest_leak.label }}”</strong>
+    <span>{{ report.biggest_leak.lost }} students lost at this step. Fix this one first.</span>
+  </div>
+  {% endif %}
+
+  <h2>Activation funnel</h2>
+  <div class="gr-funnel">
+    {% for step in report.funnel %}
+    <div class="gr-step">
+      <span class="gr-step-label">{{ step.label }}</span>
+      <span class="gr-step-bar" aria-hidden="true"><i style="width: {{ '%.1f'|format(step.of_signups * 100) }}%"></i></span>
+      <span class="gr-step-num">{{ step.count }}<small>{{ '%.0f'|format(step.of_previous * 100) }}% of previous</small></span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <h2>Weekly cohorts</h2>
+  <div class="gr-table-wrap">
+    <table>
+      <thead><tr><th>Signup week</th><th>Size</th><th>D1</th><th>D7</th><th>D30</th></tr></thead>
+      <tbody>
+      {% for row in report.cohorts %}
+        <tr>
+          <td>{{ row.cohort }}</td>
+          <td>{{ row.size }}</td>
+          {% for key in ['d1', 'd7', 'd30'] %}
+            {% set cell = row[key] %}
+            {% if cell.rate is none %}
+              <td class="gr-na">—</td>
+            {% else %}
+              <td>{{ '%.0f'|format(cell.rate * 100) }}%<small>{{ cell.retained }}/{{ cell.eligible }}</small></td>
+            {% endif %}
+          {% endfor %}
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="gr-na">No signups in this window.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <p class="gr-foot">Active means a streak-qualifying action, a study session, a saved plan or an Active session on that date. D1 is day 1; D7 is any of days 7–13; D30 any of days 30–59. A dash means nobody in the cohort is old enough for that window yet. The funnel is strictly nested: each step counts only students who also passed the step above it.</p>
+</div>
+{% endblock %}

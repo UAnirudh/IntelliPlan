@@ -184,6 +184,7 @@
   {# Single viewport tag lives at the top of <head>; duplicate removed. #}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}?v={{ asset_v }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-async.css') }}?v={{ asset_v }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-paywall.css') }}?v={{ asset_v }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-motion.css') }}?v={{ asset_v }}">
   {# UI component library — the Watermelon registry components, hand-ported
      to vanilla CSS/JS because this app has no build step for shadcn. #}
@@ -213,6 +214,9 @@
   {# Offline reads and the connection pill. After ip-core.js: it builds on
      IP.request, IP.queue and the event bus defined there. #}
   <script src="{{ url_for('static', filename='js/ip-offline.js') }}?v={{ asset_v }}"></script>
+  {# AI allowance wall: reads a response header, opens one dialog. After
+     the core files so it wraps the fetch they already use. #}
+  <script src="{{ url_for('static', filename='js/ip-paywall.js') }}?v={{ asset_v }}"></script>
 
   {# ── Motion layer ───────────────────────────────────────────────────
      GSAP is vendored rather than pulled from jsDelivr so it stays inside

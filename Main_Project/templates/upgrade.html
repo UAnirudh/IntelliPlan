@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block page_title %}Your plan | IntelliPlan{% endblock %}
+{% block meta_description %}Your IntelliPlan plan, AI allowance and referral months.{% endblock %}
+{% block content %}
+<style>
+  .upg { max-width: 760px; margin: 0 auto; padding: var(--space-6) var(--space-4) var(--space-8); }
+  .upg-title { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.9rem, 1.3rem + 2.2vw, 2.8rem); line-height: 1.05; letter-spacing: -0.02em; margin: 0.35rem 0 0.6rem; color: var(--text-primary); text-wrap: balance; }
+  .upg-lede { font-family: var(--font-body); color: var(--text-secondary); line-height: 1.65; max-width: 58ch; margin: 0 0 var(--space-6); }
+  .upg-meter { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: var(--space-4) 0; margin-bottom: var(--space-6); display: grid; grid-template-columns: 1fr auto; gap: 0.35rem 1rem; align-items: baseline; }
+  .upg-meter strong { font-family: var(--font-display); font-size: 2rem; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+  .upg-meter span { font-family: var(--font-ui); color: var(--text-secondary); font-size: 0.9rem; }
+  .upg-bar { grid-column: 1 / -1; height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
+  .upg-bar > i { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
+  .upg-bar.is-full > i { background: var(--danger, #c2410c); }
+  .upg-split { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: clamp(var(--space-5), 4vw, var(--space-7)); align-items: start; }
+  @media (max-width: 700px) { .upg-split { grid-template-columns: 1fr; } }
+  .upg-offer { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--r-lg); box-shadow: var(--neu-shadow-sm); padding: var(--space-5); }
+  .upg-price { font-family: var(--font-display); font-size: 2.6rem; font-weight: 600; color: var(--text-primary); margin: 0.2rem 0 0.1rem; }
+  .upg-price small { font-size: 0.95rem; color: var(--text-secondary); font-weight: 500; }
+  .upg-offer ul { margin: var(--space-4) 0; padding-left: 1.1rem; color: var(--text-secondary); line-height: 1.7; font-family: var(--font-body); }
+  .upg-offer .btn-primary, .upg-offer .btn-secondary { display: block; width: 100%; text-align: center; padding: 0.9rem 1rem; border-radius: 12px; font-weight: 700; text-decoration: none; border: 0; cursor: pointer; font: inherit; }
+  .upg-offer .btn-secondary { margin-top: 0.6rem; font-weight: 600; }
+  .upg-note { font-family: var(--font-ui); font-size: 0.85rem; color: var(--text-secondary); margin: 0.75rem 0 0; line-height: 1.5; }
+  .upg-side h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.3rem; margin: 0.3rem 0 0.6rem; color: var(--text-primary); }
+  .upg-side p { font-family: var(--font-body); color: var(--text-secondary); line-height: 1.65; margin: 0 0 0.75rem; }
+  .upg-copy { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+  .upg-copy input { flex: 1; min-width: 0; padding: 0.65rem 0.75rem; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--bg-card, transparent); color: var(--text-primary); font-family: var(--font-mono, monospace); font-size: 0.85rem; }
+  .upg-copy button { padding: 0.65rem 0.9rem; border-radius: 10px; border: 1px solid var(--border-strong); background: transparent; color: var(--text-primary); font-weight: 600; cursor: pointer; }
+  .upg-copy button:focus-visible, .upg-offer button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .upg-flash { padding: 0.8rem 1rem; border-radius: 12px; background: var(--accent-soft); color: var(--text-primary); margin-bottom: var(--space-5); font-family: var(--font-ui); }
+  .upg-err { color: var(--danger, #c2410c); font-family: var(--font-ui); font-size: 0.88rem; min-height: 1.2em; margin: 0.5rem 0 0; }
+</style>
+
+<div class="upg">
+  <p class="u-label">Your plan</p>
+  {% if paid %}<div class="upg-flash" role="status">Payment received. Unlimited AI is on — it can take a minute to show here.</div>{% endif %}
+
+  {% if plan == 'paid' %}
+    <h1 class="upg-title">You're on IntelliPlan Pro.</h1>
+    <p class="upg-lede">Unlimited AI tutor, schedules and study sets{% if paid_until %}, through {{ paid_until.strftime('%B %d, %Y') }}{% endif %}. Invite a classmate and you both get another {{ reward_days }} days.</p>
+  {% elif not billing_enabled %}
+    <h1 class="upg-title">Everything is free right now.</h1>
+    <p class="upg-lede">There's no paid plan yet, and nothing is metered. Referral months you earn now are banked and apply the day Pro launches.</p>
+  {% else %}
+    <h1 class="upg-title">{% if allowance.exhausted %}You've used this month's free AI.{% else %}Free plan{% endif %}</h1>
+    <p class="upg-lede">The planner, imports, grades and reminders stay free. Pro removes the monthly cap on AI generations.</p>
+    <div class="upg-meter">
+      <strong>{{ allowance.remaining }}</strong>
+      <span>of {{ allowance.limit }} AI generations left this month</span>
+      {% set pct = ((allowance.used / allowance.limit) * 100) if allowance.limit else 100 %}
+      <div class="upg-bar{% if allowance.exhausted %} is-full{% endif %}" role="progressbar" aria-valuemin="0" aria-valuemax="{{ allowance.limit }}" aria-valuenow="{{ allowance.used }}" aria-label="AI generations used"><i style="width: {{ [pct, 100]|min }}%"></i></div>
+    </div>
+  {% endif %}
+
+  <div class="upg-split">
+    {% if billing_enabled and plan != 'paid' %}
+    <section class="upg-offer" aria-labelledby="upg-pro">
+      <p class="u-label" id="upg-pro">IntelliPlan Pro</p>
+      <p class="upg-price">$5<small>/month</small></p>
+      <ul>
+        <li>Unlimited Plani tutor and AI study sets</li>
+        <li>Claude first in the model chain, for harder questions</li>
+        <li>Cancel any time; you keep the free plan</li>
+      </ul>
+      {% if not checkout_ready %}
+        <p class="upg-note">Checkout isn't open yet. Invite a friend below and you'll both get {{ reward_days }} days of Pro now.</p>
+      {% else %}
+        {% if not is_minor %}
+          <button type="button" class="btn-primary" id="upgCheckout">Upgrade</button>
+        {% endif %}
+        <button type="button" class="{{ 'btn-primary' if is_minor else 'btn-secondary' }}" id="upgPayLink">Get a link for a parent to pay</button>
+        <div class="upg-copy" id="upgPayLinkBox" hidden>
+          <input id="upgPayLinkInput" readonly aria-label="Payment link">
+          <button type="button" data-copy="upgPayLinkInput">Copy</button>
+        </div>
+        <p class="upg-note">{% if is_minor %}Checkout goes through whoever pays — send them this link. It works for 14 days and shows only your first name.{% else %}Someone else paying? Send them the link instead.{% endif %}</p>
+        <p class="upg-err" id="upgErr" role="alert"></p>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    <aside class="upg-side">
+      <p class="u-label">Invite, don't pay</p>
+      <h2>{{ reward_days }} days of Pro for each friend who starts planning.</h2>
+      <p>They get {{ reward_days }} days when they sign up with your link. You get yours once they connect their school or build a plan. Up to a year.</p>
+      {% if referral_code %}
+      <div class="upg-copy">
+        <input id="upgRefInput" readonly value="{{ request.host_url.rstrip('/') }}/ref/{{ referral_code }}" aria-label="Your invite link">
+        <button type="button" data-copy="upgRefInput">Copy</button>
+      </div>
+      {% endif %}
+    </aside>
+  </div>
+</div>
+
+<script>
+(function () {
+  var err = document.getElementById('upgErr');
+  function fail(msg) { if (err) err.textContent = msg || 'Something went wrong. Try again.'; }
+  function post(url) {
+    return fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' } })
+      .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); });
+  }
+  document.querySelectorAll('.upg [data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var input = document.getElementById(btn.getAttribute('data-copy'));
+      if (!input) return;
+      input.select();
+      var done = function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy'; }, 1800); };
+      if (navigator.clipboard) navigator.clipboard.writeText(input.value).then(done, function () { document.execCommand('copy'); done(); });
+      else { document.execCommand('copy'); done(); }
+    });
+  });
+  var checkout = document.getElementById('upgCheckout');
+  if (checkout) checkout.addEventListener('click', function () {
+    checkout.disabled = true;
+    post('/api/billing/checkout').then(function (res) {
+      if (res.ok && res.body.url) { window.location.href = res.body.url; return; }
+      checkout.disabled = false;
+      fail(res.body && res.body.message === 'use_parent_link' ? 'Use the parent link below.' : res.body && res.body.message);
+    }, function () { checkout.disabled = false; fail(); });
+  });
+  var payLink = document.getElementById('upgPayLink');
+  if (payLink) payLink.addEventListener('click', function () {
+    payLink.disabled = true;
+    post('/api/billing/pay-link').then(function (res) {
+      payLink.disabled = false;
+      if (!res.ok || !res.body.url) { fail(res.body && res.body.message); return; }
+      document.getElementById('upgPayLinkInput').value = res.body.url;
+      document.getElementById('upgPayLinkBox').hidden = false;
+    }, function () { payLink.disabled = false; fail(); });
+  });
+})();
+</script>
+{% endblock %}

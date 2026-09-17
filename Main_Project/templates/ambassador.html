@@ -2,12 +2,12 @@
 
 {% block page_title %}Campus Ambassador Program | IntelliPlan{% endblock %}
 
-{% block meta_description %}Join the IntelliPlan Campus Ambassador program. Share with students at your school and unlock gift card rewards as referrals grow.{% endblock %}
+{% block meta_description %}Join the IntelliPlan Campus Ambassador program. Share it with students at your school and earn free months of IntelliPlan Pro for every friend who starts planning.{% endblock %}
 {% block og_type %}website{% endblock %}
 {% block og_title %}IntelliPlan Campus Ambassador Program{% endblock %}
-{% block og_description %}Help fellow students study smarter. Get gift cards, swag, and exclusive perks for spreading the word.{% endblock %}
+{% block og_description %}Help fellow students study smarter. Earn free months of IntelliPlan Pro for every friend who starts planning.{% endblock %}
 {% block twitter_title %}IntelliPlan Campus Ambassadors{% endblock %}
-{% block twitter_description %}Gift card rewards and exclusive perks for representing IntelliPlan at your school.{% endblock %}
+{% block twitter_description %}Free months of IntelliPlan Pro for representing IntelliPlan at your school.{% endblock %}
 
 {% block head_extra %}
 <script type="application/ld+json">
@@ -18,7 +18,7 @@
   "url": "https://intelliplan.tech/ambassador",
   "isPartOf": { "@id": "https://intelliplan.tech/#website" },
   "about": { "@id": "https://intelliplan.tech/#organization" },
-  "description": "Student ambassador program offering gift card rewards and exclusive perks in exchange for sharing IntelliPlan with classmates."
+  "description": "Student ambassador program: free months of IntelliPlan Pro, for the ambassador and the friend, for every referral that starts planning."
 }
 </script>
 {% endblock %}
@@ -61,7 +61,7 @@
   <span class="amb-kicker" data-reveal>Campus Ambassador Program</span>
   <h1 class="amb-title" data-reveal>Help your classmates study smarter. Get rewarded for it.</h1>
   <p class="amb-lede" data-reveal>
-    Become an IntelliPlan Campus Ambassador at your school. Share what you already love with your friends, classmates, and study group — and earn Amazon gift cards and recognition as your referrals grow.
+    Become an IntelliPlan Campus Ambassador at your school. Share what you already love with your friends, classmates, and study group — and earn a free month of IntelliPlan Pro for every friend who starts planning. They get one too.
   </p>
   <div class="amb-cta-row" data-reveal>
     {% if current_user.is_authenticated %}
@@ -78,19 +78,19 @@
     <h2 data-reveal>What you get</h2>
     <div class="amb-grid">
       <div class="amb-card" data-reveal>
-        <div class="num">Full access</div>
-        <h3>Every feature</h3>
-        <p>IntelliPlan is completely free — full AI tutor, unlimited generations, every feature, no restrictions.</p>
+        <div class="num">Free planner</div>
+        <h3>Every planning feature</h3>
+        <p>Imports, prioritizing, schedules, grades and reminders are free for everyone, and stay that way.</p>
       </div>
       <div class="amb-card" data-reveal>
         <div class="num">Share</div>
         <h3>Help friends</h3>
-        <p>Each friend who signs up with your link gets instant access to every IntelliPlan feature — no limits, no catches.</p>
+        <p>Each friend who signs up with your link starts with 30 days of IntelliPlan Pro: unlimited AI tutor and study sets.</p>
       </div>
       <div class="amb-card" data-reveal>
-        <div class="num">Gift cards</div>
-        <h3>Earn Amazon rewards</h3>
-        <p>Hit 25 referrals to earn a $5 Amazon gift card and 50+ referrals to earn a $10 Amazon gift card. Share the planner that helps your school actually stay on top of work.</p>
+        <div class="num">30 days</div>
+        <h3>A month of Pro per friend</h3>
+        <p>When a friend you invited connects their school or builds their first plan, you get 30 days of Pro. It stacks, up to a year.</p>
       </div>
       <div class="amb-card" data-reveal>
         <div class="num">Exclusive</div>
@@ -106,19 +106,19 @@
       <li data-reveal><strong>Create your account</strong> at intelliplan.tech and grab your unique referral link from the ambassador dashboard. It looks like <code>intelliplan.tech/ref/your-code</code>.</li>
       <li data-reveal><strong>Share it with students at your school.</strong> Drop it in your school Discord, GroupMe, Reddit, class chats, or your study-content TikTok bio — wherever students actually hang out.</li>
       <li data-reveal><strong>Track your referrals</strong> in real time from your dashboard. We show you who signed up, your tier, and how close you are to the next reward.</li>
-      <li data-reveal><strong>Get perks.</strong> Gift cards and swag ship at the end of each month for ambassadors who hit the thresholds.</li>
+      <li data-reveal><strong>Get Pro.</strong> Your free month is added automatically the moment a friend activates. Nothing to claim, nothing to wait for.</li>
     </ol>
   </section>
 
   <section class="amb-section">
     <h2 data-reveal>Reward tiers</h2>
-    <p style="font-family:var(--font-ui);color:var(--text-secondary);margin:0 0 0.75rem;" data-reveal>The more students you bring on, the more you unlock. Tiers reset monthly so every month is a fresh shot.</p>
+    <p style="font-family:var(--font-ui);color:var(--text-secondary);margin:0 0 0.75rem;" data-reveal>Every activated referral is worth the same month to you and to them. Tiers are for recognition.</p>
     <table class="tier-table" data-reveal>
       <thead><tr><th>Tier</th><th>Monthly referrals</th><th>Rewards</th></tr></thead>
       <tbody>
         <tr><td><span class="tier-badge t-b">Bronze</span></td><td>1+ active referral</td><td>Ambassador recognition and access to tips</td></tr>
-        <tr><td><span class="tier-badge t-s">Silver</span></td><td>25+ in a month</td><td>Above + $5 Amazon gift card</td></tr>
-        <tr><td><span class="tier-badge t-g">Gold</span></td><td>50+ in a month</td><td>Above + $10 Amazon gift card and program feature</td></tr>
+        <tr><td><span class="tier-badge t-s">Silver</span></td><td>5+ activated referrals</td><td>Above + 5 months of Pro, stacked</td></tr>
+        <tr><td><span class="tier-badge t-g">Gold</span></td><td>12 activated referrals</td><td>A full year of Pro and a program feature</td></tr>
       </tbody>
     </table>
   </section>
@@ -129,11 +129,11 @@
       <details data-reveal><summary>Who can become an ambassador?</summary>
       <p>Any current high school or college student in good standing. You don't need a big social following — most ambassadors grow through their class chats, study groups, and school Discord servers.</p></details>
       <details data-reveal><summary>Does it cost anything?</summary>
-      <p>No. The program is free to join. We give you rewards because student-to-student recommendations are the most effective way to grow.</p></details>
+      <p>No. The program is free to join. Rewards are Pro time rather than cash, so the people who join are the ones who actually use the planner.</p></details>
       <details data-reveal><summary>What counts as an "active referral"?</summary>
       <p>A signup that comes through your unique link and connects at least one LMS (Canvas, StudentVue, Schoology, or Google Classroom) or generates a study schedule in their first 7 days.</p></details>
-      <details data-reveal><summary>When do gift cards ship?</summary>
-      <p>End of each calendar month, by email to the address on your IntelliPlan account, within 5 business days of month-end.</p></details>
+      <details data-reveal><summary>When do I get my free month?</summary>
+      <p>Straight away. As soon as a friend you invited connects their school or builds a plan in their first week, 30 days are added to your account. You can see your plan and months on the <a href="/upgrade">plan page</a>.</p></details>
       <details data-reveal><summary>Can I represent more than one school?</summary>
       <p>Yes — but most ambassadors focus on one campus. We'll feature you in multi-school spotlights if you grow IntelliPlan at more than one institution.</p></details>
     </div>

@@ -328,7 +328,11 @@
       <p class="u-label">What a free plan usually means</p>
       <h2 id="pricing-why">And what it does not mean here.</h2>
       <ul class="pricing-rationale-list">
+        {% if billing_enabled %}
+        <li><strong>The planner is never the upsell.</strong> Imports, scheduling, grade modeling and reminders are free. <a href="/upgrade">Pro</a> ($5/month) only lifts the monthly cap on AI generations, and a friend you invite earns you both a free month.</li>
+        {% else %}
         <li><strong>Nothing is held back for a paid tier.</strong> There is no paid tier. AI scheduling, grade modeling and the tutor are the product, not the upsell.</li>
+        {% endif %}
         <li><strong>No trial clock.</strong> Accounts do not expire and features do not switch off after two weeks.</li>
         <li><strong>Your school data stays yours.</strong> IntelliPlan reads only what you authorize through official OAuth or a scoped login, and you can wipe it from Settings.</li>
         <li><strong>Sign-in takes one field.</strong> Email or Google, then straight into the planner. No card, no sales call.</li>

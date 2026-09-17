@@ -136,7 +136,16 @@ def _send_email(row: Any) -> bool:
     if not address:
         raise PermanentDeliveryError("no email address on file")
     body = f"{row.body}\n\n{_base_url()}{row.url}\n\n— IntelliPlan"
-    return bool(_send_email(address, row.title or "IntelliPlan", body))
+    if getattr(row, "kind", "") != EventKind.STREAK_AT_RISK.value:
+        return bool(_send_email(address, row.title or "IntelliPlan", body))
+    # Sent without the general reminder opt-in, so it carries its own way
+    # out: one click, no login, and it switches off only streak emails.
+    from intelliplan.email.sender import make_unsubscribe_token
+
+    off = f"{_base_url()}/email/streak-off/{make_unsubscribe_token(address, scope='streak')}"
+    body += f"\n\nStop streak emails: {off}"
+    headers = {"List-Unsubscribe": f"<{off}>", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"}
+    return bool(_send_email(address, row.title or "IntelliPlan", body, headers=headers))
 
 
 def _base_url() -> str:
@@ -315,6 +324,67 @@ def sweep_all(limit: int = 500, now: datetime | None = None) -> dict[str, int]:
     return {"users": swept, "queued": queued}
 
 
+def sweep_streaks(limit: int = 2000, now: datetime | None = None) -> dict[str, int]:
+    """Warn students whose streak breaks tonight. See sources.streak_at_risk.
+
+    Separate from sweep_all because its audience is different: a student
+    with no reminder opt-in at all still gets this one by email, so the
+    opt-in filter that keeps sweep_all cheap would exclude exactly the
+    students it exists for. It is bounded the other way instead -- only a
+    streak extended in the last couple of days can be at risk tonight.
+    """
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    from App import User, UserStreak
+
+    now = now or utcnow()
+    floor = (now.date() - timedelta(days=2)).isoformat()
+    try:
+        rows = (
+            UserStreak.query.filter(
+                UserStreak.current_streak > 0,
+                UserStreak.last_qualifying_local_date >= floor,
+            )
+            .limit(max(1, limit))
+            .all()
+        )
+    except Exception as exc:
+        logger.warning("streak sweep query failed: %s", exc)
+        return {"checked": 0, "queued": 0}
+
+    checked = queued = 0
+    for streak in rows:
+        checked += 1
+        try:
+            try:
+                zone = ZoneInfo(streak.timezone) if streak.timezone else ZoneInfo("UTC")
+            except (ZoneInfoNotFoundError, ValueError, OSError):
+                zone = ZoneInfo("UTC")
+            local_now = now.replace(tzinfo=ZoneInfo("UTC")).astimezone(zone).replace(tzinfo=None)
+            try:
+                last = date.fromisoformat(str(streak.last_qualifying_local_date or "")[:10])
+            except ValueError:
+                continue
+            event = sources.streak_at_risk(
+                streak.user_id, streak.current_streak or 0, last, local_now
+            )
+            if event is None:
+                continue
+            user = User.query.get(streak.user_id)
+            if user is None:
+                continue
+            prefs = _preferences_for(user)
+            # A student whose own quiet hours have already started gets
+            # nothing: the dispatcher would hold it until morning, when the
+            # streak it warns about is gone.
+            if prefs.quiet_hours.contains(local_now):
+                continue
+            queued += len(get_dispatcher().enqueue(event, prefs))
+        except Exception as exc:
+            logger.warning("streak sweep failed for user %s: %s", streak.user_id, exc)
+    return {"checked": checked, "queued": queued}
+
+
 # ── Event hooks called from elsewhere ─────────────────────────────────
 
 
@@ -454,8 +524,9 @@ def _tick_once(app: Any) -> dict | None:
         return None  # another worker owns this tick
 
     swept = sweep_all()
+    streaks = sweep_streaks()
     delivered = get_dispatcher().flush()
-    return {"swept": swept, "delivered": delivered.as_dict()}
+    return {"swept": swept, "streaks": streaks, "delivered": delivered.as_dict()}
 
 
 def start_ticker(app: Any) -> bool:
@@ -531,8 +602,10 @@ def cron_notifications():
             "message": "unauthorized: that cron secret does not match.",
         }), 401
     swept = sweep_all()
+    streaks = sweep_streaks()
     delivered = get_dispatcher().flush()
-    return jsonify({"status": "ok", "swept": swept, "delivered": delivered.as_dict()})
+    return jsonify({"status": "ok", "swept": swept, "streaks": streaks,
+                    "delivered": delivered.as_dict()})
 
 
 @notifications_bp.route("/api/notifications/preferences", methods=["GET", "POST"])

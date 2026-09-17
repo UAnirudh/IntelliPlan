@@ -26,6 +26,8 @@ __all__ = [
     "overload_warning",
     "session_completed_event",
     "reschedule_event",
+    "streak_at_risk",
+    "STREAK_DEFENSE_HOURS",
 ]
 
 #: A session is "missed" only once its window has been over by this long.
@@ -262,6 +264,42 @@ def reschedule_event(
         dedupe_key=f"reschedule:{when.isoformat()}",
         context={"count": moved_count, "reason": reason},
         url="/scheduler",
+    )
+
+
+#: Local hours in which a streak warning may go out: late enough that the
+#: student has visibly not acted today, early enough to still do something,
+#: and ending before default quiet hours so it is never held until morning.
+STREAK_DEFENSE_HOURS = (18, 22)
+
+
+def streak_at_risk(
+    user_id: int,
+    current_streak: int,
+    last_qualifying_local_date: date | None,
+    local_now: datetime,
+) -> NotificationEvent | None:
+    """"Your streak ends tonight", when and only when that is true.
+
+    Fires for a streak last extended *yesterday* (local): done today is
+    safe, and older than yesterday is already broken -- telling someone to
+    save a streak they lost two days ago is how a reminder becomes spam.
+    Keyed by the local date, so one warning per day at most.
+    """
+    if current_streak < 1 or last_qualifying_local_date is None:
+        return None
+    today = local_now.date()
+    if last_qualifying_local_date != today - timedelta(days=1):
+        return None
+    start, end = STREAK_DEFENSE_HOURS
+    if not (start <= local_now.hour < end):
+        return None
+    return NotificationEvent(
+        kind=EventKind.STREAK_AT_RISK,
+        user_id=user_id,
+        dedupe_key=f"streak:{today.isoformat()}",
+        context={"streak": current_streak, "hours_left": 24 - local_now.hour},
+        url="/dashboard",
     )
 
 

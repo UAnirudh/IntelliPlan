@@ -12,7 +12,7 @@ import logging
 import os
 import re
 import time
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +87,48 @@ _CHAINS: dict[str, list[tuple[str, str]]] = {
 }
 
 
+# ── Account hooks ─────────────────────────────────────────────────────
+# ai_provider knows nothing about users, and should not: it is imported by
+# scripts and tests with no Flask app. The web app registers two callables
+# instead, so the plan and the allowance apply to every AI call site in the
+# product without threading a user through each one.
+
+#: () -> "free" | "paid". Consulted only when a caller did not pass a plan.
+_plan_resolver: Callable[[], str] | None = None
+#: (plan) -> None. Raises AIAllowanceExceeded when the allowance is spent.
+_usage_gate: Callable[[str], None] | None = None
+
+
+def set_account_hooks(
+    plan_resolver: Callable[[], str] | None = None,
+    usage_gate: Callable[[str], None] | None = None,
+) -> None:
+    global _plan_resolver, _usage_gate
+    _plan_resolver = plan_resolver
+    _usage_gate = usage_gate
+
+
+def _apply_account_hooks(plan: str | None) -> str:
+    """Resolve the effective plan, then charge the allowance for it."""
+    effective = plan or "free"
+    if plan is None and _plan_resolver is not None:
+        try:
+            effective = _plan_resolver() or "free"
+        except Exception as exc:  # a broken resolver must not take AI down
+            logger.warning("plan resolver failed: %s", exc)
+            effective = "free"
+    if _usage_gate is not None:
+        try:
+            _usage_gate(effective)
+        except AIAllowanceExceeded:
+            raise
+        except Exception as exc:
+            # Fail open. A metering bug that blocks every AI request is a
+            # worse outage than a month of uncounted generations.
+            logger.warning("usage gate failed: %s", exc)
+    return effective
+
+
 def model_chain(tier: Tier = "standard", plan: str = "free") -> list[tuple[str, str]]:
     """The ordered (provider, model) list this request may try.
 
@@ -139,6 +181,20 @@ class AIQuotaExhausted(RuntimeError):
     def __init__(self, message: str, retry_after: int | None = None):
         super().__init__(message)
         self.retry_after = retry_after
+
+
+class AIAllowanceExceeded(AIQuotaExhausted):
+    """This student's plan has used its AI allowance for the period.
+
+    A subclass of AIQuotaExhausted on purpose: every caller that already
+    tells the student "the AI is at its limit" keeps working unchanged, and
+    the ones that want to show an upgrade path can catch this narrower type.
+    """
+
+    def __init__(self, message: str, *, limit: int | None = None, used: int | None = None):
+        super().__init__(message)
+        self.limit = limit
+        self.used = used
 
 
 class AIUnavailable(RuntimeError):
@@ -470,7 +526,7 @@ def chat(
     max_tokens: int = 512,
     response_format: dict | None = None,
     thinking_budget: int | None = None,
-    plan: str = "free",
+    plan: str | None = None,
 ) -> str:
     """Chat completion, walking this tier's model chain until one answers.
 
@@ -489,7 +545,7 @@ def chat(
     AIUnavailable when nothing is configured or everything failed for some
     other reason. Callers can tell the student which of the two happened.
     """
-    chain = model_chain(tier, plan)
+    chain = model_chain(tier, _apply_account_hooks(plan))
     if not chain:
         raise AIUnavailable(
             "No AI backend available. Set GEMINI_API_KEY (primary) or GROQ_API_KEY (fallback)."
@@ -573,6 +629,7 @@ def vision(
     vision was "temporarily unavailable". Gemini counts quota per model, so
     the vision model steps down to the lite model before leaving Google.
     """
+    _apply_account_hooks(None)
     errors: list[str] = []
     quota_hits = 0
     attempted = 0
