@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block page_title %}Pay for IntelliPlan Pro | IntelliPlan{% endblock %}
+{% block meta_description %}Pay for a student's IntelliPlan Pro plan.{% endblock %}
+{% block head_extra %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block content %}
+<style>
+  .pfs { max-width: 560px; margin: 0 auto; padding: var(--space-7) var(--space-4) var(--space-8); }
+  .pfs h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.8rem, 1.3rem + 1.8vw, 2.5rem); line-height: 1.08; letter-spacing: -0.02em; color: var(--text-primary); margin: 0.35rem 0 0.75rem; text-wrap: balance; }
+  .pfs p { font-family: var(--font-body); color: var(--text-secondary); line-height: 1.65; margin: 0 0 1rem; }
+  .pfs dl { display: grid; grid-template-columns: auto 1fr; gap: 0.55rem 1.25rem; margin: var(--space-5) 0; padding: var(--space-4) 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); font-family: var(--font-ui); }
+  .pfs dt { color: var(--text-secondary); }
+  .pfs dd { margin: 0; color: var(--text-primary); font-weight: 600; }
+  .pfs button { width: 100%; padding: 0.95rem 1rem; border-radius: 12px; border: 0; font: inherit; font-weight: 700; cursor: pointer; }
+  .pfs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .pfs small { display: block; margin-top: 0.75rem; font-family: var(--font-ui); color: var(--text-secondary); line-height: 1.5; }
+</style>
+<div class="pfs">
+  <p class="u-label">Paying for a student</p>
+  {% if already_paid %}
+    <h1>{{ student_first_name }} already has Pro.</h1>
+    <p>Nothing to pay right now. Thanks for checking.</p>
+  {% else %}
+    <h1>{{ student_first_name }} asked you to cover IntelliPlan Pro.</h1>
+    <p>IntelliPlan is a study planner: it pulls in assignments from school, builds a study schedule, and has an AI tutor. The planner is free. Pro removes the monthly limit on AI help.</p>
+    <dl>
+      <dt>Price</dt><dd>$5 per month</dd>
+      <dt>Cancel</dt><dd>Any time, from the receipt email</dd>
+      <dt>Payment</dt><dd>Handled by Stripe; we never see the card</dd>
+    </dl>
+    <form method="post">
+      <button type="submit" class="btn-primary">Continue to secure checkout</button>
+    </form>
+    <small>Not expecting this? You can close the page — nothing is charged unless you complete checkout.</small>
+  {% endif %}
+</div>
+{% endblock %}

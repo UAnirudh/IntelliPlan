@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block page_title %}Ambassador Dashboard | IntelliPlan{% endblock %}
-{% block meta_description %}Your IntelliPlan Campus Ambassador dashboard. Track your referrals, copy your unique link, and see how close you are to the next reward tier.{% endblock %}
+{% block meta_description %}Your IntelliPlan Campus Ambassador dashboard. Track your referrals, copy your unique link, and see how many free months of Pro you have earned.{% endblock %}
 
 {% block content %}
 
@@ -93,20 +93,23 @@
 
 <script>
 (async function () {
+  // Tiers count *activated* referrals -- friends who connected their school
+  // or built a plan -- because those are the ones that earn a month of Pro.
   function tierFor(n) {
-    if (n >= 50) return { name: "Gold",   cls: "tier-gold",   next: null,    needed: 0 };
-    if (n >= 25) return { name: "Silver", cls: "tier-silver", next: "Gold",    needed: 50 };
-    if (n >= 1)  return { name: "Bronze", cls: "tier-bronze", next: "Silver",  needed: 25 };
+    if (n >= 12) return { name: "Gold",   cls: "tier-gold",   next: null,    needed: 0 };
+    if (n >= 5)  return { name: "Silver", cls: "tier-silver", next: "Gold",    needed: 12 };
+    if (n >= 1)  return { name: "Bronze", cls: "tier-bronze", next: "Silver",  needed: 5 };
     return       { name: "Not yet", cls: "tier-none",   next: "Bronze",  needed: 1  };
   }
   try {
     const r = await fetch('/api/referral');
     const d = await r.json();
     if (d.status !== 'ok') throw new Error(d.message || 'Could not load referral data');
-    const code = d.code; const total = d.invited_count || 0;
+    const code = d.code; const total = d.activated_count || 0;
+    const months = d.months_earned || 0;
     const link = `${location.origin}/ref/${code}`;
     document.getElementById('refLink').value = link;
-    document.getElementById('cntTotal').textContent = total;
+    document.getElementById('cntTotal').textContent = d.invited_count || 0;
     const t = tierFor(total);
     const badge = document.getElementById('tierBadge');
     badge.textContent = t.name; badge.className = 'ad-tier-badge ' + t.cls;
@@ -115,13 +118,13 @@
     const lblEl = document.getElementById('tierLbl');
     if (t.next) {
       const pct = Math.min(100, Math.round((total / t.needed) * 100));
-      noteEl.innerHTML = `<strong>${t.needed - total}</strong> more referral${(t.needed - total) === 1 ? '' : 's'} to reach <strong>${t.next}</strong>.`;
+      noteEl.innerHTML = `<strong>${months}</strong> free month${months === 1 ? '' : 's'} of Pro earned. <strong>${t.needed - total}</strong> more activated friend${(t.needed - total) === 1 ? '' : 's'} to reach <strong>${t.next}</strong>.`;
       barEl.style.transform = 'scaleX(' + (pct / 100) + ')';
-      lblEl.textContent = total + ' / ' + t.needed + ' referrals';
+      lblEl.textContent = total + ' / ' + t.needed + ' activated referrals';
     } else {
-      noteEl.innerHTML = `You're at the top tier. Top ambassadors get featured on the program page each semester.`;
+      noteEl.innerHTML = `You're at the top tier: a full year of Pro earned. Top ambassadors get featured on the program page each semester.`;
       barEl.style.transform = 'scaleX(1)';
-      lblEl.textContent = total + ' / 25+ referrals';
+      lblEl.textContent = total + ' activated referrals';
     }
     // Wire share links
     const shareText = encodeURIComponent("I've been using IntelliPlan — free AI study planner that syncs Canvas/StudentVue/Schoology and builds your week. Try it: " + link);

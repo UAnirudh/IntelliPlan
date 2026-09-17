@@ -630,6 +630,23 @@ class User(UserMixin, db.Model):
     #: left" — without it the alarm goes off every time someone reaches for
     #: a textbook.
     focus_grace_seconds = db.Column(db.Integer, default=25)
+
+    # ── Plan (see intelliplan/growth/plans.py) ────────────────────────
+    #: End of the paid window, naive UTC. Null or past means the free plan.
+    #: A date rather than a boolean so referral months, checkout renewals
+    #: and a lapsed card all reduce to the same comparison.
+    paid_until = db.Column(db.DateTime, nullable=True)
+    #: Set on the *referred* account once its inviter has been paid for it,
+    #: so a referral pays out exactly once however often it is settled.
+    referral_rewarded_at = db.Column(db.DateTime, nullable=True)
+    #: "Your streak ends tonight" by email. Default on, unlike the general
+    #: reminder opt-in: most students deny push, and a streak defence that
+    #: only reaches the ones who allowed it is not a retention mechanism.
+    #: It is a message about the student's own account, carries a one-click
+    #: unsubscribe, and is only sent to someone with a live streak.
+    streak_emails_opt_in = db.Column(db.Boolean, default=True)
+    #: Stripe customer, once the student (or whoever pays) has checked out.
+    stripe_customer_id = db.Column(db.String(64), nullable=True)
     linked_accounts = db.relationship("LinkedAccount", backref="user", lazy=True, cascade="all, delete-orphan")
     dismissed = db.relationship("DismissedAssignment", backref="user", lazy=True, cascade="all, delete-orphan")
     descriptions = db.relationship("CustomDescription", backref="user", lazy=True, cascade="all, delete-orphan")
@@ -1922,6 +1939,21 @@ class UserStreak(db.Model):
     nudge_shown_date = db.Column(db.String(16), default="")
     qualified_dates_json = db.Column(db.Text, default="[]")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AIUsage(db.Model):
+    """AI generations charged to a student in one calendar month (UTC).
+
+    One row per (user, month), incremented in place. Counts requests, not
+    model calls -- see intelliplan/growth/plans.py.
+    """
+    __tablename__ = "ai_usage"
+    __table_args__ = (db.UniqueConstraint("user_id", "period", name="uq_ai_usage_user_period"),)
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    period = db.Column(db.String(7), nullable=False)  # YYYY-MM
+    count = db.Column(db.Integer, default=0, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
@@ -4739,7 +4771,8 @@ def compare():
 
 @app.route("/pricing")
 def pricing():
-    return render_template("pricing.html", active_page="pricing")
+    from growth_glue import billing_enabled
+    return render_template("pricing.html", active_page="pricing", billing_enabled=billing_enabled())
 
 # ── Blog / guides ──────────────────────────────────────────────
 @app.route("/blog/how-to-use-canvas-with-a-study-planner")
@@ -8266,6 +8299,13 @@ def _handle_google_callback():
     # already. (Deduplication would catch a repeat anyway; not sending is
     # still the correct behaviour to express here.)
     if _is_new_signup:
+        # Google signups never consumed a pending referral, so every student
+        # who arrived by a friend's link and chose "Continue with Google"
+        # was invisible to the referral program.
+        try:
+            _grant_referral_bonus(user)
+        except Exception as _ref_e:
+            print(f"[referral] grant failed: {_ref_e}")
         send_welcome_email_on_signup(user.id)
 
     # ── Persist the Google token for calendar use ──
@@ -8782,6 +8822,7 @@ def _account_delete_impl():
         ("feature_request_votes", "DELETE FROM feature_request_votes WHERE user_id = :uid"),
         ("feature_requests", "DELETE FROM feature_requests WHERE user_id = :uid"),
         ("site_feedback", "DELETE FROM site_feedback WHERE user_id = :uid"),
+        ("ai_usage", "DELETE FROM ai_usage WHERE user_id = :uid"),
         ("client_error_logs", "DELETE FROM client_error_logs WHERE user_id = :uid"),
 
         # ── Study groups ───────────────────────────────────────────────
@@ -16355,12 +16396,26 @@ def referral_landing(code):
 def api_referral():
     if not current_user.is_authenticated:
         return flask.jsonify({"status": "error", "message": "login required"}), 401
+    from growth_glue import settle_referral_rewards
+    from intelliplan.growth.plans import REFERRAL_MAX_REWARDS, REFERRAL_REWARD_DAYS
+
     code = _ensure_referral_code(current_user)
+    settle_referral_rewards(current_user)
     invited = User.query.filter_by(referred_by_id=current_user.id).count()
+    activated = User.query.filter(
+        User.referred_by_id == current_user.id,
+        User.referral_rewarded_at.isnot(None),
+    ).count()
     return flask.jsonify({
         "status": "ok",
         "code": code,
         "invited_count": invited,
+        # Activated referrals are the ones that paid out a month of Pro.
+        "activated_count": activated,
+        "months_earned": min(activated, REFERRAL_MAX_REWARDS),
+        "max_months": REFERRAL_MAX_REWARDS,
+        "reward_days": REFERRAL_REWARD_DAYS,
+        "paid_until": current_user.paid_until.isoformat() if current_user.paid_until else None,
     })
 
 
@@ -18309,6 +18364,10 @@ def _grant_referral_bonus(new_user):
     if not inviter or inviter.id == new_user.id:
         return
     new_user.referred_by_id = inviter.id
+    # A month of the paid plan for the new student, now. The inviter's month
+    # is paid when this account activates -- see growth_glue.
+    from growth_glue import grant_signup_reward
+    grant_signup_reward(new_user)
     db.session.commit()
 
 
@@ -19020,6 +19079,12 @@ def api_get_group(group_id):
         })
     is_member = current_user.is_authenticated and any(m["user_id"] == current_user.id for m in members)
     invite_url = (APP_BASE_URL.rstrip("/") + url_for("groups_invite", group_id=g.id)) if APP_BASE_URL else url_for("groups_invite", group_id=g.id)
+    # The sharer's referral code rides along, so a classmate who signs up
+    # from a group invite counts as their referral.
+    if current_user.is_authenticated:
+        _ref_code = _ensure_referral_code(current_user)
+        if _ref_code:
+            invite_url += f"?ref={_ref_code}"
     return flask.jsonify({
         "id": g.id,
         "name": g.name,
@@ -19472,6 +19537,11 @@ limiter.exempt(app.view_functions["notifications.cron_notifications"])
 # runs its own timer; the endpoint remains for a real external scheduler.
 # Set NOTIFICATIONS_INPROCESS_CRON=0 to hand the job back to one.
 _start_notification_ticker(app)
+# ── Growth: retention measurement, plan + AI allowance, referral months,
+# checkout. See growth_glue for why billing ships behind BILLING_ENABLED.
+from growth_glue import install as _install_growth
+_install_growth(app)
+limiter.exempt(app.view_functions["growth.stripe_webhook"])
 # ── Offline write safety. Installs before/after-request hooks that make any
 # mutating endpoint replay-safe when the client sends an X-IP-Op-Id, plus the
 # one endpoint the offline queue uses to ask "did these ops land?".
@@ -19591,6 +19661,11 @@ def _migrate_user_columns():
         ("users", "focus_enforcement", "VARCHAR(16) DEFAULT 'off'"),
         ("users", "focus_alarm_file", "VARCHAR(255)"),
         ("users", "focus_grace_seconds", "INTEGER DEFAULT 25"),
+        # users — plan, referral rewards, streak email (intelliplan/growth)
+        ("users", "paid_until", "TIMESTAMP"),
+        ("users", "referral_rewarded_at", "TIMESTAMP"),
+        ("users", "streak_emails_opt_in", "BOOLEAN DEFAULT TRUE"),
+        ("users", "stripe_customer_id", "VARCHAR(64)"),
         # active_sessions — sparks given up to focus enforcement
         ("active_sessions", "sparks_forfeited", "INTEGER DEFAULT 0"),
         # users — notification preferences. These are listed here as well as

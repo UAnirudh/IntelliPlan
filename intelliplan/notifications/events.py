@@ -71,6 +71,10 @@ class EventKind(str, Enum):
     PLAN_OVERLOADED = "plan_overloaded"
     #: The plan changed materially (new work landed, capacity changed).
     PLAN_CHANGED = "plan_changed"
+    #: A live streak will break at local midnight unless the student acts.
+    #: The notification, not the streak, is the retention mechanism: a
+    #: streak nobody is told about ends silently.
+    STREAK_AT_RISK = "streak_at_risk"
 
 
 #: Kinds a student gets unless they turn them off. Completion pats and
@@ -83,6 +87,7 @@ DEFAULT_ENABLED_KINDS: frozenset[EventKind] = frozenset(
         EventKind.SESSION_RESCHEDULED,
         EventKind.DEADLINE_APPROACHING,
         EventKind.PLAN_OVERLOADED,
+        EventKind.STREAK_AT_RISK,
     }
 )
 
@@ -232,6 +237,18 @@ def _plan_changed(ctx: Mapping[str, Any]) -> tuple[str, str]:
     return ("Plan rebuilt", "Your schedule changed. Take a look before you start.")
 
 
+def _streak_at_risk(ctx: Mapping[str, Any]) -> tuple[str, str]:
+    try:
+        days = int(ctx.get("streak") or 0)
+    except (TypeError, ValueError):
+        days = 0
+    streak = f"{days}-day streak" if days > 1 else "streak"
+    hours = ctx.get("hours_left")
+    when = f"in {hours}h" if hours else "at midnight"
+    # One concrete, small action. "Keep studying!" is not an instruction.
+    return (f"Your {streak} ends {when}", "Finish one task or open today's plan to keep it.")
+
+
 _TEMPLATES = {
     EventKind.SESSION_UPCOMING: _session_upcoming,
     EventKind.SESSION_MISSED: _session_missed,
@@ -240,6 +257,7 @@ _TEMPLATES = {
     EventKind.DEADLINE_APPROACHING: _deadline_approaching,
     EventKind.PLAN_OVERLOADED: _plan_overloaded,
     EventKind.PLAN_CHANGED: _plan_changed,
+    EventKind.STREAK_AT_RISK: _streak_at_risk,
 }
 
 

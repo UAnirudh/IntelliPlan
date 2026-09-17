@@ -104,6 +104,9 @@ class Preferences:
     #: Hard ceiling per rolling day, per channel. Protects a student whose
     #: week genuinely is a disaster from being told about it forty times.
     daily_cap: int = 12
+    #: Streak-at-risk by email even without the general reminder opt-in.
+    #: See ``User.streak_emails_opt_in`` for why this one defaults on.
+    streak_email: bool = False
 
     # ── Derived ───────────────────────────────────────────────────────
 
@@ -145,7 +148,15 @@ class Preferences:
         )
 
     def wants(self, kind: EventKind, channel: Channel) -> bool:
-        return kind in self.kinds and channel in self.channels
+        if kind not in self.kinds:
+            return False
+        if channel in self.channels:
+            return True
+        return (
+            kind is EventKind.STREAK_AT_RISK
+            and channel is Channel.EMAIL
+            and self.streak_email
+        )
 
     def delivery_time(self, kind: EventKind, earliest_utc: datetime) -> datetime:
         """When this message may actually go out.
@@ -204,6 +215,8 @@ def preferences_from_user(
             enabled=bool(getattr(user, "quiet_hours_enabled", True)),
         ),
         lead_minutes=_clamp_lead(getattr(user, "reminder_lead_minutes", 30)),
+        streak_email=bool(getattr(user, "email", None))
+        and getattr(user, "streak_emails_opt_in", True) is not False,
     )
 
 
