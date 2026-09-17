@@ -32,6 +32,11 @@
       '<button type="button" class="btn-secondary" value="close">Not now</button>' +
       '</div>';
     document.body.appendChild(dlg);
+    try { window.IP && IP.insight && IP.insight.track('paywall_shown', {}); } catch (e) {}
+    var upgrade = dlg.querySelector('a');
+    if (upgrade) upgrade.addEventListener('click', function () {
+      try { window.IP && IP.insight && IP.insight.track('paywall_upgrade_clicked', {}); } catch (e) {}
+    });
     dlg.querySelector('button').addEventListener('click', function () { dlg.close(); });
     dlg.addEventListener('close', function () { dlg.remove(); });
     if (typeof dlg.showModal === 'function') dlg.showModal();
