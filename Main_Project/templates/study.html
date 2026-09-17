@@ -2253,15 +2253,44 @@ async function xSubmit() {
       updateMastery(q, ev.verdict, ev.score);
     }
   } catch(e) {
+    // The grader could not be reached. This is what the self-check row is
+    // for, and it was never shown: the student was handed the answer, given
+    // one Spark whether they were right or wrong, and their mastery record
+    // was left untouched. Ask them instead — they know.
     document.getElementById('xFbBox').style.display = 'block';
     document.getElementById('xFbBox').innerHTML = `<div style="margin-bottom:8px;font-weight:700;display:flex;align-items:center;gap:5px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg> Correct Answer:</div><div>${escHtml(q.answer)}</div>`;
-    await addPoints(1, '+1 Sparks');
-    G.sesAnswered++;
+    document.getElementById('xSelfCheck').style.display = 'flex';
+    btn.style.display = 'none';
+    return;   // xMark moves the session on once they have graded themselves
   }
 
   btn.style.display = 'none';
   document.getElementById('xNextBtn').style.display = 'block';
   document.getElementById('xNextBtn').textContent = G.xQ + 1 < G.questions.length ? 'Next Question →' : 'Finish';
+}
+
+/* "Got it" / "Missed it".
+   Both buttons called this name and nothing defined it anywhere, so every
+   click threw a ReferenceError — and since the row that holds them was only
+   ever hidden and never shown, nobody could reach the dead buttons to
+   notice. Now the row appears when the grader is unreachable, and this
+   scores the answer the student gave themselves. */
+async function xMark(correct) {
+  const q = G.questions[G.xQ];
+  document.getElementById('xSelfCheck').style.display = 'none';
+
+  if (correct) {
+    await addPoints(2, '+2 Sparks');
+    G.sesCorrect++;
+  }
+  G.sesAnswered++;
+  // Self-graded, but still real: a question the student missed has to reach
+  // the mastery record, or it never comes back for review.
+  updateMastery(q, correct ? 'correct' : 'incorrect', correct ? 1 : 0);
+
+  const next = document.getElementById('xNextBtn');
+  next.style.display = 'block';
+  next.textContent = G.xQ + 1 < G.questions.length ? 'Next Question →' : 'Finish';
 }
 
 function xNext() {

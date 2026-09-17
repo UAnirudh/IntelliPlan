@@ -65,7 +65,7 @@
         <div class="ms-fb-empty">
           <p class="ms-fb-empty-title">No feedback yet</p>
           <p class="ms-empty">Anything you send through the feedback button will show up here with its status.</p>
-          <button type="button" class="ipd-btn ms-fb-empty-btn" onclick="ipMsOpenFeedback()">Send feedback</button>
+          <button type="button" class="ipd-btn ms-fb-empty-btn" onclick="ipMsOpenFeedback()" id="msSendFeedbackBtn">Send feedback</button>
         </div>
       </div>
     </section>
@@ -304,5 +304,24 @@ function renderFeedback(items) {
 }
 
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* The "Send feedback" button on this page called this name and nothing
+   defined it, anywhere — so every click threw a ReferenceError and the
+   button did nothing. It opens the sitewide feedback widget, which is the
+   thing that actually posts to /api/feedback/submit and therefore the
+   thing that fills the list above.
+
+   The guard is not ceremony: the widget renders only for a signed-in user
+   on an app page. That is always true here today, and a button that
+   silently does nothing again if that ever changes is the bug we are
+   fixing, so say so instead. */
+function ipMsOpenFeedback() {
+  if (typeof window.ipFbOpen === 'function') { window.ipFbOpen(); return; }
+  var btn = document.getElementById('msSendFeedbackBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Feedback is unavailable right now';
+  }
+}
 </script>
 {% endblock %}

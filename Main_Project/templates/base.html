@@ -251,6 +251,11 @@
   {# Finishing layer's JS: spotlight cursor, scrolled flag, progress-bar
      fallback. Deferred — nothing during parse depends on it. #}
   <script defer src="{{ url_for('static', filename='js/ip-premium.js') }}?v={{ asset_v }}"></script>
+  {# Block detail panel. Loaded app-wide because the same blocks appear on
+     the scheduler, Active study and today's plan, and a panel that only
+     opens on one of them is the drift this component exists to avoid. #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/block-detail.css') }}?v={{ asset_v }}">
+  <script defer src="{{ url_for('static', filename='js/block-detail.js') }}?v={{ asset_v }}"></script>
   {% block head_extra %}{% endblock %}
 <style id="android-touch-polish">
 /* ===== Android scroll + tap responsiveness and mobile polish =====
@@ -3152,6 +3157,28 @@ window.addEventListener('load',()=>{
       selectedMood = parseInt(btn.dataset.mood);
     });
   });
+
+  /* Opening the panel from somewhere other than the floating trigger.
+     My Stats has a "Send feedback" button that called ipMsOpenFeedback(),
+     a function that was never written anywhere — so it threw a
+     ReferenceError and the button did nothing at all.
+
+     It has to un-hide the widget as well as the panel: the panel lives
+     inside #ipFeedback, so for anyone who had dismissed the floating
+     button with its ✕ the panel would open inside a hidden parent and
+     stay invisible — the same dead button, with a harder cause to find.
+     The stored preference is deliberately left alone: they asked for
+     feedback once, here, not for the floating button back for good. */
+  window.ipFbOpen = function(){
+    fb.hidden = false;
+    var done = document.getElementById('ipFbDone');
+    var form = document.getElementById('ipFbForm');
+    if (done) done.hidden = true;
+    if (form) form.style.display = '';
+    panel.hidden = false;
+    var msg = document.getElementById('ipFbMsg');
+    if (msg) msg.focus();
+  };
 
   window.ipFbClose = function(){ panel.hidden = true; };
   window.ipFbHideWidget = function(){
