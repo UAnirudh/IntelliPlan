@@ -185,6 +185,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}?v={{ asset_v }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-async.css') }}?v={{ asset_v }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-paywall.css') }}?v={{ asset_v }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-insight.css') }}?v={{ asset_v }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-motion.css') }}?v={{ asset_v }}">
   {# UI component library — the Watermelon registry components, hand-ported
      to vanilla CSS/JS because this app has no build step for shadcn. #}
@@ -217,6 +218,10 @@
   {# AI allowance wall: reads a response header, opens one dialog. After
      the core files so it wraps the fetch they already use. #}
   <script src="{{ url_for('static', filename='js/ip-paywall.js') }}?v={{ asset_v }}"></script>
+  {# In-app questions and consented event reporting. Deferred: it waits
+     twelve seconds before asking anything, so nothing during parse needs
+     it. #}
+  <script defer src="{{ url_for('static', filename='js/ip-insight.js') }}?v={{ asset_v }}"></script>
 
   {# ── Motion layer ───────────────────────────────────────────────────
      GSAP is vendored rather than pulled from jsDelivr so it stays inside
@@ -431,9 +436,11 @@ body {
    session replay. It has been removed rather than merely gated: the promise
    made to schools and parents is worth more than the heatmaps.
 
-   Product usage is measured server-side via PostHog, which sets nothing in
-   the browser. Anything added here in future must be declared in
-   cookie_policy.py and gated on consent first. #}
+   Usage is now counted by IntelliPlan itself (insight_glue.py): route
+   patterns and event names on our own servers, behind the consent gate,
+   never for a child. The only browser storage it needs is the ip_vid
+   cookie, declared in cookie_policy.py. Anything added here in future must
+   be declared there and gated on consent first. #}
 </head>
 
 {# 'active' is deliberately absent: the Active page runs on slim chrome so a
@@ -3408,9 +3415,11 @@ window.addEventListener('load',()=>{
   <div class="ip-cookie-inner">
     <div class="ip-cookie-text">
       <strong>We use cookies to keep you signed in.</strong>
-      We would also like to see which parts of IntelliPlan are confusing or
-      broken, which uses Microsoft Clarity. That is your call, and nothing
-      here is used for advertising or sold.
+      We would also like to count which parts of IntelliPlan get used, so we
+      can fix the confusing ones. That means one cookie of ours holding a
+      random id — no third-party trackers, no session recording, nothing
+      sold or used for advertising, and you can switch it off later, which
+      also deletes what it recorded.
       <a href="/cookies">What we store</a>
     </div>
     <div class="ip-cookie-actions">

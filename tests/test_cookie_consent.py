@@ -87,23 +87,32 @@ def test_the_content_security_policy_forbids_the_tracker_origin(client):
     assert "clarity.ms" not in csp
 
 
-def test_nothing_non_essential_is_registered(client):
-    assert cookie_policy.cookies_for(cookie_policy.ANALYTICS) == []
-    assert cookie_policy.analytics_available() is False
+def test_the_only_non_essential_item_is_our_own_visitor_id(client):
+    """One first-party cookie, ours, and nothing else.
+
+    The category exists so that anything non-essential has to be declared
+    before it can ship. This test is the declaration: if a second item
+    appears here, or one with somebody else's name on it, that is a change
+    a human has to make deliberately.
+    """
+    declared = cookie_policy.cookies_for(cookie_policy.ANALYTICS)
+    assert [c["name"] for c in declared] == ["ip_vid"]
+    assert {c["provider"] for c in declared} == {"IntelliPlan"}
+    assert cookie_policy.analytics_available() is True
 
 
-def test_no_banner_is_shown_when_there_is_nothing_to_consent_to(client):
-    """A banner asking about nothing is theatre, and trains people to
-    dismiss the ones that matter."""
-    assert b"ipCookieBanner" not in client.get("/").data
+def test_the_banner_is_shown_now_that_there_is_something_to_ask_about(client):
+    assert b"ipCookieBanner" in client.get("/").data
 
 
 # ── The gate, exercised against a declared stand-in ──────────
 
-def test_declaring_a_tracker_is_what_turns_the_category_on(client, monkeypatch):
+def test_an_empty_registry_switches_the_category_off_again(client, monkeypatch):
+    """The category follows the registry, not a config flag: removing the
+    last non-essential item must remove the banner with it."""
+    monkeypatch.setattr(cookie_policy, "COOKIES",
+                        cookie_policy.cookies_for(cookie_policy.ESSENTIAL))
     assert cookie_policy.analytics_available() is False
-    register_a_tracker(monkeypatch)
-    assert cookie_policy.analytics_available() is True
 
 
 def test_a_declared_tracker_still_needs_consent_first(client, monkeypatch):
@@ -236,10 +245,11 @@ def test_every_registered_cookie_is_documented_on_the_page(client):
         assert cookie["duration"] in html
 
 
-def test_the_page_says_plainly_that_nothing_optional_is_in_use(client):
+def test_the_page_names_no_third_party_and_explains_withdrawal(client):
     html = client.get("/cookies").data.decode("utf-8", "ignore")
     assert "Microsoft Clarity" not in html
-    assert "switched off for everyone" in html
+    # Withdrawal has to delete, not merely stop.
+    assert "deletes the activity already" in html
 
 
 def test_the_privacy_policy_promise_is_true_again(client):

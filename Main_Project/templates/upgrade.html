@@ -107,6 +107,11 @@
       if (!input) return;
       input.select();
       var done = function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy'; }, 1800); };
+      try {
+        if (window.IP && IP.insight) {
+          IP.insight.track('invite_link_copied', { surface: input.id === 'upgRefInput' ? 'upgrade' : 'paylink' });
+        }
+      } catch (e) {}
       if (navigator.clipboard) navigator.clipboard.writeText(input.value).then(done, function () { document.execCommand('copy'); done(); });
       else { document.execCommand('copy'); done(); }
     });

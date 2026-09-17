@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block page_title %}Insight | IntelliPlan admin{% endblock %}
+{% block head_extra %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block content %}
+<style>
+  .ins { max-width: 1020px; margin: 0 auto; padding: var(--space-6) var(--space-4) var(--space-8); font-family: var(--font-ui); color: var(--text-primary); }
+  .ins h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.7rem, 1.2rem + 1.6vw, 2.3rem); letter-spacing: -0.02em; margin: 0.3rem 0 0.25rem; }
+  .ins h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.2rem; margin: var(--space-6) 0 var(--space-3); }
+  .ins-meta { color: var(--text-secondary); font-size: 0.88rem; margin: 0 0 var(--space-5); }
+  .ins-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 1rem 1.5rem; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: var(--space-4) 0; }
+  .ins-stat strong { display: block; font-family: var(--font-display); font-size: 1.8rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .ins-stat span { color: var(--text-secondary); font-size: 0.82rem; }
+  .ins-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: var(--space-6); align-items: start; }
+  .ins table { width: 100%; border-collapse: collapse; font-size: 0.89rem; font-variant-numeric: tabular-nums; }
+  .ins th, .ins td { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); text-align: right; }
+  .ins th:first-child, .ins td:first-child { text-align: left; }
+  .ins th { color: var(--text-secondary); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .ins code { font-family: var(--font-mono, monospace); font-size: 0.82rem; }
+  .ins-tag { display: inline-block; padding: 0.05rem 0.4rem; border-radius: 6px; background: var(--accent-soft); color: var(--accent); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
+  .ins-notes li { border-bottom: 1px solid var(--border); padding: 0.7rem 0; list-style: none; }
+  .ins-notes ul { padding: 0; margin: 0; }
+  .ins-notes p { margin: 0.2rem 0 0; font-family: var(--font-body); color: var(--text-primary); line-height: 1.55; }
+  .ins-notes small { color: var(--text-secondary); font-size: 0.78rem; }
+  .ins-foot { color: var(--text-secondary); font-size: 0.82rem; line-height: 1.6; margin-top: var(--space-6); max-width: 72ch; }
+  .ins-empty { color: var(--text-secondary); font-family: var(--font-body); }
+</style>
+<div class="ins">
+  <p class="u-label">Admin</p>
+  <h1>What students are doing</h1>
+  <p class="ins-meta">Last {{ report.days }} days · {{ report.events }} consented events · generated {{ report.generated_at }} UTC ·
+    <a href="?format=json&days={{ report.days }}">JSON</a> · <a href="/admin/growth">Retention</a></p>
+
+  <div class="ins-stats">
+    <div class="ins-stat"><strong>{{ report.depth.visitors }}</strong><span>signed-out visitors</span></div>
+    <div class="ins-stat"><strong>{{ '%.0f'|format(report.depth.one_page_share * 100) }}%</strong><span>left after one page</span></div>
+    <div class="ins-stat"><strong>{{ report.depth.multi_page }}</strong><span>looked at more</span></div>
+    <div class="ins-stat"><strong>{{ report.depth.signed_in_actors }}</strong><span>signed-in students active</span></div>
+  </div>
+
+  <h2>Where students come from</h2>
+  {% if report.channels %}
+  <table>
+    <thead><tr><th>Channel</th><th>Visitors</th><th>Signups</th><th>Signup rate</th><th>Activated</th><th>Came back</th></tr></thead>
+    <tbody>
+      {% for row in report.channels %}
+      <tr>
+        <td>{{ row.channel }}</td>
+        <td>{{ row.visitors or '—' }}</td>
+        <td>{{ row.signups }}</td>
+        <td>{{ '%.1f'|format(row.signup_rate * 100) }}%</td>
+        <td>{{ '%.0f'|format(row.activation_rate * 100) }}%</td>
+        <td>{{ '%.0f'|format(row.retention_rate * 100) }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="ins-foot">Rows beginning <code>said:</code> are what students told us themselves, which beats referrer data: most links are shared in messaging apps that strip the referrer, so word of mouth would otherwise show up as <code>direct</code>.</p>
+  {% else %}
+  <p class="ins-empty">No attributed signups yet.</p>
+  {% endif %}
+
+  <div class="ins-cols">
+    <section>
+      <h2>Most used</h2>
+      {% if report.features %}
+      <table>
+        <thead><tr><th>Route</th><th>Students</th></tr></thead>
+        <tbody>
+          {% for row in report.features %}
+          <tr><td><span class="ins-tag">{{ row.kind }}</span> <code>{{ row.rule }}</code></td><td>{{ row.actors }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="ins-empty">Nothing recorded yet — either nobody has allowed analytics, or nothing has happened since the last purge.</p>
+      {% endif %}
+    </section>
+
+    <section>
+      <h2>What they said</h2>
+      {% if report.survey %}
+        {% for question, rows in report.survey.items() %}
+        <table>
+          <thead><tr><th>{{ question }}</th><th>Count</th><th>Share</th></tr></thead>
+          <tbody>
+            {% for row in rows %}
+            <tr><td>{{ row.answer }}</td><td>{{ row.count }}</td><td>{{ '%.0f'|format(row.share * 100) }}%</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% endfor %}
+      {% else %}
+      <p class="ins-empty">No answers yet.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  {% if report.client_events %}
+  <h2>In-page events</h2>
+  <table>
+    <thead><tr><th>Event</th><th>Students</th></tr></thead>
+    <tbody>
+      {% for row in report.client_events %}
+      <tr><td><code>{{ row.rule }}</code></td><td>{{ row.actors }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if report.notes %}
+  <h2>In their words</h2>
+  <div class="ins-notes">
+    <ul>
+      {% for note in report.notes %}
+      <li><small>{{ note.question }}{% if note.answer %} · {{ note.answer }}{% endif %} · {{ note.at }}</small><p>{{ note.detail }}</p></li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <p class="ins-foot">Nothing here is recorded without an explicit yes to analytics, and never for an under-13 account or one waiting on a parent. Events store the route pattern, not the URL, so no assignment titles, tokens or search terms reach this table. Turning analytics off deletes that visitor's rows. Everything older than {{ report.retention_days }} days is purged when this page loads.</p>
+</div>
+{% endblock %}

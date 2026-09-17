@@ -13,6 +13,28 @@ from typing import Any, Optional
 
 _client: Any = None
 _disabled: bool = False
+#: Consent gate, installed by the web app (see insight_glue). Until one is
+#: set, every call is a no-op even with a key configured: PostHog is a
+#: third party receiving a user id, and sending one for a visitor who has
+#: not agreed -- or for a child -- is the thing the cookie banner exists to
+#: prevent. A missing gate means "we do not know", and "we do not know" is
+#: not consent.
+_gate: Any = None
+
+
+def set_consent_gate(gate: Any) -> None:
+    """Install a ``() -> bool`` consulted before every event."""
+    global _gate
+    _gate = gate
+
+
+def _permitted() -> bool:
+    if _gate is None:
+        return False
+    try:
+        return bool(_gate())
+    except Exception:
+        return False
 
 
 def _init() -> None:
@@ -40,6 +62,8 @@ def track(
     properties: Optional[dict] = None,
 ) -> None:
     """Fire an analytics event. No-ops when PostHog is not configured."""
+    if not _permitted():
+        return
     _init()
     if _disabled or _client is None:
         return
@@ -55,6 +79,8 @@ def identify(
     properties: Optional[dict] = None,
 ) -> None:
     """Set user properties (e.g. cohort assignment)."""
+    if not _permitted():
+        return
     _init()
     if _disabled or _client is None:
         return

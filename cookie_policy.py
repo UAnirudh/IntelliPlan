@@ -9,11 +9,12 @@ Two categories, and the split is the whole point:
 
 ``essential``   Needed for the site to work at all. No consent required
                 under ePrivacy, and nothing here tracks anyone.
-``analytics``   Anything non-essential. Currently EMPTY: IntelliPlan loads no
-                third-party analytics script at all. The category and its
-                consent gate are kept deliberately, so that anything added
-                later is declared here and gated before it can ship — which
-                is exactly what did not happen with Microsoft Clarity.
+``analytics``   Anything non-essential. Holds exactly one item: our own
+                visitor id, used to count how people move through the site.
+                No third-party analytics script loads, here or anywhere —
+                that is what did not happen with Microsoft Clarity, and the
+                rule that anything new is declared here *before* it ships
+                is what keeps this list true.
 
 Adding anything that writes to a browser means adding it here first.
 """
@@ -70,6 +71,18 @@ COOKIES: list[dict[str, Any]] = [
         "provider": "IntelliPlan",
         "purpose": "Records this exact choice, so we stop asking. Removing it "
                    "makes the banner return.",
+        "duration": "12 months",
+    },
+    {
+        "name": "ip_vid",
+        "category": ANALYTICS,
+        "storage": "cookie",
+        "provider": "IntelliPlan",
+        "purpose": "A random id with nothing personal in it, so we can count "
+                   "how many people reach a page rather than how many times "
+                   "it was opened. Set only if you allow analytics, read only "
+                   "by us, and deleted along with your recorded activity the "
+                   "moment you turn analytics off.",
         "duration": "12 months",
     },
     {

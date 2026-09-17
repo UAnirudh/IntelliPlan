@@ -647,6 +647,10 @@ class User(UserMixin, db.Model):
     streak_emails_opt_in = db.Column(db.Boolean, default=True)
     #: Stripe customer, once the student (or whoever pays) has checked out.
     stripe_customer_id = db.Column(db.String(64), nullable=True)
+    #: First-touch attribution: {"channel","utm_source","utm_medium",
+    #: "utm_campaign","landing"}. Written only for a visitor who accepted
+    #: analytics, and holds a referrer *host* at most -- never a full URL.
+    first_touch_json = db.Column(db.Text, nullable=True)
     linked_accounts = db.relationship("LinkedAccount", backref="user", lazy=True, cascade="all, delete-orphan")
     dismissed = db.relationship("DismissedAssignment", backref="user", lazy=True, cascade="all, delete-orphan")
     descriptions = db.relationship("CustomDescription", backref="user", lazy=True, cascade="all, delete-orphan")
@@ -1940,6 +1944,44 @@ class UserStreak(db.Model):
     qualified_dates_json = db.Column(db.Text, default="[]")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ProductEvent(db.Model):
+    """One consented usage event: a page opened or an action taken.
+
+    ``actor`` is "u:<user id>" once signed in and "v:<visitor id>" before
+    that, so a funnel can be followed across the signup line without a
+    second identifier. ``rule`` is the Flask route pattern, never the
+    resolved path -- see intelliplan/insight/events.py for why.
+    """
+    __tablename__ = "product_events"
+    id = db.Column(db.Integer, primary_key=True)
+    actor = db.Column(db.String(48), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    kind = db.Column(db.String(8), nullable=False, default="view")
+    rule = db.Column(db.String(160), nullable=False, default="")
+    name = db.Column(db.String(64), nullable=True)
+    props = db.Column(db.Text, default="{}")
+    channel = db.Column(db.String(40), default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+
+class InsightAnswer(db.Model):
+    """One student's answer to one in-app question. One row per question.
+
+    A dismissal is stored, not forgotten: it is what stops the same
+    question coming back, and "most people skip this" is itself a finding.
+    """
+    __tablename__ = "insight_answers"
+    __table_args__ = (db.UniqueConstraint("user_id", "question", name="uq_insight_user_question"),)
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    question = db.Column(db.String(32), nullable=False)
+    answer = db.Column(db.String(40), nullable=True)
+    detail = db.Column(db.Text, default="")
+    status = db.Column(db.String(12), default="shown")  # shown | answered | dismissed
+    shown_at = db.Column(db.DateTime, default=datetime.utcnow)
+    answered_at = db.Column(db.DateTime, nullable=True)
 
 
 class AIUsage(db.Model):
@@ -8823,6 +8865,8 @@ def _account_delete_impl():
         ("feature_requests", "DELETE FROM feature_requests WHERE user_id = :uid"),
         ("site_feedback", "DELETE FROM site_feedback WHERE user_id = :uid"),
         ("ai_usage", "DELETE FROM ai_usage WHERE user_id = :uid"),
+        ("product_events", "DELETE FROM product_events WHERE user_id = :uid"),
+        ("insight_answers", "DELETE FROM insight_answers WHERE user_id = :uid"),
         ("client_error_logs", "DELETE FROM client_error_logs WHERE user_id = :uid"),
 
         # ── Study groups ───────────────────────────────────────────────
@@ -18262,6 +18306,16 @@ def _jitsi_embed_url(room_url, audio_only=False):
     )
 
 
+def _live_share_ref():
+    """The sharer's referral code, or "" when there is nobody to credit."""
+    if not current_user.is_authenticated:
+        return ""
+    try:
+        return _ensure_referral_code(current_user) or ""
+    except Exception:
+        return ""
+
+
 def _live_session_to_dict(s):
     room_url = f"https://meet.jit.si/intelliplan-{s.room_slug}"
     return {
@@ -18279,7 +18333,10 @@ def _live_session_to_dict(s):
         "owner_id": s.owner_id,
         "created_at": s.created_at.isoformat() if s.created_at else None,
         "is_owner": current_user.is_authenticated and s.owner_id == current_user.id,
-        "invite_url": (APP_BASE_URL.rstrip("/") if APP_BASE_URL else "") + f"/live/{s.id}",
+        # ?ref= so a classmate who joins a live session and then signs up
+        # is credited to whoever shared it -- same loop as group invites.
+        "invite_url": ((APP_BASE_URL.rstrip("/") if APP_BASE_URL else "") + f"/live/{s.id}"
+                       + (f"?ref={_live_share_ref()}" if _live_share_ref() else "")),
     }
 
 
@@ -19541,6 +19598,17 @@ _start_notification_ticker(app)
 # checkout. See growth_glue for why billing ships behind BILLING_ENABLED.
 from growth_glue import install as _install_growth
 _install_growth(app)
+# ── Consented product insight. Declares its own cookie in cookie_policy,
+# records nothing without consent, and never touches a child's account.
+from insight_glue import install as _install_insight
+_install_insight(app)
+# Telemetry and the question card get their own budget. Without this they
+# spend the global 50-per-hour default, which is shared per IP -- so a
+# school behind one NAT could have real actions refused because pages in
+# the next classroom reported a page view.
+limiter.limit("120 per minute")(app.view_functions["insight.record_client_event"])
+limiter.limit("60 per minute")(app.view_functions["insight.next_prompt"])
+limiter.limit("30 per minute")(app.view_functions["insight.answer_prompt"])
 limiter.exempt(app.view_functions["growth.stripe_webhook"])
 # ── Offline write safety. Installs before/after-request hooks that make any
 # mutating endpoint replay-safe when the client sends an X-IP-Op-Id, plus the
@@ -19666,6 +19734,7 @@ def _migrate_user_columns():
         ("users", "referral_rewarded_at", "TIMESTAMP"),
         ("users", "streak_emails_opt_in", "BOOLEAN DEFAULT TRUE"),
         ("users", "stripe_customer_id", "VARCHAR(64)"),
+        ("users", "first_touch_json", "TEXT"),
         # active_sessions — sparks given up to focus enforcement
         ("active_sessions", "sparks_forfeited", "INTEGER DEFAULT 0"),
         # users — notification preferences. These are listed here as well as
