@@ -36,6 +36,7 @@ import bot_protection
 import cookie_policy
 import fallback_scheduler
 import ics_feed
+import integrations_catalog
 import net_guard
 import request_guards
 import secret_box
@@ -6211,6 +6212,66 @@ def api_classroom_disconnect():
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": safe_error_message(e)}), 500
+
+
+@app.route("/api/integrations/status", methods=["GET"])
+def api_integrations_status():
+    """Every integration IntelliPlan offers, and which ones this user has.
+
+    One call rather than eight. The surfaces that list integrations used to
+    each hardcode their own subset -- the dashboard modal showed two of ten
+    -- and every one of them drifted. They now render this.
+
+    Works signed out: a guest connects an LMS through the session rather
+    than LinkedAccount, and the catalogue is the same either way.
+    """
+    connected = set()
+    details = {}
+
+    # Guests carry the connection in the session; signed-in users in an
+    # active LinkedAccount. Both are real connections.
+    session_type = session.get("login_type")
+    if session_type in integrations_catalog.BY_ID:
+        connected.add(session_type)
+
+    if current_user.is_authenticated:
+        uid = current_user.id
+        for acct in LinkedAccount.query.filter_by(user_id=uid, is_active=True).all():
+            if acct.login_type in integrations_catalog.BY_ID:
+                connected.add(acct.login_type)
+                if acct.name:
+                    details[acct.login_type] = acct.name
+
+        # Each of these lives in its own table rather than LinkedAccount.
+        rows = (
+            ("google_classroom", ClassroomIntegration, "account_email"),
+            ("blackboard", BlackboardIntegration, "institution_url"),
+            ("moodle", MoodleIntegration, "moodle_url"),
+            ("google_calendar", GoogleIntegration, "account_email"),
+        )
+        for key, model, detail_field in rows:
+            try:
+                row = model.query.filter_by(user_id=uid).first()
+            except Exception:
+                # A table a migration has not reached yet must not take the
+                # whole list down -- the other nine are still useful.
+                continue
+            if row:
+                connected.add(key)
+                details[key] = getattr(row, detail_field, "") or ""
+
+        try:
+            ni = NotionIntegration.query.filter_by(user_id=uid).first()
+            if ni:
+                connected.add("notion")
+                details["notion"] = ni.workspace_name or ""
+        except Exception:
+            pass
+
+    return flask.jsonify({
+        "status": "ok",
+        "integrations": integrations_catalog.catalog_payload(connected, details),
+    })
 
 
 @app.route("/api/lms/status/google_classroom", methods=["GET"])
