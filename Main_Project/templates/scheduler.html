@@ -2172,7 +2172,10 @@ function renderSchedule(data) {
       </div>
       <div class="day-blocks">
         ${(day.blocks || []).map(block => `
-          <div class="time-block ${block.is_break ? 'break-block' : ''}">
+          <div class="time-block ${block.is_break ? 'break-block' : ''}"
+               data-ip-block="${escapeText(JSON.stringify(block))}"
+               role="button" tabindex="0"
+               aria-label="Open details for ${escapeText(blockTitle(block))}">
             <div class="time-slot">${escapeTimeSlot(block.time_slot || '')}</div>
             <div class="block-content">
               <div class="block-title">${block.is_break ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-coffee"/></svg> Break' : `${block.color ? `<span class="block-swatch" style="background:${block.color}"></span>` : ''}${escapeText(blockTitle(block))}${partPill(block)}`}</div>

@@ -162,6 +162,19 @@ function hydrateTaskList(plan) {
       + ' data-task-title="' + escapeAttr(task.title) + '"'
       + ' data-task-source="' + escapeAttr(task.source || 'manual') + '"'
       + ' data-task-ref="' + escapeAttr(task.source_ref || '') + '"'
+      // Opens the shared block-detail panel (static/js/block-detail.js),
+      // which is delegated, so this survives every re-render of the list.
+      // A today's-plan task and a scheduler block carry different key
+      // names for the same facts, so map them here rather than teaching
+      // the panel about two shapes.
+      + ' data-ip-block="' + escapeAttr(JSON.stringify({
+          assignment: task.title,
+          course: task.course || '',
+          due_date: task.due_date || '',
+          duration_minutes: task.est_minutes || 0,
+          description: task.description || '',
+          why_now: task.why_now || ''
+        })) + '"'
       + ' style="--delay:' + (i * 40) + 'ms">'
       + '<div class="cc-task-rail cc-tier-' + tier + '"></div>'
       + '<div class="cc-task-main">'

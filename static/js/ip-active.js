@@ -79,6 +79,26 @@
     $('ipaTitle').textContent = block.title || 'Study session';
     $('ipaCourse').textContent = block.course || 'Study';
 
+    // Opens the shared block-detail panel. Active study shows one block
+    // rather than a list, so it gets a button instead of a clickable card
+    // -- the card here is full of controls, and making it clickable would
+    // fire the panel every time someone reached for the timer.
+    var resBtn = $('ipaResources');
+    if (resBtn) {
+      resBtn.hidden = false;
+      resBtn.onclick = function () {
+        if (!window.IPBlock) return;
+        window.IPBlock.open({
+          assignment: block.title || '',
+          course: block.course || '',
+          due_date: block.due_date || '',
+          duration_minutes: block.planned_minutes || 0,
+          description: block.description || '',
+          notes: (block.reasons && block.reasons.join(' ')) || ''
+        });
+      };
+    }
+
     var due = $('ipaDue');
     if (block.due_date) {
       var days = Math.round((new Date(block.due_date) - new Date()) / 86400000);

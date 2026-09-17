@@ -1,0 +1,161 @@
+/* Block detail panel. Shared by the scheduler, Active study and today's
+   plan, so it uses the app's tokens rather than its own colours. */
+
+#ipBlockPanel {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+#ipBlockPanel[hidden] { display: none !important; }
+
+.ipbd-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+.ipbd-sheet {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: 86vh;
+  overflow-y: auto;
+  background: var(--bg-primary, #fff);
+  color: var(--text-primary, #0f172a);
+  border: 1px solid var(--border, rgba(15, 23, 42, 0.12));
+  border-bottom: none;
+  border-radius: 20px 20px 0 0;
+  padding: 22px 22px 28px;
+  box-shadow: 0 -8px 40px rgba(15, 23, 42, 0.18);
+  animation: ipbd-rise 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* On a phone the sheet is the page. On a laptop a centred dialog reads
+   better than a sheet stuck to the bottom edge. */
+@media (min-width: 720px) {
+  #ipBlockPanel { align-items: center; }
+  .ipbd-sheet {
+    border-radius: 20px;
+    border-bottom: 1px solid var(--border, rgba(15, 23, 42, 0.12));
+  }
+}
+
+@keyframes ipbd-rise {
+  from { transform: translateY(14px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ipbd-sheet { animation: none; }
+}
+
+.ipbd-x {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted, #64748b);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.ipbd-x:hover { background: var(--bg-secondary, rgba(15, 23, 42, 0.06)); }
+
+.ipbd-title {
+  margin: 0 36px 8px 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.ipbd-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.ipbd-pill {
+  font-size: 0.72rem;
+  color: var(--text-muted, #64748b);
+  border: 1px solid var(--border, rgba(15, 23, 42, 0.12));
+  border-radius: 99px;
+  padding: 2px 9px;
+}
+
+.ipbd-notes p {
+  margin: 12px 0 0;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--text-secondary, #475569);
+}
+
+.ipbd-section[hidden] { display: none !important; }
+
+.ipbd-h3 {
+  margin: 20px 0 8px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted, #64748b);
+}
+
+.ipbd-muted {
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.ipbd-res {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid var(--border, rgba(15, 23, 42, 0.12));
+  border-radius: 12px;
+  padding: 11px 13px;
+  margin-bottom: 8px;
+  transition: border-color 0.18s ease, transform 0.18s ease;
+}
+.ipbd-res:hover {
+  border-color: var(--accent, #6366f1);
+  transform: translateY(-1px);
+}
+
+/* The student's own material -- a teacher's link, or something they
+   linked themselves -- is better than anything we picked, so it reads as
+   theirs rather than as another suggestion. */
+.ipbd-res--mine {
+  border-color: color-mix(in srgb, var(--accent, #6366f1) 45%, transparent);
+  background: color-mix(in srgb, var(--accent, #6366f1) 6%, transparent);
+}
+
+.ipbd-res-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ipbd-res-title { font-size: 0.87rem; font-weight: 600; }
+
+.ipbd-res-tag {
+  font-size: 0.68rem;
+  color: var(--text-muted, #64748b);
+  flex-shrink: 0;
+}
+
+.ipbd-why {
+  font-size: 0.76rem;
+  color: var(--text-muted, #64748b);
+  line-height: 1.45;
+  margin-top: 3px;
+}
+
+/* Blocks that open something should look like it. */
+[data-ip-block] { cursor: pointer; }

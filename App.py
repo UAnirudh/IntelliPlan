@@ -38,6 +38,7 @@ import fallback_scheduler
 import ics_feed
 import integrations_catalog
 import net_guard
+import study_resources
 import request_guards
 import secret_box
 import policy_versions
@@ -872,6 +873,43 @@ class MoodleIntegration(db.Model):
     moodle_username = db.Column(db.String(255), nullable=True)
     moodle_fullname = db.Column(db.String(255), nullable=True)
     connected_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class ResourceAccount(db.Model):
+    """Study material a student has pointed us at, per course.
+
+    Someone who tells us where their class Quizlet set or Khan course lives
+    wants their study blocks to open *that*, not a generic search for its
+    topic. Their own material is better than anything we would pick, so it
+    is offered first.
+
+    ``course`` is optional and matched against the block's course name: a
+    linked Biology deck must not surface during History, but a linked Khan
+    profile with no course named is meant for all of them.
+
+    Only a URL and a label -- no credentials. Linking material is not the
+    same as connecting an account, and a planner for teenagers should not
+    hold a Quizlet password to show a link.
+    """
+
+    __tablename__ = "resource_accounts"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    guest_session_id = db.Column(db.String(64), nullable=True, index=True)
+    provider = db.Column(db.String(32), nullable=False, default="")
+    label = db.Column(db.String(255), nullable=False, default="")
+    url = db.Column(db.String(1024), nullable=False)
+    course = db.Column(db.String(255), nullable=False, default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "provider": self.provider,
+            "label": self.label,
+            "url": self.url,
+            "course": self.course,
+        }
+
 
 class ManualTask(db.Model):
     __tablename__ = "manual_tasks"
@@ -6214,6 +6252,121 @@ def api_classroom_disconnect():
         return jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 
+def _resource_accounts_for_viewer():
+    q = ResourceAccount.query
+    if current_user.is_authenticated:
+        return q.filter_by(user_id=current_user.id).all()
+    return q.filter_by(guest_session_id=get_guest_session_id()).all()
+
+
+def _resource_chat():
+    """The model call study_resources injects, or None when AI is off.
+
+    Returned as a closure rather than the module so a deployment with no key
+    -- or one whose quota is spent -- still shows the student's own links
+    instead of an empty panel.
+    """
+    try:
+        if not ai_available():
+            return None
+    except Exception:
+        return None
+
+    def _chat(messages):
+        return ai_chat(
+            messages,
+            tier="fast",
+            temperature=0.4,
+            max_tokens=700,
+            response_format={"type": "json_object"},
+        )
+
+    return _chat
+
+
+@app.route("/api/block/resources", methods=["POST"])
+@limiter.limit("40 per minute;400 per hour")
+def api_block_resources():
+    """Resources for one study block, for the detail panel.
+
+    The model picks a provider and search terms; the URL is built here from
+    the provider's own search endpoint. See study_resources for why: a model
+    asked for URLs returns ones that look right and 404, and a student who
+    taps two dead links stops tapping.
+    """
+    block = (request.get_json(silent=True) or {}).get("block") or {}
+    if not isinstance(block, dict):
+        return flask.jsonify({"status": "error", "resources": []}), 400
+
+    try:
+        rows = study_resources.resources_for_block(
+            block,
+            accounts=_resource_accounts_for_viewer(),
+            chat=_resource_chat(),
+        )
+    except Exception as e:
+        # A block that cannot suggest anything still has to open. An empty
+        # panel is a small loss; a modal that fails to render is the feature
+        # not existing.
+        print(f"[block-resources] failed: {e}")
+        return flask.jsonify({"status": "ok", "resources": []})
+
+    return flask.jsonify({"status": "ok", "resources": rows})
+
+
+@app.route("/api/resource-accounts", methods=["GET", "POST", "DELETE"])
+@limiter.limit("60 per hour", methods=["POST", "DELETE"])
+def api_resource_accounts():
+    """Material a student has linked, so their blocks open it directly."""
+    if request.method == "GET":
+        return flask.jsonify({
+            "status": "ok",
+            "accounts": [a.to_dict() for a in _resource_accounts_for_viewer()],
+            "providers": [
+                {"key": p.key, "name": p.name}
+                for p in study_resources.PROVIDERS
+            ],
+        })
+
+    body = request.get_json(silent=True) or {}
+
+    if request.method == "DELETE":
+        row_id = body.get("id")
+        q = ResourceAccount.query.filter_by(id=row_id)
+        # Scope the delete to the owner, or anyone could remove anyone's.
+        if current_user.is_authenticated:
+            q = q.filter_by(user_id=current_user.id)
+        else:
+            q = q.filter_by(guest_session_id=get_guest_session_id())
+        q.delete()
+        db.session.commit()
+        return flask.jsonify({"status": "ok"})
+
+    url = (body.get("url") or "").strip()
+    if not url:
+        return flask.jsonify({"status": "error",
+                              "message": "Paste the link to your material."}), 400
+    if not url.lower().startswith(("http://", "https://")):
+        url = "https://" + url
+    # We never fetch this URL -- it is handed to the student's browser --
+    # but a javascript: or data: link rendered as an anchor is XSS, and the
+    # scheme check above is what stops one being stored in the first place.
+
+    row = ResourceAccount(
+        provider=(body.get("provider") or "").strip().lower()[:32],
+        label=(body.get("label") or "").strip()[:255],
+        url=url[:1024],
+        course=(body.get("course") or "").strip()[:255],
+    )
+    if current_user.is_authenticated:
+        row.user_id = current_user.id
+    else:
+        row.guest_session_id = get_guest_session_id()
+    db.session.add(row)
+    db.session.commit()
+    return flask.jsonify({"status": "ok", "account": row.to_dict()})
+
+
 @app.route("/api/integrations/status", methods=["GET"])
 def api_integrations_status():
     """Every integration IntelliPlan offers, and which ones this user has.
@@ -8533,6 +8686,7 @@ def _account_delete_impl():
         ("moodle_integrations", "DELETE FROM moodle_integrations WHERE user_id = :uid"),
         ("lms_tokens", "DELETE FROM lms_tokens WHERE user_id = :uid"),
         ("linked_accounts", "DELETE FROM linked_accounts WHERE user_id = :uid"),
+        ("resource_accounts", "DELETE FROM resource_accounts WHERE user_id = :uid"),
 
         # ── Identity / profile / credentials ───────────────────────────
         ("user_identities", "DELETE FROM user_identities WHERE user_id = :uid"),
