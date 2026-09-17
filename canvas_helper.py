@@ -231,21 +231,7 @@ def get_grades(canvas_url, token):
         if teachers and isinstance(teachers, list):
             teacher = teachers[0].get("display_name", "") if isinstance(teachers[0], dict) else ""
 
-        enrollments = c.get("enrollments") or []
-        pct = None
-        letter = None
-        for e in enrollments:
-            if not isinstance(e, dict):
-                continue
-            if e.get("computed_current_score") is not None:
-                try:
-                    pct = round(float(e["computed_current_score"]), 1)
-                except Exception:
-                    pct = None
-            if e.get("computed_current_grade"):
-                letter = e["computed_current_grade"]
-            if pct is not None:
-                break
+        pct, letter = _enrollment_score(c)
 
         if pct is None and not letter:
             continue
@@ -267,15 +253,58 @@ def get_gradebook_detail(canvas_url, token):
 
     Shape mirrors what the frontend expects from studentvue_helper.get_gradebook_detail —
     a list of course dicts each containing assignments with points, weight, and score.
+
+    That shape is five keys: ``course``, ``teacher``, ``letter``,
+    ``percentage``, ``categories`` and ``assignments``. This function used
+    to return two of them. The Grade Modeler reads the other three straight
+    into the page, so a Canvas student opening a course saw the literal
+    text "undefined" where their letter grade goes and "undefined%" beside
+    it — including, most visibly, on a course sitting at 100%. The category
+    weight panel and the category tabs came up empty for the same reason.
     """
     base = _base(canvas_url)
     headers = _headers(token)
-    courses = _fetch_courses(canvas_url, token)
+    # total_scores carries the enrollment's computed score/grade, which is
+    # what Canvas itself shows the student — always preferred over a total
+    # we recompute, because it already honours the course's own weighting,
+    # dropped-lowest rules and grading scheme.
+    courses = _get_list(
+        f"{base}/courses?include[]=total_scores&include[]=teachers"
+        f"&enrollment_state=active",
+        headers,
+    )
+    courses = [c for c in courses if isinstance(c, dict) and "id" in c]
 
     detail = []
     for c in courses:
         cid = c["id"]
         course_name = c.get("name", "Unknown")
+
+        teachers = c.get("teachers") or []
+        teacher = ""
+        if teachers and isinstance(teachers[0], dict):
+            teacher = teachers[0].get("display_name", "") or ""
+
+        pct, letter = _enrollment_score(c)
+
+        # Assignment groups are Canvas's categories: the name is what the
+        # student calls them ("Homework", "Labs") and group_weight is the
+        # share of the final grade, which is exactly what the weight panel
+        # models. Without this the modeler had numeric group ids for
+        # category names and no weights at all.
+        try:
+            groups_raw = _get_list(f"{base}/courses/{cid}/assignment_groups", headers)
+        except Exception:
+            groups_raw = []
+        group_names, group_weights = {}, {}
+        for g in groups_raw:
+            if not isinstance(g, dict) or "id" not in g:
+                continue
+            group_names[g["id"]] = g.get("name") or "Other"
+            try:
+                group_weights[g["id"]] = float(g.get("group_weight") or 0)
+            except Exception:
+                group_weights[g["id"]] = 0.0
 
         assignments_raw = _get_list(f"{base}/courses/{cid}/assignments", headers)
         submissions = _get_list(
@@ -288,6 +317,9 @@ def get_gradebook_detail(canvas_url, token):
             if isinstance(s, dict) and "assignment_id" in s:
                 sub_map[s["assignment_id"]] = s
 
+        # Per-category running totals, so the weight panel can show what
+        # each category currently stands at.
+        cat_totals = {}
         course_assignments = []
         for a in assignments_raw:
             if not isinstance(a, dict):
@@ -300,6 +332,13 @@ def get_gradebook_detail(canvas_url, token):
                 score_val = float(score) if score is not None else None
             except Exception:
                 score_val = None
+
+            gid = a.get("assignment_group_id")
+            category = group_names.get(gid, "Other")
+            if score_val is not None and points_possible:
+                totals = cat_totals.setdefault(category, {"earned": 0.0, "possible": 0.0})
+                totals["earned"] += score_val
+                totals["possible"] += float(points_possible)
 
             course_assignments.append({
                 "title": a.get("name", ""),
@@ -323,17 +362,73 @@ def get_gradebook_detail(canvas_url, token):
                     sub.get("grade")
                     or (f"{score_val:g}" if score_val is not None else "Not Graded")
                 ),
-                "type": a.get("assignment_group_id", ""),
-                "weight": "",
+                # `category` is the key the modeler reads; `type` stays for
+                # anything still looking at the old name.
+                "category": category,
+                "type": category,
+                "weight": group_weights.get(gid, 0),
                 "calculated_mark": "",
             })
 
+        categories = []
+        for name, totals in cat_totals.items():
+            gid = next((k for k, v in group_names.items() if v == name), None)
+            categories.append({
+                "type": name,
+                "weight": group_weights.get(gid, 0),
+                "points": round(totals["earned"], 2),
+                "points_possible": round(totals["possible"], 2),
+                "weighted_pct": (
+                    round(totals["earned"] / totals["possible"] * 100, 2)
+                    if totals["possible"] else None
+                ),
+                "mark": "",
+            })
+
+        # No enrollment score (a teacher who hides totals, an observer
+        # enrollment) — fall back to the points actually on the page, so
+        # the header shows a real number rather than nothing.
+        if pct is None and cat_totals:
+            earned = sum(t["earned"] for t in cat_totals.values())
+            possible = sum(t["possible"] for t in cat_totals.values())
+            if possible:
+                pct = round(earned / possible * 100, 1)
+        if not letter and pct is not None:
+            letter = _letter_from_pct(pct)
+
         detail.append({
             "course": course_name,
+            "teacher": teacher,
+            "letter": letter or "",
+            "percentage": pct,
+            "categories": categories,
             "assignments": course_assignments,
         })
 
     return detail
+
+
+def _enrollment_score(course):
+    """The student's own score/grade off a course's enrollments, or (None, "").
+
+    A course carries one enrollment per role; only the student one has a
+    computed score, and a course can list several when someone is also a
+    TA somewhere.
+    """
+    pct, letter = None, ""
+    for e in course.get("enrollments") or []:
+        if not isinstance(e, dict):
+            continue
+        if e.get("computed_current_score") is not None:
+            try:
+                pct = round(float(e["computed_current_score"]), 1)
+            except Exception:
+                pct = None
+        if e.get("computed_current_grade"):
+            letter = e["computed_current_grade"]
+        if pct is not None:
+            break
+    return pct, letter
 
 
 def get_missing_assignments(canvas_url, token):

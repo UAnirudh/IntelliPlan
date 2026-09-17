@@ -304,6 +304,42 @@ function pctToLetter(pct) {
   return 'F';
 }
 
+/* The course header, from whatever the provider actually sent.
+
+   `${course.percentage}%` and `course.letter` used to go straight into the
+   page. When a provider omitted either — Canvas's gradebook feed sent only
+   a name and a list of assignments — the student read the words
+   "undefined" and "undefined%" where their grade belongs. A course sitting
+   at 100% showed it just as loudly as a failing one.
+
+   So: take the provider's number when there is one, otherwise total up the
+   graded assignments, and only say "—" when there is genuinely nothing to
+   total. The letter follows the same order: the provider's own letter
+   first (it knows the course's grading scheme), then one derived from the
+   percentage. */
+function courseHeadline(course) {
+  let pct = parseFloat(course && course.percentage);
+  if (!isFinite(pct)) {
+    let earned = 0, possible = 0;
+    (course && course.assignments || []).forEach(a => {
+      if (!isGraded(a)) return;
+      const b = getBaseAssignmentValues(a);
+      if (b.earned === null || b.possible === null || b.possible <= 0) return;
+      earned += b.earned;
+      possible += b.possible;
+    });
+    pct = possible > 0 ? (earned / possible) * 100 : NaN;
+  }
+  const hasPct = isFinite(pct);
+  const letter = (course && course.letter) || (hasPct ? pctToLetter(pct) : '');
+  return {
+    pct: hasPct ? pct : null,
+    pctText: hasPct ? `${Math.round(pct * 10) / 10}%` : '—',
+    letter: letter,
+    letterText: letter || '—',
+  };
+}
+
 function selectCourse(course) {
   selectedCourse = course;
   modifiedScores = {};
@@ -316,17 +352,26 @@ function selectCourse(course) {
   document.getElementById('modelResult').style.display = 'none';
   document.getElementById('targetInput').value = '';
 
-  document.getElementById('currentPct').textContent = `${course.percentage}%`;
+  const head = courseHeadline(course);
+  // Keep the derived values on the course so everything downstream —
+  // modelling, the target calculator, the trend chart — works from the
+  // same number the header shows.
+  if (course.percentage === null || course.percentage === undefined || course.percentage === '') {
+    course.percentage = head.pct === null ? null : Math.round(head.pct * 100) / 100;
+  }
+  if (!course.letter) course.letter = head.letter;
+
+  document.getElementById('currentPct').textContent = head.pctText;
   const lb = document.getElementById('currentLetter');
-  lb.textContent = course.letter;
-  lb.className = 'priority-badge ' + letterToClass(course.letter);
+  lb.textContent = head.letterText;
+  lb.className = 'priority-badge ' + letterToClass(head.letter);
 
-  document.getElementById('modeledPct').textContent = `${course.percentage}%`;
+  document.getElementById('modeledPct').textContent = head.pctText;
   const modeledLetter = document.getElementById('modeledLetter');
-  modeledLetter.textContent = course.letter;
-  modeledLetter.className = 'priority-badge ' + letterToClass(course.letter);
+  modeledLetter.textContent = head.letterText;
+  modeledLetter.className = 'priority-badge ' + letterToClass(head.letter);
 
-  renderCategoryWeights(course.categories);
+  renderCategoryWeights(course.categories || []);
   renderCategoryTabs(course);
   renderBreakdown(course.assignments);
   renderTrendChart(course.assignments);
@@ -1026,11 +1071,11 @@ function resetAll() {
   document.getElementById('modelResult').style.display = 'none';
 
   document.getElementById('currentPct').textContent = `${selectedCourse.percentage}%`;
-  document.getElementById('currentLetter').textContent = selectedCourse.letter;
+  document.getElementById('currentLetter').textContent = selectedCourse.letter || '—';
   document.getElementById('currentLetter').className = 'priority-badge ' + letterToClass(selectedCourse.letter);
 
   document.getElementById('modeledPct').textContent = `${selectedCourse.percentage}%`;
-  document.getElementById('modeledLetter').textContent = selectedCourse.letter;
+  document.getElementById('modeledLetter').textContent = selectedCourse.letter || '—';
   document.getElementById('modeledLetter').className = 'priority-badge ' + letterToClass(selectedCourse.letter);
 
   renderCategoryWeights(selectedCourse.categories);
@@ -1141,7 +1186,7 @@ function updateCurrentDisplaysFromSelectedCourse() {
   if (!selectedCourse) return;
 
   document.getElementById('currentPct').textContent = `${selectedCourse.percentage}%`;
-  document.getElementById('currentLetter').textContent = selectedCourse.letter;
+  document.getElementById('currentLetter').textContent = selectedCourse.letter || '—';
   document.getElementById('currentLetter').className = 'priority-badge ' + letterToClass(selectedCourse.letter);
 }
 

@@ -160,10 +160,20 @@
 /* ── Two-column layout ────────────────────────────────────── */
 .ipd-columns {
   display: grid;
-  grid-template-columns: 1fr 360px;
+  /* minmax(0, …) rather than a bare 1fr. A bare `1fr` track is
+     minmax(auto, 1fr), and `auto` floors the track at the column's
+     min-content width — which here is a task row whose title is
+     `white-space: nowrap`. One long assignment name therefore widened
+     the track past the viewport, and because both columns stack into
+     that same track on a phone, EVERY card below the plan inherited the
+     over-wide track and ran off the side of the screen. */
+  grid-template-columns: minmax(0, 1fr) 360px;
   gap: 20px;
   align-items: start;
 }
+/* Grid items are min-width:auto by default, which re-introduces the same
+   content floor one level down. */
+.ipd-columns > * { min-width: 0; }
 
 /* ── Card base ────────────────────────────────────────────── */
 .ipd-card {
@@ -563,8 +573,30 @@
 
 /* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 960px) {
-  .ipd-columns { grid-template-columns: 1fr; }
+  .ipd-columns { grid-template-columns: minmax(0, 1fr); }
   .ipd-stats-row { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  /* A card title is a label and a control group on one line, which needs
+     more horizontal room than a phone has. Let it wrap and give the tab
+     group the full width it then gets, instead of crushing three tabs
+     into whatever is left beside the heading. */
+  .ipd-card-title {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .ipd-card-title > .ipd-section-tabs { flex: 1 1 100%; margin-bottom: 0; }
+  .ipd-card,
+  .ipd-grade-card,
+  .ipd-sched-card,
+  .ipd-upcoming-card,
+  .ipd-assistant-card { padding: 1.1rem; }
+  .ipd-task-card { padding: 12px 13px; gap: 11px; }
+  /* Row actions were hover-only, so on a touch screen — where there is no
+     hover — Edit and Delete simply did not exist. */
+  .ipd-task-actions { opacity: 1; }
+  .ipd-header-actions { width: 100%; }
+  .ipd-header-actions .ipd-btn { flex: 1 1 auto; justify-content: center; }
 }
 @media (max-width: 560px) {
   .ipd-stats-row { grid-template-columns: 1fr; }

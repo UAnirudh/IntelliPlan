@@ -331,13 +331,41 @@ function selectCourse(course) {
   document.getElementById('modelResult').style.display = 'none';
   document.getElementById('targetInput').value = '';
 
-  document.getElementById('currentPct').textContent = `${course.percentage}%`;
+  /* The provider does not always send a course total. Canvas's gradebook
+     feed sends a name and a list of assignments and nothing else, which
+     put the literal text "undefined" and "undefined%" where the student's
+     grade goes — on a course at 100% just as readily as on a failing one.
+     Take the provider's number when it exists, total the graded work when
+     it does not, and say "—" only when there is nothing to total. */
+  const head = courseHeadline(course);
+  course.percentage = head.pct === null ? null : head.pct.toFixed(2);
+  course.letter = head.letter;
+
+  document.getElementById('currentPct').textContent = head.pctText;
   const lb = document.getElementById('currentLetter');
-  lb.textContent = course.letter;
-  lb.className = 'priority-badge ' + letterToClass(course.letter);
+  lb.textContent = head.letterText;
+  lb.className = 'priority-badge ' + letterToClass(head.letter);
 
   renderMaxBadge();
   renderBreakdown(course.assignments);
+}
+
+function courseHeadline(course) {
+  let pct = parseFloat(course && course.percentage);
+  if (!isFinite(pct)) {
+    const graded = (course && course.assignments || []).filter(a => a.graded && a.points_possible);
+    const possible = graded.reduce((s, a) => s + (a.points_possible || 0), 0);
+    const earned = graded.reduce((s, a) => s + (a.points_earned || 0), 0);
+    pct = possible > 0 ? (earned / possible) * 100 : NaN;
+  }
+  const hasPct = isFinite(pct);
+  const letter = (course && course.letter) || (hasPct ? pctToLetter(pct) : '');
+  return {
+    pct: hasPct ? pct : null,
+    pctText: hasPct ? `${(Math.round(pct * 10) / 10).toFixed(1)}%` : '—',
+    letter: letter,
+    letterText: letter || '—',
+  };
 }
 
 /* Maximum grade that's still mathematically reachable in this course
@@ -436,7 +464,7 @@ function applySimulation() {
     selectedCourse.letter = pctToLetter(pct);
     document.getElementById('currentPct').textContent = `${pct.toFixed(1)}% ${Object.keys(simulatedScores).length?'(sim)':''}`;
     const lb = document.getElementById('currentLetter');
-    lb.textContent = selectedCourse.letter;
+    lb.textContent = selectedCourse.letter || '—';
     lb.className = 'priority-badge ' + letterToClass(selectedCourse.letter);
   }
   renderBreakdown(selectedCourse.assignments);
@@ -469,7 +497,7 @@ function resetModel() {
   selectedCourse.letter = pctToLetter(realPct);
   document.getElementById('currentPct').textContent = `${realPct.toFixed(1)}%`;
   const lb = document.getElementById('currentLetter');
-  lb.textContent = selectedCourse.letter;
+  lb.textContent = selectedCourse.letter || '—';
   lb.className = 'priority-badge ' + letterToClass(selectedCourse.letter);
   document.getElementById('modelResult').style.display = 'none';
   renderBreakdown(selectedCourse.assignments);
@@ -699,7 +727,7 @@ function submitAddAssignment() {
   selectedCourse.letter = pctToLetter(realPct);
   document.getElementById('currentPct').textContent = `${realPct.toFixed(1)}%`;
   const lb = document.getElementById('currentLetter');
-  lb.textContent = selectedCourse.letter;
+  lb.textContent = selectedCourse.letter || '—';
   lb.className = 'priority-badge ' + letterToClass(selectedCourse.letter);
   renderMaxBadge();
   // Re-apply any active simulations so manual + simulated state coexist.
@@ -729,7 +757,7 @@ function removeManualAssignment(id) {
   selectedCourse.letter = pctToLetter(realPct);
   document.getElementById('currentPct').textContent = `${realPct.toFixed(1)}%`;
   const lb = document.getElementById('currentLetter');
-  lb.textContent = selectedCourse.letter;
+  lb.textContent = selectedCourse.letter || '—';
   lb.className = 'priority-badge ' + letterToClass(selectedCourse.letter);
   renderMaxBadge();
   if (Object.keys(simulatedScores).length > 0) applySimulation();

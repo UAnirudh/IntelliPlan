@@ -190,27 +190,48 @@ def test_a_save_without_data_is_refused_rather_than_silently_dropped(client, stu
 
 
 # ── The page itself ──────────────────────────────────────────
+#
+# /active serves two templates, and every one of these assertions has to
+# hold for both. It did not: the form lived in active.html only, so a
+# student on a phone — which is most of them — still met a dead end that
+# said "Build a schedule" and offered nothing else. Parametrised by the
+# ?view= override rather than by user agent, which is what that override
+# exists for.
 
-def test_the_ad_hoc_form_is_present_on_the_page(client, student):
-    html = client.get("/active").data.decode("utf-8", "ignore")
+LAYOUTS = ["/active?view=desktop", "/active?view=phone"]
+
+
+@pytest.mark.parametrize("url", LAYOUTS)
+def test_the_ad_hoc_form_is_present_on_the_page(client, student, url):
+    html = client.get(url).data.decode("utf-8", "ignore")
     assert 'id="ipaAdhoc"' in html
     assert 'id="ipaAdhocTitle"' in html
     assert "IPActive.adhocStart()" in html
 
 
-def test_the_duration_choices_are_buttons_not_a_number_field(client, student):
+@pytest.mark.parametrize("url", LAYOUTS)
+def test_the_duration_choices_are_buttons_not_a_number_field(client, student, url):
     """Picking beats typing, and it removes any chance of entering a
     duration the server will reject."""
-    html = client.get("/active").data.decode("utf-8", "ignore")
+    html = client.get(url).data.decode("utf-8", "ignore")
     for minutes in (15, 25, 45, 60):
         assert f'data-minutes="{minutes}"' in html
     assert 'type="number"' not in html
 
 
-def test_the_start_button_begins_disabled(client, student):
+@pytest.mark.parametrize("url", LAYOUTS)
+def test_the_start_button_begins_disabled(client, student, url):
     """Gate the action on the required field rather than explaining what was
     missing after they press it."""
-    html = client.get("/active").data.decode("utf-8", "ignore")
+    html = client.get(url).data.decode("utf-8", "ignore")
     assert 'id="ipaAdhocStart"' in html
     start = html[html.find('id="ipaAdhocStart"'):]
     assert "disabled" in start[:start.find(">")]
+
+
+@pytest.mark.parametrize("url", LAYOUTS)
+def test_building_a_schedule_is_an_option_not_the_only_one(client, student, url):
+    """The link away must not be the sole thing on the empty state."""
+    html = client.get(url).data.decode("utf-8", "ignore")
+    assert "Build a schedule" in html
+    assert "Start a session now" in html

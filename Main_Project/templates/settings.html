@@ -67,9 +67,10 @@
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
-.profile-tab.active {
-  background: var(--accent);
-  color: white;
+.profile-tab.active,
+.profile-tab[aria-pressed="true"] {
+  background: var(--accent) !important;
+  color: #fff !important;
 }
 .profile-tab:hover:not(.active) { color: var(--text-primary); background: var(--border); }
 .profile-pane { display: none; }
@@ -280,6 +281,137 @@
 @media (max-width: 480px) {
   .avail-slot-btn { padding:5px 8px; font-size:0.72rem; }
 }
+
+/* ── Phone layout ───────────────────────────────────────────────
+   Settings is nineteen sections and, on a phone, was one 18,000px
+   scroll: every control on the account expanded at once, with no way
+   to see what the page contains or to reach the bottom of it. The
+   sections are independent, so on a phone they collapse — a list of
+   headings you can scan, opening one at a time — with a jump index
+   pinned under the header. Desktop keeps the full expanded page,
+   where the scroll length is not the problem. */
+.settings-jump { display: none; }
+
+@media (max-width: 768px) {
+  .settings-section {
+    padding: 0;
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  /* Sections that have not been enhanced yet (JS still running, or
+     disabled) keep their padding so they never render edge-to-edge. */
+  .settings-section:not(.is-collapsible) { padding: 1.1rem; }
+
+  .settings-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 56px;
+    padding: 12px 14px;
+    background: none;
+    border: 0;
+    text-align: left;
+    color: var(--text-primary);
+    font: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .settings-head > .settings-head-text { flex: 1; min-width: 0; }
+  .settings-head .settings-section-title { display: block; margin-bottom: 0; }
+  .settings-head-sub {
+    display: block;
+    font-size: 0.76rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .settings-head-chev {
+    flex: none;
+    width: 18px; height: 18px;
+    color: var(--text-muted);
+    transition: transform 0.18s ease;
+  }
+  .settings-head[aria-expanded="true"] .settings-head-chev { transform: rotate(180deg); }
+  .settings-head[aria-expanded="true"] { border-bottom: 1px solid var(--border); }
+  .settings-body { padding: 14px; }
+  .settings-body[hidden] { display: none; }
+
+  /* Jump index: sticky under the fixed header, scrolls sideways. */
+  .settings-jump {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    position: sticky;
+    top: calc(54px + env(safe-area-inset-top));
+    z-index: 5;
+    margin: 0 -14px 12px;
+    padding: 8px 14px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .settings-jump::-webkit-scrollbar { display: none; }
+  .settings-jump button {
+    flex: none;
+    min-height: 34px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .settings-jump button:active {
+    background: var(--accent-soft);
+    border-color: var(--border-accent);
+    color: var(--accent);
+  }
+
+  /* Controls inside a section: one column, full width, real tap targets. */
+  .settings-section .btn-primary,
+  .settings-section .btn-secondary { width: 100%; }
+  .settings-section .settings-danger-row .btn-primary,
+  .settings-section .settings-danger-row .btn-secondary { width: auto; flex: 1 1 140px; }
+  .settings-section input[type="text"],
+  .settings-section input[type="tel"],
+  .settings-section input[type="email"],
+  .settings-section input[type="password"],
+  .settings-section input[type="number"],
+  .settings-section select,
+  .settings-section textarea {
+    width: 100%;
+    max-width: 100%;
+    /* >=16px or iOS zooms the page on focus. */
+    font-size: 16px;
+  }
+  .profile-tab-bar { width: 100%; }
+  .profile-tab { flex: 1 1 0; text-align: center; padding: 9px 6px; }
+
+  /* Glass pills stop refracting on mobile (backdrop-filter is off there by
+     policy), so an unselected focus-area pill was a white shape on a white
+     card with a 6%-black border: twelve subjects rendered as blank space
+     and the section looked half-empty. Give them a real surface. */
+  .focus-pill label {
+    min-height: 40px;
+    background: var(--bg) !important;
+    border-color: var(--border-strong) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  .focus-pill input:checked + label {
+    background: var(--accent-soft) !important;
+    border-color: var(--accent) !important;
+  }
+}
 </style>
 
 <div class="page-header">
@@ -287,6 +419,8 @@
   <h1 class="page-title">Settings</h1>
   <p class="page-subtitle">Manage your account, study profile, and integrations</p>
 </div>
+
+<nav class="settings-jump" id="settingsJump" aria-label="Jump to a settings section"></nav>
 
 <div id="settingsWrap">
 
@@ -305,9 +439,9 @@
 
     <!-- Tab bar -->
     <div class="profile-tab-bar">
-      <button class="profile-tab active" data-pane="basics">Basics</button>
-      <button class="profile-tab" data-pane="schedule">Availability</button>
-      <button class="profile-tab" data-pane="extras">Goals & Extras</button>
+      <button class="profile-tab active" data-pane="basics" aria-pressed="true">Basics</button>
+      <button class="profile-tab" data-pane="schedule" aria-pressed="false">Availability</button>
+      <button class="profile-tab" data-pane="extras" aria-pressed="false">Goals &amp; Extras</button>
     </div>
 
     <!-- Pane: Basics -->
@@ -408,7 +542,7 @@
     </div>
   </div>
 
-  <div class="settings-section">
+  <div class="settings-section" id="themes">
     <div class="settings-section-title">Display &amp; Animations</div>
 
     <div class="integration-row">
@@ -942,9 +1076,13 @@ function ipSetNotify(msg, isError) {
 /* ── Tab switching ──────────────────────────────── */
 document.querySelectorAll('.profile-tab').forEach(tab => {
   tab.addEventListener('click', () => {
-    document.querySelectorAll('.profile-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.profile-tab').forEach(t => {
+      t.classList.remove('active');
+      t.setAttribute('aria-pressed', 'false');
+    });
     document.querySelectorAll('.profile-pane').forEach(p => p.classList.remove('visible'));
     tab.classList.add('active');
+    tab.setAttribute('aria-pressed', 'true');
     document.getElementById('pane-' + tab.dataset.pane).classList.add('visible');
   });
 });
@@ -2410,5 +2548,149 @@ document.addEventListener('change', function (e) {
 });
 
 feLoad();
+
+/* ── Phone: turn the wall of sections into an accordion ──────────
+   Progressive enhancement, phone only. Nothing is removed from the
+   DOM and no ids change, so every handler on this page keeps working
+   whether its section happens to be open or shut. */
+(function settingsAccordion() {
+  var phone = window.matchMedia('(max-width: 768px)');
+  if (!phone.matches) return;
+
+  var wrap = document.getElementById('settingsWrap');
+  var jump = document.getElementById('settingsJump');
+  if (!wrap) return;
+
+  var CHEV = '<svg class="settings-head-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+             'stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+             '<polyline points="6 9 12 15 18 9"/></svg>';
+
+  var sections = [].slice.call(wrap.querySelectorAll(':scope > .settings-section'));
+  var built = [];
+
+  sections.forEach(function (section, i) {
+    var titleEl = section.querySelector('.settings-section-title');
+    if (!titleEl) return;
+    var label = (titleEl.textContent || 'Section').trim();
+
+    /* The title is sometimes wrapped in a flex row with a status note
+       beside it. Collapse from that whole row, not from the title, or
+       the note is orphaned outside the panel. */
+    var headSource = titleEl;
+    while (headSource.parentNode && headSource.parentNode !== section) {
+      headSource = headSource.parentNode;
+    }
+    // Some sections are just <div class="settings-section-title"> at the
+    // top; others wrap it in a flex row alongside a saved-state note.
+    var bareTitle = (headSource === titleEl);
+
+    var sub = '';
+    var subEl = headSource.querySelector('.settings-section-title + div');
+    if (subEl && subEl.textContent) {
+      sub = subEl.textContent.trim();
+      // Lifted, not copied: leaving it in the panel too printed the same
+      // sentence twice the moment a section was opened.
+      subEl.parentNode.removeChild(subEl);
+    }
+
+    var body = document.createElement('div');
+    body.className = 'settings-body';
+    body.id = 'settingsBody' + i;
+    // Everything after the heading row becomes the panel.
+    var node = headSource.nextSibling;
+    while (node) {
+      var next = node.nextSibling;
+      body.appendChild(node);
+      node = next;
+    }
+    // The heading row itself still holds its status note; keep that
+    // inside the panel too so the open section reads as one block.
+    headSource.parentNode.removeChild(headSource);
+
+    var head = document.createElement('button');
+    head.type = 'button';
+    head.className = 'settings-head';
+    head.setAttribute('aria-expanded', 'false');
+    head.setAttribute('aria-controls', body.id);
+    head.innerHTML =
+      '<span class="settings-head-text">' +
+        '<span class="settings-section-title"></span>' +
+        (sub ? '<span class="settings-head-sub"></span>' : '') +
+      '</span>' + CHEV;
+    head.querySelector('.settings-section-title').textContent = label;
+    if (sub) head.querySelector('.settings-head-sub').textContent = sub;
+
+    // Put the original heading row back at the top of the panel, minus
+    // its title (which is now the button's label). A bare title has
+    // nothing left to put back.
+    if (!bareTitle) {
+      titleEl.parentNode.removeChild(titleEl);
+      if (headSource.textContent.trim() || headSource.querySelector('*')) {
+        body.insertBefore(headSource, body.firstChild);
+      }
+    }
+
+    body.hidden = true;
+    section.classList.add('is-collapsible');
+    section.insertBefore(body, section.firstChild);
+    section.insertBefore(head, body);
+
+    head.addEventListener('click', function () {
+      var open = head.getAttribute('aria-expanded') === 'true';
+      head.setAttribute('aria-expanded', open ? 'false' : 'true');
+      body.hidden = open;
+    });
+
+    built.push({ section: section, head: head, body: body, label: label });
+  });
+
+  function openSection(entry, scroll) {
+    if (!entry) return;
+    entry.head.setAttribute('aria-expanded', 'true');
+    entry.body.hidden = false;
+    if (scroll) {
+      // Clear the fixed header and the sticky jump bar.
+      var y = entry.section.getBoundingClientRect().top + window.pageYOffset - 110;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+    }
+  }
+
+  if (jump) {
+    built.forEach(function (entry) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.textContent = entry.label;
+      chip.addEventListener('click', function () { openSection(entry, true); });
+      jump.appendChild(chip);
+    });
+  }
+
+  /* A link into a specific section — /settings#themes from the command
+     palette, or #accessibilitySettings from the a11y prompt — must land
+     on an OPEN section, not a collapsed heading. */
+  function openFromHash() {
+    var id = (location.hash || '').replace('#', '');
+    if (!id) return;
+    var target = document.getElementById(id);
+    if (!target) return;
+    var section = target.closest ? target.closest('.settings-section') : null;
+    var entry = built.filter(function (b) { return b.section === section; })[0];
+    if (entry) openSection(entry, true);
+  }
+  openFromHash();
+  window.addEventListener('hashchange', openFromHash);
+
+  // Nothing collapsed should ever hide a field the browser wants to focus
+  // (autofill, a validation jump, or an in-page anchor).
+  document.addEventListener('focusin', function (e) {
+    var body = e.target.closest && e.target.closest('.settings-body');
+    if (body && body.hidden) {
+      var entry = built.filter(function (b) { return b.body === body; })[0];
+      openSection(entry, false);
+    }
+  });
+
+  if (built.length) openSection(built[0], false);
+})();
 
 {% endblock %}

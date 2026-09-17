@@ -294,14 +294,16 @@ body {
     --glass-primary-bg: rgba(22,22,24,0.97); --glass-input-bg: rgba(255,255,255,0.9);
     /* Fixed chrome DOES get real glass — translucent enough to refract the
        page beneath, opaque enough to keep nav text at full contrast. */
-    --chrome-glass: rgba(255,255,255,0.72);
+    /* Was 0.72, which let headlines and cards scroll visibly through the
+       fixed header. 0.88 still refracts; it just stops competing. */
+    --chrome-glass: rgba(255,255,255,0.88);
     --chrome-glass-border: rgba(0,0,0,0.07);
   }
   :root[data-theme="dark"]  {
     --glass-bg: rgba(24,24,28,0.95); --glass-border: rgba(255,255,255,0.10);
     --glass-btn-bg: rgba(255,255,255,0.12); --glass-btn-hover: rgba(255,255,255,0.18);
     --glass-primary-bg: rgba(240,240,236,0.98); --glass-input-bg: rgba(255,255,255,0.08);
-    --chrome-glass: rgba(18,18,22,0.72);
+    --chrome-glass: rgba(18,18,22,0.88);
     --chrome-glass-border: rgba(255,255,255,0.10);
   }
   /* ── Mobile blur policy ──────────────────────────────────────────────
@@ -348,13 +350,16 @@ body {
       -webkit-backdrop-filter: blur(20px) saturate(1.7);
       backdrop-filter: blur(20px) saturate(1.7);
     }
-    /* Blur behind an opaque fill is invisible — this must be translucent
-       for the frost to actually read. */
+    /* The header keeps real glass; the nav DRAWER does not. A slide-over
+       panel that the page shows through is not frosted, it is unreadable —
+       every label competes with whatever content happens to be behind it.
+       So the drawer takes a near-solid fill (defined in mobile.css) and
+       keeps the blur only for the hairline of depth at its edge. */
     #mainNav {
-      background: var(--chrome-glass) !important;
+      background: var(--drawer-fill, var(--bg-card)) !important;
       border-color: var(--chrome-glass-border) !important;
     }
-    .ipd-modal, #planiChat { background: var(--chrome-glass) !important; }
+    .ipd-modal, #planiChat { background: var(--drawer-fill, var(--bg-card)) !important; }
     /* Reduced-transparency and high-contrast users opt out of all of it. */
     html[data-a11y-contrast="1"] body > header::before {
       background: var(--bg-card);
@@ -686,6 +691,8 @@ body {
            bar never gets clumped on the default page. Anything not in
            the sidebar lives in the sidebar's customizer or command palette. #}
       <div class="nav-group">
+        <span class="nav-more-head">Main</span>
+        <a href="/command-center" class="nav-tab nav-more-item {% if active_page == 'command_center' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-lightning"/></svg></span><span class="nav-label">Command Center</span></a>
         <a href="/dashboard"       class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-dashboard"/></svg></span><span class="nav-label">Dashboard</span></a>
         <a href="/scheduler"       class="nav-tab {% if active_page == 'scheduler' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-scheduler"/></svg></span><span class="nav-label">Scheduler</span></a>
         {# Active sits next to Scheduler because that is the order the two are
@@ -693,8 +700,53 @@ body {
            missing from this bar entirely, so on a phone it was unreachable. #}
         <a href="/active"          class="nav-tab {% if active_page == 'active' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-video"/></svg></span><span class="nav-label">Active</span></a>
         <a href="/memories"        class="nav-tab {% if active_page == 'memories' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-save"/></svg></span><span class="nav-label">Memories</span></a>
-        <a href="/gradebook"       class="nav-tab {% if active_page in ['gradebook','grademodel'] %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-modeler"/></svg></span><span class="nav-label">Grades</span></a>
+        <a href="/gradebook"       class="nav-tab {% if active_page in ['gradebook','grademodel'] %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-modeler"/></svg></span><span class="nav-label">Grade Modeler</span></a>
         <a href="/study-and-learn" class="nav-tab {% if active_page in _study_sub %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-study"/></svg></span><span class="nav-label">Study &amp; Learn</span></a>
+      </div>
+      {# ── EVERYTHING ELSE, drawer only ───────────────────────────
+           On a phone the sidebar is hidden, so this <nav> IS the whole
+           app menu — and it used to carry only the six tabs the desktop
+           top bar shows, which left Flashcards, Streak, My Pet, Balance,
+           My Stats and every tool page reachable on a laptop and nowhere
+           on a phone. These groups render only in the drawer (they are
+           display:none above 768px), so the desktop bar keeps its six. #}
+      <div class="nav-group nav-more">
+        <span class="nav-more-head">Plan</span>
+        <a href="/priority"  class="nav-tab {% if active_page == 'priority' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-priority"/></svg></span><span class="nav-label">Priority Queue</span></a>
+        <a href="/classes"   class="nav-tab {% if active_page == 'classes' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-classes"/></svg></span><span class="nav-label">Classes</span></a>
+        <a href="/grades"    class="nav-tab {% if active_page == 'grades' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-grades"/></svg></span><span class="nav-label">Grades</span></a>
+        <a href="/tests"     class="nav-tab {% if active_page == 'tests' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-test"/></svg></span><span class="nav-label">Tests &amp; Quizzes</span></a>
+        <a href="/dismissed" class="nav-tab {% if active_page == 'dismissed' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-done"/></svg></span><span class="nav-label">Completed Work</span></a>
+      </div>
+      <div class="nav-group nav-more">
+        <span class="nav-more-head">Study</span>
+        <a href="/tutor"      class="nav-tab {% if active_page == 'tutor' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-tutor"/></svg></span><span class="nav-label">AI Tutor</span></a>
+        <a href="/study"      class="nav-tab {% if active_page == 'study' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-rocket"/></svg></span><span class="nav-label">Deep Study</span></a>
+        <a href="/learn"      class="nav-tab {% if active_page == 'learn' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-study"/></svg></span><span class="nav-label">Learn</span></a>
+        <a href="/flashcards" class="nav-tab {% if active_page == 'flashcards' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-clipboard"/></svg></span><span class="nav-label">Flashcards</span></a>
+        <a href="/focus"      class="nav-tab {% if active_page == 'focus' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-clock"/></svg></span><span class="nav-label">Focus Timer</span></a>
+        <a href="/library"    class="nav-tab {% if active_page == 'library' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-backpack"/></svg></span><span class="nav-label">AP Library</span></a>
+      </div>
+      <div class="nav-group nav-more">
+        <span class="nav-more-head">Progress</span>
+        <a href="/streak"   class="nav-tab {% if active_page == 'streak' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-fire"/></svg></span><span class="nav-label">Streak</span></a>
+        <a href="/pet"      class="nav-tab {% if active_page == 'pet' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-sparkle"/></svg></span><span class="nav-label">My Pet</span></a>
+        <a href="/balance"  class="nav-tab {% if active_page == 'balance' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-heart"/></svg></span><span class="nav-label">Balance</span></a>
+        <a href="/my-stats" class="nav-tab {% if active_page == 'my_stats' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-chart-bar"/></svg></span><span class="nav-label">My Stats</span></a>
+        <a href="/features" class="nav-tab {% if active_page == 'features' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-lightning"/></svg></span><span class="nav-label">Ideas</span></a>
+      </div>
+      <div class="nav-group nav-more">
+        <span class="nav-more-head">Tools</span>
+        <a href="/lessons"   class="nav-tab {% if active_page == 'lessons' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-lightbulb"/></svg></span><span class="nav-label">Lessons</span></a>
+        <a href="/writing"   class="nav-tab {% if active_page == 'writing' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-pencil"/></svg></span><span class="nav-label">Writing</span></a>
+        <a href="/math"      class="nav-tab {% if active_page == 'math' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-modeler"/></svg></span><span class="nav-label">Math Explainer</span></a>
+        <a href="/extractor" class="nav-tab {% if active_page == 'extractor' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-check-circle"/></svg></span><span class="nav-label">Task Extractor</span></a>
+      </div>
+      <div class="nav-group nav-more">
+        <span class="nav-more-head">Connect</span>
+        <a href="/groups"   class="nav-tab {% if active_page == 'groups' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-users"/></svg></span><span class="nav-label">Study Groups</span></a>
+        <a href="/meetings" class="nav-tab {% if active_page == 'meetings' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-video"/></svg></span><span class="nav-label">Meetings</span></a>
+        <a href="/connect"  class="nav-tab {% if active_page == 'connect' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-link"/></svg></span><span class="nav-label">Integrations</span></a>
       </div>
       {# ── Streak flame + Plani Pet badge — Duolingo-style nav widgets ── #}
       <div class="nav-group nav-rewards" id="navRewards" hidden>
@@ -709,6 +761,7 @@ body {
       </div>
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
+        <span class="nav-more-head">Account</span>
         <a href="/settings" class="nav-tab {% if active_page == 'settings' %}active{% endif %}" aria-label="Settings"><span class="nav-tab-icon"><svg><use href="#i-settings"/></svg></span><span class="nav-label">Settings</span></a>
         <form action="/logout" method="POST" style="display:inline;">
           <button type="submit" class="nav-tab logout-btn"><span class="nav-tab-icon"><svg><use href="#i-logout"/></svg></span><span class="nav-label">Logout</span></button>

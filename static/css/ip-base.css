@@ -896,6 +896,15 @@
       min-width: 0;
     }
     .nav-group { display:flex; align-items:center; gap:2px; }
+    /* Drawer-only groups. The phone drawer is the entire app menu, so it
+       carries every destination; the desktop top bar keeps its six tabs
+       because the sidebar already holds the rest. mobile.css turns these
+       back on at <=768px. */
+    .nav-group.nav-more { display:none; }
+    /* Same idea for a single link that belongs in the drawer's first group
+       rather than in a group of its own. */
+    .nav-tab.nav-more-item { display:none; }
+    .nav-more-head { display:none; }
     .nav-divider { width:1px; height:20px; background:var(--nav-divider); margin:0 6px; border-radius:var(--r-full); }
     .nav-tab {
       padding:5px 14px; border-radius:var(--r-full); border:none;
