@@ -13071,6 +13071,22 @@ def _import_owner_filter(query, model):
     return query.filter(model.guest_session_id == get_guest_session_id())
 
 
+def _extension_bearer_token():
+    """The extension's token from whichever header this caller used.
+
+    The popup sends `X-Extension-Token`; the background worker's sync sends
+    `Authorization: Bearer <token>`. Both are the same ExtensionToken value,
+    and accepting only one of them is what left the sync path unauthenticated.
+    """
+    direct = request.headers.get("X-Extension-Token")
+    if direct:
+        return direct.strip()
+    auth = request.headers.get("Authorization") or ""
+    if auth.lower().startswith("bearer "):
+        return auth[7:].strip()
+    return None
+
+
 def _import_owner_kwargs():
     if current_user.is_authenticated:
         return {"user_id": current_user.id, "guest_session_id": None}
@@ -13141,12 +13157,20 @@ def _parse_csv_rows(text):
     return assignments, grades, errors
 
 
-def _persist_import(assignments, grades, source="csv", source_label="", batch_id=None, replace_batch=True):
+def _persist_import(assignments, grades, source="csv", source_label="", batch_id=None,
+                    replace_batch=True, owner=None):
     """Write parsed assignments/grades to the DB, optionally replacing a prior
-    batch with the same source (for auto-sync from the extension)."""
+    batch with the same source (for auto-sync from the extension).
+
+    `owner` names the rows' owner explicitly, as {"user_id", "guest_session_id"}.
+    The extension authenticates with a bearer token rather than a session
+    cookie, so on that path there is no `current_user` for the default lookup
+    to read. Every other caller (CSV, smart-paste) omits it and keeps the
+    session-derived owner.
+    """
     import uuid as _uuid
     batch_id = batch_id or str(_uuid.uuid4())
-    own = _import_owner_kwargs()
+    own = owner or _import_owner_kwargs()
     # Refresh-replace: when the same scraper pushes a new sync, drop the old
     # rows for that source so we don't accumulate duplicates.
     if replace_batch and source.startswith("scraper:"):
@@ -13364,8 +13388,17 @@ def api_import_scraper():
     Each subsequent post for the same `lms` replaces the prior batch so
     auto-sync stays idempotent.
     """
+    # The extension posts cross-origin with credentials omitted, so no session
+    # cookie arrives and the bearer token it sends is the only evidence of who
+    # is calling. Reading only the session meant every scraper sync 401'd --
+    # the whole unsupported-LMS path was dead on arrival, which is the reason
+    # a student on PowerSchool or Infinite Campus never saw anything appear.
+    owner = None
     if not (current_user.is_authenticated or session.get("guest_id")):
-        return flask.jsonify({"status": "error", "message": "Sign in first"}), 401
+        ext_user = get_extension_user(_extension_bearer_token())
+        if not ext_user:
+            return flask.jsonify({"status": "error", "message": "Sign in first"}), 401
+        owner = {"user_id": ext_user.id, "guest_session_id": None}
     body = request.get_json(silent=True) or {}
     lms = (body.get("lms") or "").strip().lower() or "other"
     label = (body.get("label") or lms.title())[:60]
@@ -13409,7 +13442,7 @@ def api_import_scraper():
         })
     batch_id, a_count, g_count = _persist_import(
         clean_a, clean_g, source=f"scraper:{lms}",
-        source_label=label, replace_batch=True,
+        source_label=label, replace_batch=True, owner=owner,
     )
     return flask.jsonify({
         "status": "ok", "batch_id": batch_id,
@@ -15028,6 +15061,64 @@ def extension_dismiss():
         return ext_response({"status": "ok"})
     except Exception as e:
         return ext_response({"status": "error"}, 500)
+
+
+@app.route("/extension/task/add", methods=["POST", "OPTIONS"])
+def extension_task_add():
+    """Add a task from the extension popup's quick-add box.
+
+    The popup has always had this box, and it has never worked: it posted to
+    /api/tasks/quick-add, a route that does not exist and never did. Every
+    attempt 404'd and the popup reported "Could not add task", so the feature
+    read as broken rather than missing.
+
+    It belongs here rather than under /api/ because the extension authenticates
+    with an X-Extension-Token bearer, which the session-cookie /api/ routes do
+    not accept -- pointing the popup at an /api/ route would have swapped a 404
+    for a 401.
+    """
+    if request.method == "OPTIONS":
+        response = flask.make_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Extension-Token"
+        return response
+    token = request.headers.get("X-Extension-Token")
+    user = get_extension_user(token)
+    if not user:
+        return ext_response({"status": "error", "message": "Not authenticated"}, 401)
+    data = request.get_json(force=True, silent=True) or {}
+    title = (data.get("title") or "").strip()
+    if not title:
+        return ext_response({"status": "error", "message": "Title required"}, 400)
+    # The column is String(512); a longer title would otherwise fail at commit
+    # and surface as a 500 on what is a perfectly ordinary typo.
+    title = title[:512]
+    try:
+        estimated = int(data.get("estimated_time") or 60)
+    except (TypeError, ValueError):
+        estimated = 60
+    try:
+        task = ManualTask(
+            user_id=user.id,
+            title=title,
+            due_date=(data.get("due_date") or "")[:32],
+            priority=(data.get("priority") or "Medium")[:16],
+            course=(data.get("course") or "Personal")[:256],
+            estimated_time=estimated,
+            notes=(data.get("notes") or ""),
+        )
+        db.session.add(task)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return ext_response({"status": "error", "message": "Could not save task."}, 500)
+    # The popup reads the same cached task list the dashboard does, so without
+    # this the new task does not appear until the cache ages out.
+    try:
+        invalidate_lms_cache_for_user(user.id)
+    except Exception:
+        pass
+    return ext_response({"status": "ok", "id": task.id})
 
 
 @app.route("/extension/session-token", methods=["GET", "OPTIONS"])
