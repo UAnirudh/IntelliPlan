@@ -2934,6 +2934,71 @@ def _refresh_canvas_if_stale(creds):
     return creds
 
 
+def _refresh_guest_canvas_if_stale(creds):
+    """Keep a signed-out student's Canvas connection alive.
+
+    A student can connect Canvas before making an IntelliPlan account, and
+    the callback stores their refresh token in the session when they do.
+    Nothing consumed it: _refresh_canvas_if_stale only handles connections
+    backed by a CanvasIntegration row, which a guest has none of. So the
+    exact failure that fix was written for -- everything silently empty an
+    hour after connecting -- still happened to anyone who hadn't signed up
+    yet, which is precisely the audience least likely to read it as a bug
+    in Canvas rather than in IntelliPlan.
+
+    A guest has no database row, so the refreshed token goes back to the
+    session. A refresh that fails clears the connection rather than leaving
+    a dead token in place, because there is no reconnect banner on this path.
+    """
+    if not creds or not creds.get("canvas_oauth"):
+        return creds
+    if not CANVAS_OAUTH_AVAILABLE:
+        return creds
+    refresh_token = session.get("canvas_refresh_token")
+    if not refresh_token:
+        return creds
+
+    expires_raw = session.get("canvas_token_expires_at")
+    expires_at = None
+    if expires_raw:
+        try:
+            expires_at = datetime.fromisoformat(expires_raw)
+            # utcnow() is naive UTC, so an aware value read back from an
+            # older session would raise on comparison rather than refresh.
+            if expires_at.tzinfo is not None:
+                expires_at = expires_at.astimezone(timezone.utc).replace(tzinfo=None)
+        except (TypeError, ValueError):
+            expires_at = None
+    now = utcnow()
+    fresh_enough = (expires_at
+                    and expires_at > now + timedelta(seconds=CANVAS_REFRESH_SKEW_SECONDS))
+    if fresh_enough and creds.get("canvas_token"):
+        return creds
+
+    try:
+        tokens = refresh_canvas_token(refresh_token, session.get("canvas_url"))
+    except Exception as exc:
+        msg = str(exc)
+        if "invalid_grant" in msg or "refresh_token" in msg:
+            for key in ("canvas_token", "canvas_refresh_token", "canvas_oauth",
+                        "canvas_token_expires_at"):
+                session.pop(key, None)
+            session.modified = True
+        print(f"[canvas] guest token refresh failed: {msg}")
+        return creds
+
+    access_token = tokens.get("access_token")
+    if not access_token:
+        return creds
+    ttl = tokens.get("expires_in")
+    session["canvas_token"] = access_token
+    session["canvas_token_expires_at"] = (
+        (now + timedelta(seconds=int(ttl))).isoformat() if ttl else None)
+    session.modified = True
+    creds["canvas_token"] = access_token
+    return creds
+
+
 def get_active_account():
     if current_user.is_authenticated:
         acct = LinkedAccount.query.filter_by(user_id=current_user.id, is_active=True).first()
@@ -2946,11 +3011,12 @@ def get_active_account():
     if not login_type:
         return None
     if login_type == "canvas":
-        return {
+        return _refresh_guest_canvas_if_stale({
             "login_type": "canvas",
             "canvas_token": session.get("canvas_token"),
             "canvas_url": session.get("canvas_url"),
-        }
+            "canvas_oauth": bool(session.get("canvas_oauth")),
+        })
     if login_type == "calendar_feed":
         return {
             "login_type": "calendar_feed",
@@ -8042,6 +8108,9 @@ def oauth_canvas_callback():
         session["canvas_url"] = tokens.get("canvas_base") or canvas_base
         session["canvas_refresh_token"] = refresh_token
         session["canvas_oauth"] = True
+        # Recorded so the guest path can tell a live token from an aged-out
+        # one. Without it every read would have to refresh blindly.
+        session["canvas_token_expires_at"] = expires_at.isoformat() if expires_at else None
         session["login_type"] = "canvas"
     if session.pop("app_link_return", None):
         # Started from the phone: hand control back rather than leaving the
@@ -8079,6 +8148,18 @@ def oauth_canvas_status():
 
 @app.route("/oauth/canvas/disconnect", methods=["POST"])
 def oauth_canvas_disconnect():
+    """Undo a Canvas connection, everywhere it is recorded.
+
+    The connection lives in two places: CanvasIntegration holds the refresh
+    token, and a LinkedAccount row holds the mirrored access token that every
+    fetch path actually reads. Deleting only the first left the second active
+    and still carrying a token, so a student who pressed Disconnect kept
+    seeing their Canvas assignments until that copy expired -- and the app
+    reported them as connected, with no connection left to refresh.
+
+    Deactivating rather than deleting the LinkedAccount keeps the student's
+    per-account settings if they reconnect later.
+    """
     if current_user.is_authenticated:
         ci = CanvasIntegration.query.filter_by(user_id=current_user.id).first()
         if ci and ci.access_token:
@@ -8086,12 +8167,30 @@ def oauth_canvas_disconnect():
                 revoke_canvas_token(ci.access_token, ci.canvas_base)
             except Exception:
                 pass
+        if ci:
             db.session.delete(ci)
+        for acct in LinkedAccount.query.filter_by(
+                user_id=current_user.id, login_type="canvas").all():
+            stored = acct.get_credentials()
+            # The token is what makes this row dangerous; strip it even on
+            # rows that were already inactive.
+            for key in ("canvas_token", "canvas_refresh_token",
+                        "canvas_token_expires_at", "canvas_oauth"):
+                stored.pop(key, None)
+            acct.set_credentials(stored)
+            acct.is_active = False
+        try:
             db.session.commit()
+        except Exception:
+            db.session.rollback()
     session.pop("canvas_token", None)
     session.pop("canvas_url", None)
     session.pop("canvas_refresh_token", None)
     session.pop("canvas_oauth", None)
+    session.pop("canvas_token_expires_at", None)
+    session.pop("canvas_needs_reconnect", None)
+    if session.get("login_type") == "canvas":
+        session.pop("login_type", None)
     return flask.jsonify({"status": "ok"})
 
 
