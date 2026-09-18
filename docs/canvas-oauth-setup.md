@@ -26,11 +26,9 @@ that domain covers all of them.
      http://localhost:3000/oauth/canvas/callback
      ```
    - **Icon URL**: optional
-   - **Scopes**: leave unscoped for now. (Once you ship, switch to scoped
-     and add: `url:GET|/api/v1/courses`,
-     `url:GET|/api/v1/courses/:course_id/assignments`,
-     `url:GET|/api/v1/users/:user_id/enrollments`,
-     `url:GET|/api/v1/courses/:course_id/enrollments`.)
+   - **Scopes**: leave **Enforce Scopes** off. If you turn it on, see
+     [Scoped Developer Keys](#scoped-developer-keys) below — you must then
+     also set `CANVAS_SCOPES`, or every login fails.
 4. **Save Key**.
 5. In the Developer Keys list, flip the new key's state to **ON**.
 6. Copy the values:
@@ -63,6 +61,38 @@ The convention is: take the Canvas host (`canvas.school.edu`), replace
 `canvas_oauth.py` looks up the per-host override first and falls back to
 the global `CANVAS_CLIENT_ID` / `CANVAS_CLIENT_SECRET` so the public free
 Canvas keeps working without extra config.
+
+## Scoped Developer Keys
+
+A Developer Key can have **Enforce Scopes** on or off, and the two need
+opposite things from us:
+
+- **Off** (the default, and what the public Canvas key uses): the
+  authorization request must **not** name any scopes. Canvas rejects one
+  that does.
+- **On** (what a school's admin will often require before approving a
+  third-party key): the request **must** name every endpoint IntelliPlan
+  will later call, or the calls come back 401.
+
+Because sending scopes to an unscoped key breaks it, scoping is opt-in:
+
+```
+CANVAS_SCOPES=default          # ask for the endpoints IntelliPlan calls
+CANVAS_SCOPES=url:GET|/api/v1/courses url:GET|/api/v1/...   # or an exact list
+```
+
+Enforcement is decided per Canvas instance, so a school that enforces
+while the public Canvas does not gets a per-host override, using the same
+host convention as the client ID:
+
+```
+CANVAS_SCOPES_CANVAS_SCHOOL_EDU=default
+```
+
+When you turn enforcement on in Canvas, tick the same endpoints listed in
+`DEFAULT_SCOPES` in `canvas_oauth.py`. If you later add a Canvas API call
+that isn't on that list, add it in both places — a missing scope fails at
+request time with a 401 that looks exactly like an expired token.
 
 ## Token-paste fallback (always works)
 

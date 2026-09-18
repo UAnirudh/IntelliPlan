@@ -48,3 +48,71 @@ if (document.readyState === "loading") {
 } else {
   addIntelliPlanButton();
 }
+
+// ── Unsupported-LMS scrape + sync ────────────────────────────
+// Only runs on district platforms that expose no API (PowerSchool, Aeries,
+// Infinite Campus, Skyward, eSchoolPlus). On Canvas and StudentVue the
+// router matches nothing and everything below is a no-op, because those
+// sync server-side through their own connections.
+
+(async function ipMaybeSync() {
+  try {
+    if (!window.IntelliPlanScrapers) return;
+    if (!window.IntelliPlanScrapers.pickForLocation()) return;
+    chrome.runtime.sendMessage(
+      { type: "intelliplan_sync_check", host: location.host },
+      async (resp) => {
+        if (chrome.runtime.lastError) return;
+        if (!resp || !resp.shouldSync) return;
+        const data = await window.IntelliPlanScrapers.scrapeCurrent();
+        if (!data) return;
+        chrome.runtime.sendMessage({
+          type: "intelliplan_sync_push",
+          host: location.host,
+          payload: data,
+        });
+      }
+    );
+  } catch (_e) { /* never break the school's own page */ }
+})();
+
+(function ipAddSyncButton() {
+  if (document.getElementById("intelliplan-sync-btn")) return;
+  if (!window.IntelliPlanScrapers || !window.IntelliPlanScrapers.pickForLocation()) return;
+  const wait = () => {
+    if (!document.body) { setTimeout(wait, 300); return; }
+    const btn = document.createElement("button");
+    btn.id = "intelliplan-sync-btn";
+    btn.type = "button";
+    btn.style.cssText = `
+      position: fixed; bottom: 24px; right: 160px; z-index: 99999;
+      background: #4f46e5; color: white; padding: 10px 14px;
+      border-radius: 12px; font-family: -apple-system, sans-serif;
+      font-size: 12px; font-weight: 600; border: 0; cursor: pointer;
+      box-shadow: 0 4px 16px rgba(79,70,229,0.25);
+    `;
+    btn.textContent = "Sync to IntelliPlan";
+    btn.onclick = async () => {
+      btn.disabled = true; btn.textContent = "Syncing...";
+      try {
+        const data = await window.IntelliPlanScrapers.scrapeCurrent();
+        if (!data) { btn.textContent = "Nothing found"; return; }
+        const ok = await new Promise((resolve) => {
+          chrome.runtime.sendMessage(
+            { type: "intelliplan_sync_push", host: location.host, payload: data, force: true },
+            (r) => resolve(!chrome.runtime.lastError && r && r.ok),
+          );
+        });
+        // A failure here is almost always "not signed in to the extension",
+        // which the student fixes in the popup, so say that rather than a
+        // bare "failed" they cannot act on.
+        btn.textContent = ok ? "Synced ✓" : "Sign in first";
+      } catch (_e) {
+        btn.textContent = "Sync failed";
+      }
+      setTimeout(() => { btn.disabled = false; btn.textContent = "Sync to IntelliPlan"; }, 2400);
+    };
+    document.body.appendChild(btn);
+  };
+  wait();
+})();

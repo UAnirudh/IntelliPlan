@@ -2934,6 +2934,71 @@ def _refresh_canvas_if_stale(creds):
     return creds
 
 
+def _refresh_guest_canvas_if_stale(creds):
+    """Keep a signed-out student's Canvas connection alive.
+
+    A student can connect Canvas before making an IntelliPlan account, and
+    the callback stores their refresh token in the session when they do.
+    Nothing consumed it: _refresh_canvas_if_stale only handles connections
+    backed by a CanvasIntegration row, which a guest has none of. So the
+    exact failure that fix was written for -- everything silently empty an
+    hour after connecting -- still happened to anyone who hadn't signed up
+    yet, which is precisely the audience least likely to read it as a bug
+    in Canvas rather than in IntelliPlan.
+
+    A guest has no database row, so the refreshed token goes back to the
+    session. A refresh that fails clears the connection rather than leaving
+    a dead token in place, because there is no reconnect banner on this path.
+    """
+    if not creds or not creds.get("canvas_oauth"):
+        return creds
+    if not CANVAS_OAUTH_AVAILABLE:
+        return creds
+    refresh_token = session.get("canvas_refresh_token")
+    if not refresh_token:
+        return creds
+
+    expires_raw = session.get("canvas_token_expires_at")
+    expires_at = None
+    if expires_raw:
+        try:
+            expires_at = datetime.fromisoformat(expires_raw)
+            # utcnow() is naive UTC, so an aware value read back from an
+            # older session would raise on comparison rather than refresh.
+            if expires_at.tzinfo is not None:
+                expires_at = expires_at.astimezone(timezone.utc).replace(tzinfo=None)
+        except (TypeError, ValueError):
+            expires_at = None
+    now = utcnow()
+    fresh_enough = (expires_at
+                    and expires_at > now + timedelta(seconds=CANVAS_REFRESH_SKEW_SECONDS))
+    if fresh_enough and creds.get("canvas_token"):
+        return creds
+
+    try:
+        tokens = refresh_canvas_token(refresh_token, session.get("canvas_url"))
+    except Exception as exc:
+        msg = str(exc)
+        if "invalid_grant" in msg or "refresh_token" in msg:
+            for key in ("canvas_token", "canvas_refresh_token", "canvas_oauth",
+                        "canvas_token_expires_at"):
+                session.pop(key, None)
+            session.modified = True
+        print(f"[canvas] guest token refresh failed: {msg}")
+        return creds
+
+    access_token = tokens.get("access_token")
+    if not access_token:
+        return creds
+    ttl = tokens.get("expires_in")
+    session["canvas_token"] = access_token
+    session["canvas_token_expires_at"] = (
+        (now + timedelta(seconds=int(ttl))).isoformat() if ttl else None)
+    session.modified = True
+    creds["canvas_token"] = access_token
+    return creds
+
+
 def get_active_account():
     if current_user.is_authenticated:
         acct = LinkedAccount.query.filter_by(user_id=current_user.id, is_active=True).first()
@@ -2946,11 +3011,12 @@ def get_active_account():
     if not login_type:
         return None
     if login_type == "canvas":
-        return {
+        return _refresh_guest_canvas_if_stale({
             "login_type": "canvas",
             "canvas_token": session.get("canvas_token"),
             "canvas_url": session.get("canvas_url"),
-        }
+            "canvas_oauth": bool(session.get("canvas_oauth")),
+        })
     if login_type == "calendar_feed":
         return {
             "login_type": "calendar_feed",
@@ -8042,6 +8108,9 @@ def oauth_canvas_callback():
         session["canvas_url"] = tokens.get("canvas_base") or canvas_base
         session["canvas_refresh_token"] = refresh_token
         session["canvas_oauth"] = True
+        # Recorded so the guest path can tell a live token from an aged-out
+        # one. Without it every read would have to refresh blindly.
+        session["canvas_token_expires_at"] = expires_at.isoformat() if expires_at else None
         session["login_type"] = "canvas"
     if session.pop("app_link_return", None):
         # Started from the phone: hand control back rather than leaving the
@@ -8079,6 +8148,18 @@ def oauth_canvas_status():
 
 @app.route("/oauth/canvas/disconnect", methods=["POST"])
 def oauth_canvas_disconnect():
+    """Undo a Canvas connection, everywhere it is recorded.
+
+    The connection lives in two places: CanvasIntegration holds the refresh
+    token, and a LinkedAccount row holds the mirrored access token that every
+    fetch path actually reads. Deleting only the first left the second active
+    and still carrying a token, so a student who pressed Disconnect kept
+    seeing their Canvas assignments until that copy expired -- and the app
+    reported them as connected, with no connection left to refresh.
+
+    Deactivating rather than deleting the LinkedAccount keeps the student's
+    per-account settings if they reconnect later.
+    """
     if current_user.is_authenticated:
         ci = CanvasIntegration.query.filter_by(user_id=current_user.id).first()
         if ci and ci.access_token:
@@ -8086,12 +8167,30 @@ def oauth_canvas_disconnect():
                 revoke_canvas_token(ci.access_token, ci.canvas_base)
             except Exception:
                 pass
+        if ci:
             db.session.delete(ci)
+        for acct in LinkedAccount.query.filter_by(
+                user_id=current_user.id, login_type="canvas").all():
+            stored = acct.get_credentials()
+            # The token is what makes this row dangerous; strip it even on
+            # rows that were already inactive.
+            for key in ("canvas_token", "canvas_refresh_token",
+                        "canvas_token_expires_at", "canvas_oauth"):
+                stored.pop(key, None)
+            acct.set_credentials(stored)
+            acct.is_active = False
+        try:
             db.session.commit()
+        except Exception:
+            db.session.rollback()
     session.pop("canvas_token", None)
     session.pop("canvas_url", None)
     session.pop("canvas_refresh_token", None)
     session.pop("canvas_oauth", None)
+    session.pop("canvas_token_expires_at", None)
+    session.pop("canvas_needs_reconnect", None)
+    if session.get("login_type") == "canvas":
+        session.pop("login_type", None)
     return flask.jsonify({"status": "ok"})
 
 
@@ -12972,6 +13071,22 @@ def _import_owner_filter(query, model):
     return query.filter(model.guest_session_id == get_guest_session_id())
 
 
+def _extension_bearer_token():
+    """The extension's token from whichever header this caller used.
+
+    The popup sends `X-Extension-Token`; the background worker's sync sends
+    `Authorization: Bearer <token>`. Both are the same ExtensionToken value,
+    and accepting only one of them is what left the sync path unauthenticated.
+    """
+    direct = request.headers.get("X-Extension-Token")
+    if direct:
+        return direct.strip()
+    auth = request.headers.get("Authorization") or ""
+    if auth.lower().startswith("bearer "):
+        return auth[7:].strip()
+    return None
+
+
 def _import_owner_kwargs():
     if current_user.is_authenticated:
         return {"user_id": current_user.id, "guest_session_id": None}
@@ -13042,12 +13157,20 @@ def _parse_csv_rows(text):
     return assignments, grades, errors
 
 
-def _persist_import(assignments, grades, source="csv", source_label="", batch_id=None, replace_batch=True):
+def _persist_import(assignments, grades, source="csv", source_label="", batch_id=None,
+                    replace_batch=True, owner=None):
     """Write parsed assignments/grades to the DB, optionally replacing a prior
-    batch with the same source (for auto-sync from the extension)."""
+    batch with the same source (for auto-sync from the extension).
+
+    `owner` names the rows' owner explicitly, as {"user_id", "guest_session_id"}.
+    The extension authenticates with a bearer token rather than a session
+    cookie, so on that path there is no `current_user` for the default lookup
+    to read. Every other caller (CSV, smart-paste) omits it and keeps the
+    session-derived owner.
+    """
     import uuid as _uuid
     batch_id = batch_id or str(_uuid.uuid4())
-    own = _import_owner_kwargs()
+    own = owner or _import_owner_kwargs()
     # Refresh-replace: when the same scraper pushes a new sync, drop the old
     # rows for that source so we don't accumulate duplicates.
     if replace_batch and source.startswith("scraper:"):
@@ -13265,8 +13388,17 @@ def api_import_scraper():
     Each subsequent post for the same `lms` replaces the prior batch so
     auto-sync stays idempotent.
     """
+    # The extension posts cross-origin with credentials omitted, so no session
+    # cookie arrives and the bearer token it sends is the only evidence of who
+    # is calling. Reading only the session meant every scraper sync 401'd --
+    # the whole unsupported-LMS path was dead on arrival, which is the reason
+    # a student on PowerSchool or Infinite Campus never saw anything appear.
+    owner = None
     if not (current_user.is_authenticated or session.get("guest_id")):
-        return flask.jsonify({"status": "error", "message": "Sign in first"}), 401
+        ext_user = get_extension_user(_extension_bearer_token())
+        if not ext_user:
+            return flask.jsonify({"status": "error", "message": "Sign in first"}), 401
+        owner = {"user_id": ext_user.id, "guest_session_id": None}
     body = request.get_json(silent=True) or {}
     lms = (body.get("lms") or "").strip().lower() or "other"
     label = (body.get("label") or lms.title())[:60]
@@ -13310,7 +13442,7 @@ def api_import_scraper():
         })
     batch_id, a_count, g_count = _persist_import(
         clean_a, clean_g, source=f"scraper:{lms}",
-        source_label=label, replace_batch=True,
+        source_label=label, replace_batch=True, owner=owner,
     )
     return flask.jsonify({
         "status": "ok", "batch_id": batch_id,
@@ -14929,6 +15061,64 @@ def extension_dismiss():
         return ext_response({"status": "ok"})
     except Exception as e:
         return ext_response({"status": "error"}, 500)
+
+
+@app.route("/extension/task/add", methods=["POST", "OPTIONS"])
+def extension_task_add():
+    """Add a task from the extension popup's quick-add box.
+
+    The popup has always had this box, and it has never worked: it posted to
+    /api/tasks/quick-add, a route that does not exist and never did. Every
+    attempt 404'd and the popup reported "Could not add task", so the feature
+    read as broken rather than missing.
+
+    It belongs here rather than under /api/ because the extension authenticates
+    with an X-Extension-Token bearer, which the session-cookie /api/ routes do
+    not accept -- pointing the popup at an /api/ route would have swapped a 404
+    for a 401.
+    """
+    if request.method == "OPTIONS":
+        response = flask.make_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Extension-Token"
+        return response
+    token = request.headers.get("X-Extension-Token")
+    user = get_extension_user(token)
+    if not user:
+        return ext_response({"status": "error", "message": "Not authenticated"}, 401)
+    data = request.get_json(force=True, silent=True) or {}
+    title = (data.get("title") or "").strip()
+    if not title:
+        return ext_response({"status": "error", "message": "Title required"}, 400)
+    # The column is String(512); a longer title would otherwise fail at commit
+    # and surface as a 500 on what is a perfectly ordinary typo.
+    title = title[:512]
+    try:
+        estimated = int(data.get("estimated_time") or 60)
+    except (TypeError, ValueError):
+        estimated = 60
+    try:
+        task = ManualTask(
+            user_id=user.id,
+            title=title,
+            due_date=(data.get("due_date") or "")[:32],
+            priority=(data.get("priority") or "Medium")[:16],
+            course=(data.get("course") or "Personal")[:256],
+            estimated_time=estimated,
+            notes=(data.get("notes") or ""),
+        )
+        db.session.add(task)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return ext_response({"status": "error", "message": "Could not save task."}, 500)
+    # The popup reads the same cached task list the dashboard does, so without
+    # this the new task does not appear until the cache ages out.
+    try:
+        invalidate_lms_cache_for_user(user.id)
+    except Exception:
+        pass
+    return ext_response({"status": "ok", "id": task.id})
 
 
 @app.route("/extension/session-token", methods=["GET", "OPTIONS"])
