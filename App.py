@@ -4424,6 +4424,10 @@ _SITEMAP_ENTRIES = [
     # on exactly that, so this list can no longer drift out of agreement
     # with it — see test_sitemap_seo.py.
     ("/olympiad",                        "olympiad.html",                 "2026-06-22", "monthly", "0.85"),
+    ("/grademodel",                      "grademodel.html",               "2026-09-22", "monthly", "0.8"),
+    ("/lessons",                         "lessons.html",                  "2026-09-22", "monthly", "0.75"),
+    ("/groups",                          "groups.html",                   "2026-09-22", "monthly", "0.7"),
+    ("/math",                            "math.html",                     "2026-09-22", "monthly", "0.8"),
     ("/learn",                           "study.html",                    "2026-06-22", "weekly",  "0.8"),
     ("/focus",                           "focus.html",                    "2026-06-22", "weekly",  "0.7"),
     ("/library",                         "library.html",                  "2026-06-22", "weekly",  "0.7"),
@@ -4705,12 +4709,12 @@ _NOINDEX_EXACT = {
     # that render for a guest are thin by construction: a dashboard with no
     # data is a shell. Neither is a page worth ranking, and the marketing
     # pages that *are* worth ranking compete with them for attention.
-    "/dashboard", "/command-center", "/scheduler", "/gradebook",
-    "/grademodel", "/grades", "/classes", "/priority", "/tests",
+    "/dashboard", "/command-center", "/scheduler", "/scheduler/saved",
+    "/gradebook", "/grades", "/classes", "/priority", "/tests",
     "/streak", "/pet", "/balance", "/memories", "/my-stats",
     "/active", "/study-and-learn", "/study", "/deep-study",
-    "/lessons", "/groups", "/meetings",
-    "/writing", "/math", "/extractor", "/text-dissector",
+    "/meetings",
+    "/writing", "/extractor",
     "/parent-dashboard", "/teacher-dashboard", "/ambassador-dashboard",
     # Deliberately NOT here, though an earlier pass swept them in:
     # /tutor, /olympiad, /library and /focus. Those four are full public

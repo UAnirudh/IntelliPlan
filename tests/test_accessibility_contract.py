@@ -25,14 +25,14 @@ import App
 
 #: The signed-in surface. Every one of these must be noindex.
 APP_PAGES = [
-    "/command-center", "/scheduler", "/gradebook", "/grademodel",
+    "/command-center", "/scheduler", "/gradebook",
     "/settings", "/streak", "/pet", "/balance", "/memories",
     "/my-stats", "/classes", "/priority",
 ]
 
 #: Public pages that must stay indexable — the inverse guard, so a
 #: future noindex sweep cannot quietly delist the marketing site.
-PUBLIC_PAGES = ["/", "/pricing", "/about"]
+PUBLIC_PAGES = ["/", "/pricing", "/about", "/math", "/grademodel", "/lessons", "/groups"]
 
 #: Input types that carry their own meaning or are never user-facing.
 _UNNAMEABLE = re.compile(r'type="(hidden|submit|button|image)"')

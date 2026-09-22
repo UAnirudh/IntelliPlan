@@ -69,8 +69,8 @@ def test_the_signed_in_surface_is_absent_from_the_sitemap(client):
     paths = set(sitemap_paths(client))
     for path in ("/dashboard", "/scheduler", "/gradebook", "/grades",
                  "/streak", "/memories", "/classes", "/priority", "/tests",
-                 "/lessons", "/groups", "/meetings", "/writing", "/math",
-                 "/extractor", "/study", "/study-and-learn", "/grademodel"):
+                 "/meetings", "/writing",
+                 "/extractor", "/study", "/study-and-learn"):
         assert path not in paths, f"{path} is a signed-in page and should not be listed"
 
 
@@ -88,7 +88,8 @@ def test_the_public_content_pages_are_indexable_and_listed(client):
     swept them into the noindex list, which threw away the only pages in
     that group worth ranking."""
     paths = set(sitemap_paths(client))
-    for path in ("/tutor", "/olympiad", "/library", "/focus"):
+    for path in ("/tutor", "/olympiad", "/library", "/focus",
+                 "/math", "/grademodel", "/lessons", "/groups"):
         assert not app_module._should_noindex(path), f"{path} should be indexable"
         assert path in paths, f"{path} should be in the sitemap"
         response = client.get(path)
