@@ -77,6 +77,16 @@
         return `${yr}-${us[1].padStart(2, "0")}-${us[2].padStart(2, "0")}`;
       }
       // "Jun 12, 2026" / "June 12 2026"
+      //
+      // Only hand a string to Date() when it actually names a month. Date()
+      // is far too willing otherwise: it reads "96%" as the year 1996 and
+      // "12" as the year 2001, so a gradebook row of percentages turned into
+      // assignments due in 1996 -- garbage rows in the student's real task
+      // list, which is worse than finding nothing at all.
+      if (!/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b/i.test(t)
+          || !/\d/.test(t)) {
+        return "";
+      }
       const d = new Date(t);
       if (!isNaN(d.getTime())) {
         const yr = d.getFullYear(), mo = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");

@@ -194,3 +194,54 @@ def test_a_session_signed_in_student_still_works(client, student):
     assert r.status_code == 200
     with App.app.app_context():
         assert ManualTask.query.filter_by(user_id=student).count() == 1
+
+
+# ── Grades round-trip ─────────────────────────────────────────
+#
+# Found by running the real server rather than the test client: the sync
+# reported grades_imported: 2 and the extension still showed "No grades
+# available yet". /extension/grades only ever read a StudentVue LinkedAccount
+# -- it returned [] for any other account type and returned early for a
+# student with no linked account at all, which is every district-LMS student,
+# since there is no account for them to link. The write path worked and the
+# read path did not know the data existed.
+
+def test_scraped_grades_reach_the_grades_view(client, student):
+    client.post("/api/import/scraper", json=PAYLOAD,
+                headers={"Authorization": f"Bearer {TOKEN}"})
+    r = client.get("/extension/grades", headers={"X-Extension-Token": TOKEN})
+    assert r.status_code == 200
+    courses = [g.get("course") for g in r.get_json()]
+    assert "Chemistry" in courses
+
+
+def test_grades_carry_the_numbers_the_popup_renders(client, student):
+    """The popup averages `percentage` and colours by `letter`."""
+    client.post("/api/import/scraper", json=PAYLOAD,
+                headers={"Authorization": f"Bearer {TOKEN}"})
+    row = next(g for g in client.get(
+        "/extension/grades", headers={"X-Extension-Token": TOKEN}).get_json()
+        if g["course"] == "Chemistry")
+    assert row["percentage"] == 91.5
+    assert row["letter"] == "A-"
+
+
+def test_grades_are_private_to_their_owner(client, student):
+    """A grades endpoint that leaked across students would be the worst kind
+    of bug to ship, so pin it."""
+    client.post("/api/import/scraper", json=PAYLOAD,
+                headers={"Authorization": f"Bearer {TOKEN}"})
+    with App.app.app_context():
+        other = User(email="ext+other@example.com",
+                     password_hash=bcrypt.generate_password_hash(PASSWORD).decode())
+        db.session.add(other)
+        db.session.commit()
+        db.session.add(ExtensionToken(user_id=other.id, token="other-token"))
+        db.session.commit()
+    r = client.get("/extension/grades", headers={"X-Extension-Token": "other-token"})
+    assert r.status_code == 200
+    assert r.get_json() == []
+
+
+def test_an_unauthenticated_caller_gets_no_grades(client, student):
+    assert client.get("/extension/grades").status_code == 401

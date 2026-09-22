@@ -39,8 +39,12 @@
       let due = "", title = "", course = "";
       for (const c of cells) {
         const t = U.text(c);
-        if (!due) due = U.isoDate(t);
-        if (!title && t.length > 5 && t.length < 200) title = t;
+        const asDate = U.isoDate(t);
+        if (!due) due = asDate;
+        // A date cell is not a title. Taking the first cell over 5 characters
+        // picked up "10/06/2026" itself, so the student got an assignment
+        // literally named after its own due date.
+        if (!title && !asDate && t.length > 5 && t.length < 200) title = t;
       }
       if (!title || !due) continue;
       assignments.push({

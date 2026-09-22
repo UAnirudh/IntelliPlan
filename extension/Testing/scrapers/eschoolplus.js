@@ -37,8 +37,10 @@
       let due = "", title = "";
       for (const c of cells) {
         const t = U.text(c);
-        if (!due) due = U.isoDate(t);
-        if (!title && t.length > 5 && t.length < 200) title = t;
+        const asDate = U.isoDate(t);
+        if (!due) due = asDate;
+        // A date cell is not a title -- see the same fix in skyward.js.
+        if (!title && !asDate && t.length > 5 && t.length < 200) title = t;
       }
       if (!title || !due) continue;
       out.push({

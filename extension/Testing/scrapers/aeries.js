@@ -59,10 +59,19 @@
       const cells = U.qsa(row, "td");
       if (cells.length < 4) continue;
       let due = "", title = "", course = "", notes = "";
-      for (const c of cells) {
-        const t = U.text(c);
+      const texts = cells.map((c) => U.text(c));
+      for (const t of texts) {
         if (!due) due = U.isoDate(t);
         if (!title && t.length > 5 && t.length < 200 && !/^\d/.test(t)) title = t;
+      }
+      // Course is found in a second pass that skips the title cell. The course
+      // pattern ("Word Word") also matches most assignment names, so a single
+      // pass labelled "Cold War essay outline" as its own course -- and an
+      // assignment filed under itself groups wrongly everywhere downstream.
+      // Aeries often shows assignments per gradebook with no course column at
+      // all, in which case the generic label is the honest answer.
+      for (const t of texts) {
+        if (t === title) continue;
         if (!course && /^[A-Z][a-z]+\s+[A-Z0-9]/.test(t) && t.length < 80) course = t;
       }
       if (!title || !due) continue;

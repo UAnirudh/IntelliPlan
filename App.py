@@ -15026,15 +15026,43 @@ def extension_grades():
     if not user:
         return ext_response([], 401)
     try:
+        live = []
         acct = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
-        if not acct:
-            return ext_response([])
-        creds = acct.get_credentials()
-        if acct.login_type == "studentvue":
-            from studentvue_helper import get_grades as get_sv_grades
-            grades = get_sv_grades(creds["sv_district_url"], creds["sv_username"], creds["sv_password"])
-            return ext_response(grades)
-        return ext_response([])
+        if acct and acct.login_type == "studentvue":
+            creds = acct.get_credentials()
+            try:
+                from studentvue_helper import get_grades as get_sv_grades
+                live = get_sv_grades(creds["sv_district_url"], creds["sv_username"],
+                                     creds["sv_password"]) or []
+            except Exception as e:
+                # A StudentVue outage must not also hide the imported grades
+                # below, which are held locally and are still perfectly good.
+                print(f"Extension grades: live fetch failed: {e}")
+
+        # Grades scraped from a district LMS land in ImportedGrade, and nothing
+        # here ever read them: the endpoint returned [] for any account that
+        # was not StudentVue, and returned early for a student with no linked
+        # account at all -- which is every student whose district runs
+        # PowerSchool, Aeries, Infinite Campus, Skyward or eSchoolPlus, since
+        # there is no account to link. They synced, the import succeeded, and
+        # the extension showed "No grades available yet".
+        imported = ImportedGrade.query.filter_by(user_id=user.id).all()
+        seen = {str(g.get("course", "")).strip().lower()
+                for g in live if isinstance(g, dict)}
+        for row in imported:
+            key = (row.course or "").strip().lower()
+            if key in seen:
+                continue  # a live grade for the same course is fresher
+            seen.add(key)
+            live.append({
+                "course": row.course,
+                "percentage": row.percentage,
+                "letter": row.letter or "",
+                "teacher": row.teacher or "",
+                "period": row.period or "",
+                "source": row.source_label or row.source or "",
+            })
+        return ext_response(live)
     except Exception as e:
         print(f"Extension grades error: {e}")
         return ext_response([], 500)
