@@ -19574,6 +19574,12 @@ limiter.limit("30 per minute")(app.view_functions["group_voice_bp.voice_heartbea
 # The `command_center` feature flag is a KILL SWITCH (default on).
 from command_center_glue import command_center_bp
 app.register_blueprint(command_center_bp)
+# ── Read-only export for the operator's hub (orbit_export.py). Registered in
+# this block for the same reason as the others: it resolves App lazily, so it
+# must come after the models exist. Refuses every request unless ORBIT_PULL_KEY
+# is set, so registering it does not by itself expose anything.
+from orbit_export import orbit_export_bp
+app.register_blueprint(orbit_export_bp)
 from learning_graph_glue import learning_graph_bp
 app.register_blueprint(learning_graph_bp)
 # ── Active study. Registered here for the same reason: its glue module
