@@ -76,9 +76,15 @@ DEEP_KINDS = frozenset({"project", "lab"})
 
 _DIFFICULTY_FACTOR = {"easy": 1.15, "medium": 1.0, "hard": 0.85}
 _DIFFICULTY_LOAD = {"easy": 0.85, "medium": 1.0, "hard": 1.25}
+_DIFFICULTY_RANK = {"easy": 0, "medium": 1, "hard": 2}
 
 MIN_SESSION_MINUTES = 15
 SESSION_CAP_BOUNDS = (20, 110)
+
+
+def _difficulty_rank(value: str) -> int:
+    """Return a stable complexity tiebreaker for student-entered difficulty."""
+    return _DIFFICULTY_RANK.get(str(value or "medium").strip().lower(), 1)
 
 
 @dataclass(frozen=True, slots=True)
@@ -742,6 +748,7 @@ def _assign(
             layers.get(it.task.id, 0),
             it.hard_latest,
             -it.task.priority,
+            -_difficulty_rank(it.task.difficulty),
             it.task.id,
             it.part_index,
         ),
@@ -796,7 +803,13 @@ def _retry_deferred(
     by_task = _index_by_task(items)
     unplaced = sorted(
         (it for it in items if it.day is None),
-        key=lambda it: (it.hard_latest, -it.task.priority, it.task.id, it.part_index),
+        key=lambda it: (
+            it.hard_latest,
+            -it.task.priority,
+            -_difficulty_rank(it.task.difficulty),
+            it.task.id,
+            it.part_index,
+        ),
     )
     for item in unplaced:
         _place_best(item, days, state, config, by_task)
@@ -883,7 +896,12 @@ def _value(item: _Item) -> float:
     """
     days_out = max(0, (item.hard_latest - item.earliest).days)
     urgency = max(0.0, 30.0 - min(days_out, 30)) / 30.0
-    base = 0.6 * (item.task.priority / 100.0) + 0.4 * urgency
+    # Difficulty is deliberately a bounded tiebreaker, not a replacement for
+    # urgency or the student's own priority. A hard assignment gets protected
+    # when all other signals are equal, while an easy task due today still
+    # beats hard work that can wait until next week.
+    complexity = 0.03 * _difficulty_rank(item.task.difficulty)
+    base = 0.6 * (item.task.priority / 100.0) + 0.4 * urgency + complexity
     return round(1000.0 * base / (1.0 + _MARGINAL_DECAY * (item.part_index - 1)), 4)
 
 
@@ -1082,6 +1100,7 @@ def _materialise(
             key=lambda s: (
                 s.due_date or date.max,
                 -s.priority,
+                -_difficulty_rank(s.difficulty),
                 # Stages of one assignment share a deadline and a priority, so
                 # without this they would order by task id — which spells
                 # "revise" before "write the draft" on any day that holds both.

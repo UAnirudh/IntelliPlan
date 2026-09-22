@@ -160,6 +160,56 @@ def test_overload_protects_the_highest_priority_work():
     assert "exam" not in dropped or scheduled >= 60
 
 
+def test_harder_work_wins_a_true_capacity_tie():
+    """Difficulty breaks a tie only after deadline and stated priority match."""
+    due = TODAY
+    easy = task(
+        "a-easy",
+        est_minutes=30,
+        due_date=due,
+        priority=50,
+        difficulty="easy",
+    )
+    hard = task(
+        "z-hard",
+        est_minutes=30,
+        due_date=due,
+        priority=50,
+        difficulty="hard",
+    )
+
+    plan = build_plan([easy, hard], caps(30, days=1), today=TODAY)
+
+    assert [session.task_id for session in plan.sessions] == ["z-hard"]
+    assert [deferred.task_id for deferred in plan.deferred] == ["a-easy"]
+
+
+def test_an_urgent_easy_task_beats_distant_hard_work_when_time_is_tight():
+    """Difficulty helps rank genuine ties; it does not override urgency."""
+    urgent_easy = task(
+        "urgent-easy",
+        est_minutes=30,
+        due_date=TODAY,
+        priority=50,
+        difficulty="easy",
+    )
+    distant_hard = task(
+        "distant-hard",
+        est_minutes=30,
+        due_date=TODAY + timedelta(days=7),
+        priority=50,
+        difficulty="hard",
+    )
+
+    plan = build_plan(
+        [distant_hard, urgent_easy],
+        caps([30] + [0] * 7, days=8),
+        today=TODAY,
+    )
+
+    assert [session.task_id for session in plan.sessions] == ["urgent-easy"]
+
+
 # ── Scenario: several deadlines on one day ────────────────────────────
 
 
