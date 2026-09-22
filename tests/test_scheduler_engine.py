@@ -490,6 +490,20 @@ def test_work_without_a_due_date_keeps_the_difficulty_ordering():
     assert placed[0]["assignment"] == "Hard proof"
 
 
+def test_day_placement_ranks_difficult_work_without_needing_study_history():
+    """Difficulty must affect the next action for a new student too.
+
+    The old ordering only ran when the student had enough history to identify
+    a best time slot. That made a new student's plan fall back to input order.
+    """
+    placed, _ = place_day_blocks(
+        [_block("Easy reading", difficulty="Easy"),
+         _block("Hard proof", difficulty="Hard")],
+        [_window(17, 19)],
+    )
+    assert placed[0]["assignment"] == "Hard proof"
+
+
 def test_the_break_interval_follows_the_students_measured_stamina():
     from scheduler_engine import long_break_after_for
 
@@ -864,6 +878,34 @@ def test_urgency_is_slack_not_just_the_nearest_date():
     # The project starts no later than the worksheet despite being due after
     # it, because it is the one that cannot afford to wait.
     assert min(_days_for("Big project")) <= min(_days_for("Worksheet"))
+
+
+def test_equal_slack_work_uses_difficulty_and_declared_priority_to_break_ties():
+    """Comparable deadlines should not reduce planning to a due-date sort."""
+    cap = {ALLOC_MON.isoformat(): 60}
+    easy = _task("Vocabulary", 60, due_offset=0)
+    easy.update({"difficulty": "Easy", "priority": "Low"})
+    hard = _task("Proof practice", 60, due_offset=0)
+    hard.update({"difficulty": "Hard", "priority": "High"})
+
+    placed, unplaced = allocate_across_days([easy, hard], cap, ALLOC_MON)
+
+    assert [block["title"] for block in placed[ALLOC_MON.isoformat()]] == ["Proof practice"]
+    assert [block["title"] for block in unplaced] == ["Vocabulary"]
+
+
+def test_urgent_work_still_outranks_a_distant_hard_assignment():
+    """Difficulty informs a tie; it never lets a distant task steal tomorrow."""
+    cap = {ALLOC_MON.isoformat(): 60}
+    urgent = _task("Quick corrections", 60, due_offset=0)
+    urgent.update({"difficulty": "Easy", "priority": "Low"})
+    distant = _task("Research paper", 60, due_offset=10)
+    distant.update({"difficulty": "Hard", "priority": "High"})
+
+    placed, unplaced = allocate_across_days([distant, urgent], cap, ALLOC_MON)
+
+    assert [block["title"] for block in placed[ALLOC_MON.isoformat()]] == ["Quick corrections"]
+    assert [block["title"] for block in unplaced] == ["Research paper"]
 
 
 def test_a_long_task_spreads_across_its_window_not_its_first_days():

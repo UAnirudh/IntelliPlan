@@ -443,11 +443,9 @@ body {
    be declared there and gated on consent first. #}
 </head>
 
-{# 'active' is deliberately absent: the Active page runs on slim chrome so a
-   session holds attention on one task, and its blueprint is mounted
-   standalone in tests where the sidebar's ``current_user`` does not exist.
-   Its slim top nav still carries the app links. #}
-{% set _app_pages = ['dashboard','scheduler','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','olympiad','memories','pet','command_center','balance','features','accessibility','text_dissector','my_stats'] %}
+{# Active uses the same desktop sidebar as the rest of the workspace. Keeping
+   the navigation anchored prevents a disruptive top-bar swap on entry. #}
+{% set _app_pages = ['dashboard','scheduler','active','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','olympiad','memories','pet','command_center','balance','features','accessibility','text_dissector','my_stats'] %}
 {# Reading progress belongs on long-form pages only. On an app screen the
    scroll length is the size of a list, not the length of an argument, so a
    progress bar there measures nothing the reader cares about. #}
@@ -3060,7 +3058,7 @@ window.addEventListener('load',()=>{
 {% endif %}
 
 {# ── Floating feedback widget (authenticated pages only) ── #}
-{% if active_page in _app_pages and current_user.is_authenticated %}
+{% if active_page in _app_pages and current_user is defined and current_user.is_authenticated %}
 <div id="ipFeedback" class="ip-fb" hidden>
   <button type="button" class="ip-fb-hide" id="ipFbHideBtn" onclick="ipFbHideWidget()" aria-label="Hide feedback button" title="Hide feedback button">&times;</button>
   <button type="button" class="ip-fb-trigger" id="ipFbTrigger" aria-label="Send feedback" title="Send feedback">

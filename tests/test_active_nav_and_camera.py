@@ -82,15 +82,19 @@ def test_active_sits_next_to_scheduler(client, student):
     assert html.find('href="/scheduler"') < html.find('href="/active"')
 
 
-def test_the_active_page_keeps_its_slim_chrome(client, student):
-    """Active deliberately renders without the app sidebar: the page exists
-    to hold one task, and its blueprint is mounted standalone in
-    tests/intelliplan/test_active_api.py where the sidebar's ``current_user``
-    does not exist. Giving it the sidebar breaks that mount outright."""
+def test_the_active_page_keeps_the_app_navigation_in_place(client, student):
+    """Opening Active must not move desktop navigation into a different bar."""
     html = client.get("/active").data.decode("utf-8", "ignore")
-    assert 'class="app-side"' not in html
-    # Still not a dead end — the slim nav carries the app links.
-    assert 'href="/scheduler"' in html
+    assert 'class="app-side"' in html
+    assert 'href="/active" data-nav-item="active" class="side-link active"' in html
+
+
+def test_narrow_desktop_controls_stay_in_one_row_with_short_labels():
+    """Resizing a desktop browser must not turn session actions into 2-3 rows."""
+    source = read("Main_Project/templates/active.html")
+    assert ".ipa-controls { display: flex; gap: .6rem; flex-wrap: nowrap;" in source
+    assert ".ipa-controls .ipa-btn--primary { flex-basis: 100%; }" not in source
+    assert 'class="ipa-btn-short">Done</span>' in source
 
 
 def test_the_active_page_still_renders_for_a_guest(client):

@@ -239,7 +239,7 @@
 }
 
 /* ── Controls ── */
-.ipa-controls { display: flex; gap: .6rem; flex-wrap: wrap; justify-content: center; }
+.ipa-controls { display: flex; gap: .6rem; flex-wrap: nowrap; justify-content: center; }
 .ipa-btn {
   font-family: var(--font-ui);
   font-size: var(--fs-sm);
@@ -263,6 +263,8 @@
 .ipa-btn--primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 .ipa-btn--ghost { border-color: transparent; color: var(--text-muted); }
 .ipa-btn--ghost:hover { color: var(--text-primary); }
+.ipa-controls .ipa-btn { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ipa-btn-short { display: none; }
 
 /* ── Focus check-in ── */
 .ipa-selfview-toggle {
@@ -429,8 +431,8 @@
   .ipa-shell { padding: 1rem .9rem 3rem; }
   .ipa-card { padding: 1.25rem 1rem; border-radius: 14px; }
   .ipa-controls { width: 100%; }
-  .ipa-controls .ipa-btn { flex: 1 1 44%; }
-  .ipa-controls .ipa-btn--primary { flex-basis: 100%; }
+  .ipa-btn-full { display: none; }
+  .ipa-btn-short { display: inline; }
   .ipa-focus-row { align-items: flex-start; }
   .ipa-focus-row .ipa-switch { margin-top: .15rem; }
 }
@@ -579,10 +581,10 @@
       </div>
 
       <div class="ipa-controls">
-        <button type="button" class="ipa-btn ipa-btn--primary" id="ipaStart">Start session</button>
-        <button type="button" class="ipa-btn" id="ipaPause" hidden>Pause</button>
-        <button type="button" class="ipa-btn" id="ipaDone" hidden>Mark complete</button>
-        <button type="button" class="ipa-btn ipa-btn--ghost" id="ipaQuit" hidden>Stop early</button>
+        <button type="button" class="ipa-btn ipa-btn--primary" id="ipaStart"><span class="ipa-btn-full">Start session</span><span class="ipa-btn-short">Start</span></button>
+        <button type="button" class="ipa-btn" id="ipaPause" hidden><span class="ipa-btn-full">Pause</span><span class="ipa-btn-short">Pause</span></button>
+        <button type="button" class="ipa-btn" id="ipaDone" hidden><span class="ipa-btn-full">Mark complete</span><span class="ipa-btn-short">Done</span></button>
+        <button type="button" class="ipa-btn ipa-btn--ghost" id="ipaQuit" hidden><span class="ipa-btn-full">Stop early</span><span class="ipa-btn-short">Stop</span></button>
       </div>
       <p class="ipa-status" id="ipaStatus"></p>
     </div>

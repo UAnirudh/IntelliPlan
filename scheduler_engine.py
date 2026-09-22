@@ -671,6 +671,61 @@ def _difficulty_rank(block: Mapping[str, Any]) -> int:
     return {"Hard": 0, "Medium": 1, "Easy": 2}.get(str(block.get("difficulty") or "Medium"), 1)
 
 
+def _difficulty_weight(task: Mapping[str, Any]) -> int:
+    """Planning weight for the cognitive cost a student reported or imported."""
+    return {"hard": 16, "medium": 8, "easy": 2}.get(
+        str(task.get("difficulty") or "medium").strip().lower(), 8
+    )
+
+
+def _declared_priority_weight(task: Mapping[str, Any]) -> int:
+    """Respect a student's explicit priority without mistaking it for urgency."""
+    return {"high": 12, "medium": 6, "low": 0}.get(
+        str(task.get("priority") or "medium").strip().lower(), 6
+    )
+
+
+def _assessment_weight(task: Mapping[str, Any]) -> int:
+    """Tests and exams need earlier retrieval practice, not a final-night block."""
+    text = " ".join(
+        str(task.get(key) or "") for key in ("type", "kind", "title", "assignment")
+    ).lower()
+    return 10 if any(word in text for word in ("exam", "midterm", "final", "test", "quiz")) else 0
+
+
+def _priority_score(
+    task: Mapping[str, Any], due: "_date | None", sittings: Sequence[int],
+    eligible: Sequence[str], today: "_date",
+) -> int:
+    """Score a task's readiness for the next planning decision.
+
+    The score is deterministic. Slack remains dominant -- a large project
+    with little room must start before it becomes impossible -- while
+    difficulty, stated priority, assessment type, and estimate-adjusted
+    workload distinguish comparable work.
+    """
+    slack = len(eligible) / max(1, len(sittings))
+    slack_pressure = 100.0 / max(0.5, slack)
+    days_until_due = (due - today).days if due is not None else 21
+    deadline_pressure = 48.0 / max(1, days_until_due + 1)
+    workload_pressure = min(18.0, sum(sittings) / 15.0)
+    return int(round(
+        slack_pressure + deadline_pressure + workload_pressure
+        + _difficulty_weight(task) + _declared_priority_weight(task)
+        + _assessment_weight(task)
+    ))
+
+
+def _placement_priority_key(block: Mapping[str, Any]) -> tuple[float, str, int, str]:
+    """Stable within-day order, using the allocator's score when available."""
+    try:
+        score = float(block.get("priority_score") or 0)
+    except (TypeError, ValueError):
+        score = 0
+    return (-score, _due_rank(block), _difficulty_rank(block),
+            str(block.get("assignment") or block.get("title") or ""))
+
+
 def long_break_after_for(dna: "StudyDNA | None") -> int:
     """Minutes of continuous work before this student has earned a real break.
 
@@ -817,16 +872,17 @@ def place_day_blocks(
         # counts the interruptions; the focus streak does not.
         blocks = split_oversized_blocks(blocks, int(dna.block_minutes() * 1.5))
 
-    # Front-load demanding work into the student's best measured slot.
-    if dna.best_slot and len(usable) > 1 and not preserve_order:
-        usable = sorted(usable, key=lambda w: (w.slot() != dna.best_slot, w.start))
+    # Put windows matching the student's measured best slot first, then rank
+    # work for every student. Previously a new student received input order.
+    if not preserve_order:
+        if dna.best_slot and len(usable) > 1:
+            usable = sorted(usable, key=lambda w: (w.slot() != dna.best_slot, w.start))
         work = [b for b in blocks if not b.get("is_break")]
         if work:
-            # Deadline first, difficulty only to break ties. Sorting on
-            # difficulty alone put a Hard assignment due next week ahead of an
-            # Easy one due tomorrow, and when the evening ran out it was the
-            # one with the deadline that overflowed to the following day.
-            work.sort(key=lambda b: (_due_rank(b), _difficulty_rank(b)))
+            # A persisted score carries the full planning model into this
+            # clock-placement pass. Legacy and hand-made blocks use the
+            # deadline-and-difficulty fallback in the same key.
+            work.sort(key=_placement_priority_key)
             ordered, it = [], iter(work)
             for b in blocks:
                 ordered.append(b if b.get("is_break") else next(it))
@@ -1141,12 +1197,13 @@ def allocate_across_days(
             # remain up to the due date rather than dropping the task.
             eligible = deadline_days
         slack = len(eligible) / max(1, len(sittings))
-        prepared.append((slack, _iso(due) if due else "9999-12-31", task,
+        score = _priority_score(task, due, sittings, eligible, today)
+        prepared.append((-score, slack, _iso(due) if due else "9999-12-31", task,
                          sittings, eligible, deadline_days))
 
-    prepared.sort(key=lambda p: (p[0], p[1]))
+    prepared.sort(key=lambda p: (p[0], p[1], p[2]))
 
-    for _slack, _due_key, task, sittings, eligible, deadline_days in prepared:
+    for neg_score, _slack, _due_key, task, sittings, eligible, deadline_days in prepared:
         placed_days: list[str] = []
         for part_index, minutes in enumerate(sittings):
             choice = _pick_day(
@@ -1166,6 +1223,7 @@ def allocate_across_days(
                 )
             block = dict(task)
             block["duration_minutes"] = minutes
+            block["priority_score"] = -neg_score
             if len(sittings) > 1:
                 # Same field names split_oversized_blocks() uses, so the
                 # placement-note builder and the UI grouping keep working

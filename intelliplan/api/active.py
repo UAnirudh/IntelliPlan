@@ -135,13 +135,12 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
         (``static/js/ip-active.js``) drives both and cannot drift.
         """
         _require_flag()
-        # No ``active_page``: this page deliberately renders on slim chrome.
-        # Its whole job is holding attention on one task, and the blueprint is
-        # also mounted standalone in tests, where the sidebar's
-        # ``current_user`` is not available. The slim top nav still carries
-        # every app link, so nothing is stranded here.
+        # Keep the app navigation in the same place as the rest of the desktop
+        # workspace. Moving it into a top bar on this one page made the whole
+        # interface jump as soon as a student started a study session.
         return render_template(
-            "active_mobile.html" if _wants_phone_layout() else "active.html"
+            "active_mobile.html" if _wants_phone_layout() else "active.html",
+            active_page="active",
         )
 
     # ── lifecycle ─────────────────────────────────────────────────────

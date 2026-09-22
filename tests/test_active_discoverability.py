@@ -65,15 +65,11 @@ def test_the_sidebar_carries_an_active_study_tab(signed_in):
     assert 'href="/active"' in html
 
 
-def test_the_active_page_keeps_its_slim_chrome_but_still_offers_a_way_out(signed_in):
-    """No app sidebar here on purpose: the page exists to hold attention on
-    one task, and the blueprint is mounted standalone in
-    ``tests/intelliplan/test_active_api.py``, where the sidebar's
-    ``current_user`` does not exist. The top nav still carries the app links,
-    so a student mid-session is never stranded."""
+def test_the_active_page_keeps_the_app_navigation_in_place(signed_in):
+    """Opening Active must not move a desktop student's navigation to the top."""
     html = signed_in.get("/active").get_data(as_text=True)
-    assert 'class="app-side"' not in html
-    assert 'href="/scheduler"' in html
+    assert 'class="app-side"' in html
+    assert 'href="/active" data-nav-item="active" class="side-link active"' in html
 
 
 def test_the_scheduler_links_to_it(signed_in):
