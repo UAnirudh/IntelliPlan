@@ -107,6 +107,13 @@ except Exception as e:
     GCAL_AVAILABLE = False
 
 try:
+    import outlook_calendar_helper
+    OUTLOOK_AVAILABLE = True
+except Exception as e:
+    print(f"Outlook Calendar not available: {e}")
+    OUTLOOK_AVAILABLE = False
+
+try:
     from notion_helper import (
         test_notion_token, test_notion_token_detail, get_notion_databases,
         get_shared_pages, create_intelliplan_database,
@@ -762,6 +769,15 @@ class GoogleIntegration(db.Model):
     account_email = db.Column(db.String(255), nullable=True)
     account_name = db.Column(db.String(255), nullable=True)
     is_active = db.Column(db.Boolean, default=True)
+    connected_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class OutlookIntegration(db.Model):
+    __tablename__ = "outlook_integrations"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, unique=True, index=True)
+    token_data = db.Column(secret_box.EncryptedText, nullable=False)
+    account_email = db.Column(db.String(255), nullable=True)
+    account_name = db.Column(db.String(255), nullable=True)
     connected_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class DesktopAuthCode(db.Model):
@@ -8562,6 +8578,88 @@ def google_disconnect():
         session.pop("google_token", None)
     return flask.jsonify({"status": "ok"})
 
+
+def get_outlook_token():
+    """Return this user's persisted Microsoft token, refreshing it when due."""
+    if not current_user.is_authenticated or not OUTLOOK_AVAILABLE:
+        return None
+    row = OutlookIntegration.query.filter_by(user_id=current_user.id).first()
+    if not row:
+        return None
+    try:
+        token = json.loads(row.token_data)
+        expires_at = float(token.get("expires_at") or 0)
+        if expires_at and expires_at <= time.time() + 90:
+            token = outlook_calendar_helper.refresh_token(token)
+            token["expires_at"] = time.time() + int(token.get("expires_in") or 3600)
+            row.token_data = json.dumps(token)
+            db.session.commit()
+        return token
+    except Exception as e:
+        print(f"Outlook token refresh failed: {e}")
+        return None
+
+
+@app.route("/oauth/outlook")
+def outlook_oauth():
+    if not current_user.is_authenticated:
+        return redirect(url_for("login", next="/settings"))
+    if not OUTLOOK_AVAILABLE or not outlook_calendar_helper.configured():
+        return flask.jsonify({"status": "error", "message": "Outlook Calendar is not configured yet."}), 503
+    state = secrets_module.token_urlsafe(32)
+    session["outlook_oauth_state"] = state
+    return redirect(outlook_calendar_helper.get_auth_url(state))
+
+
+@app.route("/oauth/outlook/callback")
+def outlook_oauth_callback():
+    if not current_user.is_authenticated:
+        return redirect("/login")
+    expected = session.pop("outlook_oauth_state", "")
+    state = request.args.get("state", "")
+    code = request.args.get("code", "")
+    if not expected or not secrets_module.compare_digest(expected, state) or not code:
+        return flask.jsonify({"status": "error", "message": "Outlook connection could not be verified. Please try again."}), 400
+    try:
+        token = outlook_calendar_helper.exchange_code(code)
+        token["expires_at"] = time.time() + int(token.get("expires_in") or 3600)
+        account = outlook_calendar_helper.profile(token)
+        row = OutlookIntegration.query.filter_by(user_id=current_user.id).first()
+        values = {
+            "token_data": json.dumps(token),
+            "account_email": account.get("mail") or account.get("userPrincipalName"),
+            "account_name": account.get("displayName"),
+        }
+        if row:
+            for key, value in values.items():
+                setattr(row, key, value)
+        else:
+            db.session.add(OutlookIntegration(user_id=current_user.id, **values))
+        db.session.commit()
+        return redirect("/command-center?calendar=outlook-connected")
+    except Exception as e:
+        print(f"Outlook OAuth callback failed: {e}")
+        return flask.jsonify({"status": "error", "message": "Outlook Calendar could not be connected. Please try again."}), 502
+
+
+@app.route("/oauth/outlook/disconnect", methods=["POST"])
+def outlook_disconnect():
+    if current_user.is_authenticated:
+        OutlookIntegration.query.filter_by(user_id=current_user.id).delete()
+        db.session.commit()
+    return flask.jsonify({"status": "ok"})
+
+
+@app.route("/calendar/connections")
+def calendar_connections():
+    outlook = OutlookIntegration.query.filter_by(user_id=current_user.id).first() if current_user.is_authenticated else None
+    return flask.jsonify({
+        "google": bool(get_google_token()) if GCAL_AVAILABLE else False,
+        "outlook": bool(outlook),
+        "outlook_configured": bool(OUTLOOK_AVAILABLE and outlook_calendar_helper.configured()),
+        "outlook_account": (outlook.account_email if outlook else None),
+    })
+
 @app.route("/calendar/events")
 def calendar_events():
     if not GCAL_AVAILABLE:
@@ -8765,6 +8863,7 @@ def _account_delete_impl():
 
         # ── Integrations ───────────────────────────────────────────────
         ("google_integrations", "DELETE FROM google_integrations WHERE user_id = :uid"),
+        ("outlook_integrations", "DELETE FROM outlook_integrations WHERE user_id = :uid"),
         ("notion_integrations", "DELETE FROM notion_integrations WHERE user_id = :uid"),
         ("canvas_integrations", "DELETE FROM canvas_integrations WHERE user_id = :uid"),
         ("classroom_integrations", "DELETE FROM classroom_integrations WHERE user_id = :uid"),
@@ -9976,7 +10075,7 @@ def api_save_assignment_due_date():
     return flask.jsonify({"status": "ok"})
 
 def _planner_busy_by_date(horizon_days=14):
-    """Dated committed time from the student's Google Calendar.
+    """Dated committed time from every calendar the student connected.
 
     Weekly commitments typed into settings recur; a dentist appointment does
     not. Until this was wired up the scheduler knew only about the recurring
@@ -9991,15 +10090,22 @@ def _planner_busy_by_date(horizon_days=14):
     if not current_user.is_authenticated:
         return {}
     try:
-        token = get_google_token()
-        if not token or not has_calendar_scope(token):
-            return {}
-        from google_calendar_helper import busy_minutes_by_date
-
         offset = getattr(current_user, "utc_offset_minutes", 0) or 0
-        return busy_minutes_by_date(
-            token, date.today(), days=horizon_days, utc_offset_minutes=offset
-        )
+        combined = {}
+        token = get_google_token()
+        if token and has_calendar_scope(token):
+            from google_calendar_helper import busy_minutes_by_date
+            for day, intervals in busy_minutes_by_date(
+                token, date.today(), days=horizon_days, utc_offset_minutes=offset
+            ).items():
+                combined.setdefault(day, []).extend(intervals)
+        outlook_token = get_outlook_token()
+        if outlook_token:
+            for day, intervals in outlook_calendar_helper.busy_minutes_by_date(
+                outlook_token, date.today(), days=horizon_days, utc_offset_minutes=offset
+            ).items():
+                combined.setdefault(day, []).extend(intervals)
+        return combined
     except Exception as e:
         print(f"[planner] calendar busy lookup failed: {e}")
         return {}
@@ -10576,6 +10682,27 @@ def generate_schedule():
     hours_per_day = data.get("hours_per_day", 2)
     preferred_time = data.get("preferred_time", "evening")
     custom_tasks = data.get("custom_tasks", [])
+    study_start_time = str(data.get("study_start_time") or "").strip()
+    study_end_time = str(data.get("study_end_time") or "").strip()
+    if bool(study_start_time) != bool(study_end_time):
+        return flask.jsonify({
+            "status": "error",
+            "message": "Choose both a study start and end time.",
+        }), 400
+    if study_start_time and study_end_time:
+        try:
+            start_clock = datetime.strptime(study_start_time, "%H:%M")
+            end_clock = datetime.strptime(study_end_time, "%H:%M")
+        except ValueError:
+            return flask.jsonify({
+                "status": "error",
+                "message": "Study times must use a valid clock time.",
+            }), 400
+        if end_clock <= start_clock:
+            return flask.jsonify({
+                "status": "error",
+                "message": "Your study end time must be after the start time.",
+            }), 400
     if not assignments and not custom_tasks:
         return flask.jsonify({"status": "error", "message": "No assignments to schedule."})
 
@@ -10668,6 +10795,13 @@ def generate_schedule():
         user_id=current_user.id if current_user.is_authenticated else None,
         guest_id=None if current_user.is_authenticated else get_guest_session_id(),
     )
+    if study_start_time:
+        # This is an intentional per-plan override. It does not erase a
+        # student's saved weekly availability in Settings.
+        availability = {
+            day: {"start": study_start_time, "end": study_end_time}
+            for day in scheduler_engine.DAY_ABBR
+        }
     # ── Deterministic planning ────────────────────────────────────
     # Day allocation — how much work exists, how it splits into sittings,
     # which day each lands on, how much buffer sits before each deadline —

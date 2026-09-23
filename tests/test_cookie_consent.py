@@ -105,6 +105,13 @@ def test_the_banner_is_shown_now_that_there_is_something_to_ask_about(client):
     assert b"ipCookieBanner" in client.get("/").data
 
 
+def test_consent_surfaces_use_an_opaque_theme_surface(client):
+    """Page content must not show through consent UI in either theme."""
+    page = client.get("/").data
+    assert page.count(b"background: var(--bg-card, #fff);") >= 2
+    assert b"background: var(--bg-primary, var(--surface));" not in page
+
+
 # ── The gate, exercised against a declared stand-in ──────────
 
 def test_an_empty_registry_switches_the_category_off_again(client, monkeypatch):

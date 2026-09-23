@@ -723,6 +723,7 @@ body {
       </div>
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
+        <a href="https://mintlify.wiki/UAnirudh/IntelliPlan/" target="_blank" rel="noopener noreferrer" class="nav-tab" aria-label="IntelliPlan documentation (opens in a new tab)"><span class="nav-label">Docs</span></a>
         <a href="/settings" class="nav-tab {% if active_page == 'settings' %}active{% endif %}" aria-label="Settings"><span class="nav-tab-icon"><svg><use href="#i-settings"/></svg></span><span class="nav-label">Settings</span></a>
         <form action="/logout" method="POST" style="display:inline;">
           <button type="submit" class="nav-tab logout-btn"><span class="nav-tab-icon"><svg><use href="#i-logout"/></svg></span><span class="nav-label">Logout</span></button>
@@ -740,6 +741,7 @@ body {
         <a href="/about" class="nav-tab {% if active_page == 'about' %}active{% endif %}"><span class="nav-label">About</span></a>
         <a href="/compare" class="nav-tab {% if active_page == 'compare' %}active{% endif %}"><span class="nav-label">Compare</span></a>
         <a href="/faq"     class="nav-tab {% if active_page == 'faq' %}active{% endif %}"><span class="nav-label">FAQ</span></a>
+        <a href="https://mintlify.wiki/UAnirudh/IntelliPlan/" target="_blank" rel="noopener noreferrer" class="nav-tab" aria-label="IntelliPlan documentation (opens in a new tab)"><span class="nav-label">Docs</span></a>
         {# The desktop app was reachable only from a footer link, which is
            where links go to be ignored. It is a shipped platform, so it
            belongs in the nav next to everything else you can actually get. #}
@@ -3433,7 +3435,7 @@ window.addEventListener('load',()=>{
   .ip-cookie-banner {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 2900;
     padding: 0.9rem 1rem;
-    background: var(--bg-primary, var(--surface));
+    background: var(--bg-card, #fff);
     border-top: 1px solid var(--border);
     box-shadow: 0 -4px 24px rgba(15, 23, 42, 0.12);
   }
@@ -3521,7 +3523,7 @@ window.addEventListener('load',()=>{
     display: flex; flex-direction: column;
     width: 100%; max-width: 640px; max-height: 88vh;
     border: 1px solid var(--border); border-radius: 18px;
-    background: var(--bg-primary, var(--surface));
+    background: var(--bg-card, #fff);
     box-shadow: var(--shadow-lg);
     overflow: hidden;
   }

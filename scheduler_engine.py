@@ -38,6 +38,16 @@ SLOT_WINDOWS: dict[str, tuple[int, int]] = {
 }
 SLOT_ORDER: tuple[str, ...] = ("morning", "afternoon", "evening")
 DAY_ABBR: tuple[str, ...] = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+_CLOCK_TIME_RE = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+
+
+def _clock_minutes(value: Any) -> int | None:
+    """Parse the ``HH:MM`` values produced by a native time input."""
+    text = str(value or "").strip()
+    if not _CLOCK_TIME_RE.fullmatch(text):
+        return None
+    hour, minute = text.split(":", 1)
+    return int(hour) * 60 + int(minute)
 
 
 def slot_for_hour(hour: int) -> str:
@@ -246,6 +256,7 @@ def windows_for_date(
     """
     day_key = DAY_ABBR[target.weekday()]
     slots: list[str] = []
+    explicit_range: tuple[int, int] | None = None
     raw = (availability or {}).get(day_key)
     if raw is None:
         # Settings stores short keys, but the API accepts full day names.
@@ -253,15 +264,21 @@ def windows_for_date(
             if str(k)[:3].title() == day_key:
                 raw = v
                 break
-    if isinstance(raw, str):
+    if isinstance(raw, Mapping):
+        start_m = _clock_minutes(raw.get("start"))
+        end_m = _clock_minutes(raw.get("end"))
+        if start_m is not None and end_m is not None and end_m > start_m:
+            explicit_range = (start_m, end_m)
+    elif isinstance(raw, str):
         slots = [s.strip() for s in raw.split(",") if s.strip()]
     elif isinstance(raw, (list, tuple)):
         slots = [str(s).strip() for s in raw if str(s).strip()]
-    slots = [s for s in slots if s in SLOT_WINDOWS]
-    if not slots:
-        fallback = (preferred_time or "evening").lower()
-        slots = [fallback if fallback in SLOT_WINDOWS else "evening"]
-    slots.sort(key=lambda s: SLOT_ORDER.index(s))
+    if explicit_range is None:
+        slots = [s for s in slots if s in SLOT_WINDOWS]
+        if not slots:
+            fallback = (preferred_time or "evening").lower()
+            slots = [fallback if fallback in SLOT_WINDOWS else "evening"]
+        slots.sort(key=lambda s: SLOT_ORDER.index(s))
 
     dated: list[tuple[int, int]] = []
     for start_m, end_m in (busy_by_date or {}).get(target, ()) or ():
@@ -272,7 +289,9 @@ def windows_for_date(
         if end_i > start_i:
             dated.append((max(0, start_i), min(24 * 60, end_i)))
     busy = _merge(list(parse_commitments(commitments).get(day_key, [])) + dated)
-    bases = _merge((SLOT_WINDOWS[s][0] * 60, SLOT_WINDOWS[s][1] * 60) for s in slots)
+    bases = [explicit_range] if explicit_range else _merge(
+        (SLOT_WINDOWS[s][0] * 60, SLOT_WINDOWS[s][1] * 60) for s in slots
+    )
 
     now = now or datetime.now()
     floor_minute = 0

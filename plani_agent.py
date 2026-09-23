@@ -136,10 +136,12 @@ AGENT_TOOLS = [
     },
     {
         "name": "generate_schedule",
-        "description": "Generate an AI study schedule from the user's pending tasks and save it as active.",
+        "description": "Generate a study schedule from pending tasks, save it as active, and add it to connected calendars.",
         "parameters": {
             "hours_per_day": {"type": "integer", "description": "Hours available per day (default 2)"},
             "preferred_time": {"type": "string", "description": "morning | afternoon | evening (default evening)"},
+            "study_start_time": {"type": "string", "description": "Optional daily start in HH:MM"},
+            "study_end_time": {"type": "string", "description": "Optional daily end in HH:MM"},
         },
     },
     {
@@ -589,7 +591,11 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
 
     if name == "generate_schedule":
         tasks = ManualTask.query.filter_by(user_id=user_id, done=False).all()
-        if not tasks:
+        try:
+            synced_tasks = collect_lms_assignments_for_user(user_id) or []
+        except Exception:
+            synced_tasks = []
+        if not tasks and not synced_tasks:
             return {"error": "No pending tasks to schedule."}
         hours = int(args.get("hours_per_day", 2))
         pref = args.get("preferred_time", "evening")
@@ -601,6 +607,14 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
                 "estimated_time": t.estimated_time or 60,
                 "difficulty": infer_task_difficulty(None, t.priority or "Medium", t.due_date),
                 "color": PRIORITY_COLORS.get(t.priority or "Medium", "#60a5fa"),
+            })
+        for t in synced_tasks:
+            assignments.append({
+                "title": t.get("title") or "Untitled assignment", "course": t.get("course") or "School",
+                "due_date": t.get("due_date") or "", "priority": t.get("priority") or "Medium",
+                "estimated_time": t.get("estimated_time") or 60,
+                "difficulty": t.get("difficulty") or infer_task_difficulty(None, t.get("priority") or "Medium", t.get("due_date")),
+                "color": t.get("color") or PRIORITY_COLORS.get(t.get("priority") or "Medium", "#60a5fa"),
             })
         overdue = [a for a in assignments if a["due_date"] and a["due_date"] < today_str]
         upcoming = [a for a in assignments if not a["due_date"] or a["due_date"] >= today_str]
@@ -620,6 +634,15 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
         # the Scheduler page.
         import scheduler_engine
         dna, availability, commitments = build_scheduler_personalization(user_id=user_id)
+        study_start = str(args.get("study_start_time") or "").strip()
+        study_end = str(args.get("study_end_time") or "").strip()
+        clock = r"(?:[01]\d|2[0-3]):[0-5]\d"
+        if bool(study_start) != bool(study_end) or (study_start and not re.fullmatch(clock, study_start)) or (study_end and not re.fullmatch(clock, study_end)):
+            return {"error": "Use both daily study times in HH:MM format."}
+        if study_start and study_end and study_end <= study_start:
+            return {"error": "Your study end time must be after the start time."}
+        if study_start:
+            availability = {day: {"start": study_start, "end": study_end} for day in scheduler_engine.DAY_ABBR}
         week_ctx = scheduler_engine.describe_week(availability, commitments)
         habits_ctx = dna.to_prompt() if _ai_personalization_enabled() else ""
 
@@ -666,11 +689,33 @@ Return ONLY valid JSON:
             except Exception as _arch_e:
                 logger.warning("plani schedule archive skipped: %s", _arch_e)
             db.session.commit()
+            exports = {}
+            # Export after persistence: an unavailable third-party calendar
+            # must never discard the plan the student just created.
+            try:
+                from App import get_google_token
+                from google_calendar_helper import add_schedule_to_calendar
+                google_token = get_google_token()
+                if google_token:
+                    ids, _new_token, skipped = add_schedule_to_calendar(google_token, schedule)
+                    exports["google"] = {"created": len(ids), "skipped": skipped}
+            except Exception as exc:
+                logger.warning("Google calendar export from Plani failed: %s", exc)
+            try:
+                from App import get_outlook_token, outlook_calendar_helper
+                outlook_token = get_outlook_token()
+                if outlook_token:
+                    ids = outlook_calendar_helper.add_schedule_to_calendar(outlook_token, schedule)
+                    exports["outlook"] = {"created": len(ids)}
+            except Exception as exc:
+                logger.warning("Outlook calendar export from Plani failed: %s", exc)
             return {"status": "ok",
                 "message": f"Schedule generated — {schedule.get('total_study_time', '')}. "
                            "It is saved on the Scheduler page, the Dashboard, and Memories.",
                 "days": len(schedule.get("schedule", [])),
-                "overview": schedule.get("overview", "")}
+                "overview": schedule.get("overview", ""),
+                "schedule": schedule,
+                "calendar_exports": exports}
         except Exception as e:
             logger.error("schedule gen failed: %s", e)
             return {"error": "Schedule generation failed. Try again."}
@@ -1093,6 +1138,7 @@ def plani_agent():
     tool_log: list[dict] = []
     navigate_url: str | None = None
     refresh_ui = False
+    schedule_preview: dict | None = None
 
     for _round in range(MAX_TOOL_ROUNDS):
         try:
@@ -1132,6 +1178,7 @@ def plani_agent():
                 "actions": actions,
                 "navigate": navigate_url,
                 "refresh": refresh_ui,
+                "schedule": schedule_preview,
                 "tool_log": tool_log})
 
         llm_messages.append({"role": "assistant", "content": reply})
@@ -1147,6 +1194,8 @@ def plani_agent():
             # capture navigation directive
             if isinstance(result, dict) and result.get("navigate"):
                 navigate_url = result["navigate"]
+            if name == "generate_schedule" and isinstance(result, dict) and result.get("schedule"):
+                schedule_preview = result["schedule"]
             # mutations should trigger UI refresh
             if name in ("create_task", "update_task", "complete_task",
                         "delete_task", "generate_schedule", "save_note"):
@@ -1167,4 +1216,4 @@ def plani_agent():
         final = "Done — I completed the actions above."
     return jsonify({"status": "ok", "reply": final or "Done.",
         "actions": actions, "navigate": navigate_url,
-        "refresh": refresh_ui, "tool_log": tool_log})
+        "refresh": refresh_ui, "schedule": schedule_preview, "tool_log": tool_log})

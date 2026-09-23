@@ -90,6 +90,28 @@ def test_full_day_name_keys_are_accepted():
     assert windows[0].start.hour == 6
 
 
+def test_explicit_clock_range_is_used_instead_of_a_broad_slot():
+    windows = windows_for_date(
+        MONDAY,
+        {"Mon": {"start": "16:30", "end": "20:15"}},
+        preferred_time="morning",
+        now=datetime(2026, 7, 20, 8, 0),
+    )
+    assert len(windows) == 1
+    assert (windows[0].start.hour, windows[0].start.minute) == (16, 30)
+    assert (windows[0].end.hour, windows[0].end.minute) == (20, 15)
+
+
+def test_invalid_clock_range_falls_back_to_the_preferred_slot():
+    windows = windows_for_date(
+        MONDAY,
+        {"Mon": {"start": "20:00", "end": "16:00"}},
+        preferred_time="afternoon",
+        now=datetime(2026, 7, 20, 8, 0),
+    )
+    assert (windows[0].start.hour, windows[0].end.hour) == (12, 17)
+
+
 def test_commitments_carve_a_hole_in_the_free_window():
     windows = windows_for_date(
         MONDAY, {"Mon": ["evening"]}, commitments="soccer Mon 6-7 pm",

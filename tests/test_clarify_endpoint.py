@@ -70,6 +70,25 @@ def test_an_empty_request_still_errors_normally(client):
     assert body["status"] == "error"
 
 
+def test_a_partial_study_window_is_rejected_before_planning(client):
+    response = post(client, {
+        **SPECIFIC,
+        "study_start_time": "16:30",
+    })
+    assert response.status_code == 400
+    assert "both" in response.get_json()["message"].lower()
+
+
+def test_a_reversed_study_window_is_rejected_before_planning(client):
+    response = post(client, {
+        **SPECIFIC,
+        "study_start_time": "20:00",
+        "study_end_time": "16:30",
+    })
+    assert response.status_code == 400
+    assert "after" in response.get_json()["message"].lower()
+
+
 # ── presets ───────────────────────────────────────────────────────
 
 

@@ -996,6 +996,15 @@
         <input type="number" id="hoursPerDay" class="form-input" value="2" min="0.5" max="12" step="0.5" style="max-width:120px;" />
       </div>
       <div class="input-group">
+        <label class="form-label" for="studyStartTime">Daily study window <span style="font-weight:400;">(optional)</span></label>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <input type="time" id="studyStartTime" class="form-input" aria-label="Daily study start time" style="max-width:132px;" />
+          <span aria-hidden="true" style="color:var(--text-muted);">to</span>
+          <input type="time" id="studyEndTime" class="form-input" aria-label="Daily study end time" style="max-width:132px;" />
+        </div>
+        <span class="form-hint">Use exact times to place work inside this window each day.</span>
+      </div>
+      <div class="input-group">
         <label class="form-label" for="preferredTime">Preferred study time</label>
         <div style="display:flex; gap:6px; flex-wrap:wrap;">
           <select id="preferredTime" class="form-input" style="max-width:150px;">
@@ -1811,6 +1820,18 @@ function generateSchedule(extra) {
     document.getElementById('emptyState').style.display = 'block';
     return;
   }
+  const hours = parseFloat(document.getElementById('hoursPerDay').value);
+  const time = document.getElementById('preferredTime').value;
+  const studyStartTime = document.getElementById('studyStartTime').value;
+  const studyEndTime = document.getElementById('studyEndTime').value;
+  if ((studyStartTime && !studyEndTime) || (!studyStartTime && studyEndTime)) {
+    showGenError('Choose both a study start and end time.', false);
+    return;
+  }
+  if (studyStartTime && studyEndTime && studyEndTime <= studyStartTime) {
+    showGenError('Your study end time must be after the start time.', false);
+    return;
+  }
   hideGenError();
   hideClarify();
   document.getElementById('savedNotice').style.display = 'none';
@@ -1820,9 +1841,6 @@ function generateSchedule(extra) {
   document.getElementById('scheduleResults').style.display = 'none';
   document.getElementById('savePanel').style.display = 'none';
   document.getElementById('emptyState').style.display = 'none';
-
-  const hours = parseFloat(document.getElementById('hoursPerDay').value);
-  const time = document.getElementById('preferredTime').value;
 
   function done() {
     document.getElementById('schedulerLoading').style.display = 'none';
@@ -1835,6 +1853,7 @@ function generateSchedule(extra) {
     body: JSON.stringify(Object.assign({
       assignments: allAssignments, hours_per_day: hours, preferred_time: time,
       custom_tasks: customTasks, clarifications: _clarifyAnswers,
+      study_start_time: studyStartTime, study_end_time: studyEndTime,
     }, extra || {}))
   })
   .then(r => r.json())
