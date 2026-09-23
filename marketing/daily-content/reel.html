@@ -1,0 +1,226 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Daily AI tips — reel template</title>
+<style>
+  :root { --ink:#121212; --paper:#f5f5f2; --muted:#56564f; --faint:#86867f; --hl:#ffe14a;
+          --red:#ff4b3e; --green:#0fa468;
+          --disp:'Bricolage Grotesque', system-ui, sans-serif; --body:'Instrument Sans', system-ui, sans-serif;
+          --mono:'JetBrains Mono', ui-monospace, monospace; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:1080px; height:1920px; overflow:hidden; background:var(--paper); }
+  #root { position:relative; width:1080px; height:1920px; overflow:hidden; }
+  .abs { position:absolute; }
+  #paper { position:absolute; inset:0; background-color:var(--paper);
+    background-image:radial-gradient(rgba(0,0,0,0.075) 1.8px, transparent 2px); background-size:40px 40px; }
+  #dark { position:absolute; inset:0; background:var(--ink); }
+  #cam { position:absolute; inset:0; transform-origin:50% 45%; }
+  .scene { position:absolute; inset:0; display:none; }
+  .w { display:inline-block; white-space:pre; will-change:transform; }
+  .hl { background-image:linear-gradient(var(--hl), var(--hl)); background-repeat:no-repeat;
+        background-position:0 55%; background-size:0% 86%; border-radius:10px; padding:0 8px; margin:0 -4px; }
+  #grain { position:absolute; inset:-40px; pointer-events:none; opacity:0.05; mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  #wipe { position:absolute; left:0; top:-1200px; width:1500px; height:4400px; background:var(--hl); display:none; }
+  #wipe::after { content:''; position:absolute; left:-70px; top:0; width:70px; height:100%; background:var(--ink); }
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="paper"></div>
+  <div id="dark"></div>
+  <div id="cam"></div>
+  <div id="wipe"></div>
+  <div id="grain"></div>
+</div>
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   Daily AI-tips reel — 1080×1920, 36s, 120 BPM.
+   0–4 hook · 4–32 seven tips, 4s each · 32–36 call to action.
+   window.__setContent(json) builds the scenes; window.seek(t) draws
+   frame t. Every property is a function of t, so frames are exact.
+   ═══════════════════════════════════════════════════════════════ */
+const W = 1080, H = 1920, DUR = 36.0, TIP0 = 4, TIPLEN = 4, CTA0 = 32;
+const cl = (v,a=0,b=1) => v<a?a:v>b?b:v, lp = (a,b,u) => a+(b-a)*u, p = (t,s,d) => cl((t-s)/d);
+const oExpo = u => u>=1?1:1-Math.pow(2,-10*u), oQuint = u => 1-Math.pow(1-u,5);
+const ioCubic = u => u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2, bell = u => Math.sin(cl(u)*Math.PI);
+function spr(dt, f=3.2, z=0.36) { if (dt <= 0) return 0; const w = 2*Math.PI*f, wd = w*Math.sqrt(1-z*z);
+  return 1 - Math.exp(-z*w*dt)*(Math.cos(wd*dt) + (z*w/wd)*Math.sin(wd*dt)); }
+function shake(t, t0, dur, amp) { const u = p(t,t0,dur); if (u<=0||u>=1) return [0,0];
+  const k = amp*Math.pow(1-u,2), s = (t-t0)*60; return [k*Math.sin(s*1.9), k*Math.cos(s*2.3)]; }
+const $ = id => document.getElementById(id);
+function el(parent, css, html) { const d = document.createElement('div'); d.className = 'abs';
+  Object.assign(d.style, css||{}); if (html !== undefined) d.innerHTML = html; parent.appendChild(d); return d; }
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* "the *dumber* part" → word spans; *…* marks the highlighted words */
+function words(parent, text) {
+  const out = []; let on = false;
+  text.split(' ').forEach((tok, i, arr) => {
+    const open = tok.startsWith('*'), close = tok.endsWith('*') && tok.length > 1;
+    if (open) on = true;
+    const clean = tok.replace(/^\*|\*$/g, '');
+    const s = document.createElement('span'); s.className = 'w' + (on ? ' hl' : '');
+    s.textContent = clean + (i < arr.length - 1 ? ' ' : '');
+    parent.appendChild(s); out.push({ e: s, hl: on });
+    if (close) on = false;
+  });
+  return out;
+}
+
+let C = null, S = {};
+function build(content) {
+  C = content; const cam = $('cam'); cam.innerHTML = '';
+  /* hook + cta share one layout on the dark ground */
+  const bigBlock = (lines, sub, pill) => {
+    const g = el(cam, {inset:'0'}); g.className = 'scene';
+    const box = el(g, {left:'80px', right:'70px', top:'380px', font:'800 150px/0.95 var(--disp)',
+      letterSpacing:'-0.055em', color:'#f5f5f2', fontVariationSettings:"'opsz' 96"});
+    const L = lines.map(line => { const d = document.createElement('div'); box.appendChild(d); return words(d, line); });
+    const subEl = el(g, {left:'80px', right:'120px', top:(380 + lines.length*143 + 60)+'px',
+      font:'500 48px/1.25 var(--body)', color:'#c9c9c4', letterSpacing:'-0.015em'}, esc(sub || ''));
+    let pillEl = null;
+    if (pill) pillEl = el(g, {left:'80px', top:(380 + lines.length*143 + 60 + 170)+'px', background:'var(--hl)',
+      color:'var(--ink)', padding:'22px 36px', borderRadius:'999px', font:'800 50px/1 var(--disp)',
+      letterSpacing:'-0.03em', display:'flex', alignItems:'center', gap:'16px'},
+      esc(pill) + '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#121212" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>');
+    return { g, L, subEl, pillEl };
+  };
+  S.hook = bigBlock(content.hook.lines, content.hook.sub, `${content.tips.length} things`);
+  S.cta = bigBlock(content.cta.lines, content.cta.sub, null);
+  S.cta.icon = el(S.cta.g, {left:'80px', top:(380 + content.cta.lines.length*143 + 60 + 150)+'px', width:'128px',
+    height:'128px', borderRadius:'36px', background:'var(--hl)', display:'grid', placeItems:'center'},
+    '<svg width="62" height="62" viewBox="0 0 24 24" fill="none" stroke="#121212" stroke-width="2.6" stroke-linejoin="round"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>');
+
+  /* tips */
+  S.tips = content.tips.map((tip, i) => {
+    const g = el(cam, {inset:'0'}); g.className = 'scene';
+    const num = el(g, {left:'74px', top:'280px', font:'800 230px/1 var(--disp)', letterSpacing:'-0.06em',
+      color:'var(--ink)', fontVariationSettings:"'opsz' 96", transformOrigin:'0% 100%'},
+      String(i+1).padStart(2,'0') + `<span style="font:700 40px/1 var(--mono); letter-spacing:0; color:var(--faint); margin-left:12px; vertical-align:top; position:relative; top:30px;">/${String(content.tips.length).padStart(2,'0')}</span>`);
+    const src = el(g, {right:'80px', top:'320px', textAlign:'right', font:'600 24px/1.3 var(--mono)',
+      letterSpacing:'0.06em', color:'var(--faint)', maxWidth:'420px'}, esc((tip.source || '').toUpperCase()));
+    let fs = 124, head, why, card, txt, stk, W1;
+    g.style.display = 'block';                           // measure while visible
+    /* shrink the headline until the whole stack clears the caption zone */
+    for (let tries = 0; tries < 8; tries++) {
+      [head, why, card].forEach(x => x && x.remove());
+      head = el(g, {left:'80px', right:'80px', top:'560px', font:`800 ${fs}px/0.98 var(--disp)`,
+        letterSpacing:'-0.045em', color:'var(--ink)', fontVariationSettings:"'opsz' 96"});
+      W1 = words(head, tip.headline);
+      const whyTop = 560 + head.offsetHeight + 44;
+      why = el(g, {left:'80px', right:'90px', top:whyTop+'px', font:`500 ${Math.round(fs*0.42)}px/1.3 var(--body)`,
+        color:'var(--muted)', letterSpacing:'-0.01em'},
+        `<span style="display:inline-block; font:700 26px/1 var(--mono); letter-spacing:0.1em; padding:9px 14px 8px; border:3px solid var(--ink); border-radius:10px; background:#fff; color:var(--ink); margin-right:16px; position:relative; top:-6px;">WHY</span>${esc(tip.why)}`);
+      const cardTop = whyTop + why.offsetHeight + 64;
+      card = el(g, {left:'80px', right:'80px', top:cardTop+'px', background:'#fff', border:'4px solid var(--ink)',
+        boxShadow:'14px 14px 0 var(--ink)', borderRadius:'40px', padding:'46px 44px 40px',
+        font:`500 ${Math.round(fs*0.33)}px/1.45 var(--mono)`, letterSpacing:'-0.015em', color:'var(--ink)',
+        transformOrigin:'50% 100%'});
+      stk = el(card, {top:'-30px', left:'34px', padding:'10px 20px 11px', borderRadius:'14px', background:'var(--green)',
+        color:'#fff', border:'3px solid var(--ink)', font:'800 28px/1 var(--disp)', letterSpacing:'0.02em',
+        whiteSpace:'nowrap', transform:'rotate(2.5deg)'}, '✓ ' + esc((tip.label || 'TRY THIS').toUpperCase()));
+      txt = document.createElement('span'); card.appendChild(txt);
+      txt.textContent = tip.prompt;                     // measure at full length
+      if (cardTop + card.offsetHeight <= 1290) break;
+      fs -= 8;
+    }
+    txt.textContent = '';
+    g.style.display = 'none';
+    const cur = document.createElement('span'); cur.textContent = '▌'; cur.style.color = 'var(--ink)'; card.appendChild(cur);
+    return { g, num, src, W: W1, why, card, stk, txt, cur, prompt: tip.prompt };
+  });
+}
+
+function draw(t) {
+  t = cl(t, 0, DUR);
+  const inHook = t < TIP0, inCta = t >= CTA0;
+  const tipIdx = inHook || inCta ? -1 : Math.floor((t - TIP0) / TIPLEN);
+  $('dark').style.display = (inHook || inCta) ? 'block' : 'none';
+  $('grain').style.mixBlendMode = (inHook || inCta) ? 'screen' : 'multiply';
+  S.hook.g.style.display = inHook ? 'block' : 'none';
+  S.cta.g.style.display = inCta ? 'block' : 'none';
+  S.tips.forEach((s, i) => s.g.style.display = i === tipIdx ? 'block' : 'none');
+  let camS = 1, sx = 0, sy = 0;
+  const punch = (T, a, d) => { if (t >= T) camS += a * (1 - oQuint(p(t, T, d))); };
+  const addShake = (T, d, a) => { const [x, y] = shake(t, T, d, a); sx += x; sy += y; };
+
+  /* big-type scenes: one line per beat, then the highlight, sub, pill */
+  const big = (B, T0) => {
+    B.L.forEach((line, k) => {
+      const T = T0 + k * 0.5, s = spr(t - T, 3.6, 0.34);
+      line.forEach(w => {
+        w.e.style.opacity = t >= T ? '1' : '0';
+        w.e.style.transform = `translateY(${(1-s)*90}px) scale(${lp(1.6,1,cl(s,0,1.2))}) rotate(${(1-s)*-6}deg)`;
+        if (w.hl) { const m = oExpo(p(t, T0 + B.L.length*0.5, 0.35));
+          w.e.style.backgroundSize = `${m*100}% 86%`; w.e.style.color = m > 0.5 ? 'var(--ink)' : '#f5f5f2'; }
+      });
+      if (t >= T) { punch(T, 0.05, 0.3); addShake(T, 0.25, 8); }
+    });
+    const subT = T0 + B.L.length*0.5 + 0.5, su = oExpo(p(t, subT, 0.5));
+    B.subEl.style.opacity = String(su); B.subEl.style.transform = `translateY(${(1-su)*40}px)`;
+    if (B.pillEl) { const ps = spr(t - (subT + 0.5), 3.4, 0.38);
+      B.pillEl.style.opacity = t >= subT + 0.5 ? '1' : '0';
+      B.pillEl.style.transform = `scale(${cl(ps,0,1.3)}) rotate(${(1-ps)*-12}deg)`; B.pillEl.style.transformOrigin = '0% 50%'; }
+  };
+  if (inHook) big(S.hook, 0);
+  if (inCta) {
+    big(S.cta, CTA0);
+    const T = CTA0 + S.cta.L.length*0.5 + 1.0, s = spr(t - T, 3.4, 0.36);
+    S.cta.icon.style.opacity = t >= T ? '1' : '0';
+    S.cta.icon.style.transform = `scale(${cl(s,0,1.4)}) rotate(${(1-s)*20}deg)`;
+    if (t >= 34) { punch(34, 0.05, 0.5); addShake(34, 0.3, 10); }
+  }
+
+  /* tip scenes */
+  if (tipIdx >= 0) {
+    const s = S.tips[tipIdx], T = TIP0 + tipIdx * TIPLEN, u = t - T;
+    const ns = spr(u - 0.05, 3.6, 0.38);
+    s.num.style.transform = `translateY(${(1-ns)*-200}px) scale(${lp(1.5,1,cl(ns,0,1.2))}) rotate(${(1-ns)*-10}deg)`;
+    s.num.style.opacity = u >= 0.05 ? '1' : '0';
+    if (u >= 0.05) addShake(T + 0.05, 0.25, 7);
+    s.src.style.opacity = String(oExpo(p(u, 0.3, 0.4)));
+    s.W.forEach((w, k) => {
+      const T1 = 0.3 + k * 0.06, ws = spr(u - T1, 3.8, 0.4);
+      w.e.style.opacity = u >= T1 ? '1' : '0';
+      w.e.style.transform = `translateY(${(1-ws)*70}px) scale(${lp(0.7,1,cl(ws,0,1.2))})`;
+      if (w.hl) w.e.style.backgroundSize = `${oExpo(p(u, 1.0, 0.32))*100}% 86%`;
+    });
+    const wy = oExpo(p(u, 1.2, 0.5));
+    s.why.style.opacity = String(wy); s.why.style.transform = `translateY(${(1-wy)*36}px)`;
+    const cs = spr(u - 1.85, 3.2, 0.42);
+    s.card.style.opacity = u >= 1.85 ? '1' : '0';
+    s.card.style.transform = `translateY(${(1-cs)*520}px) rotate(${(1-cs)*5}deg)`;
+    const ss = spr(u - 2.0, 4, 0.4);
+    s.stk.style.transform = `rotate(${2.5 + (1-ss)*-20}deg) scale(${cl(ss,0,1.3)})`;
+    const n = Math.floor(s.prompt.length * cl((u - 2.0) / 1.2));
+    s.txt.textContent = s.prompt.slice(0, n);
+    s.cur.style.opacity = (u < 2.0) ? '0' : (n < s.prompt.length ? '1' : (Math.floor(u * 3) % 2 ? '1' : '0'));
+    /* a light pulse on every beat keeps the groove visible */
+    punch(Math.floor(t * 2) / 2, 0.012, 0.22);
+  }
+
+  /* yellow wipe between scenes: covers the frame at each boundary */
+  const bounds = [TIP0]; for (let i = 1; i < S.tips.length; i++) bounds.push(TIP0 + i*TIPLEN); bounds.push(CTA0);
+  const wipe = $('wipe'); wipe.style.display = 'none';
+  for (const B of bounds) {
+    const wu = p(t, B - 0.25, 0.5);
+    if (wu > 0 && wu < 1) {
+      const x = lp(-2300, 1900, ioCubic(wu));
+      wipe.style.display = 'block';
+      wipe.style.transform = `translateX(${x}px) rotate(20deg)`;
+    }
+  }
+  $('cam').style.transform = `translate(${sx}px, ${sy}px) scale(${camS})`;
+  const fr = Math.floor(t * 24);
+  $('grain').style.transform = `translate(${(fr*37)%40-20}px, ${(fr*53)%40-20}px)`;
+}
+
+window.__setContent = c => { build(c); draw(0); return { tips: S.tips.length }; };
+window.seek = draw;
+window.DUR = DUR;
+window.__ready = true;
+</script>
+</body>
+</html>

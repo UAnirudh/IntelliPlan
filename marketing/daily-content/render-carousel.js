@@ -1,5 +1,5 @@
 /* Renders a carousel page to ten 1080×1350 PNGs plus a preview strip.
-   node render.js <carousel.html> <out-dir>
+   node render-carousel.js <carousel.html> <out-dir>
 
    The page must lay its slides out on a 10800px track and expose
    window.showSlide(i) and window.__ready — reference.html does both. */
@@ -7,7 +7,7 @@ const path = require('path'), fs = require('fs');
 const { chromium } = require(process.env.PLAYWRIGHT_PATH || '/opt/node22/lib/node_modules/playwright');
 
 const [page, outDir] = process.argv.slice(2);
-if (!page || !outDir) { console.error('usage: node render.js <carousel.html> <out-dir>'); process.exit(2); }
+if (!page || !outDir) { console.error('usage: node render-carousel.js <carousel.html> <out-dir>'); process.exit(2); }
 const CHROME = process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 
 (async () => {

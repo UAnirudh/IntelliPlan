@@ -16,3 +16,10 @@ fetch 'Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800' bricolage
 fetch 'Instrument+Sans:wght@400;500;600;700' instrument
 fetch 'JetBrains+Mono:wght@400;500;700' jbmono
 fc-cache -f >/dev/null 2>&1 || true
+
+# ffmpeg with H.264 + AAC, for the reel. Kept out of the repo.
+TOOLS="${HOME}/.cache/daily-content"
+if [ ! -x "$TOOLS/node_modules/ffmpeg-static/ffmpeg" ]; then
+  npm install --prefix "$TOOLS" ffmpeg-static@5.2.0 --no-audit --no-fund --silent
+fi
+echo "ffmpeg: $TOOLS/node_modules/ffmpeg-static/ffmpeg"

@@ -1,6 +1,6 @@
-# Carousel log
+# Content log
 
-Every carousel the daily job has made, newest last. The job reads this so
+Every day the job has run (carousel + video), newest last. The job reads this so
 it never repeats a theme within 30 days or a tip ever.
 
 ## 2026-09-22 — Prompting habits (v1, made by hand)

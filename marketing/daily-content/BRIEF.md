@@ -1,35 +1,65 @@
-# Daily AI-tips carousel — the brief
+# Daily AI tips — the brief
 
-The scheduled job reads this file every morning and follows it. Change
-this file to change what the job makes.
+The scheduled job reads this file every morning and follows it. Each run
+makes **one carousel and one video** from the same 7 researched tips.
+Change this file to change what the job makes.
 
 ## The job, in order
 
-1. `bash marketing/daily-carousel/setup.sh` (installs the fonts).
+1. `bash marketing/daily-content/setup.sh` (installs the fonts and ffmpeg).
 2. Pick today's theme: the first theme in **Themes** below that does not
    appear in the last 30 entries of `history.md`, starting from the row
    `day-of-year mod 30` and moving down (wrap around).
 3. Research. Use web search to find **7 tips** for that theme that clear
    the bar below. Read every tip already listed in `history.md` first;
    never repeat one, even reworded.
-4. Verify. Every factual claim, number or "research shows" on a slide must
-   be checked that day against a primary source (the lab's paper or blog,
-   the vendor's own docs, a peer-reviewed study). If it cannot be verified,
-   drop the tip and find another. Never invent or round up a number.
-5. Build. Copy `reference.html` to a scratch folder, and rewrite the
-   copy's slide content, keeping its CSS, components, thread and layout.
-   Don't edit `reference.html` itself.
-6. Render: `node marketing/daily-carousel/render.js <copy>.html <out-dir>`.
-7. Look at `preview.jpg`, then open every slide whose layout changed.
-   Fix clipped text, overlaps, text touching the footer, or a
-   headline running past 2 lines, then re-render. Repeat until clean.
+4. Verify. Every factual claim, number or "research shows" must be checked
+   that day against a primary source (the lab's paper or blog, the vendor's
+   own docs, a peer-reviewed study). If it cannot be verified, drop the tip
+   and find another. Never invent or round up a number.
+5. Write `content.json` in a scratch out dir, shaped exactly like
+   `sample-content.json`, within the **Video length limits** below. This
+   one file is the source for both posts, so they always match.
+6. **Carousel.** Copy `reference.html` to the out dir and rewrite the copy's
+   slide content from `content.json` (the carousel can say more: longer WHY
+   lines, a ✕ example, a visual per tip). Keep its CSS, components, thread
+   and layout. Don't edit `reference.html` itself. Render:
+   `node marketing/daily-content/render-carousel.js <copy>.html <out-dir>`.
+   Look at `preview.jpg`, then open every slide whose layout changed; fix
+   clipped text, overlaps, text touching the footer, or a headline past 2
+   lines, and re-render until clean.
+7. **Video.** Check it first:
+   `node marketing/daily-content/render-video.js <out-dir>/content.json <out-dir> --probe 2,6.1,7.6,23.6,34.8`
+   and look at every probe. Fix any overflow by shortening the copy in
+   `content.json` (never by editing `reel.html`), then render it for real:
+   `node marketing/daily-content/render-video.js <out-dir>/content.json <out-dir>`
+   (about 5 minutes). It writes `reel.mp4` (original soundtrack) and
+   `reel-sfx-only.mp4` (sound effects only, for adding a trending sound in-app).
 8. Write `caption.md` in the out dir (format below).
-9. Deliver with SendUserFile: `preview.jpg` (display: render), the ten
-   `slide-NN.png` (display: attach), and `caption.md`. Then repeat the TikTok
-   title + description in the final chat message so it can be copied.
+9. Deliver with SendUserFile: `preview.jpg` (display: render); `reel.mp4`
+   and `reel-sfx-only.mp4`; the ten `slide-NN.png` (display: attach); and
+   `caption.md`. Then repeat the TikTok title and description in the final
+   chat message so they can be copied from a phone.
 10. Append today's entry to `history.md`, then commit **only that file** with
-    the message `chore(marketing): carousel log YYYY-MM-DD [skip ci]` and push
-    to `claude/design-system-extraction-el4gea`. Never commit the PNGs.
+    the message `chore(marketing): content log YYYY-MM-DD [skip ci]` and push
+    to `claude/design-system-extraction-el4gea`. Never commit PNGs, MP4s or
+    `content.json`.
+
+## Video length limits
+
+The reel shows each tip for 4 seconds, so its copy must be short. The
+template shrinks type to fit, but short copy reads better than small copy.
+
+| Field | Limit |
+| --- | --- |
+| `hook.lines` | 3–4 lines, each ≤ 11 characters; mark one word `*like this*` |
+| `hook.sub` | ≤ 40 characters |
+| `tips[].headline` | ≤ 30 characters; mark the key word(s) `*like this.*` |
+| `tips[].why` | ≤ 90 characters, the mechanism in plain words |
+| `tips[].label` | ≤ 20 characters (the green sticker) |
+| `tips[].prompt` | ≤ 80 characters, copy-pasteable |
+| `tips[].source` | ≤ 26 characters, e.g. "Anthropic, 2023" |
+| `cta.lines` | 3 lines, each ≤ 11 characters |
 
 ## The bar for a tip
 
