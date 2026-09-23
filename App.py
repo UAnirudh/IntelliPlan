@@ -46,6 +46,7 @@ import desktop_auth
 import app_link
 from studentvue_helper import (
     test_login,
+    validate_login,
     get_assignments as get_sv_assignments,
     get_missing_assignments,
     normalize_district_url,
@@ -8120,13 +8121,16 @@ def login_studentvue():
     error = None
     if request.method == "POST":
         username = request.form.get("username", "").strip()
-        password = request.form.get("password", "").strip()
+        # Password whitespace is significant. Trimming it here changed a
+        # valid StudentVUE password before it reached the district service.
+        password = request.form.get("password", "")
         district_url = normalize_district_url(request.form.get("district_url", ""))
         profile_name = request.form.get("profile_name", "").strip() or "StudentVue Account"
         if not username or not password or not district_url:
             error = "Please fill in all fields."
         else:
-            if test_login(district_url, username, password):
+            login_status = validate_login(district_url, username, password)
+            if login_status == "ok":
                 creds = {"sv_username": username, "sv_password": password, "sv_district_url": district_url}
                 if current_user.is_authenticated:
                     LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
@@ -8141,8 +8145,10 @@ def login_studentvue():
                     session["sv_district_url"] = district_url
                     session["login_type"] = "studentvue"
                 return redirect("/command-center")
+            elif login_status == "connection_failed":
+                error = "Could not reach a StudentVUE service at that district URL. Paste the StudentVUE address from your school portal and try again."
             else:
-                error = "Invalid StudentVUE credentials or district URL. Try your district's StudentVUE web address, like https://district-psv.edupoint.com."
+                error = "Student ID or password was not accepted by StudentVUE. Check both and try again."
     return render_template("login_studentvue.html", active_page="login", error=error)
 
 

@@ -103,13 +103,36 @@ def make_request(district_url, username, password, method, params="&lt;Parms/&gt
     return response.text
 
 def test_login(district_url, username, password):
+    """Compatibility wrapper for callers that only need a boolean."""
+    return validate_login(district_url, username, password) == "ok"
+
+
+def validate_login(district_url, username, password):
+    """Validate StudentVUE credentials without mistaking a host failure for a password failure.
+
+    A district's SOAP endpoint can be unavailable, blocked, or absent even
+    when a student's password is correct.  The login screen needs to surface
+    that distinction so students do not repeatedly reset valid passwords.
+    """
     try:
         result = make_request(district_url, username, password, "StudentInfo")
+    except requests.RequestException:
+        return "connection_failed"
     except Exception:
-        return False
-    if "RT_ERROR" in result or "Invalid user" in result or "Invalid User" in result:
-        return False
-    return True
+        # Keep an unexpected integration failure out of the credential error
+        # path and out of the user-facing response.
+        return "connection_failed"
+
+    invalid_markers = ("RT_ERROR", "Invalid user", "Invalid User")
+    if any(marker in result for marker in invalid_markers):
+        return "invalid_credentials"
+
+    # A reachable district login page can return HTML with a 200 status.  It
+    # is not a successful SOAP login unless it contains the expected result.
+    if "ProcessWebServiceRequestResult" not in result:
+        return "connection_failed"
+
+    return "ok"
 
 def get_courses(district_url, username, password):
     result = make_request(

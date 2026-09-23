@@ -28,8 +28,8 @@
           type="url"
           name="district_url"
           class="form-input"
-          value="{{ request.form.get('district_url', '') or 'https://wa-nor-psv.edupoint.com' }}"
-          onfocus="this.select()"
+          value="{{ request.form.get('district_url', '') }}"
+          placeholder="https://district-psv.edupoint.com"
           spellcheck="false"
           autocomplete="off"
         />
