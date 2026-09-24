@@ -7,6 +7,7 @@ App.py can treat both sources uniformly.
 
 import re
 import requests
+from urllib.parse import urlparse
 from datetime import datetime, timezone
 
 
@@ -59,6 +60,15 @@ def _get_list(url, headers, timeout=15):
             break
         if not isinstance(page, list):
             # An error body ({"errors": [...]}) rather than a list of items.
+            # Said out loud: a token whose developer key lacks a scope gets a
+            # 401 here, and an empty list is otherwise indistinguishable from
+            # "this course has no assignments". The path is logged, never the
+            # query string or the token.
+            try:
+                path = urlparse(next_url).path
+            except Exception:
+                path = "?"
+            print(f"[canvas] {getattr(resp, 'status_code', '?')} non-list body from {path}")
             break
         out.extend(page)
 
@@ -291,6 +301,66 @@ def get_grades(canvas_url, token):
     return grades
 
 
+def _assignments_with_submissions(base, headers, cid):
+    """A course's assignments and the student's submission for each.
+
+    Canvas offers students four routes to the same rows, and which ones a
+    token may use depends on the scopes on the school's developer key. The
+    Grade Modeler used exactly one — ``/courses/:id/assignments`` — so a key
+    scoped for courses and enrollments (enough for the course *total*) got a
+    401 there and the modeler showed a grade with no assignments under it.
+    Each route is tried in turn and the first that answers wins.
+
+    Returns ``(assignments, {assignment_id: submission})``.
+    """
+    assignments = _get_list(f"{base}/courses/{cid}/assignments", headers)
+    if assignments:
+        submissions = _get_list(
+            f"{base}/courses/{cid}/students/submissions?student_ids[]=self", headers,
+        ) or _get_list(f"{base}/courses/{cid}/students/submissions", headers)
+        sub_map = {
+            s["assignment_id"]: s for s in submissions
+            if isinstance(s, dict) and "assignment_id" in s
+        }
+        return assignments, sub_map
+
+    # The student's own view, submission embedded.
+    embedded = _get_list(
+        f"{base}/users/self/courses/{cid}/assignments?include[]=submission", headers,
+    )
+    if not embedded:
+        # Assignment groups — what Canvas's own Grades page is built from.
+        groups = _get_list(
+            f"{base}/courses/{cid}/assignment_groups"
+            "?include[]=assignments&include[]=submission",
+            headers,
+        )
+        embedded = [
+            a for g in groups if isinstance(g, dict)
+            for a in (g.get("assignments") or []) if isinstance(a, dict)
+        ]
+    if not embedded:
+        # Submissions carrying their assignment.
+        subs = _get_list(
+            f"{base}/courses/{cid}/students/submissions?include[]=assignment", headers,
+        )
+        embedded = [
+            dict(s["assignment"], submission=s) for s in subs
+            if isinstance(s, dict) and isinstance(s.get("assignment"), dict)
+        ]
+
+    sub_map = {}
+    for a in embedded:
+        sub = a.get("submission")
+        if isinstance(sub, list):
+            sub = sub[0] if sub else None
+        if isinstance(sub, dict) and a.get("id") is not None:
+            sub_map[a["id"]] = sub
+    if not embedded:
+        print(f"[canvas] course {cid}: no assignment route answered for this token")
+    return embedded, sub_map
+
+
 def get_gradebook_detail(canvas_url, token):
     """Return per-course gradebook detail (assignments + scores).
 
@@ -306,16 +376,7 @@ def get_gradebook_detail(canvas_url, token):
         cid = c["id"]
         course_name = c.get("name", "Unknown")
 
-        assignments_raw = _get_list(f"{base}/courses/{cid}/assignments", headers)
-        submissions = _get_list(
-            f"{base}/courses/{cid}/students/submissions?student_ids[]=self",
-            headers,
-        )
-
-        sub_map = {}
-        for s in submissions:
-            if isinstance(s, dict) and "assignment_id" in s:
-                sub_map[s["assignment_id"]] = s
+        assignments_raw, sub_map = _assignments_with_submissions(base, headers, cid)
 
         course_assignments = []
         for a in assignments_raw:

@@ -554,6 +554,17 @@ function letterToClass(letter) {
 function renderBreakdown(assignments) {
   const wrap = document.getElementById('assignmentBreakdown');
   wrap.innerHTML = '';
+  if (!assignments.length) {
+    // A grade with nothing under it reads as a bug. Say what happened and
+    // what fixes it: the school's Canvas key did not share assignments.
+    wrap.innerHTML = '<div class="assignment-card medium" style="padding:1rem 1.1rem;">' +
+      '<strong>No assignments came through for this course.</strong>' +
+      '<p style="margin:0.4rem 0 0;font-size:0.86rem;color:var(--text-secondary);">' +
+      'Your grade loaded, but your school’s Canvas connection didn’t share the assignment list. ' +
+      '<a href="/connect" style="color:var(--accent);font-weight:600;">Reconnect Canvas</a> ' +
+      'to refresh it, or use <strong>+ Add assignment</strong> above to model what’s coming up.</p></div>';
+    return;
+  }
   assignments.forEach((a, i) => {
     const card = document.createElement('div');
     card.className = 'assignment-card ' + (a.graded ? 'low' : 'medium');
