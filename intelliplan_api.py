@@ -686,7 +686,7 @@ def mint_link_session():
     at all. So the app opens the system browser — which arrives with no
     session, and would otherwise attach the connection to nobody.
 
-    Body: {"provider": "canvas" | "google" | "notion"}
+    Body: {"provider": "canvas" | "google" | "notion" | <app_link.PAGES>}
     Returns: {"url": "https://…/link/<code>", "expires_in": 90}
 
     read:profile rather than a write scope: this proves who the caller is
@@ -703,7 +703,8 @@ def mint_link_session():
     next_path = app_link.resolve_next(provider)
     if next_path is None:
         return _err(
-            "provider must be one of: " + ", ".join(app_link.LINKABLE) + ".", 400)
+            "provider must be one of: "
+            + ", ".join(app_link.LINKABLE + app_link.PAGES) + ".", 400)
 
     AppLinkCode = current_app.intelliplan_app_link_code_model
     code = app_link.new_code()

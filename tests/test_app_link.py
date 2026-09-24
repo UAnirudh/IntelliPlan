@@ -114,7 +114,7 @@ def test_anything_not_on_the_allow_list_is_refused(hostile):
 
 def test_every_allowed_destination_is_a_local_path():
     """Nothing on the allow-list may point off-site, however it was added."""
-    for provider in list(app_link.LINKABLE) + ["settings", "integrations"]:
+    for provider in list(app_link.LINKABLE) + list(app_link.PAGES) + ["integrations"]:
         target = app_link.resolve_next(provider)
         if target is None:
             continue
@@ -129,6 +129,23 @@ def test_every_linkable_provider_actually_resolves():
     the allow-list cannot serve."""
     for provider in app_link.LINKABLE:
         assert app_link.resolve_next(provider) is not None
+
+
+def test_every_page_the_app_menu_opens_resolves():
+    """The mobile menu opens each of these; one missing from the allow-list
+    would silently land the student on /login instead."""
+    for page in app_link.PAGES:
+        assert app_link.resolve_next(page) is not None
+
+
+@pytest.mark.parametrize("page,expected", [
+    ("memories", "/memories"),
+    ("study_hub", "/study-and-learn"),
+    ("my_stats", "/my-stats"),
+    ("command_center", "/command-center"),
+])
+def test_pages_resolve_to_their_website_route(page, expected):
+    assert app_link.resolve_next(page) == expected
 
 
 # ── Deep links ───────────────────────────────────────────────────────
