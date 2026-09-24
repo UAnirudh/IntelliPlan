@@ -1,0 +1,342 @@
+/* ═══════════════════════════════════════════════════════════════════
+   IntelliPlan — phone app shell
+
+   Makes the signed-in website on a phone look and move like the mobile
+   app: a floating Liquid-Glass tab bar with the app's six tabs (Today,
+   Due, Plan, Grades, Plani, Menu), a glass header, and a Menu sheet that
+   carries every sidebar destination. Markup: templates/_app_tabbar.html.
+
+   Loads after ip-phone.css. That file and mobile.css strip backdrop-filter
+   from phones (with !important) because twenty-one blurred buttons on one
+   screen made presses lag. This file adds blur back, also !important, to
+   exactly three fixed surfaces — header, tab bar, open sheet — which the
+   compositor handles once per frame, not per button. Content cards stay
+   unblurred.
+
+   Honours prefers-reduced-transparency (solid surfaces) and
+   prefers-reduced-motion (no sheet slide).
+   ══════════════════════════════════════════════════════════════════ */
+
+.ip-tabbar,
+.ip-menu-sheet,
+.ip-menu-scrim { display: none; }
+
+@media (max-width: 768px) {
+
+  :root {
+    --ipx-tab-h: 64px;
+    --ipx-tab-gap: 12px;
+    --ipx-bottom: max(calc(env(safe-area-inset-bottom, 0px) - 4px), var(--ipx-tab-gap));
+    --ipx-glass: rgba(255, 255, 255, 0.62);
+    --ipx-glass-strong: rgba(255, 255, 255, 0.82);
+    --ipx-edge: rgba(255, 255, 255, 0.7);
+    --ipx-hair: rgba(0, 0, 0, 0.07);
+    --ipx-shadow: 0 10px 34px rgba(20, 22, 40, 0.14), 0 1px 3px rgba(20, 22, 40, 0.08);
+    --ipx-blur: saturate(180%) blur(22px);
+    --ipx-ease: cubic-bezier(0.2, 0.9, 0.25, 1.1);
+  }
+  :root[data-theme="dark"] {
+    --ipx-glass: rgba(30, 30, 36, 0.58);
+    --ipx-glass-strong: rgba(28, 28, 33, 0.86);
+    --ipx-edge: rgba(255, 255, 255, 0.12);
+    --ipx-hair: rgba(255, 255, 255, 0.07);
+    --ipx-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+
+  /* ── Page light ───────────────────────────────────────────────────
+     The same three washes the app paints behind its glass (Backdrop in
+     mobile/components/glass.tsx): glass over a flat fill reads grey. */
+  body.has-tabbar {
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(120% 60% at 0% 0%, rgba(26, 86, 219, 0.11), rgba(26, 86, 219, 0) 60%),
+      radial-gradient(90% 50% at 100% 55%, rgba(10, 117, 88, 0.06), rgba(10, 117, 88, 0) 70%),
+      radial-gradient(100% 55% at 100% 100%, rgba(200, 137, 15, 0.08), rgba(200, 137, 15, 0) 65%);
+    background-attachment: fixed;
+  }
+  :root[data-theme="dark"] body.has-tabbar {
+    background-image:
+      radial-gradient(120% 60% at 0% 0%, rgba(91, 147, 245, 0.16), rgba(91, 147, 245, 0) 60%),
+      radial-gradient(90% 50% at 100% 55%, rgba(61, 212, 160, 0.06), rgba(61, 212, 160, 0) 70%),
+      radial-gradient(100% 55% at 100% 100%, rgba(224, 169, 74, 0.07), rgba(224, 169, 74, 0) 65%);
+  }
+
+  /* ── Header: glass, and the hamburger retires ─────────────────────
+     The Menu tab replaces it; two ways to open the same list is one too
+     many on a phone. */
+  body.has-tabbar > header {
+    background: var(--ipx-glass) !important;
+    -webkit-backdrop-filter: var(--ipx-blur) !important;
+    backdrop-filter: var(--ipx-blur) !important;
+    border-bottom: 1px solid var(--ipx-hair) !important;
+    box-shadow: none !important;
+  }
+  body.has-tabbar #mobileMenuBtn,
+  body.has-tabbar #mobileNavBackdrop,
+  body.has-tabbar #mainNav { display: none !important; }
+
+  /* Clear the floating bar. Pages with their own fixed composer
+     (has-own-chat) lift it instead; see below. */
+  body.has-tabbar #main-content {
+    padding-bottom: calc(var(--ipx-tab-h) + var(--ipx-bottom) + 28px);
+  }
+  body.has-tabbar footer { padding-bottom: calc(var(--ipx-tab-h) + var(--ipx-bottom) + 20px); }
+
+  /* The floating feedback bubble and install pill sat exactly where the
+     bar now floats. Feedback lives in the Menu sheet instead. */
+  body.has-tabbar .ip-fb .ip-fb-trigger,
+  body.has-tabbar .install-pill { display: none !important; }
+
+  /* The floating Plani bubble sat on top of the Today tab, and the Plani
+     tab now does its job — the app has no bubble either. */
+  body.has-tabbar #planiBot,
+  body.has-tabbar #planiChat { display: none !important; }
+
+  /* ── Tab bar ──────────────────────────────────────────────────── */
+  body.has-tabbar .ip-tabbar {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    align-items: center;
+    position: fixed;
+    left: var(--ipx-tab-gap);
+    right: var(--ipx-tab-gap);
+    bottom: var(--ipx-bottom);
+    height: var(--ipx-tab-h);
+    padding: 6px;
+    z-index: var(--z-nav, 200);
+    border-radius: calc(var(--ipx-tab-h) / 2);
+    background: var(--ipx-glass);
+    -webkit-backdrop-filter: var(--ipx-blur) !important;
+    backdrop-filter: var(--ipx-blur) !important;
+    border: 1px solid var(--ipx-edge);
+    box-shadow: var(--ipx-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    transition: transform 0.28s var(--ipx-ease), opacity 0.2s ease;
+  }
+  body.has-tabbar.ipx-kb .ip-tabbar,
+  body.has-tabbar.mobile-nav-open .ip-tabbar {
+    transform: translateY(calc(100% + var(--ipx-bottom) + 8px));
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .ip-tab {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    height: 100%;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.18s var(--ipx-ease), color 0.18s ease, background-color 0.18s ease;
+  }
+  .ip-tab span { line-height: 1; white-space: nowrap; }
+  .ip-tab-ic {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .ip-tab:active { transform: scale(0.9); }
+  .ip-tab.is-active {
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .ip-tab.is-active .ip-tab-ic { stroke-width: 2.1; }
+  .ip-tab:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+
+  /* ── Pages with their own bottom composer ─────────────────────────
+     Command Center's composer is sticky to the bottom of the viewport and
+     Tutor's shell fills it; both would sit under the bar. Lift the sticky
+     one above it and shorten the full-height one by the bar's footprint.
+     Study & Learn's input lives in its hero, so it needs nothing. */
+  body.has-tabbar .command-chat__composer {
+    bottom: calc(var(--ipx-tab-h) + var(--ipx-bottom) + 10px) !important;
+  }
+  body.has-tabbar .tutor-input-wrap {
+    margin-bottom: calc(var(--ipx-tab-h) + var(--ipx-bottom) + 6px) !important;
+  }
+
+  /* ── Menu sheet ───────────────────────────────────────────────── */
+  body.has-tabbar .ip-menu-scrim:not([hidden]) {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-backdrop, 900);
+    background: rgba(12, 12, 18, 0.34);
+    animation: ipx-fade 0.2s ease both;
+  }
+  body.has-tabbar .ip-menu-sheet:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    max-height: min(82vh, 760px);
+    z-index: var(--z-modal, 1000);
+    border-radius: 30px;
+    background: var(--ipx-glass-strong);
+    -webkit-backdrop-filter: var(--ipx-blur) !important;
+    backdrop-filter: var(--ipx-blur) !important;
+    border: 1px solid var(--ipx-edge);
+    box-shadow: var(--ipx-shadow);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    animation: ipx-rise 0.34s var(--ipx-ease) both;
+    overscroll-behavior: contain;
+  }
+  .ip-menu-grab {
+    width: 38px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--border-strong);
+    margin: 8px auto 0;
+    flex: none;
+  }
+  .ip-menu-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 18px 8px;
+    flex: none;
+  }
+  .ip-menu-head h2 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+  }
+  .ip-menu-head p { margin: 2px 0 0; font-size: 13px; color: var(--text-muted); }
+  .ip-menu-close {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 1px solid var(--ipx-edge);
+    background: var(--ipx-glass);
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .ip-menu-close svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+  .ip-menu-body {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 4px 12px 14px;
+  }
+  .ip-menu-label {
+    margin: 16px 8px 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .ip-menu-group {
+    border-radius: 20px;
+    overflow: hidden;
+    background: var(--bg-card);
+    border: 1px solid var(--ipx-hair);
+  }
+  .ip-menu-form { margin: 0; }
+  .ip-menu-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 52px;
+    padding: 9px 14px;
+    border: 0;
+    border-top: 1px solid var(--ipx-hair);
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 15.5px;
+    font-weight: 600;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.15s ease;
+  }
+  .ip-menu-group > :first-child,
+  .ip-menu-group > :first-child .ip-menu-row { border-top: 0; }
+  .ip-menu-row:active { background: var(--accent-soft); }
+  .ip-menu-row[aria-current="page"] { color: var(--accent); }
+  .ip-menu-row::after {
+    content: "";
+    margin-left: auto;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid var(--text-muted);
+    border-top: 2px solid var(--text-muted);
+    transform: rotate(45deg);
+    opacity: 0.6;
+    flex: none;
+  }
+  .ip-menu-row.is-danger { color: var(--danger-text); }
+  .ip-menu-row.is-danger::after { display: none; }
+  .ip-menu-ic {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .ip-menu-row.is-danger .ip-menu-ic { background: var(--danger-soft); color: var(--danger-text); }
+  .ip-menu-ic svg { width: 18px; height: 18px; }
+  .ip-menu-txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ip-menu-badge {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+
+  html.ipx-sheet-open,
+  html.ipx-sheet-open body { overflow: hidden; }
+
+  @keyframes ipx-fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes ipx-rise {
+    from { transform: translateY(24px) scale(0.98); opacity: 0; }
+    to   { transform: none; opacity: 1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    body.has-tabbar .ip-menu-sheet:not([hidden]),
+    body.has-tabbar .ip-menu-scrim:not([hidden]) { animation: none; }
+    .ip-tab, body.has-tabbar .ip-tabbar { transition: none; }
+  }
+
+  /* A request for solid surfaces: honour it rather than blur anyway. */
+  @media (prefers-reduced-transparency: reduce) {
+    body.has-tabbar > header,
+    body.has-tabbar .ip-tabbar,
+    body.has-tabbar .ip-menu-sheet:not([hidden]) {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+      background: var(--bg-card) !important;
+    }
+  }
+}

@@ -198,6 +198,8 @@
      against the component library. Scoped to (pointer: coarse), so it
      never touches a mouse-driven narrow window. #}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-phone.css') }}?v={{ asset_v }}">
+  {# Phone app shell (glass tab bar + Menu sheet); after ip-phone so it wins. #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-app-shell.css') }}?v={{ asset_v }}">
 
   {# ── Async runtime ──────────────────────────────────────────────────
      Loaded synchronously, not deferred, on purpose: page templates write
@@ -452,7 +454,8 @@ body {
 {%- set _rp_path = (request.path or '/') if request else '/' -%}
 {%- set _reading_progress = _rp_path.startswith('/blog') or _rp_path.startswith('/compare')
     or _rp_path in ['/about', '/faq', '/legal', '/privacy', '/terms', '/schools', '/uk', '/olympiad'] -%}
-<body class="{% if active_page in _app_pages %}has-side{% endif %}{% if active_page in ['command_center','tutor','study_hub'] %} has-own-chat{% endif %}"
+{%- set _app_tabbar = logged_in and active_page in _app_pages -%}
+<body class="{% if active_page in _app_pages %}has-side{% endif %}{% if _app_tabbar %} has-tabbar{% endif %}{% if active_page in ['command_center','tutor','study_hub'] %} has-own-chat{% endif %}"
       {% if _reading_progress %}data-reading-progress{% endif %}{% block body_attrs %}{% endblock %}>
 <div class="ip-progress" aria-hidden="true"></div>
 {# One skip link. There were two — .a11y-skip and .skip-to-content — both
@@ -791,6 +794,11 @@ body {
 <main id="main-content" style="flex:1;">
   {% block content %}{% endblock %}
 </main>
+
+{% if _app_tabbar %}
+{% include "_app_tabbar.html" %}
+<script src="{{ url_for('static', filename='js/ip-app-shell.js') }}?v={{ asset_v }}" defer></script>
+{% endif %}
 
 <!-- ══════════════════════════════════════
      ASSIGNMENT MODAL
