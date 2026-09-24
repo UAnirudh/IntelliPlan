@@ -6,6 +6,7 @@ import {
   PressableProps,
   ScrollView,
   StyleProp,
+  StyleSheet,
   Text,
   TextInput,
   TextInputProps,
@@ -16,7 +17,7 @@ import {
   ViewStyle,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { GlassView, isGlassEffectAPIAvailable } from "expo-glass-effect";
+import { Backdrop, GlassGroup, GlassSurface, useGlass, useGlassEdge } from "./glass";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius, space, type as typeScale } from "../theme/tokens";
 
@@ -74,46 +75,25 @@ export function Label({ style, ...rest }: TextProps) {
 
 /* ── Surfaces ─────────────────────────────────────────────────────── */
 
-/**
- * Native Liquid Glass when the device supports it, with the existing opaque
- * surface as the fallback everywhere else. Shared surfaces use this so the
- * effect stays consistent without breaking Android, web, or older iOS.
- */
-export function GlassSurface({ style, children, ...rest }: ViewProps) {
-  const { scheme } = useTheme();
-  const supportsGlass = Platform.OS === "ios" && isGlassEffectAPIAvailable();
-
-  if (supportsGlass) {
-    return (
-      <GlassView
-        {...rest}
-        glassEffectStyle="regular"
-        colorScheme={scheme}
-        tintColor={scheme === "dark" ? "rgba(28, 28, 32, 0.68)" : "rgba(255, 255, 255, 0.68)"}
-        style={style}
-      >
-        {children}
-      </GlassView>
-    );
-  }
-
-  return <View {...rest} style={style}>{children}</View>;
-}
+export { GlassGroup, GlassSurface, useGlass } from "./glass";
 
 export function Card({ style, children, ...rest }: ViewProps) {
   const { colors, scheme } = useTheme();
+  const glass = useGlass();
+  const edge = useGlassEdge();
   return (
     <GlassSurface
       {...rest}
       style={[
         {
-          backgroundColor: Platform.OS === "ios" && isGlassEffectAPIAvailable() ? "transparent" : colors.bgCard,
+          backgroundColor: colors.bgCard,
           borderRadius: radius.xl,
-          borderWidth: 1,
-          borderColor: colors.border,
+          borderWidth: glass ? StyleSheet.hairlineWidth : 1,
+          borderColor: glass ? edge : colors.border,
           padding: space.lg,
           // Android renders `elevation` and ignores shadow*; iOS the
           // reverse. Setting both keeps one card looking like one card.
+          // GlassSurface drops both on the glass path.
           ...Platform.select({
             ios: {
               shadowColor: "#1c1914",
@@ -138,6 +118,7 @@ export function Screen({ style, children, ...rest }: ViewProps) {
   const { colors } = useTheme();
   return (
     <View {...rest} style={[{ flex: 1, backgroundColor: colors.bg }, style]}>
+      <Backdrop />
       {children}
     </View>
   );
@@ -168,15 +149,41 @@ export function Button({
   style?: StyleProp<ViewStyle>;
 }) {
   const { colors } = useTheme();
+  const glass = useGlass();
+  const edge = useGlassEdge();
   const off = disabled || busy;
 
-  const skin: Record<BtnKind, { bg: string; fg: string; border: string }> = {
-    primary: { bg: colors.accent, fg: colors.onAccent, border: colors.accent },
+  const skin: Record<BtnKind, { bg: string; fg: string; border: string; tint?: string }> = {
+    primary: { bg: colors.accent, fg: colors.onAccent, border: colors.accent, tint: colors.accent },
     secondary: { bg: colors.bgCard, fg: colors.textPrimary, border: colors.borderStrong },
     ghost: { bg: "transparent", fg: colors.accent, border: "transparent" },
-    danger: { bg: colors.dangerSoft, fg: colors.dangerText, border: colors.danger },
+    danger: { bg: colors.dangerSoft, fg: colors.dangerText, border: colors.danger, tint: colors.dangerSoft },
   };
   const s = skin[kind];
+  // A ghost button is a line of text, not a surface; glass would give it a body.
+  const onGlass = glass && kind !== "ghost";
+
+  const content = busy ? (
+    <ActivityIndicator color={s.fg} size="small" />
+  ) : (
+    <>
+      {icon ? <Ionicons name={icon} size={17} color={s.fg} /> : null}
+      <Text style={{ color: s.fg, fontWeight: "600", fontSize: 15.5 }}>{title}</Text>
+    </>
+  );
+
+  const body: ViewStyle = {
+    backgroundColor: s.bg,
+    borderColor: onGlass ? edge : s.border,
+    borderWidth: kind === "ghost" ? 0 : onGlass ? StyleSheet.hairlineWidth : 1,
+    borderRadius: radius.pill,
+    paddingVertical: 13,
+    paddingHorizontal: space.xl,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: space.sm,
+  };
 
   return (
     <Pressable
@@ -185,29 +192,19 @@ export function Button({
       disabled={off}
       {...rest}
       style={({ pressed }) => [
-        {
-          backgroundColor: s.bg,
-          borderColor: s.border,
-          borderWidth: kind === "ghost" ? 0 : 1,
-          borderRadius: radius.pill,
-          paddingVertical: 13,
-          paddingHorizontal: space.xl,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: space.sm,
-          opacity: off ? 0.55 : pressed ? 0.82 : 1,
-        },
+        onGlass ? { borderRadius: radius.pill } : body,
+        // Native glass answers the touch itself; dimming on top of that
+        // reads as lag, so only the fallback fades while pressed.
+        { opacity: off ? 0.55 : pressed && !onGlass ? 0.82 : 1 },
         style as ViewStyle,
       ]}
     >
-      {busy ? (
-        <ActivityIndicator color={s.fg} size="small" />
+      {onGlass ? (
+        <GlassSurface interactive tint={s.tint} style={[body, { flexGrow: 1 }]}>
+          {content}
+        </GlassSurface>
       ) : (
-        <>
-          {icon ? <Ionicons name={icon} size={17} color={s.fg} /> : null}
-          <Text style={{ color: s.fg, fontWeight: "600", fontSize: 15.5 }}>{title}</Text>
-        </>
+        content
       )}
     </Pressable>
   );
@@ -229,12 +226,13 @@ export function Chip({
   style?: StyleProp<ViewStyle>;
 }) {
   const { colors } = useTheme();
-  const supportsGlass = Platform.OS === "ios" && isGlassEffectAPIAvailable();
   return (
     <GlassSurface
+      variant="clear"
+      tint={bg}
       style={[
         {
-          backgroundColor: supportsGlass && !bg ? "transparent" : bg ?? colors.bgElevated,
+          backgroundColor: bg ?? colors.bgElevated,
           borderRadius: radius.pill,
           paddingHorizontal: 10,
           paddingVertical: 4,
@@ -265,6 +263,8 @@ export function SegmentedRow<V extends string | number>({
   onChange: (v: V) => void;
 }) {
   const { colors } = useTheme();
+  const glass = useGlass();
+  const edge = useGlassEdge();
   const scroller = React.useRef<ScrollView>(null);
   // Each chip's x-offset and width, filled in as they lay out. Needed
   // because a row can open with a selection that is already off-screen —
@@ -288,44 +288,54 @@ export function SegmentedRow<V extends string | number>({
       ref={scroller}
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ gap: space.sm, paddingRight: space.lg }}
+      contentContainerStyle={{ paddingRight: space.lg }}
     >
-      {options.map((o) => {
-        const on = o.value === value;
-        return (
-          <Pressable
-            key={String(o.value)}
-            onPress={() => onChange(o.value)}
-            onLayout={(e) => {
-              spans.current[String(o.value)] = {
-                x: e.nativeEvent.layout.x,
-                w: e.nativeEvent.layout.width,
-              };
-              if (on) reveal();
-            }}
-            accessibilityRole="button"
-            accessibilityState={{ selected: on }}
-            style={{
-              paddingHorizontal: 14,
-              paddingVertical: 8,
-              borderRadius: radius.pill,
-              backgroundColor: on ? colors.accent : colors.bgCard,
-              borderWidth: 1,
-              borderColor: on ? colors.accent : colors.border,
-            }}
-          >
-            <Text
-              style={{
-                color: on ? colors.onAccent : colors.textSecondary,
-                fontWeight: "600",
-                fontSize: 13.5,
+      {/* Grouped so the selection's glass flows between neighbours as it
+          moves, instead of each chip being its own island. */}
+      <GlassGroup spacing={space.sm} style={{ flexDirection: "row", gap: space.sm }}>
+        {options.map((o) => {
+          const on = o.value === value;
+          return (
+            <Pressable
+              key={String(o.value)}
+              onPress={() => onChange(o.value)}
+              onLayout={(e) => {
+                spans.current[String(o.value)] = {
+                  x: e.nativeEvent.layout.x,
+                  w: e.nativeEvent.layout.width,
+                };
+                if (on) reveal();
               }}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on }}
             >
-              {o.label}
-            </Text>
-          </Pressable>
-        );
-      })}
+              <GlassSurface
+                interactive
+                variant={on ? "regular" : "clear"}
+                tint={on ? colors.accent : undefined}
+                style={{
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  borderRadius: radius.pill,
+                  backgroundColor: on ? colors.accent : colors.bgCard,
+                  borderWidth: glass ? StyleSheet.hairlineWidth : 1,
+                  borderColor: glass ? edge : on ? colors.accent : colors.border,
+                }}
+              >
+                <Text
+                  style={{
+                    color: on ? colors.onAccent : colors.textSecondary,
+                    fontWeight: "600",
+                    fontSize: 13.5,
+                  }}
+                >
+                  {o.label}
+                </Text>
+              </GlassSurface>
+            </Pressable>
+          );
+        })}
+      </GlassGroup>
     </ScrollView>
   );
 }
@@ -338,26 +348,33 @@ export function Field({
   ...rest
 }: TextInputProps & { label?: string; style?: StyleProp<ViewStyle> }) {
   const { colors } = useTheme();
+  const glass = useGlass();
+  const edge = useGlassEdge();
   return (
     <View style={[{ gap: 6 }, style]}>
       {label ? <Label>{label}</Label> : null}
-      <TextInput
-        placeholderTextColor={colors.textMuted}
-        {...rest}
-        style={[
-          {
-            borderWidth: 1,
-            borderColor: colors.border,
-            backgroundColor: colors.bgSecondary,
-            borderRadius: radius.md,
-            paddingHorizontal: 14,
-            paddingVertical: Platform.OS === "ios" ? 13 : 10,
-            fontSize: 16,
-            color: colors.textPrimary,
-          },
-          rest.multiline ? { minHeight: 92, textAlignVertical: "top" } : null,
-        ]}
-      />
+      <GlassSurface
+        style={{
+          borderWidth: glass ? StyleSheet.hairlineWidth : 1,
+          borderColor: glass ? edge : colors.border,
+          backgroundColor: colors.bgSecondary,
+          borderRadius: radius.md,
+        }}
+      >
+        <TextInput
+          placeholderTextColor={colors.textMuted}
+          {...rest}
+          style={[
+            {
+              paddingHorizontal: 14,
+              paddingVertical: Platform.OS === "ios" ? 13 : 10,
+              fontSize: 16,
+              color: colors.textPrimary,
+            },
+            rest.multiline ? { minHeight: 92, textAlignVertical: "top" } : null,
+          ]}
+        />
+      </GlassSurface>
     </View>
   );
 }
@@ -388,7 +405,8 @@ export function EmptyState({
   const { colors } = useTheme();
   return (
     <View style={{ alignItems: "center", padding: space.xxl, gap: space.md }}>
-      <View
+      <GlassSurface
+        tint={colors.accentSoft}
         style={{
           width: 60,
           height: 60,
@@ -399,7 +417,7 @@ export function EmptyState({
         }}
       >
         <Ionicons name={icon} size={26} color={colors.accent} />
-      </View>
+      </GlassSurface>
       <T variant="md" weight="600" style={{ textAlign: "center" }}>
         {title}
       </T>
@@ -447,6 +465,7 @@ export function Notice({
   const bg = tone === "warn" ? colors.warnSoft : colors.accentSoft;
   return (
     <GlassSurface
+      tint={bg}
       style={{
         flexDirection: "row",
         gap: space.sm,

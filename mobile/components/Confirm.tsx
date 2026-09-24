@@ -1,7 +1,8 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
-import { Modal, Pressable, View } from "react-native";
+import { Modal, Pressable, StyleSheet, View } from "react-native";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius, space } from "../theme/tokens";
+import { GlassSurface, useGlass, useGlassEdge } from "./glass";
 import { T } from "./ui";
 
 /**
@@ -39,6 +40,8 @@ const ConfirmCtx = createContext<Ctx>({ ask: async () => -1 });
 
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
   const { colors } = useTheme();
+  const glass = useGlass();
+  const edge = useGlassEdge();
   const [request, setRequest] = useState<Request | null>(null);
   const resolver = useRef<((i: number) => void) | null>(null);
 
@@ -84,19 +87,17 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
         >
           {/* Swallows the tap so pressing inside the card does not count as
               tapping the backdrop behind it. */}
-          <Pressable
-            onPress={() => {}}
-            style={{
-              width: "100%",
-              maxWidth: 380,
-              backgroundColor: colors.bgCard,
-              borderRadius: radius.xl,
-              borderWidth: 1,
-              borderColor: colors.border,
-              padding: space.xl,
-              gap: space.md,
-            }}
-          >
+          <Pressable onPress={() => {}} style={{ width: "100%", maxWidth: 380 }}>
+            <GlassSurface
+              style={{
+                backgroundColor: colors.bgCard,
+                borderRadius: radius.xl + 6,
+                borderWidth: glass ? StyleSheet.hairlineWidth : 1,
+                borderColor: glass ? edge : colors.border,
+                padding: space.xl,
+                gap: space.md,
+              }}
+            >
             <T variant="md" weight="700">
               {request?.title}
             </T>
@@ -130,32 +131,45 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                     : isLead
                       ? colors.accent
                       : colors.bgSecondary;
+                const border = a.destructive
+                  ? colors.danger
+                  : isLead
+                    ? colors.accent
+                    : colors.borderStrong;
+                // Cancel stays plain text: it is the way out, not a choice.
+                const onGlass = glass && !a.cancel;
                 return (
                   <Pressable
                     key={`${a.label}-${i}`}
                     onPress={() => settle(i)}
                     accessibilityRole="button"
                     style={({ pressed }) => ({
-                      backgroundColor: bg,
                       borderRadius: radius.pill,
-                      borderWidth: a.cancel ? 0 : 1,
-                      borderColor: a.destructive
-                        ? colors.danger
-                        : isLead
-                          ? colors.accent
-                          : colors.borderStrong,
-                      paddingVertical: 13,
-                      alignItems: "center",
-                      opacity: pressed ? 0.8 : 1,
+                      opacity: pressed && !onGlass ? 0.8 : 1,
                     })}
                   >
-                    <T variant="base" weight="600" style={{ color: fg }}>
-                      {a.label}
-                    </T>
+                    <GlassSurface
+                      interactive
+                      enabled={onGlass}
+                      tint={isLead || a.destructive ? bg : undefined}
+                      style={{
+                        backgroundColor: bg,
+                        borderRadius: radius.pill,
+                        borderWidth: a.cancel ? 0 : onGlass ? StyleSheet.hairlineWidth : 1,
+                        borderColor: onGlass ? edge : border,
+                        paddingVertical: 13,
+                        alignItems: "center",
+                      }}
+                    >
+                      <T variant="base" weight="600" style={{ color: fg }}>
+                        {a.label}
+                      </T>
+                    </GlassSurface>
                   </Pressable>
                 );
               })}
             </View>
+            </GlassSurface>
           </Pressable>
         </Pressable>
       </Modal>
