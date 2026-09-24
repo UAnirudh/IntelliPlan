@@ -69,10 +69,34 @@ _ALLOWED_NEXT = {
     "notion": "/oauth/notion",
     "settings": "/settings",
     "integrations": "/integrations",
+    # Web pages the mobile menu opens signed in — the website sidebar
+    # entries the app has no native screen for, plus the ones it does so a
+    # student can always reach the full web version. Fixed internal paths,
+    # same as the OAuth starts above.
+    "command_center": "/command-center",
+    "dashboard": "/dashboard",
+    "scheduler": "/scheduler",
+    "active": "/active",
+    "memories": "/memories",
+    "gradebook": "/gradebook",
+    "study_hub": "/study-and-learn",
+    "flashcards": "/flashcards",
+    "streak": "/streak",
+    "pet": "/pet",
+    "balance": "/balance",
+    "features": "/features",
+    "my_stats": "/my-stats",
 }
 
 #: Providers whose connect flow may be started this way.
 LINKABLE = ("canvas", "google", "notion")
+
+#: Website pages the app may open already signed in (mobile "More" menu).
+PAGES = (
+    "command_center", "dashboard", "scheduler", "active", "memories",
+    "gradebook", "study_hub", "flashcards", "streak", "pet", "balance",
+    "features", "my_stats", "settings",
+)
 
 _CODE_RE = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
 
