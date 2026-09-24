@@ -1093,14 +1093,18 @@ function saveLocal() {
 
 // ══ CHIPS ══════════════════════════════════════════════════
 function updateChips() {
-  document.getElementById('sStreakNum').textContent = G.streak + ' day' + (G.streak !== 1 ? 's' : '');
-  document.getElementById('sPtsNum').textContent = G.sparkBalance;
-  document.getElementById('sFreezeNum').textContent = G.freezes + '/' + G.freezeCapacity;
-  document.getElementById('sLevelNum').textContent = G.level;
+  // The header chips were removed from this page; the counters live on
+  // /streak now. Writing to them threw and aborted init() half-way.
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('sStreakNum', G.streak + ' day' + (G.streak !== 1 ? 's' : ''));
+  set('sPtsNum', G.sparkBalance);
+  set('sFreezeNum', G.freezes + '/' + G.freezeCapacity);
+  set('sLevelNum', G.level);
 }
 
 function pulseChip(id) {
   const el = document.getElementById(id);
+  if (!el) return;
   el.classList.remove('chip-pulse'); void el.offsetWidth; el.classList.add('chip-pulse');
 }
 

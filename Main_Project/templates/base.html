@@ -452,7 +452,7 @@ body {
 {%- set _rp_path = (request.path or '/') if request else '/' -%}
 {%- set _reading_progress = _rp_path.startswith('/blog') or _rp_path.startswith('/compare')
     or _rp_path in ['/about', '/faq', '/legal', '/privacy', '/terms', '/schools', '/uk', '/olympiad'] -%}
-<body class="{% if active_page in _app_pages %}has-side{% endif %}"
+<body class="{% if active_page in _app_pages %}has-side{% endif %}{% if active_page in ['command_center','tutor','study_hub'] %} has-own-chat{% endif %}"
       {% if _reading_progress %}data-reading-progress{% endif %}{% block body_attrs %}{% endblock %}>
 <div class="ip-progress" aria-hidden="true"></div>
 {# One skip link. There were two — .a11y-skip and .skip-to-content — both
@@ -724,6 +724,10 @@ body {
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
         <a href="https://mintlify.wiki/UAnirudh/IntelliPlan/" target="_blank" rel="noopener noreferrer" class="nav-tab" aria-label="IntelliPlan documentation (opens in a new tab)"><span class="nav-label">Docs</span></a>
+        {# Phones only (hidden above 768px in ip-phone.css): the floating
+           feedback bubble covered content on every screen, so on a phone it
+           lives here instead. #}
+        <button type="button" class="nav-tab nav-feedback" data-ip-feedback-open><span class="nav-tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span class="nav-label">Send feedback</span></button>
         <a href="/settings" class="nav-tab {% if active_page == 'settings' %}active{% endif %}" aria-label="Settings"><span class="nav-tab-icon"><svg><use href="#i-settings"/></svg></span><span class="nav-label">Settings</span></a>
         <form action="/logout" method="POST" style="display:inline;">
           <button type="submit" class="nav-tab logout-btn"><span class="nav-tab-icon"><svg><use href="#i-logout"/></svg></span><span class="nav-label">Logout</span></button>
@@ -1973,6 +1977,7 @@ function closePlani() {
 
 /* ─── SPEECH BUBBLE ──────────────────── */
 function showBubble(msg) {
+  if (window.matchMedia('(max-width: 768px)').matches) return;
   const b = document.getElementById('planiBubble');
   b.textContent = msg;
   b.classList.add('visible');
@@ -2201,7 +2206,9 @@ if (installPill) {
 
 window.addEventListener('appinstalled', hideInstallBanner);
 window.addEventListener('load', () => {
-  if (window.matchMedia('(max-width: 900px)').matches) {
+  const installed = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const home = ['/command-center', '/dashboard', '/download', '/install'].includes(location.pathname);
+  if (!installed && home && window.matchMedia('(max-width: 900px)').matches) {
     showInstallBanner();
   } else {
     hideInstallBanner();
@@ -3190,6 +3197,14 @@ window.addEventListener('load',()=>{
     var msg = document.getElementById('ipFbMsg');
     if (msg) msg.focus();
   };
+
+  document.querySelectorAll('[data-ip-feedback-open]').forEach(function(b){
+    b.addEventListener('click', function(){
+      // Close the phone menu first so the sheet is not opened underneath it.
+      try { if (typeof setMobileMenuState === 'function') setMobileMenuState(false); } catch(e){}
+      window.ipFbOpen();
+    });
+  });
 
   window.ipFbClose = function(){ panel.hidden = true; };
   window.ipFbHideWidget = function(){
