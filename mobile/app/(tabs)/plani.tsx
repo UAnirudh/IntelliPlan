@@ -1,13 +1,15 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   Image,
+  Keyboard,
   Modal,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  StyleSheet,
   TextInput,
   View,
 } from "react-native";
@@ -29,6 +31,13 @@ import { radius, space } from "../../theme/tokens";
 import { Card, Chip, EmptyState, Label, Loading, Notice, Screen, T } from "../../components/ui";
 import { useConfirm } from "../../components/Confirm";
 import { Header, IconButton } from "../../components/Header";
+import {
+  GlassGroup,
+  GlassSurface,
+  useGlass,
+  useGlassEdge,
+  useTabBarOverlap,
+} from "../../components/glass";
 
 type Bubble = ChatMessage & { pending?: boolean; failed?: boolean; imageUri?: string };
 
@@ -49,8 +58,25 @@ const STARTERS = [
 export default function PlaniScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const glass = useGlass();
+  const edge = useGlassEdge();
+  const tabOverlap = useTabBarOverlap(insets.bottom);
   const listRef = useRef<FlatList<Bubble>>(null);
   const confirm = useConfirm();
+
+  // Where the tab bar floats, the composer has to sit above it — but only
+  // while the keyboard is down; once it is up the keyboard covers the bar.
+  const [keyboardUp, setKeyboardUp] = useState(false);
+  useEffect(() => {
+    if (!tabOverlap) return;
+    const show = Keyboard.addListener("keyboardWillShow", () => setKeyboardUp(true));
+    const hide = Keyboard.addListener("keyboardWillHide", () => setKeyboardUp(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [tabOverlap]);
+  const composerLift = tabOverlap && !keyboardUp ? tabOverlap : 0;
 
   const [messages, setMessages] = useState<Bubble[]>([]);
   const [draft, setDraft] = useState("");
@@ -304,7 +330,8 @@ export default function PlaniScreen() {
           ListEmptyComponent={
             <View style={{ flex: 1, justifyContent: "center", gap: space.lg }}>
               <View style={{ alignItems: "center", gap: space.sm }}>
-                <View
+                <GlassSurface
+                  tint={colors.accentSoft}
                   style={{
                     width: 60,
                     height: 60,
@@ -315,7 +342,7 @@ export default function PlaniScreen() {
                   }}
                 >
                   <Ionicons name="sparkles" size={26} color={colors.accent} />
-                </View>
+                </GlassSurface>
                 <T variant="md" weight="700">
                   Ask Plani anything
                 </T>
@@ -343,17 +370,20 @@ export default function PlaniScreen() {
           renderItem={({ item }) => <MessageBubble msg={item} />}
         />
 
-        <View
+        {/* On glass the bar itself disappears and its three controls float
+            over the conversation as one merged cluster, the iMessage shape. */}
+        <GlassGroup
+          spacing={space.sm}
           style={{
             flexDirection: "row",
             gap: space.sm,
             alignItems: "flex-end",
             paddingHorizontal: space.lg,
             paddingTop: space.sm,
-            paddingBottom: insets.bottom > 0 ? space.sm : space.md,
-            borderTopWidth: 1,
+            paddingBottom: (insets.bottom > 0 ? space.sm : space.md) + composerLift,
+            borderTopWidth: glass ? 0 : 1,
             borderTopColor: colors.border,
-            backgroundColor: colors.bg,
+            backgroundColor: glass ? "transparent" : colors.bg,
           }}
         >
           <Pressable
@@ -361,65 +391,88 @@ export default function PlaniScreen() {
             disabled={busy}
             accessibilityRole="button"
             accessibilityLabel="Snap and solve a problem"
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: radius.pill,
-              backgroundColor: colors.bgElevated,
-              alignItems: "center",
-              justifyContent: "center",
-              opacity: busy ? 0.5 : 1,
-            }}
+            style={{ opacity: busy ? 0.5 : 1 }}
           >
-            <Ionicons name="camera-outline" size={21} color={colors.textSecondary} />
+            <GlassSurface
+              interactive
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: radius.pill,
+                backgroundColor: colors.bgElevated,
+                borderWidth: glass ? StyleSheet.hairlineWidth : 0,
+                borderColor: edge,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons
+                name="camera-outline"
+                size={21}
+                color={glass ? colors.textPrimary : colors.textSecondary}
+              />
+            </GlassSurface>
           </Pressable>
 
-          <TextInput
-            value={draft}
-            onChangeText={setDraft}
-            placeholder="Ask about anything you're studying…"
-            placeholderTextColor={colors.textMuted}
-            multiline
+          <GlassSurface
             style={{
               flex: 1,
-              maxHeight: 120,
-              minHeight: 44,
-              borderWidth: 1,
-              borderColor: colors.border,
+              borderWidth: glass ? StyleSheet.hairlineWidth : 1,
+              borderColor: glass ? edge : colors.border,
               backgroundColor: colors.bgSecondary,
               borderRadius: radius.xl,
-              paddingHorizontal: 16,
-              paddingTop: Platform.OS === "ios" ? 12 : 8,
-              paddingBottom: Platform.OS === "ios" ? 12 : 8,
-              fontSize: 16,
-              color: colors.textPrimary,
             }}
-          />
+          >
+            <TextInput
+              value={draft}
+              onChangeText={setDraft}
+              placeholder="Ask about anything you're studying…"
+              placeholderTextColor={colors.textMuted}
+              multiline
+              style={{
+                maxHeight: 120,
+                minHeight: 44,
+                paddingHorizontal: 16,
+                paddingTop: Platform.OS === "ios" ? 12 : 8,
+                paddingBottom: Platform.OS === "ios" ? 12 : 8,
+                fontSize: 16,
+                color: colors.textPrimary,
+              }}
+            />
+          </GlassSurface>
+
           <Pressable
             onPress={() => send(draft)}
             disabled={busy || !draft.trim()}
             accessibilityRole="button"
             accessibilityLabel="Send"
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: radius.pill,
-              backgroundColor: draft.trim() && !busy ? colors.accent : colors.bgElevated,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
           >
-            {busy ? (
-              <ActivityIndicator size="small" color={colors.textMuted} />
-            ) : (
-              <Ionicons
-                name="arrow-up"
-                size={20}
-                color={draft.trim() ? colors.onAccent : colors.textMuted}
-              />
-            )}
+            <GlassSurface
+              interactive
+              tint={draft.trim() && !busy ? colors.accent : undefined}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: radius.pill,
+                backgroundColor: draft.trim() && !busy ? colors.accent : colors.bgElevated,
+                borderWidth: glass ? StyleSheet.hairlineWidth : 0,
+                borderColor: edge,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {busy ? (
+                <ActivityIndicator size="small" color={colors.textMuted} />
+              ) : (
+                <Ionicons
+                  name="arrow-up"
+                  size={20}
+                  color={draft.trim() ? colors.onAccent : colors.textMuted}
+                />
+              )}
+            </GlassSurface>
           </Pressable>
-        </View>
+        </GlassGroup>
       </KeyboardAvoidingView>
 
       <Modal
@@ -434,12 +487,14 @@ export default function PlaniScreen() {
           accessibilityRole="button"
           accessibilityLabel="Close past chats"
         />
-        <View
+        <GlassSurface
           style={{
             maxHeight: "68%",
             backgroundColor: colors.bg,
-            borderTopLeftRadius: radius.xl,
-            borderTopRightRadius: radius.xl,
+            borderTopLeftRadius: radius.xl + 10,
+            borderTopRightRadius: radius.xl + 10,
+            borderTopWidth: glass ? StyleSheet.hairlineWidth : 0,
+            borderColor: edge,
             paddingTop: space.lg,
             paddingBottom: insets.bottom + space.lg,
           }}
@@ -505,7 +560,7 @@ export default function PlaniScreen() {
               body="Conversations you have with Plani show up here."
             />
           )}
-        </View>
+        </GlassSurface>
       </Modal>
     </Screen>
   );
