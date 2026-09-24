@@ -14,7 +14,7 @@ simulator, Android emulator, or a browser.
 
 ## What's in it
 
-Five tabs, in the order a school day happens:
+Six tabs, in the order a school day happens:
 
 | Tab | What it does |
 | --- | --- |
@@ -23,6 +23,7 @@ Five tabs, in the order a school day happens:
 | **Plan** | The saved study plan, plus a generator (hours per day × when you focus best). Generating is a button — never automatic on open, so it can't quietly discard progress ticked off against the existing plan. Blocks tick off against the plan and the progress follows the account rather than one device. **Catch me up** re-solves the remaining week around the sessions that slipped, crediting what was actually done. **Set my own hours** opens the manual scheduler: hand-placed blocks, saved as named routines and applied to whichever days they fit — the real shape of a week is one or two routines repeated, not seven bespoke days. |
 | **Grades** | Three segments: **Current** (a percentage bar per course), **Forecast** (per-course predictions with trend and the confidence behind each number), and **What you know** (mastery by subject, and the concepts most likely to have slipped since you last reviewed them). |
 | **Plani** | The AI tutor with conversation history, plus Snap & Solve: photograph a worksheet and it works through every problem it can see. |
+| **Menu** | Every website sidebar destination, in the website's order (`lib/nav.ts`). Pages with a native screen open natively; the rest open the real web page in an in-app browser that is already signed in, via the one-time `/link/<code>` hand-off (`app_link.py` allow-lists each page). Settings and Logout live here too. |
 
 The modals over the tabs:
 
@@ -253,6 +254,13 @@ Before the first store submission:
    `eas.json`'s `submit` block (or let `eas submit` prompt for them).
 3. Bump `expo.version` for each store release. `autoIncrement` handles
    `buildNumber` / `versionCode`.
+4. Android remote push needs FCM: create a Firebase project, then
+   `npx eas credentials` → Android → *Google Service Account / FCM V1*.
+   iOS push credentials are created by `eas build` on first run.
+5. Run `npx expo-doctor` — it should report every check passing. SDK 57
+   dropped the top-level `splash`, `newArchEnabled` and
+   `android.edgeToEdgeEnabled` keys; the splash now lives in the
+   `expo-splash-screen` plugin entry in `app.json`.
 
 App icons in `assets/` are generated from `static/icons/icon-512.png`, so
 the phone app carries the same mark as the website. Regenerate them with

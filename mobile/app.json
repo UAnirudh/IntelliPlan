@@ -7,16 +7,6 @@
     "icon": "./assets/icon.png",
     "scheme": "intelliplan",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#f5f4f1",
-      "dark": {
-        "image": "./assets/splash-icon.png",
-        "backgroundColor": "#101012"
-      }
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -37,7 +27,6 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#f5f4f1"
       },
-      "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.CAMERA",
@@ -56,6 +45,19 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#f5f4f1",
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#101012"
+          }
+        }
+      ],
       "expo-secure-store",
       [
         "expo-notifications",
