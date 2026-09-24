@@ -536,6 +536,12 @@ main {
   .tutor-empty-sub { font-size: 0.88rem; }
   .tutor-chip { padding: 6px 12px; font-size: 0.78rem; }
   .tutor-input-wrap::before { display: none; }
+  /* At 390px the pill, three icons and Send left the text box ~70px wide
+     ("Ask anythi"). The subject is already shown by the chips above, and
+     the pill only focused the box, so it goes; the icons tighten. */
+  .tutor-subject-pill { display: none; }
+  .tutor-icon-btn { width: 36px; margin: 5px 0; }
+  #tutorInput { padding: 12px 12px; }
 }
 
 /* ════ ADAPTIVE TUTOR ════════════════════════════════════════════

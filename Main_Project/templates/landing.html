@@ -2092,6 +2092,10 @@
       z-index: 9998;
       transition: transform 0.28s cubic-bezier(0.16,1,0.3,1);
     }
+    /* While the hero's own buttons are on screen, the sticky bar would
+       only repeat them — on top of the hero copy. It slides in once they
+       scroll away. */
+    .mobile-cta-bar.at-hero { transform: translateY(calc(100% + 90px)); pointer-events: none; }
     .mobile-cta-bar.minimized .mobile-cta-buttons { display: none; }
     .mobile-cta-bar.minimized .mobile-cta-minimize { border-radius: 999px; }
     .mobile-cta-minimize {
@@ -2279,6 +2283,14 @@
 
   if (localStorage.getItem(BAR_KEY) === '1') {
     setMinimized(true);
+  }
+
+  const heroActions = document.querySelector('.hero-actions');
+  if (heroActions && 'IntersectionObserver' in window) {
+    bar.classList.add('at-hero');
+    new IntersectionObserver(function (entries) {
+      bar.classList.toggle('at-hero', entries[0].isIntersecting);
+    }).observe(heroActions);
   }
 })();
 </script>

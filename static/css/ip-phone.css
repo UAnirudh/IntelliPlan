@@ -293,3 +293,90 @@ button, .btn, [role="button"], .nav-tab, .sched-tab, .ipui-tab, .chip {
     transition: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   THE FLOATING LAYER
+
+   Measured at 390x664 (iPhone 13) on /command-center, /settings and /:
+   up to five fixed things sat over the page at once — Plani (52px) with
+   an unprompted "Need help with this form?" bubble that parked itself on
+   the nearest form, the feedback bubble (48px, rendered as a lone "x"
+   because its accent fill was being overwritten), the XP toast across
+   the primary CTA, the install banner, and the landing page's CTA bar.
+   On Command Center they covered the chat composer.
+
+   The rule now: on a phone, at most one small launcher floats (Plani,
+   bottom-left). Feedback moves into the menu; the install banner shows on
+   home screens only (base.html); toasts go to the top, where there is
+   nothing to press.
+
+   Width-scoped, not pointer-scoped: this is about screen room, which a
+   narrow desktop window lacks just as much.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* The menu's "Send feedback" entry is for phones only. */
+.nav-feedback { display: none; }
+
+@media (max-width: 768px) {
+  .nav-feedback { display: flex; width: 100%; font: inherit; text-align: left; cursor: pointer; }
+
+  /* Feedback: no floating trigger. When opened from the menu, the panel
+     is a bottom sheet the width of the screen. */
+  .ip-fb .ip-fb-trigger,
+  .ip-fb .ip-fb-hide { display: none !important; }
+  .ip-fb {
+    left: calc(10px + env(safe-area-inset-left));
+    right: calc(10px + env(safe-area-inset-right));
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    z-index: 10050;
+  }
+  .ip-fb .ip-fb-panel { position: static; width: auto; right: auto; }
+
+  /* Where the page itself is a conversation with Plani, a second Plani in
+     the corner only covers the composer. */
+  body.has-own-chat #planiBot,
+  body.has-own-chat #planiWrap { display: none !important; }
+
+  /* Smaller launcher: 52px was a tenth of the screen's width. */
+  #planiBot, #planiWrap { width: 44px !important; max-width: 44px !important; }
+  #planiRobot, #planiAvatar { width: 44px !important; height: 44px !important; }
+  #planiBubble { display: none !important; }
+
+  /* Toasts announce; they are never pressed. Put them under the header
+     instead of over the page's primary action. */
+  body .pet-xp-toast {
+    top: calc(68px + env(safe-area-inset-top));
+    bottom: auto;
+    transform: translateX(-50%) translateY(-12px);
+    max-width: calc(100vw - 32px);
+    white-space: nowrap;
+  }
+  body .pet-xp-toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* Dark-mode switch. The label grows to 44px for the fingertip (above),
+     and the track was height:100%, so it grew with it into a grey square
+     with the knob stuck in its top corner. Keep the paint at 46x24. */
+  label.toggle { height: 44px; }
+  label.toggle .toggle-track { height: 24px; }
+  label.toggle .toggle-knob { top: calc(50% - 9px); }
+
+  /* Chips measured 23-29px tall (tutor modality/subject chips, the
+     settings sidebar "Shown" toggles) and the announcement close 29px
+     wide: under a fingertip. */
+  .tutor-modality-btn, .tutor-chip, .sb-cust-vis { min-height: 36px; }
+  .ipui-announce__close { min-width: 44px; }
+
+  /* Long unbroken strings — API scopes, URLs, file names — ran off the
+     right edge (the Canvas setup hint on /gradebook). */
+  main p, main li, main code, main td, main .card-meta, main .assignment-card {
+    overflow-wrap: anywhere;
+  }
+}
+
+/* The install banner's Download button is white on the accent; in dark
+   mode the accent is light, so the label vanished (contrast 2.2:1). */
+:root[data-theme="dark"] #installBanner,
+:root[data-theme="dark"] #installBanner .install-title,
+:root[data-theme="dark"] #installBanner .install-pill { color: #111; }
+:root[data-theme="dark"] #installBtn { background: rgba(0,0,0,0.14); color: #111; }
+:root[data-theme="dark"] #installDismissBtn { background: rgba(0,0,0,0.12); color: rgba(0,0,0,0.7); }
