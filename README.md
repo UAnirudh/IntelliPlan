@@ -52,6 +52,14 @@ A Notion-style kanban board with three columns — **Overdue**, **Today**, and *
 ### 🗓 AI Scheduler
 Input your available hours per day and preferred study time (morning, afternoon, evening). The AI generates a complete multi-day study plan — broken into focused work blocks with breaks — and exports it directly to **Google Calendar** with one click. Saved schedules persist across sessions.
 
+**Follow-Through Engine.** Plans are optimised for work that actually gets *done*, not just work that fits:
+
+- **Learns when you really work.** A per-student Bayesian model learns from your own ticked-off blocks and study sessions which times, days, sitting lengths and workloads you follow through on, starting from a population prior that improves as more students use IntelliPlan.
+- **Honest deadline odds.** Every plan is simulated a few hundred times, so each assignment shows its real chance of landing on time.
+- **One-tap rescheduling.** "Can't study today", "less time today", "extra time", "I'm behind", "not today" and drag-to-another-day each repair the plan, moving only what has to move and showing the consequence before you apply it.
+
+How it works: [docs/adaptive-scheduler/03-follow-through-engine.md](docs/adaptive-scheduler/03-follow-through-engine.md).
+
 ### 📖 Study & Learn
 Upload course notes (PDF, DOCX, TXT, MD, CSV) or paste text, and the AI generates:
 - **Flashcards** for active recall

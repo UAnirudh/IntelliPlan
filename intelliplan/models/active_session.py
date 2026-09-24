@@ -149,6 +149,14 @@ def register(db: Any) -> tuple[type, type]:
                 "kind": self.kind or "",
                 "at": self.ended_at or self.started_at,
                 "completed": bool(self.completed_work),
+                # The Follow-Through model needs *when* the sitting began
+                # (time of day, fatigue within the day), how long it was
+                # meant to be, and what it was for. Additive keys: the
+                # estimation model ignores them.
+                "started_at": self.started_at,
+                "planned_minutes": int(self.planned_minutes or 0),
+                "difficulty": self.difficulty or "medium",
+                "due_date": self.due_date,
             }
 
         def to_dict(self) -> dict[str, Any]:

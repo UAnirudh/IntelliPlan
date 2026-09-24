@@ -316,6 +316,68 @@ def windows_for_date(
     return windows
 
 
+#: Anchor hour for a day that had no free time at all until the student said
+#: "I've got extra time", keyed by their preferred part of the day.
+_EXTRA_TIME_ANCHOR_HOUR = {"morning": 9, "afternoon": 14, "evening": 18}
+
+
+def extend_windows(
+    windows: Sequence[Window],
+    target: _date,
+    extra_minutes: int,
+    preferred_time: str = "evening",
+    now: datetime | None = None,
+) -> list[Window]:
+    """Add study time the student told us about to a day's free windows.
+
+    "I have an extra two hours on Saturday" is not in their weekly
+    availability, and without this the planner would allocate the time while
+    the clock placer, reading only the availability, spilled the work off the
+    end of the day. The time goes after the last window (evenings are where
+    extra time usually comes from), then before the first once the evening
+    reaches 11 PM, and at the preferred hour on a day that had no windows at
+    all. Never earlier than 6 AM, never past 11 PM, never in the past — a
+    planner that answers "I have extra time" with a 1 AM block has not been
+    listening.
+    """
+    extra = int(extra_minutes or 0)
+    out = sorted(windows, key=lambda w: w.start)
+    if extra <= 0:
+        return out
+    day_start = datetime.combine(target, datetime.min.time()) + timedelta(hours=6)
+    day_end = datetime.combine(target, datetime.min.time()) + timedelta(hours=23)
+    now = now or datetime.now()
+    floor = day_start
+    if target == now.date():
+        soonest = now + timedelta(minutes=15)
+        soonest = soonest.replace(minute=(soonest.minute // 5) * 5, second=0, microsecond=0)
+        floor = max(day_start, soonest)
+    if floor >= day_end:
+        return out
+
+    if not out:
+        hour = _EXTRA_TIME_ANCHOR_HOUR.get((preferred_time or "").lower(), 18)
+        start = max(floor, datetime.combine(target, datetime.min.time()) + timedelta(hours=hour))
+        end = min(day_end, start + timedelta(minutes=extra))
+        short = extra - int((end - start).total_seconds() // 60)
+        if short >= 5:
+            start = max(floor, start - timedelta(minutes=short))
+        if int((end - start).total_seconds() // 60) < MIN_WINDOW_MINUTES:
+            return []
+        return [Window(start=start, end=end)]
+
+    last = out[-1]
+    end = min(day_end, max(last.end, last.start) + timedelta(minutes=extra))
+    added = max(0, int((end - last.end).total_seconds() // 60))
+    out[-1] = Window(start=last.start, end=max(end, last.end))
+    short = extra - added
+    if short >= 5:
+        first = out[0]
+        start = max(floor, first.start - timedelta(minutes=short))
+        out[0] = Window(start=min(start, first.start), end=first.end)
+    return out
+
+
 # ── Study DNA ─────────────────────────────────────────────────────
 
 

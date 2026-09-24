@@ -27,6 +27,25 @@ A :class:`Plan` — sessions with dates, minutes, and *reasons*. Every session
 can explain why it is where it is, because a schedule the student does not
 believe is a schedule the student ignores.
 
+Follow-through and stability
+----------------------------
+Two optional inputs turn this from "a plan that fits" into "a plan that
+happens, and stays put":
+
+* ``completion`` — a callable giving P(this sitting actually gets done) from
+  the student's Follow-Through model
+  (:mod:`intelliplan.intelligence.followthrough`). The cost then prices the
+  *expected value lost to skipped sittings*, so work migrates toward the
+  days, times, and sitting lengths this student really follows through on.
+* ``anchors`` — where each task's sittings sat in the plan the student is
+  already looking at. Moving a sitting off its anchor has a price, highest
+  for the next few days. A replan then repairs the part of the week that
+  broke instead of reshuffling the whole fortnight — the difference between
+  a planner students trust and one they stop opening.
+
+Both default to ``None``, and with neither supplied the planner behaves
+exactly as it always has.
+
 Purity
 ------
 No Flask, no ORM, no clock reads. ``today`` is always passed in.
@@ -37,7 +56,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from intelliplan.intelligence.estimation import (
     Estimate,
@@ -130,6 +149,26 @@ class PlannerTask:
     #: Concepts the student has previously struggled with, 0..1 mastery.
     #: Supplied by the caller from the concept-mastery repository.
     weak_concept_penalty: float = 0.0
+    #: ``est_minutes`` is already this student's corrected estimate — it came
+    #: out of a plan the estimation model built. Correcting it again would
+    #: apply the student's bias twice, so the model only supplies spread.
+    calibrated: bool = False
+    #: Additional finish-early days on top of :func:`buffer_days_for`, set by
+    #: the risk loop when simulation shows the default buffer is too thin.
+    extra_buffer_days: int = 0
+    #: Sittings the student placed by hand: ``((day, minutes), ...)``. Fixed
+    #: in place — the optimizer plans *around* them and never moves them.
+    pinned: tuple[tuple[date, int], ...] = ()
+    #: "Not today": no sitting of this task before this day.
+    not_before: date | None = None
+    #: The sittings this task has in the plan the student is looking at,
+    #: ``((day, minutes), ...)``; a ``None`` day is a sitting that lost its
+    #: day and needs a new one. A replan reuses these exact sizes — re-split
+    #: 120 minutes into 3×40 could never line up with an existing 40 + 80 —
+    #: and each one is anchored to its own day, so the stability cost can
+    #: tell "back where it was" from "somewhere this task also happens to
+    #: be". Only minutes these do not cover are split afresh.
+    sittings: tuple[tuple[date | None, int], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -176,6 +215,8 @@ class PlannerWeights:
     day_quality: float = 3.0      # cost of using a historically weak day
     fragmentation: float = 2.0    # cost of tiny leftover sittings
     concept_stack: float = 2.5    # cost of piling unfamiliar concepts up
+    follow_through: float = 8.0   # expected value lost to a skipped sitting
+    stability: float = 10.0       # cost of moving work the student already saw
 
 
 @dataclass(frozen=True, slots=True)
@@ -354,7 +395,10 @@ def buffer_days_for(task: PlannerTask, estimate: Estimate, config: PlannerConfig
         uncertainty = max(uncertainty, min(1.0, estimate.buffer_minutes / estimate.minutes))
     importance = task.priority / 100.0
     pressure = 0.6 * uncertainty + 0.4 * importance
-    return config.min_buffer_days + int(round(span * min(1.0, max(0.0, pressure))))
+    base = config.min_buffer_days + int(round(span * min(1.0, max(0.0, pressure))))
+    # Simulation-driven extra buffer may exceed the heuristic ceiling — that
+    # is the point of it — but only by a bounded amount.
+    return base + max(0, min(3, int(task.extra_buffer_days)))
 
 
 # ── Internal working state ────────────────────────────────────────────
@@ -379,6 +423,10 @@ class _Item:
     #: Task ids that wait on this one. The inverse of ``task.depends_on``,
     #: precomputed because the constraint is checked once per candidate day.
     dependents: tuple[str, ...] = ()
+    #: A sitting the student pinned. Never moved, never evicted.
+    fixed: bool = False
+    #: The day this exact sitting occupied in the plan being repaired.
+    anchor: date | None = None
 
     @property
     def load(self) -> float:
@@ -424,7 +472,79 @@ class _DayState:
             self.concepts[c] = max(0.0, self.concepts.get(c, 0.0) - item.task.weak_concept_penalty)
 
 
+#: ``completion(task, minutes, day, minutes_already_on_day) -> P(done)``.
+CompletionFn = Callable[[PlannerTask, int, date, int], float]
+
+
+@dataclass(frozen=True)
+class _Context:
+    """Per-call inputs the cost function needs beyond one day's state."""
+
+    today: date
+    horizon: int
+    completion: CompletionFn | None = None
+    #: ``{task_id: {day: sittings the task had on that day}}``.
+    anchors: Mapping[str, Mapping[date, int]] = field(default_factory=dict)
+
+
 # ── Cost model ────────────────────────────────────────────────────────
+
+
+def _follow_through_cost(
+    item: _Item, day: date, state: _DayState, ctx: _Context, weights: PlannerWeights
+) -> float:
+    """Expected value lost if this sitting, on this day, does not happen.
+
+    ``(1 − p)`` is the chance the sitting is skipped; importance scales what
+    a skip costs. Only *differences* between days matter to the optimizer,
+    so a student with a flat profile is untouched and one who reliably skips
+    Friday evenings sees work drift off Friday evenings.
+    """
+    if ctx.completion is None:
+        return 0.0
+    try:
+        p = float(ctx.completion(item.task, item.minutes, day, state.minutes))
+    except Exception:
+        return 0.0
+    p = max(0.0, min(1.0, p))
+    importance = 0.5 + 0.5 * (item.task.priority / 100.0)
+    return weights.follow_through * importance * (1.0 - p)
+
+
+def _stability_cost(
+    item: _Item, day: date, state: _DayState, ctx: _Context, weights: PlannerWeights
+) -> float:
+    """Price of moving a sitting off a day the student already expects it on.
+
+    Minimal perturbation: a replan should repair what broke, not reshuffle
+    what did not. The price falls with distance into the future — moving a
+    block from tomorrow is felt, moving one from twelve days out barely is —
+    and rises with how far the block moves.
+
+    The precise form is a per-sitting anchor (``item.anchor``, from
+    ``PlannerTask.sittings``): this exact block was on this exact day. The
+    looser form, for callers that only know task-level days, treats anchors
+    as *counts*: a task that had one sitting on Tuesday and one on Thursday
+    has a free slot on each, and stacking both on Tuesday is a change the
+    student will see, so it is priced like one.
+    """
+    if item.anchor is not None:
+        if day == item.anchor:
+            return 0.0
+        previous: Iterable[date] = (item.anchor,)
+    else:
+        counts = ctx.anchors.get(item.task.id) if ctx.anchors else None
+        if not counts:
+            return 0.0
+        if state.task_sessions.get(item.task.id, 0) < counts.get(day, 0):
+            return 0.0
+        previous = counts.keys()
+    previous = tuple(previous)
+    distance = min(abs((day - d).days) for d in previous)
+    nearest = min(min(previous), day)
+    ahead = max(0, (nearest - ctx.today).days)
+    nearness = max(0.35, 1.0 - ahead / max(1, ctx.horizon))
+    return weights.stability * (0.6 + 0.4 * min(distance, 3) / 3.0) * nearness
 
 
 def _placement_cost(
@@ -433,6 +553,7 @@ def _placement_cost(
     state: _DayState,
     horizon: int,
     weights: PlannerWeights,
+    ctx: _Context | None = None,
 ) -> float:
     """Price of putting ``item`` on ``day`` given what is already there.
 
@@ -493,6 +614,10 @@ def _placement_cost(
     if item.part_total > 1 and item.minutes < MIN_SESSION_MINUTES * 1.5 and state.minutes == 0:
         cost += weights.fragmentation
 
+    if ctx is not None:
+        cost += _follow_through_cost(item, day, state, ctx, weights)
+        cost += _stability_cost(item, day, state, ctx, weights)
+
     return cost
 
 
@@ -505,6 +630,9 @@ def build_plan(
     model: EstimationModel | None = None,
     today: date | None = None,
     config: PlannerConfig | None = None,
+    *,
+    completion: CompletionFn | None = None,
+    anchors: Mapping[str, Iterable[date]] | None = None,
 ) -> Plan:
     """Decide what work happens on what day.
 
@@ -512,6 +640,8 @@ def build_plan(
     from availability minus commitments (see
     ``scheduler_engine.windows_for_date``). The planner never invents time
     the student does not have — when the work does not fit, it says so.
+
+    ``completion`` and ``anchors`` are described in the module docstring.
     """
     config = config or PlannerConfig()
     model = model or EstimationModel()
@@ -539,15 +669,30 @@ def build_plan(
             capacity_minutes=sum(cap_by_day[d].usable for d in days),
         )
 
-    _assign(items, days, state, config)
-    _optimise(items, days, state, config)
+    ctx = _Context(
+        today=today,
+        horizon=len(days),
+        completion=completion,
+        anchors=_anchor_counts(anchors),
+    )
+
+    # Pinned sittings go down first and never move. They are allowed past a
+    # day's comfortable fill and even past its capacity: the student put
+    # them there, and the consequence report — not the optimizer — is where
+    # that gets questioned.
+    for item in items:
+        if item.fixed and item.day is not None:
+            state[item.day].add(item)
+
+    _assign(items, days, state, config, ctx)
+    _optimise(items, days, state, config, ctx)
     # Local search frees space the greedy pass did not have. Retry anything
     # it gave up on before telling the student it will not fit.
-    _retry_deferred(items, days, state, config)
+    _retry_deferred(items, days, state, config, ctx)
     # When the week genuinely does not hold everything, decide *what* gets
     # dropped on value rather than on whatever the greedy order happened to
     # place first.
-    items = _triage(items, days, state, config)
+    items = _triage(items, days, state, config, ctx)
     # Two sittings of the same task on the same day is a split that bought
     # nothing; fold them back before anyone sees them.
     items = _coalesce(items)
@@ -572,20 +717,37 @@ def _build_items(
     # the day it should have used stayed empty. Focus length is an upper
     # bound on a sitting; the calendar is a harder one.
     largest_day = max((cap_by_day[d].usable for d in days), default=0)
+    day_set = set(days)
 
     for task in tasks:
         raw = task.est_minutes or baseline_minutes(task.kind, task.points_possible)
         estimate = model.predict(raw, task.course, task.kind, task.points_possible)
+        if task.calibrated:
+            estimate = _calibrated(estimate, int(raw))
         remaining = max(0, estimate.minutes - max(0, task.done_minutes))
         if remaining <= 0:
             continue
 
+        # Hand-placed sittings are carved out first. A pin on a day outside
+        # the horizon (already past, or beyond it) cannot be honoured here
+        # and falls back to ordinary, movable work.
+        pins = [
+            (d, int(m)) for d, m in task.pinned
+            if isinstance(d, date) and d in day_set and int(m or 0) > 0
+        ]
+        pinned_minutes = min(remaining, sum(m for _, m in pins))
+        flexible = remaining - pinned_minutes
+
         cap = session_cap_for(task, model.stamina_minutes)
         if largest_day > 0:
             cap = min(cap, largest_day)
-        chunks = split_into_sessions(remaining, cap, task.subtask_count)
-        if not chunks:
+        chunks = _chunked(flexible, task, cap, largest_day, day_set)
+        if not chunks and not pins:
             continue
+
+        earliest = today
+        if task.not_before is not None and task.not_before > today:
+            earliest = task.not_before
 
         buffer_days = buffer_days_for(task, estimate, config)
         if task.due_date is None:
@@ -595,18 +757,43 @@ def _build_items(
             latest = task.due_date - timedelta(days=buffer_days)
             # An overdue or imminent task cannot have buffer it does not have.
             latest = max(today, min(latest, hard_latest))
+        # A push can eat the buffer, and even the deadline. When it does, the
+        # work is reported as not fitting rather than silently scheduled late.
+        latest = max(latest, min(earliest, hard_latest))
 
-        for i, minutes in enumerate(chunks, start=1):
+        total_parts = len(chunks) + len(pins)
+        for i, (minutes, anchor) in enumerate(chunks, start=1):
             items.append(
                 _Item(
                     task=task,
                     minutes=minutes,
                     part_index=i,
-                    part_total=len(chunks),
+                    part_total=total_parts,
                     estimate=estimate,
-                    earliest=today,
+                    earliest=earliest,
                     latest=latest,
                     hard_latest=hard_latest,
+                    anchor=anchor,
+                )
+            )
+        budget = pinned_minutes
+        for offset, (day, minutes) in enumerate(pins, start=len(chunks) + 1):
+            minutes = min(minutes, budget)
+            if minutes <= 0:
+                break
+            budget -= minutes
+            items.append(
+                _Item(
+                    task=task,
+                    minutes=minutes,
+                    part_index=offset,
+                    part_total=total_parts,
+                    estimate=estimate,
+                    earliest=day,
+                    latest=day,
+                    hard_latest=day,
+                    day=day,
+                    fixed=True,
                 )
             )
 
@@ -623,6 +810,86 @@ def _build_items(
         it.dependents = tuple(sorted(dependents.get(it.task.id, ())))
 
     return items
+
+
+def _chunked(
+    flexible: int,
+    task: PlannerTask,
+    cap: int,
+    largest_day: int,
+    day_set: set[date],
+) -> list[tuple[int, date | None]]:
+    """``(minutes, anchor_day)`` sittings, reusing ``task.sittings`` first."""
+    if flexible <= 0:
+        return []
+    # A ``None`` day is a sitting that lost its day (a cleared evening, a
+    # push): it keeps its size — the student already saw it as one block —
+    # but has nowhere it is supposed to be.
+    hinted = [
+        (int(m), d if isinstance(d, date) and d in day_set else None)
+        for d, m in sorted(
+            task.sittings, key=lambda t: (not isinstance(t[0], date), t[0] or date.max)
+        )
+        if int(m or 0) > 0
+    ]
+    if not hinted:
+        return [(m, None) for m in split_into_sessions(flexible, cap, task.subtask_count)]
+    ceiling = largest_day if largest_day > 0 else None
+    out: list[tuple[int, date | None]] = []
+    budget = flexible
+    for minutes, anchor in hinted:
+        if budget <= 0:
+            break
+        take = min(minutes, budget, ceiling or minutes)
+        out.append((take, anchor))
+        budget -= take
+    if budget > 0:
+        if budget < MIN_SESSION_MINUTES and out:
+            # Nobody opens a textbook for eight minutes; fold it in.
+            minutes, anchor = out[-1]
+            out[-1] = (minutes + budget, anchor)
+        else:
+            out.extend((m, None) for m in split_into_sessions(budget, cap, 0))
+    return out
+
+
+def _anchor_counts(anchors: Mapping[str, Iterable[date]] | None) -> dict[str, dict[date, int]]:
+    """Normalise anchors to ``{task: {day: count}}``.
+
+    Accepts a plain iterable of days (repeats mean several sittings that
+    day) or an already-counted mapping.
+    """
+    out: dict[str, dict[date, int]] = {}
+    for key, value in (anchors or {}).items():
+        counts: dict[date, int] = {}
+        if isinstance(value, Mapping):
+            for d, n in value.items():
+                if isinstance(d, date) and int(n or 0) > 0:
+                    counts[d] = int(n)
+        else:
+            for d in value or ():
+                if isinstance(d, date):
+                    counts[d] = counts.get(d, 0) + 1
+        if counts:
+            out[str(key)] = counts
+    return out
+
+
+def _calibrated(estimate: Estimate, raw: int) -> Estimate:
+    """Keep the model's *spread* around a number it already corrected.
+
+    The ratio is kept too, but only for the explanation shown to the student:
+    the minutes did come from that correction, once.
+    """
+    centre = max(1, estimate.minutes)
+    low = estimate.low_minutes / centre
+    high = estimate.high_minutes / centre
+    return replace(
+        estimate,
+        minutes=max(1, raw),
+        low_minutes=max(1, int(round(raw * low))),
+        high_minutes=max(raw, int(round(raw * high))),
+    )
 
 
 def _index_by_task(items: Sequence[_Item]) -> dict[str, list[_Item]]:
@@ -710,10 +977,14 @@ def _apply_dependencies(items: list[_Item], days: Sequence[date]) -> None:
                 continue
             prereq_latest = min(i.latest for i in group)
             for p in prereq:
+                if p.fixed:
+                    continue
                 p.latest = min(p.latest, max(p.earliest, prereq_latest - timedelta(days=1)))
                 p.hard_latest = min(p.hard_latest, prereq_latest)
             prereq_earliest = min(p.earliest for p in prereq)
             for g in group:
+                if g.fixed:
+                    continue
                 g.earliest = max(g.earliest, prereq_earliest)
                 if g.earliest > g.latest:
                     g.latest = min(g.hard_latest, g.earliest)
@@ -724,6 +995,7 @@ def _assign(
     days: Sequence[date],
     state: dict[date, _DayState],
     config: PlannerConfig,
+    ctx: _Context | None = None,
 ) -> None:
     """Greedy seed: place the most constrained work first.
 
@@ -743,7 +1015,7 @@ def _assign(
     layers = _dependency_layers(items)
     by_task = _index_by_task(items)
     ordered = sorted(
-        items,
+        (it for it in items if not it.fixed),
         key=lambda it: (
             layers.get(it.task.id, 0),
             it.hard_latest,
@@ -754,7 +1026,7 @@ def _assign(
         ),
     )
     for item in ordered:
-        _place_best(item, days, state, config, by_task)
+        _place_best(item, days, state, config, by_task, ctx)
 
 
 def _place_best(
@@ -763,6 +1035,7 @@ def _place_best(
     state: dict[date, _DayState],
     config: PlannerConfig,
     by_task: Mapping[str, list[_Item]] | None = None,
+    ctx: _Context | None = None,
 ) -> bool:
     """Put ``item`` on its cheapest feasible day. False when none exists."""
     lo, hi = _dep_bounds(item, by_task) if by_task else (None, None)
@@ -781,7 +1054,7 @@ def _place_best(
         return False
     best_day, best_cost = None, math.inf
     for d in candidates:
-        cost = _placement_cost(item, d, state[d], len(days), config.weights)
+        cost = _placement_cost(item, d, state[d], len(days), config.weights, ctx)
         if cost < best_cost:
             best_day, best_cost = d, cost
     if best_day is None or best_cost == math.inf:
@@ -798,6 +1071,7 @@ def _retry_deferred(
     days: Sequence[date],
     state: dict[date, _DayState],
     config: PlannerConfig,
+    ctx: _Context | None = None,
 ) -> None:
     """Second chance for unplaced work, hardest-constrained first."""
     by_task = _index_by_task(items)
@@ -812,7 +1086,7 @@ def _retry_deferred(
         ),
     )
     for item in unplaced:
-        _place_best(item, days, state, config, by_task)
+        _place_best(item, days, state, config, by_task, ctx)
 
 
 def _optimise(
@@ -820,6 +1094,7 @@ def _optimise(
     days: Sequence[date],
     state: dict[date, _DayState],
     config: PlannerConfig,
+    ctx: _Context | None = None,
 ) -> None:
     """Local search: relocate sessions while it lowers total cost.
 
@@ -847,11 +1122,11 @@ def _optimise(
     for _ in range(passes):
         improved = False
         for item in items:
-            if item.day is None:
+            if item.day is None or item.fixed:
                 continue
             current = state[item.day]
             current.remove(item)
-            base_cost = _placement_cost(item, item.day, current, horizon, config.weights)
+            base_cost = _placement_cost(item, item.day, current, horizon, config.weights, ctx)
             best_day, best_cost = item.day, base_cost
             # Recomputed per item, because every accepted move changes the
             # bounds of the item's relatives. A cheaper day that puts the
@@ -862,7 +1137,7 @@ def _optimise(
                     continue
                 if (lo is not None and d < lo) or (hi is not None and d > hi):
                     continue
-                cost = _placement_cost(item, d, state[d], horizon, config.weights)
+                cost = _placement_cost(item, d, state[d], horizon, config.weights, ctx)
                 if cost < best_cost - 1e-9:
                     best_day, best_cost = d, cost
             if best_day != item.day:
@@ -910,6 +1185,7 @@ def _triage(
     days: Sequence[date],
     state: dict[date, _DayState],
     config: PlannerConfig,
+    ctx: _Context | None = None,
 ) -> list[_Item]:
     """Trade low-value placed work for high-value work that would not fit.
 
@@ -952,7 +1228,7 @@ def _triage(
                 continue  # _place_best already had its chance; it fits nowhere else
             # Cheapest set of strictly-less-valuable sittings that frees room.
             evictable = sorted(
-                (o for o in by_day.get(d, ()) if values[id(o)] < item_value),
+                (o for o in by_day.get(d, ()) if not o.fixed and values[id(o)] < item_value),
                 key=lambda o: values[id(o)],
             )
             freed, chosen = 0, []
@@ -977,7 +1253,7 @@ def _triage(
             victim.defer_reason = (
                 f"Displaced by higher-priority work ({item.task.title})."
             )
-        if not _place_best(item, days, state, config):
+        if not _place_best(item, days, state, config, None, ctx):
             # Undo — never leave the plan worse than we found it.
             for victim in victims:
                 victim.day = day
@@ -990,7 +1266,7 @@ def _triage(
     # Evicted work may fit elsewhere. This runs once, after every swap has
     # been decided — doing it inside the loop above re-scanned the whole
     # unplaced pile on every single swap for no additional placements.
-    _retry_deferred(items, days, state, config)
+    _retry_deferred(items, days, state, config, ctx)
     return items
 
 
@@ -1015,6 +1291,9 @@ def _coalesce(items: list[_Item]) -> list[_Item]:
             merged.append(item)
             continue
         existing.minutes += item.minutes
+        # A block that contains a pinned sitting is still the student's
+        # block — keep it fixed, and keep saying so.
+        existing.fixed = existing.fixed or item.fixed
     return merged
 
 
@@ -1141,6 +1420,9 @@ def _reasons_for(item: _Item, state: _DayState) -> tuple[str, ...]:
     task = item.task
     is_last = item.part_index >= item.part_total
 
+    if item.fixed:
+        out.append("You placed this here — the rest of the plan works around it.")
+
     if task.due_date is not None:
         gap = (task.due_date - item.day).days
         if gap <= 0:
@@ -1228,6 +1510,9 @@ def reschedule(
     model: EstimationModel | None = None,
     today: date | None = None,
     config: PlannerConfig | None = None,
+    *,
+    completion: CompletionFn | None = None,
+    anchors: Mapping[str, Iterable[date]] | None = None,
 ) -> Plan:
     """Rebuild the plan from where the student actually is.
 
@@ -1258,7 +1543,14 @@ def reschedule(
             task = replace(task, priority=min(100, task.priority + 12))
         remaining.append(task)
 
-    return build_plan(remaining, capacities, model=model, today=today, config=config)
+    # Missed work carries no anchor: it has nowhere it is "supposed" to be
+    # any more, so the optimizer is free to find it the best new day.
+    if anchors:
+        anchors = {k: v for k, v in anchors.items() if k not in reality.missed_task_ids}
+    return build_plan(
+        remaining, capacities, model=model, today=today, config=config,
+        completion=completion, anchors=anchors,
+    )
 
 
 # ── Adapters ──────────────────────────────────────────────────────────

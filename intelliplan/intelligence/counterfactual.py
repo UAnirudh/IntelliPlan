@@ -381,6 +381,7 @@ def generate_candidates(
     objective: ObjectiveWeights | None = None,
     profiles: Sequence[Profile] = PROFILES,
     completion_probability: Callable[[str, int, date], float] | None = None,
+    completion: Any = None,
 ) -> list[Candidate]:
     """Build one plan per profile and score them all.
 
@@ -400,11 +401,21 @@ def generate_candidates(
     for profile in profiles:
         config = replace(
             base_config,
-            weights=profile.weights,
+            # A profile states its view on the classic trade-offs; the
+            # follow-through and stability prices are not part of that view
+            # and carry over from the base config unchanged.
+            weights=replace(
+                profile.weights,
+                follow_through=base_config.weights.follow_through,
+                stability=base_config.weights.stability,
+            ),
             target_utilisation=profile.target_utilisation,
         )
         try:
-            plan = build_plan(tasks, capacities, model=model, today=today, config=config)
+            plan = build_plan(
+                tasks, capacities, model=model, today=today, config=config,
+                completion=completion,
+            )
         except Exception:
             continue
         metrics = measure(

@@ -252,3 +252,59 @@ def test_get_list_is_bounded_by_a_page_cap(monkeypatch):
     monkeypatch.setattr(canvas_helper, "requests", types.SimpleNamespace(get=endless))
     rows = canvas_helper._get_list("https://x/api/v1/courses", {})
     assert len(rows) == canvas_helper._MAX_PAGES
+
+
+# ── Grades show, assignments don't ───────────────────────────────────
+#
+# Reported: the Grade Modeler showed a course grade with no assignments
+# under it. The course total comes from /courses (enough scope for grades);
+# the assignment list came from exactly one endpoint, and a developer key
+# without its scope answers that endpoint with a 401 body that used to turn
+# silently into "no assignments".
+
+
+def scoped_canvas(monkeypatch, working_route):
+    denied = {"errors": [{"message": "user not authorized to perform that action"}]}
+    assignment = {"id": 7, "name": "Unit 3 Test", "points_possible": 50,
+                  "due_at": "2026-09-20T00:00:00Z"}
+    submission = {"assignment_id": 7, "score": 44, "grade": None}
+
+    def fake_get(url, headers=None, timeout=None):
+        if url.rstrip("/").endswith("/courses") or "/courses?" in url:
+            return _Resp([{"id": 55, "name": "AP US History", "enrollments": [
+                {"computed_current_score": 88.0, "computed_current_grade": "B+"}]}])
+        route = (
+            "users_self" if "/users/self/courses/55/assignments" in url
+            else "groups" if "/assignment_groups" in url
+            else "submissions" if "include[]=assignment" in url
+            else "assignments" if "/courses/55/assignments" in url
+            else "other"
+        )
+        if route != working_route:
+            return _Resp(denied)
+        if route == "users_self":
+            return _Resp([dict(assignment, submission=submission)])
+        if route == "groups":
+            return _Resp([{"id": 1, "name": "Tests", "assignments": [dict(assignment, submission=submission)]}])
+        return _Resp([dict(submission, assignment=assignment)])
+
+    monkeypatch.setattr(canvas_helper, "requests", types.SimpleNamespace(get=fake_get))
+
+
+@pytest.mark.parametrize("route", ["users_self", "groups", "submissions"])
+def test_assignments_arrive_when_the_course_assignments_route_is_denied(monkeypatch, route):
+    scoped_canvas(monkeypatch, route)
+    course = canvas_helper.get_gradebook_detail("https://x", "tok")[0]
+    assert course["percentage"] == 88.0
+    assert [a["title"] for a in course["assignments"]] == ["Unit 3 Test"]
+    row = course["assignments"][0]
+    assert row["points_earned"] == 44 and row["points_possible"] == 50
+    assert frontend_counts_as_graded(row)
+
+
+def test_a_denied_route_is_logged_not_swallowed(monkeypatch, capsys):
+    scoped_canvas(monkeypatch, "groups")
+    canvas_helper.get_gradebook_detail("https://x", "tok")
+    out = capsys.readouterr().out
+    assert "non-list body from /api/v1/courses/55/assignments" in out or "/courses/55/assignments" in out
+    assert "tok" not in out
