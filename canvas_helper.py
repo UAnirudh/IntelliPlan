@@ -361,6 +361,25 @@ def _assignments_with_submissions(base, headers, cid):
     return embedded, sub_map
 
 
+def _assignment_groups(base, headers, cid):
+    """The course's grading categories and their weights, or ``[]``.
+
+    ``[]`` when the token may not read them, in which case the modeler
+    falls back to points — correct for unweighted courses and clearly
+    labelled for the rest.
+    """
+    out = []
+    for g in _get_list(f"{base}/courses/{cid}/assignment_groups", headers):
+        if not isinstance(g, dict) or g.get("id") is None:
+            continue
+        try:
+            weight = float(g.get("group_weight") or 0)
+        except (TypeError, ValueError):
+            weight = 0.0
+        out.append({"id": str(g["id"]), "name": str(g.get("name") or ""), "weight": weight})
+    return out
+
+
 def get_gradebook_detail(canvas_url, token):
     """Return per-course gradebook detail (assignments + scores).
 
@@ -377,6 +396,8 @@ def get_gradebook_detail(canvas_url, token):
         course_name = c.get("name", "Unknown")
 
         assignments_raw, sub_map = _assignments_with_submissions(base, headers, cid)
+        groups = _assignment_groups(base, headers, cid)
+        group_names = {g["id"]: g["name"] for g in groups}
 
         course_assignments = []
         for a in assignments_raw:
@@ -391,7 +412,16 @@ def get_gradebook_detail(canvas_url, token):
             except Exception:
                 score_val = None
 
+            group_id = str(a.get("assignment_group_id") or "")
             course_assignments.append({
+                # A stable key. Without it the modeler keyed rows by title,
+                # so two "Quiz" rows shared one what-if score.
+                "id": str(aid) if aid is not None else "",
+                "group_id": group_id,
+                "group": group_names.get(group_id, ""),
+                # Excused work counts toward nothing in Canvas's own total.
+                "excused": bool(sub.get("excused")),
+                "omit_from_final_grade": bool(a.get("omit_from_final_grade")),
                 "title": a.get("name", ""),
                 "due_date": (a.get("due_at") or "")[:10],
                 "points_possible": points_possible,
@@ -443,10 +473,18 @@ def get_gradebook_detail(canvas_url, token):
         if letter is None and percentage is not None:
             letter = _letter_from_pct(percentage)
 
+        weighted = bool(c.get("apply_assignment_group_weights")) and any(
+            g["weight"] > 0 for g in groups
+        )
         detail.append({
             "course": course_name,
             "percentage": percentage,
             "letter": letter or "N/A",
+            # How Canvas computes this course's grade. A course weighted by
+            # category (Tests 50%, Homework 20%, ...) computed from raw points
+            # disagrees with Canvas the moment anything is simulated.
+            "weighting": "groups" if weighted else "points",
+            "groups": groups,
             "assignments": course_assignments,
         })
 
