@@ -105,6 +105,15 @@ def test_the_banner_is_shown_now_that_there_is_something_to_ask_about(client):
     assert b"ipCookieBanner" in client.get("/").data
 
 
+def test_cookie_choice_stays_above_other_mobile_overlays(client):
+    """A first-run walkthrough must not leave the required cookie choice
+    visible but untappable on a phone."""
+    page = client.get("/").data
+    assert b'role="dialog" aria-modal="true"' in page
+    assert b"z-index: 11000;" in page
+    assert b"first-party analytics cookie" in page
+
+
 def test_consent_surfaces_use_an_opaque_theme_surface(client):
     """Page content must not show through consent UI in either theme."""
     page = client.get("/").data

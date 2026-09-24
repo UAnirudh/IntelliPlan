@@ -3410,16 +3410,13 @@ window.addEventListener('load',()=>{
    "Reject" sits beside "Accept" at equal weight: a refusal that takes more
    clicks than agreement is not freely given consent. #}
 {% if analytics_available_for_banner and not cookie_consent_given %}
-<div id="ipCookieBanner" class="ip-cookie-banner" role="region"
+<div id="ipCookieBanner" class="ip-cookie-banner" role="dialog" aria-modal="true"
      aria-label="Cookie choices">
   <div class="ip-cookie-inner">
     <div class="ip-cookie-text">
       <strong>We use cookies to keep you signed in.</strong>
-      We would also like to count which parts of IntelliPlan get used, so we
-      can fix the confusing ones. That means one cookie of ours holding a
-      random id — no third-party trackers, no session recording, nothing
-      sold or used for advertising, and you can switch it off later, which
-      also deletes what it recorded.
+      With your permission, one first-party analytics cookie helps us improve
+      IntelliPlan. No ads, third-party trackers, or session recordings.
       <a href="/cookies">What we store</a>
     </div>
     <div class="ip-cookie-actions">
@@ -3433,7 +3430,7 @@ window.addEventListener('load',()=>{
 
 <style>
   .ip-cookie-banner {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 2900;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 11000;
     padding: 0.9rem 1rem;
     background: var(--bg-card, #fff);
     border-top: 1px solid var(--border);
@@ -3460,6 +3457,11 @@ window.addEventListener('load',()=>{
     color: var(--text-primary);
   }
   @media (max-width: 560px) {
+    .ip-cookie-banner {
+      max-height: calc(100dvh - env(safe-area-inset-top) - 0.75rem);
+      overflow-y: auto;
+      padding-bottom: calc(0.9rem + env(safe-area-inset-bottom));
+    }
     .ip-cookie-actions { width: 100%; }
     .ip-cookie-btn { flex: 1; }
   }

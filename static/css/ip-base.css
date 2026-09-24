@@ -870,7 +870,13 @@
       border-radius:var(--r-sm); display:flex; align-items:center; justify-content:center;
       overflow:hidden; flex-shrink:0;
     }
-    .logo-icon img { width:100%; height:100%; object-fit:cover; border-radius:var(--r-sm); }
+    /* The PWA icon includes a wordmark at its bottom. Crop it here because
+       the adjacent text already supplies the product name. */
+    .logo-icon img {
+      width: 190%; height: 190%; max-width: none; max-height: none;
+      object-fit: cover; object-position: 50% 22%; border-radius: var(--r-sm);
+      transform: translateY(6%);
+    }
     .logo-text { font-family:var(--font-ui); font-size:1rem; font-weight:600; color:var(--text-primary); letter-spacing:-0.025em; }
     .logo-text span { color:var(--text-primary); }
     .header-right { display:contents; }
