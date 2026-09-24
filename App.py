@@ -2605,6 +2605,10 @@ StudentProfile, ConceptMastery, LearningEvent = _lg_models.register(db)
 # recommendation, so "why did my week change?" has an answer and the
 # behavioural model has a training signal.
 ScheduleVersion, ScheduleDecision = _sched_models.register(db)
+# Learned population priors for the Follow-Through model — the coefficients a
+# brand-new student's plan starts from, refitted by /cron/refit-followthrough-prior.
+from intelliplan.models import model_priors as _prior_models
+ModelPrior = _prior_models.register(db)
 # Active study sessions — the table the scheduler's estimation model learns
 # from. See intelliplan/models/active_session.py for the privacy contract
 # covering the focus-sample rows.
@@ -4175,6 +4179,13 @@ def reflow_schedule(schedule_data, availability=None, commitments=None, dna=None
     schedule = schedule_data.get("schedule", []) or []
     carry, notes = [], []
     personalized = bool(availability) or dna is not None
+    # Extra time the student added to specific days ("I've got two hours on
+    # Saturday") lives on the plan, not in their weekly availability.
+    extra_by_day = {
+        str(k)[:10]: int((v or {}).get("add") or 0)
+        for k, v in (schedule_data.get("capacity_overrides") or {}).items()
+        if isinstance(v, dict)
+    }
     for day_idx, day in enumerate(schedule):
         # Drop breaks we injected last time — the break rule runs again below,
         # so keeping them would grow the plan by one break per drag.
@@ -4193,6 +4204,10 @@ def reflow_schedule(schedule_data, availability=None, commitments=None, dna=None
             windows = scheduler_engine.windows_for_date(
                 day_date, availability, preferred_time, commitments,
             )
+            if extra_by_day.get(day_date.isoformat()):
+                windows = scheduler_engine.extend_windows(
+                    windows, day_date, extra_by_day[day_date.isoformat()], preferred_time,
+                )
             placed, spilled = scheduler_engine.place_day_blocks(
                 carry + blocks, windows, dna, preserve_order=True,
                 # Same interval the plan was generated with. Without this the
@@ -10451,9 +10466,12 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
             # Real calendar events. Study time booked over a dentist
             # appointment is a plan the student cannot follow.
             busy_by_date=_planner_busy_by_date(),
+            **_followthrough_extras(uid, gid),
         )
         config = PlannerConfig()
-        service = SchedulingService(context, config)
+        service = SchedulingService(
+            context, config, follow_through=_followthrough_on(uid),
+        )
         plan, chosen = _choose_plan(service, rows, uid)
         data = service.to_schedule_data(plan)
         if uid:
@@ -10473,6 +10491,34 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
         print(f"[planner] v2 planning failed, falling back to AI path: {pe}")
         traceback.print_exc()
         return None
+
+
+def _followthrough_on(uid):
+    """Whether this student's plans use the Follow-Through engine."""
+    try:
+        from followthrough_glue import followthrough_enabled
+
+        return followthrough_enabled(uid)
+    except Exception as e:
+        print(f"[planner] follow-through flag check failed: {e}")
+        return False
+
+
+def _followthrough_extras(uid, gid):
+    """Outcome history and population prior for ``StudentContext``.
+
+    Empty on any failure: the engine then runs on Active-study history and
+    the built-in prior, which is a weaker plan, never a missing one.
+    """
+    if not _followthrough_on(uid):
+        return {}
+    try:
+        from followthrough_glue import student_context_extras
+
+        return student_context_extras(uid, gid)
+    except Exception as e:
+        print(f"[planner] follow-through inputs failed (non-fatal): {e}")
+        return {}
 
 
 def _choose_plan(service, rows, uid):
@@ -13706,10 +13752,30 @@ def recover_schedule():
                 weak_days=tuple(getattr(dna, "weak_days", ()) or ()),
                 daily_target_minutes=comfort,
                 busy_by_date=_planner_busy_by_date(),
+                **_followthrough_extras(uid, gid),
             ),
             PlannerConfig(),
+            follow_through=_followthrough_on(uid),
         )
-        replanned = service.replan(rows, reality)
+        # Work that was not missed stays where the student last saw it.
+        # Without anchors, recovering one missed evening re-solved the whole
+        # fortnight from scratch and reshuffled everything that was fine.
+        anchors = {}
+        for d in (before.get("schedule") or []):
+            day_date = None
+            try:
+                day_date = date.fromisoformat(str(d.get("date") or "")[:10])
+            except ValueError:
+                pass
+            if day_date is None or day_date < date.today():
+                continue
+            for b in (d.get("blocks") or []):
+                if isinstance(b, dict) and b.get("task_id") and not b.get("is_break"):
+                    anchors.setdefault(str(b["task_id"]), []).append(day_date)
+        # "Can't study today" and "extra time Saturday" still hold after a
+        # recovery — the student said them, and nothing since has changed that.
+        service.set_capacity_overrides(before.get("capacity_overrides"))
+        replanned = service.replan(rows, reality, anchors=anchors)
         after = service.to_schedule_data(replanned)
         if uid:
             # A recovery is a new version of the plan, and the reason it
@@ -16168,6 +16234,7 @@ DEFAULT_FLAGS = {
     "active_study":  "Active study sessions (timer, focus check-in, feedback loop)",
     "planner_v2":    "Deterministic scheduling engine (kill switch — falls back to the AI path)",
     "adaptive_scheduler": "Adaptive scheduler v3 — Next Best Action, counterfactual plans, overrides",
+    "followthrough_engine": "Follow-Through engine — completion-aware planning, on-time forecasts, one-tap rescheduling (kill switch)",
 }
 
 
@@ -19731,6 +19798,14 @@ app.register_blueprint(active_bp)
 # existing surface depends on it.
 from next_action_glue import next_action_bp
 app.register_blueprint(next_action_bp)
+# Follow-Through engine — one-tap rescheduling ("can't study today"), on-time
+# forecasts, and the population-prior refit cron. `followthrough_engine` is a
+# kill switch (default on); off, every route 404s.
+from followthrough_glue import followthrough_bp
+app.register_blueprint(followthrough_bp)
+limiter.limit("120 per hour")(app.view_functions["followthrough.adjust"])
+limiter.limit("240 per hour")(app.view_functions["followthrough.forecast"])
+limiter.exempt(app.view_functions["followthrough.refit_prior"])
 # ── Notifications. Outbox-backed: events are queued by the sweep and
 # delivered on a timer, so no student request ever waits on an SMS
 # gateway or an SMTP handshake.

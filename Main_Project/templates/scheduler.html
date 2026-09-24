@@ -2,6 +2,8 @@
 {% block page_title %}Scheduler | IntelliPlan{% endblock %}
 
 {% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/followthrough.css') }}?v={{ asset_v }}">
+<script defer src="{{ url_for('static', filename='js/followthrough.js') }}?v={{ asset_v }}"></script>
 <style>
   /* ── IPD Tab bar ─────────────────────────────────── */
   .sched-tabs {
@@ -1128,6 +1130,7 @@
     <!-- "Used your saved answers for Study" — so a preset is never applied
          behind the student's back. -->
     <div id="usedPresets" style="display:none;margin-bottom:1rem;"></div>
+    <div data-ft-mount hidden></div>
     <div class="schedule-overview" id="scheduleOverview"></div>
     <div class="schedule-days" id="scheduleDays"></div>
   </div>
@@ -1151,6 +1154,8 @@
       <p id="ivContextBody">Pick a block to see its checklist. Each step has a tap-to-expand "why".</p>
     </div>
   </div>
+
+  <div data-ft-mount hidden></div>
 
   <div id="ivEmpty" class="iv-empty">
     <div><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-scheduler"/></svg></div>
@@ -1975,6 +1980,7 @@ async function autoSaveSchedule() {
     if (res.status === 'ok') {
       _progressSyncEnabled = true;
       pushProgress();
+      if (window.FT) FT.refresh();
     }
   } catch (e) { /* the manual save button remains */ }
 }
@@ -1990,6 +1996,7 @@ async function saveSchedule() {
     // The plan is now the active saved schedule — progress can sync to it.
     _progressSyncEnabled = true;
     pushProgress();
+    if (window.FT) FT.refresh();
     const btn = document.querySelector('[onclick="saveSchedule()"]');
     if (!btn) return;
     const orig = btn.innerHTML;
@@ -2474,6 +2481,7 @@ function scheduleReflow() {
         renderInteractive();
         renderSchedule(_lastScheduleData);
         updateBadge();
+        if (window.FT) FT.refresh();
       })
       .catch(() => {});   // offline / unsaved preview — the local retime stands
   }, 700);
@@ -2689,6 +2697,9 @@ function ivPerformDrop(blockId, destDayIdx, destIdx) {
   renderSchedule(_lastScheduleData);
   scheduleReflow();   // authoritative re-time + conflict detection
   ivAnnounce(`Moved ${blk.assignment || 'block'} to ${destDay.day_name || 'another day'}.`);
+  // A block dragged to another day can leave that day overfull or starve a
+  // deadline. Offer — never force — a rebalance that keeps it where it was put.
+  if (srcDay !== destDay && window.FT) FT.offerRebalance(blk, srcDay.date, destDay.date);
 }
 
 /* Politely tell a screen reader what the drag did. */
@@ -2781,14 +2792,22 @@ function openMoveMenu(btn) {
     { action: 'down', label: 'Move later in the day', svg: icon('<polyline points="6 9 12 15 18 9"/>'), enabled: posAmongWork < workIdxs.length - 1 },
     { action: 'prevday', label: prevDay ? `Move to ${escapeText(prevDay.day_name || 'previous day')}` : 'Move to previous day', svg: icon('<polyline points="15 18 9 12 15 6"/>'), enabled: !!prevDay },
     { action: 'nextday', label: nextDay ? `Move to ${escapeText(nextDay.day_name || 'next day')}` : 'Move to next day', svg: icon('<polyline points="9 18 15 12 9 6"/>'), enabled: !!nextDay },
+    // "Not today" and "Already done" re-plan the rest of the week around
+    // the change (with a preview first) rather than just shuffling one block.
+    ...(window.FT ? FT.menuItems() : []),
   ];
   menu.innerHTML = items.map(it =>
     `<button type="button" role="menuitem" data-action="${it.action}" ${it.enabled ? '' : 'disabled'}>${it.svg} ${it.label}</button>`
   ).join('');
   menu.querySelectorAll('button[data-action]').forEach(b => {
     b.addEventListener('click', () => {
+      const action = b.dataset.action;
       closeMoveMenu();
-      performMove(blockId, b.dataset.action);
+      if (action.startsWith('ft-')) {
+        if (window.FT) FT.fromMenu(action, blockId, btn);
+        return;
+      }
+      performMove(blockId, action);
     });
   });
 
@@ -3040,6 +3059,7 @@ function dismissSavedPlan() {
   document.getElementById('savePanel').style.display = 'none';
   updateBadge();
   if (_currentTab === 'interactive') renderInteractive();
+  if (window.FT) FT.refresh();
 }
 
 /* The saved plan reads through the offline cache.
@@ -3085,6 +3105,7 @@ function dismissSavedPlan() {
 
   updateCalExportButton();
   updateBadge();
+  if (window.FT) FT.refresh();
   try {
     if (localStorage.getItem('ip_scheduler_tab') === 'interactive') switchTab('interactive');
   } catch(e) {}

@@ -1,0 +1,535 @@
+"""Glue between App.py and the Follow-Through engine.
+
+Imported by App.py at the bottom, next to the other blueprint registrations.
+Every ``App`` import is lazy (inside a function), the same pattern
+``next_action_glue`` uses, so there is no circular import.
+
+This module computes nothing. It reads the student's data out of the ORM,
+hands it to :class:`intelliplan.services.scheduling.SchedulingService`, and
+writes the result back. Every provider degrades on failure — a model input
+that cannot be loaded costs that input, never the student's plan.
+
+It is also imported by App's own scheduling routes (generation and recovery)
+for :func:`student_context_extras` and :func:`followthrough_enabled`, so the
+generated plan and the adjusted plan learn from exactly the same evidence.
+"""
+
+from __future__ import annotations
+
+import hmac
+import json
+import logging
+import os
+import threading
+import time
+import zlib
+from datetime import date, datetime, timedelta
+from typing import Any, Mapping
+
+from flask import jsonify, request
+from flask_login import current_user
+
+from time_utils import utcnow
+
+from intelliplan.api.adjust import FLAG_KEY, AdjustDeps, create_adjust_blueprint
+from intelliplan.intelligence.followthrough import (
+    DEFAULT_PRIOR,
+    Prior,
+    fit_population_prior,
+    harvest_plan_outcomes,
+    observations_from_outcomes,
+    observations_from_sessions,
+)
+
+logger = logging.getLogger(__name__)
+
+PRIOR_KEY = "followthrough-v1"
+OUTCOME_SIGNAL = "plan_outcomes"
+#: History window for every training read; the models' own 45-day decay does
+#: the real weighting, this only bounds the query.
+HISTORY_DAYS = 120
+#: Older saved plans harvested for outcomes, newest first.
+SAVED_PLAN_LIMIT = 12
+#: Population refit bounds. Sized to finish in seconds on the web worker.
+REFIT_SESSION_ROWS = 20000
+REFIT_SIGNAL_ROWS = 4000
+PRIOR_CACHE_SECONDS = 600
+
+_prior_cache: dict[str, Any] = {"at": 0.0, "prior": None}
+_prior_lock = threading.Lock()
+
+
+# ── identity & gating ────────────────────────────────────────────────
+
+
+def _identity() -> tuple[int | None, str | None]:
+    try:
+        if current_user.is_authenticated:
+            return int(current_user.id), None
+    except Exception:
+        pass
+    try:
+        from App import get_guest_session_id
+
+        return None, get_guest_session_id()
+    except Exception:
+        return None, None
+
+
+def followthrough_enabled(user_id: int | None) -> bool:
+    """Kill switch, bucketed per user like every other rollout."""
+    try:
+        from App import feature_enabled, feature_enabled_for_user
+
+        if user_id:
+            return bool(feature_enabled_for_user(FLAG_KEY, user_id))
+        return bool(feature_enabled(FLAG_KEY))
+    except Exception:
+        return False
+
+
+def _now() -> datetime:
+    # Local wall clock, like next_action_glue: "today" is a question about
+    # the student's day, and the window engine works in local time.
+    return datetime.now()
+
+
+# ── the plan ─────────────────────────────────────────────────────────
+
+
+def _active_row(user_id: int | None, guest_id: str | None):
+    from App import SavedSchedule
+
+    query = SavedSchedule.query
+    if user_id is not None:
+        query = query.filter_by(user_id=user_id, is_active=True)
+    else:
+        query = query.filter_by(guest_session_id=guest_id, is_active=True)
+    return query.order_by(SavedSchedule.created_at.desc()).first()
+
+
+def _json(text: Any, default):
+    try:
+        value = json.loads(text) if text else default
+    except Exception:
+        return default
+    return value if isinstance(value, type(default)) else default
+
+
+def _load_plan(user_id: int | None, guest_id: str | None) -> tuple[dict | None, dict]:
+    try:
+        row = _active_row(user_id, guest_id)
+    except Exception as exc:
+        logger.warning("plan load failed: %s", exc)
+        return None, {}
+    if row is None:
+        return None, {}
+    return _json(row.schedule_data, {}) or None, _json(row.progress_json, {})
+
+
+def _save_plan(user_id: int | None, guest_id: str | None, data: dict, progress: dict) -> bool:
+    """Write the adjusted plan in place, keeping the row's identity.
+
+    Progress is replaced, not merged: every block in the adjusted plan has a
+    fresh id (see :func:`_finalize`), so the old progress keys refer to
+    blocks that no longer exist — and, keyed by position as they were, would
+    otherwise light up the wrong blocks as done.
+    """
+    from App import db, invalidate_schedule_cache
+
+    try:
+        row = _active_row(user_id, guest_id)
+        if row is None:
+            return False
+        row.schedule_data = json.dumps(data)
+        row.progress_json = json.dumps(progress or {})
+        db.session.commit()
+    except Exception as exc:
+        logger.warning("plan save failed: %s", exc)
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        return False
+    try:
+        invalidate_schedule_cache(user_id=user_id, guest_id=guest_id)
+    except Exception:
+        pass
+    return True
+
+
+def _payload() -> Mapping[str, Any]:
+    try:
+        body = request.get_json(silent=True)
+        if isinstance(body, dict):
+            return body
+    except Exception:
+        pass
+    return dict(request.args or {})
+
+
+def _hours(payload: Mapping[str, Any]) -> float:
+    try:
+        return max(0.25, min(16.0, float(payload.get("hours_per_day") or 2)))
+    except (TypeError, ValueError):
+        return 2.0
+
+
+def _priority_label(block: Mapping[str, Any]) -> str:
+    score = block.get("priority_score", block.get("priority"))
+    if isinstance(score, (int, float)) and not isinstance(score, bool):
+        return "High" if score >= 75 else "Medium" if score >= 45 else "Low"
+    label = str(score or "Medium").strip().title()
+    return label if label in ("High", "Medium", "Low") else "Medium"
+
+
+def _finalize(new_data: dict, old_data: dict, old_progress: dict, today: date) -> tuple[dict, dict]:
+    """Make an adjusted plan render exactly like a generated one.
+
+    1. Enrichment (colours, workload level, energy) — fed with assignment
+       facts read back off the old plan's own blocks, so priority labels and
+       difficulty survive instead of being re-inferred from nothing.
+    2. Today's finished blocks are carried across, still ticked. A student
+       who did two blocks before their evening fell apart should still see
+       those two blocks done.
+    3. Fresh block ids with a per-adjustment prefix, plus the Interactive
+       View's kind / redirect / checklist. Ids used to be positional
+       (``d1-b1``), so a replanned week re-used ids for different work and
+       browser-stored progress lit up the wrong blocks.
+    """
+    from App import (
+        BLOCK_KIND_REDIRECT,
+        build_block_checklist,
+        classify_block_kind,
+        enrich_schedule_data,
+    )
+
+    payload = _payload()
+    meta: dict[str, dict] = {}
+    carried: list[tuple[dict, Any]] = []
+    for day in (old_data or {}).get("schedule") or []:
+        if not isinstance(day, dict):
+            continue
+        is_today = str(day.get("date") or "")[:10] == today.isoformat()
+        for block in day.get("blocks") or []:
+            if not isinstance(block, dict) or block.get("is_break"):
+                continue
+            title = block.get("parent_title") or block.get("assignment")
+            if title and title not in meta:
+                meta[title] = {
+                    "title": title,
+                    "priority": _priority_label(block),
+                    "difficulty": str(block.get("difficulty") or "Medium").title(),
+                    "due_date": block.get("due_date") or "",
+                }
+            key = str(block.get("block_id") or block.get("id") or "")
+            entry = old_progress.get(key) if key else None
+            done = entry is True or (isinstance(entry, dict) and entry.get("done"))
+            if is_today and done:
+                carried.append((dict(block), entry))
+
+    try:
+        new_data = enrich_schedule_data(
+            new_data, list(meta.values()),
+            str(payload.get("preferred_time") or "evening"), _hours(payload),
+        )
+    except Exception as exc:
+        logger.warning("enrich failed (non-fatal): %s", exc)
+
+    schedule = new_data.setdefault("schedule", [])
+    if carried:
+        today_row = next(
+            (d for d in schedule if str(d.get("date") or "")[:10] == today.isoformat()),
+            None,
+        )
+        if today_row is None:
+            today_row = {
+                "date": today.isoformat(),
+                "day_name": today.strftime("%A"),
+                "blocks": [],
+            }
+            schedule.insert(0, today_row)
+        for block, _entry in carried:
+            block["carried_done"] = True
+        today_row["blocks"] = [b for b, _ in carried] + list(today_row.get("blocks") or [])
+
+    revision = format(zlib.crc32(f"{time.time_ns()}".encode()) & 0xFFFFFF, "06x")
+    progress: dict[str, Any] = {}
+    carried_ids = {id(b) for b, _ in carried}
+    entries = {id(b): e for b, e in carried}
+    n = 0
+    for day_index, day in enumerate(schedule, start=1):
+        for block in day.get("blocks") or []:
+            if not isinstance(block, dict):
+                continue
+            n += 1
+            prefix = "unplaced" if block.get("unplaced") else f"a{revision}-d{day_index}"
+            block["block_id"] = f"{prefix}-b{n}"
+            if block.get("is_break"):
+                block["kind"] = "break"
+                block.setdefault("redirect", None)
+                continue
+            if id(block) in carried_ids:
+                entry = entries[id(block)]
+                progress[block["block_id"]] = entry if isinstance(entry, dict) else {"done": True}
+                continue
+            kind = classify_block_kind(block.get("assignment", ""), block.get("course", ""))
+            block["kind"] = kind
+            block["redirect"] = BLOCK_KIND_REDIRECT.get(kind)
+            try:
+                block["checklist"] = build_block_checklist(block, kind, {})
+            except Exception:
+                block.setdefault("checklist", [])
+    return new_data, progress
+
+
+# ── training data ────────────────────────────────────────────────────
+
+
+def _record_outcomes(user_id, guest_id, old_data, old_progress, today) -> None:
+    """Append the outgoing plan's past blocks to the durable outcome log."""
+    if user_id is None:
+        return
+    rows = harvest_plan_outcomes(old_data, old_progress, today)
+    if not rows:
+        return
+    from App import StudentSignal, db
+
+    from intelliplan.repositories.signals import SignalRepository
+
+    SignalRepository(StudentSignal, db.session).emit(
+        user_id, OUTCOME_SIGNAL, subject_type="plan", value={"rows": rows[-300:]},
+    )
+
+
+def _outcome_rows(user_id: int | None, guest_id: str | None, today: date) -> list[dict]:
+    """Every labelled past block we know about, de-duplicated downstream.
+
+    Three sources: the durable log, the live plan's past days, and older
+    saved plans — each bounded to the days it was actually the student's
+    plan, so a superseded week is not counted as a week they abandoned.
+    """
+    rows: list[dict] = []
+    since = utcnow() - timedelta(days=HISTORY_DAYS)
+    try:
+        from App import SavedSchedule, StudentSignal
+
+        if user_id is not None:
+            signals = (
+                StudentSignal.query
+                .filter(StudentSignal.user_id == user_id)
+                .filter(StudentSignal.kind == OUTCOME_SIGNAL)
+                .filter(StudentSignal.occurred_at >= since)
+                .order_by(StudentSignal.occurred_at.desc())
+                .limit(200)
+                .all()
+            )
+            for s in signals:
+                rows.extend(_json(s.value_json, {}).get("rows") or [])
+
+        query = SavedSchedule.query
+        if user_id is not None:
+            query = query.filter(SavedSchedule.user_id == user_id)
+        else:
+            query = query.filter(SavedSchedule.guest_session_id == guest_id)
+        plans = (
+            query.filter(SavedSchedule.created_at >= since)
+            .order_by(SavedSchedule.created_at.desc())
+            .limit(SAVED_PLAN_LIMIT)
+            .all()
+        )
+        valid_until = None
+        for plan in plans:
+            created = plan.created_at.date() if plan.created_at else None
+            rows.extend(harvest_plan_outcomes(
+                _json(plan.schedule_data, {}), _json(plan.progress_json, {}), today,
+                valid_from=created, valid_until=valid_until,
+            ))
+            valid_until = created
+    except Exception as exc:
+        logger.warning("outcome load failed: %s", exc)
+    return rows
+
+
+def load_prior() -> Prior:
+    """The latest population prior, cached in-process for ten minutes."""
+    with _prior_lock:
+        cached = _prior_cache.get("prior")
+        if cached is not None and time.monotonic() - _prior_cache["at"] < PRIOR_CACHE_SECONDS:
+            return cached
+    prior = DEFAULT_PRIOR
+    try:
+        from App import ModelPrior
+
+        row = ModelPrior.query.filter_by(key=PRIOR_KEY).first()
+        if row is not None:
+            prior = Prior.from_dict(_json(row.payload_json, {}))
+    except Exception as exc:
+        logger.warning("prior load failed, using default: %s", exc)
+    with _prior_lock:
+        _prior_cache.update(at=time.monotonic(), prior=prior)
+    return prior
+
+
+def student_context_extras(user_id: int | None, guest_id: str | None) -> dict[str, Any]:
+    """The Follow-Through inputs for a ``StudentContext``."""
+    return {
+        "outcome_rows": tuple(_outcome_rows(user_id, guest_id, date.today())),
+        "followthrough_prior": load_prior(),
+    }
+
+
+# ── the service ──────────────────────────────────────────────────────
+
+
+def _build_service(user_id: int | None, guest_id: str | None, payload: Mapping[str, Any]):
+    from App import (
+        _planner_busy_by_date,
+        _planner_concept_mastery,
+        _planner_feedback_rows,
+        _planner_session_rows,
+        build_scheduler_personalization,
+    )
+
+    from intelliplan.intelligence.planner import PlannerConfig
+    from intelliplan.services.scheduling import SchedulingService, StudentContext
+
+    dna, availability, commitments = build_scheduler_personalization(
+        user_id=user_id, guest_id=guest_id
+    )
+    comfort = int(round(_hours(payload) * 60)) if payload.get("hours_per_day") else None
+    try:
+        busy = _planner_busy_by_date()
+    except Exception:
+        busy = {}
+    context = StudentContext(
+        availability=availability,
+        commitments=commitments,
+        preferred_time=str(payload.get("preferred_time") or "evening"),
+        feedback_rows=_planner_feedback_rows(user_id, guest_id),
+        session_rows=_planner_session_rows(user_id, guest_id),
+        concept_mastery=_planner_concept_mastery(user_id),
+        weak_days=tuple(getattr(dna, "weak_days", ()) or ()),
+        daily_target_minutes=comfort,
+        busy_by_date=busy,
+        **student_context_extras(user_id, guest_id),
+    )
+    return SchedulingService(context, PlannerConfig(), follow_through=True)
+
+
+def _session_reality(task_ids, user_id, guest_id) -> dict:
+    from App import _session_reality as reality
+
+    return reality(task_ids, user_id, guest_id)
+
+
+def _record_version(user_id: int, result, data: dict) -> None:
+    from App import _record_plan_version
+
+    _record_plan_version(
+        user_id, result.plan, None, data, trigger=f"adjust:{result.disruption.kind}"[:48],
+    )
+
+
+def _emit_signal(user_id: int, kind: str, value: dict) -> None:
+    from App import StudentSignal, db
+
+    from intelliplan.repositories.signals import SignalRepository
+
+    SignalRepository(StudentSignal, db.session).emit(user_id, kind, value=value)
+
+
+# ── population prior ─────────────────────────────────────────────────
+
+
+def _cron_guard():
+    from App import _cron_secret_from_request, _cron_unauthorised
+
+    expected = os.getenv("CRON_SECRET", "")
+    if not expected:
+        return jsonify({"status": "error", "message": "cron not configured"}), 503
+    if not hmac.compare_digest(str(expected), str(_cron_secret_from_request())):
+        return jsonify(_cron_unauthorised()), 401
+    return None
+
+
+def refit_population_prior() -> dict[str, Any]:
+    """Pool every student's outcomes into the prior new students start from.
+
+    Reads Active-study sittings and the durable plan-outcome log — never
+    titles — and writes one row of coefficients. Safe to run as often as
+    you like; the result only changes as the population's behaviour does.
+    """
+    from App import ActiveSession, ModelPrior, StudentSignal, db
+
+    now = utcnow()
+    since = now - timedelta(days=HISTORY_DAYS)
+    by_user: dict[Any, list] = {}
+
+    sessions = (
+        ActiveSession.query
+        .filter(ActiveSession.user_id.isnot(None))
+        .filter(ActiveSession.state.in_(("completed", "abandoned")))
+        .filter(ActiveSession.started_at >= since)
+        .filter(ActiveSession.active_seconds > 60)
+        .order_by(ActiveSession.started_at.desc())
+        .limit(REFIT_SESSION_ROWS)
+        .all()
+    )
+    grouped: dict[Any, list[dict]] = {}
+    for s in sessions:
+        grouped.setdefault(s.user_id, []).append(s.to_observation())
+    for uid, rows in grouped.items():
+        by_user.setdefault(uid, []).extend(observations_from_sessions(rows))
+
+    signals = (
+        StudentSignal.query
+        .filter(StudentSignal.kind == OUTCOME_SIGNAL)
+        .filter(StudentSignal.occurred_at >= since)
+        .order_by(StudentSignal.occurred_at.desc())
+        .limit(REFIT_SIGNAL_ROWS)
+        .all()
+    )
+    outcome_rows: dict[Any, list[dict]] = {}
+    for s in signals:
+        outcome_rows.setdefault(s.user_id, []).extend(_json(s.value_json, {}).get("rows") or [])
+    for uid, rows in outcome_rows.items():
+        by_user.setdefault(uid, []).extend(observations_from_outcomes(rows))
+
+    prior = fit_population_prior(by_user, now=now)
+    payload = prior.to_dict()
+    row = ModelPrior.query.filter_by(key=PRIOR_KEY).first()
+    if row is None:
+        row = ModelPrior(key=PRIOR_KEY)
+        db.session.add(row)
+    row.payload_json = json.dumps(payload)
+    row.sample_size = prior.sample_size
+    row.users = prior.users
+    db.session.commit()
+    with _prior_lock:
+        _prior_cache.update(at=0.0, prior=None)
+    return {
+        "users": prior.users,
+        "sample_size": prior.sample_size,
+        "fitted": prior.sample_size > 0,
+        "means": payload["means"],
+    }
+
+
+followthrough_bp = create_adjust_blueprint(
+    AdjustDeps(
+        identity=_identity,
+        feature_enabled=followthrough_enabled,
+        now=_now,
+        load_plan=_load_plan,
+        build_service=_build_service,
+        finalize=_finalize,
+        save_plan=_save_plan,
+        session_reality=_session_reality,
+        record_outcomes=_record_outcomes,
+        record_version=_record_version,
+        emit_signal=_emit_signal,
+        refit_prior=refit_population_prior,
+        cron_guard=_cron_guard,
+    )
+)
