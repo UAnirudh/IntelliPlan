@@ -56,6 +56,27 @@ the secret. Both work everywhere now.)
 | `/cron/send-reminders` | every 15–30 min | The direct assignment-reminder path. |
 | `/cron/lifecycle-emails` | daily | Welcome backstop, onboarding day 2/4/7, the one-week feedback ask, and weekly draft nudges. |
 | `/cron/weekly-newsletter` | weekly, optional | Sends to the full marketing list with no human review. Leave unscheduled unless you want that. |
+| `/cron/autopilot` | **runs in-process, every 4 h** | Autopilot for every student with a live plan: missed work gets new days, at-risk deadlines are protected, the student is notified. |
+| `/cron/refit-followthrough-prior` | **runs in-process, daily** | Refits the population prior every new student's Follow-Through model starts from. |
+
+### Autopilot and the prior refit schedule themselves
+
+These two don't need an external scheduler. Like the notification ticker, they
+run inside the web process (`followthrough_glue.start_scheduler`), guarded by
+a lease row each in `cron_leases`. One gunicorn worker runs each job, and
+because the lease expiry *is* the next due time, a deploy or restart neither
+re-runs a job early nor skips it. The first run happens a minute or two after
+the first boot.
+
+| Variable | Default | Effect |
+|---|---|---|
+| `AUTOPILOT_INTERVAL_HOURS` | `4` | How often autopilot sweeps every plan. |
+| `PRIOR_REFIT_INTERVAL_HOURS` | `24` | How often the population prior is refit. |
+| `FOLLOWTHROUGH_INPROCESS_CRON` | `1` | `0` hands both jobs to an external scheduler; call the endpoints above with `CRON_SECRET` instead. |
+
+`CRON_SECRET` is only needed if you call the endpoints yourself. The
+`followthrough_engine` flag still gates both: flag off, the sweep finds no
+students.
 
 All four are safe to run more often than listed. Each owns its own
 deduplication key, so a double fire sends nothing extra.

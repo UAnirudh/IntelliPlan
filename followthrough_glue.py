@@ -621,3 +621,133 @@ followthrough_bp = create_adjust_blueprint(
         active_owners=_active_owners,
     )
 )
+
+
+# ── in-process scheduler ─────────────────────────────────────────────
+#
+# Autopilot and the prior refit both have HTTP cron endpoints, but an
+# endpoint nobody calls does nothing — the notification outbox sat unswept
+# for exactly that reason. So, like the notification ticker, these run on
+# their own inside the web process. A lease row per job means one gunicorn
+# worker runs each job, and because the lease expiry *is* the next due time,
+# a restart neither re-runs a job early nor skips it.
+#
+# Env:
+#   FOLLOWTHROUGH_INPROCESS_CRON=0      hand both jobs to an external scheduler
+#   AUTOPILOT_INTERVAL_HOURS=4          how often autopilot sweeps every plan
+#   PRIOR_REFIT_INTERVAL_HOURS=24       how often the population prior is refit
+
+SCHEDULER_TICK_SECONDS = 300
+_scheduler_started = False
+
+
+def _interval(env: str, default_hours: float) -> timedelta:
+    try:
+        hours = float(os.getenv(env, default_hours))
+    except (TypeError, ValueError):
+        hours = default_hours
+    return timedelta(hours=max(0.25, hours))
+
+
+def _jobs() -> list[tuple[str, timedelta, Any]]:
+    return [
+        ("followthrough-autopilot", _interval("AUTOPILOT_INTERVAL_HOURS", 4), _autopilot_job),
+        ("followthrough-prior", _interval("PRIOR_REFIT_INTERVAL_HOURS", 24), _prior_job),
+    ]
+
+
+def _autopilot_job(app) -> dict:
+    # The service and finalizer read request settings when there are any;
+    # an empty request context gives them the defaults, exactly as the cron
+    # endpoint would with an empty body.
+    with app.test_request_context("/cron/autopilot", method="POST"):
+        return followthrough_bp.sweep_autopilot()
+
+
+def _prior_job(app) -> dict:
+    return refit_population_prior()
+
+
+def _claim(name: str, every: timedelta) -> bool:
+    """Take the job if it is due. Atomic across workers and restarts."""
+    from App import db
+
+    from intelliplan.notifications.models import register_lease
+
+    CronLease = register_lease(db)
+    now = utcnow()
+    try:
+        if db.session.get(CronLease, name) is None:
+            # First boot ever: due now.
+            db.session.add(CronLease(name=name, holder="", expires_at=now))
+            db.session.commit()
+    except Exception:
+        db.session.rollback()
+    try:
+        claimed = (
+            db.session.query(CronLease)
+            .filter(CronLease.name == name, CronLease.expires_at <= now)
+            .update(
+                {"holder": str(os.getpid()), "expires_at": now + every, "last_run_at": now},
+                synchronize_session=False,
+            )
+        )
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        logger.warning("%s lease acquire failed: %s", name, exc)
+        return False
+    return bool(claimed)
+
+
+def run_due_jobs(app) -> dict[str, Any]:
+    """Run every job that is due and that this process wins. Returns results."""
+    results: dict[str, Any] = {}
+    for name, every, job in _jobs():
+        with app.app_context():
+            if not _claim(name, every):
+                continue
+            try:
+                results[name] = job(app)
+                logger.info("%s ran: %s", name, results[name])
+            except Exception as exc:
+                # The lease stays taken until its interval passes; a job that
+                # fails does not retry in a tight loop and hammer the DB.
+                logger.warning("%s failed: %s", name, exc)
+                results[name] = {"error": str(exc)[:200]}
+    return results
+
+
+def start_scheduler(app) -> bool:
+    """Start the background scheduler. Safe to call more than once."""
+    global _scheduler_started
+    import sys
+
+    if _scheduler_started:
+        return False
+    if os.getenv("FOLLOWTHROUGH_INPROCESS_CRON", "1") == "0":
+        logger.info("follow-through scheduler disabled by env")
+        return False
+    if "pytest" in sys.modules:
+        # A sweep rewriting saved plans in the middle of a test run would
+        # make every plan-related test flaky.
+        return False
+    if app.debug and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
+        return False
+
+    def _loop() -> None:
+        import random
+
+        # Staggered, so every worker booting at once does not hit the DB together.
+        time.sleep(random.uniform(30, 120))
+        while True:
+            try:
+                run_due_jobs(app)
+            except Exception as exc:
+                logger.warning("follow-through scheduler tick failed: %s", exc)
+            time.sleep(SCHEDULER_TICK_SECONDS)
+
+    threading.Thread(target=_loop, name="ip-followthrough", daemon=True).start()
+    _scheduler_started = True
+    logger.info("follow-through scheduler started")
+    return True

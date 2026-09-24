@@ -343,11 +343,13 @@ def create_adjust_blueprint(deps: AdjustDeps) -> Blueprint:
             return jsonify({"status": "error"}), 500
         return jsonify({"status": "ok", "enabled": state.enabled})
 
-    @bp.route("/cron/autopilot", methods=["GET", "POST"])
-    def cron_autopilot():
-        rejected = deps.cron_guard()
-        if rejected is not None:
-            return rejected
+    def sweep_autopilot() -> dict:
+        """Run autopilot for every student with a live plan.
+
+        Shared by the HTTP cron and the in-process scheduler. Needs a request
+        context (the service reads request settings when present); the
+        scheduler supplies an empty one.
+        """
         acted = checked = failed = 0
         for uid, gid in deps.active_owners():
             checked += 1
@@ -362,7 +364,16 @@ def create_adjust_blueprint(deps: AdjustDeps) -> Blueprint:
                     deps.notify(uid, body)
                 except Exception:
                     pass
-        return jsonify({"status": "ok", "checked": checked, "acted": acted, "failed": failed})
+        return {"checked": checked, "acted": acted, "failed": failed}
+
+    @bp.route("/cron/autopilot", methods=["GET", "POST"])
+    def cron_autopilot():
+        rejected = deps.cron_guard()
+        if rejected is not None:
+            return rejected
+        return jsonify({"status": "ok", **sweep_autopilot()})
+
+    bp.sweep_autopilot = sweep_autopilot
 
     # ── read: will I make it? ────────────────────────────────────────
 
