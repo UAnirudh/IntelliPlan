@@ -506,3 +506,42 @@ def test_the_autopilot_cron_catches_up_students_who_never_opened_the_page(client
     assert body["acted"] >= 1
     data, _ = saved(uid)
     assert all(d["date"] >= TODAY.isoformat() for d in data["schedule"])
+
+
+# ── in-process scheduler ─────────────────────────────────────────────
+
+
+def test_scheduled_jobs_run_when_due_and_not_again_until_their_interval(client):
+    import followthrough_glue
+    from intelliplan.notifications.models import register_lease
+
+    uid = make_user()
+    save(uid, past_plan())
+    with App.app.app_context():
+        Lease = register_lease(db)
+        Lease.query.filter(Lease.name.like("followthrough-%")).delete(synchronize_session=False)
+        db.session.commit()
+
+    first = followthrough_glue.run_due_jobs(App.app)
+    assert first["followthrough-autopilot"]["acted"] >= 1
+    assert "sample_size" in first["followthrough-prior"]
+    data, _ = saved(uid)
+    assert all(d["date"] >= TODAY.isoformat() for d in data["schedule"])
+
+    # Inside the interval: nothing runs, whichever worker asks.
+    assert followthrough_glue.run_due_jobs(App.app) == {}
+
+    # Once the interval has passed, it runs again.
+    with App.app.app_context():
+        Lease = register_lease(db)
+        row = db.session.get(Lease, "followthrough-autopilot")
+        row.expires_at = row.expires_at - timedelta(days=1)
+        db.session.commit()
+    again = followthrough_glue.run_due_jobs(App.app)
+    assert set(again) == {"followthrough-autopilot"}
+
+
+def test_the_scheduler_never_starts_under_the_test_runner():
+    import followthrough_glue
+
+    assert followthrough_glue.start_scheduler(App.app) is False

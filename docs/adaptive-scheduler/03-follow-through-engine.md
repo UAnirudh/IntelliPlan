@@ -117,8 +117,9 @@ each, so power users don't *become* the population; course effects excluded,
 because "Chemistry" means something different at every school). The result is
 stored in `model_priors` and read by every new student's model.
 
-**Run it on a timer:** `POST /cron/refit-followthrough-prior` with
-`X-Cron-Secret`. Daily is plenty. Until 5+ students have data it keeps the
+**It runs on a timer by itself:** daily, in-process and lease-guarded (see
+[../automations-setup.md](../automations-setup.md));
+`POST /cron/refit-followthrough-prior` remains for external schedulers. Until 5+ students have data it keeps the
 hand-set default, which is stated, small, and directionally uncontroversial.
 
 This is the defensible part of the system. The algorithm is documented here
@@ -266,9 +267,10 @@ three facts and acts without being asked:
 
 It runs through the same machinery as a student's own intent (minimal
 change first, do-no-harm), so it never makes a plan worse to look busy. It
-runs when the scheduler loads (with the page's assignment list) and from
-`POST /cron/autopilot` for students who never open the page, notifying them
-of what changed.
+runs when the scheduler loads (with the page's assignment list), and every
+4 hours on its own inside the web process for students who never open the
+page, notifying them of what changed. `POST /cron/autopilot` remains for
+external schedulers.
 
 Guard rails, because autonomy has to be trusted to be kept on:
 
@@ -287,7 +289,7 @@ Guard rails, because autonomy has to be trusted to be kept on:
 | `POST /api/schedule/autopilot` | `{assignments?}` → `{acted, headline, reasons[], triggers[], data, progress, undo_available, …}`. 60/h. |
 | `POST /api/schedule/autopilot/undo` | Restores the previous plan and its ticks; autopilot stands down for today. |
 | `POST /api/schedule/autopilot/settings` | `{enabled: bool}`. |
-| `POST /cron/autopilot` | `CRON_SECRET`-guarded. Run it every few hours. |
+| `POST /cron/autopilot` | `CRON_SECRET`-guarded. Optional: autopilot already runs every 4 h in-process. |
 
 Generation (`/generate_schedule`) and recovery (`/schedule/recover`) use the
 engine too: completion-aware placement, simulated buffers, `forecast` on the

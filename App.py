@@ -19808,6 +19808,11 @@ limiter.limit("240 per hour")(app.view_functions["followthrough.forecast"])
 limiter.exempt(app.view_functions["followthrough.refit_prior"])
 limiter.limit("60 per hour")(app.view_functions["followthrough.autopilot"])
 limiter.exempt(app.view_functions["followthrough.cron_autopilot"])
+# Autopilot (every 4h) and the population-prior refit (daily) run on their own
+# inside the web process, lease-guarded so one worker runs each. Set
+# FOLLOWTHROUGH_INPROCESS_CRON=0 to hand them to an external scheduler.
+from followthrough_glue import start_scheduler as _start_followthrough_scheduler
+_start_followthrough_scheduler(app)
 # ── Notifications. Outbox-backed: events are queued by the sweep and
 # delivered on a timer, so no student request ever waits on an SMS
 # gateway or an SMTP handshake.
