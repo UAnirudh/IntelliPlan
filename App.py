@@ -19806,6 +19806,8 @@ app.register_blueprint(followthrough_bp)
 limiter.limit("120 per hour")(app.view_functions["followthrough.adjust"])
 limiter.limit("240 per hour")(app.view_functions["followthrough.forecast"])
 limiter.exempt(app.view_functions["followthrough.refit_prior"])
+limiter.limit("60 per hour")(app.view_functions["followthrough.autopilot"])
+limiter.exempt(app.view_functions["followthrough.cron_autopilot"])
 # ── Notifications. Outbox-backed: events are queued by the sweep and
 # delivered on a timer, so no student request ever waits on an SMS
 # gateway or an SMTP handshake.

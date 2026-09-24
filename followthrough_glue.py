@@ -253,6 +253,13 @@ def _finalize(new_data: dict, old_data: dict, old_progress: dict, today: date) -
             block["carried_done"] = True
         today_row["blocks"] = [b for b, _ in carried] + list(today_row.get("blocks") or [])
 
+    # Autopilot's settings and history belong to the plan and survive any
+    # change; its undo copy does not — once the student changes the plan
+    # themselves, "undo autopilot" would also undo them.
+    old_auto = (old_data or {}).get("autopilot")
+    if isinstance(old_auto, dict):
+        new_data["autopilot"] = {k: v for k, v in old_auto.items() if k != "undo"}
+
     revision = format(zlib.crc32(f"{time.time_ns()}".encode()) & 0xFFFFFF, "06x")
     progress: dict[str, Any] = {}
     carried_ids = {id(b) for b, _ in carried}
@@ -439,6 +446,83 @@ def _emit_signal(user_id: int, kind: str, value: dict) -> None:
     SignalRepository(StudentSignal, db.session).emit(user_id, kind, value=value)
 
 
+# ── autopilot ────────────────────────────────────────────────────────
+
+
+def _build_rows(assignments: list) -> list:
+    """The page's assignment rows → planner rows, the same way generation does."""
+    from App import _planner_task_rows, _saved_descriptions_for, infer_task_difficulty
+
+    normalized = []
+    for a in assignments[:300]:
+        if not isinstance(a, dict) or not a.get("title"):
+            continue
+        normalized.append({
+            **a,
+            "difficulty": a.get("difficulty") or infer_task_difficulty(
+                a.get("points_possible"), a.get("priority", "Medium"), a.get("due_date")
+            ),
+        })
+    if not normalized:
+        return []
+    try:
+        descriptions = _saved_descriptions_for(normalized)
+    except Exception:
+        descriptions = None
+    return _planner_task_rows(normalized, [], descriptions=descriptions)
+
+
+def _finalize_autopilot(user_id, guest_id, run, old_data, old_progress, today):
+    """Stamp the autonomous plan and keep the old one for a one-tap undo."""
+    data, progress = _finalize(run.data, old_data, old_progress, today)
+    previous = {k: v for k, v in (old_data or {}).items() if k != "autopilot"}
+    old_auto = (old_data or {}).get("autopilot")
+    if isinstance(old_auto, dict):
+        previous["autopilot"] = {k: v for k, v in old_auto.items() if k != "undo"}
+    data["autopilot"] = {
+        **run.state.to_json(),
+        "undo": {"data": previous, "progress": old_progress or {}, "at": run.state.to_json().get("last_run")},
+    }
+    return data, progress
+
+
+def _notify(user_id: int, body: dict) -> None:
+    """Tell the student what autopilot did while they were away."""
+    try:
+        import notifications_glue
+
+        notifications_glue.on_plan_rescheduled(
+            user_id, int(body.get("moved_sittings") or 0) or 1, "autopilot"
+        )
+    except Exception as exc:
+        logger.warning("autopilot notification failed: %s", exc)
+
+
+def _active_owners() -> list:
+    """Signed-in students with a live plan, for the cron."""
+    from App import SavedSchedule
+
+    try:
+        rows = (
+            SavedSchedule.query
+            .filter(SavedSchedule.is_active.is_(True))
+            .filter(SavedSchedule.user_id.isnot(None))
+            .order_by(SavedSchedule.created_at.desc())
+            .limit(2000)
+            .all()
+        )
+    except Exception as exc:
+        logger.warning("active plan listing failed: %s", exc)
+        return []
+    seen, out = set(), []
+    for r in rows:
+        if r.user_id in seen or not followthrough_enabled(r.user_id):
+            continue
+        seen.add(r.user_id)
+        out.append((r.user_id, None))
+    return out
+
+
 # ── population prior ─────────────────────────────────────────────────
 
 
@@ -531,5 +615,9 @@ followthrough_bp = create_adjust_blueprint(
         emit_signal=_emit_signal,
         refit_prior=refit_population_prior,
         cron_guard=_cron_guard,
+        build_rows=_build_rows,
+        finalize_autopilot=_finalize_autopilot,
+        notify=_notify,
+        active_owners=_active_owners,
     )
 )

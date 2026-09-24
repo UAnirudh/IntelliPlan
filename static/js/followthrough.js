@@ -31,6 +31,11 @@
     preview: null,
     returnFocus: null,
     refreshTimer: null,
+    // Autopilot: runs once per page load, when the plan and the student's
+    // assignment list have both arrived (or the list is clearly not coming).
+    autopilotDone: false,
+    assignmentsReady: false,
+    autopilotNote: null,       // {headline, reasons[], undo}
   };
 
   var INTENT_TITLES = {
@@ -160,6 +165,31 @@
       '</details>';
   }
 
+  function autopilotEnabled() {
+    try {
+      var a = _lastScheduleData && _lastScheduleData.autopilot;
+      return !(a && a.enabled === false);
+    } catch (e) { return true; }
+  }
+
+  function autopilotMarkup() {
+    var on = autopilotEnabled();
+    var note = state.autopilotNote;
+    var toggle = '<button type="button" class="ft-chip ft-auto-toggle' + (on ? ' is-on' : '') +
+      '" data-ft-autopilot-toggle aria-pressed="' + on + '" title="When on, IntelliPlan moves missed work, adds new assignments and protects at-risk deadlines by itself — always with an undo.">' +
+      'Autopilot ' + (on ? 'on' : 'off') + '</button>';
+    if (!note) return '<div class="ft-auto">' + toggle + '</div>';
+    var reasons = (note.reasons || []).map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('');
+    return '<div class="ft-auto ft-auto--acted" role="status">' +
+      '<div class="ft-auto-head"><span class="ft-auto-badge">Autopilot</span>' +
+      '<strong>' + esc(note.headline) + '</strong></div>' +
+      (reasons ? '<ul class="ft-auto-reasons">' + reasons + '</ul>' : '') +
+      '<div class="ft-auto-actions">' +
+        (note.undo ? '<button type="button" class="ft-btn" data-ft-autopilot-undo>Undo</button>' : '') +
+        '<button type="button" class="ft-btn" data-ft-autopilot-dismiss>Got it</button>' + toggle +
+      '</div></div>';
+  }
+
   function barMarkup() {
     var missed = state.forecast && state.forecast.missed_minutes;
     var behind = missed > 0
@@ -177,6 +207,7 @@
         '<button type="button" class="ft-btn' + (missed > 0 ? ' ft-btn--accent' : '') + '" data-ft-intent="catch_up">I\'m behind ' + behind + '</button>' +
       '</div>' +
       '<div class="ft-forecast" aria-live="polite">' + forecastMarkup() + '</div>' +
+      autopilotMarkup() +
     '</div>';
   }
 
@@ -198,6 +229,15 @@
       }
       m.querySelectorAll('[data-ft-intent]').forEach(function (btn) {
         btn.addEventListener('click', function () { FT.open(btn.dataset.ftIntent, {}, btn); });
+      });
+      m.querySelectorAll('[data-ft-autopilot-toggle]').forEach(function (btn) {
+        btn.addEventListener('click', toggleAutopilot);
+      });
+      m.querySelectorAll('[data-ft-autopilot-undo]').forEach(function (btn) {
+        btn.addEventListener('click', undoAutopilot);
+      });
+      m.querySelectorAll('[data-ft-autopilot-dismiss]').forEach(function (btn) {
+        btn.addEventListener('click', function () { state.autopilotNote = null; renderBar(); });
       });
     });
   }
@@ -528,6 +568,83 @@
       },
     });
   };
+
+  // ── autopilot ─────────────────────────────────────────────────────
+
+  function currentAssignments() {
+    try { return Array.isArray(allAssignments) ? allAssignments : []; } catch (e) { return []; }
+  }
+
+  function runAutopilot() {
+    if (state.autopilotDone || !state.enabled || !planReady() || !autopilotEnabled()) return;
+    state.autopilotDone = true;
+    fetch('/api/schedule/autopilot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({}, planSettings(), { assignments: currentAssignments() })),
+    })
+      .then(function (r) {
+        if (r.status === 404) { state.enabled = false; return null; }
+        return r.ok ? r.json() : null;
+      })
+      .then(function (body) {
+        if (!body || !body.acted || !body.data) return;
+        state.autopilotNote = { headline: body.headline, reasons: body.reasons || [], undo: !!body.undo_available };
+        adopt(body);
+        if (typeof ivAnnounce === 'function') ivAnnounce(body.headline);
+      })
+      .catch(function () {});
+  }
+
+  /* Called by the page when the plan and the assignment list arrive. Waits
+     for both, but not forever: a student with no LMS still has missed
+     sessions worth moving. */
+  FT.planLoaded = function () {
+    FT.refresh();
+    if (state.assignmentsReady) runAutopilot();
+    else setTimeout(runAutopilot, 4000);
+  };
+  FT.assignmentsLoaded = function () {
+    state.assignmentsReady = true;
+    if (planReady()) runAutopilot();
+  };
+
+  function undoAutopilot() {
+    fetch('/api/schedule/autopilot/undo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+      .then(function (r) { return r.json(); })
+      .then(function (body) {
+        if (!body || body.status !== 'ok' || !body.data) {
+          if (window.IP && IP.toast) IP.toast((body && body.message) || 'Could not undo that.', 'error');
+          return;
+        }
+        state.autopilotNote = null;
+        adopt(body);
+        if (window.IP && IP.toast) IP.toast('Your previous plan is back. Autopilot will leave it alone for today.', 'success');
+      })
+      .catch(function () {
+        if (window.IP && IP.toast) IP.toast('You look offline — nothing was changed.', 'error');
+      });
+  }
+
+  function toggleAutopilot() {
+    var next = !autopilotEnabled();
+    fetch('/api/schedule/autopilot/settings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: next }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (body) {
+        if (!body || body.status !== 'ok') return;
+        try {
+          _lastScheduleData.autopilot = Object.assign({}, _lastScheduleData.autopilot || {}, { enabled: next });
+        } catch (e) {}
+        renderBar();
+        if (window.IP && IP.toast) {
+          IP.toast(next ? 'Autopilot is on — your plan will keep itself up to date.' : 'Autopilot is off — your plan only changes when you change it.', 'info');
+        }
+      })
+      .catch(function () {});
+  }
 
   window.FT = FT;
   if (document.readyState === 'loading') {

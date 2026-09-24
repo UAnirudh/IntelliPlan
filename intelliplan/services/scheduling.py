@@ -579,6 +579,109 @@ class SchedulingService:
             data["forecast"] = result.report_after.to_dict()
         return result, data
 
+    def autopilot(
+        self,
+        schedule_data: Mapping[str, Any] | None,
+        progress: Mapping[str, Any] | None,
+        task_rows: Sequence[Mapping[str, Any]] = (),
+        *,
+        today: date | None = None,
+        now: datetime | None = None,
+        horizon_days: int = DEFAULT_HORIZON_DAYS,
+        credit: Mapping[str, int] | None = None,
+        finished: Sequence[str] = (),
+        finished_titles: Sequence[str] = (),
+        force: bool = False,
+    ) -> "AutopilotRun | None":
+        """Re-plan without being asked, when the facts call for it.
+
+        Returns ``None`` when there is nothing to do — no missed work, no new
+        work, no deadline a rebalance would protect — or when autopilot is
+        off or standing down after an undo. Otherwise returns the run, whose
+        ``data`` the caller saves (with an undo copy of the old plan).
+        """
+        from intelliplan.intelligence import autopilot as ap
+        from intelliplan.intelligence.rescheduling import Disruption
+
+        now = now or datetime.now()
+        today = today or now.date()
+        state = ap.AutopilotState.from_json((schedule_data or {}).get("autopilot"))
+        if not state.enabled:
+            return None
+
+        snapshot = snapshot_from_schedule(
+            schedule_data, progress, today, credit=credit, finished=finished,
+        )
+        self._overrides = overrides_from_json(
+            (schedule_data or {}).get("capacity_overrides"), today
+        )
+        capacities = self.capacities(today, horizon_days, now=now)
+
+        new_tasks = ap.detect_new_work(
+            schedule_data, self.tasks_from(task_rows) if task_rows else (), today,
+            finished_titles=finished_titles,
+        )
+        seed = zlib.crc32(
+            ("|".join(sorted(t.id for t in snapshot.tasks)) + today.isoformat()).encode()
+        ) & 0x7FFFFFFF
+        assess = self.assessor(today, seed)
+        current = plan_from_sittings(snapshot.tasks, snapshot.sittings, capacities, today)
+        try:
+            report = assess(current, snapshot.tasks) if snapshot.tasks else None
+        except Exception:
+            report = None
+
+        missed_titles = [snapshot.title_of(k) for k in snapshot.missed]
+        triggers = ap.triggers_for(
+            missed_minutes=sum(snapshot.missed.values()),
+            missed_titles=missed_titles,
+            new_tasks=new_tasks,
+            report=report,
+        )
+        if not force and not ap.should_run(state, triggers, today, now):
+            return None
+        if not triggers:
+            return None
+
+        result = replan_intent(
+            snapshot, capacities,
+            Disruption(kind="autopilot", new_tasks=tuple(new_tasks)),
+            model=self.model, config=self._config,
+            completion=self.completion_fn(), assess=assess,
+        )
+        placed_new = {
+            s.task_id for s in result.plan.sessions
+            if s.task_id in {t.id for t in new_tasks}
+        }
+        facts = {t.key for t in triggers} & {"missed", "new_work"}
+        if not facts and result.moved_sittings == 0:
+            # A risk trigger that the do-no-harm rule declined: the minimal
+            # plan won, so there is nothing worth telling anyone about.
+            return None
+        if facts == {"new_work"} and not placed_new and result.moved_sittings == 0:
+            return None
+
+        data = self.to_schedule_data(result.plan, now=now)
+        if result.report_after is not None:
+            data["forecast"] = result.report_after.to_dict()
+        headline, reasons = ap.explain(triggers, result.moved_sittings)
+        entry = {
+            "at": now.isoformat(timespec="seconds"),
+            "headline": headline,
+            "reasons": reasons,
+            "moved": result.moved_sittings,
+            "triggers": [t.key for t in triggers],
+        }
+        return AutopilotRun(
+            replan=result,
+            data=data,
+            headline=headline,
+            reasons=tuple(reasons),
+            triggers=tuple(t.key for t in triggers),
+            state=state.with_entry(entry, now=now),
+            new_task_ids=tuple(sorted(placed_new)),
+        )
+
     def forecast(
         self,
         schedule_data: Mapping[str, Any] | None,
@@ -710,6 +813,30 @@ class SchedulingService:
     ) -> None:
         """Honour day-level overrides stored on a saved plan."""
         self._overrides = overrides_from_json(raw, today or date.today())
+
+
+@dataclass(frozen=True)
+class AutopilotRun:
+    """One autonomous re-plan, ready to save and explain."""
+
+    replan: Replan
+    data: dict[str, Any]
+    headline: str
+    reasons: tuple[str, ...]
+    triggers: tuple[str, ...]
+    #: The plan's autopilot state *after* this run (log entry appended).
+    state: Any
+    new_task_ids: tuple[str, ...] = ()
+
+    def summary(self) -> dict[str, Any]:
+        body = self.replan.summary()
+        body.update({
+            "headline": self.headline,
+            "reasons": list(self.reasons),
+            "triggers": list(self.triggers),
+            "new_task_ids": list(self.new_task_ids),
+        })
+        return body
 
 
 def overrides_from_json(raw: Any, today: date) -> dict[date, dict[str, int]]:

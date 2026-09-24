@@ -359,6 +359,9 @@ class Disruption:
     #: capacities it passes (e.g. through real clock windows), so the engine
     #: must not add it again.
     capacity_applied: bool = False
+    #: Work that is not in the plan yet (a newly posted assignment). Placed
+    #: fresh, with no anchors — everything already planned stays anchored.
+    new_tasks: tuple[PlannerTask, ...] = ()
 
     def describe(self, snapshot: Snapshot) -> str:
         day = f"{self.day:%a %b} {self.day.day}" if self.day else ""
@@ -377,6 +380,8 @@ class Disruption:
             return f"{title} marked done"
         if self.kind == "progress":
             return f"Credited {self.minutes} min on {title}"
+        if self.kind == "autopilot":
+            return "Autopilot re-planned your week"
         return "Caught up"
 
 
@@ -566,6 +571,11 @@ def apply_disruption(
 
     # catch_up: nothing to change. Missed work is already in the task
     # minutes with no anchor, so the optimizer places it fresh.
+
+    for extra in disruption.new_tasks:
+        if extra.id not in tasks:
+            tasks[extra.id] = extra
+            order.append(extra.id)
 
     # Each task's surviving sittings become its own anchored split, so the
     # replan can put every one back exactly where it was. Pinned sittings are

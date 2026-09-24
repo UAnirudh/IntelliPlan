@@ -204,3 +204,33 @@ body.ft-open { overflow: hidden; }
   .ft-task { grid-template-columns: 1fr auto; }
   .ft-task-due { grid-column: 1; grid-row: 2; }
 }
+
+/* ── autopilot ────────────────────────────────────────────────── */
+
+.ft-auto { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ft-auto--acted {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--ipd-radius-sm, 8px);
+  background: var(--bg);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.ft-auto-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 0.86rem; color: var(--text-primary); }
+.ft-auto-badge {
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.ft-auto-reasons { margin: 0; padding-left: 18px; font-size: 0.8rem; color: var(--text-secondary, var(--text-primary)); display: grid; gap: 2px; }
+.ft-auto-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ft-bar .ft-auto-toggle.is-on {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}

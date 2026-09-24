@@ -1520,7 +1520,10 @@ function stateFor(blockId) {
 }
 
 /* ────────── DATA FETCH ────────── */
-fetch('/live').then(r => r.json()).then(data => { allAssignments = data; }).catch(() => {});
+fetch('/live').then(r => r.json()).then(data => {
+  allAssignments = data;
+  if (window.FT) FT.assignmentsLoaded();
+}).catch(() => { if (window.FT) FT.assignmentsLoaded(); });
 fetch('/calendar/events').then(r => r.json()).then(res => { _gcalConnected = res.connected; }).catch(() => {});
 
 /* ────────── TAB BAR ────────── */
@@ -3105,7 +3108,8 @@ function dismissSavedPlan() {
 
   updateCalExportButton();
   updateBadge();
-  if (window.FT) FT.refresh();
+  // Refreshes the forecast and lets Autopilot catch the plan up.
+  if (window.FT) FT.planLoaded();
   try {
     if (localStorage.getItem('ip_scheduler_tab') === 'interactive') switchTab('interactive');
   } catch(e) {}

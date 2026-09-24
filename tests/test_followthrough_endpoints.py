@@ -394,3 +394,115 @@ def test_refit_cron_writes_a_prior(client, monkeypatch):
         row = ModelPrior.query.filter_by(key="followthrough-v1").first()
         assert row is not None
         assert "bias" in json.loads(row.payload_json)["means"]
+
+
+# ── autopilot ────────────────────────────────────────────────────────
+
+
+def past_plan():
+    """A plan that started three days ago, with nothing ticked off since."""
+    return plan_data(start=TODAY - timedelta(days=3), days=12)
+
+
+def future_minutes(data):
+    return sum(int(b["duration_minutes"]) for d in data["schedule"] if d["date"] >= TODAY.isoformat()
+               for b in d["blocks"] if not b.get("is_break"))
+
+
+def test_autopilot_gives_missed_work_new_days_without_being_asked(client):
+    uid = make_user()
+    login(client, uid)
+    old = past_plan()
+    save(uid, old)
+    body = client.post("/api/schedule/autopilot", json={}).get_json()
+    assert body["acted"] is True
+    assert "missed" in body["triggers"]
+    assert body["headline"].startswith("Autopilot updated your plan")
+    assert body["undo_available"] is True
+    # The page never receives the undo copy; the server keeps it.
+    assert "undo" not in body["data"]["autopilot"]
+    data, _ = saved(uid)
+    assert all(d["date"] >= TODAY.isoformat() for d in data["schedule"])
+    assert data["autopilot"]["undo"]["data"]["schedule"] == old["schedule"]
+    assert future_minutes(data) + sum(d["minutes"] for d in data.get("deferred") or []) >= future_minutes(old)
+
+
+def test_autopilot_does_nothing_when_nothing_happened(client):
+    uid = make_user()
+    login(client, uid)
+    save(uid, past_plan())
+    assert client.post("/api/schedule/autopilot", json={}).get_json()["acted"] is True
+    again = client.post("/api/schedule/autopilot", json={}).get_json()
+    assert again["acted"] is False
+
+
+def test_undo_restores_the_old_plan_and_autopilot_stands_down_today(client):
+    uid = make_user()
+    login(client, uid)
+    old = past_plan()
+    save(uid, old, progress={"d1-b1": {"done": True}})
+    client.post("/api/schedule/autopilot", json={})
+    body = client.post("/api/schedule/autopilot/undo").get_json()
+    assert body["status"] == "ok"
+    data, progress = saved(uid)
+    assert data["schedule"] == old["schedule"]
+    assert progress == {"d1-b1": {"done": True}}
+    assert data["autopilot"]["log"][-1]["undone"] is True
+    # Respected: the very next page load does not redo it.
+    assert client.post("/api/schedule/autopilot", json={}).get_json()["acted"] is False
+    assert client.post("/api/schedule/autopilot/undo").status_code == 409
+
+
+def test_autopilot_can_be_switched_off(client):
+    uid = make_user()
+    login(client, uid)
+    save(uid, past_plan())
+    r = client.post("/api/schedule/autopilot/settings", json={"enabled": False})
+    assert r.get_json()["enabled"] is False
+    body = client.post("/api/schedule/autopilot", json={}).get_json()
+    assert body["acted"] is False and body["enabled"] is False
+    assert client.post("/api/schedule/autopilot/settings", json={"enabled": "yes"}).status_code == 400
+
+
+def test_a_newly_posted_assignment_is_absorbed_into_the_week(client):
+    uid = make_user()
+    login(client, uid)
+    save(uid, plan_data())
+    new = {"id": "bio-lab", "title": "Bio lab write-up", "course": "Biology",
+           "due_date": (TODAY + timedelta(days=5)).isoformat(), "points_possible": 50,
+           "priority": "High"}
+    body = client.post("/api/schedule/autopilot", json={"assignments": [new]}).get_json()
+    assert body["acted"] is True and "new_work" in body["triggers"]
+    data, _ = saved(uid)
+    assert [b for b in work_blocks(data) if (b.get("parent_title") or b["assignment"]).startswith("Bio lab")]
+
+
+def test_submitted_work_is_not_absorbed(client):
+    uid = make_user()
+    login(client, uid)
+    save(uid, plan_data())
+    done = {"id": "old-quiz", "title": "Old quiz", "status": "submitted",
+            "due_date": (TODAY + timedelta(days=3)).isoformat()}
+    assert client.post("/api/schedule/autopilot", json={"assignments": [done]}).get_json()["acted"] is False
+
+
+def test_a_manual_change_after_autopilot_retires_the_undo(client):
+    uid = make_user()
+    login(client, uid)
+    save(uid, past_plan())
+    client.post("/api/schedule/autopilot", json={})
+    adjust(client, action="skip_day", day=(TODAY + timedelta(days=1)).isoformat())
+    data, _ = saved(uid)
+    assert "undo" not in data["autopilot"]
+    assert data["autopilot"]["log"]
+
+
+def test_the_autopilot_cron_catches_up_students_who_never_opened_the_page(client, monkeypatch):
+    monkeypatch.setenv("CRON_SECRET", "s3cret")
+    uid = make_user()
+    save(uid, past_plan())
+    assert client.post("/cron/autopilot").status_code == 401
+    body = client.post("/cron/autopilot", headers={"X-Cron-Secret": "s3cret"}).get_json()
+    assert body["acted"] >= 1
+    data, _ = saved(uid)
+    assert all(d["date"] >= TODAY.isoformat() for d in data["schedule"])

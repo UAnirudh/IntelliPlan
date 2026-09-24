@@ -251,6 +251,32 @@ made browser-stored ticks light up different work. Adjusted plans get fresh
 ids with a per-adjustment prefix. Today's already-finished blocks are carried
 across, still ticked, and progress is replaced rather than merged.
 
+## 7.6 Autopilot: the plan re-plans itself
+
+Most weeks nobody reports anything: a session doesn't happen, a teacher posts
+a new assignment, a deadline quietly becomes unreachable. Autopilot
+(`intelligence/autopilot.py`, `SchedulingService.autopilot`) watches for
+three facts and acts without being asked:
+
+| Trigger | Action |
+|---|---|
+| **Missed work**: a past block never ticked off | gets a new day |
+| **New work**: an LMS assignment the plan doesn't have (matched on id *and* title; overdue, undated, >14 days out, or submitted work is left alone) | absorbed into the week, with everything else anchored |
+| **A deadline at risk** (follow-through or overrun, not "doesn't fit") | rebalanced, but only if simulation says it's measurably safer; at most once per 6 hours |
+
+It runs through the same machinery as a student's own intent (minimal
+change first, do-no-harm), so it never makes a plan worse to look busy. It
+runs when the scheduler loads (with the page's assignment list) and from
+`POST /cron/autopilot` for students who never open the page, notifying them
+of what changed.
+
+Guard rails, because autonomy has to be trusted to be kept on:
+
+1. **Explained and undoable in one tap.** The previous plan is kept on the server (`schedule_data.autopilot.undo`, never shipped to the page) until the student changes the plan themselves.
+2. **An undo is respected.** Autopilot stands down for the rest of the day, and the undo is logged (`autopilot_undone`) as a signal about how much this student wants moved.
+3. **It can be switched off** per plan (`POST /api/schedule/autopilot/settings`).
+4. **It's idempotent.** With nothing new it does nothing: no churn on every page load.
+
 ## 8. API
 
 | Route | Notes |
@@ -258,6 +284,10 @@ across, still ticked, and progress is replaced rather than merged.
 | `POST /api/schedule/adjust` | `{action, day?, minutes?, task_id?, from_day?, preview?}` → `{data, progress, headline, detail, changes[], moved_sittings, kept_sittings, strategy, risk{before, if_you_do_nothing, after}}`. Works for guests with a saved plan. 120/h. |
 | `GET /api/schedule/forecast` | `{risk{tasks[], expected_missed, weighted_on_time}, insights[], model{…}, evaluation, missed_minutes}`. 240/h. |
 | `POST /cron/refit-followthrough-prior` | `CRON_SECRET`-guarded. |
+| `POST /api/schedule/autopilot` | `{assignments?}` → `{acted, headline, reasons[], triggers[], data, progress, undo_available, …}`. 60/h. |
+| `POST /api/schedule/autopilot/undo` | Restores the previous plan and its ticks; autopilot stands down for today. |
+| `POST /api/schedule/autopilot/settings` | `{enabled: bool}`. |
+| `POST /cron/autopilot` | `CRON_SECRET`-guarded. Run it every few hours. |
 
 Generation (`/generate_schedule`) and recovery (`/schedule/recover`) use the
 engine too: completion-aware placement, simulated buffers, `forecast` on the

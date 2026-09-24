@@ -8,8 +8,15 @@ Endpoints:
 * ``GET  /api/schedule/forecast``          — on-time probability per
   assignment for the plan as it stands, plus what the Follow-Through model
   has learned about this student.
+* ``POST /api/schedule/autopilot``          — let the plan re-plan itself:
+  missed work gets new days, newly posted assignments are absorbed, an
+  at-risk deadline is protected. Explained, and undoable.
+* ``POST /api/schedule/autopilot/undo``     — put the previous plan back.
+* ``POST /api/schedule/autopilot/settings`` — ``{"enabled": bool}``.
 * ``POST /cron/refit-followthrough-prior`` — refit the population prior new
   students start from. ``CRON_SECRET``-guarded like every other cron.
+* ``POST /cron/autopilot``                  — run autopilot for every student
+  with a live plan, so it works even for someone who never opens the page.
 
 Works for signed-in students and for guests with a saved plan — rescheduling
 is the thing a student reaches for on a bad day, and a bad day is not the
@@ -77,6 +84,16 @@ class AdjustDeps:
     refit_prior: Callable[[], dict] = field(default=lambda: {})
     #: Returns a Flask response to reject the cron call, or ``None`` to allow.
     cron_guard: Callable[[], Any] = field(default=lambda: None)
+    #: Client assignment rows → planner rows (sizing, priority, kind).
+    build_rows: Callable[[list], list] = field(default=lambda rows: [])
+    #: ``(uid, gid, run, old_data, old_progress, today) -> (data, progress)``:
+    #: stamp ids, attach autopilot state and the undo copy.
+    finalize_autopilot: Callable[..., tuple[dict, dict]] = field(
+        default=lambda uid, gid, run, old, progress, today: (run.data, {})
+    )
+    notify: Callable[[int, Any], Any] = field(default=lambda uid, run: None)
+    #: ``[(user_id, None)]`` for every student with a live plan (cron).
+    active_owners: Callable[[], list] = field(default=lambda: [])
 
 
 def _task_ids(schedule_data: Mapping[str, Any] | None) -> set[str]:
@@ -183,6 +200,169 @@ def create_adjust_blueprint(deps: AdjustDeps) -> Blueprint:
             "progress": new_progress,
             **result.summary(),
         })
+
+    # ── autopilot ────────────────────────────────────────────────────
+
+    def _run_autopilot(uid, gid, rows, *, force=False):
+        """Returns ``(body, status)``. Shared by the page and the cron."""
+        schedule_data, progress = deps.load_plan(uid, gid)
+        if not schedule_data or not schedule_data.get("schedule"):
+            return {"status": "none", "acted": False}, 200
+        now = deps.now()
+        today = now.date()
+        try:
+            reality = deps.session_reality(_task_ids(schedule_data), uid, gid) or {}
+        except Exception:
+            reality = {}
+        finished_titles = [
+            str(r.get("title") or "") for r in rows or []
+            if isinstance(r, dict) and str(r.get("status") or "").lower()
+            in ("submitted", "graded", "completed", "complete", "done", "excused")
+        ]
+        try:
+            planner_rows = deps.build_rows([
+                r for r in rows or [] if isinstance(r, dict)
+                and str(r.get("title") or "") not in finished_titles
+            ]) if rows else []
+            service = deps.build_service(uid, gid, request.get_json(silent=True) or {})
+            run = service.autopilot(
+                schedule_data, progress, planner_rows, now=now,
+                credit=reality.get("abandoned") or {},
+                finished=tuple(reality.get("finished") or ()),
+                finished_titles=finished_titles, force=force,
+            )
+        except Exception as exc:
+            logger.exception("autopilot failed: %s", exc)
+            return {"status": "error", "acted": False}, 500
+
+        from intelliplan.intelligence.autopilot import AutopilotState
+
+        state = AutopilotState.from_json(schedule_data.get("autopilot"))
+        if run is None:
+            return {"status": "ok", "acted": False, "enabled": state.enabled}, 200
+
+        try:
+            deps.record_outcomes(uid, gid, schedule_data, progress, today)
+        except Exception as exc:
+            logger.warning("outcome logging failed (non-fatal): %s", exc)
+        try:
+            data, new_progress = deps.finalize_autopilot(uid, gid, run, schedule_data, progress, today)
+        except Exception as exc:
+            logger.exception("autopilot finalize failed: %s", exc)
+            return {"status": "error", "acted": False}, 500
+        if not deps.save_plan(uid, gid, data, new_progress):
+            return {"status": "error", "acted": False}, 500
+        if uid is not None:
+            for hook in (
+                lambda: deps.record_version(uid, run.replan, data),
+                lambda: deps.emit_signal(uid, "autopilot_acted", {
+                    "triggers": list(run.triggers), "moved": run.replan.moved_sittings,
+                    "strategy": run.replan.strategy,
+                }),
+            ):
+                try:
+                    hook()
+                except Exception:
+                    pass
+        # The undo copy stays on the server; the page only needs to know it
+        # exists. Shipping it would double every payload for a button most
+        # students never press.
+        client_data = dict(data)
+        if isinstance(client_data.get("autopilot"), dict):
+            client_data["autopilot"] = {
+                k: v for k, v in client_data["autopilot"].items() if k != "undo"
+            }
+        return {
+            "status": "ok",
+            "acted": True,
+            "enabled": True,
+            "data": client_data,
+            "progress": new_progress,
+            "undo_available": True,
+            **run.summary(),
+        }, 200
+
+    @bp.route("/api/schedule/autopilot", methods=["POST"])
+    def autopilot():
+        uid, gid = _require_owner()
+        payload = request.get_json(silent=True) or {}
+        rows = payload.get("assignments") if isinstance(payload, dict) else None
+        body, status = _run_autopilot(uid, gid, rows if isinstance(rows, list) else [])
+        return jsonify(body), status
+
+    @bp.route("/api/schedule/autopilot/undo", methods=["POST"])
+    def autopilot_undo():
+        uid, gid = _require_owner()
+        schedule_data, _progress = deps.load_plan(uid, gid)
+        auto = (schedule_data or {}).get("autopilot") or {}
+        undo = auto.get("undo") if isinstance(auto, dict) else None
+        if not isinstance(undo, dict) or not isinstance(undo.get("data"), dict):
+            return jsonify({"status": "error", "message": "There's nothing to undo."}), 409
+
+        from intelliplan.intelligence.autopilot import AutopilotState
+
+        state = AutopilotState.from_json(auto)
+        now = deps.now()
+        # An undo is the student saying "not like that". Stand down for
+        # the rest of today rather than redoing it on the next page load.
+        state = AutopilotState(
+            enabled=state.enabled, last_run=state.last_run,
+            suppressed_until=now.date(),
+            log=state.log,
+        ).with_entry({"at": now.isoformat(timespec="seconds"), "headline": "You undid autopilot's change.", "undone": True})
+        data = dict(undo["data"])
+        data["autopilot"] = state.to_json()
+        progress = undo.get("progress") if isinstance(undo.get("progress"), dict) else {}
+        if not deps.save_plan(uid, gid, data, progress):
+            return jsonify({"status": "error", "message": "Couldn't restore the plan."}), 500
+        if uid is not None:
+            try:
+                deps.emit_signal(uid, "autopilot_undone", {"at": now.isoformat(timespec="seconds")})
+            except Exception:
+                pass
+        return jsonify({"status": "ok", "data": data, "progress": progress})
+
+    @bp.route("/api/schedule/autopilot/settings", methods=["POST"])
+    def autopilot_settings():
+        uid, gid = _require_owner()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict) or not isinstance(payload.get("enabled"), bool):
+            return jsonify({"status": "error", "message": "Send {\"enabled\": true|false}."}), 400
+        schedule_data, progress = deps.load_plan(uid, gid)
+        if not schedule_data:
+            return jsonify({"status": "none"}), 404
+
+        from intelliplan.intelligence.autopilot import AutopilotState
+
+        auto = schedule_data.get("autopilot") if isinstance(schedule_data.get("autopilot"), dict) else {}
+        state = AutopilotState.from_json(auto)
+        state = AutopilotState(enabled=payload["enabled"], last_run=state.last_run,
+                               suppressed_until=None, log=state.log)
+        schedule_data["autopilot"] = {**state.to_json(), **({"undo": auto["undo"]} if auto.get("undo") else {})}
+        if not deps.save_plan(uid, gid, schedule_data, progress):
+            return jsonify({"status": "error"}), 500
+        return jsonify({"status": "ok", "enabled": state.enabled})
+
+    @bp.route("/cron/autopilot", methods=["GET", "POST"])
+    def cron_autopilot():
+        rejected = deps.cron_guard()
+        if rejected is not None:
+            return rejected
+        acted = checked = failed = 0
+        for uid, gid in deps.active_owners():
+            checked += 1
+            try:
+                body, _status = _run_autopilot(uid, gid, [])
+            except Exception:
+                failed += 1
+                continue
+            if body.get("acted"):
+                acted += 1
+                try:
+                    deps.notify(uid, body)
+                except Exception:
+                    pass
+        return jsonify({"status": "ok", "checked": checked, "acted": acted, "failed": failed})
 
     # ── read: will I make it? ────────────────────────────────────────
 
