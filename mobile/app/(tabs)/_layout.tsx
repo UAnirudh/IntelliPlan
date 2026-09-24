@@ -1,7 +1,8 @@
 import React from "react";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Platform } from "react-native";
+import { GlassView, isGlassEffectAPIAvailable } from "expo-glass-effect";
+import { Platform, StyleSheet } from "react-native";
 import { useTheme } from "../../theme/ThemeProvider";
 
 /**
@@ -11,7 +12,8 @@ import { useTheme } from "../../theme/ThemeProvider";
  * opens a planner on a phone at all.
  */
 export default function TabsLayout() {
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
+  const supportsGlass = Platform.OS === "ios" && isGlassEffectAPIAvailable();
 
   return (
     <Tabs
@@ -20,13 +22,23 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
-          backgroundColor: colors.navBg,
+          backgroundColor: supportsGlass ? "transparent" : colors.navBg,
           borderTopColor: colors.border,
           // The default 49pt bar crowds a five-icon row once the labels
           // are on; iOS adds the home-indicator inset on top of this.
           height: Platform.OS === "ios" ? 84 : 62,
           paddingTop: 6,
         },
+        tabBarBackground: supportsGlass
+          ? () => (
+              <GlassView
+                glassEffectStyle="regular"
+                colorScheme={scheme}
+                tintColor={scheme === "dark" ? "rgba(16, 16, 18, 0.72)" : "rgba(255, 255, 255, 0.72)"}
+                style={StyleSheet.absoluteFill}
+              />
+            )
+          : undefined,
         tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
       }}
     >

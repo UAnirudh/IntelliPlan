@@ -16,6 +16,7 @@ import {
   ViewStyle,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { GlassView, isGlassEffectAPIAvailable } from "expo-glass-effect";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius, space, type as typeScale } from "../theme/tokens";
 
@@ -73,14 +74,40 @@ export function Label({ style, ...rest }: TextProps) {
 
 /* ── Surfaces ─────────────────────────────────────────────────────── */
 
+/**
+ * Native Liquid Glass when the device supports it, with the existing opaque
+ * surface as the fallback everywhere else. Shared surfaces use this so the
+ * effect stays consistent without breaking Android, web, or older iOS.
+ */
+export function GlassSurface({ style, children, ...rest }: ViewProps) {
+  const { scheme } = useTheme();
+  const supportsGlass = Platform.OS === "ios" && isGlassEffectAPIAvailable();
+
+  if (supportsGlass) {
+    return (
+      <GlassView
+        {...rest}
+        glassEffectStyle="regular"
+        colorScheme={scheme}
+        tintColor={scheme === "dark" ? "rgba(28, 28, 32, 0.68)" : "rgba(255, 255, 255, 0.68)"}
+        style={style}
+      >
+        {children}
+      </GlassView>
+    );
+  }
+
+  return <View {...rest} style={style}>{children}</View>;
+}
+
 export function Card({ style, children, ...rest }: ViewProps) {
   const { colors, scheme } = useTheme();
   return (
-    <View
+    <GlassSurface
       {...rest}
       style={[
         {
-          backgroundColor: colors.bgCard,
+          backgroundColor: Platform.OS === "ios" && isGlassEffectAPIAvailable() ? "transparent" : colors.bgCard,
           borderRadius: radius.xl,
           borderWidth: 1,
           borderColor: colors.border,
@@ -102,7 +129,7 @@ export function Card({ style, children, ...rest }: ViewProps) {
       ]}
     >
       {children}
-    </View>
+    </GlassSurface>
   );
 }
 
@@ -202,11 +229,12 @@ export function Chip({
   style?: StyleProp<ViewStyle>;
 }) {
   const { colors } = useTheme();
+  const supportsGlass = Platform.OS === "ios" && isGlassEffectAPIAvailable();
   return (
-    <View
+    <GlassSurface
       style={[
         {
-          backgroundColor: bg ?? colors.bgElevated,
+          backgroundColor: supportsGlass && !bg ? "transparent" : bg ?? colors.bgElevated,
           borderRadius: radius.pill,
           paddingHorizontal: 10,
           paddingVertical: 4,
@@ -222,7 +250,7 @@ export function Chip({
       <Text style={{ color: fg ?? colors.textMuted, fontSize: 11.5, fontWeight: "600" }}>
         {label}
       </Text>
-    </View>
+    </GlassSurface>
   );
 }
 
@@ -418,7 +446,7 @@ export function Notice({
   const fg = tone === "warn" ? colors.warnText : colors.accent;
   const bg = tone === "warn" ? colors.warnSoft : colors.accentSoft;
   return (
-    <View
+    <GlassSurface
       style={{
         flexDirection: "row",
         gap: space.sm,
@@ -431,7 +459,7 @@ export function Notice({
     >
       <Ionicons name={icon} size={15} color={fg} />
       <Text style={{ color: fg, fontSize: 13, flex: 1 }}>{text}</Text>
-    </View>
+    </GlassSurface>
   );
 }
 

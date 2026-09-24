@@ -1,11 +1,12 @@
 import React from "react";
-import { Pressable, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
+import { isGlassEffectAPIAvailable } from "expo-glass-effect";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeProvider";
 import { space } from "../theme/tokens";
-import { T } from "./ui";
+import { GlassSurface, T } from "./ui";
 
 /**
  * The bar at the top of every tab.
@@ -31,12 +32,12 @@ export function Header({
   const router = useRouter();
 
   return (
-    <View
+    <GlassSurface
       style={{
         paddingTop: insets.top + space.sm,
         paddingBottom: space.md,
         paddingHorizontal: space.lg,
-        backgroundColor: colors.bg,
+        backgroundColor: Platform.OS === "ios" && isGlassEffectAPIAvailable() ? "transparent" : colors.bg,
         borderBottomWidth: 1,
         borderBottomColor: colors.border,
         flexDirection: "row",
@@ -67,7 +68,7 @@ export function Header({
           <Ionicons name="person-circle-outline" size={28} color={colors.textSecondary} />
         </Pressable>
       ) : null}
-    </View>
+    </GlassSurface>
   );
 }
 
