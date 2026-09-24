@@ -19,6 +19,7 @@ import {
 import { API_BASE } from "../lib/config";
 import { useQuery } from "../lib/useQuery";
 import { useAuth } from "../lib/auth";
+import { openPublicPage } from "../lib/web";
 import { disablePush, enablePush, isPushEnabled } from "../lib/push";
 import { areRemindersEnabled, setRemindersEnabled, syncReminders } from "../lib/reminders";
 import { getTasks } from "../lib/api";
@@ -507,6 +508,14 @@ export default function SettingsScreen() {
           <T variant="xs" tone="muted">
             IntelliPlan {version} · signed in as {user?.email}
           </T>
+        </Card>
+
+        {/* ── Help & legal ── */}
+        <Card style={{ gap: space.sm }}>
+          <Label>Help & legal</Label>
+          <Button title="Help & FAQ" kind="secondary" icon="help-circle-outline" onPress={() => openPublicPage("/faq").catch(() => {})} />
+          <Button title="Privacy Policy" kind="secondary" icon="shield-checkmark-outline" onPress={() => openPublicPage("/privacy").catch(() => {})} />
+          <Button title="Terms of Service" kind="secondary" icon="document-text-outline" onPress={() => openPublicPage("/terms").catch(() => {})} />
         </Card>
 
         <Button title="Sign out" kind="danger" icon="log-out-outline" onPress={confirmSignOut} />

@@ -530,6 +530,10 @@ def _err(msg, status=400, **extra):
     return jsonify(payload), status
 
 
+#: Minimum password length for new accounts, matching /register on the web.
+MIN_PASSWORD_LENGTH = 8
+
+
 # ── Routes ────────────────────────────────────────────────────
 
 @auth_bp.route("/api/auth/register", methods=["POST", "OPTIONS"])
@@ -546,8 +550,10 @@ def api_register():
 
     if not email or not password:
         return _err("Email and password are required.", 400)
-    if len(password) < 6:
-        return _err("Password must be at least 6 characters.", 400)
+    # Same floor as the website's /register form. The API was at 6, which
+    # made the phone app and extension the weaker way into an account.
+    if len(password) < MIN_PASSWORD_LENGTH:
+        return _err(f"Password must be at least {MIN_PASSWORD_LENGTH} characters.", 400)
     if User.query.filter_by(email=email).first():
         return _err("An account with that email already exists.", 409)
 

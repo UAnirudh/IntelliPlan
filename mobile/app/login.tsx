@@ -11,11 +11,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../lib/auth";
 import { markOnboarded } from "../lib/onboarding";
+import { openPublicPage } from "../lib/web";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius, space } from "../theme/tokens";
 import { Button, Field, Notice, Screen, T } from "../components/ui";
 
 type Mode = "signin" | "signup";
+
+/** Matches MIN_PASSWORD_LENGTH in auth_api.py and the website's form. */
+const MIN_PASSWORD = 8;
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -41,8 +45,8 @@ export default function LoginScreen() {
     }
     // The server enforces this too, but a round trip to be told the
     // password is short is a slow way to learn it.
-    if (signup && password.length < 6) {
-      setError("Pick a password of at least 6 characters.");
+    if (signup && password.length < MIN_PASSWORD) {
+      setError(`Pick a password of at least ${MIN_PASSWORD} characters.`);
       return;
     }
     setBusy(true);
@@ -142,7 +146,7 @@ export default function LoginScreen() {
             <View>
               <Field
                 label="Password"
-                placeholder={signup ? "At least 6 characters" : "Your password"}
+                placeholder={signup ? `At least ${MIN_PASSWORD} characters` : "Your password"}
                 secureTextEntry={!show}
                 autoCapitalize="none"
                 autoComplete={signup ? "new-password" : "current-password"}
@@ -166,6 +170,20 @@ export default function LoginScreen() {
                 />
               </Pressable>
             </View>
+
+            {!signup ? (
+              <Pressable
+                onPress={() => openPublicPage("/forgot-password").catch(() => {})}
+                hitSlop={8}
+                accessibilityRole="link"
+                accessibilityLabel="Forgot password? Opens the reset page"
+                style={{ alignSelf: "flex-end", marginTop: -space.xs }}
+              >
+                <T variant="sm" tone="accent" weight="600">
+                  Forgot password?
+                </T>
+              </Pressable>
+            ) : null}
 
             {error ? <Notice text={error} tone="warn" icon="alert-circle-outline" /> : null}
 
@@ -195,8 +213,43 @@ export default function LoginScreen() {
             Signed in with Google on the website? Set a password from Settings
             there first — this app signs in with email and password.
           </T>
+
+          <LegalLinks lead={signup ? "By creating an account you agree to the" : undefined} />
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
+  );
+}
+
+/** Terms and privacy, reachable before sign-in as the stores require. */
+function LegalLinks({ lead }: { lead?: string }) {
+  return (
+    <View style={{ alignItems: "center", gap: 2 }}>
+      {lead ? (
+        <T variant="xs" tone="muted">
+          {lead}
+        </T>
+      ) : null}
+      <View style={{ flexDirection: "row", gap: space.md }}>
+        <Pressable
+          onPress={() => openPublicPage("/terms").catch(() => {})}
+          hitSlop={8}
+          accessibilityRole="link"
+        >
+          <T variant="xs" tone="accent" weight="600">
+            Terms of Service
+          </T>
+        </Pressable>
+        <Pressable
+          onPress={() => openPublicPage("/privacy").catch(() => {})}
+          hitSlop={8}
+          accessibilityRole="link"
+        >
+          <T variant="xs" tone="accent" weight="600">
+            Privacy Policy
+          </T>
+        </Pressable>
+      </View>
+    </View>
   );
 }
