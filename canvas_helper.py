@@ -115,9 +115,38 @@ def test_login(canvas_url, token):
         return False
 
 
-def _fetch_courses(canvas_url, token):
-    data = _get_list(f"{_base(canvas_url)}/courses", _headers(token))
+def _fetch_courses(canvas_url, token, *, include_total_scores=False):
+    """Return active Canvas courses, optionally with their official totals.
+
+    Canvas only includes ``computed_current_score`` and
+    ``computed_current_grade`` when ``total_scores`` is requested. The
+    Grade Modeler previously fetched bare courses, so its assignment detail
+    arrived without the same course percentage that the grades page already
+    displayed.
+    """
+    suffix = "?include[]=total_scores&enrollment_state=active" if include_total_scores else ""
+    data = _get_list(f"{_base(canvas_url)}/courses{suffix}", _headers(token))
     return [c for c in data if isinstance(c, dict) and "id" in c]
+
+
+def _course_total(course):
+    """Return Canvas's official percentage and letter for one course."""
+    pct = None
+    letter = None
+    for enrollment in course.get("enrollments") or []:
+        if not isinstance(enrollment, dict):
+            continue
+        score = enrollment.get("computed_current_score")
+        if score is not None:
+            try:
+                pct = round(float(score), 1)
+            except (TypeError, ValueError):
+                pass
+        if enrollment.get("computed_current_grade"):
+            letter = enrollment["computed_current_grade"]
+        if pct is not None:
+            break
+    return pct, letter
 
 
 def get_courses(canvas_url, token):
@@ -270,7 +299,7 @@ def get_gradebook_detail(canvas_url, token):
     """
     base = _base(canvas_url)
     headers = _headers(token)
-    courses = _fetch_courses(canvas_url, token)
+    courses = _fetch_courses(canvas_url, token, include_total_scores=True)
 
     detail = []
     for c in courses:
@@ -328,8 +357,35 @@ def get_gradebook_detail(canvas_url, token):
                 "calculated_mark": "",
             })
 
+        percentage, letter = _course_total(c)
+
+        # A Canvas course can omit total_scores (for example when the
+        # instructor has not enabled a scheme). Keep the model usable with a
+        # transparent points-based fallback instead of returning an omitted
+        # field that the browser renders as "undefined".
+        if percentage is None:
+            earned_total = sum(
+                row["points_earned"] for row in course_assignments
+                if isinstance(row["points_earned"], (int, float))
+                and isinstance(row["points_possible"], (int, float))
+                and row["points_possible"] > 0
+            )
+            possible_total = sum(
+                row["points_possible"] for row in course_assignments
+                if isinstance(row["points_earned"], (int, float))
+                and isinstance(row["points_possible"], (int, float))
+                and row["points_possible"] > 0
+            )
+            if possible_total:
+                percentage = round((earned_total / possible_total) * 100, 1)
+
+        if letter is None and percentage is not None:
+            letter = _letter_from_pct(percentage)
+
         detail.append({
             "course": course_name,
+            "percentage": percentage,
+            "letter": letter or "N/A",
             "assignments": course_assignments,
         })
 

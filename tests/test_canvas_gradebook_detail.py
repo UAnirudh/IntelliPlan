@@ -63,7 +63,8 @@ class _Resp:
         return self._payload
 
 
-def fake_canvas(monkeypatch, *, n_assignments, graded_index, grade_value):
+def fake_canvas(monkeypatch, *, n_assignments, graded_index, grade_value,
+                course_score=None, course_letter=None):
     """A Canvas that paginates at ten like the real one."""
     assignments = [
         {"id": 1000 + i, "name": f"History essay {i}", "points_possible": 20,
@@ -92,7 +93,13 @@ def fake_canvas(monkeypatch, *, n_assignments, graded_index, grade_value):
         if "submissions" in url:
             return _Resp(submissions)
         if url.rstrip("/").endswith("/courses") or "/courses?" in url:
-            return _Resp([{"id": 55, "name": "AP US History"}])
+            course = {"id": 55, "name": "AP US History"}
+            if course_score is not None or course_letter is not None:
+                course["enrollments"] = [{
+                    "computed_current_score": course_score,
+                    "computed_current_grade": course_letter,
+                }]
+            return _Resp([course])
         return _Resp([])
 
     monkeypatch.setattr(canvas_helper, "requests", types.SimpleNamespace(get=fake_get))
@@ -138,6 +145,29 @@ def test_a_points_only_grade_is_not_labelled_as_pending(monkeypatch):
     assert row["display_score"] == "18"
     assert row["display_score"] not in _PENDING_LABELS
     assert frontend_counts_as_graded(row)
+
+
+def test_grade_modeler_detail_always_includes_a_course_total(monkeypatch):
+    """The modeler's current grade must never be a missing JSON field."""
+    fake_canvas(monkeypatch, n_assignments=5, graded_index=2, grade_value=None)
+    course = canvas_helper.get_gradebook_detail("https://x", "tok")[0]
+    assert course["percentage"] == 90.0
+    assert course["letter"] == "A-"
+
+
+def test_grade_modeler_prefers_canvas_official_course_total(monkeypatch):
+    """Weighted Canvas totals beat the points-only fallback."""
+    fake_canvas(
+        monkeypatch,
+        n_assignments=5,
+        graded_index=2,
+        grade_value=None,
+        course_score="97.4",
+        course_letter="A+",
+    )
+    course = canvas_helper.get_gradebook_detail("https://x", "tok")[0]
+    assert course["percentage"] == 97.4
+    assert course["letter"] == "A+"
 
 
 def test_a_letter_grade_is_still_preferred_when_canvas_sends_one(monkeypatch):

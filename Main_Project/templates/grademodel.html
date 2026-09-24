@@ -322,6 +322,19 @@ function selectCourse(course) {
   course = Object.assign({}, course, {
     assignments: (course.assignments || []).map(normalizeAssignment)
   });
+  // Canvas supplies an official weighted total when available. If an LMS
+  // cannot provide one, calculate a points-based total from graded rows so
+  // the screen always shows a grade or an intentional em dash, never the
+  // JavaScript word "undefined".
+  let percentage = _num(course.percentage);
+  if (percentage === null) {
+    const graded = course.assignments.filter(a => a.graded && a.points_possible);
+    const earned = graded.reduce((sum, a) => sum + (a.points_earned || 0), 0);
+    const possible = graded.reduce((sum, a) => sum + (a.points_possible || 0), 0);
+    percentage = possible > 0 ? (earned / possible) * 100 : null;
+  }
+  course.percentage = percentage === null ? null : Number(percentage.toFixed(1));
+  course.letter = course.letter || (percentage === null ? null : pctToLetter(percentage));
   selectedCourse = course;
   // Snapshot the original assignments so Reset can restore them exactly.
   originalAssignments = JSON.parse(JSON.stringify(course.assignments || []));
@@ -332,9 +345,9 @@ function selectCourse(course) {
   document.getElementById('modelResult').style.display = 'none';
   document.getElementById('targetInput').value = '';
 
-  document.getElementById('currentPct').textContent = `${course.percentage}%`;
+  document.getElementById('currentPct').textContent = course.percentage === null ? '—' : `${course.percentage}%`;
   const lb = document.getElementById('currentLetter');
-  lb.textContent = course.letter;
+  lb.textContent = course.letter || '—';
   lb.className = 'priority-badge ' + letterToClass(course.letter);
 
   renderMaxBadge();
