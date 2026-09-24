@@ -158,7 +158,7 @@ window.gpBuildOverride = function() {
           <button class="btn-secondary" onclick="simulateBest()" id="simBtn" style="padding:10px 16px; cursor:pointer; font-size:0.84rem;">Simulate</button>
           <button onclick="resetModel()" id="resetBtn" style="padding:10px 14px; cursor:pointer; font-size:0.84rem; border-radius:10px; border:1px solid var(--border-strong); background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); color:var(--text-secondary); font-family:var(--font-ui); font-weight:600;">&#x21BA; Reset</button>
         </div>
-        <div style="font-size:0.74rem;color:var(--text-muted);margin-top:6px;">Simulate fills pending assignments with the scores you need; Reset restores real data.</div>
+        <div style="font-size:0.74rem;color:var(--text-muted);margin-top:6px;">Simulate fills ungraded work with the scores you need. Tap any score for a what-if. Reset restores your real grades.</div>
         <div id="targetHint" style="font-size:0.78rem;margin-top:4px;font-family:var(--font-ui);min-height:1.1rem;"></div>
       </div>
     </div>
@@ -202,6 +202,10 @@ window.gpBuildOverride = function() {
           <input id="newAsgnEarned" type="number" min="0" step="0.1" placeholder="Leave blank if pending" inputmode="decimal"
             style="width:100%;padding:8px 10px;border:1px solid var(--border-strong);border-radius:9px;font-family:inherit;font-size:0.92rem;background:var(--bg-secondary);color:var(--text-primary);"/>
         </div>
+      </div>
+      <div id="newAsgnGroupWrap" style="display:none;margin-top:0.6rem;">
+        <label for="newAsgnGroup" style="display:block;font-family:var(--font-ui);font-size:0.74rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Category</label>
+        <select id="newAsgnGroup" style="width:100%;padding:8px 10px;border:1px solid var(--border-strong);border-radius:9px;font-family:inherit;font-size:0.92rem;background:var(--bg-secondary);color:var(--text-primary);"></select>
       </div>
       <div id="newAsgnMsg" style="font-family:var(--font-ui);font-size:0.8rem;color:var(--danger);margin-top:6px;display:none;"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:0.85rem;flex-wrap:wrap;">
@@ -318,66 +322,186 @@ function normalizeAssignment(a) {
   });
 }
 
+/* ── The grade engine ─────────────────────────────────────
+   Every number on this page — the current grade, the reachable range,
+   Model It, Simulate, manual rows — comes from gradeOf(). Before, each
+   feature did its own points arithmetic, and a Canvas course weighted by
+   category (Tests 60%, Homework 40%) showed Canvas's weighted grade until
+   you touched anything, then jumped to a raw-points number that disagreed
+   with it.
+
+   gradeOf(rows, fill):
+     fill === null  → only graded (or what-if) rows count
+     fill in [0, 1] → ungraded rows count as that fraction of their points
+   Weighted courses follow Canvas's rule: each category's percentage times
+   its weight, renormalised over the categories that have work in them. */
+function _counts(a) {
+  return !a.excused && !a.omit_from_final_grade && (_num(a.points_possible) || 0) > 0;
+}
+
+function gradeOf(rows, fill) {
+  const course = selectedCourse || {};
+  const weighted = course.weighting === 'groups';
+  const buckets = {};
+  (rows || []).forEach(a => {
+    if (!_counts(a)) return;
+    const poss = _num(a.points_possible);
+    let earned;
+    if (a.graded) earned = _num(a.points_earned) || 0;
+    else if (fill === null || fill === undefined) return;
+    else earned = poss * fill;
+    const key = weighted ? String(a.group_id || '') : '_';
+    const b = buckets[key] || (buckets[key] = { e: 0, p: 0 });
+    b.e += earned;
+    b.p += poss;
+  });
+  if (weighted) {
+    const w = {};
+    (course.groups || []).forEach(g => { w[String(g.id)] = Number(g.weight) || 0; });
+    let num = 0, den = 0;
+    Object.keys(buckets).forEach(k => {
+      if ((w[k] || 0) > 0 && buckets[k].p > 0) {
+        num += w[k] * buckets[k].e / buckets[k].p;
+        den += w[k];
+      }
+    });
+    if (den > 0) return (num / den) * 100;
+  }
+  let e = 0, p = 0;
+  Object.values(buckets).forEach(b => { e += b.e; p += b.p; });
+  return p > 0 ? (e / p) * 100 : null;
+}
+
+/* Canvas can apply rules the API does not expose (dropped lowest scores,
+   late penalties). The difference between Canvas's official grade and
+   ours is measured once and carried, so every what-if moves *from the
+   number the student sees in Canvas*. */
+function shownGrade(raw) {
+  if (raw === null || raw === undefined) return null;
+  return Math.max(0, raw + ((selectedCourse && selectedCourse.offset) || 0));
+}
+
+function _pendingRows(rows) {
+  return (rows || []).filter(a => !a.graded && _counts(a));
+}
+
+/* The uniform score on every ungraded assignment that lands exactly on
+   `target`. Grade is monotonic in that score, so bisection is exact to
+   well under a hundredth of a percent. */
+function fillForTarget(rows, target) {
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (shownGrade(gradeOf(rows, mid)) >= target) hi = mid; else lo = mid;
+  }
+  return hi;
+}
+
+function isModified() {
+  return Object.keys(simulatedScores).length > 0 ||
+    (originalAssignments || []).some(a => a.manual);
+}
+
+function refreshHeader() {
+  if (!selectedCourse) return;
+  let pct;
+  if (isModified()) {
+    pct = shownGrade(gradeOf(selectedCourse.assignments, null));
+  } else {
+    pct = selectedCourse.officialPct;
+    if (pct === null || pct === undefined) pct = shownGrade(gradeOf(selectedCourse.assignments, null));
+  }
+  const tag = Object.keys(simulatedScores).length
+    ? ' <span style="font-size:0.35em;font-weight:600;color:var(--accent);vertical-align:middle;white-space:nowrap;">what-if</span>' : '';
+  document.getElementById('currentPct').innerHTML = pct === null ? '—' : `${pct.toFixed(1)}%${tag}`;
+  const letter = pct === null ? (selectedCourse.officialLetter || '—')
+    : (isModified() ? pctToLetter(pct) : (selectedCourse.officialLetter || pctToLetter(pct)));
+  selectedCourse.percentage = pct === null ? null : Number(pct.toFixed(2));
+  selectedCourse.letter = letter;
+  const lb = document.getElementById('currentLetter');
+  lb.textContent = letter;
+  lb.className = 'priority-badge ' + letterToClass(letter);
+  renderMaxBadge();
+  renderGradingNote();
+}
+
+function renderGradingNote() {
+  let note = document.getElementById('gradingNote');
+  const wrap = document.getElementById('assignmentBreakdown');
+  if (!note && wrap) {
+    note = document.createElement('div');
+    note.id = 'gradingNote';
+    note.style.cssText = 'font-family:var(--font-ui);font-size:0.8rem;color:var(--text-muted);margin:-0.4rem 0 0.8rem;line-height:1.5;';
+    wrap.parentNode.insertBefore(note, wrap);
+  }
+  if (!note || !selectedCourse) return;
+  const bits = [];
+  if (selectedCourse.weighting === 'groups') {
+    bits.push('Weighted by category: ' + (selectedCourse.groups || [])
+      .filter(g => g.weight > 0)
+      .map(g => `${escapeHtml(g.name)} ${Number(g.weight).toFixed(0)}%`).join(' · ') + '.');
+  } else {
+    bits.push('Graded on total points.');
+  }
+  if (Math.abs(selectedCourse.offset || 0) >= 0.5) {
+    bits.push(`Your teacher's gradebook applies rules we can't see (like dropped scores), so what-ifs move from your official ${Number(selectedCourse.officialPct).toFixed(1)}%.`);
+  }
+  bits.push('Tap any score to try a different one.');
+  note.innerHTML = bits.join(' ');
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 function selectCourse(course) {
   course = Object.assign({}, course, {
     assignments: (course.assignments || []).map(normalizeAssignment)
   });
-  // Canvas supplies an official weighted total when available. If an LMS
-  // cannot provide one, calculate a points-based total from graded rows so
-  // the screen always shows a grade or an intentional em dash, never the
-  // JavaScript word "undefined".
-  let percentage = _num(course.percentage);
-  if (percentage === null) {
-    const graded = course.assignments.filter(a => a.graded && a.points_possible);
-    const earned = graded.reduce((sum, a) => sum + (a.points_earned || 0), 0);
-    const possible = graded.reduce((sum, a) => sum + (a.points_possible || 0), 0);
-    percentage = possible > 0 ? (earned / possible) * 100 : null;
-  }
-  course.percentage = percentage === null ? null : Number(percentage.toFixed(1));
-  course.letter = course.letter || (percentage === null ? null : pctToLetter(percentage));
   selectedCourse = course;
+  selectedCourse.weighting = course.weighting === 'groups' ? 'groups' : 'points';
+  selectedCourse.groups = Array.isArray(course.groups) ? course.groups : [];
+  // Canvas's official total wins when it has one; otherwise ours is the grade.
+  const official = _num(course.percentage);
+  const ours = gradeOf(course.assignments, null);
+  selectedCourse.officialPct = official !== null ? official : ours;
+  selectedCourse.officialLetter = (course.letter && course.letter !== 'N/A') ? course.letter : null;
+  // Only a plausible gap is carried. A huge one means our view of the
+  // gradebook is incomplete, and anchoring to it would mislead.
+  const gap = (official !== null && ours !== null) ? official - ours : 0;
+  selectedCourse.offset = Math.abs(gap) <= 15 ? gap : 0;
   // Snapshot the original assignments so Reset can restore them exactly.
   originalAssignments = JSON.parse(JSON.stringify(course.assignments || []));
   simulatedScores = {};
-  dropBtn.innerHTML = `${course.course} <span class="chevron">▾</span>`;
+  dropBtn.innerHTML = `${escapeHtml(course.course)} <span class="chevron">▾</span>`;
   dropMenu.classList.remove('open');
   document.getElementById('courseOverview').style.display = 'block';
   document.getElementById('modelResult').style.display = 'none';
   document.getElementById('targetInput').value = '';
+  populateGroupSelect();
+  refreshHeader();
+  renderBreakdown(selectedCourse.assignments);
+}
 
-  document.getElementById('currentPct').textContent = course.percentage === null ? '—' : `${course.percentage}%`;
-  const lb = document.getElementById('currentLetter');
-  lb.textContent = course.letter || '—';
-  lb.className = 'priority-badge ' + letterToClass(course.letter);
-
-  renderMaxBadge();
-  renderBreakdown(course.assignments);
+function populateGroupSelect() {
+  const wrap = document.getElementById('newAsgnGroupWrap');
+  const sel = document.getElementById('newAsgnGroup');
+  if (!wrap || !sel) return;
+  const groups = (selectedCourse && selectedCourse.weighting === 'groups') ? selectedCourse.groups : [];
+  wrap.style.display = groups.length ? '' : 'none';
+  sel.innerHTML = groups.map(g => `<option value="${escapeHtml(g.id)}">${escapeHtml(g.name)} (${Number(g.weight).toFixed(0)}%)</option>`).join('');
 }
 
 /* Maximum grade that's still mathematically reachable in this course
    given what's already been graded. If 99/100 is locked in, the max is
    (99 + remainingPoints) / totalPoints, never 100%. */
 function computeMaxPossible() {
-  if (!originalAssignments) return null;
-  const graded = originalAssignments.filter(a => a.graded && a.points_possible);
-  const pending = originalAssignments.filter(a => !a.graded && a.points_possible);
-  const earned = graded.reduce((s,a)=>s + (a.points_earned||0), 0);
-  const gp = graded.reduce((s,a)=>s + (a.points_possible||0), 0);
-  const pp = pending.reduce((s,a)=>s + (a.points_possible||0), 0);
-  const total = gp + pp;
-  if (total <= 0) return null;
-  return ((earned + pp) / total) * 100;
+  if (!originalAssignments || !_pendingRows(originalAssignments).length) return null;
+  return shownGrade(gradeOf(originalAssignments, 1));
 }
 function computeMinPossible() {
-  if (!originalAssignments) return null;
-  const graded = originalAssignments.filter(a => a.graded && a.points_possible);
-  const pending = originalAssignments.filter(a => !a.graded && a.points_possible);
-  const earned = graded.reduce((s,a)=>s + (a.points_earned||0), 0);
-  const gp = graded.reduce((s,a)=>s + (a.points_possible||0), 0);
-  const pp = pending.reduce((s,a)=>s + (a.points_possible||0), 0);
-  const total = gp + pp;
-  if (total <= 0) return null;
-  return (earned / total) * 100;
+  if (!originalAssignments || !_pendingRows(originalAssignments).length) return null;
+  return shownGrade(gradeOf(originalAssignments, 0));
 }
 function renderMaxBadge() {
   const maxP = computeMaxPossible();
@@ -397,7 +521,7 @@ function renderMaxBadge() {
 }
 
 /* ── Simulate / Reset helpers ──────────────────────────── */
-function _assignmentKey(a) { return String(a.id || a.title || ''); }
+function _assignmentKey(a) { return String(a.id || a.title || ''); }  // Canvas rows now carry ids
 
 /* Per-assignment manual simulate input: typing a score here is exactly
    like clicking Simulate but for one assignment instead of all pending.
@@ -413,8 +537,8 @@ function onSimInput(inputEl) {
     let n = parseFloat(raw);
     if (isNaN(n)) { delete simulatedScores[key]; }
     else {
-      if (n < 0) n = 0;
-      if (n > poss) n = poss;
+      // Extra credit is real, so allow a little over the points possible.
+      n = Math.max(0, Math.min(n, poss * 1.5));
       simulatedScores[key] = { points_earned: n, points_possible: poss, simulated: true };
     }
   }
@@ -422,37 +546,28 @@ function onSimInput(inputEl) {
   // Re-focus the same input + place caret at end so users can keep typing.
   setTimeout(() => {
     const next = document.querySelector(`input.sim-input[data-akey="${CSS.escape(key)}"]`);
-    if (next) { next.focus(); next.setSelectionRange(next.value.length, next.value.length); }
+    if (next) next.focus();  // number inputs keep the caret where it was
   }, 0);
 }
 
 function applySimulation() {
   if (!selectedCourse || !originalAssignments) return;
-  // Replace selectedCourse.assignments with originals + simulated overlays.
+  // Graded rows can be what-if'd too: "what if I'd got 50/50 on that essay"
+  // is the question most students actually have in Canvas, where future
+  // work is rarely published in advance.
   selectedCourse.assignments = originalAssignments.map(a => {
-    const key = _assignmentKey(a);
-    if (!a.graded && simulatedScores[key]) {
-      return {
-        ...a,
-        points_earned: simulatedScores[key].points_earned,
-        graded: true,        // visually displayed as simulated
-        simulated: true,
-      };
-    }
-    return { ...a };
+    const sim = simulatedScores[_assignmentKey(a)];
+    if (!sim) return { ...a };
+    return {
+      ...a,
+      points_earned: sim.points_earned,
+      graded: true,
+      simulated: true,
+      was_graded: !!a.graded,
+      original_earned: a.graded ? a.points_earned : null,
+    };
   });
-  // Recompute course percentage from the assignment list.
-  const tp = selectedCourse.assignments.reduce((s,a)=>s + (a.points_possible||0), 0);
-  const te = selectedCourse.assignments.reduce((s,a)=>s + ((a.graded&&a.points_possible)?a.points_earned:0), 0);
-  if (tp > 0) {
-    const pct = (te / tp) * 100;
-    selectedCourse.percentage = pct.toFixed(2);
-    selectedCourse.letter = pctToLetter(pct);
-    document.getElementById('currentPct').textContent = `${pct.toFixed(1)}% ${Object.keys(simulatedScores).length?'(sim)':''}`;
-    const lb = document.getElementById('currentLetter');
-    lb.textContent = selectedCourse.letter;
-    lb.className = 'priority-badge ' + letterToClass(selectedCourse.letter);
-  }
+  refreshHeader();
   renderBreakdown(selectedCourse.assignments);
 }
 
@@ -474,18 +589,8 @@ function resetModel() {
   if (!selectedCourse || !originalAssignments) return;
   simulatedScores = {};
   selectedCourse.assignments = JSON.parse(JSON.stringify(originalAssignments));
-  // Recompute and re-render from scratch
-  const tp = selectedCourse.assignments.reduce((s,a)=>s + (a.points_possible||0), 0);
-  const te = selectedCourse.assignments.filter(a=>a.graded).reduce((s,a)=>s + (a.points_earned||0), 0);
-  const gradedPoss = selectedCourse.assignments.filter(a=>a.graded).reduce((s,a)=>s + (a.points_possible||0), 0);
-  const realPct = gradedPoss > 0 ? (te / gradedPoss * 100) : 0;
-  selectedCourse.percentage = realPct.toFixed(2);
-  selectedCourse.letter = pctToLetter(realPct);
-  document.getElementById('currentPct').textContent = `${realPct.toFixed(1)}%`;
-  const lb = document.getElementById('currentLetter');
-  lb.textContent = selectedCourse.letter;
-  lb.className = 'priority-badge ' + letterToClass(selectedCourse.letter);
   document.getElementById('modelResult').style.display = 'none';
+  refreshHeader();
   renderBreakdown(selectedCourse.assignments);
 }
 
@@ -495,59 +600,44 @@ function resetModel() {
 function simulateBest() {
   if (!selectedCourse || !originalAssignments) return;
   const target = parseFloat(document.getElementById('targetInput').value);
-  const pending = originalAssignments.filter(a => !a.graded && a.points_possible);
-  const graded = originalAssignments.filter(a => a.graded && a.points_possible);
-  const earnedTotal = graded.reduce((s,a)=>s+a.points_earned,0);
-  const gradedPoss = graded.reduce((s,a)=>s+a.points_possible,0);
-  const pendingPoss = pending.reduce((s,a)=>s+a.points_possible,0);
-  const totalPoss = gradedPoss + pendingPoss;
-
+  const pending = _pendingRows(originalAssignments);
   if (pending.length === 0) {
-    IP.alert('No pending assignments to simulate.');
+    IP.alert('Every assignment here is already graded. Tap any score to try a different one, or add an upcoming assignment.');
     return;
   }
-
-  // If no target supplied → simulate "best possible" (100% on all pending).
-  let neededPct;
-  if (isNaN(target)) {
-    neededPct = 100;
-  } else {
-    const pointsNeeded = (target / 100) * totalPoss;
-    const stillNeeded = pointsNeeded - earnedTotal;
-    neededPct = pendingPoss > 0 ? (stillNeeded / pendingPoss * 100) : 0;
-    if (neededPct > 100) neededPct = 100;   // best-achievable fallback
-    if (neededPct < 0) neededPct = 0;       // already there
+  const maxP = shownGrade(gradeOf(originalAssignments, 1));
+  let fill = 1;
+  if (!isNaN(target) && maxP !== null && target <= maxP) {
+    fill = fillForTarget(originalAssignments, target);
   }
-
   simulatedScores = {};
   pending.forEach(a => {
-    const key = _assignmentKey(a);
-    simulatedScores[key] = {
-      points_earned: +(a.points_possible * (neededPct / 100)).toFixed(2),
+    simulatedScores[_assignmentKey(a)] = {
+      points_earned: +(a.points_possible * fill).toFixed(2),
       points_possible: a.points_possible,
       simulated: true,
     };
   });
   applySimulation();
 
-  // Summary
   const summary = document.getElementById('modelSummary');
   document.getElementById('modelResult').style.display = 'block';
+  const predicted = Number(selectedCourse.percentage).toFixed(1);
+  const check = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--low)"><use href="#i-check-circle"/></svg>';
+  const warn = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--medium)"><use href="#i-warning"/></svg>';
   if (isNaN(target)) {
-    summary.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--low)"><use href="#i-check-circle"/></svg> Simulating the <strong>best possible</strong> scenario: scoring <strong>100%</strong> on all ${pending.length} remaining assignment${pending.length!==1?'s':''}. Predicted grade: <strong>${selectedCourse.percentage}%</strong>.`;
+    summary.innerHTML = `${check} Simulating the <strong>best possible</strong> scenario: 100% on all ${pending.length} remaining assignment${pending.length !== 1 ? 's' : ''}. Predicted grade: <strong>${predicted}%</strong>.`;
+  } else if (target > maxP + 1e-9) {
+    summary.innerHTML = `${warn} A grade of <strong>${target}%</strong> is no longer mathematically possible. Simulated the <strong>best achievable</strong> scenario instead: <strong>${predicted}%</strong> with perfect scores on everything remaining.`;
   } else {
-    const reached = parseFloat(selectedCourse.percentage) + 1e-6 >= target;
-    if (reached) {
-      summary.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--low)"><use href="#i-check-circle"/></svg> Simulated <strong>${neededPct.toFixed(1)}%</strong> on each remaining assignment, predicted grade <strong>${selectedCourse.percentage}%</strong>, meeting your target of <strong>${target}%</strong>.`;
-    } else {
-      summary.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--medium)"><use href="#i-warning"/></svg> A grade of <strong>${target}%</strong> is no longer mathematically possible. Simulated the <strong>best achievable</strong> scenario instead, predicted grade <strong>${selectedCourse.percentage}%</strong> with perfect scores on every remaining assignment.`;
-    }
+    summary.innerHTML = `${check} Simulated <strong>${(fill * 100).toFixed(1)}%</strong> on each remaining assignment: predicted grade <strong>${predicted}%</strong>, meeting your target of <strong>${target}%</strong>.`;
   }
 }
 
 function letterToClass(letter) {
-  if (letter.startsWith('A')) return 'low';
-  if (letter.startsWith('B')) return 'medium';
+  const l = String(letter || '');
+  if (l.startsWith('A')) return 'low';
+  if (l.startsWith('B')) return 'medium';
   return 'high';
 }
 
@@ -586,31 +676,30 @@ function renderBreakdown(assignments) {
       ? Math.round((earned / possible) * 100) + '%'
       : '';
 
-    // Find the matching original (pre-simulation) record to decide
-    // whether to render an editable input for pending assignments.
-    const origMatch = originalAssignments ? originalAssignments.find(o => _assignmentKey(o) === _assignmentKey(a)) : null;
-    const wasOriginallyPending = origMatch && !origMatch.graded;
-
+    // Every row takes a what-if, graded or not. Canvas rarely lists future
+    // work, so a modeler that only edits ungraded rows had nothing to edit.
     const statusLabel = a.simulated
-      ? '<span style="font-family:var(--font-ui);font-size:0.62rem;font-weight: 700;text-transform:uppercase;letter-spacing:0.06em;background:rgba(99,102,241,0.12);color:var(--accent);padding:2px 7px;border-radius:999px;">simulated</span>'
-      : a.graded
-        ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--low)"><use href="#i-check-circle"/></svg> Graded'
-        : 'Pending';
-
-    const editorHtml = wasOriginallyPending ? `
+      ? `<span style="font-family:var(--font-ui);font-size:0.62rem;font-weight: 700;text-transform:uppercase;letter-spacing:0.06em;background:rgba(99,102,241,0.12);color:var(--accent);padding:2px 7px;border-radius:999px;">what-if</span>${a.was_graded && a.original_earned !== null ? ` <span style="font-size:0.74rem;color:var(--text-muted);">was ${a.original_earned}</span>` : ''}`
+      : a.excused
+        ? 'Excused'
+        : a.graded
+          ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--low)"><use href="#i-check-circle"/></svg> Graded'
+          : 'Pending';
+    const groupTag = a.group ? `<span class="meta-item">${escapeHtml(a.group)}</span>` : '';
+    const editorHtml = (_counts(a)) ? `
       <div style="display:flex; align-items:center; gap:4px; justify-content:flex-end; margin-top:4px;">
         <input
-          type="number" min="0" max="${a.points_possible}" step="0.5"
+          type="number" min="0" step="0.5"
           value="${a.simulated ? (a.points_earned ?? '') : ''}"
-          placeholder="-"
-          aria-label="Simulated score for ${a.title}, out of ${a.points_possible}"
-          data-akey="${_assignmentKey(a)}"
-          data-poss="${a.points_possible}"
+          placeholder="${a.graded && !a.simulated && earned !== null ? earned : 'what if'}"
+          aria-label="What-if score for ${escapeHtml(a.title)}, out of ${possible}"
+          data-akey="${escapeHtml(_assignmentKey(a))}"
+          data-poss="${possible}"
           oninput="onSimInput(this)"
           class="form-input sim-input"
-          style="width:64px;padding:4px 6px;font-size:0.82rem;text-align:right;"
+          style="width:72px;padding:4px 6px;font-size:0.82rem;text-align:right;"
         />
-        <span style="font-size:0.78rem;color:var(--text-muted);">/ ${a.points_possible}</span>
+        <span style="font-size:0.78rem;color:var(--text-muted);">/ ${possible}</span>
       </div>
     ` : '';
 
@@ -628,8 +717,9 @@ function renderBreakdown(assignments) {
       ${removeBtnHtml}
       <div class="rank-bubble" style="font-size:0.7rem;${a.simulated?'background:rgba(99,102,241,0.12);color:var(--accent);':''}${a.manual && !a.simulated && !a.graded?'background:rgba(245,158,11,0.14);color:#b45309;':''}">${a.simulated ? '~' : a.graded ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : a.manual ? '+' : '–'}</div>
       <div class="card-main">
-        <div class="card-title">${a.title}${manualTag}</div>
+        <div class="card-title">${escapeHtml(a.title)}${manualTag}</div>
         <div class="card-meta">
+          ${groupTag}
           ${a.due_date ? `<span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> ${a.due_date}</span>` : ''}
           <span class="meta-item">${statusLabel}</span>
         </div>
@@ -710,29 +800,19 @@ function submitAddAssignment() {
     points_earned: graded ? earned : 0,
     graded: graded,
     manual: true,
+    // In a weighted course a row has to belong to a category, or it
+    // counts toward nothing.
+    group_id: (selectedCourse.weighting === 'groups' && document.getElementById('newAsgnGroup'))
+      ? document.getElementById('newAsgnGroup').value : '',
   };
+  const grp = (selectedCourse.groups || []).find(g => String(g.id) === String(newAsgn.group_id));
+  if (grp) newAsgn.group = grp.name;
   // Append to BOTH the immutable original (so Reset keeps it) and the live
   // working list (so the breakdown re-renders with the new card immediately).
   originalAssignments.push(JSON.parse(JSON.stringify(newAsgn)));
   selectedCourse.assignments.push(newAsgn);
-  // Recompute the course percentage from the new graded set.
-  const graded2 = originalAssignments.filter(a => a.graded && a.points_possible);
-  const gradedPoss = graded2.reduce((s, a) => s + (a.points_possible || 0), 0);
-  const earnedTot = graded2.reduce((s, a) => s + (a.points_earned || 0), 0);
-  const realPct = gradedPoss > 0 ? (earnedTot / gradedPoss * 100) : 0;
-  selectedCourse.percentage = realPct.toFixed(2);
-  selectedCourse.letter = pctToLetter(realPct);
-  document.getElementById('currentPct').textContent = `${realPct.toFixed(1)}%`;
-  const lb = document.getElementById('currentLetter');
-  lb.textContent = selectedCourse.letter;
-  lb.className = 'priority-badge ' + letterToClass(selectedCourse.letter);
-  renderMaxBadge();
-  // Re-apply any active simulations so manual + simulated state coexist.
-  if (Object.keys(simulatedScores).length > 0) {
-    applySimulation();
-  } else {
-    renderBreakdown(selectedCourse.assignments);
-  }
+  // Re-apply any active what-ifs so manual rows and what-ifs coexist.
+  applySimulation();
   // Close the form and clear inputs.
   document.getElementById('addAsgnForm').style.display = 'none';
 }
@@ -745,117 +825,61 @@ function removeManualAssignment(id) {
   originalAssignments = originalAssignments.filter(a => String(a.id) !== key);
   selectedCourse.assignments = selectedCourse.assignments.filter(a => String(a.id) !== key);
   if (simulatedScores[key]) delete simulatedScores[key];
-  // Recompute and re-render exactly like submitAddAssignment.
-  const graded = originalAssignments.filter(a => a.graded && a.points_possible);
-  const gradedPoss = graded.reduce((s, a) => s + (a.points_possible || 0), 0);
-  const earnedTot = graded.reduce((s, a) => s + (a.points_earned || 0), 0);
-  const realPct = gradedPoss > 0 ? (earnedTot / gradedPoss * 100) : 0;
-  selectedCourse.percentage = realPct.toFixed(2);
-  selectedCourse.letter = pctToLetter(realPct);
-  document.getElementById('currentPct').textContent = `${realPct.toFixed(1)}%`;
-  const lb = document.getElementById('currentLetter');
-  lb.textContent = selectedCourse.letter;
-  lb.className = 'priority-badge ' + letterToClass(selectedCourse.letter);
-  renderMaxBadge();
-  if (Object.keys(simulatedScores).length > 0) applySimulation();
-  else renderBreakdown(selectedCourse.assignments);
+  applySimulation();
 }
 
 function runModel() {
   if (!selectedCourse) return;
   const target = parseFloat(document.getElementById('targetInput').value);
-  if (isNaN(target) || target < 0 || target > 100) {
-    IP.alert('Please enter a valid target between 0 and 100.');
+  if (isNaN(target) || target < 0 || target > 150) {
+    IP.alert('Please enter a valid target percentage.');
     return;
   }
-
-  // Use the ORIGINAL graded data, not the (possibly already-simulated)
-  // selectedCourse.assignments, so re-running Model It from a simulated
-  // state still computes against reality. This prevents the "I'm at 99%
-  // but the model says 100% is reachable" bug: previously, a prior
-  // simulation could be counted as "graded", inflating the earned total.
+  // Always against reality: a previous what-if must not count as earned.
   const source = originalAssignments || selectedCourse.assignments;
-  const graded = source.filter(a => a.graded && a.points_possible);
-  const pending = source.filter(a => !a.graded && a.points_possible);
-
-  const earnedTotal = graded.reduce((s, a) => s + (a.points_earned || 0), 0);
-  const gradedPossible = graded.reduce((s, a) => s + (a.points_possible || 0), 0);
-  const pendingPossible = pending.reduce((s, a) => s + (a.points_possible || 0), 0);
-  const totalPossible = gradedPossible + pendingPossible;
-
-  // Hard ceiling: max grade achievable from here. If target > this, it's
-  // mathematically impossible regardless of what you score on pending work.
-  // Subtract a tiny epsilon so 99.4 is reported as "not reachable" instead
-  // of being rounded up to 100 in the comparison.
-  const maxPossible = totalPossible > 0 ? ((earnedTotal + pendingPossible) / totalPossible) * 100 : 0;
-  if (target > maxPossible + 1e-9) {
-    document.getElementById('modelResult').style.display = 'block';
-    document.getElementById('modelSummary').innerHTML =
-      `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--medium)"><use href="#i-warning"/></svg> ` +
-      `<strong>${target}%</strong> isn't reachable from here. With <strong>${earnedTotal.toFixed(1)} of ${gradedPossible.toFixed(0)}</strong> points already locked in, ` +
-      `the <strong>highest achievable grade</strong> in this course is <strong>${maxPossible.toFixed(2)}%</strong>, earned by scoring 100% on every remaining assignment. ` +
-      `Try a target up to <strong>${Math.floor(maxPossible * 10) / 10}%</strong>.`;
-    simulateBest();
-    _flashSimInputs();
-    document.getElementById('assignmentBreakdown').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    return;
-  }
-
-  if (totalPossible === 0) {
-    document.getElementById('modelSummary').innerHTML =
-      'Not enough data to model this course yet.';
-    document.getElementById('modelResult').style.display = 'block';
-    return;
-  }
-
-  // Points needed across all assignments to hit target
-  const pointsNeeded = (target / 100) * totalPossible;
-  const pointsStillNeeded = pointsNeeded - earnedTotal;
-
+  const pending = _pendingRows(source);
   const result = document.getElementById('modelResult');
   const summary = document.getElementById('modelSummary');
   result.style.display = 'block';
+  const check = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--low)"><use href="#i-check-circle"/></svg>';
+  const warn = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--medium)"><use href="#i-warning"/></svg>';
+  const now = shownGrade(gradeOf(source, null));
 
-  if (pendingPossible === 0) {
-    const actual = (earnedTotal / gradedPossible * 100).toFixed(1);
-    summary.innerHTML = `All assignments are graded. Your final grade is <strong>${actual}%</strong>. 
-      ${parseFloat(actual) >= target
-        ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--low)"><use href="#i-check-circle"/></svg> You have already reached your target of <strong>${target}%</strong>.`
-        : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--high)"><use href="#i-warning"/></svg> You did not reach your target of <strong>${target}%</strong>.`}`;
+  if (pending.length === 0) {
+    if (now === null) { summary.innerHTML = 'Not enough data to model this course yet.'; return; }
+    summary.innerHTML = now + 1e-9 >= target
+      ? `${check} Everything here is graded and you're at <strong>${now.toFixed(1)}%</strong>, already at or above <strong>${target}%</strong>.`
+      : `${warn} Everything here is graded and you're at <strong>${now.toFixed(1)}%</strong>. To see what it would take, <strong>add an upcoming assignment</strong> or <strong>tap a score</strong> to try a different one.`;
     return;
   }
 
-  if (pointsStillNeeded <= 0) {
-    summary.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--low)"><use href="#i-check-circle"/></svg> You've already earned enough points to reach <strong>${target}%</strong> -
-      even scoring 0 on all remaining assignments would get you there.`;
-    return;
-  }
-
-  const neededPct = (pointsStillNeeded / pendingPossible * 100).toFixed(1);
-
-  if (parseFloat(neededPct) > 100) {
-    const maxPossible = ((earnedTotal + pendingPossible) / totalPossible * 100).toFixed(1);
-    summary.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;color:var(--medium)"><use href="#i-warning"/></svg> Reaching <strong>${target}%</strong> is no longer mathematically possible.
-      The <strong>highest achievable grade</strong> in <strong>${selectedCourse.course}</strong> is <strong>${maxPossible}%</strong>, earned by scoring 100% on all ${pending.length} remaining assignment${pending.length !== 1 ? 's' : ''}.`;
+  const maxP = shownGrade(gradeOf(source, 1));
+  const minP = shownGrade(gradeOf(source, 0));
+  if (target > maxP + 1e-9) {
     simulateBest();
+    summary.innerHTML = `${warn} <strong>${target}%</strong> isn't reachable from here. The <strong>highest achievable grade</strong> is <strong>${maxP.toFixed(2)}%</strong>, earned by scoring 100% on every remaining assignment.`;
     _flashSimInputs();
     document.getElementById('assignmentBreakdown').scrollIntoView({ behavior: 'smooth', block: 'start' });
     return;
   }
+  if (minP + 1e-9 >= target) {
+    summary.innerHTML = `${check} You've already locked in <strong>${target}%</strong>: even zeros on everything remaining would leave you at <strong>${minP.toFixed(1)}%</strong>.`;
+    return;
+  }
 
+  const fill = fillForTarget(source, target);
   const pendingList = pending.map(a =>
-    `<span style="background:var(--accent-soft);color:var(--accent);padding:2px 10px;border-radius:12px;font-size:0.8rem;font-weight:500;">${a.title}</span>`
+    `<span style="background:var(--accent-soft);color:var(--accent);padding:2px 10px;border-radius:12px;font-size:0.8rem;font-weight:500;">${escapeHtml(a.title)}</span>`
   ).join(' ');
-
+  const how = selectedCourse.weighting === 'groups' ? ' (with your class’s category weights)' : '';
+  simulateBest();
   summary.innerHTML = `
-    To reach <strong>${target}%</strong> in <strong>${selectedCourse.course}</strong>,
-    you need to average <strong>${neededPct}%</strong> across your
-    ${pending.length} remaining assignment${pending.length !== 1 ? 's' : ''}
-    (${pendingPossible} points possible).<br><br>
+    To reach <strong>${target}%</strong> in <strong>${escapeHtml(selectedCourse.course)}</strong>,
+    you need to average <strong>${(fill * 100).toFixed(1)}%</strong> across your
+    ${pending.length} remaining assignment${pending.length !== 1 ? 's' : ''}${how}.<br><br>
     <strong>Remaining assignments:</strong><br>
     <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;">${pendingList}</div>
   `;
-  simulateBest();
   _flashSimInputs();
   document.getElementById('assignmentBreakdown').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }

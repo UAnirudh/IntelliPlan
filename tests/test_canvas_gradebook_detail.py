@@ -308,3 +308,54 @@ def test_a_denied_route_is_logged_not_swallowed(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "non-list body from /api/v1/courses/55/assignments" in out or "/courses/55/assignments" in out
     assert "tok" not in out
+
+
+# ── Modelling needs ids, categories and weights ──────────────────────
+
+
+def weighted_canvas(monkeypatch, *, apply_weights=True, groups_denied=False):
+    def fake_get(url, headers=None, timeout=None):
+        if url.rstrip("/").endswith("/courses") or "/courses?" in url:
+            return _Resp([{"id": 55, "name": "AP US History",
+                           "apply_assignment_group_weights": apply_weights,
+                           "enrollments": [{"computed_current_score": 88.0}]}])
+        if "/assignment_groups" in url:
+            if groups_denied:
+                return _Resp({"errors": [{"message": "unauthorized"}]})
+            return _Resp([{"id": 9, "name": "Tests", "group_weight": 60},
+                          {"id": 8, "name": "Homework", "group_weight": 40}])
+        if "/courses/55/assignments" in url:
+            return _Resp([
+                {"id": 1, "name": "Quiz", "points_possible": 10, "assignment_group_id": 9},
+                {"id": 2, "name": "Quiz", "points_possible": 10, "assignment_group_id": 8},
+            ])
+        if "submissions" in url:
+            return _Resp([{"assignment_id": 1, "score": 9}, {"assignment_id": 2, "score": None, "excused": True}])
+        return _Resp([])
+
+    monkeypatch.setattr(canvas_helper, "requests", types.SimpleNamespace(get=fake_get))
+    return canvas_helper.get_gradebook_detail("https://x", "tok")[0]
+
+
+def test_every_row_has_its_own_id_even_when_titles_repeat(monkeypatch):
+    course = weighted_canvas(monkeypatch)
+    assert [a["id"] for a in course["assignments"]] == ["1", "2"]
+
+
+def test_category_weights_reach_the_modeler(monkeypatch):
+    course = weighted_canvas(monkeypatch)
+    assert course["weighting"] == "groups"
+    assert course["groups"] == [{"id": "9", "name": "Tests", "weight": 60.0},
+                                {"id": "8", "name": "Homework", "weight": 40.0}]
+    assert [a["group"] for a in course["assignments"]] == ["Tests", "Homework"]
+    assert course["assignments"][1]["excused"] is True
+
+
+def test_an_unweighted_course_is_modelled_on_points(monkeypatch):
+    assert weighted_canvas(monkeypatch, apply_weights=False)["weighting"] == "points"
+
+
+def test_unreadable_categories_fall_back_to_points_not_to_nothing(monkeypatch):
+    course = weighted_canvas(monkeypatch, groups_denied=True)
+    assert course["weighting"] == "points"
+    assert len(course["assignments"]) == 2
