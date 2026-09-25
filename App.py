@@ -2626,6 +2626,12 @@ CronLease = _notif_models.register_lease(db)
 # is available to scope ops by owner.
 from intelliplan.sync import models as _sync_models
 _sync_models.register(db)
+# Per-user vector store over course notes / Plani memories (RAG). Needs
+# CourseNote, which is defined above. See intelliplan/retrieval/.
+# Boot imports only the numpy-free store; the vector math loads on first
+# search, so a problem there can never keep the app from starting.
+from intelliplan import retrieval as _retrieval
+MemoryChunk = _retrieval.init(db, CourseNote)
 
 with app.app_context():
     db.create_all()
@@ -4441,6 +4447,7 @@ _SITEMAP_ENTRIES = [
     ("/tools/gpa-calculator",            "tool_gpa.html",                 "2026-06-22", "monthly", "0.9"),
     ("/tools/grade-calculator",          "tool_grade.html",               "2026-06-22", "monthly", "0.9"),
     ("/tools/finals-countdown",          "tool_countdown.html",           "2026-06-22", "monthly", "0.7"),
+    ("/demo",                            "demo.html",                     "2026-09-25", "weekly",  "0.8"),
     ("/tools/test-grade-calculator",     "tool_test_grade.html",          "2026-06-22", "monthly", "0.9"),
     ("/tools/study-schedule-maker",      "tool_schedule_maker.html",      "2026-06-22", "monthly", "0.9"),
     ("/tools/text-dissector",            "text_dissector.html",           "2026-06-22", "monthly", "0.8"),
@@ -4930,6 +4937,21 @@ def blog_index():
 @app.route("/olympiad")
 def olympiad_page():
     return render_template("olympiad.html", active_page="olympiad")
+
+@app.route("/demo")
+def demo_week():
+    """A sample week ranked and scheduled by the real engines, no sign-up.
+
+    The landing page and FAQ promise a demo account that shows how
+    IntelliPlan sorts a week; this is it. See intelliplan/services/demo.py.
+    """
+    from intelliplan.services import demo as _demo
+    try:
+        week = _demo.build(date.today())
+    except Exception as exc:
+        print(f"Demo week failed: {exc}")
+        week = None
+    return render_template("demo.html", active_page="demo", week=week)
 
 @app.route("/tools/final-grade-calculator")
 def tool_final_grade():
@@ -8948,6 +8970,7 @@ def _account_delete_impl():
         ("imported_grades", "DELETE FROM imported_grades WHERE user_id = :uid"),
 
         # ── Notes / lessons / study history ────────────────────────────
+        ("memory_chunks", "DELETE FROM memory_chunks WHERE user_id = :uid"),
         ("course_notes", "DELETE FROM course_notes WHERE user_id = :uid"),
         ("lessons", "DELETE FROM lessons WHERE user_id = :uid"),
         ("study_sessions", "DELETE FROM study_sessions WHERE user_id = :uid"),
@@ -9892,9 +9915,35 @@ def delete_note(note_id):
                 os.remove(file_path)
         except Exception as e:
             print(f"Could not remove note file: {e}")
+    if note.user_id:
+        # Drop its passages from the vector store in the same transaction so
+        # a deleted note can never be quoted back by Plani.
+        _retrieval.purge_note(note.user_id, note.id)
     db.session.delete(note)
     db.session.commit()
     return flask.jsonify({"status": "ok"})
+
+@app.route("/api/notes/search", methods=["GET"])
+@limiter.limit("30 per minute;300 per hour")
+def api_notes_search():
+    """Semantic search over the signed-in student's own notes."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error", "message": "Sign in to search notes."}), 401
+    q = (flask.request.args.get("q") or "").strip()[:300]
+    if not q:
+        return flask.jsonify({"status": "error", "message": "Missing q"}), 400
+    try:
+        k = max(1, min(int(flask.request.args.get("k", 5)), 10))
+    except ValueError:
+        k = 5
+    try:
+        _retrieval.sync_user(current_user.id)
+        hits = _retrieval.search(current_user.id, q, k=k)
+    except Exception as e:
+        db.session.rollback()
+        print(f"Note search failed: {e}")
+        return flask.jsonify({"status": "error", "message": "Search is unavailable right now."}), 503
+    return flask.jsonify({"status": "ok", "results": hits})
 
 @app.route("/notes/<int:note_id>/quiz", methods=["POST"])
 def notes_quiz(note_id):

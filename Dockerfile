@@ -10,10 +10,15 @@
 
 FROM python:3.13-slim
 
+# The *_NUM_THREADS caps: numpy's OpenBLAS spawns a thread per host CPU at
+# import, and in a container that multiplies across gunicorn workers.
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    OPENBLAS_NUM_THREADS=1 \
+    OMP_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1
 
 WORKDIR /app
 

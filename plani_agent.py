@@ -140,8 +140,8 @@ AGENT_TOOLS = [
         "parameters": {
             "hours_per_day": {"type": "integer", "description": "Hours available per day (default 2)"},
             "preferred_time": {"type": "string", "description": "morning | afternoon | evening (default evening)"},
-            "study_start_time": {"type": "string", "description": "Optional daily start in HH:MM"},
-            "study_end_time": {"type": "string", "description": "Optional daily end in HH:MM"},
+            "study_start_time": {"type": "string", "description": "Optional daily start, e.g. 16:30 or 4:30 PM. May be given alone"},
+            "study_end_time": {"type": "string", "description": "Optional daily end, e.g. 21:00. May be omitted"},
         },
     },
     {
@@ -634,11 +634,17 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
         # the Scheduler page.
         import scheduler_engine
         dna, availability, commitments = build_scheduler_personalization(user_id=user_id)
-        study_start = str(args.get("study_start_time") or "").strip()
-        study_end = str(args.get("study_end_time") or "").strip()
-        clock = r"(?:[01]\d|2[0-3]):[0-5]\d"
-        if bool(study_start) != bool(study_end) or (study_start and not re.fullmatch(clock, study_start)) or (study_end and not re.fullmatch(clock, study_end)):
-            return {"error": "Use both daily study times in HH:MM format."}
+        study_start = _norm_clock(args.get("study_start_time"))
+        study_end = _norm_clock(args.get("study_end_time"))
+        if (args.get("study_start_time") and not study_start) or (args.get("study_end_time") and not study_end):
+            return {"error": "I couldn't read that time. Try something like 4:30 PM or 16:30."}
+        # "2 hours a day after 4:30 PM" gives a start and no end. That is the
+        # Command Center's own suggested prompt, so it has to work: the
+        # window runs long enough for the hours plus breaks, capped at 23:30.
+        if study_start and not study_end:
+            study_end = _add_minutes(study_start, hours * 60 + 45, cap="23:30")
+        if study_end and not study_start:
+            study_start = _add_minutes(study_end, -(hours * 60 + 45), cap="06:00")
         if study_start and study_end and study_end <= study_start:
             return {"error": "Your study end time must be after the start time."}
         if study_start:
@@ -710,6 +716,7 @@ Return ONLY valid JSON:
             except Exception as exc:
                 logger.warning("Outlook calendar export from Plani failed: %s", exc)
             return {"status": "ok",
+                "calendar_connected": bool(exports) or _has_calendar(),
                 "message": f"Schedule generated — {schedule.get('total_study_time', '')}. "
                            "It is saved on the Scheduler page, the Dashboard, and Memories.",
                 "days": len(schedule.get("schedule", [])),
@@ -798,7 +805,15 @@ def _humanize_action(tool: str, args: dict, result: dict) -> str | None:
     if tool == "delete_task":
         return result.get("message", "✓ Deleted task")
     if tool == "generate_schedule":
-        return f"✓ Generated schedule — {result.get('days', '?')} days"
+        line = f"✓ Generated schedule — {result.get('days', '?')} days"
+        exports = result.get("calendar_exports") or {}
+        synced = [f"{name.title()} ({v.get('created', 0)} events)"
+                  for name, v in exports.items() if isinstance(v, dict)]
+        if synced:
+            line += " · added to " + ", ".join(synced)
+        elif result.get("calendar_connected") is False:
+            line += " · no calendar connected, so nothing was added to one"
+        return line
     if tool == "save_note":
         return f"✓ Saved to memories: {result.get('title', '')}"
     if tool == "navigate_to":
@@ -851,6 +866,39 @@ def _safe(fn, default=None):
     except Exception as e:  # noqa: BLE001 - context is best-effort by design
         logger.debug("Plani context probe failed: %s", e)
         return default
+
+
+def _norm_clock(value) -> str:
+    """'4:30 PM', '4pm', '16:30' -> '16:30'. Empty string when unreadable."""
+    text = str(value or "").strip().lower().replace(".", "")
+    m = re.fullmatch(r"(\d{1,2})(?::(\d{2}))?\s*(am|pm)?", text)
+    if not m:
+        return ""
+    h, mins, ampm = int(m.group(1)), int(m.group(2) or 0), m.group(3)
+    if ampm:
+        if not 1 <= h <= 12:
+            return ""
+        h = h % 12 + (12 if ampm == "pm" else 0)
+    if h > 23 or mins > 59:
+        return ""
+    return f"{h:02d}:{mins:02d}"
+
+
+def _add_minutes(clock: str, delta: int, cap: str) -> str:
+    h, m = map(int, clock.split(":"))
+    total = h * 60 + m + delta
+    ch, cm = map(int, cap.split(":"))
+    limit = ch * 60 + cm
+    total = min(total, limit) if delta > 0 else max(total, limit)
+    return f"{total // 60:02d}:{total % 60:02d}"
+
+
+def _has_calendar() -> bool:
+    try:
+        from App import get_google_token, get_outlook_token
+        return bool(get_google_token() or get_outlook_token())
+    except Exception:
+        return False
 
 
 def build_agent_context(user_id: int) -> str:
@@ -1132,6 +1180,13 @@ def plani_agent():
     system = AGENT_SYSTEM_PROMPT + "\n\n" + _tool_list_prompt() + \
         f"\n\nToday's date: {datetime.now().strftime('%A, %Y-%m-%d')}." + \
         (build_agent_context(user_id) or "")
+    # RAG: ground the answer in passages from the student's own notes that
+    # match what they just asked. Empty string when nothing is relevant.
+    last_user = next((m.get("content", "") for m in reversed(messages)
+                      if m.get("role") == "user"), "")
+    if last_user:
+        from intelliplan.retrieval import retrieve_context
+        system += retrieve_context(user_id, str(last_user)[:1000])
     recent = messages[-12:]
     llm_messages = [{"role": "system", "content": system}] + recent
     actions: list[str] = []

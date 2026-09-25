@@ -2,27 +2,43 @@
 {% block page_title %}Command Center | IntelliPlan{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="/static/css/command_center.css?v={{ asset_v }}">
-<main class="command-chat" aria-label="Command Center">
-  <header class="command-chat__header">
-    <div class="command-chat__brand"><span class="command-chat__mark" aria-hidden="true">✦</span><span>IntelliPlan</span></div>
-    <div class="command-chat__actions"><a href="/oauth/outlook" class="command-chat__connect" id="outlookConnect" hidden>Connect Outlook</a><button type="button" id="newConversation" class="command-chat__new">New chat</button></div>
-  </header>
-  <section class="command-chat__thread" id="chatThread" aria-live="polite" aria-label="Conversation">
-    <div class="command-chat__intro" id="chatIntro">
-      <p class="command-chat__eyebrow">COMMAND CENTER</p><h1>What needs to happen?</h1>
-      <p>Ask Plani to plan your week, create tasks, explain priorities, or keep your calendar clear.</p>
-      <div class="command-chat__prompts">
-        <button type="button" data-prompt="What should I focus on today?">What should I focus on today?</button>
-        <button type="button" data-prompt="Schedule my week for 2 hours a day after 4:30 PM and put it on my calendar.">Schedule my week</button>
-        <button type="button" data-prompt="I have a math test Friday and an English essay due Monday. Make a plan.">Make a plan from deadlines</button>
-        <button type="button" data-prompt="Show me my upcoming work.">Show upcoming work</button>
+{# A fixed app surface: the header row and composer stay put and only the
+   conversation scrolls. It used to be a tall page inside the app shell's
+   own <main>, so the whole page scrolled and the composer drifted. #}
+<section class="command-chat" aria-label="Command Center">
+  <div class="command-chat__header">
+    <h1 class="command-chat__title">Command Center</h1>
+    <div class="command-chat__actions">
+      <a href="/oauth/outlook" class="command-chat__btn" id="outlookConnect" hidden>Connect Outlook</a>
+      <button type="button" id="newConversation" class="command-chat__btn">New chat</button>
+    </div>
+  </div>
+
+  <div class="command-chat__thread" id="chatThread" aria-live="polite" aria-label="Conversation" tabindex="-1">
+    <div class="command-chat__inner" id="chatInner">
+      <div class="command-chat__intro" id="chatIntro">
+        <h2>What needs to happen?</h2>
+        <p>Plani can see your tasks, grades, schedule and notes. Ask it to plan, add, move or explain.</p>
+        <div class="command-chat__prompts">
+          <button type="button" data-prompt="What should I focus on today?"><strong>Focus for today</strong><span>What matters most right now</span></button>
+          <button type="button" data-prompt="Schedule my week for 2 hours a day after 4:30 PM and put it on my calendar."><strong>Schedule my week</strong><span>2h a day after 4:30 PM</span></button>
+          <button type="button" data-prompt="I have a math test Friday and an English essay due Monday. Add them and make a plan."><strong>Plan from deadlines</strong><span>Add tasks, then schedule them</span></button>
+          <button type="button" data-prompt="Show me my upcoming work."><strong>Upcoming work</strong><span>Everything due soon</span></button>
+        </div>
       </div>
     </div>
-  </section>
+  </div>
+
   <form class="command-chat__composer" id="chatComposer">
-    <label class="sr-only" for="chatInput">Ask Plani anything</label><textarea id="chatInput" rows="1" maxlength="4000" placeholder="Ask anything…"></textarea>
-    <div class="command-chat__composer-footer"><span>Plani can create tasks, make schedules, and sync connected calendars.</span><button type="submit" id="sendMessage" disabled>Send <span aria-hidden="true">↑</span></button></div>
+    <label class="sr-only" for="chatInput">Ask Plani anything</label>
+    <textarea id="chatInput" rows="1" maxlength="4000" placeholder="Ask Plani anything…"></textarea>
+    <div class="command-chat__composer-footer">
+      <span id="calendarState">Creates tasks, builds schedules, adds them to a connected calendar.</span>
+      <button type="submit" id="sendMessage" disabled aria-label="Send">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+      </button>
+    </div>
   </form>
-</main>
+</section>
 <script src="/static/js/command_center.js?v={{ asset_v }}" defer></script>
 {% endblock %}

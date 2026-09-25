@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block page_title %}See a sample week | IntelliPlan{% endblock %}
+{% block meta_description %}A sample student week ranked and scheduled by IntelliPlan's real priority and scheduling engines. No sign-up.{% endblock %}
+{% block og_title %}See how IntelliPlan sorts a week{% endblock %}
+{% block og_description %}Seven assignments across six classes, ranked by due date, points and effort, then scheduled around after-school hours. No sign-up.{% endblock %}
+
+{% block head_extra %}
+<style>
+  .dm { max-width: 1120px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+  .dm-head { max-width: 62ch; margin-bottom: 2rem; }
+  .dm-head h1 { font-size: clamp(1.9rem, 4vw, 2.7rem); letter-spacing: -0.03em; line-height: 1.1; margin: 0 0 0.6rem; }
+  .dm-head p { color: var(--text-secondary); font-size: 1.02rem; line-height: 1.6; margin: 0; }
+  .dm-note {
+    display: inline-flex; align-items: center; gap: 8px; margin-bottom: 1rem;
+    font-size: 0.82rem; color: var(--text-secondary);
+  }
+  .dm-note::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+
+  .dm-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 1.25rem; align-items: start; }
+  @media (max-width: 880px) { .dm-grid { grid-template-columns: 1fr; } }
+
+  .dm-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 1.1rem 1.2rem 0.6rem; }
+  .dm-panel h2 { font-size: 1rem; font-weight: 650; margin: 0 0 0.2rem; }
+  .dm-panel .dm-sub { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 0.8rem; }
+
+  .dm-rank { list-style: none; margin: 0; padding: 0; counter-reset: rank; }
+  .dm-rank li {
+    display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) auto; gap: 0 10px;
+    padding: 11px 0; border-top: 1px solid var(--border); counter-increment: rank;
+  }
+  .dm-rank li::before {
+    content: counter(rank); color: var(--text-muted); font-size: 0.82rem;
+    font-variant-numeric: tabular-nums; padding-top: 2px;
+  }
+  .dm-title { font-weight: 600; font-size: 0.92rem; line-height: 1.35; }
+  .dm-meta { font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .dm-dot { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  .dm-why { font-size: 0.76rem; color: var(--text-muted); margin-top: 3px; }
+  .dm-score { text-align: right; }
+  .dm-score b { display: block; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+  .dm-score span { font-size: 0.72rem; color: var(--text-muted); }
+  .dm-score[data-label="High"] b { color: var(--high, #e5484d); }
+  .dm-score[data-label="Medium"] b { color: var(--medium, #d9a23f); }
+  .dm-score[data-label="Low"] b { color: var(--text-secondary); }
+
+  .dm-day { border-top: 1px solid var(--border); padding: 12px 0; }
+  .dm-day-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .dm-day-head h3 { font-size: 0.92rem; font-weight: 650; margin: 0; }
+  .dm-day-head span { font-size: 0.78rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .dm-block { display: grid; grid-template-columns: 8.2rem minmax(0, 1fr) auto; gap: 10px; padding: 5px 0; font-size: 0.86rem; align-items: baseline; }
+  .dm-block time { color: var(--text-muted); font-variant-numeric: tabular-nums; font-size: 0.8rem; }
+  .dm-block .dm-what { display: flex; gap: 8px; align-items: baseline; min-width: 0; }
+  .dm-block .dm-what span:last-child { overflow-wrap: anywhere; }
+  .dm-block .dm-dot { transform: translateY(-1px); }
+  .dm-block em { font-style: normal; color: var(--text-muted); font-size: 0.78rem; white-space: nowrap; }
+  @media (max-width: 520px) { .dm-block { grid-template-columns: 1fr auto; } .dm-block time { grid-column: 1 / -1; } }
+
+  .dm-cta { margin-top: 2rem; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .dm-cta p { margin: 0; color: var(--text-secondary); font-size: 0.9rem; }
+  .dm-empty { padding: 2rem; text-align: center; color: var(--text-secondary); }
+</style>
+{% endblock %}
+
+{% block content %}
+<article class="dm">
+  <header class="dm-head">
+    <p class="dm-note">Sample data, real engine</p>
+    <h1>How IntelliPlan sorts a week</h1>
+    <p>Seven assignments across six classes. The ranking and the schedule below are produced by the same priority scorer and scheduler your account uses. Nothing here is written by hand, and it is recomputed for this week's dates.</p>
+  </header>
+
+  {% if week %}
+  <div class="dm-grid">
+    <section class="dm-panel" aria-labelledby="dmRankTitle">
+      <h2 id="dmRankTitle">What to do first</h2>
+      <p class="dm-sub">Scored 0–100 from due date, points, type and effort.</p>
+      <ol class="dm-rank">
+        {% for p in week.priorities %}
+        <li>
+          <div>
+            <div class="dm-title">{{ p.title }}</div>
+            <div class="dm-meta"><span class="dm-dot" style="background: {{ p.color }}"></span>{{ p.course }} · {{ p.due }} · ~{{ p.minutes }} min</div>
+            {% if p.reasons %}<div class="dm-why">{{ p.reasons | join(' · ') }}</div>{% endif %}
+          </div>
+          <div class="dm-score" data-label="{{ p.label }}"><b>{{ p.score }}</b><span>{{ p.label }}</span></div>
+        </li>
+        {% endfor %}
+      </ol>
+    </section>
+
+    <section class="dm-panel" aria-labelledby="dmWeekTitle">
+      <h2 id="dmWeekTitle">The week it builds</h2>
+      <p class="dm-sub">Weekdays 3:30–9:30 PM, weekends 10 AM–4 PM. {{ (week.total_minutes / 60) | round(1) }} hours of work, split into sittings with breaks.</p>
+      {% for day in week.days %}
+      <div class="dm-day">
+        <div class="dm-day-head"><h3>{{ day.label }}</h3><span>{{ day.minutes }} min</span></div>
+        {% for b in day.blocks %}
+        <div class="dm-block">
+          <time>{{ b.time_slot }}</time>
+          <div class="dm-what"><span class="dm-dot" style="background: {{ b.color }}"></span><span>{{ b.assignment }}</span></div>
+          <em>{{ b.duration_minutes }} min</em>
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </section>
+  </div>
+  {% else %}
+  <div class="dm-panel dm-empty">The sample week could not be built just now. Try again in a moment.</div>
+  {% endif %}
+
+  <div class="dm-cta">
+    <a href="/login" class="btn-primary">Build my real week, free</a>
+    <p>Connect Canvas, StudentVue or Schoology and your own assignments replace these.</p>
+  </div>
+</article>
+{% endblock %}

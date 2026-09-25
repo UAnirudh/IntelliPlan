@@ -176,7 +176,7 @@
     var on = autopilotEnabled();
     var note = state.autopilotNote;
     var toggle = '<button type="button" class="ft-chip ft-auto-toggle' + (on ? ' is-on' : '') +
-      '" data-ft-autopilot-toggle aria-pressed="' + on + '" title="When on, IntelliPlan moves missed work, adds new assignments and protects at-risk deadlines by itself — always with an undo.">' +
+      '" data-ft-autopilot-toggle aria-pressed="' + on + '" title="When on, IntelliPlan moves missed work, adds new assignments, follows deadlines your teacher moves and protects at-risk ones by itself — always with an undo.">' +
       'Autopilot ' + (on ? 'on' : 'off') + '</button>';
     if (!note) return '<div class="ft-auto">' + toggle + '</div>';
     var reasons = (note.reasons || []).map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('');

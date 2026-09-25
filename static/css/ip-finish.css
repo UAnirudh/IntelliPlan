@@ -1,0 +1,116 @@
+/* ══════════════════════════════════════════════════════════════════
+   ip-finish.css — in-app finishing pass. Loads last.
+   ──────────────────────────────────────────────────────────────────
+   Feedback was that the app reads "depressing and AI-generated". The
+   causes, fixed here in one place rather than across 100 templates:
+
+   1. Tiny UPPERCASE, letter-spaced labels on nearly every block. That
+      is the stock generated-dashboard look, and at 0.6–0.7rem it is
+      also hard to read. → sentence case at a readable size.
+   2. Monospace for times, hours and stats. Reads as a terminal, not a
+      planner. → the UI face with tabular figures, so columns still
+      line up.
+   3. The default dark theme was warm brown-black with brown-grey text
+      and a desaturated accent: low energy by construction. → neutral
+      charcoal, cleaner greys, an accent with some life in it. Only the
+      default palette; a palette the student picked is left alone.
+   4. Translucent "glass" over a flat background: blur with nothing
+      behind it only muddies the surface. → solid surfaces.
+
+   Scoped to body.has-side (signed-in app pages). Marketing pages have
+   their own art direction and are untouched.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── 2. Numbers in the UI face, tabular ───────────────────────────── */
+body.has-side {
+  --ipd-font-mono: var(--font-ui, var(--font-body, system-ui, sans-serif));
+}
+body.has-side :is(.time-slot, .iv-time, .day-hours, .iv-day-meta, .block-duration,
+  .iv-duration, .overview-stat, .ipd-stat-value, .stat-value, .date-badge) {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* ── 1. Labels in sentence case ───────────────────────────────────── */
+body.has-side :is(
+  .ipd-kicker, .ipd-stat-label, .page-kicker, .stat-label, .form-label,
+  .u-label, .na-eyebrow, .side-section-label,
+  .settings-section-title, .capacity-warning .cap-head, .iv-day-meta, .ck-expand,
+  .ipd-assistant-label, .ipd-sched-sub, .ipd-featured-label,
+  .tutor-side-title, .tutor-sug-label, .tutor-panel h4,
+  .sp-label, .fb-section-label, .fb-box-label, .cstat-lbl, .fc-label, .perf-lbl,
+  .xconf-label, .focus-phase-label, .focus-task-label, .focus-log-title,
+  .focus-stat-lbl, .ipa-eyebrow, .ipa-clock-label, .ipa-upnext h2,
+  .streak-kicker, .streak-section-title, .streak-hero-stats small,
+  .fc-stat-label, .ipui-pinned-group__title, #cmdPalette .cmd-section,
+  .scheduler-inputs label, .scheduler-panel label
+) {
+  text-transform: none;
+  letter-spacing: -0.003em;
+  font-size: 0.8rem;
+  font-weight: 600;
+  opacity: 1;
+}
+/* Section titles are headings, not captions. */
+body.has-side :is(.settings-section-title, .streak-section-title, .focus-log-title, .tutor-side-title) {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+/* Sidebar group labels stay quiet. */
+body.has-side .side-section-label { font-size: 0.74rem; color: var(--text-muted); }
+/* A "(optional)" aside inside a label reads as an aside. */
+body.has-side .scheduler-inputs label :is(span, small, em) { font-weight: 400; color: var(--text-muted); }
+
+/* Genuine badges keep caps but lose the shouty tracking. */
+body.has-side :is(.today-pill, .priority-badge, .ipd-task-badge, .test-auto-badge, .mc-badge,
+  .verdict-badge, .q-type-badge) {
+  letter-spacing: 0.02em;
+}
+
+/* ── 3. Default dark palette: neutral, not muddy ─────────────────── */
+:root[data-theme="dark"]:not([data-palette]) {
+  --bg:            #0e0f12;
+  --bg-secondary:  #131418;
+  --bg-card:       #17181d;
+  --bg-elevated:   #1f2127;
+  --border:        rgba(255, 255, 255, 0.075);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --accent:        #7c9ff5;
+  --accent-hover:  #9ab5fa;
+  --accent-soft:   rgba(124, 159, 245, 0.12);
+  --accent-mid:    rgba(124, 159, 245, 0.26);
+  --ink:           #eceef2;
+  --text-primary:  #eceef2;
+  --text-secondary:#a9adb8;
+  /* 5.2:1 on --bg-card, 5.6:1 on --bg — clears AA on both surfaces. */
+  --text-muted:    #878b96;
+  --glass-bg:      #17181d;
+}
+:root[data-theme="dark"]:not([data-palette]) body.has-side {
+  --bg:          #0e0f12;
+  --bg-elevated: #1f2127;
+}
+
+/* ── 4. Solid surfaces on app pages ───────────────────────────────── */
+body.has-side { --glass-bg: var(--bg-card); }
+body.has-side :is(.day-card, .iv-day-card, .overview-card, .scheduler-panel, .settings-section,
+  .ipd-card, .block-duration) {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Cards get a hairline top highlight in dark mode so a surface reads as
+   raised rather than as a slightly different shade of black. */
+:root[data-theme="dark"] body.has-side :is(.day-card, .iv-day-card, .overview-card, .scheduler-panel, .settings-section) {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+/* Primary buttons keep the ink style (dark in light mode, light in dark),
+   but opaque. At 78–92% alpha over a dark card the main action on the
+   scheduler read as disabled. */
+:root[data-theme="light"] body.has-side { --glass-primary-bg: #16161a; --glass-primary-hover: #2a2a31; }
+:root[data-theme="dark"]:not([data-palette]) body.has-side {
+  --glass-primary-bg: #eceef2;
+  --glass-primary-hover: #ffffff;
+  --glass-primary-text: #0e0f12;
+}
