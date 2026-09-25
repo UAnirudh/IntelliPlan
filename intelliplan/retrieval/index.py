@@ -58,7 +58,8 @@ def _note_text(note: Any) -> str:
 
 
 def _hash(text: str) -> str:
-    return hashlib.sha1(text.encode("utf-8")).hexdigest()
+    # Change detection only, not a security boundary.
+    return hashlib.sha1(text.encode("utf-8"), usedforsecurity=False).hexdigest()
 
 
 # ── Maintenance ─────────────────────────────────────────────────────────

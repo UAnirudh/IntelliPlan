@@ -219,6 +219,7 @@
   {# In-app finishing pass: sentence-case labels, UI-face numerals, neutral
      default dark palette, solid surfaces. Scoped to body.has-side. Last. #}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-finish.css') }}?v={{ asset_v }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-header-fit.css') }}?v={{ asset_v }}">
 
   {# ── Async runtime ──────────────────────────────────────────────────
      Loaded synchronously, not deferred, on purpose: page templates write
@@ -748,7 +749,7 @@ body {
       </div>
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
-        <a href="https://mintlify.wiki/UAnirudh/IntelliPlan/" target="_blank" rel="noopener noreferrer" class="nav-tab" aria-label="IntelliPlan documentation (opens in a new tab)"><span class="nav-label">Docs</span></a>
+        <a href="https://mintlify.wiki/UAnirudh/IntelliPlan/" target="_blank" rel="noopener noreferrer" class="nav-tab" aria-label="IntelliPlan documentation (opens in a new tab)"><span class="nav-tab-icon"><svg><use href="#i-book"/></svg></span><span class="nav-label">Docs</span></a>
         {# Phones only (hidden above 768px in ip-phone.css): the floating
            feedback bubble covered content on every screen, so on a phone it
            lives here instead. #}
@@ -820,8 +821,10 @@ body {
 {% if _app_tabbar %}
 {% include "_app_tabbar.html" %}
 <script src="{{ url_for('static', filename='js/ip-app-shell.js') }}?v={{ asset_v }}" defer></script>
-<script src="{{ url_for('static', filename='js/ip-sidebar-rail.js') }}?v={{ asset_v }}" defer></script>
 {% endif %}
+{# Both no-op when their element is absent. #}
+<script src="{{ url_for('static', filename='js/ip-sidebar-rail.js') }}?v={{ asset_v }}" defer></script>
+<script src="{{ url_for('static', filename='js/ip-header-fit.js') }}?v={{ asset_v }}" defer></script>
 
 <!-- ══════════════════════════════════════
      ASSIGNMENT MODAL
