@@ -110,9 +110,14 @@ class AutopilotState:
         )
 
 
+#: Triggers that are facts about the student's work, not forecasts: each
+#: one always justifies a re-plan (no cooldown).
+HARD_FACTS = frozenset({"missed", "new_work", "due_changed"})
+
+
 @dataclass(frozen=True, slots=True)
 class Trigger:
-    key: str            # "missed" | "new_work" | "at_risk"
+    key: str            # "missed" | "new_work" | "due_changed" | "at_risk"
     text: str
 
 
@@ -189,6 +194,79 @@ def detect_new_work(
     return tuple(t for t in out if group_key(t.id) in keep)
 
 
+@dataclass(frozen=True, slots=True)
+class DueChange:
+    key: str            # group key of the assignment in the saved plan
+    title: str
+    old: date
+    new: date
+
+    @property
+    def delta_days(self) -> int:
+        return (self.new - self.old).days
+
+
+def _assignment_dues(tasks: Iterable[PlannerTask]) -> dict[str, tuple[date, str, str]]:
+    """{group key: (assignment due, normalised title, display title)}.
+
+    An assignment split into stages carries a due date per stage; the
+    assignment's own due date is the latest of them.
+    """
+    out: dict[str, tuple[date, str, str]] = {}
+    for t in tasks:
+        if t.due_date is None:
+            continue
+        key = group_key(t.id)
+        display = t.parent_title or t.title
+        prev = out.get(key)
+        if prev is None or t.due_date > prev[0]:
+            out[key] = (t.due_date, _norm(display), display)
+    return out
+
+
+def detect_due_changes(
+    planned: Iterable[PlannerTask],
+    candidates: Iterable[PlannerTask],
+) -> tuple[DueChange, ...]:
+    """Assignments already in the plan whose due date has since moved.
+
+    The school tool is the source of truth: when a teacher moves a deadline
+    the plan has to follow, or it keeps scheduling work after the new due
+    date (or crams for a date that no longer exists). Matched on id, then
+    on title, the same way :func:`detect_new_work` matches.
+    """
+    live = _assignment_dues(candidates)
+    live_by_title = {title: (due, key) for key, (due, title, _) in live.items()}
+    changes: list[DueChange] = []
+    for key, (old, title, display) in _assignment_dues(planned).items():
+        hit = live.get(key)
+        new = hit[0] if hit else (live_by_title.get(title) or (None,))[0]
+        if new is not None and new != old:
+            changes.append(DueChange(key=key, title=display, old=old, new=new))
+    return tuple(changes[:MAX_NEW_TASKS])
+
+
+def apply_due_changes(
+    tasks: Sequence[PlannerTask],
+    changes: Sequence[DueChange],
+    today: date,
+) -> tuple[PlannerTask, ...]:
+    """Shift every stage of a moved assignment by the same number of days.
+
+    Keeps a staged assignment's internal spacing. A stage pulled into the
+    past lands on today instead, where the planner can still act on it.
+    """
+    by_key = {c.key: c for c in changes}
+    out = []
+    for t in tasks:
+        c = by_key.get(group_key(t.id))
+        if c is None or t.due_date is None:
+            out.append(t)
+            continue
+        out.append(replace(t, due_date=max(today, t.due_date + timedelta(days=c.delta_days))))
+    return tuple(out)
+
+
 def is_finished_status(status: Any) -> bool:
     return str(status or "").strip().lower() in _DONE_STATUSES
 
@@ -199,8 +277,14 @@ def triggers_for(
     missed_titles: Sequence[str],
     new_tasks: Sequence[PlannerTask],
     report: RiskReport | None,
+    due_changes: Sequence[DueChange] = (),
 ) -> list[Trigger]:
     out: list[Trigger] = []
+    if due_changes:
+        c = due_changes[0]
+        when = f"{c.new:%a %b} {c.new.day}"  # %-d is not portable (Windows)
+        more = f" and {len(due_changes) - 1} more" if len(due_changes) > 1 else ""
+        out.append(Trigger("due_changed", f"{c.title} is now due {when}{more}"))
     if missed_minutes > 0:
         names = ", ".join(list(dict.fromkeys(missed_titles))[:2])
         out.append(Trigger("missed", f"{missed_minutes} min you didn't get to ({names}) got new days"))
@@ -222,7 +306,7 @@ def should_run(state: AutopilotState, triggers: Sequence[Trigger], today: date, 
         return False
     if state.suppressed_until is not None and today <= state.suppressed_until:
         return False
-    facts = {t.key for t in triggers} & {"missed", "new_work"}
+    facts = {t.key for t in triggers} & HARD_FACTS
     if facts:
         return True
     # Risk alone: not more than once per cooldown window.

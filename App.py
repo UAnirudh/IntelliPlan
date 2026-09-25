@@ -4446,6 +4446,7 @@ _SITEMAP_ENTRIES = [
     ("/tools/gpa-calculator",            "tool_gpa.html",                 "2026-06-22", "monthly", "0.9"),
     ("/tools/grade-calculator",          "tool_grade.html",               "2026-06-22", "monthly", "0.9"),
     ("/tools/finals-countdown",          "tool_countdown.html",           "2026-06-22", "monthly", "0.7"),
+    ("/demo",                            "demo.html",                     "2026-09-25", "weekly",  "0.8"),
     ("/tools/test-grade-calculator",     "tool_test_grade.html",          "2026-06-22", "monthly", "0.9"),
     ("/tools/study-schedule-maker",      "tool_schedule_maker.html",      "2026-06-22", "monthly", "0.9"),
     ("/tools/text-dissector",            "text_dissector.html",           "2026-06-22", "monthly", "0.8"),
@@ -4935,6 +4936,21 @@ def blog_index():
 @app.route("/olympiad")
 def olympiad_page():
     return render_template("olympiad.html", active_page="olympiad")
+
+@app.route("/demo")
+def demo_week():
+    """A sample week ranked and scheduled by the real engines, no sign-up.
+
+    The landing page and FAQ promise a demo account that shows how
+    IntelliPlan sorts a week; this is it. See intelliplan/services/demo.py.
+    """
+    from intelliplan.services import demo as _demo
+    try:
+        week = _demo.build(date.today())
+    except Exception as exc:
+        print(f"Demo week failed: {exc}")
+        week = None
+    return render_template("demo.html", active_page="demo", week=week)
 
 @app.route("/tools/final-grade-calculator")
 def tool_final_grade():

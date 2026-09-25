@@ -617,10 +617,17 @@ class SchedulingService:
         )
         capacities = self.capacities(today, horizon_days, now=now)
 
+        live_tasks = self.tasks_from(task_rows) if task_rows else ()
         new_tasks = ap.detect_new_work(
-            schedule_data, self.tasks_from(task_rows) if task_rows else (), today,
+            schedule_data, live_tasks, today,
             finished_titles=finished_titles,
         )
+        # A teacher moved a deadline: the plan follows the school tool.
+        due_changes = ap.detect_due_changes(snapshot.tasks, live_tasks) if live_tasks else ()
+        if due_changes:
+            snapshot = replace(
+                snapshot, tasks=ap.apply_due_changes(snapshot.tasks, due_changes, today)
+            )
         seed = zlib.crc32(
             ("|".join(sorted(t.id for t in snapshot.tasks)) + today.isoformat()).encode()
         ) & 0x7FFFFFFF
@@ -637,6 +644,7 @@ class SchedulingService:
             missed_titles=missed_titles,
             new_tasks=new_tasks,
             report=report,
+            due_changes=due_changes,
         )
         if not force and not ap.should_run(state, triggers, today, now):
             return None
@@ -653,7 +661,7 @@ class SchedulingService:
             s.task_id for s in result.plan.sessions
             if s.task_id in {t.id for t in new_tasks}
         }
-        facts = {t.key for t in triggers} & {"missed", "new_work"}
+        facts = {t.key for t in triggers} & ap.HARD_FACTS
         if not facts and result.moved_sittings == 0:
             # A risk trigger that the do-no-harm rule declined: the minimal
             # plan won, so there is nothing worth telling anyone about.
