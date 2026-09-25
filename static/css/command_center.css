@@ -121,11 +121,12 @@ body:has(.command-chat) #planiBot { display: none !important; } /* same assistan
 .command-chat__typing { display: flex; gap: 5px; padding: 12px 0; align-self: flex-start; }
 .command-chat__typing span {
   width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted);
-  animation: ccbounce 0.9s infinite alternate;
+  opacity: 0.3;
+  animation: ccpulse 1.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
-.command-chat__typing span:nth-child(2) { animation-delay: 0.15s; }
-.command-chat__typing span:nth-child(3) { animation-delay: 0.3s; }
-@keyframes ccbounce { to { transform: translateY(-4px); opacity: 0.35; } }
+.command-chat__typing span:nth-child(2) { animation-delay: 0.2s; }
+.command-chat__typing span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes ccpulse { 30% { opacity: 1; } 100% { opacity: 0.3; } }
 
 /* Schedule preview card */
 .command-chat__schedule {
