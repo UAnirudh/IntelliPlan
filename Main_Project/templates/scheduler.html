@@ -118,7 +118,7 @@
     text-transform: uppercase; letter-spacing: 0.04em;
   }
   .time-block {
-    display: grid; grid-template-columns: 136px minmax(0, 1fr) auto;
+    display: grid; grid-template-columns: 100px 1fr auto;
     gap: 12px; align-items: flex-start;
     padding: 12px; margin-bottom: 6px;
     border-radius: var(--ipd-radius-md);
@@ -135,11 +135,7 @@
     font-family: var(--ipd-font-mono); font-size: 0.75rem;
     color: var(--text-muted); white-space: normal;
     letter-spacing: 0.02em; overflow-wrap: break-word;
-    /* ip-base.css gives .time-slot min-width:130px for the old flex layout.
-       Inside a grid track that let a one-line range spill under the title. */
-    min-width: 0; padding-top: 2px; line-height: 1.45;
   }
-  .block-content { min-width: 0; }
   .block-title {
     font-family: var(--ipd-font-body); font-size: 0.9rem;
     font-weight: 600; color: var(--text-primary); margin-bottom: 3px;
@@ -381,7 +377,7 @@
 
   .iv-block {
     display: grid;
-    grid-template-columns: 136px minmax(0, 1fr) auto;
+    grid-template-columns: 100px 1fr auto;
     gap: 12px; align-items: flex-start;
     padding: 14px 16px; margin-bottom: 8px;
     border-radius: var(--ipd-radius-md);
@@ -495,7 +491,6 @@
     font-family: var(--ipd-font-mono); font-size: 0.72rem; font-weight: 500;
     color: var(--text-muted); white-space: normal;
     letter-spacing: 0.02em; overflow-wrap: break-word;
-    min-width: 0; padding-top: 2px; line-height: 1.45;
   }
   .iv-block-body { min-width: 0; }
   .iv-block-title {
@@ -845,89 +840,10 @@
   }
 
   @media (max-width: 600px) {
-    .iv-block, .time-block { grid-template-columns: 84px minmax(0, 1fr) auto; gap: 8px; padding: 10px; }
+    .iv-block, .time-block { grid-template-columns: 80px 1fr auto; gap: 8px; padding: 10px; }
     .iv-time, .time-slot { font-size: 0.68rem; }
     .ck-drawer { width: 100vw; }
     .scheduler-inputs { flex-direction: column; }
-  }
-
-  /* ── List view as an agenda, not a stack of cards ────────────────
-     Each block used to be its own bordered, glassy card with a pill for
-     the duration and an icon on every line. Twelve identical boxes read as
-     generated. A day is now one surface with hairline rows, the time and
-     duration are plain aligned text, and notes are secondary copy. */
-  #scheduleDays .day-card {
-    background: var(--bg-card);
-    -webkit-backdrop-filter: none; backdrop-filter: none;
-    padding: 18px 20px 12px;
-    border-radius: 14px;
-  }
-  #scheduleDays .day-card.is-today { background: var(--bg-card); border-color: var(--accent-mid, var(--accent)); }
-  #scheduleDays .day-header { align-items: flex-end; margin-bottom: 4px; padding-bottom: 12px; }
-  #scheduleDays .day-name {
-    margin: 0; font-size: 1.12rem; font-weight: 650; letter-spacing: -0.012em;
-    display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 8px;
-  }
-  #scheduleDays .day-date { color: var(--text-muted); font-weight: 500; font-size: 0.95rem; }
-  #scheduleDays .day-name .today-pill { align-self: center; }
-  #scheduleDays .day-load {
-    display: flex; align-items: center; gap: 6px; margin-top: 4px;
-    font-size: 0.78rem; color: var(--text-muted);
-  }
-  #scheduleDays .day-load::before {
-    content: ""; width: 6px; height: 6px; border-radius: 50%;
-    background: var(--text-muted);
-  }
-  #scheduleDays .day-load[data-load="heavy"]::before { background: var(--high, #d9534f); }
-  #scheduleDays .day-load[data-load="moderate"]::before,
-  #scheduleDays .day-load[data-load="medium"]::before { background: var(--medium, #d9a23f); }
-  #scheduleDays .day-load[data-load="light"]::before { background: var(--low, #4caf7a); }
-  #scheduleDays .day-hours {
-    text-transform: none; letter-spacing: 0; font-size: 0.8rem;
-    color: var(--text-secondary); white-space: nowrap;
-  }
-
-  #scheduleDays .day-blocks { display: flex; flex-direction: column; margin: 0 -8px; }
-  #scheduleDays .time-block {
-    background: transparent; border: 0; margin: 0;
-    padding: 12px 8px; border-radius: 9px;
-    align-items: baseline; cursor: pointer;
-    transition: background 0.12s;
-  }
-  #scheduleDays .time-block + .time-block { box-shadow: inset 0 1px 0 var(--border); }
-  #scheduleDays .time-block:hover { background: var(--bg-elevated); box-shadow: none; }
-  #scheduleDays .time-block:hover + .time-block { box-shadow: none; }
-  #scheduleDays .time-block:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-  #scheduleDays .time-slot { color: var(--text-secondary); font-size: 0.74rem; padding-top: 0; }
-  #scheduleDays .block-title { font-size: 0.93rem; line-height: 1.35; margin-bottom: 2px; }
-  #scheduleDays .block-course { font-size: 0.8rem; color: var(--text-secondary); display: block; }
-  #scheduleDays .block-notes {
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-    font-size: 0.8rem; font-style: normal; color: var(--text-muted); margin-top: 3px;
-  }
-  #scheduleDays .block-duration {
-    background: none; border: 0; padding: 0; border-radius: 0;
-    -webkit-backdrop-filter: none; backdrop-filter: none;
-    font-size: 0.76rem; font-weight: 500; color: var(--text-muted); white-space: nowrap;
-  }
-
-  #scheduleDays .time-block.break-block { opacity: 1; padding-top: 7px; padding-bottom: 7px; }
-  #scheduleDays .break-block .block-title,
-  #scheduleDays .break-block .time-slot,
-  #scheduleDays .break-block .block-duration {
-    font-size: 0.78rem; font-weight: 500; color: var(--text-muted); margin: 0;
-  }
-  #scheduleDays .break-block .block-content {
-    display: flex; align-items: center; gap: 10px;
-  }
-  #scheduleDays .break-block .block-content::after {
-    content: ""; flex: 1; border-top: 1px dashed var(--border);
-  }
-
-  #scheduleDays .daily-tip {
-    display: block; margin: 6px 0 0; padding: 12px 0 2px;
-    background: none; border: 0; border-top: 1px solid var(--border); border-radius: 0;
-    font-size: 0.82rem; font-weight: 400; color: var(--text-secondary); line-height: 1.55;
   }
 
   /* ── Print: clean plan on paper / PDF ─────────── */
@@ -2274,65 +2190,34 @@ function renderSchedule(data) {
     </div>`;
   const days = document.getElementById('scheduleDays');
   const todayStr = localToday();
-  days.innerHTML = (data.schedule || []).filter(day => (day.blocks || []).length).map((day, di) => {
-    const isToday = String(day.date || '').slice(0,10) === todayStr;
-    const load = String(day.workload_level || '').toLowerCase().trim();
-    return `
-    <section class="day-card ${isToday ? 'is-today' : ''}" style="animation-delay:${di * 0.07}s" aria-label="${escapeText(day.day_name || '')} ${escapeText(schedFmtDate(day.date))}">
+  days.innerHTML = (data.schedule || []).filter(day => (day.blocks || []).length).map((day, di) => `
+    <div class="day-card ${String(day.date || '').slice(0,10) === todayStr ? 'is-today' : ''}" style="animation-delay:${di * 0.07}s">
       <div class="day-header">
         <div>
-          <h3 class="day-name">${escapeText(day.day_name || '')}<span class="day-date">${escapeText(schedFmtDate(day.date))}</span>${isToday ? '<span class="today-pill">Today</span>' : ''}</h3>
-          ${load ? `<div class="day-load" data-load="${escapeText(load)}">${escapeText(load.charAt(0).toUpperCase() + load.slice(1))} day</div>` : ''}
+          <div class="day-name">${escapeText(day.day_name || '')}, ${escapeText(day.date || '')}${String(day.date || '').slice(0,10) === todayStr ? '<span class="today-pill">Today</span>' : ''}</div>
+          ${day.workload_level ? `<div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;">${escapeText(day.workload_level)} workload</div>` : ''}
         </div>
-        <div class="day-hours">${escapeText(schedFmtHours(day.total_hours))} planned</div>
+        <div class="day-hours"><svg width="11" height="11"><use href="#i-clock"/></svg> ${escapeText(String(day.total_hours || 0))}h</div>
       </div>
       <div class="day-blocks">
-        ${(day.blocks || []).map(block => block.is_break ? `
-          <div class="time-block break-block"
-               data-ip-block="${escapeText(JSON.stringify(block))}"
-               role="button" tabindex="0"
-               aria-label="Break, ${escapeText(schedFmtMinutes(block.duration_minutes))}">
-            <div class="time-slot">${escapeTimeSlot(block.time_slot || '')}</div>
-            <div class="block-content"><div class="block-title">Break</div></div>
-            <div class="block-duration">${escapeText(schedFmtMinutes(block.duration_minutes))}</div>
-          </div>` : `
-          <div class="time-block"
+        ${(day.blocks || []).map(block => `
+          <div class="time-block ${block.is_break ? 'break-block' : ''}"
                data-ip-block="${escapeText(JSON.stringify(block))}"
                role="button" tabindex="0"
                aria-label="Open details for ${escapeText(blockTitle(block))}">
             <div class="time-slot">${escapeTimeSlot(block.time_slot || '')}</div>
             <div class="block-content">
-              <div class="block-title">${block.color ? `<span class="block-swatch" style="background:${block.color}"></span>` : ''}${escapeText(blockTitle(block))}${partPill(block)}</div>
-              ${block.course ? `<div class="block-course">${escapeText(block.course)}</div>` : ''}
-              ${block.notes ? `<div class="block-notes">${escapeText(block.notes)}</div>` : ''}
+              <div class="block-title">${block.is_break ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-coffee"/></svg> Break' : `${block.color ? `<span class="block-swatch" style="background:${block.color}"></span>` : ''}${escapeText(blockTitle(block))}${partPill(block)}`}</div>
+              ${!block.is_break && block.course ? `<div class="block-course"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-book"/></svg> ${escapeText(block.course)}</div>` : ''}
+              ${block.notes ? `<div class="block-notes"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-lightbulb"/></svg> ${escapeText(block.notes)}</div>` : ''}
             </div>
-            <div class="block-duration">${escapeText(schedFmtMinutes(block.duration_minutes))}</div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
+              <div class="block-duration">${escapeText(String(block.duration_minutes || 0))}m</div>
+            </div>
           </div>`).join('')}
       </div>
-      ${day.daily_tip ? `<p class="daily-tip">${escapeText(day.daily_tip)}</p>` : ''}
-    </section>`;
-  }).join('');
-}
-
-/* Display-only formatters for the list view. Prefixed: page scripts share
-   one global scope with base.html. */
-function schedFmtDate(iso) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
-  if (!m) return String(iso || '');
-  const d = new Date(+m[1], +m[2] - 1, +m[3]);
-  const sameYear = d.getFullYear() === new Date().getFullYear();
-  return d.toLocaleDateString(undefined, sameYear
-    ? { month: 'short', day: 'numeric' }
-    : { month: 'short', day: 'numeric', year: 'numeric' });
-}
-function schedFmtMinutes(min) {
-  const n = Math.max(0, Math.round(Number(min) || 0));
-  if (n < 60) return `${n} min`;
-  const h = Math.floor(n / 60), r = n % 60;
-  return r ? `${h}h ${r}m` : `${h}h`;
-}
-function schedFmtHours(hours) {
-  return schedFmtMinutes((Number(hours) || 0) * 60);
+      ${day.daily_tip ? `<div class="daily-tip"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-sparkle"/></svg> ${escapeText(day.daily_tip)}</div>` : ''}
+    </div>`).join('');
 }
 
 /* ════════════════════════════════════════════════════════

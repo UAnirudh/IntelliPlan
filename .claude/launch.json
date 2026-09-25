@@ -7,13 +7,6 @@
       "runtimeArgs": ["App.py"],
       "port": 3000,
       "autoPort": true
-    },
-    {
-      "name": "intelliplan-dev",
-      "runtimeExecutable": "python",
-      "runtimeArgs": ["-c", "import os,secrets,runpy;os.environ.setdefault('SECRET_KEY',secrets.token_hex(32));os.environ['PORT']='3107';os.environ.setdefault('APP_BASE_URL','http://127.0.0.1:3107');os.environ.setdefault('PYTHONIOENCODING','utf-8');runpy.run_path('App.py',run_name='__main__')"],
-      "port": 3107,
-      "url": "http://127.0.0.1:3107"
     }
   ]
 }
