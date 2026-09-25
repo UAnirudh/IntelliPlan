@@ -2628,9 +2628,10 @@ from intelliplan.sync import models as _sync_models
 _sync_models.register(db)
 # Per-user vector store over course notes / Plani memories (RAG). Needs
 # CourseNote, which is defined above. See intelliplan/retrieval/.
+# Boot imports only the numpy-free store; the vector math loads on first
+# search, so a problem there can never keep the app from starting.
 from intelliplan import retrieval as _retrieval
-from intelliplan.retrieval import index as _retrieval_index
-MemoryChunk = _retrieval_index.init(db, CourseNote)
+MemoryChunk = _retrieval.init(db, CourseNote)
 
 with app.app_context():
     db.create_all()

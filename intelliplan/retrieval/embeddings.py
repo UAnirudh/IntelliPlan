@@ -21,7 +21,13 @@ import re
 import zlib
 from collections import Counter
 
-import numpy as np
+# Before numpy's first import: its bundled OpenBLAS otherwise starts one
+# thread per *host* CPU. In a container that is dozens of threads per
+# gunicorn worker for vector math that is a single small matmul.
+for _var in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
+    os.environ.setdefault(_var, "1")
+
+import numpy as np  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

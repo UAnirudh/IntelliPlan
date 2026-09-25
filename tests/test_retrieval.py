@@ -139,3 +139,15 @@ def test_retrieve_context_formats_citations(env):
     block = index.retrieve_context(1, "phases of mitosis")
     assert "[1]" in block and "Cell division" in block
     assert index.retrieve_context(1, "") == ""
+
+
+def test_booting_the_app_does_not_import_numpy():
+    """The first deploy of this layer imported numpy at boot and production
+    never came back up. Boot must only touch the numpy-free store."""
+    import subprocess
+    import sys
+
+    code = "import sys, App; sys.exit(3 if 'numpy' in sys.modules else 0)"
+    env = {**__import__("os").environ, "SECRET_KEY": "t", "PYTHONIOENCODING": "utf-8"}
+    proc = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, timeout=600)
+    assert proc.returncode == 0, "App boot imported numpy" if proc.returncode == 3 else proc.stderr[-2000:]

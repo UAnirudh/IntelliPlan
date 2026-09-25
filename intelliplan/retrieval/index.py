@@ -18,6 +18,7 @@ from typing import Any
 import numpy as np
 
 from . import models as _models
+from . import store as _store
 from .chunking import chunk_text
 from .embeddings import (
     dense_embed,
@@ -37,19 +38,13 @@ MAX_NOTES_PER_SYNC = 25       # bounds the latency a single chat turn can pay
 MAX_BACKFILL_PER_SYNC = 64
 MAX_ROWS_SCANNED = 3000
 
-_db: Any = None
-_note_model: Any = None
-
-
 def init(db: Any, note_model: Any) -> type:
-    """Register the table and remember where notes live. Called from App.py."""
-    global _db, _note_model
-    _db, _note_model = db, note_model
-    return _models.register(db)
+    """Kept for callers that import index directly; see store.init."""
+    return _store.init(db, note_model)
 
 
 def _ready() -> bool:
-    return _db is not None and _note_model is not None
+    return _store.ready()
 
 
 def _note_text(note: Any) -> str:
@@ -69,7 +64,8 @@ def sync_user(user_id: int) -> dict:
     if not _ready() or not user_id:
         return {"built": 0, "removed": 0, "backfilled": 0}
     Chunk = _models.model()
-    Note = _note_model
+    Note = _store.note_model()
+    _db = _store.db()
 
     notes = (Note.query.filter_by(user_id=user_id)
              .order_by(Note.id.desc()).all())
@@ -132,18 +128,8 @@ def _backfill_dense(user_id: int) -> int:
     return len(rows)
 
 
-def purge_note(user_id: int, note_id: int) -> None:
-    if not _ready():
-        return
-    Chunk = _models.model()
-    (Chunk.query.filter_by(user_id=user_id, source="note", source_id=note_id)
-     .delete(synchronize_session=False))
-
-
-def purge_user(user_id: int) -> None:
-    if not _ready():
-        return
-    _models.model().query.filter_by(user_id=user_id).delete(synchronize_session=False)
+purge_note = _store.purge_note
+purge_user = _store.purge_user
 
 
 # ── Search ──────────────────────────────────────────────────────────────
@@ -222,7 +208,7 @@ def retrieve_context(user_id: int, query: str, k: int = 4, max_chars: int = 2600
     except Exception as exc:
         logger.warning("RAG retrieval failed for user %s: %s", user_id, exc)
         try:
-            _db.session.rollback()
+            _store.db().session.rollback()
         except Exception:
             pass
         return ""
