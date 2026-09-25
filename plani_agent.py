@@ -1132,13 +1132,6 @@ def plani_agent():
     system = AGENT_SYSTEM_PROMPT + "\n\n" + _tool_list_prompt() + \
         f"\n\nToday's date: {datetime.now().strftime('%A, %Y-%m-%d')}." + \
         (build_agent_context(user_id) or "")
-    # RAG: ground the answer in passages from the student's own notes that
-    # match what they just asked. Empty string when nothing is relevant.
-    last_user = next((m.get("content", "") for m in reversed(messages)
-                      if m.get("role") == "user"), "")
-    if last_user:
-        from intelliplan.retrieval import retrieve_context
-        system += retrieve_context(user_id, str(last_user)[:1000])
     recent = messages[-12:]
     llm_messages = [{"role": "system", "content": system}] + recent
     actions: list[str] = []

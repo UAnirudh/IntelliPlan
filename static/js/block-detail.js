@@ -16,9 +16,6 @@
   var PANEL_ID = 'ipBlockPanel';
   var current = null;      // the block the panel is showing
   var requestSeq = 0;      // guards against a slow response for an old block
-  var opener = null;       // element to hand focus back to on close
-  var SKELETON = '<div class="ipbd-skel"></div><div class="ipbd-skel"></div>';
-  var PART_RE = /\s*\((?:part\s+)?(\d+)\s+of\s+(\d+)\)\s*$/i;
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -49,18 +46,15 @@
     el.innerHTML =
       '<div class="ipbd-scrim" data-ipbd-close></div>' +
       '<div class="ipbd-sheet">' +
-        '<button type="button" class="ipbd-x" data-ipbd-close aria-label="Close">' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>' +
-        '</button>' +
+        '<button type="button" class="ipbd-x" data-ipbd-close aria-label="Close">&times;</button>' +
         '<div class="ipbd-head">' +
-          '<div class="ipbd-eyebrow"></div>' +
           '<h2 id="ipBlockTitle" class="ipbd-title"></h2>' +
-          '<dl class="ipbd-facts"></dl>' +
+          '<div class="ipbd-meta"></div>' +
         '</div>' +
         '<div class="ipbd-notes"></div>' +
         '<div class="ipbd-section">' +
           '<h3 class="ipbd-h3">Resources</h3>' +
-          '<div class="ipbd-resources" aria-live="polite">' + SKELETON + '</div>' +
+          '<div class="ipbd-resources"><p class="ipbd-muted">Finding resources…</p></div>' +
         '</div>' +
       '</div>';
     document.body.appendChild(el);
@@ -80,8 +74,6 @@
     // so a response still in flight cannot paint into the next block.
     requestSeq++;
     document.body.style.overflow = '';
-    if (opener && document.contains(opener)) opener.focus();
-    opener = null;
   }
 
   function resourceRow(r) {
@@ -109,7 +101,7 @@
 
   function loadResources(block, seq) {
     var host = panel().querySelector('.ipbd-resources');
-    host.innerHTML = SKELETON;
+    host.innerHTML = '<p class="ipbd-muted">Finding resources…</p>';
 
     fetch('/api/block/resources', {
       method: 'POST',
@@ -135,30 +127,16 @@
     var el = panel();
     current = block;
 
-    var title = String(block.assignment || block.title || 'Study block');
-    var part = PART_RE.exec(title);
-    var titleEl = el.querySelector('.ipbd-title');
-    if (block.is_break) {
-      titleEl.textContent = 'Break';
-    } else {
-      titleEl.innerHTML = esc(part ? title.replace(PART_RE, '') : title) +
-        (part ? '<span class="ipbd-part">Session ' + esc(part[1]) + ' of ' + esc(part[2]) + '</span>' : '');
-    }
+    var title = block.assignment || block.title || 'Study block';
+    el.querySelector('.ipbd-title').textContent = block.is_break ? 'Break' : title;
 
-    var sheet = el.querySelector('.ipbd-sheet');
-    // Only a plain colour value may reach a style property.
-    var color = /^#[0-9a-f]{3,8}$|^(rgb|hsl)a?\([\d\s.,%]+\)$/i.test(String(block.color || '')) ? block.color : '';
-    if (color) sheet.style.setProperty('--subj', color);
-    else sheet.style.removeProperty('--subj');
-    el.querySelector('.ipbd-eyebrow').textContent = block.is_break ? '' : (block.course || '');
-
-    var facts = [];
-    if (block.time_slot) facts.push(['When', block.time_slot]);
-    if (block.duration_minutes) facts.push(['Length', fmtMinutes(block.duration_minutes)]);
-    if (block.due_date) facts.push(['Due', fmtDue(block.due_date), isPast(block.due_date)]);
-    el.querySelector('.ipbd-facts').innerHTML = facts.map(function (f) {
-      return '<div class="ipbd-fact' + (f[2] ? ' ipbd-fact--late' : '') + '"><dt>' + esc(f[0]) + '</dt><dd>' + esc(f[1]) + '</dd></div>';
-    }).join('');
+    var bits = [];
+    if (block.course) bits.push(esc(block.course));
+    if (block.time_slot) bits.push(esc(block.time_slot));
+    if (block.duration_minutes) bits.push(esc(String(block.duration_minutes)) + ' min');
+    if (block.due_date) bits.push('due ' + esc(block.due_date));
+    el.querySelector('.ipbd-meta').innerHTML =
+      bits.map(function (b) { return '<span class="ipbd-pill">' + b + '</span>'; }).join('');
 
     var notes = el.querySelector('.ipbd-notes');
     var text = block.notes || block.why_now || '';
@@ -169,44 +147,11 @@
     // wrong, so the section goes rather than showing an empty state.
     section.hidden = !!block.is_break;
 
-    if (el.hidden) opener = document.activeElement;
     el.hidden = false;
     document.body.style.overflow = 'hidden';
     el.querySelector('.ipbd-x').focus();
 
     if (!block.is_break) loadResources(block, ++requestSeq);
-  }
-
-  function fmtMinutes(min) {
-    var n = Math.max(0, Math.round(Number(min) || 0));
-    if (n < 60) return n + ' min';
-    var h = Math.floor(n / 60), r = n % 60;
-    return r ? h + 'h ' + r + 'm' : h + 'h';
-  }
-
-  function parseDay(iso) {
-    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
-    return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
-  }
-
-  function fmtDue(iso) {
-    var d = parseDay(iso);
-    if (!d) return String(iso);
-    var today = new Date(); today.setHours(0, 0, 0, 0);
-    var diff = Math.round((d - today) / 86400000);
-    if (diff === 0) return 'Today';
-    if (diff === 1) return 'Tomorrow';
-    return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-  }
-
-  function isPast(iso) {
-    var d = parseDay(iso);
-    var today = new Date(); today.setHours(0, 0, 0, 0);
-    return !!d && d < today;
-  }
-
-  function blockFrom(host) {
-    try { return JSON.parse(host.getAttribute('data-ip-block')); } catch (e) { return null; }
   }
 
   /* Delegation rather than a handler per rendered block: every surface
@@ -218,27 +163,17 @@
     if (!host) return;
     // Let a real control inside the card do its own job.
     if (ev.target.closest('a, button, input, select, textarea')) return;
-    open(blockFrom(host));
+    var block;
+    try {
+      block = JSON.parse(host.getAttribute('data-ip-block'));
+    } catch (e) {
+      return;
+    }
+    open(block);
   });
 
   document.addEventListener('keydown', function (ev) {
-    var el = document.getElementById(PANEL_ID);
-    var isOpen = el && !el.hidden;
-    if (ev.key === 'Escape' && isOpen) { close(); return; }
-    // Rows are role="button"; honour the keys a button answers to.
-    if (!isOpen && (ev.key === 'Enter' || ev.key === ' ')) {
-      var host = ev.target.closest && ev.target.closest('[data-ip-block]');
-      if (host && host === ev.target) { ev.preventDefault(); open(blockFrom(host)); }
-      return;
-    }
-    // Keep Tab inside the dialog while it is open.
-    if (isOpen && ev.key === 'Tab') {
-      var f = el.querySelectorAll('.ipbd-sheet a[href], .ipbd-sheet button');
-      if (!f.length) return;
-      var first = f[0], last = f[f.length - 1];
-      if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
-      else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
-    }
+    if (ev.key === 'Escape') close();
   });
 
   window.IPBlock = { open: open, close: close, current: function () { return current; } };
