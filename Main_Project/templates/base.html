@@ -138,6 +138,20 @@
     }
   </style>
 
+  {# Pre-paint sidebar rail state (see static/js/ip-sidebar-rail.js — same
+     rule, kept in sync). Set before CSS applies so a laptop never paints the
+     full sidebar and then snaps to the rail. #}
+  <script>
+    (function(){
+      try {
+        var m = localStorage.getItem('ip_side_mode') || 'auto';
+        var w = window.innerWidth;
+        if (m === 'collapsed' || (m === 'auto' && w >= 769 && w <= 1600))
+          document.documentElement.setAttribute('data-side-rail', '');
+      } catch (e) { /* fail-quiet: full sidebar */ }
+    })();
+  </script>
+
   {# Pre-paint a11y bootstrap. Runs before first style application by
      mirroring server prefs into localStorage on every page-load and
      applying them as data-attributes on <html>. Prevents a flash of
@@ -200,6 +214,11 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-phone.css') }}?v={{ asset_v }}">
   {# Phone app shell (glass tab bar + Menu sheet); after ip-phone so it wins. #}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-app-shell.css') }}?v={{ asset_v }}">
+  {# Collapsible desktop sidebar (icon rail). Desktop-only media queries. #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-sidebar-rail.css') }}?v={{ asset_v }}">
+  {# In-app finishing pass: sentence-case labels, UI-face numerals, neutral
+     default dark palette, solid surfaces. Scoped to body.has-side. Last. #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-finish.css') }}?v={{ asset_v }}">
 
   {# ── Async runtime ──────────────────────────────────────────────────
      Loaded synchronously, not deferred, on purpose: page templates write
@@ -598,6 +617,9 @@ body {
     <div class="logo-icon"><img src="/static/icons/icon-192.png" alt="IntelliPlan logo"></div>
     <span class="logo-text">Intelli<span>Plan</span></span>
   </a>
+  <button type="button" class="side-collapse-btn" id="sideCollapseBtn" aria-label="Collapse sidebar" aria-controls="sideNavList">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/><path d="M15 10l-2 2 2 2"/></svg>
+  </button>
 
   {# ── Search / command palette trigger ─────────────────────── #}
   <button type="button" class="side-search" id="sideSearchTrigger" aria-label="Search and quick navigation">
@@ -798,6 +820,7 @@ body {
 {% if _app_tabbar %}
 {% include "_app_tabbar.html" %}
 <script src="{{ url_for('static', filename='js/ip-app-shell.js') }}?v={{ asset_v }}" defer></script>
+<script src="{{ url_for('static', filename='js/ip-sidebar-rail.js') }}?v={{ asset_v }}" defer></script>
 {% endif %}
 
 <!-- ══════════════════════════════════════
@@ -1264,6 +1287,7 @@ if (mobileMenuBtn) {
         try { localStorage.setItem('theme', cur); } catch(e){}
         document.querySelectorAll('#themeToggle, #themeToggleSide').forEach(t => t.checked = cur === 'dark');
     }},
+    { section:'Actions', label:'Collapse or expand sidebar', icon:'i-settings', keys:'sidebar minimize collapse expand rail toggle', action:() => window.IPSidebar && window.IPSidebar.toggle() },
     { section:'Actions', label:'Customize sidebar', icon:'i-settings', keys:'sidebar hide show pin nav layout', action:() => window.openSidebarCustomizer && window.openSidebarCustomizer() },
     { section:'Actions', label:'Logout', icon:'i-logout', keys:'sign out', action:() => {
         const f = document.createElement('form'); f.method='POST'; f.action='/logout'; document.body.appendChild(f); f.submit();
