@@ -9,7 +9,9 @@ flask-cors>=4.0.0
 werkzeug>=2.3.0
 
 # Database
-sqlalchemy>=2.0.0
+# <2.1: 2.1 changed the default Postgres driver (see db_url.py) and is the
+# line production has never run. Lift the cap deliberately, not by rebuild.
+sqlalchemy>=2.0.0,<2.1
 psycopg2-binary>=2.9.0
 
 # AI & ML — Gemini primary, Groq fallback

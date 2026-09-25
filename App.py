@@ -261,7 +261,10 @@ app.config["REMEMBER_COOKIE_SAMESITE"] = "Lax"
 app.config["PREFERRED_URL_SCHEME"] = "https" if APP_BASE_URL.startswith("https://") else "http"
 app.permanent_session_lifetime = timedelta(days=7)
 
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///intelliplan.db")
+# Names the Postgres driver explicitly; a bare postgresql:// loads psycopg v3
+# on SQLAlchemy 2.1+, which we don't ship. See db_boot.py.
+import db_boot as _db_boot
+app.config["SQLALCHEMY_DATABASE_URI"] = _db_boot.url_from_env()
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
 app.config["NOTES_UPLOAD_FOLDER"] = os.path.join(app.root_path, "uploads", "course_notes")
@@ -2633,7 +2636,9 @@ _sync_models.register(db)
 from intelliplan import retrieval as _retrieval
 MemoryChunk = _retrieval.init(db, CourseNote)
 
-with app.app_context():
+# Every gunicorn worker runs this at once; the lock makes them take turns so
+# two never race to CREATE the same new table (a loser kills gunicorn).
+with app.app_context(), _db_boot.schema_lock(db.engine):
     db.create_all()
     apply_study_schema_migrations()
     apply_media_balance_migrations(db)
