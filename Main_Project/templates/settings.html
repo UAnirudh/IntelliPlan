@@ -439,6 +439,18 @@
       </div>
     </div>
 
+    <div class="integration-row" id="sidebarSetting">
+      <div>
+        <div class="integration-label">Sidebar</div>
+        <div class="integration-sub" id="sidebarModeHint">Auto shrinks it to icons on laptop-sized windows. Saved on this device.</div>
+      </div>
+      <div class="ip-seg" role="radiogroup" aria-label="Sidebar layout" id="sidebarModeSeg">
+        <button type="button" role="radio" data-mode="auto" aria-checked="true">Auto</button>
+        <button type="button" role="radio" data-mode="expanded" aria-checked="false">Expanded</button>
+        <button type="button" role="radio" data-mode="collapsed" aria-checked="false">Icons only</button>
+      </div>
+    </div>
+
     <div class="integration-row">
       <div>
         <div class="integration-label">Session completion animation</div>
@@ -1205,6 +1217,40 @@ function saveAnimSetting(key, value) {
 (function initAnimToggles() {
   const t = document.getElementById('animSessionToggle');
   if (t) t.checked = localStorage.getItem('ip_anim_session') !== 'false';
+})();
+
+/* ── Sidebar layout, delegates to window.IPSidebar (ip-sidebar-rail.js).
+   That script is deferred, so wire on DOMContentLoaded, when it exists. ── */
+(function () {
+  function wireSidebarSeg() {
+    const seg = document.getElementById('sidebarModeSeg');
+    if (!seg || !window.IPSidebar) return;
+    const btns = Array.from(seg.querySelectorAll('button[data-mode]'));
+    const sync = () => {
+      const mode = window.IPSidebar.getMode();
+      btns.forEach(b => {
+        const on = b.dataset.mode === mode;
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+        b.tabIndex = on ? 0 : -1;
+      });
+    };
+    btns.forEach((b, i) => {
+      b.addEventListener('click', () => window.IPSidebar.setMode(b.dataset.mode));
+      b.addEventListener('keydown', e => {
+        const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1
+                   : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+        if (!step) return;
+        e.preventDefault();
+        const next = btns[(i + step + btns.length) % btns.length];
+        window.IPSidebar.setMode(next.dataset.mode);
+        next.focus();
+      });
+    });
+    document.addEventListener('ip:sidebar-mode', sync);
+    sync();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireSidebarSeg);
+  else wireSidebarSeg();
 })();
 
 /* ── Settings theme toggle, delegates to window.setThemeMode in base.html ── */

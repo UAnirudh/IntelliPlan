@@ -1,0 +1,125 @@
+/* ══════════════════════════════════════════════════════════════════
+   Sidebar rail — collapsed desktop sidebar
+   ──────────────────────────────────────────────────────────────────
+   <html data-side-rail> is set before first paint by the bootstrap in
+   base.html <head> and kept current by ip-sidebar-rail.js. It means:
+   "the sidebar is a 64px icon rail right now", either because the mode
+   is Collapsed, or the mode is Auto and the window is laptop-sized.
+
+   The rail never reflows the page to show labels. Hover (with intent
+   delay) or keyboard focus adds .is-peek, which widens the sidebar as an
+   overlay above the content. Desktop only: below 769px the phone shell
+   owns navigation and none of this applies.
+   ══════════════════════════════════════════════════════════════════ */
+
+:root { --side-rail-w: 64px; --side-peek-w: 244px; }
+
+/* ── Collapse / expand button (always present on desktop) ─────────── */
+.side-collapse-btn {
+  position: absolute; top: 20px; right: 10px;
+  width: 26px; height: 26px;
+  display: inline-grid; place-items: center;
+  border: 0; border-radius: 7px; padding: 0;
+  background: transparent; color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0; transition: opacity 0.14s, background 0.14s, color 0.14s;
+}
+.app-side:hover .side-collapse-btn,
+.side-collapse-btn:focus-visible { opacity: 1; }
+.side-collapse-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.side-collapse-btn svg { width: 16px; height: 16px; transition: transform 0.2s ease; }
+body.has-side .side-logo { padding-right: 40px; }
+
+@media (min-width: 769px) {
+  html[data-side-rail] { --side-w: var(--side-rail-w); }
+  /* The sidebar is always laid out at full peek width; the rail is a
+     clip of it. Revealing labels animates clip-path (compositor-only)
+     instead of width, so nothing inside re-lays-out per frame. The clip
+     also clips hit-testing, so the hidden part never steals clicks. */
+  html[data-side-rail] body.has-side .app-side {
+    width: var(--side-peek-w);
+    padding: 16px 10px 12px;
+    overflow-x: hidden;
+    border-right: 0;
+    clip-path: inset(0 calc(var(--side-peek-w) - var(--side-rail-w)) 0 0);
+    background-image: linear-gradient(to right,
+      transparent calc(var(--side-rail-w) - 1px),
+      var(--border) calc(var(--side-rail-w) - 1px),
+      var(--border) var(--side-rail-w),
+      transparent var(--side-rail-w));
+    transition: clip-path 0.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+    z-index: 120;
+  }
+  html[data-side-rail] body.has-side .app-side.is-peek {
+    clip-path: inset(0 -60px 0 0);
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    box-shadow: 18px 0 40px -18px rgba(0, 0, 0, 0.35);
+  }
+
+  /* Rows keep their left edge fixed so icons don't slide while the rail
+     widens; the label is clipped rather than squeezed. */
+  html[data-side-rail] body.has-side .app-side .side-link,
+  html[data-side-rail] body.has-side .side-search,
+  html[data-side-rail] body.has-side .side-customize-btn {
+    white-space: nowrap; overflow: hidden;
+    padding-left: 13px; padding-right: 10px;
+  }
+  html[data-side-rail] body.has-side .side-logo { padding-left: 8px; }
+
+  /* Collapsed (not peeking): icons only. Text nodes can't be selected, so
+     labels are hidden by zeroing font-size on the row; icons are px-sized. */
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-link,
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-search,
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-customize-btn { font-size: 0; gap: 0; }
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-search > span:not(.side-icon),
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-customize-btn > span:not(.side-icon),
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) .logo-text,
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-foot-row,
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-collapse-btn { display: none; }
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-customize-btn { border-color: transparent; }
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-search { box-shadow: none; background: transparent; }
+
+  /* Streak / pet counts become a dot on the icon instead of vanishing. */
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-link { position: relative; }
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) :is(.side-streak-badge, .side-pet-badge):not([hidden]) {
+    position: absolute; top: 6px; left: 27px;
+    width: 7px; height: 7px; min-width: 0; padding: 0;
+    border-radius: 50%; font-size: 0; overflow: hidden;
+    background: var(--accent);
+    box-shadow: 0 0 0 2px var(--bg);
+  }
+
+  /* The active row stays legible as an icon: a short accent bar. */
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-link.active::before {
+    content: ""; position: absolute; left: -10px; top: 8px; bottom: 8px;
+    width: 3px; border-radius: 0 3px 3px 0; background: var(--accent);
+  }
+
+  html[data-side-rail] body.has-side .side-collapse-btn svg { transform: rotate(180deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-side-rail] body.has-side .app-side { transition: none; }
+}
+html[data-a11y-motion="reduce"] body.has-side .app-side { transition: none !important; }
+
+/* ── Settings: three-way segmented control ─────────────────────────── */
+.ip-seg {
+  display: inline-flex; padding: 3px; gap: 2px;
+  border-radius: 10px; background: var(--bg-elevated);
+  border: 1px solid var(--border);
+}
+.ip-seg button {
+  border: 0; background: transparent; cursor: pointer;
+  padding: 6px 12px; border-radius: 7px;
+  font: 500 0.8rem/1 var(--font-body, inherit);
+  color: var(--text-secondary);
+  transition: background 0.14s, color 0.14s;
+}
+.ip-seg button:hover { color: var(--text-primary); }
+.ip-seg button[aria-checked="true"] {
+  background: var(--bg-card); color: var(--text-primary); font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--border);
+}
+.ip-seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
