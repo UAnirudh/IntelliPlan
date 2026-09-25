@@ -8,7 +8,7 @@ wrong blocks, and the kill switch.
 """
 
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 
 import pytest
 
@@ -73,7 +73,9 @@ def plan_data(start=TODAY, days=10):
                     due_date=start + timedelta(days=8), est_minutes=90, priority=45),
     ]
     plan = build_plan(tasks, capacities_from_minutes(start, [120] * days), today=start)
-    data = plan_to_schedule_data(plan)
+    # Place blocks as of the morning: with the wall clock, a run late in the
+    # evening has no window left today and the fixture has no work today.
+    data = plan_to_schedule_data(plan, now=datetime.combine(start, time(8, 0)))
     for di, day in enumerate(data["schedule"], start=1):
         for bi, block in enumerate(day["blocks"], start=1):
             block["block_id"] = f"d{di}-b{bi}"
