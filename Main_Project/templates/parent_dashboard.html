@@ -3,6 +3,10 @@
 {% block content %}
 <style>
   .pd-shell { display: flex; flex-direction: column; gap: 1.75rem; }
+  .pd-foundations-link { display:flex; align-items:center; justify-content:space-between; gap:18px; flex-wrap:wrap; padding:20px; margin:0 0 24px; border:1px solid var(--border); border-radius:var(--r-lg); background:var(--bg-card); }
+  .pd-foundations-link strong { font-family:var(--font-display); font-size:1.05rem; }
+  .pd-foundations-link p { color:var(--text-secondary); font-size:.82rem; line-height:1.5; margin:6px 0 0; max-width:58ch; }
+  .pd-foundations-link .btn-primary { text-decoration:none; white-space:nowrap; }
 
   .pd-invite {
     display: flex; gap: 0.5rem; flex: 1; min-width: 280px;
@@ -82,7 +86,12 @@
 <div class="page-header">
   <div class="page-kicker">Family</div>
   <h1 class="page-title">Family view</h1>
-  <p class="page-subtitle">A calm overview of your student's workload — no notifications, no nagging. They control what you see.</p>
+  <p class="page-subtitle">A calm overview of your student's workload. They control what you see.</p>
+</div>
+
+<div class="pd-foundations-link">
+  <div><strong>Foundations family view</strong><p>See reading, writing, and arithmetic practice for learners on this account, set a gentle goal, and leave a note in their story.</p></div>
+  <a class="btn-primary" href="/foundations/parent">Open family view</a>
 </div>
 
 <div class="pd-shell">

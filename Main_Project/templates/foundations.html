@@ -10,7 +10,7 @@
       <h1>A story that remembers.</h1>
       <p>Explore a world, make choices that carry forward, and practice reading, writing, and arithmetic along the way. Built for an adult and child to use together.</p>
     </div>
-    <a class="primer-secondary" href="/tutor">Ask Plani about a skill <span aria-hidden="true">↗</span></a>
+    <div class="primer-heading-actions"><a class="primer-secondary" href="/foundations/parent">Family view <span aria-hidden="true">↗</span></a><a class="primer-secondary" href="/tutor">Ask Plani about a skill <span aria-hidden="true">↗</span></a></div>
   </header>
 
   <div id="primerStatus" class="primer-status" role="status" aria-live="polite">Loading your learners…</div>
@@ -42,6 +42,11 @@
     </div>
     <div class="primer-grid">
       <section class="primer-activity" aria-labelledby="primerActivityTitle">
+        <div class="primer-family-note" id="primerFamilyNote" hidden>
+          <p class="primer-eyebrow">A NOTE FROM YOUR GROWN-UP</p>
+          <p id="primerFamilyMessage"></p>
+          <button type="button" class="primer-secondary" id="primerFamilyAcknowledge">I saw this</button>
+        </div>
         <div class="primer-section-top"><span class="primer-eyebrow">TODAY'S CHAPTER</span><span id="primerWorldLabel" class="primer-world"></span></div>
         <h2 id="primerActivityTitle">The journey begins here.</h2>
         <p class="primer-activity__intro">A chapter has three clues and one story choice. Each clue practices a different skill.</p>

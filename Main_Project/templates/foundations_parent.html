@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block page_title %}Family view | Foundations | IntelliPlan{% endblock %}
+{% block meta_description %}An account holder's view of Foundations practice and a gentle way to support a learner.{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/static/css/foundations.css?v={{ asset_v }}">
+<link rel="stylesheet" href="/static/css/foundations_parent.css?v={{ asset_v }}">
+<main class="primer-shell parent-shell">
+  <header class="primer-heading">
+    <div>
+      <p class="primer-kicker">INTELLIPLAN / FOUNDATIONS / FAMILY VIEW</p>
+      <h1>See the steps behind the story.</h1>
+      <p>A calm, specific picture of practice: what was answered, what you did together, and one next step. This view covers Foundations learners on this account.</p>
+    </div>
+    <a class="primer-secondary" href="/foundations">Open the learner story <span aria-hidden="true">↗</span></a>
+  </header>
+
+  <p id="parentStatus" class="primer-status" role="status" aria-live="polite">Loading family view…</p>
+  <section id="parentEmpty" class="parent-empty" hidden>
+    <p class="primer-eyebrow">START TOGETHER</p>
+    <h2>A learner's journey starts in Foundations.</h2>
+    <p>Create a nickname and story world there. Practice will appear here after the first answered activity.</p>
+    <a class="primer-primary" href="/foundations">Create a learner <span aria-hidden="true">→</span></a>
+  </section>
+
+  <div id="parentWorkspace" hidden>
+    <div class="parent-toolbar">
+      <div id="parentLearners" class="primer-learner-list" aria-label="Choose a learner"></div>
+      <span class="parent-definition">Practice day = an answered activity or a family check-in.</span>
+    </div>
+
+    <section class="parent-overview" aria-labelledby="parentOverviewTitle">
+      <div class="parent-section-head">
+        <div><p class="primer-eyebrow">THE PAST SEVEN DAYS</p><h2 id="parentOverviewTitle">Practice at a glance</h2></div>
+        <div class="parent-context"><p id="parentStoryPosition" class="parent-last"></p><p id="parentLastAnswered" class="parent-last"></p></div>
+      </div>
+      <div class="parent-metrics">
+        <div class="parent-metric"><strong id="parentPracticeDays">0</strong><span>practice days</span></div>
+        <div class="parent-metric"><strong id="parentAnswerCount">0</strong><span>answers in Foundations, all time</span></div>
+        <div class="parent-metric"><strong id="parentGoalProgress">0 / 3</strong><span>days toward a gentle weekly goal</span></div>
+      </div>
+      <div id="parentWeek" class="parent-week" aria-label="Practice in the past seven days"></div>
+      <p class="parent-evidence-note">An opened page does not count. An answer shows an activity was submitted, not how long it took or whether an adult helped. Family check-ins are reported by you.</p>
+    </section>
+
+    <div class="parent-grid">
+      <section class="parent-card" aria-labelledby="parentNextTitle">
+        <p class="primer-eyebrow">WHAT TO TRY NEXT</p>
+        <h2 id="parentNextTitle">A small step, chosen from practice.</h2>
+        <p id="parentFocusReason" class="parent-copy"></p>
+        <div class="parent-focus"><strong id="parentFocusSkill"></strong><p id="parentFocusActivity"></p></div>
+        <h3>Where the answers went</h3>
+        <div id="parentDomains" class="parent-domains"></div>
+        <p class="parent-evidence-note">These are practice signals, not a grade, diagnosis, or measure of time on task.</p>
+      </section>
+
+      <section class="parent-card" aria-labelledby="parentRoutineTitle">
+        <p class="primer-eyebrow">BUILD A KIND ROUTINE</p>
+        <h2 id="parentRoutineTitle">Make room for the next visit.</h2>
+        <form id="parentGoalForm" class="parent-form">
+          <label for="parentGoal">Practice days to aim for in any seven days</label>
+          <div class="parent-inline"><select id="parentGoal" name="weekly_goal">
+            <option value="1">1 day</option><option value="2">2 days</option><option value="3">3 days</option>
+            <option value="4">4 days</option><option value="5">5 days</option><option value="6">6 days</option><option value="7">7 days</option>
+          </select><button class="primer-secondary" type="submit">Save goal</button></div>
+        </form>
+        <form id="parentCheckinForm" class="parent-form parent-divider">
+          <label for="parentCheckinDomain">Practiced together away from the screen today?</label>
+          <div class="parent-inline"><select id="parentCheckinDomain" name="domain">
+            <option value="Reading">Reading</option><option value="Writing">Writing</option><option value="Arithmetic">Arithmetic</option>
+          </select><button class="primer-secondary" type="submit">Record together time</button></div>
+          <small>One check-in per day. This is marked as family reported, separate from answered activities.</small>
+        </form>
+      </section>
+
+      <section class="parent-card parent-note-card" aria-labelledby="parentNoteTitle">
+        <p class="primer-eyebrow">A NOTE FOR THE LEARNER</p>
+        <h2 id="parentNoteTitle">Send encouragement into the story.</h2>
+        <p class="parent-copy">Choose a supportive note. It appears when this learner opens Foundations. The note stays in the app; it does not send a text or email.</p>
+        <div id="parentNudgeCurrent" class="parent-nudge-current" hidden></div>
+        <p id="parentNoteCooldown" class="parent-evidence-note" hidden></p>
+        <form id="parentNudgeForm" class="parent-form">
+          <label for="parentNudgeTemplate">Message</label>
+          <small id="parentNudgeSuggestion"></small>
+          <select id="parentNudgeTemplate" name="template_id">
+            <option value="explore">I would love to explore the next part of your story together when you are ready.</option>
+            <option value="choose">Your next story choice is waiting. Want to see where it leads together?</option>
+            <option value="small_step">One small step is enough today. I am proud of you for trying.</option>
+          </select>
+          <button class="primer-primary" type="submit">Place note in the story <span aria-hidden="true">→</span></button>
+        </form>
+        <p class="parent-evidence-note">Only one active note can wait at a time, with at least a day between notes. “Marked seen” means someone pressed the button in the learner view; it cannot verify who read the note.</p>
+      </section>
+    </div>
+  </div>
+</main>
+<script src="/static/js/foundations_parent.js?v={{ asset_v }}" defer></script>
+{% endblock %}
