@@ -637,7 +637,9 @@ class TestAccessibility:
         bad_links = page.locator("a").evaluate_all("""(els) => {
           return els.filter(a => {
             if (a.closest('.trustpilot-widget, [data-tp-widget], iframe, [class*="trustpilot"]')) return false;
-            const txt = (a.innerText || '').trim();
+            // textContent, not innerText: a link inside a collapsed <details>
+            // (the FAQ) has an empty innerText but is read out in full.
+            const txt = (a.innerText || a.textContent || '').trim();
             const al  = (a.getAttribute('aria-label') || '').trim();
             const tt  = (a.getAttribute('title') || '').trim();
             return !txt && !al && !tt;
