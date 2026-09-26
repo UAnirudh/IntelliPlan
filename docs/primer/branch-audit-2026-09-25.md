@@ -5,7 +5,7 @@ Snapshot after fetching and pruning `origin`, with `origin/main` at `15344a8`.
 ## Main and active work
 
 - Local `main` was 13 commits behind and was fast-forwarded to `origin/main` before Foundations work started. It had no uncommitted changes.
-- Foundations is being built on `codex/primer-foundations` from that updated main.
+- Foundations was built on `codex/primer-foundations`, tested, and merged into `main` as `25f510c`.
 - The separate `feat/mobile-app` worktree has thousands of tracked files showing as deleted and its local branch is 160 commits behind its remote. Its path is under an older Claude temporary scratchpad. This audit did not restore, remove, or commit those deletions because their intent cannot be inferred from Git status alone.
 
 ## Remote branch status
