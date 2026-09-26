@@ -7,8 +7,8 @@
   <header class="primer-heading">
     <div>
       <p class="primer-kicker">INTELLIPLAN / FOUNDATIONS</p>
-      <h1>A small chapter, every day.</h1>
-      <p>Reading, sentence building, and arithmetic shaped by what the learner actually practices. Made for an adult to use alongside a child.</p>
+      <h1>A story that remembers.</h1>
+      <p>Explore a world, make choices that carry forward, and practice reading, writing, and arithmetic along the way. Built for an adult and child to use together.</p>
     </div>
     <a class="primer-secondary" href="/tutor">Ask Plani about a skill <span aria-hidden="true">↗</span></a>
   </header>
@@ -20,7 +20,7 @@
     <div>
       <p class="primer-eyebrow">BEGIN THE STORY</p>
       <h2 id="primerStartTitle">Who is learning today?</h2>
-      <p>Use a nickname. Choose a world for the examples. Progress stays on this account, and you can remove it at any time.</p>
+      <p>Use a nickname and choose a world to explore. The journey remembers choices and practice on this account. You can remove it at any time.</p>
       <form id="primerCreate" class="primer-create">
         <label for="primerNickname">Learner nickname</label>
         <input id="primerNickname" name="nickname" maxlength="40" autocomplete="off" required placeholder="e.g. Sky">
@@ -43,17 +43,42 @@
     <div class="primer-grid">
       <section class="primer-activity" aria-labelledby="primerActivityTitle">
         <div class="primer-section-top"><span class="primer-eyebrow">TODAY'S CHAPTER</span><span id="primerWorldLabel" class="primer-world"></span></div>
-        <h2 id="primerActivityTitle">A little practice goes a long way.</h2>
-        <p class="primer-activity__intro">One question at a time. After each answer, the next step responds to the evidence.</p>
+        <h2 id="primerActivityTitle">The journey begins here.</h2>
+        <p class="primer-activity__intro">A chapter has three clues and one story choice. Each clue practices a different skill.</p>
+        <div class="primer-chapter-track" id="primerChapterTrack" aria-label="Chapter progress"></div>
+        <div class="primer-scene" id="primerScene" hidden>
+          <p class="primer-scene__memory" id="primerStoryMemory" hidden></p>
+          <p id="primerStoryScene"></p>
+        </div>
+        <details class="primer-history" id="primerStoryHistory" hidden>
+          <summary>Your story so far</summary>
+          <ol id="primerStoryHistoryList"></ol>
+        </details>
         <div class="primer-activity__card" id="primerCard" hidden>
+          <p class="primer-beat-title" id="primerBeatTitle"></p>
           <p class="primer-skill" id="primerSkill"></p>
+          <p class="primer-beat-intro" id="primerBeatIntro"></p>
           <h3 id="primerPrompt"></h3>
           <form id="primerAnswer">
             <div id="primerResponse"></div>
+            <button class="primer-text-btn primer-clue-button" id="primerShowClue" type="button">Show a clue</button>
+            <p class="primer-clue" id="primerClue" hidden></p>
             <button class="primer-primary" id="primerCheck" type="submit">Check answer <span aria-hidden="true">→</span></button>
           </form>
           <div class="primer-feedback" id="primerFeedback" role="status" aria-live="polite" hidden></div>
           <button type="button" class="primer-primary" id="primerNext" hidden>Next activity <span aria-hidden="true">→</span></button>
+        </div>
+        <div class="primer-story-choice" id="primerStoryChoice" hidden>
+          <p class="primer-eyebrow">YOUR DECISION</p>
+          <h3 id="primerChoiceQuestion"></h3>
+          <div class="primer-story-choice__options" id="primerChoiceOptions"></div>
+          <p>Every choice opens a path. There is no wrong choice here.</p>
+        </div>
+        <div class="primer-story-end" id="primerStoryEnd" hidden>
+          <p class="primer-eyebrow">JOURNEY COMPLETE</p>
+          <h3>What will you discover next time?</h3>
+          <p>The story can begin again with different choices. Practice evidence stays with this learner.</p>
+          <button type="button" class="primer-primary" id="primerRestart">Explore this world again <span aria-hidden="true">→</span></button>
         </div>
       </section>
 
@@ -61,7 +86,17 @@
         <p class="primer-print-title">IntelliPlan Foundations progress for <span id="primerPrintName"></span></p>
         <div class="primer-section-top"><span class="primer-eyebrow">A VIEW FOR GROWN-UPS</span><span id="primerAttemptCount"></span></div>
         <h2 id="primerProgressTitle">What practice is showing</h2>
-        <p>These labels describe recent answers, not a diagnosis or a grade.</p>
+        <p>Stronger labels need correct answers without an in-app clue. Adult help is not measured; these are practice signals, not a diagnosis or grade.</p>
+        <div class="primer-focus" id="primerFocus" hidden>
+          <p class="primer-eyebrow">A NEXT STEP TO TRY TOGETHER</p>
+          <strong id="primerFocusSkill"></strong>
+          <p id="primerFocusReason"></p>
+          <p id="primerFocusActivity"></p>
+        </div>
+        <div class="primer-adult-note" id="primerAdultNote" hidden>
+          <strong>Talk about this chapter</strong>
+          <p id="primerConversation"></p>
+        </div>
         <div id="primerSkillMap" class="primer-skill-map"></div>
         <div class="primer-progress__actions">
           <button type="button" class="primer-secondary" id="primerPrint">Print progress note</button>
@@ -69,7 +104,7 @@
         </div>
       </aside>
     </div>
-    <p class="primer-footnote">A companion to teachers and families. Activities use reviewed answers; Plani can help an adult talk through a skill separately.</p>
+    <p class="primer-footnote">A companion to teachers and families. Story choices are never graded. Practice uses reviewed answers; Plani can help an adult talk through a skill separately.</p>
   </div>
 </div>
 <script src="/static/js/foundations.js?v={{ asset_v }}" defer></script>

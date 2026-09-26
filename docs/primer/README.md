@@ -1,5 +1,7 @@
 # IntelliPlan Foundations: the first chapter
 
+The [vision and architecture](vision-and-architecture.md) describes the longer product path and the current branching journey. This document records the initial baseline; the current release also includes four chapters per world, a story recap, one alternate clue after a miss, and separate evidence for answers given with a revealed clue.
+
 ## Product promise
 
 IntelliPlan already connects a student's plan, grades, study sessions, notes, and Plani tutor. Foundations adds a guided path for early reading, sentence building, and arithmetic inside that same workspace. Its distinctive loop is **practice → observed evidence → next activity → adult handoff**. A child can return for a short chapter; an adult can see which skill needs practice and bring that evidence to a teacher. We do not describe an unverified child response as mastery or use an AI impression to mark an answer correct.
@@ -16,14 +18,14 @@ The Primer is a direction, not a feature claim. The first release is a curated, 
 
 ## Learning design and algorithm
 
-The reviewed catalog has three skills per domain: sound and word recognition → sentence meaning → short passage; sentence order → capitals and punctuation → clear sentence; counting → addition → word problems. A skill unlocks when its prerequisite has two correct attempts. The selector prefers an unlocked, due skill with little evidence or recent errors, and alternates domains across a learner's history. An item rotates within its skill rather than repeating immediately.
+The reviewed catalog has three skills per domain: sound and word recognition → sentence meaning → short passage; sentence order → capitals and punctuation → clear sentence; counting → addition → word problems. A skill unlocks when its prerequisite has two correct answers without a revealed clue. Each story chapter sequences reading, writing, and arithmetic. Within a domain, the selector prefers an unlocked, due skill with little evidence or recent errors. An item rotates within its skill rather than repeating immediately.
 
-Each scored attempt updates a Beta(1,1) evidence estimate: `(correct + 1) / (attempts + 2)`. This is a practice signal, not a probability that a child "knows" the concept. The UI labels a skill **growing** after two correct answers and **strong** only after at least four attempts, an estimate of 0.75 or higher, and two consecutive correct answers. A wrong answer schedules review immediately; correct streaks schedule review after 1, 3, then 7 days. A new skill is chosen if a practiced one is waiting for review. The question remains available even when every skill is waiting.
+Each scored attempt updates a Beta(1,1) evidence estimate: `(correct + 1) / (attempts + 2)`. This is a practice signal, not a probability that a child "knows" the concept. The UI labels a skill **growing** after two correct answers without an in-app clue and **strong** only after at least four attempts, an estimate of 0.75 or higher, three correct answers without an in-app clue, and a two-answer streak without that clue. Adult help is not measured. A wrong answer offers one alternate item for the same skill and schedules review immediately; correct streaks schedule review after 1, 3, then 7 days, while a clue-assisted answer returns after one day. The question remains available even when every skill is waiting.
 
 ## Architecture and operations
 
 - Flask blueprint: authenticated JSON endpoints for learners, activity, answers, and progress. Ownership is derived from the signed-in account for every lookup. The server signs short-lived challenge tokens and rejects replayed answers.
-- SQLAlchemy Core tables: learner, skill state, and attempt evidence in the existing database. Attempts store item ID, correctness, and time; raw child writing is not retained. Account-level delete removes this feature's learner and evidence rows.
+- SQLAlchemy Core tables: learner, skill state, attempt evidence, clue use, and journey state in the existing database. Attempts store item ID, correctness, and time; raw child writing is not retained. Account-level delete removes this feature's learner and evidence rows.
 - Static catalog and selector: versioned in code for review and deterministic tests. No LLM is in the scoring path. Existing Plani remains available for a parent or teacher to discuss a skill, without passing a child's raw answer into the chat automatically.
 - Frontend: one responsive Jinja page using IntelliPlan's global tokens, navigation, and phone tab bar. It sits immediately below Command Center in the sidebar. Accessible forms, visible feedback, keyboard operation, and reduced-motion behavior are required.
 - Scale: indexed owner and learner IDs keep reads bounded; a single database transaction records each result. The catalog can later move to a reviewed content service without changing the learner evidence contract.

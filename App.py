@@ -8939,8 +8939,10 @@ def _account_delete_impl():
         ("app_link_codes", "DELETE FROM app_link_codes WHERE user_id = :uid"),
         ("accessibility_prefs", "DELETE FROM accessibility_prefs WHERE user_id = :uid"),
         ("student_profiles", "DELETE FROM student_profiles WHERE user_id = :uid"),
+        ("primer_hint_used", "DELETE FROM primer_hint_used WHERE learner_id IN (SELECT id FROM primer_learner WHERE owner_id = :uid)"),
         ("primer_attempt", "DELETE FROM primer_attempt WHERE learner_id IN (SELECT id FROM primer_learner WHERE owner_id = :uid)"),
         ("primer_skill_state", "DELETE FROM primer_skill_state WHERE learner_id IN (SELECT id FROM primer_learner WHERE owner_id = :uid)"),
+        ("primer_journey", "DELETE FROM primer_journey WHERE learner_id IN (SELECT id FROM primer_learner WHERE owner_id = :uid)"),
         ("primer_learner", "DELETE FROM primer_learner WHERE owner_id = :uid"),
         # The record of accepting a policy version dies with the account: the
         # only reason to hold it is to evidence one specific person's consent,

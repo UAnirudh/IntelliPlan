@@ -188,7 +188,9 @@ def test_deleting_an_account_removes_the_user_and_their_rows(ctx):
     app_module.db.session.commit()
     user_id = user.id
     primer_learner = primer_store.create_learner(user_id, 'Sky', 'forest')
-    primer_store.record_attempt(primer_learner['id'], 'read_sounds', 'sound_m', uuid.uuid4().hex, True)
+    primer_nonce = uuid.uuid4().hex
+    primer_store.reveal_hint(primer_learner['id'], primer_nonce, 0)
+    primer_store.record_attempt(primer_learner['id'], 'read_sounds', 'sound_m', primer_nonce, True)
 
     app_module.db.session.add_all(
         [
@@ -229,6 +231,8 @@ def test_deleting_an_account_removes_the_user_and_their_rows(ctx):
     assert app_module.db.session.execute(select(primer_store.LEARNER).where(primer_store.LEARNER.c.owner_id == user_id)).first() is None
     assert app_module.db.session.execute(select(primer_store.STATE).where(primer_store.STATE.c.learner_id == primer_learner['id'])).first() is None
     assert app_module.db.session.execute(select(primer_store.ATTEMPT).where(primer_store.ATTEMPT.c.learner_id == primer_learner['id'])).first() is None
+    assert app_module.db.session.execute(select(primer_store.HINT).where(primer_store.HINT.c.learner_id == primer_learner['id'])).first() is None
+    assert app_module.db.session.execute(select(primer_store.JOURNEY).where(primer_store.JOURNEY.c.learner_id == primer_learner['id'])).first() is None
 
 
 # ── The public deletion page ────────────────────────────────────────

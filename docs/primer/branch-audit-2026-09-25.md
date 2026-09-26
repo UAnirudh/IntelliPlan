@@ -27,3 +27,9 @@ Five branches have patch-unique changes that require their own review:
 The collapsed FAQ link check on `zen-rubin-yg88jy` is already present in `main` with different source formatting. The Canvas course-total and `undefined` fixes from the older phone branch also appear in today's `canvas_helper.py` and grade templates; its remaining mobile changes need separate review.
 
 The older draft PRs are separate scopes from Foundations. PR #31 needs a fresh reconciliation against today's templates; PR #32 needs its Canvas and extension acceptance checks run against today's main. The award/security and marketing branches need their own product and test review before merging. No unresolved merge conflict exists in the Foundations branch itself.
+
+## Refresh — 2026-09-26
+
+After `git fetch --all --prune`, `origin/main` remained at `7fd7cd4`. The current Foundations expansion branch has no unmerged index entries. The old `feat/mobile-app` worktree still has 392 tracked changes, beginning with deletions in `.claude/`; this is not a clean branch to move, reset, or merge without its owner's review.
+
+The two open PRs remain drafts. [PR #31](https://github.com/UAnirudh/IntelliPlan/pull/31) is `CONFLICTING`; a read-only merge-tree check found conflicts in `base.html`, `dashboard.html`, `grademodel.html`, and `canvas_helper.py`. It also has an old failed Cloudflare Workers build check. [PR #32](https://github.com/UAnirudh/IntelliPlan/pull/32) is `MERGEABLE` but `UNSTABLE` because its Cloudflare Workers build check failed; its test and security checks passed at the last recorded run. These are independent feature branches, so neither was folded into the Foundations release or force-updated as part of resolving its own branch.
