@@ -78,6 +78,9 @@ SENSITIVE_RULE_PATTERNS: tuple[str, ...] = (
     # The insight endpoints themselves: recording the recorder produces a
     # row per event and a funnel made of our own instrumentation.
     "/api/insight",
+    # Foundations can be used by a child under an adult's account. The adult's
+    # analytics choice must not turn the child's practice into product events.
+    "/foundations", "/api/primer",
     "/static", "/ref/", "/desktop", "/.well-known",
 )
 

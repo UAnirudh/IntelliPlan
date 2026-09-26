@@ -32,6 +32,12 @@ Each scored attempt updates a Beta(1,1) evidence estimate: `(correct + 1) / (att
 
 After real use and teacher review, add voice-supported decoding, handwriting evaluation with human review, richer branching stories, curriculum alignment, and family/teacher sharing permissions. Before expanding personalization, measure learning gain with pre/post assessments and compare against a nonadaptive path. Add safety review, retention controls, and verified adult roles before collecting richer child context or enabling free-form child-facing AI.
 
+## Evidence and launch gates
+
+The [What Works Clearinghouse reading guide](https://ies.ed.gov/ncee/wwc/PracticeGuide/21) recommends linking sounds to letters, teaching decoding, and reading connected text. This release checks bounded recognition and comprehension; it does not assess fluent reading or decoding aloud. The [early math guide](https://ies.ed.gov/ncee/wwc/practiceguide/18) supports developmental progressions and monitoring, which informed prerequisite gates and recorded attempts, but the specific selector and thresholds here have not been validated as an intervention. The [elementary writing guide](https://ies.ed.gov/ncee/wwc/PracticeGuide/17) includes sentence construction alongside the wider writing process; the release covers only bounded sentence mechanics.
+
+This release requests only a nickname and a chosen world, stores no raw answer text, excludes Foundations from product analytics and survey prompts, and lets the account holder delete a learner. Before marketing it as an independent under-13 child product or adding voice, photos, free-form AI, or school sharing, complete a review against the [FTC's COPPA guidance](https://www.ftc.gov/business-guidance/resources/complying-coppa-frequently-asked-questions) and verify the adult and consent flows end to end.
+
 ## Acceptance checks
 
 - An unauthenticated request cannot read or write learner data; one account cannot access another account's learner.

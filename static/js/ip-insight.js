@@ -21,7 +21,7 @@
   var SESSION_KEY = 'ip_prompt_seen_session';
   // Anywhere a student is actually working. Asking here is an interruption,
   // not research.
-  var QUIET_PATHS = ['/active', '/study', '/focus', '/live', '/tutor', '/onboarding'];
+  var QUIET_PATHS = ['/active', '/study', '/focus', '/live', '/tutor', '/onboarding', '/foundations'];
 
   var IP = (window.IP = window.IP || {});
 
@@ -36,6 +36,7 @@
 
   IP.insight = {
     track: function (name, props) {
+      if (location.pathname.indexOf('/foundations') === 0) return;
       try {
         post('/api/insight/event', { name: name, rule: null, props: props || {} }).catch(function () {});
       } catch (e) { /* never break a caller */ }

@@ -46,6 +46,7 @@ def test_unknown_event_names_are_refused():
 @pytest.mark.parametrize("rule", [
     "/login", "/oauth/google/callback", "/api/billing/webhook", "/cron/notifications",
     "/admin/insight", "/email/streak-off/<token>", "/ref/<code>", "/api/insight/event",
+    "/foundations", "/api/primer/learners/<int:learner_id>/answer",
 ])
 def test_sensitive_routes_are_never_recorded(rule):
     assert ev.should_record_rule(rule) is False
