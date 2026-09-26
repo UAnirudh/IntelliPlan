@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block page_title %}Foundations | IntelliPlan{% endblock %}
+{% block meta_description %}Short reading, sentence-building, and arithmetic activities that adapt to practice evidence.{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/static/css/foundations.css?v={{ asset_v }}">
+<div class="primer-shell">
+  <header class="primer-heading">
+    <div>
+      <p class="primer-kicker">INTELLIPLAN / FOUNDATIONS</p>
+      <h1>A small chapter, every day.</h1>
+      <p>Reading, sentence building, and arithmetic shaped by what the learner actually practices. Made for an adult to use alongside a child.</p>
+    </div>
+    <a class="primer-secondary" href="/tutor">Ask Plani about a skill <span aria-hidden="true">↗</span></a>
+  </header>
+
+  <div id="primerStatus" class="primer-status" role="status" aria-live="polite">Loading your learners…</div>
+
+  <section class="primer-start" id="primerStart" hidden aria-labelledby="primerStartTitle">
+    <div class="primer-start__story" aria-hidden="true"><span>01</span><span>02</span><span>03</span></div>
+    <div>
+      <p class="primer-eyebrow">BEGIN THE STORY</p>
+      <h2 id="primerStartTitle">Who is learning today?</h2>
+      <p>Use a nickname. Choose a world for the examples. Progress stays on this account, and you can remove it at any time.</p>
+      <form id="primerCreate" class="primer-create">
+        <label for="primerNickname">Learner nickname</label>
+        <input id="primerNickname" name="nickname" maxlength="40" autocomplete="off" required placeholder="e.g. Sky">
+        <label for="primerWorld">Story world</label>
+        <select id="primerWorld" name="world">
+          <option value="forest">The Forest</option>
+          <option value="space">The Stars</option>
+          <option value="ocean">The Ocean</option>
+        </select>
+        <button class="primer-primary" type="submit">Create learner <span aria-hidden="true">→</span></button>
+      </form>
+    </div>
+  </section>
+
+  <div id="primerWorkspace" hidden>
+    <div class="primer-toolbar">
+      <div class="primer-learner-list" id="primerLearners" aria-label="Learners"></div>
+      <button type="button" class="primer-secondary" id="primerAdd">Add learner</button>
+    </div>
+    <div class="primer-grid">
+      <section class="primer-activity" aria-labelledby="primerActivityTitle">
+        <div class="primer-section-top"><span class="primer-eyebrow">TODAY'S CHAPTER</span><span id="primerWorldLabel" class="primer-world"></span></div>
+        <h2 id="primerActivityTitle">A little practice goes a long way.</h2>
+        <p class="primer-activity__intro">One question at a time. After each answer, the next step responds to the evidence.</p>
+        <div class="primer-activity__card" id="primerCard" hidden>
+          <p class="primer-skill" id="primerSkill"></p>
+          <h3 id="primerPrompt"></h3>
+          <form id="primerAnswer">
+            <div id="primerResponse"></div>
+            <button class="primer-primary" id="primerCheck" type="submit">Check answer <span aria-hidden="true">→</span></button>
+          </form>
+          <div class="primer-feedback" id="primerFeedback" role="status" aria-live="polite" hidden></div>
+          <button type="button" class="primer-primary" id="primerNext" hidden>Next activity <span aria-hidden="true">→</span></button>
+        </div>
+      </section>
+
+      <aside class="primer-progress" aria-labelledby="primerProgressTitle">
+        <p class="primer-print-title">IntelliPlan Foundations progress for <span id="primerPrintName"></span></p>
+        <div class="primer-section-top"><span class="primer-eyebrow">A VIEW FOR GROWN-UPS</span><span id="primerAttemptCount"></span></div>
+        <h2 id="primerProgressTitle">What practice is showing</h2>
+        <p>These labels describe recent answers, not a diagnosis or a grade.</p>
+        <div id="primerSkillMap" class="primer-skill-map"></div>
+        <div class="primer-progress__actions">
+          <button type="button" class="primer-secondary" id="primerPrint">Print progress note</button>
+          <button type="button" class="primer-text-btn" id="primerDelete">Remove learner and progress</button>
+        </div>
+      </aside>
+    </div>
+    <p class="primer-footnote">A companion to teachers and families. Activities use reviewed answers; Plani can help an adult talk through a skill separately.</p>
+  </div>
+</div>
+<script src="/static/js/foundations.js?v={{ asset_v }}" defer></script>
+{% endblock %}

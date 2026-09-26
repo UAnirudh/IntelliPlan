@@ -312,6 +312,9 @@ app.register_blueprint(flashcards_bp)
 from adaptive_tutor.api import adaptive_tutor_bp
 app.register_blueprint(adaptive_tutor_bp)
 
+from primer.api import primer_bp
+app.register_blueprint(primer_bp)
+
 #: Cookies whose SameSite attribute we manage. Anything else Flask or an
 #: extension sets is left exactly as it was.
 _SAMESITE_MANAGED_COOKIES = ("session", "remember_token")
@@ -4753,7 +4756,7 @@ _NOINDEX_EXACT = {
     # that render for a guest are thin by construction: a dashboard with no
     # data is a shell. Neither is a page worth ranking, and the marketing
     # pages that *are* worth ranking compete with them for attention.
-    "/dashboard", "/command-center", "/scheduler", "/scheduler/saved",
+    "/dashboard", "/command-center", "/foundations", "/scheduler", "/scheduler/saved",
     "/gradebook", "/grades", "/classes", "/priority", "/tests",
     "/streak", "/pet", "/balance", "/memories", "/my-stats",
     "/active", "/study-and-learn", "/study", "/deep-study",
@@ -4849,6 +4852,13 @@ def _seo_headers(response):
 def tutor():
     logged_in = bool(session.get('logged_in') or (current_user.is_authenticated if hasattr(current_user, 'is_authenticated') else False))
     return render_template("tutor.html", active_page="tutor", logged_in=logged_in)
+
+
+@app.route('/foundations')
+def foundations():
+    if not current_user.is_authenticated:
+        return flask.redirect(flask.url_for('login', next='/foundations'))
+    return render_template('foundations.html', active_page='primer', logged_in=True)
 
 # ── Public info pages ─────────────────────────────────────────
 @app.route("/faq")
@@ -8929,6 +8939,9 @@ def _account_delete_impl():
         ("app_link_codes", "DELETE FROM app_link_codes WHERE user_id = :uid"),
         ("accessibility_prefs", "DELETE FROM accessibility_prefs WHERE user_id = :uid"),
         ("student_profiles", "DELETE FROM student_profiles WHERE user_id = :uid"),
+        ("primer_attempt", "DELETE FROM primer_attempt WHERE learner_id IN (SELECT id FROM primer_learner WHERE owner_id = :uid)"),
+        ("primer_skill_state", "DELETE FROM primer_skill_state WHERE learner_id IN (SELECT id FROM primer_learner WHERE owner_id = :uid)"),
+        ("primer_learner", "DELETE FROM primer_learner WHERE owner_id = :uid"),
         # The record of accepting a policy version dies with the account: the
         # only reason to hold it is to evidence one specific person's consent,
         # and once they are gone there is nobody to evidence it for.

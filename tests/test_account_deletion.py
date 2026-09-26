@@ -24,6 +24,7 @@ from datetime import date, datetime
 import pytest
 
 import App as app_module
+from primer import store as primer_store
 
 
 @pytest.fixture
@@ -131,7 +132,7 @@ def test_the_plan_only_names_tables_that_exist(ctx):
     """A typo like `day_archive` for `day_archives` is swallowed by the
     per-statement except and silently deletes nothing."""
     source = _deletion_plan_source()
-    real = set(app_module.db.metadata.tables)
+    real = set(app_module.db.metadata.tables) | set(primer_store._META.tables)
     named = set(re.findall(r"DELETE FROM (\w+)", source)) | set(
         re.findall(r"UPDATE (\w+) SET", source)
     )
@@ -186,6 +187,8 @@ def test_deleting_an_account_removes_the_user_and_their_rows(ctx):
     app_module.db.session.add(user)
     app_module.db.session.commit()
     user_id = user.id
+    primer_learner = primer_store.create_learner(user_id, 'Sky', 'forest')
+    primer_store.record_attempt(primer_learner['id'], 'read_sounds', 'sound_m', uuid.uuid4().hex, True)
 
     app_module.db.session.add_all(
         [
@@ -222,6 +225,10 @@ def test_deleting_an_account_removes_the_user_and_their_rows(ctx):
         app_module.ActiveSession,
     ):
         assert model.query.filter_by(user_id=user_id).count() == 0, model.__name__
+    from sqlalchemy import select
+    assert app_module.db.session.execute(select(primer_store.LEARNER).where(primer_store.LEARNER.c.owner_id == user_id)).first() is None
+    assert app_module.db.session.execute(select(primer_store.STATE).where(primer_store.STATE.c.learner_id == primer_learner['id'])).first() is None
+    assert app_module.db.session.execute(select(primer_store.ATTEMPT).where(primer_store.ATTEMPT.c.learner_id == primer_learner['id'])).first() is None
 
 
 # ── The public deletion page ────────────────────────────────────────

@@ -467,7 +467,7 @@ body {
 
 {# Active uses the same desktop sidebar as the rest of the workspace. Keeping
    the navigation anchored prevents a disruptive top-bar swap on entry. #}
-{% set _app_pages = ['dashboard','scheduler','active','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','olympiad','memories','pet','command_center','balance','features','accessibility','text_dissector','my_stats'] %}
+{% set _app_pages = ['dashboard','scheduler','active','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','olympiad','memories','pet','command_center','primer','balance','features','accessibility','text_dissector','my_stats'] %}
 {# Reading progress belongs on long-form pages only. On an app screen the
    scroll length is the size of a list, not the length of an argument, so a
    progress bar there measures nothing the reader cares about. #}
@@ -635,6 +635,9 @@ body {
 
     <a href="/command-center" data-nav-item="command_center" class="side-link {% if active_page == 'command_center' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-lightning"/></svg></span>Command Center
+    </a>
+    <a href="/foundations" data-nav-item="primer" class="side-link {% if active_page == 'primer' %}active{% endif %}">
+      <span class="side-icon"><svg><use href="#i-book"/></svg></span>Foundations
     </a>
     <a href="/dashboard" data-nav-item="dashboard" class="side-link {% if active_page == 'dashboard' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard
