@@ -42,6 +42,13 @@ def _chromium_path():
             return p
     for parent in pathlib.Path("/opt/pw-browsers").glob("chromium-*/chrome-linux/chrome"):
         return str(parent)
+    try:
+        with playwright_api.sync_playwright() as playwright:
+            installed = pathlib.Path(playwright.chromium.executable_path)
+            if installed.exists():
+                return str(installed)
+    except Exception:
+        pass
     return None
 
 
