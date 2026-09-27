@@ -8,7 +8,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy.exc import IntegrityError
 
 from primer import store
-from primer.catalog import ITEM_BY_ID, SKILL_BY_ID, WORLDS, grade_item, public_item
+from primer.catalog import SKILL_BY_ID, WORLDS, get_item, grade_item, public_item
 from primer.story import BEATS, valid_choice, view as story_view
 
 
@@ -45,7 +45,8 @@ def _learner_or_error(learner_id):
 
 
 def _public_learner(row):
-    return {'id': row['id'], 'nickname': row['nickname'], 'world': row['world']}
+    return {'id': row['id'], 'nickname': row['nickname'], 'world': row['world'],
+            'grade': row['grade'], 'grade_set': row['grade_set']}
 
 
 def _offset(value):
@@ -70,13 +71,16 @@ def learners():
     payload = _payload()
     nickname = str(payload.get('nickname') or '').strip()
     world = str(payload.get('world') or '').strip()
+    grade = payload.get('grade', 0)
     if not nickname or len(nickname) > 40 or any(ord(char) < 32 for char in nickname):
         return jsonify({'error': 'Use a nickname of 1 to 40 characters.'}), 400
     if world not in WORLDS:
         return jsonify({'error': 'Choose a story world.'}), 400
+    if type(grade) is not int or not 0 <= grade <= 8:
+        return jsonify({'error': 'Choose kindergarten through grade 8.'}), 400
     if len(store.list_learners(owner)) >= 8:
         return jsonify({'error': 'This account has reached its learner limit.'}), 409
-    learner = store.create_learner(owner, nickname, world)
+    learner = store.create_learner(owner, nickname, world, grade)
     return jsonify({'learner': _public_learner(learner)}), 201
 
 
@@ -89,15 +93,27 @@ def remove_learner(learner_id):
     return jsonify({'ok': True})
 
 
+@primer_bp.route('/api/primer/learners/<int:learner_id>/grade', methods=['PUT'])
+def update_grade(learner_id):
+    _, error = _learner_or_error(learner_id)
+    if error:
+        return error
+    grade = _payload().get('grade')
+    if type(grade) is not int or not 0 <= grade <= 8:
+        return jsonify({'error': 'Choose kindergarten through grade 8.'}), 400
+    learner = store.set_grade(_owner(), learner_id, grade)
+    return jsonify({'learner': _public_learner(learner)})
+
+
 @primer_bp.route('/api/primer/learners/<int:learner_id>/progress', methods=['GET'])
 def learner_progress(learner_id):
     learner, error = _learner_or_error(learner_id)
     if error:
         return error
     journey = store.journey_for(learner_id)
-    return jsonify({'learner': _public_learner(learner), **store.progress(learner_id),
+    return jsonify({'learner': _public_learner(learner), **store.progress(learner_id, learner['grade']),
                     'story': story_view(learner['world'], journey['chapter'], journey['beat'], journey['path'],
-                                        bool(journey['repair_skill_id']))})
+                                        bool(journey['repair_skill_id']), learner['grade'])})
 
 
 @primer_bp.route('/api/primer/learners/<int:learner_id>/parent', methods=['GET'])
@@ -108,7 +124,7 @@ def parent_overview(learner_id):
     offset = _offset(request.args.get('tz_offset_minutes', 0))
     if offset is None:
         return jsonify({'error': 'Invalid timezone offset.'}), 400
-    return jsonify({'learner': _public_learner(learner), **store.parent_overview(learner_id, offset)})
+    return jsonify({'learner': _public_learner(learner), **store.parent_overview(learner_id, offset, learner['grade'])})
 
 
 @primer_bp.route('/api/primer/learners/<int:learner_id>/parent/goal', methods=['PUT'])
@@ -186,7 +202,7 @@ def activity(learner_id):
         return error
     journey = store.journey_for(learner_id)
     story = story_view(learner['world'], journey['chapter'], journey['beat'], journey['path'],
-                       bool(journey['repair_skill_id']))
+                       bool(journey['repair_skill_id']), learner['grade'])
     response = {
         'learner': _public_learner(learner),
         'world_name': WORLDS[learner['world']]['name'],
@@ -202,7 +218,7 @@ def activity(learner_id):
                                             'version': journey['version'], 'chapter': journey['chapter']})
         return jsonify(response)
     skill_id, item = store.choose_story_activity(learner_id, BEATS[journey['beat']][0],
-                                                 journey['repair_skill_id'])
+                                                 journey['repair_skill_id'], learner['grade'])
     response.update({
         'skill': {'id': skill_id, 'domain': SKILL_BY_ID[skill_id].domain, 'title': SKILL_BY_ID[skill_id].title},
         'item': public_item(item, learner['world']),
@@ -230,7 +246,7 @@ def answer(learner_id):
         return jsonify({'error': 'Invalid activity.'}), 400
     if not isinstance(challenge, dict) or challenge.get('kind') != 'activity' or challenge.get('learner_id') != learner_id:
         return jsonify({'error': 'Invalid activity.'}), 400
-    item = ITEM_BY_ID.get(challenge.get('item_id'))
+    item = get_item(challenge.get('item_id'))
     nonce = challenge.get('nonce')
     version = challenge.get('version')
     if not item or not isinstance(nonce, str) or len(nonce) > 40 or type(version) is not int:
@@ -271,7 +287,7 @@ def hint(learner_id):
             or challenge.get('learner_id') != learner_id or type(challenge.get('version')) is not int
             or not isinstance(challenge.get('nonce'), str) or len(challenge['nonce']) > 40):
         return jsonify({'error': 'Invalid activity.'}), 400
-    item = ITEM_BY_ID.get(challenge.get('item_id'))
+    item = get_item(challenge.get('item_id'))
     if not item:
         return jsonify({'error': 'Invalid activity.'}), 400
     try:
@@ -305,7 +321,7 @@ def choose_path(learner_id):
         journey = store.choose_story_path(learner_id, challenge['version'], choice_id)
     except store.StaleJourney:
         return jsonify({'error': 'This chapter has moved on. Load the current step.'}), 409
-    return jsonify({'story': story_view(learner['world'], journey['chapter'], journey['beat'], journey['path'])})
+    return jsonify({'story': story_view(learner['world'], journey['chapter'], journey['beat'], journey['path'], grade=learner['grade'])})
 
 
 @primer_bp.route('/api/primer/learners/<int:learner_id>/journey/restart', methods=['POST'])
@@ -317,4 +333,4 @@ def restart_path(learner_id):
         journey = store.restart_journey(learner_id)
     except store.StaleJourney:
         return jsonify({'error': 'Finish the current journey first.'}), 409
-    return jsonify({'story': story_view(learner['world'], journey['chapter'], journey['beat'], journey['path'])})
+    return jsonify({'story': story_view(learner['world'], journey['chapter'], journey['beat'], journey['path'], grade=learner['grade'])})

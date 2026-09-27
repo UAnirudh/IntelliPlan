@@ -8953,6 +8953,7 @@ def _account_delete_impl():
         ("primer_nudge", "DELETE FROM primer_nudge WHERE learner_id IN (SELECT id FROM primer_learner WHERE owner_id = :uid)"),
         ("primer_offline_checkin", "DELETE FROM primer_offline_checkin WHERE learner_id IN (SELECT id FROM primer_learner WHERE owner_id = :uid)"),
         ("primer_parent_setting", "DELETE FROM primer_parent_setting WHERE learner_id IN (SELECT id FROM primer_learner WHERE owner_id = :uid)"),
+        ("primer_learning_profile", "DELETE FROM primer_learning_profile WHERE learner_id IN (SELECT id FROM primer_learner WHERE owner_id = :uid)"),
         ("primer_learner", "DELETE FROM primer_learner WHERE owner_id = :uid"),
         # The record of accepting a policy version dies with the account: the
         # only reason to hold it is to evidence one specific person's consent,

@@ -50,5 +50,11 @@
 .parent-nudge-current span { color:var(--text-secondary); font-size:.73rem; }
 .parent-nudge-current button { display:block; margin-top:8px; }
 .parent-card > .parent-evidence-note { margin:16px 0 0; }
+.parent-profile { margin-bottom:17px; }
+.parent-grade-form { max-width:520px; }
+.parent-skill-card { grid-column:1/-1; }
+.parent-skill-card .primer-skill-map { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 22px; }
 @media(max-width:760px){.parent-grid{grid-template-columns:1fr}.parent-note-card{grid-column:auto}.parent-metrics{grid-template-columns:1fr 1fr}.parent-metric:last-child{grid-column:1/-1}.parent-week{grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}.parent-day{min-height:88px;padding:7px 2px}.parent-day small{font-size:.56rem}.parent-context{text-align:left}}
 @media(max-width:500px){.parent-metrics{grid-template-columns:1fr 1fr}.parent-week{grid-template-columns:repeat(4,minmax(0,1fr))}.parent-inline{flex-direction:column}.parent-inline select,.parent-inline button{width:100%}.parent-heading{align-items:start}}
+@media(max-width:760px){.parent-skill-card .primer-skill-map{grid-template-columns:1fr}}
+@media print {.parent-profile,.parent-note-card,.parent-card:has(#parentRoutineTitle),.primer-progress__actions{display:none!important}.parent-grid{display:block}.parent-card,.parent-overview{border:0;padding:12px 0}.parent-week{grid-template-columns:repeat(7,1fr)}.parent-skill-card .primer-skill-map{grid-template-columns:repeat(2,1fr)}}

@@ -7,9 +7,10 @@ from flask_login import LoginManager, UserMixin
 from flask_sqlalchemy import SQLAlchemy
 
 from primer.api import primer_bp
-from primer.catalog import ITEM_BY_ID, ITEMS, ITEMS_BY_SKILL, SKILLS, grade_item, normalize_answer
+from primer.catalog import ITEM_BY_ID, ITEMS, ITEMS_BY_SKILL, LEGACY_SKILLS, SKILLS, get_item, grade_item, normalize_answer
+from primer.generated import GENERATED_SKILLS, generated_item_count, item_for_skill
 from primer import store
-from primer.story import BEAT_CUES, CHAPTER_COUNT, STORIES
+from primer.story import ADVANCED_STORIES, BEAT_CUES, CHAPTER_COUNT, STORIES, view as story_view
 
 
 class User(UserMixin):
@@ -158,7 +159,7 @@ def test_server_grades_and_replay_is_rejected(app):
     client = signed_in(app)
     learner_id = create(client)
     challenge = activity(client, learner_id)
-    item = ITEM_BY_ID[challenge['item']['id']]
+    item = get_item(challenge['item']['id'])
     wrong = next(option for option in item.options if normalize_answer(option) != normalize_answer(item.answer))
     result = submit(client, learner_id, challenge, wrong)
     assert result.status_code == 200
@@ -175,10 +176,10 @@ def test_server_grades_and_replay_is_rejected(app):
     assert next_activity['skill']['domain'] == 'Reading'
     assert next_activity['story']['repair'] is True
     assert next_activity['item']['id'] != challenge['item']['id']
-    assert submit(client, learner_id, next_activity, ITEM_BY_ID[next_activity['item']['id']].answer).status_code == 200
+    assert submit(client, learner_id, next_activity, get_item(next_activity['item']['id']).answer).status_code == 200
     next_activity = activity(client, learner_id)
     assert next_activity['skill']['domain'] == 'Writing'
-    assert submit(client, learner_id, next_activity, ITEM_BY_ID[next_activity['item']['id']].answer).status_code == 200
+    assert submit(client, learner_id, next_activity, get_item(next_activity['item']['id']).answer).status_code == 200
     assert activity(client, learner_id)['skill']['domain'] == 'Arithmetic'
 
 
@@ -202,9 +203,9 @@ def test_clue_use_is_recorded_and_does_not_unlock_a_skill(app):
     assert other.post(path, json={'token': challenge['token']}).status_code == 404
     clue = owner.post(path, json={'token': challenge['token']})
     assert clue.status_code == 200
-    assert clue.get_json()['hint'] == ITEM_BY_ID[challenge['item']['id']].hint
+    assert clue.get_json()['hint'] == get_item(challenge['item']['id']).hint
     assert 'clue' not in challenge['item']
-    answer = submit(owner, learner_id, challenge, ITEM_BY_ID[challenge['item']['id']].answer)
+    answer = submit(owner, learner_id, challenge, get_item(challenge['item']['id']).answer)
     assert answer.get_json()['evidence']['clue_used'] is True
     assert owner.post(path, json={'token': challenge['token']}).status_code == 409
     progress = owner.get(f'/api/primer/learners/{learner_id}/progress').get_json()
@@ -247,7 +248,7 @@ def test_challenges_are_scoped_and_tamper_protected(app):
     client = signed_in(app)
     first, second = create(client, 'One'), create(client, 'Two')
     challenge = activity(client, first)
-    answer = ITEM_BY_ID[challenge['item']['id']].answer
+    answer = get_item(challenge['item']['id']).answer
     assert submit(client, second, challenge, answer).status_code == 400
     challenge['token'] += 'tampered'
     assert submit(client, first, challenge, answer).status_code == 400
@@ -270,14 +271,14 @@ def test_all_domains_unlock_and_progress_with_evidence(app):
                 }).status_code == 200
             challenge = activity(client, learner_id)
         seen.add(challenge['skill']['domain'])
-        answer = ITEM_BY_ID[challenge['item']['id']].answer
+        answer = get_item(challenge['item']['id']).answer
         result = submit(client, learner_id, challenge, answer)
         assert result.status_code == 200
         assert result.get_json()['correct'] is True
     assert seen == {'Reading', 'Writing', 'Arithmetic'}
     progress = client.get(f'/api/primer/learners/{learner_id}/progress').get_json()
     assert progress['total_attempts'] == 24
-    assert all(row['unlocked'] for row in progress['skills'])
+    assert all(row['unlocked'] for row in progress['skills'] if row['id'] in ITEMS_BY_SKILL)
     assert any(row['label'] in {'Growing', 'Strong'} for row in progress['skills'])
 
 
@@ -287,7 +288,7 @@ def test_story_choice_changes_next_scene_and_survives_resume(app):
     for domain in ('Reading', 'Writing', 'Arithmetic'):
         challenge = activity(client, learner_id)
         assert challenge['skill']['domain'] == domain
-        assert submit(client, learner_id, challenge, ITEM_BY_ID[challenge['item']['id']].answer).status_code == 200
+        assert submit(client, learner_id, challenge, get_item(challenge['item']['id']).answer).status_code == 200
     choice_screen = activity(client, learner_id)
     assert choice_screen['story']['awaiting_choice'] is True
     assert client.get(f'/api/primer/learners/{learner_id}/parent').get_json()['suggested_nudge'] == 'choose'
@@ -317,7 +318,7 @@ def test_parallel_challenges_cannot_skip_a_story_beat(app):
     learner_id = create(client)
     first = activity(client, learner_id)
     second = activity(client, learner_id)
-    answer = ITEM_BY_ID[first['item']['id']].answer
+    answer = get_item(first['item']['id']).answer
     assert submit(client, learner_id, first, answer).status_code == 200
     assert submit(client, learner_id, second, answer).status_code == 409
     assert activity(client, learner_id)['story']['beat'] == 2
@@ -330,7 +331,7 @@ def test_story_choice_is_scoped_and_finite(app):
     for chapter in range(4):
         for _ in range(3):
             challenge = activity(owner, learner_id)
-            assert submit(owner, learner_id, challenge, ITEM_BY_ID[challenge['item']['id']].answer).status_code == 200
+            assert submit(owner, learner_id, challenge, get_item(challenge['item']['id']).answer).status_code == 200
         screen = activity(owner, learner_id)
         assert other.post(f'/api/primer/learners/{learner_id}/choice', json={
             'token': screen['token'], 'choice': screen['story']['choices'][0]['id'],
@@ -390,7 +391,91 @@ def test_writing_grading_checks_the_skill_it_teaches():
 
 def test_reviewed_content_has_complete_branches_and_answer_keys():
     assert len(ITEMS) == len(ITEM_BY_ID) == 36
-    assert all(len(ITEMS_BY_SKILL[skill.id]) == 4 for skill in SKILLS)
+    assert all(len(ITEMS_BY_SKILL[skill.id]) == 4 for skill in LEGACY_SKILLS)
+
+
+def test_generated_k8_pool_has_distinct_reconstructable_questions():
+    total = sum(generated_item_count(skill.id) for skill in GENERATED_SKILLS)
+    assert total >= 200_000
+    assert {skill.grade for skill in GENERATED_SKILLS} == set(range(9))
+    assert {skill.domain for skill in GENERATED_SKILLS} == {'Reading', 'Writing', 'Arithmetic'}
+    for skill in GENERATED_SKILLS:
+        count = generated_item_count(skill.id)
+        questions = set()
+        for index in range(count):
+            item = item_for_skill(skill.id, index)
+            assert item.skill_id == skill.id and item.answer and item.hint
+            assert len(item.id) <= 32 and get_item(item.id) == item
+            assert not item.options or item.answer in item.options
+            assert len(item.options) == len(set(item.options))
+            questions.add((item.prompt, item.options))
+        assert len(questions) == count, skill.id
+        for index in (0, count // 2, count - 1):
+            item = item_for_skill(skill.id, index)
+            assert grade_item(item, item.answer)[0]
+            assert all(not grade_item(item, option)[0] for option in item.options if option != item.answer)
+    assert get_item('v1g8m2-99999') is None
+    assert get_item('v1g9m0-00000') is None
+    assert grade_item(item_for_skill('g0w0', 0), 'the fox finds the map.')[0] is False
+    assert grade_item(item_for_skill('g5m0', 5000), '13/25')[0] is True
+
+
+def test_grade_placement_scaffold_and_change_invalidate_activity(app):
+    owner, other = signed_in(app, '1'), signed_in(app, '2')
+    invalid = owner.post('/api/primer/learners', json={'nickname': 'M', 'world': 'space', 'grade': 9})
+    assert invalid.status_code == 400
+    created = owner.post('/api/primer/learners', json={'nickname': 'M', 'world': 'space', 'grade': 4})
+    assert created.status_code == 201
+    learner_id = created.get_json()['learner']['id']
+    assert created.get_json()['learner']['grade'] == 4
+    first = activity(owner, learner_id)
+    assert first['skill']['id'] == 'g4r0'
+    assert first['story']['scene'] == ADVANCED_STORIES['space'][0].scene
+    assert other.put(f'/api/primer/learners/{learner_id}/grade', json={'grade': 5}).status_code == 404
+    assert owner.put(f'/api/primer/learners/{learner_id}/grade', json={'grade': True}).status_code == 400
+    changed = owner.put(f'/api/primer/learners/{learner_id}/grade', json={'grade': 5})
+    assert changed.status_code == 200
+    assert changed.get_json()['learner']['grade'] == 5
+    assert submit(owner, learner_id, first, get_item(first['item']['id']).answer).status_code == 409
+    assert activity(owner, learner_id)['skill']['id'] == 'g5r0'
+    assert owner.get(f'/api/primer/learners/{learner_id}/progress').get_json()['grade'] == 5
+    with app.app_context():
+        for index in range(2):
+            item = item_for_skill('g5r0', index)
+            store.record_attempt(learner_id, item.skill_id, item.id, f'scaffold-{index}', False)
+        skill_id, item = store.choose_story_activity(learner_id, 'Reading', grade=5)
+        assert skill_id == 'g4r0' and item.skill_id == 'g4r0'
+        store.record_attempt(learner_id, item.skill_id, item.id, 'scaffold-bridge', True)
+        assert store.choose_story_activity(learner_id, 'Reading', grade=5)[0] == 'g5r0'
+    assert owner.get(f'/api/primer/learners/{learner_id}/progress').get_json()['scaffolding']['Reading'] is False
+
+
+def test_story_versions_preserve_choice_ids_and_history():
+    for world in STORIES:
+        for younger, older in zip(STORIES[world], ADVANCED_STORIES[world]):
+            assert {choice.id for choice in younger.choices} == {choice.id for choice in older.choices}
+        choice = STORIES[world][0].choices[0].id
+        younger = story_view(world, 1, 0, [choice], grade=1)
+        older = story_view(world, 1, 0, [choice], grade=8)
+        assert younger['history'][0]['choice'] != older['history'][0]['choice'] or younger['scene'] != older['scene']
+        assert younger['history'][0]['consequence']
+        assert older['history'][0]['consequence']
+
+
+def test_existing_learner_without_grade_profile_can_be_placed(app):
+    owner = signed_in(app)
+    learner_id = create(owner)
+    with app.app_context():
+        store._db().session.execute(store.delete(store.PROFILE).where(store.PROFILE.c.learner_id == learner_id))
+        store._db().session.commit()
+    listed = owner.get('/api/primer/learners').get_json()['learners'][0]
+    assert listed['grade'] == 0 and listed['grade_set'] is False
+    assert activity(owner, learner_id)['skill']['domain'] == 'Reading'
+    placed = owner.put(f'/api/primer/learners/{learner_id}/grade', json={'grade': 7})
+    assert placed.status_code == 200
+    assert placed.get_json()['learner']['grade_set'] is True
+    assert activity(owner, learner_id)['skill']['id'] == 'g7r0'
+    assert 'claim' in owner.get(f'/api/primer/learners/{learner_id}/progress').get_json()['focus']['try_together']
     for item in ITEMS:
         assert item.hint and item.explanation and item.answer
         if item.options:

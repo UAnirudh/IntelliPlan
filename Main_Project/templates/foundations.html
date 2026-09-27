@@ -8,7 +8,7 @@
     <div>
       <p class="primer-kicker">INTELLIPLAN / FOUNDATIONS</p>
       <h1>A story that remembers.</h1>
-      <p>Explore a world, make choices that carry forward, and practice reading, writing, and arithmetic along the way. Built for an adult and child to use together.</p>
+      <p>Explore a world, make choices that carry forward, and practice reading, writing, and math at a level chosen for you.</p>
     </div>
     <div class="primer-heading-actions"><a class="primer-secondary" href="/foundations/parent">Family view <span aria-hidden="true">↗</span></a><a class="primer-secondary" href="/tutor">Ask Plani about a skill <span aria-hidden="true">↗</span></a></div>
   </header>
@@ -30,6 +30,11 @@
           <option value="space">The Stars</option>
           <option value="ocean">The Ocean</option>
         </select>
+        <label for="primerGrade">Current grade</label>
+        <select id="primerGrade" name="grade" required>
+          <option value="0">Kindergarten</option>
+          {% for grade in range(1, 9) %}<option value="{{ grade }}">Grade {{ grade }}</option>{% endfor %}
+        </select>
         <button class="primer-primary" type="submit">Create learner <span aria-hidden="true">→</span></button>
       </form>
     </div>
@@ -47,7 +52,7 @@
           <p id="primerFamilyMessage"></p>
           <button type="button" class="primer-secondary" id="primerFamilyAcknowledge">I saw this</button>
         </div>
-        <div class="primer-section-top"><span class="primer-eyebrow">TODAY'S CHAPTER</span><span id="primerWorldLabel" class="primer-world"></span></div>
+        <div class="primer-section-top"><span class="primer-eyebrow">TODAY'S CHAPTER</span><span class="primer-world"><span id="primerGradeLabel"></span> · <span id="primerWorldLabel"></span></span></div>
         <h2 id="primerActivityTitle">The journey begins here.</h2>
         <p class="primer-activity__intro">A chapter has three clues and one story choice. Each clue practices a different skill.</p>
         <div class="primer-chapter-track" id="primerChapterTrack" aria-label="Chapter progress"></div>
@@ -87,29 +92,8 @@
         </div>
       </section>
 
-      <aside class="primer-progress" aria-labelledby="primerProgressTitle">
-        <p class="primer-print-title">IntelliPlan Foundations progress for <span id="primerPrintName"></span></p>
-        <div class="primer-section-top"><span class="primer-eyebrow">A VIEW FOR GROWN-UPS</span><span id="primerAttemptCount"></span></div>
-        <h2 id="primerProgressTitle">What practice is showing</h2>
-        <p>Stronger labels need correct answers without an in-app clue. Adult help is not measured; these are practice signals, not a diagnosis or grade.</p>
-        <div class="primer-focus" id="primerFocus" hidden>
-          <p class="primer-eyebrow">A NEXT STEP TO TRY TOGETHER</p>
-          <strong id="primerFocusSkill"></strong>
-          <p id="primerFocusReason"></p>
-          <p id="primerFocusActivity"></p>
-        </div>
-        <div class="primer-adult-note" id="primerAdultNote" hidden>
-          <strong>Talk about this chapter</strong>
-          <p id="primerConversation"></p>
-        </div>
-        <div id="primerSkillMap" class="primer-skill-map"></div>
-        <div class="primer-progress__actions">
-          <button type="button" class="primer-secondary" id="primerPrint">Print progress note</button>
-          <button type="button" class="primer-text-btn" id="primerDelete">Remove learner and progress</button>
-        </div>
-      </aside>
     </div>
-    <p class="primer-footnote">A companion to teachers and families. Story choices are never graded. Practice uses reviewed answers; Plani can help an adult talk through a skill separately.</p>
+    <p class="primer-footnote">Story choices are yours and are never graded. Your grown-up can change your grade level and see practice details in Family view.</p>
   </div>
 </div>
 <script src="/static/js/foundations.js?v={{ asset_v }}" defer></script>

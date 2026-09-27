@@ -1,6 +1,7 @@
 """Small reviewed catalog. Answers stay on the server."""
 
-from dataclasses import dataclass
+from primer.models import Item, Skill
+from fractions import Fraction
 
 
 WORLDS = {
@@ -10,15 +11,7 @@ WORLDS = {
 }
 
 
-@dataclass(frozen=True)
-class Skill:
-    id: str
-    domain: str
-    title: str
-    prerequisite: str | None = None
-
-
-SKILLS = (
+LEGACY_SKILLS = (
     Skill('read_sounds', 'Reading', 'Beginning sounds'),
     Skill('read_sentences', 'Reading', 'Sentence meaning', 'read_sounds'),
     Skill('read_passages', 'Reading', 'Short passages', 'read_sentences'),
@@ -29,18 +22,6 @@ SKILLS = (
     Skill('math_add', 'Arithmetic', 'Add within ten', 'math_count'),
     Skill('math_story', 'Arithmetic', 'Story problems', 'math_add'),
 )
-SKILL_BY_ID = {skill.id: skill for skill in SKILLS}
-
-
-@dataclass(frozen=True)
-class Item:
-    id: str
-    skill_id: str
-    prompt: str
-    answer: str
-    options: tuple[str, ...] = ()
-    hint: str = ''
-    explanation: str = ''
 
 
 ITEMS = (
@@ -82,7 +63,19 @@ ITEMS = (
     Item('story_seeds', 'math_story', 'Mina has 2 seeds. She finds 6 more. How many seeds does she have?', '8', ('7', '8', '9'), 'Add the two groups of seeds together.', '2 + 6 = 8.'),
 )
 ITEM_BY_ID = {item.id: item for item in ITEMS}
-ITEMS_BY_SKILL = {skill.id: tuple(item for item in ITEMS if item.skill_id == skill.id) for skill in SKILLS}
+ITEMS_BY_SKILL = {skill.id: tuple(item for item in ITEMS if item.skill_id == skill.id) for skill in LEGACY_SKILLS}
+
+from primer.generated import GENERATED_SKILLS, generated_item, generated_item_count, item_for_skill  # noqa: E402
+
+SKILLS = LEGACY_SKILLS + GENERATED_SKILLS
+SKILL_BY_ID = {skill.id: skill for skill in SKILLS}
+
+
+def get_item(item_id: str) -> Item | None:
+    """Resolve a fixed or generated item without materializing the whole pool."""
+    if not isinstance(item_id, str):
+        return None
+    return ITEM_BY_ID.get(item_id) or generated_item(item_id)
 
 
 def normalize_answer(value: str) -> str:
@@ -97,7 +90,7 @@ def grade_item(item: Item, response: str) -> tuple[bool, str]:
     """
     text = ' '.join(response.strip().split())
     expected = ' '.join(item.answer.split())
-    if item.skill_id.startswith('write_'):
+    if item.skill_id.startswith('write_') or item.skill_id == 'g0w0':
         if text == expected:
             return True, item.explanation
         if normalize_answer(text.rstrip('.?!')) == normalize_answer(expected.rstrip('.?!')):
@@ -105,6 +98,12 @@ def grade_item(item: Item, response: str) -> tuple[bool, str]:
                 return False, 'Begin the sentence with a capital letter.'
             return False, f'Check the ending mark. This sentence ends with {expected[-1]}'
         return False, item.hint
+    if item.skill_id.startswith('g') and 'm' in item.skill_id[:4]:
+        try:
+            correct = Fraction(text) == Fraction(expected)
+        except (ValueError, ZeroDivisionError):
+            correct = normalize_answer(text) == normalize_answer(expected)
+        return correct, item.explanation if correct else item.hint
     correct = normalize_answer(text) == normalize_answer(expected)
     return correct, item.explanation if correct else item.hint
 
