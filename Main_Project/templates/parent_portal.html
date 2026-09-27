@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Family | IntelliPlan</title>
+  <meta name="description" content="A calm, consent-based view of your student's work and study practice.">
+  <link rel="icon" href="/static/icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/parent_portal.css?v={{ asset_v }}">
+</head>
+<body data-parent-mode="{{ 'true' if parent_mode else 'false' }}">
+  <div class="family-app">
+    <aside class="family-rail" aria-label="Family navigation">
+      <a class="family-brand" href="/" aria-label="IntelliPlan Family home"><img src="/static/icons/icon-192.png" alt=""><span>IntelliPlan <em>Family</em></span></a>
+      <p class="family-rail-kicker">YOUR SPACE</p>
+      <nav>
+        <a href="#overview" aria-current="page">Overview</a>
+        <a href="#learning">Learning signals</a>
+        <a href="#support">Support</a>
+        <a href="#access">Access</a>
+      </nav>
+      <div class="family-rail-foot">
+        <p>Share a plan, celebrate effort, and keep the student in control.</p>
+        <a href="https://intelliplan.tech/">Student app ↗</a>
+        <a href="/logout">Sign out</a>
+      </div>
+    </aside>
+
+    <main class="family-main" id="overview">
+      <div class="family-topline"><span>FAMILY HOME</span><span class="family-topline-date" id="familyToday"></span></div>
+      <header class="family-hero">
+        <div>
+          <p class="family-eyebrow">A MORE USEFUL CONVERSATION STARTS HERE</p>
+          <h1>Help them find<br><i>their next step.</i></h1>
+          <p>See what IntelliPlan has actually recorded, what is coming up, and where a little support could help. Your student approves access and can remove it at any time.</p>
+        </div>
+        <div class="family-hero-mark" aria-hidden="true"><span>01</span><span>02</span><span>03</span><b>Grow together</b></div>
+      </header>
+
+      <p id="familyStatus" class="family-status" role="status" aria-live="polite">Loading your Family space…</p>
+
+      <section class="family-onboard family-card" id="familyOnboard" hidden aria-labelledby="familyOnboardTitle">
+        <p class="family-eyebrow">SET UP FAMILY MODE</p>
+        <h2 id="familyOnboardTitle">One account, a different view.</h2>
+        <p>Enable Family mode for this account to invite a student. The student must accept before any work summary appears.</p>
+        <button class="family-primary" id="familyEnable" type="button">Enable Family mode →</button>
+      </section>
+
+      <div id="familyWorkspace" hidden>
+        <section class="family-connection family-card" id="access" aria-labelledby="familyConnectTitle">
+          <div><p class="family-eyebrow">CONNECT WITH CONSENT</p><h2 id="familyConnectTitle">Invite your student.</h2><p>Enter the email they use for IntelliPlan. They can accept or decline from Linked accounts in their Settings.</p></div>
+          <form id="familyInvite" class="family-invite"><label for="familyStudentEmail">Student's IntelliPlan email</label><div><input id="familyStudentEmail" type="email" autocomplete="email" required placeholder="student@example.com"><button class="family-primary" type="submit">Request access</button></div></form>
+        </section>
+
+        <section class="family-learner-section" aria-labelledby="familyStudentsTitle">
+          <div class="family-section-heading"><div><p class="family-eyebrow">YOUR PEOPLE</p><h2 id="familyStudentsTitle">Linked students</h2></div><span id="familyLinkCount"></span></div>
+          <div id="familyStudents" class="family-students"></div>
+        </section>
+
+        <div id="familyDetail" hidden>
+          <section class="family-insight-grid" id="learning" aria-label="Learning signals">
+            <article class="family-card family-insight-main">
+              <p class="family-eyebrow">CURRENT SNAPSHOT</p>
+              <h2 id="familySelectedName">Student</h2>
+              <p id="familyAsOf" class="family-muted"></p>
+              <div class="family-metrics">
+                <div><strong id="familyStudyDays">—</strong><span>days with a recorded session</span></div>
+                <div><strong id="familySessions">—</strong><span>sessions recorded</span></div>
+                <div><strong id="familyOpen">—</strong><span>open tasks</span></div>
+                <div><strong id="familyOverdue">—</strong><span>past due</span></div>
+              </div>
+              <p class="family-trust">A session is reported by the student app. It cannot confirm study away from IntelliPlan or how much help was needed. A blank week means no session was recorded here.</p>
+            </article>
+            <article class="family-card family-next">
+              <p class="family-eyebrow">A GOOD NEXT QUESTION</p>
+              <h2 id="familyPromptTitle">Start with curiosity.</h2>
+              <p id="familyPrompt">Ask what feels most important this week and listen to the answer.</p>
+              <span class="family-next-spark" aria-hidden="true">✦</span>
+            </article>
+          </section>
+
+          <section class="family-card family-foundations" aria-labelledby="familyFoundationsTitle">
+            <div class="family-section-heading"><div><p class="family-eyebrow">FOUNDATIONS EVIDENCE</p><h2 id="familyFoundationsTitle">What they practiced</h2></div><span>Answers stay private</span></div>
+            <div id="familyFoundationsList" class="family-foundations-list"></div>
+          </section>
+
+          <section class="family-card family-upcoming" aria-labelledby="familyUpcomingTitle">
+            <div class="family-section-heading"><div><p class="family-eyebrow">AHEAD ON THE CALENDAR</p><h2 id="familyUpcomingTitle">Coming up</h2></div><span>Student controlled data</span></div>
+            <ul id="familyUpcomingList"></ul>
+          </section>
+
+          <section class="family-card family-support" id="support" aria-labelledby="familySupportTitle">
+            <div><p class="family-eyebrow">SUPPORT WITHOUT PRESSURE</p><h2 id="familySupportTitle">Leave a small note.</h2><p>Choose a supportive message. It appears inside the student's Command Center, never as a text or email. One note can wait at a time, with a day between notes.</p><p id="familyNoteState" class="family-muted"></p></div>
+            <form id="familyNudge"><label for="familyNudgeType">Message</label><select id="familyNudgeType"><option value="steady">I see your effort</option><option value="plan">Make a plan together</option><option value="rest">Here when you need me</option></select><div class="family-note-actions"><button class="family-primary" type="submit">Leave note →</button><button class="family-quiet" id="familyWithdraw" type="button" hidden>Withdraw note</button></div></form>
+          </section>
+          <div class="family-privacy"><strong>They stay in charge.</strong> The student can revoke the link in Settings → Linked accounts. Tutor chats, personal notes and raw answers are not shared here.</div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="/static/js/parent_portal.js?v={{ asset_v }}" defer></script>
+</body>
+</html>

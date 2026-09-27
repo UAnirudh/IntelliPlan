@@ -76,8 +76,8 @@ def learners():
         return jsonify({'error': 'Use a nickname of 1 to 40 characters.'}), 400
     if world not in WORLDS:
         return jsonify({'error': 'Choose a story world.'}), 400
-    if type(grade) is not int or not 0 <= grade <= 8:
-        return jsonify({'error': 'Choose kindergarten through grade 8.'}), 400
+    if type(grade) is not int or not 0 <= grade <= 13:
+        return jsonify({'error': 'Choose kindergarten through grade 12 or college foundation.'}), 400
     if len(store.list_learners(owner)) >= 8:
         return jsonify({'error': 'This account has reached its learner limit.'}), 409
     learner = store.create_learner(owner, nickname, world, grade)
@@ -99,8 +99,8 @@ def update_grade(learner_id):
     if error:
         return error
     grade = _payload().get('grade')
-    if type(grade) is not int or not 0 <= grade <= 8:
-        return jsonify({'error': 'Choose kindergarten through grade 8.'}), 400
+    if type(grade) is not int or not 0 <= grade <= 13:
+        return jsonify({'error': 'Choose kindergarten through grade 12 or college foundation.'}), 400
     learner = store.set_grade(_owner(), learner_id, grade)
     return jsonify({'learner': _public_learner(learner)})
 

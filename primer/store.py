@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from db_boot import schema_lock
 from primer.catalog import ITEMS_BY_SKILL, SKILLS, SKILL_BY_ID
 from primer.generated import generated_item_count, item_for_skill
+from primer.advanced import advanced_item_count, advanced_item_for_skill
 from primer.story import CHAPTER_COUNT
 from time_utils import utcnow
 
@@ -438,9 +439,10 @@ def choose_story_activity(learner_id: int, domain: str, repair_skill_id: str | N
     if skill.id in ITEMS_BY_SKILL:
         items = ITEMS_BY_SKILL[skill.id]
         return skill.id, items[attempts % len(items)]
-    count = generated_item_count(skill.id)
+    count = generated_item_count(skill.id) or advanced_item_count(skill.id)
     index = (attempts * 761 + learner_id * 131) % count
-    return skill.id, item_for_skill(skill.id, index)
+    return skill.id, (item_for_skill(skill.id, index) if generated_item_count(skill.id)
+                      else advanced_item_for_skill(skill.id, index))
 
 
 def choose_story_path(learner_id: int, expected_version: int, choice_id: str) -> dict:

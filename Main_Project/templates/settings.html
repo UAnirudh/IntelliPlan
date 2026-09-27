@@ -7,6 +7,11 @@
 <script src="{{ url_for('static', filename='js/ip-enforce.js') }}?v={{ asset_v }}" defer></script>
 {% endblock %}
 {% block content %}
+<div class="settings-section" style="margin-bottom:1.25rem;">
+  <div class="settings-section-title">Sharing</div>
+  <p>Your family or teacher can see a limited work summary only after you accept their request. You can revoke access at any time.</p>
+  <a class="btn-primary" href="/linked-accounts">Manage linked accounts</a>
+</div>
 <style>
 /* ── Settings page ──────────────────────────────── */
 .settings-section {

@@ -49,7 +49,16 @@
   function renderStory(data) {
     const story = data.story;
     $('primerWorldLabel').textContent = data.world_name;
-    $('primerGradeLabel').textContent = data.learner.grade === 0 ? 'Kindergarten' : `Grade ${data.learner.grade}`;
+    $('primerGradeLabel').textContent = data.learner.grade === 0 ? 'Kindergarten' : data.learner.grade === 13 ? 'College foundation' : `Grade ${data.learner.grade}`;
+    const older = data.learner.grade >= 9;
+    $('primerPageTitle').textContent = older ? 'A case that evolves with you.' : 'A story that remembers.';
+    $('primerPageIntro').textContent = older
+      ? 'Investigate a changing case, test claims against evidence, write with precision, and work through quantitative decisions at your level.'
+      : 'Explore a world, make choices that carry forward, and practice reading, writing, and math at a level chosen for you.';
+    $('primerChapterKicker').textContent = older ? 'TODAY\'S CASE' : 'TODAY\'S CHAPTER';
+    $('primerActivityIntro').textContent = older
+      ? 'Each case combines a source, a writing decision, and a quantitative problem before you choose what happens next.'
+      : 'A chapter has three clues and one story choice. Each clue practices a different skill.';
     $('primerActivityTitle').textContent = story.title;
     $('primerScene').hidden = false;
     $('primerStoryScene').textContent = story.scene;

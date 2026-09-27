@@ -14,13 +14,21 @@ nothing is exposed without consent.
 from __future__ import annotations
 
 import secrets
-from datetime import datetime
+import json
+from datetime import date, datetime, timedelta
 from time_utils import utcnow
 
 from flask import Blueprint, current_app, jsonify, render_template, request
 from flask_login import current_user, login_required
 
+from intelliplan.repositories.assignments import AssignmentRepository
+
 bp = Blueprint("roles_bp", __name__)
+ENCOURAGEMENT = {
+    "steady": "I see the effort you are putting in. One steady step at a time.",
+    "plan": "Want to look at the next deadline together and make a small plan?",
+    "rest": "It is okay to pause. I am here when you want to talk through the next step.",
+}
 
 
 def _db():
@@ -33,6 +41,23 @@ def _link_model():
 
 def _user_model():
     return current_app.intelliplan_user_model  # type: ignore[attr-defined]
+
+
+def _accepted_parent_link(student_id: int):
+    if current_user.role != "parent":
+        return None
+    return _link_model().query.filter_by(
+        linker_user_id=current_user.id, student_user_id=student_id,
+        relationship="parent").filter(
+            _link_model().accepted_at.isnot(None)).first()
+
+
+def _public_note(note):
+    return {"id": note.id, "template_id": note.template_id,
+            "message": ENCOURAGEMENT[note.template_id],
+            "created_at": note.created_at.isoformat() + "Z",
+            "acknowledged_at": note.acknowledged_at.isoformat() + "Z" if note.acknowledged_at else None,
+            "withdrawn_at": note.withdrawn_at.isoformat() + "Z" if note.withdrawn_at else None}
 
 
 # ── PAGES ─────────────────────────────────────────────────────────────
@@ -54,6 +79,13 @@ def parent_dashboard():
     return render_template("parent_dashboard.html", active_page="parent")
 
 
+@bp.route("/linked-accounts")
+@login_required
+def student_sharing():
+    return render_template("student_sharing.html", active_page="settings",
+                           noindex_page=True)
+
+
 # ── API ───────────────────────────────────────────────────────────────
 
 
@@ -62,10 +94,13 @@ def parent_dashboard():
 def api_role():
     if request.method == "GET":
         return jsonify({"role": current_user.role or "student"})
-    body = request.get_json(silent=True) or {}
-    new_role = (body.get("role") or "").strip().lower()
+    body = request.get_json(silent=True)
+    role_value = body.get("role") if isinstance(body, dict) else None
+    new_role = role_value.strip().lower() if isinstance(role_value, str) else ""
     if new_role not in ("student", "teacher", "parent"):
         return jsonify({"error": "invalid_role"}), 400
+    if new_role == "parent" and current_user.birth_year and datetime.utcnow().year - current_user.birth_year < 18:
+        return jsonify({"error": "adult_account_required"}), 403
     current_user.role = new_role
     _db().session.commit()
     return jsonify({"role": current_user.role})
@@ -78,8 +113,9 @@ def api_invite():
     StudentLink — the student approves from /linked-accounts."""
     if current_user.role not in ("teacher", "parent"):
         return jsonify({"error": "forbidden"}), 403
-    body = request.get_json(silent=True) or {}
-    email = (body.get("student_email") or "").strip().lower()
+    body = request.get_json(silent=True)
+    email_value = body.get("student_email") if isinstance(body, dict) else None
+    email = email_value.strip().lower() if isinstance(email_value, str) else ""
     if not email:
         return jsonify({"error": "missing_email"}), 400
     User = _user_model()
@@ -90,7 +126,8 @@ def api_invite():
     if student.id == current_user.id:
         return jsonify({"error": "cannot_link_to_self"}), 400
     existing = StudentLink.query.filter_by(
-        linker_user_id=current_user.id, student_user_id=student.id
+        linker_user_id=current_user.id, student_user_id=student.id,
+        relationship=current_user.role,
     ).first()
     if existing:
         return jsonify({"ok": True, "status": "already_invited", "link_id": existing.id})
@@ -112,7 +149,10 @@ def api_invite():
 def api_list_links():
     StudentLink = _link_model()
     User = _user_model()
-    links = StudentLink.query.filter_by(linker_user_id=current_user.id).all()
+    if current_user.role not in ("parent", "teacher"):
+        return jsonify({"links": []})
+    links = StudentLink.query.filter_by(linker_user_id=current_user.id,
+                                        relationship=current_user.role).all()
     out = []
     for link in links:
         student = User.query.get(link.student_user_id)
@@ -152,6 +192,23 @@ def api_pending_for_student():
     return jsonify({"pending": out})
 
 
+@bp.route("/api/roles/my-links", methods=["GET"])
+@login_required
+def api_my_links():
+    Link = _link_model()
+    User = _user_model()
+    links = Link.query.filter_by(student_user_id=current_user.id).all()
+    result = []
+    for link in links:
+        linker = User.query.get(link.linker_user_id)
+        if linker:
+            result.append({"link_id": link.id, "linker_name": linker.name or linker.email,
+                           "linker_email": linker.email, "relationship": link.relationship,
+                           "accepted": link.accepted_at is not None,
+                           "accepted_at": link.accepted_at.isoformat() + "Z" if link.accepted_at else None})
+    return jsonify({"links": result})
+
+
 @bp.route("/api/roles/links/<int:link_id>/accept", methods=["POST"])
 @login_required
 def api_accept_link(link_id: int):
@@ -174,6 +231,7 @@ def api_delete_link(link_id: int):
     if link.linker_user_id != current_user.id and link.student_user_id != current_user.id:
         return jsonify({"error": "forbidden"}), 403
     db = _db()
+    current_app.intelliplan_family_nudge_model.query.filter_by(link_id=link.id).delete()
     db.session.delete(link)
     db.session.commit()
     return jsonify({"ok": True})
@@ -186,9 +244,10 @@ def api_student_overview(student_id: int):
     accepted StudentLink exists between the caller and the student."""
     StudentLink = _link_model()
     link = StudentLink.query.filter_by(
-        linker_user_id=current_user.id, student_user_id=student_id
+        linker_user_id=current_user.id, student_user_id=student_id,
+        relationship=current_user.role
     ).first()
-    if link is None or link.accepted_at is None:
+    if current_user.role not in ("parent", "teacher") or link is None or link.accepted_at is None:
         return jsonify({"error": "no_access"}), 403
 
     User = _user_model()
@@ -208,39 +267,163 @@ def api_student_overview(student_id: int):
 
 
 def _summarize_for_view(student_user_id: int) -> dict:
-    """Best-effort assignment + grade summary the linked viewer is allowed
-    to see. Falls back to a blank shape when the helper isn't available."""
+    """Read actual active assignments and recorded completions for one student."""
     try:
-        from App import _load_user_assignments  # type: ignore
-        rows = _load_user_assignments(student_user_id) or []  # type: ignore[misc]
-    except Exception:
-        rows = []
-    total = len(rows)
-    completed = sum(1 for r in rows if r.get("completed"))
-    overdue = sum(1 for r in rows if r.get("overdue"))
-    avg_percent = None
-    percents = []
-    for r in rows:
-        s, p = r.get("score"), r.get("points_possible")
-        if s is not None and p:
-            try:
-                percents.append((float(s) / float(p)) * 100.0)
-            except (TypeError, ValueError, ZeroDivisionError):
-                continue
-    if percents:
-        avg_percent = round(sum(percents) / len(percents), 1)
+        db = _db()
+        ManualTask = current_app.intelliplan_manual_task_model
+        DismissedAssignment = current_app.intelliplan_dismissed_assignment_model
+        repository = AssignmentRepository(
+            ManualTask, db.session, current_app.intelliplan_assignment_fetcher)
+        today = date.today()
+        rows = repository.for_user(student_user_id, today)
+        manual_done = db.session.query(ManualTask).filter_by(
+            user_id=student_user_id, done=True).count()
+        dismissed_rows = db.session.query(DismissedAssignment).filter_by(
+            user_id=student_user_id).all()
+        normalize_title = current_app.intelliplan_norm_title
+        dismissed_titles = {normalize_title(row.title) for row in dismissed_rows}
+        rows = tuple(row for row in rows if row.source == "manual" or
+                     normalize_title(row.title) not in dismissed_titles)
+        dismissed = len(dismissed_rows)
+        StudyPoints = current_app.intelliplan_study_points_model
+        points = StudyPoints.query.filter_by(user_id=student_user_id).first()
+        history = json.loads(points.session_history or "[]") if points else []
+        if not isinstance(history, list):
+            history = []
+    except Exception as exc:
+        current_app.logger.exception("family summary unavailable: %s", exc)
+        return {"status": "unavailable", "as_of": datetime.utcnow().isoformat() + "Z"}
+    upcoming = [r for r in rows if r.due_date is None or r.due_date >= today]
+    recent_dates = []
+    for session in history:
+        if not isinstance(session, dict):
+            continue
+        try:
+            day = date.fromisoformat(str(session.get("date", ""))[:10])
+        except ValueError:
+            continue
+        if today - timedelta(days=6) <= day <= today:
+            recent_dates.append(day)
     return {
-        "total_assignments": total,
-        "completed": completed,
-        "overdue": overdue,
-        "avg_percent": avg_percent,
+        "status": "ok",
+        "as_of": datetime.utcnow().isoformat() + "Z",
+        "total_assignments": len(rows) + manual_done + dismissed,
+        "open": len(rows),
+        "completed": manual_done + dismissed,
+        "overdue": sum(1 for r in rows if r.due_date and r.due_date < today),
+        "avg_percent": None,
+        "study_sessions_7d": len(recent_dates),
+        "study_days_7d": len(set(recent_dates)),
+        "study_source": "Sessions recorded by the student app; this does not verify time spent studying away from IntelliPlan.",
+        "foundations": _foundations_snapshot(student_user_id),
         "upcoming": [
             {
-                "title": r.get("title"),
-                "course": r.get("course"),
-                "due_date": r.get("due_date"),
+                "title": r.title,
+                "course": r.course,
+                "due_date": r.due_date.isoformat() if r.due_date else None,
             }
-            for r in rows
-            if not r.get("completed")
+            for r in upcoming
         ][:10],
     }
+
+
+def _foundations_snapshot(student_user_id: int) -> list[dict] | None:
+    """Share aggregate practice and a next skill, never answers or tutor text."""
+    try:
+        from primer import store as primer_store
+
+        result = []
+        for learner in primer_store.list_learners(student_user_id)[:5]:
+            overview = primer_store.parent_overview(learner['id'], grade=learner['grade'])
+            days = overview['days']
+            result.append({
+                "learner_name": learner['nickname'],
+                "grade": learner['grade'],
+                "answered_days_7d": sum(day['answers'] > 0 for day in days),
+                "answers_7d": sum(day['answers'] for day in days),
+                "last_answered_at": overview['last_answered_at'],
+                "focus": overview['focus'],
+            })
+        return result
+    except Exception as exc:
+        current_app.logger.exception("family foundations snapshot unavailable: %s", exc)
+        return None
+
+
+@bp.route("/api/roles/student/<int:student_id>/encouragement", methods=["GET", "POST"])
+@login_required
+def api_parent_encouragement(student_id: int):
+    link = _accepted_parent_link(student_id)
+    if not link:
+        return jsonify({"error": "no_access"}), 403
+    Note = current_app.intelliplan_family_nudge_model
+    if request.method == "GET":
+        latest = Note.query.filter_by(link_id=link.id).order_by(Note.id.desc()).first()
+        now = utcnow()
+        can_send = not latest or (latest.created_at <= now - timedelta(hours=24) and
+                                  (latest.acknowledged_at is not None or latest.withdrawn_at is not None))
+        return jsonify({"latest": _public_note(latest) if latest else None,
+                        "templates": ENCOURAGEMENT, "can_send": can_send,
+                        "next_note_at": (latest.created_at + timedelta(hours=24)).isoformat() + "Z"
+                        if latest and not can_send else None})
+    payload = request.get_json(silent=True)
+    template_id = payload.get("template_id") if isinstance(payload, dict) else None
+    if not isinstance(template_id, str) or template_id not in ENCOURAGEMENT:
+        return jsonify({"error": "invalid_template"}), 400
+    db = _db()
+    if db.session.query(_link_model()).filter_by(id=link.id).with_for_update().first() is None:
+        return jsonify({"error": "no_access"}), 403
+    latest = Note.query.filter_by(link_id=link.id).order_by(Note.id.desc()).first()
+    now = utcnow()
+    if latest and (latest.created_at > now - timedelta(hours=24) or
+                   (latest.acknowledged_at is None and latest.withdrawn_at is None)):
+        return jsonify({"error": "wait_before_another_note"}), 429
+    note = Note(link_id=link.id, template_id=template_id, created_at=now)
+    db.session.add(note)
+    db.session.commit()
+    return jsonify({"note": _public_note(note)}), 201
+
+
+@bp.route("/api/roles/student/<int:student_id>/encouragement/<int:note_id>", methods=["DELETE"])
+@login_required
+def api_withdraw_encouragement(student_id: int, note_id: int):
+    link = _accepted_parent_link(student_id)
+    if not link:
+        return jsonify({"error": "no_access"}), 403
+    Note = current_app.intelliplan_family_nudge_model
+    note = Note.query.filter_by(id=note_id, link_id=link.id).first()
+    if not note or note.acknowledged_at or note.withdrawn_at:
+        return jsonify({"error": "not_found"}), 404
+    note.withdrawn_at = utcnow()
+    _db().session.commit()
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/roles/my-encouragement", methods=["GET"])
+@login_required
+def api_my_encouragement():
+    Link = _link_model()
+    Note = current_app.intelliplan_family_nudge_model
+    notes = _db().session.query(Note).join(Link, Note.link_id == Link.id).filter(
+        Link.student_user_id == current_user.id, Link.relationship == "parent",
+        Link.accepted_at.isnot(None), Note.acknowledged_at.is_(None),
+        Note.withdrawn_at.is_(None), Note.created_at >= utcnow() - timedelta(days=7),
+    ).order_by(Note.created_at.desc()).limit(3).all()
+    return jsonify({"notes": [_public_note(note) for note in notes]})
+
+
+@bp.route("/api/roles/my-encouragement/<int:note_id>/acknowledge", methods=["POST"])
+@login_required
+def api_acknowledge_encouragement(note_id: int):
+    Link = _link_model()
+    Note = current_app.intelliplan_family_nudge_model
+    note = _db().session.query(Note).join(Link, Note.link_id == Link.id).filter(
+        Note.id == note_id, Link.student_user_id == current_user.id,
+        Link.relationship == "parent", Link.accepted_at.isnot(None),
+        Note.withdrawn_at.is_(None)).first()
+    if not note:
+        return jsonify({"error": "not_found"}), 404
+    if note.acknowledged_at is None:
+        note.acknowledged_at = utcnow()
+        _db().session.commit()
+    return jsonify({"ok": True})

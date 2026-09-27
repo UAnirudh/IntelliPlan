@@ -7,10 +7,10 @@
   <header class="primer-heading">
     <div>
       <p class="primer-kicker">INTELLIPLAN / FOUNDATIONS</p>
-      <h1>A story that remembers.</h1>
-      <p>Explore a world, make choices that carry forward, and practice reading, writing, and math at a level chosen for you.</p>
+      <h1 id="primerPageTitle">A story that remembers.</h1>
+      <p id="primerPageIntro">Explore a world, make choices that carry forward, and practice reading, writing, and math at a level chosen for you.</p>
     </div>
-    <div class="primer-heading-actions"><a class="primer-secondary" href="/foundations/parent">Family view <span aria-hidden="true">↗</span></a><a class="primer-secondary" href="/tutor">Ask Plani about a skill <span aria-hidden="true">↗</span></a></div>
+    <div class="primer-heading-actions"><a class="primer-secondary" href="/tutor">Ask Plani about a skill <span aria-hidden="true">↗</span></a></div>
   </header>
 
   <div id="primerStatus" class="primer-status" role="status" aria-live="polite">Loading your learners…</div>
@@ -33,7 +33,8 @@
         <label for="primerGrade">Current grade</label>
         <select id="primerGrade" name="grade" required>
           <option value="0">Kindergarten</option>
-          {% for grade in range(1, 9) %}<option value="{{ grade }}">Grade {{ grade }}</option>{% endfor %}
+          {% for grade in range(1, 13) %}<option value="{{ grade }}">Grade {{ grade }}</option>{% endfor %}
+          <option value="13">College foundation</option>
         </select>
         <button class="primer-primary" type="submit">Create learner <span aria-hidden="true">→</span></button>
       </form>
@@ -48,13 +49,13 @@
     <div class="primer-grid">
       <section class="primer-activity" aria-labelledby="primerActivityTitle">
         <div class="primer-family-note" id="primerFamilyNote" hidden>
-          <p class="primer-eyebrow">A NOTE FROM YOUR GROWN-UP</p>
+          <p class="primer-eyebrow">A NOTE FOR YOU</p>
           <p id="primerFamilyMessage"></p>
           <button type="button" class="primer-secondary" id="primerFamilyAcknowledge">I saw this</button>
         </div>
-        <div class="primer-section-top"><span class="primer-eyebrow">TODAY'S CHAPTER</span><span class="primer-world"><span id="primerGradeLabel"></span> · <span id="primerWorldLabel"></span></span></div>
+        <div class="primer-section-top"><span class="primer-eyebrow" id="primerChapterKicker">TODAY'S CHAPTER</span><span class="primer-world"><span id="primerGradeLabel"></span> · <span id="primerWorldLabel"></span></span></div>
         <h2 id="primerActivityTitle">The journey begins here.</h2>
-        <p class="primer-activity__intro">A chapter has three clues and one story choice. Each clue practices a different skill.</p>
+        <p class="primer-activity__intro" id="primerActivityIntro">A chapter has three clues and one story choice. Each clue practices a different skill.</p>
         <div class="primer-chapter-track" id="primerChapterTrack" aria-label="Chapter progress"></div>
         <div class="primer-scene" id="primerScene" hidden>
           <p class="primer-scene__memory" id="primerStoryMemory" hidden></p>
@@ -93,7 +94,7 @@
       </section>
 
     </div>
-    <p class="primer-footnote">Story choices are yours and are never graded. Your grown-up can change your grade level and see practice details in Family view.</p>
+    <p class="primer-footnote">Story choices are yours and are never graded. Practice evidence helps choose the next activity.</p>
   </div>
 </div>
 <script src="/static/js/foundations.js?v={{ asset_v }}" defer></script>

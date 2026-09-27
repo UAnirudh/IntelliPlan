@@ -37,7 +37,8 @@
         <label for="parentGrade">Current school grade</label>
         <div class="parent-inline"><select id="parentGrade" name="grade">
           <option value="0">Kindergarten</option>
-          {% for grade in range(1, 9) %}<option value="{{ grade }}">Grade {{ grade }}</option>{% endfor %}
+          {% for grade in range(1, 13) %}<option value="{{ grade }}">Grade {{ grade }}</option>{% endfor %}
+          <option value="13">College foundation</option>
         </select><button class="primer-secondary" type="submit">Save grade</button></div>
       </form>
     </section>

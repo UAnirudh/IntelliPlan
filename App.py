@@ -194,6 +194,12 @@ except Exception as _compress_err:  # pragma: no cover - optional dependency
 
 APP_BASE_URL = os.getenv("APP_BASE_URL", "https://intelliplan.tech").rstrip("/")
 APP_DOMAIN = APP_BASE_URL.replace("https://", "").replace("http://", "").split("/", 1)[0]
+PARENT_APP_HOST = os.getenv("PARENT_APP_HOST", "parent.intelliplan.tech").strip().lower()
+
+
+def _is_parent_app_request():
+    return request.host.split(":", 1)[0].lower() == PARENT_APP_HOST
+
 LEGACY_ALLOWED_ORIGINS = [
     origin.strip().rstrip("/")
     for origin in os.getenv("LEGACY_ALLOWED_ORIGINS", "").split(",")
@@ -1811,6 +1817,17 @@ class StudentLink(db.Model):
     invite_token = db.Column(db.String(64), nullable=True)
     accepted_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class FamilyNudge(db.Model):
+    """One bounded, in-app note tied to a student-approved parent link."""
+    __tablename__ = "family_nudges"
+    id = db.Column(db.Integer, primary_key=True)
+    link_id = db.Column(db.Integer, db.ForeignKey("student_links.id"), nullable=False, index=True)
+    template_id = db.Column(db.String(32), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    acknowledged_at = db.Column(db.DateTime, nullable=True)
+    withdrawn_at = db.Column(db.DateTime, nullable=True)
 
 
 class FeatureFlag(db.Model):
@@ -6656,14 +6673,16 @@ def api_desktop_latest():
 def login():
     if request.method == "POST":
         return redirect(url_for("login_account"), 307)
+    if _is_parent_app_request():
+        return redirect(url_for("login_account"))
     if is_logged_in():
-        return redirect("/command-center")
+        return redirect("/" if _is_parent_app_request() else "/command-center")
     return render_template("login.html", active_page="login")
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if current_user.is_authenticated:
-        return redirect("/command-center")
+        return redirect("/" if _is_parent_app_request() else "/command-center")
     error = None
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
@@ -6728,6 +6747,8 @@ def register():
                          "We'll send them a one-time consent link before activating your account.")
             elif parent_email_raw == email:
                 error = "Your parent or guardian's email must be different from your own."
+        if not error and _is_parent_app_request() and age is not None and age < 18:
+            error = "The Family app is for adults. Please use the student app."
 
         if not error:
             try:
@@ -6754,6 +6775,7 @@ def register():
                     marketing_optin = False
                 user = User(
                     email=email, password_hash=pw_hash,
+                    role="parent" if _is_parent_app_request() else "student",
                     phone=phone_norm, sms_reminders_opt_in=sms_optin,
                     birth_year=birth_year_val,
                     parent_email=parent_email_raw if under_13 else None,
@@ -6820,12 +6842,14 @@ def register():
                             carrier=(user.sms_carrier or "tmobile"),
                         )  # return value intentionally ignored here
                     except Exception: pass
-                return redirect("/command-center")
+                return redirect("/" if _is_parent_app_request() else "/command-center")
             except Exception as _e:
                 print(f"[register] user create failed: {_e}")
                 try: db.session.rollback()
                 except Exception: pass
                 error = "Could not create that account right now — please try again."
+    if _is_parent_app_request():
+        return render_template("parent_auth.html", mode="register", error=error)
     return render_template("register.html", active_page="login", error=error)
 
 
@@ -7578,7 +7602,7 @@ def desktop_auth_exchange():
 @limiter.limit("10 per minute;60 per hour", methods=["POST"])
 def login_account():
     if current_user.is_authenticated:
-        return redirect("/command-center")
+        return redirect("/" if _is_parent_app_request() else "/command-center")
     error = None
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
@@ -7609,9 +7633,11 @@ def login_account():
             if failures >= RECAPTCHA_LOGIN_AFTER_FAILURES:
                 error = check_recaptcha("login")
                 if error:
-                    return render_template(
-                        "login_account.html", active_page="login",
-                        error=error, recaptcha_required=True)
+                    if _is_parent_app_request():
+                        return render_template("parent_auth.html", mode="login", error=error,
+                                               recaptcha_required=True)
+                    return render_template("login_account.html", active_page="login",
+                                           error=error, recaptcha_required=True)
 
         # A locked account stops checking passwords at all. Checking first and
         # reporting afterwards would leak, through timing, whether the guess
@@ -7623,8 +7649,9 @@ def login_account():
                 error = (f"Too many failed sign-ins. Try again in {locked_for} "
                          f"minute{'s' if locked_for != 1 else ''}, or reset your "
                          "password if you are not sure of it.")
-                return render_template("login_account.html", active_page="login",
-                                       error=error)
+                if _is_parent_app_request():
+                    return render_template("parent_auth.html", mode="login", error=error)
+                return render_template("login_account.html", active_page="login", error=error)
 
         if not error:
             if user and user.password_hash and bcrypt.check_password_hash(user.password_hash, password):
@@ -7633,6 +7660,8 @@ def login_account():
                     error = ("This account is waiting for parental consent. We emailed "
                              f"{user.parent_email} a consent link — once they click it, "
                              "you'll be able to sign in.")
+                    if _is_parent_app_request():
+                        return render_template("parent_auth.html", mode="login", error=error)
                     return render_template("login_account.html", active_page="login", error=error)
                 clear_failed_logins(user)
                 # Session fixation: an attacker who can plant a session id
@@ -7641,6 +7670,8 @@ def login_account():
                 _rotate_session_on_login()
                 login_user(user, remember=True)
                 log_security_event("login_success", user=user)
+                if _is_parent_app_request():
+                    return redirect("/")
                 # Auto-join any group whose invite link was clicked pre-login.
                 joined_gid = _apply_pending_group_join()
                 if joined_gid:
@@ -7661,6 +7692,9 @@ def login_account():
     # Show the widget from the first failure, though it is not enforced until
     # the third. If it only appeared once enforcement began, that attempt
     # would be refused for a missing token the form never offered.
+    if _is_parent_app_request():
+        return render_template("parent_auth.html", mode="login", error=error,
+                               recaptcha_required=bool(error))
     return render_template("login_account.html", active_page="login",
                            error=error, recaptcha_required=bool(error))
 
@@ -8250,7 +8284,7 @@ def login_schoology():
 def logout():
     logout_user()
     session.clear()
-    response = redirect(url_for("login"))
+    response = redirect(url_for("login_account" if _is_parent_app_request() else "login"))
     response.delete_cookie(app.config.get("SESSION_COOKIE_NAME", "session"))
     response.delete_cookie("remember_token")
     return response
@@ -9064,6 +9098,7 @@ def _account_delete_impl():
         ("study_groups (owner)", "UPDATE study_groups SET owner_id = NULL WHERE owner_id = :uid"),
 
         # ── Parent/teacher links, in both directions ───────────────────
+        ("family_nudges", "DELETE FROM family_nudges WHERE link_id IN (SELECT id FROM student_links WHERE linker_user_id = :uid OR student_user_id = :uid)"),
         ("student_links (as linker)", "DELETE FROM student_links WHERE linker_user_id = :uid"),
         ("student_links (as student)", "DELETE FROM student_links WHERE student_user_id = :uid"),
 
@@ -19806,6 +19841,12 @@ app.intelliplan_get_identity = _get_or_create_identity
 # without importing App (avoids the __main__/App double-load issue).
 app.intelliplan_lms_token_model = LMSToken
 app.intelliplan_student_link_model = StudentLink
+app.intelliplan_family_nudge_model = FamilyNudge
+app.intelliplan_manual_task_model = ManualTask
+app.intelliplan_dismissed_assignment_model = DismissedAssignment
+app.intelliplan_study_points_model = StudyPoints
+app.intelliplan_assignment_fetcher = collect_lms_assignments_for_user
+app.intelliplan_norm_title = _norm_title
 app.intelliplan_study_group_model = StudyGroup
 app.intelliplan_study_group_member_model = StudyGroupMember
 app.intelliplan_study_group_task_model = StudyGroupTask
@@ -20379,6 +20420,34 @@ def _ensure_migration_ran():
         _run_boot_migration_once()
     except Exception:
         pass
+
+
+@app.before_request
+def _family_host_entry():
+    """Give the Family hostname its own UI and keep student routes off it."""
+    if not _is_parent_app_request():
+        return None
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        source = request.headers.get("Origin") or request.headers.get("Referer")
+        if source:
+            try:
+                same_host = urllib.parse.urlsplit(source).netloc.lower() == request.host.lower()
+            except ValueError:
+                same_host = False
+            if not same_host:
+                return flask.jsonify({"error": "cross_site_request"}), 403
+    if request.path == "/":
+        if not current_user.is_authenticated:
+            return redirect(url_for("login_account"))
+        return render_template("parent_portal.html", noindex_page=True,
+                               parent_mode=current_user.role == "parent")
+    allowed = ("/static/", "/api/roles/")
+    if request.path.startswith(allowed) or request.path in {
+        "/login", "/login/account", "/register", "/logout",
+        "/forgot-password", "/reset-password", "/favicon.ico",
+    }:
+        return None
+    return flask.abort(404)
 
 
 @app.route("/api/syllabus/import", methods=["POST"])
