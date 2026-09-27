@@ -22,7 +22,7 @@ The product standard is retained learning and reduced planning friction. Questio
 
 ## Family app: parent jobs
 
-1. **Connect safely.** Invite a student, show pending state, and require the student's explicit acceptance. College sharing always requires explicit student opt-in; either party can revoke a link.
+1. **Connect safely.** Invite a student, show pending state, and require the student's explicit acceptance. The student chooses whether to share assignments, recorded study, and Foundations practice, and can change that selection later. College sharing always requires explicit student opt-in; either party can revoke a link.
 2. **Know what happened.** Show completed and upcoming work plus Foundations practice, with timestamps and explicit source/limits. Never infer time spent from page visits.
 3. **Know what to do next.** Surface the nearest due item, overdue work, and a calm prompt for a conversation; do not turn an absence of data into a failure label.
 4. **Support without nagging.** Send one bounded, in-app encouragement at a time, allow withdrawal, and show whether the student acknowledged it. Avoid SMS/email pressure by default.
@@ -37,10 +37,10 @@ The product standard is retained learning and reduced planning friction. Questio
 
 ### Data and algorithms
 
-- **Identity and consent:** one account table; `StudentLink` records the adult, student, relationship, pending/accepted state, and revocation. Every Family read joins an accepted parent link to the exact learner account. College access follows this same explicit approval path. Revocation removes the link and associated notes.
+- **Identity and consent:** one account table; `StudentLink` records the adult, student, relationship, pending/accepted state, and the student's selected sharing scopes. Every Family read joins an accepted parent link to the exact learner account and applies those scopes before loading each evidence source. College access follows this same explicit approval path. Revocation removes the link and associated notes. Links accepted before scoped sharing retain their prior summary access until the student changes it.
 - **Practice evidence:** `primer_learner`, profile, skill state, hint, and attempt tables keep versioned evidence without storing raw answer text. Grade placement selects an initial curriculum level. After two misses without independent success, a domain can step back one grade for a prerequisite activity, then return when evidence improves.
 - **Next question:** choose an unlocked skill due for review, prioritize weak evidence, and reconstruct a stable item ID on demand. A missed answer is due immediately; successful attempts return after one, three, or seven days according to streak and hint use. The smoothed estimate `(correct + 1) / (attempts + 2)` is a ranking signal, not a calibrated probability of mastery.
-- **Family workload:** read active assignments from the same repository as Command Center, remove LMS work the student marked complete, and combine it with recorded manual completions. Show unavailable data as unavailable. Sessions come from student-app records; their count does not prove off-app study time.
+- **Family workload:** read active assignments from the same repository as Command Center, remove LMS work the student marked complete, and combine it with recorded manual completions. Work, recorded study, and Foundations are fetched independently so one failed source does not blank the others; unshared or unavailable metrics are never displayed as zero. Sessions come from student-app records; their count does not prove off-app study time. Individual LMS adapters can still return an empty list on upstream failure, so a zero task count is not proof that every source synced successfully.
 - **Support:** send only reviewed in-app message templates, with one pending note and a 24-hour interval. The student can acknowledge a note or revoke the link. No automatic pressure campaign runs from sparse activity data.
 
 ### Runtime and operations

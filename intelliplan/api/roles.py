@@ -29,6 +29,30 @@ ENCOURAGEMENT = {
     "plan": "Want to look at the next deadline together and make a small plan?",
     "rest": "It is okay to pause. I am here when you want to talk through the next step.",
 }
+SHARE_SCOPES = frozenset({"work", "study", "foundations"})
+
+
+def _link_scopes(link) -> set[str]:
+    """Legacy approvals keep their previous access; malformed new values fail closed."""
+    if link.relationship != "parent" or link.share_scopes_json is None:
+        return set(SHARE_SCOPES)
+    try:
+        scopes = json.loads(link.share_scopes_json)
+    except (TypeError, ValueError):
+        return set()
+    if not isinstance(scopes, list):
+        return set()
+    return {scope for scope in scopes if isinstance(scope, str) and scope in SHARE_SCOPES}
+
+
+def _requested_scopes(payload):
+    if not isinstance(payload, dict) or "scopes" not in payload:
+        return set(SHARE_SCOPES)
+    scopes = payload["scopes"]
+    if (not isinstance(scopes, list) or not scopes or
+            any(type(scope) is not str or scope not in SHARE_SCOPES for scope in scopes)):
+        return None
+    return set(scopes)
 
 
 def _db():
@@ -166,6 +190,7 @@ def api_list_links():
             "relationship": link.relationship,
             "accepted": link.accepted_at is not None,
             "accepted_at": link.accepted_at.isoformat() if link.accepted_at else None,
+            "scopes": sorted(_link_scopes(link)),
         })
     return jsonify({"links": out})
 
@@ -205,6 +230,7 @@ def api_my_links():
             result.append({"link_id": link.id, "linker_name": linker.name or linker.email,
                            "linker_email": linker.email, "relationship": link.relationship,
                            "accepted": link.accepted_at is not None,
+                           "scopes": sorted(_link_scopes(link)),
                            "accepted_at": link.accepted_at.isoformat() + "Z" if link.accepted_at else None})
     return jsonify({"links": result})
 
@@ -216,9 +242,34 @@ def api_accept_link(link_id: int):
     link = StudentLink.query.get(link_id)
     if link is None or link.student_user_id != current_user.id:
         return jsonify({"error": "not_found"}), 404
+    if link.accepted_at is not None:
+        return jsonify({"error": "already_accepted"}), 409
+    if link.relationship == "parent":
+        scopes = _requested_scopes(request.get_json(silent=True))
+        if scopes is None:
+            return jsonify({"error": "invalid_scopes"}), 400
+        link.share_scopes_json = json.dumps(sorted(scopes))
     link.accepted_at = utcnow()
     _db().session.commit()
     return jsonify({"ok": True})
+
+
+@bp.route("/api/roles/links/<int:link_id>/scopes", methods=["PATCH"])
+@login_required
+def api_update_link_scopes(link_id: int):
+    link = _link_model().query.get(link_id)
+    if (link is None or link.student_user_id != current_user.id or
+            link.relationship != "parent" or link.accepted_at is None):
+        return jsonify({"error": "not_found"}), 404
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict) or "scopes" not in payload:
+        return jsonify({"error": "invalid_scopes"}), 400
+    scopes = _requested_scopes(payload)
+    if scopes is None:
+        return jsonify({"error": "invalid_scopes"}), 400
+    link.share_scopes_json = json.dumps(sorted(scopes))
+    _db().session.commit()
+    return jsonify({"ok": True, "scopes": sorted(scopes)})
 
 
 @bp.route("/api/roles/links/<int:link_id>", methods=["DELETE"])
@@ -261,70 +312,84 @@ def api_student_overview(student_id: int):
             "name": student.name or student.email,
             "email": student.email,
         },
-        "summary": _summarize_for_view(student.id),
+        "summary": _summarize_for_view(student.id, _link_scopes(link)),
     }
     return jsonify(overview)
 
 
-def _summarize_for_view(student_user_id: int) -> dict:
-    """Read actual active assignments and recorded completions for one student."""
-    try:
-        db = _db()
-        ManualTask = current_app.intelliplan_manual_task_model
-        DismissedAssignment = current_app.intelliplan_dismissed_assignment_model
-        repository = AssignmentRepository(
-            ManualTask, db.session, current_app.intelliplan_assignment_fetcher)
-        today = date.today()
-        rows = repository.for_user(student_user_id, today)
-        manual_done = db.session.query(ManualTask).filter_by(
-            user_id=student_user_id, done=True).count()
-        dismissed_rows = db.session.query(DismissedAssignment).filter_by(
-            user_id=student_user_id).all()
-        normalize_title = current_app.intelliplan_norm_title
-        dismissed_titles = {normalize_title(row.title) for row in dismissed_rows}
-        rows = tuple(row for row in rows if row.source == "manual" or
-                     normalize_title(row.title) not in dismissed_titles)
-        dismissed = len(dismissed_rows)
-        StudyPoints = current_app.intelliplan_study_points_model
-        points = StudyPoints.query.filter_by(user_id=student_user_id).first()
-        history = json.loads(points.session_history or "[]") if points else []
-        if not isinstance(history, list):
-            history = []
-    except Exception as exc:
-        current_app.logger.exception("family summary unavailable: %s", exc)
-        return {"status": "unavailable", "as_of": datetime.utcnow().isoformat() + "Z"}
-    upcoming = [r for r in rows if r.due_date is None or r.due_date >= today]
-    recent_dates = []
-    for session in history:
-        if not isinstance(session, dict):
-            continue
-        try:
-            day = date.fromisoformat(str(session.get("date", ""))[:10])
-        except ValueError:
-            continue
-        if today - timedelta(days=6) <= day <= today:
-            recent_dates.append(day)
-    return {
-        "status": "ok",
-        "as_of": datetime.utcnow().isoformat() + "Z",
-        "total_assignments": len(rows) + manual_done + dismissed,
-        "open": len(rows),
-        "completed": manual_done + dismissed,
-        "overdue": sum(1 for r in rows if r.due_date and r.due_date < today),
-        "avg_percent": None,
-        "study_sessions_7d": len(recent_dates),
-        "study_days_7d": len(set(recent_dates)),
+def _summarize_for_view(student_user_id: int, scopes: set[str] | None = None) -> dict:
+    """Keep each approved evidence source independent and mark unavailable data."""
+    scopes = set(SHARE_SCOPES) if scopes is None else scopes
+    today = date.today()
+    summary = {
+        "status": "ok", "as_of": datetime.utcnow().isoformat() + "Z",
+        "scopes": sorted(scopes), "work_status": "not_shared",
+        "study_status": "not_shared", "total_assignments": None,
+        "open": None, "completed": None, "overdue": None,
+        "avg_percent": None, "study_sessions_7d": None,
+        "study_days_7d": None, "upcoming": None,
+        "foundations": None,
         "study_source": "Sessions recorded by the student app; this does not verify time spent studying away from IntelliPlan.",
-        "foundations": _foundations_snapshot(student_user_id),
-        "upcoming": [
-            {
-                "title": r.title,
-                "course": r.course,
-                "due_date": r.due_date.isoformat() if r.due_date else None,
-            }
-            for r in upcoming
-        ][:10],
     }
+    if "work" in scopes:
+        try:
+            db = _db()
+            ManualTask = current_app.intelliplan_manual_task_model
+            DismissedAssignment = current_app.intelliplan_dismissed_assignment_model
+            repository = AssignmentRepository(
+                ManualTask, db.session, current_app.intelliplan_assignment_fetcher)
+            rows = repository.for_user(student_user_id, today)
+            manual_done = db.session.query(ManualTask).filter_by(
+                user_id=student_user_id, done=True).count()
+            dismissed_rows = db.session.query(DismissedAssignment).filter_by(
+                user_id=student_user_id).all()
+            normalize_title = current_app.intelliplan_norm_title
+            dismissed_titles = {normalize_title(row.title) for row in dismissed_rows}
+            rows = tuple(row for row in rows if row.source == "manual" or
+                         normalize_title(row.title) not in dismissed_titles)
+            dismissed = len(dismissed_rows)
+            upcoming = [r for r in rows if r.due_date is None or r.due_date >= today]
+            summary.update({
+                "work_status": "ok",
+                "total_assignments": len(rows) + manual_done + dismissed,
+                "open": len(rows), "completed": manual_done + dismissed,
+                "overdue": sum(1 for r in rows if r.due_date and r.due_date < today),
+                "upcoming": [{
+                    "title": r.title, "course": r.course,
+                    "due_date": r.due_date.isoformat() if r.due_date else None,
+                } for r in upcoming][:10],
+            })
+        except Exception as exc:
+            current_app.logger.exception("family work summary unavailable: %s", exc)
+            summary["work_status"] = "unavailable"
+    if "study" in scopes:
+        try:
+            StudyPoints = current_app.intelliplan_study_points_model
+            points = StudyPoints.query.filter_by(user_id=student_user_id).first()
+            history = json.loads(points.session_history or "[]") if points else []
+            if not isinstance(history, list):
+                history = []
+            recent_dates = []
+            for session in history:
+                if not isinstance(session, dict):
+                    continue
+                try:
+                    day = date.fromisoformat(str(session.get("date", ""))[:10])
+                except ValueError:
+                    continue
+                if today - timedelta(days=6) <= day <= today:
+                    recent_dates.append(day)
+            summary.update({
+                "study_status": "ok",
+                "study_sessions_7d": len(recent_dates),
+                "study_days_7d": len(set(recent_dates)),
+            })
+        except Exception as exc:
+            current_app.logger.exception("family study summary unavailable: %s", exc)
+            summary["study_status"] = "unavailable"
+    if "foundations" in scopes:
+        summary["foundations"] = _foundations_snapshot(student_user_id)
+    return summary
 
 
 def _foundations_snapshot(student_user_id: int) -> list[dict] | None:

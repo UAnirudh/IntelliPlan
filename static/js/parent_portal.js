@@ -52,27 +52,33 @@
   function setPrompt(summary) {
     const title = byId('familyPromptTitle');
     const body = byId('familyPrompt');
-    if (summary.overdue > 0) {
+    if (summary.work_status === 'ok' && summary.overdue > 0) {
       title.textContent = 'What is making this one hard?';
       body.textContent = 'An item is past due. Ask what got in the way, then help choose one manageable next step.';
-    } else if (summary.upcoming?.length) {
+    } else if (summary.work_status === 'ok' && summary.upcoming?.length) {
       title.textContent = 'What is the first step?';
       body.textContent = `“${summary.upcoming[0].title}” is coming up. Ask what would make starting it easier.`;
-    } else if (summary.study_days_7d > 0) {
+    } else if (summary.study_status === 'ok' && summary.study_days_7d > 0) {
       title.textContent = 'What worked this week?';
       body.textContent = 'There is recorded practice. Ask which approach helped and what they want to try next.';
     } else {
       title.textContent = 'Start with curiosity.';
-      body.textContent = 'No study session was recorded here this week. Ask what they are working on, without assuming they did not study.';
+      body.textContent = summary.study_status === 'ok'
+        ? 'No study session was recorded here this week. Ask what they are working on, without assuming they did not study.'
+        : 'Ask what they are working on and what kind of support would help.';
     }
   }
 
-  function renderUpcoming(items) {
+  function renderUpcoming(items, workStatus) {
     const host = byId('familyUpcomingList');
     host.replaceChildren();
-    if (!items?.length) {
+    if (workStatus !== 'ok' || !items?.length) {
       const row = document.createElement('li');
-      row.textContent = 'No upcoming assignments were found in the connected sources.';
+      row.textContent = workStatus === 'not_shared'
+        ? 'The student chose not to share assignments.'
+        : workStatus === 'unavailable'
+          ? 'Assignment data is temporarily unavailable. Recorded study can still appear above.'
+          : 'No upcoming assignments were found in this snapshot. Check the student app for the full plan.';
       host.append(row);
       return;
     }
@@ -94,13 +100,15 @@
     });
   }
 
-  function renderFoundations(items) {
+  function renderFoundations(items, shared) {
     const host = byId('familyFoundationsList');
     host.replaceChildren();
-    if (items === null || items === undefined) {
+    if (!shared || items === null || items === undefined) {
       const unavailable = document.createElement('p');
       unavailable.className = 'family-muted';
-      unavailable.textContent = 'Foundations practice is temporarily unavailable. Please check again later.';
+      unavailable.textContent = shared
+        ? 'Foundations practice is temporarily unavailable. Please check again later.'
+        : 'The student chose not to share Foundations practice.';
       host.append(unavailable);
       return;
     }
@@ -154,13 +162,20 @@
       if (summary.status !== 'ok') throw new Error('Their work summary is temporarily unavailable.');
       byId('familySelectedName').textContent = data.student.name;
       byId('familyAsOf').textContent = `Updated ${new Date(summary.as_of).toLocaleString()}`;
-      byId('familyStudyDays').textContent = summary.study_days_7d;
-      byId('familySessions').textContent = summary.study_sessions_7d;
-      byId('familyOpen').textContent = summary.open;
-      byId('familyOverdue').textContent = summary.overdue;
+      const metric = (value, sourceStatus) => sourceStatus === 'ok' ? value
+        : sourceStatus === 'not_shared' ? 'Private' : '—';
+      byId('familyStudyDays').textContent = metric(summary.study_days_7d, summary.study_status);
+      byId('familySessions').textContent = metric(summary.study_sessions_7d, summary.study_status);
+      byId('familyOpen').textContent = metric(summary.open, summary.work_status);
+      byId('familyOverdue').textContent = metric(summary.overdue, summary.work_status);
+      byId('familyTrust').textContent = summary.study_status === 'not_shared'
+        ? 'Recorded study is private at the student’s choice. Ask them directly how learning is going.'
+        : summary.study_status === 'unavailable'
+          ? 'Recorded study is temporarily unavailable. This does not say whether they studied.'
+          : 'A session is reported by the student app. It cannot confirm study away from IntelliPlan or how much help was needed. A blank week means no session was recorded here.';
       setPrompt(summary);
-      renderFoundations(summary.foundations);
-      renderUpcoming(summary.upcoming);
+      renderFoundations(summary.foundations, summary.scopes?.includes('foundations'));
+      renderUpcoming(summary.upcoming, summary.work_status);
       await loadNote(link.student_id);
       status('Student-approved summary.');
     } catch (error) { status(error.message); }

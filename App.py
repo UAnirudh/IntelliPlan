@@ -1816,6 +1816,9 @@ class StudentLink(db.Model):
     relationship = db.Column(db.String(16), default="teacher")  # teacher | parent
     invite_token = db.Column(db.String(64), nullable=True)
     accepted_at = db.Column(db.DateTime, nullable=True)
+    # Null preserves the full summary on links accepted before scoped sharing.
+    # New parent approvals store the student's explicit subset as JSON.
+    share_scopes_json = db.Column(db.String(128), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -20296,6 +20299,7 @@ def _migrate_user_columns():
         ("users", "marketing_emails_opt_in", "BOOLEAN DEFAULT FALSE"),
         ("users", "marketing_opt_in_at", "TIMESTAMP"),
         ("users", "role", "VARCHAR(16) DEFAULT 'student'"),
+        ("student_links", "share_scopes_json", "VARCHAR(128)"),
         # users — Active-study focus enforcement
         ("users", "focus_enforcement", "VARCHAR(16) DEFAULT 'off'"),
         ("users", "focus_alarm_file", "VARCHAR(255)"),

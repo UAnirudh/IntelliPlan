@@ -32,6 +32,7 @@ def family_app():
         relationship = db.Column(db.String(16))
         invite_token = db.Column(db.String(64))
         accepted_at = db.Column(db.DateTime)
+        share_scopes_json = db.Column(db.String(128))
         created_at = db.Column(db.DateTime)
 
     class Nudge(db.Model):
@@ -151,6 +152,54 @@ def test_encouragement_is_bounded_and_vanishes_after_revoke(family_app):
     assert parent.get(endpoint).get_json()['latest']['acknowledged_at']
     assert student.delete(f'/api/roles/links/{link_id}').status_code == 200
     assert parent.get(endpoint).status_code == 403
+
+
+def test_student_can_limit_and_change_parent_sharing(family_app):
+    parent, student, other = (signed_in(family_app, uid) for uid in (1, 2, 3))
+    link_id = parent.post('/api/roles/invite', json={
+        'student_email': 'college@example.edu'}).get_json()['link_id']
+    approval = f'/api/roles/links/{link_id}/accept'
+    scope_path = f'/api/roles/links/{link_id}/scopes'
+    assert student.post(approval, json={'scopes': []}).status_code == 400
+    assert student.post(approval, json={'scopes': ['private']}).status_code == 400
+    assert parent.get('/api/roles/student/2/overview').status_code == 403
+    assert student.post(approval, json={'scopes': ['study']}).status_code == 200
+    summary = parent.get('/api/roles/student/2/overview').get_json()['summary']
+    assert summary['scopes'] == ['study']
+    assert summary['study_days_7d'] == 1
+    assert summary['open'] is None and summary['upcoming'] is None
+    assert summary['foundations'] is None
+    assert summary['work_status'] == 'not_shared'
+    assert other.patch(scope_path, json={'scopes': ['work']}).status_code == 404
+    assert parent.patch(scope_path, json={'scopes': ['work']}).status_code == 404
+    assert student.patch(scope_path, json={'scopes': []}).status_code == 400
+    assert student.patch(scope_path, json={'scopes': ['work', 'foundations']}).status_code == 200
+    summary = parent.get('/api/roles/student/2/overview').get_json()['summary']
+    assert summary['open'] == 1
+    assert summary['foundations'][0]['answers_7d'] == 1
+    assert summary['study_days_7d'] is None
+    assert summary['study_status'] == 'not_shared'
+    assert student.get('/api/roles/my-links').get_json()['links'][0]['scopes'] == ['foundations', 'work']
+
+
+def test_work_failure_does_not_hide_recorded_study(family_app, monkeypatch):
+    import intelliplan.api.roles as roles
+
+    parent, student = signed_in(family_app, 1), signed_in(family_app, 2)
+    link_id = parent.post('/api/roles/invite', json={
+        'student_email': 'college@example.edu'}).get_json()['link_id']
+    assert student.post(f'/api/roles/links/{link_id}/accept').status_code == 200
+
+    def fail_work(*_args):
+        raise RuntimeError('upstream work unavailable')
+
+    monkeypatch.setattr(roles.AssignmentRepository, 'for_user', fail_work)
+    summary = parent.get('/api/roles/student/2/overview').get_json()['summary']
+    assert summary['status'] == 'ok'
+    assert summary['work_status'] == 'unavailable'
+    assert summary['open'] is None and summary['upcoming'] is None
+    assert summary['study_days_7d'] == 1
+    assert summary['foundations'][0]['answers_7d'] == 1
 
 
 def test_parent_hostname_has_own_entry_and_blocks_student_routes():
