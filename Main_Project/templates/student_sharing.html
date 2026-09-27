@@ -12,13 +12,14 @@
 .sharing-row{border:1px solid var(--border);background:var(--bg-elevated);border-radius:var(--r-md);padding:15px;display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap}
 .sharing-row strong,.sharing-row small{display:block}.sharing-row small{color:var(--text-muted);margin-top:4px}
 .sharing-actions{display:flex;gap:8px;flex-wrap:wrap}.sharing-actions button{min-height:42px;padding:8px 16px;border-radius:999px;cursor:pointer}
+.sharing-scopes{border:0;padding:0;margin:8px 0 0;display:flex;gap:12px;flex-wrap:wrap;width:100%}.sharing-scopes legend{font-weight:700;margin-bottom:7px}.sharing-scopes label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}.sharing-scopes input{width:18px;height:18px;accent-color:var(--accent)}
 .sharing-secondary{background:transparent;color:var(--text-primary);border:1px solid var(--border-strong)}
 .sharing-empty{padding:20px;border:1px dashed var(--border-strong);border-radius:var(--r-md)}
 </style>
 <main class="sharing-shell">
   <p class="sharing-kicker">YOU DECIDE WHAT IS SHARED</p>
   <h1>Linked accounts</h1>
-  <p>Accept a request to share a limited summary of open and completed work, due dates, overdue counts, recorded study-session counts, and Foundations practice totals and next skill. Your tutor chats, raw answers, notes, and personal profile remain private. You can remove an accepted link whenever you want. College students must opt in here before a parent can see any summary.</p>
+  <p>Choose whether a parent may see assignments, recorded study, and Foundations practice. Change these choices or remove the link whenever you want. Tutor chats, raw answers, notes, and your personal profile stay private. College students must opt in here before a parent can see anything.</p>
   <p id="sharingStatus" role="status" aria-live="polite">Loading requests…</p>
   <section class="sharing-panel" aria-labelledby="sharingPendingTitle">
     <h2 id="sharingPendingTitle">Requests waiting for you</h2>
