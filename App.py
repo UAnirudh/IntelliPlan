@@ -16707,6 +16707,22 @@ def admin_db_info():
     return _no_store(jsonify(info))
 
 
+def _admin_daily_active_users(now=None):
+    """Distinct signed-in accounts with consented events on a UTC day."""
+    # Only consented first-party product events enter this table. A distinct
+    # account counts once per UTC day, however many pages it opened.
+    today_utc = (now or datetime.utcnow()).date()
+    day_start = datetime.combine(today_utc, datetime.min.time())
+    day_end = day_start + timedelta(days=1)
+    return db.session.query(
+        db.func.count(db.func.distinct(ProductEvent.user_id))
+    ).filter(
+        ProductEvent.user_id.isnot(None),
+        ProductEvent.created_at >= day_start,
+        ProductEvent.created_at < day_end,
+    ).scalar()
+
+
 @app.route(ADMIN_PATH, methods=["GET"])
 @require_admin
 def admin_panel():
@@ -16717,11 +16733,16 @@ def admin_panel():
         user_count = User.query.count()
     except Exception:
         pass
+    try:
+        daily_active_users = _admin_daily_active_users()
+    except Exception:
+        daily_active_users = None
     return render_template(
         "admin.html",
         active_page="admin",
         flags=flags,
         user_count=user_count,
+        daily_active_users=daily_active_users,
         admin_email=(current_user.email if current_user.is_authenticated else ""),
     )
 
@@ -18685,6 +18706,36 @@ def admin_feedback_blast_preview():
         )
     except Exception as e:
         return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
+
+
+@app.route("/api/admin/thank-you/preview", methods=["GET"])
+@require_admin
+def admin_thank_you_preview():
+    from intelliplan.email import campaigns
+
+    try:
+        summary = campaigns.send_thank_you(dry_run=True)
+        return flask.jsonify({"status": "ok", "summary": summary})
+    except Exception as exc:
+        return flask.jsonify({"status": "error", "message": safe_error_message(exc)}), 500
+
+
+@app.route("/api/admin/thank-you/send", methods=["POST"])
+@require_admin
+def admin_thank_you_send():
+    from intelliplan.email import campaigns
+
+    body = request.get_json(silent=True) or {}
+    if body.get("confirm") is not True:
+        return flask.jsonify({"status": "error", "message": "confirm must be true"}), 400
+    try:
+        summary = campaigns.send_thank_you(dry_run=False)
+        if summary.get("error"):
+            return flask.jsonify({"status": "error", "summary": summary}), 400
+        return flask.jsonify({"status": "ok", "summary": summary})
+    except Exception as exc:
+        app.logger.exception("thank-you campaign failed: %s", exc)
+        return flask.jsonify({"status": "error", "message": safe_error_message(exc)}), 500
 
 
 @app.route("/api/admin/feedback-blast/send", methods=["POST"])

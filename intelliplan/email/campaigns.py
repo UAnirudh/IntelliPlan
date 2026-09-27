@@ -63,6 +63,11 @@ FEEDBACK_MAX_DAYS = FEEDBACK_MIN_DAYS + 1.5
 #: provider rate limits.
 BATCH_DELAY_SECONDS = 0.1
 
+THANK_YOU_KEY = "thank_you_feedback_2026_09"
+THANK_YOU_SUBJECT = "Thank you for using IntelliPlan"
+THANK_YOU_PREHEADER = "Tell us what would help and what needs fixing."
+THANK_YOU_REPLY_TO = "uanirudh0811@gmail.com"
+
 
 def _blank_summary() -> dict:
     return {"sent": 0, "skipped": 0, "failed": 0, "reasons": {}}
@@ -280,6 +285,66 @@ def newsletter_recipients(limit: int | None = None) -> list:
     query = User.query.filter(User.marketing_emails_opt_in.is_(True))
     eligible = [u for u in query.all() if is_marketing_eligible(u)[0]]
     return eligible[:limit] if limit else eligible
+
+
+def send_thank_you(dry_run: bool = True, batch_size: int = 25) -> dict:
+    """One-time founder note to consented accounts, in bounded batches.
+
+    The recipient list is recomputed for every batch so a late unsubscribe or
+    consent withdrawal takes effect before the next send. The send ledger
+    prevents a retry or two admin tabs from duplicating a delivered note.
+    """
+    from App import EmailSend
+    from . import preflight, templates
+
+    batch_size = max(1, min(int(batch_size), 25))
+    already = {
+        row.user_id for row in EmailSend.query.filter(
+            EmailSend.email_key == THANK_YOU_KEY,
+            EmailSend.status != "failed",
+        ).all()
+    }
+    candidates = [u for u in newsletter_recipients() if u.id not in already]
+    summary = {
+        "email_key": THANK_YOU_KEY,
+        "dry_run": bool(dry_run),
+        "recipients_remaining": len(candidates),
+        "batch_size": min(batch_size, len(candidates)),
+        **_blank_summary(),
+    }
+    if not templates.postal_address():
+        summary["error"] = "MARKETING_POSTAL_ADDRESS is unset."
+        return summary
+    if dry_run or not candidates:
+        return summary
+
+    checks = {c["name"]: c for c in preflight.check()["checks"]}
+    required = ("provider", "from_domain", "postal_address", "app_base_url")
+    blocked = [name for name in required if checks.get(name, {}).get("status") != "ok"]
+    if checks.get("from_address", {}).get("status") == "fail":
+        blocked.append("from_address")
+    if blocked:
+        summary["error"] = "Email preflight failed: " + ", ".join(blocked)
+        return summary
+
+    for user in candidates[:batch_size]:
+        try:
+            result = send_lifecycle_email(
+                user=user,
+                email_key=THANK_YOU_KEY,
+                template_name="thank_you",
+                subject=THANK_YOU_SUBJECT,
+                preheader=THANK_YOU_PREHEADER,
+                marketing=True,
+                reply_to_override=THANK_YOU_REPLY_TO,
+            )
+            _tally(summary, result)
+        except Exception:
+            logger.exception("thank-you campaign failed for user %s", user.id)
+            summary["failed"] += 1
+        time.sleep(BATCH_DELAY_SECONDS)
+    summary["more_batches"] = len(candidates) > batch_size
+    return summary
 
 
 def send_newsletter(

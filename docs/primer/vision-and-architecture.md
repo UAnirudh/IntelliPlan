@@ -6,6 +6,23 @@ IntelliPlan already connects plans, grades, study time, and an adult-facing tuto
 
 The ambition is a long relationship with the learner, but the current release is a carefully bounded chapter system. It does **not** deliver private-tutor quality, open-ended AI conversation with a child, original-writing evaluation, a reading-fluency assessment, or a validated measure of mastery.
 
+## The Primer standard and the product's distinct path
+
+The aspiration in *The Diamond Age* has six separate promises. Each needs its own evidence before IntelliPlan should claim it:
+
+| Promise | Current product | Next proof of quality |
+| --- | --- | --- |
+| A relationship that grows for years | Foundations retains story choices and skill attempts; Plani retains learner goals, session summaries, topic evidence, and recurring mistakes | A consented, editable learner model that transfers across grade changes without turning childhood into an immutable profile |
+| Stories shaped by the learner | Reviewed worlds branch on learner decisions and vary by grade; Plani may use interests supplied by the learner | Longer authored arcs and constrained generation using only approved interests, with a parent/educator review path for unsafe or incoherent output |
+| Reading, writing, and arithmetic | Every Foundations chapter practices all three; K-12 and college foundation item banks select by grade and observed attempts | Decodable reading, composition rubrics, richer math representations, alternate forms, and external expert review of each skill's content |
+| Reasoning, ethics, and character | Stories ask open questions without scoring moral choices; the tutor now chooses diagnostic, repair, or transfer questions from current subject evidence | Evaluate explanations and transfer without judging a learner's values; give multiple perspectives and leave moral agency with the learner |
+| A patient private tutor at scale | Server-graded practice, durable tutoring context, and a grade-aware teaching plan; no model call for every Foundations item | Blinded educator ratings of explanations, delayed learning checks, accessibility and child-safety review, and cost/latency budgets under load |
+| Teachers and parents become more effective | Parent app shows consented evidence and bounded notes; Foundations has a printable view | Teacher-owned course maps and intervention workflow, measured by actionable support and student learning rather than dashboard opens |
+
+The distinctive loop is a plan or real assignment leading to a small learning task, observed evidence selecting a next move, and a parent or teacher seeing an appropriate next action only with the student's permission. The student can change a Family sharing scope or revoke the link. For college, sharing always starts with student opt-in. Tutor conversations and raw answers are not exposed in Family.
+
+Plani's new turn planner is intentionally deterministic. It uses the student-selected grade for language and task scale, then uses attempts and confidence for a **diagnostic**, **repair**, or **transfer** move in the subject the student asked about. It does not infer ability from grade alone, and an unrelated stored topic cannot redirect the current conversation. Generated explanations are still subject to the tutor's safety checks; a model's prose never changes the server-graded Foundations record. The next release should test whether this planning policy improves delayed independent performance against the old prompt, not merely whether it sounds more personal.
+
 ## Product progression
 
 | Horizon | Learner experience | Intelligence and evidence | Adult and teacher role | Release gate |

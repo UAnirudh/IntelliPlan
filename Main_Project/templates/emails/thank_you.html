@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Thank you from IntelliPlan</title></head>
+<body style="margin:0;padding:24px;background:#f1f2fa;font-family:Arial,sans-serif;color:#1f2937;">
+  <div style="display:none;max-height:0;overflow:hidden;">{{ preheader }}</div>
+  <main style="max-width:560px;margin:auto;padding:30px;background:#fff;border:1px solid #dfe2f1;border-radius:16px;">
+    <p style="font-weight:700;color:#5146b8;">IntelliPlan</p>
+    <h1 style="font-size:25px;line-height:1.25;">Thank you for using IntelliPlan.</h1>
+    <p>Hi {{ user_name or 'there' }},</p>
+    <p>We are building IntelliPlan to make planning and learning more useful. Your experience helps us decide what to improve.</p>
+    <p>If you have a feature request or find a bug, please email <a href="mailto:uanirudh0811@gmail.com" style="color:#5146b8;">uanirudh0811@gmail.com</a>. A short description of what happened is enough. Please do not send passwords or private school records.</p>
+    <p>Thank you,<br>The IntelliPlan team</p>
+    <hr style="border:0;border-top:1px solid #e5e7eb;margin-top:28px;">
+    <p style="font-size:12px;color:#6b7280;line-height:1.6;">Sent by IntelliPlan. <a href="{{ unsubscribe_url }}">Unsubscribe</a> · <a href="{{ app_url }}/privacy">Privacy policy</a><br>{{ postal_address }}</p>
+  </main>
+</body>
+</html>

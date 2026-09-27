@@ -62,7 +62,18 @@
 <div class="admin-grid" style="margin-top:1.25rem;">
   <div class="admin-stat-row">
     <div class="admin-stat"><div class="admin-stat-num">{{ user_count }}</div><div class="admin-stat-label">Total users</div></div>
+    <div class="admin-stat"><div class="admin-stat-num">{{ daily_active_users if daily_active_users is not none else '—' }}</div><div class="admin-stat-label">Active users today (UTC)</div><div style="font-size:0.72rem;color:var(--text-muted);margin-top:5px;">Distinct signed-in accounts with consented activity. Excludes unconsented use and Foundations practice.</div></div>
     <div class="admin-stat"><div class="admin-stat-num">{{ flags|length }}</div><div class="admin-stat-label">Feature flags</div></div>
+  </div>
+
+  <div class="admin-section">
+    <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:0.75rem;">Thank-you email</div>
+    <p style="font-size:0.84rem;color:var(--text-secondary);margin-bottom:0.75rem;">One note asking for feature requests and bug reports at uanirudh0811@gmail.com. It goes only to accounts with dated marketing consent that pass the age and suppression checks. Each account receives it at most once.</p>
+    <div class="admin-actions">
+      <button class="btn-secondary" onclick="thankYouPreview()" style="padding:9px 16px;border:none;cursor:pointer;">Preview audience</button>
+      <button class="btn-primary" id="thankYouSendBtn" onclick="thankYouSend()" style="padding:9px 16px;border:none;cursor:pointer;">Send thank-you note</button>
+    </div>
+    <p id="thankYouStatus" role="status" aria-live="polite" style="font-size:0.82rem;color:var(--text-muted);margin-top:0.75rem;"></p>
   </div>
 
   <div class="admin-section">
@@ -152,6 +163,49 @@
 </div>
 
 <script>
+async function thankYouPreview() {
+  const out = document.getElementById('thankYouStatus');
+  out.textContent = 'Checking recipients…';
+  try {
+    const response = await fetch('/api/admin/thank-you/preview');
+    const data = await response.json();
+    if (data.status !== 'ok') throw new Error(data.message || 'Preview failed');
+    const summary = data.summary;
+    out.textContent = summary.error || `${summary.recipients_remaining} eligible account(s) remain. Up to ${summary.batch_size} will be sent per batch.`;
+  } catch (error) {
+    out.textContent = error.message || 'Preview failed';
+  }
+}
+
+async function thankYouSend() {
+  const out = document.getElementById('thankYouStatus');
+  const button = document.getElementById('thankYouSendBtn');
+  if (!await IP.confirm('Send the thank-you note to all currently eligible accounts?', {title:'Send thank-you email?', confirmLabel:'Send'})) return;
+  button.disabled = true;
+  let sent = 0;
+  try {
+    for (let batch = 0; batch < 1000; batch += 1) {
+      out.textContent = `Sending… ${sent} accepted by provider`;
+      const response = await fetch('/api/admin/thank-you/send', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({confirm:true})
+      });
+      const data = await response.json();
+      if (data.status !== 'ok') throw new Error(data.summary?.error || data.message || 'Send failed');
+      sent += data.summary.sent;
+      if (data.summary.failed) throw new Error(`${data.summary.failed} send(s) failed; ${sent} accepted. Check email diagnostics before retrying.`);
+      if (!data.summary.more_batches) {
+        out.textContent = `Done. ${sent} accepted by provider. Delivery may still take time.`;
+        return;
+      }
+    }
+    throw new Error('Stopped after 1000 batches. Review campaign state before continuing.');
+  } catch (error) {
+    out.textContent = error.message || 'Send failed';
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function smsAudienceChanged() {
   const v = document.getElementById('smsAudience').value;
   document.getElementById('specificEmailsWrap').style.display = v === 'specific' ? 'block' : 'none';

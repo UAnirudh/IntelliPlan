@@ -86,6 +86,48 @@ def newsletter_content(payload=None):
     return {k: full[k] for k in ("issue_label", "headline", "intro", "features", "tip")}
 
 
+def test_thank_you_campaign_is_consented_deduplicated_and_replies_to_founder(ctx, resend, monkeypatch):
+    from intelliplan.email import preflight
+
+    monkeypatch.setenv("MARKETING_POSTAL_ADDRESS", "1 Test Way, Testville")
+    user = make_user()
+    monkeypatch.setattr(campaigns, "newsletter_recipients", lambda: [user])
+    monkeypatch.setattr(preflight, "check", lambda: {"checks": [
+        {"name": name, "status": "ok"}
+        for name in ("provider", "from_domain", "postal_address", "app_base_url")
+    ]})
+
+    preview = campaigns.send_thank_you()
+    assert preview["recipients_remaining"] == 1
+    assert resend == []
+
+    result = campaigns.send_thank_you(dry_run=False)
+    assert result["sent"] == 1
+    assert resend[0]["reply_to"] == "uanirudh0811@gmail.com"
+    assert "uanirudh0811@gmail.com" in resend[0]["text"]
+    assert "List-Unsubscribe" in resend[0]["headers"]
+    assert "1 Test Way" in resend[0]["html"]
+    assert campaigns.send_thank_you(dry_run=False)["recipients_remaining"] == 0
+    assert len(resend) == 1
+
+
+def test_thank_you_blocks_an_unverified_sender(ctx, resend, monkeypatch):
+    from intelliplan.email import preflight
+
+    monkeypatch.setenv("MARKETING_POSTAL_ADDRESS", "1 Test Way, Testville")
+    user = make_user()
+    monkeypatch.setattr(campaigns, "newsletter_recipients", lambda: [user])
+    monkeypatch.setattr(preflight, "check", lambda: {"checks": [
+        {"name": "provider", "status": "ok"},
+        {"name": "from_domain", "status": "fail"},
+        {"name": "postal_address", "status": "ok"},
+        {"name": "app_base_url", "status": "ok"},
+    ]})
+    result = campaigns.send_thank_you(dry_run=False)
+    assert "from_domain" in result["error"]
+    assert resend == []
+
+
 # ── Backwards compatibility ─────────────────────────────────────────
 
 

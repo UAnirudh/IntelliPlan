@@ -74,25 +74,26 @@ def test_a_child_without_parental_consent_is_refused(ctx):
     assert reason == "under_13_no_parental_consent"
 
 
-def test_a_child_with_parental_consent_passes_the_age_gate(ctx):
-    """The other half of the COPPA branch. Verifiable parental consent is
-    exactly what the regulation asks for, so this must not be refused —
-    otherwise the consent flow is decorative."""
+def test_a_child_with_educational_parental_consent_is_still_refused_marketing(ctx):
+    """Educational account consent does not authorize a marketing campaign."""
     child = make_user(
         birth_year=datetime.utcnow().year - 9,
         parent_consent_granted=True,
     )
     ok, reason = eligibility.is_marketing_eligible(child)
-    assert ok is True, f"refused with {reason}"
+    assert ok is False
+    assert reason == "under_13_marketing_blocked"
 
 
-def test_a_twelve_year_old_is_under_the_gate_and_a_thirteen_year_old_is_not(ctx):
-    """Pins the boundary so an off-by-one in the age maths gets caught."""
+def test_birth_year_boundary_uses_youngest_possible_age(ctx):
+    """A birth year alone cannot prove the thirteenth birthday has passed."""
     year = datetime.utcnow().year
     twelve = make_user(birth_year=year - 12, parent_consent_granted=False)
-    thirteen = make_user(birth_year=year - 13, parent_consent_granted=False)
+    maybe_thirteen = make_user(birth_year=year - 13, parent_consent_granted=False)
+    definitely_thirteen = make_user(birth_year=year - 14, parent_consent_granted=False)
     assert eligibility.is_marketing_eligible(twelve)[0] is False
-    assert eligibility.is_marketing_eligible(thirteen)[0] is True
+    assert eligibility.is_marketing_eligible(maybe_thirteen)[0] is False
+    assert eligibility.is_marketing_eligible(definitely_thirteen)[0] is True
 
 
 # ── Consent ─────────────────────────────────────────────────────────

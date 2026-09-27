@@ -1082,7 +1082,7 @@ def _check_and_increment_tutor_limit():
     return True, limit - used - 1, limit
 
 
-def _prepare_adaptive_turn(modality_mode=None):
+def _prepare_adaptive_turn(modality_mode=None, student_message=''):
     """Load the adaptive student model for this turn.
 
     Returns None when the layer is unavailable (missing tables, DB trouble,
@@ -1091,7 +1091,7 @@ def _prepare_adaptive_turn(modality_mode=None):
     """
     try:
         from adaptive_tutor.engine import prepare_turn
-        return prepare_turn(modality_mode)
+        return prepare_turn(modality_mode, student_message)
     except Exception as e:
         print(f'[adaptive-tutor] prepare failed: {e}')
         return None
@@ -1174,7 +1174,8 @@ def tutor():
         # mistake patterns, durable learner memory, and modality routing ported
         # from the adaptive-ai-tutor architecture. Failure here degrades to the
         # legacy heuristic memory rather than breaking the reply.
-        adaptive_turn = _prepare_adaptive_turn(data.get('modality_mode'))
+        latest_question = next((m.get('content', '') for m in reversed(messages) if m.get('role') == 'user'), '')
+        adaptive_turn = _prepare_adaptive_turn(data.get('modality_mode'), latest_question)
 
         system_messages = [
             {'role': 'system', 'content': TUTOR_SYSTEM_PROMPT},

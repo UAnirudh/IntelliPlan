@@ -1,0 +1,14 @@
+Hi {{ user_name or 'there' }},
+
+Thank you for using IntelliPlan. We are building it to make planning and learning more useful, and your experience helps us decide what to improve.
+
+If you have a feature request, please email uanirudh0811@gmail.com. If you find a bug, please email that address too. A short description of what happened is enough; please do not send passwords or private school records.
+
+Thank you,
+The IntelliPlan team
+
+Reply to: {{ reply_to }}
+Unsubscribe: {{ unsubscribe_url }}
+Privacy policy: {{ app_url }}/privacy
+
+{{ postal_address }}

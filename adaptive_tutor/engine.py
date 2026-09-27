@@ -45,7 +45,7 @@ def resolve_weights(context: dict[str, Any]) -> modality_lib.ModalityWeights:
     return modality_lib.normalize_weights(stored)
 
 
-def prepare_turn(mode_override: str | None = None) -> dict[str, Any]:
+def prepare_turn(mode_override: str | None = None, student_message: str = '') -> dict[str, Any]:
     """Load the student model and build this turn's adaptive system message."""
     context = store.get_student_context()
     profile = context['profile']
@@ -57,10 +57,13 @@ def prepare_turn(mode_override: str | None = None) -> dict[str, Any]:
     weights = resolve_weights(context)
     active = modality_lib.get_active_modalities(mode, weights)
 
+    subject, _ = split_subject(student_message)
+
     prompt = build_adaptive_prompt(
         context,
         use_voice=active['use_voice'],
         use_artifacts=active['use_artifacts'],
+        focus_subject=subject,
     )
 
     return {

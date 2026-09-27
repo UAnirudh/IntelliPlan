@@ -209,6 +209,54 @@ def events():
     return ProductEvent.query.all()
 
 
+def test_admin_daily_users_counts_distinct_consented_accounts_in_utc_day(client):
+    now = datetime(2026, 9, 27, 12, 0)
+    with App.app.app_context():
+        first = make_user()
+        second = make_user()
+        db.session.add_all([
+            ProductEvent(actor=f"u:{first}", user_id=first, kind="view", rule="/dashboard", created_at=now),
+            ProductEvent(actor=f"u:{first}", user_id=first, kind="action", rule="/plan", created_at=now),
+            ProductEvent(actor=f"u:{second}", user_id=second, kind="view", rule="/dashboard", created_at=now - timedelta(days=1)),
+            ProductEvent(actor="v:guest", user_id=None, kind="view", rule="/", created_at=now),
+        ])
+        db.session.commit()
+        assert App._admin_daily_active_users(now) == 1
+
+
+def test_admin_dashboard_displays_scoped_daily_count(client, monkeypatch):
+    with App.app.app_context():
+        uid = make_user()
+        email = db.session.get(User, uid).email
+        db.session.add(ProductEvent(actor=f"u:{uid}", user_id=uid, kind="view",
+                                    rule="/dashboard", created_at=datetime.utcnow()))
+        db.session.commit()
+    monkeypatch.setattr(App, "ADMIN_EMAILS", {email.lower()})
+    sign_in(client, uid)
+    response = client.get(App.ADMIN_PATH)
+    assert response.status_code == 200
+    assert b"Active users today (UTC)" in response.data
+    assert b"Distinct signed-in accounts with consented activity" in response.data
+
+
+def test_thank_you_send_requires_admin_and_explicit_request(client, monkeypatch):
+    from intelliplan.email import campaigns
+
+    with App.app.app_context():
+        uid = make_user()
+        email = db.session.get(User, uid).email
+    sent = []
+    monkeypatch.setattr(campaigns, "send_thank_you", lambda dry_run=True: sent.append(dry_run) or {"sent": 1})
+    sign_in(client, uid)
+    assert client.post("/api/admin/thank-you/send", json={"confirm": True}).status_code == 404
+    assert sent == []
+    monkeypatch.setattr(App, "ADMIN_EMAILS", {email.lower()})
+    assert client.post("/api/admin/thank-you/send", json={}).status_code == 400
+    assert sent == []
+    assert client.post("/api/admin/thank-you/send", json={"confirm": True}).status_code == 200
+    assert sent == [False]
+
+
 def test_nothing_is_recorded_before_the_visitor_is_asked(client):
     client.get("/pricing")
     with App.app.app_context():
