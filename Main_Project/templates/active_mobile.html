@@ -60,6 +60,87 @@
 }
 .ipa-empty p { margin: 0 auto 1.5rem; font-size: var(--fs-sm); max-width: 34ch; }
 
+/* ── Ad-hoc session ──────────────────────────────────────────
+   Left-aligned inside a centred card: a form reads as a form, and
+   centred labels over centred fields are harder to scan. Every control
+   is full-width because on a phone there is only one column anyway. */
+.ipa-adhoc {
+  margin: 0 auto;
+  padding: 1.1rem 1rem 1.25rem;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+.ipa-adhoc[hidden] { display: none; }
+.ipa-adhoc-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-md, 1.05rem); font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 .9rem;
+}
+.ipa-adhoc-label {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: var(--fs-xs, .78rem); font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: .4rem;
+}
+.ipa-adhoc-input {
+  width: 100%;
+  min-height: 48px;
+  padding: .7rem .85rem;
+  margin-bottom: 1rem;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  /* >=16px, or iOS zooms the whole page in on focus. */
+  font-size: 1rem;
+}
+.ipa-adhoc-input:focus-visible,
+.ipa-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Two per row rather than a wrapping flex line: four chips of unequal
+   width wrap into a ragged 3+1 on a narrow screen. */
+.ipa-adhoc-durations {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: .5rem;
+  margin-bottom: 1rem;
+}
+.ipa-chip {
+  min-height: 48px;
+  padding: 0 .75rem;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm); font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform var(--dur-micro, 120ms) ease, background var(--dur-micro, 120ms) ease;
+}
+.ipa-chip:active { transform: scale(0.97); }
+/* Selection carried by fill AND border weight, not colour alone, so it
+   survives a colour-blind or high-contrast reading. */
+.ipa-chip.is-selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.ipa-adhoc-error {
+  margin: 0 0 .75rem;
+  font-size: var(--fs-xs, .78rem);
+  color: var(--high, #c2455e);
+}
+.ipa-adhoc-error[hidden] { display: none; }
+.ipa-adhoc-actions { display: flex; flex-direction: column; gap: .5rem; }
+.ipa-adhoc-actions .ipa-btn { width: 100%; }
+
 /* ── Card ── */
 .ipa-card {
   background: var(--bg-card);
@@ -338,7 +419,35 @@
   <section class="ipa-empty" id="ipaEmpty">
     <h1>Active</h1>
     <p id="ipaEmptyMsg">Loading your next session…</p>
-    <a class="ipa-btn ipa-btn--primary" href="/scheduler" id="ipaEmptyCta" hidden>Build a schedule</a>
+
+    {# Without this form the phone layout dead-ended at "Build a schedule":
+       Active was the one page you could not use until you had generated a
+       plan somewhere else first. Sitting down to study for twenty minutes
+       is not a thing that should require a schedule. The desktop template
+       has carried this form for a while; the phone never got it.
+       Same ids, so ip-active.js drives it here unchanged. #}
+    <form class="ipa-adhoc" id="ipaAdhoc" hidden onsubmit="return false;">
+      <h2 class="ipa-adhoc-title">Start a session now</h2>
+      <label class="ipa-adhoc-label" for="ipaAdhocTitle">What are you working on?</label>
+      <input class="ipa-adhoc-input" id="ipaAdhocTitle" type="text" maxlength="120"
+             placeholder="e.g. Biology reading, Chapter 4"
+             autocomplete="off" oninput="IPActive.adhocValidate()">
+
+      <span class="ipa-adhoc-label" id="ipaAdhocDurationLabel">How long?</span>
+      <div class="ipa-adhoc-durations" role="group" aria-labelledby="ipaAdhocDurationLabel">
+        <button type="button" class="ipa-chip" data-minutes="15" onclick="IPActive.adhocPick(this)">15 min</button>
+        <button type="button" class="ipa-chip is-selected" data-minutes="25" aria-pressed="true" onclick="IPActive.adhocPick(this)">25 min</button>
+        <button type="button" class="ipa-chip" data-minutes="45" onclick="IPActive.adhocPick(this)">45 min</button>
+        <button type="button" class="ipa-chip" data-minutes="60" onclick="IPActive.adhocPick(this)">60 min</button>
+      </div>
+
+      <p class="ipa-adhoc-error" id="ipaAdhocError" role="alert" hidden></p>
+      <div class="ipa-adhoc-actions">
+        <button type="button" class="ipa-btn ipa-btn--primary" id="ipaAdhocStart"
+                onclick="IPActive.adhocStart()" disabled>Start session</button>
+        <a class="ipa-btn" href="/scheduler" id="ipaEmptyCta" hidden>Build a schedule</a>
+      </div>
+    </form>
   </section>
 
   <section class="ipa-card" id="ipaCard" hidden aria-live="polite">
