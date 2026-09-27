@@ -351,7 +351,7 @@ async function submitQuickTask() {
 
   if (btn) { btn.textContent = "…"; btn.disabled = true; }
   try {
-    const res  = await fetch(BASE_URL + "/api/tasks/quick-add", {
+    const res  = await fetch(BASE_URL + "/extension/task/add", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Extension-Token": authToken },
       body: JSON.stringify({ title })
