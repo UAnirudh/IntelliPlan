@@ -1,6 +1,7 @@
 """Exercise the schoolwork consent boundary and the actual tutor prompt path."""
 
 from types import SimpleNamespace
+from datetime import datetime
 
 import pytest
 
@@ -32,11 +33,12 @@ def _wipe():
     db.session.commit()
 
 
-def _sign_in(client, *, consent):
+def _sign_in(client, *, consent, birth_year='older_student'):
     with App.app.app_context():
         user = User(email='tam+student@example.com',
                     password_hash=bcrypt.generate_password_hash('study-password').decode())
         user.ai_personalization_opt_in = consent
+        user.birth_year = datetime.utcnow().year - 16 if birth_year == 'older_student' else birth_year
         db.session.add(user)
         db.session.commit()
         account = LinkedAccount(user_id=user.id, login_type='canvas', is_active=True)
@@ -65,6 +67,29 @@ def test_assignment_list_requires_signed_in_consent_and_own_canvas(client, monke
     assert result.status_code == 200
     assert result.json['assignments'][0]['id'] == '8'
     assert calls == [('https://school.instructure.com', 'student-token')]
+
+
+def test_schoolwork_waits_for_age_and_under_13_parent_consent(client, monkeypatch):
+    calls = []
+    monkeypatch.setattr(assignment_materials, 'list_assignments',
+                        lambda *args: calls.append(args) or [])
+    _sign_in(client, consent=True, birth_year=None)
+    response = client.get('/api/tutor/assignments')
+    assert response.status_code == 403
+    assert response.json['age_check_url'].startswith('/account/age')
+    assert calls == []
+    with App.app.app_context():
+        user = User.query.filter_by(email='tam+student@example.com').first()
+        user.birth_year = datetime.utcnow().year - 10
+        db.session.commit()
+    assert client.get('/api/tutor/assignments').status_code == 403
+    assert calls == []
+    with App.app.app_context():
+        user = User.query.filter_by(email='tam+student@example.com').first()
+        user.parent_consent_granted = True
+        db.session.commit()
+    assert client.get('/api/tutor/assignments').status_code == 200
+    assert len(calls) == 1
 
 
 def test_selected_assignment_reaches_tutor_without_entering_saved_messages(client, monkeypatch):

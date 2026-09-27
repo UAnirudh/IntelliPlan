@@ -1083,6 +1083,13 @@ async function loadTutorAssignments() {
   try {
     const response = await fetch('/api/tutor/assignments');
     const data = await response.json();
+    if (data.age_check_url) {
+      const link = document.createElement('a');
+      link.href = '/account/age?next=/tutor';
+      link.textContent = 'Complete age check to study school work';
+      status.replaceChildren(link);
+      return;
+    }
     if (!response.ok) throw new Error(data.error || 'Assignments are unavailable.');
     select.replaceChildren(new Option('Choose an assignment', ''));
     for (const item of data.assignments || []) {

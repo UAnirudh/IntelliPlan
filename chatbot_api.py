@@ -1108,14 +1108,29 @@ def _record_adaptive_turn(adaptive_turn, history, user_message, reply):
         print(f'[adaptive-tutor] record failed: {e}')
 
 
+def _schoolwork_access_error():
+    """Require an established age and the existing AI and parent consent gates."""
+    from App import _ai_personalization_enabled
+    if not current_user.is_authenticated:
+        return jsonify({'error': 'Sign in to connect school assignments.'}), 401
+    birth_year = getattr(current_user, 'birth_year', None)
+    if birth_year is None:
+        return jsonify({'error': 'Complete the age check before studying school work.',
+                        'age_check_url': '/account/age?next=/tutor'}), 403
+    if datetime.utcnow().year - int(birth_year) < 13 and not getattr(current_user, 'parent_consent_granted', False):
+        return jsonify({'error': 'A parent must approve this account before school work can be used.'}), 403
+    if not _ai_personalization_enabled():
+        return jsonify({'error': 'Enable AI personalization in Settings to use school work.'}), 403
+    return None
+
+
 @chatbot_bp.route('/api/tutor/assignments', methods=['GET'])
 def tutor_assignments():
     """Offer the signed-in student's current Canvas work for an explicit choice."""
-    from App import _ai_personalization_enabled, get_active_account
-    if not current_user.is_authenticated:
-        return jsonify({'error': 'Sign in to connect school assignments.'}), 401
-    if not _ai_personalization_enabled():
-        return jsonify({'error': 'Enable AI personalization in Settings to use school work.'}), 403
+    from App import get_active_account
+    access_error = _schoolwork_access_error()
+    if access_error:
+        return access_error
     account = get_active_account()
     if not account or account.get('login_type') != 'canvas' or not account.get('canvas_token'):
         return jsonify({'error': 'Connect Canvas to study an assignment.'}), 409
@@ -1187,9 +1202,10 @@ def tutor():
         assignment_context = None
         assignment_ref = data.get('assignment_ref')
         if assignment_ref is not None:
-            from App import _ai_personalization_enabled, get_active_account
-            if not current_user.is_authenticated or not _ai_personalization_enabled():
-                return jsonify({'error': 'Enable AI personalization in Settings before studying school work.'}), 403
+            from App import get_active_account
+            access_error = _schoolwork_access_error()
+            if access_error:
+                return access_error
             account = get_active_account()
             if not account or account.get('login_type') != 'canvas' or not account.get('canvas_token'):
                 return jsonify({'error': 'Connect Canvas before studying this assignment.'}), 409
@@ -1560,9 +1576,10 @@ def tutor_vision():
 
         assignment_context = None
         if data.get('assignment_ref') is not None:
-            from App import _ai_personalization_enabled, get_active_account
-            if not current_user.is_authenticated or not _ai_personalization_enabled():
-                return jsonify({'error': 'Enable AI personalization in Settings before studying school work.'}), 403
+            from App import get_active_account
+            access_error = _schoolwork_access_error()
+            if access_error:
+                return access_error
             account = get_active_account()
             if not account or account.get('login_type') != 'canvas' or not account.get('canvas_token'):
                 return jsonify({'error': 'Connect Canvas before studying this assignment.'}), 409
