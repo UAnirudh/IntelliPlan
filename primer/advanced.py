@@ -65,6 +65,9 @@ def advanced_item_for_skill(skill_id: str, index: int) -> Item:
         prompt, answer, options, hint, explanation = _reading(skill.grade, slot, index)
     else:
         prompt, answer, options, hint, explanation = _writing(skill.grade, slot, index)
+    if options:
+        offset = (index * 7 + skill.grade + slot + len(skill.domain)) % len(options)
+        options = options[offset:] + options[:offset]
     return Item(f'v2{skill_id}-{index:04d}', skill_id, prompt, answer,
                 options, hint, explanation)
 

@@ -455,6 +455,7 @@ def test_high_school_and_college_items_are_stable_and_gradeable():
     assert {skill.grade for skill in ADVANCED_SKILLS} == {9, 10, 11, 12, 13}
     for skill in ADVANCED_SKILLS:
         prompts = set()
+        answer_positions = set()
         assert advanced_item_count(skill.id) == 1000
         for index in range(1000):
             item = advanced_item_for_skill(skill.id, index)
@@ -462,9 +463,13 @@ def test_high_school_and_college_items_are_stable_and_gradeable():
             assert item.answer and item.hint and item.explanation
             assert item.answer in item.options if item.options else True
             assert len(item.options) == len(set(item.options))
+            if item.options:
+                answer_positions.add(item.options.index(item.answer))
             assert grade_item(item, item.answer)[0], item.id
             prompts.add(item.prompt)
         assert len(prompts) == 1000, skill.id
+        if answer_positions:
+            assert answer_positions == set(range(3)), skill.id
     assert get_item('v2g14m0-0000') is None
     assert get_item('v2g13m0-1000') is None
 
