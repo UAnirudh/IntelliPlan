@@ -32,9 +32,64 @@ import requests as http_requests
 DEFAULT_CANVAS_BASE = os.getenv("CANVAS_DEFAULT_BASE", "https://canvas.instructure.com")
 DEFAULT_REDIRECT_URI = "https://intelliplan.tech/oauth/canvas/callback"
 
+#: The read-only Canvas endpoints IntelliPlan actually calls. A Developer Key
+#: with "Enforce Scopes" turned off ignores these, but a key with it turned on
+#: rejects the whole authorization unless every endpoint we later call was
+#: named here at authorize time. School Canvas admins routinely enforce scopes
+#: before approving a third-party key, so asking for exactly this list is what
+#: makes a school-hosted instance work at all.
+#:
+#: Keep this in sync with canvas_helper.py: an endpoint called but not listed
+#: fails at request time with a 401 that looks like an expired token.
+DEFAULT_SCOPES = (
+    "url:GET|/api/v1/courses",
+    "url:GET|/api/v1/courses/:course_id/assignments",
+    "url:GET|/api/v1/courses/:course_id/enrollments",
+    "url:GET|/api/v1/users/:user_id/enrollments",
+    "url:GET|/api/v1/users/:user_id/courses",
+    "url:GET|/api/v1/courses/:course_id/students/submissions",
+    "url:GET|/api/v1/courses/:course_id/assignment_groups",
+    "url:GET|/api/v1/users/self/upcoming_events",
+)
+
 
 def _redirect_uri(redirect_uri=None):
     return redirect_uri or os.getenv("CANVAS_REDIRECT_URI") or DEFAULT_REDIRECT_URI
+
+
+def configured_scopes():
+    """The scopes to request, as a tuple. Empty means "send no scope param".
+
+    Scoping is opt-in, and deliberately so. Canvas rejects an authorization
+    that names scopes when the Developer Key has "Enforce Scopes" turned off,
+    so sending our list by default would break every unscoped key that works
+    today. The admin who turns enforcement on is the one who knows, so they
+    are the one who says so:
+
+        CANVAS_SCOPES unset      -> no scope param (unscoped key, the default)
+        CANVAS_SCOPES=default    -> the DEFAULT_SCOPES list above
+        CANVAS_SCOPES=<list>     -> exactly that list, space- or comma-separated
+
+    Anything set on a per-host basis (``CANVAS_SCOPES_CANVAS_SCHOOL_EDU``)
+    wins for that host, because enforcement is a per-instance decision: one
+    school can enforce scopes while the public Canvas does not.
+    """
+    return _scopes_for(None)
+
+
+def _scopes_for(canvas_base):
+    suffix = _host_key_suffix(canvas_base) if canvas_base else None
+    raw = None
+    if suffix:
+        raw = os.getenv(f"CANVAS_SCOPES_{suffix}")
+    if raw is None:
+        raw = os.getenv("CANVAS_SCOPES")
+    if raw is None:
+        return ()
+    if raw.strip().lower() in ("default", "auto", "1", "true", "yes", "on"):
+        return tuple(DEFAULT_SCOPES)
+    parts = [p.strip() for p in raw.replace(",", " ").split() if p.strip()]
+    return tuple(parts)
 
 
 def _host_key_suffix(canvas_base):
@@ -106,6 +161,10 @@ def get_canvas_auth_url(state, canvas_base=None, redirect_uri=None, scopes=None)
         "state": state,
         "purpose": "IntelliPlan study planner",
     }
+    # An explicit argument wins; otherwise fall back to what this host is
+    # configured for, which is nothing unless an admin opted into scoping.
+    if scopes is None:
+        scopes = _scopes_for(base)
     if scopes:
         params["scope"] = " ".join(scopes)
     return f"{base}/login/oauth2/auth?{urllib.parse.urlencode(params)}"
