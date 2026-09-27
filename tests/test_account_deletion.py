@@ -239,6 +239,7 @@ def test_deleting_an_account_removes_the_user_and_their_rows(ctx):
     assert app_module.db.session.execute(select(primer_store.PARENT_SETTING).where(primer_store.PARENT_SETTING.c.learner_id == primer_learner['id'])).first() is None
     assert app_module.db.session.execute(select(primer_store.OFFLINE_CHECKIN).where(primer_store.OFFLINE_CHECKIN.c.learner_id == primer_learner['id'])).first() is None
     assert app_module.db.session.execute(select(primer_store.NUDGE).where(primer_store.NUDGE.c.learner_id == primer_learner['id'])).first() is None
+    assert app_module.db.session.execute(select(primer_store.PROFILE).where(primer_store.PROFILE.c.learner_id == primer_learner['id'])).first() is None
 
 
 def test_foundations_family_page_is_private_and_renders(ctx):

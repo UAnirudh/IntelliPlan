@@ -21,7 +21,7 @@
 
   async function recoverStale(error, learnerId) {
     if (![409, 410].includes(error.status) || !state.current || state.current.id !== learnerId) return false;
-    await Promise.all([loadActivity(learnerId), loadProgress(learnerId)]);
+    await loadActivity(learnerId);
     status('This chapter changed or expired. The current step is ready.');
     return true;
   }
@@ -46,40 +46,10 @@
     });
   }
 
-  function renderProgress(data) {
-    $('primerPrintName').textContent = data.learner.nickname;
-    $('primerAttemptCount').textContent = `${data.total_attempts} ${data.total_attempts === 1 ? 'answer' : 'answers'}`;
-    $('primerFocus').hidden = !data.focus;
-    if (data.focus) {
-      $('primerFocusSkill').textContent = `${data.focus.domain} / ${data.focus.skill}`;
-      $('primerFocusReason').textContent = data.focus.reason;
-      $('primerFocusActivity').textContent = data.focus.try_together;
-    }
-    const host = $('primerSkillMap');
-    host.replaceChildren();
-    data.skills.forEach((skill) => {
-      const row = document.createElement('div');
-      row.className = 'primer-skill-row';
-      row.dataset.locked = String(!skill.unlocked);
-      const title = document.createElement('strong');
-      title.textContent = skill.title;
-      const label = document.createElement('span');
-      label.textContent = skill.unlocked ? skill.label : 'Later skill';
-      const detail = document.createElement('small');
-      detail.textContent = skill.unlocked
-        ? `${skill.domain} · ${skill.attempts} ${skill.attempts === 1 ? 'try' : 'tries'} · ${skill.independent_correct} correct without an in-app clue`
-        : `${skill.domain} · build the previous skill first`;
-      row.append(title, label, detail);
-      host.appendChild(row);
-    });
-    const story = data.story;
-    $('primerAdultNote').hidden = !story || !story.conversation;
-    $('primerConversation').textContent = story && story.conversation ? story.conversation : '';
-  }
-
   function renderStory(data) {
     const story = data.story;
     $('primerWorldLabel').textContent = data.world_name;
+    $('primerGradeLabel').textContent = data.learner.grade === 0 ? 'Kindergarten' : `Grade ${data.learner.grade}`;
     $('primerActivityTitle').textContent = story.title;
     $('primerScene').hidden = false;
     $('primerStoryScene').textContent = story.scene;
@@ -173,7 +143,7 @@
       input.maxLength = 200;
       input.required = true;
       input.autocomplete = 'off';
-      input.setAttribute('aria-label', 'Type your sentence');
+      input.setAttribute('aria-label', data.skill.domain === 'Arithmetic' ? 'Type your number or fraction' : 'Type your answer');
       host.appendChild(input);
     }
   }
@@ -189,7 +159,7 @@
         method: 'POST', body: JSON.stringify({ token: state.activity.token, choice }),
       });
       if (state.current && state.current.id === learnerId) {
-        await Promise.all([loadActivity(learnerId), loadProgress(learnerId)]);
+        await loadActivity(learnerId);
         status('');
       }
     } catch (error) {
@@ -203,11 +173,6 @@
   async function loadActivity(learnerId) {
     const data = await api(`/api/primer/learners/${learnerId}/activity`);
     if (state.current && state.current.id === learnerId) renderActivity(data);
-  }
-
-  async function loadProgress(learnerId) {
-    const data = await api(`/api/primer/learners/${learnerId}/progress`);
-    if (state.current && state.current.id === learnerId) renderProgress(data);
   }
 
   async function refreshFamilyNote() {
@@ -229,7 +194,7 @@
     $('primerCard').hidden = true;
     status('Loading the next activity…');
     try {
-      await Promise.all([loadProgress(learner.id), loadActivity(learner.id)]);
+      await loadActivity(learner.id);
       status('');
     } catch (error) { status(error.message); }
   }
@@ -243,7 +208,8 @@
     try {
       const data = await api('/api/primer/learners', {
         method: 'POST',
-        body: JSON.stringify({ nickname: $('primerNickname').value.trim(), world: $('primerWorld').value }),
+        body: JSON.stringify({ nickname: $('primerNickname').value.trim(), world: $('primerWorld').value,
+          grade: Number($('primerGrade').value) }),
       });
       state.learners.push(data.learner);
       $('primerCreate').reset();
@@ -272,7 +238,6 @@
       $('primerAnswer').hidden = true;
       $('primerNext').hidden = false;
       $('primerNext').firstChild.textContent = result.retry ? 'Try another clue ' : 'Continue story ';
-      await loadProgress(learnerId);
       $('primerNext').focus();
     } catch (error) {
       try {
@@ -335,7 +300,7 @@
     try {
       await api(`/api/primer/learners/${learnerId}/journey/restart`, { method: 'POST' });
       if (state.current && state.current.id === learnerId) {
-        await Promise.all([loadActivity(learnerId), loadProgress(learnerId)]);
+        await loadActivity(learnerId);
         status('');
       }
     } catch (error) {
@@ -346,23 +311,6 @@
     finally { $('primerRestart').disabled = false; state.busy = false; }
   });
   $('primerAdd').addEventListener('click', () => { status(''); showStart(true); });
-  $('primerPrint').addEventListener('click', () => window.print());
-  $('primerDelete').addEventListener('click', async () => {
-    if (!state.current || state.busy) return;
-    const learner = state.current;
-    if (!window.confirm(`Remove ${learner.nickname} and all Foundations progress from this account?`)) return;
-    state.busy = true;
-    try {
-      await api(`/api/primer/learners/${learner.id}`, { method: 'DELETE' });
-      state.learners = state.learners.filter((row) => row.id !== learner.id);
-      state.current = null;
-      state.activity = null;
-      if (state.learners.length) await selectLearner(state.learners[0]);
-      else { showStart(true); status('Learner and progress removed.'); }
-    } catch (error) { status(error.message); }
-    finally { state.busy = false; }
-  });
-
   window.setInterval(refreshFamilyNote, 60000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshFamilyNote(); });
 

@@ -113,6 +113,88 @@ STORIES = {
 }
 CHAPTER_COUNT = 4
 
+# The same choice IDs keep journey history stable if an adult changes grade.
+ADVANCED_STORIES = {
+    'forest': (
+        Chapter('The missing trail',
+                'A once-used trail is hidden beneath fallen leaves. At a fork, a fox has seen travelers turn back. The group needs evidence before choosing a route.',
+                'Which source should guide the first step?',
+                (Choice('ask', 'Interview the fox', 'The fox recalls a stream beyond the eastern trees.'),
+                 Choice('look', 'Inspect the ground', 'Footprints continue beneath the leaves toward a stream.')),
+                'What might each source know, and how could the group check it?'),
+        Chapter('The stream crossing',
+                'The route reaches a stream used by more than one traveler. A note on the far bank suggests a crossing, but its author is unknown.',
+                'Which crossing plan can the group defend?',
+                (Choice('bridge', 'Build a shared bridge', 'The group builds a crossing that others can use afterward.'),
+                 Choice('stones', 'Mark the stable stones', 'A marked route helps later travelers cross with care.')),
+                'Who might be affected by the crossing after the group leaves?'),
+        Chapter('The garden gate',
+                'At the end of the trail, a gate is jammed. The gardener can see the latch from the other side, while several travelers offer to help.',
+                'How should the group handle the gate?',
+                (Choice('listen', 'Ask the gardener about the latch', 'The gardener identifies the safe release before anyone moves the gate.'),
+                 Choice('help', 'Coordinate the helpers', 'The helpers steady the gate while one person releases the latch.')),
+                'Which information would make the plan safer?'),
+        Chapter('A path for tomorrow',
+                'The route is open again. New travelers will need a way to navigate it even after the landmarks change.',
+                'Which guide should the group leave behind?',
+                (Choice('map', 'Publish a route map', 'A map records the route and its important landmarks.'),
+                 Choice('sign', 'Place signs at decisions', 'Signs help travelers decide at each fork.')),
+                'How would the group test whether its guide works for a first-time traveler?'),
+    ),
+    'space': (
+        Chapter('The quiet signal',
+                'A faint transmission reaches the station from an unlisted planet. It repeats in a pattern, then stops. The crew has limited time to decide what to investigate.',
+                'Which lead should the crew examine first?',
+                (Choice('listen', 'Analyze the signal pattern', 'A repeated interval gives the crew a clue about its source.'),
+                 Choice('search', 'Check the star chart', 'An overlooked planet appears near the chart boundary.')),
+                'What evidence would distinguish a message from random noise?'),
+        Chapter('The drifting lantern',
+                'A navigation beacon has drifted from another ship. The crew can recover it directly or help the ship locate it.',
+                'Which response should the crew try?',
+                (Choice('retrieve', 'Recover the beacon', 'The beacon returns to the ship before its next departure.'),
+                 Choice('guide', 'Transmit its coordinates', 'The other crew uses the coordinates to retrieve the beacon.')),
+                'How could the crew compare the risks of the two plans?'),
+        Chapter('The planet library',
+                'The signal leads to an archive maintained for future explorers. The archive asks visitors to contribute something verifiable.',
+                'What should the crew contribute?',
+                (Choice('clue', 'Document the signal evidence', 'The archive keeps the evidence with its source.'),
+                 Choice('plan', 'Document the response plan', 'The archive keeps the plan and the reasoning behind it.')),
+                'What would make this record useful to someone who was not here?'),
+        Chapter('A message home',
+                'Before leaving, the crew can send one short report to the station. It should help the next team make a better decision.',
+                'Which report is most useful?',
+                (Choice('question', 'Send a testable question', 'The next team begins with a clear investigation.'),
+                 Choice('discovery', 'Send a supported finding', 'The next team can build on the recorded evidence.')),
+                'How can a report separate an observation from an inference?'),
+    ),
+    'ocean': (
+        Chapter('The fading reef',
+                'Survey notes show a reef losing color. A turtle has noticed changes in the current, but the team needs more than one observation.',
+                'Which evidence should the team gather first?',
+                (Choice('ask', 'Interview the turtle', 'The turtle describes when the current first changed.'),
+                 Choice('observe', 'Measure the water flow', 'The team records a new direction in the current.')),
+                'How could the team test whether the current caused the change?'),
+        Chapter('The new current',
+                'The current carries pieces of the garden away. Nearby creatures propose different ways to protect it.',
+                'Which trial should the team run?',
+                (Choice('shelter', 'Test a sheltered area', 'The plants have a calmer place to grow.'),
+                 Choice('route', 'Test a gentler water route', 'The current shifts away from the most fragile plants.')),
+                'What measurement would show whether the trial helped?'),
+        Chapter('The visiting whale',
+                'A whale arrives from beyond the reef with observations from a wider area. The team can compare those observations with its own.',
+                'How should the team use the new perspective?',
+                (Choice('explain', 'Share the local observations', 'The whale adds a comparison from another reef.'),
+                 Choice('invite', 'Survey together', 'The joint survey finds an area that still needs attention.')),
+                'When can an outside observation strengthen or challenge a hypothesis?'),
+        Chapter('A garden for everyone',
+                'The reef is changing slowly. The next team will need a practical way to continue monitoring it.',
+                'What should the team leave behind?',
+                (Choice('guide', 'Write a monitoring guide', 'The next team has repeatable steps.'),
+                 Choice('markers', 'Mark the survey locations', 'The next team can compare the same places over time.')),
+                'What should the team record now to make a later comparison fair?'),
+    ),
+}
+
 BEAT_CUES = {
     'forest': (
         ('The fox has a word clue at the fork in the trail.', 'Practice making a clear message for the next traveler.', 'Count carefully before choosing what to carry.'),
@@ -135,8 +217,9 @@ BEAT_CUES = {
 }
 
 
-def view(world: str, chapter_index: int, beat: int, path: list[str], repair: bool = False) -> dict:
-    chapters = STORIES[world]
+def view(world: str, chapter_index: int, beat: int, path: list[str], repair: bool = False,
+         grade: int = 0) -> dict:
+    chapters = ADVANCED_STORIES[world] if grade >= 4 else STORIES[world]
     history = []
     for index, choice_id in enumerate(path[:len(chapters)]):
         choice = next((entry for entry in chapters[index].choices if entry.id == choice_id), None)
@@ -168,9 +251,11 @@ def view(world: str, chapter_index: int, beat: int, path: list[str], repair: boo
     }
     if beat < len(BEATS):
         result['repair'] = repair
-        result['beat_title'] = 'Try another clue' if repair else BEATS[beat][1]
+        advanced_titles = ('Examine the evidence', 'Make the idea clear', 'Work through the numbers')
+        result['beat_title'] = 'Try another example' if repair and grade >= 4 else 'Try another clue' if repair else advanced_titles[beat] if grade >= 4 else BEATS[beat][1]
         result['beat_intro'] = ('The last clue was tricky. Try a different example of the same skill.'
-                                if repair else BEAT_CUES[world][chapter_index][beat])
+                                if repair else ('Use the next activity to test your thinking about this chapter.'
+                                                if grade >= 4 else BEAT_CUES[world][chapter_index][beat]))
     else:
         result['question'] = chapter.question
         result['choices'] = [{'id': choice.id, 'label': choice.label} for choice in chapter.choices]

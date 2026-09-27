@@ -28,6 +28,20 @@
       <span class="parent-definition">Practice day = an answered activity or a family check-in.</span>
     </div>
 
+    <section class="parent-card parent-profile" aria-labelledby="parentProfileTitle">
+      <p class="primer-eyebrow">LEARNING PROFILE</p>
+      <h2 id="parentProfileTitle">Choose the starting grade.</h2>
+      <p class="parent-copy">Foundations starts with the selected grade, revisits a prior level after repeated misses, and keeps practice history when you change it. This setting is not a test result.</p>
+      <p id="parentLegacyGrade" class="parent-evidence-note" hidden>This learner was created before grade placement was available. Kindergarten is the current starting level; choose their grade below.</p>
+      <form id="parentGradeForm" class="parent-form parent-grade-form">
+        <label for="parentGrade">Current school grade</label>
+        <div class="parent-inline"><select id="parentGrade" name="grade">
+          <option value="0">Kindergarten</option>
+          {% for grade in range(1, 9) %}<option value="{{ grade }}">Grade {{ grade }}</option>{% endfor %}
+        </select><button class="primer-secondary" type="submit">Save grade</button></div>
+      </form>
+    </section>
+
     <section class="parent-overview" aria-labelledby="parentOverviewTitle">
       <div class="parent-section-head">
         <div><p class="primer-eyebrow">THE PAST SEVEN DAYS</p><h2 id="parentOverviewTitle">Practice at a glance</h2></div>
@@ -48,6 +62,7 @@
         <h2 id="parentNextTitle">A small step, chosen from practice.</h2>
         <p id="parentFocusReason" class="parent-copy"></p>
         <div class="parent-focus"><strong id="parentFocusSkill"></strong><p id="parentFocusActivity"></p></div>
+        <p id="parentScaffold" class="parent-evidence-note" hidden></p>
         <h3>Where the answers went</h3>
         <div id="parentDomains" class="parent-domains"></div>
         <p class="parent-evidence-note">These are practice signals, not a grade, diagnosis, or measure of time on task.</p>
@@ -89,6 +104,16 @@
           <button class="primer-primary" type="submit">Place note in the story <span aria-hidden="true">→</span></button>
         </form>
         <p class="parent-evidence-note">Only one active note can wait at a time, with at least a day between notes. “Marked seen” means someone pressed the button in the learner view; it cannot verify who read the note.</p>
+      </section>
+      <section class="parent-card parent-skill-card" aria-labelledby="parentSkillTitle">
+        <p class="primer-eyebrow">SKILL MAP</p>
+        <h2 id="parentSkillTitle">What the answers are showing.</h2>
+        <p class="parent-copy">Labels require repeated answers without an in-app clue. Adult help is not measured; these are practice signals, not a grade or diagnosis.</p>
+        <div id="parentSkillMap" class="primer-skill-map"></div>
+        <div class="primer-progress__actions">
+          <button type="button" class="primer-secondary" id="parentPrint">Print progress note</button>
+          <button type="button" class="primer-text-btn" id="parentDelete">Remove learner and progress</button>
+        </div>
       </section>
     </div>
   </div>

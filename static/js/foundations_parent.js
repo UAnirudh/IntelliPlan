@@ -103,8 +103,35 @@
     }
   }
 
-  function render(data) {
+  function renderSkillMap(data) {
+    const host = $('parentSkillMap');
+    host.replaceChildren();
+    data.skills.forEach((skill) => {
+      const row = document.createElement('div');
+      row.className = 'primer-skill-row';
+      row.dataset.locked = String(!skill.unlocked);
+      const title = document.createElement('strong');
+      title.textContent = `${skill.domain} / ${skill.title}`;
+      const label = document.createElement('span');
+      label.textContent = skill.unlocked ? skill.label : 'Later skill';
+      const detail = document.createElement('small');
+      detail.textContent = skill.unlocked
+        ? `${skill.attempts} ${skill.attempts === 1 ? 'try' : 'tries'} · ${skill.independent_correct} correct without an in-app clue`
+        : 'Build the previous skill first';
+      row.append(title, label, detail);
+      host.append(row);
+    });
+  }
+
+  function render(data, progress) {
     state.overview = data;
+    $('parentGrade').value = String(data.learner.grade);
+    $('parentLegacyGrade').hidden = data.learner.grade_set;
+    renderSkillMap(progress);
+    const bridges = Object.entries(progress.scaffolding || {}).filter(([, needed]) => needed).map(([domain]) => domain);
+    $('parentScaffold').hidden = bridges.length === 0;
+    $('parentScaffold').textContent = bridges.length
+      ? `A brief prior-grade bridge is ready in ${bridges.join(', ')} after repeated misses. The story returns to the selected grade afterward.` : '';
     $('parentPracticeDays').textContent = data.practice_days;
     $('parentAnswerCount').textContent = data.total_answers;
     $('parentGoalProgress').textContent = `${data.practice_days} / ${data.weekly_goal}`;
@@ -131,8 +158,11 @@
   async function refresh() {
     const learner = state.current;
     if (!learner) return;
-    const data = await api(`/api/primer/learners/${learner.id}/parent?tz_offset_minutes=${offset()}`);
-    if (state.current?.id === learner.id) render(data);
+    const [data, progress] = await Promise.all([
+      api(`/api/primer/learners/${learner.id}/parent?tz_offset_minutes=${offset()}`),
+      api(`/api/primer/learners/${learner.id}/progress`),
+    ]);
+    if (state.current?.id === learner.id) render(data, progress);
   }
 
   async function selectLearner(learner) {
@@ -161,6 +191,23 @@
       method: 'PUT', body: JSON.stringify({ weekly_goal: Number($('parentGoal').value) }),
     }, 'Goal saved. It can change whenever your family needs it.');
   });
+  $('parentGradeForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (state.busy || !state.current) return;
+    state.busy = true;
+    const learner = state.current;
+    status('Saving grade…');
+    try {
+      const result = await api(`/api/primer/learners/${learner.id}/grade`, {
+        method: 'PUT', body: JSON.stringify({ grade: Number($('parentGrade').value) }),
+      });
+      state.learners = state.learners.map((row) => row.id === learner.id ? result.learner : row);
+      if (state.current?.id === learner.id) state.current = result.learner;
+      await refresh();
+      status('Grade saved. The next activity will use this starting level.');
+    } catch (error) { status(error.message); }
+    finally { state.busy = false; }
+  });
   $('parentCheckinForm').addEventListener('submit', (event) => {
     event.preventDefault();
     mutate(`/api/primer/learners/${state.current.id}/parent/check-in`, {
@@ -178,6 +225,24 @@
       method: 'DELETE', body: JSON.stringify({ id }),
     }, 'Note withdrawn from the learner story.');
   }
+
+  $('parentPrint').addEventListener('click', () => window.print());
+  $('parentDelete').addEventListener('click', async () => {
+    if (state.busy || !state.current) return;
+    const learner = state.current;
+    if (!window.confirm(`Remove ${learner.nickname} and all Foundations progress from this account?`)) return;
+    state.busy = true;
+    try {
+      await api(`/api/primer/learners/${learner.id}`, { method: 'DELETE' });
+      state.learners = state.learners.filter((row) => row.id !== learner.id);
+      state.current = null;
+      $('parentEmpty').hidden = Boolean(state.learners.length);
+      $('parentWorkspace').hidden = !state.learners.length;
+      if (state.learners.length) await selectLearner(state.learners[0]);
+      else status('Learner and progress removed.');
+    } catch (error) { status(error.message); }
+    finally { state.busy = false; }
+  });
 
   api('/api/primer/learners').then((data) => {
     state.learners = data.learners || [];

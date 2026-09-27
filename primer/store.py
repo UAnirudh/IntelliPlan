@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 
 from db_boot import schema_lock
 from primer.catalog import ITEMS_BY_SKILL, SKILLS, SKILL_BY_ID
+from primer.generated import generated_item_count, item_for_skill
 from primer.story import CHAPTER_COUNT
 from time_utils import utcnow
 
@@ -24,6 +25,23 @@ HOME_PRACTICE = {
     'math_add': 'Make two small groups of objects. Put them together and count the total.',
     'math_story': 'Tell a short adding story with objects. Ask what the numbers mean before finding the total.',
 }
+GRADE_HOME_PRACTICE = (
+    {
+        'Reading': 'Read a short account aloud. Ask which words name what happened and what happened next.',
+        'Writing': 'Say one complete sentence together, then check its first letter and ending mark.',
+        'Arithmetic': 'Use small objects to show each number before working out the answer.',
+    },
+    {
+        'Reading': 'Read a paragraph together and point to the detail that supports each answer.',
+        'Writing': 'Write a sentence, read it aloud, and revise its punctuation or word choice.',
+        'Arithmetic': 'Sketch or estimate the quantities first, then explain each step of the calculation.',
+    },
+    {
+        'Reading': 'Discuss a claim in a short text. Ask which exact detail supports it and what might be missing.',
+        'Writing': 'Write a claim and one supporting reason, then revise the connection between them.',
+        'Arithmetic': 'Represent the relationship with a table, expression, or graph before solving.',
+    },
+)
 
 
 _META = MetaData()
@@ -34,6 +52,12 @@ LEARNER = Table(
     Column('nickname', String(40), nullable=False),
     Column('world', String(16), nullable=False),
     Column('created_at', DateTime, nullable=False),
+)
+PROFILE = Table(
+    'primer_learning_profile', _META,
+    Column('learner_id', Integer, ForeignKey('primer_learner.id'), primary_key=True),
+    Column('grade', Integer, nullable=False),
+    Column('updated_at', DateTime, nullable=False),
 )
 STATE = Table(
     'primer_skill_state', _META,
@@ -129,14 +153,18 @@ def ensure_tables():
 
 def list_learners(owner_id: int) -> list[dict]:
     ensure_tables()
-    rows = _db().session.execute(select(LEARNER).where(LEARNER.c.owner_id == owner_id).order_by(LEARNER.c.id)).mappings().all()
-    return [dict(row) for row in rows]
+    rows = _db().session.execute(select(LEARNER, PROFILE.c.grade).select_from(
+        LEARNER.outerjoin(PROFILE, LEARNER.c.id == PROFILE.c.learner_id)
+    ).where(LEARNER.c.owner_id == owner_id).order_by(LEARNER.c.id)).mappings().all()
+    return [{**dict(row), 'grade': row['grade'] if row['grade'] is not None else 0,
+             'grade_set': row['grade'] is not None} for row in rows]
 
 
-def create_learner(owner_id: int, nickname: str, world: str) -> dict:
+def create_learner(owner_id: int, nickname: str, world: str, grade: int = 0) -> dict:
     ensure_tables()
     db = _db()
     result = db.session.execute(LEARNER.insert().values(owner_id=owner_id, nickname=nickname, world=world, created_at=utcnow()))
+    db.session.execute(PROFILE.insert().values(learner_id=result.inserted_primary_key[0], grade=grade, updated_at=utcnow()))
     db.session.execute(JOURNEY.insert().values(learner_id=result.inserted_primary_key[0], chapter=0,
                                                beat=0, path='[]', version=0, updated_at=utcnow()))
     db.session.commit()
@@ -145,8 +173,28 @@ def create_learner(owner_id: int, nickname: str, world: str) -> dict:
 
 def get_learner(owner_id: int, learner_id: int) -> dict | None:
     ensure_tables()
-    row = _db().session.execute(select(LEARNER).where(LEARNER.c.owner_id == owner_id, LEARNER.c.id == learner_id)).mappings().first()
-    return dict(row) if row else None
+    row = _db().session.execute(select(LEARNER, PROFILE.c.grade).select_from(
+        LEARNER.outerjoin(PROFILE, LEARNER.c.id == PROFILE.c.learner_id)
+    ).where(LEARNER.c.owner_id == owner_id, LEARNER.c.id == learner_id)).mappings().first()
+    return ({**dict(row), 'grade': row['grade'] if row['grade'] is not None else 0,
+             'grade_set': row['grade'] is not None} if row else None)
+
+
+def set_grade(owner_id: int, learner_id: int, grade: int) -> dict | None:
+    """Change placement and invalidate outstanding story challenges atomically."""
+    learner = get_learner(owner_id, learner_id)
+    if not learner:
+        return None
+    db = _db()
+    db.session.execute(select(LEARNER.c.id).where(LEARNER.c.id == learner_id).with_for_update()).scalar()
+    updated = db.session.execute(PROFILE.update().where(PROFILE.c.learner_id == learner_id)
+                                 .values(grade=grade, updated_at=utcnow()))
+    if updated.rowcount == 0:
+        db.session.execute(PROFILE.insert().values(learner_id=learner_id, grade=grade, updated_at=utcnow()))
+    db.session.execute(JOURNEY.update().where(JOURNEY.c.learner_id == learner_id)
+                       .values(version=JOURNEY.c.version + 1, repair_skill_id=None, updated_at=utcnow()))
+    db.session.commit()
+    return get_learner(owner_id, learner_id)
 
 
 def delete_learner(owner_id: int, learner_id: int) -> bool:
@@ -160,12 +208,13 @@ def delete_learner(owner_id: int, learner_id: int) -> bool:
     db.session.execute(delete(NUDGE).where(NUDGE.c.learner_id == learner_id))
     db.session.execute(delete(OFFLINE_CHECKIN).where(OFFLINE_CHECKIN.c.learner_id == learner_id))
     db.session.execute(delete(PARENT_SETTING).where(PARENT_SETTING.c.learner_id == learner_id))
+    db.session.execute(delete(PROFILE).where(PROFILE.c.learner_id == learner_id))
     db.session.execute(delete(LEARNER).where(LEARNER.c.id == learner_id, LEARNER.c.owner_id == owner_id))
     db.session.commit()
     return True
 
 
-def parent_overview(learner_id: int, tz_offset_minutes: int = 0) -> dict:
+def parent_overview(learner_id: int, tz_offset_minutes: int = 0, grade: int = 0) -> dict:
     """Summarize observed and adult-reported practice in the viewer's local days."""
     ensure_tables()
     db = _db()
@@ -206,7 +255,7 @@ def parent_overview(learner_id: int, tz_offset_minutes: int = 0) -> dict:
             ATTEMPT.c.learner_id == learner_id, ATTEMPT.c.created_at > latest['_created_at']).limit(1)).scalar()
         latest['practice_after'] = bool(practiced_after)
         latest.pop('_created_at')
-    evidence = progress(learner_id)
+    evidence = progress(learner_id, grade)
     journey = journey_for(learner_id)
     if journey['beat'] == 3 and journey['chapter'] < CHAPTER_COUNT:
         suggested_nudge = 'choose'
@@ -351,22 +400,47 @@ def reveal_hint(learner_id: int, nonce: str, expected_version: int) -> None:
         db.session.rollback()
 
 
-def choose_story_activity(learner_id: int, domain: str, repair_skill_id: str | None = None) -> tuple[str, object]:
+def _grade_skills(grade: int, domain: str | None = None):
+    return [skill for skill in SKILLS if skill.grade == grade and (domain is None or skill.domain == domain)]
+
+
+def _needs_scaffold(grade: int, domain: str, states: dict[str, dict]) -> bool:
+    if grade == 0:
+        return False
+    current = _grade_skills(grade, domain)
+    misses = sum(states.get(skill.id, {}).get('attempts', 0) -
+                 states.get(skill.id, {}).get('correct', 0) for skill in current)
+    independent = sum(states.get(skill.id, {}).get('independent_correct', 0) for skill in current)
+    prior_attempts = sum(states.get(skill.id, {}).get('attempts', 0)
+                         for skill in _grade_skills(grade - 1, domain))
+    return misses >= 2 and independent == 0 and prior_attempts < misses // 2
+
+
+def choose_story_activity(learner_id: int, domain: str, repair_skill_id: str | None = None,
+                          grade: int = 0) -> tuple[str, object]:
     """Pick a due skill in the chapter's domain, preferring weak evidence."""
     states = states_for(learner_id)
     now = utcnow()
-    candidates = [skill for skill in SKILLS if skill.domain == domain and _unlocked(skill.id, states)]
+    band = grade - 1 if _needs_scaffold(grade, domain, states) else grade
+    candidates = [skill for skill in _grade_skills(band, domain) if _unlocked(skill.id, states)]
 
     def rank(skill):
         state = states.get(skill.id)
         due = not state or not state['due_at'] or state['due_at'] <= now
-        return (0 if due else 1, 0 if state and state['streak'] == 0 else 1,
+        foundation = (skill.id in ITEMS_BY_SKILL and
+                      states.get(skill.id, {}).get('independent_correct', 0) < 2)
+        return (0 if grade == 0 and foundation else 1,
+                0 if due else 1, 0 if state and state['streak'] == 0 else 1,
                 0 if not state else 1, state['estimate'] if state else 0.5, SKILLS.index(skill))
 
     skill = SKILL_BY_ID[repair_skill_id] if repair_skill_id else min(candidates, key=rank)
     attempts = states.get(skill.id, {}).get('attempts', 0)
-    items = ITEMS_BY_SKILL[skill.id]
-    return skill.id, items[attempts % len(items)]
+    if skill.id in ITEMS_BY_SKILL:
+        items = ITEMS_BY_SKILL[skill.id]
+        return skill.id, items[attempts % len(items)]
+    count = generated_item_count(skill.id)
+    index = (attempts * 761 + learner_id * 131) % count
+    return skill.id, item_for_skill(skill.id, index)
 
 
 def choose_story_path(learner_id: int, expected_version: int, choice_id: str) -> dict:
@@ -488,11 +562,11 @@ def record_attempt(learner_id: int, skill_id: str, item_id: str, nonce: str, cor
         raise
 
 
-def progress(learner_id: int) -> dict:
+def progress(learner_id: int, grade: int = 0) -> dict:
     states = states_for(learner_id)
     now = utcnow()
     skills = []
-    for skill in SKILLS:
+    for skill in _grade_skills(grade):
         state = states.get(skill.id, {})
         attempts = state.get('attempts', 0)
         successes = state.get('correct', 0)
@@ -506,7 +580,7 @@ def progress(learner_id: int) -> dict:
             label = 'Growing'
         else:
             label = 'Practicing'
-        skills.append(dict(id=skill.id, domain=skill.domain, title=skill.title,
+        skills.append(dict(id=skill.id, domain=skill.domain, title=skill.title, grade=skill.grade,
                            unlocked=_unlocked(skill.id, states), attempts=attempts,
                            correct=successes, independent_correct=independent_correct,
                            estimate=estimate, label=label,
@@ -526,6 +600,11 @@ def progress(learner_id: int) -> dict:
         reason = 'The most recent answer missed this skill, so a gentle revisit may help.'
     else:
         reason = 'This skill is ready for another short review.'
-    return {'skills': skills, 'total_attempts': sum(row['attempts'] for row in states.values()),
+    band = 0 if grade <= 2 else 1 if grade <= 5 else 2
+    try_together = HOME_PRACTICE.get(focus['id']) or GRADE_HOME_PRACTICE[band][focus['domain']]
+    return {'skills': skills, 'grade': grade,
+            'scaffolding': {domain: _needs_scaffold(grade, domain, states)
+                            for domain in ('Reading', 'Writing', 'Arithmetic')},
+            'total_attempts': sum(row['attempts'] for row in states.values()),
             'focus': {'skill': focus['title'], 'domain': focus['domain'], 'reason': reason,
-                      'try_together': HOME_PRACTICE[focus['id']]}}
+                      'try_together': try_together}}

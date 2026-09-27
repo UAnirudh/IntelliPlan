@@ -25,7 +25,7 @@
 .primer-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
 .primer-learner-list { display:flex; gap:8px; flex-wrap:wrap; }.primer-learner { border:1px solid var(--border-strong); background:var(--bg-card); color:var(--text-secondary); border-radius:999px; padding:9px 15px; font:600 .83rem var(--font-ui,inherit); cursor:pointer; }
 .primer-learner[aria-current="true"] { color:var(--accent); background:var(--accent-soft); border-color:var(--accent); }
-.primer-grid { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(300px,.9fr); gap:17px; align-items:start; }
+.primer-grid { display:block; max-width:940px; }
 .primer-activity,.primer-progress { background:var(--bg-card); border:1px solid var(--border); border-radius:17px; padding:clamp(20px,2.5vw,32px); min-width:0; }
 .primer-activity { min-height:500px; }.primer-section-top { display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:.73rem; color:var(--text-muted); }
 .primer-family-note { border:1px solid var(--accent); border-radius:13px; background:var(--accent-soft); padding:17px; margin-bottom:23px; }
@@ -77,4 +77,4 @@
 [hidden] { display:none !important; }
 @media(max-width:900px){.primer-grid{grid-template-columns:1fr}.primer-activity{min-height:0}.primer-heading{align-items:start;flex-direction:column}}
 @media(max-width:600px){.primer-shell{padding-top:22px}.primer-start{grid-template-columns:1fr}.primer-start__story{min-height:120px;flex-direction:row}.primer-start__story span{width:62px;font-size:1rem}.primer-start__story span:nth-child(2),.primer-start__story span:nth-child(3){transform:none}.primer-toolbar{align-items:start;flex-direction:column}.primer-choices,.primer-story-choice__options{grid-template-columns:1fr}.primer-heading h1{font-size:2.2rem}.primer-chapter-marker{font-size:.59rem}}
-@media print { .app-side,.primer-heading,.primer-toolbar,.primer-activity,.primer-progress__actions,.primer-footnote,.ip-tabbar {display:none!important}.primer-shell{padding:0}.primer-grid{display:block}.primer-progress{border:0;padding:0}.primer-status{display:none}.primer-print-title{display:block;font-size:1rem;font-weight:700;margin:0 0 20px} }
+@media print { .app-side,.primer-heading,.primer-toolbar,.primer-footnote,.ip-tabbar {display:none!important}.primer-shell{padding:0}.primer-status{display:none} }
