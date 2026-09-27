@@ -44,6 +44,8 @@ DEFAULT_REDIRECT_URI = "https://intelliplan.tech/oauth/canvas/callback"
 DEFAULT_SCOPES = (
     "url:GET|/api/v1/courses",
     "url:GET|/api/v1/courses/:course_id/assignments",
+    "url:GET|/api/v1/courses/:course_id/assignments/:id",
+    "url:GET|/api/v1/files/:id",
     "url:GET|/api/v1/courses/:course_id/enrollments",
     "url:GET|/api/v1/users/:user_id/enrollments",
     "url:GET|/api/v1/users/:user_id/courses",

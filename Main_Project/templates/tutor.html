@@ -352,6 +352,20 @@ main {
   pointer-events: none; /* let the fade not block scroll, inner re-enables */
 }
 .tutor-input-wrap > * { pointer-events: auto; }
+.tutor-assignment-bar {
+  max-width: 820px; margin: 0 auto 8px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 0.75rem; color: var(--text-secondary);
+}
+.tutor-assignment-bar button, .tutor-assignment-bar select {
+  border: 1px solid var(--glass-border); border-radius: 9px;
+  background: var(--glass-bg); color: var(--text-primary);
+  font: inherit; padding: 6px 9px;
+}
+.tutor-assignment-bar button { cursor: pointer; }
+.tutor-assignment-bar select { max-width: min(100%, 440px); }
+.tutor-assignment-bar button:hover { border-color: var(--accent); }
+.tutor-assignment-bar a { color: var(--accent); }
 .tutor-input-inner {
   max-width: 820px; margin: 0 auto;
   background: var(--glass-highlight), var(--glass-bg);
@@ -837,6 +851,13 @@ main {
 
     <!-- ════ INPUT BAR (floating, anchored to .tutor-main) ════ -->
     <div class="tutor-input-wrap">
+      <div class="tutor-assignment-bar">
+        <button type="button" id="tutorAssignmentButton" onclick="loadTutorAssignments()" aria-controls="tutorAssignmentSelect">Study a Canvas assignment</button>
+        <select id="tutorAssignmentSelect" aria-label="Choose a Canvas assignment" onchange="selectTutorAssignment()" hidden>
+          <option value="">Choose an assignment</option>
+        </select>
+        <span id="tutorAssignmentStatus" role="status" aria-live="polite"></span>
+      </div>
       <div id="tutorImgPreview" class="tutor-img-preview" style="display:none;">
         {# Transparent 1x1 placeholder rather than src="" or no src at all:
            an empty src makes some browsers re-request the current document,
@@ -1050,6 +1071,55 @@ let isProcessing     = false;
 let chatStarted      = false;
 let conversationId   = null;
 let conversationList = [];
+let selectedAssignment = null;
+
+async function loadTutorAssignments() {
+  const button = document.getElementById('tutorAssignmentButton');
+  const select = document.getElementById('tutorAssignmentSelect');
+  const status = document.getElementById('tutorAssignmentStatus');
+  clearTutorAssignment();
+  button.disabled = true;
+  status.textContent = 'Loading your Canvas work…';
+  try {
+    const response = await fetch('/api/tutor/assignments');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Assignments are unavailable.');
+    select.replaceChildren(new Option('Choose an assignment', ''));
+    for (const item of data.assignments || []) {
+      const label = `${item.course || 'Course'} · ${item.title}${item.due_date ? ' · due ' + item.due_date : ''}`;
+      select.add(new Option(label, JSON.stringify({ course_id: item.course_id, assignment_id: item.id })));
+    }
+    select.hidden = false;
+    status.textContent = data.assignments.length
+      ? 'Choose one to use its directions and readable attachments in tutoring.'
+      : 'No current Canvas assignments found.';
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function selectTutorAssignment() {
+  const select = document.getElementById('tutorAssignmentSelect');
+  const status = document.getElementById('tutorAssignmentStatus');
+  selectedAssignment = select.value ? JSON.parse(select.value) : null;
+  status.textContent = selectedAssignment
+    ? 'Selected assignment and readable attachments will be shared with the AI tutor when you send a message.'
+    : 'Assignment removed from tutor context.';
+  const input = document.getElementById('tutorInput');
+  if (selectedAssignment && !input.value.trim()) {
+    input.value = 'Help me understand this assignment. What should I learn first? Ask me one question to find where I should start.';
+    autoResizeTutor(input);
+    input.focus();
+  }
+}
+
+function clearTutorAssignment() {
+  selectedAssignment = null;
+  document.getElementById('tutorAssignmentSelect').value = '';
+  document.getElementById('tutorAssignmentStatus').textContent = '';
+}
 
 /* Adaptive student model — the mode Plani answers in, and the modality
    weights it has detected from how this student actually learns. */
@@ -1113,6 +1183,7 @@ async function loadConversation(id) {
     const res = await fetch(`/api/tutor/conversations/${id}`);
     if (!res.ok) return;
     const data = await res.json();
+    if (id !== conversationId) clearTutorAssignment();
     conversationId = data.id;
     tutorHistory = (data.messages || [])
       .filter(m => (m.role === 'user' || m.role === 'assistant') && m.content)
@@ -1142,6 +1213,7 @@ async function deleteConversation(id) {
     conversationList = conversationList.filter(c => c.id !== id);
     if (conversationId === id) {
       conversationId = null;
+      clearTutorAssignment();
       tutorHistory = [];
       document.getElementById('tutorMessages').innerHTML = '';
       resetToEmpty();
@@ -1158,6 +1230,7 @@ async function startNewChat() {
   // mastery movement land in the student model before it scrolls away.
   summarizeConversation(conversationId, tutorHistory);
   conversationId = null;
+  clearTutorAssignment();
   tutorHistory = [];
   document.getElementById('tutorMessages').innerHTML = '';
   resetToEmpty();
@@ -1984,6 +2057,7 @@ async function sendTutorMessage() {
       conversation_id: conversationId,
       modality_mode: modalityMode,
     };
+    if (selectedAssignment) body.assignment_ref = selectedAssignment;
     if (hasImage) {
       endpoint = '/api/tutor/vision';
       const defaultQ = solveAll
@@ -1997,6 +2071,7 @@ async function sendTutorMessage() {
         conversation_id: conversationId,
         mode: solveAll ? 'multi' : 'single',
       };
+      if (selectedAssignment) body.assignment_ref = selectedAssignment;
     }
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -2007,9 +2082,15 @@ async function sendTutorMessage() {
     // today's quota, or no backend is reachable. Throwing on !ok discarded it
     // and showed the generic snag line for every one of those cases.
     const data = await res.json().catch(function () { return {}; });
-    if (!res.ok && !(data && data.reply)) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok && !(data && data.reply)) throw new Error(data.error || `HTTP ${res.status}`);
     reply   = (data.reply || '').trim() || 'Sorry, I hit a snag. Try again.';
     refusal = data.refusal || null;
+    if (data.assignment_context) {
+      const context = data.assignment_context;
+      document.getElementById('tutorAssignmentStatus').textContent =
+        `Studying ${context.title}: ${context.files_read.length} file(s) read` +
+        (context.files_skipped ? `, ${context.files_skipped} unavailable` : '') + '.';
+    }
     if (data.modality) {
       modalityWeights = data.modality.weights || modalityWeights;
       renderModalitySwitcher();
@@ -2023,7 +2104,7 @@ async function sendTutorMessage() {
     }
   } catch (err) {
     console.error('Tutor error:', err);
-    reply = 'Connection issue, check your internet and try again.';
+    reply = err.message || 'Connection issue, check your internet and try again.';
   }
 
   document.getElementById('tutorThinking').classList.remove('visible');

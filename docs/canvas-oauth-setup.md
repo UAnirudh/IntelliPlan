@@ -29,6 +29,9 @@ that domain covers all of them.
    - **Scopes**: leave **Enforce Scopes** off. If you turn it on, see
      [Scoped Developer Keys](#scoped-developer-keys) below — you must then
      also set `CANVAS_SCOPES`, or every login fails.
+   - Plani's optional assignment study needs assignment-detail and file-metadata
+     read scopes. With an enforced-scope key, use `CANVAS_SCOPES=default` and
+     reconnect existing Canvas accounts to grant the updated scopes.
 4. **Save Key**.
 5. In the Developer Keys list, flip the new key's state to **ON**.
 6. Copy the values:
