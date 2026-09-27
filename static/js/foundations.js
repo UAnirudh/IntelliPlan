@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
-  const state = { learners: [], current: null, activity: null, busy: false };
+  const state = { learners: [], current: null, activity: null, familyNoteId: null, busy: false };
   const status = (message) => { $('primerStatus').textContent = message || ''; };
 
   async function api(path, options = {}) {
@@ -132,6 +132,9 @@
 
   function renderActivity(data) {
     state.activity = data;
+    state.familyNoteId = data.family_note?.id || null;
+    $('primerFamilyNote').hidden = !state.familyNoteId;
+    $('primerFamilyMessage').textContent = data.family_note?.message || '';
     renderStory(data);
     if (!data.item) return;
     $('primerBeatTitle').textContent = `${data.story.beat_title} · ${data.story.beat} of ${data.story.beat_count}`;
@@ -207,6 +210,18 @@
     if (state.current && state.current.id === learnerId) renderProgress(data);
   }
 
+  async function refreshFamilyNote() {
+    if (!state.current || document.hidden) return;
+    const learnerId = state.current.id;
+    try {
+      const data = await api(`/api/primer/learners/${learnerId}/nudge`);
+      if (state.current?.id !== learnerId) return;
+      state.familyNoteId = data.nudge?.id || null;
+      $('primerFamilyMessage').textContent = data.nudge?.message || '';
+      $('primerFamilyNote').hidden = !state.familyNoteId;
+    } catch (_) { /* The current activity remains usable if note refresh fails. */ }
+  }
+
   async function selectLearner(learner) {
     state.current = learner;
     showStart(false);
@@ -273,6 +288,22 @@
     try { await loadActivity(state.current.id); status(''); }
     catch (error) { status(error.message); }
   });
+  $('primerFamilyAcknowledge').addEventListener('click', async () => {
+    if (!state.current || !state.familyNoteId || state.busy) return;
+    const learnerId = state.current.id;
+    const noteId = state.familyNoteId;
+    state.busy = true;
+    $('primerFamilyAcknowledge').disabled = true;
+    try {
+      await api(`/api/primer/learners/${learnerId}/nudge/${noteId}/acknowledge`, { method: 'POST' });
+      if (state.current?.id === learnerId) {
+        state.familyNoteId = null;
+        $('primerFamilyNote').hidden = true;
+        status('Your grown-up will know you saw the note.');
+      }
+    } catch (error) { status(error.message); }
+    finally { $('primerFamilyAcknowledge').disabled = false; state.busy = false; }
+  });
   $('primerShowClue').addEventListener('click', async () => {
     if (!state.current || !state.activity || state.busy) return;
     state.busy = true;
@@ -331,6 +362,9 @@
     } catch (error) { status(error.message); }
     finally { state.busy = false; }
   });
+
+  window.setInterval(refreshFamilyNote, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshFamilyNote(); });
 
   api('/api/primer/learners').then((data) => {
     state.learners = data.learners;

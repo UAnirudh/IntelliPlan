@@ -48,6 +48,18 @@ def _public_learner(row):
     return {'id': row['id'], 'nickname': row['nickname'], 'world': row['world']}
 
 
+def _offset(value):
+    try:
+        minutes = int(value)
+    except (TypeError, ValueError):
+        return None
+    return minutes if -720 <= minutes <= 840 else None
+
+
+def _public_nudge(note):
+    return {key: value for key, value in note.items() if not key.startswith('_')} if note else None
+
+
 @primer_bp.route('/api/primer/learners', methods=['GET', 'POST'])
 def learners():
     owner = _owner()
@@ -88,6 +100,85 @@ def learner_progress(learner_id):
                                         bool(journey['repair_skill_id']))})
 
 
+@primer_bp.route('/api/primer/learners/<int:learner_id>/parent', methods=['GET'])
+def parent_overview(learner_id):
+    learner, error = _learner_or_error(learner_id)
+    if error:
+        return error
+    offset = _offset(request.args.get('tz_offset_minutes', 0))
+    if offset is None:
+        return jsonify({'error': 'Invalid timezone offset.'}), 400
+    return jsonify({'learner': _public_learner(learner), **store.parent_overview(learner_id, offset)})
+
+
+@primer_bp.route('/api/primer/learners/<int:learner_id>/parent/goal', methods=['PUT'])
+def parent_goal(learner_id):
+    _, error = _learner_or_error(learner_id)
+    if error:
+        return error
+    goal = _payload().get('weekly_goal')
+    if type(goal) is not int or not 1 <= goal <= 7:
+        return jsonify({'error': 'Choose a goal of 1 to 7 practice days.'}), 400
+    store.set_weekly_goal(learner_id, goal)
+    return jsonify({'weekly_goal': goal})
+
+
+@primer_bp.route('/api/primer/learners/<int:learner_id>/parent/check-in', methods=['POST'])
+def parent_check_in(learner_id):
+    _, error = _learner_or_error(learner_id)
+    if error:
+        return error
+    payload = _payload()
+    domain = payload.get('domain')
+    offset = _offset(payload.get('tz_offset_minutes'))
+    if domain not in ('Reading', 'Writing', 'Arithmetic') or offset is None:
+        return jsonify({'error': 'Choose a practice area and valid timezone.'}), 400
+    if not store.record_offline_checkin(learner_id, domain, offset):
+        return jsonify({'error': 'An offline practice check-in was already recorded today.'}), 409
+    return jsonify({'ok': True}), 201
+
+
+@primer_bp.route('/api/primer/learners/<int:learner_id>/parent/nudge', methods=['POST', 'DELETE'])
+def parent_nudge(learner_id):
+    _, error = _learner_or_error(learner_id)
+    if error:
+        return error
+    payload = _payload()
+    if request.method == 'DELETE':
+        note_id = payload.get('id')
+        if type(note_id) is not int or not store.withdraw_nudge(learner_id, note_id):
+            return jsonify({'error': 'Active note not found.'}), 404
+        return jsonify({'ok': True})
+    template_id = payload.get('template_id')
+    if not isinstance(template_id, str) or template_id not in store.NUDGE_TEMPLATES:
+        return jsonify({'error': 'Choose a supportive note.'}), 400
+    note = store.create_nudge(learner_id, template_id)
+    if not note:
+        return jsonify({'error': 'Wait for the current note to be acknowledged and allow a day between notes.'}), 429
+    return jsonify({'nudge': _public_nudge(note)}), 201
+
+
+@primer_bp.route('/api/primer/learners/<int:learner_id>/nudge/<int:nudge_id>/acknowledge', methods=['POST'])
+def acknowledge_nudge(learner_id, nudge_id):
+    _, error = _learner_or_error(learner_id)
+    if error:
+        return error
+    if not store.acknowledge_nudge(learner_id, nudge_id):
+        return jsonify({'error': 'Note not found or already acknowledged.'}), 404
+    return jsonify({'ok': True})
+
+
+@primer_bp.route('/api/primer/learners/<int:learner_id>/nudge', methods=['GET'])
+def current_nudge(learner_id):
+    _, error = _learner_or_error(learner_id)
+    if error:
+        return error
+    note = store.latest_nudge(learner_id)
+    if not note or note['acknowledged_at'] or note['withdrawn_at'] or note['expired']:
+        note = None
+    return jsonify({'nudge': _public_nudge(note)})
+
+
 @primer_bp.route('/api/primer/learners/<int:learner_id>/activity', methods=['GET'])
 def activity(learner_id):
     learner, error = _learner_or_error(learner_id)
@@ -101,6 +192,9 @@ def activity(learner_id):
         'world_name': WORLDS[learner['world']]['name'],
         'story': story,
     }
+    note = store.latest_nudge(learner_id)
+    if note and note['acknowledged_at'] is None and note['withdrawn_at'] is None and not note['expired']:
+        response['family_note'] = _public_nudge(note)
     if story['complete']:
         return jsonify(response)
     if story['awaiting_choice']:

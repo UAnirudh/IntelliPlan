@@ -1,6 +1,7 @@
 """Foundations is a bounded assessed path, scoped to the signed-in account."""
 
 import pytest
+from datetime import datetime, timedelta
 from flask import Flask
 from flask_login import LoginManager, UserMixin
 from flask_sqlalchemy import SQLAlchemy
@@ -67,6 +68,90 @@ def test_auth_ownership_and_deletion(app):
     assert other.delete(f'/api/primer/learners/{learner_id}').status_code == 404
     assert owner.delete(f'/api/primer/learners/{learner_id}').status_code == 200
     assert owner.get(f'/api/primer/learners/{learner_id}/progress').status_code == 404
+
+
+def test_parent_companion_counts_real_practice_and_local_days(app, monkeypatch):
+    owner, other = signed_in(app, '1'), signed_in(app, '2')
+    learner_id = create(owner)
+    path = f'/api/primer/learners/{learner_id}/parent'
+    assert app.test_client().get(path).status_code == 401
+    assert other.get(path).status_code == 404
+    assert other.put(path + '/goal', json={'weekly_goal': 5}).status_code == 404
+    assert other.post(path + '/check-in', json={'domain': 'Reading', 'tz_offset_minutes': 0}).status_code == 404
+    assert other.post(path + '/nudge', json={'template_id': 'explore'}).status_code == 404
+    assert other.get(f'/api/primer/learners/{learner_id}/nudge').status_code == 404
+    assert owner.get(path).get_json()['suggested_nudge'] == 'explore'
+    fixed = datetime(2026, 9, 26, 23, 30)
+    monkeypatch.setattr(store, 'utcnow', lambda: fixed)
+    with app.app_context():
+        store.record_attempt(learner_id, 'read_sounds', 'sound_m', 'local-day-1', True)
+    utc_view = owner.get(path + '?tz_offset_minutes=0').get_json()
+    next_day_view = owner.get(path + '?tz_offset_minutes=120').get_json()
+    assert utc_view['practice_days'] == next_day_view['practice_days'] == 1
+    assert utc_view['days'][-1]['answers'] == 1
+    assert next_day_view['days'][-1]['date'] == '2026-09-27'
+    assert next_day_view['days'][-1]['answers'] == 1
+    assert utc_view['total_answers'] == 1
+    assert utc_view['domain_answers'] == {'Reading': 1, 'Writing': 0, 'Arithmetic': 0}
+    assert owner.put(path + '/goal', json={'weekly_goal': True}).status_code == 400
+    assert owner.put(path + '/goal', json={'weekly_goal': 8}).status_code == 400
+    assert owner.put(path + '/goal', json={'weekly_goal': 4}).status_code == 200
+    assert owner.get(path).get_json()['weekly_goal'] == 4
+    assert owner.get(path + '?tz_offset_minutes=900').status_code == 400
+    assert owner.post(path + '/check-in', json={'domain': 'Reading', 'tz_offset_minutes': 900}).status_code == 400
+    assert owner.post(path + '/check-in', json={'domain': 'Writing', 'tz_offset_minutes': 0}).status_code == 201
+    assert owner.post(path + '/check-in', json={'domain': 'Writing', 'tz_offset_minutes': 0}).status_code == 409
+    together = owner.get(path).get_json()
+    assert together['days'][-1]['offline_domain'] == 'Writing'
+    assert together['practice_days'] == 1  # two kinds of evidence on one day
+    assert other.get(path).status_code == 404
+    monkeypatch.setattr(store, 'utcnow', lambda: fixed + timedelta(days=4))
+    assert owner.get(path).get_json()['suggested_nudge'] == 'small_step'
+
+
+def test_parent_nudge_is_reviewed_limited_and_visible_to_learner(app, monkeypatch):
+    owner, other = signed_in(app, '1'), signed_in(app, '2')
+    learner_id = create(owner)
+    path = f'/api/primer/learners/{learner_id}'
+    assert owner.post(path + '/parent/nudge', json={'template_id': '<script>'}).status_code == 400
+    first = owner.post(path + '/parent/nudge', json={'template_id': 'explore'})
+    assert first.status_code == 201
+    note = first.get_json()['nudge']
+    assert '_created_at' not in note
+    assert owner.post(path + '/parent/nudge', json={'template_id': 'choose'}).status_code == 429
+    assert other.post(path + f"/nudge/{note['id']}/acknowledge").status_code == 404
+    challenge = activity(owner, learner_id)
+    assert challenge['family_note']['message'] == store.NUDGE_TEMPLATES['explore']
+    assert challenge['family_note']['id'] == note['id']
+    assert owner.get(path + '/nudge').get_json()['nudge']['id'] == note['id']
+    assert owner.get(path + '/parent').get_json()['can_send_nudge'] is False
+    assert owner.post(path + f"/nudge/{note['id']}/acknowledge").status_code == 200
+    assert owner.post(path + f"/nudge/{note['id']}/acknowledge").status_code == 404
+    assert 'family_note' not in activity(owner, learner_id)
+    assert owner.get(path + '/nudge').get_json()['nudge'] is None
+    overview = owner.get(path + '/parent').get_json()
+    assert overview['latest_nudge']['acknowledged_at']
+    assert overview['latest_nudge']['practice_after'] is False
+    assert overview['can_send_nudge'] is False
+    assert owner.post(path + '/parent/nudge', json={'template_id': 'choose'}).status_code == 429
+    with app.app_context():
+        first_time = store.latest_nudge(learner_id)['_created_at']
+    monkeypatch.setattr(store, 'utcnow', lambda: first_time + timedelta(days=2))
+    second = owner.post(path + '/parent/nudge', json={'template_id': 'choose'})
+    assert second.status_code == 201
+    second_id = second.get_json()['nudge']['id']
+    assert owner.delete(path + '/parent/nudge', json={'id': second_id}).status_code == 200
+    assert 'family_note' not in activity(owner, learner_id)
+    assert owner.post(path + '/parent/nudge', json={'template_id': 'small_step'}).status_code == 429
+    monkeypatch.setattr(store, 'utcnow', lambda: first_time + timedelta(days=10))
+    assert owner.post(path + '/parent/nudge', json={'template_id': 'small_step'}).status_code == 201
+    final = owner.get(path + '/parent').get_json()
+    assert final['latest_nudge']['template_id'] == 'small_step'
+    assert final['can_send_nudge'] is False
+    assert owner.delete(path).status_code == 200
+    with app.app_context():
+        for table in (store.NUDGE, store.OFFLINE_CHECKIN, store.PARENT_SETTING):
+            assert not store._db().session.execute(store.select(table).where(table.c.learner_id == learner_id)).first()
 
 
 def test_server_grades_and_replay_is_rejected(app):
@@ -205,6 +290,7 @@ def test_story_choice_changes_next_scene_and_survives_resume(app):
         assert submit(client, learner_id, challenge, ITEM_BY_ID[challenge['item']['id']].answer).status_code == 200
     choice_screen = activity(client, learner_id)
     assert choice_screen['story']['awaiting_choice'] is True
+    assert client.get(f'/api/primer/learners/{learner_id}/parent').get_json()['suggested_nudge'] == 'choose'
     assert 'item' not in choice_screen
     assert 'answer' not in str(choice_screen)
     choice = choice_screen['story']['choices'][1]['id']

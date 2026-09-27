@@ -191,6 +191,9 @@ def test_deleting_an_account_removes_the_user_and_their_rows(ctx):
     primer_nonce = uuid.uuid4().hex
     primer_store.reveal_hint(primer_learner['id'], primer_nonce, 0)
     primer_store.record_attempt(primer_learner['id'], 'read_sounds', 'sound_m', primer_nonce, True)
+    primer_store.set_weekly_goal(primer_learner['id'], 4)
+    primer_store.record_offline_checkin(primer_learner['id'], 'Reading')
+    primer_store.create_nudge(primer_learner['id'], 'explore')
 
     app_module.db.session.add_all(
         [
@@ -233,6 +236,37 @@ def test_deleting_an_account_removes_the_user_and_their_rows(ctx):
     assert app_module.db.session.execute(select(primer_store.ATTEMPT).where(primer_store.ATTEMPT.c.learner_id == primer_learner['id'])).first() is None
     assert app_module.db.session.execute(select(primer_store.HINT).where(primer_store.HINT.c.learner_id == primer_learner['id'])).first() is None
     assert app_module.db.session.execute(select(primer_store.JOURNEY).where(primer_store.JOURNEY.c.learner_id == primer_learner['id'])).first() is None
+    assert app_module.db.session.execute(select(primer_store.PARENT_SETTING).where(primer_store.PARENT_SETTING.c.learner_id == primer_learner['id'])).first() is None
+    assert app_module.db.session.execute(select(primer_store.OFFLINE_CHECKIN).where(primer_store.OFFLINE_CHECKIN.c.learner_id == primer_learner['id'])).first() is None
+    assert app_module.db.session.execute(select(primer_store.NUDGE).where(primer_store.NUDGE.c.learner_id == primer_learner['id'])).first() is None
+
+
+def test_foundations_family_page_is_private_and_renders(ctx):
+    client = app_module.app.test_client()
+    anonymous = client.get('/foundations/parent')
+    assert anonymous.status_code in (302, 303)
+    assert '/login' in anonymous.headers['Location']
+    user = app_module.User(
+        email=f"family-{uuid.uuid4().hex[:10]}@example.test",
+        name="Family",
+        birth_year=2000,
+        password_hash="x",
+        created_at=datetime.utcnow(),
+    )
+    app_module.db.session.add(user)
+    app_module.db.session.commit()
+    with app_module.app.test_request_context('/foundations/parent'):
+        from flask_login import login_user
+        login_user(user)
+        page = app_module.app.full_dispatch_request()
+    assert page.status_code == 200, page.headers.get('Location')
+    assert b'parentWorkspace' in page.data
+    assert b'foundations_parent.js' in page.data
+    assert b'noindex' in page.data.lower()
+    with app_module.app.test_request_context():
+        from flask_login import login_user
+        login_user(user)
+        app_module._account_delete_impl()
 
 
 # ── The public deletion page ────────────────────────────────────────

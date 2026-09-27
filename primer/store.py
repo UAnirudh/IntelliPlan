@@ -1,10 +1,10 @@
 """Account-scoped learner evidence and journey state. Raw answers are never persisted."""
 
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from flask import current_app
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, Integer, MetaData, String, Table, UniqueConstraint, delete, select
+from sqlalchemy import Column, Date, DateTime, Float, ForeignKey, Index, Integer, MetaData, String, Table, UniqueConstraint, delete, select
 from sqlalchemy.exc import IntegrityError
 
 from db_boot import schema_lock
@@ -77,6 +77,37 @@ JOURNEY = Table(
     Column('version', Integer, nullable=False, default=0),
     Column('updated_at', DateTime, nullable=False),
 )
+PARENT_SETTING = Table(
+    'primer_parent_setting', _META,
+    Column('learner_id', Integer, ForeignKey('primer_learner.id'), primary_key=True),
+    Column('weekly_goal', Integer, nullable=False, default=3),
+)
+OFFLINE_CHECKIN = Table(
+    'primer_offline_checkin', _META,
+    Column('id', Integer, primary_key=True),
+    Column('learner_id', Integer, ForeignKey('primer_learner.id'), nullable=False),
+    Column('practice_date', Date, nullable=False),
+    Column('domain', String(16), nullable=False),
+    Column('created_at', DateTime, nullable=False),
+    UniqueConstraint('learner_id', 'practice_date', name='uq_primer_offline_day'),
+)
+NUDGE = Table(
+    'primer_nudge', _META,
+    Column('id', Integer, primary_key=True),
+    Column('learner_id', Integer, ForeignKey('primer_learner.id'), nullable=False),
+    Column('template_id', String(32), nullable=False),
+    Column('created_at', DateTime, nullable=False),
+    Column('acknowledged_at', DateTime, nullable=True),
+    Column('withdrawn_at', DateTime, nullable=True),
+    Index('ix_primer_nudge_learner_time', 'learner_id', 'created_at'),
+)
+
+NUDGE_TEMPLATES = {
+    'explore': 'I would love to explore the next part of your story together when you are ready.',
+    'choose': 'Your next story choice is waiting. Want to see where it leads together?',
+    'small_step': 'One small step is enough today. I am proud of you for trying.',
+}
+NUDGE_LIFETIME = timedelta(days=7)
 
 
 class StaleJourney(Exception):
@@ -126,9 +157,163 @@ def delete_learner(owner_id: int, learner_id: int) -> bool:
     db.session.execute(delete(ATTEMPT).where(ATTEMPT.c.learner_id == learner_id))
     db.session.execute(delete(STATE).where(STATE.c.learner_id == learner_id))
     db.session.execute(delete(JOURNEY).where(JOURNEY.c.learner_id == learner_id))
+    db.session.execute(delete(NUDGE).where(NUDGE.c.learner_id == learner_id))
+    db.session.execute(delete(OFFLINE_CHECKIN).where(OFFLINE_CHECKIN.c.learner_id == learner_id))
+    db.session.execute(delete(PARENT_SETTING).where(PARENT_SETTING.c.learner_id == learner_id))
     db.session.execute(delete(LEARNER).where(LEARNER.c.id == learner_id, LEARNER.c.owner_id == owner_id))
     db.session.commit()
     return True
+
+
+def parent_overview(learner_id: int, tz_offset_minutes: int = 0) -> dict:
+    """Summarize observed and adult-reported practice in the viewer's local days."""
+    ensure_tables()
+    db = _db()
+    now = utcnow()
+    shift = timedelta(minutes=tz_offset_minutes)
+    today = (now + shift).date()
+    first_day = today - timedelta(days=6)
+    start_utc = datetime.combine(first_day, datetime.min.time()) - shift
+    attempts = db.session.execute(select(ATTEMPT.c.created_at, ATTEMPT.c.skill_id, ATTEMPT.c.correct)
+        .where(ATTEMPT.c.learner_id == learner_id, ATTEMPT.c.created_at >= start_utc)
+        .order_by(ATTEMPT.c.created_at)).all()
+    last_attempt = db.session.execute(select(ATTEMPT.c.created_at)
+        .where(ATTEMPT.c.learner_id == learner_id).order_by(ATTEMPT.c.created_at.desc()).limit(1)).scalar()
+    checkins = db.session.execute(select(OFFLINE_CHECKIN.c.practice_date, OFFLINE_CHECKIN.c.domain)
+        .where(OFFLINE_CHECKIN.c.learner_id == learner_id, OFFLINE_CHECKIN.c.practice_date >= first_day)).all()
+    settings = db.session.execute(select(PARENT_SETTING.c.weekly_goal)
+        .where(PARENT_SETTING.c.learner_id == learner_id)).scalar()
+    goal = settings if settings is not None else 3
+    days = {first_day + timedelta(days=i): {'date': (first_day + timedelta(days=i)).isoformat(),
+             'answers': 0, 'offline_domain': None} for i in range(7)}
+    domain_counts = {domain: 0 for domain in ('Reading', 'Writing', 'Arithmetic')}
+    for at, skill_id, _ in attempts:
+        day = (at + shift).date()
+        if day in days:
+            days[day]['answers'] += 1
+            domain_counts[SKILL_BY_ID[skill_id].domain] += 1
+    for day, domain in checkins:
+        if day in days:
+            days[day]['offline_domain'] = domain
+    practiced = sum(bool(row['answers'] or row['offline_domain']) for row in days.values())
+    latest = latest_nudge(learner_id)
+    can_send_note = not latest or (
+        (latest['acknowledged_at'] is not None or latest['withdrawn_at'] is not None or latest['expired'])
+        and now - latest['_created_at'] >= timedelta(hours=24))
+    next_note_at = (latest['_created_at'] + timedelta(hours=24)).isoformat() + 'Z' if latest and not can_send_note else None
+    if latest:
+        practiced_after = db.session.execute(select(ATTEMPT.c.id).where(
+            ATTEMPT.c.learner_id == learner_id, ATTEMPT.c.created_at > latest['_created_at']).limit(1)).scalar()
+        latest['practice_after'] = bool(practiced_after)
+        latest.pop('_created_at')
+    evidence = progress(learner_id)
+    journey = journey_for(learner_id)
+    if journey['beat'] == 3 and journey['chapter'] < CHAPTER_COUNT:
+        suggested_nudge = 'choose'
+        nudge_reason = 'The next story choice is ready.'
+    elif not evidence['total_attempts']:
+        suggested_nudge = 'explore'
+        nudge_reason = 'A first activity is ready to explore together.'
+    elif last_attempt and now - last_attempt >= timedelta(days=3):
+        suggested_nudge = 'small_step'
+        nudge_reason = 'It has been a few days since an answered activity.'
+    else:
+        suggested_nudge = 'explore'
+        nudge_reason = 'A short next chapter is ready.'
+    return {
+        'days': list(days.values()), 'practice_days': practiced, 'weekly_goal': goal,
+        'last_answered_at': last_attempt.isoformat() + 'Z' if last_attempt else None,
+        'domain_answers': domain_counts, 'focus': evidence['focus'],
+        'total_answers': evidence['total_attempts'], 'latest_nudge': latest,
+        'can_send_nudge': can_send_note, 'next_nudge_at': next_note_at,
+        'suggested_nudge': suggested_nudge, 'suggested_nudge_reason': nudge_reason,
+        'chapter': min(journey['chapter'] + 1, CHAPTER_COUNT),
+        'chapter_count': CHAPTER_COUNT, 'journey_complete': journey['chapter'] >= CHAPTER_COUNT,
+    }
+
+
+def set_weekly_goal(learner_id: int, goal: int) -> None:
+    ensure_tables()
+    db = _db()
+    db.session.execute(select(LEARNER.c.id).where(LEARNER.c.id == learner_id).with_for_update()).scalar()
+    updated = db.session.execute(PARENT_SETTING.update().where(
+        PARENT_SETTING.c.learner_id == learner_id).values(weekly_goal=goal))
+    if updated.rowcount == 0:
+        db.session.execute(PARENT_SETTING.insert().values(learner_id=learner_id, weekly_goal=goal))
+    db.session.commit()
+
+
+def record_offline_checkin(learner_id: int, domain: str, tz_offset_minutes: int = 0) -> bool:
+    """One adult-reported check-in per local day; no child text is collected."""
+    ensure_tables()
+    now = utcnow()
+    today = (now + timedelta(minutes=tz_offset_minutes)).date()
+    db = _db()
+    try:
+        db.session.execute(OFFLINE_CHECKIN.insert().values(
+            learner_id=learner_id, practice_date=today, domain=domain, created_at=now))
+        db.session.commit()
+        return True
+    except IntegrityError:
+        db.session.rollback()
+        return False
+
+
+def latest_nudge(learner_id: int) -> dict | None:
+    ensure_tables()
+    row = _db().session.execute(select(NUDGE).where(NUDGE.c.learner_id == learner_id)
+        .order_by(NUDGE.c.created_at.desc(), NUDGE.c.id.desc()).limit(1)).mappings().first()
+    if not row:
+        return None
+    return {'id': row['id'], 'template_id': row['template_id'],
+            'message': NUDGE_TEMPLATES[row['template_id']],
+            'created_at': row['created_at'].isoformat() + 'Z',
+            'acknowledged_at': row['acknowledged_at'].isoformat() + 'Z' if row['acknowledged_at'] else None,
+            'withdrawn_at': row['withdrawn_at'].isoformat() + 'Z' if row['withdrawn_at'] else None,
+            'expired': utcnow() - row['created_at'] >= NUDGE_LIFETIME,
+            '_created_at': row['created_at']}
+
+
+def create_nudge(learner_id: int, template_id: str) -> dict | None:
+    """At most one note per 24 hours and one unacknowledged note at a time."""
+    ensure_tables()
+    db = _db()
+    # Serialize note creation for this learner in Postgres. Without the row
+    # lock, two tabs could both observe no note and insert simultaneously.
+    db.session.execute(select(LEARNER.c.id).where(LEARNER.c.id == learner_id).with_for_update()).scalar()
+    latest = latest_nudge(learner_id)
+    if latest and ((latest['acknowledged_at'] is None and latest['withdrawn_at'] is None and not latest['expired']) or
+                   utcnow() - latest['_created_at'] < timedelta(hours=24)):
+        db.session.rollback()
+        return None
+    db.session.execute(NUDGE.insert().values(learner_id=learner_id, template_id=template_id,
+                                             created_at=utcnow()))
+    db.session.commit()
+    return latest_nudge(learner_id)
+
+
+def acknowledge_nudge(learner_id: int, nudge_id: int) -> bool:
+    ensure_tables()
+    db = _db()
+    updated = db.session.execute(NUDGE.update().where(
+        NUDGE.c.learner_id == learner_id, NUDGE.c.id == nudge_id,
+        NUDGE.c.acknowledged_at.is_(None), NUDGE.c.withdrawn_at.is_(None),
+        NUDGE.c.created_at > utcnow() - NUDGE_LIFETIME).values(acknowledged_at=utcnow()))
+    db.session.commit()
+    return updated.rowcount == 1
+
+
+def withdraw_nudge(learner_id: int, nudge_id: int) -> bool:
+    latest = latest_nudge(learner_id)
+    if not latest or latest['id'] != nudge_id or latest['acknowledged_at'] or latest['withdrawn_at'] or latest['expired']:
+        return False
+    db = _db()
+    removed = db.session.execute(NUDGE.update().where(
+        NUDGE.c.learner_id == learner_id, NUDGE.c.id == nudge_id,
+        NUDGE.c.acknowledged_at.is_(None), NUDGE.c.withdrawn_at.is_(None),
+        NUDGE.c.created_at > utcnow() - NUDGE_LIFETIME).values(withdrawn_at=utcnow()))
+    db.session.commit()
+    return removed.rowcount == 1
 
 
 def journey_for(learner_id: int) -> dict:
