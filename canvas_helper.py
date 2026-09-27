@@ -134,7 +134,7 @@ def _fetch_courses(canvas_url, token, *, include_total_scores=False):
     arrived without the same course percentage that the grades page already
     displayed.
     """
-    suffix = "?include[]=total_scores&enrollment_state=active" if include_total_scores else ""
+    suffix = "?include[]=total_scores&include[]=teachers&enrollment_state=active" if include_total_scores else ""
     data = _get_list(f"{_base(canvas_url)}/courses{suffix}", _headers(token))
     return [c for c in data if isinstance(c, dict) and "id" in c]
 
@@ -396,8 +396,13 @@ def get_gradebook_detail(canvas_url, token):
         course_name = c.get("name", "Unknown")
 
         assignments_raw, sub_map = _assignments_with_submissions(base, headers, cid)
-        groups = _assignment_groups(base, headers, cid)
+        try:
+            groups = _assignment_groups(base, headers, cid)
+        except Exception:
+            groups = []
         group_names = {g["id"]: g["name"] for g in groups}
+        group_weights = {g["id"]: g["weight"] for g in groups}
+        category_totals = {}
 
         course_assignments = []
         for a in assignments_raw:
@@ -413,12 +418,25 @@ def get_gradebook_detail(canvas_url, token):
                 score_val = None
 
             group_id = str(a.get("assignment_group_id") or "")
+            category = group_names.get(group_id, "Other")
+            if (score_val is not None and not sub.get("excused")
+                    and not a.get("omit_from_final_grade")):
+                try:
+                    possible = float(points_possible)
+                except (TypeError, ValueError):
+                    possible = 0
+                if possible > 0:
+                    totals = category_totals.setdefault(
+                        category, {"earned": 0.0, "possible": 0.0})
+                    totals["earned"] += score_val
+                    totals["possible"] += possible
             course_assignments.append({
                 # A stable key. Without it the modeler keyed rows by title,
                 # so two "Quiz" rows shared one what-if score.
                 "id": str(aid) if aid is not None else "",
                 "group_id": group_id,
                 "group": group_names.get(group_id, ""),
+                "category": category,
                 # Excused work counts toward nothing in Canvas's own total.
                 "excused": bool(sub.get("excused")),
                 "omit_from_final_grade": bool(a.get("omit_from_final_grade")),
@@ -443,8 +461,8 @@ def get_gradebook_detail(canvas_url, token):
                     sub.get("grade")
                     or (f"{score_val:g}" if score_val is not None else "Not Graded")
                 ),
-                "type": a.get("assignment_group_id", ""),
-                "weight": "",
+                "type": category,
+                "weight": group_weights.get(group_id, 0),
                 "calculated_mark": "",
             })
 
@@ -476,10 +494,25 @@ def get_gradebook_detail(canvas_url, token):
         weighted = bool(c.get("apply_assignment_group_weights")) and any(
             g["weight"] > 0 for g in groups
         )
+        categories = []
+        for name, totals in category_totals.items():
+            group = next((g for g in groups if g["name"] == name), None)
+            categories.append({
+                "type": name,
+                "weight": group["weight"] if group else 0,
+                "points": round(totals["earned"], 2),
+                "points_possible": round(totals["possible"], 2),
+                "weighted_pct": round(totals["earned"] / totals["possible"] * 100, 2),
+                "mark": "",
+            })
+        teachers = c.get("teachers") or []
+        teacher = teachers[0].get("display_name", "") if teachers and isinstance(teachers[0], dict) else ""
         detail.append({
             "course": course_name,
+            "teacher": teacher,
             "percentage": percentage,
-            "letter": letter or "N/A",
+            "letter": letter or "",
+            "categories": categories,
             # How Canvas computes this course's grade. A course weighted by
             # category (Tests 50%, Homework 20%, ...) computed from raw points
             # disagrees with Canvas the moment anything is simulated.
