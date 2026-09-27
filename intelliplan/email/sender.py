@@ -177,6 +177,7 @@ def send_lifecycle_email(
     context_extra: dict | None = None,
     dedupe: bool = True,
     gate: str | None = None,
+    reply_to_override: str | None = None,
 ) -> SendResult:
     """Gate, deduplicate, render, and send one lifecycle email.
 
@@ -237,6 +238,8 @@ def send_lifecycle_email(
             preheader=preheader,
             **(context_extra or {}),
         )
+        if reply_to_override:
+            context["reply_to"] = reply_to_override
         rendered = templates.render(template_name, subject, context)
     except Exception as exc:
         logger.exception("could not render %s for user %s: %s", template_name, user.id, exc)
@@ -253,7 +256,7 @@ def send_lifecycle_email(
             rendered.text,
             html=rendered.html,
             headers=unsubscribe_headers(address),
-            reply_to=templates.reply_to(),
+            reply_to=reply_to_override or templates.reply_to(),
         )
     except Exception as exc:
         logger.warning("provider raised sending %s to %s: %s", email_key, address, exc)

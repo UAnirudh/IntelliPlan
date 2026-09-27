@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from adaptive_tutor.strategy import MOVE_GUIDANCE, STAGE_GUIDANCE, learning_stage, teaching_move
+
 STYLE_MAP = {
     'concise': 'Be concise and direct. Skip unnecessary filler.',
     'balanced': 'Provide clear explanations with moderate detail. Balance depth with brevity.',
@@ -178,7 +180,8 @@ def _artifact_section(use_voice: bool) -> list[str]:
 
 
 def build_adaptive_prompt(context: dict[str, Any], use_voice: bool = False,
-                          use_artifacts: bool = True) -> str:
+                          use_artifacts: bool = True,
+                          focus_subject: str = 'General') -> str:
     """Flatten the student model into one system message."""
     profile = context.get('profile') or {}
     mastery = context.get('mastery') or []
@@ -194,6 +197,17 @@ def build_adaptive_prompt(context: dict[str, Any], use_voice: bool = False,
     ]
 
     sections.extend(_profile_section(profile))
+
+    stage = learning_stage(profile.get('grade_level'))
+    move = teaching_move(context, focus_subject)
+    sections.append('\n## Teaching Plan for This Turn')
+    sections.append(f'- Grade stage: {STAGE_GUIDANCE[stage]}')
+    sections.append(f"- Evidence-based move: {MOVE_GUIDANCE[move['kind']]}")
+    if move['topic']:
+        sections.append(f"- Relevant practice topic: {move['topic']}. Use it only when it relates to the student's current question.")
+    sections.append('- Ask or explain one step at a time when the learner is practicing. If they request a direct answer, answer clearly and then check the underlying idea.')
+    sections.append('- Treat a stored score as limited practice evidence, not a diagnosis or fixed ability label. Never invent life details or claim you remember something absent from the approved context.')
+    sections.append('- For ethical or life questions, explore reasons, consequences, and other perspectives; let the learner form a view. Do not award mastery for a moral opinion.')
 
     if memory:
         sections.extend(_learner_memory_section(memory))

@@ -15,6 +15,7 @@ from flask_sqlalchemy import SQLAlchemy
 from adaptive_tutor import analysis, engine, modality, store
 from adaptive_tutor.api import adaptive_tutor_bp
 from adaptive_tutor.prompt import build_adaptive_prompt
+from adaptive_tutor.strategy import learning_stage, teaching_move
 
 
 @pytest.fixture
@@ -236,6 +237,31 @@ def test_prompt_carries_every_part_of_the_student_model():
     assert 'completing the square' in prompt
     assert 'example-driven learner' in prompt
     assert 'ChatGPT' in prompt
+
+
+@pytest.mark.parametrize(('grade', 'stage'), [
+    ('Kindergarten', 'early'), ('2nd grade', 'early'),
+    ('Grade 6', 'middle'), ('10th grade', 'high_school'),
+    ('College', 'college'), (None, 'unspecified'),
+])
+def test_teaching_stage_follows_grade(grade, stage):
+    assert learning_stage(grade) == stage
+
+
+def test_teaching_move_uses_current_subject_and_evidence():
+    context = {'mastery': [
+        {'subject': 'Math', 'topic': 'Fractions', 'mastery_score': 40,
+         'confidence_level': 65, 'total_attempts': 5},
+        {'subject': 'Reading', 'topic': 'Inference', 'mastery_score': 90,
+         'confidence_level': 80, 'total_attempts': 7},
+    ]}
+    assert teaching_move(context, 'Math') == {'kind': 'repair', 'topic': 'Fractions'}
+    assert teaching_move(context, 'Reading') == {'kind': 'transfer', 'topic': 'Inference'}
+    assert teaching_move(context, 'General') == {'kind': 'diagnose', 'topic': None}
+    assert teaching_move({'mastery': []}, 'Math')['kind'] == 'diagnose'
+    prompt = build_adaptive_prompt(context, focus_subject='Math')
+    assert 'Fractions' in prompt and 'independent step' in prompt
+    assert 'Inference' not in prompt.split('## Teaching Plan for This Turn')[1].split('##')[0]
 
 
 def test_mastery_is_labelled_by_band():

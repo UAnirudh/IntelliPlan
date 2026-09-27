@@ -98,16 +98,15 @@ def suppress(address: str | None, reason: str = "unsubscribe") -> bool:
 
 
 def age_from_birth_year(birth_year: int | None, now: datetime | None = None) -> int | None:
-    """Age in whole years, derived the same way the signup form does it.
+    """Conservative minimum age for an account with only a birth year.
 
-    Year subtraction only — IntelliPlan collects a birth *year*, not a date,
-    so this is off by up to a year for anyone who has not had their birthday
-    yet. That skews young, which is the safe direction for a COPPA gate.
+    IntelliPlan collects a birth *year*, not a date. Subtract one more year
+    to use the youngest possible age for someone with that birth year.
     """
     if birth_year is None:
         return None
     now = now or datetime.utcnow()
-    return now.year - int(birth_year)
+    return now.year - int(birth_year) - 1
 
 
 def _base_gates(user: Any, now: datetime | None = None) -> tuple[bool, str]:
@@ -157,6 +156,12 @@ def is_marketing_eligible(user: Any, now: datetime | None = None) -> tuple[bool,
     ok, reason = _base_gates(user, now)
     if not ok:
         return False, reason
+
+    # The account's parent-consent flag unlocks educational use; it is not
+    # separate, verifiable permission to solicit a child for product feedback
+    # or send newsletters. Keep marketing closed for every under-13 account.
+    if age_from_birth_year(getattr(user, "birth_year", None), now) < COPPA_AGE:
+        return False, "under_13_marketing_blocked"
 
     if getattr(user, "role", "student") != "student":
         # Teachers and parents are on the platform for someone else's
