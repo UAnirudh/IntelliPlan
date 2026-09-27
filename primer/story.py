@@ -195,6 +195,77 @@ ADVANCED_STORIES = {
     ),
 }
 
+# Older learners use the same four decision points and stable choice IDs, but
+# work through evidence, tradeoffs, and communication in realistic projects.
+SCHOLAR_STORIES = {
+    'forest': (
+        Chapter('The accessible route', 'A community group is reopening a public trail. Its old map omits erosion and accessibility barriers, and several neighbors disagree about the safest route.',
+                'What evidence should the team gather first?',
+                (Choice('ask', 'Interview frequent trail users', 'Residents identify barriers that the old map misses.'),
+                 Choice('look', 'Survey the route directly', 'The team records slope, erosion, and blocked crossings.')),
+                'Whose experience might be missing from the available evidence?'),
+        Chapter('A crossing with consequences', 'The shortest route crosses a stream. A bridge costs more now; marking a stone crossing requires less material but may exclude some visitors.',
+                'Which plan should the team test?',
+                (Choice('bridge', 'Model an accessible bridge', 'The proposal includes cost, maintenance, and access for different visitors.'),
+                 Choice('stones', 'Assess the existing stone crossing', 'The team measures safety and access before recommending it.')),
+                'How should immediate cost be weighed against long-term access?'),
+        Chapter('The gate decision', 'The trail ends at a shared garden. Its gate is difficult to open, and the team needs permission before changing it.',
+                'How should the team move forward?',
+                (Choice('listen', 'Consult the garden steward', 'The steward explains ownership and a safe repair process.'),
+                 Choice('help', 'Coordinate a volunteer assessment', 'Volunteers document the problem and propose a repair for approval.')),
+                'What can the group do responsibly before it has permission?'),
+        Chapter('Publish the route', 'The group must leave a guide others can use and revise when conditions change.',
+                'What should the first public guide contain?',
+                (Choice('map', 'Publish a sourced route map', 'The map notes survey dates, access limits, and uncertain sections.'),
+                 Choice('sign', 'Place decision-point signs', 'Signs identify routes and provide a way to report changes.')),
+                'How could a new visitor test whether the guide is genuinely usable?'),
+    ),
+    'space': (
+        Chapter('An uncertain signal', 'A research team receives a faint repeating signal. A false alarm could waste scarce observation time; ignoring it could miss a discovery.',
+                'Which first check is most useful?',
+                (Choice('listen', 'Analyze the raw signal', 'The team records its timing and background noise.'),
+                 Choice('search', 'Compare independent observations', 'A second instrument tests whether the pattern repeats.')),
+                'What observation would change your confidence?'),
+        Chapter('The missing beacon', 'A nearby craft reports a displaced navigation beacon. The research team can help, but a detour would delay its own mission.',
+                'Which response can the team justify?',
+                (Choice('retrieve', 'Recover the beacon', 'The team estimates the detour and safety risks first.'),
+                 Choice('guide', 'Share verified coordinates', 'The other craft can recover it using a checked location.')),
+                'What information is needed before judging either plan safe?'),
+        Chapter('A record others can inspect', 'An archive asks for a reproducible account of the signal investigation, including uncertainty and decisions.',
+                'What should the team deposit?',
+                (Choice('clue', 'Publish the signal evidence', 'Raw observations and methods remain available for review.'),
+                 Choice('plan', 'Publish the decision log', 'The log separates evidence from the team\'s interpretations.')),
+                'How might another team challenge the conclusion?'),
+        Chapter('The next expedition', 'A later crew will continue the work. The report must make clear what is known and what remains a hypothesis.',
+                'Which message helps them most?',
+                (Choice('question', 'State a testable next question', 'The crew can design an independent check.'),
+                 Choice('discovery', 'Report a bounded finding', 'The finding includes source, uncertainty, and scope.')),
+                'Where should a report draw the line between result and inference?'),
+    ),
+    'ocean': (
+        Chapter('The reef survey', 'Local surveys suggest a reef is changing. Sampling sites were chosen for convenience, so the team cannot yet claim the whole coastline is affected.',
+                'What should the team do first?',
+                (Choice('ask', 'Interview local observers', 'Their accounts identify when and where conditions changed.'),
+                 Choice('observe', 'Design a broader survey', 'The team selects comparison sites and repeatable measurements.')),
+                'How could the sampling method distort the conclusion?'),
+        Chapter('Test a response', 'Two restoration proposals compete for limited funds. The team needs a comparison that can reveal both benefits and unintended effects.',
+                'Which pilot should begin?',
+                (Choice('shelter', 'Test protected plots', 'The pilot measures growth against comparable unprotected plots.'),
+                 Choice('route', 'Test a flow change', 'The pilot monitors water movement and effects downstream.')),
+                'What result would count as evidence against the chosen plan?'),
+        Chapter('A wider perspective', 'A regional researcher brings observations from other reefs. The methods differ from the local survey.',
+                'How should the team use the new data?',
+                (Choice('explain', 'Compare methods and findings', 'The team records differences before combining claims.'),
+                 Choice('invite', 'Run a shared follow-up survey', 'A common method makes later comparisons stronger.')),
+                'When is combining two datasets misleading?'),
+        Chapter('A monitoring handoff', 'The project will outlast this team. Future volunteers need a protocol that preserves both evidence and uncertainty.',
+                'What should they receive?',
+                (Choice('guide', 'Write a repeatable protocol', 'The guide states measures, timing, and data limitations.'),
+                 Choice('markers', 'Mark fixed survey locations', 'Future teams can compare the same places over time.')),
+                'How will the next team know whether the intervention worked?'),
+    ),
+}
+
 BEAT_CUES = {
     'forest': (
         ('The fox has a word clue at the fork in the trail.', 'Practice making a clear message for the next traveler.', 'Count carefully before choosing what to carry.'),
@@ -219,7 +290,7 @@ BEAT_CUES = {
 
 def view(world: str, chapter_index: int, beat: int, path: list[str], repair: bool = False,
          grade: int = 0) -> dict:
-    chapters = ADVANCED_STORIES[world] if grade >= 4 else STORIES[world]
+    chapters = SCHOLAR_STORIES[world] if grade >= 9 else ADVANCED_STORIES[world] if grade >= 4 else STORIES[world]
     history = []
     for index, choice_id in enumerate(path[:len(chapters)]):
         choice = next((entry for entry in chapters[index].choices if entry.id == choice_id), None)

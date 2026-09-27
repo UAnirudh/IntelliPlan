@@ -189,3 +189,8 @@ body:has(.command-chat) #planiBot { display: none !important; } /* same assistan
 @media (prefers-reduced-motion: reduce) {
   .command-chat * { animation: none !important; scroll-behavior: auto !important; }
 }
+.command-family-note{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 18px;border:1px solid var(--border);border-radius:14px;background:var(--bg-elevated);margin:0 14px 10px;color:var(--text-primary)}
+.command-family-note[hidden]{display:none}
+.command-family-note strong{font-size:.82rem}.command-family-note p{margin:4px 0 0;font-size:.9rem;line-height:1.4}
+.command-family-note button{border:1px solid var(--border-strong);border-radius:999px;background:var(--bg-card);color:var(--text-primary);min-height:40px;padding:8px 16px;white-space:nowrap;cursor:pointer}
+@media(max-width:650px){.command-family-note{flex-direction:column;align-items:flex-start}.command-family-note button{align-self:flex-end}}

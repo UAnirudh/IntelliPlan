@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block page_title %}Linked accounts | IntelliPlan{% endblock %}
+{% block content %}
+<style>
+.sharing-shell{max-width:850px;margin:0 auto;padding:12px 0 50px;color:var(--text-primary)}
+.sharing-shell h1{font-family:var(--font-display);font-size:clamp(2rem,4vw,3.2rem);margin:8px 0 12px}
+.sharing-shell p{color:var(--text-secondary);line-height:1.6}
+.sharing-kicker{color:var(--accent)!important;font-size:.75rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+.sharing-panel{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);padding:22px;margin-top:24px}
+.sharing-panel h2{margin:0 0 10px;font-family:var(--font-display)}
+.sharing-list{display:grid;gap:12px;margin-top:14px}
+.sharing-row{border:1px solid var(--border);background:var(--bg-elevated);border-radius:var(--r-md);padding:15px;display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap}
+.sharing-row strong,.sharing-row small{display:block}.sharing-row small{color:var(--text-muted);margin-top:4px}
+.sharing-actions{display:flex;gap:8px;flex-wrap:wrap}.sharing-actions button{min-height:42px;padding:8px 16px;border-radius:999px;cursor:pointer}
+.sharing-secondary{background:transparent;color:var(--text-primary);border:1px solid var(--border-strong)}
+.sharing-empty{padding:20px;border:1px dashed var(--border-strong);border-radius:var(--r-md)}
+</style>
+<main class="sharing-shell">
+  <p class="sharing-kicker">YOU DECIDE WHAT IS SHARED</p>
+  <h1>Linked accounts</h1>
+  <p>Accept a request to share a limited summary of open and completed work, due dates, overdue counts, recorded study-session counts, and Foundations practice totals and next skill. Your tutor chats, raw answers, notes, and personal profile remain private. You can remove an accepted link whenever you want. College students must opt in here before a parent can see any summary.</p>
+  <p id="sharingStatus" role="status" aria-live="polite">Loading requests…</p>
+  <section class="sharing-panel" aria-labelledby="sharingPendingTitle">
+    <h2 id="sharingPendingTitle">Requests waiting for you</h2>
+    <div id="sharingPending" class="sharing-list"></div>
+  </section>
+  <section class="sharing-panel" aria-labelledby="sharingActiveTitle">
+    <h2 id="sharingActiveTitle">People with access</h2>
+    <div id="sharingActive" class="sharing-list"></div>
+  </section>
+</main>
+<script src="/static/js/student_sharing.js?v={{ asset_v }}" defer></script>
+{% endblock %}

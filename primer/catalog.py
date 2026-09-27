@@ -66,8 +66,9 @@ ITEM_BY_ID = {item.id: item for item in ITEMS}
 ITEMS_BY_SKILL = {skill.id: tuple(item for item in ITEMS if item.skill_id == skill.id) for skill in LEGACY_SKILLS}
 
 from primer.generated import GENERATED_SKILLS, generated_item, generated_item_count, item_for_skill  # noqa: E402
+from primer.advanced import ADVANCED_SKILLS, advanced_item  # noqa: E402
 
-SKILLS = LEGACY_SKILLS + GENERATED_SKILLS
+SKILLS = LEGACY_SKILLS + GENERATED_SKILLS + ADVANCED_SKILLS
 SKILL_BY_ID = {skill.id: skill for skill in SKILLS}
 
 
@@ -75,7 +76,7 @@ def get_item(item_id: str) -> Item | None:
     """Resolve a fixed or generated item without materializing the whole pool."""
     if not isinstance(item_id, str):
         return None
-    return ITEM_BY_ID.get(item_id) or generated_item(item_id)
+    return ITEM_BY_ID.get(item_id) or generated_item(item_id) or advanced_item(item_id)
 
 
 def normalize_answer(value: str) -> str:

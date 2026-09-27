@@ -9,8 +9,9 @@ from flask_sqlalchemy import SQLAlchemy
 from primer.api import primer_bp
 from primer.catalog import ITEM_BY_ID, ITEMS, ITEMS_BY_SKILL, LEGACY_SKILLS, SKILLS, get_item, grade_item, normalize_answer
 from primer.generated import GENERATED_SKILLS, generated_item_count, item_for_skill
+from primer.advanced import ADVANCED_SKILLS, advanced_item_count, advanced_item_for_skill
 from primer import store
-from primer.story import ADVANCED_STORIES, BEAT_CUES, CHAPTER_COUNT, STORIES, view as story_view
+from primer.story import ADVANCED_STORIES, SCHOLAR_STORIES, BEAT_CUES, CHAPTER_COUNT, STORIES, view as story_view
 
 
 class User(UserMixin):
@@ -422,7 +423,7 @@ def test_generated_k8_pool_has_distinct_reconstructable_questions():
 
 def test_grade_placement_scaffold_and_change_invalidate_activity(app):
     owner, other = signed_in(app, '1'), signed_in(app, '2')
-    invalid = owner.post('/api/primer/learners', json={'nickname': 'M', 'world': 'space', 'grade': 9})
+    invalid = owner.post('/api/primer/learners', json={'nickname': 'M', 'world': 'space', 'grade': 14})
     assert invalid.status_code == 400
     created = owner.post('/api/primer/learners', json={'nickname': 'M', 'world': 'space', 'grade': 4})
     assert created.status_code == 201
@@ -450,16 +451,57 @@ def test_grade_placement_scaffold_and_change_invalidate_activity(app):
     assert owner.get(f'/api/primer/learners/{learner_id}/progress').get_json()['scaffolding']['Reading'] is False
 
 
+def test_high_school_and_college_items_are_stable_and_gradeable():
+    assert {skill.grade for skill in ADVANCED_SKILLS} == {9, 10, 11, 12, 13}
+    for skill in ADVANCED_SKILLS:
+        prompts = set()
+        answer_positions = set()
+        assert advanced_item_count(skill.id) == 1000
+        for index in range(1000):
+            item = advanced_item_for_skill(skill.id, index)
+            assert item.id and len(item.id) <= 32 and get_item(item.id) == item
+            assert item.answer and item.hint and item.explanation
+            assert item.answer in item.options if item.options else True
+            assert len(item.options) == len(set(item.options))
+            if item.options:
+                answer_positions.add(item.options.index(item.answer))
+            assert grade_item(item, item.answer)[0], item.id
+            prompts.add(item.prompt)
+        assert len(prompts) == 1000, skill.id
+        if answer_positions:
+            assert answer_positions == set(range(3)), skill.id
+    assert get_item('v2g14m0-0000') is None
+    assert get_item('v2g13m0-1000') is None
+
+
+@pytest.mark.parametrize('grade', [9, 10, 11, 12, 13])
+def test_older_learner_grade_placement_and_authorization(app, grade):
+    owner, other = signed_in(app, '1'), signed_in(app, '2')
+    created = owner.post('/api/primer/learners', json={
+        'nickname': 'Alex', 'world': 'space', 'grade': grade})
+    assert created.status_code == 201
+    learner_id = created.get_json()['learner']['id']
+    first = activity(owner, learner_id)
+    assert first['skill']['id'] == f'g{grade}r0'
+    assert other.get(f'/api/primer/learners/{learner_id}/progress').status_code == 404
+    assert owner.get(f'/api/primer/learners/{learner_id}/progress').get_json()['grade'] == grade
+
+
 def test_story_versions_preserve_choice_ids_and_history():
     for world in STORIES:
-        for younger, older in zip(STORIES[world], ADVANCED_STORIES[world]):
-            assert {choice.id for choice in younger.choices} == {choice.id for choice in older.choices}
+        for younger, older, scholar in zip(STORIES[world], ADVANCED_STORIES[world], SCHOLAR_STORIES[world]):
+            ids = {choice.id for choice in younger.choices}
+            assert ids == {choice.id for choice in older.choices}
+            assert ids == {choice.id for choice in scholar.choices}
         choice = STORIES[world][0].choices[0].id
         younger = story_view(world, 1, 0, [choice], grade=1)
         older = story_view(world, 1, 0, [choice], grade=8)
+        scholar = story_view(world, 1, 0, [choice], grade=13)
         assert younger['history'][0]['choice'] != older['history'][0]['choice'] or younger['scene'] != older['scene']
         assert younger['history'][0]['consequence']
         assert older['history'][0]['consequence']
+        assert scholar['scene'] != older['scene']
+        assert scholar['history'][0]['consequence']
 
 
 def test_existing_learner_without_grade_profile_can_be_placed(app):
