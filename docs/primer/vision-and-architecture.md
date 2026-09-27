@@ -23,6 +23,12 @@ The distinctive loop is a plan or real assignment leading to a small learning ta
 
 Plani's new turn planner is intentionally deterministic. It uses the student-selected grade for language and task scale, then uses attempts and confidence for a **diagnostic**, **repair**, or **transfer** move in the subject the student asked about. It does not infer ability from grade alone, and an unrelated stored topic cannot redirect the current conversation. Generated explanations are still subject to the tutor's safety checks; a model's prose never changes the server-graded Foundations record. The next release should test whether this planning policy improves delayed independent performance against the old prompt, not merely whether it sounds more personal.
 
+### Schoolwork as a tutor anchor
+
+A signed-in student who enabled AI personalization can choose a Canvas assignment in Plani. The picker reads current Canvas courses and assignments, including work without a due date. For the selected assignment, the server fetches its directions and Canvas-linked files using only that student's account. Supported text, PDF, and DOCX files are extracted within a limit of three files, 2 MiB each, and 12,000 characters total. Other files are counted as unreadable; the tutor must not claim to have read them. The assignment and extracted text are sent to the AI provider only on turns where it is selected. Raw source text is not stored as a separate tutor-history item or in the Foundations practice record; an AI reply may quote a relevant excerpt and be saved in chat history. The response reports which attachments were read or skipped.
+
+This is a bridge between the planner's real coursework and the adaptive tutor's grade-aware teaching policy. It does not grade submitted work, identify misconceptions from an unseen file, run OCR on images, or claim curriculum completeness. The student can remove the selected assignment from the tutor. Parent access does not follow from a Canvas connection; college family sharing still requires student opt-in.
+
 ## Product progression
 
 | Horizon | Learner experience | Intelligence and evidence | Adult and teacher role | Release gate |

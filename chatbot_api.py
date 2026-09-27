@@ -1108,6 +1108,25 @@ def _record_adaptive_turn(adaptive_turn, history, user_message, reply):
         print(f'[adaptive-tutor] record failed: {e}')
 
 
+@chatbot_bp.route('/api/tutor/assignments', methods=['GET'])
+def tutor_assignments():
+    """Offer the signed-in student's current Canvas work for an explicit choice."""
+    from App import _ai_personalization_enabled, get_active_account
+    if not current_user.is_authenticated:
+        return jsonify({'error': 'Sign in to connect school assignments.'}), 401
+    if not _ai_personalization_enabled():
+        return jsonify({'error': 'Enable AI personalization in Settings to use school work.'}), 403
+    account = get_active_account()
+    if not account or account.get('login_type') != 'canvas' or not account.get('canvas_token'):
+        return jsonify({'error': 'Connect Canvas to study an assignment.'}), 409
+    try:
+        from assignment_materials import list_assignments
+        return jsonify({'assignments': list_assignments(account.get('canvas_url'), account['canvas_token'])})
+    except Exception as exc:
+        print(f'[tutor/materials] assignment listing failed: {type(exc).__name__}')
+        return jsonify({'error': 'Canvas assignments are unavailable right now.'}), 502
+
+
 @chatbot_bp.route('/api/tutor', methods=['POST'])
 def tutor():
     try:
@@ -1165,6 +1184,28 @@ def tutor():
                 'conversation_id': convo_row['id'],
             })
 
+        assignment_context = None
+        assignment_ref = data.get('assignment_ref')
+        if assignment_ref is not None:
+            from App import _ai_personalization_enabled, get_active_account
+            if not current_user.is_authenticated or not _ai_personalization_enabled():
+                return jsonify({'error': 'Enable AI personalization in Settings before studying school work.'}), 403
+            account = get_active_account()
+            if not account or account.get('login_type') != 'canvas' or not account.get('canvas_token'):
+                return jsonify({'error': 'Connect Canvas before studying this assignment.'}), 409
+            if not isinstance(assignment_ref, dict):
+                return jsonify({'error': 'Choose a valid Canvas assignment.'}), 400
+            try:
+                from assignment_materials import MaterialError, load_assignment
+                assignment_context = load_assignment(
+                    account.get('canvas_url'), account['canvas_token'],
+                    assignment_ref.get('course_id'), assignment_ref.get('assignment_id'))
+            except MaterialError as exc:
+                return jsonify({'error': str(exc)}), 400
+            except Exception as exc:
+                print(f'[tutor/materials] assignment failed: {type(exc).__name__}')
+                return jsonify({'error': 'Canvas could not provide this assignment right now.'}), 502
+
         recent = messages[-16:]
         memory_prompt = _build_tutor_memory_prompt(profile)
         identity_prompt = _build_identity_prompt(_load_user_identity())
@@ -1187,6 +1228,9 @@ def tutor():
             system_messages.append({'role': 'system', 'content': identity_prompt})
         if personalization_prompt:
             system_messages.append({'role': 'system', 'content': personalization_prompt})
+        if assignment_context:
+            from assignment_materials import assignment_prompt
+            system_messages.append({'role': 'system', 'content': assignment_prompt(assignment_context)})
 
         wanted = 2600 if adaptive_turn and adaptive_turn['active']['use_artifacts'] else 1800
         reply = _llm_chat(
@@ -1254,6 +1298,12 @@ def tutor():
                 'mode': adaptive_turn['mode'],
                 'weights': adaptive_turn['weights'],
                 'active': adaptive_turn['active'],
+            }
+        if assignment_context:
+            payload['assignment_context'] = {
+                'title': assignment_context['title'],
+                'files_read': [item['name'] for item in assignment_context['materials']],
+                'files_skipped': assignment_context['skipped_count'],
             }
         return jsonify(payload)
 
@@ -1508,6 +1558,25 @@ def tutor_vision():
         if not ai_available():
             return jsonify({'reply': 'Vision analysis is temporarily unavailable. Please try again later.'}), 503
 
+        assignment_context = None
+        if data.get('assignment_ref') is not None:
+            from App import _ai_personalization_enabled, get_active_account
+            if not current_user.is_authenticated or not _ai_personalization_enabled():
+                return jsonify({'error': 'Enable AI personalization in Settings before studying school work.'}), 403
+            account = get_active_account()
+            if not account or account.get('login_type') != 'canvas' or not account.get('canvas_token'):
+                return jsonify({'error': 'Connect Canvas before studying this assignment.'}), 409
+            ref = data['assignment_ref']
+            if not isinstance(ref, dict):
+                return jsonify({'error': 'Choose a valid Canvas assignment.'}), 400
+            try:
+                from assignment_materials import MaterialError, load_assignment
+                assignment_context = load_assignment(
+                    account.get('canvas_url'), account['canvas_token'],
+                    ref.get('course_id'), ref.get('assignment_id'))
+            except MaterialError as exc:
+                return jsonify({'error': str(exc)}), 400
+
         if mode == 'multi':
             system_prompt = (
                 f"You are Plani, IntelliPlan's AI tutor. Subject: {subject}.\n"
@@ -1538,6 +1607,10 @@ def tutor_vision():
             user_text = question
             max_tok = 1200
 
+        if assignment_context:
+            from assignment_materials import assignment_prompt
+            system_prompt += '\n\n' + assignment_prompt(assignment_context)
+
         reply = ai_vision(
             system_prompt=system_prompt,
             user_text=user_text,
@@ -1556,7 +1629,14 @@ def tutor_vision():
         convo_row = _ensure_conversation(convo_row, stored)
         _save_conversation(convo_row['id'], stored)
 
-        return jsonify({'reply': reply, 'conversation_id': convo_row['id']})
+        payload = {'reply': reply, 'conversation_id': convo_row['id']}
+        if assignment_context:
+            payload['assignment_context'] = {
+                'title': assignment_context['title'],
+                'files_read': [item['name'] for item in assignment_context['materials']],
+                'files_skipped': assignment_context['skipped_count'],
+            }
+        return jsonify(payload)
 
     except AIBlocked as e:
         payload = {'reply': e.message, 'error': e.reason}
