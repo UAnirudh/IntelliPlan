@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import re
 import secrets
+from datetime import timedelta
 from typing import Any
 
 from flask import current_app
@@ -108,10 +109,10 @@ def _counts(owner_id: int) -> dict[str, dict[str, int]]:
             ('attempts', 'correct', 'independent_correct')} for row in rows}
 
 
-def choose(owner_id: int, grade: int, domain_key: str) -> dict[str, Any]:
-    """Prefer a fresh skill, then one repair, then a prior-grade bridge."""
+def _recommendation(owner_id: int, grade: int, domain_key: str,
+                    counts: dict[str, dict[str, int]]) -> dict[str, Any]:
+    """Select a repair, due review, new skill, or the next scheduled review."""
     domain = DOMAINS[domain_key]
-    counts = _counts(owner_id)
     relevant_skills = _skill_ids(grade, domain) + (_skill_ids(grade - 1, domain) if grade else [])
     latest = _db().session.execute(
         select(ATTEMPT).where(ATTEMPT.c.owner_id == owner_id)
@@ -119,24 +120,97 @@ def choose(owner_id: int, grade: int, domain_key: str) -> dict[str, Any]:
         .where(ATTEMPT.c.skill_id.in_(relevant_skills))
         .order_by(ATTEMPT.c.id.desc()).limit(2)
     ).mappings().all()
-    mode = 'diagnostic'
     candidates = _skill_ids(grade, domain)
     if not candidates:
         raise ValueError('No check is available for this grade and area.')
-    if latest and not latest[0]['correct'] and latest[0]['grade'] == grade:
+    if latest and latest[0]['grade'] == grade and not latest[0]['correct']:
         same_wrong_twice = (len(latest) > 1 and not latest[1]['correct']
                             and latest[1]['skill_id'] == latest[0]['skill_id'])
         if same_wrong_twice and grade > 0:
             candidates = _skill_ids(grade - 1, domain)
             mode = 'bridge'
+            reason = 'Two checks on this skill were missed. Try a foundation step.'
         else:
             candidates = [latest[0]['skill_id']]
             mode = 'repair'
-    skill_id = min(candidates, key=lambda item: (
-        counts.get(item, {}).get('attempts', 0),
-        counts.get(item, {}).get('independent_correct', 0),
-        candidates.index(item),
-    ))
+            reason = 'Try another form of the skill you just missed.'
+        skill_id = min(candidates, key=lambda item: (
+            counts.get(item, {}).get('attempts', 0), candidates.index(item)))
+        return {'skill_id': skill_id, 'mode': mode, 'reason': reason,
+                'review_due_at': None}
+    if latest and latest[0]['grade'] == grade and latest[0]['assisted']:
+        return {'skill_id': latest[0]['skill_id'], 'mode': 'independent',
+                'reason': 'Try this skill again without the hint.', 'review_due_at': None}
+
+    now = utcnow()
+    due = []
+    fresh = []
+    future = []
+    for index, skill_id in enumerate(candidates):
+        attempts = _db().session.execute(
+            select(ATTEMPT.c.correct, ATTEMPT.c.assisted, ATTEMPT.c.created_at)
+            .where(ATTEMPT.c.owner_id == owner_id, ATTEMPT.c.skill_id == skill_id)
+            .order_by(ATTEMPT.c.id.desc()).limit(4)
+        ).mappings().all()
+        if not attempts:
+            fresh.append((index, skill_id))
+            continue
+        # Repeating a correct answer immediately does not advance the review
+        # interval. Only a later independent answer can lengthen the cadence.
+        streak = 0
+        previous_at = None
+        intervals = (0, 1, 3, 7, 14)
+        for attempt in reversed(attempts):
+            if not attempt['correct'] or attempt['assisted']:
+                streak = 0
+                previous_at = None
+                continue
+            if (streak and previous_at and attempt['created_at'] - previous_at
+                    >= timedelta(days=intervals[min(streak, 4)])):
+                streak = min(streak + 1, 4)
+            else:
+                streak = 1
+            previous_at = attempt['created_at']
+        # This is a simple practice cadence, not a measured memory model.
+        interval = intervals[streak]
+        due_at = attempts[0]['created_at'] + timedelta(days=interval)
+        entry = (due_at, index, skill_id)
+        (due if due_at <= now else future).append(entry)
+
+    if due:
+        review_at, _, skill_id = min(due)
+        return {'skill_id': skill_id, 'mode': 'review',
+                'reason': 'It is time to try this skill again from memory.',
+                'review_due_at': review_at.isoformat()}
+    if fresh:
+        _, skill_id = min(fresh)
+        return {'skill_id': skill_id, 'mode': 'diagnostic',
+                'reason': 'Start with a small check on a new grade-level skill.',
+                'review_due_at': None}
+    review_at, _, skill_id = min(future)
+    return {'skill_id': skill_id, 'mode': 'practice',
+            'reason': 'All practiced skills are scheduled for later review. You can practice one now.',
+            'review_due_at': review_at.isoformat()}
+
+
+def practice_path(owner_id: int, grade: int) -> list[dict[str, Any]]:
+    counts = _counts(owner_id)
+    result = []
+    for area in DOMAINS:
+        recommendation = _recommendation(owner_id, grade, area, counts)
+        skill = SKILL_BY_ID[recommendation['skill_id']]
+        result.append({'area': area, 'mode': recommendation['mode'],
+                       'reason': recommendation['reason'],
+                       'review_due_at': recommendation['review_due_at'],
+                       'skill': {'id': skill.id, 'title': skill.title, 'grade': skill.grade}})
+    return result
+
+
+def choose(owner_id: int, grade: int, domain_key: str) -> dict[str, Any]:
+    """Use the same practice policy shown in the student's path preview."""
+    counts = _counts(owner_id)
+    recommendation = _recommendation(owner_id, grade, domain_key, counts)
+    skill_id = recommendation['skill_id']
     count = generated_item_count(skill_id) or advanced_item_count(skill_id)
     ordinal = counts.get(skill_id, {}).get('attempts', 0)
     seed = hashlib.sha256(f'{owner_id}:{skill_id}'.encode()).digest()
@@ -148,7 +222,9 @@ def choose(owner_id: int, grade: int, domain_key: str) -> dict[str, Any]:
     skill = SKILL_BY_ID[skill_id]
     return {'token': token, 'item': public_item(item, 'forest'),
             'skill': {'id': skill_id, 'title': skill.title, 'domain': skill.domain,
-                      'grade': skill.grade}, 'mode': mode}
+                      'grade': skill.grade}, 'mode': recommendation['mode'],
+            'reason': recommendation['reason'],
+            'review_due_at': recommendation['review_due_at']}
 
 
 def hinted(owner_id: int, skill_id: str, sequence: int) -> bool:

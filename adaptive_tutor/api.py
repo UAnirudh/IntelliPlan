@@ -289,6 +289,23 @@ def new_check():
         return jsonify({'error': 'A practice check is unavailable right now.'}), 503
 
 
+@adaptive_tutor_bp.route('/api/tutor/adaptive/check/path', methods=['GET'])
+def check_path():
+    access_error = _check_access()
+    if access_error:
+        return access_error
+    grade = checks.selected_grade(int(current_user.id))
+    if grade is None:
+        return jsonify({'error': 'Set a grade in your Learning profile to see your practice path.'}), 409
+    try:
+        response = jsonify({'grade': grade, 'path': checks.practice_path(int(current_user.id), grade)})
+        response.headers['Cache-Control'] = 'private, no-store'
+        return response
+    except Exception:
+        logger.exception('adaptive tutor: practice path failed')
+        return jsonify({'error': 'Your practice path is unavailable right now.'}), 503
+
+
 @adaptive_tutor_bp.route('/api/tutor/adaptive/check/hint', methods=['POST'])
 def check_hint():
     access_error = _check_access()

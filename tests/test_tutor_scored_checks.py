@@ -1,6 +1,6 @@
 """A tutor practice result is server-scored, account-owned, and replay safe."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -176,3 +176,87 @@ def test_two_preissued_tokens_cannot_count_the_same_item_twice(client):
     duplicate = client.post('/api/tutor/adaptive/check/answer', json={
         'token': first['token'], 'answer': item.answer})
     assert duplicate.status_code == 409
+
+
+def test_path_returns_account_owned_grade_level_recommendations(client):
+    assert client.get('/api/tutor/adaptive/check/path').status_code == 401
+    _sign_in(client)
+    assert client.get('/api/tutor/adaptive/check/path').status_code == 409
+    _grade(client, 'Grade 7')
+    path = client.get('/api/tutor/adaptive/check/path')
+    assert path.status_code == 200
+    assert path.headers['Cache-Control'] == 'private, no-store'
+    assert path.json['grade'] == 7
+    assert [entry['area'] for entry in path.json['path']] == ['math', 'reading', 'writing']
+    assert all(entry['skill']['grade'] == 7 and entry['mode'] == 'diagnostic'
+               for entry in path.json['path'])
+
+
+def test_due_review_precedes_new_skills_and_matches_issued_check(client):
+    uid = _sign_in(client)
+    _grade(client, 'Grade 7')
+    first = client.post('/api/tutor/adaptive/check', json={'area': 'math'}).json
+    item = get_item(first['item']['id'])
+    assert client.post('/api/tutor/adaptive/check/answer', json={
+        'token': first['token'], 'answer': item.answer}).status_code == 200
+
+    # A new skill takes priority while this one is not due for review.
+    new_skill = client.get('/api/tutor/adaptive/check/path').json['path'][0]
+    assert new_skill['mode'] == 'diagnostic'
+    assert new_skill['skill']['id'] != first['skill']['id']
+
+    with App.app.app_context():
+        db.session.execute(checks.ATTEMPT.update().where(
+            checks.ATTEMPT.c.owner_id == uid).values(
+            created_at=datetime.utcnow() - timedelta(days=2)))
+        db.session.commit()
+
+    due = client.get('/api/tutor/adaptive/check/path').json['path'][0]
+    assert due['mode'] == 'review'
+    assert due['skill']['id'] == first['skill']['id']
+    assert due['review_due_at']
+    next_check = client.post('/api/tutor/adaptive/check', json={'area': 'math'}).json
+    assert next_check['mode'] == due['mode']
+    assert next_check['skill']['id'] == due['skill']['id']
+
+
+def test_assisted_success_requests_independent_check_and_does_not_leak(client):
+    _sign_in(client)
+    _grade(client, 'Grade 9')
+    first = client.post('/api/tutor/adaptive/check', json={'area': 'reading'}).json
+    assert client.post('/api/tutor/adaptive/check/hint', json={
+        'token': first['token']}).status_code == 200
+    assert client.post('/api/tutor/adaptive/check/answer', json={
+        'token': first['token'], 'answer': get_item(first['item']['id']).answer}).status_code == 200
+
+    path = client.get('/api/tutor/adaptive/check/path').json['path'][1]
+    assert path['mode'] == 'independent'
+    assert path['skill']['id'] == first['skill']['id']
+
+    _sign_in(client)
+    _grade(client, 'Grade 9')
+    other = client.get('/api/tutor/adaptive/check/path').json['path'][1]
+    assert other['mode'] == 'diagnostic'
+
+
+def test_repeating_an_answer_early_does_not_extend_the_review_interval(client, monkeypatch):
+    uid = _sign_in(client)
+    _grade(client, 'Grade 7')
+    first = client.post('/api/tutor/adaptive/check', json={'area': 'math'}).json
+    assert client.post('/api/tutor/adaptive/check/answer', json={
+        'token': first['token'], 'answer': get_item(first['item']['id']).answer}).status_code == 200
+    with App.app.app_context():
+        db.session.execute(checks.ATTEMPT.insert().values(
+            owner_id=uid, nonce=uuid4().hex, grade=7,
+            skill_id=first['skill']['id'], sequence=1,
+            item_id=first['item']['id'], correct=True, assisted=False,
+            created_at=datetime.utcnow()))
+        db.session.commit()
+        original = checks._skill_ids
+        monkeypatch.setattr(checks, '_skill_ids', lambda grade, domain: (
+            [first['skill']['id']] if grade == 7 and domain == 'Arithmetic'
+            else original(grade, domain)))
+        recommendation = checks._recommendation(uid, 7, 'math', checks._counts(uid))
+    due_at = datetime.fromisoformat(recommendation['review_due_at'])
+    assert recommendation['mode'] == 'practice'
+    assert timedelta(hours=23) < due_at - datetime.utcnow() < timedelta(days=2)
