@@ -8,16 +8,53 @@ progress dashboard, memory imports, modality control, and session close-out.
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 
 from flask import Blueprint, jsonify, request
+from flask_login import current_user
+from itsdangerous import BadSignature, SignatureExpired
 
-from adaptive_tutor import engine, modality as modality_lib, store
+from adaptive_tutor import checks, engine, modality as modality_lib, store
 
 logger = logging.getLogger(__name__)
 
 adaptive_tutor_bp = Blueprint('adaptive_tutor', __name__)
 
 _MAX_IMPORT_CHARS = 200_000
+
+
+def _check_access():
+    if not current_user.is_authenticated:
+        return jsonify({'error': 'Sign in to save your practice checks.'}), 401
+    birth_year = getattr(current_user, 'birth_year', None)
+    if birth_year is None:
+        return jsonify({'error': 'Complete the age check before saving practice.',
+                        'age_check_url': '/account/age?next=/tutor'}), 403
+    if datetime.utcnow().year - int(birth_year) < 13 and not getattr(current_user, 'parent_consent_granted', False):
+        return jsonify({'error': 'A parent must approve this account before practice can be saved.'}), 403
+    return None
+
+
+def _challenge_or_error(payload):
+    token = payload.get('token')
+    if not isinstance(token, str) or len(token) > 600:
+        return None, (jsonify({'error': 'Choose a valid practice check.'}), 400)
+    try:
+        challenge = checks.signer().loads(token, max_age=1800)
+    except SignatureExpired:
+        return None, (jsonify({'error': 'This check expired. Start another one.'}), 410)
+    except BadSignature:
+        return None, (jsonify({'error': 'Choose a valid practice check.'}), 400)
+    if (not isinstance(challenge, dict)
+            or challenge.get('owner_id') != int(current_user.id)
+            or challenge.get('grade') != checks.selected_grade(int(current_user.id))
+            or not isinstance(challenge.get('nonce'), str)
+            or not isinstance(challenge.get('item_id'), str)
+            or not isinstance(challenge.get('skill_id'), str)
+            or type(challenge.get('sequence')) is not int
+            or challenge['sequence'] < 0):
+        return None, (jsonify({'error': 'This check belongs to another profile or grade. Start another one.'}), 409)
+    return challenge, None
 
 
 def _chat():
@@ -227,3 +264,72 @@ def resolve_mistake(mistake_id: int):
     except Exception as exc:
         logger.exception('adaptive tutor: mistake resolve failed')
         return jsonify({'error': 'resolve failed', 'detail': str(exc)}), 500
+
+
+@adaptive_tutor_bp.route('/api/tutor/adaptive/check', methods=['POST'])
+def new_check():
+    access_error = _check_access()
+    if access_error:
+        return access_error
+    payload = request.get_json(silent=True)
+    payload = payload if isinstance(payload, dict) else {}
+    area = payload.get('area')
+    if area not in checks.DOMAINS:
+        return jsonify({'error': 'Choose math, reading, or writing.'}), 400
+    grade = checks.selected_grade(int(current_user.id))
+    if grade is None:
+        return jsonify({'error': 'Set a grade from kindergarten through grade 12, or college, in your Learning profile.'}), 409
+    try:
+        result = checks.choose(int(current_user.id), grade, area)
+        response = jsonify(result)
+        response.headers['Cache-Control'] = 'private, no-store'
+        return response
+    except Exception:
+        logger.exception('adaptive tutor: check selection failed')
+        return jsonify({'error': 'A practice check is unavailable right now.'}), 503
+
+
+@adaptive_tutor_bp.route('/api/tutor/adaptive/check/hint', methods=['POST'])
+def check_hint():
+    access_error = _check_access()
+    if access_error:
+        return access_error
+    payload = request.get_json(silent=True)
+    challenge, error = _challenge_or_error(payload if isinstance(payload, dict) else {})
+    if error:
+        return error
+    try:
+        hint = checks.reveal_hint(int(current_user.id), challenge)
+        response = jsonify({'hint': hint})
+        response.headers['Cache-Control'] = 'private, no-store'
+        return response
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 409
+    except Exception:
+        logger.exception('adaptive tutor: check hint failed')
+        return jsonify({'error': 'The hint is unavailable right now.'}), 503
+
+
+@adaptive_tutor_bp.route('/api/tutor/adaptive/check/answer', methods=['POST'])
+def check_answer():
+    access_error = _check_access()
+    if access_error:
+        return access_error
+    payload = request.get_json(silent=True)
+    payload = payload if isinstance(payload, dict) else {}
+    response_text = payload.get('answer')
+    if not isinstance(response_text, str) or not response_text.strip() or len(response_text) > 200:
+        return jsonify({'error': 'Enter an answer of 1 to 200 characters.'}), 400
+    challenge, error = _challenge_or_error(payload)
+    if error:
+        return error
+    try:
+        result = checks.answer(int(current_user.id), challenge, response_text)
+        response = jsonify(result)
+        response.headers['Cache-Control'] = 'private, no-store'
+        return response
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 409
+    except Exception:
+        logger.exception('adaptive tutor: check answer failed')
+        return jsonify({'error': 'Your answer could not be checked right now.'}), 503

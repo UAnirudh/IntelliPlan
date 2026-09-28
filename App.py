@@ -9082,6 +9082,18 @@ def _account_delete_impl():
         ("app_link_codes", "DELETE FROM app_link_codes WHERE user_id = :uid"),
         ("accessibility_prefs", "DELETE FROM accessibility_prefs WHERE user_id = :uid"),
         ("student_profiles", "DELETE FROM student_profiles WHERE user_id = :uid"),
+        # Tutor practice and memory are account-owned, even though these
+        # feature tables are created lazily and do not all carry user FKs.
+        ("tutor_check_hint", "DELETE FROM tutor_check_hint WHERE owner_id = :uid"),
+        ("tutor_scored_check", "DELETE FROM tutor_scored_check WHERE owner_id = :uid"),
+        ("adaptive_session_summary", "DELETE FROM adaptive_session_summary WHERE profile_id IN (SELECT id FROM adaptive_student_profile WHERE user_id = :uid)"),
+        ("adaptive_memory_import", "DELETE FROM adaptive_memory_import WHERE profile_id IN (SELECT id FROM adaptive_student_profile WHERE user_id = :uid)"),
+        ("adaptive_learner_memory", "DELETE FROM adaptive_learner_memory WHERE profile_id IN (SELECT id FROM adaptive_student_profile WHERE user_id = :uid)"),
+        ("adaptive_mistake_pattern", "DELETE FROM adaptive_mistake_pattern WHERE profile_id IN (SELECT id FROM adaptive_student_profile WHERE user_id = :uid)"),
+        ("adaptive_subject_mastery", "DELETE FROM adaptive_subject_mastery WHERE profile_id IN (SELECT id FROM adaptive_student_profile WHERE user_id = :uid)"),
+        ("adaptive_student_profile", "DELETE FROM adaptive_student_profile WHERE user_id = :uid"),
+        ("tutor_conversations", "DELETE FROM tutor_conversations WHERE user_id = :uid"),
+        ("tutor_memory", "DELETE FROM tutor_memory WHERE user_id = :uid"),
         ("primer_hint_used", "DELETE FROM primer_hint_used WHERE learner_id IN (SELECT id FROM primer_learner WHERE owner_id = :uid)"),
         ("primer_attempt", "DELETE FROM primer_attempt WHERE learner_id IN (SELECT id FROM primer_learner WHERE owner_id = :uid)"),
         ("primer_skill_state", "DELETE FROM primer_skill_state WHERE learner_id IN (SELECT id FROM primer_learner WHERE owner_id = :uid)"),

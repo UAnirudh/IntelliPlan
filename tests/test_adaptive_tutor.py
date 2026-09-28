@@ -199,6 +199,8 @@ def _context():
         'mastery': [{
             'subject': 'Math', 'topic': 'Quadratics',
             'mastery_score': 41.0, 'confidence_level': 36.0,
+            'source': 'scored_check', 'grade': 10,
+            'independent_correct': 1, 'total_attempts': 3,
         }],
         'mistakes': [{
             'subject': 'Math', 'topic': 'Quadratics',
@@ -251,9 +253,9 @@ def test_teaching_stage_follows_grade(grade, stage):
 def test_teaching_move_uses_current_subject_and_evidence():
     context = {'mastery': [
         {'subject': 'Math', 'topic': 'Fractions', 'mastery_score': 40,
-         'confidence_level': 65, 'total_attempts': 5},
+         'confidence_level': 65, 'total_attempts': 5, 'source': 'scored_check'},
         {'subject': 'Reading', 'topic': 'Inference', 'mastery_score': 90,
-         'confidence_level': 80, 'total_attempts': 7},
+         'confidence_level': 80, 'total_attempts': 7, 'source': 'scored_check'},
     ]}
     assert teaching_move(context, 'Math') == {'kind': 'repair', 'topic': 'Fractions'}
     assert teaching_move(context, 'Reading') == {'kind': 'transfer', 'topic': 'Inference'}
@@ -264,9 +266,19 @@ def test_teaching_move_uses_current_subject_and_evidence():
     assert 'Inference' not in prompt.split('## Teaching Plan for This Turn')[1].split('##')[0]
 
 
-def test_mastery_is_labelled_by_band():
+def test_teaching_move_does_not_redirect_to_an_unrelated_checked_topic():
+    context = {'mastery': [
+        {'subject': 'Math', 'topic': 'Reason with percent', 'mastery_score': 40,
+         'confidence_level': 65, 'total_attempts': 5, 'source': 'scored_check'},
+    ]}
+    assert teaching_move(context, 'Math', 'How do I factor quadratics?')['kind'] == 'diagnose'
+    assert teaching_move(context, 'Math', 'Help me with Reason with percent')['kind'] == 'repair'
+
+
+def test_scored_checks_are_labelled_as_small_practice_samples():
     prompt = build_adaptive_prompt(_context())
-    assert 'needs work' in prompt
+    assert '1 independent correct of 3 checked attempts' in prompt
+    assert 'not a validated mastery measure' in prompt
 
 
 def test_artifacts_are_only_described_when_enabled():

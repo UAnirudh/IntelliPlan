@@ -24,6 +24,8 @@ from datetime import date, datetime
 import pytest
 
 import App as app_module
+import chatbot_api
+from adaptive_tutor import checks as tutor_checks, store as adaptive_store
 from primer import store as primer_store
 
 
@@ -132,7 +134,9 @@ def test_the_plan_only_names_tables_that_exist(ctx):
     """A typo like `day_archive` for `day_archives` is swallowed by the
     per-statement except and silently deletes nothing."""
     source = _deletion_plan_source()
-    real = set(app_module.db.metadata.tables) | set(primer_store._META.tables)
+    real = (set(app_module.db.metadata.tables) | set(primer_store._META.tables)
+            | set(adaptive_store._META.tables) | set(tutor_checks._META.tables)
+            | set(chatbot_api._TUTOR_MEMORY_META.tables))
     named = set(re.findall(r"DELETE FROM (\w+)", source)) | set(
         re.findall(r"UPDATE (\w+) SET", source)
     )
@@ -195,6 +199,29 @@ def test_deleting_an_account_removes_the_user_and_their_rows(ctx):
     primer_store.record_offline_checkin(primer_learner['id'], 'Reading')
     primer_store.create_nudge(primer_learner['id'], 'explore')
 
+    tutor_checks.ensure_tables()
+    adaptive_store.ensure_tables()
+    chatbot_api._ensure_tutor_memory_table()
+    profile_id = app_module.db.session.execute(adaptive_store.PROFILE.insert().values(
+        user_id=user_id, guest_session_id=None)).inserted_primary_key[0]
+    app_module.db.session.execute(adaptive_store.MASTERY.insert().values(
+        profile_id=profile_id, subject='Math', topic='Old inferred score',
+        mastery_score=60, confidence_level=20, total_attempts=1,
+        correct_attempts=1, last_practiced=datetime.utcnow(),
+        created_at=datetime.utcnow(), updated_at=datetime.utcnow()))
+    app_module.db.session.execute(tutor_checks.ATTEMPT.insert().values(
+        owner_id=user_id, nonce=uuid.uuid4().hex, grade=7, skill_id='g7m0',
+        sequence=0, item_id='v1g7m0-00001', correct=True, assisted=False,
+        created_at=datetime.utcnow()))
+    app_module.db.session.execute(tutor_checks.HINT.insert().values(
+        owner_id=user_id, nonce=uuid.uuid4().hex, skill_id='g7m0',
+        sequence=1, created_at=datetime.utcnow()))
+    app_module.db.session.execute(chatbot_api._TUTOR_MEMORY_TABLE.insert().values(
+        user_id=user_id, messages_json='[]', profile_json='{}'))
+    app_module.db.session.execute(chatbot_api._TUTOR_CONVO_TABLE.insert().values(
+        user_id=user_id, title='Old chat', messages_json='[]'))
+    app_module.db.session.commit()
+
     app_module.db.session.add_all(
         [
             app_module.ManualTask(user_id=user_id, title="A task"),
@@ -240,6 +267,12 @@ def test_deleting_an_account_removes_the_user_and_their_rows(ctx):
     assert app_module.db.session.execute(select(primer_store.OFFLINE_CHECKIN).where(primer_store.OFFLINE_CHECKIN.c.learner_id == primer_learner['id'])).first() is None
     assert app_module.db.session.execute(select(primer_store.NUDGE).where(primer_store.NUDGE.c.learner_id == primer_learner['id'])).first() is None
     assert app_module.db.session.execute(select(primer_store.PROFILE).where(primer_store.PROFILE.c.learner_id == primer_learner['id'])).first() is None
+    assert app_module.db.session.execute(select(tutor_checks.ATTEMPT).where(tutor_checks.ATTEMPT.c.owner_id == user_id)).first() is None
+    assert app_module.db.session.execute(select(tutor_checks.HINT).where(tutor_checks.HINT.c.owner_id == user_id)).first() is None
+    assert app_module.db.session.execute(select(adaptive_store.PROFILE).where(adaptive_store.PROFILE.c.user_id == user_id)).first() is None
+    assert app_module.db.session.execute(select(adaptive_store.MASTERY).where(adaptive_store.MASTERY.c.profile_id == profile_id)).first() is None
+    assert app_module.db.session.execute(select(chatbot_api._TUTOR_MEMORY_TABLE).where(chatbot_api._TUTOR_MEMORY_TABLE.c.user_id == user_id)).first() is None
+    assert app_module.db.session.execute(select(chatbot_api._TUTOR_CONVO_TABLE).where(chatbot_api._TUTOR_CONVO_TABLE.c.user_id == user_id)).first() is None
 
 
 def test_foundations_family_page_is_private_and_renders(ctx):

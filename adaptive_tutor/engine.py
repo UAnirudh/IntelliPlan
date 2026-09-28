@@ -18,7 +18,9 @@ import logging
 import re
 from typing import Any, Callable
 
-from adaptive_tutor import analysis, modality as modality_lib, store
+from flask_login import current_user
+
+from adaptive_tutor import analysis, checks, modality as modality_lib, store
 from adaptive_tutor.prompt import build_adaptive_prompt
 
 logger = logging.getLogger(__name__)
@@ -29,14 +31,23 @@ _MEMORY_REFRESH_EVERY = 3
 
 
 def _conversation_context() -> dict[str, Any]:
-    """Exclude legacy AI-inferred mastery rows from teaching decisions.
+    """Use server-scored checks in teaching; exclude legacy inferred scores.
 
     Older sessions created scores from a model-written recap. Those rows have
     no independent answer evidence or provenance, so they cannot establish a
     skill level. Preserve them in storage for an eventual migration, but do
     not present or act on them as scored practice.
     """
-    return {**store.get_student_context(), 'mastery': []}
+    context = store.get_student_context()
+    practice = []
+    try:
+        if current_user.is_authenticated:
+            owner_id = int(current_user.id)
+            grade = checks.selected_grade(owner_id)
+            practice = checks.evidence(owner_id, grade) if grade is not None else []
+    except Exception as exc:
+        logger.warning('adaptive tutor: scored checks unavailable: %s', exc)
+    return {**context, 'mastery': practice}
 
 
 def split_subject(text: str) -> tuple[str, str]:
@@ -68,13 +79,14 @@ def prepare_turn(mode_override: str | None = None, student_message: str = '') ->
     weights = resolve_weights(context)
     active = modality_lib.get_active_modalities(mode, weights)
 
-    subject, _ = split_subject(student_message)
+    subject, body = split_subject(student_message)
 
     prompt = build_adaptive_prompt(
         context,
         use_voice=active['use_voice'],
         use_artifacts=active['use_artifacts'],
         focus_subject=subject,
+        focus_text=body,
     )
 
     return {
@@ -199,10 +211,8 @@ def build_dashboard() -> dict[str, Any]:
     average = round(sum(scores) / len(scores), 1) if scores else 0.0
 
     weakest = sorted(mastery, key=lambda m: float(m.get('mastery_score') or 0))[:5]
-    recommendations = [
-        f"Review {m.get('subject')} > {m.get('topic')} - currently at {round(float(m.get('mastery_score') or 0))}%"
-        for m in weakest
-    ]
+    recommendations = [f"Try another independent check on {m.get('topic')}"
+                       for m in weakest]
     for row in sessions[:1]:
         for topic in (row.get('review_next') or [])[:3]:
             recommendations.append(f'Follow up on {topic} from your last session')
@@ -217,6 +227,9 @@ def build_dashboard() -> dict[str, Any]:
                 'confidence_level': round(float(m.get('confidence_level') or 0), 1),
                 'total_attempts': m.get('total_attempts'),
                 'correct_attempts': m.get('correct_attempts'),
+                'independent_correct': m.get('independent_correct'),
+                'grade': m.get('grade'),
+                'source': 'scored_check',
             }
             for m in mastery
         ],
