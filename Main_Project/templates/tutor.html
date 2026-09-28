@@ -382,6 +382,11 @@ main {
 .tutor-practice-card button { border: 1px solid var(--border-accent); border-radius: 8px; background: var(--accent-soft); color: var(--text-primary); padding: 7px 10px; cursor: pointer; margin-right: 6px; }
 .tutor-practice-card button:disabled { opacity: 0.55; cursor: wait; }
 .tutor-practice-result { margin: 10px 0; padding: 9px; border-radius: 8px; background: var(--accent-soft); }
+.tutor-practice-path { max-width: 820px; margin: 12px auto; padding: 16px; border: 1px solid var(--border-accent); border-radius: 14px; background: var(--glass-bg); color: var(--text-primary); }
+.tutor-practice-path h3 { margin: 0 0 8px; font-size: 1rem; }
+.tutor-practice-path p { margin: 0 0 12px; color: var(--text-secondary); }
+.tutor-practice-path button { display: block; width: 100%; text-align: left; margin: 7px 0; padding: 10px 12px; border: 1px solid var(--border-accent); border-radius: 9px; background: var(--accent-soft); color: var(--text-primary); cursor: pointer; }
+.tutor-practice-path button span { display: block; margin-top: 3px; color: var(--text-secondary); font-size: 0.8rem; }
 .tutor-input-inner {
   max-width: 820px; margin: 0 auto;
   background: var(--glass-highlight), var(--glass-bg);
@@ -871,6 +876,7 @@ main {
           <option value="math">Math</option><option value="reading">Reading</option><option value="writing">Writing</option>
         </select>
         <button type="button" id="tutorCheckButton" onclick="startTutorCheck()">Quick check</button>
+        <button type="button" id="tutorPathButton" onclick="showTutorPracticePath()">My practice path</button>
         <span id="tutorCheckStatus" role="status" aria-live="polite"></span>
       </div>
       <div id="tutorImgPreview" class="tutor-img-preview" style="display:none;">
@@ -1218,6 +1224,49 @@ async function buildTutorStudyMap() {
   }
 }
 
+async function showTutorPracticePath() {
+  const button = document.getElementById('tutorPathButton');
+  const status = document.getElementById('tutorCheckStatus');
+  button.disabled = true;
+  status.textContent = 'Finding your next small steps…';
+  try {
+    const response = await fetch('/api/tutor/adaptive/check/path');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Could not load your practice path.');
+    document.getElementById('tutorPracticePath')?.remove();
+    const card = document.createElement('section');
+    card.id = 'tutorPracticePath';
+    card.className = 'tutor-practice-path';
+    card.setAttribute('aria-label', 'Practice path');
+    const title = document.createElement('h3');
+    title.textContent = 'Your next practice steps';
+    const note = document.createElement('p');
+    note.textContent = 'These are short checks chosen from your grade and Quick check answers. A review checks what you remember later; it is not a mastery score.';
+    card.append(title, note);
+    for (const step of data.path || []) {
+      const next = document.createElement('button');
+      next.type = 'button';
+      next.textContent = `${step.area[0].toUpperCase() + step.area.slice(1)} · ${step.skill.title}`;
+      const reason = document.createElement('span');
+      reason.textContent = step.reason;
+      next.append(reason);
+      next.addEventListener('click', () => {
+        document.getElementById('tutorCheckArea').value = step.area;
+        startTutorCheck(step.area);
+      });
+      card.append(next);
+    }
+    showChat();
+    document.getElementById('tutorMessages').prepend(card);
+    card.scrollIntoView({ block: 'nearest' });
+    status.textContent = 'Choose a step when you are ready.';
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
 async function startTutorCheck(area = document.getElementById('tutorCheckArea').value) {
   const status = document.getElementById('tutorCheckStatus');
   const button = document.getElementById('tutorCheckButton');
@@ -1240,14 +1289,15 @@ async function startTutorCheck(area = document.getElementById('tutorCheckArea').
       throw new Error(data.error || 'Could not start a check.');
     }
     document.getElementById('tutorPracticeCard')?.remove();
+    document.getElementById('tutorPracticePath')?.remove();
     const card = document.createElement('section');
     card.id = 'tutorPracticeCard';
     card.className = 'tutor-practice-card';
     card.setAttribute('aria-label', 'Grade-level practice check');
     const title = document.createElement('h3');
-    title.textContent = `${data.skill.title} · ${data.mode === 'bridge' ? 'foundation step' : data.mode === 'repair' ? 'try another' : 'quick check'}`;
+    title.textContent = `${data.skill.title} · ${data.mode === 'bridge' ? 'foundation step' : data.mode === 'repair' ? 'try another' : data.mode === 'review' ? 'memory review' : data.mode === 'independent' ? 'without a hint' : 'quick check'}`;
     const note = document.createElement('p');
-    note.textContent = 'From the Foundations question bank. This checks a small skill, not your Canvas assignment.';
+    note.textContent = `${data.reason} From the Foundations question bank. This checks a small skill, not your Canvas assignment.`;
     const prompt = document.createElement('p');
     prompt.textContent = data.item.prompt;
     card.append(title, note, prompt);
