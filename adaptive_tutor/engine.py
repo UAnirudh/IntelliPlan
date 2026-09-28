@@ -5,8 +5,8 @@ This is the layer ``chatbot_api`` calls. It owns three moments:
 ``prepare_turn``          before the LLM call - assemble the student model into a
                           system message and decide which output channels are live
 ``record_turn``           after the LLM call - refresh the durable learner memory
-``summarize_conversation`` when a conversation closes - write the session summary,
-                          extract mistakes, and move mastery scores
+``summarize_conversation`` when a conversation closes - write a session recap
+                          and possible friction points without scoring mastery
 
 Every entry point swallows its own failures. The tutor must answer even when
 the analysis passes are down.
@@ -28,6 +28,17 @@ _SUBJECT_TAG = re.compile(r'^\[Subject:\s*([^\]]+)\]', re.I)
 _MEMORY_REFRESH_EVERY = 3
 
 
+def _conversation_context() -> dict[str, Any]:
+    """Exclude legacy AI-inferred mastery rows from teaching decisions.
+
+    Older sessions created scores from a model-written recap. Those rows have
+    no independent answer evidence or provenance, so they cannot establish a
+    skill level. Preserve them in storage for an eventual migration, but do
+    not present or act on them as scored practice.
+    """
+    return {**store.get_student_context(), 'mastery': []}
+
+
 def split_subject(text: str) -> tuple[str, str]:
     """Split IntelliPlan's ``[Subject: X]`` prefix off a user message."""
     match = _SUBJECT_TAG.match(str(text or ''))
@@ -47,7 +58,7 @@ def resolve_weights(context: dict[str, Any]) -> modality_lib.ModalityWeights:
 
 def prepare_turn(mode_override: str | None = None, student_message: str = '') -> dict[str, Any]:
     """Load the student model and build this turn's adaptive system message."""
-    context = store.get_student_context()
+    context = _conversation_context()
     profile = context['profile']
 
     mode = (mode_override or profile.get('learning_modality') or 'auto').strip().lower()
@@ -142,13 +153,7 @@ def record_turn(chat: Callable[..., str], turn: dict[str, Any],
 
 def summarize_conversation(chat: Callable[..., str], conversation_id: int | None,
                            messages: list[dict[str, Any]]) -> dict[str, Any]:
-    """Close out a conversation: summary, mistakes, and mastery movement.
-
-    Mastery is derived from the summary rather than from a separate quiz loop:
-    concepts the student *understood* score as correct attempts, concepts they
-    *struggled* with score as incorrect ones. Both feed the same weighted
-    moving average the source tutor used.
-    """
+    """Close out a conversation without treating AI impressions as scores."""
     profile = store.get_or_create_profile()
     profile_id = profile['id']
 
@@ -160,18 +165,6 @@ def summarize_conversation(chat: Callable[..., str], conversation_id: int | None
 
     summary = analysis.generate_session_summary(chat, messages)
     store.save_session_summary(profile_id, conversation_id, summary)
-
-    for topic in summary.get('understood') or []:
-        try:
-            store.update_mastery(profile_id, subject, topic, correct=True)
-        except Exception as exc:
-            logger.warning('adaptive tutor: mastery update failed: %s', exc)
-
-    for topic in summary.get('struggled') or []:
-        try:
-            store.update_mastery(profile_id, subject, topic, correct=False)
-        except Exception as exc:
-            logger.warning('adaptive tutor: mastery update failed: %s', exc)
 
     mistakes = analysis.extract_mistakes(chat, messages)
     for mistake in mistakes:
@@ -185,12 +178,21 @@ def summarize_conversation(chat: Callable[..., str], conversation_id: int | None
 
 def build_dashboard() -> dict[str, Any]:
     """Everything the progress dashboard renders."""
-    context = store.get_student_context()
+    context = _conversation_context()
     profile = context['profile']
     mastery = context['mastery']
     mistakes = context['mistakes']
     sessions = context['recent_sessions']
     memory = context['learner_memory']
+
+    recent_topics = []
+    seen_topics = set()
+    for session in sessions[:5]:
+        for topic in session.get('topics_covered') or []:
+            normalized = str(topic).strip()[:120]
+            if normalized and normalized.casefold() not in seen_topics:
+                seen_topics.add(normalized.casefold())
+                recent_topics.append(normalized)
 
     weights = resolve_weights(context)
     scores = [float(m.get('mastery_score') or 0) for m in mastery]
@@ -269,4 +271,5 @@ def build_dashboard() -> dict[str, Any]:
             'sessions_summarized': len(sessions),
         },
         'recommendations': recommendations[:6],
+        'recent_topics': recent_topics[:8],
     }

@@ -366,6 +366,12 @@ main {
 .tutor-assignment-bar select { max-width: min(100%, 440px); }
 .tutor-assignment-bar button:hover { border-color: var(--accent); }
 .tutor-assignment-bar a { color: var(--accent); }
+.tutor-study-map { max-width: 820px; margin: 12px auto; padding: 16px; border: 1px solid var(--border-accent); border-radius: 14px; background: var(--glass-bg); color: var(--text-primary); }
+.tutor-study-map h3 { margin: 0 0 8px; font-size: 1rem; }
+.tutor-study-map ol { margin: 8px 0; padding-left: 22px; }
+.tutor-study-map li { margin: 0 0 10px; }
+.tutor-study-map cite { display: block; margin-top: 3px; color: var(--text-muted); font-size: 0.76rem; font-style: normal; }
+.tutor-study-map button { border: 1px solid var(--border-accent); border-radius: 8px; background: var(--accent-soft); color: var(--text-primary); padding: 7px 10px; cursor: pointer; }
 .tutor-input-inner {
   max-width: 820px; margin: 0 auto;
   background: var(--glass-highlight), var(--glass-bg);
@@ -663,20 +669,12 @@ main {
 .tutor-panel-row { display: flex; gap: 10px; flex-wrap: wrap; }
 .tutor-panel-row > * { flex: 1 1 160px; }
 
-.tutor-mastery-row { margin-bottom: 9px; }
-.tutor-mastery-label {
-  display: flex; justify-content: space-between; gap: 8px;
-  font-size: 0.76rem; color: var(--text-secondary); margin-bottom: 3px;
-}
-.tutor-mastery-track {
-  height: 6px; border-radius: 999px; background: var(--border); overflow: hidden;
-}
-.tutor-mastery-fill { height: 100%; border-radius: 999px; background: var(--accent); }
 .tutor-mistake {
   border-left: 1px solid var(--border);
   padding: 4px 0 4px 10px; margin-bottom: 8px; font-size: 0.78rem;
 }
 .tutor-mistake-meta { color: var(--text-muted); font-size: 0.7rem; }
+.tutor-mistake-meta button { margin-left: 6px; padding: 2px 5px; border: 1px solid var(--border); border-radius: 5px; background: transparent; color: var(--text-secondary); cursor: pointer; }
 .tutor-panel-empty { font-size: 0.78rem; color: var(--text-muted); }
 </style>
 {% endblock %}
@@ -856,6 +854,7 @@ main {
         <select id="tutorAssignmentSelect" aria-label="Choose a Canvas assignment" onchange="selectTutorAssignment()" hidden>
           <option value="">Choose an assignment</option>
         </select>
+        <button type="button" id="tutorMapButton" onclick="buildTutorStudyMap()" hidden>Build study map</button>
         <span id="tutorAssignmentStatus" role="status" aria-live="polite"></span>
       </div>
       <div id="tutorImgPreview" class="tutor-img-preview" style="display:none;">
@@ -987,14 +986,15 @@ main {
             style="padding:9px 16px;border:none;cursor:pointer;">Save profile</button>
     <span id="lpSaveStatus" style="font-size:0.76rem;color:var(--text-muted);margin-left:8px;"></span>
 
-    <h4>What Plani has learned</h4>
+    <h4>Learning patterns Plani has noticed</h4>
     <div id="lpMemory" class="tutor-panel-empty">Ask a few questions and this fills in.</div>
 
-    <h4>Mastery</h4>
-    <div id="lpMastery" class="tutor-panel-empty">No topics tracked yet.</div>
+    <h4>Recent conversation topics</h4>
+    <div id="lpTopics" class="tutor-panel-empty">Talk through a skill to see it here. Chat alone does not count as a scored mastery check.</div>
 
-    <h4>Recurring mistakes</h4>
-    <div id="lpMistakes" class="tutor-panel-empty">Nothing recurring yet.</div>
+    <h4>Possible friction points</h4>
+    <p class="tutor-panel-empty">These are suggestions from your own words in chats. Dismiss any that Plani misunderstood.</p>
+    <div id="lpMistakes" class="tutor-panel-empty">Nothing noted yet.</div>
 
     <h4>Recommended next</h4>
     <div id="lpRecommendations" class="tutor-panel-empty">Finish a session to get recommendations.</div>
@@ -1111,6 +1111,8 @@ function selectTutorAssignment() {
   const select = document.getElementById('tutorAssignmentSelect');
   const status = document.getElementById('tutorAssignmentStatus');
   selectedAssignment = select.value ? JSON.parse(select.value) : null;
+  document.getElementById('tutorMapButton').hidden = !selectedAssignment;
+  document.getElementById('tutorStudyMap')?.remove();
   status.textContent = selectedAssignment
     ? 'Selected assignment and readable attachments will be shared with the AI tutor when you send a message.'
     : 'Assignment removed from tutor context.';
@@ -1124,8 +1126,75 @@ function selectTutorAssignment() {
 
 function clearTutorAssignment() {
   selectedAssignment = null;
+  document.getElementById('tutorMapButton').hidden = true;
+  document.getElementById('tutorStudyMap')?.remove();
   document.getElementById('tutorAssignmentSelect').value = '';
   document.getElementById('tutorAssignmentStatus').textContent = '';
+}
+
+async function buildTutorStudyMap() {
+  if (!selectedAssignment) return;
+  const ref = selectedAssignment;
+  const button = document.getElementById('tutorMapButton');
+  const status = document.getElementById('tutorAssignmentStatus');
+  button.disabled = true;
+  status.textContent = 'Reading assignment directions and available files…';
+  try {
+    const response = await fetch('/api/tutor/assignment-map', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assignment_ref: ref }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'The study map is unavailable.');
+    if (selectedAssignment !== ref) return;
+    document.getElementById('tutorStudyMap')?.remove();
+    const card = document.createElement('section');
+    card.id = 'tutorStudyMap';
+    card.className = 'tutor-study-map';
+    card.setAttribute('aria-label', 'Assignment study map');
+    const title = document.createElement('h3');
+    title.textContent = `Study map · ${data.title}`;
+    card.append(title);
+    if (data.steps.length) {
+      const list = document.createElement('ol');
+      for (const step of data.steps) {
+        const item = document.createElement('li');
+        item.textContent = step.focus;
+        const citation = document.createElement('cite');
+        citation.textContent = `${step.source}: “${step.evidence}”`;
+        item.append(citation);
+        list.append(item);
+      }
+      card.append(list);
+    } else {
+      const note = document.createElement('p');
+      note.textContent = 'There was not enough readable source text for a reliable step-by-step map. Start with the directions together.';
+      card.append(note);
+    }
+    const question = document.createElement('p');
+    question.textContent = `Start here: ${data.first_question}`;
+    card.append(question);
+    const start = document.createElement('button');
+    start.type = 'button';
+    start.textContent = 'Answer this question with Plani';
+    start.addEventListener('click', () => {
+      const input = document.getElementById('tutorInput');
+      input.value = `${data.first_question}\nMy thinking: `;
+      autoResizeTutor(input);
+      input.focus();
+    });
+    card.append(start);
+    showChat();
+    document.getElementById('tutorMessages').prepend(card);
+    status.textContent = data.status === 'limited'
+      ? 'Limited source text. Start by discussing the directions.'
+      : data.files_skipped
+        ? `Map ready. ${data.files_skipped} file(s) could not be read.` : 'Source-backed study map ready.';
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
 }
 
 /* Adaptive student model — the mode Plani answers in, and the modality
@@ -1233,8 +1302,8 @@ async function deleteConversation(id) {
 
 async function startNewChat() {
   if (isProcessing) return;
-  // Close out the conversation being left so its summary, mistakes, and
-  // mastery movement land in the student model before it scrolls away.
+  // Close out the conversation being left so its recap and possible
+  // friction points are available next time.
   summarizeConversation(conversationId, tutorHistory);
   conversationId = null;
   clearTutorAssignment();
@@ -1702,7 +1771,7 @@ async function setModality(mode) {
   }
 }
 
-/* Close-out: summary, mistake extraction, and mastery movement. Fire and
+/* Close-out: recap and possible friction points. Fire and
    forget — the student has already moved on to the next chat. */
 function summarizeConversation(convoId, messages) {
   if (!convoId || !messages || messages.length < 2) return;
@@ -1789,6 +1858,20 @@ async function loadDashboard() {
   } catch (err) { /* ignore */ }
 }
 
+async function dismissTutorMistake(id) {
+  if (!id) return;
+  try {
+    const response = await fetch(`/api/tutor/adaptive/mistakes/${id}/resolve`, { method: 'POST' });
+    if (!response.ok) throw new Error('Could not dismiss this suggestion.');
+    await loadDashboard();
+  } catch (error) {
+    const alert = document.createElement('p');
+    alert.setAttribute('role', 'alert');
+    alert.textContent = error.message;
+    document.getElementById('lpMistakes').append(alert);
+  }
+}
+
 function renderDashboard(data) {
   const memoryEl = document.getElementById('lpMemory');
   const memory = data.learner_memory;
@@ -1805,27 +1888,20 @@ function renderDashboard(data) {
       <div style="font-size:0.8rem;">
         <strong>${escHtml(memory.learner_type || 'Learner')}</strong>
         <span style="color:var(--text-muted);">
-          · ${Math.round((memory.confidence || 0) * 100)}% confidence
-          · ${memory.evidence_count || 0} sessions of evidence
+          · based on ${memory.evidence_count || 0} session recaps
         </span>
       </div>
       <p style="font-size:0.79rem;margin:6px 0 0;">${escHtml(memory.summary || '')}</p>
       ${bullets}`;
   }
 
-  const masteryEl = document.getElementById('lpMastery');
-  if (data.mastery && data.mastery.length) {
-    masteryEl.className = '';
-    masteryEl.innerHTML = data.mastery.map(m => `
-      <div class="tutor-mastery-row">
-        <div class="tutor-mastery-label">
-          <span>${escHtml(m.subject)} › ${escHtml(m.topic)}</span>
-          <span>${Math.round(m.mastery_score)}%</span>
-        </div>
-        <div class="tutor-mastery-track">
-          <div class="tutor-mastery-fill" style="width:${Math.max(2, Math.min(100, m.mastery_score))}%"></div>
-        </div>
-      </div>`).join('');
+  const topicsEl = document.getElementById('lpTopics');
+  if (data.recent_topics && data.recent_topics.length) {
+    topicsEl.className = '';
+    topicsEl.textContent = data.recent_topics.join(' · ');
+  } else {
+    topicsEl.className = 'tutor-panel-empty';
+    topicsEl.textContent = 'Talk through a skill to see it here. Chat alone does not count as a scored mastery check.';
   }
 
   const mistakesEl = document.getElementById('lpMistakes');
@@ -1835,9 +1911,13 @@ function renderDashboard(data) {
       <div class="tutor-mistake">
         <div>${escHtml(m.description)}</div>
         <div class="tutor-mistake-meta">
-          ${escHtml(m.subject)} › ${escHtml(m.topic)} · ${escHtml(m.mistake_type)} · seen ${m.frequency}×
+          ${escHtml(m.subject)} › ${escHtml(m.topic)} · ${escHtml(m.mistake_type)}
+          <button type="button" onclick="dismissTutorMistake(${Number(m.id) || 0})">Not accurate</button>
         </div>
       </div>`).join('');
+  } else {
+    mistakesEl.className = 'tutor-panel-empty';
+    mistakesEl.textContent = 'Nothing noted yet.';
   }
 
   const recEl = document.getElementById('lpRecommendations');
@@ -1845,6 +1925,9 @@ function renderDashboard(data) {
     recEl.className = '';
     recEl.innerHTML = '<ul style="margin:0;padding-left:18px;font-size:0.79rem;">'
       + data.recommendations.map(r => `<li>${escHtml(r)}</li>`).join('') + '</ul>';
+  } else {
+    recEl.className = 'tutor-panel-empty';
+    recEl.textContent = 'Finish a session to get suggestions for what to revisit.';
   }
 
   if (data.modality) {

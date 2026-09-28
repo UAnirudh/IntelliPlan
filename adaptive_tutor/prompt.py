@@ -106,8 +106,8 @@ def _mistakes_section(mistakes: list[dict[str, Any]]) -> list[str]:
             f"{row.get('description')} (seen {row.get('frequency')}x)"
         )
     lines.append(
-        '  -> Watch for these patterns. If the student makes a similar mistake, '
-        'address it directly and review the prerequisites.'
+        '  -> These are possible friction points from earlier chats, not scored evidence. '
+        'Check the student\'s current thinking before using one to choose a repair.'
     )
     return lines
 
@@ -120,9 +120,9 @@ def _sessions_section(sessions: list[dict[str, Any]]) -> list[str]:
             stamp = started.strftime('%Y-%m-%d') if hasattr(started, 'strftime') else 'recent'
             lines.append(f"- Session ({stamp}): {row['summary_text']}")
         if row.get('struggled'):
-            lines.append(f"  Struggled with: {', '.join(row['struggled'])}")
+            lines.append(f"  Possible difficulty reported in recap: {', '.join(row['struggled'])}")
         if row.get('review_next'):
-            lines.append(f"  Should review: {', '.join(row['review_next'])}")
+            lines.append(f"  Suggested follow-up from recap: {', '.join(row['review_next'])}")
     return lines
 
 

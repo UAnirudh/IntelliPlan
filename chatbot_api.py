@@ -1142,6 +1142,57 @@ def tutor_assignments():
         return jsonify({'error': 'Canvas assignments are unavailable right now.'}), 502
 
 
+@chatbot_bp.route('/api/tutor/assignment-map', methods=['POST'])
+def tutor_assignment_map():
+    """Build an ephemeral plan whose displayed steps have verified source quotes."""
+    from App import get_active_account
+    from assignment_materials import MaterialError, load_assignment
+    from assignment_study_map import messages, parse, sources
+
+    access_error = _schoolwork_access_error()
+    if access_error:
+        return access_error
+    account = get_active_account()
+    if not account or account.get('login_type') != 'canvas' or not account.get('canvas_token'):
+        return jsonify({'error': 'Connect Canvas before studying this assignment.'}), 409
+    data = request.get_json(silent=True) or {}
+    ref = data.get('assignment_ref')
+    if not isinstance(ref, dict):
+        return jsonify({'error': 'Choose a valid Canvas assignment.'}), 400
+    try:
+        context = load_assignment(account.get('canvas_url'), account['canvas_token'],
+                                  ref.get('course_id'), ref.get('assignment_id'))
+    except MaterialError as exc:
+        return jsonify({'error': str(exc)}), 400
+    except Exception as exc:
+        print(f'[tutor/materials] study map fetch failed: {type(exc).__name__}')
+        return jsonify({'error': 'Canvas could not provide this assignment right now.'}), 502
+    if not sources(context):
+        return jsonify(parse('{}', context))
+    try:
+        from adaptive_tutor.store import get_or_create_profile
+        tutor_grade = get_or_create_profile().get('grade_level') or ''
+    except Exception:
+        tutor_grade = ''
+    grade = tutor_grade or (_load_user_identity() or {}).get('grade_level') or ''
+    prompts = messages(context, grade)
+    try:
+        decision = ai_firewall.guard(current_user, prompts=[prompts[-1]['content']],
+                                     want_output_tokens=800, feature='tutor')
+        raw = _llm_chat(model='llama-3.1-8b-instant', messages=prompts,
+                        temperature=0.15, max_tokens=min(800, decision.max_output_tokens),
+                        response_format={'type': 'json_object'}, plan=decision.plan)
+        ai_firewall.record_tokens(decision, sum(len(p['content']) for p in prompts), len(raw))
+        return jsonify(parse(raw, context))
+    except AIBlocked as exc:
+        return jsonify({'error': exc.message}), exc.status
+    except (AIQuotaExhausted, AIUnavailable):
+        return jsonify({'error': 'The study map is unavailable right now. You can still ask Plani about this assignment.'}), 503
+    except Exception as exc:
+        print(f'[tutor/materials] study map failed: {type(exc).__name__}')
+        return jsonify({'error': 'The study map is unavailable right now. You can still ask Plani about this assignment.'}), 503
+
+
 @chatbot_bp.route('/api/tutor', methods=['POST'])
 def tutor():
     try:
