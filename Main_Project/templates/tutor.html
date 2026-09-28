@@ -372,6 +372,16 @@ main {
 .tutor-study-map li { margin: 0 0 10px; }
 .tutor-study-map cite { display: block; margin-top: 3px; color: var(--text-muted); font-size: 0.76rem; font-style: normal; }
 .tutor-study-map button { border: 1px solid var(--border-accent); border-radius: 8px; background: var(--accent-soft); color: var(--text-primary); padding: 7px 10px; cursor: pointer; }
+.tutor-check-separator { color: var(--text-muted); padding: 0 2px; }
+.tutor-practice-card { max-width: 820px; margin: 12px auto; padding: 16px; border: 1px solid var(--border-accent); border-radius: 14px; background: var(--glass-bg); color: var(--text-primary); }
+.tutor-practice-card h3 { margin: 0 0 6px; font-size: 1rem; }
+.tutor-practice-card p { margin: 6px 0 12px; }
+.tutor-practice-card fieldset { border: 0; padding: 0; margin: 0 0 10px; }
+.tutor-practice-card label { display: block; margin: 8px 0; font-size: 0.86rem; }
+.tutor-practice-card input[type="text"] { width: min(100%, 430px); border: 1px solid var(--border); border-radius: 8px; padding: 8px; background: var(--glass-bg); color: var(--text-primary); }
+.tutor-practice-card button { border: 1px solid var(--border-accent); border-radius: 8px; background: var(--accent-soft); color: var(--text-primary); padding: 7px 10px; cursor: pointer; margin-right: 6px; }
+.tutor-practice-card button:disabled { opacity: 0.55; cursor: wait; }
+.tutor-practice-result { margin: 10px 0; padding: 9px; border-radius: 8px; background: var(--accent-soft); }
 .tutor-input-inner {
   max-width: 820px; margin: 0 auto;
   background: var(--glass-highlight), var(--glass-bg);
@@ -856,6 +866,12 @@ main {
         </select>
         <button type="button" id="tutorMapButton" onclick="buildTutorStudyMap()" hidden>Build study map</button>
         <span id="tutorAssignmentStatus" role="status" aria-live="polite"></span>
+        <span class="tutor-check-separator" aria-hidden="true">·</span>
+        <select id="tutorCheckArea" aria-label="Quick check area">
+          <option value="math">Math</option><option value="reading">Reading</option><option value="writing">Writing</option>
+        </select>
+        <button type="button" id="tutorCheckButton" onclick="startTutorCheck()">Quick check</button>
+        <span id="tutorCheckStatus" role="status" aria-live="polite"></span>
       </div>
       <div id="tutorImgPreview" class="tutor-img-preview" style="display:none;">
         {# Transparent 1x1 placeholder rather than src="" or no src at all:
@@ -991,6 +1007,10 @@ main {
 
     <h4>Recent conversation topics</h4>
     <div id="lpTopics" class="tutor-panel-empty">Talk through a skill to see it here. Chat alone does not count as a scored mastery check.</div>
+
+    <h4>Scored practice checks</h4>
+    <p class="tutor-panel-empty">Short grade-level questions from Foundations. Your checked answers guide Plani; they do not measure full subject mastery.</p>
+    <div id="lpPractice" class="tutor-panel-empty">Try a Quick check above the tutor input to see your practice here.</div>
 
     <h4>Possible friction points</h4>
     <p class="tutor-panel-empty">These are suggestions from your own words in chats. Dismiss any that Plani misunderstood.</p>
@@ -1186,10 +1206,141 @@ async function buildTutorStudyMap() {
     card.append(start);
     showChat();
     document.getElementById('tutorMessages').prepend(card);
+    card.scrollIntoView({ block: 'nearest' });
     status.textContent = data.status === 'limited'
       ? 'Limited source text. Start by discussing the directions.'
       : data.files_skipped
         ? `Map ready. ${data.files_skipped} file(s) could not be read.` : 'Source-backed study map ready.';
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function startTutorCheck(area = document.getElementById('tutorCheckArea').value) {
+  const status = document.getElementById('tutorCheckStatus');
+  const button = document.getElementById('tutorCheckButton');
+  button.disabled = true;
+  status.textContent = 'Preparing a grade-level check…';
+  try {
+    const response = await fetch('/api/tutor/adaptive/check', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ area }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      if (data.age_check_url) {
+        const link = document.createElement('a');
+        link.href = data.age_check_url;
+        link.textContent = 'Complete age check to save practice';
+        status.replaceChildren(link);
+        return;
+      }
+      throw new Error(data.error || 'Could not start a check.');
+    }
+    document.getElementById('tutorPracticeCard')?.remove();
+    const card = document.createElement('section');
+    card.id = 'tutorPracticeCard';
+    card.className = 'tutor-practice-card';
+    card.setAttribute('aria-label', 'Grade-level practice check');
+    const title = document.createElement('h3');
+    title.textContent = `${data.skill.title} · ${data.mode === 'bridge' ? 'foundation step' : data.mode === 'repair' ? 'try another' : 'quick check'}`;
+    const note = document.createElement('p');
+    note.textContent = 'From the Foundations question bank. This checks a small skill, not your Canvas assignment.';
+    const prompt = document.createElement('p');
+    prompt.textContent = data.item.prompt;
+    card.append(title, note, prompt);
+    const form = document.createElement('form');
+    const fieldset = document.createElement('fieldset');
+    let answerInput;
+    if (data.item.response_kind === 'choice') {
+      for (const option of data.item.options || []) {
+        const label = document.createElement('label');
+        const radio = document.createElement('input');
+        radio.type = 'radio'; radio.name = 'tutorCheckAnswer'; radio.value = option;
+        radio.required = true;
+        label.append(radio, document.createTextNode(` ${option}`));
+        fieldset.append(label);
+      }
+      answerInput = () => fieldset.querySelector('input:checked')?.value || '';
+    } else {
+      const label = document.createElement('label');
+      label.textContent = 'Your answer';
+      const input = document.createElement('input');
+      input.type = 'text'; input.maxLength = 200; input.required = true;
+      label.append(input); fieldset.append(label);
+      answerInput = () => input.value.trim();
+    }
+    const feedback = document.createElement('div');
+    feedback.setAttribute('role', 'status');
+    const submit = document.createElement('button');
+    submit.type = 'submit'; submit.textContent = 'Check answer';
+    const hint = document.createElement('button');
+    hint.type = 'button'; hint.textContent = 'Show hint';
+    hint.addEventListener('click', async () => {
+      hint.disabled = true; submit.disabled = true;
+      try {
+        const res = await fetch('/api/tutor/adaptive/check/hint', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: data.token }),
+        });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || 'Hint unavailable.');
+        feedback.textContent = `Hint: ${body.hint}`;
+        submit.disabled = false;
+      } catch (error) {
+        feedback.textContent = error.message;
+        hint.disabled = false;
+        submit.disabled = false;
+      }
+    });
+    form.append(fieldset, submit, hint, feedback);
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      const answer = answerInput();
+      if (!answer) return;
+      submit.disabled = true; hint.disabled = true;
+      feedback.textContent = 'Checking…';
+      try {
+        const res = await fetch('/api/tutor/adaptive/check/answer', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: data.token, answer }),
+        });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || 'Could not check this answer.');
+        form.remove();
+        const result = document.createElement('div');
+        result.className = 'tutor-practice-result';
+        result.setAttribute('role', 'status');
+        result.textContent = `${body.correct ? 'Correct.' : 'Not yet.'} ${body.feedback} ${body.correct ? '' : `Answer: ${body.answer}.`} ${body.assisted ? 'You used a hint; this is recorded as assisted practice.' : 'Recorded as independent practice.'}`;
+        card.append(result);
+        const next = document.createElement('button');
+        next.type = 'button'; next.textContent = 'Try another check';
+        next.addEventListener('click', () => startTutorCheck(area));
+        const discuss = document.createElement('button');
+        discuss.type = 'button'; discuss.textContent = 'Talk it through with Plani';
+        discuss.addEventListener('click', () => {
+          const subject = area === 'math' ? 'Math' : 'English';
+          const chip = document.querySelector(`#tutorChips .tutor-chip[data-subject="${subject}"]`);
+          if (chip) selectSubject(chip);
+          const input = document.getElementById('tutorInput');
+          input.value = `Help me understand ${data.skill.title}. Ask me to explain my thinking, then help with one step at a time.`;
+          autoResizeTutor(input); input.focus();
+        });
+        card.append(next, discuss);
+        loadDashboard();
+      } catch (error) {
+        feedback.textContent = error.message;
+        submit.disabled = false;
+        hint.disabled = false;
+      }
+    });
+    card.append(form);
+    showChat();
+    document.getElementById('tutorMessages').prepend(card);
+    card.scrollIntoView({ block: 'nearest' });
+    status.textContent = 'Answer this check to give Plani reliable practice evidence.';
   } catch (error) {
     status.textContent = error.message;
   } finally {
@@ -1902,6 +2053,23 @@ function renderDashboard(data) {
   } else {
     topicsEl.className = 'tutor-panel-empty';
     topicsEl.textContent = 'Talk through a skill to see it here. Chat alone does not count as a scored mastery check.';
+  }
+
+  const practiceEl = document.getElementById('lpPractice');
+  const checks = (data.mastery || []).filter(item => item.source === 'scored_check');
+  if (checks.length) {
+    practiceEl.className = '';
+    practiceEl.replaceChildren();
+    for (const item of checks) {
+      const row = document.createElement('div');
+      row.className = 'tutor-mistake';
+      const level = item.grade === 0 ? 'Kindergarten' : item.grade === 13 ? 'College foundation' : `Grade ${item.grade}`;
+      row.textContent = `${item.topic} · ${level} · ${item.independent_correct} independent correct of ${item.total_attempts} checked attempts`;
+      practiceEl.append(row);
+    }
+  } else {
+    practiceEl.className = 'tutor-panel-empty';
+    practiceEl.textContent = 'Try a Quick check above the tutor input to see your practice here.';
   }
 
   const mistakesEl = document.getElementById('lpMistakes');

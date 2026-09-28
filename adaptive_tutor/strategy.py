@@ -37,15 +37,24 @@ STAGE_GUIDANCE = {
 }
 
 
-def teaching_move(context: dict[str, Any], subject: str = "General") -> dict[str, str | None]:
+def teaching_move(context: dict[str, Any], subject: str = "General",
+                  focus_text: str = "") -> dict[str, str | None]:
     """Choose a move using evidence from the subject the learner actually asked about."""
     requested = (subject or "General").strip().casefold()
     if requested == "general":
         return {"kind": "diagnose", "topic": None}
     rows = [
         row for row in context.get("mastery") or []
-        if str(row.get("subject") or "").strip().casefold() == requested
+        if row.get("source") == "scored_check"
+        and str(row.get("subject") or "").strip().casefold() == requested
     ]
+    if focus_text:
+        body = focus_text.casefold()
+        body_words = set(re.findall(r"[a-z0-9]+", body))
+        rows = [row for row in rows if (
+            str(row.get('topic') or '').casefold() in body
+            or len(body_words & set(re.findall(r"[a-z0-9]+", str(row.get('topic') or '').casefold()))) >= 2
+        )]
     if not rows:
         return {"kind": "diagnose", "topic": None}
     row = min(rows, key=lambda item: (

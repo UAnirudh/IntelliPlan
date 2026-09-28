@@ -30,19 +30,6 @@ DIFFICULTY_MAP = {
     'adaptive': 'Adapt difficulty based on how the student responds. Start moderate and adjust.',
 }
 
-#: Mastery above this reads as strong; below the second value it needs work.
-_STRONG_MASTERY = 80
-_DEVELOPING_MASTERY = 50
-
-
-def _mastery_level(score: float) -> str:
-    if score >= _STRONG_MASTERY:
-        return 'strong'
-    if score >= _DEVELOPING_MASTERY:
-        return 'developing'
-    return 'needs work'
-
-
 def _profile_section(profile: dict[str, Any]) -> list[str]:
     lines = ['\n## Student Profile']
     lines.append(f"- Grade Level: {profile.get('grade_level') or 'Not specified'}")
@@ -86,15 +73,15 @@ def _learner_memory_section(memory: dict[str, Any]) -> list[str]:
 
 
 def _mastery_section(mastery: list[dict[str, Any]]) -> list[str]:
-    lines = ['\n## Subject Mastery']
+    lines = ['\n## Server-Scored Practice Checks']
     for row in sorted(mastery, key=lambda r: float(r.get('mastery_score') or 0), reverse=True)[:15]:
-        score = float(row.get('mastery_score') or 0)
-        confidence = float(row.get('confidence_level') or 0)
         lines.append(
-            f"- {row.get('subject')} > {row.get('topic')}: {round(score)}% "
-            f"({_mastery_level(score)}, confidence: {round(confidence)}%)"
+            f"- {row.get('subject')} > {row.get('topic')} (grade {row.get('grade')}): "
+            f"{row.get('independent_correct', 0)} independent correct of "
+            f"{row.get('total_attempts', 0)} checked attempts"
         )
-    lines.append('  -> For weak topics, provide more scaffolding. For strong topics, increase challenge.')
+    lines.append('  -> This is a small practice sample, not a validated mastery measure. '
+                 'Check transfer independently before increasing challenge.')
     return lines
 
 
@@ -181,25 +168,28 @@ def _artifact_section(use_voice: bool) -> list[str]:
 
 def build_adaptive_prompt(context: dict[str, Any], use_voice: bool = False,
                           use_artifacts: bool = True,
-                          focus_subject: str = 'General') -> str:
+                          focus_subject: str = 'General',
+                          focus_text: str = '') -> str:
     """Flatten the student model into one system message."""
     profile = context.get('profile') or {}
-    mastery = context.get('mastery') or []
+    mastery = [row for row in context.get('mastery') or []
+               if row.get('source') == 'scored_check']
     mistakes = context.get('mistakes') or []
     sessions = context.get('recent_sessions') or []
     memory = context.get('learner_memory')
     imports = context.get('memory_imports') or []
 
     sections: list[str] = [
-        'ADAPTIVE STUDENT MODEL. Everything below is what IntelliPlan has learned '
-        'about this specific student. Personalize every response to it. Never read '
-        'the model back to the student verbatim - let it shape the answer.'
+        'ADAPTIVE STUDENT MODEL. The profile and scored checks below belong to this '
+        'student. Session summaries and AI observations are tentative. Use this '
+        'context to choose examples and a next question; verify current understanding '
+        'instead of assuming it. Never read this context back verbatim.'
     ]
 
     sections.extend(_profile_section(profile))
 
     stage = learning_stage(profile.get('grade_level'))
-    move = teaching_move(context, focus_subject)
+    move = teaching_move({**context, 'mastery': mastery}, focus_subject, focus_text)
     sections.append('\n## Teaching Plan for This Turn')
     sections.append(f'- Grade stage: {STAGE_GUIDANCE[stage]}')
     sections.append(f"- Evidence-based move: {MOVE_GUIDANCE[move['kind']]}")
