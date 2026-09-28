@@ -154,3 +154,45 @@ def test_photo_tutor_receives_selected_assignment_context(client, monkeypatch):
     assert result.status_code == 200, result.json
     assert result.json['assignment_context']['files_read'] == ['reading.txt']
     assert 'Evaporation comes first.' in seen[0]
+
+
+def test_study_map_needs_consent_and_verifies_own_canvas_source(client, monkeypatch):
+    calls = []
+    monkeypatch.setattr(assignment_materials, 'load_assignment',
+                        lambda *args: calls.append(args) or {
+                            'title': 'Fractions', 'description': 'Compare two fractions.',
+                            'materials': [{'name': 'sheet.txt', 'text': 'Show your reasoning.'}],
+                            'skipped_count': 0})
+    ref = {'assignment_ref': {'course_id': '4', 'assignment_id': '8'}}
+    assert client.post('/api/tutor/assignment-map', json=ref).status_code == 401
+    _sign_in(client, consent=False)
+    assert client.post('/api/tutor/assignment-map', json=ref).status_code == 403
+    assert calls == []
+    with App.app.app_context():
+        User.query.filter_by(email='tam+student@example.com').first().ai_personalization_opt_in = True
+        db.session.commit()
+    monkeypatch.setattr(chatbot_api.ai_firewall, 'guard',
+                        lambda *a, **k: SimpleNamespace(max_output_tokens=800, plan='free'))
+    monkeypatch.setattr(chatbot_api.ai_firewall, 'record_tokens', lambda *a, **k: None)
+    monkeypatch.setattr(chatbot_api, '_llm_chat', lambda **kwargs: (
+        '{"steps":[{"focus":"Compare the fractions","source_id":"directions",'
+        '"evidence":"Compare two fractions."}],'
+        '"first_question":"How would you compare them?"}'))
+    result = client.post('/api/tutor/assignment-map', json=ref)
+    assert result.status_code == 200, result.json
+    assert result.json['status'] == 'grounded'
+    assert result.json['steps'][0]['source'] == 'Assignment directions'
+    assert calls == [('https://school.instructure.com', 'student-token', '4', '8')]
+
+
+def test_study_map_with_no_readable_sources_does_not_call_ai(client, monkeypatch):
+    _sign_in(client, consent=True)
+    monkeypatch.setattr(assignment_materials, 'load_assignment', lambda *args: {
+        'title': 'Lab', 'description': '', 'materials': [], 'skipped_count': 2})
+    monkeypatch.setattr(chatbot_api, '_llm_chat',
+                        lambda **kwargs: pytest.fail('AI should not be called for empty source text'))
+    result = client.post('/api/tutor/assignment-map', json={
+        'assignment_ref': {'course_id': '4', 'assignment_id': '8'}})
+    assert result.status_code == 200
+    assert result.json['status'] == 'limited'
+    assert result.json['files_skipped'] == 2

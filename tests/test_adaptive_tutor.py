@@ -323,7 +323,9 @@ def test_mistake_extraction_accepts_the_wrapped_object():
     mistakes = analysis.extract_mistakes(_chat_returning({'mistakes': [{
         'subject': 'Math', 'topic': 'Quadratics',
         'mistakeType': 'sign error', 'description': 'Dropped the minus sign',
-    }]}), TRANSCRIPT)
+        'evidenceQuote': 'I thought -3(x+2) becomes -3x+2',
+    }]}), [{'role': 'user', 'content': 'I thought -3(x+2) becomes -3x+2'},
+           {'role': 'assistant', 'content': 'The minus distributes to both terms.'}])
 
     assert len(mistakes) == 1
     assert mistakes[0]['mistakeType'] == 'sign error'
@@ -333,6 +335,15 @@ def test_mistake_extraction_drops_entries_without_a_description():
     mistakes = analysis.extract_mistakes(
         _chat_returning({'mistakes': [{'subject': 'Math'}]}), TRANSCRIPT)
     assert mistakes == []
+
+
+def test_mistake_extraction_requires_student_evidence():
+    answer = {'mistakes': [{
+        'subject': 'Math', 'topic': 'Fractions', 'mistakeType': 'division error',
+        'description': 'Divided numerator and denominator incorrectly',
+        'evidenceQuote': 'I divided both sides by zero',
+    }]}
+    assert analysis.extract_mistakes(_chat_returning(answer), TRANSCRIPT) == []
 
 
 def test_learner_memory_clamps_confidence():
@@ -371,7 +382,7 @@ def test_prepare_turn_rejects_an_unknown_mode(ctx):
     assert engine.prepare_turn('telepathy')['mode'] == 'auto'
 
 
-def test_summarize_conversation_moves_mastery_and_records_mistakes(ctx, monkeypatch):
+def test_summarize_conversation_does_not_score_ai_impressions(ctx, monkeypatch):
     monkeypatch.setattr(analysis, 'generate_session_summary', lambda chat, msgs: {
         'summaryText': 'Worked on quadratics.',
         'topicsCovered': ['Quadratics'],
@@ -390,15 +401,25 @@ def test_summarize_conversation_moves_mastery_and_records_mistakes(ctx, monkeypa
     ])
 
     profile = store.get_or_create_profile()
-    topics = {row['topic'] for row in store.list_mastery(profile['id'])}
-
     assert result['subject'] == 'Math'
-    assert topics == {'Factoring', 'Completing the square'}
+    assert store.list_mastery(profile['id']) == []
     assert len(store.list_mistakes(profile['id'])) == 1
 
     summaries = store.list_session_summaries(profile['id'])
     assert summaries[0]['conversation_id'] == 42
     assert summaries[0]['summary_text'] == 'Worked on quadratics.'
+    assert engine.build_dashboard()['recent_topics'] == ['Quadratics']
+
+
+def test_legacy_inferred_scores_are_not_displayed_or_used_for_teaching(ctx):
+    profile = store.get_or_create_profile()
+    store.update_mastery(profile['id'], 'Math', 'Factoring', correct=True)
+    turn = engine.prepare_turn(student_message='[Subject: Math]\nHelp me factor')
+    dashboard = engine.build_dashboard()
+
+    assert 'Factoring' not in turn['prompt']
+    assert dashboard['mastery'] == []
+    assert dashboard['stats']['topics_tracked'] == 0
 
 
 def test_summarizing_the_same_conversation_twice_updates_one_row(ctx, monkeypatch):

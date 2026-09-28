@@ -91,7 +91,7 @@ def dashboard():
 
 @adaptive_tutor_bp.route('/api/tutor/adaptive/summarize', methods=['POST'])
 def summarize():
-    """Close a conversation: summary, mistake extraction, mastery movement."""
+    """Close a conversation with a recap and possible friction points."""
     try:
         payload = request.get_json(silent=True) or {}
         conversation_id = payload.get('conversation_id')

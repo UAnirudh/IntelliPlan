@@ -128,8 +128,11 @@ def login(client, user_id):
 
 
 def monday_of(weeks_back=0):
-    from datetime import date, timedelta
-    today = date.today()
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+    # The test streak is in UTC. Use that same clock across the local Sunday
+    # evening / UTC Monday boundary so generated qualifying days match the API.
+    today = datetime.now(ZoneInfo("UTC")).date()
     return today - timedelta(days=today.weekday() + 7 * weeks_back)
 
 

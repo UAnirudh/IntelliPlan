@@ -137,8 +137,9 @@ Return a JSON object of the form {{"mistakes": [...]}} where each entry has:
 - topic: the specific topic (e.g. "Quadratic Equations", "Newton's Laws")
 - mistakeType: a short label (e.g. "sign error", "conceptual confusion", "formula misapplication")
 - description: a brief description of what the student got wrong
+- evidenceQuote: a short, exact quote from the STUDENT's own message that demonstrates the mistake
 
-Only report mistakes the STUDENT made. If there were none, return {{"mistakes": []}}.
+Only report mistakes the STUDENT made. Do not infer a mistake from a question, the tutor's words, or an assignment. If there is no exact student quote, return {{"mistakes": []}}.
 
 Transcript:
 {transcript}
@@ -164,11 +165,14 @@ Return ONLY valid JSON, no markdown fences."""
         return []
 
     mistakes = []
+    student_text = ' '.join(str(message.get('content') or '') for message in messages or []
+                            if message.get('role') == 'user').casefold()
     for item in parsed[:10]:
         if not isinstance(item, dict):
             continue
         description = str(item.get('description') or '').strip()
-        if not description:
+        evidence = str(item.get('evidenceQuote') or '').strip()[:240]
+        if not description or len(evidence) < 4 or evidence.casefold() not in student_text:
             continue
         mistakes.append({
             'subject': str(item.get('subject') or 'General').strip()[:120],

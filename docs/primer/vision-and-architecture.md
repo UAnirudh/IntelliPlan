@@ -29,6 +29,10 @@ A signed-in student with an established age who enabled AI personalization can c
 
 This is a bridge between the planner's real coursework and the adaptive tutor's grade-aware teaching policy. It does not grade submitted work, identify misconceptions from an unseen file, run OCR on images, or claim curriculum completeness. The student can remove the selected assignment from the tutor. Parent access does not follow from a Canvas connection; college family sharing still requires student opt-in.
 
+The student can also explicitly build a study map for the selected assignment. The server sends bounded source text and the student's selected grade to the AI provider. The map returns a first diagnostic question and up to four steps. Every displayed step must cite a short, exact quote that the server confirms exists in the named directions or readable attachment; unsupported steps are removed. If no step survives, the interface states that source text was insufficient and offers a general starting question. Maps live only in the current browser view, are cleared when the assignment or chat changes, and do not score mastery. The map is a study aid, not an answer key or a claim that all assignment files were read.
+
+Conversation summaries now provide recaps and possible friction points only. Their AI-generated `understood` and `struggled` labels do not create mastery scores, and older inferred-score rows are excluded from the tutor and dashboard until a provenance-backed scored assessment replaces them. A possible misconception must include a short exact quote from a student message before it is recorded, and the student can dismiss it. The tutor's durable profile remains an editable teaching preference, while Foundations server-graded attempts remain the evidence for practice strength. This distinction prevents fluent conversation from being mistaken for demonstrated learning.
+
 ## Product progression
 
 | Horizon | Learner experience | Intelligence and evidence | Adult and teacher role | Release gate |
