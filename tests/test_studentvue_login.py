@@ -74,6 +74,10 @@ def test_studentvue_login_route_does_not_trim_a_password(client, monkeypatch):
 
 def test_studentvue_rejects_only_explicit_authentication_failures(monkeypatch):
     monkeypatch.setattr(studentvue_helper, "make_request", lambda *args: "RT_ERROR")
+    # This district has no JSON API either, so SOAP's answer stands.
+    def no_json(*args):
+        raise studentvue_helper.JsonApiUnavailable("HTTP 404")
+    monkeypatch.setattr(studentvue_helper, "json_login", no_json)
     assert studentvue_helper.validate_login("https://district.example", "student", "password") == "invalid_credentials"
 
     def unreachable(*args):
