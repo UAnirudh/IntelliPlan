@@ -51,6 +51,8 @@ The current release uses the existing Flask service and SQL database, a separate
 
 Railway production now has a custom-domain binding for `parent.intelliplan.tech` on the existing web service. The DNS provider must add a CNAME record for `parent.intelliplan.tech` pointing to `oabt5ta0.up.railway.app`. Railway reported certificate ownership validation pending on 2026-09-27. The hostname is not considered live until the record resolves, TLS is issued, and a real browser request succeeds.
 
+On 2026-09-28, public DNS still returned NXDOMAIN for the parent hostname. The authoritative nameservers are Namecheap's registrar-servers.com. This workspace has no Namecheap API access. Add the parent CNAME and any ownership-verification TXT record currently displayed in Railway's domain settings. The complete Family shell also runs at `https://intelliplan.tech/parent`: its sign-in and adult registration preserve that destination, with the same student-consent APIs as the subdomain. The subdomain keeps a host-only session; the path fallback uses the main site's existing account session.
+
 ## Verification and iteration gates
 
 1. Unit tests for advanced item reconstruction, keys, placement, and ownership.

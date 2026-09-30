@@ -1,0 +1,20 @@
+.education-dialog { width: min(860px, calc(100% - 28px)); max-height: 88dvh; overflow: auto; box-sizing: border-box; border: 1px solid var(--border); border-radius: 20px; padding: 24px; background: var(--bg-card, #fff); color: var(--text-primary, #172424); box-shadow: var(--shadow-lg); }
+.education-dialog::backdrop { background: rgba(10, 20, 20, .6); }
+.education-heading { display: flex; gap: 20px; align-items: flex-start; justify-content: space-between; }
+.education-heading h2 { margin: 4px 0 12px; font-size: clamp(1.25rem, 3vw, 1.8rem); line-height: 1.2; }
+.education-kicker { font-size: .72rem; letter-spacing: .12em; color: var(--text-secondary); }
+.education-dialog p, .education-dialog small { line-height: 1.6; }
+.education-dialog label { display: block; font-size: .84rem; margin: 12px 0; }
+.education-dialog input, .education-dialog textarea, .education-dialog select { display: block; width: 100%; box-sizing: border-box; margin-top: 5px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elevated, #f5f7f6); color: var(--text-primary); font: inherit; }
+.education-fields { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
+.education-dialog button { padding: 9px 13px; border: 1px solid var(--border-accent); border-radius: 9px; background: var(--accent-soft); color: var(--text-primary); cursor: pointer; font: inherit; font-size: .83rem; }
+.education-dialog button:disabled { opacity: .5; cursor: wait; }
+.education-dialog button:focus-visible, .education-dialog input:focus-visible, .education-dialog textarea:focus-visible, .education-dialog select:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.education-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+#educationKnown { border-block: 1px solid var(--border); margin: 22px 0; padding: 14px 0; }
+#educationKnown p { margin: 5px 0; font-size: .85rem; }
+.education-step { border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin: 12px 0; }
+.education-step h3 { margin: 0 0 6px; font-size: 1rem; }
+.education-step p { margin: 6px 0; font-size: .86rem; }
+.education-step.current { border-color: var(--accent); }
+@media (max-width: 600px) { .education-dialog { padding: 16px; } .education-fields { grid-template-columns: 1fr; gap: 0; } }

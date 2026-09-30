@@ -20,7 +20,7 @@ from typing import Any, Callable
 
 from flask_login import current_user
 
-from adaptive_tutor import analysis, checks, modality as modality_lib, store
+from adaptive_tutor import analysis, checks, education, modality as modality_lib, store
 from adaptive_tutor.prompt import build_adaptive_prompt
 
 logger = logging.getLogger(__name__)
@@ -47,7 +47,12 @@ def _conversation_context() -> dict[str, Any]:
             practice = checks.evidence(owner_id, grade) if grade is not None else []
     except Exception as exc:
         logger.warning('adaptive tutor: scored checks unavailable: %s', exc)
-    return {**context, 'mastery': practice}
+    education_context = None
+    try:
+        education_context = education.tutor_context()
+    except Exception as exc:
+        logger.warning('adaptive tutor: education plan unavailable: %s', exc)
+    return {**context, 'mastery': practice, 'education_plan': education_context}
 
 
 def split_subject(text: str) -> tuple[str, str]:

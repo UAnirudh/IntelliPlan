@@ -18,7 +18,7 @@ import json
 from datetime import date, datetime, timedelta
 from time_utils import utcnow
 
-from flask import Blueprint, current_app, jsonify, render_template, request
+from flask import Blueprint, current_app, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from intelliplan.repositories.assignments import AssignmentRepository
@@ -96,11 +96,12 @@ def teacher_dashboard():
 
 
 @bp.route("/parent")
-@login_required
 def parent_dashboard():
-    if current_user.role != "parent":
-        return jsonify({"error": "forbidden", "detail": "Parent account required."}), 403
-    return render_template("parent_dashboard.html", active_page="parent")
+    if not current_user.is_authenticated:
+        return redirect(url_for("login_account", next="/parent"))
+    return render_template("parent_portal.html", noindex_page=True,
+                           parent_mode=current_user.role == "parent",
+                           family_home_url="/parent")
 
 
 @bp.route("/linked-accounts")

@@ -14,13 +14,87 @@ from flask import Blueprint, jsonify, request
 from flask_login import current_user
 from itsdangerous import BadSignature, SignatureExpired
 
-from adaptive_tutor import checks, engine, modality as modality_lib, store
+from adaptive_tutor import checks, education, engine, modality as modality_lib, store
 
 logger = logging.getLogger(__name__)
 
 adaptive_tutor_bp = Blueprint('adaptive_tutor', __name__)
 
 _MAX_IMPORT_CHARS = 200_000
+
+
+@adaptive_tutor_bp.route('/api/tutor/adaptive/education-plan', methods=['GET', 'POST', 'DELETE'])
+def education_plan():
+    from chatbot_api import _schoolwork_access_error
+    access_error = _check_access() if request.method == 'DELETE' else _schoolwork_access_error()
+    if access_error:
+        return access_error
+    owner_id = int(current_user.id)
+    try:
+        if request.method == 'DELETE':
+            education.delete(owner_id)
+            result = {'plan': None}
+        elif request.method == 'GET':
+            result = {'plan': education.load(owner_id)}
+        else:
+            payload = request.get_json(silent=True)
+            if not isinstance(payload, dict):
+                return jsonify({'error': 'Enter your education goal.'}), 400
+            goal = education.validate_goal(payload.get('goal'))
+            revision = payload.get('revision', 0)
+            if type(revision) is not int or revision < 0:
+                return jsonify({'error': 'Reload your plan before rebuilding.'}), 400
+            existing = education.load(owner_id)
+            if revision != (existing['revision'] if existing else 0):
+                return jsonify({'error': 'Your plan changed in another tab. Reload it first.'}), 409
+            snapshot = education.collect_snapshot(owner_id)
+            prompts = education.plan_messages(goal, snapshot)
+            import ai_firewall
+            from ai_firewall import AIBlocked
+            try:
+                decision = ai_firewall.guard(current_user, prompts=[prompts[-1]['content']],
+                                             want_output_tokens=2200, feature='tutor')
+                raw = _chat()(model='llama-3.3-70b-versatile', messages=prompts,
+                              temperature=0.2, max_tokens=min(2200, decision.max_output_tokens),
+                              response_format={'type': 'json_object'}, plan=decision.plan)
+                ai_firewall.record_tokens(decision, sum(len(p['content']) for p in prompts), len(raw))
+            except AIBlocked as exc:
+                return jsonify({'error': exc.message}), exc.status
+            steps = education.parse_steps(raw, goal, snapshot)
+            education.save(owner_id, goal, snapshot, steps, revision)
+            result = {'plan': education.load(owner_id)}
+        response = jsonify(result)
+        response.headers['Cache-Control'] = 'private, no-store'
+        return response
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+    except Exception:
+        logger.exception('adaptive tutor: education plan failed')
+        return jsonify({'error': 'Your plan could not be loaded or updated. Your saved plan has been kept.'}), 503
+
+
+@adaptive_tutor_bp.route('/api/tutor/adaptive/education-plan/steps/<step_id>', methods=['PATCH'])
+def education_progress(step_id):
+    from chatbot_api import _schoolwork_access_error
+    access_error = _schoolwork_access_error()
+    if access_error:
+        return access_error
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict) or type(payload.get('revision')) is not int:
+        return jsonify({'error': 'Reload your plan before updating progress.'}), 400
+    try:
+        education.set_progress(int(current_user.id), step_id,
+                               payload.get('status'), payload['revision'])
+        response = jsonify({'plan': education.load(int(current_user.id))})
+        response.headers['Cache-Control'] = 'private, no-store'
+        return response
+    except LookupError as exc:
+        return jsonify({'error': str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 409
+    except Exception:
+        logger.exception('adaptive tutor: education progress failed')
+        return jsonify({'error': 'Progress could not be saved. Please reload your plan.'}), 503
 
 
 def _check_access():
@@ -276,14 +350,19 @@ def new_check():
     area = payload.get('area')
     if area not in checks.DOMAINS:
         return jsonify({'error': 'Choose math, reading, or writing.'}), 400
+    skill_id = payload.get('skill_id')
+    if skill_id is not None and (not isinstance(skill_id, str) or len(skill_id) > 32):
+        return jsonify({'error': 'Choose a valid skill.'}), 400
     grade = checks.selected_grade(int(current_user.id))
     if grade is None:
         return jsonify({'error': 'Set a grade from kindergarten through grade 12, or college, in your Learning profile.'}), 409
     try:
-        result = checks.choose(int(current_user.id), grade, area)
+        result = checks.choose(int(current_user.id), grade, area, skill_id)
         response = jsonify(result)
         response.headers['Cache-Control'] = 'private, no-store'
         return response
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
     except Exception:
         logger.exception('adaptive tutor: check selection failed')
         return jsonify({'error': 'A practice check is unavailable right now.'}), 503

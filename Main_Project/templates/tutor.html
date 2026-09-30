@@ -877,6 +877,7 @@ main {
         </select>
         <button type="button" id="tutorCheckButton" onclick="startTutorCheck()">Quick check</button>
         <button type="button" id="tutorPathButton" onclick="showTutorPracticePath()">My practice path</button>
+        <button type="button" id="educationPlanOpen">My learning plan</button>
         <span id="tutorCheckStatus" role="status" aria-live="polite"></span>
       </div>
       <div id="tutorImgPreview" class="tutor-img-preview" style="display:none;">
@@ -945,6 +946,23 @@ main {
     <p id="snapCameraErr" style="font-size:0.78rem;color:var(--high);margin:8px 0 0;min-height:1.1em;"></p>
   </div>
 </div>
+
+<link rel="stylesheet" href="/static/css/tutor_education.css?v={{ asset_v }}">
+<dialog id="educationPlanDialog" class="education-dialog" aria-labelledby="educationPlanTitle">
+  <div class="education-heading"><div><p class="education-kicker">PRIMER / YOUR EDUCATION</p><h2 id="educationPlanTitle">From where you are to where you want to be.</h2></div><button type="button" id="educationPlanClose" aria-label="Close learning plan">Close</button></div>
+  <p>Set a goal. Plani connects your available courses, grades, assignments and checked practice to a learning plan, then uses it during your lessons.</p>
+  <p id="educationPlanStatus" role="status" aria-live="polite"></p>
+  <form id="educationPlanForm">
+    <div class="education-fields"><label>Subject or course<input id="educationSubject" maxlength="80" required placeholder="Algebra 2, Biology, academic writing"></label><label>Minutes available each week<input id="educationMinutes" type="number" min="15" max="1200" value="120" required></label><label>Target date (optional)<input id="educationDate" type="date"></label></div>
+    <label>What do you want to be able to do?<textarea id="educationTarget" maxlength="500" minlength="8" rows="2" required placeholder="Explain and solve quadratic equations independently before my unit test."></textarea></label>
+    <label>Where are you starting? (your own description)<textarea id="educationStarting" maxlength="500" rows="2" placeholder="I can factor simple expressions, but I get stuck choosing a method."></textarea></label>
+    <div class="education-actions"><button type="submit" id="educationBuild">Build my learning plan</button><button type="button" id="educationReload">Reload saved plan</button><button type="button" id="educationDelete" hidden>Delete plan and snapshot</button></div>
+    <small>Building refreshes available school data and sends this goal and snapshot to the AI provider under your AI personalization setting. Rebuilding replaces the old milestones and their reported progress.</small>
+  </form>
+  <section id="educationKnown" hidden aria-label="Education context"></section>
+  <section id="educationMilestones" hidden aria-label="Learning milestones"></section>
+</dialog>
+<script src="/static/js/tutor_education.js?v={{ asset_v }}" defer></script>
 
 <!-- Learning profile: onboarding answers + the student model Plani has built -->
 <div class="tutor-panel-backdrop" id="learningPanel" role="dialog" aria-modal="true" aria-labelledby="learningPanelTitle">
@@ -1267,7 +1285,7 @@ async function showTutorPracticePath() {
   }
 }
 
-async function startTutorCheck(area = document.getElementById('tutorCheckArea').value) {
+async function startTutorCheck(area = document.getElementById('tutorCheckArea').value, skillId = null) {
   const status = document.getElementById('tutorCheckStatus');
   const button = document.getElementById('tutorCheckButton');
   button.disabled = true;
@@ -1275,7 +1293,7 @@ async function startTutorCheck(area = document.getElementById('tutorCheckArea').
   try {
     const response = await fetch('/api/tutor/adaptive/check', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ area }),
+      body: JSON.stringify({ area, ...(skillId ? { skill_id: skillId } : {}) }),
     });
     const data = await response.json();
     if (!response.ok) {

@@ -25,7 +25,7 @@ import pytest
 
 import App as app_module
 import chatbot_api
-from adaptive_tutor import checks as tutor_checks, store as adaptive_store
+from adaptive_tutor import checks as tutor_checks, education, store as adaptive_store
 from primer import store as primer_store
 
 
@@ -135,7 +135,7 @@ def test_the_plan_only_names_tables_that_exist(ctx):
     per-statement except and silently deletes nothing."""
     source = _deletion_plan_source()
     real = (set(app_module.db.metadata.tables) | set(primer_store._META.tables)
-            | set(adaptive_store._META.tables) | set(tutor_checks._META.tables)
+            | set(adaptive_store._META.tables) | set(tutor_checks._META.tables) | set(education._META.tables)
             | set(chatbot_api._TUTOR_MEMORY_META.tables))
     named = set(re.findall(r"DELETE FROM (\w+)", source)) | set(
         re.findall(r"UPDATE (\w+) SET", source)
@@ -200,6 +200,10 @@ def test_deleting_an_account_removes_the_user_and_their_rows(ctx):
     primer_store.create_nudge(primer_learner['id'], 'explore')
 
     tutor_checks.ensure_tables()
+    education.ensure_tables()
+    app_module.db.session.execute(education.PLAN.insert().values(
+        owner_id=user_id, goal_json='{}', snapshot_json='{}', steps_json='[]',
+        progress_json='{}', revision=1, updated_at=datetime.utcnow()))
     adaptive_store.ensure_tables()
     chatbot_api._ensure_tutor_memory_table()
     profile_id = app_module.db.session.execute(adaptive_store.PROFILE.insert().values(
@@ -268,6 +272,7 @@ def test_deleting_an_account_removes_the_user_and_their_rows(ctx):
     assert app_module.db.session.execute(select(primer_store.NUDGE).where(primer_store.NUDGE.c.learner_id == primer_learner['id'])).first() is None
     assert app_module.db.session.execute(select(primer_store.PROFILE).where(primer_store.PROFILE.c.learner_id == primer_learner['id'])).first() is None
     assert app_module.db.session.execute(select(tutor_checks.ATTEMPT).where(tutor_checks.ATTEMPT.c.owner_id == user_id)).first() is None
+    assert app_module.db.session.execute(select(education.PLAN).where(education.PLAN.c.owner_id == user_id)).first() is None
     assert app_module.db.session.execute(select(tutor_checks.HINT).where(tutor_checks.HINT.c.owner_id == user_id)).first() is None
     assert app_module.db.session.execute(select(adaptive_store.PROFILE).where(adaptive_store.PROFILE.c.user_id == user_id)).first() is None
     assert app_module.db.session.execute(select(adaptive_store.MASTERY).where(adaptive_store.MASTERY.c.profile_id == profile_id)).first() is None

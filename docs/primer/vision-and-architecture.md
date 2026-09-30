@@ -78,3 +78,7 @@ The selector uses a skill graph with prerequisites, due review times, and a smoo
 - **Safety and learning:** Before child-facing generation or collecting personal context, add verified adult roles, consent and deletion paths, age-appropriate output constraints, audit trails, educator red-team review, and an evaluation showing learning gain. Generative output must never silently determine mastery.
 
 The [IES reading](https://ies.ed.gov/ncee/wwc/PracticeGuide/21), [early math](https://ies.ed.gov/ncee/wwc/practiceguide/18), and [elementary writing](https://ies.ed.gov/ncee/wwc/PracticeGuide/17) guides inform the curriculum direction. The current catalog covers only a narrow portion of those recommendations. The [FTC COPPA guidance](https://www.ftc.gov/business-guidance/resources/complying-coppa-frequently-asked-questions) is the starting point for a dedicated review before this becomes an independent under-13 product or collects voice, photos, or richer child context.
+
+## Persistent education goals
+
+The tutor now connects a student's explicit target and time budget to available courses, grades, assignments and scored practice through a [persistent education plan](education-plan.md). The plan supplies diagnostic questions and ordered milestones; fresh checked answers and reported difficulties change the next teaching move. Its source snapshot and limits remain visible to the student.
