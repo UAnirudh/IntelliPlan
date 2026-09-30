@@ -25,7 +25,8 @@
       <div class="form-group">
         <label class="form-label">District URL</label>
         <input
-          type="url"
+          type="text"
+          inputmode="url"
           name="district_url"
           class="form-input"
           value="{{ request.form.get('district_url', '') }}"
@@ -37,13 +38,13 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label">Student ID</label>
-        <input type="text" name="username" class="form-input" placeholder="Your student ID number" />
+        <label class="form-label">Username or Student ID</label>
+        <input type="text" name="username" class="form-input" placeholder="The username you use for StudentVUE" autocomplete="username" autocapitalize="none" spellcheck="false" />
       </div>
 
       <div class="form-group">
         <label class="form-label">Password</label>
-        <input type="password" name="password" class="form-input" placeholder="••••••••••••••••" />
+        <input type="password" name="password" class="form-input" placeholder="••••••••••••••••" autocomplete="current-password" />
       </div>
 
       <button type="submit" class="btn-primary" style="width:100%;padding:14px;border:none;cursor:pointer;font-size:0.95rem;">

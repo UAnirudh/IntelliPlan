@@ -74,6 +74,10 @@ def test_studentvue_login_route_does_not_trim_a_password(client, monkeypatch):
 
 def test_studentvue_rejects_only_explicit_authentication_failures(monkeypatch):
     monkeypatch.setattr(studentvue_helper, "make_request", lambda *args: "RT_ERROR")
+    # This district has no JSON API either, so SOAP's answer stands.
+    def no_json(*args):
+        raise studentvue_helper.JsonApiUnavailable("HTTP 404")
+    monkeypatch.setattr(studentvue_helper, "json_login", no_json)
     assert studentvue_helper.validate_login("https://district.example", "student", "password") == "invalid_credentials"
 
     def unreachable(*args):
@@ -87,3 +91,36 @@ def test_studentvue_login_does_not_preselect_another_district(client):
     body = client.get("/login/studentvue").get_data(as_text=True)
     assert 'value="https://wa-nor-psv.edupoint.com"' not in body
     assert 'placeholder="https://district-psv.edupoint.com"' in body
+
+
+def test_studentvue_guest_login_lands_on_a_page_instead_of_looping(client, monkeypatch):
+    # Signing in with only StudentVUE credentials (no IntelliPlan account)
+    # redirected to /command-center, which sent guests to /login, which sent
+    # logged-in visitors back to /command-center: an endless redirect that
+    # looked like the password had been rejected.
+    monkeypatch.setattr(App, "validate_login", lambda *args: "ok")
+
+    response = client.post("/login/studentvue", data={
+        "district_url": "https://district-psv.edupoint.com",
+        "username": "student",
+        "password": "password",
+    })
+
+    seen = []
+    while response.status_code in (301, 302, 303, 307, 308):
+        location = response.headers["Location"]
+        assert location not in seen, f"redirect loop: {seen + [location]}"
+        seen.append(location)
+        response = client.get(location)
+
+    assert response.status_code == 200
+    assert "/login" not in seen
+
+
+def test_studentvue_district_field_accepts_a_bare_hostname(client):
+    # type="url" made the browser refuse "wa-nor-psv.edupoint.com" (no
+    # scheme) before the form was sent; the server already adds https://.
+    body = client.get("/login/studentvue").get_data(as_text=True)
+    field = body[body.index('name="district_url"') - 200: body.index('name="district_url"')]
+    assert 'type="url"' not in field
+    assert 'type="text"' in field
