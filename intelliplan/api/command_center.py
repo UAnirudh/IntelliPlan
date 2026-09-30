@@ -50,6 +50,9 @@ class CommandCenterDeps:
     emit_signal: Callable[..., Any] = field(default=lambda *a, **k: None)
     stale_briefing_user_ids: Callable[[], list[int]] = field(default=lambda: [])
     cron_token: Callable[[], str] = field(default=lambda: os.getenv("CRON_TOKEN", ""))
+    # True when the visitor has no IntelliPlan account but connected an LMS
+    # (StudentVUE, Canvas, Schoology) straight from its login page.
+    has_guest_session: Callable[[], bool] = field(default=lambda: False)
 
 
 _TODAY_CACHE: dict[int, tuple[float, dict]] = {}
@@ -111,6 +114,14 @@ def create_command_center_blueprint(deps: CommandCenterDeps) -> Blueprint:
             return redirect("/dashboard?classic=1")
         uid = deps.current_user_id()
         if uid is None:
+            # The Command Center is account-backed, but a student who signed
+            # in with only their StudentVUE/Canvas/Schoology credentials is
+            # logged in too. Sending them to /login bounced them straight
+            # back here (/login forwards logged-in visitors to this page), an
+            # endless redirect loop that looked like a rejected password.
+            # The classic dashboard serves those guest sessions.
+            if deps.has_guest_session():
+                return redirect("/dashboard?classic=1")
             return redirect("/login")
         deps.emit_signal(uid, "command_center_opened", subject_type="briefing")
         return render_template("command_center.html",

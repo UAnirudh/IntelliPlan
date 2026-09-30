@@ -87,3 +87,27 @@ def test_studentvue_login_does_not_preselect_another_district(client):
     body = client.get("/login/studentvue").get_data(as_text=True)
     assert 'value="https://wa-nor-psv.edupoint.com"' not in body
     assert 'placeholder="https://district-psv.edupoint.com"' in body
+
+
+def test_studentvue_guest_login_lands_on_a_page_instead_of_looping(client, monkeypatch):
+    # Signing in with only StudentVUE credentials (no IntelliPlan account)
+    # redirected to /command-center, which sent guests to /login, which sent
+    # logged-in visitors back to /command-center: an endless redirect that
+    # looked like the password had been rejected.
+    monkeypatch.setattr(App, "validate_login", lambda *args: "ok")
+
+    response = client.post("/login/studentvue", data={
+        "district_url": "https://district-psv.edupoint.com",
+        "username": "student",
+        "password": "password",
+    })
+
+    seen = []
+    while response.status_code in (301, 302, 303, 307, 308):
+        location = response.headers["Location"]
+        assert location not in seen, f"redirect loop: {seen + [location]}"
+        seen.append(location)
+        response = client.get(location)
+
+    assert response.status_code == 200
+    assert "/login" not in seen
