@@ -25,7 +25,7 @@ for _stream in (_sys.stdout, _sys.stderr):
         _stream.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass  # non-reconfigurable stream (captured pipe, pytest, WSGI host)
-from flask import render_template, request, redirect, session, url_for
+from flask import render_template, request, redirect, session, url_for, has_request_context
 import requests
 import os
 from dotenv import load_dotenv
@@ -199,6 +199,23 @@ PARENT_APP_HOST = os.getenv("PARENT_APP_HOST", "parent.intelliplan.tech").strip(
 
 def _is_parent_app_request():
     return request.host.split(":", 1)[0].lower() == PARENT_APP_HOST
+
+
+def _is_family_auth_request():
+    """Keep the Family sign-in flow usable on the primary domain as well."""
+    return _is_parent_app_request() or request.values.get("next") == "/parent"
+
+
+def _family_home_url():
+    return "/" if _is_parent_app_request() else "/parent"
+
+
+@app.context_processor
+def _family_template_context():
+    if not has_request_context():
+        return {}
+    return {"family_home_url": _family_home_url(),
+            "family_auth_next": "/parent" if not _is_parent_app_request() else ""}
 
 LEGACY_ALLOWED_ORIGINS = [
     origin.strip().rstrip("/")
@@ -6742,16 +6759,16 @@ def api_desktop_latest():
 def login():
     if request.method == "POST":
         return redirect(url_for("login_account"), 307)
-    if _is_parent_app_request():
-        return redirect(url_for("login_account"))
+    if _is_family_auth_request():
+        return redirect(url_for("login_account", next="/parent") if not _is_parent_app_request() else url_for("login_account"))
     if is_logged_in():
-        return redirect("/" if _is_parent_app_request() else "/command-center")
+        return redirect(_family_home_url() if _is_family_auth_request() else "/command-center")
     return render_template("login.html", active_page="login")
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if current_user.is_authenticated:
-        return redirect("/" if _is_parent_app_request() else "/command-center")
+        return redirect(_family_home_url() if _is_family_auth_request() else "/command-center")
     error = None
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
@@ -6816,7 +6833,7 @@ def register():
                          "We'll send them a one-time consent link before activating your account.")
             elif parent_email_raw == email:
                 error = "Your parent or guardian's email must be different from your own."
-        if not error and _is_parent_app_request() and age is not None and age < 18:
+        if not error and _is_family_auth_request() and age is not None and age < 18:
             error = "The Family app is for adults. Please use the student app."
 
         if not error:
@@ -6844,7 +6861,7 @@ def register():
                     marketing_optin = False
                 user = User(
                     email=email, password_hash=pw_hash,
-                    role="parent" if _is_parent_app_request() else "student",
+                    role="parent" if _is_family_auth_request() else "student",
                     phone=phone_norm, sms_reminders_opt_in=sms_optin,
                     birth_year=birth_year_val,
                     parent_email=parent_email_raw if under_13 else None,
@@ -6911,13 +6928,13 @@ def register():
                             carrier=(user.sms_carrier or "tmobile"),
                         )  # return value intentionally ignored here
                     except Exception: pass
-                return redirect("/" if _is_parent_app_request() else "/command-center")
+                return redirect(_family_home_url() if _is_family_auth_request() else "/command-center")
             except Exception as _e:
                 print(f"[register] user create failed: {_e}")
                 try: db.session.rollback()
                 except Exception: pass
                 error = "Could not create that account right now — please try again."
-    if _is_parent_app_request():
+    if _is_family_auth_request():
         return render_template("parent_auth.html", mode="register", error=error)
     return render_template("register.html", active_page="login", error=error)
 
@@ -7671,7 +7688,7 @@ def desktop_auth_exchange():
 @limiter.limit("10 per minute;60 per hour", methods=["POST"])
 def login_account():
     if current_user.is_authenticated:
-        return redirect("/" if _is_parent_app_request() else "/command-center")
+        return redirect(_family_home_url() if _is_family_auth_request() else "/command-center")
     error = None
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
@@ -7702,7 +7719,7 @@ def login_account():
             if failures >= RECAPTCHA_LOGIN_AFTER_FAILURES:
                 error = check_recaptcha("login")
                 if error:
-                    if _is_parent_app_request():
+                    if _is_family_auth_request():
                         return render_template("parent_auth.html", mode="login", error=error,
                                                recaptcha_required=True)
                     return render_template("login_account.html", active_page="login",
@@ -7718,7 +7735,7 @@ def login_account():
                 error = (f"Too many failed sign-ins. Try again in {locked_for} "
                          f"minute{'s' if locked_for != 1 else ''}, or reset your "
                          "password if you are not sure of it.")
-                if _is_parent_app_request():
+                if _is_family_auth_request():
                     return render_template("parent_auth.html", mode="login", error=error)
                 return render_template("login_account.html", active_page="login", error=error)
 
@@ -7729,7 +7746,7 @@ def login_account():
                     error = ("This account is waiting for parental consent. We emailed "
                              f"{user.parent_email} a consent link — once they click it, "
                              "you'll be able to sign in.")
-                    if _is_parent_app_request():
+                    if _is_family_auth_request():
                         return render_template("parent_auth.html", mode="login", error=error)
                     return render_template("login_account.html", active_page="login", error=error)
                 clear_failed_logins(user)
@@ -7739,8 +7756,8 @@ def login_account():
                 _rotate_session_on_login()
                 login_user(user, remember=True)
                 log_security_event("login_success", user=user)
-                if _is_parent_app_request():
-                    return redirect("/")
+                if _is_family_auth_request():
+                    return redirect(_family_home_url())
                 # Auto-join any group whose invite link was clicked pre-login.
                 joined_gid = _apply_pending_group_join()
                 if joined_gid:
@@ -7761,7 +7778,7 @@ def login_account():
     # Show the widget from the first failure, though it is not enforced until
     # the third. If it only appeared once enforcement began, that attempt
     # would be refused for a missing token the form never offered.
-    if _is_parent_app_request():
+    if _is_family_auth_request():
         return render_template("parent_auth.html", mode="login", error=error,
                                recaptcha_required=bool(error))
     return render_template("login_account.html", active_page="login",
@@ -9086,6 +9103,7 @@ def _account_delete_impl():
         # feature tables are created lazily and do not all carry user FKs.
         ("tutor_check_hint", "DELETE FROM tutor_check_hint WHERE owner_id = :uid"),
         ("tutor_scored_check", "DELETE FROM tutor_scored_check WHERE owner_id = :uid"),
+        ("tutor_education_plan", "DELETE FROM tutor_education_plan WHERE owner_id = :uid"),
         ("adaptive_session_summary", "DELETE FROM adaptive_session_summary WHERE profile_id IN (SELECT id FROM adaptive_student_profile WHERE user_id = :uid)"),
         ("adaptive_memory_import", "DELETE FROM adaptive_memory_import WHERE profile_id IN (SELECT id FROM adaptive_student_profile WHERE user_id = :uid)"),
         ("adaptive_learner_memory", "DELETE FROM adaptive_learner_memory WHERE profile_id IN (SELECT id FROM adaptive_student_profile WHERE user_id = :uid)"),
@@ -20712,6 +20730,8 @@ def _family_host_entry():
     """Give the Family hostname its own UI and keep student routes off it."""
     if not _is_parent_app_request():
         return None
+    if request.path in {"/parent", "/parent/"}:
+        return redirect("/")
     if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
         source = request.headers.get("Origin") or request.headers.get("Referer")
         if source:

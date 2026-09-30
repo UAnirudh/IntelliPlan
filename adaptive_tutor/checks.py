@@ -206,10 +206,17 @@ def practice_path(owner_id: int, grade: int) -> list[dict[str, Any]]:
     return result
 
 
-def choose(owner_id: int, grade: int, domain_key: str) -> dict[str, Any]:
+def choose(owner_id: int, grade: int, domain_key: str, focus_skill_id: str | None = None) -> dict[str, Any]:
     """Use the same practice policy shown in the student's path preview."""
     counts = _counts(owner_id)
     recommendation = _recommendation(owner_id, grade, domain_key, counts)
+    if focus_skill_id is not None:
+        allowed_skills = _skill_ids(grade, DOMAINS[domain_key]) + _skill_ids(max(0, grade - 1), DOMAINS[domain_key])
+        if focus_skill_id not in allowed_skills:
+            raise ValueError('This skill is outside your current grade band or chosen area.')
+        recommendation = {'skill_id': focus_skill_id, 'mode': 'diagnostic',
+                          'reason': 'Check the skill connected to your learning milestone.',
+                          'review_due_at': None}
     skill_id = recommendation['skill_id']
     count = generated_item_count(skill_id) or advanced_item_count(skill_id)
     ordinal = counts.get(skill_id, {}).get('attempts', 0)

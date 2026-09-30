@@ -12,7 +12,7 @@
 <body class="family-auth-body">
   <main class="family-auth">
     <section class="family-auth-story">
-      <a class="family-brand" href="/"><img src="/static/icons/icon-192.png" alt=""><span>IntelliPlan <em>Family</em></span></a>
+      <a class="family-brand" href="{{ family_home_url }}"><img src="/static/icons/icon-192.png" alt=""><span>IntelliPlan <em>Family</em></span></a>
       <div><p class="family-eyebrow">BE THERE FOR WHAT MATTERS</p><h1>Support that starts<br>with <i>understanding.</i></h1><p>A calm view of real work and recorded practice. Every student approves access first and can revoke it at any time.</p></div>
       <p class="family-auth-small">For parents and guardians of school and college students.</p>
     </section>
@@ -25,6 +25,7 @@
         {% if info %}<p class="family-auth-info" role="status">{{ info }}</p>{% endif %}
         {% if mode == 'register' %}
           <form method="post" action="/register">
+            {% if family_auth_next %}<input type="hidden" name="next" value="{{ family_auth_next }}">{% endif %}
             <label for="regEmail">Email</label><input id="regEmail" type="email" name="email" autocomplete="email" required>
             <label for="regPassword">Password</label><input id="regPassword" type="password" name="password" autocomplete="new-password" minlength="8" required>
             <label for="regConfirm">Confirm password</label><input id="regConfirm" type="password" name="confirm_password" autocomplete="new-password" minlength="8" required>
@@ -33,16 +34,17 @@
             {% set recaptcha_action = 'register' %}{% include '_recaptcha.html' with context %}
             <button class="family-primary" type="submit">Create Family account →</button>
           </form>
-          <p class="family-auth-switch">Already have an account? <a href="/login/account">Sign in</a></p>
+          <p class="family-auth-switch">Already have an account? <a href="{{ url_for('login_account', next=family_auth_next) if family_auth_next else url_for('login_account') }}">Sign in</a></p>
           <p class="family-auth-legal">By creating an account you agree to the <a href="https://intelliplan.tech/legal#terms">Terms</a> and <a href="https://intelliplan.tech/legal#privacy">Privacy Policy</a>.</p>
         {% else %}
           <form method="post" action="/login/account">
+            {% if family_auth_next %}<input type="hidden" name="next" value="{{ family_auth_next }}">{% endif %}
             <label for="loginEmail">Email</label><input id="loginEmail" type="email" name="email" autocomplete="email" required>
             <label for="loginPassword">Password</label><input id="loginPassword" type="password" name="password" autocomplete="current-password" required>
             {% if recaptcha_required %}{% set recaptcha_action = 'login' %}{% include '_recaptcha.html' with context %}{% endif %}
             <button class="family-primary" type="submit">Sign in →</button>
           </form>
-          <p class="family-auth-switch">New to Family? <a href="/register">Create an account</a></p>
+          <p class="family-auth-switch">New to Family? <a href="{{ url_for('register', next=family_auth_next) if family_auth_next else url_for('register') }}">Create an account</a></p>
           <p class="family-auth-legal"><a href="/forgot-password">Forgot your password?</a></p>
         {% endif %}
       </div>
