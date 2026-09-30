@@ -25,7 +25,8 @@
       <div class="form-group">
         <label class="form-label">District URL</label>
         <input
-          type="url"
+          type="text"
+          inputmode="url"
           name="district_url"
           class="form-input"
           value="{{ request.form.get('district_url', '') }}"

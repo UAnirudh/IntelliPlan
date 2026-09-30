@@ -111,3 +111,12 @@ def test_studentvue_guest_login_lands_on_a_page_instead_of_looping(client, monke
 
     assert response.status_code == 200
     assert "/login" not in seen
+
+
+def test_studentvue_district_field_accepts_a_bare_hostname(client):
+    # type="url" made the browser refuse "wa-nor-psv.edupoint.com" (no
+    # scheme) before the form was sent; the server already adds https://.
+    body = client.get("/login/studentvue").get_data(as_text=True)
+    field = body[body.index('name="district_url"') - 200: body.index('name="district_url"')]
+    assert 'type="url"' not in field
+    assert 'type="text"' in field
