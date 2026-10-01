@@ -660,6 +660,9 @@ class User(UserMixin, db.Model):
     # evidence, and "when did this person opt in" is the first question
     # asked in any complaint.
     marketing_opt_in_at = db.Column(db.DateTime, nullable=True)
+    # Consent copy and cadence are versioned. A prior opt-in to "a few a
+    # month" is not evidence that someone agreed to a weekly newsletter.
+    marketing_consent_version = db.Column(db.String(32), nullable=True)
     # ── Role: student | teacher | parent. Drives /teacher and /parent
     # dashboards plus the StudentLink consent flow.
     role = db.Column(db.String(16), default="student")
@@ -6942,6 +6945,9 @@ def register():
                     parent_consent_token=consent_token,
                     marketing_emails_opt_in=marketing_optin,
                     marketing_opt_in_at=utcnow() if marketing_optin else None,
+                    marketing_consent_version=(
+                        "weekly_v1" if marketing_optin else None
+                    ),
                 )
                 db.session.add(user)
                 db.session.commit()
@@ -17255,12 +17261,23 @@ def admin_panel():
         daily_active_users = _admin_daily_active_users()
     except Exception:
         daily_active_users = None
+    try:
+        recent_email_sends = (
+            db.session.query(EmailSend, User.email)
+            .join(User, User.id == EmailSend.user_id)
+            .order_by(EmailSend.sent_at.desc(), EmailSend.id.desc())
+            .limit(30)
+            .all()
+        )
+    except Exception:
+        recent_email_sends = []
     return render_template(
         "admin.html",
         active_page="admin",
         flags=flags,
         user_count=user_count,
         daily_active_users=daily_active_users,
+        recent_email_sends=recent_email_sends,
         admin_email=(current_user.email if current_user.is_authenticated else ""),
     )
 
@@ -20867,6 +20884,7 @@ def _migrate_user_columns():
         ("users", "ai_personalization_opt_in", "BOOLEAN DEFAULT FALSE"),
         ("users", "marketing_emails_opt_in", "BOOLEAN DEFAULT FALSE"),
         ("users", "marketing_opt_in_at", "TIMESTAMP"),
+        ("users", "marketing_consent_version", "VARCHAR(32)"),
         ("users", "role", "VARCHAR(16) DEFAULT 'student'"),
         ("student_links", "share_scopes_json", "VARCHAR(128)"),
         # users — Active-study focus enforcement

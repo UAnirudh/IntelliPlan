@@ -38,6 +38,7 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s.]+(\.[^@\s.]+)+$")
 
 #: Under this age, marketing requires verifiable parental consent.
 COPPA_AGE = 13
+MARKETING_CONSENT_VERSION = "weekly_v1"
 
 
 def looks_like_email(address: str | None) -> bool:
@@ -177,6 +178,12 @@ def is_marketing_eligible(user: Any, now: datetime | None = None) -> tuple[bool,
         # person opt in" is the first question asked in any complaint, and
         # the only safe answer to "we don't know" is to not send.
         return False, "consent_not_dated"
+
+    if getattr(user, "marketing_consent_version", None) != MARKETING_CONSENT_VERSION:
+        # The previous signup wording promised only a few emails per month.
+        # Do not silently increase that cadence; ask the account holder to
+        # opt in again under the explicit weekly disclosure.
+        return False, "consent_version_outdated"
 
     return True, "ok"
 
