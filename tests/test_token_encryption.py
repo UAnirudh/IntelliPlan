@@ -254,6 +254,9 @@ def test_every_token_column_uses_the_encrypted_type():
     the problem this closed."""
     expected = {
         "GoogleIntegration": ["token_data"],
+        "GoogleDriveIntegration": ["token_data"],
+        "OutlookIntegration": ["token_data"],
+        "OneDriveIntegration": ["token_data"],
         "NotionIntegration": ["token"],
         "CanvasIntegration": ["access_token", "refresh_token"],
         "ClassroomIntegration": ["access_token", "refresh_token"],
