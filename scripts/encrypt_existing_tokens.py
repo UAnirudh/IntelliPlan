@@ -36,6 +36,9 @@ import secret_box  # noqa: E402
 #: inside main(), where a failure can be reported instead of crashing import.
 TARGETS = [
     ("GoogleIntegration", ["token_data"]),
+    ("GoogleDriveIntegration", ["token_data"]),
+    ("OutlookIntegration", ["token_data"]),
+    ("OneDriveIntegration", ["token_data"]),
     ("NotionIntegration", ["token"]),
     ("CanvasIntegration", ["access_token", "refresh_token"]),
     ("ClassroomIntegration", ["access_token", "refresh_token"]),

@@ -41,6 +41,7 @@ import net_guard
 import study_resources
 import request_guards
 import secret_box
+from intelliplan.integrations.document_content import CloudDocumentError
 import policy_versions
 import desktop_auth
 import app_link
@@ -77,6 +78,7 @@ from flask import jsonify, send_from_directory
 from datetime import datetime, timedelta, date
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import inspect, text
+from sqlalchemy.exc import IntegrityError
 from flask_login import (
     LoginManager, UserMixin, login_user, logout_user,
     current_user, user_logged_in
@@ -97,10 +99,11 @@ from flashcards import store as fc_store
 from flask_session import Session
 
 try:
+    import google_drive_helper
     from google_calendar_helper import (
         get_auth_url, exchange_code_for_token,
         get_upcoming_events, add_schedule_to_calendar, find_free_slots,
-        compute_free_hours, merge_token_data, has_calendar_scope
+        compute_free_hours, merge_token_data, has_calendar_scope, refresh_access_token
     )
     GCAL_AVAILABLE = True
 except Exception as e:
@@ -113,6 +116,13 @@ try:
 except Exception as e:
     print(f"Outlook Calendar not available: {e}")
     OUTLOOK_AVAILABLE = False
+
+try:
+    import onedrive_helper
+    ONEDRIVE_AVAILABLE = True
+except Exception as e:
+    print(f"OneDrive not available: {e}")
+    ONEDRIVE_AVAILABLE = False
 
 try:
     from notion_helper import (
@@ -489,6 +499,7 @@ def add_cors_headers(response):
         # unsubmittable.
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
             "https://www.google.com https://www.gstatic.com "
+            "https://apis.google.com "
             "https://browser.sentry-cdn.com https://*.sentry.io "
             "https://js.stripe.com https://challenges.cloudflare.com "
             "https://meet.jit.si; "
@@ -517,7 +528,8 @@ def add_cors_headers(response):
         response.headers.pop("X-Frame-Options", None)
         csp_value = _common_csp + (
             "frame-src https://meet.jit.si https://challenges.cloudflare.com "
-                "https://www.google.com https://recaptcha.google.com; "
+                "https://www.google.com https://docs.google.com https://drive.google.com "
+                "https://recaptcha.google.com; "
             "frame-ancestors 'self' https://lotus-72e3e.web.app "
             "https://intelliplan.tech http://localhost:5000"
         )
@@ -803,6 +815,24 @@ class GoogleIntegration(db.Model):
 
 class OutlookIntegration(db.Model):
     __tablename__ = "outlook_integrations"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, unique=True, index=True)
+    token_data = db.Column(secret_box.EncryptedText, nullable=False)
+    account_email = db.Column(db.String(255), nullable=True)
+    account_name = db.Column(db.String(255), nullable=True)
+    connected_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class GoogleDriveIntegration(db.Model):
+    __tablename__ = "google_drive_integrations"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    token_data = db.Column(secret_box.EncryptedText, nullable=False)
+    account_email = db.Column(db.String(255), nullable=False)
+    account_name = db.Column(db.String(255), nullable=True)
+    connected_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class OneDriveIntegration(db.Model):
+    __tablename__ = "onedrive_integrations"
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, unique=True, index=True)
     token_data = db.Column(secret_box.EncryptedText, nullable=False)
@@ -1613,6 +1643,23 @@ class CourseNote(db.Model):
     stored_filename = db.Column(db.String(255), nullable=True)
     text_content = db.Column(db.Text, default="")
     summary_cache = db.Column(db.Text, default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class CloudDocumentLink(db.Model):
+    """Maps an imported study note back to its user-selected cloud file."""
+    __tablename__ = "cloud_document_links"
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "provider", "external_file_id", name="uq_cloud_document_owner_file"),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    note_id = db.Column(db.Integer, db.ForeignKey("course_notes.id", ondelete="CASCADE"), nullable=False, unique=True)
+    provider = db.Column(db.String(24), nullable=False)
+    external_file_id = db.Column(db.String(512), nullable=False)
+    account_email = db.Column(db.String(255), default="")
+    mime_type = db.Column(db.String(255), default="")
+    web_url = db.Column(db.String(2048), default="")
+    etag = db.Column(db.String(512), default="")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class ExtensionToken(db.Model):
@@ -3290,6 +3337,29 @@ def get_google_token():
                 db.session.commit()
                 return None
     return session.get("google_token")
+
+
+def get_google_drive_token(account_email=None):
+    if not current_user.is_authenticated:
+        return None
+    query = GoogleDriveIntegration.query.filter_by(user_id=current_user.id)
+    if account_email:
+        query = query.filter_by(account_email=account_email)
+    row = query.order_by(GoogleDriveIntegration.id.desc()).first()
+    if not row:
+        return None
+    try:
+        token = json.loads(row.token_data)
+        if float(token.get("expires_at") or 0) <= time.time() + 90:
+            token = refresh_access_token(token)
+            row.token_data = json.dumps(token)
+            db.session.commit()
+        if not google_drive_helper.has_drive_scope(token):
+            return None
+        return token
+    except Exception as e:
+        print(f"Google Drive token refresh failed: {e}")
+        return None
 
 def _refresh_notion_row(ni):
     """Renew ``ni``'s access token in place when it is close to expiring.
@@ -6659,6 +6729,9 @@ def api_integrations_status():
             ("blackboard", BlackboardIntegration, "institution_url"),
             ("moodle", MoodleIntegration, "moodle_url"),
             ("google_calendar", GoogleIntegration, "account_email"),
+            ("outlook_calendar", OutlookIntegration, "account_email"),
+            ("google_drive", GoogleDriveIntegration, "account_email"),
+            ("onedrive", OneDriveIntegration, "account_email"),
         )
         for key, model, detail_field in rows:
             try:
@@ -8488,6 +8561,29 @@ def _handle_google_callback():
         print("[GOOGLE CALLBACK] FATAL: missing sub or email in userinfo")
         return redirect(url_for("login"))
 
+    if purpose == "drive":
+        if not current_user.is_authenticated:
+            return redirect(url_for("login", next="/study-files"))
+        if not google_drive_helper.has_drive_scope(token_dict):
+            return redirect("/study-files?drive_error=scope")
+        row = GoogleDriveIntegration.query.filter_by(
+            user_id=current_user.id, account_email=email
+        ).first()
+        existing = json.loads(row.token_data) if row else {}
+        token_dict = merge_token_data(existing, token_dict)
+        values = {
+            "token_data": json.dumps(token_dict),
+            "account_email": email,
+            "account_name": name,
+        }
+        if row:
+            for key, value in values.items():
+                setattr(row, key, value)
+        else:
+            db.session.add(GoogleDriveIntegration(user_id=current_user.id, **values))
+        db.session.commit()
+        return redirect("/study-files?google_drive=connected")
+
     if purpose == "calendar":
         if not current_user.is_authenticated:
             print("[GOOGLE CALLBACK] calendar link attempted without an authenticated app user")
@@ -8797,6 +8893,32 @@ def google_disconnect():
     return flask.jsonify({"status": "ok"})
 
 
+@app.route("/oauth/google-drive/disconnect", methods=["POST"])
+def google_drive_disconnect():
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "Sign in first."}), 401
+    GoogleDriveIntegration.query.filter_by(user_id=current_user.id).delete(synchronize_session=False)
+    db.session.commit()
+    return jsonify({"status": "ok"})
+
+
+@app.route("/oauth/google-drive")
+def google_drive_oauth_start():
+    if not current_user.is_authenticated:
+        return redirect(url_for("login", next="/study-files"))
+    if not GCAL_AVAILABLE or not os.getenv("GOOGLE_CLIENT_ID") or not os.getenv("GOOGLE_CLIENT_SECRET"):
+        return flask.jsonify({"status": "error", "message": "Google Drive is not configured yet."}), 503
+    state = secrets_module.token_urlsafe(32)
+    session["oauth_state"] = state
+    session["oauth_purpose"] = "drive"
+    session.permanent = True
+    session.modified = True
+    auth_url, code_verifier = get_auth_url(state, purpose="drive")
+    session["oauth_code_verifier"] = code_verifier
+    session.modified = True
+    return redirect(auth_url)
+
+
 def get_outlook_token():
     """Return this user's persisted Microsoft token, refreshing it when due."""
     if not current_user.is_authenticated or not OUTLOOK_AVAILABLE:
@@ -8818,6 +8940,25 @@ def get_outlook_token():
         return None
 
 
+def get_onedrive_token():
+    if not current_user.is_authenticated or not ONEDRIVE_AVAILABLE:
+        return None
+    row = OneDriveIntegration.query.filter_by(user_id=current_user.id).first()
+    if not row:
+        return None
+    try:
+        token = json.loads(row.token_data)
+        if float(token.get("expires_at") or 0) <= time.time() + 90:
+            token = onedrive_helper.refresh_token(token)
+            token["expires_at"] = time.time() + int(token.get("expires_in") or 3600)
+            row.token_data = json.dumps(token)
+            db.session.commit()
+        return token
+    except Exception as e:
+        print(f"OneDrive token refresh failed: {e}")
+        return None
+
+
 @app.route("/oauth/outlook")
 def outlook_oauth():
     if not current_user.is_authenticated:
@@ -8826,7 +8967,22 @@ def outlook_oauth():
         return flask.jsonify({"status": "error", "message": "Outlook Calendar is not configured yet."}), 503
     state = secrets_module.token_urlsafe(32)
     session["outlook_oauth_state"] = state
+    session["microsoft_oauth_purpose"] = "outlook"
     return redirect(outlook_calendar_helper.get_auth_url(state))
+
+
+@app.route("/oauth/onedrive")
+def onedrive_oauth():
+    if not current_user.is_authenticated:
+        return redirect(url_for("login", next="/study-files"))
+    if not ONEDRIVE_AVAILABLE or not onedrive_helper.configured():
+        return flask.jsonify({"status": "error", "message": "OneDrive is not configured yet."}), 503
+    state = secrets_module.token_urlsafe(32)
+    session["outlook_oauth_state"] = state
+    session["microsoft_oauth_purpose"] = "onedrive"
+    auth_url, code_verifier = onedrive_helper.get_auth_url(state)
+    session["microsoft_oauth_verifier"] = code_verifier
+    return redirect(auth_url)
 
 
 @app.route("/oauth/outlook/callback")
@@ -8839,6 +8995,24 @@ def outlook_oauth_callback():
     if not expected or not secrets_module.compare_digest(expected, state) or not code:
         return flask.jsonify({"status": "error", "message": "Outlook connection could not be verified. Please try again."}), 400
     try:
+        if session.pop("microsoft_oauth_purpose", "outlook") == "onedrive":
+            code_verifier = session.pop("microsoft_oauth_verifier", None)
+            token = onedrive_helper.exchange_code(code, code_verifier)
+            token["expires_at"] = time.time() + int(token.get("expires_in") or 3600)
+            account = onedrive_helper.profile(token)
+            row = OneDriveIntegration.query.filter_by(user_id=current_user.id).first()
+            values = {
+                "token_data": json.dumps(token),
+                "account_email": account.get("mail") or account.get("userPrincipalName"),
+                "account_name": account.get("displayName"),
+            }
+            if row:
+                for key, value in values.items():
+                    setattr(row, key, value)
+            else:
+                db.session.add(OneDriveIntegration(user_id=current_user.id, **values))
+            db.session.commit()
+            return redirect("/study-files?onedrive=connected")
         token = outlook_calendar_helper.exchange_code(code)
         token["expires_at"] = time.time() + int(token.get("expires_in") or 3600)
         account = outlook_calendar_helper.profile(token)
@@ -8868,6 +9042,14 @@ def outlook_disconnect():
     return flask.jsonify({"status": "ok"})
 
 
+@app.route("/oauth/onedrive/disconnect", methods=["POST"])
+def onedrive_disconnect():
+    if current_user.is_authenticated:
+        OneDriveIntegration.query.filter_by(user_id=current_user.id).delete()
+        db.session.commit()
+    return flask.jsonify({"status": "ok"})
+
+
 @app.route("/calendar/connections")
 def calendar_connections():
     outlook = OutlookIntegration.query.filter_by(user_id=current_user.id).first() if current_user.is_authenticated else None
@@ -8877,6 +9059,308 @@ def calendar_connections():
         "outlook_configured": bool(OUTLOOK_AVAILABLE and outlook_calendar_helper.configured()),
         "outlook_account": (outlook.account_email if outlook else None),
     })
+
+
+@app.route("/study-files")
+def study_files_page():
+    if not current_user.is_authenticated:
+        return redirect(url_for("login", next="/study-files"))
+    return render_template(
+        "cloud_documents.html",
+        google_picker_api_key=os.getenv("GOOGLE_PICKER_API_KEY", ""),
+        google_picker_app_id=os.getenv("GOOGLE_PICKER_APP_ID", ""),
+    )
+
+
+@app.route("/api/cloud-documents/status")
+def cloud_documents_status():
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "Sign in to connect study files."}), 401
+    google = GoogleDriveIntegration.query.filter_by(user_id=current_user.id).order_by(GoogleDriveIntegration.id.desc()).first()
+    one = OneDriveIntegration.query.filter_by(user_id=current_user.id).first()
+    return jsonify({
+        "status": "ok",
+        "google_drive": bool(google),
+        "google_account": google.account_email if google else "",
+        "google_picker_configured": bool(os.getenv("GOOGLE_PICKER_API_KEY") and os.getenv("GOOGLE_PICKER_APP_ID")),
+        "onedrive": bool(one),
+        "onedrive_account": one.account_email if one else "",
+    })
+
+
+@app.route("/api/cloud-documents/google-picker-token")
+@limiter.limit("20 per minute")
+def google_drive_picker_token():
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "Sign in first."}), 401
+    token = get_google_drive_token()
+    if not token:
+        return jsonify({"status": "error", "message": "Connect Google Drive first."}), 403
+    account = (GoogleDriveIntegration.query.filter_by(user_id=current_user.id)
+               .order_by(GoogleDriveIntegration.id.desc()).first())
+    response = jsonify({
+        "access_token": token.get("token") or token.get("access_token"),
+        "account_email": account.account_email if account else "",
+    })
+    response.headers["Cache-Control"] = "private, no-store, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    return response
+
+
+def _cloud_file_token(provider, account_email=None):
+    if provider == "google_drive":
+        token = get_google_drive_token(account_email)
+    elif provider == "onedrive":
+        token = get_onedrive_token()
+    else:
+        token = None
+    return token
+
+
+def _cloud_file_text(provider, token, external_id):
+    if provider == "google_drive":
+        info = google_drive_helper.get_file(token, external_id)
+        text = google_drive_helper.download_text(token, info)
+        revision = ""
+        editable = False
+        read_only_reason = ""
+        if info.get("mimeType") == google_drive_helper.GOOGLE_DOC:
+            try:
+                doc = google_drive_helper.read_google_doc(token, external_id)
+                text = doc["text"]
+                revision = doc.get("revision_id") or ""
+                editable = bool(revision)
+                if not editable:
+                    read_only_reason = "This Google Doc is available as study context, but it could not be opened with a revision ID for safe editing."
+            except ValueError as exc:
+                read_only_reason = str(exc)
+        else:
+            read_only_reason = "This Drive file is available as study context. Edit it in Google Drive."
+        return info, text, revision or str(info.get("version") or ""), editable, read_only_reason
+
+    info, raw = onedrive_helper.download_file(token, external_id)
+    from intelliplan.integrations.document_content import extract_text
+    mime = (info.get("file") or {}).get("mimeType", "")
+    text = extract_text(info.get("name") or "", mime, raw)
+    suffix = (info.get("name") or "").lower().rsplit(".", 1)[-1]
+    editable = suffix in {"txt", "md", "csv"} and bool(info.get("eTag"))
+    reason = "" if editable else "This OneDrive file is available as study context. Edit it in OneDrive."
+    return info, text, info.get("eTag") or "", editable, reason
+
+
+@app.route("/api/cloud-documents", methods=["GET"])
+def list_cloud_documents():
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "Sign in first."}), 401
+    rows = (db.session.query(CloudDocumentLink, CourseNote)
+            .join(CourseNote, CourseNote.id == CloudDocumentLink.note_id)
+            .filter(CloudDocumentLink.user_id == current_user.id)
+            .order_by(CloudDocumentLink.created_at.desc()).limit(100).all())
+    return jsonify({"status": "ok", "documents": [{
+        "id": link.id, "note_id": note.id, "external_id": link.external_file_id,
+        "provider": link.provider, "title": note.title,
+        "web_url": link.web_url, "mime_type": link.mime_type,
+        "created_at": link.created_at.isoformat() if link.created_at else "",
+    } for link, note in rows]})
+
+
+@app.route("/api/cloud-documents/search")
+@limiter.limit("30 per minute")
+def search_cloud_documents():
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "Sign in first."}), 401
+    provider = (request.args.get("provider") or "").strip()
+    token = _cloud_file_token(provider)
+    if not token:
+        return jsonify({"status": "error", "message": "Connect this file service first."}), 403
+    query = (request.args.get("q") or "").strip()[:100]
+    try:
+        if provider == "onedrive":
+            files = onedrive_helper.search_files(token, query)
+            items = [{
+                "id": item.get("id"), "name": item.get("name"),
+                "mime_type": (item.get("file") or {}).get("mimeType", ""),
+                "web_url": item.get("webUrl", ""), "etag": item.get("eTag", ""),
+                "size": item.get("size", 0),
+            } for item in files if item.get("file")]
+        elif provider == "google_drive":
+            result = google_drive_helper.search_files(token, query)
+            items = [{
+                "id": item.get("id"), "name": item.get("name"),
+                "mime_type": item.get("mimeType", ""), "web_url": item.get("webViewLink", ""),
+                "etag": str(item.get("version") or ""),
+            } for item in result.get("files", [])]
+        else:
+            return jsonify({"status": "error", "message": "Unknown file service."}), 400
+        return jsonify({"status": "ok", "files": items})
+    except Exception as e:
+        print(f"Cloud file search failed for {provider}: {e}")
+        return jsonify({"status": "error", "message": "Files could not be loaded. Reconnect and try again."}), 502
+
+
+@app.route("/api/cloud-documents/import", methods=["POST"])
+@limiter.limit("20 per minute")
+def import_cloud_document():
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "Sign in first."}), 401
+    body = request.get_json(silent=True) or {}
+    provider = (body.get("provider") or "").strip()
+    external_id = str(body.get("external_id") or "").strip()
+    if provider not in {"google_drive", "onedrive"} or not external_id or len(external_id) > 512:
+        return jsonify({"status": "error", "message": "Choose a supported file."}), 400
+    existing = CloudDocumentLink.query.filter_by(
+        user_id=current_user.id, provider=provider, external_file_id=external_id
+    ).first()
+    if existing:
+        return jsonify({"status": "ok", "id": existing.id, "already_imported": True})
+    account_email = ""
+    if provider == "google_drive":
+        drive_accounts = GoogleDriveIntegration.query.filter_by(user_id=current_user.id)
+        requested_account = str(body.get("account_email") or "").strip().lower()
+        if requested_account:
+            drive_accounts = drive_accounts.filter_by(account_email=requested_account)
+        else:
+            drive_accounts = drive_accounts.order_by(GoogleDriveIntegration.id.desc())
+        drive_account = drive_accounts.first()
+        if not drive_account:
+            return jsonify({"status": "error", "message": "Connect this Google account first."}), 403
+        account_email = drive_account.account_email
+    token = _cloud_file_token(provider, account_email or None)
+    if not token:
+        return jsonify({"status": "error", "message": "Connect this file service first."}), 403
+    try:
+        info, text, etag, _editable, _reason = _cloud_file_text(provider, token, external_id)
+        title = (info.get("name") or "Untitled document")[:255]
+        mime = info.get("mimeType") or (info.get("file") or {}).get("mimeType", "")
+        note = CourseNote(
+            user_id=current_user.id, course_name="Google Drive" if provider == "google_drive" else "OneDrive",
+            course_id=external_id[:128], course_source=provider,
+            note_date=datetime.utcnow().date().isoformat(), title=title,
+            original_filename=title, text_content=text,
+        )
+        db.session.add(note)
+        db.session.flush()
+        link = CloudDocumentLink(
+            user_id=current_user.id, note_id=note.id, provider=provider,
+            external_file_id=external_id,
+            account_email=(GoogleDriveIntegration.query.filter_by(
+                user_id=current_user.id, account_email=account_email
+            ).first().account_email if provider == "google_drive" else ""),
+            mime_type=mime,
+            web_url=(info.get("webViewLink") or info.get("webUrl") or "")[:2048], etag=str(etag or "")[:512],
+        )
+        db.session.add(link)
+        db.session.commit()
+        return jsonify({"status": "ok", "id": link.id, "already_imported": False})
+    except CloudDocumentError as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": e.args[0]}), 400
+    except ValueError:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": "This file could not be imported. Choose a supported text document up to 2 MB."}), 400
+    except IntegrityError:
+        db.session.rollback()
+        duplicate = CloudDocumentLink.query.filter_by(
+            user_id=current_user.id, provider=provider, external_file_id=external_id
+        ).first()
+        if duplicate:
+            return jsonify({"status": "ok", "id": duplicate.id, "already_imported": True})
+        return jsonify({"status": "error", "message": "This file could not be added. Refresh and try again."}), 409
+    except Exception as e:
+        db.session.rollback()
+        print(f"Cloud document import failed for {provider}: {e}")
+        return jsonify({"status": "error", "message": "This file could not be imported. Check access and try again."}), 502
+
+
+@app.route("/api/cloud-documents/<int:link_id>", methods=["GET"])
+def get_cloud_document(link_id):
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "Sign in first."}), 401
+    link = CloudDocumentLink.query.filter_by(id=link_id, user_id=current_user.id).first()
+    if not link:
+        return jsonify({"status": "error", "message": "Document not found."}), 404
+    token = _cloud_file_token(link.provider, link.account_email)
+    if not token:
+        note = db.session.get(CourseNote, link.note_id)
+        if not note or note.user_id != current_user.id:
+            return jsonify({"status": "error", "message": "Document not found."}), 404
+        return jsonify({
+            "status": "ok", "id": link.id, "title": note.title,
+            "text": note.text_content or "", "etag": "", "editable": False,
+            "read_only_reason": "This is the last imported copy. Reconnect the service to refresh or edit the cloud file.",
+        })
+    try:
+        info, text, etag, editable, reason = _cloud_file_text(link.provider, token, link.external_file_id)
+        note = db.session.get(CourseNote, link.note_id)
+        if not note or note.user_id != current_user.id:
+            return jsonify({"status": "error", "message": "Document not found."}), 404
+        note.text_content = text
+        note.title = (info.get("name") or note.title)[:255]
+        link.etag = str(etag or "")[:512]
+        db.session.commit()
+        return jsonify({
+            "status": "ok", "id": link.id, "title": note.title,
+            "text": text, "etag": link.etag, "editable": editable,
+            "read_only_reason": reason,
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"Cloud document read failed for {link.provider}: {e}")
+        return jsonify({"status": "error", "message": "This file could not be opened. Reconnect and try again."}), 502
+
+
+@app.route("/api/cloud-documents/<int:link_id>", methods=["PUT"])
+@limiter.limit("30 per minute")
+def update_cloud_document(link_id):
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "Sign in first."}), 401
+    link = CloudDocumentLink.query.filter_by(id=link_id, user_id=current_user.id).first()
+    if not link:
+        return jsonify({"status": "error", "message": "Document not found."}), 404
+    body = request.get_json(silent=True) or {}
+    text = body.get("text")
+    if not isinstance(text, str) or len(text) > 50_000:
+        return jsonify({"status": "error", "message": "Document text must be 50,000 characters or fewer."}), 400
+    token = _cloud_file_token(link.provider, link.account_email)
+    if not token:
+        return jsonify({"status": "error", "message": "Reconnect this file service first."}), 403
+    try:
+        if link.provider == "google_drive":
+            if link.mime_type != google_drive_helper.GOOGLE_DOC:
+                return jsonify({"status": "error", "message": "Only Google Docs can be edited here."}), 400
+            revision = str(body.get("etag") or "")
+            google_drive_helper.replace_google_doc_text(token, link.external_file_id, text, revision)
+            refreshed = google_drive_helper.read_google_doc(token, link.external_file_id)
+            link.etag = str(refreshed.get("revision_id") or "")[:512]
+        elif link.provider == "onedrive":
+            etag = str(body.get("etag") or "")
+            if not etag:
+                return jsonify({"status": "error", "message": "Reload this document before saving."}), 409
+            updated = onedrive_helper.replace_text_file(token, link.external_file_id, text, etag)
+            link.etag = str(updated.get("eTag") or "")[:512]
+        else:
+            return jsonify({"status": "error", "message": "Unknown file service."}), 400
+        note = db.session.get(CourseNote, link.note_id)
+        if not note or note.user_id != current_user.id:
+            db.session.rollback()
+            return jsonify({"status": "error", "message": "Document not found."}), 404
+        note.text_content = text
+        note.summary_cache = ""
+        db.session.commit()
+        return jsonify({"status": "ok", "etag": link.etag})
+    except RuntimeError as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": e.args[0] if e.args else "Reload the file before saving."}), 409
+    except CloudDocumentError as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": e.args[0]}), 400
+    except ValueError:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": "The file could not be saved. Reload it and try again."}), 400
+    except Exception as e:
+        db.session.rollback()
+        print(f"Cloud document update failed for {link.provider}: {e}")
+        return jsonify({"status": "error", "message": "The file could not be saved. Try reloading it first."}), 502
 
 @app.route("/calendar/events")
 def calendar_events():
@@ -9082,6 +9566,9 @@ def _account_delete_impl():
         # ── Integrations ───────────────────────────────────────────────
         ("google_integrations", "DELETE FROM google_integrations WHERE user_id = :uid"),
         ("outlook_integrations", "DELETE FROM outlook_integrations WHERE user_id = :uid"),
+        ("google_drive_integrations", "DELETE FROM google_drive_integrations WHERE user_id = :uid"),
+        ("onedrive_integrations", "DELETE FROM onedrive_integrations WHERE user_id = :uid"),
+        ("cloud_document_links", "DELETE FROM cloud_document_links WHERE user_id = :uid"),
         ("notion_integrations", "DELETE FROM notion_integrations WHERE user_id = :uid"),
         ("canvas_integrations", "DELETE FROM canvas_integrations WHERE user_id = :uid"),
         ("classroom_integrations", "DELETE FROM classroom_integrations WHERE user_id = :uid"),
@@ -10117,6 +10604,7 @@ def delete_note(note_id):
         # Drop its passages from the vector store in the same transaction so
         # a deleted note can never be quoted back by Plani.
         _retrieval.purge_note(note.user_id, note.id)
+    CloudDocumentLink.query.filter_by(note_id=note.id).delete(synchronize_session=False)
     db.session.delete(note)
     db.session.commit()
     return flask.jsonify({"status": "ok"})

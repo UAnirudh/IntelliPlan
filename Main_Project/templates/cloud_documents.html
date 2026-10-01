@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block page_title %}Study Files | IntelliPlan{% endblock %}
+{% block content %}
+<main class="page-shell" style="max-width:980px;margin:0 auto;padding:2rem 1rem 4rem;">
+  <div class="page-header">
+    <div class="page-kicker">Study workspace</div>
+    <h1 class="page-title">Your study files</h1>
+    <p class="page-subtitle">Choose files from Drive or OneDrive to add them to Plani’s study context. You control which documents are imported.</p>
+  </div>
+
+  <div id="cloudNotice" role="status" style="margin:1rem 0;color:var(--text-muted);"></div>
+  <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:1rem;margin:1.5rem 0;">
+    <article class="card" style="padding:1.2rem;">
+      <h2 style="margin-top:0;font-size:1.05rem;">Google Drive and Docs</h2>
+      <p id="googleDriveStatus" style="color:var(--text-muted);font-size:.9rem;">Checking connection…</p>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
+        <a id="googleConnect" class="btn-primary" href="/oauth/google-drive">Connect Google Drive</a>
+        <button id="googlePick" class="btn-primary" type="button" hidden>Choose files</button>
+        <button id="googleDisconnect" class="btn-secondary" type="button" hidden>Disconnect</button>
+      </div>
+      <p id="pickerSetupHint" hidden style="font-size:.8rem;color:var(--text-muted);margin-bottom:0;">The Google Picker API key and Cloud project number still need to be configured.</p>
+    </article>
+
+    <article class="card" style="padding:1.2rem;">
+      <h2 style="margin-top:0;font-size:1.05rem;">OneDrive</h2>
+      <p id="oneDriveStatus" style="color:var(--text-muted);font-size:.9rem;">Checking connection…</p>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
+        <a id="oneDriveConnect" class="btn-primary" href="/oauth/onedrive">Connect OneDrive</a>
+        <button id="oneDriveDisconnect" class="btn-secondary" type="button" hidden>Disconnect</button>
+      </div>
+      <form id="oneDriveSearch" style="display:flex;gap:.5rem;margin-top:1rem;" hidden>
+        <input id="oneDriveQuery" type="search" maxlength="100" placeholder="Search your OneDrive files" aria-label="Search OneDrive files" style="flex:1;min-width:0;">
+        <button class="btn-secondary" type="submit">Search</button>
+      </form>
+    </article>
+  </section>
+
+  <section id="oneDriveResults" class="card" style="padding:1rem;margin:1rem 0;" hidden>
+    <h2 style="font-size:1rem;margin-top:0;">OneDrive files</h2>
+    <div id="oneDriveFileList"></div>
+  </section>
+
+  <section class="card" style="padding:1rem;margin-top:1.5rem;">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+      <div>
+        <h2 style="font-size:1.05rem;margin:0;">Imported study context</h2>
+        <p style="font-size:.82rem;color:var(--text-muted);margin:.35rem 0 0;">Imported documents become searchable notes used when Plani answers your study questions.</p>
+      </div>
+      <button id="refreshDocuments" class="btn-secondary" type="button">Refresh</button>
+    </div>
+    <div id="importedDocuments" style="margin-top:1rem;color:var(--text-muted);">Loading your files…</div>
+  </section>
+</main>
+
+<dialog id="documentEditor" style="width:min(900px,95vw);max-height:90vh;border:1px solid var(--border);border-radius:16px;background:var(--bg-card);color:var(--text-primary);padding:1rem;">
+  <form method="dialog" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;">
+    <h2 id="editorTitle" style="font-size:1rem;margin:0;">Study file</h2>
+    <button class="btn-secondary" aria-label="Close editor">Close</button>
+  </form>
+  <p id="editorHint" style="color:var(--text-muted);font-size:.82rem;"></p>
+  <textarea id="editorText" rows="20" style="box-sizing:border-box;width:100%;resize:vertical;font:inherit;line-height:1.55;padding:.8rem;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text-primary);"></textarea>
+  <div style="display:flex;justify-content:flex-end;gap:.6rem;margin-top:.8rem;">
+    <button id="saveDocument" class="btn-primary" type="button">Save to cloud file</button>
+  </div>
+</dialog>
+
+<script>
+(() => {
+  const pickerKey = {{ google_picker_api_key|tojson }};
+  const pickerAppId = {{ google_picker_app_id|tojson }};
+  const notice = document.getElementById('cloudNotice');
+  let activeDocument = null;
+  const escapeHtml = value => String(value || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const setNotice = (message, bad = false) => {
+    notice.textContent = message || '';
+    notice.style.color = bad ? 'var(--danger, #b42318)' : 'var(--text-muted)';
+  };
+  async function jsonFetch(url, options) {
+    const response = await fetch(url, options);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.message || 'The request could not be completed.');
+    return data;
+  }
+  async function refreshStatus() {
+    const status = await jsonFetch('/api/cloud-documents/status');
+    const g = status.google_drive;
+    document.getElementById('googleDriveStatus').textContent = g ? `Connected as ${status.google_account}` : 'Not connected';
+    document.getElementById('googleConnect').hidden = g;
+    document.getElementById('googlePick').hidden = !g || !status.google_picker_configured;
+    document.getElementById('googleDisconnect').hidden = !g;
+    document.getElementById('pickerSetupHint').hidden = !g || status.google_picker_configured;
+    const o = status.onedrive;
+    document.getElementById('oneDriveStatus').textContent = o ? `Connected as ${status.onedrive_account}` : 'Not connected';
+    document.getElementById('oneDriveConnect').hidden = o;
+    document.getElementById('oneDriveDisconnect').hidden = !o;
+    document.getElementById('oneDriveSearch').hidden = !o;
+  }
+  async function loadDocuments() {
+    const host = document.getElementById('importedDocuments');
+    try {
+      const data = await jsonFetch('/api/cloud-documents');
+      if (!data.documents.length) { host.textContent = 'Choose a file above to add study material.'; return; }
+      host.innerHTML = data.documents.map(doc => `<article style="display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.7rem 0;border-top:1px solid var(--border);"><div style="min-width:0"><strong>${escapeHtml(doc.title)}</strong><div style="font-size:.78rem;color:var(--text-muted)">${doc.provider === 'google_drive' ? 'Google Drive' : 'OneDrive'}</div></div><div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn-secondary" type="button" data-open-document="${doc.id}">Open</button><button class="btn-secondary" type="button" data-remove-document="${doc.note_id}">Remove</button></div></article>`).join('');
+      host.querySelectorAll('[data-open-document]').forEach(button => button.addEventListener('click', () => openDocument(Number(button.dataset.openDocument))));
+      host.querySelectorAll('[data-remove-document]').forEach(button => button.addEventListener('click', () => removeDocument(Number(button.dataset.removeDocument))));
+    } catch (error) { host.textContent = error.message; }
+  }
+  async function openDocument(id) {
+    try {
+      const data = await jsonFetch(`/api/cloud-documents/${id}`);
+      activeDocument = data;
+      activeDocument.id = id;
+      document.getElementById('editorTitle').textContent = data.title;
+      document.getElementById('editorText').value = data.text;
+      document.getElementById('editorText').readOnly = !data.editable;
+      const hints = [];
+      if (data.read_only_reason) hints.push(data.read_only_reason);
+      if (data.editable && data.title) {
+        hints.push(data.title.endsWith('.txt') || data.title.endsWith('.md') || data.title.endsWith('.csv')
+          ? 'Saving updates this text file in the cloud.'
+          : 'Saving replaces the Google Doc body with plain text; complex formatting is not retained.');
+      }
+      document.getElementById('editorHint').textContent = hints.join(' ');
+      document.getElementById('saveDocument').hidden = !data.editable;
+      document.getElementById('documentEditor').showModal();
+    } catch (error) { setNotice(error.message, true); }
+  }
+  async function removeDocument(noteId) {
+    if (!await IP.confirm('This removes the imported study copy from IntelliPlan. The file in Drive remains unchanged.', {title:'Remove study file?', confirmLabel:'Remove', danger:true})) return;
+    try {
+      await jsonFetch(`/notes/${noteId}`, {method:'DELETE'});
+      setNotice('Imported study copy removed. The cloud file is unchanged.');
+      await loadDocuments();
+    } catch (error) { setNotice(error.message, true); }
+  }
+  async function importFile(provider, externalId, accountEmail = '') {
+    try {
+      await jsonFetch('/api/cloud-documents/import', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({provider, external_id:externalId, account_email:accountEmail}) });
+      setNotice('File imported. Plani can now use it as study context.');
+      await loadDocuments();
+    } catch (error) { setNotice(error.message, true); }
+  }
+  async function openGooglePicker() {
+    try {
+      const {access_token: token, account_email: accountEmail} = await jsonFetch('/api/cloud-documents/google-picker-token');
+      const loaded = await new Promise((resolve, reject) => {
+        if (window.google && google.picker) { resolve(); return; }
+        const script = document.createElement('script');
+        script.src = 'https://apis.google.com/js/api.js';
+        script.onload = () => gapi.load('picker', {callback:resolve});
+        script.onerror = () => reject(new Error('Google Picker could not load.'));
+        document.head.appendChild(script);
+      });
+      const picker = new google.picker.PickerBuilder()
+        .setDeveloperKey(pickerKey)
+        .setAppId(pickerAppId)
+        .setOAuthToken(token)
+        .setOrigin(window.location.origin)
+        .addView(new google.picker.DocsView().setIncludeFolders(false))
+        .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
+        .setCallback(data => {
+          if (data.action !== google.picker.Action.PICKED) return;
+          (data.docs || []).forEach(doc => importFile('google_drive', doc.id, accountEmail));
+        })
+        .build();
+      picker.setVisible(true);
+    } catch (error) { setNotice(error.message, true); }
+  }
+  async function searchOneDrive(event) {
+    event.preventDefault();
+    const q = document.getElementById('oneDriveQuery').value.trim();
+    const host = document.getElementById('oneDriveFileList');
+    document.getElementById('oneDriveResults').hidden = false;
+    host.textContent = 'Searching…';
+    try {
+      const data = await jsonFetch(`/api/cloud-documents/search?provider=onedrive&q=${encodeURIComponent(q)}`);
+      const imported = new Set((await jsonFetch('/api/cloud-documents')).documents.map(doc => `${doc.provider}:${doc.external_id}`));
+      const files = data.files || [];
+      host.innerHTML = files.length ? files.map(file => {
+        const already = imported.has(`onedrive:${file.id}`);
+        return `<article style="display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.6rem 0;border-top:1px solid var(--border);"><div style="min-width:0"><strong>${escapeHtml(file.name)}</strong><div style="font-size:.75rem;color:var(--text-muted)">${escapeHtml(file.mime_type)}</div></div><button class="btn-secondary" type="button" data-import-onedrive="${escapeHtml(file.id)}" ${already ? 'disabled' : ''}>${already ? 'Imported' : 'Import'}</button></article>`;
+      }).join('') : 'No files found.';
+      host.querySelectorAll('[data-import-onedrive]').forEach(button => button.addEventListener('click', () => importFile('onedrive', button.dataset.importOnedrive)));
+    } catch (error) { host.textContent = error.message; }
+  }
+  document.getElementById('googlePick').addEventListener('click', openGooglePicker);
+  document.getElementById('oneDriveSearch').addEventListener('submit', searchOneDrive);
+  document.getElementById('refreshDocuments').addEventListener('click', loadDocuments);
+  document.getElementById('saveDocument').addEventListener('click', async () => {
+    if (!activeDocument) return;
+    const button = document.getElementById('saveDocument');
+    button.disabled = true;
+    try {
+      const data = await jsonFetch(`/api/cloud-documents/${activeDocument.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text:document.getElementById('editorText').value,etag:activeDocument.etag}) });
+      activeDocument.etag = data.etag;
+      setNotice('Saved to the cloud file. Plani will use the updated text the next time it retrieves study context.');
+      await loadDocuments();
+    } catch (error) { setNotice(error.message, true); }
+    finally { button.disabled = false; }
+  });
+  document.getElementById('googleDisconnect').addEventListener('click', async () => {
+    if (!await IP.confirm('Plani will stop reading or updating your selected Drive files.', {title:'Disconnect Google Drive?', confirmLabel:'Disconnect', danger:true})) return;
+    try { await jsonFetch('/oauth/google-drive/disconnect', {method:'POST'}); await refreshStatus(); setNotice('Google Drive disconnected.'); }
+    catch (error) { setNotice(error.message, true); }
+  });
+  document.getElementById('oneDriveDisconnect').addEventListener('click', async () => {
+    if (!await IP.confirm('Plani will stop reading or updating your OneDrive files.', {title:'Disconnect OneDrive?', confirmLabel:'Disconnect', danger:true})) return;
+    try { await jsonFetch('/oauth/onedrive/disconnect', {method:'POST'}); await refreshStatus(); setNotice('OneDrive disconnected.'); }
+    catch (error) { setNotice(error.message, true); }
+  });
+  refreshStatus().catch(error => setNotice(error.message, true));
+  loadDocuments();
+})();
+</script>
+{% endblock %}
