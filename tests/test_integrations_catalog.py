@@ -32,7 +32,7 @@ def client():
 def test_every_integration_the_app_supports_is_listed():
     """The list that drifted. If a connect route exists, it belongs here."""
     expected = {
-        "canvas", "calendar_feed", "studentvue", "schoology",
+        "canvas", "calendar_feed", "studentvue", "hac", "schoology",
         "google_classroom", "blackboard", "moodle", "brightspace",
         "google_calendar", "notion",
     }
@@ -100,7 +100,7 @@ def test_the_methods_a_school_must_enable_are_flagged():
 
 
 def test_the_paths_that_need_nobody_are_not_flagged():
-    for i in (ic.CALENDAR_FEED, ic.GOOGLE_CALENDAR, ic.NOTION, ic.STUDENTVUE):
+    for i in (ic.CALENDAR_FEED, ic.GOOGLE_CALENDAR, ic.NOTION, ic.STUDENTVUE, ic.HAC):
         assert not any(m.needs_school_admin for m in i.methods), i.id
 
 

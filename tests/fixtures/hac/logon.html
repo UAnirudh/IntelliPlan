@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<!-- Modeled on the eSchoolPLUS HAC LogOn view as captured by the open-source
+     clients (HomeAccessCenterAPI, hac-kit, haccli): a single MVC form with the
+     anti-forgery token, the district Database select, the VerificationOption
+     radio, the tempUN/tempPW decoys and the LogOnDetails.* inputs. District
+     name and token values are fictional. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Home Access Center - Log On</title>
+</head>
+<body class="sg-body">
+<div class="sg-banner">
+  <span class="sg-banner-text">Welcome to Example ISD Home Access Center</span>
+</div>
+<div id="SignInSectionContainer">
+  <form action="/HomeAccess/Account/LogOn?ReturnUrl=%2fHomeAccess%2f" id="SignInForm" method="post">
+    <input name="__RequestVerificationToken" type="hidden" value="CfDJ8Example-Token_value-123" />
+    <input id="SCKTY00328510CustomEnabled" name="SCKTY00328510CustomEnabled" type="hidden" value="True" />
+    <input id="SCKTY00436568CustomEnabled" name="SCKTY00436568CustomEnabled" type="hidden" value="True" />
+    <div class="sg-logon-left">
+      <label for="Database">District</label>
+      <select id="Database" name="Database">
+        <option selected="selected" value="10">Example ISD</option>
+      </select>
+    </div>
+    <div class="sg-logon-verification">
+      <input checked="checked" id="VerificationOption_UsernamePassword" name="VerificationOption" type="radio" value="UsernamePassword" />
+      <label for="VerificationOption_UsernamePassword">Username and Password</label>
+    </div>
+    <div>
+      <label for="LogOnDetails_UserName">User Name</label>
+      <input id="LogOnDetails_UserName" name="LogOnDetails.UserName" type="text" value="" />
+      <input id="tempUN" name="tempUN" type="hidden" value="" />
+    </div>
+    <div>
+      <label for="LogOnDetails_Password">Password</label>
+      <input id="LogOnDetails_Password" name="LogOnDetails.Password" type="password" />
+      <input id="tempPW" name="tempPW" type="hidden" value="" />
+    </div>
+    <button type="submit" id="login" class="sg-button">Sign In</button>
+  </form>
+  <a href="/HomeAccess/Account/ForgotPassword">Forgot my Username or Password</a>
+</div>
+</body>
+</html>

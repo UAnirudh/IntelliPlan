@@ -1,0 +1,8 @@
+<!-- Home Access Center has no openly licensed vector mark, so this is a neutral
+     monogram tile, matching the StudentVUE tile, rather than an invented
+     pictogram or a copy of eSchoolPLUS/PowerSchool branding. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="Home Access Center">
+  <title>Home Access Center</title>
+  <rect width="24" height="24" rx="5" fill="#0E6E8C"/>
+  <text x="12" y="12" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, 'Segoe UI', system-ui, sans-serif" font-size="7.5" font-weight="600" text-anchor="middle" dominant-baseline="central">HAC</text>
+</svg>

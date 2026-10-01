@@ -144,6 +144,26 @@ STUDENTVUE = Integration(
     ),
 )
 
+HAC = Integration(
+    id="hac",
+    name="Home Access Center",
+    category="lms",
+    brings="Assignments, scores, class averages and missing work",
+    methods=(
+        Method(
+            key="credentials",
+            label="District sign-in",
+            how="Your district's Home Access Center address plus the username "
+                "and password you already use.",
+            friction="low",
+            start_url="/login/hac",
+            note="For districts on eSchoolPLUS HAC. A district that signs in "
+                 "only through Google, Microsoft or ClassLink cannot connect "
+                 "this way; the browser extension still can.",
+        ),
+    ),
+)
+
 SCHOOLOGY = Integration(
     id="schoology",
     name="Schoology",
@@ -312,6 +332,7 @@ CATALOG = (
     CALENDAR_FEED,
     GOOGLE_CLASSROOM,
     STUDENTVUE,
+    HAC,
     BLACKBOARD,
     MOODLE,
     SCHOOLOGY,
