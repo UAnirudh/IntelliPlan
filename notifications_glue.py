@@ -643,6 +643,8 @@ def notification_preferences():
             # never derived from `channels`. See _apply_preferences.
             "marketing_emails_opt_in": bool(
                 getattr(current_user, "marketing_emails_opt_in", False)
+                and getattr(current_user, "marketing_consent_version", None)
+                == "weekly_v1"
             ),
         }
     )
@@ -665,12 +667,16 @@ def _apply_preferences(user: Any, body: dict) -> None:
         from datetime import datetime
 
         wants_marketing = bool(body["marketing_emails_opt_in"])
-        if wants_marketing and not getattr(user, "marketing_emails_opt_in", False):
+        if wants_marketing and (
+            not getattr(user, "marketing_emails_opt_in", False)
+            or getattr(user, "marketing_consent_version", None) != "weekly_v1"
+        ):
             # Stamp the date only on the off→on edge. Re-saving the settings
             # page must not keep moving the consent date forward: the whole
             # value of the timestamp is that it records when they actually
             # agreed, and a date that drifts evidences nothing.
             user.marketing_opt_in_at = datetime.utcnow()
+            user.marketing_consent_version = "weekly_v1"
             # Clear any suppression for this address. Without this the
             # toggle silently does nothing for anyone who ever clicked
             # unsubscribe — the flag would flip on and the gate would keep

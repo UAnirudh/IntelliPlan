@@ -1,10 +1,4 @@
-"""The one-week feedback ask, and the form it points at.
-
-Two changes from v1: it lands at one week rather than two, and it leads with
-a form instead of asking for a reply. The form URL is the part that cannot
-be fixed after the fact — a dead link in a sent email stays dead — so it is
-configurable and asserted on in both the HTML and text parts.
-"""
+"""The one-week feedback email stays short and is easy to answer by reply."""
 
 from __future__ import annotations
 
@@ -59,6 +53,7 @@ def make_active_user(age_days, **overrides):
         "role": "student",
         "marketing_emails_opt_in": True,
         "marketing_opt_in_at": datetime(2026, 1, 1),
+        "marketing_consent_version": "weekly_v1",
         "password_hash": "x",
     }
     defaults.update(overrides)
@@ -114,34 +109,19 @@ def test_the_ask_is_sent_once(ctx, resend):
 # ── The form link ─────────────────────────────────────────────────────
 
 
-def test_the_form_url_reaches_both_parts_of_the_email(ctx, resend):
+def test_the_email_asks_one_question_and_uses_a_short_reply(ctx, resend):
     user = make_active_user(campaigns.FEEDBACK_MIN_DAYS + 0.25)
     campaigns.sweep_feedback()
     payload = [p for p in resend if p["to"] == [user.email]][0]
-    assert campaigns.FEEDBACK_FORM_URL in payload["html"]
-    assert campaigns.FEEDBACK_FORM_URL in payload["text"]
+    assert "What should we make easier?" in payload["html"]
+    assert "A sentence or two is plenty" in payload["text"]
+    assert "forms.fillout.com" not in payload["html"] + payload["text"]
 
 
-def test_the_form_url_is_configurable(monkeypatch):
-    """Form URLs move. Hardcoding one means a broken link needs a deploy."""
-    import importlib
-
-    monkeypatch.setenv("FEEDBACK_FORM_URL", "https://forms.example.test/t/other")
-    reloaded = importlib.reload(campaigns)
-    try:
-        assert reloaded.FEEDBACK_FORM_URL == "https://forms.example.test/t/other"
-    finally:
-        monkeypatch.delenv("FEEDBACK_FORM_URL", raising=False)
-        importlib.reload(campaigns)
-
-
-def test_replying_is_still_offered_as_an_alternative(ctx, monkeypatch):
-    """The form is primary, not compulsory. Someone who would rather write a
-    sentence should not have to open a browser to do it."""
+def test_replying_is_the_feedback_action(ctx, monkeypatch):
     monkeypatch.setenv("MARKETING_REPLY_TO", "replies@example.test")
     context = templates.build_context(
         user=None, unsubscribe_url="u", preheader="p",
-        feedback_form_url=campaigns.FEEDBACK_FORM_URL,
     )
     rendered = templates.render("feedback", "S", context)
     assert "mailto:replies@example.test" in rendered.html
@@ -149,11 +129,9 @@ def test_replying_is_still_offered_as_an_alternative(ctx, monkeypatch):
 
 
 def test_the_copy_no_longer_promises_there_is_no_form(ctx):
-    """v1 said "No form, no survey link". Leading with a form while still
-    saying that would read as a bait and switch."""
+    """The direct reply asks should not refer to a survey or external form."""
     context = templates.build_context(
         user=None, unsubscribe_url="u", preheader="p",
-        feedback_form_url=campaigns.FEEDBACK_FORM_URL,
     )
     rendered = templates.render("feedback", "S", context)
     for blob in (rendered.html, rendered.text):

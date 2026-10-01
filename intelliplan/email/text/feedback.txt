@@ -1,35 +1,21 @@
-Hey {{ user_name or 'there' }},
+Hi {{ user_name or 'there' }},
 
-You've been using IntelliPlan — I want to know how it's really going.
+I'm improving IntelliPlan for the next school week. What is one thing that
+would make planning or studying easier for you?
 
-I'm the founder. You signed up about a week ago, which means you've had it
-through a real school week, and what you make of it is worth more to me
-right now than almost anything else.
-
-A few things I'd genuinely like to know:
-
-  * What made you sign up in the first place?
-  * What's the one thing that annoys you most about it?
-  * Is there something you expected it to do that it doesn't?
-  * Would you miss it if it disappeared tomorrow?
-
-It's a 2-minute form, no sign-in:
-
-  {{ feedback_form_url }}
-
-Would rather just write back? Hit reply — that reaches me too, and I read
-every one.
-
+A sentence or two is plenty. Just reply to this email; there's no survey to
+fill out. I read every note.
 Reply to: {{ reply_to }}
+
+Thanks,
+Uanirudh
 
 ---
 
-Sent by the founder of IntelliPlan ({{ app_domain }}). Your reply goes
-directly to me.
+You receive product emails because you opted in to IntelliPlan's weekly
+study note.
 
 Unsubscribe: {{ unsubscribe_url }}
 Privacy policy: {{ app_url }}/privacy
 
 {{ postal_address }}
-
-IntelliPlan — Study smarter.
