@@ -34,7 +34,7 @@ def test_every_integration_the_app_supports_is_listed():
     expected = {
         "canvas", "calendar_feed", "studentvue", "hac", "schoology",
         "google_classroom", "blackboard", "moodle", "brightspace",
-        "google_calendar", "notion",
+        "google_calendar", "outlook_calendar", "google_drive", "onedrive", "notion",
     }
     assert {i.id for i in ic.CATALOG} == expected
 

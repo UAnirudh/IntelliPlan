@@ -1,6 +1,7 @@
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta, timezone
+import time
 from time_utils import utcnow
 import os
 import requests as http_requests
@@ -19,6 +20,13 @@ CALENDAR_SCOPES = [
     "https://www.googleapis.com/auth/calendar.events",
 ]
 
+# The file-picker flow asks for access to individual files the student
+# selects. Do not add this to the ordinary calendar connection: file access
+# is requested only when the student chooses Drive in Integrations.
+DRIVE_SCOPES = [
+    "https://www.googleapis.com/auth/drive.file",
+]
+
 SCOPES = CALENDAR_SCOPES + LOGIN_SCOPES
 
 def _redirect_uri(redirect_uri=None):
@@ -35,7 +43,11 @@ def get_auth_url(state, purpose="calendar", redirect_uri=None):
         "client_id": os.getenv("GOOGLE_CLIENT_ID"),
         "redirect_uri": _redirect_uri(redirect_uri),
         "response_type": "code",
-        "scope": " ".join(LOGIN_SCOPES if purpose == "login" else SCOPES),
+        "scope": " ".join(
+            LOGIN_SCOPES if purpose == "login"
+            else LOGIN_SCOPES + DRIVE_SCOPES if purpose == "drive"
+            else SCOPES
+        ),
         "access_type": "offline",
         "prompt": "select_account" if purpose == "login" else "consent",
         "state": state,
@@ -70,6 +82,7 @@ def exchange_code_for_token(code, code_verifier=None, redirect_uri=None):
     return {
         "token": data.get("access_token"),
         "refresh_token": data.get("refresh_token"),
+        "expires_at": time.time() + int(data.get("expires_in") or 3600),
         "token_uri": "https://oauth2.googleapis.com/token",
         "client_id": os.getenv("GOOGLE_CLIENT_ID"),
         "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
@@ -90,6 +103,10 @@ def has_calendar_scope(token_dict):
     scopes = set(token_dict.get("scopes") or [])
     return bool(scopes.intersection(CALENDAR_SCOPES))
 
+def has_drive_scope(token_dict):
+    scopes = set(token_dict.get("scopes") or [])
+    return bool(scopes.intersection(DRIVE_SCOPES))
+
 def refresh_access_token(token_dict):
     """Refresh an expired access token."""
     resp = http_requests.post(
@@ -106,6 +123,7 @@ def refresh_access_token(token_dict):
     if "error" in data:
         raise Exception(f"Token refresh failed: {data}")
     token_dict["token"] = data["access_token"]
+    token_dict["expires_at"] = time.time() + int(data.get("expires_in") or 3600)
     return token_dict
 
 def get_calendar_service(token_dict):

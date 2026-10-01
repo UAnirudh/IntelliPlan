@@ -66,6 +66,7 @@ class Integration:
     methods: tuple = field(default_factory=tuple)
     status_url: Optional[str] = None
     disconnect_url: Optional[str] = None
+    manage_url: Optional[str] = None
     #: Set when the integration is not live yet, so the UI can say so
     #: rather than offering a button that fails.
     coming_soon: bool = False
@@ -298,6 +299,56 @@ GOOGLE_CALENDAR = Integration(
     ),
 )
 
+OUTLOOK_CALENDAR = Integration(
+    id="outlook_calendar",
+    name="Outlook Calendar",
+    category="productivity",
+    brings="Plans around your Microsoft calendar and exports study blocks",
+    status_url="/calendar/connections",
+    disconnect_url="/oauth/outlook/disconnect",
+    methods=(Method(
+        key="oauth",
+        label="Connect Outlook Calendar",
+        how="Sign in to Microsoft and allow calendar access.",
+        friction="instant",
+        start_url="/oauth/outlook",
+    ),),
+)
+
+GOOGLE_DRIVE = Integration(
+    id="google_drive",
+    name="Google Drive and Docs",
+    category="productivity",
+    brings="Choose study files to add to Plani's context and edit Google Docs",
+    status_url="/api/cloud-documents/status",
+    disconnect_url="/oauth/google-drive/disconnect",
+    manage_url="/study-files",
+    methods=(Method(
+        key="oauth",
+        label="Connect Google Drive",
+        how="Sign in, then choose which files IntelliPlan can access.",
+        friction="instant",
+        start_url="/oauth/google-drive",
+    ),),
+)
+
+ONEDRIVE = Integration(
+    id="onedrive",
+    name="OneDrive",
+    category="productivity",
+    brings="Find study files, add them to Plani's context, and edit text files",
+    status_url="/api/cloud-documents/status",
+    disconnect_url="/oauth/onedrive/disconnect",
+    manage_url="/study-files",
+    methods=(Method(
+        key="oauth",
+        label="Connect OneDrive",
+        how="Sign in to Microsoft and choose files to import.",
+        friction="instant",
+        start_url="/oauth/onedrive",
+    ),),
+)
+
 NOTION = Integration(
     id="notion",
     name="Notion",
@@ -338,6 +389,9 @@ CATALOG = (
     SCHOOLOGY,
     BRIGHTSPACE,
     GOOGLE_CALENDAR,
+    OUTLOOK_CALENDAR,
+    GOOGLE_DRIVE,
+    ONEDRIVE,
     NOTION,
 )
 
@@ -368,6 +422,7 @@ def payload(integration: Integration, connected=False, detail="") -> dict:
         "connected": bool(connected),
         "detail": detail or "",
         "disconnect_url": integration.disconnect_url,
+        "manage_url": integration.manage_url,
         "methods": [method_payload(m) for m in integration.sorted_methods()],
     }
 
