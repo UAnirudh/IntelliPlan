@@ -33,6 +33,8 @@ def test_busy_calendar_view_is_translated_to_local_minutes(monkeypatch):
 
 def test_export_creates_only_study_blocks(monkeypatch):
     created = []
+    # The export reads the calendar first to skip duplicates; no events here.
+    monkeypatch.setattr(outlook, "graph_get", lambda *a, **k: {"value": []})
     monkeypatch.setattr(outlook, "graph_post", lambda token, path, body: created.append(body) or {"id": "event"})
     ids = outlook.add_schedule_to_calendar({"access_token": "x"}, {"schedule": [{"date": "2026-03-02", "blocks": [
         {"assignment": "Essay", "course": "English", "time_slot": "4:30 PM - 5:30 PM", "duration_minutes": 60},

@@ -708,11 +708,17 @@ Return ONLY valid JSON:
             except Exception as exc:
                 logger.warning("Google calendar export from Plani failed: %s", exc)
             try:
-                from App import get_outlook_token, outlook_calendar_helper
+                from App import _user_tz_name, get_outlook_token, outlook_calendar_helper
                 outlook_token = get_outlook_token()
                 if outlook_token:
-                    ids = outlook_calendar_helper.add_schedule_to_calendar(outlook_token, schedule)
-                    exports["outlook"] = {"created": len(ids)}
+                    # The student's own zone, so blocks land at the hour the
+                    # plan says rather than at that hour in California. The
+                    # export also skips blocks already there, so asking twice
+                    # does not double the calendar.
+                    result = outlook_calendar_helper.export_schedule(
+                        outlook_token, schedule, tz_name=_user_tz_name(user_id))
+                    exports["outlook"] = {"created": len(result["created"]),
+                                          "skipped": result["skipped"]}
             except Exception as exc:
                 logger.warning("Outlook calendar export from Plani failed: %s", exc)
             return {"status": "ok",

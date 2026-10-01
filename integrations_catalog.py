@@ -278,6 +278,64 @@ GOOGLE_CALENDAR = Integration(
     ),
 )
 
+OUTLOOK_CALENDAR = Integration(
+    id="outlook_calendar",
+    name="Outlook Calendar",
+    category="productivity",
+    brings="Plans around your Outlook events and writes your study blocks "
+           "back to it",
+    disconnect_url="/oauth/outlook/disconnect",
+    methods=(
+        Method(
+            key="oauth",
+            label="Sign in with Microsoft",
+            how="One click, with a personal or school Microsoft account.",
+            friction="instant",
+            start_url="/oauth/outlook",
+            note="Some schools require an IT admin to approve new apps for "
+                 "school accounts. A personal account always works.",
+        ),
+    ),
+)
+
+GOOGLE_DRIVE = Integration(
+    id="google_drive",
+    name="Google Drive",
+    category="productivity",
+    brings="Finds your notes and handouts for each assignment so Plani "
+           "tutors from them, and saves study guides to your Drive",
+    status_url="/api/cloud-docs/status",
+    disconnect_url="/api/cloud-docs/disconnect/google_drive",
+    methods=(
+        Method(
+            key="oauth",
+            label="Sign in with Google",
+            how="One click. Google asks you to allow Drive access.",
+            friction="instant",
+            start_url="/oauth/google-drive",
+        ),
+    ),
+)
+
+ONEDRIVE = Integration(
+    id="onedrive",
+    name="OneDrive",
+    category="productivity",
+    brings="Finds your Word, PowerPoint and PDF files for each assignment "
+           "and saves study guides to your OneDrive",
+    status_url="/api/cloud-docs/status",
+    disconnect_url="/api/cloud-docs/disconnect/onedrive",
+    methods=(
+        Method(
+            key="oauth",
+            label="Sign in with Microsoft",
+            how="One click, with a personal or school Microsoft account.",
+            friction="instant",
+            start_url="/oauth/onedrive",
+        ),
+    ),
+)
+
 NOTION = Integration(
     id="notion",
     name="Notion",
@@ -317,6 +375,9 @@ CATALOG = (
     SCHOOLOGY,
     BRIGHTSPACE,
     GOOGLE_CALENDAR,
+    OUTLOOK_CALENDAR,
+    GOOGLE_DRIVE,
+    ONEDRIVE,
     NOTION,
 )
 
@@ -336,26 +397,37 @@ def method_payload(m: Method) -> dict:
     }
 
 
-def payload(integration: Integration, connected=False, detail="") -> dict:
+def payload(integration: Integration, connected=False, detail="", available=True) -> dict:
+    """One integration for the UI.
+
+    ``available=False`` means the deployment has not configured this
+    provider's credentials yet. It renders as "coming soon" with no methods,
+    because a Connect button whose first step is a server error teaches the
+    student the whole Integrations list is unreliable. An existing
+    connection still shows, so it can be disconnected.
+    """
+    unavailable = not available and not connected
     return {
         "id": integration.id,
         "name": integration.name,
         "category": integration.category,
         "brings": integration.brings,
-        "coming_soon": integration.coming_soon,
+        "coming_soon": integration.coming_soon or unavailable,
         "no_grades": integration.no_grades,
         "connected": bool(connected),
         "detail": detail or "",
         "disconnect_url": integration.disconnect_url,
-        "methods": [method_payload(m) for m in integration.sorted_methods()],
+        "methods": [] if unavailable else [method_payload(m) for m in integration.sorted_methods()],
     }
 
 
-def catalog_payload(connected_ids=(), details=None) -> list:
+def catalog_payload(connected_ids=(), details=None, unavailable_ids=()) -> list:
     """The whole catalogue, marked with what this user has connected."""
     connected_ids = set(connected_ids or ())
+    unavailable_ids = set(unavailable_ids or ())
     details = details or {}
     return [
-        payload(i, connected=i.id in connected_ids, detail=details.get(i.id, ""))
+        payload(i, connected=i.id in connected_ids, detail=details.get(i.id, ""),
+                available=i.id not in unavailable_ids)
         for i in CATALOG
     ]
