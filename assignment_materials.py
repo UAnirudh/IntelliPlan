@@ -184,69 +184,6 @@ def _extract_file(body, kind):
     return ''
 
 
-#: File extensions we can pull text out of cheaply, for sources (Google
-#: Drive, OneDrive) that describe files by name rather than by a trustworthy
-#: content type. Anything not listed -- images, video, archives -- is skipped
-#: rather than downloaded, because it would cost bandwidth and yield nothing.
-EXTENSION_KINDS = {
-    '.pdf': 'pdf', '.docx': 'docx', '.pptx': 'pptx',
-    '.txt': 'text', '.md': 'text', '.markdown': 'text', '.csv': 'text', '.rtf': 'text',
-}
-MIME_KINDS = {
-    **SUPPORTED_TYPES,
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
-    'text/csv': 'text',
-}
-
-
-def kind_for(name, mime=''):
-    """``'pdf' | 'docx' | 'pptx' | 'text'`` for a file we can read, else None."""
-    kind = MIME_KINDS.get(str(mime or '').split(';')[0].strip().lower())
-    if kind:
-        return kind
-    lowered = str(name or '').lower()
-    for ext, ext_kind in EXTENSION_KINDS.items():
-        if lowered.endswith(ext):
-            return ext_kind
-    return None
-
-
-def _extract_pptx(body):
-    """Slide text from a .pptx without python-pptx (not a dependency).
-
-    A deck is a zip of DrawingML XML files and every visible run of text is an
-    ``<a:t>`` element, so a regex over the slide parts recovers what a student
-    would read. Same expansion guard as .docx: a tiny zip that inflates to
-    gigabytes is a denial of service, not a slide deck.
-    """
-    import html
-    with zipfile.ZipFile(BytesIO(body)) as archive:
-        if sum(info.file_size for info in archive.infolist()) > 10 * 1024 * 1024:
-            raise MaterialError('The document expands beyond the safety limit.')
-        slides = sorted(
-            (n for n in archive.namelist() if re.match(r'ppt/slides/slide\d+\.xml$', n)),
-            key=lambda n: int(re.search(r'(\d+)', n.rsplit('/', 1)[-1]).group(1)))
-        parts = []
-        for name in slides[:60]:
-            xml = archive.read(name).decode('utf-8', errors='replace')
-            runs = re.findall(r'<a:t>([^<]*)</a:t>', xml)
-            if runs:
-                parts.append(' '.join(html.unescape(r) for r in runs))
-        return '\n'.join(parts)[:MAX_TEXT_CHARS]
-
-
-def extract_text(body, kind):
-    """Plain text from a downloaded file of a known ``kind``.
-
-    The public face of the Canvas attachment extractor, so cloud-drive
-    documents go through exactly the same size and zip-bomb limits rather than
-    a second, laxer copy of them.
-    """
-    if kind == 'pptx':
-        return _extract_pptx(body)
-    return _extract_file(body, kind)
-
-
 def load_assignment(canvas_url, token, course_id, assignment_id):
     if not str(course_id).isdigit() or not str(assignment_id).isdigit():
         raise MaterialError('Choose a valid Canvas assignment.')

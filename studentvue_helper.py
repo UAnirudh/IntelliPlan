@@ -1,3 +1,5 @@
+import base64
+import json
 import requests
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -102,6 +104,257 @@ def make_request(district_url, username, password, method, params="&lt;Parms/&gt
     response.raise_for_status()
     return response.text
 
+
+# ── StudentVUE JSON API (the "StudentVUE (New)" app) ─────────────────────
+#
+# Edupoint is retiring the SOAP student-data methods district by district.
+# Where they are off, the SOAP login still answers — with an RT_ERROR — so a
+# student with a perfectly good password was told it was wrong. Northshore
+# (NSD) moved its families to the new StudentVUE app, which talks to this
+# JSON API instead. SOAP stays first because most districts still serve it;
+# the JSON path is the fallback that keeps each district working as it is
+# switched over.
+JSON_API_HEADERS = {
+    "Content-Type": "application/json",
+    # Sent verbatim by the official app — a leftover from the SOAP days.
+    "User-Agent": "ksoap",
+    "AppNameOSAndVersion": "StudentVUE|Android|1.9.16",
+}
+
+
+class JsonApiUnavailable(Exception):
+    """The district host does not serve the JSON API (or answered with junk)."""
+
+
+def _json_url(district_url, method):
+    return f"{normalize_district_url(district_url)}/api/v1/mobile/PXPWebServices/{method}"
+
+
+def _json_arguments(request_fields):
+    # The real parameters are a JSON object serialized to a *string* at
+    # arguments.request — not a nested object.
+    return json.dumps({"arguments": {"request": json.dumps(request_fields)}})
+
+
+def _json_body(response):
+    if response.status_code != 200:
+        # The API answers 200 even for failures; anything else means this
+        # host isn't serving it (404 on districts without it, 401 on a dead
+        # token).
+        raise JsonApiUnavailable(f"HTTP {response.status_code}")
+    try:
+        return response.json()
+    except ValueError:
+        raise JsonApiUnavailable("non-JSON response")
+
+
+def json_login(district_url, username, password):
+    """Return an access token, or None when the district rejected the credentials.
+
+    Raises JsonApiUnavailable when the host doesn't speak the JSON API and
+    requests.RequestException when it can't be reached at all.
+    """
+    basic = base64.b64encode(f"{username or ''}:{password or ''}".encode("utf-8")).decode("ascii")
+    response = requests.post(
+        _json_url(district_url, "AttemptLogin"),
+        headers={**JSON_API_HEADERS, "Authorization": f"Basic {basic}"},
+        # The app nulls the credentials in the body; they travel only in
+        # the Basic header.
+        data=_json_arguments({"userID": None, "password": None, "userType": "Student"}),
+        timeout=15,
+    )
+    body = _json_body(response)
+    if not isinstance(body, dict):
+        raise JsonApiUnavailable("unexpected login payload")
+    # Success is a bare token object — no error/data envelope.
+    if body.get("access_token"):
+        return body["access_token"]
+    if body.get("error"):
+        return None
+    raise JsonApiUnavailable("login response had neither a token nor an error")
+
+
+def json_call(district_url, access_token, method, request_fields):
+    """Call one JSON API method and return its `data` object.
+
+    Every call answers HTTP 200 even on failure; the body's `error` field is
+    the real status. Code 2100 means "feature not enabled at this school",
+    which is empty data, not a failure.
+    """
+    response = requests.post(
+        _json_url(district_url, method),
+        headers={**JSON_API_HEADERS, "Authorization": f"Bearer {access_token}"},
+        data=_json_arguments(request_fields),
+        timeout=20,
+    )
+    body = _json_body(response)
+    if not isinstance(body, dict):
+        raise JsonApiUnavailable("unexpected payload")
+    error = body.get("error")
+    if error:
+        code = str(error.get("code")) if isinstance(error, dict) else ""
+        if code == "2100":
+            return {}
+        raise JsonApiUnavailable(f"{method} error {code}")
+    return body.get("data") or {}
+
+
+def _xml_attrs(pairs):
+    return " ".join(
+        f'{name}="{html_module.escape(str(value), quote=True)}"'
+        for name, value in pairs
+        if value is not None and not isinstance(value, (dict, list))
+    )
+
+
+def _mdY(value):
+    """The gradebook parsers read MM/DD/YYYY; the JSON API may send ISO dates."""
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    for fmt, width in (("%m/%d/%Y", 10), ("%Y-%m-%dT%H:%M:%S", 19), ("%Y-%m-%d", 10)):
+        try:
+            return datetime.strptime(text[:width], fmt).strftime("%m/%d/%Y")
+        except ValueError:
+            continue
+    return text
+
+
+# JSON keys are the SOAP attribute names in camelCase, with a few friendlier
+# aliases. They are emitted first and in SOAP order because the parsers below
+# are order-sensitive — `Score=` also matches inside `DisplayScore=`, so Score
+# has to come first.
+_ASSIGNMENT_KEY_ORDER = (
+    ("Measure", ("measure", "assignmentName", "name")),
+    ("Type", ("type", "category")),
+    ("Date", ("date", "assignedDate")),
+    ("DueDate", ("dueDate",)),
+    ("Score", ("score",)),
+    ("ScoreType", ("scoreType",)),
+    ("Points", ("points",)),
+    ("Notes", ("notes",)),
+    ("MeasureDescription", ("measureDescription", "description")),
+    ("Point", ("point", "pointsEarned")),
+    ("PointPossible", ("pointPossible", "pointsPossible")),
+    ("DisplayScore", ("displayScore",)),
+)
+
+
+def _assignment_xml(item):
+    pairs, used = [], set()
+    for attr, keys in _ASSIGNMENT_KEY_ORDER:
+        used.update(keys)
+        for key in keys:
+            if item.get(key) is not None:
+                value = item[key]
+                if attr in ("DueDate", "Date"):
+                    value = _mdY(value)
+                pairs.append((attr, value))
+                break
+    for key, value in item.items():
+        if key and key not in used:
+            pairs.append((key[0].upper() + key[1:], value))
+    return f"<Assignment {_xml_attrs(pairs)} />"
+
+
+def _grade_calcs(summary):
+    rows = summary
+    if isinstance(summary, dict):
+        rows = (summary.get("assignmentGradeCalc") or summary.get("assignmentGradeCalcs")
+                or summary.get("gradeCalcs") or [])
+    out = []
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        out.append("<AssignmentGradeCalc " + _xml_attrs([
+            ("Type", row.get("type", "")),
+            ("Weight", row.get("weight", "")),
+            ("Points", row.get("points", "")),
+            ("PointsPossible", row.get("pointsPossible", "")),
+            ("WeightedPct", row.get("weightedPct", "")),
+            ("CalculatedMark", row.get("calculatedMark", "")),
+        ]) + " />")
+    return out
+
+
+def json_gradebook_to_xml(gradebook):
+    """Render a JSON traditionalGradebook as the XML the SOAP parsers read.
+
+    Every gradebook consumer in this module (and the grade pages built on
+    them) was written against the SOAP payload. Translating the new payload
+    into that shape keeps one set of parsers instead of two that drift.
+    """
+    parts = ["<Gradebook>"]
+    for course in (gradebook or {}).get("courses") or []:
+        if not isinstance(course, dict):
+            continue
+        parts.append("<Course " + _xml_attrs([
+            ("Period", course.get("period", "")),
+            ("Title", course.get("title") or course.get("courseName") or ""),
+            ("Room", course.get("room", "")),
+            ("Staff", course.get("staff", "")),
+            ("StaffEMail", course.get("staffEMail", "")),
+        ]) + "><Marks>")
+        for mark in course.get("marks") or []:
+            if not isinstance(mark, dict):
+                continue
+            parts.append("<Mark " + _xml_attrs([
+                ("MarkName", mark.get("markName", "")),
+                ("CalculatedScoreString", mark.get("calculatedScoreString", "")),
+                ("CalculatedScoreRaw", mark.get("calculatedScoreRaw", "")),
+            ]) + "><GradeCalculationSummary>")
+            parts.extend(_grade_calcs(mark.get("gradeCalculationSummary")))
+            parts.append("</GradeCalculationSummary><Assignments>")
+            for item in mark.get("assignments") or []:
+                if isinstance(item, dict):
+                    parts.append(_assignment_xml(item))
+            parts.append("</Assignments></Mark>")
+        parts.append("</Marks></Course>")
+    parts.append("</Gradebook>")
+    return "".join(parts)
+
+
+def _json_gradebook_raw(district_url, username, password):
+    token = json_login(district_url, username, password)
+    if not token:
+        return None
+    data = json_call(district_url, token, "Gradebook", {
+        "reportPeriod": "", "concurrentSchOrgYearGU": "",
+        "childIntID": 0, "languageCode": "en",
+    })
+    gradebook = data.get("traditionalGradebook")
+    if not gradebook:
+        return None
+    return json_gradebook_to_xml(gradebook)
+
+
+_SOAP_RESULT_RE = re.compile(
+    r'<ProcessWebServiceRequestResult>(.*?)</ProcessWebServiceRequestResult>', re.DOTALL)
+
+
+def _gradebook_raw(district_url, username, password):
+    """Unescaped gradebook XML from whichever API this district still serves."""
+    soap_error = None
+    try:
+        result = make_request(
+            district_url, username, password, "Gradebook",
+            "&lt;Parms&gt;&lt;ChildIntID&gt;0&lt;/ChildIntID&gt;&lt;/Parms&gt;"
+        )
+        inner = _SOAP_RESULT_RE.search(result)
+        if inner:
+            raw = html_module.unescape(inner.group(1))
+            if "RT_ERROR" not in raw:
+                return raw
+    except requests.RequestException as exc:
+        soap_error = exc
+    try:
+        return _json_gradebook_raw(district_url, username, password)
+    except (JsonApiUnavailable, requests.RequestException):
+        if soap_error is not None:
+            raise soap_error
+        return None
+
+
 def test_login(district_url, username, password):
     """Compatibility wrapper for callers that only need a boolean."""
     return validate_login(district_url, username, password) == "ok"
@@ -114,6 +367,20 @@ def validate_login(district_url, username, password):
     when a student's password is correct.  The login screen needs to surface
     that distinction so students do not repeatedly reset valid passwords.
     """
+    soap_status = _validate_soap(district_url, username, password)
+    if soap_status == "ok":
+        return "ok"
+    # SOAP said no — but on a district that has switched off the SOAP
+    # student methods, "no" is all it can say. The JSON API is the one the
+    # current StudentVUE app uses, so its answer is the authoritative one.
+    try:
+        token = json_login(district_url, username, password)
+    except Exception:
+        return soap_status
+    return "ok" if token else "invalid_credentials"
+
+
+def _validate_soap(district_url, username, password):
     try:
         result = make_request(district_url, username, password, "StudentInfo")
     except requests.RequestException:
@@ -135,16 +402,9 @@ def validate_login(district_url, username, password):
     return "ok"
 
 def get_courses(district_url, username, password):
-    result = make_request(
-        district_url, username, password, "Gradebook",
-        "&lt;Parms&gt;&lt;ChildIntID&gt;0&lt;/ChildIntID&gt;&lt;/Parms&gt;"
-    )
-    
-    inner_match = re.search(r'<ProcessWebServiceRequestResult>(.*?)</ProcessWebServiceRequestResult>', result, re.DOTALL)
-    if not inner_match:
+    gradebook_raw = _gradebook_raw(district_url, username, password)
+    if not gradebook_raw:
         return []
-    
-    gradebook_raw = html_module.unescape(inner_match.group(1))
     course_pattern = re.compile(r'<Course[^>]*Title="([^"]*)"', re.DOTALL)
     
     courses = []
@@ -181,17 +441,10 @@ def _estimate_minutes(title, description, category, points_possible):
 
 
 def get_assignments(district_url, username, password):
-    result = make_request(
-        district_url, username, password, "Gradebook",
-        "&lt;Parms&gt;&lt;ChildIntID&gt;0&lt;/ChildIntID&gt;&lt;/Parms&gt;"
-    )
-
-    inner_match = re.search(r'<ProcessWebServiceRequestResult>(.*?)</ProcessWebServiceRequestResult>', result, re.DOTALL)
-    if not inner_match:
-        print("Could not find inner result")
+    gradebook_raw = _gradebook_raw(district_url, username, password)
+    if not gradebook_raw:
+        print("No result found")
         return []
-
-    gradebook_raw = html_module.unescape(inner_match.group(1))
 
     course_pattern = re.compile(r'<Course[^>]*Period="([^"]*)"[^>]*Title="([^"]*)"', re.DOTALL)
     assignment_pattern = re.compile(
@@ -201,7 +454,9 @@ def get_assignments(district_url, username, password):
 
     def get_attr(attrs_str, attr_name):
         match = re.search(rf'{attr_name}="([^"]*)"', attrs_str)
-        return match.group(1) if match else ""
+        # Values are still XML-escaped after the payload is unwrapped;
+        # without this, "Read & annotate" reached the planner as "&amp;".
+        return html_module.unescape(match.group(1)) if match else ""
 
     assignments = []
     today = datetime.now(timezone.utc)
@@ -295,14 +550,9 @@ def get_assignments(district_url, username, password):
 
 
 def get_grades_raw(district_url, username, password):
-    result = make_request(
-        district_url, username, password, "Gradebook",
-        "&lt;Parms&gt;&lt;ChildIntID&gt;0&lt;/ChildIntID&gt;&lt;/Parms&gt;"
-    )
-    inner_match = re.search(r'<ProcessWebServiceRequestResult>(.*?)</ProcessWebServiceRequestResult>', result, re.DOTALL)
-    if not inner_match:
+    gradebook_raw = _gradebook_raw(district_url, username, password)
+    if not gradebook_raw:
         return
-    gradebook_raw = html_module.unescape(inner_match.group(1))
     # Find first Mark element
     mark_match = re.search(r'<Mark\s[^>]*>', gradebook_raw)
     course_match = re.search(r'<Course\s[^>]*>', gradebook_raw)
@@ -313,15 +563,9 @@ def get_grades_raw(district_url, username, password):
 
 
 def get_grades(district_url, username, password):
-    result = make_request(
-        district_url, username, password, "Gradebook",
-        "&lt;Parms&gt;&lt;ChildIntID&gt;0&lt;/ChildIntID&gt;&lt;/Parms&gt;"
-    )
-    inner_match = re.search(r'<ProcessWebServiceRequestResult>(.*?)</ProcessWebServiceRequestResult>', result, re.DOTALL)
-    if not inner_match:
+    gradebook_raw = _gradebook_raw(district_url, username, password)
+    if not gradebook_raw:
         return []
-
-    gradebook_raw = html_module.unescape(inner_match.group(1))
     course_pattern = re.compile(r'<Course\s[^>]*Title="([^"]*)"[^>]*Staff="([^"]*)"', re.DOTALL)
     mark_pattern = re.compile(r'<Mark\s[^>]*MarkName="([^"]*)"[^>]*CalculatedScoreString="([^"]*)"[^>]*CalculatedScoreRaw="([^"]*)"', re.DOTALL)
 
@@ -361,18 +605,9 @@ def get_grades(district_url, username, password):
 
 
 def get_gradebook_detail(district_url, username, password):
-    result = make_request(
-        district_url, username, password, "Gradebook",
-        "&lt;Parms&gt;&lt;ChildIntID&gt;0&lt;/ChildIntID&gt;&lt;/Parms&gt;"
-    )
-    inner_match = re.search(
-        r'<ProcessWebServiceRequestResult>(.*?)</ProcessWebServiceRequestResult>',
-        result, re.DOTALL
-    )
-    if not inner_match:
+    gradebook_raw = _gradebook_raw(district_url, username, password)
+    if not gradebook_raw:
         return []
-
-    gradebook_raw = html_module.unescape(inner_match.group(1))
     course_blocks = re.split(r'(?=<Course\s)', gradebook_raw)
 
     courses = []
@@ -389,7 +624,9 @@ def get_gradebook_detail(district_url, username, password):
 
     def get_attr(attrs_str, attr_name):
         match = re.search(rf'{attr_name}="([^"]*)"', attrs_str)
-        return match.group(1) if match else ""
+        # Values are still XML-escaped after the payload is unwrapped;
+        # without this, "Read & annotate" reached the planner as "&amp;".
+        return html_module.unescape(match.group(1)) if match else ""
 
     def parse_float(s):
         try:
@@ -486,41 +723,26 @@ def get_gradebook_detail(district_url, username, password):
     return courses
 
 def debug_gradebook(district_url, username, password):
-    result = make_request(
-        district_url, username, password, "Gradebook",
-        "&lt;Parms&gt;&lt;ChildIntID&gt;0&lt;/ChildIntID&gt;&lt;/Parms&gt;"
-    )
-    inner_match = re.search(
-        r'<ProcessWebServiceRequestResult>(.*?)</ProcessWebServiceRequestResult>',
-        result, re.DOTALL
-    )
-    if not inner_match:
+    raw = _gradebook_raw(district_url, username, password)
+    if not raw:
         print("No result found")
         return
-    raw = html_module.unescape(inner_match.group(1))
     # Print first 3000 chars to see structure
     print(raw[:3000])
 
 def get_missing_assignments(district_url, username, password):
     """Pull assignments with low/partial scores like 4/10 or 0/10."""
-    result = make_request(
-        district_url, username, password, "Gradebook",
-        "&lt;Parms&gt;&lt;ChildIntID&gt;0&lt;/ChildIntID&gt;&lt;/Parms&gt;"
-    )
-    inner_match = re.search(
-        r'<ProcessWebServiceRequestResult>(.*?)</ProcessWebServiceRequestResult>',
-        result, re.DOTALL
-    )
-    if not inner_match:
+    gradebook_raw = _gradebook_raw(district_url, username, password)
+    if not gradebook_raw:
         return []
-
-    gradebook_raw = html_module.unescape(inner_match.group(1))
     course_blocks = re.split(r'(?=<Course\s)', gradebook_raw)
     assignment_pattern = re.compile(r'<Assignment\s([^>]*?)(?:/>|>)', re.DOTALL)
 
     def get_attr(attrs_str, attr_name):
         match = re.search(rf'{attr_name}="([^"]*)"', attrs_str)
-        return match.group(1) if match else ""
+        # Values are still XML-escaped after the payload is unwrapped;
+        # without this, "Read & annotate" reached the planner as "&amp;".
+        return html_module.unescape(match.group(1)) if match else ""
 
     missing = []
     PRIORITY_COLORS = {"High": "#ef4444", "Medium": "#f59e0b", "Low": "#22c55e"}

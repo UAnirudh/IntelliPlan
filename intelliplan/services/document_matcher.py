@@ -235,7 +235,7 @@ def google_drive_source(client) -> Source:
 
     def search(keywords, course):
         # One OR query covers every term: Drive does the fan-out server side.
-        return gd.search_files(client, keywords[:MAX_KEYWORDS], limit=20)
+        return gd.search_full_text(client, keywords[:MAX_KEYWORDS], limit=20)
 
     return Source("google_drive", search, lambda item: gd.fetch_text(client, item, MAX_DOC_CHARS * 2))
 
@@ -255,7 +255,7 @@ def onedrive_source(client) -> Source:
         found = []
         for query in dict.fromkeys(queries):
             try:
-                found.extend(od.search_files(client, query, limit=15))
+                found.extend(od.search_documents(client, query, limit=15))
             except ValueError:
                 continue
         return found

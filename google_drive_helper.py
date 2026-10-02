@@ -1,26 +1,26 @@
-"""Google Drive: find a student's own documents, read them, write new ones.
+"""Google Drive and Docs for a student's study files.
 
-Same OAuth client as sign-in and Google Calendar (``GOOGLE_CLIENT_ID``), and
-the same redirect URI. Drive is an *incremental* grant on that client -- see
-``google_calendar_helper.scopes_for`` -- not a second Google app, because a
-second app would mean a second consent screen to get through Google's
-verification and a second set of credentials for the owner to manage.
+Two layers live here:
 
-Scopes, and why there are two modes
------------------------------------
-``drive.file`` lets IntelliPlan create files and read the ones it created (or
-that the student explicitly opened with it). It is a *non-sensitive* scope:
-no Google review. ``drive.readonly`` lets it search and read everything in
-the student's Drive, which is what makes "find my notes for this essay"
-work -- and it is a *restricted* scope, which means Google verification plus
-an annual third-party security assessment (CASA) before more than 100 people
-can use it. ``GOOGLE_DRIVE_SCOPE_MODE`` picks between them; see
+* **Selected files** (top half): the Picker-driven import and Google Docs
+  editing behind /study-files. Plain token-dict functions.
+* **Assignment matching and study guides** (bottom half): full-text search,
+  capped text extraction and Doc creation for ``document_matcher``. These
+  take a :class:`DriveClient`, which renews its own token and hands the
+  renewed one back to App for storage.
+
+Both use the same OAuth client as sign-in and Google Calendar
+(``GOOGLE_CLIENT_ID``) and the same redirect URI; Drive is an incremental
+grant on it, not a second Google app.
+
+Scopes
+------
+``drive.file`` (non-sensitive, no Google review) is always requested: it
+covers files IntelliPlan creates and files the student picks with Google
+Picker. ``drive.readonly`` (restricted, needs verification plus a CASA
+security assessment) is added only when ``GOOGLE_DRIVE_SCOPE_MODE=readonly``,
+which lets assignment matching search the student's whole Drive. See
 docs/INTEGRATIONS_SETUP.md for the tradeoff.
-
-The Docs API scope (``documents``) is deliberately not requested. A study
-guide is created by uploading HTML to Drive with conversion to a Google Doc,
-which ``drive.file`` already covers, so asking for ``documents`` would be one
-more line on the consent screen buying nothing.
 """
 
 from __future__ import annotations
@@ -30,30 +30,158 @@ import os
 import re
 import secrets
 from html import escape
+from urllib.parse import quote
 
 import requests
 
 from cloud_token_client import ProviderError, TokenClient, TokenExpired, read_capped
+from intelliplan.integrations.document_content import CloudDocumentError
 
-API = "https://www.googleapis.com/drive/v3"
+DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file"
+DRIVE_API = "https://www.googleapis.com/drive/v3"
+DOCS_API = "https://docs.googleapis.com/v1"
+GOOGLE_DOC = "application/vnd.google-apps.document"
+GOOGLE_SHEET = "application/vnd.google-apps.spreadsheet"
+GOOGLE_SLIDES = "application/vnd.google-apps.presentation"
+EXPORT_TYPES = {
+    GOOGLE_DOC: "text/plain",
+    GOOGLE_SHEET: "text/csv",
+    GOOGLE_SLIDES: "text/plain",
+}
+
+
+def has_drive_scope(token: dict) -> bool:
+    return DRIVE_SCOPE in set(token.get("scopes") or [])
+
+
+def _headers(token: dict) -> dict:
+    access_token = token.get("token") or token.get("access_token")
+    if not access_token:
+        raise CloudDocumentError("Google Drive is not connected. Please reconnect it.")
+    return {"Authorization": f"Bearer {access_token}"}
+
+
+def get_file(token: dict, file_id: str) -> dict:
+    response = requests.get(
+        f"{DRIVE_API}/files/{quote(file_id, safe='')}",
+        params={"fields": "id,name,mimeType,webViewLink,modifiedTime,version,capabilities(canEdit),size,trashed",
+                "supportsAllDrives": "true"},
+        headers=_headers(token), timeout=15,
+    )
+    response.raise_for_status()
+    info = response.json()
+    if info.get("trashed"):
+        raise CloudDocumentError("This file is in the Drive trash.")
+    return info
+
+
+def search_files(token: dict, query: str = "", page_token: str | None = None) -> dict:
+    terms = ["trashed = false"]
+    if query.strip():
+        safe = query.strip().replace("\\", "\\\\").replace("'", "\\'")[:100]
+        terms.append(f"name contains '{safe}'")
+    params = {
+        "q": " and ".join(terms),
+        "pageSize": 50,
+        "orderBy": "modifiedTime desc",
+        "fields": "nextPageToken,files(id,name,mimeType,webViewLink,modifiedTime,version,capabilities(canEdit))",
+        "supportsAllDrives": "true",
+        "includeItemsFromAllDrives": "true",
+    }
+    if page_token:
+        params["pageToken"] = page_token
+    response = requests.get(f"{DRIVE_API}/files", params=params, headers=_headers(token), timeout=15)
+    response.raise_for_status()
+    return response.json()
+
+
+def download_text(token: dict, info: dict) -> str:
+    file_id = quote(str(info.get("id") or ""), safe="")
+    mime = info.get("mimeType") or ""
+    if int(info.get("size") or 0) > 2 * 1024 * 1024:
+        raise CloudDocumentError("This file is larger than IntelliPlan can import (2 MB).")
+    if mime in EXPORT_TYPES:
+        response = requests.get(
+            f"{DRIVE_API}/files/{file_id}/export",
+            params={"mimeType": EXPORT_TYPES[mime]},
+            headers=_headers(token), timeout=30, stream=True,
+        )
+    else:
+        response = requests.get(
+            f"{DRIVE_API}/files/{file_id}",
+            params={"alt": "media", "supportsAllDrives": "true"},
+            headers=_headers(token), timeout=30, stream=True,
+        )
+    try:
+        response.raise_for_status()
+        from intelliplan.integrations.document_content import extract_text, read_limited_response
+        content = read_limited_response(response)
+    except Exception:
+        response.close()
+        raise
+    return extract_text(info.get("name") or "", mime, content)
+
+
+def read_google_doc(token: dict, file_id: str) -> dict:
+    response = requests.get(
+        f"{DOCS_API}/documents/{quote(file_id, safe='')}",
+        headers=_headers(token), timeout=20, stream=True,
+    )
+    try:
+        response.raise_for_status()
+        from intelliplan.integrations.document_content import read_limited_response
+        document = json.loads(read_limited_response(response))
+    except Exception:
+        response.close()
+        raise
+    pieces = []
+    end_index = 1
+    for element in (document.get("body") or {}).get("content", []):
+        end_index = max(end_index, int(element.get("endIndex") or 1))
+        paragraph = element.get("paragraph")
+        if paragraph:
+            pieces.extend(
+                item.get("textRun", {}).get("content", "")
+                for item in paragraph.get("elements", [])
+            )
+        elif any(key in element for key in ("table", "tableOfContents", "sectionBreak", "paragraphStyle")):
+            raise CloudDocumentError("This Google Doc has tables or layout elements and is available as read-only text.")
+    return {"revision_id": document.get("revisionId"), "text": "".join(pieces), "end_index": end_index}
+
+
+def replace_google_doc_text(token: dict, file_id: str, content: str, revision_id: str) -> str:
+    if not revision_id:
+        raise CloudDocumentError("Refresh the document before saving your edits.")
+    current = read_google_doc(token, file_id)
+    if current["revision_id"] != revision_id:
+        raise RuntimeError("This Google Doc changed in Drive. Reload it before saving to avoid overwriting newer edits.")
+    end_index = current["end_index"]
+    requests_body = []
+    if end_index > 2:
+        requests_body.append({"deleteContentRange": {"range": {"startIndex": 1, "endIndex": end_index - 1}}})
+    if content:
+        requests_body.append({"insertText": {"location": {"index": 1}, "text": content}})
+    response = requests.post(
+        f"{DOCS_API}/documents/{quote(file_id, safe='')}:batchUpdate",
+        json={"requests": requests_body, "writeControl": {"requiredRevisionId": revision_id}},
+        headers={**_headers(token), "Content-Type": "application/json"}, timeout=25,
+    )
+    if response.status_code == 400 and "revision" in response.text.lower():
+        raise RuntimeError("This Google Doc changed in Drive. Reload it before saving to avoid overwriting newer edits.")
+    response.raise_for_status()
+    return (response.json().get("writeControl") or {}).get("requiredRevisionId") or ""
+
+
+# ── Assignment matching and study guides ─────────────────────────────
+
+API = DRIVE_API
 UPLOAD = "https://www.googleapis.com/upload/drive/v3/files"
 TOKEN_URI = "https://oauth2.googleapis.com/token"
 
-SCOPE_FILE = "https://www.googleapis.com/auth/drive.file"
+SCOPE_FILE = DRIVE_SCOPE
 SCOPE_READONLY = "https://www.googleapis.com/auth/drive.readonly"
 
-GOOGLE_DOC = "application/vnd.google-apps.document"
-GOOGLE_SLIDES = "application/vnd.google-apps.presentation"
-GOOGLE_SHEET = "application/vnd.google-apps.spreadsheet"
 FOLDER = "application/vnd.google-apps.folder"
-
-#: Google-native types have no bytes to download; they are exported. The
-#: value is the export format we can read as text.
-EXPORT_AS = {
-    GOOGLE_DOC: "text/plain",
-    GOOGLE_SLIDES: "text/plain",
-    GOOGLE_SHEET: "text/csv",
-}
 
 #: What a search is allowed to return. Limiting the query to types we can
 #: read means the result slots are not spent on photos and videos that would
@@ -79,29 +207,19 @@ FOLDER_NAME = "IntelliPlan"
 APP_PROPERTY = ("intelliplan", "folder")
 
 
-def _truthy(value):
-    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
-
-
 def configured() -> bool:
-    """True once the owner has switched Drive on.
-
-    The Google client id is already set in production for sign-in, so its
-    presence alone cannot mean "Drive is ready": the Drive API also has to be
-    enabled in the Cloud project and the scopes added to the consent screen.
-    ``GOOGLE_DRIVE_ENABLED`` is the owner saying they have done that. Without
-    it the Connect button stays hidden instead of leading to a Google error.
-    """
-    return bool(os.getenv("GOOGLE_CLIENT_ID") and os.getenv("GOOGLE_CLIENT_SECRET")
-                and _truthy(os.getenv("GOOGLE_DRIVE_ENABLED")))
+    """Drive rides on the sign-in client, so it is available exactly when
+    that client is configured -- the same test /oauth/google-drive applies."""
+    return bool(os.getenv("GOOGLE_CLIENT_ID") and os.getenv("GOOGLE_CLIENT_SECRET"))
 
 
 def scope_mode() -> str:
-    """``"readonly"`` (search the whole Drive) or ``"file"`` (only files
-    IntelliPlan created). Anything unrecognised falls back to ``readonly``,
-    which is what the feature is for; the owner opts down deliberately."""
-    mode = (os.getenv("GOOGLE_DRIVE_SCOPE_MODE") or "readonly").strip().lower()
-    return "file" if mode == "file" else "readonly"
+    """``"file"`` (default: files IntelliPlan created or the student picked)
+    or ``"readonly"`` (search the whole Drive). The restricted scope is
+    opt-in because requesting it before Google has verified the app caps the
+    integration at 100 users and shows every student a warning screen."""
+    mode = (os.getenv("GOOGLE_DRIVE_SCOPE_MODE") or "file").strip().lower()
+    return "readonly" if mode == "readonly" else "file"
 
 
 def drive_scopes() -> list:
@@ -109,11 +227,6 @@ def drive_scopes() -> list:
     if scope_mode() == "readonly":
         scopes.append(SCOPE_READONLY)
     return scopes
-
-
-def has_drive_scope(token: dict) -> bool:
-    granted = set((token or {}).get("scopes") or [])
-    return bool(granted.intersection({SCOPE_FILE, SCOPE_READONLY}))
 
 
 def can_search_everything(token: dict) -> bool:
@@ -182,10 +295,12 @@ def build_search_query(terms, *, readable_only: bool = True) -> str:
     return query
 
 
-def search_files(client: DriveClient, terms, limit: int = 15) -> list:
+def search_full_text(client: DriveClient, terms, limit: int = 15) -> list:
     """Candidate files for ``terms``, normalised to the shape the matcher ranks.
 
-    No ``orderBy``: Drive refuses to sort a ``fullText`` query, so recency is
+    Separate from :func:`search_files` (the /study-files browser, which
+    matches names and sorts by date): this looks *inside* documents. No
+    ``orderBy``: Drive refuses to sort a ``fullText`` query, so recency is
     applied by the matcher from ``modifiedTime`` instead.
     """
     data = client.json("GET", f"{API}/files", params={
@@ -225,16 +340,16 @@ def fetch_text(client: DriveClient, item: dict, max_chars: int = MAX_TEXT_CHARS)
     """Plain text of one file, or ``""`` when it cannot be read cheaply.
 
     Google Docs/Slides/Sheets are exported as text. PDFs, .docx, .pptx and
-    plain text are downloaded (capped) and parsed with the same extractor the
-    Canvas attachment path uses. Anything else is skipped without a download.
+    plain text are downloaded (capped) and parsed by the same extractor the
+    /study-files import uses. Anything else is skipped without a download.
     """
-    from assignment_materials import extract_text, kind_for
+    from intelliplan.integrations.document_content import extract_text, is_supported
 
     mime = str(item.get("mime") or "")
     path = _file_path(item.get("id"))
-    if mime in EXPORT_AS:
+    if mime in EXPORT_TYPES:
         response = client.request("GET", f"{path}/export",
-                                  params={"mimeType": EXPORT_AS[mime]}, stream=True)
+                                  params={"mimeType": EXPORT_TYPES[mime]}, stream=True)
         with response:
             if response.status_code != 200:
                 return ""
@@ -243,8 +358,7 @@ def fetch_text(client: DriveClient, item: dict, max_chars: int = MAX_TEXT_CHARS)
             return ""
         text = body.decode("utf-8-sig", errors="replace")
     else:
-        kind = kind_for(item.get("name"), mime)
-        if not kind:
+        if not is_supported(item.get("name"), mime):
             return ""
         if item.get("size") and int(item["size"]) > MAX_DOWNLOAD_BYTES:
             return ""
@@ -256,9 +370,10 @@ def fetch_text(client: DriveClient, item: dict, max_chars: int = MAX_TEXT_CHARS)
         if body is None:
             return ""
         try:
-            text = extract_text(body, kind)
+            text = extract_text(item.get("name") or "", mime, body)
         except Exception as exc:
-            print(f"[google-drive] could not extract {kind}: {type(exc).__name__}")
+            # Includes "no extractable text" (a scanned PDF): skip, not fail.
+            print(f"[google-drive] could not extract text: {type(exc).__name__}")
             return ""
     return re.sub(r"\s+", " ", text or "").strip()[:max_chars]
 

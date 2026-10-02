@@ -28,7 +28,7 @@ import cloud_token_client
 import google_drive_helper as gd
 import onedrive_helper as od
 import outlook_calendar_helper as outlook
-from App import CloudDocsIntegration, OutlookIntegration, User, db
+from App import GoogleDriveIntegration, OneDriveIntegration, OutlookIntegration, User, db
 from intelliplan.services import document_matcher as dm
 
 
@@ -162,7 +162,7 @@ def test_drive_search_normalises_results(router):
         {"name": "no id, dropped"},
     ]}))
     client = gd.DriveClient({"token": "t", "expires_at": time.time() + 3600})
-    files = gd.search_files(client, ["biology"])
+    files = gd.search_full_text(client, ["biology"])
     assert files == [{"provider": "google_drive", "id": "doc_12345", "name": "Bio notes",
                       "mime": gd.GOOGLE_DOC, "modified": "2026-09-01T10:00:00.000Z",
                       "url": "https://docs.google.com/d/1", "size": 0}]
@@ -383,7 +383,7 @@ def test_expired_drive_token_is_refreshed_before_the_call_and_persisted(router, 
     saved = []
     client = gd.DriveClient({"token": "stale", "refresh_token": "r1", "expires_at": time.time() - 5},
                             on_refresh=saved.append)
-    gd.search_files(client, ["x-ray"])
+    gd.search_full_text(client, ["x-ray"])
     token_call = router.find("POST", "oauth2.googleapis.com/token")[0]
     assert token_call["data"]["grant_type"] == "refresh_token"
     assert token_call["data"]["refresh_token"] == "r1"
@@ -400,7 +400,7 @@ def test_a_401_triggers_one_refresh_and_retry(router, monkeypatch):
     router.add("POST", "login.microsoftonline.com", FakeResponse(
         {"access_token": "new", "refresh_token": "rotated", "expires_in": 3600}))
     client = od.OneDriveClient({"access_token": "old", "refresh_token": "r0"})
-    assert od.search_files(client, "essay") == []
+    assert od.search_documents(client, "essay") == []
     token_call = router.find("POST", "login.microsoftonline.com")[0]
     # The refresh asks for the Files scopes this token was granted, not the
     # calendar ones: asking for unconsented scopes is an invalid_grant.
@@ -512,7 +512,7 @@ def test_redirect_uri_defaults_to_the_app_route(monkeypatch):
 
 # ── Routes ────────────────────────────────────────────────────────────
 
-CLOUD_ENV = ("GOOGLE_DRIVE_ENABLED", "ONEDRIVE_ENABLED", "GOOGLE_DRIVE_SCOPE_MODE",
+CLOUD_ENV = ("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_DRIVE_SCOPE_MODE",
              "MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET", "MICROSOFT_REDIRECT_URI",
              "GOOGLE_OAUTH_UNVERIFIED")
 
@@ -527,10 +527,9 @@ def unconfigured(monkeypatch):
 def configured(monkeypatch):
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "gid")
     monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "gsecret")
-    monkeypatch.setenv("GOOGLE_DRIVE_ENABLED", "1")
     monkeypatch.setenv("MICROSOFT_CLIENT_ID", "mid")
     monkeypatch.setenv("MICROSOFT_CLIENT_SECRET", "msecret")
-    monkeypatch.setenv("ONEDRIVE_ENABLED", "1")
+    monkeypatch.delenv("MICROSOFT_REDIRECT_URI", raising=False)
     monkeypatch.delenv("GOOGLE_OAUTH_UNVERIFIED", raising=False)
     monkeypatch.delenv("GOOGLE_DRIVE_SCOPE_MODE", raising=False)
 
@@ -538,7 +537,8 @@ def configured(monkeypatch):
 def _wipe():
     ids = [u.id for u in User.query.filter(User.email.like("clouddocs+%")).all()]
     if ids:
-        CloudDocsIntegration.query.filter(CloudDocsIntegration.user_id.in_(ids)).delete(synchronize_session=False)
+        GoogleDriveIntegration.query.filter(GoogleDriveIntegration.user_id.in_(ids)).delete(synchronize_session=False)
+        OneDriveIntegration.query.filter(OneDriveIntegration.user_id.in_(ids)).delete(synchronize_session=False)
         OutlookIntegration.query.filter(OutlookIntegration.user_id.in_(ids)).delete(synchronize_session=False)
         App.LinkedAccount.query.filter(App.LinkedAccount.user_id.in_(ids)).delete(synchronize_session=False)
     User.query.filter(User.email.like("clouddocs+%")).delete(synchronize_session=False)
@@ -577,53 +577,55 @@ def uid(client):
     return user_id
 
 
+MODELS = {"google_drive": GoogleDriveIntegration, "onedrive": OneDriveIntegration}
+
+
 def _connect(user_id, provider, token):
     with App.app.app_context():
-        db.session.add(CloudDocsIntegration(user_id=user_id, provider=provider,
-                                            token_data=json.dumps(token), account_email="s@example.com"))
+        db.session.add(MODELS[provider](user_id=user_id, token_data=json.dumps(token),
+                                        account_email="s@example.com"))
         db.session.commit()
 
 
 def _stored_token(user_id, provider):
     with App.app.app_context():
-        row = CloudDocsIntegration.query.filter_by(user_id=user_id, provider=provider).first()
+        row = MODELS[provider].query.filter_by(user_id=user_id).first()
         return json.loads(row.token_data) if row else None
 
 
 def test_token_column_is_encrypted_at_rest():
     import secret_box
-    assert isinstance(CloudDocsIntegration.__table__.c.token_data.type, secret_box.EncryptedText)
+    for model in MODELS.values():
+        assert isinstance(model.__table__.c.token_data.type, secret_box.EncryptedText)
 
 
 # Unconfigured: every route answers, none 500s.
 
 def test_status_reports_unconfigured_providers(client, unconfigured, uid):
-    data = client.get("/api/cloud-docs/status").get_json()
-    assert {p["id"]: p["configured"] for p in data["providers"]} == {"google_drive": False, "onedrive": False}
+    data = client.get("/api/cloud-documents/status").get_json()
+    assert data["google_drive_configured"] is False and data["onedrive_configured"] is False
 
 
-def test_connect_links_redirect_back_to_settings_when_unconfigured(client, unconfigured, uid):
-    for path, outcome in (("/oauth/google-drive", "google_drive_unavailable"),
-                          ("/oauth/onedrive", "onedrive_unavailable"),
-                          ("/oauth/outlook", "outlook_unavailable")):
-        r = client.get(path)
-        assert r.status_code == 302, path
-        assert outcome in r.headers["Location"]
+def test_connect_links_answer_cleanly_when_unconfigured(client, unconfigured, uid):
+    assert client.get("/oauth/google-drive").status_code == 503
+    assert client.get("/oauth/onedrive").status_code == 503
+    r = client.get("/oauth/outlook")
+    assert r.status_code == 302 and "outlook_unavailable" in r.headers["Location"]
 
 
 def test_match_and_create_degrade_when_unconfigured(client, unconfigured, uid):
-    r = client.get("/api/cloud-docs/match?title=Essay")
+    r = client.get("/api/cloud-documents/match?title=Essay")
     assert r.status_code == 200
     assert r.get_json()["documents"] == [] and r.get_json()["connected"] == []
-    r = client.post("/api/cloud-docs/create", json={"title": "Essay"})
+    r = client.post("/api/cloud-documents/create", json={"title": "Essay"})
     assert r.status_code == 409 and r.get_json()["connect_required"]
-    r = client.post("/api/cloud-docs/create", json={"title": "Essay", "provider": "onedrive"})
+    r = client.post("/api/cloud-documents/create", json={"title": "Essay", "provider": "onedrive"})
     assert r.status_code == 503
 
 
 def test_an_existing_row_is_ignored_once_the_owner_switches_a_provider_off(client, unconfigured, uid, router):
     _connect(uid, "google_drive", {"token": "t", "refresh_token": "r"})
-    r = client.get("/api/cloud-docs/match?title=Essay")
+    r = client.get("/api/cloud-documents/match?title=Essay")
     assert r.status_code == 200 and r.get_json()["connected"] == []
     assert router.calls == []
 
@@ -645,16 +647,15 @@ def test_settings_and_dashboard_render(client, unconfigured, uid):
 
 
 def test_routes_require_sign_in(client, configured):
-    assert client.get("/api/cloud-docs/match?title=x").status_code == 401
-    assert client.post("/api/cloud-docs/create", json={"title": "x"}).status_code == 401
-    assert client.post("/api/cloud-docs/disconnect/google_drive").status_code == 401
+    assert client.get("/api/cloud-documents/match?title=x").status_code == 401
+    assert client.post("/api/cloud-documents/create", json={"title": "x"}).status_code == 401
+    assert client.post("/oauth/google-drive/disconnect").status_code == 401
     assert client.get("/oauth/google-drive").status_code == 302
 
 
 def test_bad_input_is_a_400(client, configured, uid):
-    assert client.get("/api/cloud-docs/match").status_code == 400
-    assert client.post("/api/cloud-docs/create", json={"title": "x", "provider": "dropbox"}).status_code == 400
-    assert client.post("/api/cloud-docs/disconnect/dropbox").status_code == 400
+    assert client.get("/api/cloud-documents/match").status_code == 400
+    assert client.post("/api/cloud-documents/create", json={"title": "x", "provider": "dropbox"}).status_code == 400
 
 
 # Configured, with mocked provider APIs.
@@ -664,18 +665,19 @@ def test_google_drive_connect_asks_for_drive_scopes_incrementally(client, config
     assert r.status_code == 302
     query = parse_qs(urlparse(r.headers["Location"]).query)
     scopes = query["scope"][0].split()
-    assert gd.SCOPE_FILE in scopes and gd.SCOPE_READONLY in scopes
-    assert "https://www.googleapis.com/auth/documents" not in scopes
+    # drive.file by default: the restricted whole-Drive scope is opt-in.
+    assert gd.SCOPE_FILE in scopes and gd.SCOPE_READONLY not in scopes
+    assert "https://www.googleapis.com/auth/calendar.events" not in scopes
     assert query["include_granted_scopes"] == ["true"]
     assert query["client_id"] == ["gid"]
     with client.session_transaction() as s:
         assert s["oauth_purpose"] == "drive"
 
 
-def test_file_scope_mode_drops_the_restricted_scope(client, configured, uid, monkeypatch):
-    monkeypatch.setenv("GOOGLE_DRIVE_SCOPE_MODE", "file")
+def test_readonly_scope_mode_adds_whole_drive_search(client, configured, uid, monkeypatch):
+    monkeypatch.setenv("GOOGLE_DRIVE_SCOPE_MODE", "readonly")
     scopes = parse_qs(urlparse(client.get("/oauth/google-drive").headers["Location"]).query)["scope"][0]
-    assert gd.SCOPE_FILE in scopes and gd.SCOPE_READONLY not in scopes
+    assert gd.SCOPE_FILE in scopes and gd.SCOPE_READONLY in scopes
 
 
 def _google_callback(client, monkeypatch, scopes):
@@ -692,7 +694,7 @@ def _google_callback(client, monkeypatch, scopes):
 
 def test_google_callback_stores_a_drive_grant_in_its_own_row(client, configured, uid, monkeypatch):
     r = _google_callback(client, monkeypatch, [gd.SCOPE_FILE, gd.SCOPE_READONLY, "openid"])
-    assert r.status_code == 302 and "google_drive_connected" in r.headers["Location"]
+    assert r.status_code == 302 and "google_drive=connected" in r.headers["Location"]
     token = _stored_token(uid, "google_drive")
     assert token["refresh_token"] == "grefresh"
     with App.app.app_context():
@@ -702,16 +704,16 @@ def test_google_callback_stores_a_drive_grant_in_its_own_row(client, configured,
 
 def test_google_callback_without_the_drive_box_ticked_stores_nothing(client, configured, uid, monkeypatch):
     r = _google_callback(client, monkeypatch, ["openid", "email"])
-    assert "google_drive_denied" in r.headers["Location"]
+    assert "drive_error=scope" in r.headers["Location"]
     assert _stored_token(uid, "google_drive") is None
 
 
-def test_declining_on_googles_screen_returns_to_settings(client, configured, uid):
+def test_declining_on_googles_screen_returns_to_study_files(client, configured, uid):
     with client.session_transaction() as s:
         s["oauth_state"] = "st"
         s["oauth_purpose"] = "drive"
     r = client.get("/oauth2callback?error=access_denied&state=st")
-    assert "google_drive_cancelled" in r.headers["Location"]
+    assert "drive_error=cancelled" in r.headers["Location"]
 
 
 def test_onedrive_connect_and_callback_share_the_outlook_redirect_uri(client, configured, uid, router):
@@ -721,6 +723,7 @@ def test_onedrive_connect_and_callback_share_the_outlook_redirect_uri(client, co
     assert location.netloc == "login.microsoftonline.com"
     assert "Files.ReadWrite" in query["scope"][0] and "offline_access" in query["scope"][0]
     assert query["redirect_uri"] == ["https://intelliplan.tech/oauth/outlook/callback"]
+    assert query["code_challenge_method"] == ["S256"]
     state = query["state"][0]
 
     router.add("POST", "login.microsoftonline.com", FakeResponse(
@@ -728,7 +731,9 @@ def test_onedrive_connect_and_callback_share_the_outlook_redirect_uri(client, co
     router.add("GET", "graph.microsoft.com/v1.0/me", FakeResponse(
         {"mail": "student@school.edu", "displayName": "Student"}))
     r = client.get(f"/oauth/outlook/callback?state={state}&code=abc")
-    assert r.status_code == 302 and "onedrive_connected" in r.headers["Location"]
+    assert r.status_code == 302 and "onedrive=connected" in r.headers["Location"]
+    token_call = router.find("POST", "login.microsoftonline.com")[0]
+    assert token_call["data"]["code_verifier"]  # PKCE verifier sent back
     token = _stored_token(uid, "onedrive")
     assert token["access_token"] == "mtok" and token["expires_at"] > time.time()
     with App.app.app_context():
@@ -748,7 +753,7 @@ def test_match_searches_drive_refreshes_the_token_and_persists_it(client, config
     router.add("GET", "/drive/v3/files", FakeResponse({"files": [
         {"id": "doc_11111", "name": "Photosynthesis notes", "mimeType": gd.GOOGLE_DOC,
          "modifiedTime": "2026-09-20T00:00:00Z", "webViewLink": "https://docs.google.com/d/11111"}]}))
-    r = client.get("/api/cloud-docs/match?title=Photosynthesis%20lab&course=Biology")
+    r = client.get("/api/cloud-documents/match?title=Photosynthesis%20lab&course=Biology")
     assert r.status_code == 200, r.get_json()
     data = r.get_json()
     assert data["connected"] == ["google_drive"]
@@ -768,7 +773,7 @@ def test_create_writes_a_study_guide_to_onedrive(client, configured, uid, router
     router.add("GET", "/items/ITEM1/content", FakeResponse(body=b"Hamlet delays revenge; the ghost appears."))
     router.add("PUT", "/me/drive/root:/IntelliPlan/", FakeResponse(
         {"id": "new1", "name": "Hamlet essay study guide.docx", "webUrl": "https://onedrive.live.com/g"}))
-    r = client.post("/api/cloud-docs/create", json={
+    r = client.post("/api/cloud-documents/create", json={
         "provider": "onedrive", "title": "Hamlet essay", "course": "English", "due_date": "2026-10-20"})
     assert r.status_code == 200, r.get_json()
     body = r.get_json()
@@ -783,14 +788,14 @@ def test_create_writes_a_study_guide_to_onedrive(client, configured, uid, router
 def test_create_asks_for_a_reconnect_when_the_grant_is_gone(client, configured, uid, router):
     _connect(uid, "google_drive", {"token": "t", "refresh_token": "dead", "expires_at": 1})
     router.add("POST", "oauth2.googleapis.com/token", FakeResponse({"error": "invalid_grant"}, status=400))
-    r = client.post("/api/cloud-docs/create", json={"title": "Essay", "provider": "google_drive"})
+    r = client.post("/api/cloud-documents/create", json={"title": "Essay", "provider": "google_drive"})
     assert r.status_code == 409 and r.get_json()["connect_required"]
 
 
 def test_disconnect_removes_only_that_provider(client, configured, uid):
     _connect(uid, "google_drive", {"token": "t"})
     _connect(uid, "onedrive", {"access_token": "t"})
-    assert client.post("/api/cloud-docs/disconnect/google_drive").get_json()["status"] == "ok"
+    assert client.post("/oauth/google-drive/disconnect").get_json()["status"] == "ok"
     assert _stored_token(uid, "google_drive") is None
     assert _stored_token(uid, "onedrive") is not None
 

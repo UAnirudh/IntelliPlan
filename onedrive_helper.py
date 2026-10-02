@@ -1,59 +1,185 @@
-"""OneDrive through Microsoft Graph: search, read, and create documents.
+"""Microsoft identity and OneDrive file operations using delegated Graph access.
 
-Reuses the Outlook app registration (``MICROSOFT_CLIENT_ID`` and friends,
-read through ``outlook_calendar_helper``) and its redirect URI. The token is
-a *separate* grant with its own scope set, stored in its own row: Microsoft
-refresh tokens are scoped to what was consented, and keeping Files access
-off the calendar token means disconnecting one never breaks the other.
+Uses the Outlook app registration (``MICROSOFT_CLIENT_ID`` and friends) and
+its redirect URI, read through ``outlook_calendar_helper`` so both agree on
+the defaults. The token is a separate grant from Outlook Calendar with its
+own scopes, so disconnecting one never breaks the other.
 
-Scope choice: ``Files.ReadWrite`` rather than ``Files.Read`` plus
-``Files.ReadWrite.AppFolder``. The app-folder scope would confine new study
-guides to ``Apps/IntelliPlan``, a folder students do not know exists; a
-plain ``IntelliPlan`` folder at the root of their OneDrive is where they will
-look. Neither needs tenant-admin consent for a personal account; a school
-tenant can still require it (see docs/INTEGRATIONS_SETUP.md).
+Two layers: the selected-file import/edit functions behind /study-files
+(token-dict based), and below them the assignment-matching and study-guide
+functions that take a self-refreshing :class:`OneDriveClient`.
+
+Why ``Files.ReadWrite`` rather than ``Files.ReadWrite.AppFolder``: the app
+folder scope would hide study guides in ``Apps/IntelliPlan``, a folder
+students do not know exists.
 """
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import os
 import re
+import secrets
 from io import BytesIO
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 import requests
 
 import outlook_calendar_helper as outlook
 from cloud_token_client import ProviderError, TokenClient, TokenExpired, read_capped
+from intelliplan.integrations.document_content import CloudDocumentError
 
-GRAPH = outlook.GRAPH
+AUTHORITY = outlook.AUTHORITY
+GRAPH = "https://graph.microsoft.com/v1.0"
 SCOPES = ("openid", "profile", "offline_access", "User.Read", "Files.ReadWrite")
-FOLDER_NAME = "IntelliPlan"
-MAX_DOWNLOAD_BYTES = 2 * 1024 * 1024
-MAX_TEXT_CHARS = 12000
-
-
-def _truthy(value):
-    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def configured() -> bool:
-    """Registration present *and* the owner has switched OneDrive on.
-
-    The Microsoft client id may already be set for Outlook. OneDrive needs
-    the Files permission added to that registration first, so it waits for
-    ``ONEDRIVE_ENABLED`` rather than offering a button that ends on a
-    Microsoft consent error.
-    """
-    return outlook.configured() and _truthy(os.getenv("ONEDRIVE_ENABLED"))
+    # Same test as Outlook: the redirect URI has a sensible default now, so
+    # requiring it as well kept a correctly registered app hidden.
+    return outlook.configured()
 
 
-def get_auth_url(state: str) -> str:
-    return outlook.get_auth_url(state, scopes=SCOPES)
+def get_auth_url(state: str) -> tuple[str, str]:
+    code_verifier = secrets.token_urlsafe(64)
+    code_challenge = base64.urlsafe_b64encode(
+        hashlib.sha256(code_verifier.encode()).digest()
+    ).rstrip(b"=").decode()
+    params = {
+        "client_id": os.environ["MICROSOFT_CLIENT_ID"],
+        "response_type": "code",
+        "redirect_uri": outlook.redirect_uri(),
+        "response_mode": "query",
+        "scope": " ".join(SCOPES),
+        "state": state,
+        "prompt": "select_account",
+        "code_challenge": code_challenge,
+        "code_challenge_method": "S256",
+    }
+    return f"{outlook._authority()}/authorize?{urlencode(params)}", code_verifier
 
 
-def exchange_code(code: str) -> dict:
-    return outlook.exchange_code(code, scopes=SCOPES)
+def _token_request(payload: dict) -> dict:
+    response = requests.post(f"{outlook._authority()}/token", data={
+        "client_id": os.environ["MICROSOFT_CLIENT_ID"],
+        "client_secret": os.environ["MICROSOFT_CLIENT_SECRET"],
+        "scope": " ".join(SCOPES),
+        **payload,
+    }, timeout=15)
+    response.raise_for_status()
+    return response.json()
+
+
+def exchange_code(code: str, code_verifier: str | None = None) -> dict:
+    payload = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": outlook.redirect_uri(),
+    }
+    if code_verifier:
+        payload["code_verifier"] = code_verifier
+    return _token_request(payload)
+
+
+def refresh_token(token: dict) -> dict:
+    refreshed = _token_request({
+        "grant_type": "refresh_token",
+        "refresh_token": token.get("refresh_token", ""),
+    })
+    return {**token, **refreshed,
+            "refresh_token": refreshed.get("refresh_token") or token.get("refresh_token", "")}
+
+
+def _headers(token: dict, extra: dict | None = None) -> dict:
+    access_token = token.get("access_token")
+    if not access_token:
+        raise CloudDocumentError("OneDrive is not connected. Please reconnect it.")
+    return {"Authorization": f"Bearer {access_token}", **(extra or {})}
+
+
+def graph_get(token: dict, path: str, params: dict | None = None) -> dict:
+    response = requests.get(f"{GRAPH}{path}", params=params, headers=_headers(token), timeout=20)
+    response.raise_for_status()
+    return response.json()
+
+
+def profile(token: dict) -> dict:
+    return graph_get(token, "/me", {"$select": "displayName,mail,userPrincipalName"})
+
+
+def search_files(token: dict, query: str = "") -> list[dict]:
+    if query.strip():
+        escaped = query.strip().replace("'", "''")[:100]
+        path = f"/me/drive/root/search(q='{quote(escaped, safe='')}')"
+    else:
+        path = "/me/drive/root/children"
+    result = graph_get(token, path, {"$select": "id,name,file,folder,webUrl,eTag,size,lastModifiedDateTime", "$top": "100"})
+    files = result.get("value", [])
+    next_url = result.get("@odata.nextLink")
+    while next_url and len(files) < 300:
+        response = requests.get(next_url, headers=_headers(token), timeout=20)
+        response.raise_for_status()
+        result = response.json()
+        files.extend(result.get("value", []))
+        next_url = result.get("@odata.nextLink")
+    return files[:300]
+
+
+def get_file(token: dict, item_id: str) -> dict:
+    response = graph_get(token, f"/me/drive/items/{quote(item_id, safe='')}", {
+        "$select": "id,name,file,folder,webUrl,eTag,size,lastModifiedDateTime",
+    })
+    if response.get("folder"):
+        raise CloudDocumentError("Choose a file, not a folder.")
+    return response
+
+
+def download_file(token: dict, item_id: str, etag: str | None = None) -> tuple[dict, bytes]:
+    info = get_file(token, item_id)
+    if int(info.get("size") or 0) > 2 * 1024 * 1024:
+        raise CloudDocumentError("This file is larger than IntelliPlan can import (2 MB).")
+    response = requests.get(
+        f"{GRAPH}/me/drive/items/{quote(item_id, safe='')}/content",
+        headers=_headers(token, {"If-Match": etag} if etag else None),
+        timeout=30, stream=True,
+    )
+    if response.status_code == 412:
+        response.close()
+        raise RuntimeError("This OneDrive file changed. Reload it before saving to avoid overwriting newer edits.")
+    try:
+        response.raise_for_status()
+        from intelliplan.integrations.document_content import read_limited_response
+        content = read_limited_response(response)
+    except Exception:
+        response.close()
+        raise
+    return info, content
+
+
+def replace_text_file(token: dict, item_id: str, content: str, etag: str) -> dict:
+    info = get_file(token, item_id)
+    suffix = (info.get("name") or "").lower().rsplit(".", 1)[-1]
+    if suffix not in {"txt", "md", "csv"}:
+        raise CloudDocumentError("OneDrive editing is enabled for text, Markdown, and CSV files. Word documents can be imported as study context.")
+    response = requests.put(
+        f"{GRAPH}/me/drive/items/{quote(item_id, safe='')}/content",
+        data=content.encode("utf-8"),
+        headers=_headers(token, {"Content-Type": "text/plain; charset=utf-8", "If-Match": etag}),
+        timeout=30,
+    )
+    if response.status_code == 412:
+        response.close()
+        raise RuntimeError("This OneDrive file changed. Reload it before saving to avoid overwriting newer edits.")
+    response.raise_for_status()
+    return response.json()
+
+
+# ── Assignment matching and study guides ─────────────────────────────
+
+FOLDER_NAME = "IntelliPlan"
+MAX_DOWNLOAD_BYTES = 2 * 1024 * 1024
+MAX_TEXT_CHARS = 12000
 
 
 class OneDriveClient(TokenClient):
@@ -61,9 +187,8 @@ class OneDriveClient(TokenClient):
 
     def _refresh(self, token):
         try:
-            fresh = outlook._token_request(
-                {"grant_type": "refresh_token", "refresh_token": token.get("refresh_token", "")},
-                SCOPES)
+            fresh = _token_request(
+                {"grant_type": "refresh_token", "refresh_token": token.get("refresh_token", "")})
         except requests.HTTPError as exc:
             status = getattr(exc.response, "status_code", 0)
             raise TokenExpired(f"Microsoft refresh rejected ({status})") from None
@@ -87,8 +212,10 @@ def search_path(text: str) -> str:
     return f"/me/drive/root/search(q='{quote(literal, safe='')}')"
 
 
-def search_files(client: OneDriveClient, text: str, limit: int = 15) -> list:
-    """Files (not folders) matching ``text`` in name or content."""
+def search_documents(client: OneDriveClient, text: str, limit: int = 15) -> list:
+    """Files (not folders) matching ``text`` in name or content, normalised
+    for the assignment matcher. :func:`search_files` above is the raw listing
+    the /study-files browser pages through."""
     data = client.json("GET", GRAPH + search_path(text), params={
         "$top": str(max(1, min(50, int(limit or 15)))),
         "$select": "id,name,file,folder,size,lastModifiedDateTime,webUrl,parentReference",
@@ -134,10 +261,9 @@ def fetch_text(client: OneDriveClient, item: dict, max_chars: int = MAX_TEXT_CHA
     host changes, drops our Authorization header on the way -- which is
     exactly right: that URL needs no token and should never see one.
     """
-    from assignment_materials import extract_text, kind_for
+    from intelliplan.integrations.document_content import extract_text, is_supported
 
-    kind = kind_for(item.get("name"), item.get("mime"))
-    if not kind:
+    if not is_supported(item.get("name"), item.get("mime")):
         return ""
     if item.get("size") and int(item["size"]) > MAX_DOWNLOAD_BYTES:
         return ""
@@ -149,9 +275,9 @@ def fetch_text(client: OneDriveClient, item: dict, max_chars: int = MAX_TEXT_CHA
     if body is None:
         return ""
     try:
-        text = extract_text(body, kind)
+        text = extract_text(item.get("name") or "", item.get("mime") or "", body)
     except Exception as exc:
-        print(f"[onedrive] could not extract {kind}: {type(exc).__name__}")
+        print(f"[onedrive] could not extract text: {type(exc).__name__}")
         return ""
     return re.sub(r"\s+", " ", text or "").strip()[:max_chars]
 

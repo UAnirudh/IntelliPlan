@@ -1879,9 +1879,14 @@ function ipIntegrationCard(it) {
   }
 
   var body = '';
-  if (it.connected && it.disconnect_url) {
-    body = '<button class="ipd-btn" style="font-size:0.75rem;padding:6px 12px;margin-top:8px;" ' +
-           'onclick="ipDisconnectIntegration(\'' + ipEsc(it.disconnect_url) + '\')">Disconnect</button>';
+  if (it.connected) {
+    if (it.manage_url) {
+      body += '<a class="ipd-btn" style="display:inline-block;text-decoration:none;font-size:0.75rem;padding:6px 12px;margin-top:8px;" href="' + ipEsc(it.manage_url) + '">Manage files</a> ';
+    }
+    if (it.disconnect_url) {
+      body += '<button class="ipd-btn" style="font-size:0.75rem;padding:6px 12px;margin-top:8px;" ' +
+              'onclick="ipDisconnectIntegration(\'' + ipEsc(it.disconnect_url) + '\')">Disconnect</button>';
+    }
   } else if (!it.connected) {
     body = (it.methods || []).map(ipMethodRow).join('');
   }
@@ -2109,7 +2114,7 @@ function loadAssignDocs(title, course, notes) {
   var seq = ++_assignDocsSeq;
   var q = '?title=' + encodeURIComponent(title) + '&course=' + encodeURIComponent(course) +
           '&description=' + encodeURIComponent((notes || '').slice(0, 1000));
-  fetch('/api/cloud-docs/match' + q, { credentials: 'same-origin' })
+  fetch('/api/cloud-documents/match' + q, { credentials: 'same-origin' })
     .then(function(r) { return r.ok ? r.json() : null; })
     .then(function(d) {
       if (seq !== _assignDocsSeq || !d || !d.connected || !d.connected.length) return;
@@ -2150,7 +2155,7 @@ async function createAssignStudyDoc() {
   var btn = document.getElementById('adCreateDoc');
   if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
   try {
-    var res = await fetch('/api/cloud-docs/create', {
+    var res = await fetch('/api/cloud-documents/create', {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

@@ -141,6 +141,15 @@ def _emit_signal(user_id: int, kind: str, **kwargs) -> None:
     SignalRepository(StudentSignal, db.session).emit(user_id, kind, **kwargs)
 
 
+def _has_guest_session() -> bool:
+    from flask import session
+
+    try:
+        return bool(session.get("login_type"))
+    except Exception:
+        return False
+
+
 def _stale_briefing_user_ids() -> list[int]:
     from App import BriefingCache
 
@@ -159,5 +168,6 @@ command_center_bp = create_command_center_blueprint(
         current_user_id=_current_user_id,
         emit_signal=_emit_signal,
         stale_briefing_user_ids=_stale_briefing_user_ids,
+        has_guest_session=_has_guest_session,
     )
 )

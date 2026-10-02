@@ -66,6 +66,7 @@ class Integration:
     methods: tuple = field(default_factory=tuple)
     status_url: Optional[str] = None
     disconnect_url: Optional[str] = None
+    manage_url: Optional[str] = None
     #: Set when the integration is not live yet, so the UI can say so
     #: rather than offering a button that fails.
     coming_soon: bool = False
@@ -282,58 +283,52 @@ OUTLOOK_CALENDAR = Integration(
     id="outlook_calendar",
     name="Outlook Calendar",
     category="productivity",
-    brings="Plans around your Outlook events and writes your study blocks "
-           "back to it",
+    brings="Plans around your Microsoft calendar and exports study blocks",
+    status_url="/calendar/connections",
     disconnect_url="/oauth/outlook/disconnect",
-    methods=(
-        Method(
-            key="oauth",
-            label="Sign in with Microsoft",
-            how="One click, with a personal or school Microsoft account.",
-            friction="instant",
-            start_url="/oauth/outlook",
-            note="Some schools require an IT admin to approve new apps for "
-                 "school accounts. A personal account always works.",
-        ),
-    ),
+    methods=(Method(
+        key="oauth",
+        label="Connect Outlook Calendar",
+        how="Sign in to Microsoft and allow calendar access.",
+        friction="instant",
+        start_url="/oauth/outlook",
+    ),),
 )
 
 GOOGLE_DRIVE = Integration(
     id="google_drive",
-    name="Google Drive",
+    name="Google Drive and Docs",
     category="productivity",
-    brings="Finds your notes and handouts for each assignment so Plani "
-           "tutors from them, and saves study guides to your Drive",
-    status_url="/api/cloud-docs/status",
-    disconnect_url="/api/cloud-docs/disconnect/google_drive",
-    methods=(
-        Method(
-            key="oauth",
-            label="Sign in with Google",
-            how="One click. Google asks you to allow Drive access.",
-            friction="instant",
-            start_url="/oauth/google-drive",
-        ),
-    ),
+    brings="Finds your notes for each assignment, saves study guides to "
+           "Drive, and lets you add or edit chosen files",
+    status_url="/api/cloud-documents/status",
+    disconnect_url="/oauth/google-drive/disconnect",
+    manage_url="/study-files",
+    methods=(Method(
+        key="oauth",
+        label="Connect Google Drive",
+        how="Sign in, then choose which files IntelliPlan can access.",
+        friction="instant",
+        start_url="/oauth/google-drive",
+    ),),
 )
 
 ONEDRIVE = Integration(
     id="onedrive",
     name="OneDrive",
     category="productivity",
-    brings="Finds your Word, PowerPoint and PDF files for each assignment "
-           "and saves study guides to your OneDrive",
-    status_url="/api/cloud-docs/status",
-    disconnect_url="/api/cloud-docs/disconnect/onedrive",
-    methods=(
-        Method(
-            key="oauth",
-            label="Sign in with Microsoft",
-            how="One click, with a personal or school Microsoft account.",
-            friction="instant",
-            start_url="/oauth/onedrive",
-        ),
-    ),
+    brings="Finds your Word, PowerPoint and PDF notes for each assignment, "
+           "saves study guides to OneDrive, and imports chosen files",
+    status_url="/api/cloud-documents/status",
+    disconnect_url="/oauth/onedrive/disconnect",
+    manage_url="/study-files",
+    methods=(Method(
+        key="oauth",
+        label="Connect OneDrive",
+        how="Sign in to Microsoft and choose files to import.",
+        friction="instant",
+        start_url="/oauth/onedrive",
+    ),),
 )
 
 NOTION = Integration(
@@ -400,11 +395,11 @@ def method_payload(m: Method) -> dict:
 def payload(integration: Integration, connected=False, detail="", available=True) -> dict:
     """One integration for the UI.
 
-    ``available=False`` means the deployment has not configured this
-    provider's credentials yet. It renders as "coming soon" with no methods,
-    because a Connect button whose first step is a server error teaches the
-    student the whole Integrations list is unreliable. An existing
-    connection still shows, so it can be disconnected.
+    ``available=False`` means this deployment has no credentials for the
+    provider yet. It renders as "coming soon" with no methods, because a
+    Connect button whose first step is a server error teaches the student
+    the whole Integrations list is unreliable. An existing connection still
+    shows, so it can be disconnected.
     """
     unavailable = not available and not connected
     return {
@@ -417,6 +412,7 @@ def payload(integration: Integration, connected=False, detail="", available=True
         "connected": bool(connected),
         "detail": detail or "",
         "disconnect_url": integration.disconnect_url,
+        "manage_url": integration.manage_url,
         "methods": [] if unavailable else [method_payload(m) for m in integration.sorted_methods()],
     }
 
