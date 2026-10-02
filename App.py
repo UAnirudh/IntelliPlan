@@ -2699,6 +2699,7 @@ from intelliplan.migrations import (
     apply_media_balance_migrations,
     apply_scheduler_audit_migrations,
     apply_sync_migrations,
+    apply_timetable_migrations,
     widen_encrypted_columns,
 )
 BriefingCache, HealthSnapshot, StudentSignal = _cc_models.register(db)
@@ -2741,6 +2742,11 @@ _sync_models.register(db)
 # search, so a problem there can never keep the app from starting.
 from intelliplan import retrieval as _retrieval
 MemoryChunk = _retrieval.init(db, CourseNote)
+# Class timetable (rotating A/B, N-day and week-1/2 schedules). Class time is
+# fed to the scheduler as busy time via _planner_busy_by_date, and drawn on
+# the Today timeline. See intelliplan/domain/timetable.py.
+from intelliplan.models import timetable as _timetable_models
+ClassMeeting, TimetableSettings = _timetable_models.register(db)
 
 # Every gunicorn worker runs this at once; the lock makes them take turns so
 # two never race to CREATE the same new table (a loser kills gunicorn).
@@ -2758,6 +2764,7 @@ with app.app_context(), _db_boot.schema_lock(db.engine):
     widen_encrypted_columns(db)
     apply_email_migrations(db)
     apply_scheduler_audit_migrations(db)
+    apply_timetable_migrations(db)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -4114,6 +4121,14 @@ def humanize_schedule(schedule_data, preferred_time, hours_per_day,
             # own day assignment is worse, but it is not nothing.
             print(f"[scheduler] day reallocation failed (non-fatal): {e}")
 
+    # Class time and calendar events, the same source reallocate_days()
+    # budgeted against. Without it here the allocator would leave room for
+    # class and this pass would then lay a block straight across it.
+    try:
+        busy_by_date = _planner_busy_by_date() if personalized else {}
+    except Exception:
+        busy_by_date = {}
+
     next_block_id = 1
     for day_idx, day in enumerate(schedule):
         blocks = day.get("blocks", []) or []
@@ -4168,6 +4183,7 @@ def humanize_schedule(schedule_data, preferred_time, hours_per_day,
             try:
                 windows = scheduler_engine.windows_for_date(
                     day_date, availability, preferred_time, commitments,
+                    busy_by_date=busy_by_date,
                 )
                 # Anything that didn't fit yesterday tries again today, ahead
                 # of today's own work — a dropped task is worse than a late one.
@@ -4449,6 +4465,12 @@ def reflow_schedule(schedule_data, availability=None, commitments=None, dna=None
         for k, v in (schedule_data.get("capacity_overrides") or {}).items()
         if isinstance(v, dict)
     }
+    # Class time and calendar events: a block dragged into third period has
+    # to be caught here, not discovered by the student at 10 AM.
+    try:
+        busy_by_date = _planner_busy_by_date() if personalized else {}
+    except Exception:
+        busy_by_date = {}
     for day_idx, day in enumerate(schedule):
         # Drop breaks we injected last time — the break rule runs again below,
         # so keeping them would grow the plan by one break per drag.
@@ -4466,6 +4488,7 @@ def reflow_schedule(schedule_data, availability=None, commitments=None, dna=None
         try:
             windows = scheduler_engine.windows_for_date(
                 day_date, availability, preferred_time, commitments,
+                busy_by_date=busy_by_date,
             )
             if extra_by_day.get(day_date.isoformat()):
                 windows = scheduler_engine.extend_windows(
@@ -10158,6 +10181,8 @@ def _account_delete_impl():
         # ── Tasks + scheduling ─────────────────────────────────────────
         ("manual_tasks", "DELETE FROM manual_tasks WHERE user_id = :uid"),
         ("manual_courses", "DELETE FROM manual_courses WHERE user_id = :uid"),
+        ("class_meetings", "DELETE FROM class_meetings WHERE user_id = :uid"),
+        ("timetable_settings", "DELETE FROM timetable_settings WHERE user_id = :uid"),
         ("saved_schedules", "DELETE FROM saved_schedules WHERE user_id = :uid"),
         ("scheduler_presets", "DELETE FROM scheduler_presets WHERE user_id = :uid"),
         ("manual_plan_presets", "DELETE FROM manual_plan_presets WHERE user_id = :uid"),
@@ -11404,20 +11429,49 @@ def api_save_assignment_due_date():
     return flask.jsonify({"status": "ok"})
 
 def _planner_busy_by_date(horizon_days=14):
-    """Dated committed time from every calendar the student connected.
+    """Dated committed time: connected calendars plus the class timetable.
 
     Weekly commitments typed into settings recur; a dentist appointment does
     not. Until this was wired up the scheduler knew only about the recurring
     kind, so it would book an hour of chemistry directly on top of an event
     sitting right there in the calendar it already had permission to read.
+    Class time joins it here, so every planner path that already respects
+    the calendar also keeps study blocks out of class hours.
 
-    Every failure path returns ``{}``. A calendar we cannot reach means we
-    know less about the student's week, not that they get no plan — and a
-    scheduler that hard-fails on a third-party outage is worse than one that
-    occasionally suggests a busy hour.
+    Every failure path returns ``{}`` for its own source. A calendar we
+    cannot reach means we know less about the student's week, not that they
+    get no plan — and a scheduler that hard-fails on a third-party outage is
+    worse than one that occasionally suggests a busy hour.
+
+    Memoised per request: plan generation asks more than once, and each ask
+    is a round trip to Google and Microsoft.
     """
     if not current_user.is_authenticated:
         return {}
+    memo_key = ("_planner_busy_by_date", int(horizon_days))
+    try:
+        cached = flask.g.get(memo_key[0]) or {}
+        if memo_key[1] in cached:
+            return {d: list(v) for d, v in cached[memo_key[1]].items()}
+    except RuntimeError:
+        cached = None  # outside a request: nothing to memoise against
+    combined = _calendar_busy_by_date(horizon_days)
+    for day, intervals in _class_busy_by_date(current_user.id, date.today(), horizon_days).items():
+        combined.setdefault(day, []).extend(intervals)
+    if cached is not None:
+        try:
+            cached[memo_key[1]] = {d: list(v) for d, v in combined.items()}
+            setattr(flask.g, memo_key[0], cached)
+        except RuntimeError:
+            pass
+    return combined
+
+
+def _calendar_busy_by_date(horizon_days=14, start=None):
+    """Busy ranges from Google and Outlook only, ``{date: [(start, end)]}``."""
+    if not current_user.is_authenticated:
+        return {}
+    start = start or date.today()
     try:
         offset = getattr(current_user, "utc_offset_minutes", 0) or 0
         combined = {}
@@ -11425,19 +11479,53 @@ def _planner_busy_by_date(horizon_days=14):
         if token and has_calendar_scope(token):
             from google_calendar_helper import busy_minutes_by_date
             for day, intervals in busy_minutes_by_date(
-                token, date.today(), days=horizon_days, utc_offset_minutes=offset
+                token, start, days=horizon_days, utc_offset_minutes=offset
             ).items():
                 combined.setdefault(day, []).extend(intervals)
         outlook_token = get_outlook_token()
         if outlook_token:
             for day, intervals in outlook_calendar_helper.busy_minutes_by_date(
-                outlook_token, date.today(), days=horizon_days, utc_offset_minutes=offset
+                outlook_token, start, days=horizon_days, utc_offset_minutes=offset
             ).items():
                 combined.setdefault(day, []).extend(intervals)
         return combined
     except Exception as e:
         print(f"[planner] calendar busy lookup failed: {e}")
         return {}
+
+
+def _class_busy_by_date(user_id, start, horizon_days=14):
+    """Class time from the student's timetable, ``{date: [(start, end)]}``.
+
+    Never raises: a timetable we cannot read leaves the plan exactly as it
+    was before timetables existed.
+    """
+    if not user_id or not feature_enabled("timetable"):
+        return {}
+    try:
+        from intelliplan.domain.timetable import busy_by_date as _timetable_busy
+
+        rows = ClassMeeting.query.filter_by(user_id=user_id).all()
+        if not rows:
+            return {}
+        settings = TimetableSettings.query.filter_by(user_id=user_id).first()
+        rotation = settings.rotation() if settings else _timetable_rotation_default()
+        bell = settings.bell() if settings else {}
+        return _timetable_busy(
+            start, horizon_days, [r.to_meeting() for r in rows], rotation, bell,
+        )
+    except Exception as e:
+        print(f"[planner] timetable busy lookup failed: {e}")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        return {}
+
+
+def _timetable_rotation_default():
+    from intelliplan.domain.timetable import Rotation
+    return Rotation()
 
 
 def _lms_row_sizing(raw, points_possible, kind=""):
@@ -21314,6 +21402,18 @@ app.register_blueprint(manual_schedule_bp)
 # default per-IP budget would throttle a household with two students in
 # the same call. Its own limit is sized to the poll, not to page loads.
 limiter.limit("30 per minute")(app.view_functions["group_voice_bp.voice_heartbeat"])
+# Class timetable + the Today timeline. `timetable` is a kill switch (default
+# on). The timeline is read on every dashboard load and a drag is two calls
+# (preview, then commit), so neither can live on the shared per-IP default;
+# the two endpoints that reach a school system or the vision model get the
+# tight budgets.
+from intelliplan.api.timetable import bp as timetable_bp
+app.register_blueprint(timetable_bp)
+limiter.limit("240 per hour")(app.view_functions["timetable.today_timeline"])
+limiter.limit("240 per hour")(app.view_functions["timetable.today_timeline_move"])
+limiter.limit("120 per hour")(app.view_functions["timetable.timetable_get"])
+limiter.limit("20 per hour")(app.view_functions["timetable.timetable_import_route"])
+limiter.limit("15 per hour")(app.view_functions["timetable.timetable_photo"])
 
 # ── AI Daily Command Center (docs/command-center/). Registered last so
 # the glue module's lazy `from App import ...` calls always resolve.

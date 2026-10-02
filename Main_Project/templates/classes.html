@@ -37,6 +37,97 @@
   <div id="ipmcList" style="margin-top:14px;display:flex;flex-direction:column;gap:8px;"></div>
 </div>
 
+{# ── Timetable: when each class meets, including rotating schedules.
+   Feeds the scheduler (study blocks never land in class) and the Today
+   timeline. Hidden until /api/timetable answers, so signed-out visitors
+   and a disabled flag see the page exactly as before. #}
+<link rel="stylesheet" href="/static/css/timetable.css?v={{ asset_v }}">
+<section class="tt-panel" id="timetable" aria-labelledby="ttHeading" hidden>
+  <div class="tt-head">
+    <div>
+      <h2 id="ttHeading">Timetable</h2>
+      <p>When your classes meet. Your study plan works around them, and your day on the dashboard fills itself in. Import from your school, scan a photo of your schedule, or type them in.</p>
+    </div>
+    <div class="tt-actions">
+      <button type="button" class="tt-btn tt-btn-primary" id="ttImport">Import from school</button>
+      <label class="tt-btn tt-file">Scan a photo<input type="file" id="ttPhoto" accept="image/jpeg,image/png,image/webp,image/gif"></label>
+      <button type="button" class="tt-btn" id="ttAddToggle" aria-expanded="false" aria-controls="ttAddForm">Add a class</button>
+    </div>
+  </div>
+  <p class="tt-status" id="ttStatus" role="status" aria-live="polite"></p>
+
+  <form class="tt-section" id="ttAddForm" hidden>
+    <h3>Add a class</h3>
+    <div class="tt-row">
+      <label class="tt-field is-wide" for="ttNewCourse">Class<input type="text" id="ttNewCourse" maxlength="256" required></label>
+      <label class="tt-field is-narrow" for="ttNewPeriod">Period<input type="text" id="ttNewPeriod" maxlength="32"></label>
+      <label class="tt-field is-narrow" for="ttNewRoom">Room<input type="text" id="ttNewRoom" maxlength="64"></label>
+      <label class="tt-field" for="ttNewTeacher">Teacher<input type="text" id="ttNewTeacher" maxlength="128"></label>
+      <label class="tt-field" for="ttNewStart">Starts<input type="time" id="ttNewStart"></label>
+      <label class="tt-field" for="ttNewEnd">Ends<input type="time" id="ttNewEnd"></label>
+    </div>
+    <div class="tt-row" style="margin-top:8px;">
+      <fieldset class="tt-days" id="ttNewDays">
+        <legend>Meets on (none ticked = every school day)</legend>
+        {% for d in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] %}
+        <label class="tt-chip"><input type="checkbox" name="ttNewDay" value="{{ d }}"><span>{{ d }}</span></label>
+        {% endfor %}
+      </fieldset>
+      <div id="ttNewRot"></div>
+    </div>
+    <div class="tt-class-foot"><button type="submit" class="tt-btn tt-btn-primary">Add class</button></div>
+  </form>
+
+  <div class="tt-section" id="ttDraftsWrap" hidden>
+    <h3>From your photo: check these, then save</h3>
+    <ul class="tt-list" id="ttDrafts"></ul>
+    <div class="tt-class-foot">
+      <button type="button" class="tt-btn tt-btn-primary" id="ttDraftsSave">Save these classes</button>
+      <button type="button" class="tt-btn" id="ttDraftsDiscard">Discard</button>
+    </div>
+  </div>
+
+  <div class="tt-section">
+    <h3>Your classes <span class="tt-badge" id="ttToday"></span></h3>
+    <ul class="tt-list" id="ttList"></ul>
+  </div>
+
+  <div class="tt-section">
+    <h3>Schedule rotation</h3>
+    <div class="tt-row">
+      <label class="tt-field" for="ttKind">Rotation
+        <select id="ttKind">
+          <option value="none">Same classes every day</option>
+          <option value="ab">A/B days</option>
+          <option value="cycle">Numbered day cycle (Day 1–N)</option>
+          <option value="week">Week 1 / Week 2</option>
+        </select>
+      </label>
+      <label class="tt-field is-narrow" for="ttLength" id="ttLengthWrap" hidden>Days in cycle<input type="number" id="ttLength" min="2" max="10" value="6"></label>
+      <label class="tt-field" for="ttTodayIs" id="ttTodayWrap" hidden>Today is<select id="ttTodayIs"></select></label>
+      <button type="button" class="tt-btn" id="ttRotationSave">Save rotation</button>
+    </div>
+    <fieldset class="tt-days" id="ttSchoolDays" style="margin-top:10px;">
+      <legend>School days</legend>
+      {% for d in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] %}
+      <label class="tt-chip"><input type="checkbox" name="ttSchoolDay" value="{{ d }}" {% if loop.index <= 5 %}checked{% endif %}><span>{{ d }}</span></label>
+      {% endfor %}
+    </fieldset>
+  </div>
+
+  <div class="tt-section">
+    <h3>No-school days</h3>
+    <div class="tt-row">
+      <label class="tt-field" for="ttSkipStart">From<input type="date" id="ttSkipStart"></label>
+      <label class="tt-field" for="ttSkipEnd">To (optional)<input type="date" id="ttSkipEnd"></label>
+      <label class="tt-field is-wide" for="ttSkipLabel">Label<input type="text" id="ttSkipLabel" maxlength="80" placeholder="Thanksgiving break"></label>
+      <button type="button" class="tt-btn" id="ttSkipAdd">Add</button>
+    </div>
+    <ul class="tt-skips" id="ttSkips"></ul>
+  </div>
+</section>
+<script src="/static/js/timetable.js?v={{ asset_v }}" defer></script>
+
 <div class="stats-bar" id="statsBar">
   <div class="stat-card">
     <div class="stat-icon" style="background:var(--accent-soft);color:var(--accent);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-backpack"/></svg></div>

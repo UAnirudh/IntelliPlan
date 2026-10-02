@@ -823,6 +823,35 @@
         <span class="sr-only" role="status">Loading your tasks</span>
       </div>
     </div>
+
+    {# ── Today timeline: classes, study blocks and calendar busy time on
+       one time-scaled day. Hidden until /api/today/timeline answers, so a
+       404 (flag off) leaves the dashboard exactly as it was. #}
+    <section class="ipd-card tl-card" id="tlCard" aria-labelledby="tlHeading" hidden>
+      <div class="ipd-card-title">
+        <h2 id="tlHeading" style="font:inherit;margin:0;">Your day</h2>
+        <div class="tl-head-meta">
+          <span class="tl-rotation" id="tlRotation"></span>
+          <a href="/classes#timetable">Timetable →</a>
+        </div>
+      </div>
+      <p class="tl-next" id="tlNext" hidden></p>
+      <p class="tl-status" id="tlStatus" role="status" aria-live="polite"></p>
+      <div class="tl-scroll" id="tlScroll">
+        <div class="tl-grid" id="tlGrid"></div>
+      </div>
+      <div class="tl-empty" id="tlEmpty" hidden>
+        Nothing on today yet. <a href="/classes#timetable">Add your classes</a> or <a href="/scheduler">plan your study time</a>.
+      </div>
+      <div class="tl-confirm" id="tlConfirm" hidden>
+        <p id="tlConfirmMsg"></p>
+        <button type="button" class="tl-btn tl-btn-primary" id="tlConfirmYes">Move it</button>
+        <button type="button" class="tl-btn" id="tlConfirmNo">Cancel</button>
+      </div>
+      <p class="tl-hint">Drag a study block to move it (on a phone, drag its dotted grip). With a keyboard, focus a block, use the arrow keys, then press Enter.</p>
+    </section>
+    <link rel="stylesheet" href="/static/css/timetable.css?v={{ asset_v }}">
+    <script src="/static/js/today_timeline.js?v={{ asset_v }}" defer></script>
   </div>
 
   {# ── Right sidebar ─────────────────────────────────────────── #}
