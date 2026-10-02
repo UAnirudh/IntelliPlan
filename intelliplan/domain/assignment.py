@@ -60,6 +60,7 @@ AssignmentSource = Literal[
     "manual",
     "imported_grade",
     "studentvue",
+    "hac",
     "canvas",
     "schoology",
     "google_classroom",

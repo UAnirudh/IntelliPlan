@@ -39,6 +39,11 @@
     border-radius:10px; background:var(--bg); color:var(--text-primary);
     font-family:var(--font-body); font-size:0.88rem;
   }
+  .admin-email-table-wrap { overflow-x:auto; }
+  .admin-email-table { width:100%; border-collapse:collapse; min-width:620px; font-size:0.8rem; }
+  .admin-email-table th { padding:8px 10px; color:var(--text-muted); text-align:left; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; }
+  .admin-email-table td { padding:9px 10px; border-top:1px solid var(--border); color:var(--text-secondary); }
+  .admin-email-table td:first-child { color:var(--text-primary); font-weight:600; }
 </style>
 
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
@@ -64,6 +69,31 @@
     <div class="admin-stat"><div class="admin-stat-num">{{ user_count }}</div><div class="admin-stat-label">Total users</div></div>
     <div class="admin-stat"><div class="admin-stat-num">{{ daily_active_users if daily_active_users is not none else '—' }}</div><div class="admin-stat-label">Active users today (UTC)</div><div style="font-size:0.72rem;color:var(--text-muted);margin-top:5px;">Distinct signed-in accounts with consented activity. Excludes unconsented use and Foundations practice.</div></div>
     <div class="admin-stat"><div class="admin-stat-num">{{ flags|length }}</div><div class="admin-stat-label">Feature flags</div></div>
+  </div>
+
+  <div class="admin-section">
+    <div style="font-family:var(--font-ui);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:0.5rem;">Recent email activity</div>
+    <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:0.8rem;">Latest 30 lifecycle and campaign attempts. “Sent” means Resend accepted the message; delivery, bounce, and complaint events are not recorded here.</p>
+    {% if recent_email_sends %}
+    <div class="admin-email-table-wrap">
+      <table class="admin-email-table">
+        <thead><tr><th>Recipient</th><th>Campaign</th><th>Status</th><th>Attempted (UTC)</th><th>Provider ID</th></tr></thead>
+        <tbody>
+          {% for send, recipient in recent_email_sends %}
+          <tr>
+            <td>{{ recipient }}</td>
+            <td>{{ send.email_key }}</td>
+            <td>{{ send.status }}</td>
+            <td>{{ send.sent_at.strftime('%Y-%m-%d %H:%M') if send.sent_at else '—' }}</td>
+            <td>{{ send.provider_message_id or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p style="font-size:0.82rem;color:var(--text-muted);margin:0;">No email attempts have been recorded yet.</p>
+    {% endif %}
   </div>
 
   <div class="admin-section">
