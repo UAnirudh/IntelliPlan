@@ -15,6 +15,15 @@ Two production outages (#42, then #45) came from here:
    ``pg_type_typname_nsp_index``. Gunicorn treats a worker that fails to boot
    as fatal and stops the whole server. :func:`schema_lock` makes the workers
    take turns.
+
+:func:`engine_options` sizes the connection pool for a hosted Postgres
+(Supabase). Its session pooler admits about 15 clients in total, and
+SQLAlchemy's default is up to 15 per gunicorn worker; it also closes idle
+connections, which the pool must notice before a request trips over one.
+
+Use a session-mode connection (port 5432, direct or pooler). The transaction
+pooler (port 6543) hands each statement to a different backend, so the
+advisory lock in :func:`schema_lock` would be taken on one and never released.
 """
 
 from __future__ import annotations
@@ -30,6 +39,13 @@ PG_DRIVER = "postgresql+psycopg2"
 # Arbitrary, fixed: any process holding this key is running schema setup.
 SCHEMA_LOCK_KEY = 0x1D7E_B007
 
+# Per gunicorn worker. Sync workers serve one request at a time; the overflow
+# slot is for a background thread. 4 workers x 3 = 12 connections.
+DEFAULT_POOL_SIZE = 2
+DEFAULT_MAX_OVERFLOW = 1
+POOL_RECYCLE_SECONDS = 300
+CONNECT_TIMEOUT_SECONDS = 10
+
 
 def resolve(url: str | None) -> str:
     """DATABASE_URL -> SQLAlchemy URL. ``postgres://`` is accepted too."""
@@ -42,6 +58,33 @@ def resolve(url: str | None) -> str:
 
 def url_from_env() -> str:
     return resolve(os.getenv("DATABASE_URL"))
+
+
+def _env_count(name: str, default: int) -> int:
+    try:
+        value = int(os.getenv(name, ""))
+    except ValueError:
+        return default
+    return value if value >= 0 else default
+
+
+def engine_options(url: str) -> dict[str, Any]:
+    """SQLALCHEMY_ENGINE_OPTIONS for ``url``. SQLite keeps the defaults."""
+    if not url.startswith("postgresql"):
+        return {}
+    return {
+        "pool_pre_ping": True,
+        "pool_recycle": POOL_RECYCLE_SECONDS,
+        "pool_size": _env_count("DB_POOL_SIZE", DEFAULT_POOL_SIZE) or DEFAULT_POOL_SIZE,
+        "max_overflow": _env_count("DB_MAX_OVERFLOW", DEFAULT_MAX_OVERFLOW),
+        "connect_args": {
+            "connect_timeout": CONNECT_TIMEOUT_SECONDS,
+            "keepalives": 1,
+            "keepalives_idle": 30,
+            "keepalives_interval": 10,
+            "keepalives_count": 3,
+        },
+    }
 
 
 @contextmanager
