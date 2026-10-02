@@ -291,18 +291,18 @@ Three emails, in `intelliplan/email/`. Templates live in
 
 | Email | Key | Trigger | Consent |
 |---|---|---|---|
-| Welcome | `welcome` | Cron, signups in the last 36h | Transactional — no marketing opt-in needed |
-| Feedback request | `feedback_v1` | Cron, accounts 14–15 days old **with real activity** | Requires `marketing_emails_opt_in` |
-| Weekly newsletter | `newsletter_YYYY_wWW` | **Cron, weekly, generated and sent unattended** | Requires `marketing_emails_opt_in` |
-| One-off newsletter | `newsletter_YYYY_MM` | Admin only, hand-written payload | Requires `marketing_emails_opt_in` |
+| Welcome | `welcome` | At signup; cron is a 36-hour backstop | Transactional — no marketing opt-in needed |
+| Feedback request | `feedback_v2` | Cron, accounts 7–8.5 days old **with real activity** | Requires dated `weekly_v1` consent, eligible age, and no suppression |
+| Weekly newsletter | `newsletter_YYYY_wWW` | **Mondays, 08:00–09:00 Pacific, generated and sent unattended** | Requires dated `weekly_v1` consent, eligible age, and no suppression |
+| One-off newsletter | `newsletter_YYYY_MM` | Admin only, hand-written payload | Requires dated `weekly_v1` consent, eligible age, and no suppression |
 
 Every send passes `intelliplan.email.eligibility.is_marketing_eligible`,
-which refuses on unknown age, under-13 without parental consent, undated
+which refuses on unknown age, every under-13 account, undated or outdated
 consent, a non-student role, or a suppressed address. Sends are deduplicated
 on `(user_id, email_key)` in `email_sends`, so a double cron fire cannot
 double-send.
 
-### Cron
+### Lifecycle email cron
 
 Add one Railway cron entry, daily at 16:00 UTC (≈ 9am PT):
 
@@ -315,16 +315,17 @@ the ledger makes repeat runs no-ops.
 
 ### The weekly newsletter (automatic)
 
-A second cron entry, Thursdays at 16:00 UTC:
+A dedicated Railway cron service runs `scripts/run_weekly_newsletter_cron.py`
+each Monday at 16:00 UTC (08:00 PST / 09:00 PDT):
 
-```bash
-curl -X POST https://intelliplan.tech/cron/weekly-newsletter -H "X-Cron-Secret: $CRON_SECRET"
-```
+The service reads the web service's `CRON_SECRET` by Railway variable
+reference and calls the authenticated newsletter endpoint. No secret is
+embedded in the start command.
 
-Railway schedule expression: `0 16 * * 4`. **This sends to the full
-marketing list with nobody reviewing the content first.** What protects it:
+Railway schedule expression: `0 16 * * 1`. **This sends to the eligible
+weekly-consent list with nobody reviewing the content first.** What protects it:
 
-* Every recipient still passes `is_marketing_eligible`.
+* Every recipient has current weekly consent and still passes `is_marketing_eligible`.
 * The key is one per ISO week, so a repeat fire is a no-op.
 * `MARKETING_POSTAL_ADDRESS` is still required.
 * The "what changed" section is built from an **allow-list** of commit types
@@ -332,10 +333,10 @@ marketing list with nobody reviewing the content first.** What protects it:
   unparseable subject, or anything matching the secret/internal/revert
   pattern is dropped. A deny-list would leak the first thing nobody banned.
 
-Each issue carries four sections: recent changes, a rotating how-to tip for a
-feature, a rotating study-science item with its citation, and a live stats
-row. The rotating pools key off the ISO week number, so generation is
-deterministic — the preview is exactly what gets sent.
+Each issue leads with one rotating study idea and its suggested action, then
+lists at most three recent user-facing changes. The rotating study tips key
+off the ISO week number, so generation is deterministic — the preview is
+exactly what gets sent.
 
 See what this week's issue will be before it goes:
 

@@ -126,3 +126,24 @@ def test_the_previews_are_admin_only(ctx):
         assert response.status_code in (301, 302, 401, 403), (
             f"{path} -> {response.status_code}"
         )
+
+
+def test_admin_panel_shows_recent_email_attempts(admin_client):
+    recipient = make_user()
+    app_module.db.session.add(app_module.EmailSend(
+        user_id=recipient.id,
+        email_key="newsletter_2026_w40",
+        status="sent",
+        provider_message_id="resend-message-123",
+    ))
+    app_module.db.session.commit()
+
+    response = admin_client.get(app_module.ADMIN_PATH)
+
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "Recent email activity" in body
+    assert recipient.email in body
+    assert "newsletter_2026_w40" in body
+    assert "resend-message-123" in body
+    assert "delivery, bounce, and complaint events are not recorded here" in body

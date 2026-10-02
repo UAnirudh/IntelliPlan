@@ -60,6 +60,7 @@ def make_user(**overrides):
         "role": "student",
         "marketing_emails_opt_in": True,
         "marketing_opt_in_at": datetime(2026, 1, 1),
+        "marketing_consent_version": "weekly_v1",
         "password_hash": "x",
     }
     defaults.update(overrides)

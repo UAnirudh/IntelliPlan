@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IntelliPlan email design review</title>
+  <style>
+    :root { color-scheme:light; --ink:#20211f; --muted:#62635f; --line:#e8e7e2; --paper:#f5f4f1; --blue:#1a56db; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--paper); color:var(--ink); font-family:Arial,Helvetica,sans-serif; }
+    .page { max-width:840px; margin:0 auto; padding:42px 20px 64px; }
+    h1 { margin:0 0 8px; font:400 clamp(30px,5vw,42px)/1.12 Georgia,"Times New Roman",serif; letter-spacing:-.5px; }
+    .lede { max-width:620px; margin:0 0 32px; color:#4a4b47; font-size:15px; line-height:1.65; }
+    .sample { max-width:680px; margin:0 auto 32px; }
+    .meta { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; margin:0 0 9px; color:var(--muted); font-size:12px; line-height:18px; }
+    .meta strong { color:var(--ink); font-weight:700; }
+    .subject { color:#4a4b47; }
+    .surround { padding:16px; border:1px solid #deddd7; background:#eeede8; }
+    .mail { max-width:600px; margin:0 auto; background:#fff; }
+    .brand { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:21px 30px 18px; border-bottom:1px solid var(--line); }
+    .brand-name { font-size:19px; font-weight:700; letter-spacing:-.5px; }
+    .brand-type { color:var(--muted); font-size:12px; }
+    .body { padding:29px 30px 27px; }
+    .date { margin:0 0 14px; color:var(--blue); font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; }
+    h2 { margin:0 0 12px; font:400 32px/1.17 Georgia,"Times New Roman",serif; letter-spacing:-.4px; }
+    h3 { margin:0 0 6px; font-size:16px; line-height:1.4; }
+    p { margin:0 0 13px; color:#4a4b47; font-size:15px; line-height:1.65; }
+    .action { margin:22px 0 26px; padding:12px 16px; border-left:4px solid var(--blue); background:#f3f6fc; font-size:14px; line-height:1.55; }
+    .action strong { color:var(--ink); }
+    .section-title { margin:0 0 7px; color:var(--muted); font-size:10px; line-height:1.5; font-weight:700; letter-spacing:1px; text-transform:uppercase; }
+    .update { padding:12px 0 14px; border-top:1px solid var(--line); }
+    .tag { margin:0 0 4px; color:var(--muted); font-size:11px; line-height:1.4; }
+    .update p:last-child { margin:0; font-size:14px; }
+    .cta { display:inline-block; margin:19px 0 20px; padding:11px 15px; background:var(--blue); color:#fff; font-size:14px; font-weight:700; text-decoration:none; }
+    .signoff { margin-bottom:0; font-size:14px; }
+    .foot { padding:17px 30px 20px; border-top:1px solid var(--line); background:#f8f7f4; }
+    .foot p { margin:0 0 6px; color:var(--muted); font-size:11px; line-height:1.55; }
+    .foot p:last-child { margin:0; }
+    .foot a { color:var(--blue); }
+    .welcome .body, .feedback .body { padding-top:34px; }
+    .welcome h2, .feedback h2 { max-width:480px; }
+    .steps { margin:20px 0 23px; padding:0; list-style:none; }
+    .steps li { padding:11px 0; border-top:1px solid var(--line); color:#4a4b47; font-size:14px; line-height:1.55; }
+    .steps strong { color:var(--ink); }
+    .feedback .body { min-height:240px; }
+    .caption { margin:9px 0 0; color:var(--muted); font-size:12px; line-height:1.55; }
+    @media(max-width:600px) { .page{padding:30px 12px 48px}.surround{padding:7px}.brand,.body,.foot{padding-left:21px;padding-right:21px}h2{font-size:28px}.brand-type{font-size:11px} }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <h1>IntelliPlan email</h1>
+    <p class="lede">A small set of useful notes, written in the same quiet, direct voice as the product. The weekly version leads with one idea a student can try today; product changes stay brief and secondary.</p>
+
+    <section class="sample">
+      <div class="meta"><span><strong>Weekly study note</strong> · opt-in</span><span class="subject">Subject: A study idea for this week: start with one question</span></div>
+      <div class="surround"><article class="mail">
+        <header class="brand"><span class="brand-name">IntelliPlan</span><span class="brand-type">A weekly study note</span></header>
+        <div class="body">
+          <p class="date">Week of October 5</p>
+          <h2>Start with one question.</h2>
+          <p>Before you reread a chapter, close your notes and write down what you remember. Then check what you missed. The gaps show you where another ten minutes will help most.</p>
+          <div class="action"><strong>Try it this week.</strong> Pick one class, set a ten-minute timer, and write three questions from memory.</div>
+          <p class="section-title">A few things that changed</p>
+          <div class="update"><p class="tag">New · Planning</p><h3>Move a study block without rebuilding the week</h3><p>Your other sessions stay where they are.</p></div>
+          <div class="update"><p class="tag">Fixed · Canvas</p><h3>Assignment totals now match your course</h3><p>IntelliPlan follows the grade total Canvas provides.</p></div>
+          <a class="cta" href="#preview">Open your plan</a>
+          <p class="signoff">Have a better way to study? Reply and tell me. I read every note.<br>— Uanirudh, IntelliPlan</p>
+        </div>
+        <footer class="foot"><p>You receive this weekly note because you opted in to IntelliPlan’s weekly study tips.</p><p><a href="#unsubscribe">Unsubscribe</a> · <a href="#privacy">Privacy</a> · <a href="mailto:founder@intelliplan.tech">Reply</a></p><p>IntelliPlan · [business mailing address]</p></footer>
+      </article></div>
+      <p class="caption">One study idea, two short product notes, one clear action. No user-count claims, feature-card pile, or promotional referral block.</p>
+    </section>
+
+    <section class="sample">
+      <div class="meta"><span><strong>Welcome</strong> · account email</span><span class="subject">Subject: Welcome to IntelliPlan</span></div>
+      <div class="surround"><article class="mail welcome">
+        <header class="brand"><span class="brand-name">IntelliPlan</span><span class="brand-type">Getting started</span></header>
+        <div class="body"><p class="date">Your account is ready</p><h2>Make this week easier to plan.</h2><p>Start with what is due next. Add your assignments or connect a school account, then choose when you have time to work.</p><ol class="steps"><li><strong>Bring in your work.</strong> Add an assignment or connect a school account.</li><li><strong>Choose your study hours.</strong> Fit sessions around school and everything else.</li><li><strong>Review your plan.</strong> Adjust it until it works for you.</li></ol><a class="cta" href="#preview">Make my first plan</a><p class="signoff">You can use IntelliPlan without connecting a school account.</p></div>
+        <footer class="foot"><p>You’re receiving this because you created an IntelliPlan account.</p><p><a href="#privacy">Privacy</a> · <a href="mailto:support@intelliplan.tech">Support</a></p></footer>
+      </article></div>
+    </section>
+
+    <section class="sample">
+      <div class="meta"><span><strong>Product feedback</strong> · opt-in</span><span class="subject">Subject: What should we make easier?</span></div>
+      <div class="surround"><article class="mail feedback">
+        <header class="brand"><span class="brand-name">IntelliPlan</span><span class="brand-type">A note from the team</span></header>
+        <div class="body"><p class="date">A quick question</p><h2>What should we make easier?</h2><p>We’re improving IntelliPlan for the next school week. What is one thing that would make planning or studying easier for you?</p><p>A sentence or two is plenty. Just reply to this email; there’s no survey to fill out.</p><p class="signoff">Thanks,<br>Uanirudh</p></div>
+        <footer class="foot"><p>You receive product notes because you opted in to IntelliPlan emails.</p><p><a href="#unsubscribe">Unsubscribe</a> · <a href="#privacy">Privacy</a></p><p>IntelliPlan · [business mailing address]</p></footer>
+      </article></div>
+    </section>
+  </main>
+</body>
+</html>
