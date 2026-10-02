@@ -772,10 +772,15 @@ class LinkedAccount(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def get_credentials(self):
-        return json.loads(self.credentials)
+        # decrypt() passes plaintext through, so rows written before
+        # encryption keep working and are re-sealed on their next save.
+        return json.loads(secret_box.decrypt(self.credentials))
 
     def set_credentials(self, creds_dict):
-        self.credentials = json.dumps(creds_dict)
+        # These rows hold district passwords (StudentVUE, HAC) and API
+        # secrets (Schoology) in recoverable form, so they get the same
+        # at-rest encryption as OAuth tokens rather than plain JSON.
+        self.credentials = secret_box.encrypt(json.dumps(creds_dict))
 
 class DismissedAssignment(db.Model):
     __tablename__ = "dismissed_assignments"
@@ -3215,6 +3220,16 @@ class _DismissedSet:
 
     def __bool__(self):
         return bool(self._keys)
+
+    def __or__(self, other):
+        # /live unions completed titles with test titles; without this the
+        # union raised TypeError and the schedule endpoint 500'd for every
+        # connected LMS.
+        merged = _DismissedSet(())
+        merged._keys = self._keys | {_norm_title(t) for t in other}
+        return merged
+
+    __ror__ = __or__
 
 
 def get_dismissed_titles():
