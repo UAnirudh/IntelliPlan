@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="logo-icon" style="width:48px;height:48px;border-radius:12px;background:#0E6E8C;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-weight: 700;font-size:0.95rem;font-family:var(--font-ui);margin:0 auto 1rem;">HAC</div>
+      <h1 class="login-title">Sign in with Home Access Center</h1>
+      <p class="login-subtitle">Connect your district's Home Access Center to get started</p>
+    </div>
+
+    {% if error %}
+    <div class="login-error" role="alert"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px"><use href="#i-warning"/></svg> {{ error }}</div>
+    {% endif %}
+
+    <div style="margin-bottom:1.25rem;padding:1rem;border:1px solid var(--border);border-radius:14px;background:var(--bg);">
+      <div style="font-size:0.86rem;font-weight:700;color:var(--text-primary);margin-bottom:4px;">Home Access Center district sign-in</div>
+      <div style="font-size:0.8rem;color:var(--text-secondary);line-height:1.5;">
+        Home Access Center (HAC, from eSchoolPLUS) is run by each district on its own address. Paste the address you use to open HAC and sign in with the same username and password. IntelliPlan reads your Classwork page for assignments, scores and class averages.
+      </div>
+    </div>
+
+    <form class="login-form" method="POST" action="/login/hac">
+
+      <div class="form-group">
+        <label class="form-label" for="hacDistrictUrl">District HAC address</label>
+        {# type="text", not type="url": students paste "hac.district.org"
+           without a scheme, and a url input refuses that before the server
+           ever sees it -- which is the normalisation we do on purpose. #}
+        <input
+          id="hacDistrictUrl"
+          type="text"
+          inputmode="url"
+          name="district_url"
+          class="form-input"
+          value="{{ request.form.get('district_url', '') }}"
+          placeholder="hac.yourdistrict.org"
+          spellcheck="false"
+          autocapitalize="off"
+          autocorrect="off"
+          autocomplete="off"
+        />
+        <span class="form-hint">The address of your district's HAC sign-in page. Example: homeaccess.yourdistrict.org or https://hac.yourdistrict.net/HomeAccess</span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="hacUsername">Username</label>
+        <input id="hacUsername" type="text" name="username" class="form-input" value="{{ request.form.get('username', '') }}" placeholder="Your HAC username or student ID" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="username" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="hacPassword">Password</label>
+        <input id="hacPassword" type="password" name="password" class="form-input" placeholder="••••••••••••••••" autocomplete="current-password" />
+      </div>
+
+      <button type="submit" class="btn-primary" style="width:100%;padding:14px;border:none;cursor:pointer;font-size:0.95rem;">
+        Connect Home Access Center
+      </button>
+    </form>
+
+    <div class="login-footer">
+      <p>If your district signs in to HAC with Google, Microsoft or ClassLink, use the browser extension instead.</p>
+      <p style="margin-top:8px;"><a href="/login" class="login-link">← Back to login options</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<!-- HAC Classwork page (Content/Student/Assignments.aspx), modeled on the
+     markup the open-source clients parse (hac-kit's classwork fixture,
+     HomeAccessCenterAPI, haccli): one div.AssignmentClass per course, an
+     a.sg-header-heading "code - section    name" heading, a lblHdrAverage
+     span, a dgCourseAssignments grid and an optional dgCourseCategories grid.
+
+     Deliberate variations, each one a thing districts really do:
+       * AP Biology: the full ten-column grid with quick-view columns, a
+         category table, a "Z" (missing) and an "X" (excused) score, a low
+         score, an ampersand entity in a title, and the hidden "*" label HAC
+         puts after every assignment link.
+       * Algebra II Honors: the six-column grid (quick view off), no category
+         table, a fraction score with an empty Total Points cell, an "I"
+         (incomplete) score, and an assignment due long enough ago to drop.
+       * Spanish III: no average yet and no grid at all.
+     Everything is fictional. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>HomeAccess</title>
+  <script type="text/javascript">
+    // Script bodies are skipped by the parser; this string must not leak into text.
+    var markup = "<div class='AssignmentClass'>not a course</div>";
+  </script>
+</head>
+<body>
+<form method="post" action="./Assignments.aspx" id="fmMain">
+<div class="aspNetHidden">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="VIEWSTATE" />
+<input type="hidden" name="__EVENTVALIDATION" id="__EVENTVALIDATION" value="EVENTVALIDATION" />
+</div>
+
+<div class="sg-header">
+  <label for="plnMain_ddlReportCardRuns" id="plnMain_lblForRCardRun">Report Card Run</label>
+  <select name="ctl00$plnMain$ddlReportCardRuns" id="plnMain_ddlReportCardRuns" class="sg-combobox">
+    <option value="ALL">(All Runs)</option>
+    <option selected="selected" value="1-2027">1</option>
+    <option value="2-2027">2</option>
+  </select>
+</div>
+
+<div class="AssignmentClass">
+  <div class="sg-header sg-header-square">
+    <button id="plnMain_rptAssigmnetsByCourse_btnShowHide_0" type="button" class="sg-button sg-button-show-hide"></button>
+    <a class="sg-header-heading" href="#" onclick="OpenClassPopUpWithMarkingPeriod('4000520',1); return false;">
+      0520 - 3    AP Biology
+    </a>
+    <span id="plnMain_rptAssigmnetsByCourse_lblLastUpdDate_0" class="sg-header-sub-heading">(Last Updated: 9/29/2026)</span>
+    <span id="plnMain_rptAssigmnetsByCourse_lblHdrAverage_0" class="sg-header-heading sg-right">Average 88</span>
+  </div>
+  <div class="sg-content-grid">
+    <table class="sg-asp-table" id="plnMain_rptAssigmnetsByCourse_dgCourseAssignments_0">
+      <tr class="sg-asp-table-header-row">
+        <td>Date Due</td><td>Date Assigned</td><td>Assignment</td><td>Category</td><td>Score</td><td>Total Points</td><td class="sg-view-quick">Weight</td><td class="sg-view-quick">Weighted Score</td><td class="sg-view-quick">Weighted Total Points</td><td class="sg-view-quick">Percentage</td>
+      </tr>
+      <tr class="sg-asp-table-data-row">
+        <td>10/06/2026</td><td>09/28/2026</td><td>
+          <a title="Title: Assignment Course
+Classwork: Unit 3 Test
+Category: Major Grade
+Due Date: 10/06/2026
+Max Points: 100.00
+Can Be Dropped: N
+Extra Credit: N
+Has Attachments: N" href="#" onclick="OpenAssignmentPopUp('4000520', '1', '6'); return false;">
+            Unit 3 Test
+          </a>
+          <label style="display:none">*</label>
+        </td><td>Major Grade</td><td>
+        </td><td>100.00</td><td class="sg-view-quick">1.00</td><td class="sg-view-quick"></td><td class="sg-view-quick">100.0000</td><td class="sg-view-quick"></td>
+      </tr>
+      <tr class="sg-asp-table-data-row">
+        <td>10/01/2026</td><td>09/29/2026</td><td>
+          <a title="Title: Assignment Course
+Classwork: Reading &amp; Notes Ch. 7
+Category: Daily
+Max Points: 10.00" href="#" onclick="OpenAssignmentPopUp('4000520', '1', '5'); return false;">
+            Reading &amp; Notes Ch. 7
+          </a>
+          <label style="display:none">*</label>
+        </td><td>Daily</td><td>
+        </td><td>10.00</td><td class="sg-view-quick">1.00</td><td class="sg-view-quick"></td><td class="sg-view-quick">10.0000</td><td class="sg-view-quick"></td>
+      </tr>
+      <tr class="sg-asp-table-data-row">
+        <td>09/25/2026</td><td>09/22/2026</td><td>
+          <a title="Title: Assignment Course
+Classwork: Cell Lab Report
+Category: Minor Grade
+Max Points: 100.00
+Can Be Dropped: Y
+Extra Credit: N" href="#" onclick="OpenAssignmentPopUp('4000520', '1', '4'); return false;">
+            Cell Lab Report
+          </a>
+          <label style="display:none">*</label>
+        </td><td>Minor Grade</td><td>
+          95.00
+        </td><td>100.00</td><td class="sg-view-quick">1.00</td><td class="sg-view-quick">95.00</td><td class="sg-view-quick">100.0000</td><td class="sg-view-quick">95.00%</td>
+      </tr>
+      <tr class="sg-asp-table-data-row">
+        <td>09/22/2026</td><td>09/18/2026</td><td>
+          <a title="Title: Assignment Course
+Classwork: Osmosis Worksheet
+Category: Daily
+Max Points: 20.00" href="#" onclick="OpenAssignmentPopUp('4000520', '1', '3'); return false;">
+            Osmosis Worksheet
+          </a>
+          <label style="display:none">*</label>
+        </td><td>Daily</td><td>
+          Z
+        </td><td>20.00</td><td class="sg-view-quick">1.00</td><td class="sg-view-quick">0.00</td><td class="sg-view-quick">20.0000</td><td class="sg-view-quick">0.00%</td>
+      </tr>
+      <tr class="sg-asp-table-data-row">
+        <td>09/18/2026</td><td>09/16/2026</td><td>
+          <a title="Title: Assignment Course
+Classwork: Field Trip Form
+Category: Daily
+Max Points: 10.00" href="#" onclick="OpenAssignmentPopUp('4000520', '1', '2'); return false;">
+            Field Trip Form
+          </a>
+          <label style="display:none">*</label>
+        </td><td>Daily</td><td>
+          X
+        </td><td>10.00</td><td class="sg-view-quick">1.00</td><td class="sg-view-quick"></td><td class="sg-view-quick">10.0000</td><td class="sg-view-quick"></td>
+      </tr>
+      <tr class="sg-asp-table-data-row">
+        <td>09/15/2026</td><td>09/11/2026</td><td>
+          <a title="Title: Assignment Course
+Classwork: Chapter 4 Quiz
+Category: Minor Grade
+Max Points: 25.00
+Extra Credit: N" href="#" onclick="OpenAssignmentPopUp('4000520', '1', '1'); return false;">
+            Chapter 4 Quiz
+          </a>
+          <label style="display:none">*</label>
+        </td><td>Minor Grade</td><td>
+          11.00
+        </td><td>25.00</td><td class="sg-view-quick">1.00</td><td class="sg-view-quick">11.00</td><td class="sg-view-quick">25.0000</td><td class="sg-view-quick">44.00%</td>
+      </tr>
+    </table>
+    <div class="sg-asp-table-group">
+      <span id="plnMain_rptAssigmnetsByCourse_lblCategories_0" class="LabelCatogery">
+        <div class="sg-view-quick sg-clearfix">
+          <table class="sg-asp-table" id="plnMain_rptAssigmnetsByCourse_dgCourseCategories_0">
+            <tr class="sg-asp-table-header-row">
+              <td>Category</td><td>Student's Points</td><td>&nbsp;/ Maximum Points</td><td>&nbsp;= Percent</td><td>&nbsp;* Category Weight</td><td>&nbsp;= Category Points</td>
+            </tr>
+            <tr class="sg-asp-table-data-row">
+              <td>Daily</td><td>0.0000</td><td>20.00</td><td>0.000%</td><td>10.00</td><td>0.000000</td>
+            </tr>
+            <tr class="sg-asp-table-data-row">
+              <td>Minor Grade</td><td>106.0000</td><td>125.00</td><td>84.800%</td><td>30.00</td><td>25.440000</td>
+            </tr>
+            <tr class="sg-asp-table-data-row">
+              <td>Major Grade</td><td>0.0000</td><td>0.00</td><td>0.000%</td><td>60.00</td><td>0.000000</td>
+            </tr>
+            <tr style="color:White;background-color:#CCCCCC;">
+              <td><b>Total Points:</b></td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td><b>40.00</b></td><td><b>25.440000</b></td>
+            </tr>
+          </table>
+          <table id="plnMain_rptAssigmnetsByCourse_tblAverage_0">
+            <tr>
+              <td><span id="plnMain_rptAssigmnetsByCourse_lblStudentOvAverage_0">Course overall average is:</span></td><td><span id="plnMain_rptAssigmnetsByCourse_lblStuPoints_0">25.440000</span></td><td>/</td><td><span id="plnMain_rptAssigmnetsByCourse_lblMaxPoints_0">40.00</span></td><td>=</td><td><span id="plnMain_rptAssigmnetsByCourse_lblOverallAverage_0">88.40</span></td><td>%</td>
+            </tr>
+          </table>
+        </div>
+      </span>
+    </div>
+  </div>
+</div>
+
+<div class="AssignmentClass">
+  <div class="sg-header sg-header-square">
+    <a class="sg-header-heading" href="#" onclick="OpenClassPopUpWithMarkingPeriod('4001133',1); return false;">
+      1133 - 5    Algebra II Honors
+    </a>
+    <span id="plnMain_rptAssigmnetsByCourse_lblLastUpdDate_1" class="sg-header-sub-heading">(Last Updated: 9/30/2026)</span>
+    <span id="plnMain_rptAssigmnetsByCourse_lblHdrAverage_1" class="sg-header-heading sg-right">Average 93.50</span>
+  </div>
+  <div class="sg-content-grid">
+    <table class="sg-asp-table" id="plnMain_rptAssigmnetsByCourse_dgCourseAssignments_1">
+      <tr class="sg-asp-table-header-row">
+        <td>Date Due</td><td>Date Assigned</td><td>Assignment</td><td>Category</td><td>Score</td><td>Total Points</td>
+      </tr>
+      <tr class="sg-asp-table-data-row">
+        <td>10/02/2026</td><td>09/30/2026</td><td><a href="#">Homework 6</a><label style="display:none">*</label></td><td>Daily</td><td></td><td>10.00</td>
+      </tr>
+      <tr class="sg-asp-table-data-row">
+        <td>09/28/2026</td><td>09/25/2026</td><td><a href="#">Homework 5</a><label style="display:none">*</label></td><td>Daily</td><td>9/10</td><td></td>
+      </tr>
+      <tr class="sg-asp-table-data-row">
+        <td>09/29/2026</td><td>09/29/2026</td><td><a href="#">Bell Ringer</a></td><td>Daily</td><td>I</td><td>5.00</td>
+      </tr>
+      <tr class="sg-asp-table-data-row">
+        <td>08/20/2026</td><td>08/18/2026</td><td><a href="#">Summer Packet</a></td><td>Daily</td><td></td><td>50.00</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<div class="AssignmentClass">
+  <div class="sg-header sg-header-square">
+    <a class="sg-header-heading" href="#">
+      2201 - 1    Spanish III
+    </a>
+    <span id="plnMain_rptAssigmnetsByCourse_lblHdrAverage_2" class="sg-header-heading sg-right">Average</span>
+  </div>
+  <div class="sg-content-grid"></div>
+</div>
+</form>
+</body>
+</html>

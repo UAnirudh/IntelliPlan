@@ -1253,7 +1253,7 @@ function getModeledPercent() {
 }
 
 function isMissingAssignment(a) {
-  return a?.is_missing === true || a?.source === 'studentvue_missing';
+  return a?.is_missing === true || a?.source === 'studentvue_missing' || a?.source === 'hac_missing';
 }
 
 /* ── AI Grade Predictions ───────────────────────────────────

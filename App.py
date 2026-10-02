@@ -53,6 +53,10 @@ from studentvue_helper import (
     normalize_district_url,
     _compute_priority as compute_priority,
 )
+# Home Access Center is imported as a module, not by name: the login route
+# calls hac_helper.validate_login so a test can stand in for the district by
+# patching one attribute, and none of its names collide with StudentVUE's.
+import hac_helper
 from ai_provider import ai_available, chat as ai_chat, vision as ai_vision, transcribe_audio, chat_json as ai_chat_json
 import re
 import html as _html_mod
@@ -2809,6 +2813,7 @@ API_ERROR_MESSAGES = {
     "groq": "AI scheduling is temporarily unavailable. Please try again in a moment.",
     "canvas": "Canvas connection failed. Check your API token in Settings.",
     "studentvue": "StudentVue connection failed. Check your credentials in Settings.",
+    "hac": "Home Access Center connection failed. Check your credentials in Settings.",
     "google_calendar": "Google Calendar sync is temporarily unavailable.",
     "notion": "Notion connection failed. Try reconnecting in Integrations.",
     "generic": "Service temporarily unavailable. Please try again later."
@@ -2974,7 +2979,7 @@ def get_grade_account():
     src = (prefs.get("grade_source") or "active").strip().lower()
     if src == "active":
         return get_active_account()
-    if src in ("canvas", "studentvue", "schoology"):
+    if src in ("canvas", "studentvue", "schoology", "hac"):
         return _linked_account_by_type(src) or get_active_account()
     return get_active_account()
 
@@ -3162,7 +3167,53 @@ def get_active_account():
             "schoology_key": session.get("schoology_key"),
             "schoology_secret": session.get("schoology_secret"),
         }
+    if login_type == "hac":
+        return {
+            "login_type": "hac",
+            "hac_username": session.get("hac_username"),
+            "hac_password": session.get("hac_password"),
+            "hac_district_url": session.get("hac_district_url"),
+        }
     return None
+
+
+def _hac_args(acct):
+    """(district_url, username, password) for a HAC account dict."""
+    return acct["hac_district_url"], acct["hac_username"], acct["hac_password"]
+
+
+def _hac_tasks(acct, dismissed, *, with_color=False, log_prefix="[hac]"):
+    """Upcoming plus missing Home Access Center work, tagged by source.
+
+    Every assignment feed (the legacy unified route, the Command Center
+    collector, the extension) needs the same two calls StudentVUE makes, with
+    the same source tags and defaults. Written once so the feeds cannot drift
+    the way the StudentVUE copies did. The two halves fail independently: a
+    district outage mid-way must not throw away the half that arrived, and
+    hac_helper caches the parsed page so the second call is not a second
+    login.
+    """
+    out = []
+    feeds = (
+        (hac_helper.get_assignments, "hac", "Medium", "#f59e0b"),
+        (hac_helper.get_missing_assignments, "hac_missing", "High", "#ef4444"),
+    )
+    for fetch, source, default_priority, default_color in feeds:
+        try:
+            raw = fetch(*_hac_args(acct))
+        except Exception as e:
+            # The exception carries no password; hac_helper keeps it out.
+            print(f"{log_prefix} {source} err: {type(e).__name__}: {e}")
+            continue
+        for a in raw if isinstance(raw, list) else []:
+            if not isinstance(a, dict) or a.get("title") in dismissed:
+                continue
+            a["source"] = source
+            a.setdefault("priority", default_priority)
+            if with_color:
+                a.setdefault("color", PRIORITY_COLORS.get(a.get("priority"), default_color))
+            out.append(a)
+    return out
 
 def _norm_title(title):
     """Normalize an assignment title into a stable matching key.
@@ -4938,7 +4989,7 @@ _NOINDEX_PREFIXES = (
 )
 _NOINDEX_EXACT = {
     "/login", "/register", "/login/account",
-    "/login/canvas", "/login/studentvue", "/login/schoology",
+    "/login/canvas", "/login/studentvue", "/login/schoology", "/login/hac",
     "/onboarding", "/connect", "/settings", "/dismissed", "/profiles",
     "/features", "/accessibility",
     # The signed-in product surface. These were missing, which meant every
@@ -7361,6 +7412,8 @@ def _fetch_grades_for_personalization():
             if lt == "schoology":
                 from schoology_helper import get_schoology_grades as _sc
                 return _sc(acct["schoology_key"], acct["schoology_secret"]) or []
+            if lt == "hac":
+                return hac_helper.get_grades(*_hac_args(acct)) or []
             if lt == "canvas":
                 from canvas_helper import get_grades as _cv
                 return _cv(acct.get("canvas_url", "https://canvas.instructure.com"), acct["canvas_token"]) or []
@@ -8461,6 +8514,73 @@ def login_studentvue():
 @app.route("/oauth/studentvue")
 def oauth_studentvue_start():
     return redirect(url_for("login_studentvue") + "?oauth=studentvue")
+
+
+#: What each HAC login outcome tells the student. Four outcomes, not two: a
+#: district that signs in through Google or ClassLink refuses every password
+#: we could send, and "wrong password" would send the student off to reset
+#: one that is fine -- the same trap the StudentVUE page fell into when an
+#: unreachable host read as a bad password.
+HAC_LOGIN_ERRORS = {
+    "connection_failed": (
+        "Could not reach Home Access Center at that address. Paste the address "
+        "you use to sign in to HAC (for example hac.yourdistrict.org) and try again."
+    ),
+    "sso_required": (
+        "Your district signs in to Home Access Center through a single sign-on "
+        "page (Google, Microsoft, ClassLink or similar), so IntelliPlan cannot "
+        "connect with a username and password. The IntelliPlan browser "
+        "extension can still sync your classwork while you are signed in to HAC."
+    ),
+    "invalid_credentials": (
+        "Username or password was not accepted by Home Access Center. Check both "
+        "and try again."
+    ),
+}
+
+
+@app.route("/login/hac", methods=["GET", "POST"])
+def login_hac():
+    """Connect a Home Access Center (eSchoolPLUS) account.
+
+    Shaped exactly like /login/studentvue so both district logins behave the
+    same: a signed-in student gets a LinkedAccount made active, a guest gets
+    the credentials in their session, and either way they land where a
+    StudentVUE login lands.
+    """
+    error = None
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        # Password whitespace is significant -- the lesson from StudentVUE,
+        # where trimming it turned valid passwords into failures.
+        password = request.form.get("password", "")
+        raw_url = request.form.get("district_url", "").strip()
+        district_url = hac_helper.normalize_district_url(raw_url)
+        profile_name = request.form.get("profile_name", "").strip() or "Home Access Center"
+        if not username or not password or not raw_url:
+            error = "Please fill in all fields."
+        elif not district_url:
+            # Not a web address at all; no request is worth making.
+            error = HAC_LOGIN_ERRORS["connection_failed"]
+        else:
+            login_status = hac_helper.validate_login(district_url, username, password)
+            if login_status == "ok":
+                creds = {"hac_username": username, "hac_password": password, "hac_district_url": district_url}
+                if current_user.is_authenticated:
+                    LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
+                    acct = LinkedAccount(user_id=current_user.id, name=profile_name, login_type="hac", is_active=True)
+                    acct.set_credentials(creds)
+                    db.session.add(acct)
+                    db.session.commit()
+                else:
+                    session.permanent = True
+                    session["hac_username"] = username
+                    session["hac_password"] = password
+                    session["hac_district_url"] = district_url
+                    session["login_type"] = "hac"
+                return redirect("/command-center")
+            error = HAC_LOGIN_ERRORS.get(login_status, HAC_LOGIN_ERRORS["connection_failed"])
+    return render_template("login_hac.html", active_page="login", error=error)
 
 @app.route("/login/schoology", methods=["GET", "POST"])
 def login_schoology():
@@ -9818,6 +9938,13 @@ def get_live_schedule():
         except Exception as e:
             print(f"Schoology Error: {e}")
             return flask.jsonify([])
+    if login_type == "hac":
+        try:
+            result = hac_helper.get_assignments(*_hac_args(acct))
+            return flask.jsonify([a for a in result if isinstance(a, dict) and a.get("title") not in excluded])
+        except Exception as e:
+            print(f"HAC Live Error: {type(e).__name__}: {e}")
+            return flask.jsonify([]), 500
     try:
         token = acct["canvas_token"]
         canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
@@ -10378,6 +10505,8 @@ def get_courses():
             elif login_type == "schoology":
                 from schoology_helper import get_schoology_courses
                 synced = get_schoology_courses(acct["schoology_key"], acct["schoology_secret"]) or []
+            elif login_type == "hac":
+                synced = hac_helper.get_courses(*_hac_args(acct)) or []
             else:
                 canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
                 headers = {"Authorization": f"Bearer {acct['canvas_token']}"}
@@ -10448,6 +10577,14 @@ def grades_data():
             return flask.jsonify(get_schoology_grades(acct["schoology_key"], acct["schoology_secret"]))
         except Exception:
             return flask.jsonify(_imported_grades_payload())
+    if login_type == "hac":
+        try:
+            return flask.jsonify(hac_helper.get_grades(*_hac_args(acct)))
+        except Exception as e:
+            # A district outage falls back to imported grades, as Canvas and
+            # Schoology do, rather than a 500 on the grades page.
+            print(f"HAC grades error: {type(e).__name__}: {e}")
+            return flask.jsonify(_imported_grades_payload())
     if login_type == "canvas":
         try:
             from canvas_helper import get_grades as get_canvas_grades
@@ -10468,6 +10605,12 @@ def gradebook_detail():
     if acct["login_type"] == "studentvue":
         from studentvue_helper import get_gradebook_detail
         return flask.jsonify(get_gradebook_detail(acct["sv_district_url"], acct["sv_username"], acct["sv_password"]))
+    if acct["login_type"] == "hac":
+        try:
+            return flask.jsonify(hac_helper.get_gradebook_detail(*_hac_args(acct)))
+        except Exception as e:
+            print(f"HAC gradebook error: {type(e).__name__}: {e}")
+            return flask.jsonify([])
     if acct["login_type"] == "canvas":
         try:
             from canvas_helper import get_gradebook_detail as get_canvas_gradebook
@@ -12332,6 +12475,8 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
                             tasks.append(a)
             except Exception as e:
                 print(f"[lms-collect] SV missing err: {e}")
+        elif login_type == "hac":
+            tasks.extend(_hac_tasks(acct_dict, dismissed, log_prefix="[lms-collect] HAC"))
         elif login_type == "calendar_feed":
             try:
                 for a in ics_feed.import_assignments(acct_dict.get("feed_url")):
@@ -12518,6 +12663,8 @@ def unified_tasks():
                             tasks.append(a)
             except Exception as e:
                 print(f"Missing assignments error: {e}")
+        elif login_type == "hac":
+            tasks.extend(_hac_tasks(acct, dismissed, with_color=True, log_prefix="HAC unified"))
         elif login_type == "calendar_feed":
             # No token, no Developer Key, no admin: the student pasted the
             # feed URL Canvas already gives every user. Carries what is due
@@ -12702,6 +12849,8 @@ def missing_data():
             return flask.jsonify(get_missing_assignments(
                 acct["sv_district_url"], acct["sv_username"], acct["sv_password"]
             ))
+        if login_type == "hac":
+            return flask.jsonify(hac_helper.get_missing_assignments(*_hac_args(acct)))
         if login_type == "canvas":
             from canvas_helper import get_missing_assignments as get_canvas_missing
             return flask.jsonify(get_canvas_missing(
@@ -15801,6 +15950,8 @@ def extension_tasks():
                             tasks.append(a)
                 except Exception as e:
                     print(f"Ext SV error: {e}")
+            elif login_type == "hac":
+                tasks.extend(_hac_tasks(creds, dismissed, log_prefix="Ext HAC"))
             elif login_type == "canvas":
                 try:
                     canvas_token = creds["canvas_token"]
@@ -15905,6 +16056,11 @@ def extension_grades():
                 # A StudentVue outage must not also hide the imported grades
                 # below, which are held locally and are still perfectly good.
                 print(f"Extension grades: live fetch failed: {e}")
+        elif acct and acct.login_type == "hac":
+            try:
+                live = hac_helper.get_grades(*_hac_args(acct.get_credentials())) or []
+            except Exception as e:
+                print(f"Extension grades: HAC live fetch failed: {type(e).__name__}")
 
         # Grades scraped from a district LMS land in ImportedGrade, and nothing
         # here ever read them: the endpoint returned [] for any account that

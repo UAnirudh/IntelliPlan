@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<!-- Where a successful login lands (Home/WeekView). Carries a Log Off link,
+     never the LogOnDetails.* inputs. The banner deliberately contains
+     "Welcome to" and an assignment called "Log On Journal" so a parser keyed
+     on prose, rather than on the form fields, would misread it. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Home Access Center - Week View</title>
+</head>
+<body class="sg-body">
+<div class="sg-banner">
+  <span class="sg-banner-text">Welcome to Example ISD Home Access Center</span>
+  <div class="sg-banner-menu-container">
+    <span>Student, Example</span>
+    <a href="/HomeAccess/Account/LogOff">Logoff</a>
+  </div>
+</div>
+<div class="sg-homeview">
+  <table class="sg-homeview-table">
+    <tr><td>AP Biology</td><td><a href="#">Log On Journal</a></td><td>10/06/2026</td></tr>
+  </table>
+</div>
+</body>
+</html>
