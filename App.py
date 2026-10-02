@@ -707,6 +707,10 @@ class User(UserMixin, db.Model):
     #: "utm_campaign","landing"}. Written only for a visitor who accepted
     #: analytics, and holds a referrer *host* at most -- never a full URL.
     first_touch_json = db.Column(db.Text, nullable=True)
+    #: Study Buddies (buddies_glue.py). Off until the student turns it on,
+    #: and refused outright for under-13s and unknown ages -- see
+    #: intelliplan/services/buddies.py for the rule.
+    buddies_opt_in = db.Column(db.Boolean, default=False)
     linked_accounts = db.relationship("LinkedAccount", backref="user", lazy=True, cascade="all, delete-orphan")
     dismissed = db.relationship("DismissedAssignment", backref="user", lazy=True, cascade="all, delete-orphan")
     descriptions = db.relationship("CustomDescription", backref="user", lazy=True, cascade="all, delete-orphan")
@@ -2736,6 +2740,10 @@ CalendarFeedToken = _cal_feed_models.register(db)
 # is available to scope ops by owner.
 from intelliplan.sync import models as _sync_models
 _sync_models.register(db)
+# Focus Shield (the extension's plan-aware blocking) and Study Buddies.
+# Additive tables; see intelliplan/models/social.py.
+from intelliplan.models import social as _social_models
+FocusShieldSettings, StudyBuddy, BuddyNudge = _social_models.register(db)
 # Per-user vector store over course notes / Plani memories (RAG). Needs
 # CourseNote, which is defined above. See intelliplan/retrieval/.
 # Boot imports only the numpy-free store; the vector math loads on first
@@ -5016,6 +5024,7 @@ _NOINDEX_PREFIXES = (
     "/api/", "/push/", "/notifications/", "/cron/", "/oauth/",
     "/calendar/", "/debug/", "/feedback/", "/assignment/",
     "/admin", "/logout", "/live/", "/archive/",
+    "/buddies", "/extension/",
 )
 _NOINDEX_EXACT = {
     "/login", "/register", "/login/account",
@@ -10128,6 +10137,16 @@ def _account_delete_impl():
         ("extension_tokens", "DELETE FROM extension_tokens WHERE user_id = :uid"),
         ("desktop_auth_codes", "DELETE FROM desktop_auth_codes WHERE user_id = :uid"),
         ("app_link_codes", "DELETE FROM app_link_codes WHERE user_id = :uid"),
+        # Focus Shield settings and Study Buddies. A pair row belongs to
+        # both students; leaving it would block this delete on Postgres and
+        # leave the other student a buddy who no longer exists.
+        ("focus_shield_settings", "DELETE FROM focus_shield_settings WHERE user_id = :uid"),
+        ("buddy_nudges", "DELETE FROM buddy_nudges WHERE sender_id = :uid OR recipient_id = :uid"),
+        ("study_buddies", """
+            DELETE FROM study_buddies
+             WHERE user_low_id = :uid OR user_high_id = :uid
+                OR requested_by_id = :uid OR blocked_by_id = :uid
+        """),
         ("accessibility_prefs", "DELETE FROM accessibility_prefs WHERE user_id = :uid"),
         ("student_profiles", "DELETE FROM student_profiles WHERE user_id = :uid"),
         # Tutor practice and memory are account-owned, even though these
@@ -21488,6 +21507,24 @@ _install_growth(app)
 # records nothing without consent, and never touches a child's account.
 from insight_glue import install as _install_insight
 _install_insight(app)
+# ── Focus Shield: the extension asks "is a study block running?" and blocks
+# the student's distractor list only then. Polled once a minute per
+# signed-in browser, so it gets a budget sized to the poll.
+from focus_shield_glue import install as _install_focus_shield
+_install_focus_shield(app)
+# Keyed per extension token, not per IP: a classroom behind one school NAT
+# is thirty students polling, and a per-IP budget would lock all of them out.
+def _focus_shield_limit_key():
+    token = _extension_bearer_token()
+    return f"ext:{token[:16]}" if token else get_remote_address()
+limiter.limit("120 per hour", key_func=_focus_shield_limit_key)(app.view_functions["focus_shield.focus_current"])
+limiter.limit("30 per hour", key_func=_focus_shield_limit_key)(app.view_functions["focus_shield.focus_break"])
+limiter.limit("30 per hour", key_func=_focus_shield_limit_key)(app.view_functions["focus_shield.focus_done"])
+# ── Study Buddies: up to five friends, a shared streak, rate-limited nudges.
+from buddies_glue import install as _install_buddies
+_install_buddies(app)
+limiter.limit("30 per hour")(app.view_functions["buddies.api_buddies_request"])
+limiter.limit("20 per hour")(app.view_functions["buddies.api_buddies_nudge"])
 # Telemetry and the question card get their own budget. Without this they
 # spend the global 50-per-hour default, which is shared per IP -- so a
 # school behind one NAT could have real actions refused because pages in
@@ -21623,6 +21660,8 @@ def _migrate_user_columns():
         ("users", "streak_emails_opt_in", "BOOLEAN DEFAULT TRUE"),
         ("users", "stripe_customer_id", "VARCHAR(64)"),
         ("users", "first_touch_json", "TEXT"),
+        # users — Study Buddies opt-in (buddies_glue.py)
+        ("users", "buddies_opt_in", "BOOLEAN DEFAULT FALSE"),
         # active_sessions — sparks given up to focus enforcement
         ("active_sessions", "sparks_forfeited", "INTEGER DEFAULT 0"),
         # users — notification preferences. These are listed here as well as

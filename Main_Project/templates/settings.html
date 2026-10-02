@@ -875,6 +875,52 @@
     <div id="calFeedStatus" style="font-size:0.8rem;color:var(--text-muted);margin-top:10px;"></div>
   </div>
 
+  <!-- ── Focus Shield (browser extension) ───────────── -->
+  <div class="settings-section" id="focusShieldCard">
+    <div class="settings-section-title">Focus Shield</div>
+    <div style="font-size:0.86rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.55;">
+      The IntelliPlan browser extension blocks these sites <strong>only while a planned study block or an
+      Active session is running</strong>, then lifts the block on its own when the block ends. You get a
+      couple of 5-minute breaks per block and an &ldquo;I&rsquo;m done early&rdquo; button. Your browsing is
+      never reported to anyone &mdash; not to us, not to a parent, not to a teacher.
+    </div>
+    <label style="display:flex;align-items:flex-start;gap:10px;font-size:0.9rem;color:var(--text-primary);cursor:pointer;margin:0 0 1rem;">
+      <input type="checkbox" id="fsEnabled"
+             style="margin-top:3px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;">
+      <span><strong>Block distracting sites during my study blocks.</strong></span>
+    </label>
+    <div class="form-group" style="margin-bottom:0.75rem;">
+      <label class="form-label" for="fsList">Sites to block (one per line)</label>
+      <textarea id="fsList" class="form-input" rows="7" spellcheck="false"
+                style="font-family:var(--font-mono);font-size:0.84rem;"></textarea>
+      <span class="form-hint">Paste a full address if you like; only the site is kept. Subdomains are covered.</span>
+    </div>
+    <div class="form-group" style="margin-bottom:0.75rem;">
+      <label class="form-label" for="fsBreaks">5-minute breaks per block</label>
+      <select id="fsBreaks" class="form-input" style="max-width:180px;">
+        <option value="0">None</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="5">5</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <button type="button" class="btn-primary" id="fsSaveBtn" style="padding:9px 18px;border:none;cursor:pointer;">Save</button>
+      <button type="button" class="btn-secondary" id="fsResetBtn" style="padding:9px 16px;cursor:pointer;font-size:0.84rem;">Use the default list</button>
+      <span id="fsStatus" role="status" style="font-size:0.82rem;color:var(--text-muted);"></span>
+    </div>
+  </div>
+
+  <!-- ── Study Buddies ──────────────────────────────── -->
+  <div class="settings-section" id="buddiesSettingsCard">
+    <div class="settings-section-title">Study buddies</div>
+    <div style="font-size:0.86rem;color:var(--text-secondary);line-height:1.55;">
+      Keep a shared streak with up to five friends. Off by default; buddies only see whether you studied
+      and your focus minutes, never grades or assignments. <a href="/buddies" style="color:var(--accent);font-weight:600;">Manage study buddies</a>
+    </div>
+  </div>
+
   <!-- ── Marketing email ──────────────────────────────
        Deliberately its own card, not a fourth checkbox in the reminders
        block above. Those are transactional — the deadline reminders a
@@ -2785,6 +2831,55 @@ function _fePaint(d) {
   var remove = document.getElementById('feRemoveBtn');
   if (remove) remove.hidden = !d.alarm_url;
 }
+
+/* ── Focus Shield ───────────────────────────────────────── */
+function _fsStatus(msg, ok) {
+  var el = document.getElementById('fsStatus');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.style.color = ok === false ? 'var(--high)' : (ok ? 'var(--low)' : 'var(--text-muted)');
+}
+
+function _fsPaint(d) {
+  document.getElementById('fsEnabled').checked = !!d.enabled;
+  document.getElementById('fsList').value = (d.blocklist || []).join('\n');
+  var breaks = document.getElementById('fsBreaks');
+  breaks.value = String(d.breaks_per_block);
+  if (breaks.value !== String(d.breaks_per_block)) breaks.value = '2';
+}
+
+function _fsSend(body) {
+  return fetch('/api/focus-shield/settings', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }).then(function (r) { return r.json(); });
+}
+
+function fsLoad() {
+  if (!document.getElementById('focusShieldCard')) return;
+  fetch('/api/focus-shield/settings', { credentials: 'same-origin' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) { if (d && d.status === 'ok') _fsPaint(d); })
+    .catch(function () {});
+  document.getElementById('fsSaveBtn').addEventListener('click', function () {
+    _fsSend({
+      enabled: document.getElementById('fsEnabled').checked,
+      blocklist: document.getElementById('fsList').value.split(/\n/),
+      breaks_per_block: parseInt(document.getElementById('fsBreaks').value, 10)
+    }).then(function (d) {
+      if (d.status !== 'ok') { _fsStatus(d.message || 'Could not save.', false); return; }
+      _fsPaint(d);
+      _fsStatus(d.rejected && d.rejected.length ? ('Saved. Skipped: ' + d.rejected.join(', ')) : 'Saved. The extension picks this up within a minute.', true);
+    }).catch(function () { _fsStatus('Could not save.', false); });
+  });
+  document.getElementById('fsResetBtn').addEventListener('click', function () {
+    _fsSend({ reset_blocklist: true }).then(function (d) {
+      if (d.status === 'ok') { _fsPaint(d); _fsStatus('Back to the default list.', true); }
+    }).catch(function () { _fsStatus('Could not save.', false); });
+  });
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fsLoad); else fsLoad();
 
 function feLoad() {
   if (!document.getElementById('feOptions')) return;

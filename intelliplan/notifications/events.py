@@ -82,6 +82,10 @@ class EventKind(str, Enum):
     GRADE_POSTED = "grade_posted"
     #: A teacher published new work. Carries where the plan put it.
     ASSIGNMENT_POSTED = "assignment_posted"
+    #: A study buddy tapped "nudge". Only ever sent between two students who
+    #: both opted in and confirmed each other, and rate-limited at the source
+    #: (buddies_glue.py) to one per buddy per day.
+    BUDDY_NUDGE = "buddy_nudge"
 
 
 #: Kinds a student gets unless they turn them off. Completion pats and
@@ -100,6 +104,7 @@ DEFAULT_ENABLED_KINDS: frozenset[EventKind] = frozenset(
         # threshold, or a letter change), never for every score entered.
         EventKind.GRADE_POSTED,
         EventKind.ASSIGNMENT_POSTED,
+        EventKind.BUDDY_NUDGE,
     }
 )
 
@@ -372,6 +377,20 @@ def _assignment_posted(ctx: Mapping[str, Any]) -> tuple[str, str]:
     return (head, "No free time before it's due. Open the scheduler to make room.")
 
 
+def _buddy_nudge(ctx: Mapping[str, Any]) -> tuple[str, str]:
+    name = _get(ctx, "name", "Your study buddy") or "Your study buddy"
+    try:
+        days = int(ctx.get("streak") or 0)
+    except (TypeError, ValueError):
+        days = 0
+    # Never anything about what the buddy is studying or how they are doing:
+    # a nudge says who, and what keeps the shared streak alive.
+    if days > 0:
+        return (f"{name} nudged you",
+                f"Your {days}-day buddy streak needs you both today. One study block keeps it going.")
+    return (f"{name} nudged you", "Start a study block today and start a buddy streak together.")
+
+
 _TEMPLATES = {
     EventKind.SESSION_UPCOMING: _session_upcoming,
     EventKind.SESSION_MISSED: _session_missed,
@@ -383,6 +402,7 @@ _TEMPLATES = {
     EventKind.STREAK_AT_RISK: _streak_at_risk,
     EventKind.GRADE_POSTED: _grade_posted,
     EventKind.ASSIGNMENT_POSTED: _assignment_posted,
+    EventKind.BUDDY_NUDGE: _buddy_nudge,
 }
 
 
