@@ -302,6 +302,9 @@ app.permanent_session_lifetime = timedelta(days=7)
 # on SQLAlchemy 2.1+, which we don't ship. See db_boot.py.
 import db_boot as _db_boot
 app.config["SQLALCHEMY_DATABASE_URI"] = _db_boot.url_from_env()
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = _db_boot.engine_options(
+    app.config["SQLALCHEMY_DATABASE_URI"]
+)
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
 app.config["NOTES_UPLOAD_FOLDER"] = os.path.join(app.root_path, "uploads", "course_notes")
