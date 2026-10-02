@@ -2770,21 +2770,23 @@ ClassMeeting, TimetableSettings = _timetable_models.register(db)
 
 # Every gunicorn worker runs this at once; the lock makes them take turns so
 # two never race to CREATE the same new table (a loser kills gunicorn).
-with app.app_context(), _db_boot.schema_lock(db.engine):
-    db.create_all()
-    apply_study_schema_migrations()
-    apply_media_balance_migrations(db)
-    apply_command_center_migrations(db)
-    apply_learning_graph_migrations(db)
-    apply_active_session_migrations(db)
-    apply_notification_migrations(db)
-    apply_sync_migrations(db)
-    # Must run before anything writes a credential: ciphertext does not fit
-    # the old VARCHAR widths.
-    widen_encrypted_columns(db)
-    apply_email_migrations(db)
-    apply_scheduler_audit_migrations(db)
-    apply_timetable_migrations(db)
+with app.app_context(), _db_boot.schema_lock(db.engine) as _schema_work_is_ours:
+    # False when a sibling worker in this deployment already did it.
+    if _schema_work_is_ours:
+        db.create_all()
+        apply_study_schema_migrations()
+        apply_media_balance_migrations(db)
+        apply_command_center_migrations(db)
+        apply_learning_graph_migrations(db)
+        apply_active_session_migrations(db)
+        apply_notification_migrations(db)
+        apply_sync_migrations(db)
+        # Must run before anything writes a credential: ciphertext does not fit
+        # the old VARCHAR widths.
+        widen_encrypted_columns(db)
+        apply_email_migrations(db)
+        apply_scheduler_audit_migrations(db)
+        apply_timetable_migrations(db)
 
 @login_manager.user_loader
 def load_user(user_id):

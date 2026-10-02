@@ -82,3 +82,92 @@ def test_postgres_engine_options_build_a_real_engine():
     url = db_boot.resolve("postgresql://u@h/db")
     engine = sqlalchemy.create_engine(url, **db_boot.engine_options(url))
     assert engine.pool.size() == db_boot.DEFAULT_POOL_SIZE
+
+
+def test_off_postgres_the_caller_always_does_the_schema_work():
+    engine = sqlalchemy.create_engine("sqlite://")
+    with db_boot.schema_lock(engine) as ours:
+        assert ours is True
+
+
+def test_no_marker_without_a_deployment_id(monkeypatch):
+    # Local runs must re-check the schema on every boot.
+    monkeypatch.delenv("RAILWAY_DEPLOYMENT_ID", raising=False)
+    assert db_boot._schema_marker() is None
+
+
+def test_marker_is_per_deployment(monkeypatch):
+    monkeypatch.setenv("RAILWAY_DEPLOYMENT_ID", "deploy-a")
+    first = db_boot._schema_marker()
+    monkeypatch.setenv("RAILWAY_DEPLOYMENT_ID", "deploy-b")
+    assert first and db_boot._schema_marker() != first
+
+
+class _FakePostgres:
+    """Just enough engine for schema_lock: the lock is busy ``busy`` times."""
+
+    class dialect:
+        name = "postgresql"
+
+    def __init__(self, busy=0):
+        self.busy, self.statements = busy, []
+
+    def connect(self):
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def commit(self):
+        pass
+
+    def execute(self, statement, params=None):
+        sql = str(statement)
+        self.statements.append(sql)
+        engine = self
+
+        class _Result:
+            def scalar(self):
+                if "pg_try_advisory_lock" not in sql:
+                    return True
+                engine.busy -= 1
+                return engine.busy < 0
+
+        return _Result()
+
+
+def test_lock_is_polled_never_waited_on(monkeypatch):
+    # A blocking pg_advisory_lock ran into Supabase's two minute statement
+    # timeout and killed gunicorn in a loop.
+    monkeypatch.delenv("RAILWAY_DEPLOYMENT_ID", raising=False)
+    monkeypatch.setattr(db_boot.time, "sleep", lambda _s: None)
+    engine = _FakePostgres(busy=3)
+    with db_boot.schema_lock(engine) as ours:
+        assert ours is True
+    assert sum("pg_try_advisory_lock" in s for s in engine.statements) == 4
+    assert not any("pg_advisory_lock(" in s for s in engine.statements)
+    assert "pg_advisory_unlock" in engine.statements[-1]
+
+
+def test_second_worker_in_a_deployment_skips_the_schema_work(monkeypatch, tmp_path):
+    monkeypatch.setenv("RAILWAY_DEPLOYMENT_ID", "deploy-x")
+    monkeypatch.setattr(db_boot.tempfile, "gettempdir", lambda: str(tmp_path))
+    with db_boot.schema_lock(_FakePostgres()) as first:
+        assert first is True
+    with db_boot.schema_lock(_FakePostgres()) as second:
+        assert second is False
+
+
+def test_a_failed_schema_pass_is_not_marked_done(monkeypatch, tmp_path):
+    monkeypatch.setenv("RAILWAY_DEPLOYMENT_ID", "deploy-y")
+    monkeypatch.setattr(db_boot.tempfile, "gettempdir", lambda: str(tmp_path))
+    engine = _FakePostgres()
+    with pytest.raises(RuntimeError):
+        with db_boot.schema_lock(engine):
+            raise RuntimeError("migration failed")
+    assert "pg_advisory_unlock" in engine.statements[-1]
+    with db_boot.schema_lock(_FakePostgres()) as retry:
+        assert retry is True
