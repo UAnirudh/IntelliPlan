@@ -21921,9 +21921,18 @@ def _run_boot_migration_once():
     except Exception as _boot_e:
         print(f"[boot] DB bootstrap failed: {_boot_e}")
 
+# Workers are recycled every few hundred requests, and each new one used to
+# repeat this pass: about a second on a local database, ~25s against Supabase,
+# during which the worker served nothing. Once per deployment is enough.
 try:
-    with app.app_context():
-        _run_boot_migration_once()
+    with app.app_context(), _db_boot.schema_lock(db.engine, step="columns") as _columns_are_ours:
+        if _columns_are_ours:
+            _run_boot_migration_once()
+            if not _MIGRATION_DONE:
+                # Raising keeps the lock from marking the step finished.
+                raise RuntimeError("boot migration did not complete")
+        else:
+            _MIGRATION_DONE = True
 except Exception as _boot_e:
     print(f"[boot] App context unavailable at import: {_boot_e}")
 

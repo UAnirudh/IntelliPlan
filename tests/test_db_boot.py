@@ -171,3 +171,16 @@ def test_a_failed_schema_pass_is_not_marked_done(monkeypatch, tmp_path):
     assert "pg_advisory_unlock" in engine.statements[-1]
     with db_boot.schema_lock(_FakePostgres()) as retry:
         assert retry is True
+
+
+def test_steps_are_skipped_independently(monkeypatch, tmp_path):
+    # The second import-time pass must still run once after the first step
+    # has marked itself done.
+    monkeypatch.setenv("RAILWAY_DEPLOYMENT_ID", "deploy-z")
+    monkeypatch.setattr(db_boot.tempfile, "gettempdir", lambda: str(tmp_path))
+    with db_boot.schema_lock(_FakePostgres()) as schema:
+        assert schema is True
+    with db_boot.schema_lock(_FakePostgres(), step="columns") as columns:
+        assert columns is True
+    with db_boot.schema_lock(_FakePostgres(), step="columns") as again:
+        assert again is False
