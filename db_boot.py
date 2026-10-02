@@ -29,6 +29,8 @@ advisory lock in :func:`schema_lock` would be taken on one and never released.
 from __future__ import annotations
 
 import os
+import tempfile
+import time
 from contextlib import contextmanager
 from typing import Any, Iterator
 
@@ -45,6 +47,7 @@ DEFAULT_POOL_SIZE = 2
 DEFAULT_MAX_OVERFLOW = 1
 POOL_RECYCLE_SECONDS = 300
 CONNECT_TIMEOUT_SECONDS = 10
+LOCK_POLL_SECONDS = 0.5
 
 
 def resolve(url: str | None) -> str:
@@ -87,23 +90,53 @@ def engine_options(url: str) -> dict[str, Any]:
     }
 
 
+def _schema_marker() -> str | None:
+    """A file that says this deployment's schema is already checked.
+
+    Keyed by the Railway deployment, so new code always gets a fresh check.
+    Without that id (local runs) there is no marker and every boot checks.
+    """
+    deployment = os.getenv("RAILWAY_DEPLOYMENT_ID", "").strip()
+    if not deployment:
+        return None
+    return os.path.join(tempfile.gettempdir(), f"intelliplan-schema-{deployment}")
+
+
 @contextmanager
-def schema_lock(engine: Any) -> Iterator[None]:
+def schema_lock(engine: Any) -> Iterator[bool]:
     """Serialize boot-time schema work across processes (Postgres only).
+
+    Yields True to the process that should do the work and False to the
+    workers behind it, once a sibling in the same deployment has finished.
+    With the database in another region one pass is hundreds of round trips;
+    four workers repeating it in turn made boot take minutes.
 
     A session-level advisory lock on its own connection, so the migrations
     inside may commit freely. Released when the connection closes, including
     if the process dies. Other databases run unlocked: SQLite is dev/CI with
     one process.
+
+    The lock is polled rather than waited on. A blocking pg_advisory_lock is
+    one long statement, and Supabase cancels statements at two minutes: the
+    workers at the back of the queue died there and took gunicorn with them.
     """
     if engine.dialect.name != "postgresql":
-        yield
+        yield True
         return
+    marker = _schema_marker()
     with engine.connect() as conn:
-        conn.execute(text("SELECT pg_advisory_lock(:k)"), {"k": SCHEMA_LOCK_KEY})
+        while not conn.execute(
+            text("SELECT pg_try_advisory_lock(:k)"), {"k": SCHEMA_LOCK_KEY}
+        ).scalar():
+            conn.commit()
+            time.sleep(LOCK_POLL_SECONDS)
         conn.commit()
         try:
-            yield
+            already_done = bool(marker) and os.path.exists(marker)
+            yield not already_done
+            if marker and not already_done:
+                with open(marker, "w", encoding="utf-8"):
+                    pass
         finally:
             conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": SCHEMA_LOCK_KEY})
             conn.commit()
