@@ -10,11 +10,17 @@ Commands, in the order a cutover uses them:
 
     check      connect to both, report versions, size and what the target holds
     copy       pg_dump the source, restore into the target in one transaction
+    sync       replace the target's rows with the source's, table by table
     verify     compare every table's row count and content hash, and sequences
     lockdown   close Supabase's public Data API over the copied tables
 
 The source is only ever read. ``copy`` refuses a target that already has
 tables unless ``--replace-target`` is passed.
+
+``sync`` is for a target that already has the schema, and for a source newer
+than the local pg_dump (which refuses to dump a newer server). It needs
+``--replace-target``, keeps a file per table as a backup of both sides, and
+swaps the rows in one transaction.
 """
 
 from __future__ import annotations
@@ -206,6 +212,79 @@ def cmd_copy(source: str, target: str, args) -> int:
     return 0
 
 
+def columns(conn, table: str) -> list[tuple[str, str]]:
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT a.attname, format_type(a.atttypid, a.atttypmod) FROM pg_attribute a "
+            "WHERE a.attrelid = %s::regclass AND a.attnum > 0 AND NOT a.attisdropped "
+            "AND a.attgenerated = '' ORDER BY a.attnum",
+            (f'{SCHEMA}."{table}"',),
+        )
+        return cur.fetchall()
+
+
+def export_tables(conn, names: list[str], folder: Path) -> dict[str, list[str]]:
+    """COPY each table to ``folder``; returns the column order used per table."""
+    folder.mkdir(parents=True, exist_ok=True)
+    layout: dict[str, list[str]] = {}
+    for table in names:
+        layout[table] = [name for name, _ in columns(conn, table)]
+        statement = sql.SQL("COPY {}.{} ({}) TO STDOUT").format(
+            sql.Identifier(SCHEMA), sql.Identifier(table),
+            sql.SQL(", ").join(map(sql.Identifier, layout[table])))
+        with conn.cursor() as cur, open(folder / f"{table}.copy", "wb") as out:
+            cur.copy_expert(statement, out)
+    return layout
+
+
+def cmd_sync(source: str, target: str, args) -> int:
+    if not args.replace_target:
+        print("sync replaces every row on the target. Re-run with --replace-target.",
+              file=sys.stderr)
+        return 1
+    src, dst = connect(source), connect(target)
+    names = tables(src)
+    drift = [f"{t}: missing on target" for t in names if t not in tables(dst)]
+    drift += [f"{t}: columns differ" for t in names
+              if not drift and columns(src, t) != columns(dst, t)]
+    if drift:
+        print("Schemas differ; nothing was changed:", file=sys.stderr)
+        for line in drift:
+            print(f"  {line}", file=sys.stderr)
+        return 1
+
+    backup = Path(args.dump_dir) / time.strftime("sync-%Y%m%d-%H%M%S")
+    # One snapshot of the source, so every table is from the same instant.
+    src.set_session(readonly=True, isolation_level="REPEATABLE READ", autocommit=False)
+    layout = export_tables(src, names, backup / "source")
+    src_sequences = sequences(src)
+    src.rollback()
+    export_tables(dst, names, backup / "target-before")
+    src.close()
+    dst.close()
+    print(f"Backups of both sides kept in {backup}")
+
+    conn = psycopg2.connect(target, connect_timeout=15)
+    with conn, conn.cursor() as cur:  # one transaction: all tables or none
+        # Skip foreign key triggers while loading, like pg_restore does.
+        cur.execute("SET LOCAL session_replication_role = replica")
+        cur.execute(sql.SQL("TRUNCATE {}").format(sql.SQL(", ").join(
+            sql.SQL("{}.{}").format(sql.Identifier(SCHEMA), sql.Identifier(t)) for t in names)))
+        for table in names:
+            statement = sql.SQL("COPY {}.{} ({}) FROM STDIN").format(
+                sql.Identifier(SCHEMA), sql.Identifier(table),
+                sql.SQL(", ").join(map(sql.Identifier, layout[table])))
+            with open(backup / "source" / f"{table}.copy", "rb") as data:
+                cur.copy_expert(statement, data)
+        for name, value in src_sequences.items():
+            if value is not None:
+                cur.execute("SELECT setval(%s::regclass, %s, true)",
+                            (f'{SCHEMA}."{name}"', value))
+    conn.close()
+    print(f"Replaced the rows of {len(names)} tables. Run verify next.")
+    return 0
+
+
 def cmd_verify(source: str, target: str, _args) -> int:
     src, dst = connect(source), connect(target)
     src_tables, dst_tables = tables(src), tables(dst)
@@ -259,7 +338,8 @@ def cmd_lockdown(_source: str, target: str, _args) -> int:
     return 0
 
 
-COMMANDS = {"check": cmd_check, "copy": cmd_copy, "verify": cmd_verify, "lockdown": cmd_lockdown}
+COMMANDS = {"check": cmd_check, "copy": cmd_copy, "sync": cmd_sync, "verify": cmd_verify,
+            "lockdown": cmd_lockdown}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -268,7 +348,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--env-file", default=str(DEFAULT_ENV_FILE))
     parser.add_argument("--dump-dir", default=str(DEFAULT_DUMP_DIR))
     parser.add_argument("--replace-target", action="store_true",
-                        help="copy: drop the target's existing tables first")
+                        help="copy/sync: replace what the target already holds")
     args = parser.parse_args(argv)
 
     env_file = Path(args.env_file)
