@@ -1408,3 +1408,163 @@ def _pick_day(
         if pool:
             return min(pool, key=_score)
     return None
+
+
+# ── Inserting into a plan the student already has ─────────────────
+#
+# Re-solving a whole fortnight because one quiz was captured on the bus
+# moves blocks the student has already made peace with. Quick-add and
+# "Break it down" instead slot the new work into the gaps the existing plan
+# leaves, and say exactly where it went.
+
+#: Breathing room between an inserted block and its neighbours.
+INSERT_GAP_MINUTES = 5
+
+
+def describe_slot(start: datetime, end: datetime) -> str:
+    """``"Wed 4:00–5:00 PM"``, or ``"Wed 11:30 AM–12:15 PM"`` across noon."""
+    a, b = _fmt12(start), _fmt12(end)
+    if a[-2:] == b[-2:]:
+        a = a[:-3]
+    return f"{DAY_ABBR[start.weekday()]} {a}–{b}"
+
+
+def _busy_in_day(day: Mapping[str, Any]) -> list[tuple[datetime, datetime]]:
+    busy = []
+    for block in day.get("blocks") or []:
+        if not isinstance(block, Mapping) or block.get("unplaced"):
+            continue
+        try:
+            start = datetime.fromisoformat(str(block.get("start_iso") or ""))
+            end = datetime.fromisoformat(str(block.get("end_iso") or ""))
+        except ValueError:
+            continue
+        if end > start:
+            busy.append((start, end))
+    return sorted(busy)
+
+
+def _next_block_id(schedule: Sequence[Mapping[str, Any]]) -> int:
+    highest = 0
+    for day in schedule:
+        for block in day.get("blocks") or []:
+            m = re.fullmatch(r"b(\d+)", str((block or {}).get("id") or ""))
+            if m:
+                highest = max(highest, int(m.group(1)))
+    return highest + 1
+
+
+def insert_blocks(
+    schedule_data: dict[str, Any],
+    blocks: Sequence[dict[str, Any]],
+    *,
+    windows_for: Any,
+    start: _date,
+    deadline: _date | None = None,
+    not_before: datetime | None = None,
+    horizon_days: int = 14,
+    first_id: int | None = None,
+) -> list[dict[str, Any]]:
+    """Place ``blocks`` in order into free gaps of ``schedule_data``.
+
+    ``windows_for(day)`` returns that day's free :class:`Window` list (the
+    same windows the planner uses). Existing blocks are never moved. Each
+    block lands after the previous one ends, so ordered steps stay ordered.
+    Days before the deadline are tried first; the deadline day itself only
+    when nothing earlier has room, because finishing on the due date is a
+    plan with no margin.
+
+    ``first_id`` is the lowest ``b<n>`` id a new block may take. Callers that
+    removed blocks first pass the pre-removal high-water mark, because
+    progress is keyed by block id and a reused id would arrive pre-ticked.
+
+    Mutates ``schedule_data`` and returns the placed blocks, each carrying
+    ``time_slot``/``start_iso``/``end_iso`` and a human ``placed_label``.
+    Blocks that fit nowhere are returned with ``unplaced: True`` and are not
+    added to the plan — inventing a 2 AM slot is worse than saying so.
+    """
+    schedule = schedule_data.setdefault("schedule", [])
+    by_date: dict[str, dict[str, Any]] = {}
+    for day in schedule:
+        if isinstance(day, dict) and day.get("date"):
+            by_date[str(day["date"])[:10]] = day
+
+    last_day = start + timedelta(days=max(0, horizon_days - 1))
+    if deadline is not None and deadline >= start:
+        # Scanning forward from today already prefers the days before the
+        # deadline; the deadline day is simply the last one tried.
+        last_day = min(last_day, deadline)
+
+    next_id = max(_next_block_id(schedule), int(first_id or 0))
+    earliest = not_before
+    out: list[dict[str, Any]] = []
+    for block in blocks:
+        duration = max(5, int(block.get("duration_minutes") or 25))
+        slot = None
+        day_cursor = start
+        while day_cursor <= last_day and slot is None:
+            slot = _first_gap(
+                windows_for(day_cursor),
+                _busy_in_day(by_date.get(day_cursor.isoformat(), {})),
+                duration,
+                earliest,
+            )
+            day_cursor += timedelta(days=1)
+        placed = dict(block)
+        if slot is None:
+            placed["unplaced"] = True
+            placed["placed_label"] = ""
+            out.append(placed)
+            continue
+        begin, end = slot
+        placed.setdefault("id", f"b{next_id}")
+        next_id += 1
+        placed.setdefault("is_break", False)
+        placed["time_slot"] = f"{_fmt12(begin)} - {_fmt12(end)}"
+        placed["start_iso"] = begin.isoformat()
+        placed["end_iso"] = end.isoformat()
+        placed["window_slot"] = slot_for_hour(begin.hour)
+        placed["placed_label"] = describe_slot(begin, end)
+        key = begin.date().isoformat()
+        day = by_date.get(key)
+        if day is None:
+            day = {"date": key, "day_name": begin.strftime("%A"), "blocks": []}
+            by_date[key] = day
+            schedule.append(day)
+            schedule.sort(key=lambda d: str(d.get("date") or ""))
+        day.setdefault("blocks", []).append(placed)
+        day["blocks"].sort(key=lambda b: str(b.get("start_iso") or "~"))
+        day["total_minutes"] = sum(
+            int(b.get("duration_minutes") or 0) for b in day["blocks"] if not b.get("unplaced")
+        )
+        earliest = end + timedelta(minutes=INSERT_GAP_MINUTES)
+        out.append(placed)
+    return out
+
+
+def _first_gap(
+    windows: Sequence[Window],
+    busy: Sequence[tuple[datetime, datetime]],
+    duration: int,
+    earliest: datetime | None,
+) -> tuple[datetime, datetime] | None:
+    gap = timedelta(minutes=INSERT_GAP_MINUTES)
+    need = timedelta(minutes=duration)
+    for window in windows:
+        cursor = window.start
+        if earliest is not None and earliest > cursor:
+            cursor = earliest
+        # Round up to five minutes so slots read like a human made them.
+        if cursor.second or cursor.microsecond:
+            cursor = cursor.replace(second=0, microsecond=0) + timedelta(minutes=1)
+        if cursor.minute % 5:
+            cursor += timedelta(minutes=5 - cursor.minute % 5)
+        for b_start, b_end in busy:
+            if b_end + gap <= cursor:
+                continue
+            if b_start - gap >= cursor + need:
+                break
+            cursor = max(cursor, b_end + gap)
+        if cursor + need <= window.end:
+            return cursor, cursor + need
+    return None

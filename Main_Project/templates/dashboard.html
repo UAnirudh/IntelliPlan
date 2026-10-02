@@ -1055,6 +1055,8 @@
       </label>
       <div id="adDocsList" style="display:flex;flex-direction:column;gap:6px;font-size:0.8rem;"></div>
     </div>
+    {# "Break it down" + "Just 5 minutes" — filled by ip-breakdown.js. #}
+    <div id="adBreakdown" style="margin-top:1rem;"></div>
     <div class="ipd-modal-actions">
       <button class="ipd-btn" onclick="closeAssignDetail()">Close</button>
     </div>
@@ -2121,6 +2123,10 @@ function openAssignDetail(title, course, dueDate, priority, notes) {
     })
     .catch(function() {});
   document.getElementById('assignDetailModal').style.display = 'flex';
+  if (window.IPBreakdown) {
+    window.IPBreakdown.mount(document.getElementById('adBreakdown'),
+      { title: title, course: course, due_date: dueDate });
+  }
   _currentAssignCourse = (course && course !== 'Unknown' && course !== 'Personal') ? course : '';
   loadAssignDocs(title, _currentAssignCourse, notes || '');
 }

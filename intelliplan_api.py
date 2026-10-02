@@ -328,6 +328,9 @@ def api_index():
             "GET  /api/v1/me": "Current authenticated user. [read:profile]",
             "GET  /api/v1/assignments": "Unified assignment list from all sources. [read:assignments]",
             "POST /api/v1/tasks": "Create a manual task. [write:tasks]",
+            "POST /api/v1/tasks/quick-add": "Add a task from one line of text "
+                                             "(\"bio lab due fri 2h\"), slot it into the plan, "
+                                             "and say where it landed. [write:tasks]",
             "POST /api/v1/assignments/dismiss": "Mark an assignment done. [write:tasks]",
             "POST /api/v1/assignments/restore": "Restore a dismissed assignment. [write:tasks]",
             "GET  /api/v1/tests": "All assignments marked as tests. [read:tests]",
@@ -430,6 +433,37 @@ def create_task():
     }
     status, data = _call_internal("POST", "/tasks/manual/create", payload)
     return jsonify(data), status
+
+
+@api_bp.route("/tasks/quick-add", methods=["POST"])
+@require_auth("write:tasks")
+def quick_add_task():
+    """One line of text → a task in the plan. For share sheets and trays.
+
+    Body: ``{"text": "chem quiz fri", "timezone": "America/New_York"}``
+    (timezone optional — the student's stored zone wins, then this hint,
+    then UTC). The Android share target posts the shared text here; the
+    desktop tray and anything else holding a Bearer token or a
+    ``write:tasks`` API key can too. The reply carries ``message`` — e.g.
+    "Added “Chem quiz” · due Fri Oct 2 · 30m — Scheduled Thu 4:00–4:30 PM" —
+    ready to show as a notification without further formatting.
+
+    Same parser and placement as the web palette (``quick_add_glue``), so a
+    phrase lands on the same date whichever surface captured it.
+    """
+    from quick_add_glue import MAX_TEXT, capture
+
+    body = request.get_json(silent=True) or {}
+    text = str(body.get("text") or body.get("title") or "").strip()[:MAX_TEXT]
+    if not text:
+        return _err("text required.", 400)
+    try:
+        result = capture(g.api_user.id, None, text, tz_hint=body.get("timezone"),
+                         courses=body.get("courses") or (),
+                         schedule=body.get("schedule", True) is not False)
+    except Exception:
+        return _fail("server_error", "Could not save that task.", 500)
+    return jsonify(result), 201
 
 
 @api_bp.route("/assignments/dismiss", methods=["POST"])

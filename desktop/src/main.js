@@ -46,6 +46,8 @@ function targetOrigin() {
 
 const POLL_INTERVAL_MS = 60_000;      // how often the tray refreshes "what's next"
 const SHORTCUT_START_SESSION = 'CommandOrControl+Shift+S';
+// Capture a task from any application: "chem quiz fri" and back to work.
+const SHORTCUT_QUICK_ADD = 'CommandOrControl+Shift+A';
 
 let mainWindow = null;
 let tray = null;
@@ -353,6 +355,7 @@ function refreshTrayMenu(next) {
     { type: 'separator' },
     ...updateItems,
     { label: 'Start study session', accelerator: SHORTCUT_START_SESSION, click: openActive },
+    { label: 'Quick add task…', accelerator: SHORTCUT_QUICK_ADD, click: openQuickAdd },
     { label: 'Open IntelliPlan', click: showWindow },
     { label: 'Scheduler', click: () => openPath('/scheduler') },
     { type: 'separator' },
@@ -383,6 +386,24 @@ function openPath(pathname) {
 
 function openActive() {
   openPath('/active');
+}
+
+// Quick add is the web app's own palette (static/js/ip-quickadd.js): the
+// same parser, and the reply says where the task landed in the plan. If the
+// page already loaded has it, open it in place; otherwise load a page that
+// opens it on arrival. The script is a fixed string — nothing user-supplied
+// is ever evaluated in the renderer.
+function openQuickAdd() {
+  const freshWindow = !mainWindow || mainWindow.isDestroyed();
+  showWindow();
+  if (freshWindow || !mainWindow) {
+    openPath('/dashboard?quickadd=1');
+    return;
+  }
+  mainWindow.webContents
+    .executeJavaScript('Boolean(window.IPQuickAdd && (window.IPQuickAdd.open(), true))')
+    .then((opened) => { if (!opened) openPath('/dashboard?quickadd=1'); })
+    .catch(() => openPath('/dashboard?quickadd=1'));
 }
 
 // ── Google sign-in ──────────────────────────────────────────────────
@@ -656,6 +677,7 @@ function buildMenu() {
       label: 'File',
       submenu: [
         { label: 'Start Study Session', accelerator: SHORTCUT_START_SESSION, click: openActive },
+        { label: 'Quick Add Task…', accelerator: SHORTCUT_QUICK_ADD, click: openQuickAdd },
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' },
       ],
@@ -728,6 +750,7 @@ if (!app.requestSingleInstanceLock()) {
     buildMenu();
 
     globalShortcut.register(SHORTCUT_START_SESSION, openActive);
+    globalShortcut.register(SHORTCUT_QUICK_ADD, openQuickAdd);
 
     // Rebuild the surfaces that show update state whenever it moves, so
     // "Update to 1.0.1" appears in the tray and menu the moment a download

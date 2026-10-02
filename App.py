@@ -2720,6 +2720,10 @@ ModelPrior = _prior_models.register(db)
 # from. See intelliplan/models/active_session.py for the privacy contract
 # covering the focus-sample rows.
 ActiveSession, ActiveFocusSample = _as_models.register(db)
+# "Break it down" checklists — one row per step, keyed by assignment title.
+# Their estimate/actual pairs calibrate the next breakdown's minutes.
+from intelliplan.models import assignment_step as _step_models
+AssignmentStep = _step_models.register(db)
 # Notification outbox — durable queue with dedupe, retries, and expiry.
 from intelliplan.notifications import models as _notif_models
 NotificationOutbox = _notif_models.register(db)
@@ -10224,6 +10228,7 @@ def _account_delete_impl():
         ("lessons", "DELETE FROM lessons WHERE user_id = :uid"),
         ("study_sessions", "DELETE FROM study_sessions WHERE user_id = :uid"),
         ("active_sessions", "DELETE FROM active_sessions WHERE user_id = :uid"),
+        ("assignment_steps", "DELETE FROM assignment_steps WHERE user_id = :uid"),
         ("study_points", "DELETE FROM study_points WHERE user_id = :uid"),
         ("study_mastery", "DELETE FROM study_mastery WHERE user_id = :uid"),
         ("concept_mastery", "DELETE FROM concept_mastery WHERE user_id = :uid"),
@@ -11812,6 +11817,19 @@ def _planner_task_rows(normalized_assignments, custom_tasks, descriptions=None):
             "size_signals": size_signals,
             "description": task.get("description") or (descriptions or {}).get(title) or "",
         })
+    # "Break it down" steps replace the template stages for any assignment
+    # the student broke down: the plan then schedules *their* steps, minus
+    # the ones already ticked, so partial work shrinks what is left to plan.
+    try:
+        from breakdown_glue import steps_by_title
+
+        stepped = steps_by_title([r["title"] for r in rows])
+        for r in rows:
+            steps = stepped.get(_step_models.assignment_key(r["title"]))
+            if steps:
+                r["steps"] = steps
+    except Exception as e:
+        print(f"[planner] breakdown steps load failed: {e}")
     return rows
 
 
@@ -16685,38 +16703,27 @@ def extension_task_add():
     if not user:
         return ext_response({"status": "error", "message": "Not authenticated"}, 401)
     data = request.get_json(force=True, silent=True) or {}
-    title = (data.get("title") or "").strip()
-    if not title:
+    # ``text`` is the quick-add line ("bio lab due fri 2h") from the popup
+    # box and the omnibox keyword; ``title`` is the older popup's field. Both
+    # go through the same parser as the web palette, so "quiz fri" typed into
+    # the extension lands on the same date it would anywhere else. Explicit
+    # fields the client sends (due_date, course, ...) still win.
+    text = (data.get("text") or data.get("title") or "").strip()
+    if not text:
         return ext_response({"status": "error", "message": "Title required"}, 400)
-    # The column is String(512); a longer title would otherwise fail at commit
-    # and surface as a 500 on what is a perfectly ordinary typo.
-    title = title[:512]
+    overrides = {k: data.get(k) for k in ("due_date", "priority", "course", "estimated_time", "notes")
+                 if data.get(k) not in (None, "")}
     try:
-        estimated = int(data.get("estimated_time") or 60)
-    except (TypeError, ValueError):
-        estimated = 60
-    try:
-        task = ManualTask(
-            user_id=user.id,
-            title=title,
-            due_date=(data.get("due_date") or "")[:32],
-            priority=(data.get("priority") or "Medium")[:16],
-            course=(data.get("course") or "Personal")[:256],
-            estimated_time=estimated,
-            notes=(data.get("notes") or ""),
-        )
-        db.session.add(task)
-        db.session.commit()
+        from quick_add_glue import capture
+
+        result = capture(user.id, None, text[:500], tz_hint=data.get("timezone"),
+                         courses=data.get("courses") or (), overrides=overrides,
+                         schedule=data.get("schedule", True) is not False)
     except Exception:
         db.session.rollback()
         return ext_response({"status": "error", "message": "Could not save task."}, 500)
-    # The popup reads the same cached task list the dashboard does, so without
-    # this the new task does not appear until the cache ages out.
-    try:
-        invalidate_lms_cache_for_user(user.id)
-    except Exception:
-        pass
-    return ext_response({"status": "ok", "id": task.id})
+    result["id"] = result["task"]["id"]
+    return ext_response(result)
 
 
 @app.route("/extension/session-token", methods=["GET", "OPTIONS"])
@@ -21451,6 +21458,12 @@ app.register_blueprint(learning_graph_bp)
 # resolves App lazily. The `active_study` flag is a kill switch (default on).
 from active_glue import active_bp
 app.register_blueprint(active_bp)
+# "Break it down" + "Just 5 minutes" (steps reuse the Active timer above), and
+# quick-add from the palette, the extension and bearer-token apps.
+from breakdown_glue import breakdown_bp
+app.register_blueprint(breakdown_bp)
+from quick_add_glue import quick_add_bp
+app.register_blueprint(quick_add_bp)
 # Adaptive scheduler v3 — Next Best Action, feasibility, overrides, versions.
 # Percentage-rolled-out; every route 404s outside the cohort. Nothing on an
 # existing surface depends on it.

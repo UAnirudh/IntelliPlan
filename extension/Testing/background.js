@@ -418,3 +418,56 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   })();
   return true;
 });
+
+// ── Omnibox quick add: type "ip", space, then the task ──────────────
+// "ip bio lab due fri 2h" ↵ adds it without opening anything. Same server
+// parser as the popup and the web palette, so the date means the same thing
+// everywhere; the notification says where it landed in the plan.
+chrome.omnibox.setDefaultSuggestion({
+  description: "Add to IntelliPlan — e.g. bio lab due fri 2h"
+});
+
+chrome.omnibox.onInputChanged.addListener((text, suggest) => {
+  const clean = (text || "").trim();
+  chrome.omnibox.setDefaultSuggestion({
+    description: clean
+      ? "Add to IntelliPlan: " + clean.replace(/[<>&]/g, " ")
+      : "Add to IntelliPlan — e.g. bio lab due fri 2h"
+  });
+  suggest([]);
+});
+
+chrome.omnibox.onInputEntered.addListener(async (text) => {
+  const clean = (text || "").trim();
+  if (!clean) return;
+  const stored = await chrome.storage.local.get(["authToken"]);
+  const token = stored.authToken;
+  const notify = (title, message) => chrome.notifications.create({
+    type: "basic",
+    iconUrl: "icons/icon-128.png",
+    title,
+    message: String(message || "").slice(0, 240)
+  });
+  if (!token) {
+    notify("Sign in to IntelliPlan", "Open the IntelliPlan extension and sign in, then try again.");
+    return;
+  }
+  try {
+    const res = await fetch(BASE_URL + "/extension/task/add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Extension-Token": token },
+      body: JSON.stringify({
+        text: clean.slice(0, 500),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || ""
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.status === "ok") {
+      notify("Added to IntelliPlan", data.message || clean);
+    } else {
+      notify("Could not add that", data.message || "Please try again.");
+    }
+  } catch (_e) {
+    notify("Could not add that", "No connection to IntelliPlan.");
+  }
+});

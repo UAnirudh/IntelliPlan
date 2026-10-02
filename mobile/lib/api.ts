@@ -265,6 +265,34 @@ export async function createTask(task: NewTask): Promise<unknown> {
   return apiFetch("/api/v1/tasks", { method: "POST", body: JSON.stringify(task) });
 }
 
+export type QuickAddResult = {
+  status: string;
+  task: { id: number; title: string; due_date: string; course: string; estimated_time: number };
+  placement: { status: string; label: string };
+  /** Ready to show: "Added “Bio lab” · due Fri Oct 9 · 2h — Scheduled Thu 4:00–6:00 PM". */
+  message: string;
+};
+
+/**
+ * One line of text → a scheduled task ("bio lab due fri 2h").
+ *
+ * The server parses it (no AI), places it in the student's plan and says
+ * where. This is also the endpoint an Android share target should post the
+ * shared text to.
+ */
+export async function quickAddTask(text: string): Promise<QuickAddResult> {
+  let timezone = "";
+  try {
+    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  } catch {
+    timezone = "";
+  }
+  return apiFetch<QuickAddResult>("/api/v1/tasks/quick-add", {
+    method: "POST",
+    body: JSON.stringify({ text, timezone }),
+  });
+}
+
 /**
  * Tick an assignment off.
  *

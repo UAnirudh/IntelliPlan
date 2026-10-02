@@ -19,6 +19,9 @@
       "128": "icons/icon-128.png"
     }
   },
+  "omnibox": {
+    "keyword": "ip"
+  },
   "background": {
     "service_worker": "background.js"
   },
