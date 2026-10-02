@@ -1013,6 +1013,8 @@
     <label>Notes</label>
     <textarea id="adNotes" placeholder="Add your notes…" oninput="saveAssignNotes()"></textarea>
     <span id="adSaveStatus" style="display:none;font-size:0.74rem;color:var(--ipd-priority-low);font-family:var(--ipd-font-body);margin-top:6px;">Saved</span>
+    {# "Break it down" + "Just 5 minutes" — filled by ip-breakdown.js. #}
+    <div id="adBreakdown" style="margin-top:1rem;"></div>
     <div class="ipd-modal-actions">
       <button class="ipd-btn" onclick="closeAssignDetail()">Close</button>
     </div>
@@ -2079,6 +2081,10 @@ function openAssignDetail(title, course, dueDate, priority, notes) {
     })
     .catch(function() {});
   document.getElementById('assignDetailModal').style.display = 'flex';
+  if (window.IPBreakdown) {
+    window.IPBreakdown.mount(document.getElementById('adBreakdown'),
+      { title: title, course: course, due_date: dueDate });
+  }
 }
 
 function closeAssignDetail() {

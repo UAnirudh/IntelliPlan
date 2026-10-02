@@ -12,7 +12,7 @@ The web app is rendered in the window, but these only exist here:
 | --- | --- |
 | **OS notifications** | Fire whether or not a window is open. The browser's Notification API only works while the page is alive, so a closed tab means a missed session reminder. |
 | **Tray "up next"** | The next scheduled session is visible without opening anything. Refreshes every minute and on wake from sleep. |
-| **Global shortcut** | `Ctrl/Cmd+Shift+S` starts a study session from any application. |
+| **Global shortcuts** | `Ctrl/Cmd+Shift+S` starts a study session from any application; `Ctrl/Cmd+Shift+A` opens quick add ("chem quiz fri") and says where the task landed in your plan. Both are also in the tray menu. |
 | **Persistent session** | Sign in once. The session survives quitting and restarting. |
 | **Offline handling** | A dropped connection shows a real message and reconnects, not Chromium's error page. |
 | **Deep links** | `intelliplan://active` opens straight to the session screen. |

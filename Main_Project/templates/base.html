@@ -279,6 +279,9 @@
   {# Component behaviours. Deferred: every component's markup is usable
      before this runs, so nothing during parse depends on it. #}
   <script defer src="{{ url_for('static', filename='js/ip-ui.js') }}?v={{ asset_v }}"></script>
+  {# Quick add (q / Cmd+K) and the "Break it down" step checklist. #}
+  <script defer src="{{ url_for('static', filename='js/ip-quickadd.js') }}?v={{ asset_v }}"></script>
+  <script defer src="{{ url_for('static', filename='js/ip-breakdown.js') }}?v={{ asset_v }}"></script>
   {# Finishing layer's JS: spotlight cursor, scrolled flag, progress-bar
      fallback. Deferred — nothing during parse depends on it. #}
   <script defer src="{{ url_for('static', filename='js/ip-premium.js') }}?v={{ asset_v }}"></script>
@@ -918,6 +921,8 @@ body {
       <textarea id="modalCustomInput" aria-label="Add your own description" style="width:100%;padding:10px 14px;border-radius:var(--r-sm);border:1px solid var(--border-strong);background:var(--bg);color:var(--text-primary);font-family:var(--font-body);font-size:0.87rem;resize:vertical;min-height:90px;outline:none;transition:border-color 0.16s;" placeholder="Describe what this assignment involves..."></textarea>
       <button class="btn-primary" style="margin-top:8px;padding:10px 20px;" onclick="saveCustomDescription()">Save Description</button>
     </div>
+    {# "Break it down" + "Just 5 minutes" — filled by ip-breakdown.js. #}
+    <div id="modalBreakdown" style="margin-top:1.25rem;"></div>
   </div>
 </div>
 
@@ -956,11 +961,15 @@ body {
       <input type="text" class="cmd-input" id="cmdInput" aria-label="Search pages, themes, and actions" placeholder="Search pages, themes, actions…" autocomplete="off" spellcheck="false">
       <span class="cmd-esc">esc</span>
     </div>
+    {# Quick-add preview / result: "Fri · 2h · AP Biology" while typing,
+       "Added … — Scheduled Wed 4:00–5:00 PM" after. Filled by ip-quickadd.js. #}
+    <div class="cmd-quick" id="cmdQuick" role="status" aria-live="polite" hidden></div>
     <div class="cmd-results" id="cmdResults"></div>
     <div class="cmd-footer">
       <span><span class="kbd">↑↓</span>navigate</span>
       <span><span class="kbd">↵</span>open</span>
       <span><span class="kbd">esc</span>close</span>
+      <span><span class="kbd">q</span>quick add</span>
     </div>
   </div>
 </div>
@@ -1364,18 +1373,37 @@ if (mobileMenuBtn) {
   let selectedIdx = 0;
   let currentList = [];
 
+  // Quick add lives in the same box as navigation: Cmd/Ctrl+K then type
+  // "bio lab due fri 2h". Opened with `q` (quick mode) it is the only item;
+  // otherwise it rides at the end of the matches, or first when the text
+  // starts with "+" or "add ".
+  let quickMode = false;
+  function quickItem(raw) {
+    const text = raw.replace(/^\s*(?:\+|add\s+)/i, '').trim();
+    return { section:'Quick add', label:'Add task: “' + text + '”', icon:'i-check-circle',
+             keepOpen:true, action:() => window.IPQuickAdd && window.IPQuickAdd.submit(text) };
+  }
+
   function render(query) {
-    const q = (query || '').trim().toLowerCase();
+    const raw = (query || '').trim();
+    const q = raw.toLowerCase();
+    if (window.IPQuickAdd) window.IPQuickAdd.preview(quickMode || /^(\+|add\s)/i.test(raw) ? raw.replace(/^\s*(?:\+|add\s+)/i, '') : '');
     const pool = [...NAV_ITEMS, ...ACTIONS];
-    const filtered = !q ? pool : pool.filter(it =>
+    let filtered = quickMode ? [] : (!q ? pool : pool.filter(it =>
       it.label.toLowerCase().includes(q) ||
       it.section.toLowerCase().includes(q) ||
       (it.keys && it.keys.toLowerCase().includes(q))
-    );
+    ));
+    if (raw && window.IPQuickAdd) {
+      if (quickMode || /^(\+|add\s)/i.test(raw)) filtered = [quickItem(raw), ...filtered];
+      else filtered = [...filtered, quickItem(raw)];
+    }
     currentList = filtered;
     selectedIdx = 0;
     if (filtered.length === 0) {
-      results.innerHTML = '<div class="cmd-empty">No matches.</div>';
+      results.innerHTML = quickMode
+        ? '<div class="cmd-empty">Type a task — e.g. “bio lab due fri 2h” or “quiz tmrw”.</div>'
+        : '<div class="cmd-empty">No matches.</div>';
       return;
     }
     let html = '';
@@ -1387,7 +1415,7 @@ if (mobileMenuBtn) {
       }
       html += `<a class="cmd-item ${i===0?'active':''}" data-idx="${i}" ${it.href?`href="${it.href}"`:'href="#"'}>` +
               `<svg class="cmd-icon"><use href="#${it.icon}"/></svg>` +
-              `<span>${it.label}</span>` +
+              `<span>${escapeCmd(it.label)}</span>` +
               `<svg class="cmd-icon cmd-arrow"><use href="#i-arrow-right"/></svg>` +
               `</a>`;
     });
@@ -1400,7 +1428,7 @@ if (mobileMenuBtn) {
       el.addEventListener('click', e => {
         const idx = parseInt(el.dataset.idx, 10);
         const item = currentList[idx];
-        if (item && item.action) { e.preventDefault(); item.action(); close(); }
+        if (item && item.action) { e.preventDefault(); item.action(); if (!item.keepOpen) close(); }
         else { close(); }
       });
     });
@@ -1414,7 +1442,16 @@ if (mobileMenuBtn) {
     if (active) active.scrollIntoView({ block:'nearest' });
   }
 
-  function open() {
+  function escapeCmd(text) {
+    return String(text).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  const defaultPlaceholder = input.getAttribute('placeholder');
+  function open(mode) {
+    quickMode = mode === 'quick';
+    input.setAttribute('placeholder', quickMode
+      ? 'Add a task — e.g. bio lab due fri 2h'
+      : defaultPlaceholder);
     palette.classList.add('open');
     input.value = '';
     render('');
@@ -1432,7 +1469,7 @@ if (mobileMenuBtn) {
       e.preventDefault();
       const item = currentList[selectedIdx];
       if (!item) return;
-      if (item.action) { item.action(); close(); }
+      if (item.action) { item.action(); if (!item.keepOpen) close(); }
       else if (item.href) { window.location.href = item.href; }
     } else if (e.key === 'Escape') { close(); }
   });
@@ -1446,11 +1483,13 @@ if (mobileMenuBtn) {
     }
   });
 
-  document.getElementById('sideSearchTrigger')?.addEventListener('click', open);
-  document.getElementById('topSearchTrigger')?.addEventListener('click', open);
+  document.getElementById('sideSearchTrigger')?.addEventListener('click', () => open());
+  document.getElementById('topSearchTrigger')?.addEventListener('click', () => open());
 
   // expose for other features
   window.openCommandPalette = open;
+  window.closeCommandPalette = close;
+  window.openQuickAdd = () => open('quick');
 })();
 
 /* ── IN-APP REMINDER TICKER ───────────────────────────
@@ -1901,6 +1940,7 @@ function openAssignmentModal(a) {
   document.getElementById('modalCustomWrap').style.display = 'none';
   document.getElementById('modalCustomInput').value = '';
   document.getElementById('assignmentModal').style.display = 'flex';
+  if (window.IPBreakdown) window.IPBreakdown.mount(document.getElementById('modalBreakdown'), a);
   const params = new URLSearchParams({title:a.title});
   if (a.id)        params.append('id', a.id);
   if (a.course_id) params.append('course_id', a.course_id);

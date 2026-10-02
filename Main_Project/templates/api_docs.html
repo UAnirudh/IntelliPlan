@@ -353,6 +353,11 @@
         <span class="dev-endpoint__scope">write:tasks</span></span>
     </div>
     <div class="dev-endpoint">
+      <code>POST /api/v1/tasks/quick-add</code>
+      <span>Add a task from one line of text, like a share sheet would: <code>{text, timezone?}</code>, e.g. <code>"bio lab due fri 2h"</code>. Dates, durations, course names and type words are read without AI; the task is placed in the student's plan and <code>message</code> says where it landed.
+        <span class="dev-endpoint__scope">write:tasks</span></span>
+    </div>
+    <div class="dev-endpoint">
       <code>POST /api/v1/assignments/dismiss</code>
       <span>Mark an assignment done. <code>{title}</code>
         <span class="dev-endpoint__scope">write:tasks</span></span>
