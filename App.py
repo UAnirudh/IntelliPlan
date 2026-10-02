@@ -2722,6 +2722,13 @@ NotificationOutbox = _notif_models.register(db)
 # here so create_all() builds it; see notifications_glue.start_ticker for
 # why more than one worker sweeping at once is not safe.
 CronLease = _notif_models.register_lease(db)
+# Grade Pulse: what each LMS source looked like last time, so a sync can
+# tell a new grade or assignment from one already seen. See grade_pulse_glue.
+from intelliplan.models import grade_pulse as _gp_models
+GradePulseSnapshot = _gp_models.register(db)
+# Secret-URL tokens for the live plan calendar feed. See calendar_feed_glue.
+from intelliplan.models import calendar_feed as _cal_feed_models
+CalendarFeedToken = _cal_feed_models.register(db)
 # Offline replay ledger. Registered here, alongside the other models, so
 # the create_all() below builds the table and its unique index; the
 # request hooks that use it are installed further down, once `current_user`
@@ -9826,6 +9833,10 @@ def _account_delete_impl():
         ("push_subscriptions", "DELETE FROM push_subscriptions WHERE user_id = :uid"),
         ("reminders_sent", "DELETE FROM reminders_sent WHERE user_id = :uid"),
         ("notification_outbox", "DELETE FROM notification_outbox WHERE user_id = :uid"),
+        # Grade Pulse baselines and the calendar-feed token. Deleting the
+        # token row is also what makes an old subscription URL 404 for good.
+        ("grade_pulse_snapshots", "DELETE FROM grade_pulse_snapshots WHERE user_id = :uid"),
+        ("calendar_feed_tokens", "DELETE FROM calendar_feed_tokens WHERE user_id = :uid"),
         # The lifecycle-email ledger is keyed by user_id. The suppression
         # list is deliberately *not* touched here: it is keyed by address
         # precisely so that unsubscribing survives the account, and clearing
@@ -10560,26 +10571,49 @@ def _imported_grades_payload():
     return out
 
 
+def _grade_pulse(kind, source, payload):
+    """Hand what a grade/assignment read just returned to Grade Pulse.
+
+    Every LMS read already passes through here, so watching them is how a
+    new grade or assignment is noticed without a second fetch. Signed-in
+    students only (alerts need an account to go to), and never allowed to
+    affect the response -- the observers swallow their own errors.
+    """
+    if not current_user.is_authenticated:
+        return payload
+    try:
+        import grade_pulse_glue
+        if kind == "gradebook":
+            grade_pulse_glue.observe_gradebook(current_user.id, source, payload)
+        elif kind == "grades":
+            grade_pulse_glue.observe_course_grades(current_user.id, source, payload)
+    except Exception as e:
+        print(f"[grade-pulse] observe failed: {e}")
+    return payload
+
+
 @app.route("/grades/data")
 def grades_data():
     acct = get_grade_account()
     if not acct:
         # No connected LMS — fall back to imported grades from CSV / paste /
         # extension scraper. This is how unsupported-LMS users see grades.
-        return flask.jsonify(_imported_grades_payload())
+        return flask.jsonify(_grade_pulse("grades", "imported", _imported_grades_payload()))
     login_type = acct["login_type"]
     if login_type == "studentvue":
         from studentvue_helper import get_grades as get_sv_grades
-        return flask.jsonify(get_sv_grades(acct["sv_district_url"], acct["sv_username"], acct["sv_password"]))
+        return flask.jsonify(_grade_pulse("grades", "studentvue", get_sv_grades(
+            acct["sv_district_url"], acct["sv_username"], acct["sv_password"])))
     if login_type == "schoology":
         try:
             from schoology_helper import get_schoology_grades
-            return flask.jsonify(get_schoology_grades(acct["schoology_key"], acct["schoology_secret"]))
+            return flask.jsonify(_grade_pulse("grades", "schoology", get_schoology_grades(
+                acct["schoology_key"], acct["schoology_secret"])))
         except Exception:
             return flask.jsonify(_imported_grades_payload())
     if login_type == "hac":
         try:
-            return flask.jsonify(hac_helper.get_grades(*_hac_args(acct)))
+            return flask.jsonify(_grade_pulse("grades", "hac", hac_helper.get_grades(*_hac_args(acct))))
         except Exception as e:
             # A district outage falls back to imported grades, as Canvas and
             # Schoology do, rather than a 500 on the grades page.
@@ -10588,14 +10622,14 @@ def grades_data():
     if login_type == "canvas":
         try:
             from canvas_helper import get_grades as get_canvas_grades
-            return flask.jsonify(get_canvas_grades(
+            return flask.jsonify(_grade_pulse("grades", "canvas", get_canvas_grades(
                 acct.get("canvas_url", "https://canvas.instructure.com"),
                 acct["canvas_token"]
-            ))
+            )))
         except Exception as e:
             print(f"Canvas grades error: {e}")
             return flask.jsonify(_imported_grades_payload())
-    return flask.jsonify(_imported_grades_payload())
+    return flask.jsonify(_grade_pulse("grades", "imported", _imported_grades_payload()))
 
 @app.route("/gradebook/detail")
 def gradebook_detail():
@@ -10604,20 +10638,22 @@ def gradebook_detail():
         return flask.jsonify([])
     if acct["login_type"] == "studentvue":
         from studentvue_helper import get_gradebook_detail
-        return flask.jsonify(get_gradebook_detail(acct["sv_district_url"], acct["sv_username"], acct["sv_password"]))
+        return flask.jsonify(_grade_pulse("gradebook", "studentvue", get_gradebook_detail(
+            acct["sv_district_url"], acct["sv_username"], acct["sv_password"])))
     if acct["login_type"] == "hac":
         try:
-            return flask.jsonify(hac_helper.get_gradebook_detail(*_hac_args(acct)))
+            return flask.jsonify(_grade_pulse("gradebook", "hac",
+                                              hac_helper.get_gradebook_detail(*_hac_args(acct))))
         except Exception as e:
             print(f"HAC gradebook error: {type(e).__name__}: {e}")
             return flask.jsonify([])
     if acct["login_type"] == "canvas":
         try:
             from canvas_helper import get_gradebook_detail as get_canvas_gradebook
-            return flask.jsonify(get_canvas_gradebook(
+            return flask.jsonify(_grade_pulse("gradebook", "canvas", get_canvas_gradebook(
                 acct.get("canvas_url", "https://canvas.instructure.com"),
                 acct["canvas_token"]
-            ))
+            )))
         except Exception as e:
             print(f"Canvas gradebook error: {e}")
             return flask.jsonify([])
@@ -12610,6 +12646,13 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
     # Cache so the next render is instant
     if use_cache:
         _lms_cache_put(user_id, deduped)
+    # A fresh fetch (a cache hit returned above) is a sync Grade Pulse should
+    # see. This is also the path its background pull uses.
+    try:
+        import grade_pulse_glue
+        grade_pulse_glue.observe_assignments(user_id, deduped)
+    except Exception as e:
+        print(f"[grade-pulse] assignment observe failed: {e}")
     return deduped
 
 
@@ -12818,6 +12861,15 @@ def unified_tasks():
     except Exception as e:
         print(f"Manual tasks error: {e}")
     tasks = dedupe_tasks(tasks)
+    # Grade Pulse: a teacher's new assignment is noticed on the read that
+    # already happens, slotted into the plan, and announced. Manual tasks
+    # are skipped inside (the student typed those; telling them is noise).
+    if current_user.is_authenticated:
+        try:
+            import grade_pulse_glue
+            grade_pulse_glue.observe_assignments(current_user.id, tasks)
+        except Exception as e:
+            print(f"[grade-pulse] assignment observe failed: {e}")
     result = {"today": [], "upcoming": [], "overdue": []}
     for t in tasks:
         due = t.get("due_date", "")
@@ -14210,6 +14262,21 @@ def _persist_import(assignments, grades, source="csv", source_label="", batch_id
                     _learning_graph_on_grade_changed(uid, course, None, float(new_pct))
     except Exception:
         pass
+    # Grade Pulse. The extension scraper is how students on unsupported
+    # LMSes sync at all, so its pushes are syncs like any other. CSV and
+    # smart-paste assignments are skipped inside observe_assignments: the
+    # student typed or pasted those themselves.
+    try:
+        pulse_uid = own.get("user_id")
+        if pulse_uid:
+            import grade_pulse_glue
+            if grades:
+                grade_pulse_glue.observe_course_grades(pulse_uid, "imported", list(grades))
+            if assignments and source.startswith("scraper:"):
+                grade_pulse_glue.observe_assignments(
+                    pulse_uid, [dict(a, source=source) for a in assignments])
+    except Exception as e:
+        print(f"[grade-pulse] import observe failed: {e}")
     return batch_id, created_assignments, created_grades
 
 
@@ -20925,6 +20992,21 @@ limiter.exempt(app.view_functions["notifications.cron_notifications"])
 # runs its own timer; the endpoint remains for a real external scheduler.
 # Set NOTIFICATIONS_INPROCESS_CRON=0 to hand the job back to one.
 _start_notification_ticker(app)
+# ── Grade Pulse (alerts that say what a new grade or assignment means) and
+# the live plan calendar feed. Both glue modules resolve App lazily.
+from grade_pulse_glue import grade_pulse_bp
+app.register_blueprint(grade_pulse_bp)
+limiter.exempt(app.view_functions["grade_pulse.cron_grade_pulse"])
+from calendar_feed_glue import calendar_feed_bp
+app.register_blueprint(calendar_feed_bp)
+# Keyed by the token, not the IP: Google and Microsoft fetch every
+# subscriber's feed from a handful of shared addresses, so a per-IP limit
+# would throttle one student because of everyone else's calendars.
+limiter.limit(
+    "120 per hour",
+    key_func=lambda: "calfeed:" + str((request.view_args or {}).get("token", ""))[:16],
+)(app.view_functions["calendar_feed.plan_feed_ics"])
+limiter.limit("20 per hour")(app.view_functions["calendar_feed.calendar_feed_rotate"])
 # ── Growth: retention measurement, plan + AI allowance, referral months,
 # checkout. See growth_glue for why billing ships behind BILLING_ENABLED.
 from growth_glue import install as _install_growth

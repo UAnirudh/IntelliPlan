@@ -525,8 +525,19 @@ def _tick_once(app: Any) -> dict | None:
 
     swept = sweep_all()
     streaks = sweep_streaks()
+    # Grade Pulse's background pull rides this tick and its lease rather
+    # than running a timer of its own: one worker, a few students per tick,
+    # and whatever it raises lands in the outbox flushed just below.
+    try:
+        import grade_pulse_glue
+
+        pulse = grade_pulse_glue.pull_due()
+    except Exception as exc:
+        logger.warning("grade pulse pull failed: %s", exc)
+        pulse = {"pulled": 0}
     delivered = get_dispatcher().flush()
-    return {"swept": swept, "streaks": streaks, "delivered": delivered.as_dict()}
+    return {"swept": swept, "streaks": streaks, "grade_pulse": pulse,
+            "delivered": delivered.as_dict()}
 
 
 def start_ticker(app: Any) -> bool:
