@@ -38,6 +38,7 @@ def make_user(**overrides):
         "role": "student",
         "marketing_emails_opt_in": True,
         "marketing_opt_in_at": datetime(2026, 1, 1),
+        "marketing_consent_version": "weekly_v1",
     }
     defaults.update(overrides)
     return app_module.User(**defaults)
@@ -114,6 +115,14 @@ def test_an_undated_opt_in_is_refused(ctx):
     )
     assert ok is False
     assert reason == "consent_not_dated"
+
+
+def test_old_monthly_consent_does_not_authorize_weekly_mail(ctx):
+    ok, reason = eligibility.is_marketing_eligible(
+        make_user(marketing_consent_version=None)
+    )
+    assert ok is False
+    assert reason == "consent_version_outdated"
 
 
 def test_reminders_consent_does_not_imply_marketing_consent(ctx):

@@ -52,6 +52,7 @@ def test_ticking_the_box_records_consent(client):
     user = signup(client, marketing_emails_opt_in="1")
     assert user is not None
     assert user.marketing_emails_opt_in is True
+    assert user.marketing_consent_version == "weekly_v1"
 
 
 def test_consent_is_dated(client):
@@ -59,6 +60,7 @@ def test_consent_is_dated(client):
     complaint. Consent you cannot date is consent you cannot evidence."""
     user = signup(client, marketing_emails_opt_in="1")
     assert user.marketing_opt_in_at is not None
+    assert user.marketing_consent_version == "weekly_v1"
 
 
 # ── Saying nothing, which is not yes ────────────────────────────────
