@@ -1124,6 +1124,87 @@ def _schoolwork_access_error():
     return None
 
 
+def _clean_ref_text(value, limit):
+    return re.sub(r'\s+', ' ', str(value or '')).strip()[:limit]
+
+
+def _with_student_documents(context, course=''):
+    """Add the student's own matching Drive/OneDrive files to a context.
+
+    Canvas attachments are usually the prompt and nothing else; the notes
+    and slides a student actually studies from live in their own drive.
+    Best-effort by design: a provider that is down or needs a reconnect
+    costs this turn its extra material, never the reply itself.
+    """
+    try:
+        from App import cloud_docs_sources
+        sources = cloud_docs_sources(current_user.id)
+        if not sources:
+            return context
+        from intelliplan.services import document_matcher
+        found = document_matcher.find_documents(
+            sources, context.get('title', ''), course, context.get('description', ''),
+            owner=current_user.id)
+        return document_matcher.augment_context(context, found['documents'])
+    except Exception as exc:
+        print(f'[tutor/materials] student documents skipped: {type(exc).__name__}')
+        return context
+
+
+def _load_assignment_ref(ref):
+    """Resolve an ``assignment_ref`` to ``(context, None)`` or ``(None, error)``.
+
+    Two kinds of reference:
+
+    * Canvas: ``{"course_id", "assignment_id"}`` -- loaded from Canvas, then
+      topped up with the student's matching documents.
+    * Anything else: ``{"title", "course", "description"}`` -- work from
+      StudentVue, the planner or a calendar feed has no Canvas id, and until
+      now could not be studied with source text at all. It is grounded in the
+      student's own documents alone, so it needs Drive or OneDrive connected.
+
+    Callers run ``_schoolwork_access_error`` first; the consent gate covers
+    both kinds, because both send the student's material to a model.
+    """
+    from App import get_active_account
+    if not isinstance(ref, dict):
+        return None, (jsonify({'error': 'Choose a valid Canvas assignment.'}), 400)
+    if ref.get('course_id') is None and ref.get('assignment_id') is None and ref.get('title'):
+        title = _clean_ref_text(ref.get('title'), 200)
+        course = _clean_ref_text(ref.get('course'), 200)
+        description = _clean_ref_text(ref.get('description'), 4000)
+        try:
+            from App import cloud_docs_sources
+            sources = cloud_docs_sources(current_user.id)
+        except Exception:
+            sources = []
+        if not sources:
+            return None, (jsonify({'error': 'Connect Canvas, Google Drive or OneDrive to study '
+                                            'this assignment with its materials.'}), 409)
+        try:
+            from intelliplan.services import document_matcher
+            found = document_matcher.find_documents(sources, title, course, description,
+                                                    owner=current_user.id)
+        except Exception as exc:
+            print(f'[tutor/materials] student documents failed: {type(exc).__name__}')
+            return None, (jsonify({'error': 'Your documents could not be searched right now.'}), 502)
+        return document_matcher.context_from_documents(title, course, description, found['documents']), None
+
+    account = get_active_account()
+    if not account or account.get('login_type') != 'canvas' or not account.get('canvas_token'):
+        return None, (jsonify({'error': 'Connect Canvas before studying this assignment.'}), 409)
+    try:
+        from assignment_materials import MaterialError, load_assignment
+        context = load_assignment(account.get('canvas_url'), account['canvas_token'],
+                                  ref.get('course_id'), ref.get('assignment_id'))
+    except MaterialError as exc:
+        return None, (jsonify({'error': str(exc)}), 400)
+    except Exception as exc:
+        print(f'[tutor/materials] assignment failed: {type(exc).__name__}')
+        return None, (jsonify({'error': 'Canvas could not provide this assignment right now.'}), 502)
+    return _with_student_documents(context, _clean_ref_text(ref.get('course'), 200)), None
+
+
 @chatbot_bp.route('/api/tutor/assignments', methods=['GET'])
 def tutor_assignments():
     """Offer the signed-in student's current Canvas work for an explicit choice."""
@@ -1145,28 +1226,15 @@ def tutor_assignments():
 @chatbot_bp.route('/api/tutor/assignment-map', methods=['POST'])
 def tutor_assignment_map():
     """Build an ephemeral plan whose displayed steps have verified source quotes."""
-    from App import get_active_account
-    from assignment_materials import MaterialError, load_assignment
     from assignment_study_map import messages, parse, sources
 
     access_error = _schoolwork_access_error()
     if access_error:
         return access_error
-    account = get_active_account()
-    if not account or account.get('login_type') != 'canvas' or not account.get('canvas_token'):
-        return jsonify({'error': 'Connect Canvas before studying this assignment.'}), 409
     data = request.get_json(silent=True) or {}
-    ref = data.get('assignment_ref')
-    if not isinstance(ref, dict):
-        return jsonify({'error': 'Choose a valid Canvas assignment.'}), 400
-    try:
-        context = load_assignment(account.get('canvas_url'), account['canvas_token'],
-                                  ref.get('course_id'), ref.get('assignment_id'))
-    except MaterialError as exc:
-        return jsonify({'error': str(exc)}), 400
-    except Exception as exc:
-        print(f'[tutor/materials] study map fetch failed: {type(exc).__name__}')
-        return jsonify({'error': 'Canvas could not provide this assignment right now.'}), 502
+    context, error = _load_assignment_ref(data.get('assignment_ref'))
+    if error:
+        return error
     if not sources(context):
         return jsonify(parse('{}', context))
     try:
@@ -1253,25 +1321,12 @@ def tutor():
         assignment_context = None
         assignment_ref = data.get('assignment_ref')
         if assignment_ref is not None:
-            from App import get_active_account
             access_error = _schoolwork_access_error()
             if access_error:
                 return access_error
-            account = get_active_account()
-            if not account or account.get('login_type') != 'canvas' or not account.get('canvas_token'):
-                return jsonify({'error': 'Connect Canvas before studying this assignment.'}), 409
-            if not isinstance(assignment_ref, dict):
-                return jsonify({'error': 'Choose a valid Canvas assignment.'}), 400
-            try:
-                from assignment_materials import MaterialError, load_assignment
-                assignment_context = load_assignment(
-                    account.get('canvas_url'), account['canvas_token'],
-                    assignment_ref.get('course_id'), assignment_ref.get('assignment_id'))
-            except MaterialError as exc:
-                return jsonify({'error': str(exc)}), 400
-            except Exception as exc:
-                print(f'[tutor/materials] assignment failed: {type(exc).__name__}')
-                return jsonify({'error': 'Canvas could not provide this assignment right now.'}), 502
+            assignment_context, error = _load_assignment_ref(assignment_ref)
+            if error:
+                return error
 
         recent = messages[-16:]
         memory_prompt = _build_tutor_memory_prompt(profile)
@@ -1627,23 +1682,12 @@ def tutor_vision():
 
         assignment_context = None
         if data.get('assignment_ref') is not None:
-            from App import get_active_account
             access_error = _schoolwork_access_error()
             if access_error:
                 return access_error
-            account = get_active_account()
-            if not account or account.get('login_type') != 'canvas' or not account.get('canvas_token'):
-                return jsonify({'error': 'Connect Canvas before studying this assignment.'}), 409
-            ref = data['assignment_ref']
-            if not isinstance(ref, dict):
-                return jsonify({'error': 'Choose a valid Canvas assignment.'}), 400
-            try:
-                from assignment_materials import MaterialError, load_assignment
-                assignment_context = load_assignment(
-                    account.get('canvas_url'), account['canvas_token'],
-                    ref.get('course_id'), ref.get('assignment_id'))
-            except MaterialError as exc:
-                return jsonify({'error': str(exc)}), 400
+            assignment_context, error = _load_assignment_ref(data['assignment_ref'])
+            if error:
+                return error
 
         if mode == 'multi':
             system_prompt = (

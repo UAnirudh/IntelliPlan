@@ -6828,9 +6828,18 @@ def api_integrations_status():
         except Exception:
             pass
 
+    # Providers whose credentials this deployment has not been given yet.
+    # Shown as "coming soon" rather than as a button that errors.
+    unavailable = set()
+    if not (OUTLOOK_AVAILABLE and outlook_calendar_helper.configured()):
+        unavailable.add("outlook_calendar")
+    for provider in CLOUD_DOC_PROVIDERS:
+        if not _cloud_docs_configured(provider):
+            unavailable.add(provider)
+
     return flask.jsonify({
         "status": "ok",
-        "integrations": integrations_catalog.catalog_payload(connected, details),
+        "integrations": integrations_catalog.catalog_payload(connected, details, unavailable),
     })
 
 
@@ -8648,6 +8657,13 @@ def _handle_google_callback():
     error_msg = request.args.get("error")
     if error_msg:
         print(f"[GOOGLE CALLBACK] Google error param: {error_msg}")
+        if session.get("oauth_purpose") == "drive":
+            # Declining Drive access is a choice, not a failed sign-in: the
+            # student is already logged in, so send them back where they
+            # started instead of to the login page.
+            for key in ("oauth_state", "oauth_purpose", "oauth_code_verifier"):
+                session.pop(key, None)
+            return redirect("/study-files?drive_error=cancelled")
         return redirect(url_for("login"))
 
     returned_state = request.args.get("state")
@@ -8730,6 +8746,7 @@ def _handle_google_callback():
         else:
             db.session.add(GoogleDriveIntegration(user_id=current_user.id, **values))
         db.session.commit()
+        _forget_document_matches()
         return redirect("/study-files?google_drive=connected")
 
     if purpose == "calendar":
@@ -9047,6 +9064,7 @@ def google_drive_disconnect():
         return jsonify({"status": "error", "message": "Sign in first."}), 401
     GoogleDriveIntegration.query.filter_by(user_id=current_user.id).delete(synchronize_session=False)
     db.session.commit()
+    _forget_document_matches()
     return jsonify({"status": "ok"})
 
 
@@ -9056,6 +9074,15 @@ def google_drive_oauth_start():
         return redirect(url_for("login", next="/study-files"))
     if not GCAL_AVAILABLE or not os.getenv("GOOGLE_CLIENT_ID") or not os.getenv("GOOGLE_CLIENT_SECRET"):
         return flask.jsonify({"status": "error", "message": "Google Drive is not configured yet."}), 503
+    # Same unverified-app warning as the calendar flow: Google shows its
+    # interstitial for Drive too until the consent screen passes review.
+    if _google_oauth_unverified() and request.args.get("ack") != "1":
+        return render_template(
+            "google_unverified.html",
+            active_page="settings",
+            continue_url=url_for("google_drive_oauth_start", ack="1"),
+            cancel_url="/study-files",
+        )
     state = secrets_module.token_urlsafe(32)
     session["oauth_state"] = state
     session["oauth_purpose"] = "drive"
@@ -9068,7 +9095,12 @@ def google_drive_oauth_start():
 
 
 def get_outlook_token():
-    """Return this user's persisted Microsoft token, refreshing it when due."""
+    """Return this user's persisted Microsoft token, refreshing it when due.
+
+    A row with no recorded expiry is refreshed rather than trusted: without
+    this, a token stored before ``expires_at`` existed was used forever after
+    its hour was up, and every calendar read quietly failed.
+    """
     if not current_user.is_authenticated or not OUTLOOK_AVAILABLE:
         return None
     row = OutlookIntegration.query.filter_by(user_id=current_user.id).first()
@@ -9076,16 +9108,45 @@ def get_outlook_token():
         return None
     try:
         token = json.loads(row.token_data)
+    except (TypeError, ValueError):
+        return None
+    try:
         expires_at = float(token.get("expires_at") or 0)
-        if expires_at and expires_at <= time.time() + 90:
+    except (TypeError, ValueError):
+        expires_at = 0
+    if (not expires_at or expires_at <= time.time() + 90) and token.get("refresh_token"):
+        try:
             token = outlook_calendar_helper.refresh_token(token)
             token["expires_at"] = time.time() + int(token.get("expires_in") or 3600)
             row.token_data = json.dumps(token)
             db.session.commit()
-        return token
-    except Exception as e:
-        print(f"Outlook token refresh failed: {e}")
-        return None
+        except Exception as e:
+            # The type only: an HTTPError's text can include the request.
+            print(f"Outlook token refresh failed: {type(e).__name__}")
+            db.session.rollback()
+            return None
+    return token
+
+
+def _user_tz_name(user_id):
+    """The student's IANA timezone as captured by the browser, or ""."""
+    try:
+        row = UserStreak.query.filter_by(user_id=user_id).first()
+        return (row.timezone or "") if row else ""
+    except Exception:
+        return ""
+
+
+def _microsoft_back(purpose, outcome):
+    """Where a Microsoft OAuth round trip lands, as a page the student can act
+    on. These used to be raw JSON error bodies in the browser tab."""
+    if purpose == "onedrive":
+        if outcome == "connected":
+            return redirect("/study-files?onedrive=connected")
+        return redirect(f"/settings?cloud_docs=onedrive_{outcome}")
+    if outcome == "connected":
+        return redirect("/command-center?calendar=outlook-connected")
+    return redirect(f"/settings?calendar=outlook_{outcome}")
 
 
 def get_onedrive_token():
@@ -9112,7 +9173,7 @@ def outlook_oauth():
     if not current_user.is_authenticated:
         return redirect(url_for("login", next="/settings"))
     if not OUTLOOK_AVAILABLE or not outlook_calendar_helper.configured():
-        return flask.jsonify({"status": "error", "message": "Outlook Calendar is not configured yet."}), 503
+        return redirect("/settings?calendar=outlook_unavailable")
     state = secrets_module.token_urlsafe(32)
     session["outlook_oauth_state"] = state
     session["microsoft_oauth_purpose"] = "outlook"
@@ -9135,15 +9196,30 @@ def onedrive_oauth():
 
 @app.route("/oauth/outlook/callback")
 def outlook_oauth_callback():
+    """The one Microsoft redirect URI, for both Outlook Calendar and OneDrive.
+
+    One URI rather than two so the owner registers a single redirect in
+    Entra; which grant this is was recorded in the session before leaving.
+    """
     if not current_user.is_authenticated:
         return redirect("/login")
     expected = session.pop("outlook_oauth_state", "")
+    purpose = session.pop("microsoft_oauth_purpose", "outlook")
+    if purpose not in ("outlook", "onedrive"):
+        purpose = "outlook"
+    if request.args.get("error"):
+        # access_denied: the student said no, or a school tenant requires an
+        # admin to approve the app first. Either way, not a crash.
+        print(f"[microsoft oauth] {purpose} declined: {request.args.get('error')}")
+        return _microsoft_back(purpose, "cancelled")
     state = request.args.get("state", "")
     code = request.args.get("code", "")
     if not expected or not secrets_module.compare_digest(expected, state) or not code:
-        return flask.jsonify({"status": "error", "message": "Outlook connection could not be verified. Please try again."}), 400
+        return _microsoft_back(purpose, "error")
     try:
-        if session.pop("microsoft_oauth_purpose", "outlook") == "onedrive":
+        if purpose == "onedrive":
+            if not ONEDRIVE_AVAILABLE:
+                return _microsoft_back(purpose, "unavailable")
             code_verifier = session.pop("microsoft_oauth_verifier", None)
             token = onedrive_helper.exchange_code(code, code_verifier)
             token["expires_at"] = time.time() + int(token.get("expires_in") or 3600)
@@ -9160,14 +9236,16 @@ def outlook_oauth_callback():
             else:
                 db.session.add(OneDriveIntegration(user_id=current_user.id, **values))
             db.session.commit()
-            return redirect("/study-files?onedrive=connected")
+            _forget_document_matches()
+            return _microsoft_back(purpose, "connected")
         token = outlook_calendar_helper.exchange_code(code)
         token["expires_at"] = time.time() + int(token.get("expires_in") or 3600)
         account = outlook_calendar_helper.profile(token)
+        email = account.get("mail") or account.get("userPrincipalName")
         row = OutlookIntegration.query.filter_by(user_id=current_user.id).first()
         values = {
             "token_data": json.dumps(token),
-            "account_email": account.get("mail") or account.get("userPrincipalName"),
+            "account_email": email,
             "account_name": account.get("displayName"),
         }
         if row:
@@ -9176,10 +9254,11 @@ def outlook_oauth_callback():
         else:
             db.session.add(OutlookIntegration(user_id=current_user.id, **values))
         db.session.commit()
-        return redirect("/command-center?calendar=outlook-connected")
+        return _microsoft_back(purpose, "connected")
     except Exception as e:
-        print(f"Outlook OAuth callback failed: {e}")
-        return flask.jsonify({"status": "error", "message": "Outlook Calendar could not be connected. Please try again."}), 502
+        db.session.rollback()
+        print(f"Microsoft OAuth callback ({purpose}) failed: {type(e).__name__}")
+        return _microsoft_back(purpose, "error")
 
 
 @app.route("/oauth/outlook/disconnect", methods=["POST"])
@@ -9195,6 +9274,7 @@ def onedrive_disconnect():
     if current_user.is_authenticated:
         OneDriveIntegration.query.filter_by(user_id=current_user.id).delete()
         db.session.commit()
+        _forget_document_matches()
     return flask.jsonify({"status": "ok"})
 
 
@@ -9233,6 +9313,14 @@ def cloud_documents_status():
         "google_picker_configured": bool(os.getenv("GOOGLE_PICKER_API_KEY") and os.getenv("GOOGLE_PICKER_APP_ID")),
         "onedrive": bool(one),
         "onedrive_account": one.account_email if one else "",
+        # Whether this deployment has credentials at all, so Settings can say
+        # "not available yet" instead of offering a Connect that 503s.
+        "google_drive_configured": _cloud_docs_configured("google_drive"),
+        "onedrive_configured": _cloud_docs_configured("onedrive"),
+        # "everything" only under GOOGLE_DRIVE_SCOPE_MODE=readonly; otherwise
+        # matching sees files IntelliPlan created or the student picked.
+        "google_search_scope": ("everything" if google and google_drive_helper.can_search_everything(
+            _safe_json_loads(google.token_data)) else "selected_files"),
     })
 
 
@@ -9510,17 +9598,266 @@ def update_cloud_document(link_id):
         print(f"Cloud document update failed for {link.provider}: {e}")
         return jsonify({"status": "error", "message": "The file could not be saved. Try reloading it first."}), 502
 
+
+
+# ── ASSIGNMENT ↔ DOCUMENT MATCHING ────────────────────────────
+#
+# The study-files routes above import files a student picks. These go the
+# other way: given an assignment, find the student's own notes and handouts
+# for it (feeding the tutor and study map), and write a study guide back
+# into their Drive or OneDrive. Same connections, same encrypted rows.
+#
+# Each route degrades to a clear "not set up" or "connect first" answer when
+# the owner has not configured a provider or the student has not connected
+# one. The OAuth apps did not exist when this shipped, and a button that
+# 500s is worse than no button.
+
+CLOUD_DOC_PROVIDERS = ("google_drive", "onedrive")
+CLOUD_DOC_NAMES = {"google_drive": "Google Drive", "onedrive": "OneDrive"}
+
+
+def _cloud_docs_configured(provider):
+    if provider == "google_drive":
+        return bool(GCAL_AVAILABLE and google_drive_helper.configured())
+    if provider == "onedrive":
+        return bool(ONEDRIVE_AVAILABLE and OUTLOOK_AVAILABLE and onedrive_helper.configured())
+    return False
+
+
+def _safe_json_loads(raw):
+    """A stored token dict, or {} if the row is unreadable (rotated key)."""
+    try:
+        value = json.loads(raw or "{}")
+    except (TypeError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _forget_document_matches():
+    """Drop cached matches after a connection changes, so a newly linked
+    drive is searched on the next request rather than ten minutes later."""
+    try:
+        from intelliplan.services import document_matcher
+        document_matcher.clear_cache()
+    except Exception:
+        pass
+
+
+def _cloud_doc_row(user_id, provider):
+    try:
+        if provider == "google_drive":
+            # Several Google accounts may be linked; the newest is the one
+            # the student most recently chose, matching get_google_drive_token.
+            return (GoogleDriveIntegration.query.filter_by(user_id=user_id)
+                    .order_by(GoogleDriveIntegration.id.desc()).first())
+        if provider == "onedrive":
+            return OneDriveIntegration.query.filter_by(user_id=user_id).first()
+    except Exception as e:
+        # A table a migration has not reached yet reads as "not connected".
+        print(f"[cloud-docs] lookup failed: {type(e).__name__}")
+        db.session.rollback()
+    return None
+
+
+def _cloud_doc_client(user_id, provider):
+    """A self-refreshing API client for this connection, or None.
+
+    The client renews the access token itself (before expiry, and once more
+    on a 401) and calls back here to store the new one, so a renewal in the
+    middle of a search is not lost and the next request does not start from
+    a dead token.
+    """
+    if not _cloud_docs_configured(provider):
+        return None
+    row = _cloud_doc_row(user_id, provider)
+    if not row:
+        return None
+    try:
+        token = json.loads(row.token_data)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(token, dict):
+        return None
+    model = GoogleDriveIntegration if provider == "google_drive" else OneDriveIntegration
+    row_id = row.id
+
+    def persist(fresh):
+        target = db.session.get(model, row_id)
+        if target:
+            target.token_data = json.dumps(fresh)
+            db.session.commit()
+
+    if provider == "google_drive":
+        return google_drive_helper.DriveClient(token, on_refresh=persist)
+    return onedrive_helper.OneDriveClient(token, on_refresh=persist)
+
+
+def cloud_docs_sources(user_id=None):
+    """Matcher sources for every document provider this user has connected.
+
+    chatbot_api imports this, so it accepts an explicit user id and only
+    falls back to current_user when none is given.
+    """
+    if user_id is None:
+        if not current_user.is_authenticated:
+            return []
+        user_id = current_user.id
+    from intelliplan.services import document_matcher
+    sources = []
+    for provider in CLOUD_DOC_PROVIDERS:
+        client = _cloud_doc_client(user_id, provider)
+        if client is None:
+            continue
+        if provider == "google_drive":
+            sources.append(document_matcher.google_drive_source(client))
+        else:
+            sources.append(document_matcher.onedrive_source(client))
+    return sources
+
+
+def _assignment_fields(source):
+    def field(name, limit):
+        return re.sub(r"\s+", " ", str(source.get(name) or "")).strip()[:limit]
+    return (field("title", 200), field("course", 200),
+            field("description", 4000), field("due_date", 10))
+
+
+@app.route("/api/cloud-documents/match")
+@limiter.limit("30 per minute")
+def cloud_documents_match():
+    """The student's documents that look relevant to one assignment.
+
+    Takes the assignment as query parameters rather than an id because
+    assignments come from half a dozen sources (Canvas, StudentVue, the
+    planner, a calendar feed) with no shared key; title, course and
+    directions are what every one of them has.
+    """
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "Sign in first."}), 401
+    title, course, description, _due = _assignment_fields(request.args)
+    if not title:
+        return jsonify({"status": "error", "message": "An assignment title is required."}), 400
+    sources = cloud_docs_sources(current_user.id)
+    if not sources:
+        return jsonify({"status": "ok", "connected": [], "documents": [],
+                        "keywords": [], "errors": []})
+    from intelliplan.services import document_matcher
+    try:
+        result = document_matcher.find_documents(
+            sources, title, course, description, owner=current_user.id)
+    except Exception as e:
+        print(f"[cloud-docs] match failed: {type(e).__name__}")
+        return jsonify({"status": "error",
+                        "message": "Your documents could not be searched right now."}), 502
+    return jsonify({
+        "status": "ok",
+        "connected": [s.provider for s in sources],
+        "keywords": result["keywords"],
+        # Excerpts only: the browser needs enough to recognise and open a
+        # file, not a copy of it.
+        "documents": document_matcher.public_documents(result["documents"]),
+        "errors": result["errors"],
+    })
+
+
+@app.route("/api/cloud-documents/create", methods=["POST"])
+@limiter.limit("10 per minute;60 per hour")
+def cloud_documents_create():
+    """Write a study guide for an assignment into the student's Drive/OneDrive.
+
+    Deterministic (no AI call), so it works with the AI quota spent and
+    produces the same guide twice. ``steps`` lets the client pass the study
+    map's plan when it has one.
+    """
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "Sign in first."}), 401
+    body = request.get_json(silent=True) or {}
+    title, course, description, due_date = _assignment_fields(body)
+    if not title:
+        return jsonify({"status": "error", "message": "An assignment title is required."}), 400
+    provider = str(body.get("provider") or "").strip()
+    if provider and provider not in CLOUD_DOC_PROVIDERS:
+        return jsonify({"status": "error", "message": "Unknown provider."}), 400
+    if not provider:
+        # No choice made: the first connected one, Drive before OneDrive.
+        provider = next((p for p in CLOUD_DOC_PROVIDERS
+                         if _cloud_docs_configured(p) and _cloud_doc_row(current_user.id, p)), "")
+        if not provider:
+            return jsonify({"status": "error", "connect_required": True,
+                            "message": "Connect Google Drive or OneDrive first."}), 409
+    name = CLOUD_DOC_NAMES[provider]
+    if not _cloud_docs_configured(provider):
+        return jsonify({"status": "error",
+                        "message": f"{name} is not set up on IntelliPlan yet."}), 503
+    client = _cloud_doc_client(current_user.id, provider)
+    if client is None:
+        return jsonify({"status": "error", "connect_required": True,
+                        "message": f"Connect {name} first."}), 409
+
+    from intelliplan.services import document_matcher
+    from cloud_token_client import TokenExpired
+    steps = body.get("steps")
+    steps = [str(s) for s in steps if isinstance(s, (str, int, float))][:8] if isinstance(steps, list) else None
+    documents = []
+    try:
+        documents = document_matcher.find_documents(
+            cloud_docs_sources(current_user.id), title, course, description,
+            owner=current_user.id)["documents"]
+    except Exception as e:
+        # The guide is still useful without the related-files section.
+        print(f"[cloud-docs] match before create failed: {type(e).__name__}")
+    guide = document_matcher.build_study_guide(
+        title, course, description, due_date, documents=documents, steps=steps)
+    try:
+        if provider == "google_drive":
+            created = google_drive_helper.create_document(client, guide["title"], guide["markdown"])
+        else:
+            created = onedrive_helper.create_document(client, guide["title"], guide["markdown"])
+    except TokenExpired:
+        return jsonify({"status": "error", "connect_required": True,
+                        "message": f"Reconnect {name} to create documents."}), 409
+    except Exception as e:
+        print(f"[cloud-docs] create in {provider} failed: {type(e).__name__}")
+        return jsonify({"status": "error",
+                        "message": f"{name} did not accept the document. Try again."}), 502
+    return jsonify({"status": "ok", "document": created, "used_documents": len(documents)})
+
+
+def _outlook_upcoming_events():
+    """Next week's Outlook events, or None when Outlook is not connected.
+
+    Failure is None too, not an exception: a Graph outage must not take the
+    Google events down with it.
+    """
+    token = get_outlook_token()
+    if not token:
+        return None
+    try:
+        return outlook_calendar_helper.get_upcoming_events(token)
+    except Exception as e:
+        print(f"Outlook events error: {type(e).__name__}")
+        return None
+
+
 @app.route("/calendar/events")
 def calendar_events():
-    if not GCAL_AVAILABLE:
-        return flask.jsonify({"connected": False, "events": []})
-    token = get_google_token()
+    """Upcoming events from every connected calendar, merged by start time.
+
+    Outlook used to be write-only here: plans went into it, but the event
+    list (and everything that reads it) only ever showed Google.
+    """
+    outlook_events = _outlook_upcoming_events()
+    token = get_google_token() if GCAL_AVAILABLE else None
     if not token:
+        if outlook_events is not None:
+            return flask.jsonify({"connected": True, "events": outlook_events})
         return flask.jsonify({"connected": False, "events": []})
     try:
         events = get_upcoming_events(token)
         session["google_token"] = token
         session.modified = True
+        if outlook_events:
+            events = sorted(events + outlook_events, key=lambda e: str(e.get("start") or ""))
         return flask.jsonify({"connected": True, "events": events})
     except Exception as e:
         print(f"Calendar events error: {e}")
@@ -9528,6 +9865,9 @@ def calendar_events():
         if current_user.is_authenticated:
             GoogleIntegration.query.filter_by(user_id=current_user.id).delete()
             db.session.commit()
+        if outlook_events is not None:
+            return flask.jsonify({"connected": True, "events": outlook_events,
+                                  "error": safe_error_message(e)})
         return flask.jsonify({"connected": False, "error": safe_error_message(e), "events": []})
 
 @app.route("/calendar/free-slot")
@@ -9547,38 +9887,71 @@ def calendar_free_slot():
 
 @app.route("/calendar/export", methods=["POST"])
 def calendar_export():
-    if not GCAL_AVAILABLE:
-        return flask.jsonify({"status": "error", "message": "Google Calendar not configured"})
-    token = get_google_token()
-    if not token:
-        return flask.jsonify({"status": "error", "message": "Google Calendar not connected"})
+    """Write a schedule's study blocks to every connected calendar.
+
+    Google-only until now, so a student who connected Outlook from Settings
+    could export from Plani's chat (plani_agent does both) but not from the
+    Scheduler page's button. Each provider succeeds or fails on its own; the
+    response says which.
+    """
+    google_token = get_google_token() if GCAL_AVAILABLE else None
+    outlook_token = get_outlook_token()
+    if not google_token and not outlook_token:
+        if not GCAL_AVAILABLE and not (OUTLOOK_AVAILABLE and outlook_calendar_helper.configured()):
+            return flask.jsonify({"status": "error", "message": "Calendar export is not configured"})
+        return flask.jsonify({"status": "error", "message": "No calendar connected"})
     data = request.get_json(silent=True) or {}
     schedule_data = data.get("schedule_data")
     if not schedule_data:
         return flask.jsonify({"status": "error", "message": "No schedule data supplied"}), 400
     skip_overlaps = data.get("skip_overlaps", False)
-    try:
-        existing_events = []
-        if skip_overlaps:
-            try:
-                existing_events = get_upcoming_events(token)
-            except Exception:
-                existing_events = []
-        ids, new_token, skipped = add_schedule_to_calendar(token, schedule_data, existing_events if skip_overlaps else [])
-        if new_token:
-            session["google_token"] = {**token, "token": new_token}
-            session.modified = True
-            if current_user.is_authenticated:
-                gi = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
-                if gi:
-                    td = json.loads(gi.token_data)
-                    td["token"] = new_token
-                    gi.token_data = json.dumps(td)
-                    db.session.commit()
-        return flask.jsonify({"status": "ok", "created": len(ids), "skipped": skipped})
-    except Exception as e:
-        print(f"Calendar export error: {e}")
-        return flask.jsonify({"status": "error", "message": "Google Calendar export failed. Please try again."})
+    providers = {}
+
+    if google_token:
+        token = google_token
+        try:
+            existing_events = []
+            if skip_overlaps:
+                try:
+                    existing_events = get_upcoming_events(token)
+                except Exception:
+                    existing_events = []
+            ids, new_token, skipped = add_schedule_to_calendar(token, schedule_data, existing_events if skip_overlaps else [])
+            if new_token:
+                session["google_token"] = {**token, "token": new_token}
+                session.modified = True
+                if current_user.is_authenticated:
+                    gi = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
+                    if gi:
+                        td = json.loads(gi.token_data)
+                        td["token"] = new_token
+                        gi.token_data = json.dumps(td)
+                        db.session.commit()
+            providers["google"] = {"created": len(ids), "skipped": skipped}
+        except Exception as e:
+            print(f"Calendar export error: {e}")
+            providers["google"] = {"error": "Google Calendar export failed. Please try again."}
+
+    if outlook_token:
+        try:
+            result = outlook_calendar_helper.export_schedule(
+                outlook_token, schedule_data, skip_overlaps=bool(skip_overlaps),
+                tz_name=_user_tz_name(current_user.id))
+            providers["outlook"] = {"created": len(result["created"]), "skipped": result["skipped"]}
+        except Exception as e:
+            print(f"Outlook export error: {type(e).__name__}")
+            providers["outlook"] = {"error": "Outlook export failed. Please try again."}
+
+    succeeded = [p for p in providers.values() if "error" not in p]
+    if not succeeded:
+        first_error = next(iter(providers.values()))["error"]
+        return flask.jsonify({"status": "error", "message": first_error, "providers": providers})
+    return flask.jsonify({
+        "status": "ok",
+        "created": sum(p["created"] for p in succeeded),
+        "skipped": sum(p["skipped"] for p in succeeded),
+        "providers": providers,
+    })
 
 # ── PROFILE MANAGEMENT ────────────────────────────────────────
 @app.route("/profiles/list")

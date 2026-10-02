@@ -982,6 +982,39 @@
       <div class="integration-row">
         <div>
           <div class="integration-label">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>
+            Outlook Calendar
+          </div>
+          <div class="integration-sub" id="outlookSub">Plan around Outlook events and add study blocks to it</div>
+        </div>
+        <span id="outlookStatus"><span class="settings-loading">Loading…</span></span>
+      </div>
+
+      <div class="integration-row">
+        <div>
+          <div class="integration-label">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-file"/></svg>
+            Google Drive
+          </div>
+          <div class="integration-sub" id="gdriveSub">Use your notes and handouts for each assignment, and save study guides to Drive</div>
+        </div>
+        <span id="gdriveStatus"><span class="settings-loading">Loading…</span></span>
+      </div>
+
+      <div class="integration-row">
+        <div>
+          <div class="integration-label">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-file"/></svg>
+            OneDrive
+          </div>
+          <div class="integration-sub" id="onedriveSub">Use your Word, PowerPoint and PDF files for each assignment, and save study guides to OneDrive</div>
+        </div>
+        <span id="onedriveStatus"><span class="settings-loading">Loading…</span></span>
+      </div>
+
+      <div class="integration-row">
+        <div>
+          <div class="integration-label">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-notion"/></svg>
             Notion
           </div>
@@ -2136,6 +2169,107 @@ async function disconnectLms(provider) {
 }
 
 refreshLmsStatuses();
+
+/* ── Outlook Calendar, Google Drive, OneDrive ────────────────
+   Each provider reports whether this deployment has credentials for it.
+   When it does not, the row says so instead of offering a Connect button
+   that would end on an error page. */
+const IP_DISCONNECT_BTN_STYLE = 'padding:6px 14px;border-radius:10px;border:1px solid var(--high);background:var(--high-bg);color:var(--high);cursor:pointer;font-family:var(--font-ui);font-size:0.78rem;font-weight:600;';
+
+function ipEscSettings(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function renderProviderRow(statusId, subId, p, disconnectFn) {
+  const el = document.getElementById(statusId);
+  if (!el) return;
+  const sub = document.getElementById(subId);
+  if (p && p.connected) {
+    if (sub && p.account) sub.textContent = p.account;
+    const manage = p.manage_url
+      ? '<a href="' + ipEscSettings(p.manage_url) + '" class="btn-secondary" style="padding:6px 12px;font-size:0.76rem;text-decoration:none;">Manage files</a>'
+      : '';
+    el.innerHTML = '<span style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;">' +
+      '<span class="connected-badge">Connected</span>' + manage +
+      '<button onclick="' + disconnectFn + '" style="' + IP_DISCONNECT_BTN_STYLE + '">Disconnect</button></span>';
+    return;
+  }
+  if (!p || !p.configured) {
+    el.innerHTML = '<span style="font-size:0.78rem;color:var(--text-muted);" title="IntelliPlan has not finished setting this up yet.">Not available yet</span>';
+    return;
+  }
+  el.innerHTML = '<a href="' + ipEscSettings(p.connect_url) + '" class="btn-primary" style="padding:6px 14px;font-size:0.78rem;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">Connect</a>';
+}
+
+function refreshOutlookStatus() {
+  fetch('/calendar/connections', { credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(d => renderProviderRow('outlookStatus', 'outlookSub', {
+      connected: !!d.outlook, configured: !!d.outlook_configured,
+      account: d.outlook_account || '', connect_url: '/oauth/outlook',
+    }, 'disconnectOutlook()'))
+    .catch(() => renderProviderRow('outlookStatus', 'outlookSub', null, ''));
+}
+
+function refreshCloudDocs() {
+  fetch('/api/cloud-documents/status', { credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(d => {
+      renderProviderRow('gdriveStatus', 'gdriveSub', {
+        connected: !!d.google_drive, configured: !!d.google_drive_configured,
+        account: d.google_account || '', connect_url: '/oauth/google-drive', manage_url: '/study-files',
+      }, "disconnectCloudDocs('google_drive')");
+      if (d.google_drive && d.google_search_scope === 'selected_files') {
+        const sub = document.getElementById('gdriveSub');
+        if (sub) sub.textContent = (d.google_account ? d.google_account + ' · ' : '') +
+          'Uses files you choose in Study files and guides IntelliPlan creates';
+      }
+      renderProviderRow('onedriveStatus', 'onedriveSub', {
+        connected: !!d.onedrive, configured: !!d.onedrive_configured,
+        account: d.onedrive_account || '', connect_url: '/oauth/onedrive', manage_url: '/study-files',
+      }, "disconnectCloudDocs('onedrive')");
+    })
+    .catch(() => {
+      renderProviderRow('gdriveStatus', 'gdriveSub', null, '');
+      renderProviderRow('onedriveStatus', 'onedriveSub', null, '');
+    });
+}
+
+async function disconnectOutlook() {
+  if (!await IP.confirm('Study blocks will stop going to Outlook until you connect it again.',
+                        { title: 'Disconnect Outlook Calendar?', confirmLabel: 'Disconnect', danger: true })) return;
+  fetch('/oauth/outlook/disconnect', { method: 'POST' })
+    .then(() => refreshOutlookStatus())
+    .catch(() => ipSetNotify("Couldn't disconnect. Check your connection and try again.", true));
+}
+
+async function disconnectCloudDocs(provider) {
+  const name = provider === 'onedrive' ? 'OneDrive' : 'Google Drive';
+  if (!await IP.confirm('Plani will stop using your ' + name + ' files. Documents already created stay in your ' + name + '.',
+                        { title: 'Disconnect ' + name + '?', confirmLabel: 'Disconnect', danger: true })) return;
+  // Files already imported into Study files stay in IntelliPlan.
+  fetch(provider === 'onedrive' ? '/oauth/onedrive/disconnect' : '/oauth/google-drive/disconnect', { method: 'POST' })
+    .then(() => refreshCloudDocs())
+    .catch(() => ipSetNotify("Couldn't disconnect. Check your connection and try again.", true));
+}
+
+/* The OAuth callbacks land back here with an outcome in the query string. */
+(function reportConnectionOutcome() {
+  const params = new URLSearchParams(window.location.search);
+  const outcome = params.get('cloud_docs') || params.get('calendar') || '';
+  const messages = {
+    onedrive_cancelled: ['OneDrive was not connected. School accounts sometimes need IT approval first.', true],
+    onedrive_unavailable: ['OneDrive is not available on IntelliPlan yet.', true],
+    onedrive_error: ['OneDrive could not be connected. Please try again.', true],
+    outlook_cancelled: ['Outlook was not connected. School accounts sometimes need IT approval first.', true],
+    outlook_unavailable: ['Outlook Calendar is not available on IntelliPlan yet.', true],
+    outlook_error: ['Outlook could not be connected. Please try again.', true],
+  };
+  if (messages[outcome]) ipSetNotify(messages[outcome][0], messages[outcome][1]);
+})();
+
+refreshOutlookStatus();
+refreshCloudDocs();
 
 /* ── Manual classes ─────────────────────────────────
    Names are ipClass*-prefixed: this block shares a global scope with
