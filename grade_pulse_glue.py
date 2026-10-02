@@ -343,6 +343,11 @@ def pull_user(user_id: int) -> dict[str, int]:
                 out["grades"] = observe_gradebook(user_id, kind, get_gradebook_detail(
                     creds.get("canvas_url") or "https://canvas.instructure.com",
                     creds["canvas_token"]))
+            elif kind == "hac":
+                import hac_helper
+
+                out["grades"] = observe_gradebook(user_id, kind, hac_helper.get_gradebook_detail(
+                    creds.get("hac_district_url"), creds.get("hac_username"), creds.get("hac_password")))
             elif kind == "schoology":
                 from schoology_helper import get_schoology_grades
 

@@ -942,6 +942,7 @@
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
       <a href="/login/canvas"     class="btn-secondary" style="text-decoration:none;padding:10px 20px;font-size:0.88rem;">+ Canvas</a>
       <a href="/login/studentvue" class="btn-secondary" style="text-decoration:none;padding:10px 20px;font-size:0.88rem;">+ StudentVue</a>
+      <a href="/login/hac"        class="btn-secondary" style="text-decoration:none;padding:10px 20px;font-size:0.88rem;">+ Home Access Center</a>
       <a href="/login/schoology"  class="btn-secondary" style="text-decoration:none;padding:10px 20px;font-size:0.88rem;">+ Schoology</a>
     </div>
     <div class="settings-danger-row">
@@ -1088,6 +1089,7 @@
           <option value="active">Active connected school</option>
           <option value="canvas">Canvas</option>
           <option value="studentvue">StudentVue</option>
+          <option value="hac">Home Access Center</option>
           <option value="schoology">Schoology</option>
         </select>
       </div>
@@ -1108,6 +1110,7 @@
       <a href="/connect" class="btn-primary" style="text-decoration:none;padding:8px 16px;font-size:0.84rem;">+ Connect LMS</a>
       <a href="/oauth/canvas" class="btn-secondary" style="text-decoration:none;padding:8px 16px;font-size:0.84rem;">Canvas</a>
       <a href="/login/studentvue" class="btn-secondary" style="text-decoration:none;padding:8px 16px;font-size:0.84rem;">StudentVue</a>
+      <a href="/login/hac" class="btn-secondary" style="text-decoration:none;padding:8px 16px;font-size:0.84rem;">Home Access Center</a>
       <a href="/login/schoology" class="btn-secondary" style="text-decoration:none;padding:8px 16px;font-size:0.84rem;">Schoology</a>
     </div>
   </div>
@@ -2295,7 +2298,7 @@ async function ipClassRemove(cls, btn) {
 })();
 
 const ASSIGNMENT_SOURCE_OPTS = [
-  { id: 'active', label: 'Active connected school (Canvas / StudentVue / Schoology)' },
+  { id: 'active', label: 'Active connected school (Canvas / StudentVue / Home Access Center / Schoology)' },
   { id: 'google_classroom', label: 'Google Classroom' },
   { id: 'blackboard', label: 'Blackboard Learn' },
   { id: 'moodle', label: 'Moodle' },

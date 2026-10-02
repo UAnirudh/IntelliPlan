@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<!-- The LogOn view re-rendered after a rejected password: HTTP 200, same
+     form, plus the MVC validation summary. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Home Access Center - Log On</title>
+</head>
+<body class="sg-body">
+<div id="SignInSectionContainer">
+  <form action="/HomeAccess/Account/LogOn?ReturnUrl=%2fHomeAccess%2f" id="SignInForm" method="post">
+    <div class="validation-summary-errors"><ul><li>Your attempt to log on was unsuccessful. Please verify your user name and password and try again.</li></ul></div>
+    <input name="__RequestVerificationToken" type="hidden" value="CfDJ8Example-Token_value-456" />
+    <select id="Database" name="Database">
+      <option selected="selected" value="10">Example ISD</option>
+    </select>
+    <input id="LogOnDetails_UserName" name="LogOnDetails.UserName" type="text" value="s123456" />
+    <input id="LogOnDetails_Password" name="LogOnDetails.Password" type="password" />
+    <button type="submit" id="login" class="sg-button">Sign In</button>
+  </form>
+</div>
+</body>
+</html>
