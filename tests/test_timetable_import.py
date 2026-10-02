@@ -242,3 +242,20 @@ def test_photo_output_is_parsed_from_fenced_json():
 
 def test_photo_garbage_yields_nothing():
     assert parse_photo_timetable("I can't read this image.") == {"classes": [], "rotation_hint": None}
+
+
+def test_class_list_refuses_entity_expansion_and_still_parses_safely():
+    # A district reply is untrusted input. An entity bomb must not be
+    # expanded; the regex fallback still reads the plain attributes.
+    from intelliplan.integrations.timetable_import import parse_studentvue_class_list
+
+    bomb = (
+        '<?xml version="1.0"?><!DOCTYPE x [<!ENTITY a "aaaaaaaaaa">'
+        '<!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">]>'
+        '<StudentClassSchedule><ClassLists>'
+        '<ClassListing Period="1" CourseTitle="Biology &b;" RoomName="12" Teacher="Lee" />'
+        '</ClassLists></StudentClassSchedule>'
+    )
+    parsed = parse_studentvue_class_list(bomb)
+    titles = [row.get("course") or row.get("name") or row.get("title") for row in parsed["listing"]]
+    assert all("aaaaaaaaaa" not in (t or "") for t in titles)

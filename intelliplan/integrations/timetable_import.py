@@ -33,6 +33,12 @@ import json
 import logging
 import re
 import xml.etree.ElementTree as ET
+
+# District replies are untrusted XML: defusedxml refuses entity expansion and
+# external entities ("billion laughs", XXE) that the stdlib parser would
+# happily process.
+from defusedxml import DefusedXmlException
+from defusedxml.ElementTree import fromstring as _safe_fromstring
 from datetime import date, datetime, timedelta
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -177,9 +183,9 @@ def parse_studentvue_class_list(text: str) -> dict[str, Any]:
     listing: list[dict] = []
     today: dict[str, Any] = {"date": None, "bell": "", "classes": []}
     try:
-        root = ET.fromstring(inner)
+        root = _safe_fromstring(inner)
         nodes = [(_strip_ns(el.tag), dict(el.attrib)) for el in root.iter()]
-    except ET.ParseError:
+    except (ET.ParseError, DefusedXmlException):
         nodes = [
             (m.group(1), {k: html_module.unescape(v) for k, v in _ATTR_RE.findall(m.group(2))})
             for m in _TAG_RE.finditer(inner)
