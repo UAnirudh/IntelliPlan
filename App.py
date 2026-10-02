@@ -438,6 +438,11 @@ class _EmbedSameSiteMiddleware:
 
 app.wsgi_app = _EmbedSameSiteMiddleware(app.wsgi_app, _SAMESITE_MANAGED_COOKIES)
 
+# This sits outside Flask's request/session lifecycle so maintenance requests
+# cannot update the old database while a final migration snapshot is taken.
+from intelliplan.maintenance import MigrationMaintenance
+app.wsgi_app = MigrationMaintenance(app.wsgi_app)
+
 
 @app.after_request
 def add_cors_headers(response):
