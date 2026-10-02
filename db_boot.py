@@ -90,8 +90,8 @@ def engine_options(url: str) -> dict[str, Any]:
     }
 
 
-def _schema_marker() -> str | None:
-    """A file that says this deployment's schema is already checked.
+def _schema_marker(step: str = "schema") -> str | None:
+    """A file that says this deployment already finished ``step``.
 
     Keyed by the Railway deployment, so new code always gets a fresh check.
     Without that id (local runs) there is no marker and every boot checks.
@@ -99,15 +99,16 @@ def _schema_marker() -> str | None:
     deployment = os.getenv("RAILWAY_DEPLOYMENT_ID", "").strip()
     if not deployment:
         return None
-    return os.path.join(tempfile.gettempdir(), f"intelliplan-schema-{deployment}")
+    return os.path.join(tempfile.gettempdir(), f"intelliplan-{step}-{deployment}")
 
 
 @contextmanager
-def schema_lock(engine: Any) -> Iterator[bool]:
+def schema_lock(engine: Any, step: str = "schema") -> Iterator[bool]:
     """Serialize boot-time schema work across processes (Postgres only).
 
     Yields True to the process that should do the work and False to the
     workers behind it, once a sibling in the same deployment has finished.
+    ``step`` names the piece of work; each step is skipped independently.
     With the database in another region one pass is hundreds of round trips;
     four workers repeating it in turn made boot take minutes.
 
@@ -123,7 +124,7 @@ def schema_lock(engine: Any) -> Iterator[bool]:
     if engine.dialect.name != "postgresql":
         yield True
         return
-    marker = _schema_marker()
+    marker = _schema_marker(step)
     with engine.connect() as conn:
         while not conn.execute(
             text("SELECT pg_try_advisory_lock(:k)"), {"k": SCHEMA_LOCK_KEY}
