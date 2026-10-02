@@ -12,6 +12,13 @@
   .pfs dd { margin: 0; color: var(--text-primary); font-weight: 600; }
   .pfs button { width: 100%; padding: 0.95rem 1rem; border-radius: 12px; border: 0; font: inherit; font-weight: 700; cursor: pointer; }
   .pfs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .pfs fieldset { border: 0; padding: 0; margin: 0 0 var(--space-4); display: grid; gap: 0.5rem; }
+  .pfs label { display: flex; align-items: baseline; gap: 0.7rem; padding: 0.8rem 0.9rem; border: 1px solid var(--border-strong); border-radius: 12px; cursor: pointer; font-family: var(--font-ui); color: var(--text-primary); }
+  .pfs label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+  .pfs label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .pfs label input { accent-color: var(--accent); margin: 0; }
+  .pfs label b { font-weight: 600; }
+  .pfs label span { margin-left: auto; color: var(--text-secondary); font-size: 0.88rem; }
   .pfs small { display: block; margin-top: 0.75rem; font-family: var(--font-ui); color: var(--text-secondary); line-height: 1.5; }
 </style>
 <div class="pfs">
@@ -23,11 +30,23 @@
     <h1>{{ student_first_name }} asked you to cover IntelliPlan Pro.</h1>
     <p>IntelliPlan is a study planner: it pulls in assignments from school, builds a study schedule, and has an AI tutor. The planner is free. Pro removes the monthly limit on AI help.</p>
     <dl>
-      <dt>Price</dt><dd>$5 per month</dd>
+      <dt>Price</dt><dd>{% for offer in offers %}${{ offer.price }} per {{ offer.interval }}{% if not loop.last %} or {% endif %}{% else %}${{ pro_prices['month'] }} per month{% endfor %}</dd>
       <dt>Cancel</dt><dd>Any time, from the receipt email</dd>
       <dt>Payment</dt><dd>Handled by Stripe; we never see the card</dd>
     </dl>
     <form method="post">
+      {% if offers|length > 1 %}
+      <fieldset>
+        <legend class="sr-only">How often to pay</legend>
+        {% for offer in offers %}
+        <label>
+          <input type="radio" name="interval" value="{{ offer.interval }}"{% if loop.first %} checked{% endif %}>
+          <b>${{ offer.price }} per {{ offer.interval }}</b>
+          {% if offer.interval == 'year' %}<span>{{ yearly_saving }}% less than monthly</span>{% endif %}
+        </label>
+        {% endfor %}
+      </fieldset>
+      {% endif %}
       <button type="submit" class="btn-primary">Continue to secure checkout</button>
     </form>
     <small>Not expecting this? You can close the page — nothing is charged unless you complete checkout.</small>

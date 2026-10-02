@@ -486,9 +486,22 @@ def read_pay_token(token: str) -> int | None:
         return None
 
 
-def _stripe():
+#: Which env var holds the Stripe Price for each interval.
+PRICE_ENV = {plans.MONTHLY: "STRIPE_PRICE_ID", plans.YEARLY: "STRIPE_PRICE_ID_YEARLY"}
+
+
+def _price_id(interval: str) -> str:
+    return os.getenv(PRICE_ENV.get(interval, PRICE_ENV[plans.MONTHLY]), "").strip()
+
+
+def _stripe(interval: str = plans.MONTHLY):
+    """The Stripe module and the Price to sell, or ``(None, None)``.
+
+    Monthly is the plan that has to exist for billing to be open at all;
+    yearly is offered only once its own Price is configured.
+    """
     key = os.getenv("STRIPE_SECRET_KEY", "")
-    price = os.getenv("STRIPE_PRICE_ID", "")
+    price = _price_id(interval)
     if not (billing_enabled() and key and price):
         return None, None
     try:
@@ -507,8 +520,23 @@ def _base_url() -> str:
     return (APP_BASE_URL or request.host_url or "").rstrip("/")
 
 
-def _checkout_for(student: Any, *, payer_is_student: bool) -> Any:
-    stripe, price = _stripe()
+def _pro_model_ready() -> bool:
+    import ai_provider
+
+    return bool(ai_provider.anthropic_api_key())
+
+
+def _offers() -> list[dict]:
+    """The intervals checkout can sell right now, cheapest commitment first."""
+    return [
+        {"interval": interval, "price": plans.PRO_PRICES_USD[interval]}
+        for interval in (plans.MONTHLY, plans.YEARLY)
+        if _stripe(interval)[0] is not None
+    ]
+
+
+def _checkout_for(student: Any, *, payer_is_student: bool, interval: str = plans.MONTHLY) -> Any:
+    stripe, price = _stripe(interval)
     if stripe is None:
         return None
     params: dict[str, Any] = {
@@ -517,7 +545,11 @@ def _checkout_for(student: Any, *, payer_is_student: bool) -> Any:
         # The student, whoever pays. The webhook trusts this id only because
         # Stripe signs the event that carries it back.
         "client_reference_id": str(student.id),
-        "metadata": {"user_id": str(student.id), "payer": "student" if payer_is_student else "other"},
+        "metadata": {
+            "user_id": str(student.id),
+            "payer": "student" if payer_is_student else "other",
+            "interval": interval,
+        },
         "subscription_data": {"metadata": {"user_id": str(student.id)}},
         "success_url": f"{_base_url()}/upgrade?paid=1",
         "cancel_url": f"{_base_url()}/upgrade",
@@ -545,6 +577,11 @@ def upgrade_page():
         active_page="pricing",
         billing_enabled=billing_enabled(),
         checkout_ready=_stripe()[0] is not None,
+        offers=_offers(),
+        yearly_saving=plans.yearly_saving_percent(),
+        # Only promise the stronger model where it is actually wired up.
+        pro_model_ready=_pro_model_ready(),
+        can_manage_billing=billing_enabled() and bool(getattr(current_user, "stripe_customer_id", None)),
         plan=plan,
         allowance=plans.allowance_state(usage_for(current_user.id, now), plan),
         paid_until=getattr(current_user, "paid_until", None),
@@ -563,8 +600,9 @@ def api_checkout():
         # A card in a minor's name is a chargeback waiting to happen. The
         # parent link below is the checkout for them.
         return jsonify({"status": "error", "message": "use_parent_link"}), 403
+    interval = plans.checkout_interval((request.get_json(silent=True) or {}).get("interval"))
     try:
-        checkout = _checkout_for(current_user, payer_is_student=True)
+        checkout = _checkout_for(current_user, payer_is_student=True, interval=interval)
     except Exception as exc:
         logger.exception("stripe checkout failed: %s", exc)
         return jsonify({"status": "error", "message": "Checkout is unavailable right now."}), 502
@@ -600,8 +638,9 @@ def pay_for_student(token):
             message="That payment link has expired or no longer works. Ask for a new one.",
         ), 404
     if request.method == "POST":
+        interval = plans.checkout_interval(request.form.get("interval"))
         try:
-            checkout = _checkout_for(student, payer_is_student=False)
+            checkout = _checkout_for(student, payer_is_student=False, interval=interval)
         except Exception as exc:
             logger.exception("stripe checkout (pay link) failed: %s", exc)
             checkout = None
@@ -617,7 +656,33 @@ def pay_for_student(token):
     return render_template(
         "pay_for_student.html", active_page="pricing", student_first_name=first,
         already_paid=current_plan(student) == plans.PAID,
+        offers=_offers(), yearly_saving=plans.yearly_saving_percent(),
     )
+
+
+@growth_bp.route("/api/billing/portal", methods=["POST"])
+def api_billing_portal():
+    """Stripe's own page for changing the card, switching plan or cancelling.
+
+    "Cancel any time" is on the upgrade page; this is the button that makes
+    it true without an email to support.
+    """
+    if not current_user.is_authenticated:
+        return jsonify({"status": "error", "message": "login required"}), 401
+    customer = getattr(current_user, "stripe_customer_id", None)
+    stripe, _price = _stripe()
+    if stripe is None:
+        return jsonify({"status": "error", "message": "Billing is not open yet."}), 503
+    if not customer:
+        return jsonify({"status": "error", "message": "There is no subscription on this account."}), 404
+    try:
+        portal = stripe.billing_portal.Session.create(
+            customer=customer, return_url=f"{_base_url()}/upgrade"
+        )
+    except Exception as exc:
+        logger.exception("stripe billing portal failed: %s", exc)
+        return jsonify({"status": "error", "message": "Billing is unavailable right now."}), 502
+    return jsonify({"status": "ok", "url": portal.url})
 
 
 @growth_bp.route("/api/billing/webhook", methods=["POST"])
@@ -688,6 +753,13 @@ def install(app: Any) -> None:
     import ai_provider
 
     app.register_blueprint(growth_bp)
+    # Public pages word themselves differently once Pro is on sale.
+    app.context_processor(lambda: {
+        "billing_enabled": billing_enabled(),
+        "pro_prices": plans.PRO_PRICES_USD,
+        "pro_yearly_saving": plans.yearly_saving_percent(),
+        "free_ai_allowance": plans.free_monthly_allowance(),
+    })
     ai_provider.set_account_hooks(plan_resolver=_plan_resolver, usage_gate=_usage_gate)
     app.before_request(remember_referral_from_query)
     app.after_request(_mark_paywall)

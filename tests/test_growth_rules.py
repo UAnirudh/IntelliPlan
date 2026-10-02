@@ -240,3 +240,16 @@ def test_a_broken_gate_fails_open(monkeypatch, hooks):
     _stub_chain(monkeypatch, [])
     ai_provider.set_account_hooks(usage_gate=lambda plan: 1 / 0)
     assert ai_provider.chat([{"role": "user", "content": "hi"}]) == "ok"
+
+
+def test_checkout_interval_is_monthly_unless_yearly_is_asked_for():
+    assert plans.checkout_interval("year") == plans.YEARLY
+    assert plans.checkout_interval("YEAR ") == plans.YEARLY
+    for raw in (None, "", "month", "lifetime", 12):
+        assert plans.checkout_interval(raw) == plans.MONTHLY
+
+
+def test_yearly_costs_less_than_twelve_months():
+    monthly, yearly = plans.PRO_PRICES_USD[plans.MONTHLY], plans.PRO_PRICES_USD[plans.YEARLY]
+    assert yearly < monthly * 12
+    assert plans.yearly_saving_percent() == round(100 * (1 - yearly / (monthly * 12)))

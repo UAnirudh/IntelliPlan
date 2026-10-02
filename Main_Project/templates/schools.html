@@ -77,7 +77,7 @@
       </div>
       <div class="sch-card" data-reveal>
         <h3>AI Tutor</h3>
-        <p>A built-in AI tutor that explains math, science, history, English, coding, languages, and test prep step by step. Always free for students.</p>
+        <p>A built-in AI tutor that explains math, science, history, English, coding, languages, and test prep step by step. {% if billing_enabled %}Included on the free plan.{% else %}Always free for students.{% endif %}</p>
       </div>
       <div class="sch-card" data-reveal>
         <h3>Grade Modeler</h3>
@@ -95,7 +95,7 @@
       </div>
       <div class="sch-card" data-reveal>
         <h3>Free for every student</h3>
-        <p>The full planner, AI tutor, and grade tools are completely free for every student. No extra tiers, no sign-up barriers.</p>
+        <p>{% if billing_enabled %}The full planner, school integrations and grade tools are free for every student, and schools are never billed. An optional Pro plan a family can buy only lifts the monthly limit on AI help.{% else %}The full planner, AI tutor, and grade tools are completely free for every student. No extra tiers, no sign-up barriers.{% endif %}</p>
       </div>
       <div class="sch-card" data-reveal>
         <h3>Privacy you can defend</h3>
@@ -121,7 +121,7 @@
     <h2 data-reveal>Frequently asked</h2>
     <div class="sch-faq">
       <details data-reveal><summary>Does this cost the school anything?</summary>
-      <p>No. IntelliPlan is completely free for every student at no cost to the school or district.</p></details>
+      <p>{% if billing_enabled %}No. Schools and districts are never billed, and the planner is free for every student. Pro is an optional upgrade a family can buy for more AI help.{% else %}No. IntelliPlan is completely free for every student at no cost to the school or district.{% endif %}</p></details>
       <details data-reveal><summary>What student data does IntelliPlan access?</summary>
       <p>Only what the student explicitly authorizes through their LMS: assignment titles, due dates, point values and course names, plus posted grades and category weights, which the Grade Modeler uses. We don't read submissions, grades that haven't posted, or messages. Read-only access — IntelliPlan can't modify the LMS account. Full policy at <a href="/legal">/legal</a>.</p></details>
       <details data-reveal><summary>Do we need IT to set anything up?</summary>

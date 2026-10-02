@@ -52,7 +52,7 @@
       "name": "Is IntelliPlan free for students?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "IntelliPlan is completely free for all students. Every feature is available with no extra tiers and no sign-up barriers."
+        "text": "{% if billing_enabled %}The planner is free for every student: school imports, AI study schedules, grade modeling and reminders, with {{ free_ai_allowance }} AI generations a month. IntelliPlan Pro (${{ pro_prices['month'] }} a month or ${{ pro_prices['year'] }} a year) is optional and removes that monthly limit.{% else %}IntelliPlan is completely free for all students. Every feature is available with no extra tiers and no sign-up barriers.{% endif %}"
       }
     },
     {
@@ -377,7 +377,7 @@
         <span class="faq-chevron" aria-hidden="true">▾</span>
       </summary>
       <p class="faq-answer">
-        IntelliPlan is completely free for all students. Every feature is available with no extra tiers and no sign-up barriers.
+        {% if billing_enabled %}The planner is free for every student: school imports, AI study schedules, grade modeling and reminders, with {{ free_ai_allowance }} AI generations a month. IntelliPlan Pro (${{ pro_prices['month'] }} a month or ${{ pro_prices['year'] }} a year) is optional and removes that monthly limit. <a href="/pricing">See pricing</a>.{% else %}IntelliPlan is completely free for all students. Every feature is available with no extra tiers and no sign-up barriers.{% endif %}
       </p>
     </details>
 

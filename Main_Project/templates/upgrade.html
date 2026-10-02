@@ -17,6 +17,19 @@
   .upg-offer { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--r-lg); box-shadow: var(--neu-shadow-sm); padding: var(--space-5); }
   .upg-price { font-family: var(--font-display); font-size: 2.6rem; font-weight: 600; color: var(--text-primary); margin: 0.2rem 0 0.1rem; }
   .upg-price small { font-size: 0.95rem; color: var(--text-secondary); font-weight: 500; }
+  .upg-terms { border: 0; padding: 0; margin: var(--space-3) 0 0; display: grid; gap: 0.5rem; }
+  .upg-term { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.15rem 0.7rem; padding: 0.8rem 0.9rem; border: 1px solid var(--border-strong); border-radius: 12px; cursor: pointer; font-family: var(--font-ui); transition: border-color var(--duration-fast, 150ms) ease, background-color var(--duration-fast, 150ms) ease; }
+  .upg-term:hover { border-color: var(--accent); }
+  .upg-term:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+  .upg-term:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .upg-term input { accent-color: var(--accent); margin: 0; }
+  .upg-term-name { font-weight: 600; color: var(--text-primary); }
+  .upg-term-price { font-family: var(--font-display); font-weight: 600; font-size: 1.15rem; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+  .upg-term-price small { font-family: var(--font-ui); font-size: 0.82rem; font-weight: 500; color: var(--text-secondary); }
+  .upg-term-save { grid-column: 2 / -1; font-size: 0.8rem; color: var(--text-secondary); }
+  .upg-manage { margin: calc(var(--space-6) * -0.5) 0 var(--space-6); }
+  .upg-manage button { padding: 0.7rem 1rem; border-radius: 10px; border: 1px solid var(--border-strong); background: transparent; color: var(--text-primary); font: inherit; font-weight: 600; cursor: pointer; }
+  .upg-manage button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .upg-offer ul { margin: var(--space-4) 0; padding-left: 1.1rem; color: var(--text-secondary); line-height: 1.7; font-family: var(--font-body); }
   .upg-offer .btn-primary, .upg-offer .btn-secondary { display: block; width: 100%; text-align: center; padding: 0.9rem 1rem; border-radius: 12px; font-weight: 700; text-decoration: none; border: 0; cursor: pointer; font: inherit; }
   .upg-offer .btn-secondary { margin-top: 0.6rem; font-weight: 600; }
@@ -38,6 +51,13 @@
   {% if plan == 'paid' %}
     <h1 class="upg-title">You're on IntelliPlan Pro.</h1>
     <p class="upg-lede">Unlimited AI tutor, schedules and study sets{% if paid_until %}, through {{ paid_until.strftime('%B %d, %Y') }}{% endif %}. Invite a classmate and you both get another {{ reward_days }} days.</p>
+    {% if can_manage_billing %}
+    <div class="upg-manage">
+      <button type="button" id="upgPortal">Manage or cancel subscription</button>
+      <p class="upg-note">Opens Stripe, where you can change the card, switch between monthly and yearly, or cancel. Cancelling keeps Pro until the date above.</p>
+      <p class="upg-err" id="upgPortalErr" role="alert"></p>
+    </div>
+    {% endif %}
   {% elif not billing_enabled %}
     <h1 class="upg-title">Everything is free right now.</h1>
     <p class="upg-lede">There's no paid plan yet, and nothing is metered. Referral months you earn now are banked and apply the day Pro launches.</p>
@@ -56,10 +76,24 @@
     {% if billing_enabled and plan != 'paid' %}
     <section class="upg-offer" aria-labelledby="upg-pro">
       <p class="u-label" id="upg-pro">IntelliPlan Pro</p>
-      <p class="upg-price">$5<small>/month</small></p>
+      {% if offers|length > 1 %}
+      <fieldset class="upg-terms">
+        <legend class="sr-only">How often to pay</legend>
+        {% for offer in offers %}
+        <label class="upg-term">
+          <input type="radio" name="upgInterval" value="{{ offer.interval }}"{% if loop.first %} checked{% endif %}>
+          <span class="upg-term-name">{{ 'Yearly' if offer.interval == 'year' else 'Monthly' }}</span>
+          <span class="upg-term-price">${{ offer.price }} <small>per {{ offer.interval }}</small></span>
+          {% if offer.interval == 'year' %}<span class="upg-term-save">${{ offer.price // 12 }} a month, {{ yearly_saving }}% less than paying monthly.</span>{% endif %}
+        </label>
+        {% endfor %}
+      </fieldset>
+      {% else %}
+      <p class="upg-price">${{ pro_prices['month'] }}<small> per month</small></p>
+      {% endif %}
       <ul>
         <li>Unlimited Plani tutor and AI study sets</li>
-        <li>Claude first in the model chain, for harder questions</li>
+        {% if pro_model_ready %}<li>Claude first in the model chain, for harder questions</li>{% endif %}
         <li>Cancel any time; you keep the free plan</li>
       </ul>
       {% if not checkout_ready %}
@@ -97,8 +131,8 @@
 (function () {
   var err = document.getElementById('upgErr');
   function fail(msg) { if (err) err.textContent = msg || 'Something went wrong. Try again.'; }
-  function post(url) {
-    return fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' } })
+  function post(url, body) {
+    return fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) })
       .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); });
   }
   document.querySelectorAll('.upg [data-copy]').forEach(function (btn) {
@@ -119,11 +153,22 @@
   var checkout = document.getElementById('upgCheckout');
   if (checkout) checkout.addEventListener('click', function () {
     checkout.disabled = true;
-    post('/api/billing/checkout').then(function (res) {
+    var chosen = document.querySelector('input[name="upgInterval"]:checked');
+    post('/api/billing/checkout', { interval: chosen ? chosen.value : 'month' }).then(function (res) {
       if (res.ok && res.body.url) { window.location.href = res.body.url; return; }
       checkout.disabled = false;
       fail(res.body && res.body.message === 'use_parent_link' ? 'Use the parent link below.' : res.body && res.body.message);
     }, function () { checkout.disabled = false; fail(); });
+  });
+  var portal = document.getElementById('upgPortal');
+  if (portal) portal.addEventListener('click', function () {
+    var portalErr = document.getElementById('upgPortalErr');
+    portal.disabled = true;
+    post('/api/billing/portal').then(function (res) {
+      if (res.ok && res.body.url) { window.location.href = res.body.url; return; }
+      portal.disabled = false;
+      portalErr.textContent = (res.body && res.body.message) || 'Something went wrong. Try again.';
+    }, function () { portal.disabled = false; portalErr.textContent = 'Something went wrong. Try again.'; });
   });
   var payLink = document.getElementById('upgPayLink');
   if (payLink) payLink.addEventListener('click', function () {
