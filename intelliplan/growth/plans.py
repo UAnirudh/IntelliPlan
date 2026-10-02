@@ -27,6 +27,11 @@ __all__ = [
     "extend_paid_until",
     "REFERRAL_REWARD_DAYS",
     "REFERRAL_MAX_REWARDS",
+    "MONTHLY",
+    "YEARLY",
+    "PRO_PRICES_USD",
+    "checkout_interval",
+    "yearly_saving_percent",
 ]
 
 PAID = "paid"
@@ -43,6 +48,15 @@ REFERRAL_REWARD_DAYS = 30
 #: Per inviter. Past this, referrals still record but stop paying — a cap is
 #: what stops a folder of throwaway accounts becoming free-forever.
 REFERRAL_MAX_REWARDS = 12
+
+#: Billing intervals Pro is sold on. The values are Stripe's own interval
+#: names, so they can be compared with a price without translating.
+MONTHLY = "month"
+YEARLY = "year"
+
+#: What the pages say Pro costs. Stripe charges whatever its Price objects
+#: say (STRIPE_PRICE_ID, STRIPE_PRICE_ID_YEARLY); keep the two in step.
+PRO_PRICES_USD = {MONTHLY: 5, YEARLY: 48}
 
 
 def free_monthly_allowance() -> int:
@@ -89,3 +103,14 @@ def extend_paid_until(paid_until: datetime | None, now: datetime, days: int) -> 
     """
     base = paid_until if paid_until is not None and paid_until > now else now
     return base + timedelta(days=max(0, days))
+
+
+def checkout_interval(raw: object) -> str:
+    """The interval a checkout request asked for; monthly unless it said yearly."""
+    return YEARLY if str(raw or "").strip().lower() == YEARLY else MONTHLY
+
+
+def yearly_saving_percent() -> int:
+    """How much less a year costs than twelve single months, for the pages."""
+    twelve_months = PRO_PRICES_USD[MONTHLY] * 12
+    return round(100 * (1 - PRO_PRICES_USD[YEARLY] / twelve_months))

@@ -87,7 +87,7 @@
     <p class="legal-meta"><strong>Last Updated:</strong> June 11, 2026</p>
 
     <div class="legal-callout">
-      <strong>Short version:</strong> IntelliPlan is free, built for students, and we never sell your data.
+      <strong>Short version:</strong> {% if billing_enabled %}The IntelliPlan planner is free{% else %}IntelliPlan is free{% endif %}, built for students, and we never sell your data.
       We only collect what we need to run the planner. You can disconnect
       any integration or delete your account at any time from Settings.
     </div>
@@ -188,6 +188,8 @@
         <li><strong>Notion</strong> &mdash; <a href="https://www.notion.so/Privacy-Policy" target="_blank" rel="noopener noreferrer">notion.so/Privacy-Policy</a></li>
         <li><strong>Canvas</strong> (Instructure) &mdash; <a href="https://www.instructure.com/policies/privacy" target="_blank" rel="noopener noreferrer">instructure.com/policies/privacy</a></li>
         <li><strong>Resend</strong> (email and SMS gateway) &mdash; <a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer">resend.com/legal/privacy-policy</a></li>
+        <li><strong>Supabase</strong> (database hosting) &mdash; <a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer">supabase.com/privacy</a></li>
+        {% if billing_enabled %}<li><strong>Stripe</strong> (payments for IntelliPlan Pro) &mdash; <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer">stripe.com/privacy</a>. Card details go to Stripe directly; IntelliPlan stores only a Stripe customer reference and the date a paid period ends.</li>{% endif %}
         <li><strong>Railway</strong> (hosting) &mdash; <a href="https://railway.com/legal/privacy" target="_blank" rel="noopener noreferrer">railway.com/legal/privacy</a></li>
       </ul>
       <p>See the <a href="/cookies">Cookie Policy</a> for the full list of what is stored in your browser, what each item does, how long it lasts, and how to change your choice.</p>
@@ -253,7 +255,7 @@
           <tr><td>Used with students 13 or younger? Does it require an account for each student?</td>
               <td class="yes">Yes &mdash; every student gets their own individual account. Shared or class accounts are not permitted for under-13 students.</td></tr>
               <tr><td>Is the service free?</td>
-              <td class="yes">IntelliPlan is completely free. There are no extra tiers, account levels, or in-app purchases.</td></tr>
+              <td class="yes">{% if billing_enabled %}The planner, every school integration, grade tools and reminders are free. An optional Pro subscription (${{ pro_prices['month'] }} a month or ${{ pro_prices['year'] }} a year) removes the monthly limit on AI generations. It is never required, and it is bought by the student or a parent, not the school.{% else %}IntelliPlan is completely free. There are no extra tiers, account levels, or in-app purchases.{% endif %}</td></tr>
           <tr><td>Who manages accounts in the system?</td>
               <td class="yes">For self-signup users, the student. For school-provisioned access, the district's designated administrator in coordination with the student.</td></tr>
           <tr><td>Is any collected student data used for marketing purposes?</td>
@@ -286,7 +288,7 @@
     <div class="legal-body">
 
       <h3 id="t-service">1. What IntelliPlan is</h3>
-      <p>IntelliPlan is a free AI-powered academic planning tool for students. It connects to your school's learning management system (Canvas, Schoology, StudentVue) and Google Calendar to pull your assignments, then uses AI to generate personalized study schedules and provide tutoring help. There are no extra tiers, account levels, or locked features. Every feature is available to every user at no cost.</p>
+      <p>IntelliPlan is {% if billing_enabled %}an AI-powered academic planning tool for students, free to use, with an optional paid plan described in section 6a.{% else %}a free AI-powered academic planning tool for students.{% endif %} It connects to your school's learning management system (Canvas, Schoology, StudentVue) and Google Calendar to pull your assignments, then uses AI to generate personalized study schedules and provide tutoring help. {% if billing_enabled %}Every feature is available on the free plan; the only limit is a monthly number of AI generations, which the optional paid plan removes.{% else %}There are no extra tiers, account levels, or locked features. Every feature is available to every user at no cost.{% endif %}</p>
 
       <h3 id="t-account">2. Your account</h3>
       <p>You are responsible for keeping your account secure. IntelliPlan supports Google OAuth sign-in; we never see or store your Google password. School credentials for Canvas, Schoology, or StudentVue may be stored encrypted, solely so we can fetch your assignments. You may disconnect any integration at any time from Settings.</p>
@@ -312,6 +314,19 @@
 
       <h3 id="t-third">6. Third-party services</h3>
       <p>When you connect Google Calendar, Notion, Canvas, Schoology, StudentVue, or any other third-party service, that service's own terms and privacy policy also apply. IntelliPlan is not responsible for the availability, accuracy, or content of third-party services.</p>
+
+      {% if billing_enabled %}
+      <h3 id="t-pro">6a. IntelliPlan Pro (optional paid plan)</h3>
+      <p>The planner, school integrations, grade tools and reminders are free. The free plan includes {{ free_ai_allowance }} AI generations per calendar month. IntelliPlan Pro removes that limit and costs ${{ pro_prices['month'] }} a month or ${{ pro_prices['year'] }} a year, charged through Stripe.</p>
+      <ul>
+        <li><strong>Renewal.</strong> Pro renews automatically at the end of each paid month or year until it is cancelled.</li>
+        <li><strong>Cancelling.</strong> You can cancel at any time from <a href="/upgrade">Your plan</a> or from the link in the Stripe receipt. Pro stays on until the end of the period already paid for, then the account returns to the free plan. Nothing is deleted.</li>
+        <li><strong>Who pays.</strong> Students under 18 cannot check out themselves; a parent or guardian pays through a link the student shares.</li>
+        <li><strong>Refunds.</strong> Refund requests go to the contact address in section 12 and are reviewed individually.</li>
+        <li><strong>Price changes.</strong> If the price changes, subscribers are told by email before the next renewal at the new price.</li>
+        <li><strong>Referral months.</strong> Pro time earned by inviting friends has no cash value and cannot be transferred.</li>
+      </ul>
+      {% endif %}
 
       <h3 id="t-availability">7. Availability &amp; warranty disclaimer</h3>
       <p>IntelliPlan is provided <strong>as-is and as-available</strong>, without warranties of any kind, express or implied, including merchantability, fitness for a particular purpose, and non-infringement. We do not guarantee uptime, error-free operation, or the accuracy of AI-generated content. We strive for high reliability, but treat IntelliPlan as a planning aid, not a single source of truth for your deadlines.</p>

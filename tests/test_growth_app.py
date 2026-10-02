@@ -253,6 +253,142 @@ def test_upgrade_page_renders_in_both_modes(client, monkeypatch):
     assert on.status_code == 200 and b"AI generations left this month" in on.data
 
 
+class _FakeStripe:
+    """Records what checkout and the portal were asked for."""
+
+    def __init__(self):
+        self.checkouts, self.portals = [], []
+        outer = self
+
+        class _Sessions:
+            @staticmethod
+            def create(**params):
+                outer.checkouts.append(params)
+                return type("S", (), {"url": "https://checkout.test/session"})()
+
+        class _Portal:
+            @staticmethod
+            def create(**params):
+                outer.portals.append(params)
+                return type("P", (), {"url": "https://billing.test/portal"})()
+
+        self.checkout = type("C", (), {"Session": _Sessions})
+        self.billing_portal = type("B", (), {"Session": _Portal})
+
+
+@pytest.fixture
+def stripe_stub(monkeypatch):
+    import sys
+
+    fake = _FakeStripe()
+    monkeypatch.setitem(sys.modules, "stripe", fake)
+    monkeypatch.setenv("BILLING_ENABLED", "1")
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_x")
+    monkeypatch.setenv("STRIPE_PRICE_ID", "price_month")
+    monkeypatch.setenv("STRIPE_PRICE_ID_YEARLY", "price_year")
+    return fake
+
+
+def test_checkout_defaults_to_the_monthly_price(client, stripe_stub):
+    with App.app.app_context():
+        uid = make_user()
+    sign_in(client, uid)
+    res = client.post("/api/billing/checkout", json={})
+    assert res.status_code == 200 and res.get_json()["url"].startswith("https://checkout.test")
+    assert stripe_stub.checkouts[0]["line_items"] == [{"price": "price_month", "quantity": 1}]
+
+
+def test_checkout_uses_the_yearly_price_when_asked(client, stripe_stub):
+    with App.app.app_context():
+        uid = make_user()
+    sign_in(client, uid)
+    res = client.post("/api/billing/checkout", json={"interval": "year"})
+    assert res.status_code == 200
+    params = stripe_stub.checkouts[0]
+    assert params["line_items"] == [{"price": "price_year", "quantity": 1}]
+    assert params["client_reference_id"] == str(uid)
+
+
+def test_yearly_is_not_sold_until_its_price_is_configured(client, stripe_stub, monkeypatch):
+    monkeypatch.delenv("STRIPE_PRICE_ID_YEARLY")
+    with App.app.app_context():
+        uid = make_user()
+    sign_in(client, uid)
+    res = client.post("/api/billing/checkout", json={"interval": "year"})
+    assert res.status_code == 503 and not stripe_stub.checkouts
+    page = client.get("/upgrade")
+    assert b"per year" not in page.data and b"per month" in page.data
+
+
+def test_an_unknown_interval_falls_back_to_monthly(client, stripe_stub):
+    with App.app.app_context():
+        uid = make_user()
+    sign_in(client, uid)
+    client.post("/api/billing/checkout", json={"interval": "lifetime"})
+    assert stripe_stub.checkouts[0]["line_items"][0]["price"] == "price_month"
+
+
+def test_parent_link_can_pay_yearly(client, stripe_stub):
+    with App.app.app_context():
+        uid = make_user()
+        token = growth_glue.make_pay_token(uid)
+    page = client.get(f"/pay/{token}")
+    assert page.status_code == 200 and b"$48" in page.data and b"$5" in page.data
+    res = client.post(f"/pay/{token}", data={"interval": "year"})
+    assert res.status_code == 303 and res.headers["Location"].startswith("https://checkout.test")
+    assert stripe_stub.checkouts[0]["line_items"][0]["price"] == "price_year"
+    assert stripe_stub.checkouts[0]["client_reference_id"] == str(uid)
+
+
+def test_yearly_invoice_opens_a_year_long_window(client):
+    with App.app.app_context():
+        uid = make_user()
+        end = int((datetime.utcnow() + timedelta(days=365)).timestamp())
+        event = {
+            "type": "invoice.paid",
+            "data": {"object": {
+                "customer": "cus_year",
+                "subscription_details": {"metadata": {"user_id": str(uid)}},
+                "lines": {"data": [{"period": {"end": end}}]},
+            }},
+        }
+        assert growth_glue.apply_billing_event(event)
+        assert User.query.get(uid).paid_until > datetime.utcnow() + timedelta(days=360)
+
+
+def test_subscriber_gets_a_billing_portal_link(client, stripe_stub):
+    with App.app.app_context():
+        uid = make_user(stripe_customer_id="cus_abc", paid_until=datetime.utcnow() + timedelta(days=20))
+    sign_in(client, uid)
+    res = client.post("/api/billing/portal")
+    assert res.status_code == 200 and res.get_json()["url"] == "https://billing.test/portal"
+    assert stripe_stub.portals[0]["customer"] == "cus_abc"
+    assert b"Manage or cancel" in client.get("/upgrade").data
+
+
+def test_portal_needs_a_stripe_customer(client, stripe_stub):
+    with App.app.app_context():
+        uid = make_user()
+    sign_in(client, uid)
+    assert client.post("/api/billing/portal").status_code == 404
+    assert not stripe_stub.portals
+
+
+def test_portal_requires_login(client, stripe_stub):
+    assert client.post("/api/billing/portal").status_code == 401
+
+
+def test_public_pages_only_mention_pro_once_billing_is_on(client, monkeypatch):
+    for path in ("/pricing", "/faq", "/legal"):
+        assert b"completely free" in client.get(path).data or b"Free forever" in client.get(path).data
+    assert b"$48" not in client.get("/pricing").data
+    monkeypatch.setenv("BILLING_ENABLED", "1")
+    pricing = client.get("/pricing").data
+    assert b"$5" in pricing and b"$48" in pricing and b"No tiers" not in pricing
+    assert b"no extra tiers" not in client.get("/faq").data
+    assert b"There are no extra tiers" not in client.get("/legal").data
+
+
 # ── Metrics and streak emails ────────────────────────────────────────
 
 
