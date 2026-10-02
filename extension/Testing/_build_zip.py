@@ -20,6 +20,8 @@ ENTRIES = [
     ("background.js",        "background.js"),
     ("content.js",           "content.js"),
     ("options.html",         "options.html"),
+    ("blocked.html",         "blocked.html"),
+    ("blocked.js",           "blocked.js"),
     ("icons/icon-16.png",    "icons/icon-16.png"),
     ("icons/icon-32.png",    "icons/icon-32.png"),
     ("icons/icon-48.png",    "icons/icon-48.png"),

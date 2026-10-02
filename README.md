@@ -523,6 +523,9 @@ production (AAB) profiles ready for `eas build`.
 | `/extension/schedule` | GET | Get saved schedule |
 | `/extension/grades` | GET | Get grades |
 | `/extension/dismiss` | POST | Dismiss task from extension |
+| `/extension/focus/current` | GET | Focus Shield: current/next study block (device `?tz=`), blocklist, break state |
+| `/extension/focus/break` | POST | Focus Shield: take one of this block's 5-minute breaks |
+| `/extension/focus/done` | POST | Focus Shield: "I'm done early" (stops blocking, checks the block off) |
 
 ---
 
@@ -532,6 +535,7 @@ The IntelliPlan Chrome Extension:
 - Shows a **badge count** of pending assignments on the extension icon
 - **Injects directly into Canvas and StudentVue pages** for quick access
 - Supports login with your IntelliPlan account
+- **Focus Shield** (1.5.0+): blocks a distractor list you edit in Settings, only while a planned study block or Active session is running; works offline for the current block; never reports browsing anywhere
 - Available as a `.zip` in the repo — load via Chrome's `chrome://extensions` in Developer Mode
 
 ---

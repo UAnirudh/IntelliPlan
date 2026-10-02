@@ -848,6 +848,9 @@
       <div id="ipdSchedBlocks" style="margin-top:6px;"></div>
     </div>
 
+    {# Study Buddies: who studied today, the shared streak, a nudge. #}
+    {% if current_user.is_authenticated %}{% include "partials/buddies_card.html" %}{% endif %}
+
     {# Grade Modeler teaser #}
     <div class="ipd-grade-card" id="ipdGradeCard">
       <div class="ipd-card-title">

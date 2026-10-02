@@ -1,0 +1,104 @@
+{# Study Buddies card. Included on the dashboard (compact) and on /buddies.
+   Shows only what a buddy is allowed to see: studied today, focus minutes,
+   and the shared streak. Never grades, assignments or courses -- the API
+   does not send them, so this markup could not show them if it tried.
+   Hidden entirely for a student who cannot use the feature. #}
+<div class="ipd-upcoming-card bud-card" id="budCard" hidden>
+  <div class="ipd-card-title">
+    <span>Study buddies</span>
+    <a href="/buddies" class="bud-open">Open →</a>
+  </div>
+  <div id="budBody"></div>
+  <p class="bud-status" id="budStatus" role="status" aria-live="polite"></p>
+</div>
+
+<style>
+  .bud-open { font-family: var(--ipd-font-body, inherit); font-size: 0.76rem; font-weight: 600; color: var(--text-muted); text-decoration: none; }
+  .bud-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border, rgba(0,0,0,.08)); }
+  .bud-row:first-child { border-top: none; }
+  .bud-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: var(--border, #cbd5e1); }
+  .bud-dot.on { background: var(--low, #22c55e); }
+  .bud-name { flex: 1; min-width: 0; font-size: 0.86rem; font-weight: 600; color: var(--text-primary); }
+  .bud-meta { display: block; font-size: 0.74rem; font-weight: 400; color: var(--text-muted); }
+  .bud-streak { font-size: 0.78rem; font-weight: 700; color: var(--text-secondary); white-space: nowrap; }
+  .bud-streak.risk { color: var(--high, #ef4444); }
+  .bud-nudge { font-size: 0.74rem; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border, #cbd5e1); background: transparent; color: var(--text-primary); cursor: pointer; }
+  .bud-nudge[disabled] { opacity: 0.5; cursor: default; }
+  .bud-empty { font-size: 0.82rem; color: var(--text-muted); padding: 0.5rem 0; line-height: 1.5; }
+  .bud-empty a { color: var(--accent); font-weight: 600; }
+  .bud-status { font-size: 0.76rem; color: var(--text-muted); margin: 6px 0 0; min-height: 1em; }
+</style>
+
+<script>
+(function () {
+  var card = document.getElementById('budCard');
+  if (!card) return;
+  var body = document.getElementById('budBody');
+  var status = document.getElementById('budStatus');
+
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function render(d) {
+    if (!d || d.status !== 'ok' || !d.eligible) { card.hidden = true; return; }
+    card.hidden = false;
+    if (!d.enabled) {
+      body.innerHTML = '<div class="bud-empty">Keep a streak going with up to ' + d.max_buddies +
+        ' friends. They only ever see whether you studied and your focus minutes &mdash; never grades. ' +
+        '<a href="/buddies">Turn on Study Buddies</a></div>';
+      return;
+    }
+    var rows = (d.buddies || []);
+    if (!rows.length) {
+      body.innerHTML = '<div class="bud-empty">No buddies yet. <a href="/buddies">Invite a friend</a>' +
+        ((d.incoming || []).length ? ' &middot; ' + d.incoming.length + ' request(s) waiting' : '') + '</div>';
+      return;
+    }
+    body.innerHTML = rows.map(function (b) {
+      if (!b.sharing) {
+        return '<div class="bud-row"><span class="bud-dot" aria-hidden="true"></span>' +
+          '<span class="bud-name">' + esc(b.name) + '<span class="bud-meta">Sharing paused</span></span></div>';
+      }
+      var meta = b.studied_today ? ('Studied today &middot; ' + b.focus_minutes_today + ' min focus') : 'Not yet today';
+      if (b.nudged_you_today) meta += ' &middot; nudged you';
+      var streak = b.streak > 0
+        ? '<span class="bud-streak' + (b.streak_at_risk ? ' risk' : '') + '" title="Days you have both studied in a row">' +
+          b.streak + '-day streak' + (b.streak_both_today ? ' ✓' : '') + '</span>'
+        : '';
+      var nudge = b.can_nudge
+        ? '<button type="button" class="bud-nudge" data-nudge="' + b.id + '" aria-label="Nudge ' + esc(b.name) + '">Nudge</button>'
+        : '';
+      return '<div class="bud-row"><span class="bud-dot' + (b.studied_today ? ' on' : '') + '" aria-hidden="true"></span>' +
+        '<span class="bud-name">' + esc(b.name) + '<span class="bud-meta">' + meta + '</span></span>' + streak + nudge + '</div>';
+    }).join('');
+  }
+
+  function load() {
+    fetch('/api/buddies', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(render)
+      .catch(function () { card.hidden = true; });
+  }
+
+  card.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('[data-nudge]') : null;
+    if (!btn) return;
+    btn.disabled = true;
+    fetch('/api/buddies/' + encodeURIComponent(btn.getAttribute('data-nudge')) + '/nudge', {
+      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}'
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        status.textContent = d.status === 'ok' ? 'Nudge sent.' : (d.message || 'Could not send that nudge.');
+        if (d.status === 'ok') render(d);
+      })
+      .catch(function () { status.textContent = 'Could not send that nudge.'; btn.disabled = false; });
+  });
+
+  window.ipBuddiesCardRender = render;
+  load();
+})();
+</script>

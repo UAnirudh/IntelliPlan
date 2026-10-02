@@ -488,6 +488,8 @@ function startFocusMode() {
   focusTotal   = 25 * 60;
   focusSeconds = 0;
   focusTimer   = setInterval(tickFocus, 1000);
+  // Focus Shield blocks distractors for the length of this timer too.
+  chrome.runtime.sendMessage({ type: "focus_shield_local_start", minutes: focusTotal / 60 }, () => void chrome.runtime.lastError);
 
   // Switch ql-focus button style
   document.getElementById("qlFocus")?.classList.add("focus-active");
@@ -498,6 +500,7 @@ function startFocusMode() {
 
 function stopFocus() {
   clearInterval(focusTimer);
+  chrome.runtime.sendMessage({ type: "focus_shield_local_stop" }, () => void chrome.runtime.lastError);
   focusTimer   = null;
   focusSeconds = 0;
   document.getElementById("qlFocus")?.classList.remove("focus-active");

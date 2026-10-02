@@ -50,7 +50,7 @@ DEFAULT_TTL = timedelta(hours=6)
 SHORT_TTL = timedelta(minutes=90)
 #: A streak warning is worthless after midnight, and harmful if it arrives
 #: the next morning claiming a streak that has already gone.
-_SHORT_TTL_KINDS = {"session_upcoming", "streak_at_risk"}
+_SHORT_TTL_KINDS = {"session_upcoming", "streak_at_risk", "buddy_nudge"}
 
 #: Rows claimed per flush. Bounded so one sweep cannot run for minutes and
 #: overlap the next cron tick.
