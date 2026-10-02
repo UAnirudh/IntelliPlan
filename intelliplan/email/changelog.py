@@ -53,6 +53,7 @@ SCOPE_LABELS = {
     "chatbot": "Plani",
     "canvas": "Canvas",
     "studentvue": "StudentVue",
+    "hac": "Home Access Center",
     "schoology": "Schoology",
     "classroom": "Google Classroom",
     "calendar": "Google Calendar",
