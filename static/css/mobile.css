@@ -1079,6 +1079,10 @@ select {
     border-color: #22c55e !important;
   }
 
+  .login-card .btn-guest.hac:hover {
+    border-color: #0E6E8C !important;
+  }
+
   .login-card .btn-guest.schoology:hover {
     border-color: #5865F2 !important;
   }

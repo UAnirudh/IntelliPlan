@@ -65,6 +65,7 @@ def make_user(ctx_unused=None, **overrides):
         "role": "student",
         "marketing_emails_opt_in": True,
         "marketing_opt_in_at": datetime(2026, 1, 1),
+        "marketing_consent_version": "weekly_v1",
         "password_hash": "x",
     }
     defaults.update(overrides)
@@ -460,6 +461,17 @@ def test_turning_marketing_on_stamps_the_consent_date(ctx):
     _apply_preferences(user, {"marketing_emails_opt_in": True})
 
     assert user.marketing_emails_opt_in is True
+    assert user.marketing_opt_in_at is not None
+    assert user.marketing_consent_version == "weekly_v1"
+
+
+def test_reopting_an_existing_subscriber_records_the_new_weekly_terms(ctx):
+    from notifications_glue import _apply_preferences
+
+    user = make_user(marketing_emails_opt_in=True, marketing_consent_version=None)
+    _apply_preferences(user, {"marketing_emails_opt_in": True})
+
+    assert user.marketing_consent_version == "weekly_v1"
     assert user.marketing_opt_in_at is not None
 
 

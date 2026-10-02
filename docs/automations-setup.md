@@ -15,7 +15,6 @@ external has to call them on a timetable. Until that exists, nothing sends
 | `MARKETING_POSTAL_ADDRESS` | **feedback + newsletter only** | CAN-SPAM. The marketing gate *refuses to send* without it. Welcome and onboarding are transactional and unaffected. |
 | `MARKETING_REPLY_TO` | all email | Must be a mailbox that receives. Replies to a no-reply From go nowhere. |
 | `SUPPORT_EMAIL` | all email | Falls back to `MARKETING_REPLY_TO`. |
-| `FEEDBACK_FORM_URL` | feedback email | Defaults to the Fillout form. |
 | `FEEDBACK_AFTER_DAYS` | feedback email | Defaults to `7`. |
 | `APP_BASE_URL` | links in email | Must be the public https URL, or every link in every email points at localhost. |
 
@@ -55,7 +54,7 @@ the secret. Both work everywhere now.)
 | `/cron/notifications` | every 5–15 min | Sweeps for due events and delivers queued reminders (push, SMS, email). |
 | `/cron/send-reminders` | every 15–30 min | The direct assignment-reminder path. |
 | `/cron/lifecycle-emails` | daily | Welcome backstop, onboarding day 2/4/7, the one-week feedback ask, and weekly draft nudges. |
-| `/cron/weekly-newsletter` | weekly, optional | Sends to the full marketing list with no human review. Leave unscheduled unless you want that. |
+| `/cron/weekly-newsletter` | Mondays, 08:00–09:00 Pacific | Sends the weekly study note only to accounts with current weekly consent, valid age, and no suppression. |
 | `/cron/autopilot` | **runs in-process, every 4 h** | Autopilot for every student with a live plan: missed work gets new days, at-risk deadlines are protected, the student is notified. |
 | `/cron/refit-followthrough-prior` | **runs in-process, daily** | Refits the population prior every new student's Follow-Through model starts from. |
 
@@ -94,7 +93,7 @@ One call runs four sweeps in order:
    checks the account's real state first and is dropped, not deferred, if
    its goal is already met.
 3. **feedback** — at the one-week mark, and only for accounts with real
-   activity. Points at `FEEDBACK_FORM_URL`.
+   activity. Asks one question and accepts a direct reply.
 4. **drafts** — at most one per account per ISO week, only when that
    account has unfinished work.
 
@@ -161,9 +160,27 @@ A healthy notifications reply looks like:
 
 ### Railway
 
-Project → **Settings → Cron Jobs**. Railway cron runs the command in a
-Linux container, so the bash form is correct there — the PowerShell caveats
-above apply only to your own machine:
+The production project has a dedicated `weekly-newsletter` cron service.
+Its start command runs `python scripts/run_weekly_newsletter_cron.py` and
+its schedule is `0 16 * * 1` (Monday 16:00 UTC, which is 08:00 Pacific
+Standard Time / 09:00 Pacific Daylight Time). Railway schedules in UTC and
+may start a few minutes after the scheduled time. The service reads
+`CRON_SECRET` through a Railway reference to `web`; the production URL is
+fixed in the runner, so the secret is never sent to an environment-selected
+host.
+
+The app endpoint remains usable for an operator dry run:
+
+```powershell
+Invoke-RestMethod -Method Post -Uri "https://intelliplan.tech/cron/weekly-newsletter?dry_run=1" -Headers @{ "X-Cron-Secret" = $env:CRON_SECRET }
+```
+
+To inspect a delivery without sending, sign in as an admin and open
+`/api/admin/newsletter/weekly-preview`.
+
+Other Railway cron jobs run the command in a Linux container, so the bash
+form is correct there — the PowerShell caveats above apply only to your own
+machine:
 
 ```bash
 curl -fsS -X POST -H "X-Cron-Secret: $CRON_SECRET" https://intelliplan.tech/cron/lifecycle-emails

@@ -2071,6 +2071,7 @@
     }
     .btn-guest.canvas:hover     { border-color:#e66000; }
     .btn-guest.studentvue:hover { border-color:#22c55e; }
+    .btn-guest.hac:hover        { border-color:#0E6E8C; }
     .btn-guest.schoology:hover  { border-color:#5865F2; }
     /* Killing browser button defaults for the <button> variant */
     button.btn-guest, button.btn-google {

@@ -25,22 +25,15 @@ logger = logging.getLogger(__name__)
 
 WELCOME_KEY = "welcome"
 #: Versioned because the ask changed shape: v1 was a pure reply-to-me email
-#: at the two-week mark, v2 asks at one week and leads with a form. Nobody
-#: can receive both — v1 only ever went out at day 14, and v2's window closes
-#: at day 8.5 — but the ledger should still say which one was sent.
+#: at the two-week mark, v2 asks at one week. The send ledger prevents
+#: retries from sending the same ask twice.
 FEEDBACK_KEY = "feedback_v2"
 
-WELCOME_SUBJECT = "Welcome to IntelliPlan — here's how to set it up"
-WELCOME_PREHEADER = "Connect your school in under a minute and let the AI plan your week."
+WELCOME_SUBJECT = "Welcome to IntelliPlan"
+WELCOME_PREHEADER = "Add an assignment and make a plan for the week."
 
-FEEDBACK_SUBJECT = "How's IntelliPlan going? (2 minutes, and I read every one)"
-FEEDBACK_PREHEADER = "A week in — I'd like to know what's working and what isn't."
-
-#: Where the feedback form lives. Env-overridable because form URLs move and
-#: a dead link in a sent email cannot be fixed after the fact.
-FEEDBACK_FORM_URL = os.getenv(
-    "FEEDBACK_FORM_URL", "https://forms.fillout.com/t/xtrY6DUrNGus"
-)
+FEEDBACK_SUBJECT = "What should we make easier?"
+FEEDBACK_PREHEADER = "A sentence or two is plenty. Just reply."
 
 #: How far back a welcome sweep looks. Wider than the daily cadence on
 #: purpose: a missed cron run must be caught by the next one, not silently
@@ -196,7 +189,6 @@ def sweep_feedback(now: datetime | None = None, limit: int = 500) -> dict:
             subject=FEEDBACK_SUBJECT,
             preheader=FEEDBACK_PREHEADER,
             marketing=True,
-            context_extra={"feedback_form_url": FEEDBACK_FORM_URL},
         )
         _tally(summary, result)
 
@@ -483,16 +475,16 @@ def generate_weekly_issue(now: datetime | None = None) -> dict:
         preheader = f"This week: {tip['title'][:100]}"
 
     return {
-        "issue_label": f"IntelliPlan Weekly · {now:%d %B %Y}",
+        "issue_label": f"Week of {now:%B} {now.day}",
         "headline": headline,
         "intro": (
-            "Everything that changed on IntelliPlan this week, one feature you "
-            "might not be using yet, and a study technique with evidence behind it."
+            "One practical study idea for the week ahead, plus a short note on "
+            "what has changed in IntelliPlan."
         ),
         "features": features,
         "tip": tip,
         "stats": content.live_stats(),
-        "subject": f"IntelliPlan Weekly — {tip['title'][:60]}",
+        "subject": f"A study idea for this week: {tip['title'][:52]}",
         "preheader": preheader,
         "email_key": weekly_key(now),
         "week": week,
