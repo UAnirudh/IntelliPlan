@@ -660,6 +660,9 @@ class User(UserMixin, db.Model):
     # evidence, and "when did this person opt in" is the first question
     # asked in any complaint.
     marketing_opt_in_at = db.Column(db.DateTime, nullable=True)
+    # Consent copy and cadence are versioned. A prior opt-in to "a few a
+    # month" is not evidence that someone agreed to a weekly newsletter.
+    marketing_consent_version = db.Column(db.String(32), nullable=True)
     # ── Role: student | teacher | parent. Drives /teacher and /parent
     # dashboards plus the StudentLink consent flow.
     role = db.Column(db.String(16), default="student")
@@ -769,10 +772,15 @@ class LinkedAccount(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def get_credentials(self):
-        return json.loads(self.credentials)
+        # decrypt() passes plaintext through, so rows written before
+        # encryption keep working and are re-sealed on their next save.
+        return json.loads(secret_box.decrypt(self.credentials))
 
     def set_credentials(self, creds_dict):
-        self.credentials = json.dumps(creds_dict)
+        # These rows hold district passwords (StudentVUE, HAC) and API
+        # secrets (Schoology) in recoverable form, so they get the same
+        # at-rest encryption as OAuth tokens rather than plain JSON.
+        self.credentials = secret_box.encrypt(json.dumps(creds_dict))
 
 class DismissedAssignment(db.Model):
     __tablename__ = "dismissed_assignments"
@@ -3219,6 +3227,16 @@ class _DismissedSet:
 
     def __bool__(self):
         return bool(self._keys)
+
+    def __or__(self, other):
+        # /live unions completed titles with test titles; without this the
+        # union raised TypeError and the schedule endpoint 500'd for every
+        # connected LMS.
+        merged = _DismissedSet(())
+        merged._keys = self._keys | {_norm_title(t) for t in other}
+        return merged
+
+    __ror__ = __or__
 
 
 def get_dismissed_titles():
@@ -6949,6 +6967,9 @@ def register():
                     parent_consent_token=consent_token,
                     marketing_emails_opt_in=marketing_optin,
                     marketing_opt_in_at=utcnow() if marketing_optin else None,
+                    marketing_consent_version=(
+                        "weekly_v1" if marketing_optin else None
+                    ),
                 )
                 db.session.add(user)
                 db.session.commit()
@@ -17321,12 +17342,23 @@ def admin_panel():
         daily_active_users = _admin_daily_active_users()
     except Exception:
         daily_active_users = None
+    try:
+        recent_email_sends = (
+            db.session.query(EmailSend, User.email)
+            .join(User, User.id == EmailSend.user_id)
+            .order_by(EmailSend.sent_at.desc(), EmailSend.id.desc())
+            .limit(30)
+            .all()
+        )
+    except Exception:
+        recent_email_sends = []
     return render_template(
         "admin.html",
         active_page="admin",
         flags=flags,
         user_count=user_count,
         daily_active_users=daily_active_users,
+        recent_email_sends=recent_email_sends,
         admin_email=(current_user.email if current_user.is_authenticated else ""),
     )
 
@@ -20948,6 +20980,7 @@ def _migrate_user_columns():
         ("users", "ai_personalization_opt_in", "BOOLEAN DEFAULT FALSE"),
         ("users", "marketing_emails_opt_in", "BOOLEAN DEFAULT FALSE"),
         ("users", "marketing_opt_in_at", "TIMESTAMP"),
+        ("users", "marketing_consent_version", "VARCHAR(32)"),
         ("users", "role", "VARCHAR(16) DEFAULT 'student'"),
         ("student_links", "share_scopes_json", "VARCHAR(128)"),
         # users — Active-study focus enforcement
