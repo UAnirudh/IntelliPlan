@@ -31,6 +31,51 @@ def read_limited_response(response) -> bytes:
     return b"".join(chunks)
 
 
+PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+
+
+def is_supported(filename: str, mime_type: str = "") -> bool:
+    """Whether :func:`extract_text` can read this file, decided *before*
+    downloading it -- so assignment matching never fetches a video or a
+    photo just to throw it away."""
+    name = PurePosixPath(filename or "").name.lower()
+    mime = (mime_type or "").lower()
+    return (name.endswith((".pdf", ".docx", ".pptx", ".txt", ".md", ".csv"))
+            or mime in ("application/pdf", PPTX_MIME)
+            or mime.endswith("wordprocessingml.document")
+            or mime.startswith("text/"))
+
+
+def _pptx_text(raw: bytes) -> str:
+    """Slide text from a .pptx without python-pptx (not a dependency).
+
+    A deck is a zip of DrawingML XML and every visible run of text is an
+    ``<a:t>`` element, so a regex over the slide parts recovers what a student
+    would read. Same expansion guard as .docx: a tiny zip that inflates to
+    gigabytes is a denial of service, not a slide deck.
+    """
+    import html
+    import re
+
+    with ZipFile(BytesIO(raw)) as archive:
+        if sum(entry.file_size for entry in archive.infolist()) > 10 * 1024 * 1024:
+            raise CloudDocumentError("This presentation expands beyond IntelliPlan's 10 MB processing limit.")
+        slides = sorted(
+            (n for n in archive.namelist() if re.fullmatch(r"ppt/slides/slide\d+\.xml", n)),
+            key=lambda n: int(re.search(r"(\d+)\.xml$", n).group(1)))
+        parts = []
+        remaining = MAX_DOCUMENT_CHARS
+        for name in slides[:200]:
+            runs = re.findall(r"<a:t>([^<]*)</a:t>", archive.read(name).decode("utf-8", errors="replace"))
+            if runs:
+                value = " ".join(html.unescape(r) for r in runs)[:remaining]
+                parts.append(value)
+                remaining -= len(value)
+            if remaining <= 0:
+                break
+    return "\n".join(parts)
+
+
 def extract_text(filename: str, mime_type: str, raw: bytes) -> str:
     if len(raw) > MAX_DOCUMENT_BYTES:
         raise CloudDocumentError("This file is larger than IntelliPlan can import (2 MB).")
@@ -78,10 +123,12 @@ def extract_text(filename: str, mime_type: str, raw: bytes) -> str:
                 if remaining <= 0:
                     break
         text = "\n".join(parts)
+    elif name.endswith(".pptx") or mime == PPTX_MIME:
+        text = _pptx_text(raw)
     elif mime.startswith("text/") or name.endswith((".txt", ".md", ".csv")):
         text = raw.decode("utf-8-sig", errors="replace")
     else:
-        raise CloudDocumentError("IntelliPlan can import Google Docs, Sheets, Slides, PDFs, Word documents, and text files.")
+        raise CloudDocumentError("IntelliPlan can import Google Docs, Sheets, Slides, PDFs, Word and PowerPoint files, and text files.")
 
     text = text.strip()
     if not text:

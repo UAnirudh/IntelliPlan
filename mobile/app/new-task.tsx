@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { createTask } from "../lib/api";
+import { createTask, quickAddTask } from "../lib/api";
 import { enqueue, isRetryable } from "../lib/queue";
 import { useTheme } from "../theme/ThemeProvider";
 import { space } from "../theme/tokens";
@@ -52,6 +52,30 @@ export default function NewTaskScreen() {
   const [due, setDue] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quick, setQuick] = useState("");
+  const [quickBusy, setQuickBusy] = useState(false);
+  const [quickResult, setQuickResult] = useState<string | null>(null);
+
+  // One line, parsed by the server: "chem quiz fri 30m". The reply says
+  // where the task landed in the plan, which is shown in place so the
+  // student can add the next one without leaving the screen.
+  async function quickAdd() {
+    const text = quick.trim();
+    if (!text) return;
+    setQuickBusy(true);
+    setError(null);
+    try {
+      const result = await quickAddTask(text);
+      setQuickResult(result.message);
+      setQuick("");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch (e: any) {
+      setError(e?.message || "Couldn't add that. Try again.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+    } finally {
+      setQuickBusy(false);
+    }
+  }
 
   async function save() {
     if (!title.trim()) {
@@ -116,11 +140,26 @@ export default function NewTaskScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Field
+            label="Quick add"
+            placeholder="bio lab due fri 2h"
+            value={quick}
+            onChangeText={setQuick}
+            returnKeyType="done"
+            onSubmitEditing={quickAdd}
+          />
+          {quickResult ? <Notice text={quickResult} tone="accent" icon="checkmark-circle-outline" /> : null}
+          {quick.trim() ? (
+            <Button title="Add it" icon="flash-outline" busy={quickBusy} onPress={quickAdd} />
+          ) : null}
+          <T variant="xs" tone="muted">
+            Or fill in the details yourself:
+          </T>
+
+          <Field
             label="What needs doing"
             placeholder="Finish lab write-up"
             value={title}
             onChangeText={setTitle}
-            autoFocus
             returnKeyType="next"
           />
 

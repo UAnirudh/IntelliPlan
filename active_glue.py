@@ -135,8 +135,24 @@ def _mark_done_blocks(data: dict[str, Any], progress_json: Any) -> None:
 def _on_session_finished(row: Any) -> None:
     """Fan a finished sitting out to everything that should react to it."""
     _mirror_task_feedback(row)
+    _tick_breakdown_step(row)
     _invalidate_plan_cache()
     _notify_session_finished(row)
+
+
+def _tick_breakdown_step(row: Any) -> None:
+    """A "Just 5 minutes" session the student marked done ticks its step.
+
+    Wrapped for the same reason as the notification below: the step is a
+    convenience, the session record is the ground truth, and the second must
+    never be lost to the first.
+    """
+    try:
+        from breakdown_glue import on_active_session_finished
+
+        on_active_session_finished(row)
+    except Exception as exc:
+        logger.warning("breakdown step tick failed: %s", exc)
 
 
 def _notify_session_finished(row: Any) -> None:

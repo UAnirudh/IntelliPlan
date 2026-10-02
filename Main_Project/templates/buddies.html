@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="ipd-page-header ipd-anim ipd-d1">
+  <div>
+    <div class="ipd-kicker">Momentum</div>
+    <h1 class="ipd-page-title">Study buddies</h1>
+    <p class="ipd-page-subtitle">Up to five friends. A streak you keep alive together. Nothing about your grades or assignments is ever shared.</p>
+  </div>
+</div>
+
+<div class="bp-shell">
+  <section class="settings-section bp-section" id="bpGate" hidden>
+    <p class="bp-copy" id="bpGateText"></p>
+    <a id="bpAgeLink" class="btn-secondary" href="/account/age?next=/buddies" hidden>Add your birth year</a>
+  </section>
+
+  <section class="settings-section bp-section" id="bpInvite" hidden>
+    <h2 class="bp-h">You have an invite</h2>
+    <p class="bp-copy"><strong id="bpInviteName"></strong> invited you to be study buddies. Sending a request turns Study Buddies on for you; they confirm it on their side.</p>
+    <button type="button" class="btn-primary" id="bpSendRequest">Send buddy request</button>
+  </section>
+
+  <section class="settings-section bp-section" id="bpToggleSection" hidden>
+    <label class="bp-toggle">
+      <input type="checkbox" id="bpEnabled">
+      <span><strong>Turn on Study Buddies</strong>
+        <span class="bp-hint">Buddies see whether you studied today, your focus minutes and your shared streak. Never grades, assignments or classes. Off by default; turning it off pauses sharing straight away.</span>
+      </span>
+    </label>
+  </section>
+
+  <section class="settings-section bp-section" id="bpLinkSection" hidden>
+    <h2 class="bp-h">Invite a friend</h2>
+    <div class="bp-link-row">
+      <input type="text" id="bpLink" class="form-input" readonly aria-label="Your buddy invite link">
+      <button type="button" class="btn-primary" id="bpCopy">Copy link</button>
+    </div>
+    <p class="bp-hint">Anyone with this link can <em>ask</em> to be your buddy. Nothing is shared until you confirm them.</p>
+  </section>
+
+  <section class="settings-section bp-section" id="bpRequests" hidden>
+    <h2 class="bp-h">Requests</h2>
+    <div id="bpRequestList"></div>
+  </section>
+
+  {% include "partials/buddies_card.html" %}
+
+  <section class="settings-section bp-section" id="bpManage" hidden>
+    <h2 class="bp-h">Manage buddies</h2>
+    <div id="bpManageList"></div>
+  </section>
+
+  <p class="bp-status" id="bpStatus" role="status" aria-live="polite"></p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+  .bp-shell { max-width: 640px; display: flex; flex-direction: column; gap: 1rem; }
+  .bp-section { margin: 0; }
+  .bp-h { font-size: 1rem; margin: 0 0 0.5rem; }
+  .bp-copy { font-size: 0.88rem; color: var(--text-secondary); line-height: 1.55; margin: 0 0 0.75rem; }
+  .bp-hint { display: block; font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
+  .bp-toggle { display: flex; gap: 10px; align-items: flex-start; font-size: 0.9rem; cursor: pointer; }
+  .bp-toggle input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--accent); flex-shrink: 0; }
+  .bp-link-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .bp-link-row input { flex: 1; min-width: 0; font-family: var(--font-mono, monospace); font-size: 0.84rem; }
+  .bp-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--border, rgba(0,0,0,.08)); font-size: 0.88rem; flex-wrap: wrap; }
+  .bp-item:first-child { border-top: none; }
+  .bp-item span { flex: 1; min-width: 120px; }
+  .bp-item button { font-size: 0.78rem; padding: 6px 10px; cursor: pointer; }
+  .bp-status { font-size: 0.82rem; color: var(--text-muted); min-height: 1em; }
+</style>
+<script>
+(function () {
+  var state = null;
+  var el = function (id) { return document.getElementById(id); };
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function say(msg) { el('bpStatus').textContent = msg || ''; }
+
+  function post(url, body) {
+    return fetch(url, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {})
+    }).then(function (r) { return r.json(); });
+  }
+
+  function render(d) {
+    state = d;
+    if (!d || d.status !== 'ok') { say((d && d.message) || 'Could not load Study Buddies.'); return; }
+    if (window.ipBuddiesCardRender) window.ipBuddiesCardRender(d);
+
+    el('bpGate').hidden = d.eligible;
+    el('bpGateText').textContent = d.reason_text || '';
+    el('bpAgeLink').hidden = d.reason !== 'unknown_age';
+    el('bpToggleSection').hidden = !d.eligible;
+    el('bpEnabled').checked = !!d.enabled;
+
+    el('bpInvite').hidden = !(d.eligible && d.pending_invite);
+    if (d.pending_invite) el('bpInviteName').textContent = d.pending_invite.name;
+
+    el('bpLinkSection').hidden = !(d.enabled && d.invite_url);
+    if (d.invite_url) el('bpLink').value = d.invite_url;
+
+    var incoming = d.incoming || [], outgoing = d.outgoing || [];
+    el('bpRequests').hidden = !(d.enabled && (incoming.length || outgoing.length));
+    el('bpRequestList').innerHTML =
+      incoming.map(function (r) {
+        return '<div class="bp-item"><span>' + esc(r.name) + ' wants to be study buddies</span>' +
+          '<button type="button" class="btn-primary" data-act="confirm" data-id="' + r.id + '">Confirm</button>' +
+          '<button type="button" class="btn-secondary" data-act="remove" data-id="' + r.id + '">Decline</button>' +
+          '<button type="button" class="btn-secondary" data-act="block" data-id="' + r.id + '">Block</button></div>';
+      }).join('') +
+      outgoing.map(function (r) {
+        return '<div class="bp-item"><span>Waiting for ' + esc(r.name) + ' to confirm</span>' +
+          '<button type="button" class="btn-secondary" data-act="remove" data-id="' + r.id + '">Cancel</button></div>';
+      }).join('');
+
+    var buddies = d.buddies || [], blocked = d.blocked || [];
+    el('bpManage').hidden = !(d.enabled && (buddies.length || blocked.length));
+    el('bpManageList').innerHTML =
+      buddies.map(function (b) {
+        return '<div class="bp-item"><span>' + esc(b.name) + '</span>' +
+          '<button type="button" class="btn-secondary" data-act="remove" data-id="' + b.id + '">Remove</button>' +
+          '<button type="button" class="btn-secondary" data-act="block" data-id="' + b.id + '">Block</button></div>';
+      }).join('') +
+      blocked.map(function (b) {
+        return '<div class="bp-item"><span>' + esc(b.name) + ' (blocked)</span>' +
+          '<button type="button" class="btn-secondary" data-act="remove" data-id="' + b.id + '">Unblock</button></div>';
+      }).join('');
+  }
+
+  function load() {
+    fetch('/api/buddies', { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(render)
+      .catch(function () { say('Could not load Study Buddies.'); });
+  }
+
+  el('bpEnabled').addEventListener('change', function (e) {
+    post('/api/buddies/settings', { enabled: e.target.checked }).then(function (d) {
+      if (d.status === 'ok') { render(d); say(d.enabled ? 'Study Buddies is on.' : 'Sharing paused.'); }
+      else { e.target.checked = false; say(d.message); }
+    });
+  });
+
+  el('bpSendRequest').addEventListener('click', function () {
+    var code = state && state.pending_invite ? state.pending_invite.code : '';
+    post('/api/buddies/request', { code: code }).then(function (d) {
+      if (d.status === 'ok') { render(d); say('Request sent. It shows up once they confirm.'); }
+      else say(d.message);
+    });
+  });
+
+  el('bpCopy').addEventListener('click', function () {
+    var input = el('bpLink');
+    input.select();
+    (navigator.clipboard ? navigator.clipboard.writeText(input.value) : Promise.reject())
+      .then(function () { say('Link copied.'); })
+      .catch(function () { try { document.execCommand('copy'); say('Link copied.'); } catch (_) {} });
+  });
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('[data-act]') : null;
+    if (!btn) return;
+    var act = btn.getAttribute('data-act');
+    if (act === 'block' && !window.confirm('Block this person? They will not be able to send you another request.')) return;
+    btn.disabled = true;
+    post('/api/buddies/' + encodeURIComponent(btn.getAttribute('data-id')) + '/' + act).then(function (d) {
+      if (d.status === 'ok') render(d); else { say(d.message); btn.disabled = false; }
+    });
+  });
+
+  load();
+})();
+</script>
+{% endblock %}

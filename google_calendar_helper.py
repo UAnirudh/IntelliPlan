@@ -32,6 +32,25 @@ SCOPES = CALENDAR_SCOPES + LOGIN_SCOPES
 def _redirect_uri(redirect_uri=None):
     return redirect_uri or os.getenv("GOOGLE_REDIRECT_URI") or "https://intelliplan.tech/oauth2callback"
 
+def scopes_for(purpose):
+    """The scopes one consent screen asks for.
+
+    Drive is requested through this same OAuth client rather than a second
+    Google app: one client, one consent screen to get verified, one redirect
+    URI. ``include_granted_scopes`` (below) makes it incremental, so a student
+    who already linked Calendar is only asked about Drive, and the token that
+    comes back covers both.
+    """
+    if purpose == "login":
+        return list(LOGIN_SCOPES)
+    if purpose == "drive":
+        # Read per call so GOOGLE_DRIVE_SCOPE_MODE takes effect without a
+        # restart; the drive.file-only default matches DRIVE_SCOPES above.
+        from google_drive_helper import drive_scopes
+        return drive_scopes() + LOGIN_SCOPES
+    return list(SCOPES)
+
+
 def get_auth_url(state, purpose="calendar", redirect_uri=None):
     """Generate Google OAuth URL with PKCE for secure flow."""
     code_verifier = secrets.token_urlsafe(64)
@@ -43,11 +62,7 @@ def get_auth_url(state, purpose="calendar", redirect_uri=None):
         "client_id": os.getenv("GOOGLE_CLIENT_ID"),
         "redirect_uri": _redirect_uri(redirect_uri),
         "response_type": "code",
-        "scope": " ".join(
-            LOGIN_SCOPES if purpose == "login"
-            else LOGIN_SCOPES + DRIVE_SCOPES if purpose == "drive"
-            else SCOPES
-        ),
+        "scope": " ".join(scopes_for(purpose)),
         "access_type": "offline",
         "prompt": "select_account" if purpose == "login" else "consent",
         "state": state,
@@ -82,6 +97,8 @@ def exchange_code_for_token(code, code_verifier=None, redirect_uri=None):
     return {
         "token": data.get("access_token"),
         "refresh_token": data.get("refresh_token"),
+        # Recorded so a client can renew *before* a request fails rather than
+        # discovering the expiry as a 401 halfway through a search.
         "expires_at": time.time() + int(data.get("expires_in") or 3600),
         "token_uri": "https://oauth2.googleapis.com/token",
         "client_id": os.getenv("GOOGLE_CLIENT_ID"),

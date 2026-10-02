@@ -52,6 +52,7 @@ __all__ = [
     "Decomposition",
     "decompose",
     "should_decompose",
+    "template_for",
     "MIN_DECOMPOSE_MINUTES",
 ]
 
@@ -272,6 +273,18 @@ def _match_template(title: str, kind: str, description: str) -> StageTemplate | 
             if re.search(rf"\b{re.escape(trigger)}", haystack):
                 return template
     return _KIND_FALLBACK.get((kind or "").strip().lower())
+
+
+def template_for(title: str, kind: str = "", description: str = "") -> StageTemplate | None:
+    """The shape of this kind of work, ignoring whether it is big enough.
+
+    ``decompose`` refuses small tasks on purpose — the planner should not
+    split a ninety-minute essay into sittings. A student who presses "Break it
+    down" is asking a different question: not "how should the plan slice
+    this" but "what do I actually do first". The stages answer that at any
+    size, so the student-facing breakdown asks for the template directly.
+    """
+    return _match_template(title, kind, description)
 
 
 def should_decompose(

@@ -229,6 +229,20 @@ def apply_scheduler_audit_migrations(db: Any) -> list[str]:
 
     return sorted(target & existing)
 
+
+def apply_timetable_migrations(db: Any) -> list[str]:
+    """Ensure the class-timetable tables exist.
+
+    Same idempotent ``create_all`` pattern as the tables above. Both tables
+    are new and additive; nothing existing is altered.
+    """
+
+    inspector = inspect(db.engine)
+    existing = set(inspector.get_table_names())
+    target = {"class_meetings", "timetable_settings"}
+    db.create_all()
+    return sorted(target & existing)
+
 #: Columns holding third-party credentials, now encrypted at rest. Ciphertext
 #: runs roughly 1.4x the plaintext plus a version prefix, so a token that fit
 #: in VARCHAR(2048) does not fit once encrypted. Widening to TEXT has to land

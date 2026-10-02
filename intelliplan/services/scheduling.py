@@ -397,6 +397,9 @@ class SchedulingService:
         what stops the plan from scheduling "revise the draft" on Tuesday and
         "write the draft" on Thursday.
         """
+        student_steps = _open_steps(row.get("steps"))
+        if student_steps is not None:
+            return _stepped(task, student_steps)
         if not self._decompose:
             return [task]
         try:
@@ -845,6 +848,60 @@ class AutopilotRun:
             "new_task_ids": list(self.new_task_ids),
         })
         return body
+
+
+def _open_steps(raw: Any) -> list[Mapping[str, Any]] | None:
+    """The student's unfinished "Break it down" steps, or ``None`` for none.
+
+    ``None`` (no breakdown at all) and ``[]`` (a breakdown with every step
+    ticked) mean different things: the first falls through to the planner's
+    own decomposition, the second means there is nothing left to schedule.
+    """
+    if not isinstance(raw, (list, tuple)) or not raw:
+        return None
+    steps = [s for s in raw if isinstance(s, Mapping) and str(s.get("text") or "").strip()]
+    if not steps:
+        return None
+    return [s for s in steps if not s.get("done")]
+
+
+def _stepped(task: PlannerTask, steps: Sequence[Mapping[str, Any]]) -> list[PlannerTask]:
+    """One planner task per sitting of the student's own steps.
+
+    The steps are the student's plan for the work, so they outrank the
+    template stages: same machinery (ordered ``depends_on`` edges, stage
+    index, ``parent_title``), their words instead of ours. Small steps share
+    a sitting (:func:`breakdown.group_into_sittings`) so the calendar is not
+    a column of five-minute slivers, and the sitting's id lists the step ids
+    it holds so ticking a block can tick the steps inside it.
+
+    The minutes are already this student's — the breakdown calibrated them
+    against how long their finished steps took — so the estimation model is
+    told not to correct them a second time.
+    """
+    from intelliplan.intelligence.breakdown import group_into_sittings, sitting_label
+
+    out: list[PlannerTask] = []
+    previous: str | None = None
+    for index, group in enumerate(group_into_sittings(steps), start=1):
+        ids = "-".join(str(s.get("id")) for s in group if s.get("id") is not None) or str(index)
+        task_id = f"{task.id}::steps:{ids}"
+        out.append(
+            replace(
+                task,
+                id=task_id,
+                title=f"{task.title} — {sitting_label(group)}",
+                parent_title=task.title,
+                stage_index=index,
+                est_minutes=max(5, sum(int(s.get("minutes") or 0) for s in group)),
+                done_minutes=0,
+                depends_on=(previous,) if previous else (),
+                subtask_count=0,
+                calibrated=True,
+            )
+        )
+        previous = task_id
+    return out
 
 
 def overrides_from_json(raw: Any, today: date) -> dict[date, dict[str, int]]:

@@ -236,6 +236,14 @@ def assignment_prompt(context):
         f"Assignment title: {context['title']}",
         f"Directions: {context['description'] or '(none supplied)'}",
     ]
+    if any(item.get('source') for item in context['materials']):
+        # Without this the model tends to attribute a student's own notes to
+        # the teacher ("your teacher's handout says..."), which is wrong and
+        # which students notice.
+        parts.append("Attachments named 'Your Google Drive: ...' or 'Your OneDrive: ...' are the "
+                     "student's own files, matched to this assignment by keyword. They may be notes, "
+                     "drafts or unrelated: treat them as the student's material, not the teacher's, "
+                     "and ignore any that do not fit.")
     for item in context['materials']:
         parts.append(f"Attachment [{item['name']}]: {item['text']}")
     if context['skipped_count']:

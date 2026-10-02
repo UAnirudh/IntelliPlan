@@ -146,8 +146,49 @@
 
     if (planned > 0 && elapsed > planned && !IPA.overNoted) {
       IPA.overNoted = true;
-      status('Past your estimate — keep going if you\'re in flow, or stop and log it. Either is useful.');
+      if (isFiveMinuteStart()) {
+        offerToContinue();
+      } else {
+        status('Past your estimate — keep going if you\'re in flow, or stop and log it. Either is useful.');
+      }
     }
+  }
+
+  // ── "Just 5 minutes" ────────────────────────────────────────────────
+  //
+  // A session started from a "Break it down" step carries task_id
+  // "step:<id>". The deal offered was five minutes, so when they are up the
+  // page says so and asks — it does not silently keep counting, and it does
+  // not stop the timer either: most people who get five minutes in want to
+  // keep going, which is the whole reason the trick works.
+
+  function isFiveMinuteStart() {
+    var taskId = (IPA.session && IPA.session.task_id) || (IPA.plan && IPA.plan.task_id) || '';
+    return /^step:\d+$/.test(String(taskId));
+  }
+
+  function offerToContinue() {
+    var nudge = $('ipaNudge');
+    var text = $('ipaNudgeText');
+    if (!nudge || !text) {
+      status('That\'s your 5 minutes. Keep going — the timer is still running — or stop and log it.');
+      return;
+    }
+    text.textContent = 'That\'s your 5 minutes. Keep going? The timer is still running — ' +
+      'or stop here and the time still counts.';
+    var stop = $('ipaNudgeStop');
+    if (!stop) {
+      stop = document.createElement('button');
+      stop.type = 'button';
+      stop.id = 'ipaNudgeStop';
+      stop.className = 'ipa-btn ipa-btn--ghost';
+      stop.textContent = 'Stop here';
+      stop.addEventListener('click', function () { nudge.hidden = true; openFinish(false); });
+      nudge.appendChild(stop);
+    }
+    var keep = $('ipaNudgeDismiss');
+    if (keep) keep.textContent = 'Keep going';
+    nudge.hidden = false;
   }
 
   function setControls(mode) {

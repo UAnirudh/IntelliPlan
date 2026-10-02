@@ -285,7 +285,7 @@ async function loadTasks(content) {
     </button>
     <div id="addTaskWrap" class="add-task-wrap hidden">
       <div class="add-task-row">
-        <input type="text" class="add-task-input" id="addTaskInput" placeholder="Task title…" />
+        <input type="text" class="add-task-input" id="addTaskInput" placeholder="e.g. bio lab due fri 2h" />
         <button class="add-task-submit" id="addTaskSubmit" type="button">Add</button>
       </div>
       <div id="addTaskStatus" class="status" style="margin-top:6px;text-align:left;"></div>
@@ -346,19 +346,21 @@ async function submitQuickTask() {
   const input  = document.getElementById("addTaskInput");
   const status = document.getElementById("addTaskStatus");
   const btn    = document.getElementById("addTaskSubmit");
-  const title  = input?.value.trim();
-  if (!title) return;
+  const text   = input?.value.trim();
+  if (!text) return;
 
   if (btn) { btn.textContent = "…"; btn.disabled = true; }
   try {
     const res  = await fetch(BASE_URL + "/extension/task/add", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Extension-Token": authToken },
-      body: JSON.stringify({ title })
+      // Sent as one line: the server reads "bio lab due fri 2h" into a due
+      // date, a duration and a course, then places it in the plan.
+      body: JSON.stringify({ text, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "" })
     });
     const data = await res.json();
     if (data.status === "ok" || res.ok) {
-      if (status) { status.textContent = "Task added!"; status.className = "status ok"; }
+      if (status) { status.textContent = data.message || "Task added!"; status.className = "status ok"; }
       if (input) input.value = "";
     } else {
       if (status) { status.textContent = data.message || "Could not add task."; status.className = "status err"; }
@@ -488,6 +490,8 @@ function startFocusMode() {
   focusTotal   = 25 * 60;
   focusSeconds = 0;
   focusTimer   = setInterval(tickFocus, 1000);
+  // Focus Shield blocks distractors for the length of this timer too.
+  chrome.runtime.sendMessage({ type: "focus_shield_local_start", minutes: focusTotal / 60 }, () => void chrome.runtime.lastError);
 
   // Switch ql-focus button style
   document.getElementById("qlFocus")?.classList.add("focus-active");
@@ -498,6 +502,7 @@ function startFocusMode() {
 
 function stopFocus() {
   clearInterval(focusTimer);
+  chrome.runtime.sendMessage({ type: "focus_shield_local_stop" }, () => void chrome.runtime.lastError);
   focusTimer   = null;
   focusSeconds = 0;
   document.getElementById("qlFocus")?.classList.remove("focus-active");

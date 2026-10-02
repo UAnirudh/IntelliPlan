@@ -823,6 +823,35 @@
         <span class="sr-only" role="status">Loading your tasks</span>
       </div>
     </div>
+
+    {# ── Today timeline: classes, study blocks and calendar busy time on
+       one time-scaled day. Hidden until /api/today/timeline answers, so a
+       404 (flag off) leaves the dashboard exactly as it was. #}
+    <section class="ipd-card tl-card" id="tlCard" aria-labelledby="tlHeading" hidden>
+      <div class="ipd-card-title">
+        <h2 id="tlHeading" style="font:inherit;margin:0;">Your day</h2>
+        <div class="tl-head-meta">
+          <span class="tl-rotation" id="tlRotation"></span>
+          <a href="/classes#timetable">Timetable →</a>
+        </div>
+      </div>
+      <p class="tl-next" id="tlNext" hidden></p>
+      <p class="tl-status" id="tlStatus" role="status" aria-live="polite"></p>
+      <div class="tl-scroll" id="tlScroll">
+        <div class="tl-grid" id="tlGrid"></div>
+      </div>
+      <div class="tl-empty" id="tlEmpty" hidden>
+        Nothing on today yet. <a href="/classes#timetable">Add your classes</a> or <a href="/scheduler">plan your study time</a>.
+      </div>
+      <div class="tl-confirm" id="tlConfirm" hidden>
+        <p id="tlConfirmMsg"></p>
+        <button type="button" class="tl-btn tl-btn-primary" id="tlConfirmYes">Move it</button>
+        <button type="button" class="tl-btn" id="tlConfirmNo">Cancel</button>
+      </div>
+      <p class="tl-hint">Drag a study block to move it (on a phone, drag its dotted grip). With a keyboard, focus a block, use the arrow keys, then press Enter.</p>
+    </section>
+    <link rel="stylesheet" href="/static/css/timetable.css?v={{ asset_v }}">
+    <script src="/static/js/today_timeline.js?v={{ asset_v }}" defer></script>
   </div>
 
   {# ── Right sidebar ─────────────────────────────────────────── #}
@@ -847,6 +876,9 @@
       <div class="ipd-sched-sub" id="ipdSchedSub"></div>
       <div id="ipdSchedBlocks" style="margin-top:6px;"></div>
     </div>
+
+    {# Study Buddies: who studied today, the shared streak, a nudge. #}
+    {% if current_user.is_authenticated %}{% include "partials/buddies_card.html" %}{% endif %}
 
     {# Grade Modeler teaser #}
     <div class="ipd-grade-card" id="ipdGradeCard">
@@ -1013,6 +1045,18 @@
     <label>Notes</label>
     <textarea id="adNotes" placeholder="Add your notes…" oninput="saveAssignNotes()"></textarea>
     <span id="adSaveStatus" style="display:none;font-size:0.74rem;color:var(--ipd-priority-low);font-family:var(--ipd-font-body);margin-top:6px;">Saved</span>
+    {# Shown only once Google Drive or OneDrive is connected: the matches
+       come from the student's own files, so there is nothing to show
+       before that. #}
+    <div id="adDocs" style="display:none;margin-top:1rem;">
+      <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <span>Your related documents</span>
+        <button type="button" class="ipd-btn" id="adCreateDoc" onclick="createAssignStudyDoc()" style="font-size:0.74rem;padding:5px 10px;">Create study doc</button>
+      </label>
+      <div id="adDocsList" style="display:flex;flex-direction:column;gap:6px;font-size:0.8rem;"></div>
+    </div>
+    {# "Break it down" + "Just 5 minutes" — filled by ip-breakdown.js. #}
+    <div id="adBreakdown" style="margin-top:1rem;"></div>
     <div class="ipd-modal-actions">
       <button class="ipd-btn" onclick="closeAssignDetail()">Close</button>
     </div>
@@ -2079,6 +2123,107 @@ function openAssignDetail(title, course, dueDate, priority, notes) {
     })
     .catch(function() {});
   document.getElementById('assignDetailModal').style.display = 'flex';
+  if (window.IPBreakdown) {
+    window.IPBreakdown.mount(document.getElementById('adBreakdown'),
+      { title: title, course: course, due_date: dueDate });
+  }
+  _currentAssignCourse = (course && course !== 'Unknown' && course !== 'Personal') ? course : '';
+  loadAssignDocs(title, _currentAssignCourse, notes || '');
+}
+
+// ── The student's own documents for this assignment ──────────
+var _currentAssignCourse = '';
+var _assignDocsSeq = 0;
+
+function _docLine(text, muted) {
+  var div = document.createElement('div');
+  div.style.color = muted ? 'var(--text-muted)' : 'var(--text-primary)';
+  div.textContent = text;
+  return div;
+}
+
+function loadAssignDocs(title, course, notes) {
+  var box = document.getElementById('adDocs');
+  var list = document.getElementById('adDocsList');
+  if (!box || !list) return;
+  box.style.display = 'none';
+  list.innerHTML = '';
+  // A slow search for the previous assignment must not overwrite this one.
+  var seq = ++_assignDocsSeq;
+  var q = '?title=' + encodeURIComponent(title) + '&course=' + encodeURIComponent(course) +
+          '&description=' + encodeURIComponent((notes || '').slice(0, 1000));
+  fetch('/api/cloud-documents/match' + q, { credentials: 'same-origin' })
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(d) {
+      if (seq !== _assignDocsSeq || !d || !d.connected || !d.connected.length) return;
+      box.style.display = 'block';
+      if (!d.documents.length) {
+        list.appendChild(_docLine('No matching files found in your ' +
+          d.connected.map(function(p) { return p === 'onedrive' ? 'OneDrive' : 'Google Drive'; }).join(' or ') + '.', true));
+      }
+      d.documents.forEach(function(doc) {
+        var row = document.createElement('div');
+        row.style.cssText = 'padding:8px 10px;border:1px solid var(--border);border-radius:8px;';
+        var link = document.createElement(doc.url ? 'a' : 'span');
+        if (doc.url) { link.href = doc.url; link.target = '_blank'; link.rel = 'noopener'; }
+        link.textContent = doc.name;
+        link.style.cssText = 'font-weight:600;color:var(--text-primary);text-decoration:none;';
+        row.appendChild(link);
+        var meta = _docLine(doc.provider_label + (doc.modified ? ' · edited ' + String(doc.modified).slice(0, 10) : ''), true);
+        meta.style.fontSize = '0.72rem';
+        row.appendChild(meta);
+        if (doc.excerpt) {
+          var ex = _docLine(doc.excerpt, true);
+          ex.style.cssText += 'font-size:0.74rem;margin-top:3px;line-height:1.45;';
+          row.appendChild(ex);
+        }
+        list.appendChild(row);
+      });
+      (d.errors || []).forEach(function(e) {
+        var name = e.provider === 'onedrive' ? 'OneDrive' : 'Google Drive';
+        list.appendChild(_docLine(e.reason === 'reconnect'
+          ? 'Reconnect ' + name + ' in Settings to search it again.'
+          : name + ' could not be searched right now.', true));
+      });
+    })
+    .catch(function() {});
+}
+
+async function createAssignStudyDoc() {
+  var btn = document.getElementById('adCreateDoc');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
+  try {
+    var res = await fetch('/api/cloud-documents/create', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: _currentAssignTitle,
+        course: _currentAssignCourse,
+        description: (document.getElementById('adNotes').value || '').slice(0, 4000),
+        due_date: document.getElementById('adDueDate').value || ''
+      })
+    });
+    var d = await res.json();
+    if (d.status === 'ok' && d.document) {
+      // A link rather than window.open: after an await the browser no
+      // longer treats the click as a user gesture and blocks the popup.
+      var list = document.getElementById('adDocsList');
+      var row = document.createElement('div');
+      row.style.cssText = 'padding:8px 10px;border:1px solid var(--ipd-priority-low);border-radius:8px;';
+      var link = document.createElement(d.document.url ? 'a' : 'span');
+      if (d.document.url) { link.href = d.document.url; link.target = '_blank'; link.rel = 'noopener'; }
+      link.textContent = 'Study guide saved: ' + d.document.name;
+      link.style.cssText = 'font-weight:600;color:var(--ipd-priority-low);';
+      row.appendChild(link);
+      if (list) list.insertBefore(row, list.firstChild);
+    } else {
+      IP.alert(d.message || 'The study guide could not be created.');
+    }
+  } catch (e) {
+    IP.alert('The study guide could not be created. Check your connection and try again.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Create study doc'; }
+  }
 }
 
 function closeAssignDetail() {

@@ -13,7 +13,11 @@ def sources(context):
     if context.get('description'):
         items.append({'id': 'directions', 'name': 'Assignment directions',
                       'text': _plain(context['description'], 6000)})
-    for index, item in enumerate(context.get('materials', [])[:3], 1):
+    # Five, not three: Canvas contributes at most three attachments, and the
+    # student's own Drive/OneDrive matches are appended after them. With a
+    # cap of three a fully-attached Canvas assignment left no room for the
+    # notes the student actually studies from.
+    for index, item in enumerate(context.get('materials', [])[:5], 1):
         if item.get('text'):
             items.append({'id': f'file_{index}', 'name': _plain(item.get('name'), 120),
                           'text': _plain(item['text'], 12000)})

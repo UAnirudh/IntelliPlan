@@ -1,5 +1,9 @@
 # Google Drive and OneDrive study files
 
+> The owner's full setup checklist (console links, every scope, env var and
+> redirect URI, and the `drive.file` vs `drive.readonly` decision) is in
+> [INTEGRATIONS_SETUP.md](INTEGRATIONS_SETUP.md).
+
 IntelliPlan lets a signed-in student choose individual Drive or OneDrive files
 and copy their extractable text into the student's study notes. Imported notes
 are part of IntelliPlan's retrieval context. Disconnecting a provider revokes
