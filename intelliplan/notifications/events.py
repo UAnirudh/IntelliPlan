@@ -75,6 +75,13 @@ class EventKind(str, Enum):
     #: The notification, not the streak, is the retention mechanism: a
     #: streak nobody is told about ends silently.
     STREAK_AT_RISK = "streak_at_risk"
+    #: A grade landed in the student's LMS gradebook. Carries the
+    #: consequence ("you now need 91% on the final to keep an A"), not just
+    #: the number -- the LMS already shows the number. Built by
+    #: ``intelliplan.services.grade_pulse``.
+    GRADE_POSTED = "grade_posted"
+    #: A teacher published new work. Carries where the plan put it.
+    ASSIGNMENT_POSTED = "assignment_posted"
 
 
 #: Kinds a student gets unless they turn them off. Completion pats and
@@ -88,6 +95,11 @@ DEFAULT_ENABLED_KINDS: frozenset[EventKind] = frozenset(
         EventKind.DEADLINE_APPROACHING,
         EventKind.PLAN_OVERLOADED,
         EventKind.STREAK_AT_RISK,
+        # On by default, but already filtered upstream: grade_pulse raises
+        # GRADE_POSTED only for a grade that moved the course (a drop past a
+        # threshold, or a letter change), never for every score entered.
+        EventKind.GRADE_POSTED,
+        EventKind.ASSIGNMENT_POSTED,
     }
 )
 
@@ -249,6 +261,117 @@ def _streak_at_risk(ctx: Mapping[str, Any]) -> tuple[str, str]:
     return (f"Your {streak} ends {when}", "Finish one task or open today's plan to keep it.")
 
 
+# ── Grade Pulse ───────────────────────────────────────────────────────
+# The numbers (what the final has to be, which letter is still reachable)
+# are computed in intelliplan.services.grade_pulse. These only word them,
+# so the arithmetic is testable without a template and the wording is
+# reviewable here alongside every other message the app sends.
+
+
+def _pct(value: Any) -> str:
+    """78.0 -> "78", 91.25 -> "91.3". Whole numbers read as whole numbers."""
+    try:
+        number = round(float(value), 1)
+    except (TypeError, ValueError):
+        return ""
+    return f"{number:.0f}" if number == int(number) else f"{number:.1f}"
+
+
+def _article(letter: str) -> str:
+    # "an A", "an F", "a B+": by sound, not by spelling.
+    return "an" if letter[:1] in ("A", "E", "F") else "a"
+
+
+def _final_clause(ctx: Mapping[str, Any]) -> str:
+    """The actionable half of a grade alert: what the final now has to be.
+
+    ``outlook`` is need / locked / unreachable, or absent when there is no
+    final left to plan around (it is already graded, or the course has no
+    current percentage to reason from).
+    """
+    outlook = _get(ctx, "outlook")
+    target = _get(ctx, "target_letter")
+    if not target:
+        return ""
+    verb = _get(ctx, "target_verb") or "keep"
+    assumed = ctx.get("assumed_final_weight")
+    # Said out loud when the final's weight is a guess. A precise-looking
+    # "you need 91%" built on an invented weight, presented as fact, is
+    # worse than no number at all.
+    tail = f" (if the final is worth {_pct(assumed)}%)" if assumed else ""
+    if outlook == "need":
+        return (f"You now need {_pct(ctx.get('need_pct'))}% on the final to "
+                f"{verb} {_article(target)} {target}{tail}.")
+    if outlook == "locked":
+        return f"Your {target} holds even with a 0 on the final{tail}."
+    if outlook == "unreachable":
+        fallback = _get(ctx, "fallback_letter")
+        lead = f"{_article(target).capitalize()} {target} is out of reach on the final alone"
+        if fallback:
+            return (f"{lead}; {_pct(ctx.get('fallback_need_pct'))}% keeps "
+                    f"{_article(fallback)} {fallback}{tail}.")
+        return f"{lead}{tail}."
+    return ""
+
+
+def _course_move(ctx: Mapping[str, Any]) -> str:
+    old, new = ctx.get("old_course_pct"), ctx.get("new_course_pct")
+    letter = _get(ctx, "letter")
+    suffix = f" ({letter})" if letter else ""
+    if new is None:
+        return ""
+    if old is None:
+        return f"Course grade {_pct(new)}%{suffix}."
+    return f"Course grade {_pct(old)} → {_pct(new)}{suffix}."
+
+
+def _digest(ctx: Mapping[str, Any], noun: str) -> tuple[str, str]:
+    count = int(ctx.get("count") or 0)
+    lines = [str(x) for x in (ctx.get("items") or []) if x][:2]
+    rest = count - len(lines)
+    body = " ".join(lines)
+    if rest > 0:
+        body += f" +{rest} more."
+    return (f"{count} new {noun}", body.strip())
+
+
+def _grade_posted(ctx: Mapping[str, Any]) -> tuple[str, str]:
+    if int(ctx.get("count") or 1) > 1:
+        # A teacher entering a stack of grades at 11pm gets one message, led
+        # by the line that matters most -- not thirty buzzes.
+        return _digest(ctx, "grades")
+    course = _get(ctx, "course")
+    item = _get(ctx, "item")
+    score = _pct(ctx.get("score_pct"))
+    if item and score:
+        title = f"{course}: {score}% on {item}" if course else f"{score}% on {item}"
+    else:
+        title = f"{course}: grade updated" if course else "Grade updated"
+    body = " ".join(p for p in (_course_move(ctx), _final_clause(ctx)) if p)
+    return (title, body or "Open Grades to see what changed.")
+
+
+def _assignment_posted(ctx: Mapping[str, Any]) -> tuple[str, str]:
+    if int(ctx.get("count") or 1) > 1:
+        return _digest(ctx, "assignments")
+    title = _get(ctx, "title") or "New assignment"
+    due = _get(ctx, "due_label")
+    head = f"New: {title}" + (f" due {due}" if due else "")
+    slot = _get(ctx, "slot_label")
+    if slot:
+        more = int(ctx.get("more_sittings") or 0)
+        extra = f" (+{more} more {_plural(more, 'sitting', 'sittings')})" if more else ""
+        return (head, f"Scheduled {slot}{extra}.")
+    reason = _get(ctx, "unscheduled_reason")
+    if reason == "already_planned":
+        return (head, "It's already in your plan.")
+    if reason == "no_plan":
+        return (head, "Build this week's plan and it will be fitted in.")
+    # Honest rather than silent: the plan genuinely has no room, and the
+    # student is the only one who can make some.
+    return (head, "No free time before it's due. Open the scheduler to make room.")
+
+
 _TEMPLATES = {
     EventKind.SESSION_UPCOMING: _session_upcoming,
     EventKind.SESSION_MISSED: _session_missed,
@@ -258,6 +381,8 @@ _TEMPLATES = {
     EventKind.PLAN_OVERLOADED: _plan_overloaded,
     EventKind.PLAN_CHANGED: _plan_changed,
     EventKind.STREAK_AT_RISK: _streak_at_risk,
+    EventKind.GRADE_POSTED: _grade_posted,
+    EventKind.ASSIGNMENT_POSTED: _assignment_posted,
 }
 
 
