@@ -18,6 +18,7 @@ supplied by an include, a macro or a base template still counts.
 """
 
 import re
+import uuid
 
 import pytest
 
@@ -41,16 +42,21 @@ _UNNAMEABLE = re.compile(r'type="(hidden|submit|button|image)"')
 @pytest.fixture(scope="module")
 def client():
     App.app.config["WTF_CSRF_ENABLED"] = False
+    enabled = App.limiter.enabled
+    App.limiter.enabled = False
     c = App.app.test_client()
     with App.app.app_context():
-        user = App.User.query.first()
-        if user is None:
-            pytest.skip("no user in the development database")
+        App.db.create_all()
+        user = App.User(email=f"accessibility-{uuid.uuid4().hex}@example.test",
+                        password_hash="x", birth_year=2000)
+        App.db.session.add(user)
+        App.db.session.commit()
         uid = user.id
     with c.session_transaction() as sess:
         sess["_user_id"] = str(uid)
         sess["_fresh"] = True
-    return c
+    yield c
+    App.limiter.enabled = enabled
 
 
 def _unnamed_inputs(html: str) -> list[str]:

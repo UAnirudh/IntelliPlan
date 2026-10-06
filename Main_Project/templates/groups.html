@@ -109,17 +109,17 @@
     </div>
     <form id="cgForm" onsubmit="submitCreate(event)" style="display:flex;flex-direction:column;gap:0.9rem;">
       <div class="form-group">
-        <label class="form-label">Group name</label>
-        <input type="text" name="name" class="form-input" required maxlength="120" placeholder="e.g. AP Bio crew">
+        <label class="form-label" for="group-name">Group name</label>
+        <input type="text" name="name" id="group-name" class="form-input" required maxlength="120" placeholder="e.g. AP Bio crew">
       </div>
       <div class="form-group">
-        <label class="form-label">Topic</label>
-        <input type="text" name="topic" class="form-input" maxlength="120" placeholder="AP Biology, SAT Math, Algebra 2...">
+        <label class="form-label" for="group-topic">Topic</label>
+        <input type="text" name="topic" id="group-topic" class="form-input" maxlength="120" placeholder="AP Biology, SAT Math, Algebra 2...">
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.9rem;">
         <div class="form-group">
-          <label class="form-label">Level</label>
-          <select name="level" class="form-input">
+          <label class="form-label" for="group-level">Level</label>
+          <select name="level" id="group-level" class="form-input">
             <option value="any">Any</option>
             <option value="beginner">Beginner</option>
             <option value="intermediate" selected>Intermediate</option>
@@ -127,8 +127,8 @@
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Study style</label>
-          <select name="style" class="form-input">
+          <label class="form-label" for="group-style">Study style</label>
+          <select name="style" id="group-style" class="form-input">
             <option value="any">Any</option>
             <option value="focused" selected>Focused</option>
             <option value="discussion">Discussion</option>
@@ -138,8 +138,8 @@
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Description</label>
-        <textarea name="description" class="form-input" rows="3" placeholder="What will the group work on?"></textarea>
+        <label class="form-label" for="group-description">Description</label>
+        <textarea name="description" id="group-description" class="form-input" rows="3" placeholder="What will the group work on?"></textarea>
       </div>
       <div class="form-group">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.84rem;color:var(--text-secondary);">
@@ -266,11 +266,11 @@ function renderDetail(g) {
           ${g.is_member ? `
             <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:flex-end;">
               <div class="form-group" style="flex:1 1 180px;">
-                <label class="form-label" style="font-size:0.72rem;">Schedule</label>
+                <label class="form-label" for="gWhen" style="font-size:0.72rem;">Schedule</label>
                 <input type="datetime-local" id="gWhen" class="form-input">
               </div>
               <div class="form-group" style="flex:2 1 180px;">
-                <label class="form-label" style="font-size:0.72rem;">Topic</label>
+                <label class="form-label" for="gMTopic" style="font-size:0.72rem;">Topic</label>
                 <input type="text" id="gMTopic" class="form-input" placeholder="Cell respiration practice">
               </div>
               <button onclick="setMeeting(${g.id})" class="btn-secondary" style="padding:8px 14px;cursor:pointer;">Save</button>
@@ -292,7 +292,7 @@ function renderDetail(g) {
 
         <div class="gr-panel">
           <div class="gr-panel-title">Shared Notes</div>
-          <textarea id="grNotes" class="notes-area" ${g.is_member?'':'disabled'} placeholder="${g.is_member?'Take notes together, saved when you click Save':'Join this group to take shared notes.'}">${esc(g.shared_notes||'')}</textarea>
+          <textarea id="grNotes" aria-label="Shared group notes" class="notes-area" ${g.is_member?'':'disabled'} placeholder="${g.is_member?'Take notes together, saved when you click Save':'Join this group to take shared notes.'}">${esc(g.shared_notes||'')}</textarea>
           ${g.is_member ? `<button onclick="saveNotes(${g.id})" class="btn-secondary" style="margin-top:8px;padding:8px 16px;cursor:pointer;">Save notes</button>` : ''}
         </div>
 

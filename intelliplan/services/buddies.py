@@ -186,3 +186,11 @@ def public_card(
         "can_nudge": bool(can_nudge),
     })
     return card
+
+
+# Increment when the scope of shared data changes; older opt-ins must renew.
+CONSENT_VERSION = "buddies_v1"
+
+def has_consent(user: Any) -> bool:
+    return (getattr(user, "buddies_consent_version", None) == CONSENT_VERSION
+            and getattr(user, "buddies_consent_at", None) is not None)

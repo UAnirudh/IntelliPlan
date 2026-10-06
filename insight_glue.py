@@ -213,7 +213,9 @@ def record_client_event():
 
 def _is_child(user: Any, now: datetime) -> bool:
     try:
-        if user.birth_year and (now.year - int(user.birth_year)) < 13:
+        from intelliplan.email.eligibility import age_from_birth_year
+        age = age_from_birth_year(user.birth_year, now)
+        if age is None or age < 13:
             return True
         return bool(user.parent_email and not user.parent_consent_granted)
     except Exception:

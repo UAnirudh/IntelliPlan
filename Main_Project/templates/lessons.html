@@ -122,27 +122,27 @@
     </div>
     <form id="upForm" onsubmit="submitUpload(event)" style="display:flex;flex-direction:column;gap:0.9rem;">
       <div class="form-group">
-        <label class="form-label">Title</label>
-        <input type="text" name="title" class="form-input" required maxlength="255" placeholder="e.g. AP Bio - Cell Respiration">
+        <label class="form-label" for="lesson-title">Title</label>
+        <input type="text" name="title" id="lesson-title" class="form-input" required maxlength="255" placeholder="e.g. AP Bio - Cell Respiration">
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.9rem;">
         <div class="form-group">
-          <label class="form-label">Course (optional)</label>
-          <input type="text" name="course" class="form-input" maxlength="128" placeholder="AP Biology">
+          <label class="form-label" for="lesson-course">Course (optional)</label>
+          <input type="text" name="course" id="lesson-course" class="form-input" maxlength="128" placeholder="AP Biology">
         </div>
         <div class="form-group">
-          <label class="form-label">Tags (comma-separated)</label>
-          <input type="text" name="tags" class="form-input" maxlength="200" placeholder="biology, exam-1">
+          <label class="form-label" for="lesson-tags">Tags (comma-separated)</label>
+          <input type="text" name="tags" id="lesson-tags" class="form-input" maxlength="200" placeholder="biology, exam-1">
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Audio or video file</label>
-        <input type="file" name="file" accept="audio/*,video/*" required class="form-input">
+        <label class="form-label" for="lesson-file">Audio or video file</label>
+        <input type="file" name="file" id="lesson-file" accept="audio/*,video/*" required class="form-input">
         <span class="form-hint">Up to ~25 MB. Supports mp3, m4a, wav, mp4, webm, mov.</span>
       </div>
       <div class="form-group">
-        <label class="form-label">Transcript (optional, paste for better summary)</label>
-        <textarea name="transcript" rows="5" class="form-input" placeholder="Paste a transcript if you have one, the summary will use it for accurate notes."></textarea>
+        <label class="form-label" for="lesson-transcript">Transcript (optional, paste for better summary)</label>
+        <textarea name="transcript" id="lesson-transcript" rows="5" class="form-input" placeholder="Paste a transcript if you have one, the summary will use it for accurate notes."></textarea>
       </div>
       <button type="submit" class="btn-primary" id="upBtn" style="padding:12px;border:none;cursor:pointer;">Upload & summarise</button>
     </form>

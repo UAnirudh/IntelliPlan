@@ -78,7 +78,7 @@ COOKIES: list[dict[str, Any]] = [
         "category": ANALYTICS,
         "storage": "cookie",
         "provider": "IntelliPlan",
-        "purpose": "A random id with nothing personal in it, so we can count "
+        "purpose": "A pseudonymous random visitor id, so we can count "
                    "how many people reach a page rather than how many times "
                    "it was opened. Set only if you allow analytics, read only "
                    "by us, and deleted along with your recorded activity the "
@@ -92,7 +92,7 @@ COOKIES: list[dict[str, Any]] = [
         "provider": "IntelliPlan",
         "purpose": "Your appearance and accessibility settings — dark mode, "
                    "colour palette, dyslexia-friendly font, reading level, "
-                   "language. Stored on your device only; never sent to us.",
+                   "language. Stored in your browser; some preferences also synchronize to your account.",
         "duration": "Until you clear your browser data",
     },
     {
@@ -102,7 +102,7 @@ COOKIES: list[dict[str, Any]] = [
         "provider": "IntelliPlan",
         "purpose": "Your place in a study session, focus timer, checklists and "
                    "flashcard schedule, so a refresh does not lose your work. "
-                   "Stored on your device only.",
+                   "Stored in your browser; focus and study activity may also be submitted to your account.",
         "duration": "Until you clear your browser data",
     },
     {
@@ -122,8 +122,7 @@ def analytics_available() -> bool:
 
     Derived from the registry rather than a config flag, so the banner and
     the consent gate switch on by declaring a cookie and cannot be switched
-    on any other way. Today there is nothing here, so no banner shows and
-    there is nothing to consent to.
+    on any other way. The visitor-id entry makes analytics available and requires a choice.
     """
     return bool(cookies_for(ANALYTICS))
 
@@ -149,7 +148,7 @@ def categories_payload() -> list[dict[str, Any]]:
     return out
 
 
-LAST_UPDATED = "26 August 2026"
+LAST_UPDATED = "2 October 2026"
 
 #: Bumped when the categories or their purposes change materially, which
 #: makes previously-given consent stale and re-asks.

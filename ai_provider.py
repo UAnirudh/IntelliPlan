@@ -140,7 +140,7 @@ def model_chain(tier: Tier = "standard", plan: str = "free") -> list[tuple[str, 
     if plan == "paid" and anthropic_api_key():
         chain.append(("claude", _TIER_CLAUDE[tier]))
     chain.extend(_CHAINS.get(tier, _CHAINS["standard"]))
-    have = {"gemini": bool(gemini_api_key()), "groq": bool(groq_api_key()),
+    have = {"gemini": gemini_available(), "groq": bool(groq_api_key()),
             "claude": bool(anthropic_api_key())}
     seen: set[tuple[str, str]] = set()
     out: list[tuple[str, str]] = []
@@ -238,6 +238,17 @@ def gemini_api_key() -> str | None:
     return os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
 
+def gemini_available() -> bool:
+    """Only a contractual exception permitting minor use can enable Vertex.
+
+    A Gemini Developer API key does not authorize a student-facing app.
+    Standard Cloud terms also restrict under-18 services. Set the flag only
+    after obtaining a written exception for this audience; it is not certification.
+    """
+    approved = os.getenv("GEMINI_MINORS_CONTRACT_APPROVED", "").strip().lower() in {"1", "true", "yes"}
+    return bool(approved and os.getenv("GOOGLE_CLOUD_PROJECT") and os.getenv("GOOGLE_CLOUD_LOCATION"))
+
+
 def groq_api_key() -> str | None:
     return os.getenv("GROQ_API_KEY")
 
@@ -255,20 +266,20 @@ def groq_vision_key() -> str | None:
 
 
 def ai_available() -> bool:
-    return bool(gemini_api_key() or groq_api_key())
+    return bool(gemini_available() or groq_api_key() or anthropic_api_key())
 
 
 def _gemini_client():
     global _gemini_client_cache
+    if not gemini_available():
+        raise AIUnavailable("Gemini requires an express contractual exception permitting student use.")
     if _gemini_client_cache is None:
         from google import genai
 
-        key = gemini_api_key()
-        if not key:
-            raise RuntimeError("GEMINI_API_KEY is not set.")
-        # API key auth (Google AI Studio) — project ID is metadata only, not
-        # passed to the client (vertexai + api_key are mutually exclusive).
-        _gemini_client_cache = genai.Client(api_key=key)
+        _gemini_client_cache = genai.Client(
+            vertexai=True, project=os.environ["GOOGLE_CLOUD_PROJECT"],
+            location=os.environ["GOOGLE_CLOUD_LOCATION"],
+        )
     return _gemini_client_cache
 
 
@@ -548,7 +559,7 @@ def chat(
     chain = model_chain(tier, _apply_account_hooks(plan))
     if not chain:
         raise AIUnavailable(
-            "No AI backend available. Set GEMINI_API_KEY (primary) or GROQ_API_KEY (fallback)."
+            "No AI backend available. Configure a permitted provider; Gemini requires an express minor-use contract."
         )
 
     errors: list[str] = []
@@ -635,7 +646,7 @@ def vision(
     attempted = 0
     retry_after: int | None = None
 
-    for gem_model in ([_TIER_GEMINI[tier], GEMINI_FAST] if gemini_api_key() else []):
+    for gem_model in ([_TIER_GEMINI[tier], GEMINI_FAST] if gemini_available() else []):
         attempted += 1
         try:
             from google.genai import types
@@ -709,7 +720,7 @@ def vision(
             retry_after=retry_after,
         )
     raise AIUnavailable(
-        "Vision analysis unavailable. Set GEMINI_API_KEY (or GROQ_VISUAL_API_KEY). "
+        "Vision analysis unavailable. Configure a permitted vision provider. "
         + ("; ".join(errors) if errors else "")
     )
 
@@ -859,7 +870,7 @@ def transcribe_audio(filename: str, audio_bytes: bytes) -> str:
     retry_after: int | None = None
     mime = _mime_for_audio(filename)
 
-    if gemini_api_key():
+    if gemini_available():
         attempted += 1
         try:
             from google.genai import types
@@ -924,7 +935,7 @@ def transcribe_audio(filename: str, audio_bytes: bytes) -> str:
             retry_after=retry_after,
         )
     raise AIUnavailable(
-        "Transcription unavailable. Set GEMINI_API_KEY (or GROQ_AUDIO_KEY). "
+        "Transcription unavailable. Configure a permitted transcription provider. "
         + ("; ".join(errors) if errors else "")
     )
 

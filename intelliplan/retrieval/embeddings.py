@@ -79,10 +79,10 @@ def dense_embed(texts: list[str], *, is_query: bool) -> list[np.ndarray] | None:
     if not texts:
         return []
     try:
-        from ai_provider import _gemini_client, gemini_api_key
+        from ai_provider import _gemini_client, gemini_available
         from google.genai import types
 
-        if not gemini_api_key():
+        if not gemini_available():
             return None
         client = _gemini_client()
         task = "RETRIEVAL_QUERY" if is_query else "RETRIEVAL_DOCUMENT"
