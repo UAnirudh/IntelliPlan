@@ -60,6 +60,8 @@
       text('p', `Show it independently: ${step.success_criteria}`, card);
       if (step.evidence) text('p', `Checked practice: ${step.evidence.independent_correct} independent correct of ${step.evidence.total_attempts} attempts on ${step.evidence.topic}.`, card);
       else text('p', 'No matching scored check yet. Begin with the diagnostic and explain your reasoning.', card);
+      if (step.evidence) text('p', tutorEvidenceSummary(step.evidence), card);
+      if (step.teaching_reason) text('p', `Next lesson: ${step.teaching_reason}`, card);
       const actions = document.createElement('div'); actions.className = 'education-actions';
       const start = text('button', step.teaching_move === 'repair' ? 'Work through this with Plani' : 'Start this lesson', actions);
       start.type = 'button';
@@ -70,7 +72,14 @@
         const chip = chips.find(c => c.dataset.subject.toLowerCase() === wanted.toLowerCase()) || chips.find(c => c.dataset.subject === 'General');
         if (chip) selectSubject(chip);
         const input = el('tutorInput');
-        input.value = `Continue my learning plan toward ${plan.goal.target}. Let's work on ${step.title}. My reported progress is ${step.status.replaceAll('_', ' ')}. Start with one diagnostic question: ${step.diagnostic} Then respond to my reasoning one step at a time.`;
+        const move = {
+          diagnose: `Start with one diagnostic question: ${step.diagnostic}`,
+          repair: 'Help me work through one smaller example, then let me try a step.',
+          transfer: 'Give me one unfamiliar application of this idea and ask me to explain my reasoning.',
+          independent: 'Let me try a new example without a hint before explaining it.',
+          review: 'Ask me one question to recall this idea before showing an example.',
+        }[step.teaching_move] || `Start with one diagnostic question: ${step.diagnostic}`;
+        input.value = `Continue my learning plan toward ${plan.goal.target}. Let's work on ${step.title}. My reported progress is ${step.status.replaceAll('_', ' ')}. ${move} Then respond to my reasoning one step at a time.`;
         autoResizeTutor(input);
         sendTutorMessage();
       });

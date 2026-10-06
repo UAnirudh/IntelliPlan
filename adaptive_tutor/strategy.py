@@ -58,10 +58,13 @@ def teaching_move(context: dict[str, Any], subject: str = "General",
     if not rows:
         return {"kind": "diagnose", "topic": None}
     row = min(rows, key=lambda item: (
+        {'repair': 0, 'independent': 1, 'review': 2, 'diagnose': 3, 'transfer': 4}.get(item.get('next_move'), 3),
         float(item.get("mastery_score") or 0),
         -int(item.get("total_attempts") or 0),
     ))
     topic = re.sub(r"[\r\n]+", " ", str(row.get("topic") or "")).strip()[:100] or None
+    if row.get('next_move') in MOVE_GUIDANCE:
+        return {'kind': row['next_move'], 'topic': topic}
     attempts = int(row.get("total_attempts") or 0)
     confidence = float(row.get("confidence_level") or 0)
     score = float(row.get("mastery_score") or 0)
@@ -73,6 +76,8 @@ def teaching_move(context: dict[str, Any], subject: str = "General",
 
 
 MOVE_GUIDANCE = {
+    "review": "Ask one recall question before showing an example. Use the answer to decide whether to repair or proceed; a review date is not a claim of forgetting.",
+    "independent": "The recent correct answer used a hint. Ask the learner to try a new example without a hint before increasing challenge.",
     "diagnose": "Evidence is thin. Ask one answerable question that reveals the learner's current reasoning; do not label them weak or claim mastery.",
     "repair": "Use a smaller example or another representation for the relevant concept. Let the learner perform one independent step, then respond to that step.",
     "transfer": "Offer one unfamiliar example or counterexample that tests whether the idea transfers beyond the practiced form.",

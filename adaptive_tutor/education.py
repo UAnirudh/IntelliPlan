@@ -207,12 +207,11 @@ def load(owner_id):
     for step in steps:
         step['status'] = progress.get(step['id'], 'not_started')
         step['evidence'] = evidence.get(step['skill_id'])
-        counts = step['evidence'] or {}
-        attempts = counts.get('total_attempts', 0)
-        independent = counts.get('independent_correct', 0)
-        step['teaching_move'] = ('repair' if step['status'] == 'needs_help'
-            or (attempts >= 2 and independent / attempts < .6) else
-            'transfer' if independent >= 3 and independent / max(1, attempts) >= .8 else 'diagnose')
+        signal = step['evidence'] or {}
+        step['teaching_move'] = 'repair' if step['status'] == 'needs_help' else signal.get('next_move', 'diagnose')
+        step['teaching_reason'] = ('You reported being stuck. Work through one smaller step with Plani.'
+            if step['status'] == 'needs_help' else signal.get('next_reason',
+                'Begin with a diagnostic question to find a useful starting point.'))
     return {'goal': json.loads(row['goal_json']), 'snapshot': json.loads(row['snapshot_json']),
             'steps': steps, 'revision': row['revision'],
             'updated_at': row['updated_at'].isoformat() + 'Z',

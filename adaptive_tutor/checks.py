@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import re
 import secrets
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from flask import current_app
@@ -18,6 +18,7 @@ from sqlalchemy import (Boolean, Column, DateTime, Integer, MetaData, String,
                         Table, UniqueConstraint, and_, case, func, select)
 from sqlalchemy.exc import IntegrityError
 
+from adaptive_tutor.evidence import summarize
 from db_boot import schema_lock
 from primer.advanced import advanced_item_count, advanced_item_for_skill
 from primer.catalog import SKILL_BY_ID, get_item, grade_item, public_item
@@ -109,9 +110,22 @@ def _counts(owner_id: int) -> dict[str, dict[str, int]]:
             ('attempts', 'correct', 'independent_correct')} for row in rows}
 
 
+def _practice_evidence(owner_id: int) -> dict[str, dict[str, Any]]:
+    ensure_tables()
+    attempts = _db().session.execute(
+        select(ATTEMPT.c.skill_id, ATTEMPT.c.correct, ATTEMPT.c.assisted, ATTEMPT.c.created_at)
+        .where(ATTEMPT.c.owner_id == owner_id)
+        .order_by(ATTEMPT.c.created_at, ATTEMPT.c.id)
+        .execution_options(yield_per=256)
+    ).mappings()
+    return summarize(attempts, utcnow())
+
+
 def _recommendation(owner_id: int, grade: int, domain_key: str,
-                    counts: dict[str, dict[str, int]]) -> dict[str, Any]:
+                    counts: dict[str, dict[str, int]],
+                    signals: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
     """Select a repair, due review, new skill, or the next scheduled review."""
+    signals = signals if signals is not None else _practice_evidence(owner_id)
     domain = DOMAINS[domain_key]
     relevant_skills = _skill_ids(grade, domain) + (_skill_ids(grade - 1, domain) if grade else [])
     latest = _db().session.execute(
@@ -123,9 +137,11 @@ def _recommendation(owner_id: int, grade: int, domain_key: str,
     candidates = _skill_ids(grade, domain)
     if not candidates:
         raise ValueError('No check is available for this grade and area.')
-    if latest and latest[0]['grade'] == grade and not latest[0]['correct']:
+    recent_latest = bool(latest and utcnow() - latest[0]['created_at'] < timedelta(days=30))
+    if recent_latest and latest[0]['grade'] == grade and not latest[0]['correct']:
         same_wrong_twice = (len(latest) > 1 and not latest[1]['correct']
-                            and latest[1]['skill_id'] == latest[0]['skill_id'])
+                            and latest[1]['skill_id'] == latest[0]['skill_id']
+                            and utcnow() - latest[1]['created_at'] < timedelta(days=30))
         if same_wrong_twice and grade > 0:
             candidates = _skill_ids(grade - 1, domain)
             mode = 'bridge'
@@ -138,7 +154,7 @@ def _recommendation(owner_id: int, grade: int, domain_key: str,
             counts.get(item, {}).get('attempts', 0), candidates.index(item)))
         return {'skill_id': skill_id, 'mode': mode, 'reason': reason,
                 'review_due_at': None}
-    if latest and latest[0]['grade'] == grade and latest[0]['assisted']:
+    if recent_latest and latest[0]['grade'] == grade and latest[0]['assisted']:
         return {'skill_id': latest[0]['skill_id'], 'mode': 'independent',
                 'reason': 'Try this skill again without the hint.', 'review_due_at': None}
 
@@ -147,33 +163,11 @@ def _recommendation(owner_id: int, grade: int, domain_key: str,
     fresh = []
     future = []
     for index, skill_id in enumerate(candidates):
-        attempts = _db().session.execute(
-            select(ATTEMPT.c.correct, ATTEMPT.c.assisted, ATTEMPT.c.created_at)
-            .where(ATTEMPT.c.owner_id == owner_id, ATTEMPT.c.skill_id == skill_id)
-            .order_by(ATTEMPT.c.id.desc()).limit(4)
-        ).mappings().all()
-        if not attempts:
+        signal = signals.get(skill_id)
+        if not signal:
             fresh.append((index, skill_id))
             continue
-        # Repeating a correct answer immediately does not advance the review
-        # interval. Only a later independent answer can lengthen the cadence.
-        streak = 0
-        previous_at = None
-        intervals = (0, 1, 3, 7, 14)
-        for attempt in reversed(attempts):
-            if not attempt['correct'] or attempt['assisted']:
-                streak = 0
-                previous_at = None
-                continue
-            if (streak and previous_at and attempt['created_at'] - previous_at
-                    >= timedelta(days=intervals[min(streak, 4)])):
-                streak = min(streak + 1, 4)
-            else:
-                streak = 1
-            previous_at = attempt['created_at']
-        # This is a simple practice cadence, not a measured memory model.
-        interval = intervals[streak]
-        due_at = attempts[0]['created_at'] + timedelta(days=interval)
+        due_at = datetime.fromisoformat(signal['review_due_at'])
         entry = (due_at, index, skill_id)
         (due if due_at <= now else future).append(entry)
 
@@ -194,10 +188,10 @@ def _recommendation(owner_id: int, grade: int, domain_key: str,
 
 
 def practice_path(owner_id: int, grade: int) -> list[dict[str, Any]]:
-    counts = _counts(owner_id)
+    counts = _practice_evidence(owner_id)
     result = []
     for area in DOMAINS:
-        recommendation = _recommendation(owner_id, grade, area, counts)
+        recommendation = _recommendation(owner_id, grade, area, counts, counts)
         skill = SKILL_BY_ID[recommendation['skill_id']]
         result.append({'area': area, 'mode': recommendation['mode'],
                        'reason': recommendation['reason'],
@@ -208,8 +202,8 @@ def practice_path(owner_id: int, grade: int) -> list[dict[str, Any]]:
 
 def choose(owner_id: int, grade: int, domain_key: str, focus_skill_id: str | None = None) -> dict[str, Any]:
     """Use the same practice policy shown in the student's path preview."""
-    counts = _counts(owner_id)
-    recommendation = _recommendation(owner_id, grade, domain_key, counts)
+    counts = _practice_evidence(owner_id)
+    recommendation = _recommendation(owner_id, grade, domain_key, counts, counts)
     if focus_skill_id is not None:
         allowed_skills = _skill_ids(grade, DOMAINS[domain_key]) + _skill_ids(max(0, grade - 1), DOMAINS[domain_key])
         if focus_skill_id not in allowed_skills:
@@ -284,15 +278,16 @@ def answer(owner_id: int, challenge: dict[str, Any], response: str) -> dict[str,
     except IntegrityError:
         _db().session.rollback()
         raise ValueError('This check was already answered.') from None
-    counts = _counts(owner_id)[item.skill_id]
+    learning = _practice_evidence(owner_id)[item.skill_id]
+    counts = {key: learning[key] for key in ('attempts', 'correct', 'independent_correct')}
     return {'correct': correct, 'assisted': assisted, 'feedback': feedback,
             'answer': item.answer, 'skill': skill.title,
-            'practice': counts}
+            'practice': counts, 'learning': learning}
 
 
 def evidence(owner_id: int, grade: int | None = None) -> list[dict[str, Any]]:
     """Small-sample practice signal for the student's own recent grade band."""
-    counts = _counts(owner_id)
+    counts = _practice_evidence(owner_id)
     rows = []
     for skill_id, values in counts.items():
         skill = SKILL_BY_ID.get(skill_id)
@@ -305,5 +300,8 @@ def evidence(owner_id: int, grade: int | None = None) -> list[dict[str, Any]]:
                      'mastery_score': signal, 'confidence_level': min(100, attempts * 20),
                      'total_attempts': attempts, 'correct_attempts': values['correct'],
                      'independent_correct': values['independent_correct'],
-                     'source': 'scored_check'})
+                     'source': 'scored_check',
+                     **{key: values[key] for key in ('recent_attempts', 'recent_independent_correct',
+                         'trend', 'next_move', 'next_reason', 'review_stage', 'review_due_at',
+                         'last_checked_at', 'delayed_successes')}})
     return sorted(rows, key=lambda row: (row['grade'], row['subject'], row['topic']))
