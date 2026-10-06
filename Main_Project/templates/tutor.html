@@ -1242,6 +1242,14 @@ async function buildTutorStudyMap() {
   }
 }
 
+function tutorEvidenceSummary(item) {
+  if (!item || item.recent_attempts == null) return '';
+  const trend = { improving: 'More independent answers lately.', revisit: 'Recent answers suggest revisiting this skill.', steady: 'Similar results across recent practice.', building: 'Building a picture of your learning.' }[item.trend] || '';
+  const due = item.review_due_at ? new Date(`${item.review_due_at}Z`) : null;
+  const review = due && !Number.isNaN(due.getTime()) ? ` Next review: ${due.toLocaleString()}.` : '';
+  return `Recent practice: ${item.recent_independent_correct} independent correct of ${item.recent_attempts}. ${item.delayed_successes} correct reviews after a scheduled gap. ${trend}${review}`;
+}
+
 async function showTutorPracticePath() {
   const button = document.getElementById('tutorPathButton');
   const status = document.getElementById('tutorCheckStatus');
@@ -1383,9 +1391,15 @@ async function startTutorCheck(area = document.getElementById('tutorCheckArea').
         result.setAttribute('role', 'status');
         result.textContent = `${body.correct ? 'Correct.' : 'Not yet.'} ${body.feedback} ${body.correct ? '' : `Answer: ${body.answer}.`} ${body.assisted ? 'You used a hint; this is recorded as assisted practice.' : 'Recorded as independent practice.'}`;
         card.append(result);
+        if (body.learning) {
+          const learning = document.createElement('p');
+          learning.className = 'tutor-practice-evidence';
+          learning.textContent = `${tutorEvidenceSummary(body.learning)} ${body.learning.next_reason}`;
+          card.append(learning);
+        }
         const next = document.createElement('button');
         next.type = 'button'; next.textContent = 'Try another check';
-        next.addEventListener('click', () => startTutorCheck(area));
+        next.addEventListener('click', () => startTutorCheck(area, skillId));
         const discuss = document.createElement('button');
         discuss.type = 'button'; discuss.textContent = 'Talk it through with Plani';
         discuss.addEventListener('click', () => {
@@ -2133,6 +2147,11 @@ function renderDashboard(data) {
       row.className = 'tutor-mistake';
       const level = item.grade === 0 ? 'Kindergarten' : item.grade === 13 ? 'College foundation' : `Grade ${item.grade}`;
       row.textContent = `${item.topic} · ${level} · ${item.independent_correct} independent correct of ${item.total_attempts} checked attempts`;
+      if (item.next_reason) {
+        const detail = document.createElement('p');
+        detail.textContent = `${tutorEvidenceSummary(item)} ${item.next_reason}`;
+        row.append(detail);
+      }
       practiceEl.append(row);
     }
   } else {
