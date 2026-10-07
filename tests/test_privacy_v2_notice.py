@@ -45,7 +45,7 @@ def legal_html(client):
 def test_the_privacy_policy_is_past_its_baseline(client):
     """Two material edits shipped while this still read v1, so the notice
     never fired and the change went out silently."""
-    assert policy_versions.current_version(policy_versions.PRIVACY) == 3
+    assert policy_versions.current_version(policy_versions.PRIVACY) == 4
 
 
 def _sign_in(client, email, created_at):
@@ -68,7 +68,7 @@ def test_an_existing_user_is_asked_to_read_it(client):
     privacy = [p for p in pending if p["doc"] == "privacy"]
     assert len(privacy) == 1
     assert privacy[0]["from_version"] == 1
-    assert privacy[0]["version"] == 3
+    assert privacy[0]["version"] == 4
 
 
 def test_a_visitor_with_no_account_is_not_stopped(client):
@@ -94,7 +94,7 @@ def test_somebody_who_signed_up_after_the_change_is_not_asked(client):
 def test_accepting_it_settles_the_notice(client):
     _sign_in(client, "polv2+ack@example.com", datetime(2025, 1, 5))
     assert client.post("/api/policy/acknowledge",
-                       json={"doc": "privacy", "version": 3}).status_code == 200
+                       json={"doc": "privacy", "version": 4}).status_code == 200
     assert client.post("/api/policy/acknowledge",
                        json={"doc": "terms", "version": 2}).status_code == 200
     assert client.get("/api/policy/pending").get_json()["pending"] == []

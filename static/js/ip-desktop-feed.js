@@ -32,10 +32,20 @@
     catch (error) { /* storage full or blocked: worst case one repeat */ }
   }
 
+  /* Set by ip-reminders.js when reminders were turned on in this app. Sent
+     with each poll so the server knows the install is still here; an
+     uninstalled app stops polling and its reminders stop counting as sent. */
+  function installId() {
+    try { return localStorage.getItem('ip_desktopInstallId') || ''; }
+    catch (error) { return ''; }
+  }
+
   async function poll() {
     let data;
     try {
-      const response = await fetch('/api/notifications/desktop-feed', { credentials: 'same-origin' });
+      const id = installId();
+      const url = '/api/notifications/desktop-feed' + (id ? '?install=' + encodeURIComponent(id) : '');
+      const response = await fetch(url, { credentials: 'same-origin' });
       if (!response.ok) return;
       data = await response.json();
     } catch (error) { return; }

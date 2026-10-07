@@ -536,8 +536,30 @@ def _tick_once(app: Any) -> dict | None:
         logger.warning("grade pulse pull failed: %s", exc)
         pulse = {"pulled": 0}
     delivered = get_dispatcher().flush()
+    _shorten_lease(CronLease, holder, now)
     return {"swept": swept, "streaks": streaks, "grade_pulse": pulse,
             "delivered": delivered.as_dict()}
+
+
+def _shorten_lease(CronLease: Any, holder: str, started: datetime) -> None:
+    """Let the next tick start one interval after this one, not after the lease.
+
+    The lease is long so a worker that dies mid-tick cannot wedge delivery
+    for good. Left to expire on its own, it also spaced every tick
+    ``_LEASE_SECONDS`` apart: reminders went out every three minutes, as the
+    production send log shows, though the ticker runs every minute.
+    """
+    from App import db
+
+    try:
+        (db.session.query(CronLease)
+         .filter(CronLease.name == "notifications", CronLease.holder == holder)
+         .update({"expires_at": started + timedelta(seconds=max(1, TICK_SECONDS - 5))},
+                 synchronize_session=False))
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        logger.warning("notification lease release failed: %s", exc)
 
 
 def start_ticker(app: Any) -> bool:
@@ -768,9 +790,12 @@ def desktop_feed():
     if not current_user.is_authenticated:
         return jsonify({"error": "login required"}), 401
 
-    from App import NotificationOutbox
+    from App import NotificationOutbox, _touch_desktop_install
 
     now = utcnow()
+    install_id = request.args.get("install")
+    if install_id:
+        _touch_desktop_install(current_user.id, install_id, now)
     rows = (
         NotificationOutbox.query.filter(
             NotificationOutbox.user_id == current_user.id,

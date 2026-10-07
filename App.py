@@ -6961,7 +6961,8 @@ def api_classroom_status():
 
 @app.route("/legal")
 def legal():
-    return render_template("legal.html", active_page="legal")
+    return render_template("legal.html", active_page="legal",
+                           policy_tldr=policy_versions.DOC_TLDR)
 
 @app.route("/install")
 def install():
@@ -10743,6 +10744,26 @@ def _accepted_at_signup(described):
         return False
 
 
+#: An account this new with no acknowledgement on file signed up through a
+#: door that never showed the documents (Google sign-in). Older accounts with
+#: no record predate the acknowledgement system and get the change notice.
+FIRST_TIME_POLICY_WINDOW = timedelta(days=30)
+
+
+def _never_accepted_any_policy():
+    """True for a recent account that has never accepted either document.
+
+    Telling them "we've updated our policies" with before-and-after wording
+    describes changes to text they never saw. They are asked to accept the
+    documents themselves, with the short version of each.
+    """
+    created = getattr(current_user, "created_at", None)
+    if created is None or utcnow() - created > FIRST_TIME_POLICY_WINDOW:
+        return False
+    return PolicyAcknowledgement.query.filter(
+        PolicyAcknowledgement.user_id == current_user.id).first() is None
+
+
 @app.route("/api/policy/pending", methods=["GET"])
 def api_policy_pending():
     """Which documents this person still needs to read and accept.
@@ -10759,11 +10780,22 @@ def api_policy_pending():
             return flask.jsonify({"status": "ok", "pending": []})
 
         pending = []
-        for doc in policy_versions.all_docs():
-            described = policy_versions.describe(doc, _policy_accepted_version(doc))
-            if described and not _accepted_at_signup(described):
-                pending.append(described)
-        return flask.jsonify({"status": "ok", "pending": pending})
+        if _never_accepted_any_policy():
+            pending = [policy_versions.describe_first_time(doc)
+                       for doc in policy_versions.all_docs()]
+        else:
+            for doc in policy_versions.all_docs():
+                described = policy_versions.describe(doc, _policy_accepted_version(doc))
+                if described and not _accepted_at_signup(described):
+                    pending.append(described)
+        return flask.jsonify({
+            "status": "ok",
+            "pending": pending,
+            # Asked once, after the policies, by the same script. Without a
+            # birth year the email gate treats the account as a child and
+            # sends it nothing, including the reminders it turned on.
+            "needs_birth_year": _needs_age_gate(current_user),
+        })
     except Exception as e:
         # A notice that fails to render must never take the page with it.
         print(f"[policy] pending failed: {e}")
@@ -16295,6 +16327,61 @@ def _is_desktop_endpoint(endpoint):
     return bool(endpoint) and str(endpoint).startswith(DESKTOP_ENDPOINT_PREFIX)
 
 
+#: A desktop install that has not fetched its feed for this long is treated
+#: as gone: its reminders are no longer counted as delivered.
+DESKTOP_ALIVE_WINDOW = timedelta(days=7)
+#: And after this long its row is deleted, so the push channel stops being
+#: switched on by an app that was uninstalled.
+DESKTOP_DEAD_AFTER = timedelta(days=30)
+#: The feed is polled once a minute; recording every poll is a write a minute
+#: per install for no extra information.
+DESKTOP_SEEN_RESOLUTION = timedelta(minutes=10)
+
+
+def _desktop_last_seen(sub):
+    """When this desktop install last fetched its feed, else when it registered."""
+    try:
+        seen = (json.loads(sub.subscription_json or "{}") or {}).get("last_seen")
+        if seen:
+            return datetime.fromisoformat(seen)
+    except (TypeError, ValueError, AttributeError):
+        pass
+    return getattr(sub, "created_at", None)
+
+
+def _desktop_is_alive(sub, now=None):
+    seen = _desktop_last_seen(sub)
+    return seen is not None and (now or utcnow()) - seen <= DESKTOP_ALIVE_WINDOW
+
+
+def _touch_desktop_install(user_id, install_id, now=None):
+    """Record that this desktop install is still running and polling.
+
+    An uninstalled app never says goodbye. Without a heartbeat its row kept
+    the push channel on and every push reminder was counted as delivered,
+    though nothing was left to show it.
+    """
+    if not _DESKTOP_INSTALL_ID.match(str(install_id or "")):
+        return False
+    now = now or utcnow()
+    try:
+        row = PushSubscription.query.filter_by(
+            user_id=user_id, endpoint=DESKTOP_ENDPOINT_PREFIX + install_id).first()
+        if row is None:
+            return False
+        seen = _desktop_last_seen(row)
+        if seen is not None and now - seen < DESKTOP_SEEN_RESOLUTION and \
+                "last_seen" in (row.subscription_json or ""):
+            return True
+        row.subscription_json = json.dumps({"last_seen": now.isoformat(timespec="seconds")})
+        db.session.commit()
+        return True
+    except Exception as e:
+        db.session.rollback()
+        print(f"[push] desktop heartbeat failed: {e}")
+        return False
+
+
 @app.route("/push/desktop-register", methods=["POST"])
 def push_desktop_register():
     """Record that this account uses the desktop app for reminders."""
@@ -18671,6 +18758,31 @@ def _safe_next_path(raw, fallback="/command-center"):
     return value[:512]
 
 
+#: How recent an account must be for "welcome" to still be the right email.
+WELCOME_AFTER_AGE_WINDOW = timedelta(days=14)
+
+
+def _welcome_after_age_known(user):
+    """Send the welcome once we know the account may receive email.
+
+    Google sign-ups are created without a birth year, and the welcome is
+    sent the moment the account exists, so the eligibility gate refused
+    every one of them as ``unknown_age``. Production logs showed it for each
+    Google sign-up. The age step and a parent's approval are the points
+    where the account becomes eligible, so the welcome goes out then.
+    ``send_lifecycle_email`` dedupes per (user, key), so an account that was
+    already welcomed is not welcomed twice. An account older than the window
+    gets nothing: "welcome" months after signing up reads as a mistake.
+    """
+    try:
+        created = getattr(user, "created_at", None)
+        if created is None or utcnow() - created > WELCOME_AFTER_AGE_WINDOW:
+            return
+        send_welcome_email_on_signup(user.id)
+    except Exception as exc:
+        print(f"[welcome] after age step failed for user {getattr(user, 'id', '?')}: {exc}")
+
+
 def _needs_age_gate(user):
     """True when we have never established this user's age."""
     try:
@@ -18749,6 +18861,7 @@ def account_age_gate():
                 return redirect("/account/age/pending")
 
             print(f"[coppa] birth year recorded for user id={current_user.id}")
+            _welcome_after_age_known(current_user)
             return redirect(next_path)
 
     return render_template("age_gate.html", error=error, next_path=next_path,
@@ -18804,6 +18917,7 @@ def parent_consent():
         user.parent_consent_granted = True
         user.parent_consent_token = None  # one-shot
         db.session.commit()
+        _welcome_after_age_known(user)
     # Render a tiny inline confirmation — no template needed.
     return (
         _mini_page(
@@ -19624,8 +19738,23 @@ def _send_push_to_user(user_id, payload, ttl=None):
                         db.session.rollback()
 
     # Desktop installs fetch their reminders; there is nothing to send to.
-    # Counted so the row is not written off as "no active push subscriptions".
-    ok += sum(1 for s in subs if _is_desktop_endpoint(s.endpoint))
+    # Counted so the row is not written off as "no active push subscriptions"
+    # -- but only while the install is still polling. One that has been
+    # silent for a month is an uninstalled app, and its row goes.
+    now = utcnow()
+    for s in subs:
+        if not _is_desktop_endpoint(s.endpoint):
+            continue
+        if _desktop_is_alive(s, now):
+            ok += 1
+            continue
+        seen = _desktop_last_seen(s)
+        if seen is None or now - seen > DESKTOP_DEAD_AFTER:
+            try:
+                db.session.delete(s)
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
     subs = [s for s in subs if not _is_desktop_endpoint(s.endpoint)]
 
     if not subs:

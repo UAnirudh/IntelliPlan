@@ -676,6 +676,90 @@ TERMS_VERSIONS.append({'version': 2,
                        'in King County, Washington. These terms do not waive consumer rights or '
                        'other protections that applicable law does not allow you to waive.'}]})
 
+# Reminders can reach a student by email and through the desktop app, and
+# the desktop app keeps a random install identifier to do it. §1 and §2 only
+# named SMS and browser push, so the policy described fewer channels than the
+# product uses. Nothing new is collected beyond that identifier, and every
+# channel is still off until the student turns it on.
+_REMINDERS_DATA_BEFORE = (
+    "Optional reminders data — phone number, carrier (for SMS-gateway "
+    "delivery), and browser push-notification subscription, only if you opt "
+    "in. You can revoke either at any time."
+)
+_REMINDERS_DATA_AFTER = (
+    "Optional reminders data — phone number, carrier (for SMS-gateway "
+    "delivery), browser push-notification subscription, and a random install "
+    "identifier for the desktop app, only if you turn reminders on. You can "
+    "turn each of these off at any time."
+)
+_REMINDERS_USE_BEFORE = "Send reminders by SMS or browser push, only when you opt in."
+_REMINDERS_USE_AFTER = (
+    "Send reminders by browser push, desktop-app notification, email or SMS, "
+    "only through the channels you turn on."
+)
+
+PRIVACY_VERSIONS.append({
+    "version": 4,
+    "effective": "2026-10-07",
+    "tldr": [
+        "Reminders can now reach you by email or as a desktop-app notification, "
+        "as well as browser push and text.",
+        "Every reminder channel stays off until you turn it on, and you can "
+        "turn each one off in Settings.",
+        "The desktop app keeps a random install number so reminders reach the "
+        "right computer. Nothing else new is collected.",
+    ],
+    "summary": [
+        "The policy listed SMS and browser push as the only ways reminders "
+        "reach you. Reminders can also arrive by email and as a notification "
+        "from the IntelliPlan desktop app, so the policy now says so.",
+        "To show reminders on the right computer, the desktop app stores a "
+        "random install identifier with your account when you turn reminders "
+        "on there. It is not linked to anything else about your device.",
+        "Every channel is still off until you choose it.",
+    ],
+    "clauses": [
+        {"heading": "1. Information we collect — Optional reminders data",
+         "before": _REMINDERS_DATA_BEFORE, "after": _REMINDERS_DATA_AFTER},
+        {"heading": "2. How we use information — Reminders",
+         "before": _REMINDERS_USE_BEFORE, "after": _REMINDERS_USE_AFTER},
+    ],
+})
+
+
+#: The short version of each whole document, not of one change.
+#:
+#: Shown to someone accepting a document for the first time (a Google
+#: sign-up never sees the signup form's checkbox) and at the top of the legal
+#: page. Every line must be something the document itself says; the document
+#: is what applies.
+DOC_TLDR: dict[str, list[str]] = {
+    TERMS: [
+        "IntelliPlan is a study planner and tutor. AI answers can be wrong, so "
+        "check deadlines and facts against your school's own systems.",
+        "Don't use it to cheat, get into other people's accounts, or attack "
+        "the service.",
+        "You own the notes and plans you make. We use them only to run "
+        "IntelliPlan for you.",
+        "Under 13 needs a parent's approval, and some places require it at "
+        "older ages.",
+        "The service is provided as-is. You can stop using it and delete your "
+        "account in Settings at any time.",
+    ],
+    PRIVACY: [
+        "We collect what the planner needs: your account, the schoolwork you "
+        "add or connect, and your study activity.",
+        "We never sell your data or use it for ads.",
+        "Reminders by push, desktop app, email or text only reach you if you "
+        "turn them on.",
+        "Services you connect, and the providers that host IntelliPlan and run "
+        "its AI, process data to make those features work.",
+        "You can export your data, disconnect services or delete your account "
+        "from Settings.",
+    ],
+}
+
+
 _VERSIONS: dict[str, list[dict[str, Any]]] = {
     TERMS: TERMS_VERSIONS,
     PRIVACY: PRIVACY_VERSIONS,
@@ -734,6 +818,8 @@ def describe(doc: str, accepted: int) -> dict[str, Any] | None:
         "doc": doc,
         "name": POLICY_DOCS[doc]["name"],
         "url": POLICY_DOCS[doc]["url"],
+        "first_time": False,
+        "doc_tldr": list(DOC_TLDR.get(doc) or []),
         "from_version": accepted,
         "version": pending[-1]["version"],
         "effective": pending[-1].get("effective"),
@@ -745,3 +831,25 @@ def describe(doc: str, accepted: int) -> dict[str, Any] | None:
 
 def all_docs() -> list[str]:
     return list(POLICY_DOCS)
+
+
+def describe_first_time(doc: str) -> dict[str, Any]:
+    """What to show someone who has never accepted this document.
+
+    A change log means nothing to a person who never saw the earlier text,
+    so they get the short version of the whole document and a link to it.
+    """
+    latest = max(_VERSIONS.get(doc) or [{"version": 1}], key=lambda v: v["version"])
+    return {
+        "doc": doc,
+        "name": POLICY_DOCS[doc]["name"],
+        "url": POLICY_DOCS[doc]["url"],
+        "first_time": True,
+        "doc_tldr": list(DOC_TLDR.get(doc) or []),
+        "from_version": 0,
+        "version": latest["version"],
+        "effective": latest.get("effective"),
+        "tldr": list(DOC_TLDR.get(doc) or []),
+        "summary": [],
+        "clauses": [],
+    }

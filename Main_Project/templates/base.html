@@ -2622,7 +2622,9 @@ window.addEventListener('load',()=>{
   const isAppPage = appPages.some(p => location.pathname.startsWith(p));
   const tourDone = localStorage.getItem('ip_tour_done');
   if (isAppPage && !tourDone) {
-    setTimeout(() => startTour(0), 1200);
+    /* After any terms notice is dealt with: the tour's tooltip sits above
+       the notice and offered "Next" over a dialog asking for agreement. */
+    setTimeout(() => (window.ipPolicySettled || Promise.resolve()).then(() => startTour(0)), 1200);
   }
   if (new URLSearchParams(location.search).get('tour') === '1') {
     setTimeout(() => startTour(0), 600);
@@ -3649,10 +3651,13 @@ window.addEventListener('load',()=>{
 
 {# ── Policy change notice ──────────────────────────────────────
    When the Terms or Privacy Policy change, the people bound by them get
-   told before they carry on using the product. The card gives the summary
-   and the changed clauses word for word, and the Accept button stays
-   disabled until they have actually reached the bottom of the text — a
-   consent you can evidence is worth more than one you cannot. #}
+   told before they carry on using the product. The card gives a TL;DR, the
+   summary and the changed clauses word for word, and the Accept button
+   stays disabled until they have actually reached the bottom of the text —
+   a consent you can evidence is worth more than one you cannot. A Google
+   sign-up, which never saw the signup checkbox, gets the documents' own
+   TL;DR instead of a change log. After accepting, the card shows the short
+   version of what was agreed to. #}
 <div id="ipPolicyNotice" class="ip-policy-backdrop" hidden role="dialog"
      aria-modal="true" aria-labelledby="ipPolicyTitle">
   <div class="ip-policy-card">
@@ -3717,6 +3722,10 @@ window.addEventListener('load',()=>{
   }
   .ip-policy-body .ip-policy-tldr h3 { margin-top: 0; }
   .ip-policy-tldr-note { margin: 0.5rem 0 0; font-size: 0.78rem; color: var(--text-secondary); }
+  .ip-policy-tldr-doc { margin: 0.5rem 0 0.25rem; font-weight: 600; color: var(--text-primary); }
+  .ip-policy-sub {
+    margin: 0.6rem 0 0.3rem; font-size: 0.78rem; font-weight: 600; color: var(--text-primary);
+  }
   .ip-policy-clause {
     border: 1px solid var(--border); border-radius: 10px;
     padding: 10px 12px; margin-bottom: 10px;
@@ -3754,15 +3763,21 @@ window.addEventListener('load',()=>{
   const backdrop = document.getElementById('ipPolicyNotice');
   if (!backdrop) return;
 
+  const title = document.getElementById('ipPolicyTitle');
   const body = document.getElementById('ipPolicyBody');
   const accept = document.getElementById('ipPolicyAccept');
   const hint = document.getElementById('ipPolicyHint');
   const intro = document.getElementById('ipPolicyIntro');
-  let queue = [];
+  let needsBirthYear = false;
+  /* Resolves once nothing is left to accept, so other first-visit prompts
+     (the app tour) can wait their turn instead of opening on top. */
+  let settle;
+  window.ipPolicySettled = new Promise(resolve => { settle = resolve; });
 
   const esc = (s) => String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const list = (items) => (items || []).map(s => `<li>${esc(s)}</li>`).join('');
 
   function renderClause(clause) {
     const before = clause.before
@@ -3797,98 +3812,143 @@ window.addEventListener('load',()=>{
       event.preventDefault(); first.focus();
     }
   }
-  document.addEventListener('keydown', trapFocus);
 
-  function show(doc) {
-    /* "Make it easy to identify a modal view's task" — when two updates are
-       queued, say so, rather than letting a second card look like a bug. */
-    const remaining = queue.length;
-    intro.textContent =
-      `Our ${doc.name} changed${doc.effective ? ', effective ' + doc.effective : ''}. `
-      + `Here is what moved, in summary and word for word.`
-      + (remaining ? ` (1 of ${remaining + 1})` : '');
+  const names = (docs) => docs.map(d => d.name).join(' and ');
 
-    const summary = (doc.summary || []).map(s => `<li>${esc(s)}</li>`).join('');
-    const clauses = (doc.clauses || []).map(renderClause).join('');
+  /* Every pending document in one card with one decision. Two cards in a row,
+     each needing a scroll to the bottom, read as the same dialog twice. */
+  function show(docs) {
+    const firstTime = docs.every(d => d.first_time);
+    title.textContent = firstTime
+      ? 'Before you start'
+      : `We've updated our ${names(docs)}`;
+    intro.textContent = firstTime
+      ? `Please read and accept our ${names(docs)}. The short version comes first.`
+      : 'Here is what changed, in short and word for word. Please read and accept to keep using IntelliPlan.';
 
-    const tldr = (doc.tldr || []).map(s => `<li>${esc(s)}</li>`).join('');
+    const tldr = docs.map(d => (d.tldr || []).length
+      ? `<p class="ip-policy-tldr-doc">${esc(d.name)}</p><ul>${list(d.tldr)}</ul>` : '').join('');
+
+    const details = firstTime ? '' : docs.map(d => {
+      const summary = list(d.summary);
+      const clauses = (d.clauses || []).map(renderClause).join('');
+      return `<h3>${esc(d.name)}${d.effective ? ' &middot; effective ' + esc(d.effective) : ''}</h3>
+        ${summary ? `<p class="ip-policy-sub">What changed</p><ul>${summary}</ul>` : ''}
+        ${clauses ? `<p class="ip-policy-sub">The exact wording</p>${clauses}` : ''}`;
+    }).join('');
+
+    const links = docs.map(d =>
+      `<a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.name)}</a>`).join(' and ');
 
     body.innerHTML = `
-      ${tldr ? `<div class="ip-policy-tldr"><h3>TL;DR</h3><ul>${tldr}</ul>
-        <p class="ip-policy-tldr-note">A short version to read first. The wording below is what applies.</p></div>` : ''}
-      ${summary ? `<h3>What changed</h3><ul>${summary}</ul>` : ''}
-      ${clauses ? `<h3>The exact wording</h3>${clauses}` : ''}
-      <h3>The full document</h3>
-      <p>You can read the complete
-         <a href="${esc(doc.url)}" target="_blank" rel="noopener">${esc(doc.name)}</a>
-         at any time.</p>
+      ${tldr ? `<div class="ip-policy-tldr"><h3>TL;DR</h3>${tldr}
+        <p class="ip-policy-tldr-note">A short version to read first. The full wording is what applies.</p></div>` : ''}
+      ${details}
+      <h3>The full documents</h3>
+      <p>You can read the complete ${links} at any time.</p>
       <p style="margin-top:1.5rem;padding-top:0.75rem;border-top:1px solid var(--border);">
-         By continuing to use IntelliPlan you accept the updated ${esc(doc.name)}.</p>`;
+         Selecting “I agree” records that you accept the ${esc(names(docs))}.</p>`;
 
     accept.disabled = true;
     accept.textContent = 'Read to the end to accept';
     hint.textContent = 'Scroll to the end to continue.';
+    hint.hidden = false;
     body.scrollTop = 0;
     backdrop.hidden = false;
     /* The page behind must not scroll under the notice. */
     document.documentElement.style.overflow = 'hidden';
+    document.addEventListener('keydown', trapFocus);
     /* Land focus on the text, not on a disabled button: the reading is the
        task, and the scrollable region is where a keyboard user needs to be. */
     body.focus({ preventScroll: true });
     /* Measured after layout — scrollHeight before paint can under-report and
        leave a short notice permanently un-acceptable. */
     requestAnimationFrame(checkScrolled);
-    accept.onclick = () => acknowledge(doc);
+    accept.onclick = () => acknowledge(docs);
   }
 
   function checkScrolled() {
-    /* A short update can fit without scrolling; that still counts as read. */
+    /* A short notice can fit without scrolling; that still counts as read. */
     const atEnd = body.scrollHeight - body.scrollTop - body.clientHeight <= 24;
     if (!atEnd) return;
-    if (!accept.disabled) return;   // already announced
+    if (!accept.disabled || accept.dataset.state === 'done') return;
     accept.disabled = false;
-    accept.textContent = 'I have read and accept';
+    accept.textContent = 'I agree';
     hint.textContent = 'You can now accept.';
   }
 
   body.addEventListener('scroll', checkScrolled, { passive: true });
   window.addEventListener('resize', checkScrolled);
 
-  async function acknowledge(doc) {
+  async function acknowledge(docs) {
     accept.disabled = true;
     accept.textContent = 'Saving...';
     try {
-      const r = await fetch('/api/policy/acknowledge', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ doc: doc.doc, version: doc.version }),
-      });
-      if (!r.ok) throw new Error('save failed');
+      for (const doc of docs) {
+        const r = await fetch('/api/policy/acknowledge', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ doc: doc.doc, version: doc.version }),
+        });
+        if (!r.ok) throw new Error('save failed');
+      }
     } catch (e) {
       accept.disabled = false;
-      accept.textContent = 'I have read and accept';
+      accept.textContent = 'I agree';
       hint.textContent = 'Could not save that. Please try again.';
       return;
     }
-    backdrop.hidden = true;
-    next();
+    confirmAccepted(docs);
   }
 
-  function next() {
-    const doc = queue.shift();
-    if (doc) { show(doc); return; }
-    /* Nothing left — give the page back its scrollbar and its focus. */
+  /* After agreeing, the short version of what was agreed to — of the whole
+     document, not just the change — so the last thing read is the gist. */
+  function confirmAccepted(docs) {
+    title.textContent = "You're all set";
+    intro.textContent = `Thanks for accepting our ${names(docs)}. Here is what you agreed to, in short.`;
+    body.innerHTML = docs.map(d => {
+      const lines = (d.doc_tldr && d.doc_tldr.length) ? d.doc_tldr : d.tldr;
+      return `<div class="ip-policy-tldr"><h3>${esc(d.name)}: TL;DR</h3><ul>${list(lines)}</ul>
+        <p class="ip-policy-tldr-note">Full text any time at
+          <a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.url)}</a>.</p></div>`;
+    }).join('');
+    body.scrollTop = 0;
+    hint.hidden = true;
+    accept.dataset.state = 'done';
+    accept.disabled = false;
+    accept.textContent = 'Continue';
+    accept.onclick = close;
+    accept.focus({ preventScroll: true });
+  }
+
+  function close() {
+    backdrop.hidden = true;
+    delete accept.dataset.state;
+    /* Give the page back its scrollbar and its focus. */
     document.documentElement.style.overflow = '';
     document.removeEventListener('keydown', trapFocus);
+    askBirthYear();
   }
 
-  fetch('/api/policy/pending')
+  /* An account without a birth year is treated as a child by the email
+     gate, so it gets no welcome and no email reminders. Asked once, on the
+     same screen Google sign-ups already use, and sent back here after. */
+  function askBirthYear() {
+    if (!needsBirthYear) { settle(); return; }
+    const here = location.pathname + location.search;
+    if (location.pathname.indexOf('/account/age') === 0) { settle(); return; }
+    location.href = '/account/age?next=' + encodeURIComponent(here);
+  }
+
+  fetch('/api/policy/pending', { credentials: 'same-origin' })
     .then(r => r.json())
     .then(d => {
-      queue = d.pending || [];
-      next();
+      needsBirthYear = !!d.needs_birth_year;
+      const docs = d.pending || [];
+      if (docs.length) show(docs); else askBirthYear();
     })
-    .catch(() => { /* a notice that cannot load must not block the page */ });
+    .catch(() => { settle(); /* a notice that cannot load must not block the page */ });
 })();
 </script>
 
