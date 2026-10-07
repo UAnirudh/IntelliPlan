@@ -209,16 +209,16 @@ class TestRegisterPage:
         expect(page.locator("input[name='password']")).to_be_visible()
 
     def test_password_is_asked_for_once(self, page: Page):
-        """The second password box was replaced by a "Show password" toggle."""
+        """One password box; the eye button on it stands in for typing it twice."""
         go(page, "/register")
         expect(page.locator("input[name='confirm_password']")).to_have_count(0)
-        expect(page.get_by_label("Show password")).to_be_visible()
+        expect(page.get_by_role("button", name="Show password")).to_be_visible()
 
     def test_show_password_reveals_what_was_typed(self, page: Page):
         go(page, "/register")
         password = page.locator("input[name='password']")
         password.fill("password123")
-        page.get_by_label("Show password").check()
+        page.get_by_role("button", name="Show password").click()
         expect(password).to_have_attribute("type", "text")
 
     def test_short_password_is_not_accepted(self, page: Page):

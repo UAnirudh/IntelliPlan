@@ -100,13 +100,6 @@
       <div class="form-group">
         <label class="form-label" for="regPassword">Password</label>
         <input type="password" id="regPassword" name="password" class="form-input" autocomplete="new-password" placeholder="At least 8 characters" minlength="8" required />
-        {# Stands in for the "confirm password" field: seeing what was typed
-           catches a typo without making everyone type it twice. #}
-        <label style="display:inline-flex;align-items:center;gap:8px;margin-top:8px;font-size:0.8rem;color:var(--text-secondary);cursor:pointer;">
-          <input type="checkbox" id="regShowPassword" style="accent-color:var(--accent);width:15px;height:15px;"
-                 onchange="document.getElementById('regPassword').type = this.checked ? 'text' : 'password'">
-          Show password
-        </label>
       </div>
       <div class="form-group">
         <label class="form-label" for="regBirthYear">Birth year <span style="font-weight:normal;color:var(--text-muted);font-size:0.78rem;">(required for COPPA compliance)</span></label>
