@@ -1183,7 +1183,11 @@ def plani_agent():
             payload["retry_after"] = e.retry_after
         return jsonify(payload), e.status
 
-    system = AGENT_SYSTEM_PROMPT + "\n\n" + _tool_list_prompt() + \
+    import assistant_name
+
+    system = AGENT_SYSTEM_PROMPT + \
+        assistant_name.prompt_line(assistant_name.for_user(user_id)) + \
+        "\n\n" + _tool_list_prompt() + \
         f"\n\nToday's date: {datetime.now().strftime('%A, %Y-%m-%d')}." + \
         (build_agent_context(user_id) or "")
     # RAG: ground the answer in passages from the student's own notes that

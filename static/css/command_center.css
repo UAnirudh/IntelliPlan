@@ -11,8 +11,10 @@ body:has(.command-chat) #planiBot { display: none !important; } /* same assistan
   top: 0; right: 0; bottom: 0;
   left: var(--side-w, 0px);
   z-index: 5;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  /* A column, not a fixed three-row grid: the family note and the reminders
+     line appear between the header and the thread, and a fourth child in a
+     three-row grid took the stretching row away from the conversation. */
+  display: flex; flex-direction: column;
   background: var(--bg);
   color: var(--text-primary);
 }
@@ -51,6 +53,7 @@ body:has(.command-chat) #planiBot { display: none !important; } /* same assistan
 
 /* ── Conversation (the only scroller) ───────────────────────────── */
 .command-chat__thread {
+  flex: 1 1 0; min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   scroll-behavior: smooth;
@@ -74,17 +77,22 @@ body:has(.command-chat) #planiBot { display: none !important; } /* same assistan
   display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
   margin-top: 26px;
 }
-.command-chat__prompts button {
+.command-chat__prompts button,
+.command-chat__prompts a {
   display: flex; flex-direction: column; gap: 3px; text-align: left;
   padding: 13px 14px; border-radius: 12px;
   background: var(--bg-card); border: 1px solid var(--border);
   color: var(--text-primary); font: inherit; cursor: pointer;
+  text-decoration: none;
   transition: border-color 0.12s, background 0.12s;
 }
-.command-chat__prompts button strong { font-size: 0.9rem; font-weight: 600; }
-.command-chat__prompts button span { font-size: 0.8rem; color: var(--text-muted); }
-.command-chat__prompts button:hover { border-color: var(--border-strong, var(--text-muted)); background: var(--bg-elevated); }
-.command-chat__prompts button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.command-chat__prompts :is(button, a) strong { font-size: 0.9rem; font-weight: 600; }
+.command-chat__prompts :is(button, a) span { font-size: 0.8rem; color: var(--text-muted); }
+.command-chat__prompts :is(button, a):hover { border-color: var(--border-strong, var(--text-muted)); background: var(--bg-elevated); }
+.command-chat__prompts :is(button, a):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* The one action that fixes an empty account, so it is the one that reads first. */
+.command-chat__prompts a.command-chat__prompt--primary { border-color: var(--border-accent); background: var(--accent-soft); }
+.command-chat__prompts a.command-chat__prompt--primary:hover { border-color: var(--accent); background: var(--accent-soft); }
 
 .command-chat__message {
   max-width: 88%;
@@ -194,3 +202,17 @@ body:has(.command-chat) #planiBot { display: none !important; } /* same assistan
 .command-family-note strong{font-size:.82rem}.command-family-note p{margin:4px 0 0;font-size:.9rem;line-height:1.4}
 .command-family-note button{border:1px solid var(--border-strong);border-radius:999px;background:var(--bg-card);color:var(--text-primary);min-height:40px;padding:8px 16px;white-space:nowrap;cursor:pointer}
 @media(max-width:650px){.command-family-note{flex-direction:column;align-items:flex-start}.command-family-note button{align-self:flex-end}}
+
+/* Reminders nudge: one line above the conversation, never a modal. */
+.command-remind{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 16px;border:1px solid var(--border-accent);border-radius:14px;background:var(--accent-soft);margin:0 14px 10px;color:var(--text-primary)}
+.command-remind[hidden]{display:none}
+.command-remind p{margin:0;font-size:.88rem;line-height:1.45}
+.command-remind p[data-tone="warn"] span{color:var(--high)}
+.command-remind__actions{display:flex;gap:8px;flex-shrink:0}
+.command-remind__actions button{border-radius:999px;min-height:36px;padding:6px 16px;font:inherit;font-size:.84rem;font-weight:600;white-space:nowrap;cursor:pointer}
+.command-remind__on{border:1px solid rgba(255,255,255,0.16);background:var(--glass-primary-bg);color:var(--glass-primary-text)}
+.command-remind__on:disabled{opacity:.6;cursor:progress}
+.command-remind__dismiss{border:1px solid transparent;background:transparent;color:var(--text-secondary)}
+.command-remind__dismiss:hover{color:var(--text-primary)}
+.command-remind__actions button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media(max-width:650px){.command-remind{flex-direction:column;align-items:flex-start}.command-remind__actions{align-self:flex-end}}

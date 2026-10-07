@@ -60,7 +60,7 @@
         <img src="/static/icons/icon-192.png" alt="IntelliPlan" style="width:100%;height:100%;object-fit:cover;">
       </div>
       <h1 class="login-title">Create your account</h1>
-      <p class="login-subtitle">Free forever. No extra information needed.</p>
+      <p class="login-subtitle">Free forever. Three fields and you are in.</p>
     </div>
 
     {% if error %}
@@ -99,11 +99,14 @@
       </div>
       <div class="form-group">
         <label class="form-label" for="regPassword">Password</label>
-        <input type="password" id="regPassword" name="password" class="form-input" autocomplete="new-password" placeholder="At least 8 characters" required />
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="regConfirm">Confirm Password</label>
-        <input type="password" id="regConfirm" name="confirm_password" class="form-input" autocomplete="new-password" placeholder="••••••••" required />
+        <input type="password" id="regPassword" name="password" class="form-input" autocomplete="new-password" placeholder="At least 8 characters" minlength="8" required />
+        {# Stands in for the "confirm password" field: seeing what was typed
+           catches a typo without making everyone type it twice. #}
+        <label style="display:inline-flex;align-items:center;gap:8px;margin-top:8px;font-size:0.8rem;color:var(--text-secondary);cursor:pointer;">
+          <input type="checkbox" id="regShowPassword" style="accent-color:var(--accent);width:15px;height:15px;"
+                 onchange="document.getElementById('regPassword').type = this.checked ? 'text' : 'password'">
+          Show password
+        </label>
       </div>
       <div class="form-group">
         <label class="form-label" for="regBirthYear">Birth year <span style="font-weight:normal;color:var(--text-muted);font-size:0.78rem;">(required for COPPA compliance)</span></label>
@@ -115,15 +118,6 @@
         <input type="email" id="regParentEmail" name="parent_email" class="form-input" autocomplete="email" placeholder="parent@example.com" />
         <span class="form-hint">We'll send a one-time link they click to approve the account. We never email them again.</span>
       </div>
-      <div class="form-group">
-        <label class="form-label" for="regPhone">Phone number <span style="font-weight:normal;color:var(--text-muted);font-size:0.78rem;">(optional, for reminders)</span></label>
-        <input type="tel" id="regPhone" name="phone" class="form-input" placeholder="+1 555 123 4567" autocomplete="tel" />
-        <span class="form-hint">Used only if you opt in to SMS reminders below. You can change this anytime in Settings.</span>
-      </div>
-      <label style="display:flex;align-items:flex-start;gap:10px;font-size:0.86rem;color:var(--text-secondary);cursor:pointer;margin:0 0 0.75rem;">
-        <input type="checkbox" name="sms_reminders_opt_in" value="1" style="margin-top:3px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;">
-        <span>Text me study reminders. I agree to receive SMS messages from IntelliPlan. Reply STOP to opt out. Standard rates apply.</span>
-      </label>
       {# Marketing, kept visibly apart from the reminders above: those are the
          product doing its job, this is us writing to them. Unticked by
          default — a pre-ticked box is not consent — and the copy says what
@@ -133,7 +127,7 @@
          register(). #}
       <label style="display:flex;align-items:flex-start;gap:10px;font-size:0.86rem;color:var(--text-secondary);cursor:pointer;margin:0 0 1rem;">
         <input type="checkbox" name="marketing_emails_opt_in" value="1" style="margin-top:3px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;">
-        <span>Email me IntelliPlan’s weekly study note, with practical study tips and occasional product news. It arrives once a week. I can unsubscribe at any time. This is separate from deadline reminders, which keep working either way.</span>
+        <span>Email me IntelliPlan’s weekly study note, with practical study tips and occasional product news. It arrives once a week. I can unsubscribe at any time. This is separate from deadline reminders, which you choose during setup.</span>
       </label>
       {% set recaptcha_action = "register" %}
       {% include "_recaptcha.html" with context %}

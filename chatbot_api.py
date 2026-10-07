@@ -885,6 +885,19 @@ def _build_tutor_memory_prompt(profile):
 
 Use this memory silently to adapt. If a recurring gap appears, start from foundations before advancing. If the student tends to ask for examples, practice, analogies, visuals, or brevity, match that style. Do not claim certainty about the learner; treat memory as hints."""
 
+def _assistant_name_line() -> str:
+    """The "you have been named X" sentence for the signed-in student."""
+    import assistant_name
+    from flask_login import current_user
+
+    try:
+        if not current_user.is_authenticated:
+            return ""
+        return assistant_name.prompt_line(assistant_name.for_user(current_user.id))
+    except Exception:
+        return ""
+
+
 PLANI_SYSTEM_PROMPT = """You are Plani, IntelliPlan's in-app assistant — a small, helpful robot that lives in the bottom-right corner. You are conversational, sharp, and useful.
 
 VOICE
@@ -1341,7 +1354,7 @@ def tutor():
         adaptive_turn = _prepare_adaptive_turn(data.get('modality_mode'), latest_question)
 
         system_messages = [
-            {'role': 'system', 'content': TUTOR_SYSTEM_PROMPT},
+            {'role': 'system', 'content': TUTOR_SYSTEM_PROMPT + _assistant_name_line()},
             {'role': 'system', 'content': memory_prompt},
         ]
         if adaptive_turn:
@@ -1792,7 +1805,7 @@ def chatbot():
         recent = messages[-10:]
         identity_prompt = _build_identity_prompt(_load_user_identity())
         personalization_prompt = _build_personalization_prompt(depth='thin')
-        system_messages = [{'role': 'system', 'content': PLANI_SYSTEM_PROMPT}]
+        system_messages = [{'role': 'system', 'content': PLANI_SYSTEM_PROMPT + _assistant_name_line()}]
         if identity_prompt:
             system_messages.append({'role': 'system', 'content': identity_prompt})
         if personalization_prompt:

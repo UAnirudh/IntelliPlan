@@ -41,6 +41,12 @@
 
   function scrollDown() { thread.scrollTop = thread.scrollHeight; }
 
+  // What the student named their assistant; the page carries it.
+  function assistantName() {
+    var host = document.querySelector('[data-assistant-name]');
+    return (host && host.getAttribute('data-assistant-name')) || 'Plani';
+  }
+
   function dropIntro() {
     var intro = document.getElementById('chatIntro');
     if (intro) intro.remove();
@@ -90,7 +96,7 @@
     var el = document.createElement('div');
     el.id = 'chatTyping';
     el.className = 'command-chat__typing';
-    el.setAttribute('aria-label', 'Plani is working');
+    el.setAttribute('aria-label', assistantName() + ' is working');
     el.innerHTML = '<span></span><span></span><span></span>';
     inner.appendChild(el);
     scrollDown();
@@ -181,7 +187,7 @@
         if (data.outlook) names.push('Outlook');
         if (state) {
           state.textContent = names.length
-            ? 'Schedules Plani makes are added to ' + names.join(' and ') + '.'
+            ? 'Schedules ' + assistantName() + ' makes are added to ' + names.join(' and ') + '.'
             : 'No calendar connected. Schedules stay in IntelliPlan until you connect one in Settings.';
         }
         var link = document.getElementById('outlookConnect');
