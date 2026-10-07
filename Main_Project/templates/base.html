@@ -1584,7 +1584,10 @@ if (mobileMenuBtn) {
   }
 
   async function tick() {
-    if (document.visibilityState === 'hidden') return;
+    /* The desktop app closes to the tray, where the page counts as hidden;
+       skipping there would stop reminders the moment the window is shut. */
+    const inDesktopApp = !!(window.intelliplan && window.intelliplan.isDesktop);
+    if (document.visibilityState === 'hidden' && !inDesktopApp) return;
     if (isSilenced()) return;
     let res;
     try { res = await fetch('/api/reminders/check', { credentials: 'same-origin' }); }
@@ -2388,6 +2391,9 @@ window.addEventListener('load',()=>{
 });
 {% endif %}
 </script>
+{% if logged_in %}
+<script src="/static/js/ip-desktop-feed.js?v={{ asset_v }}" defer></script>
+{% endif %}
 
 {# ── Reading-experience polish for content pages (blogs, guides, comparisons,
    tools, about). Purely presentational; never rendered on app pages. ── #}

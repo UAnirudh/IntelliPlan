@@ -6671,7 +6671,8 @@ def api_lms_callback(provider):
             refresh = tok.get("refresh_token")
             ttl = int(tok.get("expires_in", 3600))
             if not access:
-                print(f"[blackboard callback] no access_token: {tok}")
+                # Keys only: the response can still carry a refresh token.
+                print(f"[blackboard callback] no access_token, keys={sorted(tok.keys())}")
                 return redirect("/connect?lms_error=1&lms_provider=blackboard&reason=no_token")
             # Blackboard returns the user's UUID with the token; prefer it over
             # a second call to /users/me, which some instances restrict.
@@ -6714,7 +6715,7 @@ def api_lms_callback(provider):
             refresh = tok.get("refresh_token")
             ttl = int(tok.get("expires_in", 3600))
             if not access:
-                print(f"[classroom callback] no access_token in response: {tok}")
+                print(f"[classroom callback] no access_token, keys={sorted(tok.keys())}")
                 return redirect("/connect?lms_error=1")
             info = _classroom_get_userinfo(access)
             row = ClassroomIntegration.query.filter_by(user_id=current_user.id).order_by(ClassroomIntegration.id.desc()).first()
@@ -7573,10 +7574,8 @@ def onboarding():
         for k in ("onb_mode", "onb_step", "onb_messages"):
             session.pop(k, None)
         session.modified = True
-        next_url = request.args.get("next")
-        if next_url and next_url.startswith("/"):
-            return redirect(next_url)
-        return redirect("/command-center")
+        # "//host" also starts with a slash and a browser follows it off-site.
+        return redirect(_safe_next_path(request.args.get("next")))
     school_connected = False
     try:
         from intelliplan.email.onboarding import _has_connected_account
@@ -8759,7 +8758,9 @@ def logout():
 def _handle_google_callback():
     import traceback
 
-    print(f"[GOOGLE CALLBACK] args={dict(request.args)}")
+    # Parameter names only. The values include the one-time authorization
+    # code and the state token, and this line lands in the hosting logs.
+    print(f"[GOOGLE CALLBACK] arg_keys={sorted(request.args.keys())}")
     print(f"[GOOGLE CALLBACK] session_keys={list(session.keys())}")
 
     # Google returned an error (user denied, etc.)
@@ -8788,7 +8789,7 @@ def _handle_google_callback():
         return redirect(url_for("login"))
 
     if returned_state != stored_state:
-        print(f"[GOOGLE CALLBACK] FATAL: state mismatch returned={returned_state!r} stored={stored_state!r}")
+        print(f"[GOOGLE CALLBACK] FATAL: state mismatch returned={bool(returned_state)} stored={bool(stored_state)}")
         return redirect(url_for("login"))
 
     code = request.args.get("code")
@@ -8828,7 +8829,7 @@ def _handle_google_callback():
     google_id = userinfo.get("sub")
     email = (userinfo.get("email") or "").lower().strip()
     name = userinfo.get("name") or email.split("@")[0]
-    print(f"[GOOGLE CALLBACK] google_id={google_id} email={email} purpose={purpose}")
+    print(f"[GOOGLE CALLBACK] userinfo received purpose={purpose}")
 
     if not google_id or not email:
         print("[GOOGLE CALLBACK] FATAL: missing sub or email in userinfo")
@@ -8938,7 +8939,7 @@ def _handle_google_callback():
             )
             db.session.add(user)
             _is_new_signup = True
-            print(f"[GOOGLE CALLBACK] created new user email={email}")
+            print("[GOOGLE CALLBACK] created new user")
     else:
         print(f"[GOOGLE CALLBACK] found existing google user id={user.id}")
 
@@ -16282,6 +16283,43 @@ def push_subscribe():
         return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
     return flask.jsonify({"status": "ok"})
 
+#: A desktop-app install, stored beside browser subscriptions and phone
+#: tokens. It has no push service behind it: the row only records that this
+#: student has somewhere for a push-channel reminder to be shown, and the
+#: app collects those from /api/notifications/desktop-feed.
+DESKTOP_ENDPOINT_PREFIX = "desktop:"
+_DESKTOP_INSTALL_ID = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
+
+
+def _is_desktop_endpoint(endpoint):
+    return bool(endpoint) and str(endpoint).startswith(DESKTOP_ENDPOINT_PREFIX)
+
+
+@app.route("/push/desktop-register", methods=["POST"])
+def push_desktop_register():
+    """Record that this account uses the desktop app for reminders."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error", "message": "login required"}), 401
+    data = request.get_json(silent=True) or {}
+    install_id = str(data.get("install_id") or "")
+    if not _DESKTOP_INSTALL_ID.match(install_id):
+        return flask.jsonify({"status": "error", "message": "invalid install id"}), 400
+    endpoint = DESKTOP_ENDPOINT_PREFIX + install_id
+    try:
+        existing = PushSubscription.query.filter_by(
+            user_id=current_user.id, endpoint=endpoint).first()
+        if not existing:
+            _prune_push_subscriptions(current_user.id, None)
+            db.session.add(PushSubscription(
+                user_id=current_user.id, guest_session_id=None,
+                endpoint=endpoint, subscription_json="{}"))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
+    return flask.jsonify({"status": "ok"})
+
+
 @app.route("/push/test", methods=["POST"])
 def push_test():
     """Fire a test notification at every browser the caller has registered.
@@ -16292,7 +16330,8 @@ def push_test():
     """
     uid = current_user.id if current_user.is_authenticated else None
     gid = None if current_user.is_authenticated else get_guest_session_id()
-    subs = PushSubscription.query.filter_by(user_id=uid, guest_session_id=gid).all()
+    subs = [s for s in PushSubscription.query.filter_by(user_id=uid, guest_session_id=gid).all()
+            if not _is_desktop_endpoint(s.endpoint)]
     if not subs:
         return flask.jsonify({
             "status": "error",
@@ -19583,6 +19622,11 @@ def _send_push_to_user(user_id, payload, ttl=None):
                         db.session.commit()
                     except Exception:
                         db.session.rollback()
+
+    # Desktop installs fetch their reminders; there is nothing to send to.
+    # Counted so the row is not written off as "no active push subscriptions".
+    ok += sum(1 for s in subs if _is_desktop_endpoint(s.endpoint))
+    subs = [s for s in subs if not _is_desktop_endpoint(s.endpoint)]
 
     if not subs:
         return ok

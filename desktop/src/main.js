@@ -134,6 +134,9 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: true,
       spellcheck: true,
+      // Reminders are polled by the page while the window sits hidden in
+      // the tray. Chromium slows a hidden page's timers to a crawl.
+      backgroundThrottling: false,
     },
   });
 
