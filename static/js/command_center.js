@@ -67,6 +67,27 @@
     inner.appendChild(el);
   }
 
+  // Buttons a tool asked for: "Connect Canvas", a course search page.
+  // Same-origin paths and https links only; anything else is dropped.
+  function renderLinks(links) {
+    var safe = (links || []).filter(function (l) {
+      return l && typeof l.url === 'string' && typeof l.label === 'string' &&
+        (/^\/[a-z0-9\-\/]*$/i.test(l.url) || /^https:\/\//i.test(l.url));
+    });
+    if (!safe.length) return;
+    var row = document.createElement('div');
+    row.className = 'command-chat__links';
+    safe.forEach(function (l) {
+      var a = document.createElement('a');
+      a.className = 'command-chat__link';
+      a.textContent = l.label;
+      a.href = l.url;
+      if (/^https:/i.test(l.url)) { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
+      row.appendChild(a);
+    });
+    inner.appendChild(row);
+  }
+
   function renderSchedule(schedule) {
     if (!schedule || !Array.isArray(schedule.schedule)) return;
     var days = schedule.schedule.slice(0, 7).map(function (day) {
@@ -87,6 +108,7 @@
     if (item.t === 'msg') renderMsg(item.role, item.text);
     else if (item.t === 'action') renderAction(item.text);
     else if (item.t === 'schedule') renderSchedule(item.schedule);
+    else if (item.t === 'links') renderLinks(item.links);
   }
 
   function typing(show) {
@@ -138,6 +160,7 @@
         push({ t: 'msg', role: 'assistant', text: reply });
         if (data.status === 'ok') history.push({ role: 'assistant', content: reply });
         if (data.schedule) push({ t: 'schedule', schedule: data.schedule });
+        if (data.links && data.links.length) push({ t: 'links', links: data.links });
         save();
         // Plani's navigate_to tool: go where it said, after the reply has
         // been read. The conversation is saved, so coming back restores it.

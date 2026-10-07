@@ -216,3 +216,9 @@ body:has(.command-chat) #planiBot { display: none !important; } /* same assistan
 .command-remind__dismiss:hover{color:var(--text-primary)}
 .command-remind__actions button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media(max-width:650px){.command-remind{flex-direction:column;align-items:flex-start}.command-remind__actions{align-self:flex-end}}
+
+/* Buttons a tool put in the conversation (connect a school, open a course search). */
+.command-chat__links{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 14px}
+.command-chat__link{display:inline-flex;align-items:center;min-height:38px;padding:8px 16px;border-radius:999px;border:1px solid var(--border-accent);background:var(--accent-soft);color:var(--text-primary);font-size:.86rem;font-weight:600;text-decoration:none;transition:border-color .12s}
+.command-chat__link:hover{border-color:var(--accent)}
+.command-chat__link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
