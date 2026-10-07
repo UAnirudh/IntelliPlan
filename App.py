@@ -1699,6 +1699,36 @@ class ExtensionToken(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class TrackedCourse(db.Model):
+    """A course a student takes somewhere else (see courses_glue.py)."""
+    __tablename__ = "tracked_courses"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    provider = db.Column(db.String(32), default="other")
+    title = db.Column(db.String(200), nullable=False)
+    url = db.Column(db.String(600), nullable=False)
+    weekly_goal_minutes = db.Column(db.Integer, default=120)
+    total_minutes = db.Column(db.Integer, default=0)
+    #: Completion read off the course page by the browser extension. Never
+    #: set from anything the student typed.
+    verified_percent = db.Column(db.Float, nullable=True)
+    verified_at = db.Column(db.DateTime, nullable=True)
+    archived = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class CourseCheckin(db.Model):
+    """Time logged against a tracked course, or a progress reading."""
+    __tablename__ = "course_checkins"
+    id = db.Column(db.Integer, primary_key=True)
+    course_id = db.Column(db.Integer, db.ForeignKey("tracked_courses.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    minutes = db.Column(db.Integer, default=0)
+    note = db.Column(db.String(280), default="")
+    source = db.Column(db.String(16), default="self")  # "self" | "extension"
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class ApiKey(db.Model):
     """A credential for the public REST API, plus the application it came from.
 
@@ -5055,7 +5085,7 @@ _NOINDEX_PREFIXES = (
     "/api/", "/push/", "/notifications/", "/cron/", "/oauth/",
     "/calendar/", "/debug/", "/feedback/", "/assignment/",
     "/admin", "/logout", "/live/", "/archive/",
-    "/buddies", "/extension/",
+    "/buddies", "/extension/", "/my-courses",
 )
 _NOINDEX_EXACT = {
     "/login", "/register", "/login/account",
@@ -10183,6 +10213,9 @@ def _account_delete_impl():
         ("user_identities", "DELETE FROM user_identities WHERE user_id = :uid"),
         ("api_keys", "DELETE FROM api_keys WHERE user_id = :uid"),
         ("extension_tokens", "DELETE FROM extension_tokens WHERE user_id = :uid"),
+        # Check-ins first: they reference the course rows.
+        ("course_checkins", "DELETE FROM course_checkins WHERE user_id = :uid"),
+        ("tracked_courses", "DELETE FROM tracked_courses WHERE user_id = :uid"),
         ("desktop_auth_codes", "DELETE FROM desktop_auth_codes WHERE user_id = :uid"),
         ("app_link_codes", "DELETE FROM app_link_codes WHERE user_id = :uid"),
         # Focus Shield settings and Study Buddies. A pair row belongs to
@@ -21589,6 +21622,11 @@ limiter.limit("30 per hour", key_func=_focus_shield_limit_key)(app.view_function
 # ── Study Buddies: up to five friends, a shared streak, rate-limited nudges.
 from buddies_glue import install as _install_buddies
 _install_buddies(app)
+# ── Courses taken elsewhere: tracked, put on the plan, checked on.
+from courses_glue import install as _install_courses
+_install_courses(app)
+limiter.limit("30 per hour")(app.view_functions["courses.api_course_checkin"])
+limiter.limit("240 per hour")(app.view_functions["courses.api_courses_progress"])
 limiter.limit("30 per hour")(app.view_functions["buddies.api_buddies_request"])
 limiter.limit("20 per hour")(app.view_functions["buddies.api_buddies_nudge"])
 # Telemetry and the question card get their own budget. Without this they

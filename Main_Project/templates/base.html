@@ -668,6 +668,9 @@ body {
     <a href="/flashcards" data-nav-item="flashcards" class="side-link {% if active_page == 'flashcards' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-clipboard"/></svg></span>Flashcards
     </a>
+    <a href="/my-courses" data-nav-item="courses" class="side-link {% if active_page == 'courses' %}active{% endif %}">
+      <span class="side-icon"><svg><use href="#i-graduation"/></svg></span>Courses
+    </a>
     <a href="/streak" data-nav-item="streak" class="side-link {% if active_page == 'streak' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-fire"/></svg></span>Streak
       <span class="side-streak-badge" id="sideStreakBadge" hidden></span>
@@ -771,6 +774,7 @@ body {
         <a href="/study"      class="nav-tab {% if active_page == 'study' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-rocket"/></svg></span><span class="nav-label">Deep Study</span></a>
         <a href="/learn"      class="nav-tab {% if active_page == 'learn' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-study"/></svg></span><span class="nav-label">Learn</span></a>
         <a href="/flashcards" class="nav-tab {% if active_page == 'flashcards' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-clipboard"/></svg></span><span class="nav-label">Flashcards</span></a>
+        <a href="/my-courses"    class="nav-tab {% if active_page == 'courses' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-graduation"/></svg></span><span class="nav-label">Courses</span></a>
         <a href="/focus"      class="nav-tab {% if active_page == 'focus' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-clock"/></svg></span><span class="nav-label">Focus Timer</span></a>
         <a href="/library"    class="nav-tab {% if active_page == 'library' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-backpack"/></svg></span><span class="nav-label">AP Library</span></a>
       </div>
@@ -1338,6 +1342,7 @@ if (mobileMenuBtn) {
     { section:'Study',   label:'Learn',          href:'/learn',      icon:'i-study',     keys:'practice flashcards' },
     { section:'Study',   label:'Focus Timer',    href:'/focus',      icon:'i-clock',     keys:'pomodoro' },
     { section:'Study',   label:'AP Library',     href:'/library',    icon:'i-backpack',  keys:'resources notes' },
+    { section:'Study',   label:'Courses',        href:'/my-courses',    icon:'i-graduation', keys:'khan coursera edx online class track' },
     { section:'Study',   label:'Streak',         href:'/streak',     icon:'i-fire',      keys:'daily rewards' },
     { section:'Tools',   label:'Lessons',        href:'/lessons',    icon:'i-lightbulb', keys:'tutorial' },
     { section:'Tools',   label:'Writing',        href:'/writing',    icon:'i-pencil',    keys:'essay grammar' },

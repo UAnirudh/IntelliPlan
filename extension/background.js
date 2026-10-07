@@ -131,8 +131,57 @@ async function pushScrapedData(payload) {
   }
 }
 
+// ── Tracked-course progress ─────────────────────────────────────
+// The student lists courses at intelliplan.tech/my-courses. The content
+// script asks which pages those are, and reports a completion percentage
+// only for a page on that list.
+const COURSE_LIST_TTL_MS = 10 * 60 * 1000;
+let _courseList = { at: 0, tracked: [] };
+
+async function trackedCoursePages() {
+  if (Date.now() - _courseList.at < COURSE_LIST_TTL_MS) return _courseList.tracked;
+  const token = await getToken();
+  if (!token) return [];
+  try {
+    const res = await fetch(BASE_URL + "/api/courses/progress", {
+      credentials: "omit",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    _courseList = { at: Date.now(), tracked: Array.isArray(data.tracked) ? data.tracked : [] };
+    return _courseList.tracked;
+  } catch (_e) {
+    return [];
+  }
+}
+
+async function pushCourseProgress(url, percent) {
+  const token = await getToken();
+  if (!token) return false;
+  try {
+    const res = await fetch(BASE_URL + "/api/courses/progress", {
+      method: "POST",
+      credentials: "omit",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ url, percent }),
+    });
+    return res.ok;
+  } catch (_e) {
+    return false;
+  }
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (!msg || !msg.type) return;
+  if (msg.type === "intelliplan_course_pages") {
+    trackedCoursePages().then((tracked) => sendResponse({ tracked }));
+    return true;
+  }
+  if (msg.type === "intelliplan_course_progress") {
+    pushCourseProgress(msg.url, msg.percent).then((ok) => sendResponse({ ok }));
+    return true;
+  }
   if (msg.type === "intelliplan_sync_check") {
     (async () => {
       try {
