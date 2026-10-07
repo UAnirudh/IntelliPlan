@@ -211,6 +211,20 @@
 /* Focus-enforcement options. Same anatomy as the Settings card so the
    choice looks identical in both places — someone changing their mind
    later should recognise the control immediately. */
+.onb-connected {
+  margin:0 0 1rem; padding:10px 14px; border-radius:12px; text-align:left;
+  background:var(--accent-soft); border:1px solid var(--border-accent);
+  font-size:0.86rem; font-weight:600; color:var(--text-primary);
+}
+.onb-name-ideas { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 8px; }
+.onb-name-idea {
+  padding:6px 14px; border-radius:999px; cursor:pointer; font:inherit; font-size:0.82rem; font-weight:600;
+  background:var(--bg-card); border:1px solid var(--border); color:var(--text-primary);
+}
+.onb-name-idea:hover { border-color:var(--border-accent); background:var(--accent-soft); }
+.onb-name-idea:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.onb-remind-msg { min-height:1.3em; margin:0 0 1rem; text-align:left; font-size:0.84rem; color:var(--text-secondary); line-height:1.5; }
+.onb-remind-msg[data-tone="warn"] { color:var(--high); }
 .fe-options { display:grid; gap:10px; text-align:left; margin:0 0 1.25rem; }
 .fe-option {
   display:flex; align-items:flex-start; gap:12px;
@@ -289,8 +303,8 @@
         <button type="button" class="onb-mode" onclick="onbPickMode('quick')">
           <span class="onb-mode-badge"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-lightning"/></svg> 30 seconds</span>
           <h3>Quick start</h3>
-          <p>Just sign me in. I'll customize later from Settings if I want to.</p>
-          <span class="onb-mode-meta">Skips the questionnaire, jumps straight to your dashboard.</span>
+          <p>Skip the questions. I'll customize later from Settings if I want to.</p>
+          <span class="onb-mode-meta">Pick your grade, connect your school, done.</span>
         </button>
         <button type="button" class="onb-mode" onclick="onbPickMode('custom')">
           <span class="onb-mode-badge"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-sparkle"/></svg> Recommended</span>
@@ -304,7 +318,7 @@
     <!-- ── STEP: QUICK confirmation ── -->
     <section id="onbQuick" class="onb-section" style="display:none;">
       <div class="onb-eyebrow">Quick start</div>
-      <h1 class="onb-title">All set in 10 seconds.</h1>
+      <h1 class="onb-title">The basics, then your school.</h1>
       <p class="onb-sub">Pick your grade (optional) and the subjects you're working on. Everything else lives in <a href="/settings" style="color:var(--accent);font-weight:600;">Settings</a> when you're ready for more customization.</p>
       <div class="onb-quick-grid">
         <div>
@@ -335,8 +349,8 @@
       </div>
       <div class="onb-actions">
         <button class="onb-skip" onclick="onbShow('intro')">← Back</button>
-        <button class="btn-primary" onclick="onbFinishQuick(event)" id="onbQuickBtn"
-          style="padding:11px 24px;border:none;cursor:pointer;font-size:0.92rem;">Finish &amp; go to dashboard</button>
+        <button class="btn-primary" onclick="onbQuickNext(event)" id="onbQuickBtn"
+          style="padding:11px 24px;border:none;cursor:pointer;font-size:0.92rem;">Continue</button>
       </div>
     </section>
 
@@ -365,8 +379,11 @@
 
     <!-- ── STEP: IMPORT (grades + assignments) ── -->
     <section id="onbImport" class="onb-section" style="display:none;">
-      <div class="onb-eyebrow">Customized · Step 2 of 2</div>
+      <div class="onb-eyebrow" id="onbImportEyebrow">Customized · Step 2 of 2</div>
       <h1 class="onb-title">Pull in your assignments &amp; grades.</h1>
+      {% if school_connected %}
+      <p class="onb-connected" role="status">Your school account is connected. Continue when you are ready.</p>
+      {% endif %}
       <p class="onb-sub">If your school supports a one-click connection, use that. Otherwise IntelliPlan can import from a CSV, a copy-paste of your gradebook, or via our browser extension.</p>
 
       <div class="onb-import-grid">
@@ -405,11 +422,11 @@
       <div id="onbImportHost" style="margin-top:14px;"></div>
 
       <div class="onb-actions">
-        <button class="onb-skip" onclick="onbShow('custom')">← Back to chat</button>
+        <button class="onb-skip" onclick="onbImportBack()" id="onbImportBackBtn">← Back to chat</button>
         <div style="display:flex;gap:8px;">
-          <button class="onb-skip" onclick="onbFinishCustom(event)">Skip &amp; finish</button>
+          <button class="onb-skip" onclick="onbFinishCustom(event)">Skip for now</button>
           <button class="btn-primary" onclick="onbFinishCustom(event)" id="onbCustomBtn"
-            style="padding:11px 24px;border:none;cursor:pointer;font-size:0.92rem;">Finish &amp; go to dashboard</button>
+            style="padding:11px 24px;border:none;cursor:pointer;font-size:0.92rem;">Continue</button>
         </div>
       </div>
     </section>
@@ -478,6 +495,79 @@
       </div>
     </section>
 
+    <!-- ── Name the assistant ─────────────────────────────────────────
+         Optional, and one field. The name shows in the chat and is what
+         the assistant calls itself. Blank keeps "Plani". ── -->
+    <section id="onbName" class="onb-section" style="display:none;">
+      <div class="onb-eyebrow">Your assistant</div>
+      <h1 class="onb-title">What do you want to call it?</h1>
+      <p class="onb-sub">
+        Your assistant plans your week, answers questions and keeps track of what is due.
+        It is called Plani unless you give it another name. You can rename it later.
+      </p>
+
+      <div style="text-align:left;margin:0 0 1.25rem;">
+        <label class="onb-label" for="onbAssistantName">Name</label>
+        <input id="onbAssistantName" class="onb-textinput" type="text" autocomplete="off"
+               maxlength="20" placeholder="Plani" value="{{ identity.assistant_name if identity.assistant_name != 'Plani' else '' }}"
+               onkeydown="if(event.key==='Enter')onbSaveName()" style="width:100%;">
+        <div class="onb-name-ideas" aria-label="Name ideas">
+          {% for idea in ['Plani', 'Atlas', 'Sage', 'Nova', 'Coach'] %}
+          <button type="button" class="onb-name-idea" onclick="onbPickName('{{ idea }}')">{{ idea }}</button>
+          {% endfor %}
+        </div>
+        <p class="onb-remind-msg" id="onbNameMsg" role="status" aria-live="polite">Up to 20 letters, numbers and spaces.</p>
+      </div>
+
+      <div class="onb-actions">
+        <button type="button" class="btn-secondary" onclick="onbShow('focus')"
+                style="padding:11px 20px;cursor:pointer;">Keep Plani</button>
+        <button type="button" class="btn-primary" onclick="onbSaveName()" id="onbNameBtn"
+                style="padding:11px 24px;border:none;cursor:pointer;font-size:0.92rem;">Continue</button>
+      </div>
+    </section>
+
+    <!-- ── Reminders ──────────────────────────────────────────────────
+         Every reminder channel is off on a new account, and Settings used
+         to be the only place to turn one on, so most students were never
+         told about anything. Asked once, here, with both choices visible.
+         Nothing is switched on unless the student presses the button. ── -->
+    <section id="onbRemind" class="onb-section" style="display:none;">
+      <div class="onb-eyebrow">Reminders</div>
+      <h1 class="onb-title">Want a heads-up before things are due?</h1>
+      <p class="onb-sub">
+        IntelliPlan can tell you when a study session is about to start, when a deadline is
+        close, and when a new grade posts. Choose where it should reach you. You can change
+        this in <a href="/settings" style="color:var(--accent);font-weight:600;">Settings</a> at any time.
+      </p>
+
+      <div class="fe-options" role="group" aria-label="Reminder channels">
+        <label class="fe-option">
+          <input type="checkbox" id="onbRemindEmail" checked>
+          <span class="fe-option__body">
+            <span class="fe-option__name">Email</span>
+            <span class="fe-option__desc">Sent to {{ account_email or 'the address on your account' }}.</span>
+          </span>
+        </label>
+        <label class="fe-option" id="onbRemindPushRow">
+          <input type="checkbox" id="onbRemindPush" checked>
+          <span class="fe-option__body">
+            <span class="fe-option__name">Desktop notifications</span>
+            <span class="fe-option__desc" id="onbRemindPushDesc">Shows up on this device even when IntelliPlan is closed. Your browser will ask for permission.</span>
+          </span>
+        </label>
+      </div>
+
+      <p class="onb-remind-msg" id="onbRemindMsg" role="status" aria-live="polite"></p>
+
+      <div class="onb-actions">
+        <button type="button" class="btn-secondary" onclick="onbShow('plan')" id="onbRemindSkip"
+                style="padding:11px 20px;cursor:pointer;">Not now</button>
+        <button type="button" class="btn-primary" onclick="onbSaveReminders()" id="onbRemindBtn"
+                style="padding:11px 24px;border:none;cursor:pointer;font-size:0.92rem;">Turn on reminders</button>
+      </div>
+    </section>
+
     <section id="onbPlan" class="onb-section" style="display:none;">
       <div class="onb-eyebrow" id="onbPlanEyebrow">Reading your week</div>
       <h1 class="onb-title" id="onbPlanTitle">Working out what matters first…</h1>
@@ -498,6 +588,7 @@
   </div>
 </div>
 
+<script src="/static/js/ip-reminders.js?v={{ asset_v }}"></script>
 <script>
 const ONB = {
   step: 'intro',
@@ -508,7 +599,7 @@ const ONB = {
 function onbProgressFor(step) {
   // 'plan' fills every pip: setup is finished by the time it renders, and
   // a progress bar still showing a gap would suggest otherwise.
-  const order = { intro: 1, quick: 3, custom: 2, import: 3, focus: 3, plan: 3 };
+  const order = { intro: 1, quick: 2, custom: 2, import: 3, name: 3, focus: 3, remind: 3, plan: 3 };
   const n = order[step] || 1;
   document.querySelectorAll('#onbProgress .onb-pip').forEach((el, i) => {
     el.classList.toggle('on', i < n);
@@ -519,9 +610,12 @@ function onbShow(step) {
   ONB.step = step;
   document.querySelectorAll('.onb-section').forEach((s) => { s.style.display = 'none'; });
   const map = { intro: 'onbIntro', quick: 'onbQuick', custom: 'onbCustom',
-                import: 'onbImport', focus: 'onbFocus', plan: 'onbPlan' };
+                import: 'onbImport', name: 'onbName', focus: 'onbFocus', remind: 'onbRemind',
+                plan: 'onbPlan' };
   const el = document.getElementById(map[step]);
   if (el) el.style.display = '';
+  if (step === 'import') onbDressImport();
+  if (step === 'remind') onbDressRemind();
   onbProgressFor(step);
   // Save current step server-side so a refresh resumes here.
   fetch('/api/onboarding/state', {
@@ -541,7 +635,7 @@ function onbShow(step) {
 function onbSaveFocus(skip) {
   const picked = document.querySelector('input[name="onbFeMode"]:checked');
   const mode = skip ? null : (picked ? picked.value : 'off');
-  const done = () => onbShow('plan');
+  const done = () => onbShow('remind');
   if (!mode) { done(); return; }
   fetch('/api/focus/enforcement', {
     method: 'POST',
@@ -564,16 +658,113 @@ function _onbQuickFields() {
   return { grade_level: grade, focus_areas: focus };
 }
 
-async function onbFinishQuick(ev) {
+/* Saves the two fields and moves to the connect step. completed:false keeps
+   setup open: connecting a school leaves this page, and the student has to
+   land back here afterwards, not in an app that thinks they are finished. */
+async function onbQuickNext(ev) {
   const btn = document.getElementById('onbQuickBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
   try {
     await fetch('/identity', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ ..._onbQuickFields(), completed: true }),
+      body: JSON.stringify({ ..._onbQuickFields(), completed: false }),
     });
   } catch (e) { /* still proceed */ }
-  onbShowFirstPlan();
+  if (btn) { btn.disabled = false; btn.textContent = 'Continue'; }
+  onbShow('import');
+}
+
+/* The connect step serves both paths; only its label and Back differ. */
+function onbDressImport() {
+  const quick = ONB.mode === 'quick';
+  document.getElementById('onbImportEyebrow').textContent =
+    quick ? 'Quick start · Connect your school' : 'Customized · Step 2 of 2';
+  document.getElementById('onbImportBackBtn').textContent = quick ? '← Back' : '← Back to chat';
+}
+
+function onbImportBack() {
+  onbShow(ONB.mode === 'quick' ? 'quick' : 'custom');
+}
+
+// ── Assistant name ──────────────────────────────────
+function onbPickName(name) {
+  const input = document.getElementById('onbAssistantName');
+  input.value = name === 'Plani' ? '' : name;
+  input.focus();
+}
+
+async function onbSaveName() {
+  const input = document.getElementById('onbAssistantName');
+  const msg = document.getElementById('onbNameMsg');
+  const typed = input.value.trim();
+  if (!typed) { onbShow('focus'); return; }
+
+  const btn = document.getElementById('onbNameBtn');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  let saved = '';
+  try {
+    const r = await fetch('/identity', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ assistant_name: typed }),
+    });
+    if (r.ok) saved = ((await r.json()).identity || {}).assistant_name || '';
+  } catch (_e) { /* handled below */ }
+  btn.disabled = false; btn.textContent = 'Continue';
+
+  // The server strips symbols. If nothing usable was left it falls back to
+  // Plani; say so here instead of silently ignoring what they typed.
+  if (saved === 'Plani' && typed.toLowerCase() !== 'plani') {
+    msg.dataset.tone = 'warn';
+    msg.textContent = 'That name could not be used. Try letters, numbers and spaces.';
+    return;
+  }
+  onbShow('focus');
+}
+
+// ── Reminders ───────────────────────────────────────
+function onbDressRemind() {
+  if (window.IPReminders && IPReminders.pushSupported()) return;
+  // No point offering a channel this browser cannot deliver.
+  const box = document.getElementById('onbRemindPush');
+  box.checked = false; box.disabled = true;
+  document.getElementById('onbRemindPushDesc').textContent =
+    'Not available in this browser. On a phone, install IntelliPlan to your home screen first.';
+}
+
+async function onbSaveReminders() {
+  const wanted = {
+    email: document.getElementById('onbRemindEmail').checked,
+    push: document.getElementById('onbRemindPush').checked,
+  };
+  const msg = document.getElementById('onbRemindMsg');
+  if (!wanted.email && !wanted.push) { onbShow('plan'); return; }
+
+  const btn = document.getElementById('onbRemindBtn');
+  const skip = document.getElementById('onbRemindSkip');
+  btn.disabled = true; btn.textContent = 'Setting up...';
+  msg.removeAttribute('data-tone'); msg.textContent = '';
+
+  const result = await IPReminders.enable(wanted);
+  btn.disabled = false;
+
+  if (!result.saved) {
+    btn.textContent = 'Try again';
+    msg.dataset.tone = 'warn';
+    msg.textContent = 'That did not save. Try again, or turn reminders on later in Settings.';
+    return;
+  }
+  if (wanted.push && !result.push) {
+    // Email (if chosen) is saved; say what happened to the other half and
+    // let them move on rather than looping on a permission they declined.
+    msg.dataset.tone = 'warn';
+    msg.textContent = result.pushMessage +
+      (result.email ? ' Email reminders are on.' : '');
+    btn.textContent = 'Continue';
+    btn.onclick = () => onbShow('plan');
+    skip.style.display = 'none';
+    return;
+  }
+  onbShow('plan');
 }
 
 // ── Custom path ─────────────────────────────────────
@@ -876,7 +1067,11 @@ async function onbShowFirstPlan() {
   // The focus question sits between setup and the finished plan: it is
   // about how sessions will behave, so it belongs before the first one,
   // and it must not be the last thing before "Open my plan" either.
-  onbShow('focus');
+  onbShow('name');
+  onbLoadPlan();
+}
+
+async function onbLoadPlan() {
   try {
     const resp = await fetch('/api/today', { credentials: 'same-origin' });
     if (!resp.ok) throw new Error('today ' + resp.status);
@@ -898,6 +1093,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (d.messages && Array.isArray(d.messages)) ONB.messages = d.messages;
     if (d.mode) ONB.mode = d.mode;
     if (d.step && d.step !== 'intro') onbShow(d.step);
+    // Resuming past the connect step: the plan request was made on the
+    // page load that got refreshed away, so make it again.
+    if (['name', 'focus', 'remind', 'plan'].includes(d.step)) onbLoadPlan();
   } catch (_e) { /* default to intro */ }
 });
 </script>

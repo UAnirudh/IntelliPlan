@@ -41,6 +41,12 @@
 
   function scrollDown() { thread.scrollTop = thread.scrollHeight; }
 
+  // What the student named their assistant; the page carries it.
+  function assistantName() {
+    var host = document.querySelector('[data-assistant-name]');
+    return (host && host.getAttribute('data-assistant-name')) || 'Plani';
+  }
+
   function dropIntro() {
     var intro = document.getElementById('chatIntro');
     if (intro) intro.remove();
@@ -59,6 +65,27 @@
     el.className = 'command-chat__action' + (/no calendar connected|failed|couldn/i.test(clean) ? ' command-chat__action--warn' : '');
     el.textContent = clean;
     inner.appendChild(el);
+  }
+
+  // Buttons a tool asked for: "Connect Canvas", a course search page.
+  // Same-origin paths and https links only; anything else is dropped.
+  function renderLinks(links) {
+    var safe = (links || []).filter(function (l) {
+      return l && typeof l.url === 'string' && typeof l.label === 'string' &&
+        (/^\/[a-z0-9\-\/]*$/i.test(l.url) || /^https:\/\//i.test(l.url));
+    });
+    if (!safe.length) return;
+    var row = document.createElement('div');
+    row.className = 'command-chat__links';
+    safe.forEach(function (l) {
+      var a = document.createElement('a');
+      a.className = 'command-chat__link';
+      a.textContent = l.label;
+      a.href = l.url;
+      if (/^https:/i.test(l.url)) { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
+      row.appendChild(a);
+    });
+    inner.appendChild(row);
   }
 
   function renderSchedule(schedule) {
@@ -81,6 +108,7 @@
     if (item.t === 'msg') renderMsg(item.role, item.text);
     else if (item.t === 'action') renderAction(item.text);
     else if (item.t === 'schedule') renderSchedule(item.schedule);
+    else if (item.t === 'links') renderLinks(item.links);
   }
 
   function typing(show) {
@@ -90,7 +118,7 @@
     var el = document.createElement('div');
     el.id = 'chatTyping';
     el.className = 'command-chat__typing';
-    el.setAttribute('aria-label', 'Plani is working');
+    el.setAttribute('aria-label', assistantName() + ' is working');
     el.innerHTML = '<span></span><span></span><span></span>';
     inner.appendChild(el);
     scrollDown();
@@ -132,6 +160,7 @@
         push({ t: 'msg', role: 'assistant', text: reply });
         if (data.status === 'ok') history.push({ role: 'assistant', content: reply });
         if (data.schedule) push({ t: 'schedule', schedule: data.schedule });
+        if (data.links && data.links.length) push({ t: 'links', links: data.links });
         save();
         // Plani's navigate_to tool: go where it said, after the reply has
         // been read. The conversation is saved, so coming back restores it.
@@ -181,7 +210,7 @@
         if (data.outlook) names.push('Outlook');
         if (state) {
           state.textContent = names.length
-            ? 'Schedules Plani makes are added to ' + names.join(' and ') + '.'
+            ? 'Schedules ' + assistantName() + ' makes are added to ' + names.join(' and ') + '.'
             : 'No calendar connected. Schedules stay in IntelliPlan until you connect one in Settings.';
         }
         var link = document.getElementById('outlookConnect');

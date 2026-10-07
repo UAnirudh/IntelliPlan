@@ -161,6 +161,56 @@ def _stale_briefing_user_ids() -> list[int]:
         return []
 
 
+def _needs_onboarding(user_id: int) -> bool:
+    """True for a student account that has not finished /onboarding.
+
+    Fails open: /onboarding sends people back here when it cannot load the
+    identity row, so answering True on an error would bounce them between
+    the two pages forever.
+    """
+    from App import User, _get_or_create_identity, db
+
+    try:
+        user = User.query.get(user_id)
+        if user is None or (getattr(user, "role", "") or "student") != "student":
+            return False
+        identity = _get_or_create_identity(user_id)
+        return identity is not None and not bool(identity.completed)
+    except Exception as e:
+        print(f"[command_center] onboarding check failed: {e}")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        return False
+
+
+def _page_context(user_id: int) -> dict:
+    """What the first-run panel needs: is there anything to plan from, and
+    can IntelliPlan reach this student when they are not looking at it."""
+    from App import User
+    from intelliplan.email.onboarding import _exists, _has_connected_account
+
+    context = {"has_work_source": True, "reminders_on": True}
+    try:
+        context["has_work_source"] = (
+            _has_connected_account(user_id) or _exists("ManualTask", user_id)
+        )
+        user = User.query.get(user_id)
+        context["reminders_on"] = bool(
+            user is not None
+            and (
+                getattr(user, "email_reminders_opt_in", False)
+                or getattr(user, "push_reminders_opt_in", False)
+                or getattr(user, "sms_reminders_opt_in", False)
+            )
+        )
+    except Exception as e:
+        # Either flag wrong only hides a prompt; the page must still render.
+        print(f"[command_center] page context failed: {e}")
+    return context
+
+
 command_center_bp = create_command_center_blueprint(
     CommandCenterDeps(
         get_service=_build_service,
@@ -169,5 +219,7 @@ command_center_bp = create_command_center_blueprint(
         emit_signal=_emit_signal,
         stale_briefing_user_ids=_stale_briefing_user_ids,
         has_guest_session=_has_guest_session,
+        needs_onboarding=_needs_onboarding,
+        page_context=_page_context,
     )
 )

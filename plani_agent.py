@@ -158,8 +158,48 @@ AGENT_TOOLS = [
             "section": {
                 "type": "string",
                 "required": True,
-                "description": "One of: dashboard | scheduler | tutor | grades | streak | pet | command-center | gradebook | settings | memories",
+                "description": "One of: dashboard | scheduler | tutor | grades | streak | pet | command-center | gradebook | settings | memories | courses",
             },
+        },
+    },
+    {
+        "name": "connect_account",
+        "description": "Show the student a button that connects a school system or calendar. Use it when they ask about their assignments, grades or calendar and nothing is connected, or when they ask how to connect something.",
+        "parameters": {
+            "service": {
+                "type": "string",
+                "required": True,
+                "description": "One of: canvas | studentvue | schoology | hac | google_calendar | outlook | other",
+            },
+        },
+    },
+    {
+        "name": "list_tracked_courses",
+        "description": "List the outside courses (Khan Academy, Coursera, edX, any link) the student is tracking, with minutes done this week, the weekly goal, and whether they are on pace.",
+        "parameters": {},
+    },
+    {
+        "name": "track_course",
+        "description": "Start tracking an outside course. Needs the course link the student gave you. Never invent a link.",
+        "parameters": {
+            "url": {"type": "string", "required": True, "description": "The course link, exactly as the student gave it"},
+            "title": {"type": "string", "description": "Short name for the course"},
+            "weekly_goal_minutes": {"type": "integer", "description": "Minutes per week (default 120)"},
+        },
+    },
+    {
+        "name": "log_course_progress",
+        "description": "Record time the student says they spent on a tracked course.",
+        "parameters": {
+            "course": {"type": "string", "required": True, "description": "Tracked course title (fuzzy match)"},
+            "minutes": {"type": "integer", "required": True, "description": "Minutes spent"},
+        },
+    },
+    {
+        "name": "recommend_courses",
+        "description": "Get search links on Khan Academy, Coursera, edX and MIT OpenCourseWare for a subject. Use these links; never write a course URL yourself.",
+        "parameters": {
+            "subject": {"type": "string", "required": True, "description": "What the student wants to learn"},
         },
     },
     {
@@ -185,6 +225,19 @@ SECTION_URLS = {
     "command_center": "/command-center",
     "settings": "/settings",
     "memories": "/memories",
+    "courses": "/my-courses",
+}
+
+#: Where each "connect" button goes. Fixed here so the model picks a key
+#: and never writes a URL.
+CONNECT_LINKS = {
+    "canvas": ("Connect Canvas", "/oauth/canvas"),
+    "studentvue": ("Connect StudentVue", "/login/studentvue"),
+    "schoology": ("Connect Schoology", "/login/schoology"),
+    "hac": ("Connect Home Access Center", "/login/hac"),
+    "google_calendar": ("Connect Google Calendar", "/login/google"),
+    "outlook": ("Connect Outlook", "/oauth/outlook"),
+    "other": ("See every way to connect", "/connect"),
 }
 
 
@@ -211,6 +264,14 @@ INTELLIGENT BEHAVIOR:
 - "What should I focus on" is already answered by the snapshot — answer it
   straight away, then offer to act. Only call get_today_plan if you need
   items beyond the ones listed.
+- If they ask about assignments, grades or their calendar and nothing is
+  connected, call connect_account for the system they name (or "other")
+  so they get a button right here. Do not send them to Settings in words.
+- Outside courses (Khan Academy, Coursera, edX, any link): track_course when
+  they give you a link, log_course_progress when they say they worked on
+  one, list_tracked_courses to check pace. For "what should I take",
+  call recommend_courses and pass on its links unchanged. Time a student
+  reports is self-reported; never call it verified.
 - If they ask to go somewhere, call navigate_to. The client ASKS the user
   before moving them, so propose freely — but say in your reply where you
   are offering to take them and why, because that is what they will be
@@ -751,6 +812,49 @@ Return ONLY valid JSON:
         return {"status": "ok", "title": title, "course": course,
                 "message": f"Saved note '{title}' to memories."}
 
+    if name == "connect_account":
+        service = (args.get("service") or "").lower().strip().replace(" ", "_")
+        label, url = CONNECT_LINKS.get(service, CONNECT_LINKS["other"])
+        return {"status": "ok", "link": {"label": label, "url": url},
+                "message": f"Showed the student a '{label}' button. Tell them to press it."}
+
+    if name in ("list_tracked_courses", "track_course", "log_course_progress"):
+        import courses_glue
+        from App import User
+
+        user = User.query.get(user_id)
+        if user is None:
+            return {"error": "No account."}
+        try:
+            if name == "track_course":
+                course = courses_glue.add_course(
+                    user, args.get("url"), args.get("title"), args.get("weekly_goal_minutes"))
+                return {"status": "ok", "title": course.title,
+                        "weekly_goal_minutes": course.weekly_goal_minutes,
+                        "link": {"label": "Open my courses", "url": "/my-courses"},
+                        "message": f"Tracking '{course.title}'. A task for this week is on the plan."}
+            if name == "log_course_progress":
+                course = courses_glue.find_course(user_id, args.get("course"))
+                if course is None:
+                    return {"error": "No single tracked course matches that name.",
+                            "courses": [c["title"] for c in courses_glue.snapshot(user)]}
+                minutes = courses_glue.log_progress(user, course, args.get("minutes"))
+                week = next((c["week"] for c in courses_glue.snapshot(user)
+                             if c["id"] == course.id), {})
+                return {"status": "ok", "title": course.title, "minutes": minutes, "week": week}
+        except courses_glue.CourseError as exc:
+            return {"error": str(exc)}
+        return {"status": "ok", "courses": courses_glue.snapshot(user)}
+
+    if name == "recommend_courses":
+        import course_tracking
+
+        results = course_tracking.recommendations(args.get("subject"))
+        if not results:
+            return {"error": "Say what subject to look for."}
+        return {"status": "ok", "results": results,
+                "note": "These are search pages. Give the student the links as they are."}
+
     if name == "navigate_to":
         section = (args.get("section") or "").lower().strip()
         url = SECTION_URLS.get(section)
@@ -824,6 +928,10 @@ def _humanize_action(tool: str, args: dict, result: dict) -> str | None:
         return f"✓ Saved to memories: {result.get('title', '')}"
     if tool == "navigate_to":
         return f"→ Opening {result.get('section', '')}"
+    if tool == "track_course":
+        return f"✓ Tracking {result.get('title', 'course')} · {result.get('weekly_goal_minutes', 0)} min a week"
+    if tool == "log_course_progress":
+        return f"✓ Logged {result.get('minutes', 0)} min on {result.get('title', 'course')}"
     return None
 
 
@@ -1183,7 +1291,11 @@ def plani_agent():
             payload["retry_after"] = e.retry_after
         return jsonify(payload), e.status
 
-    system = AGENT_SYSTEM_PROMPT + "\n\n" + _tool_list_prompt() + \
+    import assistant_name
+
+    system = AGENT_SYSTEM_PROMPT + \
+        assistant_name.prompt_line(assistant_name.for_user(user_id)) + \
+        "\n\n" + _tool_list_prompt() + \
         f"\n\nToday's date: {datetime.now().strftime('%A, %Y-%m-%d')}." + \
         (build_agent_context(user_id) or "")
     # RAG: ground the answer in passages from the student's own notes that
@@ -1198,6 +1310,7 @@ def plani_agent():
     actions: list[str] = []
     tool_log: list[dict] = []
     navigate_url: str | None = None
+    links: list[dict] = []
     refresh_ui = False
     schedule_preview: dict | None = None
 
@@ -1238,6 +1351,7 @@ def plani_agent():
                 "reply": clean or "Done.",
                 "actions": actions,
                 "navigate": navigate_url,
+                "links": links,
                 "refresh": refresh_ui,
                 "schedule": schedule_preview,
                 "tool_log": tool_log})
@@ -1255,11 +1369,19 @@ def plani_agent():
             # capture navigation directive
             if isinstance(result, dict) and result.get("navigate"):
                 navigate_url = result["navigate"]
+            # Buttons the tools asked for. URLs come from our own tables,
+            # never from the model.
+            if isinstance(result, dict) and isinstance(result.get("link"), dict):
+                links.append(result["link"])
+            if name == "recommend_courses" and isinstance(result, dict):
+                links.extend({"label": r["name"], "url": r["url"]}
+                             for r in result.get("results") or [])
             if name == "generate_schedule" and isinstance(result, dict) and result.get("schedule"):
                 schedule_preview = result["schedule"]
             # mutations should trigger UI refresh
             if name in ("create_task", "update_task", "complete_task",
-                        "delete_task", "generate_schedule", "save_note"):
+                        "delete_task", "generate_schedule", "save_note",
+                        "track_course", "log_course_progress"):
                 refresh_ui = True
             results_text.append(f"[{name}] → {json.dumps(result, default=str)}")
 
@@ -1276,5 +1398,5 @@ def plani_agent():
     except Exception:
         final = "Done — I completed the actions above."
     return jsonify({"status": "ok", "reply": final or "Done.",
-        "actions": actions, "navigate": navigate_url,
+        "actions": actions, "navigate": navigate_url, "links": links,
         "refresh": refresh_ui, "schedule": schedule_preview, "tool_log": tool_log})

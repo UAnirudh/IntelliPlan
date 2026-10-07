@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block page_title %}Courses | IntelliPlan{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="/static/css/courses.css?v={{ asset_v }}">
+
+<div class="ipd-page-header ipd-anim ipd-d1">
+  <div>
+    <div class="ipd-kicker">Outside school</div>
+    <h1 class="ipd-page-title">Courses</h1>
+    <p class="ipd-page-subtitle">Paste a link to anything you are learning on your own. Set a weekly goal, and IntelliPlan puts the time on your plan and tells you when you fall behind it.</p>
+  </div>
+</div>
+
+<div class="crs-shell">
+  <form class="crs-add" id="crsAddForm" novalidate>
+    <div class="crs-add__field crs-add__field--url">
+      <label class="crs-label" for="crsUrl">Course link</label>
+      <input class="form-input" id="crsUrl" type="url" inputmode="url" autocomplete="off"
+             placeholder="khanacademy.org/math/algebra" maxlength="500" required>
+    </div>
+    <div class="crs-add__field">
+      <label class="crs-label" for="crsTitle">Name <span class="crs-optional">optional</span></label>
+      <input class="form-input" id="crsTitle" type="text" autocomplete="off" maxlength="160" placeholder="Algebra 1">
+    </div>
+    <div class="crs-add__field crs-add__field--goal">
+      <label class="crs-label" for="crsGoal">Each week</label>
+      <select class="form-input" id="crsGoal">
+        <option value="30">30 min</option>
+        <option value="60">1 hour</option>
+        <option value="120" selected>2 hours</option>
+        <option value="180">3 hours</option>
+        <option value="300">5 hours</option>
+      </select>
+    </div>
+    <button type="submit" class="btn-primary crs-add__go" id="crsAddBtn">Track it</button>
+    <p class="crs-msg" id="crsAddMsg" role="status" aria-live="polite"></p>
+  </form>
+
+  <section aria-labelledby="crsListHeading">
+    <h2 class="crs-h" id="crsListHeading">This week</h2>
+    <div id="crsList" class="crs-list" aria-live="polite">
+      <p class="crs-loading">Loading your courses…</p>
+    </div>
+  </section>
+
+  <section class="crs-find" aria-labelledby="crsFindHeading">
+    <h2 class="crs-h" id="crsFindHeading">Looking for something to take?</h2>
+    <form class="crs-find__form" id="crsFindForm">
+      <label class="sr-only" for="crsSubject">Subject</label>
+      <input class="form-input" id="crsSubject" type="search" maxlength="80" placeholder="Statistics, Python, AP Biology…" autocomplete="off">
+      <button type="submit" class="btn-secondary">Search</button>
+    </form>
+    <div class="crs-find__results" id="crsFindResults"></div>
+    <p class="crs-note">These open each site's own search. When you find a course, paste its link above.</p>
+  </section>
+
+  <section class="crs-verify" aria-labelledby="crsVerifyHeading">
+    <h2 class="crs-h" id="crsVerifyHeading">How progress is counted</h2>
+    <p>Minutes are what you log here, so they are your word. Khan Academy and Coursera do not let other apps read your progress.</p>
+    <p>With the <a href="/extension">IntelliPlan browser extension</a> installed, the completion percentage shown on a tracked course's own page is read in your browser and shown here as <strong>verified</strong>. It only reads pages for courses on this list.</p>
+  </section>
+</div>
+
+<script src="/static/js/courses.js?v={{ asset_v }}" defer></script>
+{% endblock %}

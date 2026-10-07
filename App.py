@@ -45,6 +45,7 @@ from intelliplan.integrations.document_content import CloudDocumentError
 import policy_versions
 import parental_notice
 from intelliplan.email.eligibility import age_from_birth_year
+import assistant_name
 import desktop_auth
 import app_link
 from studentvue_helper import (
@@ -746,6 +747,9 @@ class UserIdentity(db.Model):
     availability = db.Column(db.Text, default="{}")               # JSON: day -> time range
     weekly_commitments = db.Column(db.Text, default="")           # free-text extracurriculars
     class_schedule = db.Column(db.Text, default="[]")             # JSON list of class slots
+    #: What the student calls their assistant. NULL means the default,
+    #: "Plani". Always written through assistant_name.clean().
+    assistant_name = db.Column(db.String(24), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -779,6 +783,7 @@ class UserIdentity(db.Model):
             "availability": self.avail_dict(),
             "weekly_commitments": self.weekly_commitments or "",
             "class_schedule": self.class_list(),
+            "assistant_name": assistant_name.display(self.assistant_name),
         }
 
 
@@ -1697,6 +1702,36 @@ class ExtensionToken(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     token = db.Column(db.String(64), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class TrackedCourse(db.Model):
+    """A course a student takes somewhere else (see courses_glue.py)."""
+    __tablename__ = "tracked_courses"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    provider = db.Column(db.String(32), default="other")
+    title = db.Column(db.String(200), nullable=False)
+    url = db.Column(db.String(600), nullable=False)
+    weekly_goal_minutes = db.Column(db.Integer, default=120)
+    total_minutes = db.Column(db.Integer, default=0)
+    #: Completion read off the course page by the browser extension. Never
+    #: set from anything the student typed.
+    verified_percent = db.Column(db.Float, nullable=True)
+    verified_at = db.Column(db.DateTime, nullable=True)
+    archived = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class CourseCheckin(db.Model):
+    """Time logged against a tracked course, or a progress reading."""
+    __tablename__ = "course_checkins"
+    id = db.Column(db.Integer, primary_key=True)
+    course_id = db.Column(db.Integer, db.ForeignKey("tracked_courses.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    minutes = db.Column(db.Integer, default=0)
+    note = db.Column(db.String(280), default="")
+    source = db.Column(db.String(16), default="self")  # "self" | "extension"
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -3605,6 +3640,18 @@ def inject_auth():
     except Exception:
         return dict(logged_in=False)
 
+
+@app.context_processor
+def inject_assistant_name():
+    """The student's name for their assistant, for every template."""
+    name = ""
+    try:
+        if current_user.is_authenticated:
+            name = assistant_name.for_user(current_user.id)
+    except Exception:
+        name = ""
+    return dict(assistant_name=name or assistant_name.DEFAULT_NAME)
+
 # ── SCHEDULE LOGIC ────────────────────────────────────────────
 def infer_task_difficulty(points_possible, priority, due_date_str):
     score = float(points_possible or 0)
@@ -5044,7 +5091,7 @@ _NOINDEX_PREFIXES = (
     "/api/", "/push/", "/notifications/", "/cron/", "/oauth/",
     "/calendar/", "/debug/", "/feedback/", "/assignment/",
     "/admin", "/logout", "/live/", "/archive/",
-    "/buddies", "/extension/",
+    "/buddies", "/extension/", "/my-courses",
 )
 _NOINDEX_EXACT = {
     "/login", "/register", "/login/account",
@@ -6983,7 +7030,9 @@ def register():
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "").strip()
-        confirm = request.form.get("confirm_password", "").strip()
+        # The student form no longer asks for the password twice; the
+        # Family form still does, so the check runs only when the field came.
+        confirm = request.form.get("confirm_password")
         # Field checks first, challenge last. Verifying the captcha before
         # looking at the form meant someone who mistyped their password and
         # had not ticked the box was told about the robot check, fixed that,
@@ -6996,7 +7045,7 @@ def register():
         # way, and the challenge still stands between it and an account.
         if not email or not password:
             error = "Please fill in all fields."
-        elif password != confirm:
+        elif confirm is not None and password != confirm.strip():
             error = "Passwords do not match."
         elif len(password) < 8:
             error = "Password must be at least 8 characters."
@@ -7134,7 +7183,7 @@ def register():
                             carrier=(user.sms_carrier or "tmobile"),
                         )  # return value intentionally ignored here
                     except Exception: pass
-                return redirect(_family_home_url() if _is_family_auth_request() else "/command-center")
+                return redirect(_family_home_url() if _is_family_auth_request() else "/onboarding")
             except Exception as _e:
                 print(f"[register] user create failed: {_e}")
                 try: db.session.rollback()
@@ -7528,9 +7577,17 @@ def onboarding():
         if next_url and next_url.startswith("/"):
             return redirect(next_url)
         return redirect("/command-center")
+    school_connected = False
+    try:
+        from intelliplan.email.onboarding import _has_connected_account
+        school_connected = _has_connected_account(current_user.id)
+    except Exception as _e:
+        print(f"[onboarding] connection probe failed: {_e}")
     return render_template(
         "onboarding.html",
         active_page="onboarding",
+        school_connected=school_connected,
+        account_email=getattr(current_user, "email", "") or "",
         identity=identity.to_dict(),
         grade_choices=GRADE_LEVEL_CHOICES,
         focus_choices=FOCUS_AREA_CHOICES,
@@ -7557,13 +7614,20 @@ def update_identity():
             identity.availability = json.dumps(av)
     if "weekly_commitments" in payload:
         identity.weekly_commitments = str(payload.get("weekly_commitments") or "").strip()[:500]
+    if "assistant_name" in payload:
+        # Empty, or nothing usable left after cleaning, means the default.
+        chosen = assistant_name.clean(payload.get("assistant_name"))
+        identity.assistant_name = (
+            chosen if chosen and chosen != assistant_name.DEFAULT_NAME else None
+        )
     if "class_schedule" in payload:
         cs = payload.get("class_schedule") or []
         if isinstance(cs, list):
             identity.class_schedule = json.dumps(cs[:50])
-    if payload.get("completed"):
-        identity.completed = True
-    else:
+    # Any save finishes onboarding unless the caller says otherwise: Settings
+    # posts here without the key. Onboarding sends completed=false for its
+    # mid-flow saves so leaving to connect a school does not end setup.
+    if payload.get("completed", True):
         identity.completed = True
     db.session.commit()
     # When the client signals completion, wipe the resume-state so a future
@@ -10153,6 +10217,9 @@ def _account_delete_impl():
         ("user_identities", "DELETE FROM user_identities WHERE user_id = :uid"),
         ("api_keys", "DELETE FROM api_keys WHERE user_id = :uid"),
         ("extension_tokens", "DELETE FROM extension_tokens WHERE user_id = :uid"),
+        # Check-ins first: they reference the course rows.
+        ("course_checkins", "DELETE FROM course_checkins WHERE user_id = :uid"),
+        ("tracked_courses", "DELETE FROM tracked_courses WHERE user_id = :uid"),
         ("desktop_auth_codes", "DELETE FROM desktop_auth_codes WHERE user_id = :uid"),
         ("app_link_codes", "DELETE FROM app_link_codes WHERE user_id = :uid"),
         # Focus Shield settings and Study Buddies. A pair row belongs to
@@ -18303,6 +18370,13 @@ def api_referral():
 import re as _re_phone
 
 
+#: Sent on every Resend API call. Resend sits behind Cloudflare, which
+#: refuses urllib's default "Python-urllib/3.x" agent with a bare
+#: "403 error code: 1010" before the request reaches Resend at all, so
+#: without this every email and SMS-gateway send fails.
+RESEND_USER_AGENT = "IntelliPlan/1.0 (+https://intelliplan.tech)"
+
+
 def _send_email_via_resend(to_addr, subject, body, html=None, headers=None, reply_to=None):
     """Send an email through the Resend HTTP API.
     Returns True on success, False on failure or if not configured.
@@ -18343,6 +18417,7 @@ def _send_email_via_resend(to_addr, subject, body, html=None, headers=None, repl
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
+                "User-Agent": RESEND_USER_AGENT,
             },
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
@@ -18926,6 +19001,7 @@ def _sms_via_resend(api_key, to_addr, text):
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
+            "User-Agent": RESEND_USER_AGENT,
         },
         method="POST",
     )
@@ -21555,6 +21631,11 @@ limiter.limit("30 per hour", key_func=_focus_shield_limit_key)(app.view_function
 # ── Study Buddies: up to five friends, a shared streak, rate-limited nudges.
 from buddies_glue import install as _install_buddies
 _install_buddies(app)
+# ── Courses taken elsewhere: tracked, put on the plan, checked on.
+from courses_glue import install as _install_courses
+_install_courses(app)
+limiter.limit("30 per hour")(app.view_functions["courses.api_course_checkin"])
+limiter.limit("240 per hour")(app.view_functions["courses.api_courses_progress"])
 limiter.limit("30 per hour")(app.view_functions["buddies.api_buddies_request"])
 limiter.limit("20 per hour")(app.view_functions["buddies.api_buddies_nudge"])
 # Telemetry and the question card get their own budget. Without this they
@@ -21725,6 +21806,7 @@ def _migrate_user_columns():
         ("user_identities", "availability", "TEXT"),
         ("user_identities", "weekly_commitments", "TEXT"),
         ("user_identities", "class_schedule", "TEXT"),
+        ("user_identities", "assistant_name", "VARCHAR(24)"),
         # notion_integrations
         ("notion_integrations", "auth_type", "VARCHAR(16) DEFAULT 'manual'"),
         ("notion_integrations", "workspace_id", "VARCHAR(64)"),

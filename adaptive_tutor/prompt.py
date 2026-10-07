@@ -81,6 +81,10 @@ def _mastery_section(mastery: list[dict[str, Any]]) -> list[str]:
             f"{row.get('independent_correct', 0)} independent correct of "
             f"{row.get('total_attempts', 0)} checked attempts"
         )
+        if row.get('next_move'):
+            lines.append(f"  Recent: {row['recent_independent_correct']} independent correct of {row['recent_attempts']}; "
+                         f"{row['delayed_successes']} correct reviews after a scheduled gap. "
+                         f"Next: {row['next_reason']} Review due: {row['review_due_at']} UTC.")
     lines.append('  -> This is a small practice sample, not a validated mastery measure. '
                  'Check transfer independently before increasing challenge.')
     return lines
@@ -195,7 +199,9 @@ def build_adaptive_prompt(context: dict[str, Any], use_voice: bool = False,
                         'upcoming work, the target and starting point to connect this lesson to the goal. '
                         'When asked to continue the plan, use the next milestone and its teaching_move: '
                         'diagnose with its diagnostic question, repair with a smaller example, or test '
-                        'transfer with a new problem. React to the current answer before proceeding. '
+                        'transfer with a new problem. For review, ask for recall before explaining; '
+                        'for independent, try a new example without a hint. Follow teaching_reason. '
+                        'React to the current answer before proceeding. '
                         'Completion flags are student reports, not proven mastery. Check the dated '
                         'snapshot and ask for updates when it matters; never claim to know missing '
                         'courses or file contents. Honor an unrelated current question without forcing the plan.')
