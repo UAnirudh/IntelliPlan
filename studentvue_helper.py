@@ -813,7 +813,6 @@ def get_missing_assignments(district_url, username, password):
                 "score_label": label,
                 "color": PRIORITY_COLORS["High"],
                 "difficulty": "Medium",
-                "estimated_time": 60,
             })
 
     return missing

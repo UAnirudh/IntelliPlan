@@ -34,7 +34,46 @@
 
   /* Resolves to { ok: true } or { ok: false, reason } where reason is one of
      'unsupported' | 'blocked' | 'not-configured' | 'failed'. Never rejects. */
+  function isDesktopApp() {
+    return !!(window.intelliplan && window.intelliplan.isDesktop);
+  }
+
+  /* One id per install, so signing in on a second computer adds a row
+     instead of replacing the first. */
+  function desktopInstallId() {
+    const KEY = 'ip_desktopInstallId';
+    try {
+      let id = localStorage.getItem(KEY);
+      if (!id) {
+        id = Array.from(crypto.getRandomValues(new Uint8Array(16)),
+          (b) => b.toString(16).padStart(2, '0')).join('');
+        localStorage.setItem(KEY, id);
+      }
+      return id;
+    } catch (error) { return ''; }
+  }
+
+  async function registerDesktop() {
+    const installId = desktopInstallId();
+    if (!installId) return { ok: false, reason: 'failed' };
+    try {
+      const saved = await fetch('/push/desktop-register', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ install_id: installId }),
+      });
+      return saved.ok ? { ok: true } : { ok: false, reason: 'failed' };
+    } catch (error) {
+      return { ok: false, reason: 'failed' };
+    }
+  }
+
   async function subscribePush() {
+    /* The desktop app shows reminders itself (ip-desktop-feed.js) and has
+       no push service to subscribe to. Saying yes records this install so
+       the server queues reminders for it. */
+    if (isDesktopApp()) return registerDesktop();
     if (!pushSupported()) return { ok: false, reason: 'unsupported' };
     try {
       const permission = await Notification.requestPermission();
@@ -108,5 +147,5 @@
     return result;
   }
 
-  window.IPReminders = { pushSupported, subscribePush, enable };
+  window.IPReminders = { pushSupported, subscribePush, registerDesktop, enable };
 })();
