@@ -208,25 +208,28 @@ class TestRegisterPage:
         go(page, "/register")
         expect(page.locator("input[name='password']")).to_be_visible()
 
-    def test_confirm_password_field_visible(self, page: Page):
+    def test_password_is_asked_for_once(self, page: Page):
+        """The second password box was replaced by a "Show password" toggle."""
         go(page, "/register")
-        expect(page.locator("input[name='confirm_password']")).to_be_visible()
+        expect(page.locator("input[name='confirm_password']")).to_have_count(0)
+        expect(page.get_by_label("Show password")).to_be_visible()
 
-    def test_password_mismatch_shows_error(self, page: Page):
+    def test_show_password_reveals_what_was_typed(self, page: Page):
         go(page, "/register")
-        page.locator("input[name='email']").fill("test@example.com")
-        page.locator("input[name='password']").fill("password123")
-        page.locator("input[name='confirm_password']").fill("wrongpassword")
-        page.get_by_role("button", name=re.compile(r"Create Account")).click()
-        expect(page.get_by_text("Passwords do not match")).to_be_visible()
+        password = page.locator("input[name='password']")
+        password.fill("password123")
+        page.get_by_label("Show password").check()
+        expect(password).to_have_attribute("type", "text")
 
-    def test_short_password_shows_error(self, page: Page):
+    def test_short_password_is_not_accepted(self, page: Page):
+        """Stopped by the browser (minlength) or by the server; either way
+        no account is made and the student is still on the form."""
         go(page, "/register")
+        expect(page.locator("input[name='password']")).to_have_attribute("minlength", "8")
         page.locator("input[name='email']").fill("test@example.com")
         page.locator("input[name='password']").fill("short")
-        page.locator("input[name='confirm_password']").fill("short")
         page.get_by_role("button", name=re.compile(r"Create Account")).click()
-        expect(page.get_by_text("at least 8 characters")).to_be_visible()
+        assert_url_matches(page, "/register")
 
     def test_back_to_login_link_works(self, page: Page):
         go(page, "/register")
