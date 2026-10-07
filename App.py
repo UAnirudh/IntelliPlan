@@ -716,6 +716,12 @@ class User(UserMixin, db.Model):
     streak_emails_opt_in = db.Column(db.Boolean, default=True)
     #: Stripe customer, once the student (or whoever pays) has checked out.
     stripe_customer_id = db.Column(db.String(64), nullable=True)
+    #: Free-plan tutor messages this month, and when the count resets
+    #: (chatbot_api._check_and_increment_tutor_limit). The tutor read these
+    #: for weeks before either existed, so every signed-in student's message
+    #: failed with an AttributeError and "Sorry, I hit a snag".
+    monthly_tutor_messages = db.Column(db.Integer, default=0)
+    tutor_reset_date = db.Column(db.DateTime, nullable=True)
     #: First-touch attribution: {"channel","utm_source","utm_medium",
     #: "utm_campaign","landing"}. Written only for a visitor who accepted
     #: analytics, and holds a referrer *host* at most -- never a full URL.
@@ -21946,6 +21952,9 @@ def _migrate_user_columns():
         ("users", "streak_emails_opt_in", "BOOLEAN DEFAULT TRUE"),
         ("users", "stripe_customer_id", "VARCHAR(64)"),
         ("users", "first_touch_json", "TEXT"),
+        # users — free-plan tutor message counter (chatbot_api.py)
+        ("users", "monthly_tutor_messages", "INTEGER DEFAULT 0"),
+        ("users", "tutor_reset_date", "TIMESTAMP"),
         # users — Study Buddies opt-in (buddies_glue.py)
         ("users", "buddies_opt_in", "BOOLEAN DEFAULT FALSE"),
         ("users", "buddies_consent_version", "VARCHAR(32)"),

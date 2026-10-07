@@ -1079,12 +1079,16 @@ def _check_and_increment_tutor_limit():
         else:
             current_user.tutor_reset_date = datetime(now.year, now.month + 1, 1)
         db.session.commit()
-    # Pro bypass
+    # Paid plans bypass. This read ``current_user.pro_active``, which no
+    # model has ever defined: the AttributeError was swallowed, so every
+    # paying student was held to the free plan's monthly message count.
     try:
-        if current_user.pro_active:
+        from growth_glue import current_plan
+        from intelliplan.growth import plans as _plans
+        if current_plan(current_user) == _plans.PAID:
             return True, None, None
-    except AttributeError:
-        pass
+    except Exception as exc:
+        print(f'[tutor] plan check failed: {exc}')
     limit = int(current_app.config.get('FREE_TUTOR_MESSAGES_PER_MONTH', 50))
     used = current_user.monthly_tutor_messages or 0
     if used >= limit:
