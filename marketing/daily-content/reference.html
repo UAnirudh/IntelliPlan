@@ -1,0 +1,322 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Power Prompts — Carousel</title>
+<style>
+  :root {
+    --ink:#121212; --paper:#f5f5f2; --muted:#5b5b57; --faint:#8a8a84;
+    --badbg:#e8e6e0; --hl:#ffe14a; --red:#ff4b3e; --green:#0fa468; --blue:#3b6cff;
+    --disp:'Bricolage Grotesque', system-ui, sans-serif;
+    --body:'Instrument Sans', system-ui, sans-serif;
+    --mono:'JetBrains Mono', ui-monospace, monospace;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:1080px; height:1350px; overflow:hidden; background:var(--paper); }
+  #track { position:absolute; left:0; top:0; width:10800px; height:1350px; }
+  .slide { position:absolute; top:0; width:1080px; height:1350px; overflow:visible; padding:0 80px;
+           background:var(--paper); color:var(--ink); font-family:var(--body); }
+  .slide.paper { background-color:var(--paper);
+    background-image:radial-gradient(rgba(0,0,0,0.075) 1.6px, transparent 1.8px);
+    background-size:36px 36px; background-position:18px 18px; }
+  .slide.dark { background:var(--ink); color:#f5f5f2; }
+  #thread { position:absolute; left:0; top:0; width:10800px; height:1350px; pointer-events:none; z-index:1; }
+  .z { position:relative; z-index:2; }
+
+  /* type */
+  .num { position:absolute; left:74px; top:40px; font:800 176px/1 var(--disp); letter-spacing:-0.06em; z-index:2;
+         font-variation-settings:'opsz' 96; }
+  .num small { font:700 34px/1 var(--mono); letter-spacing:0; color:var(--faint); margin-left:10px;
+               vertical-align:top; position:relative; top:22px; }
+  h2 { position:absolute; left:80px; right:80px; top:262px; font:800 94px/0.98 var(--disp);
+       letter-spacing:-0.045em; text-wrap:balance; z-index:2; font-variation-settings:'opsz' 96; }
+  .why { position:absolute; left:80px; right:110px; top:0; font:500 37px/1.32 var(--body);
+         color:var(--muted); letter-spacing:-0.01em; z-index:2; text-wrap:pretty; }
+  mark.hl { background:linear-gradient(transparent 8%, var(--hl) 8%, var(--hl) 92%, transparent 92%);
+            color:inherit; padding:0 6px; margin:0 -3px; border-radius:6px;
+            -webkit-box-decoration-break:clone; box-decoration-break:clone; }
+
+  /* bubbles */
+  .bub { position:absolute; left:80px; right:80px; border-radius:38px; padding:36px 40px 34px;
+         font:500 30px/1.46 var(--mono); letter-spacing:-0.015em; z-index:2; }
+  .bub.bad { background:var(--badbg); color:#6a6a65; }
+  .bub.good { background:#fff; color:var(--ink); border:3.5px solid var(--ink);
+              box-shadow:12px 12px 0 var(--ink); }
+  .bub.ai { background:var(--ink); color:#f1f1ee; font-family:var(--body); font-size:32px; line-height:1.4;
+            letter-spacing:-0.01em; }
+  .stk { position:absolute; top:-26px; left:34px; padding:9px 20px 10px; border-radius:14px;
+         font:800 26px/1 var(--disp); letter-spacing:0.02em; color:#fff; transform:rotate(-3.5deg);
+         white-space:nowrap; border:3px solid var(--ink); }
+  .stk.bad { background:var(--red); }
+  .stk.good { background:var(--green); transform:rotate(2.5deg); }
+  .stk.ink { background:#fff; color:var(--ink); }
+  .foot { position:absolute; left:80px; right:80px; bottom:52px; display:flex; justify-content:space-between;
+          font:600 24px/1 var(--mono); color:var(--faint); letter-spacing:0.04em; z-index:2; }
+  .dark .foot { color:#8d8d88; }
+  .arrow { display:inline-flex; align-items:center; gap:10px; color:var(--ink); }
+  .dark .arrow { color:#f5f5f2; }
+</style>
+<style>
+  .lab { display:inline-block; font:700 22px/1 var(--mono); letter-spacing:0.1em; padding:9px 14px 8px;
+         border-radius:10px; border:2.5px solid var(--ink); background:#fff; margin-right:16px;
+         position:relative; top:-5px; }
+  .whyx { position:absolute; left:80px; right:96px; top:488px; font:500 35px/1.34 var(--body);
+          color:var(--muted); letter-spacing:-0.01em; z-index:2; text-wrap:pretty; }
+  .whyx b { color:var(--ink); font-weight:700; }
+  .src { position:absolute; left:80px; right:80px; bottom:104px; font:500 21px/1.3 var(--mono);
+         color:var(--faint); letter-spacing:0.01em; z-index:2; }
+  .card { position:absolute; left:80px; right:80px; z-index:2; background:#fff; border-radius:32px;
+          border:2px solid rgba(0,0,0,0.10); }
+  .chip { display:inline-flex; align-items:center; justify-content:center; border-radius:14px;
+          font:700 34px/1 var(--mono); height:78px; padding:0 22px; border:3px solid var(--ink); }
+  .tile { display:inline-flex; align-items:center; justify-content:center; width:66px; height:78px;
+          border-radius:12px; background:#fff; border:2px solid rgba(0,0,0,0.14); font:700 36px/1 var(--mono); }
+  .row { display:flex; align-items:center; gap:10px; }
+  .kick { font:700 22px/1 var(--mono); letter-spacing:0.1em; color:var(--faint); }
+  .li { display:flex; align-items:center; gap:16px; font:600 31px/1.2 var(--body); padding:13px 0; letter-spacing:-0.01em; }
+  .dot { flex:0 0 auto; width:16px; height:16px; border-radius:50%; }
+</style>
+</head>
+<body>
+<div id="track">
+<svg id="thread" viewBox="0 0 10800 1350"></svg>
+
+<!-- ═══════════ 1 · HOOK ═══════════ -->
+<section class="slide dark" style="left:0">
+  <div class="z" style="position:absolute; right:-120px; top:40px; width:560px; transform:rotate(4deg); display:flex; flex-direction:column; align-items:flex-end; gap:14px;">
+    <div style="background:#2a2a28; border-radius:30px; padding:20px 28px; font:500 28px/1.2 var(--mono); color:#8c8c86; white-space:nowrap; opacity:0.55;">wait what did I say earlier</div>
+    <div style="background:#2a2a28; border-radius:30px; padding:20px 28px; font:500 28px/1.2 var(--mono); color:#a3a39d; white-space:nowrap; opacity:0.8;">no, the OTHER version</div>
+    <div style="background:#34342f; border-radius:30px; padding:20px 28px; font:500 28px/1.2 var(--mono); color:#dcdcd6; white-space:nowrap;">why did you forget that??</div>
+  </div>
+  <div class="z" style="position:absolute; left:80px; top:330px; font:800 140px/0.92 var(--disp); letter-spacing:-0.055em; font-variation-settings:'opsz' 96;">
+    The longer<br>you chat,<br>the <mark class="hl" style="color:var(--ink); padding:0 14px; border-radius:14px;">dumber</mark><br>it gets.
+  </div>
+  <div class="z" style="position:absolute; left:80px; right:140px; top:880px; font:500 44px/1.25 var(--body); color:#c9c9c4; letter-spacing:-0.015em;">
+    + 6 more things AI power users know that most people don’t.
+  </div>
+  <div class="z" style="position:absolute; left:80px; top:1100px; display:flex; align-items:center; gap:18px;
+       background:var(--hl); color:var(--ink); padding:22px 34px; border-radius:999px; font:800 46px/1 var(--disp); letter-spacing:-0.03em;">
+    Swipe
+    <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#121212" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+  </div>
+</section>
+
+<!-- ═══════════ 2 · CONTEXT ROT ═══════════ -->
+<section class="slide paper" style="left:1080px">
+  <div class="num">01<small>/07</small></div>
+  <h2>Long chats make it dumber.</h2>
+  <p class="whyx"><span class="lab">WHY</span>Everything in the chat competes for its attention. Researchers tested <b>18 top models</b> and <b>every one</b> got worse as the input grew.</p>
+  <div class="z" style="position:absolute; left:80px; right:80px; top:700px;">
+    <div class="kick" style="margin-bottom:16px;">YOUR 60-MESSAGE CHAT</div>
+    <div class="row" id="strip" style="gap:8px;"></div>
+    <div class="row" style="justify-content:space-between; margin-top:12px; font:600 22px/1 var(--mono); color:var(--faint);">
+      <span>↑ the detail you said once</span><span>latest</span></div>
+  </div>
+  <div class="bub good" style="top:900px"><span class="stk good">✓ HAND IT OFF</span>
+    Summarize this chat as a <mark class="hl">brief for a new chat</mark>: goals, decisions, constraints, and what we ruled out.</div>
+  <p class="src">Then paste it into a fresh chat. · Source: Chroma, “Context Rot”, 2025</p>
+  <div class="foot"><span>BETTER PROMPTS</span><span class="arrow">swipe →</span></div>
+</section>
+
+<!-- ═══════════ 3 · SYCOPHANCY ═══════════ -->
+<section class="slide paper" style="left:2160px">
+  <div class="num">02<small>/07</small></div>
+  <h2>It’s a people-pleaser.</h2>
+  <p class="whyx"><span class="lab">WHY</span>It learned from human ratings, and people rate <b>agreement</b> highly. Say it’s your work and it goes easy on you.</p>
+  <div class="bub bad" style="top:680px"><span class="stk bad">✕ IT KNOWS IT’S YOURS</span>
+    Here’s my essay. Is it good?
+    <div style="margin-top:14px; font:600 28px/1.3 var(--body); color:#8a8a84;">→ “Love it! Strong voice. 9/10.”</div></div>
+  <div class="bub good" style="top:900px"><span class="stk good">✓ NEUTRAL</span>
+    <mark class="hl">A classmate wrote this.</mark> Grade it harshly against this rubric, with a quote for every point you take off.</div>
+  <div class="z" style="position:absolute; left:80px; right:80px; top:1150px; display:flex; gap:16px; align-items:flex-start; font:600 27px/1.3 var(--body); color:var(--ink);">
+    <span style="flex:0 0 auto; background:var(--red); color:#fff; font:800 22px/1 var(--disp); padding:8px 12px; border-radius:10px; border:2.5px solid var(--ink); margin-top:2px;">ALSO</span>
+    <span>Never ask “are you sure?” In tests it made models drop answers that were right.</span></div>
+  <p class="src" style="bottom:92px; opacity:0">.</p>
+  <div class="foot"><span>SOURCE: ANTHROPIC, 2023</span><span class="arrow">swipe →</span></div>
+</section>
+
+<!-- ═══════════ 4 · TOKENS ═══════════ -->
+<section class="slide paper" style="left:3240px">
+  <div class="num">03<small>/07</small></div>
+  <h2>It can’t see letters.</h2>
+  <p class="whyx"><span class="lab">WHY</span>It reads text in chunks called <b>tokens</b>. That’s why it miscounts words and letters, and slips on math done “in its head.”</p>
+  <div class="card" style="top:676px; padding:30px 36px;">
+    <div class="kick" style="margin-bottom:14px;">YOU SEE</div>
+    <div class="row" id="letters" style="gap:8px;"></div>
+    <div class="kick" style="margin:24px 0 14px;">IT SEES</div>
+    <div class="row" style="gap:12px;">
+      <span class="chip" style="background:var(--hl)">str</span><span class="chip" style="background:#fff">aw</span><span class="chip" style="background:var(--hl)">berry</span>
+    </div>
+  </div>
+  <div class="bub good" style="top:1034px"><span class="stk good">✓ MAKE IT USE CODE</span>
+    <mark class="hl">Use code to count</mark> the words in my essay, then tell me what to cut to hit 650.</div>
+  <div class="foot"><span>SPLIT VARIES BY MODEL</span><span class="arrow">swipe →</span></div>
+</section>
+
+<!-- ═══════════ 5 · THINKING MODE ═══════════ -->
+<section class="slide paper" style="left:4320px">
+  <div class="num">04<small>/07</small></div>
+  <h2>You’re on the wrong model.</h2>
+  <p class="whyx"><span class="lab">WHY</span>Most apps default to a fast model. <b>Thinking</b> modes work through the problem step by step before they answer.</p>
+  <div class="z" style="position:absolute; left:80px; top:676px; display:flex; background:#e4e2dc; border-radius:999px; padding:8px; border:2.5px solid var(--ink);">
+    <span style="padding:18px 40px; font:700 34px/1 var(--body); color:#6a6a65;">Fast</span>
+    <span style="padding:18px 40px; font:800 34px/1 var(--body); background:var(--ink); color:#fff; border-radius:999px; display:flex; align-items:center; gap:12px;">
+      <span style="width:14px; height:14px; border-radius:50%; background:var(--hl);"></span>Thinking</span>
+  </div>
+  <div class="z" style="position:absolute; left:80px; right:80px; top:830px; display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+    <div style="background:#fff; border:2px solid rgba(0,0,0,0.10); border-radius:30px; padding:28px 30px;">
+      <div class="kick" style="margin-bottom:10px;">FAST IS FINE</div>
+      <div class="li"><span class="dot" style="background:#c9c7c0"></span>Rewrites</div>
+      <div class="li"><span class="dot" style="background:#c9c7c0"></span>Summaries</div>
+      <div class="li"><span class="dot" style="background:#c9c7c0"></span>Brainstorms</div>
+    </div>
+    <div style="background:#fff; border:3.5px solid var(--ink); box-shadow:10px 10px 0 var(--ink); border-radius:30px; padding:28px 30px;">
+      <div class="kick" style="margin-bottom:10px; color:var(--ink);">SWITCH TO THINKING</div>
+      <div class="li"><span class="dot" style="background:var(--hl); border:2px solid var(--ink)"></span>Math &amp; science</div>
+      <div class="li"><span class="dot" style="background:var(--hl); border:2px solid var(--ink)"></span>Code &amp; bugs</div>
+      <div class="li"><span class="dot" style="background:var(--hl); border:2px solid var(--ink)"></span>Plans &amp; decisions</div>
+    </div>
+  </div>
+  <p class="src">In the model menu it may be called Thinking, Reasoning or Extended thinking.</p>
+  <div class="foot"><span>BETTER PROMPTS</span><span class="arrow">swipe →</span></div>
+</section>
+
+<!-- ═══════════ 6 · DOCUMENT FIRST ═══════════ -->
+<section class="slide paper" style="left:5400px">
+  <div class="num">05<small>/07</small></div>
+  <h2>Document first. Question last.</h2>
+  <p class="whyx"><span class="lab">WHY</span>With long text, paste it <b>before</b> you ask. The model reads it all, then answers with your question fresh.</p>
+  <div class="z" style="position:absolute; left:80px; right:80px; top:690px; display:grid; grid-template-columns:1fr 1fr; gap:40px;">
+    <div style="position:relative; background:var(--badbg); border-radius:30px; padding:44px 28px 28px;">
+      <span class="stk bad" style="left:22px">✕ MOST PEOPLE</span>
+      <div style="background:#fff; border:2.5px solid #8a8a84; border-radius:14px; padding:14px 16px; font:700 24px/1.2 var(--mono); color:#6a6a65;">Q: What are the risks?</div>
+      <div id="docA" style="margin-top:14px; display:grid; gap:10px;"></div>
+    </div>
+    <div style="position:relative; background:#fff; border:3.5px solid var(--ink); box-shadow:10px 10px 0 var(--ink); border-radius:30px; padding:44px 28px 28px;">
+      <span class="stk good" style="left:22px">✓ POWER USERS</span>
+      <div id="docB" style="display:grid; gap:10px;"></div>
+      <div style="margin-top:14px; background:var(--hl); border:2.5px solid var(--ink); border-radius:14px; padding:14px 16px; font:700 24px/1.2 var(--mono);">Q: What are the risks?</div>
+    </div>
+  </div>
+  <div class="z" style="position:absolute; left:80px; right:80px; top:1150px; display:flex; align-items:baseline; gap:18px;">
+    <span style="font:800 64px/1 var(--disp); letter-spacing:-0.04em;">up to 30%</span>
+    <span style="font:600 30px/1.2 var(--body); color:var(--muted);">better answers in Anthropic’s tests</span>
+  </div>
+  <div class="foot"><span>SOURCE: ANTHROPIC DOCS</span><span class="arrow">swipe →</span></div>
+</section>
+
+<!-- ═══════════ 7 · WHAT + WHY ═══════════ -->
+<section class="slide paper" style="left:6480px">
+  <div class="num">06<small>/07</small></div>
+  <h2>Say what to do. And why.</h2>
+  <p class="whyx"><span class="lab">WHY</span>“Don’t” still plants the idea. A clear target plus <b>the reason behind it</b> gets followed far more closely.</p>
+  <div class="bub bad" style="top:680px"><span class="stk bad">✕ ALL DON’TS</span>
+    Don’t use jargon. Don’t make it long. Don’t be boring.</div>
+  <div class="bub good" style="top:880px"><span class="stk good">✓ TARGET + REASON</span>
+    Explain it in <mark class="hl">5 short sentences a 12-year-old gets</mark>, <mark class="hl">because my grandma</mark> is reading it out loud.</div>
+  <div class="foot"><span>SOURCE: ANTHROPIC DOCS</span><span class="arrow">swipe →</span></div>
+</section>
+
+<!-- ═══════════ 8 · META PROMPT ═══════════ -->
+<section class="slide paper" style="left:7560px">
+  <div class="num">07<small>/07</small></div>
+  <h2>Make it write the prompt.</h2>
+  <p class="whyx"><span class="lab">WHY</span>It knows what it needs better than you do. Power users <b>save the prompts that work</b> and reuse them.</p>
+  <div class="bub good" style="top:650px"><span class="stk good">✓ AFTER A GREAT ANSWER</span>
+    <mark class="hl">Write the prompt</mark> that would get this exact result in one shot. Make it reusable.</div>
+  <div class="z" style="position:absolute; left:80px; right:80px; top:884px;">
+    <div class="kick" style="margin-bottom:14px;">MY PROMPT LIBRARY</div>
+    <div style="display:grid; gap:10px;" id="lib"></div>
+  </div>
+  <div class="foot"><span>BETTER PROMPTS</span><span class="arrow">swipe →</span></div>
+</section>
+
+<!-- ═══════════ 9 · CHEAT SHEET ═══════════ -->
+<section class="slide paper" style="left:8640px">
+  <div class="z" style="position:absolute; left:80px; top:88px; font:700 28px/1 var(--mono); color:var(--faint); letter-spacing:0.06em;">SCREENSHOT THIS</div>
+  <div class="z" style="position:absolute; left:80px; top:140px; font:800 118px/0.95 var(--disp); letter-spacing:-0.05em; font-variation-settings:'opsz' 96;">The cheat<br>sheet.</div>
+  <div class="z" id="checks" style="position:absolute; left:80px; right:80px; top:432px; background:#fff; border:3.5px solid var(--ink);
+       border-radius:40px; box-shadow:12px 12px 0 var(--ink); padding:22px 44px;"></div>
+  <div class="foot"><span>BETTER PROMPTS</span><span class="arrow">one more →</span></div>
+</section>
+
+<!-- ═══════════ 10 · CTA ═══════════ -->
+<section class="slide dark" style="left:9720px">
+  <div class="z" style="position:absolute; left:80px; top:320px; font:800 164px/0.9 var(--disp); letter-spacing:-0.055em; font-variation-settings:'opsz' 96;">
+    Save this.<br>You’ll use it<br><mark class="hl" style="color:var(--ink); padding:0 14px; border-radius:14px;">this week.</mark>
+  </div>
+  <div class="z" style="position:absolute; left:80px; right:80px; top:880px; display:flex; flex-direction:column; gap:26px;">
+    <div style="display:flex; align-items:center; gap:24px; font:600 38px/1.25 var(--body); color:#e9e9e5;">
+      <span style="flex:0 0 auto; width:84px; height:84px; border-radius:24px; background:var(--hl); display:grid; place-items:center;">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#121212" stroke-width="2.6" stroke-linejoin="round"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg></span>
+      <span>Save it for your next essay, email or study session.</span></div>
+    <div style="display:flex; align-items:center; gap:24px; font:600 38px/1.25 var(--body); color:#e9e9e5;">
+      <span style="flex:0 0 auto; width:84px; height:84px; border-radius:24px; background:#fff; display:grid; place-items:center;">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#121212" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3 10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></svg></span>
+      <span>Send it to the friend who keeps asking it <span style="font-family:var(--mono); font-size:33px; color:var(--hl);">“are you sure?”</span></span></div>
+  </div>
+</section>
+</div>
+
+<script>
+/* 01 · the chat strip: early messages fade, one key detail near the start */
+{ const s = document.getElementById('strip'); const N = 12;
+  for (let i = 0; i < N; i++) {
+    const key = i === 1, w = [70, 58, 84, 50, 66, 92, 54, 76, 60, 88, 64, 80][i];
+    const o = 0.18 + 0.82 * (i / (N - 1));
+    s.insertAdjacentHTML('beforeend', `<span style="flex:0 0 auto; width:${w}px; height:44px; border-radius:14px;
+      background:${key ? '#ffe14a' : '#121212'}; opacity:${key ? 0.4 : o}; ${key ? 'border:3px solid #121212;' : ''}"></span>`);
+  } }
+/* 03 · letters */
+document.getElementById('letters').innerHTML = 'strawberry'.split('').map(c => `<span class="tile">${c}</span>`).join('');
+/* 05 · document stacks */
+const docLines = w => w.map(x => `<div style="height:18px; width:${x}%; border-radius:9px; background:rgba(0,0,0,0.16);"></div>`).join('');
+document.getElementById('docA').innerHTML = docLines([96, 88, 100, 72, 94, 84, 60]);
+document.getElementById('docB').innerHTML = docLines([96, 88, 100, 72, 94, 84, 60]);
+/* 07 · prompt library */
+document.getElementById('lib').innerHTML = [['Essay feedback, harsh', 'grade · rubric · quotes'],
+  ['Email to a teacher', 'context · ask · tone'], ['Notes → flashcards', 'topic · 20 cards · Q/A']].map((r, i) => `
+  <div style="display:flex; align-items:center; justify-content:space-between; background:#fff; border:2.5px solid #121212;
+       border-radius:22px; padding:14px 24px; transform:rotate(${[-0.8, 0.6, -0.4][i]}deg);">
+    <div><div style="font:800 30px/1.1 'Bricolage Grotesque'; letter-spacing:-0.02em;">${r[0]}</div>
+    <div style="font:500 22px/1 'JetBrains Mono'; color:#8a8a84; margin-top:8px;">${r[1]}</div></div>
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#121212" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+  </div>`).join('');
+/* 09 · cheat sheet */
+const ITEMS = ['Long chat? Hand it off to a new one', 'Don’t say it’s yours', 'Use code for counts and math',
+  'Thinking mode for hard stuff', 'Document first, question last', 'Say what to do, and why', 'Make it write the prompt'];
+document.getElementById('checks').innerHTML = ITEMS.map((s, i) => `
+  <div style="display:flex; align-items:center; gap:26px; padding:21px 0; ${i ? 'border-top:2px dashed rgba(0,0,0,0.13);' : ''}">
+    <span style="flex:0 0 auto; width:50px; height:50px; border-radius:14px; border:3.5px solid #121212; background:#ffe14a; display:grid; place-items:center;">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#121212" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+    <span style="font:700 34px/1.15 'Bricolage Grotesque'; letter-spacing:-0.02em;"><span style="font-family:'JetBrains Mono'; font-weight:700; font-size:26px; color:#8a8a84; margin-right:14px;">0${i+1}</span>${s}</span>
+  </div>`).join('');
+
+/* the thread */
+const P = [];
+P.push([330,1146],[640,1166],[860,1222],[1030,1160],[1112,960],[1114,640],[1122,330],[1180,170]);
+for (let i = 1; i <= 7; i++) {
+  const X = i * 1080;
+  P.push([X+250,150],[X+480,212],[X+700,188]);
+  if (i % 2) P.push([X+880,236],[X+990,160],[X+920,86],[X+830,140],[X+900,212],[X+1080+60,200]);
+  else       P.push([X+900,120],[X+1080+60,176]);
+}
+P.push([8640+300,112],[8640+560,90],[8640+760,160],[8640+700,380],[8640+420,404],[8640+120,398]);
+P.push([8640+40,560],[8640+60,900],[8640+40,1230],[9720+20,1290],[9720+560,1300],[9720+1010,1236],[9720+1034,940],[9720+960,800]);
+function catmull(pts) {
+  let d = `M${pts[0][0]} ${pts[0][1]}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0,i-1)], p1 = pts[i], p2 = pts[i+1], p3 = pts[Math.min(pts.length-1,i+2)];
+    const c1 = [p1[0] + (p2[0]-p0[0])/6, p1[1] + (p2[1]-p0[1])/6];
+    const c2 = [p2[0] - (p3[0]-p1[0])/6, p2[1] - (p3[1]-p1[1])/6];
+    d += ` C${c1[0].toFixed(1)} ${c1[1].toFixed(1)}, ${c2[0].toFixed(1)} ${c2[1].toFixed(1)}, ${p2[0]} ${p2[1]}`;
+  }
+  return d;
+}
+document.getElementById('thread').innerHTML = `<path d="${catmull(P)}" fill="none" stroke="#ffe14a" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>`;
+
+window.showSlide = i => { document.getElementById('track').style.transform = `translateX(${-i*1080}px)`; };
+window.__ready = true;
+</script>
+</body>
+</html>
