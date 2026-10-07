@@ -14,6 +14,8 @@ Adding a version:
   2. Bump ``version`` past every earlier entry.
   3. Fill ``summary`` with what a student would care about, and ``clauses``
      with the exact wording that changed.
+  4. Add ``tldr``: three to five short lines, shown first in the notice.
+     Each line must be something the changed wording actually says.
 Users who accepted an older version are then asked to read and accept.
 
 The very first version is the baseline: everyone is treated as having
@@ -62,6 +64,12 @@ PRIVACY_VERSIONS: list[dict[str, Any]] = [
         # is exactly the change the notice mechanism was built for.
         "version": 2,
         "effective": "2026-08-26",
+        "tldr": [
+            "We removed Microsoft Clarity, a third-party analytics script.",
+            "No third-party analytics script runs on IntelliPlan now.",
+            "There is a new Cookie Policy listing what is stored in your browser.",
+            "Nothing new is collected.",
+        ],
         "summary": [
             "We removed a third-party analytics tool (Microsoft Clarity) that "
             "had been loading in your browser. No third-party analytics script "
@@ -158,16 +166,18 @@ def versions_after(doc: str, accepted: int) -> list[dict[str, Any]]:
 def describe(doc: str, accepted: int) -> dict[str, Any] | None:
     """What to show a user whose accepted version is out of date.
 
-    ``None`` when they are current. Otherwise the merged summary and the
+    ``None`` when they are current. Otherwise the merged TL;DR, summary and
     verbatim clauses from every version they have not seen.
     """
     pending = versions_after(doc, accepted)
     if not pending:
         return None
 
+    tldr: list[str] = []
     summary: list[str] = []
     clauses: list[dict[str, str]] = []
     for version in pending:
+        tldr.extend(version.get("tldr") or [])
         summary.extend(version.get("summary") or [])
         clauses.extend(version.get("clauses") or [])
 
@@ -178,6 +188,7 @@ def describe(doc: str, accepted: int) -> dict[str, Any] | None:
         "from_version": accepted,
         "version": pending[-1]["version"],
         "effective": pending[-1].get("effective"),
+        "tldr": tldr,
         "summary": summary,
         "clauses": clauses,
     }

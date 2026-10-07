@@ -53,6 +53,11 @@ class CommandCenterDeps:
     # True when the visitor has no IntelliPlan account but connected an LMS
     # (StudentVUE, Canvas, Schoology) straight from its login page.
     has_guest_session: Callable[[], bool] = field(default=lambda: False)
+    # True while the account has not finished /onboarding. This page is where
+    # sign-up and sign-in land, so it is the only place the check can live.
+    needs_onboarding: Callable[[int], bool] = field(default=lambda _uid: False)
+    # Extra template variables for the page (what the first-run panel shows).
+    page_context: Callable[[int], dict] = field(default=lambda _uid: {})
 
 
 _TODAY_CACHE: dict[int, tuple[float, dict]] = {}
@@ -123,9 +128,16 @@ def create_command_center_blueprint(deps: CommandCenterDeps) -> Blueprint:
             if deps.has_guest_session():
                 return redirect("/dashboard?classic=1")
             return redirect("/login")
+        if deps.needs_onboarding(uid):
+            # Registration and login both redirect here. The "finish setup
+            # first" check used to exist only on /dashboard, so a new account
+            # opened an empty chat and never saw the step that connects a
+            # school.
+            return redirect("/onboarding")
         deps.emit_signal(uid, "command_center_opened", subject_type="briefing")
         return render_template("command_center.html",
-                               active_page="command_center")
+                               active_page="command_center",
+                               **deps.page_context(uid))
 
     # ── API ──────────────────────────────────────────────────────────
 
