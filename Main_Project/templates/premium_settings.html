@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% block page_title %}AI & Premium | IntelliPlan{% endblock %}
+{% block meta_description %}Your IntelliPlan AI budget, answer settings and linked AI accounts.{% endblock %}
+{% block content %}
+<style>
+  .pai { max-width: 780px; margin: 0 auto; padding: var(--space-6) var(--space-4) var(--space-8); }
+  .pai-title { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.8rem, 1.3rem + 2vw, 2.6rem); line-height: 1.08; letter-spacing: -0.02em; margin: 0.35rem 0 0.6rem; color: var(--text-primary); }
+  .pai-lede { font-family: var(--font-body); color: var(--text-secondary); line-height: 1.65; max-width: 60ch; margin: 0 0 var(--space-5); }
+  .pai-section { border-top: 1px solid var(--border); padding: var(--space-5) 0; }
+  .pai-section h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.25rem; margin: 0 0 0.4rem; color: var(--text-primary); }
+  .pai-section > p { font-family: var(--font-body); color: var(--text-secondary); line-height: 1.6; margin: 0 0 var(--space-3); max-width: 62ch; }
+  .pai-meter { display: grid; grid-template-columns: 1fr auto; gap: 0.35rem 1rem; align-items: baseline; }
+  .pai-meter strong { font-family: var(--font-display); font-size: 2rem; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+  .pai-meter span { font-family: var(--font-ui); color: var(--text-secondary); font-size: 0.9rem; }
+  .pai-bar { grid-column: 1 / -1; height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
+  .pai-bar > i { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
+  .pai-bar.is-low > i { background: var(--warning, #b45309); }
+  .pai-bar.is-empty > i { background: var(--danger, #c2410c); }
+  .pai-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.5rem; border: 0; padding: 0; margin: 0; }
+  .pai-choice { display: grid; gap: 0.15rem; padding: 0.75rem 0.85rem; border: 1px solid var(--border-strong); border-radius: 12px; cursor: pointer; font-family: var(--font-ui); }
+  .pai-choice:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+  .pai-choice:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .pai-choice input { position: absolute; opacity: 0; pointer-events: none; }
+  .pai-choice b { color: var(--text-primary); font-weight: 600; }
+  .pai-choice small { color: var(--text-secondary); font-size: 0.8rem; line-height: 1.4; }
+  .pai-toggle { display: flex; align-items: center; gap: 0.6rem; margin-top: var(--space-3); font-family: var(--font-ui); color: var(--text-primary); }
+  .pai-toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
+  .pai-acct { display: grid; grid-template-columns: 1fr auto; gap: 0.4rem 1rem; align-items: center; padding: 0.85rem 0; border-bottom: 1px solid var(--border); font-family: var(--font-ui); }
+  .pai-acct:last-child { border-bottom: 0; }
+  .pai-acct-name { font-weight: 600; color: var(--text-primary); }
+  .pai-acct-state { font-size: 0.82rem; color: var(--text-secondary); }
+  .pai-acct-state.is-bad { color: var(--danger, #c2410c); }
+  .pai-acct form { grid-column: 1 / -1; display: flex; gap: 0.5rem; }
+  .pai-acct input[type=password] { flex: 1; min-width: 0; padding: 0.6rem 0.75rem; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--bg-card, transparent); color: var(--text-primary); font-family: var(--font-mono, monospace); font-size: 0.85rem; }
+  .pai-btn { padding: 0.6rem 0.95rem; border-radius: 10px; border: 1px solid var(--border-strong); background: transparent; color: var(--text-primary); font: inherit; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .pai-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .pai-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .pai-btn:disabled { opacity: 0.5; cursor: default; }
+  .pai-note { font-family: var(--font-ui); font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; margin: 0.6rem 0 0; }
+  .pai-msg { font-family: var(--font-ui); font-size: 0.85rem; min-height: 1.2em; margin: 0.4rem 0 0; color: var(--text-secondary); }
+  .pai-msg.is-err { color: var(--danger, #c2410c); }
+  .pai-plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-4); }
+  .pai-plan { border: 1px solid var(--glass-border, var(--border)); border-radius: var(--r-lg, 16px); padding: var(--space-5); background: var(--glass-bg, transparent); }
+  .pai-plan h3 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 1.15rem; color: var(--text-primary); }
+  .pai-price { font-family: var(--font-display); font-size: 2.1rem; font-weight: 600; color: var(--text-primary); margin: 0.3rem 0 0; }
+  .pai-price small { font-size: 0.9rem; color: var(--text-secondary); font-weight: 500; }
+  .pai-plan ul { margin: var(--space-3) 0; padding-left: 1.1rem; color: var(--text-secondary); line-height: 1.6; font-family: var(--font-body); font-size: 0.92rem; }
+  .pai-plan .pai-btn { width: 100%; }
+  .pai-usage { width: 100%; border-collapse: collapse; font-family: var(--font-ui); font-size: 0.88rem; }
+  .pai-usage th, .pai-usage td { text-align: left; padding: 0.45rem 0; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+  .pai-usage td:last-child, .pai-usage th:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  .pai .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .pai-flash { padding: 0.8rem 1rem; border-radius: 12px; background: var(--accent-soft); color: var(--text-primary); margin-bottom: var(--space-5); font-family: var(--font-ui); }
+</style>
+
+{% set premium = state.tier in ('premium', 'premium_byok') %}
+<div class="pai">
+  <p class="u-label">AI &amp; Premium</p>
+  {% if paid %}<div class="pai-flash" role="status">Payment received. It can take a minute to show here.</div>{% endif %}
+
+  {% if premium %}
+    <h1 class="pai-title">Your AI budget</h1>
+    <p class="pai-lede">Plani picks the right Claude model for each question and charges what it actually costs. When the budget runs out, Plani keeps answering with the free model until the 1st.</p>
+    <div class="pai-meter">
+      <strong>${{ '%.2f'|format(state.remaining_usd) }}</strong>
+      <span>left of ${{ '%.2f'|format(state.budget_usd) }} this month</span>
+      {% set pct = ((state.spent_micro / state.budget_micro) * 100) if state.budget_micro else 100 %}
+      <div class="pai-bar{% if state.exhausted %} is-empty{% elif state.low %} is-low{% endif %}" role="progressbar"
+           aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ [pct, 100]|min|round|int }}" aria-label="AI budget used"><i style="width: {{ [pct, 100]|min }}%"></i></div>
+    </div>
+    {% if state.byok_value_usd %}<p class="pai-note">Your linked accounts answered ${{ '%.2f'|format(state.byok_value_usd) }} worth of questions this month, none of it from your budget.</p>{% endif %}
+    {% if billing_enabled %}
+    <p class="pai-note">
+      <button type="button" class="pai-btn" id="paiTopup">Add ${{ '%.0f'|format(topup.credit_usd) }} of AI for ${{ '%.0f'|format(topup.price_usd) }}</button>
+    </p>
+    <p class="pai-msg" id="paiTopupMsg" role="status"></p>
+    {% endif %}
+  {% else %}
+    <h1 class="pai-title">Claude as your tutor</h1>
+    <p class="pai-lede">Premium puts Claude behind Plani. A fast model reads each question first, asks what it needs to know if your question is vague, and sends it to the Claude model that fits: quick facts to a fast model, proofs and essays to the strongest one.</p>
+  {% endif %}
+
+  {% if premium or accounts %}
+  <section class="pai-section" aria-labelledby="paiDepthH">
+    <h2 id="paiDepthH">How Plani answers</h2>
+    <p>Auto lets Plani choose for each question. Picking a depth uses that model every time, which spends your budget faster on Deep.</p>
+    <fieldset class="pai-choices" id="paiDepth">
+      <legend class="sr-only">Answer depth</legend>
+      {% for value, label, hint in [('auto', 'Auto', 'Plani picks per question'), ('quick', 'Fast', 'Claude Haiku, quick answers'), ('balanced', 'Balanced', 'Claude Sonnet, most homework'), ('deep', 'Deep', 'Claude Opus, hardest problems')] %}
+      <label class="pai-choice"><input type="radio" name="depth" value="{{ value }}" {% if model_pref == value %}checked{% endif %}><b>{{ label }}</b><small>{{ hint }}</small></label>
+      {% endfor %}
+    </fieldset>
+    <label class="pai-toggle"><input type="checkbox" id="paiClarify" {% if clarify %}checked{% endif %}> Ask me a clarifying question when my question is vague</label>
+    <p class="pai-msg" id="paiPrefsMsg" role="status"></p>
+  </section>
+  {% endif %}
+
+  <section class="pai-section" aria-labelledby="paiAcctH">
+    <h2 id="paiAcctH">Linked AI accounts</h2>
+    <p>Link an API key from your own AI account and Plani answers on it instead of your budget. The provider bills you directly. Consumer subscriptions such as Claude Pro or ChatGPT Plus can't be linked; you need an API key from the provider's developer console.</p>
+    {% if not byok_enabled %}
+      <p class="pai-note">Linking AI accounts is coming soon.</p>
+    {% elif not can_link %}
+      <p class="pai-note">You need to be 18 or older to link an AI account, because the account and its billing have to be in your own name.</p>
+    {% else %}
+    <div id="paiAccounts">
+      {% for pid, meta in providers.items() %}
+      {% set acct = (accounts|selectattr('provider', 'equalto', pid)|list|first) %}
+      <div class="pai-acct" data-provider="{{ pid }}">
+        <div>
+          <div class="pai-acct-name">{{ meta.name }}</div>
+          <div class="pai-acct-state{% if acct and acct.status != 'active' %} is-bad{% endif %}">
+            {% if acct %}{{ 'Linked' if acct.status == 'active' else 'Key stopped working' }} · key {{ acct.key_hint }}{% if acct.last_error and acct.status != 'active' %} · {{ acct.last_error }}{% endif %}
+            {% else %}Not linked · <a href="{{ meta.console }}" target="_blank" rel="noopener">get a key</a>{% endif %}
+          </div>
+        </div>
+        {% if acct %}<button type="button" class="pai-btn" data-unlink="{{ pid }}">Remove</button>{% else %}<span></span>{% endif %}
+        <form data-link="{{ pid }}" autocomplete="off">
+          <label class="sr-only" for="key-{{ pid }}">{{ meta.name }} API key</label>
+          <input type="password" id="key-{{ pid }}" name="api_key" placeholder="{{ 'Replace key' if acct else 'Paste API key' }}" spellcheck="false">
+          <button type="submit" class="pai-btn">{{ 'Update' if acct else 'Link' }}</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="pai-msg" id="paiAcctMsg" role="status"></p>
+    <p class="pai-note">Keys are checked with the provider, stored encrypted, and never shown again. Plani tries your linked accounts first, in the order above.</p>
+    {% endif %}
+  </section>
+
+  {% if billing_enabled and not premium %}
+  <section class="pai-section" aria-labelledby="paiPlansH">
+    <h2 id="paiPlansH">Premium plans</h2>
+    <div class="pai-plans">
+      {% for p in plans %}
+      <div class="pai-plan">
+        <h3>{{ p.name }}</h3>
+        <p class="pai-price">${{ '%.0f'|format(p.price_usd['month']) }}<small> / month</small></p>
+        <p class="pai-note">{% if p.byok %}Includes ${{ '%.0f'|format(p.ai_budget_usd) }} of backup AI. Answers run on your linked account.{% else %}Includes ${{ '%.0f'|format(p.ai_budget_usd) }} of AI each month.{% endif %}</p>
+        <ul>{% for f in p.features %}<li>{{ f }}</li>{% endfor %}</ul>
+        <button type="button" class="pai-btn primary" data-checkout="{{ p.id }}">Choose {{ p.name }}</button>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="pai-msg" id="paiPlanMsg" role="status"></p>
+  </section>
+  {% endif %}
+
+  {% if premium or accounts %}
+  <section class="pai-section" aria-labelledby="paiUsageH">
+    <h2 id="paiUsageH">This month's usage</h2>
+    <table class="pai-usage" id="paiUsage" hidden>
+      <thead><tr><th scope="col">Model</th><th scope="col">Answers</th><th scope="col">Cost</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="pai-note" id="paiUsageEmpty">No AI use yet this month.</p>
+  </section>
+  {% endif %}
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const NAMES = { 'claude-haiku-5-5': 'Claude Haiku', 'claude-sonnet-5-5': 'Claude Sonnet', 'claude-opus-5-5': 'Claude Opus' };
+
+  async function post(url, body, method) {
+    const r = await fetch(url, { method: method || 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.message || 'Something went wrong. Try again.');
+    return data;
+  }
+  function say(id, text, bad) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text;
+    el.classList.toggle('is-err', !!bad);
+  }
+
+  async function savePrefs(body) {
+    try { await post('/api/premium/preferences', body); say('paiPrefsMsg', 'Saved.'); }
+    catch (e) { say('paiPrefsMsg', e.message, true); }
+  }
+  document.querySelectorAll('#paiDepth input').forEach(i =>
+    i.addEventListener('change', () => savePrefs({ model_pref: i.value })));
+  const clarify = document.getElementById('paiClarify');
+  if (clarify) clarify.addEventListener('change', () => savePrefs({ clarify: clarify.checked }));
+
+  document.querySelectorAll('form[data-link]').forEach(form => {
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const input = form.querySelector('input[name=api_key]');
+      const btn = form.querySelector('button');
+      if (!input.value.trim()) return;
+      btn.disabled = true; say('paiAcctMsg', 'Checking the key with the provider…');
+      try {
+        await post('/api/ai-accounts', { provider: form.dataset.link, api_key: input.value.trim() });
+        input.value = '';
+        location.reload();
+      } catch (e) { say('paiAcctMsg', e.message, true); btn.disabled = false; }
+    });
+  });
+  document.querySelectorAll('[data-unlink]').forEach(btn => btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    try { await post('/api/ai-accounts/' + btn.dataset.unlink, null, 'DELETE'); location.reload(); }
+    catch (e) { say('paiAcctMsg', e.message, true); btn.disabled = false; }
+  }));
+
+  document.querySelectorAll('[data-checkout]').forEach(btn => btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    try {
+      const data = await post('/api/billing/checkout', { plan: btn.dataset.checkout, interval: 'month' });
+      location.href = data.url;
+    } catch (e) {
+      say('paiPlanMsg', e.message === 'use_parent_link'
+        ? 'Students under 18 check out through a parent. Use the parent payment link on the plan page.'
+        : e.message, true);
+      btn.disabled = false;
+    }
+  }));
+  const topup = document.getElementById('paiTopup');
+  if (topup) topup.addEventListener('click', async () => {
+    topup.disabled = true;
+    try { const data = await post('/api/premium/topup', {}); location.href = data.url; }
+    catch (e) { say('paiTopupMsg', e.message === 'use_parent_link' ? 'Ask a parent to add more for you.' : e.message, true); topup.disabled = false; }
+  });
+
+  const table = document.getElementById('paiUsage');
+  if (table) fetch('/api/premium/usage', { credentials: 'same-origin' })
+    .then(r => r.json()).then(data => {
+      const rows = (data && data.by_model) || [];
+      if (!rows.length) return;
+      const tbody = table.querySelector('tbody');
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        const label = (NAMES[r.model] || r.model) + (r.source === 'byok' ? ' (your account)' : '');
+        const cost = r.source === 'byok' ? 'your account' : '$' + Number(r.cost_usd).toFixed(2);
+        [label, String(r.calls), cost].forEach(t => { const td = document.createElement('td'); td.textContent = t; tr.appendChild(td); });
+        tbody.appendChild(tr);
+      });
+      table.hidden = false;
+      document.getElementById('paiUsageEmpty').hidden = true;
+    }).catch(() => {});
+})();
+</script>
+{% endblock %}

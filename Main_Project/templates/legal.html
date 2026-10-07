@@ -38,6 +38,9 @@
     font-size: 0.9rem; line-height: 1.6;
   }
   .legal-callout strong { color: var(--accent); }
+  .legal-tldr ul { margin: 0.4rem 0 0.4rem; padding-left: 1.1rem; }
+  .legal-tldr li { margin-bottom: 4px; }
+  .legal-tldr-note { font-size: 0.8rem; color: var(--text-secondary); }
   .legal-toc {
     background: var(--bg-elevated); border: 1px solid var(--border);
     border-radius: var(--r-md); padding: 14px 18px; margin-bottom: 1.25rem;
@@ -84,7 +87,15 @@
   <!-- ──────────────────── PRIVACY POLICY ──────────────────── -->
   <div id="privacy" class="legal-card anchor-target ipd-anim ipd-d1">
     <h2>Privacy Policy</h2>
-    <p class="legal-meta"><strong>Last Updated:</strong> October 2, 2026</p>
+    <p class="legal-meta"><strong>Last Updated:</strong> October 7, 2026</p>
+
+    {% if policy_tldr and policy_tldr.privacy %}
+    <div class="legal-callout legal-tldr">
+      <strong>TL;DR</strong>
+      <ul>{% for line in policy_tldr.privacy %}<li>{{ line }}</li>{% endfor %}</ul>
+      <span class="legal-tldr-note">A short version to read first. The policy below is what applies.</span>
+    </div>
+    {% endif %}
 
     <div class="legal-callout">
       <strong>Short version:</strong> {% if billing_enabled %}The IntelliPlan planner is free{% else %}IntelliPlan is completely free{% endif %}, built for students, and we never sell your data.
@@ -125,7 +136,7 @@
         <li><strong>Account info</strong> &mdash; email address and password hash, or a Google identifier if you sign in with Google. A birth year for age safeguards, a parent or guardian email when approval is required, and consent choices and timestamps. Optionally a display name and school name.</li>
         <li><strong>Academic data you provide or sync</strong> &mdash; assignment titles, due dates, class names, grades, test scores, course names, and notes you save.</li>
         <li><strong>Integration tokens</strong> &mdash; OAuth tokens for Google Calendar, Notion, Canvas, Schoology, and StudentVue so we can read and write the resources you connect. Integration credentials are stored encrypted in the application database and sent to the relevant provider to authenticate the connection, including scheduled synchronization. Hosting and database providers process stored data to operate the service. Disconnecting stops future synchronization; previously imported content remains until deleted.</li>
-        <li><strong>Optional reminders data</strong> &mdash; phone number, carrier (for SMS-gateway delivery), and browser push-notification subscription, only if you opt in. You can revoke either at any time.</li>
+        <li><strong>Optional reminders data</strong> &mdash; phone number, carrier (for SMS-gateway delivery), browser push-notification subscription, and a random install identifier for the desktop app, only if you turn reminders on. You can turn each of these off at any time.</li>
         <li><strong>Study and learning records</strong> &mdash; focus-timer activity, streaks, study progress, tutor conversations, uploaded documents, practice results and preferences used to support your learning. Family learning profiles may include a learner nickname, selected interests or world, grade or skill choices, and reviewed practice evidence. These records are personal data when linked to an account.</li>
         <li><strong>Operational and security information</strong> &mdash; server and error logs may include account identifiers, IP addresses, browser details, timestamps and error context. They are not necessarily anonymous.</li>
         <li><strong>Optional product analytics and feedback</strong> &mdash; with analytics permission, route patterns, event counts and limited properties are recorded on our own servers using an account or random visitor identifier. A random identifier is pseudonymous, not anonymous. Optional surveys store answers you choose to submit. We do not use session-replay, screen recording, heatmaps, keystroke loggers, advertising trackers, or retargeting pixels. No third-party analytics script runs in your browser. See the <a href="/cookies">Cookie Policy</a> for the analytics choice.</li>
@@ -137,7 +148,7 @@
         <li>Show your assignments and generate personalized study schedules.</li>
         <li>Power AI Tutor responses based on your courses and workload.</li>
         <li>Sync the calendars, task lists, and gradebooks you ask us to.</li>
-        <li>Send reminders by SMS or browser push, only when you opt in.</li>
+        <li>Send reminders by browser push, desktop-app notification, email or SMS, only through the channels you turn on.</li>
         <li>Diagnose bugs, prevent abuse and improve reliability.</li>
         <li>Personalize study and practice suggestions from your learning and activity records. These suggestions are not official grades, diagnoses, or decisions about school admission or eligibility.</li>
         <li>Send account and security messages. Optional newsletters require a separate, dated opt-in; declining them does not restrict the planner. Under-13 and unknown-age accounts are excluded from newsletters. You can unsubscribe using the email link or Settings.</li>
@@ -273,6 +284,14 @@
   <div id="terms" class="legal-card anchor-target">
     <h2>Terms of Service</h2>
     <p class="legal-meta"><strong>Last Updated:</strong> October 2, 2026</p>
+
+    {% if policy_tldr and policy_tldr.terms %}
+    <div class="legal-callout legal-tldr">
+      <strong>TL;DR</strong>
+      <ul>{% for line in policy_tldr.terms %}<li>{{ line }}</li>{% endfor %}</ul>
+      <span class="legal-tldr-note">A short version to read first. The terms below are what apply.</span>
+    </div>
+    {% endif %}
 
     <div class="legal-body">
 

@@ -1079,12 +1079,16 @@ def _check_and_increment_tutor_limit():
         else:
             current_user.tutor_reset_date = datetime(now.year, now.month + 1, 1)
         db.session.commit()
-    # Pro bypass
+    # Paid plans bypass. This read ``current_user.pro_active``, which no
+    # model has ever defined: the AttributeError was swallowed, so every
+    # paying student was held to the free plan's monthly message count.
     try:
-        if current_user.pro_active:
+        from growth_glue import current_plan
+        from intelliplan.growth import plans as _plans
+        if current_plan(current_user) == _plans.PAID:
             return True, None, None
-    except AttributeError:
-        pass
+    except Exception as exc:
+        print(f'[tutor] plan check failed: {exc}')
     limit = int(current_app.config.get('FREE_TUTOR_MESSAGES_PER_MONTH', 50))
     used = current_user.monthly_tutor_messages or 0
     if used >= limit:
@@ -1274,6 +1278,38 @@ def tutor_assignment_map():
         return jsonify({'error': 'The study map is unavailable right now. You can still ask Plani about this assignment.'}), 503
 
 
+def _premium_tutor_turn(system_messages, recent, skip_clarify):
+    """Run the Premium path if this student has it. Returns a dict or None.
+
+    None means "answer the normal way". A spent budget comes back as
+    ``{'kind': 'fallback', 'budget_exhausted': True}`` so the reply can say
+    why the answer came from the free models this time.
+    """
+    try:
+        import premium_glue
+        from intelliplan.premium import claude_tutor
+    except Exception as exc:
+        print(f'[premium] unavailable: {exc}')
+        return None
+    if not premium_glue.wants_premium_tutor(current_user):
+        return None
+    stable = system_messages[0]['content'] if system_messages else claude_tutor.TUTOR_SYSTEM
+    dynamic = [m['content'] for m in system_messages[1:]]
+    try:
+        return premium_glue.tutor_turn(current_user, stable_system=stable, dynamic_system=dynamic,
+                                       messages=recent, force_answer=skip_clarify)
+    except premium_glue.BudgetExhausted:
+        return {'kind': 'fallback', 'budget_exhausted': True}
+    except claude_tutor.TutorError as exc:
+        print(f'[premium] tutor turn failed, using the standard path: {exc}')
+        return None
+    except Exception as exc:
+        import traceback
+        print(f'[premium] tutor turn crashed, using the standard path: {exc}')
+        traceback.print_exc()
+        return None
+
+
 @chatbot_bp.route('/api/tutor', methods=['POST'])
 def tutor():
     try:
@@ -1367,15 +1403,34 @@ def tutor():
             from assignment_materials import assignment_prompt
             system_messages.append({'role': 'system', 'content': assignment_prompt(assignment_context)})
 
-        wanted = 2600 if adaptive_turn and adaptive_turn['active']['use_artifacts'] else 1800
-        reply = _llm_chat(
-            model='openai/gpt-oss-120b',
-            messages=system_messages + recent,
-            temperature=0.35,
-            # The firewall's ceiling wins over the feature's preference.
-            max_tokens=min(wanted, decision.max_output_tokens),
-            plan=decision.plan,
-        ).strip()
+        # Premium (or a linked AI account): route the question, maybe ask for
+        # clarification, then answer on Claude or the student's own key.
+        # Anything that goes wrong there falls through to the normal path.
+        premium = _premium_tutor_turn(system_messages, recent, bool(data.get('skip_clarify')))
+        if premium and premium.get('kind') == 'clarify':
+            messages.append({'role': 'assistant', 'content': premium['reply']})
+            convo_row = _ensure_conversation(convo_row, messages)
+            _save_conversation(convo_row['id'], messages)
+            return jsonify({
+                'reply': premium['reply'],
+                'clarify': True,
+                'questions': premium.get('questions', []),
+                'conversation_id': convo_row['id'],
+                'premium': premium.get('route'),
+            })
+
+        if premium and premium.get('kind') == 'answer':
+            reply = premium['reply'].strip()
+        else:
+            wanted = 2600 if adaptive_turn and adaptive_turn['active']['use_artifacts'] else 1800
+            reply = _llm_chat(
+                model='openai/gpt-oss-120b',
+                messages=system_messages + recent,
+                temperature=0.35,
+                # The firewall's ceiling wins over the feature's preference.
+                max_tokens=min(wanted, decision.max_output_tokens),
+                plan=decision.plan,
+            ).strip()
         ai_firewall.record_tokens(
             decision,
             sum(len(m.get('content', '')) for m in system_messages + recent),
@@ -1428,6 +1483,10 @@ def tutor():
             'conversation_id': convo_row['id'],
             'title': new_title or convo_row['title'],
         }
+        if premium:
+            payload['premium'] = {k: premium.get(k) for k in
+                                  ('model', 'source', 'provider', 'route', 'cost_usd', 'budget',
+                                   'budget_exhausted') if premium.get(k) is not None}
         if adaptive_turn:
             payload['modality'] = {
                 'mode': adaptive_turn['mode'],

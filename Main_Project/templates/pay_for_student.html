@@ -49,6 +49,14 @@
       {% endif %}
       <button type="submit" class="btn-primary">Continue to secure checkout</button>
     </form>
+    {% for p in premium_offers if not p.byok and 'month' in p.intervals %}
+    <form method="post" style="margin-top: 0.75rem;">
+      <input type="hidden" name="plan" value="{{ p.plan }}">
+      <input type="hidden" name="interval" value="month">
+      <p style="margin: 0 0 0.5rem;">Or {{ p.name }}: Claude as the tutor, with ${{ '%.0f'|format(p.ai_budget_usd) }} of AI included each month, for ${{ '%.0f'|format(p.price['month']) }} per month.</p>
+      <button type="submit" class="btn-secondary">Choose {{ p.name }}</button>
+    </form>
+    {% endfor %}
     <small>Not expecting this? You can close the page — nothing is charged unless you complete checkout.</small>
   {% endif %}
 </div>
